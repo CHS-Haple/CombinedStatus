@@ -35,8 +35,8 @@
     <string name="theme_dark">深色</string>
     <string name="theme_dynamic">系统动态色</string>
     <string name="section_visual_effects">视觉效果</string>
-    <string name="glass_bottom_bar">玻璃浮动底栏</string>
-    <string name="glass_bottom_bar_summary">在 MIUIX 官方浮动底栏上启用模糊材质；设备不支持时自动回退标准样式</string>
+    <string name="floating_navigation_blur">浮动导航栏模糊</string>
+    <string name="floating_navigation_blur_summary">为 MIUIX 浮动导航栏启用背景模糊；设备不支持时自动使用标准样式</string>
     <string name="section_navigation">导航</string>
     <string name="swipe_back">页面侧滑返回</string>
     <string name="swipe_back_summary">控制 MIUIX 页面边缘横移返回，不改变 Android 系统返回行为</string>

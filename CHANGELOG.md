@@ -22,6 +22,9 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Launcher icon resources now use the Android adaptive-icon resource model.
 - The original single-screen settings index is split into top-level Home, Features, and Settings areas while deeper settings remain on the navigation stack.
 - Appearance settings now drive the root theme and navigation behavior instead of temporary screen-local preview state.
+- Aligned system bar icon appearance with the selected theme mode.
+- Aligned top-level pager fling and back-to-home behavior with the MIUIX 0.9.4 example patterns.
+- Renamed the optional floating-bar effect to floating navigation blur and migrated its saved preference key.
 
 ### Fixed
 - CI certificate verification now accepts the current Android Build Tools signer output while still pinning the expected certificate SHA-256 digest.

@@ -22,7 +22,7 @@ internal enum class AppThemeMode {
 
 internal data class AppearanceSettings(
     val themeMode: AppThemeMode = AppThemeMode.System,
-    val glassBottomBarEnabled: Boolean = true,
+    val floatingNavigationBlurEnabled: Boolean = true,
     val swipeBackEnabled: Boolean = true,
 )
 
@@ -46,9 +46,12 @@ internal class AppearanceSettingsRepository(context: Context) {
                 themeMode = preferences[ThemeModeKey]
                     ?.let { stored -> AppThemeMode.entries.firstOrNull { it.name == stored } }
                     ?: AppThemeMode.System,
-                glassBottomBarEnabled =
-                    (preferences[GlassBottomBarEnabledKey] ?: true) &&
-                        (preferences[LegacyBlurEnabledKey] ?: true),
+                floatingNavigationBlurEnabled =
+                    preferences[FloatingNavigationBlurEnabledKey]
+                        ?: (
+                            (preferences[LegacyGlassBottomBarEnabledKey] ?: true) &&
+                                (preferences[LegacyBlurEnabledKey] ?: true)
+                            ),
                 swipeBackEnabled = preferences[SwipeBackEnabledKey] ?: true,
             )
         }
@@ -59,9 +62,10 @@ internal class AppearanceSettingsRepository(context: Context) {
         }
     }
 
-    suspend fun setGlassBottomBarEnabled(enabled: Boolean) {
+    suspend fun setFloatingNavigationBlurEnabled(enabled: Boolean) {
         dataStore.edit { preferences ->
-            preferences[GlassBottomBarEnabledKey] = enabled
+            preferences[FloatingNavigationBlurEnabledKey] = enabled
+            preferences.remove(LegacyGlassBottomBarEnabledKey)
             preferences.remove(LegacyBlurEnabledKey)
         }
     }
@@ -75,7 +79,9 @@ internal class AppearanceSettingsRepository(context: Context) {
     private companion object {
         val ThemeModeKey = stringPreferencesKey("theme_mode")
         val LegacyBlurEnabledKey = booleanPreferencesKey("blur_enabled")
-        val GlassBottomBarEnabledKey = booleanPreferencesKey("glass_bottom_bar_enabled")
+        val LegacyGlassBottomBarEnabledKey = booleanPreferencesKey("glass_bottom_bar_enabled")
+        val FloatingNavigationBlurEnabledKey =
+            booleanPreferencesKey("floating_navigation_blur_enabled")
         val SwipeBackEnabledKey = booleanPreferencesKey("swipe_back_enabled")
     }
 }

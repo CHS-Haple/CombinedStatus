@@ -113,6 +113,7 @@ android {
 
 dependencies {
     implementation("androidx.activity:activity-compose:1.13.0")
+    implementation("androidx.navigationevent:navigationevent-compose:1.1.2")
     implementation("androidx.datastore:datastore-preferences:1.2.1")
     implementation("top.yukonga.miuix.kmp:miuix-ui-android:0.9.4")
     implementation("top.yukonga.miuix.kmp:miuix-preference-android:0.9.4")

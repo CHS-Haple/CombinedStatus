@@ -37,7 +37,7 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 internal fun AppearanceScreen(
     settings: AppearanceSettings,
     onThemeModeChange: (AppThemeMode) -> Unit,
-    onGlassBottomBarEnabledChange: (Boolean) -> Unit,
+    onFloatingNavigationBlurEnabledChange: (Boolean) -> Unit,
     onSwipeBackEnabledChange: (Boolean) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -63,10 +63,10 @@ internal fun AppearanceScreen(
         }
         Section(R.string.section_visual_effects) {
             SwitchPreference(
-                title = stringResource(R.string.glass_bottom_bar),
-                summary = stringResource(R.string.glass_bottom_bar_summary),
-                checked = settings.glassBottomBarEnabled,
-                onCheckedChange = onGlassBottomBarEnabledChange,
+                title = stringResource(R.string.floating_navigation_blur),
+                summary = stringResource(R.string.floating_navigation_blur_summary),
+                checked = settings.floatingNavigationBlurEnabled,
+                onCheckedChange = onFloatingNavigationBlurEnabledChange,
             )
         }
         Section(R.string.section_navigation) {

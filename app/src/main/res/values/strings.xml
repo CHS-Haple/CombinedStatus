@@ -35,8 +35,8 @@
     <string name="theme_dark">Dark</string>
     <string name="theme_dynamic">System dynamic</string>
     <string name="section_visual_effects">Visual effects</string>
-    <string name="glass_bottom_bar">Glass floating navigation</string>
-    <string name="glass_bottom_bar_summary">Uses blur on the official MIUIX floating navigation bar; unsupported devices fall back automatically</string>
+    <string name="floating_navigation_blur">Floating navigation blur</string>
+    <string name="floating_navigation_blur_summary">Enables background blur for the MIUIX floating navigation bar; unsupported devices use the standard style</string>
     <string name="section_navigation">Navigation</string>
     <string name="swipe_back">Swipe back</string>
     <string name="swipe_back_summary">Controls MIUIX edge swipe to pop a page without changing Android system back behavior</string>
