@@ -3,6 +3,21 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+val combinedStatusVersionName = providers.gradleProperty("combinedStatus.versionName").get()
+val combinedStatusVersionCode = providers.gradleProperty("combinedStatus.versionCode").get().toInt()
+val combinedStatusBuildId = providers.gradleProperty("combinedStatus.buildId").get()
+
+val releaseKeystorePath = providers.environmentVariable("ANDROID_KEYSTORE_PATH").orNull
+val releaseKeystorePassword = providers.environmentVariable("ANDROID_KEYSTORE_PASSWORD").orNull
+val releaseKeyAlias = providers.environmentVariable("ANDROID_KEY_ALIAS").orNull
+val releaseKeyPassword = providers.environmentVariable("ANDROID_KEY_PASSWORD").orNull
+val releaseSigningEnabled =
+    !releaseKeystorePath.isNullOrBlank() &&
+        !releaseKeystorePassword.isNullOrBlank() &&
+        !releaseKeyAlias.isNullOrBlank() &&
+        !releaseKeyPassword.isNullOrBlank() &&
+        file(releaseKeystorePath).isFile
+
 @Suppress("UnstableApiUsage")
 android {
     namespace = "com.chaners.combinedstatus"
@@ -18,10 +33,26 @@ android {
         applicationId = "com.chaners.combinedstatus"
         minSdk = 33
         targetSdk = 37
-        versionCode = 26092104
-        versionName = "0.0.1"
+        versionCode = combinedStatusVersionCode
+        versionName = combinedStatusVersionName
 
-        buildConfigField("String", "BUILD_ID", "\"20260921-04\"")
+        buildConfigField("String", "BUILD_ID", "\"$combinedStatusBuildId\"")
+    }
+
+    signingConfigs {
+        if (releaseSigningEnabled) {
+            create("release") {
+                storeFile = file(requireNotNull(releaseKeystorePath))
+                storePassword = releaseKeystorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+
+                enableV1Signing = false
+                enableV2Signing = true
+                enableV3Signing = true
+                enableV4Signing = false
+            }
+        }
     }
 
     buildFeatures {
@@ -34,6 +65,9 @@ android {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            if (releaseSigningEnabled) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",

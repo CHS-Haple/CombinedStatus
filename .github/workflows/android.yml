@@ -37,9 +37,19 @@ jobs:
       - name: Build debug APK
         run: gradle :app:assembleDebug --stacktrace
 
+      - name: Prepare debug APK
+        shell: bash
+        run: |
+          VERSION_NAME="$(sed -n 's/^combinedStatus.versionName=//p' gradle.properties)"
+          BUILD_ID="$(sed -n 's/^combinedStatus.buildId=//p' gradle.properties)"
+          mkdir -p dist
+          APK_NAME="CombinedStatus-${VERSION_NAME}-HyperOS-${BUILD_ID}-ci${GITHUB_RUN_NUMBER}-debug.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "dist/$APK_NAME"
+          echo "APK_NAME=$APK_NAME" >> "$GITHUB_ENV"
+
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: CombinedStatus-0.0.1-HyperOS-debug
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: ${{ env.APK_NAME }}
+          path: dist/${{ env.APK_NAME }}
           if-no-files-found: error

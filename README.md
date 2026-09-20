@@ -24,6 +24,12 @@ The repository currently contains the first MIUIX UI shell only. This stage vali
 
 The current build follows the system language and does not hook HyperOS SystemUI, register background services, or request additional permissions.
 
+## Build and signing
+
+Pushes to `main` run an unsigned debug build for continuous integration. Release builds use a separate manually triggered workflow and read signing material only from the protected `release` environment. Signing keys and credentials are not stored in the repository.
+
+Test releases are published as GitHub pre-releases with a directly downloadable signed APK. Stable releases use the `v<versionName>` tag and require the display version to be advanced before another stable release can be published.
+
 ## Build
 
 Use Android Studio with the Android 17 / API 37 SDK installed, or run the repository build workflow.

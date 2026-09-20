@@ -8,3 +8,9 @@
 /captures/
 .externalNativeBuild/
 .cxx/
+
+# Local signing material
+*.jks
+*.keystore
+keystore.properties
+signing.properties
