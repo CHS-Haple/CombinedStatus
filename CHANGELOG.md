@@ -33,3 +33,4 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 
 ### Fixed
 - CI certificate verification now accepts the current Android Build Tools signer output while still pinning the expected certificate SHA-256 digest.
+- Per-app language selection now keeps the explicit System/English/Simplified Chinese choice visible even when the chosen language matches the current system locale.
