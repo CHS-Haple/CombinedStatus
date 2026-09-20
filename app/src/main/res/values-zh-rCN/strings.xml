@@ -10,12 +10,12 @@
     <string name="settings_title">设置</string>
     <string name="section_settings">应用设置</string>
     <string name="language_title">语言</string>
-    <string name="language_summary">跟随系统，或单独设置应用语言</string>
+    <string name="language_summary">跟随系统或选择应用语言</string>
     <string name="language_system">跟随系统</string>
     <string name="language_english">English</string>
     <string name="language_simplified_chinese">简体中文</string>
     <string name="hide_launcher_icon">隐藏桌面图标</string>
-    <string name="hide_launcher_icon_summary">隐藏桌面启动入口；仍可从系统应用详情等入口打开</string>
+    <string name="hide_launcher_icon_summary">隐藏桌面图标后，仍可从系统应用详情等入口打开</string>
     <string name="preview_title">状态预览</string>
     <string name="preview_value">▂▄▆█   Wi‑Fi   87%</string>
     <string name="preview_label">示意</string>
@@ -34,14 +34,14 @@
 
     <string name="section_theme">主题</string>
     <string name="theme_mode">主题模式</string>
-    <string name="theme_mode_summary">跟随系统，或使用浅色、深色和动态色</string>
+    <string name="theme_mode_summary">跟随系统或选择浅色、深色、动态色</string>
     <string name="theme_system">跟随系统</string>
     <string name="theme_light">浅色</string>
     <string name="theme_dark">深色</string>
     <string name="theme_dynamic">动态色</string>
     <string name="section_visual_effects">界面效果</string>
     <string name="floating_navigation_blur">导航栏模糊</string>
-    <string name="floating_navigation_blur_summary">启用背景模糊；不支持时使用标准样式</string>
+    <string name="floating_navigation_blur_summary">启用背景模糊，不支持时自动使用标准样式</string>
     <string name="section_navigation">导航</string>
     <string name="swipe_back">侧滑返回</string>
     <string name="swipe_back_summary">从屏幕边缘滑动返回上一页，不影响系统返回手势</string>
@@ -50,11 +50,11 @@
     <string name="enable_combined_icon">三合一图标</string>
     <string name="enable_combined_icon_summary">界面预览，SystemUI 尚未接入</string>
     <string name="transition_effects">过渡效果</string>
-    <string name="transition_effects_summary">预览状态栏与控制中心的过渡效果</string>
+    <string name="transition_effects_summary">预览状态栏与控制中心过渡效果</string>
 
     <string name="section_hyperos_display_scope">显示范围</string>
     <string name="show_on_lock_screen">锁屏显示</string>
-    <string name="show_on_lock_screen_summary">预览锁屏场景下的显示效果</string>
+    <string name="show_on_lock_screen_summary">预览锁屏显示效果</string>
     <string name="show_on_aod">AOD 显示</string>
     <string name="show_on_aod_summary">预览息屏显示效果</string>
 
@@ -62,7 +62,7 @@
     <string name="show_charging_state">充电状态图标</string>
     <string name="show_charging_state_summary">预览充电状态图标</string>
     <string name="distinguish_super_charging">超级快充图标</string>
-    <string name="distinguish_super_charging_summary">超级快充使用独立图标，仅用于界面预览</string>
+    <string name="distinguish_super_charging_summary">超级快充使用独立图标，仅供界面预览</string>
 
     <string name="section_current_build">版本信息</string>
     <string name="product_name">CombinedStatus for HyperOS</string>
