@@ -1,5 +1,6 @@
 package com.chaners.combinedstatus.ui.screens
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
@@ -34,7 +35,7 @@ internal fun AppearanceScreen(onBack: () -> Unit) {
     var followSystem by rememberSaveable { mutableStateOf(true) }
     var compactPreview by rememberSaveable { mutableStateOf(false) }
     SettingsPage(title = stringResource(R.string.appearance_title), onBack = onBack) {
-        Section(stringResource(R.string.section_theme)) {
+        Section(R.string.section_theme) {
             SwitchPreference(
                 title = stringResource(R.string.follow_system_theme),
                 summary = stringResource(R.string.follow_system_theme_summary),
@@ -56,7 +57,7 @@ internal fun StatusBarScreen(onBack: () -> Unit) {
     var enabled by rememberSaveable { mutableStateOf(true) }
     var smoothTransition by rememberSaveable { mutableStateOf(true) }
     SettingsPage(title = stringResource(R.string.status_bar_title), onBack = onBack) {
-        Section(stringResource(R.string.section_hyperos_systemui)) {
+        Section(R.string.section_hyperos_systemui) {
             SwitchPreference(
                 title = stringResource(R.string.enable_combined_icon),
                 summary = stringResource(R.string.enable_combined_icon_summary),
@@ -79,7 +80,7 @@ internal fun KeyguardScreen(onBack: () -> Unit) {
     var keyguard by rememberSaveable { mutableStateOf(true) }
     var aod by rememberSaveable { mutableStateOf(true) }
     SettingsPage(title = stringResource(R.string.keyguard_aod_title), onBack = onBack) {
-        Section(stringResource(R.string.section_hyperos_display_scope)) {
+        Section(R.string.section_hyperos_display_scope) {
             SwitchPreference(
                 title = stringResource(R.string.show_on_lock_screen),
                 summary = stringResource(R.string.show_on_lock_screen_summary),
@@ -101,7 +102,7 @@ internal fun ChargingScreen(onBack: () -> Unit) {
     var chargingIcon by rememberSaveable { mutableStateOf(true) }
     var superCharging by rememberSaveable { mutableStateOf(true) }
     SettingsPage(title = stringResource(R.string.charging_title), onBack = onBack) {
-        Section(stringResource(R.string.section_hyperos_charging)) {
+        Section(R.string.section_hyperos_charging) {
             SwitchPreference(
                 title = stringResource(R.string.show_charging_state),
                 summary = stringResource(R.string.show_charging_state_summary),
@@ -184,11 +185,11 @@ private fun SettingsPage(
 }
 
 private fun androidx.compose.foundation.lazy.LazyListScope.Section(
-    title: String,
+    @StringRes titleRes: Int,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     item {
-        SmallTitle(title)
+        SmallTitle(stringResource(titleRes))
         Card(
             modifier = Modifier.padding(horizontal = 12.dp),
             content = content,

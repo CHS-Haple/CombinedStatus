@@ -18,10 +18,10 @@ android {
         applicationId = "com.chaners.combinedstatus"
         minSdk = 24
         targetSdk = 37
-        versionCode = 26092102
+        versionCode = 26092103
         versionName = "0.0.1"
 
-        buildConfigField("String", "BUILD_ID", "\"20260921-02\"")
+        buildConfigField("String", "BUILD_ID", "\"20260921-03\"")
     }
 
     buildFeatures {
