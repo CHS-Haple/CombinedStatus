@@ -8,9 +8,11 @@ import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.res.stringResource
 import com.chaners.combinedstatus.R
 import com.chaners.combinedstatus.settings.AppearanceSettings
@@ -25,7 +27,8 @@ import top.yukonga.miuix.kmp.basic.FloatingToolbarDefaults
 import top.yukonga.miuix.kmp.basic.NavigationItem
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.blur.BlendColorEntry
-import top.yukonga.miuix.kmp.blur.BlurColors
+import top.yukonga.miuix.kmp.blur.BlurDefaults
+import top.yukonga.miuix.kmp.blur.highlight.Highlight
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.blur.textureBlur
@@ -59,6 +62,15 @@ internal fun MainHub(
         NavigationItem(stringResource(R.string.nav_settings), MiuixIcons.Settings),
     )
 
+    val isDark = MiuixTheme.colorScheme.background.luminance() < 0.5f
+    val floatingHighlight = remember(isDark) {
+        if (isDark) {
+            Highlight.GlassStrokeMiddleDark
+        } else {
+            Highlight.GlassStrokeMiddleLight
+        }
+    }
+
     fun selectPage(index: Int) {
         if (pagerState.currentPage != index) {
             scope.launch {
@@ -75,14 +87,15 @@ internal fun MainHub(
             Modifier.textureBlur(
                 backdrop = backdrop,
                 shape = RoundedCornerShape(FloatingToolbarDefaults.CornerRadius),
-                blurRadius = 24f,
-                colors = BlurColors(
+                blurRadius = 25f,
+                colors = BlurDefaults.blurColors(
                     blendColors = listOf(
                         BlendColorEntry(
-                            color = MiuixTheme.colorScheme.surfaceContainer.copy(alpha = 0.78f),
+                            color = MiuixTheme.colorScheme.surfaceContainer.copy(alpha = 0.6f),
                         ),
                     ),
                 ),
+                highlight = floatingHighlight,
             )
         } else {
             Modifier
