@@ -16,7 +16,7 @@
     <string name="language_english">English</string>
     <string name="language_simplified_chinese">简体中文</string>
     <string name="hide_launcher_icon">隐藏桌面图标</string>
-    <string name="hide_launcher_icon_summary">从桌面启动器隐藏应用；需通过其他入口重新打开</string>
+    <string name="hide_launcher_icon_summary">从桌面隐藏应用图标；仍可从系统应用详情等入口打开</string>
     <string name="preview_title">状态预览</string>
     <string name="preview_value">▂▄▆█   Wi‑Fi   87%</string>
     <string name="preview_label">示意</string>

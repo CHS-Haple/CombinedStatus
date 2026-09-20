@@ -40,7 +40,7 @@ class MainActivity : ComponentActivity() {
                 AppThemeMode.Dynamic,
                 -> systemDark
             }
-            val appLanguage = AppPlatformSettings.currentLanguage(this)
+            val appLanguage = remember { AppPlatformSettings.currentLanguage(this) }
             var launcherIconHidden by remember {
                 mutableStateOf(AppPlatformSettings.isLauncherIconHidden(this))
             }

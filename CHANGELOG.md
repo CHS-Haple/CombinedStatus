@@ -15,7 +15,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Official MIUIX 0.9.4 floating-navigation blur recipe with automatic runtime-shader fallback, 25 px texture blur, 60% surface blend, and theme-aware glass-stroke highlight.
 - Persistent appearance preferences for theme mode, floating-navigation blur, and in-app swipe-back.
 - Android 13+ per-app language selection for system default, English, and Simplified Chinese.
-- Optional launcher icon hiding through a dedicated activity alias without disabling the settings activity.
+- Optional launcher icon hiding through a dedicated activity alias while retaining a non-launcher CATEGORY_INFO front door.
 
 ### Changed
 - Minimum Android version is Android 13 / API 33 to match the current MIUIX blur baseline.

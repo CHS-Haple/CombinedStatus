@@ -16,7 +16,7 @@
     <string name="language_english">English</string>
     <string name="language_simplified_chinese">Simplified Chinese</string>
     <string name="hide_launcher_icon">Hide launcher icon</string>
-    <string name="hide_launcher_icon_summary">Hides the app from the launcher; another entry point is required to reopen it</string>
+    <string name="hide_launcher_icon_summary">Hides the launcher icon; the app remains available from system app details and other entry points</string>
     <string name="preview_title">Status preview</string>
     <string name="preview_value">▂▄▆█   Wi‑Fi   87%</string>
     <string name="preview_label">Sample</string>

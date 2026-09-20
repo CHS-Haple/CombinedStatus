@@ -11,7 +11,12 @@
         android:theme="@style/Theme.CombinedStatus">
         <activity
             android:name=".MainActivity"
-            android:exported="true" />
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.INFO" />
+            </intent-filter>
+        </activity>
 
         <activity-alias
             android:name=".LauncherAlias"
