@@ -11,7 +11,7 @@
     <string name="settings_title">Settings</string>
     <string name="section_settings">Application</string>
     <string name="preview_title">Status preview</string>
-    <string name="preview_value">▂▄▆█   Wi‑Fi   87%%</string>
+    <string name="preview_value">▂▄▆█   Wi‑Fi   87%</string>
     <string name="preview_label">Preview</string>
 
     <string name="section_hyperos_display">HyperOS display</string>
@@ -28,10 +28,20 @@
     <string name="diagnostics_summary">Target platform, version, runtime stage and interface status</string>
 
     <string name="section_theme">Theme</string>
-    <string name="follow_system_theme">Follow system theme</string>
-    <string name="follow_system_theme_summary">Use the current HyperOS light or dark appearance</string>
-    <string name="compact_preview">Compact preview</string>
-    <string name="compact_preview_summary">Affects this preview only and is not saved as module configuration</string>
+    <string name="theme_mode">Theme mode</string>
+    <string name="theme_mode_summary">Follow the system, use light or dark mode, or use system dynamic colors</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="theme_dynamic">System dynamic</string>
+    <string name="section_visual_effects">Visual effects</string>
+    <string name="enable_blur">Blur effects</string>
+    <string name="enable_blur_summary">Controls MIUIX blur and glass effects in the app; disabling it uses standard opaque surfaces</string>
+    <string name="glass_bottom_bar">Glass floating navigation</string>
+    <string name="glass_bottom_bar_summary">Uses MIUIX backdrop blur, highlight and a continuous selection pill; requires blur effects</string>
+    <string name="section_navigation">Navigation</string>
+    <string name="swipe_back">Swipe back</string>
+    <string name="swipe_back_summary">Allows edge swipe to pop a page; Android system predictive back remains enabled</string>
 
     <string name="section_hyperos_systemui">HyperOS SystemUI</string>
     <string name="enable_combined_icon">Enable combined indicator</string>

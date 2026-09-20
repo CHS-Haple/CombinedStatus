@@ -18,6 +18,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.chaners.combinedstatus.BuildConfig
 import com.chaners.combinedstatus.R
+import com.chaners.combinedstatus.settings.AppThemeMode
+import com.chaners.combinedstatus.settings.AppearanceSettings
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
@@ -27,26 +29,59 @@ import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
-internal fun AppearanceScreen(onBack: () -> Unit) {
-    var followSystem by rememberSaveable { mutableStateOf(true) }
-    var compactPreview by rememberSaveable { mutableStateOf(false) }
+internal fun AppearanceScreen(
+    settings: AppearanceSettings,
+    onThemeModeChange: (AppThemeMode) -> Unit,
+    onBlurEnabledChange: (Boolean) -> Unit,
+    onGlassBottomBarEnabledChange: (Boolean) -> Unit,
+    onSwipeBackEnabledChange: (Boolean) -> Unit,
+    onBack: () -> Unit,
+) {
+    val themeOptions = listOf(
+        stringResource(R.string.theme_system),
+        stringResource(R.string.theme_light),
+        stringResource(R.string.theme_dark),
+        stringResource(R.string.theme_dynamic),
+    )
+
     SettingsPage(title = stringResource(R.string.appearance_title), onBack = onBack) {
         Section(R.string.section_theme) {
+            OverlayDropdownPreference(
+                items = themeOptions,
+                selectedIndex = settings.themeMode.ordinal,
+                title = stringResource(R.string.theme_mode),
+                summary = stringResource(R.string.theme_mode_summary),
+                onSelectedIndexChange = { index ->
+                    AppThemeMode.entries.getOrNull(index)?.let(onThemeModeChange)
+                },
+            )
+        }
+        Section(R.string.section_visual_effects) {
             SwitchPreference(
-                title = stringResource(R.string.follow_system_theme),
-                summary = stringResource(R.string.follow_system_theme_summary),
-                checked = followSystem,
-                onCheckedChange = { followSystem = it },
+                title = stringResource(R.string.enable_blur),
+                summary = stringResource(R.string.enable_blur_summary),
+                checked = settings.blurEnabled,
+                onCheckedChange = onBlurEnabledChange,
             )
             SwitchPreference(
-                title = stringResource(R.string.compact_preview),
-                summary = stringResource(R.string.compact_preview_summary),
-                checked = compactPreview,
-                onCheckedChange = { compactPreview = it },
+                title = stringResource(R.string.glass_bottom_bar),
+                summary = stringResource(R.string.glass_bottom_bar_summary),
+                checked = settings.glassBottomBarEnabled,
+                onCheckedChange = onGlassBottomBarEnabledChange,
+                enabled = settings.blurEnabled,
+            )
+        }
+        Section(R.string.section_navigation) {
+            SwitchPreference(
+                title = stringResource(R.string.swipe_back),
+                summary = stringResource(R.string.swipe_back_summary),
+                checked = settings.swipeBackEnabled,
+                onCheckedChange = onSwipeBackEnabledChange,
             )
         }
     }

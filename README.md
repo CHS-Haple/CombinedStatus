@@ -13,7 +13,7 @@
 
 The project is currently in its application-shell and navigation stage. The Android app uses MIUIX 0.9.4, a type-safe MIUIX navigation stack, adaptive launcher icons, localized resources, and reproducible CI signing. HyperOS SystemUI hooks are intentionally not enabled yet.
 
-The top-level interface is organized as Home, Features, and Settings. Deeper settings pages use the MIUIX navigation runtime with standard transitions, system predictive back, and direction-aware swipe-back gestures.
+The top-level interface is organized as Home, Features, and Settings. Deeper settings pages use the MIUIX navigation runtime with standard transitions, system predictive back, and direction-aware swipe-back gestures. Appearance preferences are persisted with Jetpack DataStore and can control theme mode, MIUIX blur, the glass floating navigation bar, and in-app swipe-back behavior.
 
 - Package: com.chaners.combinedstatus
 - Display version: 0.0.1

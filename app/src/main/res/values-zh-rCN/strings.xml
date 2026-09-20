@@ -11,7 +11,7 @@
     <string name="settings_title">设置</string>
     <string name="section_settings">应用设置</string>
     <string name="preview_title">状态预览</string>
-    <string name="preview_value">▂▄▆█   Wi‑Fi   87%%</string>
+    <string name="preview_value">▂▄▆█   Wi‑Fi   87%</string>
     <string name="preview_label">预览</string>
 
     <string name="section_hyperos_display">HyperOS 显示</string>
@@ -28,10 +28,20 @@
     <string name="diagnostics_summary">目标平台、版本、运行阶段与接口状态</string>
 
     <string name="section_theme">主题</string>
-    <string name="follow_system_theme">跟随系统主题</string>
-    <string name="follow_system_theme_summary">根据 HyperOS 系统浅色或深色模式切换</string>
-    <string name="compact_preview">紧凑预览</string>
-    <string name="compact_preview_summary">仅影响当前界面预览，不写入模块配置</string>
+    <string name="theme_mode">主题模式</string>
+    <string name="theme_mode_summary">选择跟随系统、浅色、深色或系统动态配色</string>
+    <string name="theme_system">跟随系统</string>
+    <string name="theme_light">浅色</string>
+    <string name="theme_dark">深色</string>
+    <string name="theme_dynamic">系统动态色</string>
+    <string name="section_visual_effects">视觉效果</string>
+    <string name="enable_blur">模糊效果</string>
+    <string name="enable_blur_summary">控制应用内 MIUIX 模糊与玻璃效果；关闭后使用标准不透明界面</string>
+    <string name="glass_bottom_bar">玻璃浮动底栏</string>
+    <string name="glass_bottom_bar_summary">使用 MIUIX Backdrop、模糊、高光和连续选中胶囊；需开启模糊效果</string>
+    <string name="section_navigation">导航</string>
+    <string name="swipe_back">页面侧滑返回</string>
+    <string name="swipe_back_summary">允许从页面边缘返回上一级；Android 系统预测性返回始终保持启用</string>
 
     <string name="section_hyperos_systemui">HyperOS SystemUI</string>
     <string name="enable_combined_icon">启用三合一图标</string>
