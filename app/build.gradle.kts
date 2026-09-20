@@ -117,5 +117,6 @@ dependencies {
     implementation("top.yukonga.miuix.kmp:miuix-preference-android:0.9.4")
     implementation("top.yukonga.miuix.kmp:miuix-icons-android:0.9.4")
     implementation("top.yukonga.miuix.kmp:miuix-nav-android:0.9.4")
+    implementation("top.yukonga.miuix.kmp:miuix-blur-android:0.9.4")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.11.0")
 }

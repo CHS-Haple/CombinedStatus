@@ -1,5 +1,6 @@
 package com.chaners.combinedstatus.ui.screens
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -9,20 +10,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.chaners.combinedstatus.BuildConfig
 import com.chaners.combinedstatus.R
-import com.chaners.combinedstatus.ui.navigation.AppRoute
 import com.chaners.combinedstatus.ui.components.CombinedStatusPreview
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TopAppBar
-import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
-internal fun HomeScreen(onNavigate: (AppRoute) -> Unit) {
+internal fun HomeScreen(bottomContentPadding: Dp) {
     val scrollBehavior = MiuixScrollBehavior()
 
     Scaffold(
@@ -50,45 +52,21 @@ internal fun HomeScreen(onNavigate: (AppRoute) -> Unit) {
                 )
             }
             item {
-                SmallTitle(stringResource(R.string.section_hyperos_display))
-                Card(
-                    modifier = Modifier.padding(horizontal = 12.dp),
-                ) {
-                    ArrowPreference(
-                        title = stringResource(R.string.appearance_title),
-                        summary = stringResource(R.string.appearance_summary),
-                        onClick = { onNavigate(AppRoute.Appearance) },
-                    )
-                    ArrowPreference(
-                        title = stringResource(R.string.status_bar_title),
-                        summary = stringResource(R.string.status_bar_summary),
-                        onClick = { onNavigate(AppRoute.StatusBar) },
-                    )
-                    ArrowPreference(
-                        title = stringResource(R.string.keyguard_aod_title),
-                        summary = stringResource(R.string.keyguard_aod_summary),
-                        onClick = { onNavigate(AppRoute.Keyguard) },
-                    )
-                    ArrowPreference(
-                        title = stringResource(R.string.charging_title),
-                        summary = stringResource(R.string.charging_summary),
-                        onClick = { onNavigate(AppRoute.Charging) },
-                    )
+                SmallTitle(stringResource(R.string.section_current_build))
+                Card(modifier = Modifier.padding(horizontal = 12.dp)) {
+                    Column(modifier = Modifier.padding(horizontal = 28.dp, vertical = 18.dp)) {
+                        Text(
+                            text = stringResource(R.string.product_name),
+                            style = MiuixTheme.textStyles.headline2,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(stringResource(R.string.target_platform_value))
+                        Text(stringResource(R.string.version_value, BuildConfig.VERSION_NAME))
+                        Text(stringResource(R.string.build_value, BuildConfig.BUILD_ID))
+                    }
                 }
             }
-            item {
-                SmallTitle(stringResource(R.string.section_development))
-                Card(
-                    modifier = Modifier.padding(horizontal = 12.dp),
-                ) {
-                    ArrowPreference(
-                        title = stringResource(R.string.diagnostics_title),
-                        summary = stringResource(R.string.diagnostics_summary),
-                        onClick = { onNavigate(AppRoute.Diagnostics) },
-                    )
-                }
-            }
-            item { Spacer(Modifier.height(16.dp)) }
+            item { Spacer(Modifier.height(bottomContentPadding + 16.dp)) }
         }
     }
 }

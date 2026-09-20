@@ -7,7 +7,6 @@ import com.chaners.combinedstatus.ui.navigation.AppRoute
 import com.chaners.combinedstatus.ui.screens.AppearanceScreen
 import com.chaners.combinedstatus.ui.screens.ChargingScreen
 import com.chaners.combinedstatus.ui.screens.DiagnosticsScreen
-import com.chaners.combinedstatus.ui.screens.HomeScreen
 import com.chaners.combinedstatus.ui.screens.KeyguardScreen
 import com.chaners.combinedstatus.ui.screens.StatusBarScreen
 import com.chaners.combinedstatus.ui.theme.CombinedStatusTheme
@@ -52,7 +51,7 @@ fun CombinedStatusApp() {
             ),
         ) {
             entry<AppRoute.Home> {
-                HomeScreen(onNavigate = ::navigate)
+                MainHub(onNavigate = ::navigate)
             }
             entry<AppRoute.Appearance>(swipeDismiss = swipeBackDirection) {
                 AppearanceScreen(onBack = ::navigateBack)
