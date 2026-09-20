@@ -65,6 +65,38 @@ jobs:
       - name: Build debug APK
         run: gradle :app:assembleDebug --stacktrace
 
+      - name: Verify modern Xposed metadata
+        shell: bash
+        run: |
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          REQUIRED_ENTRIES=(
+            "META-INF/xposed/java_init.list"
+            "META-INF/xposed/module.prop"
+            "META-INF/xposed/scope.list"
+          )
+
+          for entry in "${REQUIRED_ENTRIES[@]}"; do
+            if ! unzip -Z1 "$APK" | grep -Fxq "$entry"; then
+              echo "Missing modern Xposed metadata: $entry"
+              exit 1
+            fi
+          done
+
+          if unzip -Z1 "$APK" | grep -Fxq "assets/xposed_init"; then
+            echo "Legacy Xposed entry metadata must not be packaged."
+            exit 1
+          fi
+
+          if [[ "$(unzip -p "$APK" META-INF/xposed/scope.list | tr -d '\r\n')" != "com.android.systemui" ]]; then
+            echo "Unexpected Xposed scope."
+            exit 1
+          fi
+
+          if ! unzip -p "$APK" META-INF/xposed/module.prop | grep -Fxq "targetApiVersion=102"; then
+            echo "Modern Xposed target API 102 metadata is missing."
+            exit 1
+          fi
+
       - name: Verify debug APK signature
         shell: bash
         run: |

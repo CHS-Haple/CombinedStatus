@@ -11,7 +11,7 @@
 
 ## Current milestone
 
-The project is currently in its application-shell and navigation stage. The Android app uses MIUIX 0.9.4, a type-safe MIUIX navigation stack, adaptive launcher icons, localized resources, and reproducible CI signing. HyperOS SystemUI hooks are intentionally not enabled yet.
+The project now has a modern Xposed API 102 module baseline in addition to its application shell and navigation layer. The Android app uses MIUIX 0.9.4, a type-safe MIUIX navigation stack, adaptive launcher icons, localized resources, and reproducible CI signing. The module is statically scoped only to `com.android.systemui`; its entry point currently performs lifecycle diagnostics only and installs no SystemUI hooks.
 
 The top-level interface is organized as Home, Features, and Settings. Deeper settings pages use the MIUIX navigation runtime with standard transitions, system predictive back, and direction-aware swipe-back gestures. Appearance preferences are persisted with Jetpack DataStore and can control theme mode, optional MIUIX blur on the official floating navigation bar, and in-app swipe-back behavior. Android 13+ per-app language preferences are handled by the platform LocaleManager, and the launcher entry can be hidden without disabling the main activity or its non-launcher front door.
 
@@ -25,7 +25,7 @@ The top-level interface is organized as Home, Features, and Settings. Deeper set
 - Languages: English, Simplified Chinese
 - Minimum Android version: Android 13 / API 33
 
-The current build follows the system language and does not hook HyperOS SystemUI, register background services, or request additional permissions.
+The current build follows the system language, uses a compile-only modern Xposed API 102 dependency, and installs no HyperOS SystemUI hooks yet. It does not register background services or request additional permissions.
 
 ## Build and signing
 

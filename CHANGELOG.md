@@ -16,6 +16,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Persistent appearance preferences for theme mode, floating-navigation blur, and in-app swipe-back.
 - Android 13+ per-app language selection for system default, English, and Simplified Chinese.
 - Optional launcher icon hiding through a dedicated activity alias while retaining a non-launcher CATEGORY_INFO front door.
+- Modern Xposed API 102 module baseline with a single Java entry point and a static `com.android.systemui` scope.
 
 ### Changed
 - Minimum Android version is Android 13 / API 33 to match the current MIUIX blur baseline.
@@ -31,6 +32,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Aligned page spacing and typography with MIUIX 0.9.4 defaults, including standard cards, section spacing, top-level scroll behavior, and bottom padding handling.
 - Standardized user-facing settings copy and hardened platform language and launcher-entry state handling.
 - Polished settings summaries to use shorter, more natural system-style phrasing without unnecessary semicolons.
+- Added CI validation for modern Xposed metadata while keeping the initial module entry point hook-free.
 
 ### Fixed
 - CI certificate verification now accepts the current Android Build Tools signer output while still pinning the expected certificate SHA-256 digest.

@@ -112,6 +112,8 @@ android {
 }
 
 dependencies {
+    compileOnly("io.github.libxposed:api:102.0.0")
+
     implementation("androidx.activity:activity-compose:1.13.0")
     implementation("androidx.navigationevent:navigationevent-compose:1.1.2")
     implementation("androidx.datastore:datastore-preferences:1.2.1")

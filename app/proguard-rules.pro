@@ -1,1 +1,6 @@
-# Project-specific R8 rules will be added when runtime hooking is introduced.
+# Modern Xposed API 102 entry-point rules.
+-dontwarn io.github.libxposed.annotation.**
+-adaptresourcefilecontents META-INF/xposed/java_init.list
+-keep,allowoptimization,allowobfuscation public class * extends io.github.libxposed.api.XposedModule {
+    public <init>();
+}
