@@ -19,9 +19,8 @@ class CombinedStatusModule : XposedModule() {
             return
         }
 
-        // Baseline only: verify lifecycle and class-loader readiness before any
-        // SystemUI hooks are introduced.
-        log(Log.INFO, TAG, "SystemUI target ready")
+        val compatibility = SystemUiCompatibilityProbe.inspect(param.classLoader)
+        log(Log.INFO, TAG, compatibility.summary)
     }
 
     private companion object {

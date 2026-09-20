@@ -17,6 +17,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Android 13+ per-app language selection for system default, English, and Simplified Chinese.
 - Optional launcher icon hiding through a dedicated activity alias while retaining a non-launcher CATEGORY_INFO front door.
 - Modern Xposed API 102 module baseline with a single Java entry point and a static `com.android.systemui` scope.
+- One-shot SystemUI structural compatibility probe for the status bar, Control Center, keyguard header, and battery-view hosts.
 
 ### Changed
 - Minimum Android version is Android 13 / API 33 to match the current MIUIX blur baseline.
