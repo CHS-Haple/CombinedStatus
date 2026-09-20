@@ -15,8 +15,7 @@ internal enum class AppLanguage(
 }
 
 internal object AppPlatformSettings {
-    private const val LauncherAlias =
-        "com.chaners.combinedstatus.LauncherAlias"
+    private const val LauncherAliasClassSuffix = ".LauncherAlias"
 
     fun currentLanguage(context: Context): AppLanguage {
         val locales = context.getSystemService(LocaleManager::class.java).applicationLocales
@@ -45,10 +44,18 @@ internal object AppPlatformSettings {
     }
 
     fun isLauncherIconHidden(context: Context): Boolean {
-        val state = context.packageManager.getComponentEnabledSetting(
-            launcherComponent(context),
-        )
-        return state == PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+        return when (
+            context.packageManager.getComponentEnabledSetting(
+                launcherComponent(context),
+            )
+        ) {
+            PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+            PackageManager.COMPONENT_ENABLED_STATE_DISABLED_USER,
+            PackageManager.COMPONENT_ENABLED_STATE_DISABLED_UNTIL_USED,
+            -> true
+
+            else -> false
+        }
     }
 
     fun setLauncherIconHidden(
@@ -67,5 +74,8 @@ internal object AppPlatformSettings {
     }
 
     private fun launcherComponent(context: Context): ComponentName =
-        ComponentName(context.packageName, LauncherAlias)
+        ComponentName(
+            context.packageName,
+            context.packageName + LauncherAliasClassSuffix,
+        )
 }
