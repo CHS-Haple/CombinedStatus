@@ -10,6 +10,13 @@
     <string name="features_title">功能</string>
     <string name="settings_title">设置</string>
     <string name="section_settings">应用设置</string>
+    <string name="language_title">语言</string>
+    <string name="language_summary">跟随系统或选择应用语言</string>
+    <string name="language_system">跟随系统</string>
+    <string name="language_english">English</string>
+    <string name="language_simplified_chinese">简体中文</string>
+    <string name="hide_launcher_icon">隐藏桌面图标</string>
+    <string name="hide_launcher_icon_summary">从桌面启动器隐藏应用；需通过其他入口重新打开</string>
     <string name="preview_title">状态预览</string>
     <string name="preview_value">▂▄▆█   Wi‑Fi   87%</string>
     <string name="preview_label">示意</string>

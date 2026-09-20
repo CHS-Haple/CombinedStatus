@@ -12,12 +12,15 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.chaners.combinedstatus.R
+import com.chaners.combinedstatus.settings.AppLanguage
 import com.chaners.combinedstatus.ui.navigation.AppRoute
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
 
 @Composable
 internal fun FeaturesScreen(
@@ -50,8 +53,18 @@ internal fun FeaturesScreen(
 @Composable
 internal fun SettingsHubScreen(
     bottomContentPadding: Dp,
+    appLanguage: AppLanguage,
+    launcherIconHidden: Boolean,
+    onAppLanguageChange: (AppLanguage) -> Unit,
+    onLauncherIconHiddenChange: (Boolean) -> Unit,
     onNavigate: (AppRoute) -> Unit,
 ) {
+    val languageOptions = listOf(
+        stringResource(R.string.language_system),
+        stringResource(R.string.language_english),
+        stringResource(R.string.language_simplified_chinese),
+    )
+
     HubPage(
         title = stringResource(R.string.settings_title),
         sectionTitle = stringResource(R.string.section_settings),
@@ -61,6 +74,22 @@ internal fun SettingsHubScreen(
             title = stringResource(R.string.appearance_title),
             summary = stringResource(R.string.appearance_summary),
             onClick = { onNavigate(AppRoute.Appearance) },
+        )
+        OverlayDropdownPreference(
+            items = languageOptions,
+            selectedIndex = appLanguage.ordinal,
+            title = stringResource(R.string.language_title),
+            summary = stringResource(R.string.language_summary),
+            showValue = false,
+            onSelectedIndexChange = { index ->
+                AppLanguage.entries.getOrNull(index)?.let(onAppLanguageChange)
+            },
+        )
+        SwitchPreference(
+            title = stringResource(R.string.hide_launcher_icon),
+            summary = stringResource(R.string.hide_launcher_icon_summary),
+            checked = launcherIconHidden,
+            onCheckedChange = onLauncherIconHiddenChange,
         )
         ArrowPreference(
             title = stringResource(R.string.diagnostics_title),

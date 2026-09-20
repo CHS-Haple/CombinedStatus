@@ -11,8 +11,11 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import com.chaners.combinedstatus.settings.AppPlatformSettings
 import com.chaners.combinedstatus.settings.AppThemeMode
 import com.chaners.combinedstatus.settings.AppearanceSettings
 import com.chaners.combinedstatus.settings.AppearanceSettingsRepository
@@ -37,6 +40,10 @@ class MainActivity : ComponentActivity() {
                 AppThemeMode.Dynamic,
                 -> systemDark
             }
+            val appLanguage = AppPlatformSettings.currentLanguage(this)
+            var launcherIconHidden by remember {
+                mutableStateOf(AppPlatformSettings.isLauncherIconHidden(this))
+            }
 
             DisposableEffect(darkMode) {
                 enableEdgeToEdge(
@@ -58,6 +65,8 @@ class MainActivity : ComponentActivity() {
             CombinedStatusApp(
                 settings = settings,
                 darkMode = darkMode,
+                appLanguage = appLanguage,
+                launcherIconHidden = launcherIconHidden,
                 onThemeModeChange = { mode ->
                     scope.launch { repository.setThemeMode(mode) }
                 },
@@ -66,6 +75,13 @@ class MainActivity : ComponentActivity() {
                 },
                 onSwipeBackEnabledChange = { enabled ->
                     scope.launch { repository.setSwipeBackEnabled(enabled) }
+                },
+                onAppLanguageChange = { language ->
+                    AppPlatformSettings.setLanguage(this, language)
+                },
+                onLauncherIconHiddenChange = { hidden ->
+                    AppPlatformSettings.setLauncherIconHidden(this, hidden)
+                    launcherIconHidden = hidden
                 },
             )
         }

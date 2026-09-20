@@ -20,6 +20,7 @@ import androidx.navigationevent.NavigationEventInfo
 import androidx.navigationevent.compose.NavigationBackHandler
 import androidx.navigationevent.compose.rememberNavigationEventState
 import com.chaners.combinedstatus.R
+import com.chaners.combinedstatus.settings.AppLanguage
 import com.chaners.combinedstatus.settings.AppearanceSettings
 import com.chaners.combinedstatus.ui.navigation.AppRoute
 import com.chaners.combinedstatus.ui.screens.FeaturesScreen
@@ -52,6 +53,10 @@ private const val TopLevelPageCount = 3
 internal fun MainHub(
     settings: AppearanceSettings,
     darkMode: Boolean,
+    appLanguage: AppLanguage,
+    launcherIconHidden: Boolean,
+    onAppLanguageChange: (AppLanguage) -> Unit,
+    onLauncherIconHiddenChange: (Boolean) -> Unit,
     onNavigate: (AppRoute) -> Unit,
 ) {
     val pagerState = rememberPagerState(pageCount = { TopLevelPageCount })
@@ -140,6 +145,10 @@ internal fun MainHub(
             TopLevelPager(
                 pagerState = pagerState,
                 bottomPadding = innerPadding,
+                appLanguage = appLanguage,
+                launcherIconHidden = launcherIconHidden,
+                onAppLanguageChange = onAppLanguageChange,
+                onLauncherIconHiddenChange = onLauncherIconHiddenChange,
                 onNavigate = onNavigate,
             )
         }
@@ -167,6 +176,10 @@ private fun TopLevelBackHandler(
 private fun TopLevelPager(
     pagerState: PagerState,
     bottomPadding: PaddingValues,
+    appLanguage: AppLanguage,
+    launcherIconHidden: Boolean,
+    onAppLanguageChange: (AppLanguage) -> Unit,
+    onLauncherIconHiddenChange: (Boolean) -> Unit,
     onNavigate: (AppRoute) -> Unit,
 ) {
     val flingBehavior = PagerDefaults.flingBehavior(
@@ -189,6 +202,10 @@ private fun TopLevelPager(
             )
             2 -> SettingsHubScreen(
                 bottomContentPadding = bottom,
+                appLanguage = appLanguage,
+                launcherIconHidden = launcherIconHidden,
+                onAppLanguageChange = onAppLanguageChange,
+                onLauncherIconHiddenChange = onLauncherIconHiddenChange,
                 onNavigate = onNavigate,
             )
         }

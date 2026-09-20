@@ -3,6 +3,7 @@ package com.chaners.combinedstatus.ui
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
+import com.chaners.combinedstatus.settings.AppLanguage
 import com.chaners.combinedstatus.settings.AppThemeMode
 import com.chaners.combinedstatus.settings.AppearanceSettings
 import com.chaners.combinedstatus.ui.navigation.AppRoute
@@ -24,9 +25,13 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 internal fun CombinedStatusApp(
     settings: AppearanceSettings,
     darkMode: Boolean,
+    appLanguage: AppLanguage,
+    launcherIconHidden: Boolean,
     onThemeModeChange: (AppThemeMode) -> Unit,
     onFloatingNavigationBlurEnabledChange: (Boolean) -> Unit,
     onSwipeBackEnabledChange: (Boolean) -> Unit,
+    onAppLanguageChange: (AppLanguage) -> Unit,
+    onLauncherIconHiddenChange: (Boolean) -> Unit,
 ) {
     CombinedStatusTheme(themeMode = settings.themeMode) {
         val backStack = rememberNavBackStack<AppRoute>(AppRoute.Home)
@@ -61,6 +66,10 @@ internal fun CombinedStatusApp(
                 MainHub(
                     settings = settings,
                     darkMode = darkMode,
+                    appLanguage = appLanguage,
+                    launcherIconHidden = launcherIconHidden,
+                    onAppLanguageChange = onAppLanguageChange,
+                    onLauncherIconHiddenChange = onLauncherIconHiddenChange,
                     onNavigate = ::navigate,
                 )
             }

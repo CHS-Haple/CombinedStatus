@@ -10,6 +10,13 @@
     <string name="features_title">Features</string>
     <string name="settings_title">Settings</string>
     <string name="section_settings">Application</string>
+    <string name="language_title">Language</string>
+    <string name="language_summary">Follow the system or choose an app language</string>
+    <string name="language_system">System default</string>
+    <string name="language_english">English</string>
+    <string name="language_simplified_chinese">Simplified Chinese</string>
+    <string name="hide_launcher_icon">Hide launcher icon</string>
+    <string name="hide_launcher_icon_summary">Hides the app from the launcher; another entry point is required to reopen it</string>
     <string name="preview_title">Status preview</string>
     <string name="preview_value">▂▄▆█   Wi‑Fi   87%</string>
     <string name="preview_label">Sample</string>
