@@ -1,6 +1,7 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("org.jetbrains.kotlin.plugin.serialization")
 }
 
 val combinedStatusVersionName = providers.gradleProperty("combinedStatus.versionName").get()
@@ -115,4 +116,6 @@ dependencies {
     implementation("top.yukonga.miuix.kmp:miuix-ui-android:0.9.4")
     implementation("top.yukonga.miuix.kmp:miuix-preference-android:0.9.4")
     implementation("top.yukonga.miuix.kmp:miuix-icons-android:0.9.4")
+    implementation("top.yukonga.miuix.kmp:miuix-nav-android:0.9.4")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.11.0")
 }

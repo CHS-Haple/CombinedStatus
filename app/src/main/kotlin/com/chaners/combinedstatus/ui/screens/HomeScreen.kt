@@ -12,7 +12,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.chaners.combinedstatus.BuildConfig
 import com.chaners.combinedstatus.R
-import com.chaners.combinedstatus.ui.AppScreen
+import com.chaners.combinedstatus.ui.navigation.AppRoute
 import com.chaners.combinedstatus.ui.components.CombinedStatusPreview
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
@@ -22,7 +22,7 @@ import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 
 @Composable
-internal fun HomeScreen(onNavigate: (AppScreen) -> Unit) {
+internal fun HomeScreen(onNavigate: (AppRoute) -> Unit) {
     val scrollBehavior = MiuixScrollBehavior()
 
     Scaffold(
@@ -57,22 +57,22 @@ internal fun HomeScreen(onNavigate: (AppScreen) -> Unit) {
                     ArrowPreference(
                         title = stringResource(R.string.appearance_title),
                         summary = stringResource(R.string.appearance_summary),
-                        onClick = { onNavigate(AppScreen.Appearance) },
+                        onClick = { onNavigate(AppRoute.Appearance) },
                     )
                     ArrowPreference(
                         title = stringResource(R.string.status_bar_title),
                         summary = stringResource(R.string.status_bar_summary),
-                        onClick = { onNavigate(AppScreen.StatusBar) },
+                        onClick = { onNavigate(AppRoute.StatusBar) },
                     )
                     ArrowPreference(
                         title = stringResource(R.string.keyguard_aod_title),
                         summary = stringResource(R.string.keyguard_aod_summary),
-                        onClick = { onNavigate(AppScreen.Keyguard) },
+                        onClick = { onNavigate(AppRoute.Keyguard) },
                     )
                     ArrowPreference(
                         title = stringResource(R.string.charging_title),
                         summary = stringResource(R.string.charging_summary),
-                        onClick = { onNavigate(AppScreen.Charging) },
+                        onClick = { onNavigate(AppRoute.Charging) },
                     )
                 }
             }
@@ -84,7 +84,7 @@ internal fun HomeScreen(onNavigate: (AppScreen) -> Unit) {
                     ArrowPreference(
                         title = stringResource(R.string.diagnostics_title),
                         summary = stringResource(R.string.diagnostics_summary),
-                        onClick = { onNavigate(AppScreen.Diagnostics) },
+                        onClick = { onNavigate(AppRoute.Diagnostics) },
                     )
                 }
             }
