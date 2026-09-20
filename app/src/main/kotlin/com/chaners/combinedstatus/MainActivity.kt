@@ -40,7 +40,9 @@ class MainActivity : ComponentActivity() {
                 AppThemeMode.Dynamic,
                 -> systemDark
             }
-            val appLanguage = remember { AppPlatformSettings.currentLanguage(this) }
+            var appLanguage by remember {
+                mutableStateOf(AppPlatformSettings.currentLanguage(this))
+            }
             var launcherIconHidden by remember {
                 mutableStateOf(AppPlatformSettings.isLauncherIconHidden(this))
             }
@@ -77,7 +79,10 @@ class MainActivity : ComponentActivity() {
                     scope.launch { repository.setSwipeBackEnabled(enabled) }
                 },
                 onAppLanguageChange = { language ->
-                    AppPlatformSettings.setLanguage(this, language)
+                    if (language != appLanguage) {
+                        appLanguage = language
+                        AppPlatformSettings.setLanguage(this, language)
+                    }
                 },
                 onLauncherIconHiddenChange = { hidden ->
                     AppPlatformSettings.setLauncherIconHidden(this, hidden)
