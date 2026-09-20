@@ -8,14 +8,14 @@
     <string name="nav_settings">Settings</string>
     <string name="features_title">Features</string>
     <string name="settings_title">Settings</string>
-    <string name="section_settings">Application</string>
+    <string name="section_settings">App settings</string>
     <string name="language_title">Language</string>
-    <string name="language_summary">Follow the system or choose an app language</string>
+    <string name="language_summary">Use the system language or choose one for this app</string>
     <string name="language_system">System default</string>
     <string name="language_english">English</string>
     <string name="language_simplified_chinese">Simplified Chinese</string>
     <string name="hide_launcher_icon">Hide launcher icon</string>
-    <string name="hide_launcher_icon_summary">Hides the launcher icon; the app remains available from system app details and other entry points</string>
+    <string name="hide_launcher_icon_summary">Hide the launcher entry; the app remains available from system app details and other entry points</string>
     <string name="preview_title">Status preview</string>
     <string name="preview_value">▂▄▆█   Wi‑Fi   87%</string>
     <string name="preview_label">Sample</string>
@@ -29,7 +29,7 @@
     <string name="keyguard_aod_summary">Lock-screen and AOD display</string>
     <string name="charging_title">Charging</string>
     <string name="charging_summary">Charging and super-charging styles</string>
-    <string name="diagnostics_title">Diagnostics &amp; about</string>
+    <string name="diagnostics_title">Diagnostics</string>
     <string name="diagnostics_summary">Version and runtime information</string>
 
     <string name="section_theme">Theme</string>
@@ -40,29 +40,29 @@
     <string name="theme_dark">Dark</string>
     <string name="theme_dynamic">Dynamic color</string>
     <string name="section_visual_effects">Interface effects</string>
-    <string name="floating_navigation_blur">Floating navigation blur</string>
-    <string name="floating_navigation_blur_summary">Enables background blur; unsupported devices use the standard style</string>
+    <string name="floating_navigation_blur">Navigation bar blur</string>
+    <string name="floating_navigation_blur_summary">Blur the background; unsupported devices use the standard style</string>
     <string name="section_navigation">Navigation</string>
     <string name="swipe_back">Swipe back</string>
-    <string name="swipe_back_summary">Swipe from the screen edge to return; system back is unchanged</string>
+    <string name="swipe_back_summary">Swipe from the screen edge to go back; system back gestures are unchanged</string>
 
     <string name="section_hyperos_systemui">Display and transitions</string>
     <string name="enable_combined_icon">Combined indicator</string>
     <string name="enable_combined_icon_summary">UI preview; SystemUI integration is not enabled</string>
     <string name="transition_effects">Transition effects</string>
-    <string name="transition_effects_summary">Status-bar and Control Center transition preview</string>
+    <string name="transition_effects_summary">Preview status bar and Control Center transitions</string>
 
     <string name="section_hyperos_display_scope">Display scope</string>
     <string name="show_on_lock_screen">Show on lock screen</string>
-    <string name="show_on_lock_screen_summary">Lock-screen preview</string>
+    <string name="show_on_lock_screen_summary">Preview lock-screen display</string>
     <string name="show_on_aod">Show on AOD</string>
-    <string name="show_on_aod_summary">Always-on display preview</string>
+    <string name="show_on_aod_summary">Preview always-on display</string>
 
     <string name="section_hyperos_charging">Charging</string>
     <string name="show_charging_state">Charging indicator</string>
-    <string name="show_charging_state_summary">Charging-state preview</string>
+    <string name="show_charging_state_summary">Preview the charging indicator</string>
     <string name="distinguish_super_charging">Super charging indicator</string>
-    <string name="distinguish_super_charging_summary">Uses a separate icon for super charging (preview)</string>
+    <string name="distinguish_super_charging_summary">Use a separate icon for super charging in the preview</string>
 
     <string name="section_current_build">Version information</string>
     <string name="product_name">CombinedStatus for HyperOS</string>
@@ -73,6 +73,6 @@
 
     <string name="section_runtime_stage">Runtime</string>
     <string name="runtime_stage_value">MIUIX 0.9.4</string>
-    <string name="runtime_stage_summary">App UI only; SystemUI hooks are not enabled.</string>
+    <string name="runtime_stage_summary">App interface only; SystemUI is not integrated</string>
     <string name="back">Back</string>
 </resources>
