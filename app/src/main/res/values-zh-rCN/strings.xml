@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">三合一状态图标</string>
+
+    <string name="home_title">三合一状态图标</string>
+    <string name="home_subtitle">for HyperOS · v%1$s · %2$s</string>
+    <string name="preview_title">状态预览</string>
+    <string name="preview_value">▂▄▆█   Wi‑Fi   87%%</string>
+    <string name="preview_label">预览</string>
+
+    <string name="section_hyperos_display">HyperOS 显示</string>
+    <string name="section_development">开发</string>
+    <string name="appearance_title">外观</string>
+    <string name="appearance_summary">MIUIX 主题、尺寸与视觉样式</string>
+    <string name="status_bar_title">状态栏</string>
+    <string name="status_bar_summary">HyperOS SystemUI 三合一显示与状态栏行为</string>
+    <string name="keyguard_aod_title">锁屏与 AOD</string>
+    <string name="keyguard_aod_summary">HyperOS 锁屏及息屏显示预览</string>
+    <string name="charging_title">充电显示</string>
+    <string name="charging_summary">HyperOS 普通充电与超级快充样式</string>
+    <string name="diagnostics_title">诊断与关于</string>
+    <string name="diagnostics_summary">目标平台、版本、运行阶段与接口状态</string>
+
+    <string name="section_theme">主题</string>
+    <string name="follow_system_theme">跟随系统主题</string>
+    <string name="follow_system_theme_summary">根据 HyperOS 系统浅色或深色模式切换</string>
+    <string name="compact_preview">紧凑预览</string>
+    <string name="compact_preview_summary">仅影响当前界面预览，不写入模块配置</string>
+
+    <string name="section_hyperos_systemui">HyperOS SystemUI</string>
+    <string name="enable_combined_icon">启用三合一图标</string>
+    <string name="enable_combined_icon_summary">面向 HyperOS 状态栏；当前版本仅提供 UI 预览</string>
+    <string name="transition_effects">过渡效果</string>
+    <string name="transition_effects_summary">预留 HyperOS 状态栏与控制中心过渡设置</string>
+
+    <string name="section_hyperos_display_scope">HyperOS 显示范围</string>
+    <string name="show_on_lock_screen">锁屏显示</string>
+    <string name="show_on_lock_screen_summary">预留 HyperOS 锁屏稳定态与过渡控制</string>
+    <string name="show_on_aod">AOD 显示</string>
+    <string name="show_on_aod_summary">预留 HyperOS 息屏显示状态同步</string>
+
+    <string name="section_hyperos_charging">HyperOS 充电状态</string>
+    <string name="show_charging_state">显示充电状态</string>
+    <string name="show_charging_state_summary">预留 HyperOS 充电状态图标切换</string>
+    <string name="distinguish_super_charging">区分超级快充</string>
+    <string name="distinguish_super_charging_summary">后续与 HyperOS SystemUI 的判定逻辑保持一致</string>
+
+    <string name="section_current_build">当前构建</string>
+    <string name="product_name">CombinedStatus for HyperOS</string>
+    <string name="target_platform_value">目标平台：Xiaomi HyperOS / SystemUI</string>
+    <string name="version_value">版本：%1$s</string>
+    <string name="build_value">构建：%1$s</string>
+    <string name="package_value">包名：%1$s</string>
+
+    <string name="section_runtime_stage">运行阶段</string>
+    <string name="runtime_stage_value">MIUIX 0.9.4 UI 壳</string>
+    <string name="runtime_stage_summary">当前尚未启用 HyperOS SystemUI Hook、宿主状态读取或后台任务。</string>
+    <string name="back">返回</string>
+</resources>

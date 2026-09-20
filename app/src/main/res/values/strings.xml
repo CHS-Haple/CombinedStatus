@@ -1,4 +1,59 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">三合一状态图标</string>
+    <string name="app_name">Combined Status</string>
+
+    <string name="home_title">Combined Status</string>
+    <string name="home_subtitle">for HyperOS · v%1$s · %2$s</string>
+    <string name="preview_title">Status preview</string>
+    <string name="preview_value">▂▄▆█   Wi‑Fi   87%%</string>
+    <string name="preview_label">Preview</string>
+
+    <string name="section_hyperos_display">HyperOS display</string>
+    <string name="section_development">Development</string>
+    <string name="appearance_title">Appearance</string>
+    <string name="appearance_summary">MIUIX theme, sizing and visual style</string>
+    <string name="status_bar_title">Status bar</string>
+    <string name="status_bar_summary">Combined indicator and HyperOS SystemUI behavior</string>
+    <string name="keyguard_aod_title">Lock screen &amp; AOD</string>
+    <string name="keyguard_aod_summary">HyperOS lock-screen and always-on display preview</string>
+    <string name="charging_title">Charging</string>
+    <string name="charging_summary">Normal charging and HyperOS super charging styles</string>
+    <string name="diagnostics_title">Diagnostics &amp; about</string>
+    <string name="diagnostics_summary">Target platform, version, runtime stage and interface status</string>
+
+    <string name="section_theme">Theme</string>
+    <string name="follow_system_theme">Follow system theme</string>
+    <string name="follow_system_theme_summary">Use the current HyperOS light or dark appearance</string>
+    <string name="compact_preview">Compact preview</string>
+    <string name="compact_preview_summary">Affects this preview only and is not saved as module configuration</string>
+
+    <string name="section_hyperos_systemui">HyperOS SystemUI</string>
+    <string name="enable_combined_icon">Enable combined indicator</string>
+    <string name="enable_combined_icon_summary">For the HyperOS status bar; this build provides UI preview only</string>
+    <string name="transition_effects">Transition effects</string>
+    <string name="transition_effects_summary">Reserved for HyperOS status-bar and Control Center transitions</string>
+
+    <string name="section_hyperos_display_scope">HyperOS display scope</string>
+    <string name="show_on_lock_screen">Show on lock screen</string>
+    <string name="show_on_lock_screen_summary">Reserved for HyperOS lock-screen steady state and transitions</string>
+    <string name="show_on_aod">Show on AOD</string>
+    <string name="show_on_aod_summary">Reserved for HyperOS always-on display state synchronization</string>
+
+    <string name="section_hyperos_charging">HyperOS charging state</string>
+    <string name="show_charging_state">Show charging state</string>
+    <string name="show_charging_state_summary">Reserved for HyperOS charging indicator switching</string>
+    <string name="distinguish_super_charging">Distinguish super charging</string>
+    <string name="distinguish_super_charging_summary">Will follow the same detection logic as HyperOS SystemUI</string>
+
+    <string name="section_current_build">Current build</string>
+    <string name="product_name">CombinedStatus for HyperOS</string>
+    <string name="target_platform_value">Target platform: Xiaomi HyperOS / SystemUI</string>
+    <string name="version_value">Version: %1$s</string>
+    <string name="build_value">Build: %1$s</string>
+    <string name="package_value">Package: %1$s</string>
+
+    <string name="section_runtime_stage">Runtime stage</string>
+    <string name="runtime_stage_value">MIUIX 0.9.4 UI shell</string>
+    <string name="runtime_stage_summary">HyperOS SystemUI hooks, host-state reading and background work are not enabled yet.</string>
+    <string name="back">Back</string>
 </resources>

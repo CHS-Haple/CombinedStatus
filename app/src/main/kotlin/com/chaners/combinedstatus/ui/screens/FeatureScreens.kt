@@ -13,8 +13,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.chaners.combinedstatus.BuildConfig
+import com.chaners.combinedstatus.R
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
@@ -31,17 +33,17 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 internal fun AppearanceScreen(onBack: () -> Unit) {
     var followSystem by rememberSaveable { mutableStateOf(true) }
     var compactPreview by rememberSaveable { mutableStateOf(false) }
-    SettingsPage(title = "外观", onBack = onBack) {
-        Section("主题") {
+    SettingsPage(title = stringResource(R.string.appearance_title), onBack = onBack) {
+        Section(stringResource(R.string.section_theme)) {
             SwitchPreference(
-                title = "跟随系统主题",
-                summary = "根据 HyperOS 系统浅色或深色模式切换",
+                title = stringResource(R.string.follow_system_theme),
+                summary = stringResource(R.string.follow_system_theme_summary),
                 checked = followSystem,
                 onCheckedChange = { followSystem = it },
             )
             SwitchPreference(
-                title = "紧凑预览",
-                summary = "仅影响当前界面预览，不写入模块配置",
+                title = stringResource(R.string.compact_preview),
+                summary = stringResource(R.string.compact_preview_summary),
                 checked = compactPreview,
                 onCheckedChange = { compactPreview = it },
             )
@@ -53,17 +55,17 @@ internal fun AppearanceScreen(onBack: () -> Unit) {
 internal fun StatusBarScreen(onBack: () -> Unit) {
     var enabled by rememberSaveable { mutableStateOf(true) }
     var smoothTransition by rememberSaveable { mutableStateOf(true) }
-    SettingsPage(title = "状态栏", onBack = onBack) {
-        Section("HyperOS SystemUI") {
+    SettingsPage(title = stringResource(R.string.status_bar_title), onBack = onBack) {
+        Section(stringResource(R.string.section_hyperos_systemui)) {
             SwitchPreference(
-                title = "启用三合一图标",
-                summary = "面向 HyperOS 状态栏；当前版本仅提供 UI 预览",
+                title = stringResource(R.string.enable_combined_icon),
+                summary = stringResource(R.string.enable_combined_icon_summary),
                 checked = enabled,
                 onCheckedChange = { enabled = it },
             )
             SwitchPreference(
-                title = "过渡效果",
-                summary = "预留 HyperOS 状态栏与控制中心过渡设置",
+                title = stringResource(R.string.transition_effects),
+                summary = stringResource(R.string.transition_effects_summary),
                 checked = smoothTransition,
                 onCheckedChange = { smoothTransition = it },
                 enabled = enabled,
@@ -76,17 +78,17 @@ internal fun StatusBarScreen(onBack: () -> Unit) {
 internal fun KeyguardScreen(onBack: () -> Unit) {
     var keyguard by rememberSaveable { mutableStateOf(true) }
     var aod by rememberSaveable { mutableStateOf(true) }
-    SettingsPage(title = "锁屏与 AOD", onBack = onBack) {
-        Section("HyperOS 显示范围") {
+    SettingsPage(title = stringResource(R.string.keyguard_aod_title), onBack = onBack) {
+        Section(stringResource(R.string.section_hyperos_display_scope)) {
             SwitchPreference(
-                title = "锁屏显示",
-                summary = "预留 HyperOS 锁屏稳定态与过渡控制",
+                title = stringResource(R.string.show_on_lock_screen),
+                summary = stringResource(R.string.show_on_lock_screen_summary),
                 checked = keyguard,
                 onCheckedChange = { keyguard = it },
             )
             SwitchPreference(
-                title = "AOD 显示",
-                summary = "预留 HyperOS 息屏显示状态同步",
+                title = stringResource(R.string.show_on_aod),
+                summary = stringResource(R.string.show_on_aod_summary),
                 checked = aod,
                 onCheckedChange = { aod = it },
             )
@@ -98,17 +100,17 @@ internal fun KeyguardScreen(onBack: () -> Unit) {
 internal fun ChargingScreen(onBack: () -> Unit) {
     var chargingIcon by rememberSaveable { mutableStateOf(true) }
     var superCharging by rememberSaveable { mutableStateOf(true) }
-    SettingsPage(title = "充电显示", onBack = onBack) {
-        Section("HyperOS 充电状态") {
+    SettingsPage(title = stringResource(R.string.charging_title), onBack = onBack) {
+        Section(stringResource(R.string.section_hyperos_charging)) {
             SwitchPreference(
-                title = "显示充电状态",
-                summary = "预留 HyperOS 充电状态图标切换",
+                title = stringResource(R.string.show_charging_state),
+                summary = stringResource(R.string.show_charging_state_summary),
                 checked = chargingIcon,
                 onCheckedChange = { chargingIcon = it },
             )
             SwitchPreference(
-                title = "区分超级快充",
-                summary = "后续与 HyperOS SystemUI 的判定逻辑保持一致",
+                title = stringResource(R.string.distinguish_super_charging),
+                summary = stringResource(R.string.distinguish_super_charging_summary),
                 checked = superCharging,
                 onCheckedChange = { superCharging = it },
                 enabled = chargingIcon,
@@ -119,28 +121,31 @@ internal fun ChargingScreen(onBack: () -> Unit) {
 
 @Composable
 internal fun DiagnosticsScreen(onBack: () -> Unit) {
-    SettingsPage(title = "诊断与关于", onBack = onBack) {
+    SettingsPage(title = stringResource(R.string.diagnostics_title), onBack = onBack) {
         item {
-            SmallTitle("当前构建")
+            SmallTitle(stringResource(R.string.section_current_build))
             Card(modifier = Modifier.padding(horizontal = 12.dp)) {
                 Column(modifier = Modifier.padding(horizontal = 28.dp, vertical = 18.dp)) {
-                    Text("CombinedStatus for HyperOS", style = MiuixTheme.textStyles.headline2)
+                    Text(
+                        stringResource(R.string.product_name),
+                        style = MiuixTheme.textStyles.headline2,
+                    )
                     Spacer(Modifier.height(8.dp))
-                    Text("目标平台：Xiaomi HyperOS / SystemUI")
-                    Text("版本：${BuildConfig.VERSION_NAME}")
-                    Text("构建：${BuildConfig.BUILD_ID}")
-                    Text("包名：${BuildConfig.APPLICATION_ID}")
+                    Text(stringResource(R.string.target_platform_value))
+                    Text(stringResource(R.string.version_value, BuildConfig.VERSION_NAME))
+                    Text(stringResource(R.string.build_value, BuildConfig.BUILD_ID))
+                    Text(stringResource(R.string.package_value, BuildConfig.APPLICATION_ID))
                 }
             }
         }
         item {
-            SmallTitle("运行阶段")
+            SmallTitle(stringResource(R.string.section_runtime_stage))
             Card(modifier = Modifier.padding(horizontal = 12.dp)) {
                 Column(modifier = Modifier.padding(horizontal = 28.dp, vertical = 18.dp)) {
-                    Text("MIUIX 0.9.4 UI 壳")
+                    Text(stringResource(R.string.runtime_stage_value))
                     Spacer(Modifier.height(6.dp))
                     Text(
-                        text = "当前尚未启用 HyperOS SystemUI Hook、宿主状态读取或后台任务。",
+                        text = stringResource(R.string.runtime_stage_summary),
                         color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     )
                 }
@@ -161,7 +166,10 @@ private fun SettingsPage(
                 title = title,
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(MiuixIcons.Back, contentDescription = "返回")
+                        Icon(
+                            MiuixIcons.Back,
+                            contentDescription = stringResource(R.string.back),
+                        )
                     }
                 },
             )

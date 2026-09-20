@@ -8,8 +8,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.chaners.combinedstatus.BuildConfig
+import com.chaners.combinedstatus.R
 import com.chaners.combinedstatus.ui.AppScreen
 import com.chaners.combinedstatus.ui.components.CombinedStatusPreview
 import top.yukonga.miuix.kmp.basic.Card
@@ -26,8 +28,12 @@ internal fun HomeScreen(onNavigate: (AppScreen) -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = "三合一状态图标",
-                subtitle = "for HyperOS · v${BuildConfig.VERSION_NAME} · ${BuildConfig.BUILD_ID}",
+                title = stringResource(R.string.home_title),
+                subtitle = stringResource(
+                    R.string.home_subtitle,
+                    BuildConfig.VERSION_NAME,
+                    BuildConfig.BUILD_ID,
+                ),
                 scrollBehavior = scrollBehavior,
             )
         },
@@ -44,40 +50,40 @@ internal fun HomeScreen(onNavigate: (AppScreen) -> Unit) {
                 )
             }
             item {
-                SmallTitle("HyperOS 显示")
+                SmallTitle(stringResource(R.string.section_hyperos_display))
                 Card(
                     modifier = Modifier.padding(horizontal = 12.dp),
                 ) {
                     ArrowPreference(
-                        title = "外观",
-                        summary = "MIUIX 主题、尺寸与视觉样式",
+                        title = stringResource(R.string.appearance_title),
+                        summary = stringResource(R.string.appearance_summary),
                         onClick = { onNavigate(AppScreen.Appearance) },
                     )
                     ArrowPreference(
-                        title = "状态栏",
-                        summary = "HyperOS SystemUI 三合一显示与状态栏行为",
+                        title = stringResource(R.string.status_bar_title),
+                        summary = stringResource(R.string.status_bar_summary),
                         onClick = { onNavigate(AppScreen.StatusBar) },
                     )
                     ArrowPreference(
-                        title = "锁屏与 AOD",
-                        summary = "HyperOS 锁屏及息屏显示预览",
+                        title = stringResource(R.string.keyguard_aod_title),
+                        summary = stringResource(R.string.keyguard_aod_summary),
                         onClick = { onNavigate(AppScreen.Keyguard) },
                     )
                     ArrowPreference(
-                        title = "充电显示",
-                        summary = "HyperOS 普通充电与超级快充样式",
+                        title = stringResource(R.string.charging_title),
+                        summary = stringResource(R.string.charging_summary),
                         onClick = { onNavigate(AppScreen.Charging) },
                     )
                 }
             }
             item {
-                SmallTitle("开发")
+                SmallTitle(stringResource(R.string.section_development))
                 Card(
                     modifier = Modifier.padding(horizontal = 12.dp),
                 ) {
                     ArrowPreference(
-                        title = "诊断与关于",
-                        summary = "目标平台、版本、运行阶段与接口状态",
+                        title = stringResource(R.string.diagnostics_title),
+                        summary = stringResource(R.string.diagnostics_summary),
                         onClick = { onNavigate(AppScreen.Diagnostics) },
                     )
                 }

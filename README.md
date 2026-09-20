@@ -11,7 +11,7 @@
 
 ## Current milestone
 
-The repository currently contains the first MIUIX UI shell only. This stage validates the application structure, navigation, appearance, and Android build baseline before HyperOS SystemUI integration is introduced.
+The repository currently contains the first MIUIX UI shell only. This stage validates the application structure, navigation, appearance, localization, and Android build baseline before HyperOS SystemUI integration is introduced.
 
 - Package: `com.chaners.combinedstatus`
 - Display version: `0.0.1`
@@ -19,8 +19,9 @@ The repository currently contains the first MIUIX UI shell only. This stage vali
 - MIUIX: `0.9.4`
 - Kotlin: `2.4.20`
 - Android Gradle Plugin: `9.4.1`
+- Languages: English, Simplified Chinese
 
-The current build does not hook HyperOS SystemUI, register background services, or request additional permissions.
+The current build follows the system language and does not hook HyperOS SystemUI, register background services, or request additional permissions.
 
 ## Build
 

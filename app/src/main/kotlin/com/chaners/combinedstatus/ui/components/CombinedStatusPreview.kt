@@ -11,7 +11,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.chaners.combinedstatus.R
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -24,7 +26,7 @@ fun CombinedStatusPreview(modifier: Modifier = Modifier) {
     ) {
         Column {
             Text(
-                text = "状态预览",
+                text = stringResource(R.string.preview_title),
                 style = MiuixTheme.textStyles.headline2,
             )
             Spacer(Modifier.height(14.dp))
@@ -34,11 +36,11 @@ fun CombinedStatusPreview(modifier: Modifier = Modifier) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = "▂▄▆█   Wi‑Fi   87%",
+                    text = stringResource(R.string.preview_value),
                     style = MiuixTheme.textStyles.title2,
                 )
                 Text(
-                    text = "预览",
+                    text = stringResource(R.string.preview_label),
                     modifier = Modifier.padding(start = 12.dp),
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 )
