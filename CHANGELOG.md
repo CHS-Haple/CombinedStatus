@@ -30,6 +30,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Simplified in-app wording and removed development-oriented placeholder phrasing.
 - Aligned page spacing and typography with MIUIX 0.9.4 defaults, including standard cards, section spacing, top-level scroll behavior, and bottom padding handling.
 - Standardized user-facing settings copy and hardened platform language and launcher-entry state handling.
+- Polished settings summaries to use shorter, more natural system-style phrasing without unnecessary semicolons.
 
 ### Fixed
 - CI certificate verification now accepts the current Android Build Tools signer output while still pinning the expected certificate SHA-256 digest.
