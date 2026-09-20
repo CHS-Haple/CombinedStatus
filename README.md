@@ -26,7 +26,7 @@ The current build follows the system language and does not hook HyperOS SystemUI
 
 ## Build and signing
 
-Pushes to `main` run an unsigned debug build for continuous integration. Release builds use a separate manually triggered workflow and read signing material only from the protected `release` environment. Signing keys and credentials are not stored in the repository.
+Pushes to `main` use a dedicated fixed CI debug certificate so successive test APKs can update in place. The test certificate is separate from the release certificate and its keystore is supplied only through the `CI_DEBUG_KEYSTORE_BASE64` repository secret. Release builds use a separate manually triggered workflow and read signing material only from the protected `release` environment. Signing keys and credentials are not stored in the repository.
 
 Test releases are published as GitHub pre-releases with a directly downloadable signed APK. Stable releases use the `v<versionName>` tag and require the display version to be advanced before another stable release can be published.
 

@@ -7,6 +7,11 @@ val combinedStatusVersionName = providers.gradleProperty("combinedStatus.version
 val combinedStatusVersionCode = providers.gradleProperty("combinedStatus.versionCode").get().toInt()
 val combinedStatusBuildId = providers.gradleProperty("combinedStatus.buildId").get()
 
+val ciDebugKeystorePath = providers.environmentVariable("CI_DEBUG_KEYSTORE_PATH").orNull
+val ciDebugSigningEnabled =
+    !ciDebugKeystorePath.isNullOrBlank() &&
+        file(ciDebugKeystorePath).isFile
+
 val releaseKeystorePath = providers.environmentVariable("ANDROID_KEYSTORE_PATH").orNull
 val releaseKeystorePassword = providers.environmentVariable("ANDROID_KEYSTORE_PASSWORD").orNull
 val releaseKeyAlias = providers.environmentVariable("ANDROID_KEY_ALIAS").orNull
@@ -40,6 +45,20 @@ android {
     }
 
     signingConfigs {
+        if (ciDebugSigningEnabled) {
+            create("ciDebug") {
+                storeFile = file(requireNotNull(ciDebugKeystorePath))
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+
+                enableV1Signing = false
+                enableV2Signing = true
+                enableV3Signing = true
+                enableV4Signing = false
+            }
+        }
+
         if (releaseSigningEnabled) {
             create("release") {
                 storeFile = file(requireNotNull(releaseKeystorePath))
@@ -61,7 +80,11 @@ android {
     }
 
     buildTypes {
-        debug { }
+        debug {
+            if (ciDebugSigningEnabled) {
+                signingConfig = signingConfigs.getByName("ciDebug")
+            }
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true

@@ -11,6 +11,9 @@ permissions:
 jobs:
   debug:
     runs-on: ubuntu-latest
+    env:
+      CI_DEBUG_CERT_SHA256: d6a706dabd968ef74e416e7234fd13959c26e4e86d93ee4cd2f6778f1103ea2e
+
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -34,8 +37,48 @@ jobs:
         with:
           gradle-version: '9.7.1'
 
+      - name: Restore CI debug keystore
+        shell: bash
+        env:
+          CI_DEBUG_KEYSTORE_BASE64: ${{ secrets.CI_DEBUG_KEYSTORE_BASE64 }}
+        run: |
+          if [[ -z "$CI_DEBUG_KEYSTORE_BASE64" ]]; then
+            echo "CI_DEBUG_KEYSTORE_BASE64 is not configured."
+            exit 1
+          fi
+
+          KEYSTORE_PATH="$RUNNER_TEMP/combinedstatus-ci-debug.keystore"
+          printf '%s' "$CI_DEBUG_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          chmod 600 "$KEYSTORE_PATH"
+
+          ACTUAL_CERT_SHA256="$(
+            keytool -list -v               -keystore "$KEYSTORE_PATH"               -storepass android               -alias androiddebugkey 2>/dev/null             | sed -n 's/^.*SHA256: //p'             | head -n 1             | tr -d ':'             | tr '[:upper:]' '[:lower:]'
+          )"
+
+          if [[ "$ACTUAL_CERT_SHA256" != "$CI_DEBUG_CERT_SHA256" ]]; then
+            echo "CI debug signing certificate does not match the expected certificate."
+            exit 1
+          fi
+
+          echo "CI_DEBUG_KEYSTORE_PATH=$KEYSTORE_PATH" >> "$GITHUB_ENV"
+
       - name: Build debug APK
         run: gradle :app:assembleDebug --stacktrace
+
+      - name: Verify debug APK signature
+        shell: bash
+        run: |
+          SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          "$SDK_ROOT/build-tools/37.0.0/apksigner" verify             --verbose             --print-certs             app/build/outputs/apk/debug/app-debug.apk
+
+          ACTUAL_CERT_SHA256="$(
+            "$SDK_ROOT/build-tools/37.0.0/apksigner" verify               --print-certs               app/build/outputs/apk/debug/app-debug.apk             | sed -n 's/^Signer #1 certificate SHA-256 digest: //p'             | head -n 1             | tr '[:upper:]' '[:lower:]'
+          )"
+
+          if [[ "$ACTUAL_CERT_SHA256" != "$CI_DEBUG_CERT_SHA256" ]]; then
+            echo "Built APK is not signed by the fixed CI debug certificate."
+            exit 1
+          fi
 
       - name: Prepare debug APK
         shell: bash
