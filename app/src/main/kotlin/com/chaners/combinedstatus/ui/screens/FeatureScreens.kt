@@ -37,7 +37,6 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 internal fun AppearanceScreen(
     settings: AppearanceSettings,
     onThemeModeChange: (AppThemeMode) -> Unit,
-    onBlurEnabledChange: (Boolean) -> Unit,
     onGlassBottomBarEnabledChange: (Boolean) -> Unit,
     onSwipeBackEnabledChange: (Boolean) -> Unit,
     onBack: () -> Unit,
@@ -56,6 +55,7 @@ internal fun AppearanceScreen(
                 selectedIndex = settings.themeMode.ordinal,
                 title = stringResource(R.string.theme_mode),
                 summary = stringResource(R.string.theme_mode_summary),
+                showValue = false,
                 onSelectedIndexChange = { index ->
                     AppThemeMode.entries.getOrNull(index)?.let(onThemeModeChange)
                 },
@@ -63,17 +63,10 @@ internal fun AppearanceScreen(
         }
         Section(R.string.section_visual_effects) {
             SwitchPreference(
-                title = stringResource(R.string.enable_blur),
-                summary = stringResource(R.string.enable_blur_summary),
-                checked = settings.blurEnabled,
-                onCheckedChange = onBlurEnabledChange,
-            )
-            SwitchPreference(
                 title = stringResource(R.string.glass_bottom_bar),
                 summary = stringResource(R.string.glass_bottom_bar_summary),
                 checked = settings.glassBottomBarEnabled,
                 onCheckedChange = onGlassBottomBarEnabledChange,
-                enabled = settings.blurEnabled,
             )
         }
         Section(R.string.section_navigation) {

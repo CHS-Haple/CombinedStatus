@@ -35,13 +35,11 @@
     <string name="theme_dark">深色</string>
     <string name="theme_dynamic">系统动态色</string>
     <string name="section_visual_effects">视觉效果</string>
-    <string name="enable_blur">模糊效果</string>
-    <string name="enable_blur_summary">控制应用内 MIUIX 模糊与玻璃效果；关闭后使用标准不透明界面</string>
     <string name="glass_bottom_bar">玻璃浮动底栏</string>
-    <string name="glass_bottom_bar_summary">使用 MIUIX Backdrop、模糊、高光和连续选中胶囊；需开启模糊效果</string>
+    <string name="glass_bottom_bar_summary">在 MIUIX 官方浮动底栏上启用模糊材质；设备不支持时自动回退标准样式</string>
     <string name="section_navigation">导航</string>
     <string name="swipe_back">页面侧滑返回</string>
-    <string name="swipe_back_summary">允许从页面边缘返回上一级；Android 系统预测性返回始终保持启用</string>
+    <string name="swipe_back_summary">控制 MIUIX 页面边缘横移返回，不改变 Android 系统返回行为</string>
 
     <string name="section_hyperos_systemui">HyperOS SystemUI</string>
     <string name="enable_combined_icon">启用三合一图标</string>

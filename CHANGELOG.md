@@ -12,8 +12,8 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Fixed CI debug signing so successive test APKs can update in place.
 - MIUIX 0.9.4 navigation runtime with serializable routes, standard page transitions, predictive back, and direction-aware swipe-back gestures.
 - Home, Features, and Settings top-level navigation with a MIUIX floating navigation bar.
-- MIUIX glass bottom navigation using backdrop blur, color controls, glass-stroke highlights, and a pager-linked selection pill.
-- Persistent appearance preferences for theme mode, blur effects, glass navigation, and in-app swipe-back.
+- Optional blur material on the official MIUIX floating navigation bar with automatic fallback when runtime shaders are unavailable.
+- Persistent appearance preferences for theme mode, floating-navigation blur, and in-app swipe-back.
 
 ### Changed
 - Minimum Android version is Android 13 / API 33 to match the current MIUIX blur baseline.

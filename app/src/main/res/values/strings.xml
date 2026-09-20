@@ -35,13 +35,11 @@
     <string name="theme_dark">Dark</string>
     <string name="theme_dynamic">System dynamic</string>
     <string name="section_visual_effects">Visual effects</string>
-    <string name="enable_blur">Blur effects</string>
-    <string name="enable_blur_summary">Controls MIUIX blur and glass effects in the app; disabling it uses standard opaque surfaces</string>
     <string name="glass_bottom_bar">Glass floating navigation</string>
-    <string name="glass_bottom_bar_summary">Uses MIUIX backdrop blur, highlight and a continuous selection pill; requires blur effects</string>
+    <string name="glass_bottom_bar_summary">Uses blur on the official MIUIX floating navigation bar; unsupported devices fall back automatically</string>
     <string name="section_navigation">Navigation</string>
     <string name="swipe_back">Swipe back</string>
-    <string name="swipe_back_summary">Allows edge swipe to pop a page; Android system predictive back remains enabled</string>
+    <string name="swipe_back_summary">Controls MIUIX edge swipe to pop a page without changing Android system back behavior</string>
 
     <string name="section_hyperos_systemui">HyperOS SystemUI</string>
     <string name="enable_combined_icon">Enable combined indicator</string>
