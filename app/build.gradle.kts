@@ -3,9 +3,16 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+@Suppress("UnstableApiUsage")
 android {
     namespace = "com.chaners.combinedstatus"
-    compileSdk = 37
+    buildToolsVersion = "37.0.0"
+
+    compileSdk {
+        version = release(37) {
+            minorApiLevel = 0
+        }
+    }
 
     defaultConfig {
         applicationId = "com.chaners.combinedstatus"
@@ -44,10 +51,6 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
-}
-
-kotlin {
-    jvmToolchain(17)
 }
 
 dependencies {
