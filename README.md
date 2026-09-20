@@ -27,6 +27,12 @@ The top-level interface is organized as Home, Features, and Settings. Deeper set
 
 The current build follows the system language, uses a compile-only modern Xposed API 102 dependency, and installs no HyperOS SystemUI hooks yet. It does not register background services or request additional permissions.
 
+## Development workflow
+
+`main` is the stable integration baseline. SystemUI module work is developed on `dev`, where each small feature must pass CI and real-device validation before it is promoted to `main`. Short-lived `feat/*` branches are reserved for higher-risk experiments and are merged back into `dev` once validated.
+
+Both `main` and `dev` run the Android build workflow. CI uses per-branch concurrency so a newer push cancels an obsolete in-progress build for the same branch.
+
 ## Build and signing
 
 Pushes to main use a dedicated fixed CI debug certificate so successive test APKs can update in place. The test certificate is separate from the release certificate and its keystore is supplied only through the CI_DEBUG_KEYSTORE_BASE64 repository secret. Release builds use a separate manually triggered workflow and read signing material only from the protected release environment. Signing keys and credentials are not stored in the repository.
