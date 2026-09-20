@@ -21,7 +21,7 @@ import top.yukonga.miuix.kmp.nav.transition.NavTransitions
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
-fun CombinedStatusApp(
+internal fun CombinedStatusApp(
     settings: AppearanceSettings,
     darkMode: Boolean,
     onThemeModeChange: (AppThemeMode) -> Unit,
