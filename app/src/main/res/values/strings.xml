@@ -10,12 +10,12 @@
     <string name="settings_title">Settings</string>
     <string name="section_settings">App settings</string>
     <string name="language_title">Language</string>
-    <string name="language_summary">Use the system language or choose one for this app</string>
+    <string name="language_summary">Use the system language or choose an app language</string>
     <string name="language_system">System default</string>
     <string name="language_english">English</string>
     <string name="language_simplified_chinese">Simplified Chinese</string>
     <string name="hide_launcher_icon">Hide launcher icon</string>
-    <string name="hide_launcher_icon_summary">Hide the launcher entry; the app remains available from system app details and other entry points</string>
+    <string name="hide_launcher_icon_summary">Hide the launcher icon while keeping the app available from system app details and other entry points</string>
     <string name="preview_title">Status preview</string>
     <string name="preview_value">▂▄▆█   Wi‑Fi   87%</string>
     <string name="preview_label">Sample</string>
@@ -34,21 +34,21 @@
 
     <string name="section_theme">Theme</string>
     <string name="theme_mode">Theme mode</string>
-    <string name="theme_mode_summary">Follow the system, or use light, dark, or dynamic color</string>
+    <string name="theme_mode_summary">Follow the system or choose light, dark, or dynamic color</string>
     <string name="theme_system">System</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
     <string name="theme_dynamic">Dynamic color</string>
     <string name="section_visual_effects">Interface effects</string>
     <string name="floating_navigation_blur">Navigation bar blur</string>
-    <string name="floating_navigation_blur_summary">Blur the background; unsupported devices use the standard style</string>
+    <string name="floating_navigation_blur_summary">Blur the background, or use the standard style when unsupported</string>
     <string name="section_navigation">Navigation</string>
     <string name="swipe_back">Swipe back</string>
-    <string name="swipe_back_summary">Swipe from the screen edge to go back; system back gestures are unchanged</string>
+    <string name="swipe_back_summary">Swipe from the screen edge to go back without changing system back gestures</string>
 
     <string name="section_hyperos_systemui">Display and transitions</string>
     <string name="enable_combined_icon">Combined indicator</string>
-    <string name="enable_combined_icon_summary">UI preview; SystemUI integration is not enabled</string>
+    <string name="enable_combined_icon_summary">UI preview only, SystemUI is not integrated</string>
     <string name="transition_effects">Transition effects</string>
     <string name="transition_effects_summary">Preview status bar and Control Center transitions</string>
 
@@ -73,6 +73,6 @@
 
     <string name="section_runtime_stage">Runtime</string>
     <string name="runtime_stage_value">MIUIX 0.9.4</string>
-    <string name="runtime_stage_summary">App interface only; SystemUI is not integrated</string>
+    <string name="runtime_stage_summary">App interface only, SystemUI is not integrated</string>
     <string name="back">Back</string>
 </resources>
