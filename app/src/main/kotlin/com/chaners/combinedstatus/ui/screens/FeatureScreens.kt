@@ -35,7 +35,7 @@ internal fun AppearanceScreen(onBack: () -> Unit) {
         Section("主题") {
             SwitchPreference(
                 title = "跟随系统主题",
-                summary = "根据系统浅色或深色模式切换",
+                summary = "根据 HyperOS 系统浅色或深色模式切换",
                 checked = followSystem,
                 onCheckedChange = { followSystem = it },
             )
@@ -54,16 +54,16 @@ internal fun StatusBarScreen(onBack: () -> Unit) {
     var enabled by rememberSaveable { mutableStateOf(true) }
     var smoothTransition by rememberSaveable { mutableStateOf(true) }
     SettingsPage(title = "状态栏", onBack = onBack) {
-        Section("三合一图标") {
+        Section("HyperOS SystemUI") {
             SwitchPreference(
                 title = "启用三合一图标",
-                summary = "UI 预览开关，当前版本尚未接入 SystemUI",
+                summary = "面向 HyperOS 状态栏；当前版本仅提供 UI 预览",
                 checked = enabled,
                 onCheckedChange = { enabled = it },
             )
             SwitchPreference(
                 title = "过渡效果",
-                summary = "预留状态栏与控制中心过渡设置",
+                summary = "预留 HyperOS 状态栏与控制中心过渡设置",
                 checked = smoothTransition,
                 onCheckedChange = { smoothTransition = it },
                 enabled = enabled,
@@ -77,16 +77,16 @@ internal fun KeyguardScreen(onBack: () -> Unit) {
     var keyguard by rememberSaveable { mutableStateOf(true) }
     var aod by rememberSaveable { mutableStateOf(true) }
     SettingsPage(title = "锁屏与 AOD", onBack = onBack) {
-        Section("显示范围") {
+        Section("HyperOS 显示范围") {
             SwitchPreference(
                 title = "锁屏显示",
-                summary = "预留锁屏稳定态与过渡控制",
+                summary = "预留 HyperOS 锁屏稳定态与过渡控制",
                 checked = keyguard,
                 onCheckedChange = { keyguard = it },
             )
             SwitchPreference(
                 title = "AOD 显示",
-                summary = "预留息屏显示状态同步",
+                summary = "预留 HyperOS 息屏显示状态同步",
                 checked = aod,
                 onCheckedChange = { aod = it },
             )
@@ -99,16 +99,16 @@ internal fun ChargingScreen(onBack: () -> Unit) {
     var chargingIcon by rememberSaveable { mutableStateOf(true) }
     var superCharging by rememberSaveable { mutableStateOf(true) }
     SettingsPage(title = "充电显示", onBack = onBack) {
-        Section("充电状态") {
+        Section("HyperOS 充电状态") {
             SwitchPreference(
                 title = "显示充电状态",
-                summary = "预留充电状态图标切换",
+                summary = "预留 HyperOS 充电状态图标切换",
                 checked = chargingIcon,
                 onCheckedChange = { chargingIcon = it },
             )
             SwitchPreference(
                 title = "区分超级快充",
-                summary = "后续与系统状态栏判定逻辑保持一致",
+                summary = "后续与 HyperOS SystemUI 的判定逻辑保持一致",
                 checked = superCharging,
                 onCheckedChange = { superCharging = it },
                 enabled = chargingIcon,
@@ -124,8 +124,9 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
             SmallTitle("当前构建")
             Card(modifier = Modifier.padding(horizontal = 12.dp)) {
                 Column(modifier = Modifier.padding(horizontal = 28.dp, vertical = 18.dp)) {
-                    Text("CombinedStatus", style = MiuixTheme.textStyles.headline2)
+                    Text("CombinedStatus for HyperOS", style = MiuixTheme.textStyles.headline2)
                     Spacer(Modifier.height(8.dp))
+                    Text("目标平台：Xiaomi HyperOS / SystemUI")
                     Text("版本：${BuildConfig.VERSION_NAME}")
                     Text("构建：${BuildConfig.BUILD_ID}")
                     Text("包名：${BuildConfig.APPLICATION_ID}")
@@ -139,7 +140,7 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
                     Text("MIUIX 0.9.4 UI 壳")
                     Spacer(Modifier.height(6.dp))
                     Text(
-                        text = "当前未启用 Xposed Hook、SystemUI 读取或后台任务。",
+                        text = "当前尚未启用 HyperOS SystemUI Hook、宿主状态读取或后台任务。",
                         color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                     )
                 }
