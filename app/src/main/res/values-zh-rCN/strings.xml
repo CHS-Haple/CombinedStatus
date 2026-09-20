@@ -3,7 +3,6 @@
     <string name="app_name">三合一状态图标</string>
 
     <string name="home_title">三合一状态图标</string>
-    <string name="home_subtitle">HyperOS · v%1$s · %2$s</string>
     <string name="nav_home">首页</string>
     <string name="nav_features">功能</string>
     <string name="nav_settings">设置</string>

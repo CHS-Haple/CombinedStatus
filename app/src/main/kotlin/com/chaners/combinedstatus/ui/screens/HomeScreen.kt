@@ -1,9 +1,6 @@
 package com.chaners.combinedstatus.ui.screens
 
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
@@ -15,27 +12,27 @@ import androidx.compose.ui.unit.dp
 import com.chaners.combinedstatus.BuildConfig
 import com.chaners.combinedstatus.R
 import com.chaners.combinedstatus.ui.components.CombinedStatusPreview
+import com.chaners.combinedstatus.ui.layout.pageContentPadding
+import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
-import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TopAppBar
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 internal fun HomeScreen(bottomContentPadding: Dp) {
     val scrollBehavior = MiuixScrollBehavior()
+    val buildSummary = listOf(
+        stringResource(R.string.target_platform_value),
+        stringResource(R.string.version_value, BuildConfig.VERSION_NAME),
+        stringResource(R.string.build_value, BuildConfig.BUILD_ID),
+    ).joinToString("\n")
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = stringResource(R.string.home_title),
-                subtitle = stringResource(
-                    R.string.home_subtitle,
-                    BuildConfig.VERSION_NAME,
-                    BuildConfig.BUILD_ID,
-                ),
                 scrollBehavior = scrollBehavior,
             )
         },
@@ -44,29 +41,32 @@ internal fun HomeScreen(bottomContentPadding: Dp) {
             modifier = Modifier
                 .fillMaxSize()
                 .nestedScroll(scrollBehavior.nestedScrollConnection),
-            contentPadding = paddingValues,
+            contentPadding = pageContentPadding(
+                innerPadding = paddingValues,
+                outerBottomPadding = bottomContentPadding,
+                extraBottom = 12.dp,
+            ),
         ) {
             item {
                 CombinedStatusPreview(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    modifier = Modifier
+                        .padding(horizontal = 12.dp)
+                        .padding(top = 8.dp, bottom = 12.dp),
                 )
             }
             item {
                 SmallTitle(stringResource(R.string.section_current_build))
-                Card(modifier = Modifier.padding(horizontal = 12.dp)) {
-                    Column(modifier = Modifier.padding(horizontal = 28.dp, vertical = 18.dp)) {
-                        Text(
-                            text = stringResource(R.string.product_name),
-                            style = MiuixTheme.textStyles.headline2,
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Text(stringResource(R.string.target_platform_value))
-                        Text(stringResource(R.string.version_value, BuildConfig.VERSION_NAME))
-                        Text(stringResource(R.string.build_value, BuildConfig.BUILD_ID))
-                    }
+                Card(
+                    modifier = Modifier
+                        .padding(horizontal = 12.dp)
+                        .padding(bottom = 12.dp),
+                ) {
+                    BasicComponent(
+                        title = stringResource(R.string.product_name),
+                        summary = buildSummary,
+                    )
                 }
             }
-            item { Spacer(Modifier.height(bottomContentPadding + 16.dp)) }
         }
     }
 }

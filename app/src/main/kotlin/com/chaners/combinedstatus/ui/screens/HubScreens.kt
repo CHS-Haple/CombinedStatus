@@ -1,20 +1,21 @@
 package com.chaners.combinedstatus.ui.screens
 
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.chaners.combinedstatus.R
 import com.chaners.combinedstatus.settings.AppLanguage
+import com.chaners.combinedstatus.ui.layout.pageContentPadding
 import com.chaners.combinedstatus.ui.navigation.AppRoute
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.TopAppBar
@@ -106,21 +107,35 @@ private fun HubPage(
     bottomContentPadding: Dp,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val scrollBehavior = MiuixScrollBehavior()
+
     Scaffold(
-        topBar = { TopAppBar(title = title) },
+        topBar = {
+            TopAppBar(
+                title = title,
+                scrollBehavior = scrollBehavior,
+            )
+        },
     ) { paddingValues ->
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = paddingValues,
+            modifier = Modifier
+                .fillMaxSize()
+                .nestedScroll(scrollBehavior.nestedScrollConnection),
+            contentPadding = pageContentPadding(
+                innerPadding = paddingValues,
+                outerBottomPadding = bottomContentPadding,
+                extraBottom = 12.dp,
+            ),
         ) {
             item {
                 SmallTitle(sectionTitle)
                 Card(
-                    modifier = Modifier.padding(horizontal = 12.dp),
+                    modifier = Modifier
+                        .padding(horizontal = 12.dp)
+                        .padding(bottom = 12.dp),
                     content = content,
                 )
             }
-            item { Spacer(Modifier.height(bottomContentPadding + 16.dp)) }
         }
     }
 }

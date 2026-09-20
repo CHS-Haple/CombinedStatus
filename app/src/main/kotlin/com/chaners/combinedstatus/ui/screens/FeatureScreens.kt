@@ -1,11 +1,8 @@
 package com.chaners.combinedstatus.ui.screens
 
 import androidx.annotation.StringRes
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
@@ -20,18 +17,18 @@ import com.chaners.combinedstatus.BuildConfig
 import com.chaners.combinedstatus.R
 import com.chaners.combinedstatus.settings.AppThemeMode
 import com.chaners.combinedstatus.settings.AppearanceSettings
+import com.chaners.combinedstatus.ui.layout.pageContentPadding
+import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
-import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
-import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 internal fun AppearanceScreen(
@@ -84,6 +81,7 @@ internal fun AppearanceScreen(
 internal fun StatusBarScreen(onBack: () -> Unit) {
     var enabled by rememberSaveable { mutableStateOf(true) }
     var smoothTransition by rememberSaveable { mutableStateOf(true) }
+
     SettingsPage(title = stringResource(R.string.status_bar_title), onBack = onBack) {
         Section(R.string.section_hyperos_systemui) {
             SwitchPreference(
@@ -107,6 +105,7 @@ internal fun StatusBarScreen(onBack: () -> Unit) {
 internal fun KeyguardScreen(onBack: () -> Unit) {
     var keyguard by rememberSaveable { mutableStateOf(true) }
     var aod by rememberSaveable { mutableStateOf(true) }
+
     SettingsPage(title = stringResource(R.string.keyguard_aod_title), onBack = onBack) {
         Section(R.string.section_hyperos_display_scope) {
             SwitchPreference(
@@ -129,6 +128,7 @@ internal fun KeyguardScreen(onBack: () -> Unit) {
 internal fun ChargingScreen(onBack: () -> Unit) {
     var chargingIcon by rememberSaveable { mutableStateOf(true) }
     var superCharging by rememberSaveable { mutableStateOf(true) }
+
     SettingsPage(title = stringResource(R.string.charging_title), onBack = onBack) {
         Section(R.string.section_hyperos_charging) {
             SwitchPreference(
@@ -150,35 +150,25 @@ internal fun ChargingScreen(onBack: () -> Unit) {
 
 @Composable
 internal fun DiagnosticsScreen(onBack: () -> Unit) {
+    val buildSummary = listOf(
+        stringResource(R.string.target_platform_value),
+        stringResource(R.string.version_value, BuildConfig.VERSION_NAME),
+        stringResource(R.string.build_value, BuildConfig.BUILD_ID),
+        stringResource(R.string.package_value, BuildConfig.APPLICATION_ID),
+    ).joinToString("\n")
+
     SettingsPage(title = stringResource(R.string.diagnostics_title), onBack = onBack) {
-        item {
-            SmallTitle(stringResource(R.string.section_current_build))
-            Card(modifier = Modifier.padding(horizontal = 12.dp)) {
-                Column(modifier = Modifier.padding(horizontal = 28.dp, vertical = 18.dp)) {
-                    Text(
-                        stringResource(R.string.product_name),
-                        style = MiuixTheme.textStyles.headline2,
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    Text(stringResource(R.string.target_platform_value))
-                    Text(stringResource(R.string.version_value, BuildConfig.VERSION_NAME))
-                    Text(stringResource(R.string.build_value, BuildConfig.BUILD_ID))
-                    Text(stringResource(R.string.package_value, BuildConfig.APPLICATION_ID))
-                }
-            }
+        Section(R.string.section_current_build) {
+            BasicComponent(
+                title = stringResource(R.string.product_name),
+                summary = buildSummary,
+            )
         }
-        item {
-            SmallTitle(stringResource(R.string.section_runtime_stage))
-            Card(modifier = Modifier.padding(horizontal = 12.dp)) {
-                Column(modifier = Modifier.padding(horizontal = 28.dp, vertical = 18.dp)) {
-                    Text(stringResource(R.string.runtime_stage_value))
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        text = stringResource(R.string.runtime_stage_summary),
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    )
-                }
-            }
+        Section(R.string.section_runtime_stage) {
+            BasicComponent(
+                title = stringResource(R.string.runtime_stage_value),
+                summary = stringResource(R.string.runtime_stage_summary),
+            )
         }
     }
 }
@@ -206,7 +196,10 @@ private fun SettingsPage(
     ) { paddingValues ->
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = paddingValues,
+            contentPadding = pageContentPadding(
+                innerPadding = paddingValues,
+                extraBottom = 12.dp,
+            ),
             content = content,
         )
     }
@@ -219,9 +212,10 @@ private fun androidx.compose.foundation.lazy.LazyListScope.Section(
     item {
         SmallTitle(stringResource(titleRes))
         Card(
-            modifier = Modifier.padding(horizontal = 12.dp),
+            modifier = Modifier
+                .padding(horizontal = 12.dp)
+                .padding(bottom = 12.dp),
             content = content,
         )
     }
-    item { Spacer(Modifier.height(12.dp)) }
 }

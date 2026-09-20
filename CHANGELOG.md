@@ -28,6 +28,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Aligned top-level pager fling and back-to-home behavior with the MIUIX 0.9.4 example patterns.
 - Renamed the optional floating-bar effect to floating navigation blur and migrated its saved preference key.
 - Simplified in-app wording and removed development-oriented placeholder phrasing.
+- Aligned page spacing and typography with MIUIX 0.9.4 defaults, including standard cards, section spacing, top-level scroll behavior, and bottom padding handling.
 
 ### Fixed
 - CI certificate verification now accepts the current Android Build Tools signer output while still pinning the expected certificate SHA-256 digest.

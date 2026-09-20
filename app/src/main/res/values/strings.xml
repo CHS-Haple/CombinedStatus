@@ -3,7 +3,6 @@
     <string name="app_name">Combined Status</string>
 
     <string name="home_title">Combined Status</string>
-    <string name="home_subtitle">HyperOS · v%1$s · %2$s</string>
     <string name="nav_home">Home</string>
     <string name="nav_features">Features</string>
     <string name="nav_settings">Settings</string>

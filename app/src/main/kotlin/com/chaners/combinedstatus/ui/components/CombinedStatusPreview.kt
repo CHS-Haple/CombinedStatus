@@ -19,17 +19,17 @@ import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
-fun CombinedStatusPreview(modifier: Modifier = Modifier) {
+internal fun CombinedStatusPreview(modifier: Modifier = Modifier) {
     Card(
         modifier = modifier,
-        insideMargin = PaddingValues(horizontal = 20.dp, vertical = 18.dp),
+        insideMargin = PaddingValues(16.dp),
     ) {
         Column {
             Text(
                 text = stringResource(R.string.preview_title),
                 style = MiuixTheme.textStyles.headline2,
             )
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(12.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -37,11 +37,12 @@ fun CombinedStatusPreview(modifier: Modifier = Modifier) {
             ) {
                 Text(
                     text = stringResource(R.string.preview_value),
-                    style = MiuixTheme.textStyles.title2,
+                    style = MiuixTheme.textStyles.title3,
                 )
                 Text(
                     text = stringResource(R.string.preview_label),
                     modifier = Modifier.padding(start = 12.dp),
+                    style = MiuixTheme.textStyles.body2,
                     color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
                 )
             }
