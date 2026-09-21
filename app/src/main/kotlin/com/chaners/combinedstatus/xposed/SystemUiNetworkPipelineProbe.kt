@@ -149,7 +149,6 @@ internal object SystemUiNetworkPipelineProbe {
     private fun wifiBindHooker(
         onEvent: (String) -> Unit,
     ): Hooker = Hooker { chain ->
-        val result = chain.proceed()
         val root = chain.getArg(0) as? ViewGroup
         val viewModel = chain.getArg(1)
 
@@ -163,6 +162,7 @@ internal object SystemUiNetworkPipelineProbe {
             if (firstBinding) {
                 onEvent(
                     "networkPipeline wifi bound " +
+                        "stage=beforeProceed " +
                         "root=" + root.javaClass.simpleName +
                         " rootId=" + resourceId(root) +
                         " vm=" + viewModel.javaClass.simpleName,
@@ -170,7 +170,7 @@ internal object SystemUiNetworkPipelineProbe {
             }
         }
 
-        result
+        chain.proceed()
     }
 
     private fun wifiIconHooker(
