@@ -14,7 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 internal object DiagnosticsReportFiles {
-    const val ShareMimeType = "text/plain"
+    const val ShareMimeType = "application/octet-stream"
 
     private const val ShareDirectoryName = "diagnostics-share"
     private const val ShareLogTag = "CombinedStatusShare"
@@ -190,10 +190,6 @@ internal object DiagnosticsReportFiles {
                 context,
                 "${BuildConfig.APPLICATION_ID}.fileprovider",
                 file,
-            )
-            ShareCompatibilityGrants.revokeKnownReceivers(
-                context = context,
-                uri = uri,
             )
             context.revokeUriPermission(
                 uri,

@@ -26,7 +26,6 @@ import com.chaners.combinedstatus.settings.AppThemeMode
 import com.chaners.combinedstatus.settings.AppearanceSettings
 import com.chaners.combinedstatus.system.DiagnosticsReportBuilder
 import com.chaners.combinedstatus.system.DiagnosticsReportFiles
-import com.chaners.combinedstatus.system.ShareCompatibilityGrants
 import com.chaners.combinedstatus.ui.layout.pageContentPadding
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.BasicComponent
@@ -286,11 +285,6 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
                         DiagnosticsReportFiles.logShareIntent(
                             context = context,
                             intent = sendIntent,
-                            uri = prepared.uri,
-                        )
-
-                        ShareCompatibilityGrants.grantKnownReceivers(
-                            context = context,
                             uri = prepared.uri,
                         )
 
