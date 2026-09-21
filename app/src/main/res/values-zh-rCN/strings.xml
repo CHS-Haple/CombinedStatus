@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">三合一状态图标</string>
-    <string name="app_description">将电量、蜂窝网络和 Wi‑Fi 状态整合为一个状态栏图标</string>
+    <string name="app_description">专为 HyperOS 设计，将电量、移动网络和 Wi‑Fi 状态整合为一个状态栏图标</string>
 
     <string name="home_title">三合一状态图标</string>
     <string name="nav_home">首页</string>
@@ -32,6 +32,15 @@
     <string name="charging_summary">充电与超级快充样式</string>
     <string name="diagnostics_title">诊断信息</string>
     <string name="diagnostics_summary">版本与运行信息</string>
+    <string name="section_module">模块</string>
+    <string name="restart_scope">重启系统界面</string>
+    <string name="restart_scope_summary">重新启动 SystemUI 以重新加载模块</string>
+    <string name="restart_scope_dialog_summary">此操作需要 Root 权限。SystemUI 将重新启动以重新加载模块，不会重启设备。</string>
+    <string name="restart_scope_failed">重启失败</string>
+    <string name="restart_scope_failed_summary">请确认已授予 Root 权限后重试</string>
+    <string name="restart">重启</string>
+    <string name="cancel">取消</string>
+    <string name="confirm">确定</string>
 
     <string name="section_theme">主题</string>
     <string name="theme_mode">主题模式</string>
@@ -73,7 +82,7 @@
     <string name="package_value">包名：%1$s</string>
 
     <string name="section_runtime_stage">运行状态</string>
-    <string name="runtime_stage_value">MIUIX 0.9.4</string>
-    <string name="runtime_stage_summary">仅应用界面可用，SystemUI 尚未接入</string>
+    <string name="runtime_stage_value">Modern Xposed API 102</string>
+    <string name="runtime_stage_summary">作用域：SystemUI · 支持热重载</string>
     <string name="back">返回</string>
 </resources>

@@ -2,11 +2,15 @@ name: Android build
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, dev ]
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: android-build-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   debug:
@@ -52,7 +56,14 @@ jobs:
           chmod 600 "$KEYSTORE_PATH"
 
           ACTUAL_CERT_SHA256="$(
-            keytool -list -v               -keystore "$KEYSTORE_PATH"               -storepass android               -alias androiddebugkey 2>/dev/null             | sed -n 's/^.*SHA256: //p'             | head -n 1             | tr -d ':'             | tr '[:upper:]' '[:lower:]'
+            keytool -list -v \
+              -keystore "$KEYSTORE_PATH" \
+              -storepass android \
+              -alias androiddebugkey 2>/dev/null |
+              sed -n 's/^.*SHA256: //p' |
+              head -n 1 |
+              tr -d ':' |
+              tr '[:upper:]' '[:lower:]'
           )"
 
           if [[ "$ACTUAL_CERT_SHA256" != "$CI_DEBUG_CERT_SHA256" ]]; then
@@ -61,6 +72,9 @@ jobs:
           fi
 
           echo "CI_DEBUG_KEYSTORE_PATH=$KEYSTORE_PATH" >> "$GITHUB_ENV"
+
+      - name: Verify pinned HyperOS target profile
+        run: python3 tools/verify_target_profile.py
 
       - name: Build debug APK
         run: gradle :app:assembleDebug --stacktrace
@@ -97,14 +111,38 @@ jobs:
             exit 1
           fi
 
+          if ! unzip -p "$APK" META-INF/xposed/module.prop | grep -Fxq "autoHotReload=true"; then
+            echo "Modern Xposed hot reload metadata is missing."
+            exit 1
+          fi
+
+          JAVA_ENTRY_COUNT="$(
+            unzip -p "$APK" META-INF/xposed/java_init.list |
+              tr -d '\r' |
+              sed '/^[[:space:]]*$/d' |
+              wc -l |
+              tr -d ' '
+          )"
+          if [[ "$JAVA_ENTRY_COUNT" != "1" ]]; then
+            echo "Hot reload requires exactly one Java entry class."
+            exit 1
+          fi
+
       - name: Verify debug APK signature
         shell: bash
         run: |
           SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
-          "$SDK_ROOT/build-tools/37.0.0/apksigner" verify             --verbose             --print-certs             app/build/outputs/apk/debug/app-debug.apk
+          "$SDK_ROOT/build-tools/37.0.0/apksigner" verify \
+            --verbose \
+            --print-certs \
+            app/build/outputs/apk/debug/app-debug.apk
 
           ACTUAL_CERT_SHA256="$(
-            "$SDK_ROOT/build-tools/37.0.0/apksigner" verify               --print-certs               app/build/outputs/apk/debug/app-debug.apk             | awk -F': ' '/certificate SHA-256 digest:/ { print $NF; exit }'             | tr '[:upper:]' '[:lower:]'
+            "$SDK_ROOT/build-tools/37.0.0/apksigner" verify \
+              --print-certs \
+              app/build/outputs/apk/debug/app-debug.apk |
+              awk -F': ' '/certificate SHA-256 digest:/ { print $NF; exit }' |
+              tr '[:upper:]' '[:lower:]'
           )"
 
           if [[ "$ACTUAL_CERT_SHA256" != "$CI_DEBUG_CERT_SHA256" ]]; then
