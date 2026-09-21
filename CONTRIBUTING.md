@@ -14,6 +14,26 @@ Package identity is always `com.chaners.combinedstatus`.
 
 ## Mandatory workflow for every functional change
 
+### 0. Proposal evaluation gate
+
+A new idea, requested change, or implementation direction is a **candidate**, not an automatic instruction to modify the code.
+
+Before accepting any new direction, objectively evaluate:
+
+- **reasonableness**: does it solve a real problem, and is the proposed mechanism actually related to the root cause?
+- **necessity**: is the change needed now, or would it add complexity without clear value?
+- **feasibility**: can it be implemented reliably with the current Android, HyperOS, MIUIX, and Modern Xposed constraints?
+- **standards compliance**: does it fit platform conventions and the project's standardized/lightweight/modern principles?
+- **architectural fit**: does it preserve existing ownership, lifecycle, state flow, and compatibility boundaries?
+- **runtime cost**: does it introduce unnecessary hooks, listeners, wakeups, reflection, polling, logging, Root work, or memory retention?
+- **maintenance cost**: will it create special cases, duplicate logic, fragile version checks, or future migration debt?
+- **evidence**: is there enough code/runtime evidence to justify the direction, or is more diagnosis required first?
+- **alternatives**: is there a simpler, safer, more native, or more maintainable way to reach the same goal?
+
+If a proposal is weak, premature, redundant, or conflicts with the project architecture, do **not** implement it blindly. Explain the issue, keep the current baseline intact, and propose the smallest sound alternative or the next diagnostic step.
+
+This rule applies equally to user suggestions and implementation ideas generated during development.
+
 ### 1. Pre-change review
 
 Before coding, inspect the full call chain and lifecycle.
@@ -185,6 +205,7 @@ For runtime-sensitive work provide a focused real-device test list. Depending on
 ## Definition of done
 
 A change is complete only when all applicable checks pass:
+- proposal/direction objectively evaluated before implementation;
 - pre-change review;
 - standardized/lightweight/modern implementation review;
 - copy review when text changed;
@@ -199,12 +220,13 @@ A change is complete only when all applicable checks pass:
 ## Required implementation report
 
 Every implementation report should state:
-1. what changed and why;
-2. standardization/lightweight/modernization review result;
-3. text-review result when text changed;
-4. MIUIX UI-review result when UI changed;
-5. CI result;
-6. required real-device test scenarios;
-7. known limitations or compatibility boundaries.
+1. how the proposed direction was evaluated and why it was accepted, adjusted, or rejected;
+2. what changed and why;
+3. standardization/lightweight/modernization review result;
+4. text-review result when text changed;
+5. MIUIX UI-review result when UI changed;
+6. CI result;
+7. required real-device test scenarios;
+8. known limitations or compatibility boundaries.
 
 These rules should be re-read and applied for every future feature or fix.
