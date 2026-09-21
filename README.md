@@ -37,6 +37,8 @@ Core module behavior is shared between debug and release builds. Release builds 
 
 ## Development workflow
 
+Engineering rules and the required pre/post-change review process are documented in [CONTRIBUTING.md](CONTRIBUTING.md). Every functional change is expected to follow those checks, including copy review for text changes and MIUIX review for UI changes.
+
 `main` is the stable integration baseline. SystemUI module work is developed on `dev`, where each small feature must pass CI and real-device validation before it is promoted to `main`. Short-lived `feat/*` branches are reserved for higher-risk experiments and are merged back into `dev` once validated.
 
 Both `main` and `dev` run the Android build workflow. CI uses per-branch concurrency so a newer push cancels an obsolete in-progress build for the same branch.
