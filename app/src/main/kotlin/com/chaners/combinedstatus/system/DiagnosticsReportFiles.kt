@@ -1,12 +1,14 @@
 package com.chaners.combinedstatus.system
 
+import android.content.ContentUris
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Environment
+import android.provider.MediaStore
 import android.util.Log
-import androidx.core.content.FileProvider
 import com.chaners.combinedstatus.BuildConfig
-import java.io.File
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
@@ -14,16 +16,19 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 internal object DiagnosticsReportFiles {
-    const val ShareMimeType = "application/octet-stream"
+    const val ShareMimeType = "text/plain"
 
-    private const val ShareDirectoryName = "diagnostics-share"
     private const val ShareLogTag = "CombinedStatusShare"
+    private const val ShareNamePrefix = "CombinedStatus-Diagnostic-"
     private const val MaxSharedReports = 3
     private val MaxSharedReportAgeMillis = TimeUnit.HOURS.toMillis(24)
+    private val ShareRelativePath = "${Environment.DIRECTORY_DOWNLOADS}/CombinedStatus/"
+    private val ShareCollection =
+        MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
     private val FileTimestampFormatter = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")
 
     fun suggestedFileName(now: OffsetDateTime = OffsetDateTime.now()): String =
-        "CombinedStatus-Diagnostic-${BuildConfig.BUILD_ID}-${now.format(FileTimestampFormatter)}.txt"
+        "$ShareNamePrefix${BuildConfig.BUILD_ID}-${now.format(FileTimestampFormatter)}.txt"
 
     suspend fun writeExport(
         context: Context,
@@ -43,32 +48,54 @@ internal object DiagnosticsReportFiles {
         context: Context,
         report: String,
     ): PreparedShare? = withContext(Dispatchers.IO) {
+        val resolver = context.contentResolver
+        var insertedUri: Uri? = null
+
         runCatching {
-            val directory = File(context.cacheDir, ShareDirectoryName).apply {
-                if (!exists() && !mkdirs()) {
-                    error("Unable to create diagnostic share directory")
+            runCatching {
+                pruneBeforeNewShare(context)
+            }.onFailure { error ->
+                if (BuildConfig.DEBUG) {
+                    val message =
+                        "cleanup transport=mediaStore result=failed " +
+                            "error=${error.javaClass.simpleName}"
+                    Log.w(ShareLogTag, message)
+                    ShareDiagnosticsStore.append(context, message)
                 }
             }
 
-            pruneBeforeNewShare(context, directory)
-
-            val file = uniqueShareFile(directory).apply {
-                writeText(report, Charsets.UTF_8)
+            val values = ContentValues().apply {
+                put(MediaStore.MediaColumns.DISPLAY_NAME, suggestedFileName())
+                put(MediaStore.MediaColumns.MIME_TYPE, ShareMimeType)
+                put(MediaStore.MediaColumns.RELATIVE_PATH, ShareRelativePath)
+                put(MediaStore.MediaColumns.IS_PENDING, 1)
             }
-            val uri = FileProvider.getUriForFile(
-                context,
-                "${BuildConfig.APPLICATION_ID}.fileprovider",
-                file,
-            )
+
+            val uri = resolver.insert(ShareCollection, values)
+                ?: error("Unable to create managed diagnostic report")
+            insertedUri = uri
+
+            val output = resolver.openOutputStream(uri, "w")
+                ?: error("Unable to open managed diagnostic report")
+            output.bufferedWriter(Charsets.UTF_8).use { writer ->
+                writer.write(report)
+            }
+
+            val publishValues = ContentValues().apply {
+                put(MediaStore.MediaColumns.IS_PENDING, 0)
+            }
+            if (resolver.update(uri, publishValues, null, null) <= 0) {
+                error("Unable to publish managed diagnostic report")
+            }
 
             if (BuildConfig.DEBUG) {
                 val probe = runCatching {
-                    val mimeType = context.contentResolver.getType(uri)
-                    val descriptorSize = context.contentResolver
+                    val mimeType = resolver.getType(uri)
+                    val descriptorSize = resolver
                         .openFileDescriptor(uri, "r")
                         ?.use { descriptor -> descriptor.statSize }
                         ?: -1L
-                    val selfReadable = context.contentResolver
+                    val selfReadable = resolver
                         .openInputStream(uri)
                         ?.use { input ->
                             input.read()
@@ -82,17 +109,21 @@ internal object DiagnosticsReportFiles {
                 }
 
                 val message =
-                    "prepare file=${file.name} exists=${file.exists()} readable=${file.canRead()} " +
-                        "bytes=${file.length()} scheme=${uri.scheme} authority=${uri.authority} $probe"
+                    "prepare transport=mediaStore managed=true scheme=${uri.scheme} " +
+                        "authority=${uri.authority} relativePath=$ShareRelativePath $probe"
                 Log.i(ShareLogTag, message)
                 ShareDiagnosticsStore.append(context, message)
             }
 
-            PreparedShare(uri = uri, file = file)
+            PreparedShare(uri = uri)
         }.onFailure { error ->
+            insertedUri?.let { uri ->
+                runCatching { resolver.delete(uri, null, null) }
+            }
             if (BuildConfig.DEBUG) {
                 val message =
-                    "prepare failed error=${error.javaClass.simpleName} message=${error.message.orEmpty()}"
+                    "prepare transport=mediaStore result=failed " +
+                        "error=${error.javaClass.simpleName} message=${error.message.orEmpty()}"
                 Log.e(ShareLogTag, message)
                 ShareDiagnosticsStore.append(context, message)
             }
@@ -142,65 +173,73 @@ internal object DiagnosticsReportFiles {
         context: Context,
         preparedShare: PreparedShare,
     ) {
-        deleteSharedReport(context, preparedShare.file)
-    }
-
-    private fun uniqueShareFile(directory: File): File {
-        val baseName = suggestedFileName().removeSuffix(".txt")
-        var candidate = File(directory, "$baseName.txt")
-        var suffix = 2
-
-        while (candidate.exists()) {
-            candidate = File(directory, "$baseName-$suffix.txt")
-            suffix += 1
-        }
-
-        return candidate
-    }
-
-    private fun pruneBeforeNewShare(
-        context: Context,
-        directory: File,
-    ) {
-        val now = System.currentTimeMillis()
-        val reports = directory
-            .listFiles()
-            .orEmpty()
-            .filter { file -> file.isFile && file.extension.equals("txt", ignoreCase = true) }
-
-        reports
-            .filter { file -> now - file.lastModified() > MaxSharedReportAgeMillis }
-            .forEach { file -> deleteSharedReport(context, file) }
-
-        directory
-            .listFiles()
-            .orEmpty()
-            .filter { file -> file.isFile && file.extension.equals("txt", ignoreCase = true) }
-            .sortedByDescending(File::lastModified)
-            .drop(MaxSharedReports - 1)
-            .forEach { file -> deleteSharedReport(context, file) }
-    }
-
-    private fun deleteSharedReport(
-        context: Context,
-        file: File,
-    ) {
         runCatching {
-            val uri = FileProvider.getUriForFile(
-                context,
-                "${BuildConfig.APPLICATION_ID}.fileprovider",
-                file,
-            )
-            context.revokeUriPermission(
-                uri,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION,
-            )
+            context.contentResolver.delete(preparedShare.uri, null, null)
         }
-        runCatching { file.delete() }
+    }
+
+    private fun pruneBeforeNewShare(context: Context) {
+        val resolver = context.contentResolver
+        val projection = arrayOf(
+            MediaStore.MediaColumns._ID,
+            MediaStore.MediaColumns.DATE_ADDED,
+        )
+        val selection =
+            "${MediaStore.MediaColumns.RELATIVE_PATH}=? AND " +
+                "${MediaStore.MediaColumns.DISPLAY_NAME} LIKE ?"
+        val selectionArgs = arrayOf(
+            ShareRelativePath,
+            "$ShareNamePrefix%",
+        )
+        val reports = mutableListOf<ManagedShare>()
+
+        resolver.query(
+            ShareCollection,
+            projection,
+            selection,
+            selectionArgs,
+            "${MediaStore.MediaColumns.DATE_ADDED} DESC",
+        )?.use { cursor ->
+            val idColumn = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
+            val dateAddedColumn =
+                cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DATE_ADDED)
+
+            while (cursor.moveToNext()) {
+                reports += ManagedShare(
+                    uri = ContentUris.withAppendedId(
+                        ShareCollection,
+                        cursor.getLong(idColumn),
+                    ),
+                    dateAddedSeconds = cursor.getLong(dateAddedColumn),
+                )
+            }
+        }
+
+        val nowMillis = System.currentTimeMillis()
+        val freshReports = reports.filter { report ->
+            val addedMillis = TimeUnit.SECONDS.toMillis(report.dateAddedSeconds)
+            val expired =
+                report.dateAddedSeconds > 0 &&
+                    nowMillis - addedMillis > MaxSharedReportAgeMillis
+            if (expired) {
+                runCatching { resolver.delete(report.uri, null, null) }
+            }
+            !expired
+        }
+
+        freshReports
+            .drop(MaxSharedReports - 1)
+            .forEach { report ->
+                runCatching { resolver.delete(report.uri, null, null) }
+            }
     }
 
     internal data class PreparedShare(
         val uri: Uri,
-        val file: File,
+    )
+
+    private data class ManagedShare(
+        val uri: Uri,
+        val dateAddedSeconds: Long,
     )
 }

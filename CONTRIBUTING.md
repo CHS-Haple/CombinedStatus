@@ -110,6 +110,22 @@ If the globally preferred solution differs materially from the active plan, stop
 
 Diagnostic work is complete only when it improves both **root-cause confidence** and **solution selection**. Logs are not just for deciding whether the current patch worked; they are evidence for choosing the best next architecture or implementation path.
 
+#### 0.7 Preserve diagnostic isolation in multi-fix builds
+
+When evidence is incomplete, multiple hypotheses are still plausible, or one change could mask another, use single-variable A/B builds. One experimental build should answer one unresolved question whenever combining changes would make the result ambiguous.
+
+Once multiple problems are independently confirmed, they may be fixed in the same application build for efficiency only if each problem keeps an independent verification boundary:
+
+- its affected files/layers and runtime owner are explicit;
+- its implementation does not depend on the other fix unless that dependency is verified and documented;
+- it has distinct low-overhead diagnostics or log markers where runtime evidence is needed;
+- it has its own acceptance criteria and pass/fail result;
+- it can be rolled back or revised without obscuring the state of the other fix.
+
+A multi-fix build must not recreate the question "which change caused this result?" If one fix fails real-device validation, the evidence for the other fixes must remain independently interpretable.
+
+The implementation report and real-device checklist must report each confirmed problem separately rather than treating the whole build as one undifferentiated pass/fail result.
+
 
 ### 1. Pre-change review
 

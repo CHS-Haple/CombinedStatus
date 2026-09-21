@@ -112,11 +112,7 @@ class CombinedStatusModule : XposedModule() {
                 },
             )
         ) {
-            is StatusBarStableSession.AttachResult.Ready -> {
-                if (BuildConfig.DEBUG) {
-                    log(Log.INFO, TAG, stableSession.anchor.logLine)
-                }
-            }
+            StatusBarStableSession.AttachResult.Ready -> Unit
 
             is StatusBarStableSession.AttachResult.Failure -> {
                 log(

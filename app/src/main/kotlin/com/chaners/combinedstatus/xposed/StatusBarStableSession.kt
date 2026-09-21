@@ -33,31 +33,21 @@ internal object StatusBarStableSession {
 
         val existing = current
         if (existing?.matches(hostView, batteryContainer, batteryView) == true) {
-            return AttachResult.Ready(existing.anchor)
+            return AttachResult.Ready
         }
 
         existing?.stop()
 
-        val anchor = Anchor(
-            hostIdentity = System.identityHashCode(hostView),
-            batteryContainerIndex = hostView.indexOfChild(batteryContainer),
-            batteryIndex = batteryContainer.indexOfChild(batteryView),
-            batteryWidth = batteryView.width,
-            batteryHeight = batteryView.height,
-            batteryMeasuredWidth = batteryView.measuredWidth,
-            batteryMeasuredHeight = batteryView.measuredHeight,
-        )
         val session = Session(
             host = hostView,
             batteryContainer = batteryContainer,
             batteryView = batteryView,
-            anchor = anchor,
             onEvent = onEvent,
         )
         current = session
         session.start()
 
-        return AttachResult.Ready(anchor)
+        return AttachResult.Ready
     }
 
     private fun ViewGroup.directChild(className: String): ViewGroup? {
@@ -74,12 +64,13 @@ internal object StatusBarStableSession {
         host: ViewGroup,
         batteryContainer: ViewGroup,
         batteryView: ViewGroup,
-        val anchor: Anchor,
         private val onEvent: (String) -> Unit,
     ) : View.OnAttachStateChangeListener {
         private val host = WeakReference(host)
         private val batteryContainer = WeakReference(batteryContainer)
         private val batteryView = WeakReference(batteryView)
+        private var anchorCaptured = false
+        private var anchorLayoutListener: View.OnLayoutChangeListener? = null
         private var receiverContext: Context? = null
         private var receiverRegistered = false
         private var lastBatteryState: BatteryState? = null
@@ -106,6 +97,7 @@ internal object StatusBarStableSession {
         fun start() {
             val view = host.get() ?: return
             view.addOnAttachStateChangeListener(this)
+            scheduleAnchorCapture()
             if (view.isAttachedToWindow) {
                 registerBatteryReceiver(view.context)
             }
@@ -113,15 +105,93 @@ internal object StatusBarStableSession {
 
         fun stop() {
             host.get()?.removeOnAttachStateChangeListener(this)
+            clearAnchorLayoutListener()
             unregisterBatteryReceiver()
         }
 
         override fun onViewAttachedToWindow(view: View) {
+            scheduleAnchorCapture()
             registerBatteryReceiver(view.context)
         }
 
         override fun onViewDetachedFromWindow(view: View) {
+            clearAnchorLayoutListener()
             unregisterBatteryReceiver()
+        }
+
+        private fun scheduleAnchorCapture() {
+            if (anchorCaptured || captureAnchorIfReady("ready")) {
+                return
+            }
+
+            val view = batteryView.get() ?: return
+            if (anchorLayoutListener != null) {
+                return
+            }
+
+            val listener =
+                object : View.OnLayoutChangeListener {
+                    override fun onLayoutChange(
+                        view: View,
+                        left: Int,
+                        top: Int,
+                        right: Int,
+                        bottom: Int,
+                        oldLeft: Int,
+                        oldTop: Int,
+                        oldRight: Int,
+                        oldBottom: Int,
+                    ) {
+                        captureAnchorIfReady("layout")
+                    }
+                }
+
+            anchorLayoutListener = listener
+            view.addOnLayoutChangeListener(listener)
+            captureAnchorIfReady("ready")
+        }
+
+        private fun captureAnchorIfReady(source: String): Boolean {
+            if (anchorCaptured) {
+                return true
+            }
+
+            val hostView = host.get() ?: return false
+            val container = batteryContainer.get() ?: return false
+            val view = batteryView.get() ?: return false
+
+            if (
+                !view.isLaidOut ||
+                view.width <= 0 ||
+                view.height <= 0 ||
+                view.measuredWidth <= 0 ||
+                view.measuredHeight <= 0
+            ) {
+                return false
+            }
+
+            anchorCaptured = true
+            clearAnchorLayoutListener()
+
+            onEvent(
+                Anchor(
+                    source = source,
+                    hostIdentity = System.identityHashCode(hostView),
+                    batteryContainerIndex = hostView.indexOfChild(container),
+                    batteryIndex = container.indexOfChild(view),
+                    batteryWidth = view.width,
+                    batteryHeight = view.height,
+                    batteryMeasuredWidth = view.measuredWidth,
+                    batteryMeasuredHeight = view.measuredHeight,
+                ).logLine,
+            )
+            return true
+        }
+
+        private fun clearAnchorLayoutListener() {
+            val listener = anchorLayoutListener ?: return
+            batteryView.get()?.removeOnLayoutChangeListener(listener)
+            anchorLayoutListener = null
         }
 
         private fun registerBatteryReceiver(context: Context) {
@@ -202,9 +272,7 @@ internal object StatusBarStableSession {
     }
 
     internal sealed interface AttachResult {
-        data class Ready(
-            val anchor: Anchor,
-        ) : AttachResult
+        data object Ready : AttachResult
 
         data class Failure(
             val reason: String,
@@ -212,6 +280,7 @@ internal object StatusBarStableSession {
     }
 
     internal data class Anchor(
+        val source: String,
         val hostIdentity: Int,
         val batteryContainerIndex: Int,
         val batteryIndex: Int,
@@ -222,7 +291,7 @@ internal object StatusBarStableSession {
     ) {
         val logLine: String
             get() =
-                "stableStatus anchor hostId=$hostIdentity " +
+                "stableStatus anchor source=$source hostId=$hostIdentity " +
                     "containerIndex=$batteryContainerIndex batteryIndex=$batteryIndex " +
                     "batterySize=${batteryWidth}x$batteryHeight " +
                     "batteryMeasured=${batteryMeasuredWidth}x$batteryMeasuredHeight " +

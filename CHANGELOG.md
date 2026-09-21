@@ -56,9 +56,10 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Cold-start initialization now configures edge-to-edge before Compose content and prepares one-time platform state before the first composition; later theme changes update only system-bar icon appearance.
 - Debug diagnostics now record a one-shot, bounded three-level inventory of the verified MIUI status-icon container subtree to identify live icon ownership without adding hooks or reading user-facing text.
 - Diagnostic reports now default to the latest SystemUI process session instead of accumulating historical sessions across builds.
-- Diagnostic report export uses Android's system document picker with an editable default text-file name; sharing uses a bounded private cache file through FileProvider with temporary read-only URI access.
-- Diagnostic file sharing uses EXTRA_STREAM, ClipData, and temporary read permission on the system chooser while keeping reports in a bounded private cache.
-- Diagnostic share MIME diagnostics now keep the ACTION_SEND type and the dedicated FileProvider-reported type aligned so receiver behavior can be tested without mixed MIME metadata.
+- Diagnostic report export continues to use Android's system document picker with an editable default text-file name.
+- Diagnostic report sharing now uses a bounded MediaStore Downloads transport with a system-managed content URI, standard text/plain semantics, EXTRA_STREAM, ClipData, and temporary read permission.
+- Temporary managed share reports are kept under Download/CombinedStatus and pruned to at most three recent files with a 24-hour age bound.
+- Stable status geometry capture now waits for the first valid battery-view layout before recording the anchor, while keeping native SystemUI geometry untouched.
 - Compatibility metadata, diagnostics copy, and CI verification now target SystemUI only, matching the module's actual `com.android.systemui` scope.
 
 ### Fixed
