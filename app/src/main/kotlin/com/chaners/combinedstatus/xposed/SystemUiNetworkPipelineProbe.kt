@@ -32,8 +32,7 @@ internal object SystemUiNetworkPipelineProbe {
     const val MOBILE_VIEW_LOGGER_CLASS_NAME =
         "com.android.systemui.statusbar.pipeline.mobile.ui.MobileViewLogger"
     const val MOBILE_SIGNAL_EMITTER_CLASS_NAME =
-        "com.android.systemui.statusbar.pipeline.mobile.ui.binder." +
-            "MiuiMobileIconBinder\$bind\$1\$1\$4\$2"
+        "com.android.systemui.statusbar.pipeline.mobile.ui.binder.MiuiMobileIconBinder\$bind\$1\$1\$4\$2"
     const val MOBILE_SIGNAL_EMIT_METHOD_NAME = "emit"
 
     const val HOOK_COUNT = 4
