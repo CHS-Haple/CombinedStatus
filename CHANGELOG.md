@@ -54,6 +54,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Restart confirmation now follows the MIUIX two-action dialog layout with equal-width actions and user-facing SystemUI wording.
 - Xposed lifecycle diagnostics now include the internal build ID to make hot-reload generation changes directly visible in LSPosed logs.
 - Cold-start initialization now configures edge-to-edge before Compose content and prepares one-time platform state before the first composition; later theme changes update only system-bar icon appearance.
+- Debug diagnostics now record a one-shot, bounded three-level inventory of the verified MIUI status-icon container subtree to identify live icon ownership without adding hooks or reading user-facing text.
 - Compatibility metadata, diagnostics copy, and CI verification now target SystemUI only, matching the module's actual `com.android.systemui` scope.
 
 ### Fixed

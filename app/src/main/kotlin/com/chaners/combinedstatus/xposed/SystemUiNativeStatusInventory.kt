@@ -19,6 +19,8 @@ internal object SystemUiNativeStatusInventory {
         "com.android.systemui.statusbar.views.MiuiStatusBatteryContainer"
 
     private const val MAX_SCANNED_VIEWS = 1024
+    private const val STATUS_ICON_SUBTREE_MAX_DEPTH = 3
+    private const val STATUS_ICON_SUBTREE_MAX_NODES = 64
 
     fun schedule(
         host: Any,
@@ -87,6 +89,7 @@ internal object SystemUiNativeStatusInventory {
             scannedViews = scanState.scannedViews,
             truncated = scanState.truncated,
             entries = entries,
+            statusIconSubtree = scanState.miuiStatusIconContainer?.let(::inspectStatusIconSubtree),
         )
     }
 
@@ -104,11 +107,19 @@ internal object SystemUiNativeStatusInventory {
         scanState.scannedViews += 1
 
         val viewResourceId = resourceId(view)
+        val className = view.javaClass.name
+        if (
+            className == MIUI_STATUS_ICON_CONTAINER_CLASS_NAME &&
+            scanState.miuiStatusIconContainer == null
+        ) {
+            scanState.miuiStatusIconContainer = view as? ViewGroup
+        }
+
         roleFor(view, viewResourceId)?.let { role ->
             val parent = view.parent as? ViewGroup
             destination += Entry(
                 role = role,
-                className = view.javaClass.name,
+                className = className,
                 resourceId = viewResourceId,
                 parentClassName = parent?.javaClass?.name ?: "none",
                 parentIndex = parent?.indexOfChild(view) ?: -1,
@@ -140,6 +151,91 @@ internal object SystemUiNativeStatusInventory {
                 destination = destination,
                 scanState = scanState,
             )
+        }
+    }
+
+    private fun inspectStatusIconSubtree(container: ViewGroup): SubtreeSnapshot {
+        val entries = mutableListOf<SubtreeEntry>()
+        val state = SubtreeScanState()
+
+        collectStatusIconChildren(
+            parent = container,
+            parentPath = "icons",
+            parentDepth = 0,
+            destination = entries,
+            state = state,
+        )
+
+        return SubtreeSnapshot(
+            rootClassName = container.javaClass.name,
+            rootResourceId = resourceId(container),
+            rootChildCount = container.childCount,
+            maxDepth = STATUS_ICON_SUBTREE_MAX_DEPTH,
+            maxNodes = STATUS_ICON_SUBTREE_MAX_NODES,
+            truncated = state.truncated,
+            entries = entries,
+        )
+    }
+
+    private fun collectStatusIconChildren(
+        parent: ViewGroup,
+        parentPath: String,
+        parentDepth: Int,
+        destination: MutableList<SubtreeEntry>,
+        state: SubtreeScanState,
+    ) {
+        if (parentDepth >= STATUS_ICON_SUBTREE_MAX_DEPTH) {
+            if (parent.childCount > 0) {
+                state.truncated = true
+            }
+            return
+        }
+
+        for (index in 0 until parent.childCount) {
+            if (state.nodes >= STATUS_ICON_SUBTREE_MAX_NODES) {
+                state.truncated = true
+                return
+            }
+
+            val child = parent.getChildAt(index)
+            val depth = parentDepth + 1
+            val path = "$parentPath/$index"
+            val childGroup = child as? ViewGroup
+
+            destination += SubtreeEntry(
+                className = child.javaClass.name,
+                resourceId = resourceId(child),
+                parentClassName = parent.javaClass.name,
+                parentIndex = index,
+                depth = depth,
+                path = path,
+                childCount = childGroup?.childCount ?: 0,
+                visibility = visibilityName(child.visibility),
+                width = child.width,
+                height = child.height,
+                measuredWidth = child.measuredWidth,
+                measuredHeight = child.measuredHeight,
+                left = child.left,
+                top = child.top,
+                right = child.right,
+                bottom = child.bottom,
+                translationX = child.translationX,
+                translationY = child.translationY,
+            )
+            state.nodes += 1
+
+            if (childGroup != null) {
+                collectStatusIconChildren(
+                    parent = childGroup,
+                    parentPath = path,
+                    parentDepth = depth,
+                    destination = destination,
+                    state = state,
+                )
+                if (state.nodes >= STATUS_ICON_SUBTREE_MAX_NODES) {
+                    return
+                }
+            }
         }
     }
 
@@ -236,6 +332,12 @@ internal object SystemUiNativeStatusInventory {
     private class ScanState(
         var scannedViews: Int = 0,
         var truncated: Boolean = false,
+        var miuiStatusIconContainer: ViewGroup? = null,
+    )
+
+    private class SubtreeScanState(
+        var nodes: Int = 0,
+        var truncated: Boolean = false,
     )
 
     internal data class Snapshot(
@@ -251,6 +353,7 @@ internal object SystemUiNativeStatusInventory {
         val scannedViews: Int,
         val truncated: Boolean,
         val entries: List<Entry>,
+        val statusIconSubtree: SubtreeSnapshot?,
     ) {
         val summary: String
             get() {
@@ -324,6 +427,54 @@ internal object SystemUiNativeStatusInventory {
                     "visibility=$visibility " +
                     "bounds=$left,$top-$right,$bottom " +
                     "size=${width}x$height measured=${measuredWidth}x$measuredHeight " +
-                    "translation=${translationX},$translationY"
+                    "translation=$translationX,$translationY"
+    }
+
+    internal data class SubtreeSnapshot(
+        val rootClassName: String,
+        val rootResourceId: String,
+        val rootChildCount: Int,
+        val maxDepth: Int,
+        val maxNodes: Int,
+        val truncated: Boolean,
+        val entries: List<SubtreeEntry>,
+    ) {
+        val summary: String
+            get() =
+                "nativeStatus topology iconSubtree " +
+                    "root=${rootClassName.substringAfterLast('.')} " +
+                    "id=$rootResourceId children=$rootChildCount nodes=${entries.size} " +
+                    "maxDepth=$maxDepth maxNodes=$maxNodes truncated=$truncated"
+    }
+
+    internal data class SubtreeEntry(
+        val className: String,
+        val resourceId: String,
+        val parentClassName: String,
+        val parentIndex: Int,
+        val depth: Int,
+        val path: String,
+        val childCount: Int,
+        val visibility: String,
+        val width: Int,
+        val height: Int,
+        val measuredWidth: Int,
+        val measuredHeight: Int,
+        val left: Int,
+        val top: Int,
+        val right: Int,
+        val bottom: Int,
+        val translationX: Float,
+        val translationY: Float,
+    ) {
+        val logLine: String
+            get() =
+                "nativeStatus topology iconNode " +
+                    "class=${className.substringAfterLast('.')} " +
+                    "id=$resourceId parent=${parentClassName.substringAfterLast('.')} " +
+                    "index=$parentIndex depth=$depth path=$path children=$childCount " +
+                    "visibility=$visibility bounds=$left,$top-$right,$bottom " +
+                    "size=${width}x$height measured=${measuredWidth}x$measuredHeight " +
+                    "translation=$translationX,$translationY"
     }
 }

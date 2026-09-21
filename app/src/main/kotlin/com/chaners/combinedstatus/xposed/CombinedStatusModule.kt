@@ -109,6 +109,12 @@ class CombinedStatusModule : XposedModule() {
                 snapshot.entries.forEach { entry ->
                     log(Log.INFO, TAG, entry.logLine)
                 }
+                snapshot.statusIconSubtree?.let { subtree ->
+                    log(Log.INFO, TAG, subtree.summary)
+                    subtree.entries.forEach { entry ->
+                        log(Log.INFO, TAG, entry.logLine)
+                    }
+                }
             }
         }
     }
