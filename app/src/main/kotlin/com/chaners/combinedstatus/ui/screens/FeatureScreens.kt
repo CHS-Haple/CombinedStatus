@@ -1,10 +1,10 @@
 package com.chaners.combinedstatus.ui.screens
 
 import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
 import android.content.Intent
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,6 +25,7 @@ import com.chaners.combinedstatus.R
 import com.chaners.combinedstatus.settings.AppThemeMode
 import com.chaners.combinedstatus.settings.AppearanceSettings
 import com.chaners.combinedstatus.system.DiagnosticsReportBuilder
+import com.chaners.combinedstatus.system.DiagnosticsReportFiles
 import com.chaners.combinedstatus.ui.layout.pageContentPadding
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.BasicComponent
@@ -162,6 +163,7 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var reportInProgress by rememberSaveable { mutableStateOf(false) }
+    var exportPickerOpen by rememberSaveable { mutableStateOf(false) }
 
     val buildSummary = listOf(
         stringResource(R.string.target_platform_value),
@@ -176,17 +178,40 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
             R.string.diagnostics_mode_basic
         },
     )
-    val reportClipLabel = stringResource(R.string.diagnostic_report_clip_label)
-    val reportCopiedMessage = stringResource(R.string.diagnostic_report_copied)
     val reportShareTitle = stringResource(R.string.share_diagnostic_report)
+    val exportSucceededMessage = stringResource(R.string.diagnostic_report_exported)
+    val exportFailedMessage = stringResource(R.string.diagnostic_report_export_failed)
+    val shareFailedMessage = stringResource(R.string.diagnostic_report_share_failed)
 
-    fun buildReport(onReady: (String) -> Unit) {
+    fun buildReport(onReady: suspend (String) -> Unit) {
         if (reportInProgress) return
         reportInProgress = true
         scope.launch {
-            val report = DiagnosticsReportBuilder.build()
-            reportInProgress = false
-            onReady(report)
+            try {
+                onReady(DiagnosticsReportBuilder.build())
+            } finally {
+                reportInProgress = false
+            }
+        }
+    }
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/plain"),
+    ) { uri ->
+        exportPickerOpen = false
+        if (uri != null) {
+            buildReport { report ->
+                val success = DiagnosticsReportFiles.writeExport(
+                    context = context,
+                    uri = uri,
+                    report = report,
+                )
+                Toast.makeText(
+                    context,
+                    if (success) exportSucceededMessage else exportFailedMessage,
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }
         }
     }
 
@@ -219,37 +244,52 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
         }
         Section(R.string.section_diagnostic_report) {
             BasicComponent(
-                title = stringResource(R.string.copy_diagnostic_report),
-                summary = stringResource(R.string.copy_diagnostic_report_summary),
-                enabled = !reportInProgress,
+                title = stringResource(R.string.export_diagnostic_report),
+                summary = stringResource(R.string.export_diagnostic_report_summary),
+                enabled = !reportInProgress && !exportPickerOpen,
                 onClick = {
-                    buildReport { report ->
-                        val clipboard =
-                            context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        clipboard.setPrimaryClip(
-                            ClipData.newPlainText(reportClipLabel, report),
-                        )
-                        Toast.makeText(
-                            context,
-                            reportCopiedMessage,
-                            Toast.LENGTH_SHORT,
-                        ).show()
-                    }
+                    exportPickerOpen = true
+                    exportLauncher.launch(DiagnosticsReportFiles.suggestedFileName())
                 },
             )
             BasicComponent(
                 title = stringResource(R.string.share_diagnostic_report),
                 summary = stringResource(R.string.share_diagnostic_report_summary),
-                enabled = !reportInProgress,
+                enabled = !reportInProgress && !exportPickerOpen,
                 onClick = {
                     buildReport { report ->
+                        val prepared = DiagnosticsReportFiles.prepareShare(
+                            context = context,
+                            report = report,
+                        )
+                        if (prepared == null) {
+                            Toast.makeText(
+                                context,
+                                shareFailedMessage,
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                            return@buildReport
+                        }
+
                         val sendIntent = Intent(Intent.ACTION_SEND).apply {
                             type = "text/plain"
-                            putExtra(Intent.EXTRA_TEXT, report)
+                            putExtra(Intent.EXTRA_STREAM, prepared.uri)
+                            clipData = ClipData.newRawUri(reportShareTitle, prepared.uri)
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                         }
-                        context.startActivity(
-                            Intent.createChooser(sendIntent, reportShareTitle),
-                        )
+
+                        runCatching {
+                            context.startActivity(
+                                Intent.createChooser(sendIntent, reportShareTitle),
+                            )
+                        }.onFailure {
+                            DiagnosticsReportFiles.discardShare(prepared)
+                            Toast.makeText(
+                                context,
+                                shareFailedMessage,
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        }
                     }
                 },
             )

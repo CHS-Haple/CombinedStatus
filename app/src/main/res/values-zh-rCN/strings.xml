@@ -92,11 +92,12 @@
     <string name="diagnostics_mode_basic">基础诊断 · 版本、兼容性、生命周期、热重载与错误信息</string>
     <string name="diagnostics_mode_detailed">详细诊断 · 附带状态栏结构、几何与 Hook 细节</string>
     <string name="section_diagnostic_report">诊断报告</string>
-    <string name="copy_diagnostic_report">复制诊断报告</string>
-    <string name="copy_diagnostic_report_summary">生成当前环境与最近模块运行日志报告</string>
+    <string name="export_diagnostic_report">导出诊断报告</string>
+    <string name="export_diagnostic_report_summary">将报告保存为文本文件，并选择保存位置</string>
     <string name="share_diagnostic_report">分享诊断报告</string>
-    <string name="share_diagnostic_report_summary">生成相同报告并打开系统分享面板</string>
-    <string name="diagnostic_report_clip_label">CombinedStatus 诊断报告</string>
-    <string name="diagnostic_report_copied">诊断报告已复制</string>
+    <string name="share_diagnostic_report_summary">将报告作为文本文件附件分享</string>
+    <string name="diagnostic_report_exported">诊断报告已导出</string>
+    <string name="diagnostic_report_export_failed">诊断报告导出失败</string>
+    <string name="diagnostic_report_share_failed">诊断报告分享失败</string>
     <string name="back">返回</string>
 </resources>
