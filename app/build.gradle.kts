@@ -8,16 +8,16 @@ val combinedStatusVersionName = providers.gradleProperty("combinedStatus.version
 val combinedStatusVersionCode = providers.gradleProperty("combinedStatus.versionCode").get().toInt()
 val combinedStatusBuildId = providers.gradleProperty("combinedStatus.buildId").get()
 
-val releaseKeystorePath = providers.environmentVariable("ANDROID_KEYSTORE_PATH").orNull
-val releaseKeystorePassword = providers.environmentVariable("ANDROID_KEYSTORE_PASSWORD").orNull
-val releaseKeyAlias = providers.environmentVariable("ANDROID_KEY_ALIAS").orNull
-val releaseKeyPassword = providers.environmentVariable("ANDROID_KEY_PASSWORD").orNull
-val releaseSigningEnabled =
-    !releaseKeystorePath.isNullOrBlank() &&
-        !releaseKeystorePassword.isNullOrBlank() &&
-        !releaseKeyAlias.isNullOrBlank() &&
-        !releaseKeyPassword.isNullOrBlank() &&
-        file(releaseKeystorePath).isFile
+val hapleKeystorePath = providers.environmentVariable("ANDROID_KEYSTORE_PATH").orNull
+val hapleKeystorePassword = providers.environmentVariable("ANDROID_KEYSTORE_PASSWORD").orNull
+val hapleKeyAlias = providers.environmentVariable("ANDROID_KEY_ALIAS").orNull
+val hapleKeyPassword = providers.environmentVariable("ANDROID_KEY_PASSWORD").orNull
+val hapleSigningEnabled =
+    !hapleKeystorePath.isNullOrBlank() &&
+        !hapleKeystorePassword.isNullOrBlank() &&
+        !hapleKeyAlias.isNullOrBlank() &&
+        !hapleKeyPassword.isNullOrBlank() &&
+        file(hapleKeystorePath).isFile
 
 @Suppress("UnstableApiUsage")
 android {
@@ -41,12 +41,12 @@ android {
     }
 
     signingConfigs {
-        if (releaseSigningEnabled) {
-            create("release") {
-                storeFile = file(requireNotNull(releaseKeystorePath))
-                storePassword = releaseKeystorePassword
-                keyAlias = releaseKeyAlias
-                keyPassword = releaseKeyPassword
+        if (hapleSigningEnabled) {
+            create("haple") {
+                storeFile = file(requireNotNull(hapleKeystorePath))
+                storePassword = hapleKeystorePassword
+                keyAlias = hapleKeyAlias
+                keyPassword = hapleKeyPassword
 
                 enableV1Signing = false
                 enableV2Signing = true
@@ -63,15 +63,15 @@ android {
 
     buildTypes {
         debug {
-            if (releaseSigningEnabled) {
-                signingConfig = signingConfigs.getByName("release")
+            if (hapleSigningEnabled) {
+                signingConfig = signingConfigs.getByName("haple")
             }
         }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
-            if (releaseSigningEnabled) {
-                signingConfig = signingConfigs.getByName("release")
+            if (hapleSigningEnabled) {
+                signingConfig = signingConfigs.getByName("haple")
             }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
