@@ -92,6 +92,24 @@ State what changed, why the original plan is no longer valid, what evidence was 
 
 If no sound revised plan can be justified, do not modify the project further and explain why.
 
+#### 0.6 Reassess the full solution space after diagnostics
+
+After collecting logs, runtime traces, crash evidence, screenshots, recordings, or other diagnostic evidence, do not evaluate only whether the **current implementation path** can be repaired.
+
+Step back and reassess the problem globally:
+
+- restate the verified facts and explicitly separate them from assumptions;
+- reconsider the root cause and owner/call chain in light of the new evidence;
+- enumerate all materially plausible solution families, including native/platform mechanisms, fixes within the current architecture, alternative integration points, compatibility layers, bounded workarounds, and justified redesigns;
+- compare the alternatives on standards compliance, runtime stability, compatibility, complexity, maintenance cost, performance/energy cost, privacy/security impact, rollback safety, and available evidence;
+- identify which earlier hypotheses or paths have been weakened or disproved;
+- do not prefer an existing path merely because previous iterations invested effort in it;
+- select the **best overall solution supported by the current evidence**, not merely the next local patch on the current path.
+
+If the globally preferred solution differs materially from the active plan, stop mutation, explain why the previous path is no longer preferred, define and validate a revised plan, and obtain confirmation before continuing.
+
+Diagnostic work is complete only when it improves both **root-cause confidence** and **solution selection**. Logs are not just for deciding whether the current patch worked; they are evidence for choosing the best next architecture or implementation path.
+
 
 ### 1. Pre-change review
 
@@ -267,6 +285,7 @@ A change is complete only when all applicable checks pass:
 - proposal/direction objectively evaluated before implementation;
 - change plan defined, validated, and confirmed before project mutation;
 - any implementation deviation stopped and re-evaluated before continuing;
+- post-diagnostic evidence reviewed against the full solution space rather than only the current path;
 - pre-change review;
 - standardized/lightweight/modern implementation review;
 - copy review when text changed;
@@ -284,12 +303,13 @@ Every implementation report should state:
 1. how the proposed direction was evaluated and why it was accepted, adjusted, deferred, or rejected;
 2. the confirmed change plan and whether execution stayed within it;
 3. any plan deviation, the evidence that caused it, and the revised confirmed plan if applicable;
-4. what changed and why;
-5. standardization/lightweight/modernization review result;
-6. text-review result when text changed;
-7. MIUIX UI-review result when UI changed;
-8. CI result;
-9. required real-device test scenarios;
-10. known limitations or compatibility boundaries.
+4. after meaningful diagnostics, the alternative solution families considered and why the selected path is currently preferred overall;
+5. what changed and why;
+6. standardization/lightweight/modernization review result;
+7. text-review result when text changed;
+8. MIUIX UI-review result when UI changed;
+9. CI result;
+10. required real-device test scenarios;
+11. known limitations or compatibility boundaries.
 
 These rules should be re-read and applied for every future feature or fix.

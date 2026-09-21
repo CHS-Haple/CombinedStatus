@@ -37,7 +37,7 @@ Core module behavior is shared between debug and release builds. Release builds 
 
 ## Development workflow
 
-Engineering rules and the required change-control process are documented in [CONTRIBUTING.md](CONTRIBUTING.md). New directions are evaluated first, then a bounded implementation plan is defined and validated before project mutation. If runtime evidence invalidates that plan, implementation stops for re-evaluation before continuing. Functional changes also require pre/post-change checks, copy review for text changes, and MIUIX review for UI changes.
+Engineering rules and the required change-control process are documented in [CONTRIBUTING.md](CONTRIBUTING.md). New directions are evaluated first, then a bounded implementation plan is defined and validated before project mutation. After meaningful diagnostics, the full solution space must be reassessed rather than only the current repair path; new evidence can therefore replace an earlier approach instead of accumulating local patches. If runtime evidence invalidates the active plan, implementation stops for re-evaluation before continuing. Functional changes also require pre/post-change checks, copy review for text changes, and MIUIX review for UI changes.
 
 `main` is the stable integration baseline. SystemUI module work is developed on `dev`, where each small feature must pass CI and real-device validation before it is promoted to `main`. Short-lived `feat/*` branches are reserved for higher-risk experiments and are merged back into `dev` once validated.
 
