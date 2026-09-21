@@ -35,6 +35,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Standardized user-facing settings copy and hardened platform language and launcher-entry state handling.
 - Polished settings summaries to use shorter, more natural system-style phrasing without unnecessary semicolons.
 - Added CI validation for modern Xposed metadata while keeping the initial module entry point hook-free.
+- Standardized module terminology on mobile network / 移动网络 and clarified Xiaomi HyperOS as the target platform in module descriptions.
 
 ### Fixed
 - CI certificate verification now accepts the current Android Build Tools signer output while still pinning the expected certificate SHA-256 digest.

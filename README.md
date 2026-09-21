@@ -1,6 +1,6 @@
 # CombinedStatus
 
-**CombinedStatus for HyperOS** is an Android status-bar module project designed for Xiaomi HyperOS. Its goal is to combine battery, cellular, and Wi-Fi information into a single status indicator while preserving HyperOS SystemUI layout and transition behavior.
+**CombinedStatus for HyperOS** is a status-bar module built specifically for Xiaomi HyperOS. It combines battery, mobile network, and Wi-Fi status into a single indicator while preserving native HyperOS SystemUI layout and transition behavior.
 
 ## Target platform
 
@@ -8,6 +8,10 @@
 - HyperOS SystemUI
 - LSPosed module architecture
 - MIUIX application interface
+
+## Terminology
+
+Project-facing terminology uses **mobile network / 移动网络** consistently. Internal domain names should use `mobileNetwork` or `mobileSignal`; exact Android/HyperOS API and class identifiers keep their upstream names.
 
 ## Current milestone
 

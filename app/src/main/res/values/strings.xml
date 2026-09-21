@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Combined Status</string>
-    <string name="app_description">Combines battery, cellular, and Wi‑Fi status into one status bar indicator</string>
+    <string name="app_description">Built for HyperOS, combining battery, mobile network, and Wi‑Fi status into one status bar indicator</string>
 
     <string name="home_title">Combined Status</string>
     <string name="nav_home">Home</string>

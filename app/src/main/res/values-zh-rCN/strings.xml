@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">三合一状态图标</string>
-    <string name="app_description">将电量、蜂窝网络和 Wi‑Fi 状态整合为一个状态栏图标</string>
+    <string name="app_description">专为 HyperOS 设计，将电量、移动网络和 Wi‑Fi 状态整合为一个状态栏图标</string>
 
     <string name="home_title">三合一状态图标</string>
     <string name="nav_home">首页</string>
