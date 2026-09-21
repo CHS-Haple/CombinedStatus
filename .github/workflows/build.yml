@@ -132,7 +132,7 @@ jobs:
           VERSION_NAME="$(sed -n 's/^combinedStatus.versionName=//p' gradle.properties)"
           BUILD_ID="$(sed -n 's/^combinedStatus.buildId=//p' gradle.properties)"
           mkdir -p dist
-          APK_NAME="CombinedStatus-${VERSION_NAME}-HyperOS-${BUILD_ID}-ci${GITHUB_RUN_NUMBER}-debug.apk"
+          APK_NAME="CombinedStatus-${VERSION_NAME}-HyperOS-${BUILD_ID}-debug.apk"
           cp app/build/outputs/apk/debug/app-debug.apk "dist/$APK_NAME"
           echo "APK_NAME=$APK_NAME" >> "$GITHUB_ENV"
 

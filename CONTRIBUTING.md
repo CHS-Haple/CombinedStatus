@@ -271,6 +271,8 @@ Keep commits atomic and semantic. For APK-affecting changes, code/resources, cha
 
 The display version changes only when explicitly advancing the formal external version. Normal APK-affecting iterations advance internal versionCode/buildId. Documentation-only changes do not require an APK build-number bump.
 
+GitHub Actions run numbers are CI execution metadata, not application version identifiers. Do not derive versionCode, buildId, or distributable APK file names from `GITHUB_RUN_NUMBER`. Debug artifact names should be stable for a given application build and use `versionName` plus `buildId`; refer to the Actions run number separately when tracing CI execution.
+
 ## CI and real-device validation
 
 CI is a gate, not a replacement for runtime testing.
