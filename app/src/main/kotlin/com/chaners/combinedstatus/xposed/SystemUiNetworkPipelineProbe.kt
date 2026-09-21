@@ -15,7 +15,7 @@ internal object SystemUiNetworkPipelineProbe {
         "com.android.systemui.statusbar.pipeline.wifi.ui.binder.MiuiWifiViewBinder"
     const val WIFI_BIND_METHOD_NAME = "bind"
     const val WIFI_ICON_EMITTER_CLASS_NAME =
-        "com.android.systemui.statusbar.pipeline.wifi.ui.binder.MiuiWifiViewBinder\\$bind\\$1\\$1\\$2\\$1"
+        "com.android.systemui.statusbar.pipeline.wifi.ui.binder.MiuiWifiViewBinder\$bind\$1\$1\$2\$1"
     const val WIFI_ICON_EMIT_METHOD_NAME = "emit"
     const val WIFI_LOCATION_VIEW_MODEL_CLASS_NAME =
         "com.android.systemui.statusbar.pipeline.wifi.ui.viewmodel.LocationBasedWifiViewModel"
