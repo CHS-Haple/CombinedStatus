@@ -9,6 +9,7 @@ PROFILE_PATH = ROOT / "compat" / "targets" / "hyperos-17.03.260226.r.json"
 PROBE_PATH = ROOT / "app" / "src" / "main" / "kotlin" / "com" / "chaners" / "combinedstatus" / "xposed" / "SystemUiCompatibilityProbe.kt"
 STATUS_HOST_CAPTURE_PATH = ROOT / "app" / "src" / "main" / "kotlin" / "com" / "chaners" / "combinedstatus" / "xposed" / "StatusBarHostCapture.kt"
 NATIVE_STATUS_INVENTORY_PATH = ROOT / "app" / "src" / "main" / "kotlin" / "com" / "chaners" / "combinedstatus" / "xposed" / "SystemUiNativeStatusInventory.kt"
+NETWORK_PIPELINE_PROBE_PATH = ROOT / "app" / "src" / "main" / "kotlin" / "com" / "chaners" / "combinedstatus" / "xposed" / "SystemUiNetworkPipelineProbe.kt"
 
 HEX_LENGTHS = {"md5": 32, "sha1": 40, "sha256": 64}
 
@@ -59,18 +60,23 @@ if probe_markers != runtime_markers:
 
 hook_points = profile.get("hookPoints", {})
 verified_methods = profile.get("verifiedSystemUiMethods", {})
+for hook_name, hook_point in hook_points.items():
+    if not isinstance(hook_point, dict):
+        fail(f"invalid hook point: {hook_name}")
+    hook_class = hook_point.get("className")
+    hook_signature = f"{hook_point.get('methodName', '')}{hook_point.get('descriptor', '')}"
+    if hook_point.get("sourceArtifact") != "systemUi":
+        fail(f"{hook_name} must originate from the SystemUI APK")
+    if hook_class not in verified_systemui:
+        fail(f"{hook_name} class is not verified in the SystemUI APK")
+    if hook_signature not in set(verified_methods.get(hook_class, [])):
+        fail(f"{hook_name} method is not verified in the SystemUI APK")
+
 status_hook = hook_points.get("statusHostInflated")
 if not isinstance(status_hook, dict):
     fail("missing statusHostInflated hook point")
 
 status_hook_class = status_hook.get("className")
-status_hook_signature = f"{status_hook.get('methodName', '')}{status_hook.get('descriptor', '')}"
-if status_hook.get("sourceArtifact") != "systemUi":
-    fail("statusHostInflated must originate from the SystemUI APK")
-if status_hook_class not in verified_systemui:
-    fail("statusHostInflated class is not verified in the SystemUI APK")
-if status_hook_signature not in set(verified_methods.get(status_hook_class, [])):
-    fail("statusHostInflated method is not verified in the SystemUI APK")
 
 capture_text = STATUS_HOST_CAPTURE_PATH.read_text(encoding="utf-8")
 capture_class = re.search(r'HOST_CLASS_NAME\s*=\s*\n?\s*"([^"]+)"', capture_text)
@@ -81,6 +87,35 @@ if capture_class.group(1) != status_hook_class:
     fail("status host capture class drifted from the pinned APK profile")
 if capture_method.group(1) != status_hook.get("methodName"):
     fail("status host capture method drifted from the pinned APK profile")
+
+network_probe_text = NETWORK_PIPELINE_PROBE_PATH.read_text(encoding="utf-8")
+network_hook_constants = {
+    "wifiBinderBind": ("WIFI_BINDER_CLASS_NAME", "WIFI_BIND_METHOD_NAME"),
+    "wifiIconApplied": ("WIFI_BINDER_CLASS_NAME", "WIFI_ICON_METHOD_NAME"),
+    "mobileBinderBind": ("MOBILE_BINDER_CLASS_NAME", "MOBILE_BIND_METHOD_NAME"),
+    "mobileSignalCollected": (
+        "MOBILE_SIGNAL_EMITTER_CLASS_NAME",
+        "MOBILE_SIGNAL_EMIT_METHOD_NAME",
+    ),
+}
+for hook_name, (class_constant, method_constant) in network_hook_constants.items():
+    hook_point = hook_points.get(hook_name)
+    if not isinstance(hook_point, dict):
+        fail(f"missing network hook point: {hook_name}")
+    class_match = re.search(
+        rf'{class_constant}\s*=\s*\n?\s*"([^"]+)"',
+        network_probe_text,
+    )
+    method_match = re.search(
+        rf'{method_constant}\s*=\s*"([^"]+)"',
+        network_probe_text,
+    )
+    if not class_match or not method_match:
+        fail(f"network probe constants are missing: {hook_name}")
+    if class_match.group(1) != hook_point.get("className"):
+        fail(f"network probe class drifted from profile: {hook_name}")
+    if method_match.group(1) != hook_point.get("methodName"):
+        fail(f"network probe method drifted from profile: {hook_name}")
 
 native_status_views = profile.get("nativeStatusViews", {})
 expected_native_roles = {"mobileNetwork", "wifi", "battery"}

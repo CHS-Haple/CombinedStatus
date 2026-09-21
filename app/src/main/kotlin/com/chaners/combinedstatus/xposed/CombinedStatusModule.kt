@@ -10,14 +10,16 @@ import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
 
 class CombinedStatusModule : XposedModule() {
     private var statusHostHookInstalled = false
+    private var networkProbeInstalled = false
 
     override fun onModuleLoaded(param: ModuleLoadedParam) {
         log(
             Log.INFO,
             TAG,
-            "Module loaded in ${param.processName} build=${BuildConfig.BUILD_ID} " +
-                "diagnostics=${if (BuildConfig.DEBUG) "detailed" else "basic"} " +
-                "with Xposed API $apiVersion",
+            "Module loaded in " + param.processName +
+                " build=" + BuildConfig.BUILD_ID +
+                " diagnostics=" + if (BuildConfig.DEBUG) "detailed" else "basic" +
+                " with Xposed API " + apiVersion,
         )
     }
 
@@ -44,6 +46,13 @@ class CombinedStatusModule : XposedModule() {
         }.onFailure { error ->
             log(Log.ERROR, TAG, "Status host hook installation failed", error)
         }
+
+        if (BuildConfig.DEBUG && statusHostHookInstalled) {
+            installNetworkProbe(
+                classLoader = param.classLoader,
+                source = "coldStart",
+            )
+        }
     }
 
     override fun onHotReloading(param: HotReloadingParam): Boolean {
@@ -52,7 +61,17 @@ class CombinedStatusModule : XposedModule() {
             return false
         }
 
-        log(Log.INFO, TAG, "Hot reload preparing build=${BuildConfig.BUILD_ID} hooks=1")
+        val hookCount =
+            1 + if (BuildConfig.DEBUG && networkProbeInstalled) {
+                SystemUiNetworkPipelineProbe.HOOK_COUNT
+            } else {
+                0
+            }
+        log(
+            Log.INFO,
+            TAG,
+            "Hot reload preparing build=" + BuildConfig.BUILD_ID + " hooks=" + hookCount,
+        )
         return true
     }
 
@@ -74,8 +93,6 @@ class CombinedStatusModule : XposedModule() {
                 handle = statusHostHandle,
                 onCaptured = ::onStatusHostCaptured,
             )
-        }.onSuccess {
-            statusHostHookInstalled = true
 
             var removed = 0
             oldHandles.forEach { handle ->
@@ -85,13 +102,57 @@ class CombinedStatusModule : XposedModule() {
                 }
             }
 
+            statusHostHookInstalled = true
+            networkProbeInstalled = false
+
+            if (BuildConfig.DEBUG) {
+                val classLoader = statusHostHandle.executable.declaringClass.classLoader
+                    ?: error("SystemUI class loader unavailable after hot reload")
+                installNetworkProbe(
+                    classLoader = classLoader,
+                    source = "hotReload",
+                )
+            }
+
             log(
                 Log.INFO,
                 TAG,
-                "Hot reload completed build=${BuildConfig.BUILD_ID} statusHostHook=replaced staleHooks=$removed",
+                "Hot reload completed build=" + BuildConfig.BUILD_ID +
+                    " statusHostHook=replaced staleHooks=" + removed,
             )
         }.onFailure { error ->
             log(Log.ERROR, TAG, "Hot reload failed restartScope=true", error)
+        }
+    }
+
+    private fun installNetworkProbe(
+        classLoader: ClassLoader,
+        source: String,
+    ) {
+        runCatching {
+            SystemUiNetworkPipelineProbe.install(
+                module = this,
+                classLoader = classLoader,
+                onEvent = ::onNetworkPipelineEvent,
+            )
+        }.onSuccess { handles ->
+            networkProbeInstalled = handles.size == SystemUiNetworkPipelineProbe.HOOK_COUNT
+            log(
+                Log.INFO,
+                TAG,
+                "networkPipeline hooks=ready count=" + handles.size +
+                    " source=" + source +
+                    " rebindRequired=" + (source == "hotReload"),
+            )
+        }.onFailure { error ->
+            networkProbeInstalled = false
+            log(Log.ERROR, TAG, "Network pipeline probe installation failed", error)
+        }
+    }
+
+    private fun onNetworkPipelineEvent(event: String) {
+        if (BuildConfig.DEBUG) {
+            log(Log.INFO, TAG, event)
         }
     }
 
@@ -99,7 +160,8 @@ class CombinedStatusModule : XposedModule() {
         log(
             Log.INFO,
             TAG,
-            "statusHost captured id=${capture.identity} replacement=${capture.replacement}",
+            "statusHost captured id=" + capture.identity +
+                " replacement=" + capture.replacement,
         )
 
         when (
@@ -118,7 +180,7 @@ class CombinedStatusModule : XposedModule() {
                 log(
                     Log.WARN,
                     TAG,
-                    "stableStatus unavailable reason=${stableSession.reason}",
+                    "stableStatus unavailable reason=" + stableSession.reason,
                 )
             }
         }
