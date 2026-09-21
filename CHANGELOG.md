@@ -57,8 +57,8 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Debug diagnostics now record a one-shot, bounded three-level inventory of the verified MIUI status-icon container subtree to identify live icon ownership without adding hooks or reading user-facing text.
 - Diagnostic reports now default to the latest SystemUI process session instead of accumulating historical sessions across builds.
 - Diagnostic report export uses Android's system document picker with an editable default text-file name; sharing uses a bounded private cache file through FileProvider with temporary read-only URI access.
-- Diagnostic file sharing now carries the FileProvider URI through intent data, EXTRA_STREAM, and ClipData, and preserves read permission on the chooser for stricter receiving apps.
-- Diagnostic sharing now uses Android chooser refinement to grant read access only to the target the user actually selected, avoiding receiver-specific package hardcoding; stale explicit grants are revoked when cached reports are pruned.
+- Diagnostic file sharing uses EXTRA_STREAM, ClipData, and temporary read permission on the system chooser while keeping reports in a bounded private cache.
+- Diagnostic share MIME diagnostics now keep the ACTION_SEND type and the dedicated FileProvider-reported type aligned so receiver behavior can be tested without mixed MIME metadata.
 - Compatibility metadata, diagnostics copy, and CI verification now target SystemUI only, matching the module's actual `com.android.systemui` scope.
 
 ### Fixed
