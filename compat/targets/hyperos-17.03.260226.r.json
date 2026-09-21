@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "profileId": "hyperos-17.03.260226.r+cc-18.3.2.22.0",
+  "generatedFromExactApks": true,
+  "artifacts": {
+    "systemUi": {
+      "displayName": "系统界面_17.03.260226.r.apk",
+      "sizeBytes": 52321431,
+      "md5": "4279c0ef0ae97022c7ac969d44dac1a4",
+      "sha1": "ee49b63fedb88293393989174853d81b6f2cc74f",
+      "sha256": "a0e738e41fe599b97950cbf52a9e2ddc6ae2ceff986efbacb1c9840bea78768d",
+      "dexCount": 3,
+      "classCount": 44182
+    },
+    "systemUiComponent": {
+      "displayName": "系统界面组件_18.3.2.22.0.apk",
+      "sizeBytes": 25266852,
+      "md5": "967cfbd39143ce8e1a479c6c00623aaf",
+      "sha1": "0422bf8342671d326feee008a54265a547497c12",
+      "sha256": "d990c149b803fc1d4a4238c539eb1d626f164394ac1a1f248ee8d38ad8c243a7",
+      "dexCount": 2,
+      "classCount": 14371
+    }
+  },
+  "runtimeMarkers": {
+    "statusHost": "com.android.systemui.statusbar.views.MiuiNotificationStatusContainer",
+    "controlCenterHeader": "com.android.systemui.controlcenter.shade.ControlCenterHeaderView",
+    "controlCenterIcons": "com.android.systemui.controlcenter.phone.widget.ControlCenterFakeStatusIcons",
+    "keyguardHeader": "com.android.systemui.statusbar.phone.MiuiKeyguardStatusBarView",
+    "batteryView": "com.android.systemui.statusbar.views.MiuiBatteryMeterView"
+  },
+  "verifiedSystemUiClasses": [
+    "com.android.systemui.statusbar.views.MiuiNotificationStatusContainer",
+    "com.android.systemui.controlcenter.shade.ControlCenterHeaderView",
+    "com.android.systemui.controlcenter.phone.widget.ControlCenterFakeStatusIcons",
+    "com.android.systemui.statusbar.phone.MiuiKeyguardStatusBarView",
+    "com.android.systemui.statusbar.views.MiuiBatteryMeterView"
+  ],
+  "verifiedSystemUiComponentClasses": [
+    "miui.systemui.controlcenter.MiuiControlCenter",
+    "miui.systemui.controlcenter.dagger.ControlCenterPluginInstance",
+    "miui.systemui.controlcenter.data.repository.StatusBarStateRepositoryImpl",
+    "miui.systemui.statusbar.data.repository.StatusBarAreaRepository"
+  ]
+}

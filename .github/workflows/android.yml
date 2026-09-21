@@ -66,6 +66,9 @@ jobs:
 
           echo "CI_DEBUG_KEYSTORE_PATH=$KEYSTORE_PATH" >> "$GITHUB_ENV"
 
+      - name: Verify pinned HyperOS target profile
+        run: python3 tools/verify_target_profile.py
+
       - name: Build debug APK
         run: gradle :app:assembleDebug --stacktrace
 
