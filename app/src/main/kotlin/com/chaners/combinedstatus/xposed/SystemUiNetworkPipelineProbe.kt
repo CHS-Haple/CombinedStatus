@@ -19,6 +19,10 @@ internal object SystemUiNetworkPipelineProbe {
     const val WIFI_ICON_EMIT_METHOD_NAME = "emit"
     const val WIFI_LOCATION_VIEW_MODEL_CLASS_NAME =
         "com.android.systemui.statusbar.pipeline.wifi.ui.viewmodel.LocationBasedWifiViewModel"
+    private const val WIFI_ICON_VISIBLE_CLASS_NAME =
+        "com.android.systemui.statusbar.pipeline.wifi.ui.model.WifiIcon\$Visible"
+    private const val WIFI_ICON_HIDDEN_CLASS_NAME =
+        "com.android.systemui.statusbar.pipeline.wifi.ui.model.WifiIcon\$Hidden"
     const val HOME_WIFI_VIEW_MODEL_CLASS_NAME =
         "com.android.systemui.statusbar.pipeline.wifi.ui.viewmodel.HomeWifiViewModel"
 
@@ -60,6 +64,8 @@ internal object SystemUiNetworkPipelineProbe {
     fun install(
         module: XposedModule,
         classLoader: ClassLoader,
+        onWifiState: (CombinedStatusStateStore.WifiState) -> Unit,
+        onMobileIcon: (CombinedStatusStateStore.MobileIconUpdate) -> Unit,
         onEvent: (String) -> Unit,
     ): List<HookHandle> {
         val created = mutableListOf<HookHandle>()
@@ -132,6 +138,7 @@ internal object SystemUiNetworkPipelineProbe {
                     wifiIconHooker(
                         wifiImageField = wifiIconImageField,
                         wifiClassIdField = wifiIconClassIdField,
+                        onWifiState = onWifiState,
                         onEvent = onEvent,
                     ),
                 )
@@ -146,6 +153,7 @@ internal object SystemUiNetworkPipelineProbe {
                     mobileSignalHooker(
                         mobileImageField = mobileImageField,
                         mobileClassIdField = mobileClassIdField,
+                        onMobileIcon = onMobileIcon,
                         onEvent = onEvent,
                     ),
                 )
@@ -191,6 +199,7 @@ internal object SystemUiNetworkPipelineProbe {
     private fun wifiIconHooker(
         wifiImageField: Field,
         wifiClassIdField: Field,
+        onWifiState: (CombinedStatusStateStore.WifiState) -> Unit,
         onEvent: (String) -> Unit,
     ): Hooker = Hooker { chain ->
         val result = chain.proceed()
@@ -219,6 +228,20 @@ internal object SystemUiNetworkPipelineProbe {
             }
 
             if (changed) {
+                when (value?.javaClass?.name) {
+                    WIFI_ICON_VISIBLE_CLASS_NAME -> {
+                        onWifiState(
+                            CombinedStatusStateStore.WifiState.Visible(
+                                iconResId = taggedResId?.takeIf { it != 0 },
+                            ),
+                        )
+                    }
+
+                    WIFI_ICON_HIDDEN_CLASS_NAME -> {
+                        onWifiState(CombinedStatusStateStore.WifiState.Hidden)
+                    }
+                }
+
                 onEvent(
                     "networkPipeline wifi iconEvent " +
                         "viewId=" + resourceId(image) +
@@ -274,6 +297,7 @@ internal object SystemUiNetworkPipelineProbe {
     private fun mobileSignalHooker(
         mobileImageField: Field,
         mobileClassIdField: Field,
+        onMobileIcon: (CombinedStatusStateStore.MobileIconUpdate) -> Unit,
         onEvent: (String) -> Unit,
     ): Hooker = Hooker { chain ->
         val result = chain.proceed()
@@ -300,8 +324,26 @@ internal object SystemUiNetworkPipelineProbe {
                 }
 
                 if (changed) {
-                    val valueResource = (value as? Number)
+                    val resourceId = (value as? Number)
                         ?.toInt()
+                        ?.takeIf { it != 0 }
+                    val kind = when (classId) {
+                        0 -> CombinedStatusStateStore.MobileIconKind.SIGNAL
+                        1 -> CombinedStatusStateStore.MobileIconKind.VOLTE
+                        2 -> CombinedStatusStateStore.MobileIconKind.VOWIFI
+                        else -> null
+                    }
+                    if (kind != null) {
+                        onMobileIcon(
+                            CombinedStatusStateStore.MobileIconUpdate(
+                                subscriptionId = subscriptionId,
+                                kind = kind,
+                                resourceId = resourceId,
+                            ),
+                        )
+                    }
+
+                    val valueResource = resourceId
                         ?.let { id -> resourceName(image, id) }
                         ?: "n/a"
                     onEvent(

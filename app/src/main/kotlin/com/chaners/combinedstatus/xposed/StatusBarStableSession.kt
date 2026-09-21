@@ -21,6 +21,7 @@ internal object StatusBarStableSession {
     @Synchronized
     fun attach(
         host: Any,
+        onBatteryState: (CombinedStatusStateStore.BatteryState) -> Unit,
         onEvent: (String) -> Unit,
     ): AttachResult {
         val hostView = host as? ViewGroup
@@ -42,6 +43,7 @@ internal object StatusBarStableSession {
             host = hostView,
             batteryContainer = batteryContainer,
             batteryView = batteryView,
+            onBatteryState = onBatteryState,
             onEvent = onEvent,
         )
         current = session
@@ -64,6 +66,7 @@ internal object StatusBarStableSession {
         host: ViewGroup,
         batteryContainer: ViewGroup,
         batteryView: ViewGroup,
+        private val onBatteryState: (CombinedStatusStateStore.BatteryState) -> Unit,
         private val onEvent: (String) -> Unit,
     ) : View.OnAttachStateChangeListener {
         private val host = WeakReference(host)
@@ -73,7 +76,7 @@ internal object StatusBarStableSession {
         private var anchorLayoutListener: View.OnLayoutChangeListener? = null
         private var receiverContext: Context? = null
         private var receiverRegistered = false
-        private var lastBatteryState: BatteryState? = null
+        private var lastBatteryState: CombinedStatusStateStore.BatteryState? = null
 
         private val batteryReceiver =
             object : BroadcastReceiver() {
@@ -251,7 +254,7 @@ internal object StatusBarStableSession {
                 }
             val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
             val plugged = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0)
-            val state = BatteryState(
+            val state = CombinedStatusStateStore.BatteryState(
                 percent = percent,
                 charging =
                     status == BatteryManager.BATTERY_STATUS_CHARGING ||
@@ -264,6 +267,7 @@ internal object StatusBarStableSession {
             }
 
             lastBatteryState = state
+            onBatteryState(state)
             onEvent(
                 "stableStatus battery=" +
                     "percent=${state.percent} charging=${state.charging} plugged=${state.plugged}",
@@ -298,9 +302,4 @@ internal object StatusBarStableSession {
                     "nativeGeometryWrites=0"
     }
 
-    private data class BatteryState(
-        val percent: Int,
-        val charging: Boolean,
-        val plugged: Int,
-    )
 }

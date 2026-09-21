@@ -133,6 +133,12 @@ class CombinedStatusModule : XposedModule() {
             SystemUiNetworkPipelineProbe.install(
                 module = this,
                 classLoader = classLoader,
+                onWifiState = { state ->
+                    CombinedStatusStateStore.updateWifi(state)?.let(::onCombinedStateChanged)
+                },
+                onMobileIcon = { update ->
+                    CombinedStatusStateStore.updateMobile(update)?.let(::onCombinedStateChanged)
+                },
                 onEvent = ::onNetworkPipelineEvent,
             )
         }.onSuccess { handles ->
@@ -156,6 +162,14 @@ class CombinedStatusModule : XposedModule() {
         }
     }
 
+    private fun onCombinedStateChanged(
+        snapshot: CombinedStatusStateStore.Snapshot,
+    ) {
+        if (BuildConfig.DEBUG) {
+            log(Log.INFO, TAG, "combinedState " + snapshot.logLine)
+        }
+    }
+
     private fun onStatusHostCaptured(capture: SystemUiHostRegistry.Capture) {
         log(
             Log.INFO,
@@ -167,6 +181,9 @@ class CombinedStatusModule : XposedModule() {
         when (
             val stableSession = StatusBarStableSession.attach(
                 host = capture.host,
+                onBatteryState = { state ->
+                    CombinedStatusStateStore.updateBattery(state)?.let(::onCombinedStateChanged)
+                },
                 onEvent = { event ->
                     if (BuildConfig.DEBUG) {
                         log(Log.INFO, TAG, event)
