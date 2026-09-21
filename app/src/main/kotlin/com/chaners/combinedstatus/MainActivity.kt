@@ -1,8 +1,9 @@
 package com.chaners.combinedstatus
 
+import android.content.res.Configuration
 import android.graphics.Color
-import android.os.Build
 import android.os.Bundle
+import android.view.WindowInsetsController
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
@@ -26,10 +27,26 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        val initialSystemDarkMode =
+            resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK ==
+                Configuration.UI_MODE_NIGHT_YES
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.auto(
+                Color.TRANSPARENT,
+                Color.TRANSPARENT,
+            ) { initialSystemDarkMode },
+            navigationBarStyle = SystemBarStyle.auto(
+                Color.TRANSPARENT,
+                Color.TRANSPARENT,
+            ) { initialSystemDarkMode },
+        )
+        window.isNavigationBarContrastEnforced = false
+
+        val repository = AppearanceSettingsRepository(applicationContext)
+        val initialAppLanguage = AppPlatformSettings.currentLanguage(this)
+        val initialLauncherIconHidden = AppPlatformSettings.isLauncherIconHidden(this)
+
         setContent {
-            val repository = remember {
-                AppearanceSettingsRepository(applicationContext)
-            }
             val settings by repository.settings.collectAsState(initial = AppearanceSettings())
             val scope = rememberCoroutineScope()
             val systemDark = isSystemInDarkTheme()
@@ -41,26 +58,14 @@ class MainActivity : ComponentActivity() {
                 -> systemDark
             }
             var appLanguage by remember {
-                mutableStateOf(AppPlatformSettings.currentLanguage(this))
+                mutableStateOf(initialAppLanguage)
             }
             var launcherIconHidden by remember {
-                mutableStateOf(AppPlatformSettings.isLauncherIconHidden(this))
+                mutableStateOf(initialLauncherIconHidden)
             }
 
             DisposableEffect(darkMode) {
-                enableEdgeToEdge(
-                    statusBarStyle = SystemBarStyle.auto(
-                        Color.TRANSPARENT,
-                        Color.TRANSPARENT,
-                    ) { darkMode },
-                    navigationBarStyle = SystemBarStyle.auto(
-                        Color.TRANSPARENT,
-                        Color.TRANSPARENT,
-                    ) { darkMode },
-                )
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    window.isNavigationBarContrastEnforced = false
-                }
+                updateSystemBarIconAppearance(darkMode)
                 onDispose { }
             }
 
@@ -90,5 +95,15 @@ class MainActivity : ComponentActivity() {
                 },
             )
         }
+    }
+
+    private fun updateSystemBarIconAppearance(darkMode: Boolean) {
+        val lightBarsMask =
+            WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS or
+                WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS
+        window.insetsController?.setSystemBarsAppearance(
+            if (darkMode) 0 else lightBarsMask,
+            lightBarsMask,
+        )
     }
 }

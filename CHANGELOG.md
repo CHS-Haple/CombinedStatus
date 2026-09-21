@@ -53,6 +53,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - LibXposed artifacts are resolved explicitly from Maven Central at `repo.maven.apache.org`, restricted to the `io.github.libxposed` group.
 - Restart confirmation now follows the MIUIX two-action dialog layout with equal-width actions and user-facing SystemUI wording.
 - Xposed lifecycle diagnostics now include the internal build ID to make hot-reload generation changes directly visible in LSPosed logs.
+- Cold-start initialization now configures edge-to-edge before Compose content and prepares one-time platform state before the first composition; later theme changes update only system-bar icon appearance.
 - Compatibility metadata, diagnostics copy, and CI verification now target SystemUI only, matching the module's actual `com.android.systemui` scope.
 
 ### Fixed
