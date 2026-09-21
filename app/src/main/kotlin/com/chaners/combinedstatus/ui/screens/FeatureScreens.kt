@@ -1,5 +1,6 @@
 package com.chaners.combinedstatus.ui.screens
 
+import android.app.PendingIntent
 import android.content.ClipData
 import android.content.Intent
 import android.widget.Toast
@@ -22,6 +23,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.chaners.combinedstatus.BuildConfig
 import com.chaners.combinedstatus.R
+import com.chaners.combinedstatus.ShareRefinementActivity
 import com.chaners.combinedstatus.settings.AppThemeMode
 import com.chaners.combinedstatus.settings.AppearanceSettings
 import com.chaners.combinedstatus.system.DiagnosticsReportBuilder
@@ -277,17 +279,29 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
                             clipData = ClipData.newRawUri(reportShareTitle, prepared.uri)
                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                         }
+                        val refinementSender = PendingIntent.getActivity(
+                            context,
+                            prepared.uri.toString().hashCode(),
+                            Intent(context, ShareRefinementActivity::class.java),
+                            PendingIntent.FLAG_CANCEL_CURRENT or
+                                PendingIntent.FLAG_ONE_SHOT or
+                                PendingIntent.FLAG_MUTABLE,
+                        ).intentSender
                         val chooserIntent = Intent.createChooser(
                             sendIntent,
                             reportShareTitle,
                         ).apply {
+                            putExtra(
+                                Intent.EXTRA_CHOOSER_REFINEMENT_INTENT_SENDER,
+                                refinementSender,
+                            )
                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                         }
 
                         runCatching {
                             context.startActivity(chooserIntent)
                         }.onFailure {
-                            DiagnosticsReportFiles.discardShare(prepared)
+                            DiagnosticsReportFiles.discardShare(context, prepared)
                             Toast.makeText(
                                 context,
                                 shareFailedMessage,

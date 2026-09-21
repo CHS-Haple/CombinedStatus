@@ -1,6 +1,7 @@
 package com.chaners.combinedstatus.system
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import androidx.core.content.FileProvider
 import com.chaners.combinedstatus.BuildConfig
@@ -45,7 +46,7 @@ internal object DiagnosticsReportFiles {
                 }
             }
 
-            pruneBeforeNewShare(directory)
+            pruneBeforeNewShare(context, directory)
 
             val file = uniqueShareFile(directory).apply {
                 writeText(report, Charsets.UTF_8)
@@ -60,8 +61,11 @@ internal object DiagnosticsReportFiles {
         }.getOrNull()
     }
 
-    fun discardShare(preparedShare: PreparedShare) {
-        runCatching { preparedShare.file.delete() }
+    fun discardShare(
+        context: Context,
+        preparedShare: PreparedShare,
+    ) {
+        deleteSharedReport(context, preparedShare.file)
     }
 
     private fun uniqueShareFile(directory: File): File {
@@ -77,7 +81,10 @@ internal object DiagnosticsReportFiles {
         return candidate
     }
 
-    private fun pruneBeforeNewShare(directory: File) {
+    private fun pruneBeforeNewShare(
+        context: Context,
+        directory: File,
+    ) {
         val now = System.currentTimeMillis()
         val reports = directory
             .listFiles()
@@ -86,7 +93,7 @@ internal object DiagnosticsReportFiles {
 
         reports
             .filter { file -> now - file.lastModified() > MaxSharedReportAgeMillis }
-            .forEach { file -> runCatching { file.delete() } }
+            .forEach { file -> deleteSharedReport(context, file) }
 
         directory
             .listFiles()
@@ -94,7 +101,25 @@ internal object DiagnosticsReportFiles {
             .filter { file -> file.isFile && file.extension.equals("txt", ignoreCase = true) }
             .sortedByDescending(File::lastModified)
             .drop(MaxSharedReports - 1)
-            .forEach { file -> runCatching { file.delete() } }
+            .forEach { file -> deleteSharedReport(context, file) }
+    }
+
+    private fun deleteSharedReport(
+        context: Context,
+        file: File,
+    ) {
+        runCatching {
+            val uri = FileProvider.getUriForFile(
+                context,
+                "${BuildConfig.APPLICATION_ID}.fileprovider",
+                file,
+            )
+            context.revokeUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION,
+            )
+        }
+        runCatching { file.delete() }
     }
 
     internal data class PreparedShare(
