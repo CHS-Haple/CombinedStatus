@@ -112,7 +112,8 @@ for hook_name, (class_constant, method_constant) in network_hook_constants.items
     )
     if not class_match or not method_match:
         fail(f"network probe constants are missing: {hook_name}")
-    if class_match.group(1) != hook_point.get("className"):
+    probe_class_name = class_match.group(1).replace("\\$", "$")
+    if probe_class_name != hook_point.get("className"):
         fail(f"network probe class drifted from profile: {hook_name}")
     if method_match.group(1) != hook_point.get("methodName"):
         fail(f"network probe method drifted from profile: {hook_name}")
