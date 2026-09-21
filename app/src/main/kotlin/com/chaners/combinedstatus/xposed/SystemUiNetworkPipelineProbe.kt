@@ -14,7 +14,9 @@ internal object SystemUiNetworkPipelineProbe {
     const val WIFI_BINDER_CLASS_NAME =
         "com.android.systemui.statusbar.pipeline.wifi.ui.binder.MiuiWifiViewBinder"
     const val WIFI_BIND_METHOD_NAME = "bind"
-    const val WIFI_ICON_METHOD_NAME = "setImageViewResId"
+    const val WIFI_ICON_EMITTER_CLASS_NAME =
+        "com.android.systemui.statusbar.pipeline.wifi.ui.binder.MiuiWifiViewBinder\\$bind\\$1\\$1\\$2\\$1"
+    const val WIFI_ICON_EMIT_METHOD_NAME = "emit"
     const val WIFI_LOCATION_VIEW_MODEL_CLASS_NAME =
         "com.android.systemui.statusbar.pipeline.wifi.ui.viewmodel.LocationBasedWifiViewModel"
     const val HOME_WIFI_VIEW_MODEL_CLASS_NAME =
@@ -51,7 +53,7 @@ internal object SystemUiNetworkPipelineProbe {
 
     private val wifiRoots = WeakHashMap<ViewGroup, Unit>()
     private val mobileRoots = WeakHashMap<ViewGroup, Int>()
-    private val lastWifiResources = WeakHashMap<ImageView, Int>()
+    private val lastWifiEvents = WeakHashMap<ImageView, String>()
     private val lastMobileEvents = WeakHashMap<ImageView, String>()
 
     fun install(
@@ -65,18 +67,26 @@ internal object SystemUiNetworkPipelineProbe {
             val wifiBinderClass = Class.forName(WIFI_BINDER_CLASS_NAME, false, classLoader)
             val wifiLocationVmClass =
                 Class.forName(WIFI_LOCATION_VIEW_MODEL_CLASS_NAME, false, classLoader)
-            val tripleClass = Class.forName("kotlin.Triple", false, classLoader)
+            val continuationClass =
+                Class.forName("kotlin.coroutines.Continuation", false, classLoader)
             val wifiBindMethod = wifiBinderClass.getDeclaredMethod(
                 WIFI_BIND_METHOD_NAME,
                 ViewGroup::class.java,
                 wifiLocationVmClass,
             )
-            val wifiIconMethod = wifiBinderClass.getDeclaredMethod(
-                WIFI_ICON_METHOD_NAME,
-                ImageView::class.java,
-                Int::class.javaPrimitiveType,
-                tripleClass,
+            val wifiIconEmitterClass =
+                Class.forName(WIFI_ICON_EMITTER_CLASS_NAME, false, classLoader)
+            val wifiIconEmitMethod = wifiIconEmitterClass.getDeclaredMethod(
+                WIFI_ICON_EMIT_METHOD_NAME,
+                Any::class.java,
+                continuationClass,
             )
+            val wifiIconImageField = wifiIconEmitterClass
+                .getDeclaredField("\$iconView")
+                .apply { isAccessible = true }
+            val wifiIconClassIdField = wifiIconEmitterClass
+                .getDeclaredField("\$r8\$classId")
+                .apply { isAccessible = true }
 
             val mobileBinderClass = Class.forName(MOBILE_BINDER_CLASS_NAME, false, classLoader)
             val mobileLocationVmClass =
@@ -93,8 +103,6 @@ internal object SystemUiNetworkPipelineProbe {
                 mobileLoggerClass,
             )
 
-            val continuationClass =
-                Class.forName("kotlin.coroutines.Continuation", false, classLoader)
             val mobileSignalEmitterClass =
                 Class.forName(MOBILE_SIGNAL_EMITTER_CLASS_NAME, false, classLoader)
             val mobileSignalEmitMethod = mobileSignalEmitterClass.getDeclaredMethod(
@@ -117,9 +125,15 @@ internal object SystemUiNetworkPipelineProbe {
                 .setId(WIFI_BIND_HOOK_ID)
                 .intercept(wifiBindHooker(onEvent))
             created += module
-                .hook(wifiIconMethod)
+                .hook(wifiIconEmitMethod)
                 .setId(WIFI_ICON_HOOK_ID)
-                .intercept(wifiIconHooker(onEvent))
+                .intercept(
+                    wifiIconHooker(
+                        wifiImageField = wifiIconImageField,
+                        wifiClassIdField = wifiIconClassIdField,
+                        onEvent = onEvent,
+                    ),
+                )
             created += module
                 .hook(mobileBindMethod)
                 .setId(MOBILE_BIND_HOOK_ID)
@@ -174,22 +188,46 @@ internal object SystemUiNetworkPipelineProbe {
     }
 
     private fun wifiIconHooker(
+        wifiImageField: Field,
+        wifiClassIdField: Field,
         onEvent: (String) -> Unit,
     ): Hooker = Hooker { chain ->
         val result = chain.proceed()
-        val image = chain.getArg(0) as? ImageView
-        val resId = (chain.getArg(1) as? Number)?.toInt()
+        val emitter = chain.thisObject
+        val classId = runCatching {
+            wifiClassIdField.getInt(emitter)
+        }.getOrDefault(-1)
 
-        if (image != null && resId != null && findWifiBinding(image)) {
+        if (classId != WIFI_ICON_COLLECTOR_CLASS_ID) {
+            return@Hooker result
+        }
+
+        val image = runCatching {
+            wifiImageField.get(emitter) as? ImageView
+        }.getOrNull()
+
+        if (image != null && findWifiBinding(image)) {
+            val value = chain.getArg(0)
+            val taggedResId = (image.tag as? Number)?.toInt()
+            val eventKey =
+                (taggedResId?.toString() ?: "none") + ":" +
+                    image.visibility + ":" +
+                    (value?.javaClass?.name ?: "null")
             val changed = synchronized(this) {
-                lastWifiResources.put(image, resId) != resId
+                lastWifiEvents.put(image, eventKey) != eventKey
             }
+
             if (changed) {
                 onEvent(
-                    "networkPipeline wifi icon " +
+                    "networkPipeline wifi iconEvent " +
                         "viewId=" + resourceId(image) +
-                        " resId=" + resId +
-                        " resource=" + resourceName(image, resId),
+                        " classId=" + classId +
+                        " valueType=" + (value?.javaClass?.simpleName ?: "null") +
+                        " visibility=" + visibilityName(image.visibility) +
+                        " taggedResId=" + (taggedResId ?: 0) +
+                        " resource=" + (
+                            taggedResId?.let { id -> resourceName(image, id) } ?: "n/a"
+                        ),
                 )
             }
         }
@@ -304,6 +342,13 @@ internal object SystemUiNetworkPipelineProbe {
             current = current.parent as? View
         }
         return null
+    }
+
+    private fun visibilityName(visibility: Int): String = when (visibility) {
+        View.VISIBLE -> "VISIBLE"
+        View.INVISIBLE -> "INVISIBLE"
+        View.GONE -> "GONE"
+        else -> visibility.toString()
     }
 
     private fun resourceId(view: View): String {
