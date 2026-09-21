@@ -166,8 +166,16 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
         }
         Section(R.string.section_runtime_stage) {
             BasicComponent(
-                title = stringResource(R.string.runtime_stage_value),
-                summary = stringResource(R.string.runtime_stage_summary),
+                title = stringResource(R.string.runtime_framework_title),
+                summary = stringResource(R.string.runtime_framework_summary),
+            )
+            BasicComponent(
+                title = stringResource(R.string.runtime_target_title),
+                summary = stringResource(R.string.runtime_target_summary),
+            )
+            BasicComponent(
+                title = stringResource(R.string.runtime_inventory_title),
+                summary = stringResource(R.string.runtime_inventory_summary),
             )
         }
     }

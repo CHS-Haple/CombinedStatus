@@ -58,7 +58,7 @@
 
     <string name="section_hyperos_systemui">显示与过渡</string>
     <string name="enable_combined_icon">三合一图标</string>
-    <string name="enable_combined_icon_summary">界面预览，SystemUI 尚未接入</string>
+    <string name="enable_combined_icon_summary">预览状态栏中的三合一图标</string>
     <string name="transition_effects">过渡效果</string>
     <string name="transition_effects_summary">预览状态栏与控制中心过渡效果</string>
 
@@ -81,8 +81,12 @@
     <string name="build_value">构建：%1$s</string>
     <string name="package_value">包名：%1$s</string>
 
-    <string name="section_runtime_stage">运行状态</string>
-    <string name="runtime_stage_value">Modern Xposed API 102</string>
-    <string name="runtime_stage_summary">作用域：SystemUI · 支持热重载</string>
+    <string name="section_runtime_stage">运行环境</string>
+    <string name="runtime_framework_title">模块框架</string>
+    <string name="runtime_framework_summary">Modern Xposed API 102 · 作用域：SystemUI · 支持热重载</string>
+    <string name="runtime_target_title">兼容性基线</string>
+    <string name="runtime_target_summary">SystemUI 17.03.260226.r · 系统界面组件 18.3.2.22.0</string>
+    <string name="runtime_inventory_title">原生状态探针</string>
+    <string name="runtime_inventory_summary">宿主布局完成后一次性检查移动网络、Wi-Fi 与电量状态图标</string>
     <string name="back">返回</string>
 </resources>

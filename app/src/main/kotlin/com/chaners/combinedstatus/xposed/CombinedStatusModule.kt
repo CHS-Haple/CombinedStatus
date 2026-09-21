@@ -35,7 +35,7 @@ class CombinedStatusModule : XposedModule() {
             StatusBarHostCapture.install(
                 module = this,
                 classLoader = param.classLoader,
-                onCaptured = ::logStatusHostCapture,
+                onCaptured = ::onStatusHostCaptured,
             )
         }.onSuccess {
             statusHostHookInstalled = true
@@ -70,7 +70,7 @@ class CombinedStatusModule : XposedModule() {
         runCatching {
             StatusBarHostCapture.replace(
                 handle = statusHostHandle,
-                onCaptured = ::logStatusHostCapture,
+                onCaptured = ::onStatusHostCaptured,
             )
         }.onSuccess {
             statusHostHookInstalled = true
@@ -93,12 +93,19 @@ class CombinedStatusModule : XposedModule() {
         }
     }
 
-    private fun logStatusHostCapture(capture: SystemUiHostRegistry.Capture) {
+    private fun onStatusHostCaptured(capture: SystemUiHostRegistry.Capture) {
         log(
             Log.INFO,
             TAG,
             "statusHost captured id=${capture.identity} replacement=${capture.replacement}",
         )
+
+        SystemUiNativeStatusInventory.schedule(capture.host) { snapshot ->
+            log(Log.INFO, TAG, snapshot.summary)
+            snapshot.entries.forEach { entry ->
+                log(Log.INFO, TAG, entry.logLine)
+            }
+        }
     }
 
     private companion object {

@@ -34,7 +34,9 @@
     "com.android.systemui.controlcenter.shade.ControlCenterHeaderView",
     "com.android.systemui.controlcenter.phone.widget.ControlCenterFakeStatusIcons",
     "com.android.systemui.statusbar.phone.MiuiKeyguardStatusBarView",
-    "com.android.systemui.statusbar.views.MiuiBatteryMeterView"
+    "com.android.systemui.statusbar.views.MiuiBatteryMeterView",
+    "com.android.systemui.statusbar.pipeline.mobile.ui.view.ModernStatusBarMobileView",
+    "com.android.systemui.statusbar.pipeline.wifi.ui.view.ModernStatusBarWifiView"
   ],
   "verifiedSystemUiComponentClasses": [
     "miui.systemui.controlcenter.MiuiControlCenter",
@@ -56,5 +58,10 @@
       "onLayout(ZIIII)V",
       "onMeasure(II)V"
     ]
+  },
+  "nativeStatusViews": {
+    "mobileNetwork": "com.android.systemui.statusbar.pipeline.mobile.ui.view.ModernStatusBarMobileView",
+    "wifi": "com.android.systemui.statusbar.pipeline.wifi.ui.view.ModernStatusBarWifiView",
+    "battery": "com.android.systemui.statusbar.views.MiuiBatteryMeterView"
   }
 }

@@ -58,7 +58,7 @@
 
     <string name="section_hyperos_systemui">Display and transitions</string>
     <string name="enable_combined_icon">Combined indicator</string>
-    <string name="enable_combined_icon_summary">UI preview only, SystemUI is not integrated</string>
+    <string name="enable_combined_icon_summary">Preview the combined indicator in the status bar</string>
     <string name="transition_effects">Transition effects</string>
     <string name="transition_effects_summary">Preview status bar and Control Center transitions</string>
 
@@ -82,7 +82,11 @@
     <string name="package_value">Package: %1$s</string>
 
     <string name="section_runtime_stage">Runtime</string>
-    <string name="runtime_stage_value">Modern Xposed API 102</string>
-    <string name="runtime_stage_summary">Scope: SystemUI · Hot reload enabled</string>
+    <string name="runtime_framework_title">Module framework</string>
+    <string name="runtime_framework_summary">Modern Xposed API 102 · Scope: SystemUI · Hot reload enabled</string>
+    <string name="runtime_target_title">Compatibility baseline</string>
+    <string name="runtime_target_summary">SystemUI 17.03.260226.r · System UI Plugin 18.3.2.22.0</string>
+    <string name="runtime_inventory_title">Native status probe</string>
+    <string name="runtime_inventory_summary">Checks mobile network, Wi-Fi, and battery status views once after host layout</string>
     <string name="back">Back</string>
 </resources>

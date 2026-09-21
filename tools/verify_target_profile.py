@@ -8,6 +8,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 PROFILE_PATH = ROOT / "compat" / "targets" / "hyperos-17.03.260226.r.json"
 PROBE_PATH = ROOT / "app" / "src" / "main" / "kotlin" / "com" / "chaners" / "combinedstatus" / "xposed" / "SystemUiCompatibilityProbe.kt"
 STATUS_HOST_CAPTURE_PATH = ROOT / "app" / "src" / "main" / "kotlin" / "com" / "chaners" / "combinedstatus" / "xposed" / "StatusBarHostCapture.kt"
+NATIVE_STATUS_INVENTORY_PATH = ROOT / "app" / "src" / "main" / "kotlin" / "com" / "chaners" / "combinedstatus" / "xposed" / "SystemUiNativeStatusInventory.kt"
 
 HEX_LENGTHS = {"md5": 32, "sha1": 40, "sha256": 64}
 
@@ -83,6 +84,34 @@ if capture_class.group(1) != status_hook_class:
 if capture_method.group(1) != status_hook.get("methodName"):
     fail("status host capture method drifted from the pinned APK profile")
 
+native_status_views = profile.get("nativeStatusViews", {})
+expected_native_roles = {"mobileNetwork", "wifi", "battery"}
+if set(native_status_views) != expected_native_roles:
+    fail("nativeStatusViews must define mobileNetwork, wifi, and battery")
+if not set(native_status_views.values()).issubset(verified_systemui):
+    fail("native status view classes are not all verified in the SystemUI APK")
+
+inventory_text = NATIVE_STATUS_INVENTORY_PATH.read_text(encoding="utf-8")
+inventory_constants = {
+    "mobileNetwork": re.search(
+        r'MOBILE_NETWORK_VIEW_CLASS_NAME\s*=\s*\n?\s*"([^"]+)"',
+        inventory_text,
+    ),
+    "wifi": re.search(
+        r'WIFI_VIEW_CLASS_NAME\s*=\s*\n?\s*"([^"]+)"',
+        inventory_text,
+    ),
+    "battery": re.search(
+        r'BATTERY_VIEW_CLASS_NAME\s*=\s*\n?\s*"([^"]+)"',
+        inventory_text,
+    ),
+}
+for role, match in inventory_constants.items():
+    if not match:
+        fail(f"native status inventory constant is missing: {role}")
+    if match.group(1) != native_status_views[role]:
+        fail(f"native status inventory class drifted from profile: {role}")
+
 component_markers = profile.get("verifiedSystemUiComponentClasses", [])
 if len(component_markers) < 1:
     fail("SystemUI component APK has no verified class markers")
@@ -107,3 +136,4 @@ print(
 print(f"Runtime markers: {len(runtime_markers)}/{len(runtime_markers)}")
 print(f"Component markers: {len(component_markers)}/{len(component_markers)}")
 print(f"Verified hook points: {len(hook_points)}/{len(hook_points)}")
+print(f"Native status views: {len(native_status_views)}/{len(native_status_views)}")
