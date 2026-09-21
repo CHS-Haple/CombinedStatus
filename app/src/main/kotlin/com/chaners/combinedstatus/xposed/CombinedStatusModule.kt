@@ -76,7 +76,8 @@ class CombinedStatusModule : XposedModule() {
 
             var removed = 0
             oldHandles.forEach { handle ->
-                if (handle !== statusHostHandle && handle.unhook()) {
+                if (handle !== statusHostHandle) {
+                    handle.unhook()
                     removed += 1
                 }
             }
