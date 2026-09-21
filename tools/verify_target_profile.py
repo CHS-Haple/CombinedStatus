@@ -91,7 +91,7 @@ if capture_method.group(1) != status_hook.get("methodName"):
 network_probe_text = NETWORK_PIPELINE_PROBE_PATH.read_text(encoding="utf-8")
 network_hook_constants = {
     "wifiBinderBind": ("WIFI_BINDER_CLASS_NAME", "WIFI_BIND_METHOD_NAME"),
-    "wifiIconApplied": ("WIFI_BINDER_CLASS_NAME", "WIFI_ICON_METHOD_NAME"),
+    "wifiIconCollected": ("WIFI_ICON_EMITTER_CLASS_NAME", "WIFI_ICON_EMIT_METHOD_NAME"),
     "mobileBinderBind": ("MOBILE_BINDER_CLASS_NAME", "MOBILE_BIND_METHOD_NAME"),
     "mobileSignalCollected": (
         "MOBILE_SIGNAL_EMITTER_CLASS_NAME",
