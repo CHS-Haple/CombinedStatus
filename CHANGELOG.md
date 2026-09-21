@@ -20,6 +20,8 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - One-shot SystemUI structural compatibility probe for the status bar, Control Center, keyguard header, and battery-view hosts.
 - Pinned compatibility profile generated from the exact HyperOS SystemUI 17.03.260226.r and SystemUI component 18.3.2.22.0 APKs.
 - Read-only capture of the primary HyperOS status-bar host after `MiuiNotificationStatusContainer.onFinishInflate()`, stored as a weak reference for later rendering integration.
+- Manual SystemUI scope restart from the module app with an explicit Root confirmation and no resident Root service.
+- Modern Xposed API 102 hot reload lifecycle with automatic app-update reload metadata and hook migration for the status-host observer.
 
 ### Changed
 - Minimum Android version is Android 13 / API 33 to match the current MIUIX blur baseline.
@@ -37,6 +39,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Polished settings summaries to use shorter, more natural system-style phrasing without unnecessary semicolons.
 - Added CI validation for modern Xposed metadata while keeping the initial module entry point hook-free.
 - Standardized module terminology on mobile network / 移动网络 and clarified Xiaomi HyperOS as the target platform in module descriptions.
+- Diagnostics now report the active Modern Xposed API 102 runtime and hot-reload capability instead of the earlier pre-hook placeholder state.
 
 ### Fixed
 - CI certificate verification now accepts the current Android Build Tools signer output while still pinning the expected certificate SHA-256 digest.

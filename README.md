@@ -29,7 +29,7 @@ The top-level interface is organized as Home, Features, and Settings. Deeper set
 - Languages: English, Simplified Chinese
 - Minimum Android version: Android 13 / API 33
 
-The current build follows the system language and uses a compile-only modern Xposed API 102 dependency. Its only SystemUI hook observes the primary status-bar host after inflation and stores a weak reference for later feature integration; it does not modify SystemUI geometry or visual state. The app does not register background services or request additional permissions.
+The current build follows the system language and uses a compile-only modern Xposed API 102 dependency. Its only SystemUI hook observes the primary status-bar host after inflation and stores a weak reference for later feature integration; it does not modify SystemUI geometry or visual state. API 102 hot reload is enabled with a single Java entry and hook migration between module generations. The app also provides an explicit Root-confirmed action to restart the static SystemUI scope when a full process refresh is required. It does not register background services or request additional permissions.
 
 ## Development workflow
 

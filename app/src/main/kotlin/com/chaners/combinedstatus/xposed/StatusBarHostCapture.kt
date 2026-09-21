@@ -1,28 +1,54 @@
 package com.chaners.combinedstatus.xposed
 
+import io.github.libxposed.api.XposedInterface.HookHandle
+import io.github.libxposed.api.XposedInterface.Hooker
 import io.github.libxposed.api.XposedModule
 
 internal object StatusBarHostCapture {
     const val HOST_CLASS_NAME =
         "com.android.systemui.statusbar.views.MiuiNotificationStatusContainer"
     const val HOST_READY_METHOD_NAME = "onFinishInflate"
+    const val HOOK_ID = "combinedstatus.statusHost.onFinishInflate"
 
     fun install(
         module: XposedModule,
         classLoader: ClassLoader,
         onCaptured: (SystemUiHostRegistry.Capture) -> Unit,
-    ) {
+    ): HookHandle {
         val hostClass = Class.forName(HOST_CLASS_NAME, false, classLoader)
         val hostReadyMethod = hostClass.getDeclaredMethod(HOST_READY_METHOD_NAME)
 
-        module.hook(hostReadyMethod).intercept { chain ->
-            val result = chain.proceed()
+        return module
+            .hook(hostReadyMethod)
+            .setId(HOOK_ID)
+            .intercept(hooker(onCaptured))
+    }
 
-            chain.thisObject?.let { host ->
-                SystemUiHostRegistry.captureStatusHost(host)?.let(onCaptured)
-            }
+    fun replace(
+        handle: HookHandle,
+        onCaptured: (SystemUiHostRegistry.Capture) -> Unit,
+    ): HookHandle = handle.replaceHook(hooker(onCaptured))
 
-            result
+    fun matches(handle: HookHandle): Boolean {
+        if (handle.id == HOOK_ID) {
+            return true
         }
+
+        val executable = handle.executable
+        return executable.declaringClass.name == HOST_CLASS_NAME &&
+            executable.name == HOST_READY_METHOD_NAME &&
+            executable.parameterCount == 0
+    }
+
+    private fun hooker(
+        onCaptured: (SystemUiHostRegistry.Capture) -> Unit,
+    ): Hooker = Hooker { chain ->
+        val result = chain.proceed()
+
+        chain.thisObject?.let { host ->
+            SystemUiHostRegistry.captureStatusHost(host)?.let(onCaptured)
+        }
+
+        result
     }
 }
