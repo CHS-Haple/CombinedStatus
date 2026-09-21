@@ -55,7 +55,7 @@ internal object CombinedStatusStateStore {
             get() {
                 val batteryText = battery?.let { state ->
                     state.percent.toString() + ":" +
-                        if (state.charging) "charging" else "discharging" +
+                        (if (state.charging) "charging" else "discharging") +
                         ":plugged=" + state.plugged
                 } ?: "unknown"
 

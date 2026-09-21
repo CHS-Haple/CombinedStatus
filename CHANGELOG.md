@@ -66,4 +66,4 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 ### Fixed
 - Home Wi-Fi roots are registered before the native binder proceeds; Wi-Fi icon tracing now follows the verified `getWifiIcon()` collector (`classId=1`) instead of the unrelated `setImageViewResId()` helper.
 - CI certificate verification now accepts the current Android Build Tools signer output while still pinning the expected certificate SHA-256 digest.
-- Per-app language selection now keeps the explicit System/English/Simplified Chinese choice visible even when the chosen language matches the current system locale.
+- Per-app language selection now keeps the explicit System/English/Simplified Chinese choice visible even when the chosen language matches the current system locale.\n- Normalized state diagnostics now include the battery plugged source consistently for both charging and discharging states.
