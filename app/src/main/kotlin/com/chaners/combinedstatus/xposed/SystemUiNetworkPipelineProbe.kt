@@ -41,6 +41,7 @@ internal object SystemUiNetworkPipelineProbe {
 
     private const val WIFI_BIND_HOOK_ID = "combinedstatus.network.wifi.bind"
     private const val WIFI_ICON_HOOK_ID = "combinedstatus.network.wifi.icon"
+    private const val WIFI_ICON_COLLECTOR_CLASS_ID = 1
     private const val MOBILE_BIND_HOOK_ID = "combinedstatus.network.mobile.bind"
     private const val MOBILE_SIGNAL_HOOK_ID = "combinedstatus.network.mobile.signal"
 
