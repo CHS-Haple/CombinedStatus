@@ -32,6 +32,7 @@
     "com.android.systemui.statusbar.phone.StatusIconContainer",
     "com.android.systemui.statusbar.views.MiuiStatusBatteryContainer",
     "com.android.systemui.statusbar.pipeline.wifi.ui.binder.MiuiWifiViewBinder",
+    "com.android.systemui.statusbar.pipeline.wifi.ui.binder.MiuiWifiViewBinder$bind$1$1$2$1",
     "com.android.systemui.statusbar.pipeline.wifi.ui.viewmodel.LocationBasedWifiViewModel",
     "com.android.systemui.statusbar.pipeline.wifi.ui.viewmodel.HomeWifiViewModel",
     "com.android.systemui.statusbar.pipeline.mobile.ui.binder.MiuiMobileIconBinder",
@@ -54,12 +55,6 @@
       "methodName": "bind",
       "descriptor": "(Landroid/view/ViewGroup;Lcom/android/systemui/statusbar/pipeline/wifi/ui/viewmodel/LocationBasedWifiViewModel;)Lcom/android/systemui/statusbar/pipeline/wifi/ui/binder/MiuiWifiViewBinder$bind$2;"
     },
-    "wifiIconApplied": {
-      "sourceArtifact": "systemUi",
-      "className": "com.android.systemui.statusbar.pipeline.wifi.ui.binder.MiuiWifiViewBinder",
-      "methodName": "setImageViewResId",
-      "descriptor": "(Landroid/widget/ImageView;ILkotlin/Triple;)V"
-    },
     "mobileBinderBind": {
       "sourceArtifact": "systemUi",
       "className": "com.android.systemui.statusbar.pipeline.mobile.ui.binder.MiuiMobileIconBinder",
@@ -71,6 +66,12 @@
       "className": "com.android.systemui.statusbar.pipeline.mobile.ui.binder.MiuiMobileIconBinder$bind$1$1$4$2",
       "methodName": "emit",
       "descriptor": "(Ljava/lang/Object;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;"
+    },
+    "wifiIconCollected": {
+      "sourceArtifact": "systemUi",
+      "className": "com.android.systemui.statusbar.pipeline.wifi.ui.binder.MiuiWifiViewBinder$bind$1$1$2$1",
+      "methodName": "emit",
+      "descriptor": "(Ljava/lang/Object;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;"
     }
   },
   "verifiedSystemUiMethods": {
@@ -80,13 +81,15 @@
       "onMeasure(II)V"
     ],
     "com.android.systemui.statusbar.pipeline.wifi.ui.binder.MiuiWifiViewBinder": [
-      "bind(Landroid/view/ViewGroup;Lcom/android/systemui/statusbar/pipeline/wifi/ui/viewmodel/LocationBasedWifiViewModel;)Lcom/android/systemui/statusbar/pipeline/wifi/ui/binder/MiuiWifiViewBinder$bind$2;",
-      "setImageViewResId(Landroid/widget/ImageView;ILkotlin/Triple;)V"
+      "bind(Landroid/view/ViewGroup;Lcom/android/systemui/statusbar/pipeline/wifi/ui/viewmodel/LocationBasedWifiViewModel;)Lcom/android/systemui/statusbar/pipeline/wifi/ui/binder/MiuiWifiViewBinder$bind$2;"
     ],
     "com.android.systemui.statusbar.pipeline.mobile.ui.binder.MiuiMobileIconBinder": [
       "bind(Landroid/view/ViewGroup;Lcom/android/systemui/statusbar/pipeline/mobile/ui/viewmodel/LocationBasedMobileViewModel;Lcom/android/systemui/statusbar/pipeline/mobile/ui/viewmodel/MiuiMobileIconViewModel;Lcom/android/systemui/statusbar/pipeline/mobile/ui/MobileViewLogger;)Lcom/android/systemui/statusbar/pipeline/mobile/ui/binder/MiuiMobileIconBinder$bind$2;"
     ],
     "com.android.systemui.statusbar.pipeline.mobile.ui.binder.MiuiMobileIconBinder$bind$1$1$4$2": [
+      "emit(Ljava/lang/Object;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;"
+    ],
+    "com.android.systemui.statusbar.pipeline.wifi.ui.binder.MiuiWifiViewBinder$bind$1$1$2$1": [
       "emit(Ljava/lang/Object;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;"
     ]
   },
