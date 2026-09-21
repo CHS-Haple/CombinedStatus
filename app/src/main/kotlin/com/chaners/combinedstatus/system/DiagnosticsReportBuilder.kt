@@ -54,8 +54,8 @@ internal object DiagnosticsReportBuilder {
         val shareLines = shareLogResult.output
             .lineSequence()
             .filter { line -> line.contains("CombinedStatusShare") }
-            .takeLast(ShareLogLineLimit)
             .toList()
+            .takeLast(ShareLogLineLimit)
 
         val lineLimit =
             if (BuildConfig.DEBUG) {
