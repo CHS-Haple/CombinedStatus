@@ -121,15 +121,15 @@ if not set(native_status_containers.values()).issubset(verified_systemui):
 
 container_constants = {
     "miuiStatusIcons": re.search(
-        r'MIUI_STATUS_ICON_CONTAINER_CLASS_NAME\s*=\s*\n?\s*"([^"]+)"',
+        r'(?m)^\s*const val MIUI_STATUS_ICON_CONTAINER_CLASS_NAME\s*=\s*\n?\s*"([^"]+)"',
         inventory_text,
     ),
     "statusIcons": re.search(
-        r'STATUS_ICON_CONTAINER_CLASS_NAME\s*=\s*\n?\s*"([^"]+)"',
+        r'(?m)^\s*const val STATUS_ICON_CONTAINER_CLASS_NAME\s*=\s*\n?\s*"([^"]+)"',
         inventory_text,
     ),
     "batteryContainer": re.search(
-        r'BATTERY_CONTAINER_CLASS_NAME\s*=\s*\n?\s*"([^"]+)"',
+        r'(?m)^\s*const val BATTERY_CONTAINER_CLASS_NAME\s*=\s*\n?\s*"([^"]+)"',
         inventory_text,
     ),
 }
