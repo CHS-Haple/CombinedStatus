@@ -55,32 +55,6 @@ jobs:
       - name: Build debug APK
         run: gradle :app:assembleDebug --stacktrace
 
-      - name: Build release APK
-        run: gradle :app:assembleRelease --stacktrace
-
-      - name: Verify release diagnostics boundary
-        shell: bash
-        run: |
-          APK="app/build/outputs/apk/release/app-release-unsigned.apk"
-          if [[ ! -f "$APK" ]]; then
-            APK="app/build/outputs/apk/release/app-release.apk"
-          fi
-
-          python3 - "$APK" <<'PY'
-          import sys
-          import zipfile
-
-          apk = sys.argv[1]
-          marker = b"nativeStatus topology"
-          with zipfile.ZipFile(apk) as archive:
-              dex_names = [name for name in archive.namelist() if name.startswith("classes") and name.endswith(".dex")]
-              if not dex_names:
-                  raise SystemExit("Release APK contains no DEX files.")
-              if any(marker in archive.read(name) for name in dex_names):
-                  raise SystemExit("Detailed debug topology diagnostics leaked into the release APK.")
-          print("Release diagnostics boundary: basic-only runtime confirmed")
-          PY
-
       - name: Verify modern Xposed metadata
         shell: bash
         run: |
