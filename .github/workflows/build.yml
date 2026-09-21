@@ -52,124 +52,88 @@ jobs:
       - name: Verify pinned HyperOS target profile
         run: python3 tools/verify_target_profile.py
 
-      - name: Build debug and release APKs
-        run: gradle :app:assembleDebug :app:assembleRelease --stacktrace
+      - name: Build debug APK
+        run: gradle :app:assembleDebug --stacktrace
 
       - name: Verify modern Xposed metadata
         shell: bash
         run: |
+          APK="app/build/outputs/apk/debug/app-debug.apk"
           REQUIRED_ENTRIES=(
             "META-INF/xposed/java_init.list"
             "META-INF/xposed/module.prop"
             "META-INF/xposed/scope.list"
           )
 
-          for APK in             app/build/outputs/apk/debug/app-debug.apk             app/build/outputs/apk/release/app-release.apk; do
-            for entry in "${REQUIRED_ENTRIES[@]}"; do
-              if ! unzip -Z1 "$APK" | grep -Fxq "$entry"; then
-                echo "Missing modern Xposed metadata in $APK: $entry"
-                exit 1
-              fi
-            done
-
-            if unzip -Z1 "$APK" | grep -Fxq "assets/xposed_init"; then
-              echo "Legacy Xposed entry metadata must not be packaged in $APK."
-              exit 1
-            fi
-
-            if [[ "$(unzip -p "$APK" META-INF/xposed/scope.list | tr -d '\r\n')" != "com.android.systemui" ]]; then
-              echo "Unexpected Xposed scope in $APK."
-              exit 1
-            fi
-
-            if ! unzip -p "$APK" META-INF/xposed/module.prop | grep -Fxq "targetApiVersion=102"; then
-              echo "Modern Xposed target API 102 metadata is missing in $APK."
-              exit 1
-            fi
-
-            if ! unzip -p "$APK" META-INF/xposed/module.prop | grep -Fxq "autoHotReload=true"; then
-              echo "Modern Xposed hot reload metadata is missing in $APK."
-              exit 1
-            fi
-
-            JAVA_ENTRY_COUNT="$(
-              unzip -p "$APK" META-INF/xposed/java_init.list |
-                tr -d '\r' |
-                sed '/^[[:space:]]*$/d' |
-                wc -l |
-                tr -d ' '
-            )"
-            if [[ "$JAVA_ENTRY_COUNT" != "1" ]]; then
-              echo "Hot reload requires exactly one Java entry class in $APK."
+          for entry in "${REQUIRED_ENTRIES[@]}"; do
+            if ! unzip -Z1 "$APK" | grep -Fxq "$entry"; then
+              echo "Missing modern Xposed metadata: $entry"
               exit 1
             fi
           done
 
-      - name: Verify release diagnostics boundary
-        shell: bash
-        run: |
-          APK="app/build/outputs/apk/release/app-release.apk"
-          TMP_DIR="$(mktemp -d)"
-          trap 'rm -rf "$TMP_DIR"' EXIT
-          unzip -qq "$APK" 'classes*.dex' -d "$TMP_DIR"
-
-          if grep -aR -Fq "nativeStatus topology" "$TMP_DIR"; then
-            echo "Release APK retained detailed native topology diagnostics."
+          if unzip -Z1 "$APK" | grep -Fxq "assets/xposed_init"; then
+            echo "Legacy Xposed entry metadata must not be packaged."
             exit 1
           fi
 
-          if grep -aR -Fq "networkPipeline hooks=ready" "$TMP_DIR"; then
-            echo "Release APK retained debug-only network pipeline diagnostics."
+          if [[ "$(unzip -p "$APK" META-INF/xposed/scope.list | tr -d '\r\n')" != "com.android.systemui" ]]; then
+            echo "Unexpected Xposed scope."
             exit 1
           fi
 
-      - name: Verify Haple APK signatures
+          if ! unzip -p "$APK" META-INF/xposed/module.prop | grep -Fxq "targetApiVersion=102"; then
+            echo "Modern Xposed target API 102 metadata is missing."
+            exit 1
+          fi
+
+          if ! unzip -p "$APK" META-INF/xposed/module.prop | grep -Fxq "autoHotReload=true"; then
+            echo "Modern Xposed hot reload metadata is missing."
+            exit 1
+          fi
+
+          JAVA_ENTRY_COUNT="$(
+            unzip -p "$APK" META-INF/xposed/java_init.list |
+              tr -d '\r' |
+              sed '/^[[:space:]]*$/d' |
+              wc -l |
+              tr -d ' '
+          )"
+          if [[ "$JAVA_ENTRY_COUNT" != "1" ]]; then
+            echo "Hot reload requires exactly one Java entry class."
+            exit 1
+          fi
+
+      - name: Verify Haple debug APK signature
         shell: bash
         run: |
           SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
-          APKSIGNER="$SDK_ROOT/build-tools/37.0.0/apksigner"
+          "$SDK_ROOT/build-tools/37.0.0/apksigner" verify             --verbose             --print-certs             app/build/outputs/apk/debug/app-debug.apk
 
-          for APK in             app/build/outputs/apk/debug/app-debug.apk             app/build/outputs/apk/release/app-release.apk; do
-            "$APKSIGNER" verify --verbose --print-certs "$APK"
+          ACTUAL_CERT_SHA256="$(
+            "$SDK_ROOT/build-tools/37.0.0/apksigner" verify               --print-certs               app/build/outputs/apk/debug/app-debug.apk |
+              awk -F': ' '/certificate SHA-256 digest:/ { print $NF; exit }' |
+              tr '[:upper:]' '[:lower:]'
+          )"
 
-            ACTUAL_CERT_SHA256="$(
-              "$APKSIGNER" verify --print-certs "$APK" |
-                awk -F': ' '/certificate SHA-256 digest:/ { print $NF; exit }' |
-                tr '[:upper:]' '[:lower:]'
-            )"
+          if [[ "$ACTUAL_CERT_SHA256" != "$HAPLE_CERT_SHA256" ]]; then
+            echo "Built debug APK is not signed by the Haple certificate."
+            exit 1
+          fi
 
-            if [[ "$ACTUAL_CERT_SHA256" != "$HAPLE_CERT_SHA256" ]]; then
-              echo "Built APK is not signed by the Haple certificate: $APK"
-              exit 1
-            fi
-          done
-
-      - name: Prepare comparison APKs
+      - name: Prepare debug APK
         shell: bash
         run: |
           VERSION_NAME="$(sed -n 's/^combinedStatus.versionName=//p' gradle.properties)"
           BUILD_ID="$(sed -n 's/^combinedStatus.buildId=//p' gradle.properties)"
           mkdir -p dist
-
-          DEBUG_APK_NAME="CombinedStatus-${VERSION_NAME}-HyperOS-${BUILD_ID}-debug.apk"
-          RELEASE_APK_NAME="CombinedStatus-${VERSION_NAME}-HyperOS-${BUILD_ID}-release.apk"
-
-          cp app/build/outputs/apk/debug/app-debug.apk "dist/$DEBUG_APK_NAME"
-          cp app/build/outputs/apk/release/app-release.apk "dist/$RELEASE_APK_NAME"
-
-          echo "DEBUG_APK_NAME=$DEBUG_APK_NAME" >> "$GITHUB_ENV"
-          echo "RELEASE_APK_NAME=$RELEASE_APK_NAME" >> "$GITHUB_ENV"
+          APK_NAME="CombinedStatus-${VERSION_NAME}-HyperOS-${BUILD_ID}-debug.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "dist/$APK_NAME"
+          echo "APK_NAME=$APK_NAME" >> "$GITHUB_ENV"
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.DEBUG_APK_NAME }}
-          path: dist/${{ env.DEBUG_APK_NAME }}
-          if-no-files-found: error
-
-      - name: Upload release APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.RELEASE_APK_NAME }}
-          path: dist/${{ env.RELEASE_APK_NAME }}
+          name: ${{ env.APK_NAME }}
+          path: dist/${{ env.APK_NAME }}
           if-no-files-found: error
