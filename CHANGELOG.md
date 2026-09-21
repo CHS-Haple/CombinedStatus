@@ -27,7 +27,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Built-in export/share diagnostic report for feedback, containing app/build, basic device, and recent CombinedStatus runtime information without a resident collection service.
 - Diagnostic report now reads LSPosed's own module log files first and falls back to logcat, matching the framework's actual log storage.
 - Debug topology diagnostics now flag mobile-network and Wi-Fi candidate views by class/resource identity so third-party status-bar container changes remain observable.
-- Debug-only native network-pipeline diagnostics now observe the verified HyperOS Home Wi-Fi/mobile binders and change-only icon updates without polling or modifying SystemUI state.
+- Debug-only native network-pipeline diagnostics now observe the verified HyperOS Home Wi-Fi/mobile binders; Wi-Fi icon state is traced from the actual `getWifiIcon()` Flow collector and mobile signal state from its verified collector, without polling or modifying SystemUI state.
 
 ### Changed
 - Minimum Android version is Android 13 / API 33 to match the current MIUIX blur baseline.
@@ -64,6 +64,6 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Compatibility metadata, diagnostics copy, and CI verification now target SystemUI only, matching the module's actual `com.android.systemui` scope.
 
 ### Fixed
-- Home Wi-Fi roots are registered before the native binder proceeds so initial status-bar icon application can be observed without polling or changing SystemUI state.
+- Home Wi-Fi roots are registered before the native binder proceeds; Wi-Fi icon tracing now follows the verified `getWifiIcon()` collector (`classId=1`) instead of the unrelated `setImageViewResId()` helper.
 - CI certificate verification now accepts the current Android Build Tools signer output while still pinning the expected certificate SHA-256 digest.
 - Per-app language selection now keeps the explicit System/English/Simplified Chinese choice visible even when the chosen language matches the current system locale.
