@@ -1,5 +1,10 @@
 package com.chaners.combinedstatus.ui.screens
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
+import android.widget.Toast
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
@@ -8,16 +13,20 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.chaners.combinedstatus.BuildConfig
 import com.chaners.combinedstatus.R
 import com.chaners.combinedstatus.settings.AppThemeMode
 import com.chaners.combinedstatus.settings.AppearanceSettings
+import com.chaners.combinedstatus.system.DiagnosticsReportBuilder
 import com.chaners.combinedstatus.ui.layout.pageContentPadding
+import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
@@ -150,12 +159,36 @@ internal fun ChargingScreen(onBack: () -> Unit) {
 
 @Composable
 internal fun DiagnosticsScreen(onBack: () -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var reportInProgress by rememberSaveable { mutableStateOf(false) }
+
     val buildSummary = listOf(
         stringResource(R.string.target_platform_value),
         stringResource(R.string.version_value, BuildConfig.VERSION_NAME),
         stringResource(R.string.build_value, BuildConfig.BUILD_ID),
         stringResource(R.string.package_value, BuildConfig.APPLICATION_ID),
     ).joinToString("\n")
+    val diagnosticsModeSummary = stringResource(
+        if (BuildConfig.DEBUG) {
+            R.string.diagnostics_mode_detailed
+        } else {
+            R.string.diagnostics_mode_basic
+        },
+    )
+    val reportClipLabel = stringResource(R.string.diagnostic_report_clip_label)
+    val reportCopiedMessage = stringResource(R.string.diagnostic_report_copied)
+    val reportShareTitle = stringResource(R.string.share_diagnostic_report)
+
+    fun buildReport(onReady: (String) -> Unit) {
+        if (reportInProgress) return
+        reportInProgress = true
+        scope.launch {
+            val report = DiagnosticsReportBuilder.build()
+            reportInProgress = false
+            onReady(report)
+        }
+    }
 
     SettingsPage(title = stringResource(R.string.diagnostics_title), onBack = onBack) {
         Section(R.string.section_current_build) {
@@ -174,8 +207,51 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
                 summary = stringResource(R.string.runtime_target_summary),
             )
             BasicComponent(
-                title = stringResource(R.string.runtime_inventory_title),
-                summary = stringResource(R.string.runtime_inventory_summary),
+                title = stringResource(R.string.diagnostics_mode_title),
+                summary = diagnosticsModeSummary,
+            )
+            if (BuildConfig.DEBUG) {
+                BasicComponent(
+                    title = stringResource(R.string.runtime_inventory_title),
+                    summary = stringResource(R.string.runtime_inventory_summary),
+                )
+            }
+        }
+        Section(R.string.section_diagnostic_report) {
+            BasicComponent(
+                title = stringResource(R.string.copy_diagnostic_report),
+                summary = stringResource(R.string.copy_diagnostic_report_summary),
+                enabled = !reportInProgress,
+                onClick = {
+                    buildReport { report ->
+                        val clipboard =
+                            context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        clipboard.setPrimaryClip(
+                            ClipData.newPlainText(reportClipLabel, report),
+                        )
+                        Toast.makeText(
+                            context,
+                            reportCopiedMessage,
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                    }
+                },
+            )
+            BasicComponent(
+                title = stringResource(R.string.share_diagnostic_report),
+                summary = stringResource(R.string.share_diagnostic_report_summary),
+                enabled = !reportInProgress,
+                onClick = {
+                    buildReport { report ->
+                        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, report)
+                        }
+                        context.startActivity(
+                            Intent.createChooser(sendIntent, reportShareTitle),
+                        )
+                    }
+                },
             )
         }
     }

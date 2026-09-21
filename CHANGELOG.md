@@ -24,6 +24,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Modern Xposed API 102 hot reload lifecycle with automatic app-update reload metadata and hook migration for the status-host observer.
 - One-shot native SystemUI status-view inventory after host layout, covering mobile network, Wi-Fi, and battery views without modifying geometry or drawing.
 - Root-view topology inventory for native status icons and their verified SystemUI containers, with bounded one-shot traversal and ancestor/path diagnostics.
+- Built-in copy/share diagnostic report for feedback, containing app/build, basic device, and recent CombinedStatus runtime information without a resident collection service.
 
 ### Changed
 - Minimum Android version is Android 13 / API 33 to match the current MIUIX blur baseline.
@@ -44,6 +45,8 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Diagnostics now report the active Modern Xposed API 102 runtime and hot-reload capability instead of the earlier pre-hook placeholder state.
 - Diagnostics UI now uses MIUIX read-only information rows for module framework, compatibility baseline, and the native status probe; preview copy no longer claims SystemUI is disconnected.
 - Native status probe wording now describes the status-bar topology check without exposing host-lifecycle implementation details.
+- Diagnostics now follow build type: release keeps low-frequency operational diagnostics, while debug adds detailed topology, geometry, and Hook reporting without changing core module behavior.
+- SystemUI restart and on-demand diagnostic collection now share one bounded Root shell executor instead of duplicating process lifecycle code.
 - LibXposed artifacts are resolved explicitly from Maven Central at `repo.maven.apache.org`, restricted to the `io.github.libxposed` group.
 - Restart confirmation now follows the MIUIX two-action dialog layout with equal-width actions and user-facing SystemUI wording.
 - Xposed lifecycle diagnostics now include the internal build ID to make hot-reload generation changes directly visible in LSPosed logs.

@@ -15,7 +15,9 @@ class CombinedStatusModule : XposedModule() {
         log(
             Log.INFO,
             TAG,
-            "Module loaded in ${param.processName} build=${BuildConfig.BUILD_ID} with Xposed API $apiVersion",
+            "Module loaded in ${param.processName} build=${BuildConfig.BUILD_ID} " +
+                "diagnostics=${if (BuildConfig.DEBUG) "detailed" else "basic"} " +
+                "with Xposed API $apiVersion",
         )
     }
 
@@ -100,11 +102,13 @@ class CombinedStatusModule : XposedModule() {
             "statusHost captured id=${capture.identity} replacement=${capture.replacement}",
         )
 
-        SystemUiNativeStatusInventory.schedule(capture.host) { snapshot ->
-            log(Log.INFO, TAG, snapshot.summary)
-            log(Log.INFO, TAG, snapshot.hostLine)
-            snapshot.entries.forEach { entry ->
-                log(Log.INFO, TAG, entry.logLine)
+        if (BuildConfig.DEBUG) {
+            SystemUiNativeStatusInventory.schedule(capture.host) { snapshot ->
+                log(Log.INFO, TAG, snapshot.summary)
+                log(Log.INFO, TAG, snapshot.hostLine)
+                snapshot.entries.forEach { entry ->
+                    log(Log.INFO, TAG, entry.logLine)
+                }
             }
         }
     }

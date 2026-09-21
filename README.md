@@ -29,7 +29,11 @@ The top-level interface is organized as Home, Features, and Settings. Deeper set
 - Languages: English, Simplified Chinese
 - Minimum Android version: Android 13 / API 33
 
-The current build follows the system language and uses a compile-only modern Xposed API 102 dependency. Its SystemUI integration observes the primary status-bar host after inflation and performs a one-shot, read-only inventory after layout to identify native mobile-network, Wi-Fi, and battery status views. It does not modify SystemUI geometry or visual state. API 102 hot reload is enabled with a single Java entry and hook migration between module generations. The app also provides an explicit Root-confirmed action to restart the static SystemUI scope when a full process refresh is required. It does not register background services or request additional permissions.
+The current build follows the system language and uses a compile-only modern Xposed API 102 dependency. Its SystemUI integration observes the primary status-bar host after inflation. Debug builds can additionally perform a bounded, one-shot, read-only topology inventory for native status views and containers; release builds keep only low-frequency operational diagnostics. Neither diagnostics mode modifies SystemUI geometry or visual state. API 102 hot reload is enabled with a single Java entry and hook migration between module generations. The app also provides an explicit Root-confirmed action to restart the static SystemUI scope when a full process refresh is required. It does not register background services or request additional permissions.
+
+## Diagnostics
+
+Core module behavior is shared between debug and release builds. Release builds retain basic low-frequency diagnostics for version, compatibility, lifecycle, hot reload, and errors. Debug builds add detailed status-bar topology, geometry, and Hook information. The Diagnostics screen can build a feedback report from app/build information, basic device information, and recent CombinedStatus runtime log entries. Runtime-log collection is user-triggered and uses Root only while the report is generated; no resident logging service, polling loop, or continuous View-tree sampling is added.
 
 ## Development workflow
 

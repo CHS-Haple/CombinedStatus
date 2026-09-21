@@ -87,6 +87,16 @@
     <string name="runtime_target_title">兼容性基线</string>
     <string name="runtime_target_summary">SystemUI 17.03.260226.r · 系统界面组件 18.3.2.22.0</string>
     <string name="runtime_inventory_title">原生状态探针</string>
-    <string name="runtime_inventory_summary">一次性识别状态栏原生图标与容器，不修改 SystemUI 布局</string>
+    <string name="runtime_inventory_summary">一次性记录状态栏结构与几何信息，不修改 SystemUI 布局</string>
+    <string name="diagnostics_mode_title">诊断级别</string>
+    <string name="diagnostics_mode_basic">基础诊断 · 版本、兼容性、生命周期、热重载与错误信息</string>
+    <string name="diagnostics_mode_detailed">详细诊断 · 附带状态栏结构、几何与 Hook 细节</string>
+    <string name="section_diagnostic_report">诊断报告</string>
+    <string name="copy_diagnostic_report">复制诊断报告</string>
+    <string name="copy_diagnostic_report_summary">生成当前环境与最近模块运行日志报告</string>
+    <string name="share_diagnostic_report">分享诊断报告</string>
+    <string name="share_diagnostic_report_summary">生成相同报告并打开系统分享面板</string>
+    <string name="diagnostic_report_clip_label">CombinedStatus 诊断报告</string>
+    <string name="diagnostic_report_copied">诊断报告已复制</string>
     <string name="back">返回</string>
 </resources>

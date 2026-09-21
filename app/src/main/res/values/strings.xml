@@ -87,6 +87,16 @@
     <string name="runtime_target_title">Compatibility baseline</string>
     <string name="runtime_target_summary">SystemUI 17.03.260226.r · System UI Plugin 18.3.2.22.0</string>
     <string name="runtime_inventory_title">Native status probe</string>
-    <string name="runtime_inventory_summary">Identifies native status-bar icons and containers once without changing SystemUI layout</string>
+    <string name="runtime_inventory_summary">Detailed one-shot status-bar topology and geometry snapshot</string>
+    <string name="diagnostics_mode_title">Diagnostics level</string>
+    <string name="diagnostics_mode_basic">Basic diagnostics · version, compatibility, lifecycle, hot reload, and errors</string>
+    <string name="diagnostics_mode_detailed">Detailed diagnostics · includes status-bar topology, geometry, and Hook details</string>
+    <string name="section_diagnostic_report">Diagnostic report</string>
+    <string name="copy_diagnostic_report">Copy diagnostic report</string>
+    <string name="copy_diagnostic_report_summary">Generate a report from the current environment and recent module runtime log</string>
+    <string name="share_diagnostic_report">Share diagnostic report</string>
+    <string name="share_diagnostic_report_summary">Generate the same report and open the system share sheet</string>
+    <string name="diagnostic_report_clip_label">CombinedStatus diagnostic report</string>
+    <string name="diagnostic_report_copied">Diagnostic report copied</string>
     <string name="back">Back</string>
 </resources>
