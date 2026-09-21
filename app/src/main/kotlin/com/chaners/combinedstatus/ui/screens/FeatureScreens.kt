@@ -1,5 +1,6 @@
 package com.chaners.combinedstatus.ui.screens
 
+import android.app.PendingIntent
 import android.content.ClipData
 import android.content.Intent
 import android.widget.Toast
@@ -22,6 +23,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.chaners.combinedstatus.BuildConfig
 import com.chaners.combinedstatus.R
+import com.chaners.combinedstatus.ShareRefinementActivity
 import com.chaners.combinedstatus.settings.AppThemeMode
 import com.chaners.combinedstatus.settings.AppearanceSettings
 import com.chaners.combinedstatus.system.DiagnosticsReportBuilder
@@ -273,25 +275,47 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
                         }
 
                         val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                            type = "text/plain"
+                            type = DiagnosticsReportFiles.ShareMimeType
                             putExtra(Intent.EXTRA_STREAM, prepared.uri)
-                            clipData = ClipData.newRawUri(reportShareTitle, prepared.uri)
+                            clipData = ClipData.newUri(
+                                context.contentResolver,
+                                reportShareTitle,
+                                prepared.uri,
+                            )
                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                         }
-                        DiagnosticsReportFiles.logMimeCompatibilityProbe(
-                            context = context,
-                            uri = prepared.uri,
-                        )
                         DiagnosticsReportFiles.logShareIntent(
                             context = context,
                             intent = sendIntent,
                             uri = prepared.uri,
                         )
 
+                        val refinementSender = PendingIntent.getActivity(
+                            context,
+                            prepared.uri.toString().hashCode(),
+                            Intent(context, ShareRefinementActivity::class.java).apply {
+                                putExtra(
+                                    ShareRefinementActivity.EXTRA_SHARED_URI,
+                                    prepared.uri,
+                                )
+                                putExtra(
+                                    ShareRefinementActivity.EXTRA_CLIP_LABEL,
+                                    reportShareTitle,
+                                )
+                            },
+                            PendingIntent.FLAG_CANCEL_CURRENT or
+                                PendingIntent.FLAG_ONE_SHOT or
+                                PendingIntent.FLAG_MUTABLE,
+                        ).intentSender
+
                         val chooserIntent = Intent.createChooser(
                             sendIntent,
                             reportShareTitle,
                         ).apply {
+                            putExtra(
+                                Intent.EXTRA_CHOOSER_REFINEMENT_INTENT_SENDER,
+                                refinementSender,
+                            )
                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                         }
 

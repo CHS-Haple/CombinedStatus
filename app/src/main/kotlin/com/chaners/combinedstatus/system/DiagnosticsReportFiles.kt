@@ -14,6 +14,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 internal object DiagnosticsReportFiles {
+    const val ShareMimeType = "text/plain"
+
     private const val ShareDirectoryName = "diagnostics-share"
     private const val ShareLogTag = "CombinedStatusShare"
     private const val MaxSharedReports = 3
@@ -97,55 +99,6 @@ internal object DiagnosticsReportFiles {
         }.getOrNull()
     }
 
-    fun logMimeCompatibilityProbe(
-        context: Context,
-        uri: Uri,
-    ) {
-        if (!BuildConfig.DEBUG) {
-            return
-        }
-
-        listOf(
-            "text/plain",
-            "application/octet-stream",
-            "*/*",
-        ).forEach { mimeType ->
-            val probeIntent = Intent(Intent.ACTION_SEND).apply {
-                type = mimeType
-                putExtra(Intent.EXTRA_STREAM, uri)
-                clipData = android.content.ClipData.newRawUri("diagnostic-report", uri)
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            }
-
-            val activities = runCatching {
-                context.packageManager
-                    .queryIntentActivities(probeIntent, 0)
-                    .mapNotNull { info ->
-                        val activity = info.activityInfo ?: return@mapNotNull null
-                        "${activity.packageName}/${activity.name}"
-                    }
-                    .distinct()
-                    .sorted()
-            }.getOrDefault(emptyList())
-
-            val qqActivities =
-                activities.filter { component ->
-                    component.startsWith("com.tencent.mobileqq/")
-                }
-            val wechatActivities =
-                activities.filter { component ->
-                    component.startsWith("com.tencent.mm/")
-                }
-
-            val message =
-                "mimeProbe type=$mimeType targets=${activities.size} " +
-                    "qq=${qqActivities.joinToString(prefix = "[", postfix = "]")} " +
-                    "wechat=${wechatActivities.joinToString(prefix = "[", postfix = "]")}"
-            Log.i(ShareLogTag, message)
-            ShareDiagnosticsStore.append(context, message)
-        }
-    }
-
     fun logShareIntent(
         context: Context,
         intent: Intent,
@@ -155,18 +108,9 @@ internal object DiagnosticsReportFiles {
             return
         }
 
-        val packages = runCatching {
-            context.packageManager
-                .queryIntentActivities(intent, 0)
-                .mapNotNull { info -> info.activityInfo?.packageName }
-                .toSet()
-        }.getOrDefault(emptySet())
-
         val message =
             "intent action=${intent.action} type=${intent.type} flags=0x${intent.flags.toString(16)} " +
-                "clipItems=${intent.clipData?.itemCount ?: 0} uriAuthority=${uri.authority} " +
-                "targets=${packages.size} qq=${"com.tencent.mobileqq" in packages} " +
-                "wechat=${"com.tencent.mm" in packages}"
+                "clipItems=${intent.clipData?.itemCount ?: 0} uriAuthority=${uri.authority}"
         Log.i(ShareLogTag, message)
         ShareDiagnosticsStore.append(context, message)
     }
