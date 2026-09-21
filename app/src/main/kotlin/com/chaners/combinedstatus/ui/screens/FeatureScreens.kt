@@ -1,6 +1,5 @@
 package com.chaners.combinedstatus.ui.screens
 
-import android.app.PendingIntent
 import android.content.ClipData
 import android.content.Intent
 import android.widget.Toast
@@ -23,11 +22,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.chaners.combinedstatus.BuildConfig
 import com.chaners.combinedstatus.R
-import com.chaners.combinedstatus.ShareRefinementActivity
 import com.chaners.combinedstatus.settings.AppThemeMode
 import com.chaners.combinedstatus.settings.AppearanceSettings
 import com.chaners.combinedstatus.system.DiagnosticsReportBuilder
 import com.chaners.combinedstatus.system.DiagnosticsReportFiles
+import com.chaners.combinedstatus.system.ShareCompatibilityGrants
 import com.chaners.combinedstatus.ui.layout.pageContentPadding
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.BasicComponent
@@ -290,32 +289,15 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
                             uri = prepared.uri,
                         )
 
-                        val refinementSender = PendingIntent.getActivity(
-                            context,
-                            prepared.uri.toString().hashCode(),
-                            Intent(context, ShareRefinementActivity::class.java).apply {
-                                putExtra(
-                                    ShareRefinementActivity.EXTRA_SHARED_URI,
-                                    prepared.uri,
-                                )
-                                putExtra(
-                                    ShareRefinementActivity.EXTRA_CLIP_LABEL,
-                                    reportShareTitle,
-                                )
-                            },
-                            PendingIntent.FLAG_CANCEL_CURRENT or
-                                PendingIntent.FLAG_ONE_SHOT or
-                                PendingIntent.FLAG_MUTABLE,
-                        ).intentSender
+                        ShareCompatibilityGrants.grantKnownReceivers(
+                            context = context,
+                            uri = prepared.uri,
+                        )
 
                         val chooserIntent = Intent.createChooser(
                             sendIntent,
                             reportShareTitle,
                         ).apply {
-                            putExtra(
-                                Intent.EXTRA_CHOOSER_REFINEMENT_INTENT_SENDER,
-                                refinementSender,
-                            )
                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                         }
 

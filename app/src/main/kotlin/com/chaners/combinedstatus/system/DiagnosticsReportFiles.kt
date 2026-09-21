@@ -191,6 +191,10 @@ internal object DiagnosticsReportFiles {
                 "${BuildConfig.APPLICATION_ID}.fileprovider",
                 file,
             )
+            ShareCompatibilityGrants.revokeKnownReceivers(
+                context = context,
+                uri = uri,
+            )
             context.revokeUriPermission(
                 uri,
                 Intent.FLAG_GRANT_READ_URI_PERMISSION,
