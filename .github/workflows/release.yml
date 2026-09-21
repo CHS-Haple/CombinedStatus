@@ -53,7 +53,7 @@ jobs:
         env:
           HAPLE_KEYSTORE_BASE64: ${{ secrets.HAPLE_KEYSTORE_BASE64 }}
         run: |
-          if [[ -z "$HAPLE_KEYSTORE_BASE64" || -z "$ANDROID_KEYSTORE_PASSWORD" || -z "$ANDROID_KEY_ALIAS" || -z "$ANDROID_KEY_PASSWORD" ]]; then
+          if [[ -z "$HAPLE_KEYSTORE_BASE64" || -z "$ANDROID_KEYSTORE_PASSWORD" || -z "$ANDROID_KEY_ALIAS" ]]; then
             echo "Haple release signing secrets are incomplete."
             exit 1
           fi
@@ -100,6 +100,27 @@ jobs:
             exit 1
           fi
 
+          test_key_password() {
+            local candidate="$1"
+            local probe="$RUNNER_TEMP/haple-key-probe.p12"
+            [[ -n "$candidate" ]] || return 1
+            rm -f "$probe"
+            keytool -importkeystore               -srckeystore "$KEYSTORE_PATH"               -srcstorepass "$ANDROID_KEYSTORE_PASSWORD"               -srcalias "$ANDROID_KEY_ALIAS"               -srckeypass "$candidate"               -destkeystore "$probe"               -deststoretype PKCS12               -deststorepass "ci-probe-password"               -destkeypass "ci-probe-password"               -noprompt >/dev/null 2>&1
+          }
+
+          if test_key_password "$ANDROID_KEY_PASSWORD"; then
+            echo "Configured HAPLE_KEY_PASSWORD can recover the private key."
+          elif test_key_password "$ANDROID_KEYSTORE_PASSWORD"; then
+            echo "Private key uses the keystore password; using it for APK signing."
+            echo "::add-mask::$ANDROID_KEYSTORE_PASSWORD"
+            echo "ANDROID_KEY_PASSWORD=$ANDROID_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+          else
+            echo "Cannot recover alias $ANDROID_KEY_ALIAS with either HAPLE_KEY_PASSWORD or HAPLE_KEYSTORE_PASSWORD."
+            echo "Update HAPLE_KEY_PASSWORD to the private-key password for this alias."
+            exit 1
+          fi
+
+          rm -f "$RUNNER_TEMP/haple-key-probe.p12"
           echo "ANDROID_KEYSTORE_PATH=$KEYSTORE_PATH" >> "$GITHUB_ENV"
 
       - name: Build signed release APK
