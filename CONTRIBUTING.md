@@ -14,25 +14,84 @@ Package identity is always `com.chaners.combinedstatus`.
 
 ## Mandatory workflow for every functional change
 
-### 0. Proposal evaluation gate
+### 0. Change control gate
 
-A new idea, requested change, or implementation direction is a **candidate**, not an automatic instruction to modify the code.
+A new idea, requested change, or implementation direction is a **candidate**, not an automatic instruction to modify the project. This gate applies before changing code, resources, UI, copy, configuration, build logic, hooks, or compatibility metadata.
 
-Before accepting any new direction, objectively evaluate:
+#### 0.1 Evaluate the direction
+
+Objectively assess:
 
 - **reasonableness**: does it solve a real problem, and is the proposed mechanism actually related to the root cause?
 - **necessity**: is the change needed now, or would it add complexity without clear value?
 - **feasibility**: can it be implemented reliably with the current Android, HyperOS, MIUIX, and Modern Xposed constraints?
 - **standards compliance**: does it fit platform conventions and the project's standardized/lightweight/modern principles?
-- **architectural fit**: does it preserve existing ownership, lifecycle, state flow, and compatibility boundaries?
-- **runtime cost**: does it introduce unnecessary hooks, listeners, wakeups, reflection, polling, logging, Root work, or memory retention?
-- **maintenance cost**: will it create special cases, duplicate logic, fragile version checks, or future migration debt?
-- **evidence**: is there enough code/runtime evidence to justify the direction, or is more diagnosis required first?
+- **architectural fit**: does it preserve lifecycle, ownership, state flow, compatibility boundaries, and existing validated behavior?
+- **runtime cost**: does it introduce unnecessary hooks, listeners, wakeups, reflection, polling, logging, Root work, or retained objects?
+- **maintenance cost**: will it create special cases, duplicated logic, fragile version checks, or migration debt?
+- **evidence**: is there enough source/runtime evidence to justify the direction, or is more diagnosis required first?
 - **alternatives**: is there a simpler, safer, more native, or more maintainable way to reach the same goal?
 
-If a proposal is weak, premature, redundant, or conflicts with the project architecture, do **not** implement it blindly. Explain the issue, keep the current baseline intact, and propose the smallest sound alternative or the next diagnostic step.
+Classify the result as **accept**, **accept with adjustments**, **defer for evidence**, or **reject**. If the proposal is weak, premature, redundant, or conflicts with the architecture, do not implement it merely because it was requested or suggested. Explain the reason and propose the smallest sound alternative or the next diagnostic step.
 
-This rule applies equally to user suggestions and implementation ideas generated during development.
+This applies equally to user suggestions and implementation ideas generated during development.
+
+#### 0.2 Define the change plan before editing
+
+After the direction is accepted, describe the intended implementation process before making project changes. The plan should state:
+
+- the problem and verified owner/call chain;
+- files/layers expected to change;
+- files/layers explicitly expected **not** to change;
+- implementation order and dependency order;
+- diagnostics or evidence required during the change;
+- compatibility and rollback boundaries;
+- Debug/Release impact;
+- copy review if text may change;
+- MIUIX UI review if UI may change;
+- CI checks;
+- real-device scenarios required after implementation.
+
+The plan must be the smallest process that can solve the verified problem without broadening scope unnecessarily.
+
+#### 0.3 Validate the plan
+
+Before implementation, check the plan itself for correctness:
+
+- no step relies on an unverified assumption;
+- steps occur in a safe dependency/lifecycle order;
+- no unnecessary subsystem is included;
+- the plan respects standardized/lightweight/modern principles;
+- diagnostic work is bounded and event-driven;
+- the proposed rollback path leaves the validated baseline intact;
+- runtime-sensitive claims have a real-device verification step.
+
+Only after the direction **and** the plan are both confirmed should project mutation begin.
+
+#### 0.4 Execute against the confirmed plan
+
+During implementation, treat the confirmed plan as the active change boundary. Do not silently broaden scope, add speculative fixes, or improvise unrelated cleanup.
+
+Read-only actions such as code inspection, log inspection, CI/status checks, and analysis may proceed without a new mutation plan because they do not change project state.
+
+#### 0.5 Stop on plan deviation or invalidated assumptions
+
+If implementation reveals that:
+
+- a verified assumption is false;
+- the real owner/call chain differs from the planned one;
+- the required scope becomes broader or materially different;
+- a step would violate lifecycle, compatibility, performance, UI, copy, or diagnostics rules;
+- the actual implementation starts to diverge from the confirmed plan;
+
+**stop further project modification at that boundary.**
+
+Do not continue by stacking another workaround.
+
+State what changed, why the original plan is no longer valid, what evidence was discovered, and what remains untouched. Then produce the currently most reasonable and standards-compliant revised plan, evaluate it again, and obtain confirmation before resuming project mutation.
+
+If no sound revised plan can be justified, do not modify the project further and explain why.
+
 
 ### 1. Pre-change review
 
@@ -206,6 +265,8 @@ For runtime-sensitive work provide a focused real-device test list. Depending on
 
 A change is complete only when all applicable checks pass:
 - proposal/direction objectively evaluated before implementation;
+- change plan defined, validated, and confirmed before project mutation;
+- any implementation deviation stopped and re-evaluated before continuing;
 - pre-change review;
 - standardized/lightweight/modern implementation review;
 - copy review when text changed;
@@ -220,13 +281,15 @@ A change is complete only when all applicable checks pass:
 ## Required implementation report
 
 Every implementation report should state:
-1. how the proposed direction was evaluated and why it was accepted, adjusted, or rejected;
-2. what changed and why;
-3. standardization/lightweight/modernization review result;
-4. text-review result when text changed;
-5. MIUIX UI-review result when UI changed;
-6. CI result;
-7. required real-device test scenarios;
-8. known limitations or compatibility boundaries.
+1. how the proposed direction was evaluated and why it was accepted, adjusted, deferred, or rejected;
+2. the confirmed change plan and whether execution stayed within it;
+3. any plan deviation, the evidence that caused it, and the revised confirmed plan if applicable;
+4. what changed and why;
+5. standardization/lightweight/modernization review result;
+6. text-review result when text changed;
+7. MIUIX UI-review result when UI changed;
+8. CI result;
+9. required real-device test scenarios;
+10. known limitations or compatibility boundaries.
 
 These rules should be re-read and applied for every future feature or fix.
