@@ -21,13 +21,6 @@
         </provider>
 
         <activity
-            android:name=".ShareRefinementActivity"
-            android:excludeFromRecents="true"
-            android:exported="false"
-            android:noHistory="true"
-            android:theme="@android:style/Theme.NoDisplay" />
-
-        <activity
             android:name=".MainActivity"
             android:exported="true">
             <intent-filter>
