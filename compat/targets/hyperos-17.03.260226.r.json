@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "profileId": "hyperos-17.03.260226.r+cc-18.3.2.22.0",
+  "profileId": "hyperos-17.03.260226.r",
   "generatedFromExactApks": true,
   "artifacts": {
     "systemUi": {
@@ -11,15 +11,6 @@
       "sha256": "a0e738e41fe599b97950cbf52a9e2ddc6ae2ceff986efbacb1c9840bea78768d",
       "dexCount": 3,
       "classCount": 44182
-    },
-    "systemUiComponent": {
-      "displayName": "系统界面组件_18.3.2.22.0.apk",
-      "sizeBytes": 25266852,
-      "md5": "967cfbd39143ce8e1a479c6c00623aaf",
-      "sha1": "0422bf8342671d326feee008a54265a547497c12",
-      "sha256": "d990c149b803fc1d4a4238c539eb1d626f164394ac1a1f248ee8d38ad8c243a7",
-      "dexCount": 2,
-      "classCount": 14371
     }
   },
   "runtimeMarkers": {
@@ -40,12 +31,6 @@
     "com.android.systemui.statusbar.views.MiuiStatusIconContainer",
     "com.android.systemui.statusbar.phone.StatusIconContainer",
     "com.android.systemui.statusbar.views.MiuiStatusBatteryContainer"
-  ],
-  "verifiedSystemUiComponentClasses": [
-    "miui.systemui.controlcenter.MiuiControlCenter",
-    "miui.systemui.controlcenter.dagger.ControlCenterPluginInstance",
-    "miui.systemui.controlcenter.data.repository.StatusBarStateRepositoryImpl",
-    "miui.systemui.statusbar.data.repository.StatusBarAreaRepository"
   ],
   "hookPoints": {
     "statusHostInflated": {

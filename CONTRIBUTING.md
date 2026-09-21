@@ -111,7 +111,8 @@ Hooks must be based on verified members from the exact target APKs. Keep compati
 
 Current baseline:
 - HyperOS SystemUI `17.03.260226.r`
-- System UI component `18.3.2.22.0`
+
+The module scope, compatibility profile, runtime markers, and hook verification must be based on SystemUI only. Do not add unrelated HyperOS component packages to the module baseline unless a future feature has a verified runtime dependency on them.
 
 A class existing in an APK does not prove it owns the live behavior. Use runtime evidence when hierarchy, ownership, or transitions matter.
 

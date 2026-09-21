@@ -85,7 +85,7 @@
     <string name="runtime_framework_title">模块框架</string>
     <string name="runtime_framework_summary">Modern Xposed API 102 · 作用域：SystemUI · 支持热重载</string>
     <string name="runtime_target_title">兼容性基线</string>
-    <string name="runtime_target_summary">SystemUI 17.03.260226.r · 系统界面组件 18.3.2.22.0</string>
+    <string name="runtime_target_summary">SystemUI 17.03.260226.r</string>
     <string name="runtime_inventory_title">原生状态探针</string>
     <string name="runtime_inventory_summary">一次性记录状态栏结构与几何信息，不修改 SystemUI 布局</string>
     <string name="diagnostics_mode_title">诊断级别</string>

@@ -18,7 +18,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Optional launcher icon hiding through a dedicated activity alias while retaining a non-launcher CATEGORY_INFO front door.
 - Modern Xposed API 102 module baseline with a single Java entry point and a static `com.android.systemui` scope.
 - One-shot SystemUI structural compatibility probe for the status bar, Control Center, keyguard header, and battery-view hosts.
-- Pinned compatibility profile generated from the exact HyperOS SystemUI 17.03.260226.r and SystemUI component 18.3.2.22.0 APKs.
+- Pinned compatibility profile generated from the exact HyperOS SystemUI 17.03.260226.r APK.
 - Read-only capture of the primary HyperOS status-bar host after `MiuiNotificationStatusContainer.onFinishInflate()`, stored as a weak reference for later rendering integration.
 - Manual SystemUI scope restart from the module app with an explicit Root confirmation and no resident Root service.
 - Modern Xposed API 102 hot reload lifecycle with automatic app-update reload metadata and hook migration for the status-host observer.
@@ -53,6 +53,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - LibXposed artifacts are resolved explicitly from Maven Central at `repo.maven.apache.org`, restricted to the `io.github.libxposed` group.
 - Restart confirmation now follows the MIUIX two-action dialog layout with equal-width actions and user-facing SystemUI wording.
 - Xposed lifecycle diagnostics now include the internal build ID to make hot-reload generation changes directly visible in LSPosed logs.
+- Compatibility metadata, diagnostics copy, and CI verification now target SystemUI only, matching the module's actual `com.android.systemui` scope.
 
 ### Fixed
 - CI certificate verification now accepts the current Android Build Tools signer output while still pinning the expected certificate SHA-256 digest.
