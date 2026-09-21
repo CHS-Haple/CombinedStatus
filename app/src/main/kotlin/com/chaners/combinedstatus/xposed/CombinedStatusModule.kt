@@ -10,7 +10,7 @@ import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
 
 class CombinedStatusModule : XposedModule() {
     private var statusHostHookInstalled = false
-    private var networkProbeInstalled = false
+    private var networkSourceInstalled = false
 
     override fun onModuleLoaded(param: ModuleLoadedParam) {
         log(
@@ -47,8 +47,8 @@ class CombinedStatusModule : XposedModule() {
             log(Log.ERROR, TAG, "Status host hook installation failed", error)
         }
 
-        if (BuildConfig.DEBUG && statusHostHookInstalled) {
-            installNetworkProbe(
+        if (statusHostHookInstalled) {
+            installNetworkStateSource(
                 classLoader = param.classLoader,
                 source = "coldStart",
             )
@@ -62,8 +62,8 @@ class CombinedStatusModule : XposedModule() {
         }
 
         val hookCount =
-            1 + if (BuildConfig.DEBUG && networkProbeInstalled) {
-                SystemUiNetworkPipelineProbe.HOOK_COUNT
+            1 + if (networkSourceInstalled) {
+                SystemUiNetworkStateSource.HOOK_COUNT
             } else {
                 0
             }
@@ -103,16 +103,14 @@ class CombinedStatusModule : XposedModule() {
             }
 
             statusHostHookInstalled = true
-            networkProbeInstalled = false
+            networkSourceInstalled = false
 
-            if (BuildConfig.DEBUG) {
-                val classLoader = statusHostHandle.executable.declaringClass.classLoader
-                    ?: error("SystemUI class loader unavailable after hot reload")
-                installNetworkProbe(
-                    classLoader = classLoader,
-                    source = "hotReload",
-                )
-            }
+            val classLoader = statusHostHandle.executable.declaringClass.classLoader
+                ?: error("SystemUI class loader unavailable after hot reload")
+            installNetworkStateSource(
+                classLoader = classLoader,
+                source = "hotReload",
+            )
 
             log(
                 Log.INFO,
@@ -125,12 +123,12 @@ class CombinedStatusModule : XposedModule() {
         }
     }
 
-    private fun installNetworkProbe(
+    private fun installNetworkStateSource(
         classLoader: ClassLoader,
         source: String,
     ) {
         runCatching {
-            SystemUiNetworkPipelineProbe.install(
+            SystemUiNetworkStateSource.install(
                 module = this,
                 classLoader = classLoader,
                 onWifiState = { state ->
@@ -139,20 +137,20 @@ class CombinedStatusModule : XposedModule() {
                 onMobileIcon = { update ->
                     CombinedStatusStateStore.updateMobile(update)?.let(::onCombinedStateChanged)
                 },
-                onEvent = ::onNetworkPipelineEvent,
+                onEvent = if (BuildConfig.DEBUG) ::onNetworkPipelineEvent else null,
             )
         }.onSuccess { handles ->
-            networkProbeInstalled = handles.size == SystemUiNetworkPipelineProbe.HOOK_COUNT
+            networkSourceInstalled = handles.size == SystemUiNetworkStateSource.HOOK_COUNT
             log(
                 Log.INFO,
                 TAG,
-                "networkPipeline hooks=ready count=" + handles.size +
+                "networkSource hooks=ready count=" + handles.size +
                     " source=" + source +
                     " rebindRequired=" + (source == "hotReload"),
             )
         }.onFailure { error ->
-            networkProbeInstalled = false
-            log(Log.ERROR, TAG, "Network pipeline probe installation failed", error)
+            networkSourceInstalled = false
+            log(Log.ERROR, TAG, "Network state source installation failed", error)
         }
     }
 

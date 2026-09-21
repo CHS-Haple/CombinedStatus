@@ -31,7 +31,10 @@ internal object CombinedStatusStateStore {
         val previous = current.mobile[update.subscriptionId] ?: MobileState()
         val resourceId = update.resourceId?.takeIf { it != 0 }
         val next = when (update.kind) {
-            MobileIconKind.SIGNAL -> previous.copy(signalResId = resourceId)
+            MobileIconKind.SIGNAL -> previous.copy(
+                signalResId = resourceId,
+                signal = update.signal ?: SignalStrength.Unknown,
+            )
             MobileIconKind.VOLTE -> previous.copy(volteResId = resourceId)
             MobileIconKind.VOWIFI -> previous.copy(vowifiResId = resourceId)
         }
@@ -62,7 +65,8 @@ internal object CombinedStatusStateStore {
                 val wifiText = when (val state = wifi) {
                     WifiState.Unknown -> "unknown"
                     WifiState.Hidden -> "hidden"
-                    is WifiState.Visible -> "visible:" + (state.iconResId ?: 0)
+                    is WifiState.Visible ->
+                        "visible:" + state.signal.logToken + ":res=" + (state.iconResId ?: 0)
                 }
 
                 val mobileText = mobile.entries.joinToString(
@@ -71,7 +75,7 @@ internal object CombinedStatusStateStore {
                     separator = ";",
                 ) { (subscriptionId, state) ->
                     subscriptionId.toString() +
-                        ":signal=" + (state.signalResId ?: 0) +
+                        ":signal=" + state.signal.logToken + ":res=" + (state.signalResId ?: 0) +
                         ",volte=" + (state.volteResId ?: 0) +
                         ",vowifi=" + (state.vowifiResId ?: 0)
                 }
@@ -92,6 +96,7 @@ internal object CombinedStatusStateStore {
 
         data class Visible(
             val iconResId: Int?,
+            val signal: SignalStrength,
         ) : WifiState
     }
 
@@ -105,10 +110,12 @@ internal object CombinedStatusStateStore {
         val subscriptionId: Int,
         val kind: MobileIconKind,
         val resourceId: Int?,
+        val signal: SignalStrength? = null,
     )
 
     internal data class MobileState(
         val signalResId: Int? = null,
+        val signal: SignalStrength = SignalStrength.Unknown,
         val volteResId: Int? = null,
         val vowifiResId: Int? = null,
     )

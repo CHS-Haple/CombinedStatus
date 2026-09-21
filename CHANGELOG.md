@@ -27,8 +27,9 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Built-in export/share diagnostic report for feedback, containing app/build, basic device, and recent CombinedStatus runtime information without a resident collection service.
 - Diagnostic report now reads LSPosed's own module log files first and falls back to logcat, matching the framework's actual log storage.
 - Debug topology diagnostics now flag mobile-network and Wi-Fi candidate views by class/resource identity so third-party status-bar container changes remain observable.
-- Debug-only native network-pipeline diagnostics now observe the verified HyperOS Home Wi-Fi/mobile binders; Wi-Fi icon state is traced from the actual `getWifiIcon()` Flow collector and mobile signal state from its verified collector, without polling or modifying SystemUI state.
+- Verified HyperOS Home Wi-Fi/mobile collectors now provide the production event-driven network state source; detailed collector diagnostics remain Debug-only, with no polling or SystemUI geometry mutation.
 - Event-driven normalized state storage now combines battery state, semantic Home Wi-Fi visibility/resource state, and per-subscription mobile signal/VoLTE/VoWiFi resources without drawing or changing native SystemUI geometry.
+- Deterministic signal parsing maps SystemUI mobile `signal_0..4` / `signal_null` and Wi-Fi `wifi_signal_0..3` resources to semantic levels, covered by local unit tests.
 
 ### Changed
 - Minimum Android version is Android 13 / API 33 to match the current MIUIX blur baseline.
@@ -63,7 +64,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Temporary managed share reports are kept under Download/CombinedStatus and pruned to at most three recent files with a 24-hour age bound.
 - Stable status geometry capture now waits for the first valid battery-view layout before recording the anchor, while keeping native SystemUI geometry untouched.
 - Compatibility metadata, diagnostics copy, and CI verification now target SystemUI only, matching the module's actual `com.android.systemui` scope.
-- Debug network collectors now feed a typed CombinedStatus state snapshot while preserving the already-verified collector hooks and change-only diagnostics.
+- Verified network collectors now feed the typed CombinedStatus state snapshot in all build types, while detailed change-only diagnostics remain Debug-only.
 
 ### Fixed
 - Home Wi-Fi roots are registered before the native binder proceeds; Wi-Fi icon tracing now follows the verified `getWifiIcon()` collector (`classId=1`) instead of the unrelated `setImageViewResId()` helper.

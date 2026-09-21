@@ -10,7 +10,7 @@ import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.util.WeakHashMap
 
-internal object SystemUiNetworkPipelineProbe {
+internal object SystemUiNetworkStateSource {
     const val WIFI_BINDER_CLASS_NAME =
         "com.android.systemui.statusbar.pipeline.wifi.ui.binder.MiuiWifiViewBinder"
     const val WIFI_BIND_METHOD_NAME = "bind"
@@ -66,7 +66,7 @@ internal object SystemUiNetworkPipelineProbe {
         classLoader: ClassLoader,
         onWifiState: (CombinedStatusStateStore.WifiState) -> Unit,
         onMobileIcon: (CombinedStatusStateStore.MobileIconUpdate) -> Unit,
-        onEvent: (String) -> Unit,
+        onEvent: ((String) -> Unit)?,
     ): List<HookHandle> {
         val created = mutableListOf<HookHandle>()
 
@@ -170,7 +170,7 @@ internal object SystemUiNetworkPipelineProbe {
     fun matches(handle: HookHandle): Boolean = handle.id in hookIds
 
     private fun wifiBindHooker(
-        onEvent: (String) -> Unit,
+        onEvent: ((String) -> Unit)?,
     ): Hooker = Hooker { chain ->
         val root = chain.getArg(0) as? ViewGroup
         val viewModel = chain.getArg(1)
@@ -183,7 +183,7 @@ internal object SystemUiNetworkPipelineProbe {
                 wifiRoots.put(root, Unit) == null
             }
             if (firstBinding) {
-                onEvent(
+                onEvent?.invoke(
                     "networkPipeline wifi bound " +
                         "stage=beforeProceed " +
                         "root=" + root.javaClass.simpleName +
@@ -200,7 +200,7 @@ internal object SystemUiNetworkPipelineProbe {
         wifiImageField: Field,
         wifiClassIdField: Field,
         onWifiState: (CombinedStatusStateStore.WifiState) -> Unit,
-        onEvent: (String) -> Unit,
+        onEvent: ((String) -> Unit)?,
     ): Hooker = Hooker { chain ->
         val result = chain.proceed()
         val emitter = chain.thisObject
@@ -228,11 +228,16 @@ internal object SystemUiNetworkPipelineProbe {
             }
 
             if (changed) {
+                val wifiResourceName = taggedResId
+                    ?.takeIf { it != 0 }
+                    ?.let { id -> resourceName(image, id) }
+
                 when (value?.javaClass?.name) {
                     WIFI_ICON_VISIBLE_CLASS_NAME -> {
                         onWifiState(
                             CombinedStatusStateStore.WifiState.Visible(
                                 iconResId = taggedResId?.takeIf { it != 0 },
+                                signal = SystemUiSignalParser.wifi(wifiResourceName),
                             ),
                         )
                     }
@@ -242,16 +247,14 @@ internal object SystemUiNetworkPipelineProbe {
                     }
                 }
 
-                onEvent(
+                onEvent?.invoke(
                     "networkPipeline wifi iconEvent " +
                         "viewId=" + resourceId(image) +
                         " classId=" + classId +
                         " valueType=" + (value?.javaClass?.simpleName ?: "null") +
                         " visibility=" + visibilityName(image.visibility) +
                         " taggedResId=" + (taggedResId ?: 0) +
-                        " resource=" + (
-                            taggedResId?.let { id -> resourceName(image, id) } ?: "n/a"
-                        ),
+                        " resource=" + (wifiResourceName ?: "n/a"),
                 )
             }
         }
@@ -261,7 +264,7 @@ internal object SystemUiNetworkPipelineProbe {
 
     private fun mobileBindHooker(
         subscriptionIdMethod: Method,
-        onEvent: (String) -> Unit,
+        onEvent: ((String) -> Unit)?,
     ): Hooker = Hooker { chain ->
         val result = chain.proceed()
         val root = chain.getArg(0) as? ViewGroup
@@ -280,7 +283,7 @@ internal object SystemUiNetworkPipelineProbe {
                 mobileRoots.put(root, subscriptionId)
             }
             if (previous == null || previous != subscriptionId) {
-                onEvent(
+                onEvent?.invoke(
                     "networkPipeline mobile bound " +
                         "root=" + root.javaClass.simpleName +
                         " rootId=" + resourceId(root) +
@@ -298,7 +301,7 @@ internal object SystemUiNetworkPipelineProbe {
         mobileImageField: Field,
         mobileClassIdField: Field,
         onMobileIcon: (CombinedStatusStateStore.MobileIconUpdate) -> Unit,
-        onEvent: (String) -> Unit,
+        onEvent: ((String) -> Unit)?,
     ): Hooker = Hooker { chain ->
         val result = chain.proceed()
         val emitter = chain.thisObject
@@ -327,6 +330,7 @@ internal object SystemUiNetworkPipelineProbe {
                     val resourceId = (value as? Number)
                         ?.toInt()
                         ?.takeIf { it != 0 }
+                    val resourceName = resourceId?.let { id -> resourceName(image, id) }
                     val kind = when (classId) {
                         0 -> CombinedStatusStateStore.MobileIconKind.SIGNAL
                         1 -> CombinedStatusStateStore.MobileIconKind.VOLTE
@@ -339,20 +343,22 @@ internal object SystemUiNetworkPipelineProbe {
                                 subscriptionId = subscriptionId,
                                 kind = kind,
                                 resourceId = resourceId,
+                                signal = if (kind == CombinedStatusStateStore.MobileIconKind.SIGNAL) {
+                                    SystemUiSignalParser.mobile(resourceName)
+                                } else {
+                                    null
+                                },
                             ),
                         )
                     }
 
-                    val valueResource = resourceId
-                        ?.let { id -> resourceName(image, id) }
-                        ?: "n/a"
-                    onEvent(
+                    onEvent?.invoke(
                         "networkPipeline mobile iconEvent " +
                             "subId=" + subscriptionId +
                             " viewId=" + resourceId(image) +
                             " classId=" + classId +
                             " value=" + valueText +
-                            " resource=" + valueResource,
+                            " resource=" + (resourceName ?: "n/a"),
                     )
                 }
             }
