@@ -102,6 +102,31 @@ class CombinedStatusModule : XposedModule() {
             "statusHost captured id=${capture.identity} replacement=${capture.replacement}",
         )
 
+        when (
+            val stableSession = StatusBarStableSession.attach(
+                host = capture.host,
+                onEvent = { event ->
+                    if (BuildConfig.DEBUG) {
+                        log(Log.INFO, TAG, event)
+                    }
+                },
+            )
+        ) {
+            is StatusBarStableSession.AttachResult.Ready -> {
+                if (BuildConfig.DEBUG) {
+                    log(Log.INFO, TAG, stableSession.anchor.logLine)
+                }
+            }
+
+            is StatusBarStableSession.AttachResult.Failure -> {
+                log(
+                    Log.WARN,
+                    TAG,
+                    "stableStatus unavailable reason=${stableSession.reason}",
+                )
+            }
+        }
+
         if (BuildConfig.DEBUG) {
             SystemUiNativeStatusInventory.schedule(capture.host) { snapshot ->
                 log(Log.INFO, TAG, snapshot.summary)
