@@ -8,15 +8,13 @@ val combinedStatusVersionName = providers.gradleProperty("combinedStatus.version
 val combinedStatusVersionCode = providers.gradleProperty("combinedStatus.versionCode").get().toInt()
 val combinedStatusBuildId = providers.gradleProperty("combinedStatus.buildId").get()
 
-val hapleKeystorePath = providers.environmentVariable("ANDROID_KEYSTORE_PATH").orNull
-val hapleKeystorePassword = providers.environmentVariable("ANDROID_KEYSTORE_PASSWORD").orNull
-val hapleKeyAlias = providers.environmentVariable("ANDROID_KEY_ALIAS").orNull
-val hapleKeyPassword = providers.environmentVariable("ANDROID_KEY_PASSWORD").orNull
+val hapleKeystorePath = providers.environmentVariable("HAPLE_KEYSTORE_PATH").orNull
+val hapleKeystorePassword = providers.environmentVariable("HAPLE_KEYSTORE_PASSWORD").orNull
+val hapleKeyAlias = providers.environmentVariable("HAPLE_KEY_ALIAS").orNull
 val hapleSigningEnabled =
     !hapleKeystorePath.isNullOrBlank() &&
         !hapleKeystorePassword.isNullOrBlank() &&
         !hapleKeyAlias.isNullOrBlank() &&
-        !hapleKeyPassword.isNullOrBlank() &&
         file(hapleKeystorePath).isFile
 
 @Suppress("UnstableApiUsage")
@@ -46,7 +44,7 @@ android {
                 storeFile = file(requireNotNull(hapleKeystorePath))
                 storePassword = hapleKeystorePassword
                 keyAlias = hapleKeyAlias
-                keyPassword = hapleKeyPassword
+                keyPassword = hapleKeystorePassword
 
                 enableV1Signing = false
                 enableV2Signing = true
