@@ -33,9 +33,9 @@
     <string name="diagnostics_title">诊断信息</string>
     <string name="diagnostics_summary">版本与运行信息</string>
     <string name="section_module">模块</string>
-    <string name="restart_scope">重启作用域</string>
-    <string name="restart_scope_summary">重新启动 SystemUI 并重新加载模块</string>
-    <string name="restart_scope_dialog_summary">此操作需要 Root 权限。SystemUI 将重新启动并重新加载模块，不会重启设备。</string>
+    <string name="restart_scope">重启系统界面</string>
+    <string name="restart_scope_summary">重新启动 SystemUI 以重新加载模块</string>
+    <string name="restart_scope_dialog_summary">此操作需要 Root 权限。SystemUI 将重新启动以重新加载模块，不会重启设备。</string>
     <string name="restart_scope_failed">重启失败</string>
     <string name="restart_scope_failed_summary">请确认已授予 Root 权限后重试</string>
     <string name="restart">重启</string>

@@ -3,6 +3,7 @@ package com.chaners.combinedstatus.ui.screens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -106,14 +107,17 @@ internal fun SettingsHubScreen(
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
+                    horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     TextButton(
                         text = stringResource(R.string.cancel),
+                        modifier = Modifier.weight(1f),
                         onClick = { showRestartDialog = false },
                     )
+                    Spacer(Modifier.width(20.dp))
                     TextButton(
                         text = stringResource(R.string.restart),
+                        modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.textButtonColorsPrimary(),
                         onClick = {
                             showRestartDialog = false
@@ -136,16 +140,12 @@ internal fun SettingsHubScreen(
                 show = showRestartFailure,
                 onDismissRequest = { showRestartFailure = false },
             ) {
-                Row(
+                TextButton(
+                    text = stringResource(R.string.confirm),
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                ) {
-                    TextButton(
-                        text = stringResource(R.string.confirm),
-                        colors = ButtonDefaults.textButtonColorsPrimary(),
-                        onClick = { showRestartFailure = false },
-                    )
-                }
+                    colors = ButtonDefaults.textButtonColorsPrimary(),
+                    onClick = { showRestartFailure = false },
+                )
             }
         },
     ) {

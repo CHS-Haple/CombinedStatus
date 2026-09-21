@@ -1,6 +1,7 @@
 package com.chaners.combinedstatus.xposed
 
 import android.util.Log
+import com.chaners.combinedstatus.BuildConfig
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.HotReloadedParam
 import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
@@ -14,7 +15,7 @@ class CombinedStatusModule : XposedModule() {
         log(
             Log.INFO,
             TAG,
-            "Module loaded in ${param.processName} with Xposed API $apiVersion",
+            "Module loaded in ${param.processName} build=${BuildConfig.BUILD_ID} with Xposed API $apiVersion",
         )
     }
 
@@ -49,7 +50,7 @@ class CombinedStatusModule : XposedModule() {
             return false
         }
 
-        log(Log.INFO, TAG, "Hot reload preparing hooks=1")
+        log(Log.INFO, TAG, "Hot reload preparing build=${BuildConfig.BUILD_ID} hooks=1")
         return true
     }
 
@@ -85,7 +86,7 @@ class CombinedStatusModule : XposedModule() {
             log(
                 Log.INFO,
                 TAG,
-                "Hot reload completed statusHostHook=replaced staleHooks=$removed",
+                "Hot reload completed build=${BuildConfig.BUILD_ID} statusHostHook=replaced staleHooks=$removed",
             )
         }.onFailure { error ->
             log(Log.ERROR, TAG, "Hot reload failed restartScope=true", error)

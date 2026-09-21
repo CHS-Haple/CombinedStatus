@@ -41,6 +41,8 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Standardized module terminology on mobile network / 移动网络 and clarified Xiaomi HyperOS as the target platform in module descriptions.
 - Diagnostics now report the active Modern Xposed API 102 runtime and hot-reload capability instead of the earlier pre-hook placeholder state.
 - LibXposed artifacts are resolved explicitly from Maven Central at `repo.maven.apache.org`, restricted to the `io.github.libxposed` group.
+- Restart confirmation now follows the MIUIX two-action dialog layout with equal-width actions and user-facing SystemUI wording.
+- Xposed lifecycle diagnostics now include the internal build ID to make hot-reload generation changes directly visible in LSPosed logs.
 
 ### Fixed
 - CI certificate verification now accepts the current Android Build Tools signer output while still pinning the expected certificate SHA-256 digest.
