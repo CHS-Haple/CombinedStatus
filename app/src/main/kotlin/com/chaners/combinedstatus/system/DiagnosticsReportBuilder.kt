@@ -8,6 +8,7 @@ internal object DiagnosticsReportBuilder {
     private const val LogTimeoutSeconds = 10L
     private const val DebugLogLineLimit = 600
     private const val ReleaseLogLineLimit = 120
+    private const val ShareLogLineLimit = 80
 
     private const val LsposedModuleLogCommand =
         "for f in \$(ls -1t /data/adb/lspd/log/modules_*.log " +
@@ -17,6 +18,9 @@ internal object DiagnosticsReportBuilder {
 
     private const val LogcatCommand =
         "logcat -d -b all -v threadtime -t 3000"
+
+    private const val ShareLogcatCommand =
+        "logcat -d -b all -v threadtime -t 3000 | grep -F 'CombinedStatusShare' || true"
 
     suspend fun build(): String {
         val lsposedResult = RootShell.execute(
@@ -42,6 +46,16 @@ internal object DiagnosticsReportBuilder {
                 lines = filterModuleLines(logcatResult.output),
             )
         }
+
+        val shareLogResult = RootShell.execute(
+            command = ShareLogcatCommand,
+            timeoutSeconds = LogTimeoutSeconds,
+        )
+        val shareLines = shareLogResult.output
+            .lineSequence()
+            .filter { line -> line.contains("CombinedStatusShare") }
+            .takeLast(ShareLogLineLimit)
+            .toList()
 
         val lineLimit =
             if (BuildConfig.DEBUG) {
@@ -76,6 +90,16 @@ internal object DiagnosticsReportBuilder {
                 appendLine("No CombinedStatus runtime log entries were available.")
             } else {
                 moduleLines.forEach(::appendLine)
+            }
+            appendLine()
+            appendLine("[Share diagnostics]")
+            appendLine("source=logcat")
+            appendLine("collection=" + collectionState(shareLogResult))
+            appendLine("lines=" + shareLines.size)
+            if (shareLines.isEmpty()) {
+                appendLine("No share diagnostic entries were available.")
+            } else {
+                shareLines.forEach(::appendLine)
             }
             appendLine()
             appendLine("[Report]")

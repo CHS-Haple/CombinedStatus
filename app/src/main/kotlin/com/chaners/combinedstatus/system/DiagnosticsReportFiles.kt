@@ -3,6 +3,7 @@ package com.chaners.combinedstatus.system
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.util.Log
 import androidx.core.content.FileProvider
 import com.chaners.combinedstatus.BuildConfig
 import java.io.File
@@ -14,6 +15,7 @@ import kotlinx.coroutines.withContext
 
 internal object DiagnosticsReportFiles {
     private const val ShareDirectoryName = "diagnostics-share"
+    private const val ShareLogTag = "CombinedStatusShare"
     private const val MaxSharedReports = 3
     private val MaxSharedReportAgeMillis = TimeUnit.HOURS.toMillis(24)
     private val FileTimestampFormatter = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")
@@ -57,8 +59,82 @@ internal object DiagnosticsReportFiles {
                 file,
             )
 
+            if (BuildConfig.DEBUG) {
+                val probe = runCatching {
+                    val mimeType = context.contentResolver.getType(uri)
+                    val descriptorSize = context.contentResolver
+                        .openFileDescriptor(uri, "r")
+                        ?.use { descriptor -> descriptor.statSize }
+                        ?: -1L
+                    val selfReadable = context.contentResolver
+                        .openInputStream(uri)
+                        ?.use { input ->
+                            input.read()
+                            true
+                        }
+                        ?: false
+
+                    "mime=$mimeType descriptorSize=$descriptorSize selfReadable=$selfReadable"
+                }.getOrElse { error ->
+                    "probeError=${error.javaClass.simpleName}"
+                }
+
+                Log.i(
+                    ShareLogTag,
+                    "prepare file=${file.name} exists=${file.exists()} readable=${file.canRead()} " +
+                        "bytes=${file.length()} scheme=${uri.scheme} authority=${uri.authority} $probe",
+                )
+            }
+
             PreparedShare(uri = uri, file = file)
+        }.onFailure { error ->
+            if (BuildConfig.DEBUG) {
+                Log.e(
+                    ShareLogTag,
+                    "prepare failed error=${error.javaClass.simpleName} message=${error.message.orEmpty()}",
+                )
+            }
         }.getOrNull()
+    }
+
+    fun logShareIntent(
+        context: Context,
+        intent: Intent,
+        uri: Uri,
+    ) {
+        if (!BuildConfig.DEBUG) {
+            return
+        }
+
+        val packages = runCatching {
+            context.packageManager
+                .queryIntentActivities(intent, 0)
+                .mapNotNull { info -> info.activityInfo?.packageName }
+                .toSet()
+        }.getOrDefault(emptySet())
+
+        Log.i(
+            ShareLogTag,
+            "intent action=${intent.action} type=${intent.type} flags=0x${intent.flags.toString(16)} " +
+                "clipItems=${intent.clipData?.itemCount ?: 0} uriAuthority=${uri.authority} " +
+                "targets=${packages.size} qq=${"com.tencent.mobileqq" in packages} " +
+                "wechat=${"com.tencent.mm" in packages}",
+        )
+    }
+
+    fun logChooserLaunch(error: Throwable? = null) {
+        if (!BuildConfig.DEBUG) {
+            return
+        }
+
+        if (error == null) {
+            Log.i(ShareLogTag, "chooser launch=ok")
+        } else {
+            Log.e(
+                ShareLogTag,
+                "chooser launch=failed error=${error.javaClass.simpleName} message=${error.message.orEmpty()}",
+            )
+        }
     }
 
     fun discardShare(

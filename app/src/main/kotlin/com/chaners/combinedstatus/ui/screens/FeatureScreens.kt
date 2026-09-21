@@ -278,6 +278,12 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
                             clipData = ClipData.newRawUri(reportShareTitle, prepared.uri)
                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                         }
+                        DiagnosticsReportFiles.logShareIntent(
+                            context = context,
+                            intent = sendIntent,
+                            uri = prepared.uri,
+                        )
+
                         val chooserIntent = Intent.createChooser(
                             sendIntent,
                             reportShareTitle,
@@ -287,7 +293,10 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
 
                         runCatching {
                             context.startActivity(chooserIntent)
-                        }.onFailure {
+                        }.onSuccess {
+                            DiagnosticsReportFiles.logChooserLaunch()
+                        }.onFailure { error ->
+                            DiagnosticsReportFiles.logChooserLaunch(error)
                             DiagnosticsReportFiles.discardShare(context, prepared)
                             Toast.makeText(
                                 context,
