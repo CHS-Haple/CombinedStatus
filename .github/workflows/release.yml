@@ -20,9 +20,10 @@ jobs:
     runs-on: ubuntu-latest
     environment: release
     env:
-      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.HAPLE_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.HAPLE_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.HAPLE_KEY_PASSWORD }}
+      HAPLE_CERT_SHA256: 7a64fc85325afe79439afb63369d832d7ddc20fd5b3935b4c28d7bcb85e92fc7
 
     steps:
       - name: Checkout
@@ -50,21 +51,37 @@ jobs:
       - name: Validate signing secrets
         shell: bash
         env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          HAPLE_KEYSTORE_BASE64: ${{ secrets.HAPLE_KEYSTORE_BASE64 }}
         run: |
-          if [[ -z "$ANDROID_KEYSTORE_BASE64" || -z "$ANDROID_KEYSTORE_PASSWORD" || -z "$ANDROID_KEY_ALIAS" || -z "$ANDROID_KEY_PASSWORD" ]]; then
-            echo "Release signing secrets are incomplete."
+          if [[ -z "$HAPLE_KEYSTORE_BASE64" || -z "$ANDROID_KEYSTORE_PASSWORD" || -z "$ANDROID_KEY_ALIAS" || -z "$ANDROID_KEY_PASSWORD" ]]; then
+            echo "Haple release signing secrets are incomplete."
             exit 1
           fi
 
-      - name: Restore signing keystore
+      - name: Restore and verify Haple keystore
         shell: bash
         env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          HAPLE_KEYSTORE_BASE64: ${{ secrets.HAPLE_KEYSTORE_BASE64 }}
         run: |
-          KEYSTORE_PATH="$RUNNER_TEMP/combinedstatus-release.jks"
-          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          KEYSTORE_PATH="$RUNNER_TEMP/Haple.keystore"
+          printf '%s' "$HAPLE_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
           chmod 600 "$KEYSTORE_PATH"
+
+          ACTUAL_CERT_SHA256="$(
+            keytool -list -v               -keystore "$KEYSTORE_PATH"               -storepass "$ANDROID_KEYSTORE_PASSWORD"               -alias "$ANDROID_KEY_ALIAS" 2>/dev/null |
+              sed -n 's/^.*SHA256: //p' |
+              head -n 1 |
+              tr -d ':' |
+              tr '[:upper:]' '[:lower:]'
+          )"
+
+          if [[ "$ACTUAL_CERT_SHA256" != "$HAPLE_CERT_SHA256" ]]; then
+            echo "Haple keystore certificate does not match the expected SHA-256."
+            echo "Expected: $HAPLE_CERT_SHA256"
+            echo "Actual:   $ACTUAL_CERT_SHA256"
+            exit 1
+          fi
+
           echo "ANDROID_KEYSTORE_PATH=$KEYSTORE_PATH" >> "$GITHUB_ENV"
 
       - name: Build signed release APK
@@ -74,7 +91,23 @@ jobs:
         shell: bash
         run: |
           SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
-          "$SDK_ROOT/build-tools/37.0.0/apksigner" verify --verbose --print-certs app/build/outputs/apk/release/app-release.apk
+          APKSIGNER="$SDK_ROOT/build-tools/37.0.0/apksigner"
+          APK="app/build/outputs/apk/release/app-release.apk"
+
+          "$APKSIGNER" verify --verbose --print-certs "$APK"
+
+          ACTUAL_CERT_SHA256="$(
+            "$APKSIGNER" verify --print-certs "$APK" |
+              awk -F': ' '/certificate SHA-256 digest:/ { print $NF; exit }' |
+              tr '[:upper:]' '[:lower:]'
+          )"
+
+          if [[ "$ACTUAL_CERT_SHA256" != "$HAPLE_CERT_SHA256" ]]; then
+            echo "Built APK is not signed by the Haple certificate."
+            echo "Expected: $HAPLE_CERT_SHA256"
+            echo "Actual:   $ACTUAL_CERT_SHA256"
+            exit 1
+          fi
 
       - name: Prepare release asset
         shell: bash
@@ -121,11 +154,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$RELEASE_TAG" "dist/$APK_NAME" \
-            --target "$GITHUB_SHA" \
-            --title "$RELEASE_TITLE" \
-            --notes "Signed HyperOS test build $RELEASE_TAG." \
-            --prerelease
+          gh release create "$RELEASE_TAG" "dist/$APK_NAME"             --target "$GITHUB_SHA"             --title "$RELEASE_TITLE"             --notes "Signed HyperOS test build $RELEASE_TAG."             --prerelease
 
       - name: Publish stable release
         if: inputs.channel == 'stable'
@@ -133,7 +162,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$RELEASE_TAG" "dist/$APK_NAME" \
-            --target "$GITHUB_SHA" \
-            --title "$RELEASE_TITLE" \
-            --notes "Signed CombinedStatus release $RELEASE_TAG."
+          gh release create "$RELEASE_TAG" "dist/$APK_NAME"             --target "$GITHUB_SHA"             --title "$RELEASE_TITLE"             --notes "Signed CombinedStatus release $RELEASE_TAG."
