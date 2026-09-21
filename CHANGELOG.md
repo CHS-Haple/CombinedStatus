@@ -25,6 +25,8 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - One-shot native SystemUI status-view inventory after host layout, covering mobile network, Wi-Fi, and battery views without modifying geometry or drawing.
 - Root-view topology inventory for native status icons and their verified SystemUI containers, with bounded one-shot traversal and ancestor/path diagnostics.
 - Built-in copy/share diagnostic report for feedback, containing app/build, basic device, and recent CombinedStatus runtime information without a resident collection service.
+- Diagnostic report now reads LSPosed's own module log files first and falls back to logcat, matching the framework's actual log storage.
+- Debug topology diagnostics now flag mobile-network and Wi-Fi candidate views by class/resource identity so third-party status-bar container changes remain observable.
 
 ### Changed
 - Minimum Android version is Android 13 / API 33 to match the current MIUIX blur baseline.

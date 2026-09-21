@@ -8,29 +8,47 @@ internal object DiagnosticsReportBuilder {
     private const val LogTimeoutSeconds = 10L
     private const val DebugLogLineLimit = 600
     private const val ReleaseLogLineLimit = 120
+
+    private const val LsposedModuleLogCommand =
+        "for f in \$(ls -1t /data/adb/lspd/log/modules_*.log " +
+            "/data/adb/lspd/log.old/modules_*.log 2>/dev/null | head -n 8); do " +
+            "grep -F 'com.chaners.combinedstatus' \"\$f\" || true; done"
+
     private const val LogcatCommand =
         "logcat -d -b all -v threadtime -t 3000"
 
     suspend fun build(): String {
-        val logResult = RootShell.execute(
-            command = LogcatCommand,
+        val lsposedResult = RootShell.execute(
+            command = LsposedModuleLogCommand,
             timeoutSeconds = LogTimeoutSeconds,
         )
-        val moduleLines = logResult.output
-            .lineSequence()
-            .filter { line ->
-                line.contains("LSPosedFramework") &&
-                    line.contains("com.chaners.combinedstatus") &&
-                    line.contains("CombinedStatus")
-            }
-            .toList()
-            .takeLast(
-                if (BuildConfig.DEBUG) {
-                    DebugLogLineLimit
-                } else {
-                    ReleaseLogLineLimit
-                },
+        val lsposedLines = filterModuleLines(lsposedResult.output)
+
+        val selected = if (lsposedLines.isNotEmpty()) {
+            CollectedLog(
+                source = "lsposed-modules",
+                result = lsposedResult,
+                lines = lsposedLines,
             )
+        } else {
+            val logcatResult = RootShell.execute(
+                command = LogcatCommand,
+                timeoutSeconds = LogTimeoutSeconds,
+            )
+            CollectedLog(
+                source = "logcat-fallback",
+                result = logcatResult,
+                lines = filterModuleLines(logcatResult.output),
+            )
+        }
+
+        val lineLimit =
+            if (BuildConfig.DEBUG) {
+                DebugLogLineLimit
+            } else {
+                ReleaseLogLineLimit
+            }
+        val moduleLines = selected.lines.takeLast(lineLimit)
 
         return buildString {
             appendLine("CombinedStatus Diagnostic Report")
@@ -50,15 +68,8 @@ internal object DiagnosticsReportBuilder {
             appendLine("sdk=" + Build.VERSION.SDK_INT)
             appendLine()
             appendLine("[Runtime log]")
-            appendLine(
-                "collection=" +
-                    when {
-                        logResult.isSuccess -> "ok"
-                        logResult.timedOut -> "timeout"
-                        logResult.error != null -> "error:" + logResult.error
-                        else -> "exit:" + logResult.exitCode
-                    },
-            )
+            appendLine("source=" + selected.source)
+            appendLine("collection=" + collectionState(selected.result))
             appendLine("lines=" + moduleLines.size)
             if (moduleLines.isEmpty()) {
                 appendLine("No CombinedStatus runtime log entries were available.")
@@ -70,4 +81,27 @@ internal object DiagnosticsReportBuilder {
             appendLine("generatedAt=" + OffsetDateTime.now())
         }
     }
+
+    private fun filterModuleLines(output: String): List<String> =
+        output
+            .lineSequence()
+            .filter { line ->
+                line.contains("com.chaners.combinedstatus") &&
+                    line.contains("CombinedStatus")
+            }
+            .toList()
+
+    private fun collectionState(result: RootShell.Result): String =
+        when {
+            result.isSuccess -> "ok"
+            result.timedOut -> "timeout"
+            result.error != null -> "error:" + result.error
+            else -> "exit:" + result.exitCode
+        }
+
+    private data class CollectedLog(
+        val source: String,
+        val result: RootShell.Result,
+        val lines: List<String>,
+    )
 }

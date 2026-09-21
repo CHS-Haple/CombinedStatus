@@ -103,12 +103,13 @@ internal object SystemUiNativeStatusInventory {
         }
         scanState.scannedViews += 1
 
-        roleFor(view.javaClass.name)?.let { role ->
+        val viewResourceId = resourceId(view)
+        roleFor(view, viewResourceId)?.let { role ->
             val parent = view.parent as? ViewGroup
             destination += Entry(
                 role = role,
                 className = view.javaClass.name,
-                resourceId = resourceId(view),
+                resourceId = viewResourceId,
                 parentClassName = parent?.javaClass?.name ?: "none",
                 parentIndex = parent?.indexOfChild(view) ?: -1,
                 depth = depth,
@@ -142,16 +143,33 @@ internal object SystemUiNativeStatusInventory {
         }
     }
 
-    private fun roleFor(className: String): String? =
-        when (className) {
+    private fun roleFor(
+        view: View,
+        resourceId: String,
+    ): String? {
+        val className = view.javaClass.name
+        return when (className) {
             MOBILE_NETWORK_VIEW_CLASS_NAME -> "mobileNetwork"
             WIFI_VIEW_CLASS_NAME -> "wifi"
             BATTERY_VIEW_CLASS_NAME -> "battery"
             MIUI_STATUS_ICON_CONTAINER_CLASS_NAME -> "miuiStatusIcons"
             STATUS_ICON_CONTAINER_CLASS_NAME -> "statusIcons"
             BATTERY_CONTAINER_CLASS_NAME -> "batteryContainer"
+            else -> candidateRole(className, resourceId)
+        }
+    }
+
+    private fun candidateRole(
+        className: String,
+        resourceId: String,
+    ): String? {
+        val identity = (className + ' ' + resourceId).lowercase()
+        return when {
+            "wifi" in identity -> "candidateWifi"
+            "mobile" in identity || "signal" in identity -> "candidateMobile"
             else -> null
         }
+    }
 
     private fun pathFromRoot(
         view: View,
@@ -262,6 +280,10 @@ internal object SystemUiNativeStatusInventory {
                     append(counts["statusIcons"] ?: 0)
                     append(" batteryContainer=")
                     append(counts["batteryContainer"] ?: 0)
+                    append(" candidateMobile=")
+                    append(counts["candidateMobile"] ?: 0)
+                    append(" candidateWifi=")
+                    append(counts["candidateWifi"] ?: 0)
                 }
             }
 
