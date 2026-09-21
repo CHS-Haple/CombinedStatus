@@ -188,7 +188,7 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
         reportInProgress = true
         scope.launch {
             try {
-                onReady(DiagnosticsReportBuilder.build())
+                onReady(DiagnosticsReportBuilder.build(context.applicationContext))
             } finally {
                 reportInProgress = false
             }
@@ -294,9 +294,9 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
                         runCatching {
                             context.startActivity(chooserIntent)
                         }.onSuccess {
-                            DiagnosticsReportFiles.logChooserLaunch()
+                            DiagnosticsReportFiles.logChooserLaunch(context)
                         }.onFailure { error ->
-                            DiagnosticsReportFiles.logChooserLaunch(error)
+                            DiagnosticsReportFiles.logChooserLaunch(context, error)
                             DiagnosticsReportFiles.discardShare(context, prepared)
                             Toast.makeText(
                                 context,

@@ -79,20 +79,20 @@ internal object DiagnosticsReportFiles {
                     "probeError=${error.javaClass.simpleName}"
                 }
 
-                Log.i(
-                    ShareLogTag,
+                val message =
                     "prepare file=${file.name} exists=${file.exists()} readable=${file.canRead()} " +
-                        "bytes=${file.length()} scheme=${uri.scheme} authority=${uri.authority} $probe",
-                )
+                        "bytes=${file.length()} scheme=${uri.scheme} authority=${uri.authority} $probe"
+                Log.i(ShareLogTag, message)
+                ShareDiagnosticsStore.append(context, message)
             }
 
             PreparedShare(uri = uri, file = file)
         }.onFailure { error ->
             if (BuildConfig.DEBUG) {
-                Log.e(
-                    ShareLogTag,
-                    "prepare failed error=${error.javaClass.simpleName} message=${error.message.orEmpty()}",
-                )
+                val message =
+                    "prepare failed error=${error.javaClass.simpleName} message=${error.message.orEmpty()}"
+                Log.e(ShareLogTag, message)
+                ShareDiagnosticsStore.append(context, message)
             }
         }.getOrNull()
     }
@@ -113,28 +113,36 @@ internal object DiagnosticsReportFiles {
                 .toSet()
         }.getOrDefault(emptySet())
 
-        Log.i(
-            ShareLogTag,
+        val message =
             "intent action=${intent.action} type=${intent.type} flags=0x${intent.flags.toString(16)} " +
                 "clipItems=${intent.clipData?.itemCount ?: 0} uriAuthority=${uri.authority} " +
                 "targets=${packages.size} qq=${"com.tencent.mobileqq" in packages} " +
-                "wechat=${"com.tencent.mm" in packages}",
-        )
+                "wechat=${"com.tencent.mm" in packages}"
+        Log.i(ShareLogTag, message)
+        ShareDiagnosticsStore.append(context, message)
     }
 
-    fun logChooserLaunch(error: Throwable? = null) {
+    fun logChooserLaunch(
+        context: Context,
+        error: Throwable? = null,
+    ) {
         if (!BuildConfig.DEBUG) {
             return
         }
 
+        val message =
+            if (error == null) {
+                "chooser launch=ok"
+            } else {
+                "chooser launch=failed error=${error.javaClass.simpleName} message=${error.message.orEmpty()}"
+            }
+
         if (error == null) {
-            Log.i(ShareLogTag, "chooser launch=ok")
+            Log.i(ShareLogTag, message)
         } else {
-            Log.e(
-                ShareLogTag,
-                "chooser launch=failed error=${error.javaClass.simpleName} message=${error.message.orEmpty()}",
-            )
+            Log.e(ShareLogTag, message)
         }
+        ShareDiagnosticsStore.append(context, message)
     }
 
     fun discardShare(

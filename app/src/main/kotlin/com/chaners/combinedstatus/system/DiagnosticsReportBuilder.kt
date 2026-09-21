@@ -1,5 +1,6 @@
 package com.chaners.combinedstatus.system
 
+import android.content.Context
 import android.os.Build
 import com.chaners.combinedstatus.BuildConfig
 import java.time.OffsetDateTime
@@ -22,7 +23,12 @@ internal object DiagnosticsReportBuilder {
     private const val ShareLogcatCommand =
         "logcat -d -b all -v threadtime -t 3000 | grep -F 'CombinedStatusShare' || true"
 
-    suspend fun build(): String {
+    private const val ShareSystemLogCommand =
+        "logcat -d -b all -v threadtime -t 5000 | " +
+            "grep -Ei 'com\\.tencent\\.mobileqq|com\\.tencent\\.mm|Permission Denial|" +
+            "SecurityException|FileProvider|combinedstatus\\.fileprovider|No such file|ENOENT' || true"
+
+    suspend fun build(context: Context): String {
         val lsposedResult = RootShell.execute(
             command = LsposedModuleLogCommand,
             timeoutSeconds = LogTimeoutSeconds,
@@ -51,9 +57,15 @@ internal object DiagnosticsReportBuilder {
             command = ShareLogcatCommand,
             timeoutSeconds = LogTimeoutSeconds,
         )
-        val shareLines = shareLogResult.output
+        val shareLines = ShareDiagnosticsStore.read(context)
+            .takeLast(ShareLogLineLimit)
+        val shareSystemLogResult = RootShell.execute(
+            command = ShareSystemLogCommand,
+            timeoutSeconds = LogTimeoutSeconds,
+        )
+        val shareSystemLines = shareSystemLogResult.output
             .lineSequence()
-            .filter { line -> line.contains("CombinedStatusShare") }
+            .filter(String::isNotBlank)
             .toList()
             .takeLast(ShareLogLineLimit)
 
@@ -93,13 +105,23 @@ internal object DiagnosticsReportBuilder {
             }
             appendLine()
             appendLine("[Share diagnostics]")
-            appendLine("source=logcat")
-            appendLine("collection=" + collectionState(shareLogResult))
+            appendLine("source=persistent-store")
+            appendLine("logcatCollection=" + collectionState(shareLogResult))
             appendLine("lines=" + shareLines.size)
             if (shareLines.isEmpty()) {
                 appendLine("No share diagnostic entries were available.")
             } else {
                 shareLines.forEach(::appendLine)
+            }
+            appendLine()
+            appendLine("[Share system log]")
+            appendLine("source=logcat")
+            appendLine("collection=" + collectionState(shareSystemLogResult))
+            appendLine("lines=" + shareSystemLines.size)
+            if (shareSystemLines.isEmpty()) {
+                appendLine("No relevant share-system entries were available.")
+            } else {
+                shareSystemLines.forEach(::appendLine)
             }
             appendLine()
             appendLine("[Report]")
