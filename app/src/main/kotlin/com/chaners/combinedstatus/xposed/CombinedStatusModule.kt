@@ -21,6 +21,21 @@ class CombinedStatusModule : XposedModule() {
 
         val compatibility = SystemUiCompatibilityProbe.inspect(param.classLoader)
         log(Log.INFO, TAG, compatibility.summary)
+
+        if (compatibility.isAvailable("statusHost")) {
+            StatusBarHostCapture.install(
+                module = this,
+                classLoader = param.classLoader,
+                onCaptured = { capture ->
+                    log(
+                        Log.INFO,
+                        TAG,
+                        "Status host captured class=${capture.className} " +
+                            "id=${capture.identity} replacement=${capture.replacement}",
+                    )
+                },
+            )
+        }
     }
 
     private companion object {

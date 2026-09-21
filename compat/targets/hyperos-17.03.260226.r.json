@@ -41,5 +41,20 @@
     "miui.systemui.controlcenter.dagger.ControlCenterPluginInstance",
     "miui.systemui.controlcenter.data.repository.StatusBarStateRepositoryImpl",
     "miui.systemui.statusbar.data.repository.StatusBarAreaRepository"
-  ]
+  ],
+  "hookPoints": {
+    "statusHostInflated": {
+      "sourceArtifact": "systemUi",
+      "className": "com.android.systemui.statusbar.views.MiuiNotificationStatusContainer",
+      "methodName": "onFinishInflate",
+      "descriptor": "()V"
+    }
+  },
+  "verifiedSystemUiMethods": {
+    "com.android.systemui.statusbar.views.MiuiNotificationStatusContainer": [
+      "onFinishInflate()V",
+      "onLayout(ZIIII)V",
+      "onMeasure(II)V"
+    ]
+  }
 }

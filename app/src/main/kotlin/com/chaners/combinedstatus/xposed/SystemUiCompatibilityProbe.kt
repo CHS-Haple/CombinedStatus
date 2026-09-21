@@ -21,6 +21,8 @@ internal object SystemUiCompatibilityProbe {
     internal class Snapshot(
         private val resolved: Map<String, Boolean>,
     ) {
+        fun isAvailable(marker: String): Boolean = resolved[marker] == true
+
         val summary: String
             get() {
                 val matched = resolved.count { it.value }

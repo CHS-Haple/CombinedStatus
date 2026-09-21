@@ -7,6 +7,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 PROFILE_PATH = ROOT / "compat" / "targets" / "hyperos-17.03.260226.r.json"
 PROBE_PATH = ROOT / "app" / "src" / "main" / "kotlin" / "com" / "chaners" / "combinedstatus" / "xposed" / "SystemUiCompatibilityProbe.kt"
+STATUS_HOST_CAPTURE_PATH = ROOT / "app" / "src" / "main" / "kotlin" / "com" / "chaners" / "combinedstatus" / "xposed" / "StatusBarHostCapture.kt"
 
 HEX_LENGTHS = {"md5": 32, "sha1": 40, "sha256": 64}
 
@@ -57,6 +58,31 @@ if probe_markers != runtime_markers:
         f"profile={runtime_markers}\nprobe={probe_markers}"
     )
 
+hook_points = profile.get("hookPoints", {})
+verified_methods = profile.get("verifiedSystemUiMethods", {})
+status_hook = hook_points.get("statusHostInflated")
+if not isinstance(status_hook, dict):
+    fail("missing statusHostInflated hook point")
+
+status_hook_class = status_hook.get("className")
+status_hook_signature = f"{status_hook.get('methodName', '')}{status_hook.get('descriptor', '')}"
+if status_hook.get("sourceArtifact") != "systemUi":
+    fail("statusHostInflated must originate from the SystemUI APK")
+if status_hook_class not in verified_systemui:
+    fail("statusHostInflated class is not verified in the SystemUI APK")
+if status_hook_signature not in set(verified_methods.get(status_hook_class, [])):
+    fail("statusHostInflated method is not verified in the SystemUI APK")
+
+capture_text = STATUS_HOST_CAPTURE_PATH.read_text(encoding="utf-8")
+capture_class = re.search(r'HOST_CLASS_NAME\s*=\s*\n?\s*"([^"]+)"', capture_text)
+capture_method = re.search(r'HOST_READY_METHOD_NAME\s*=\s*"([^"]+)"', capture_text)
+if not capture_class or not capture_method:
+    fail("status host capture constants are missing")
+if capture_class.group(1) != status_hook_class:
+    fail("status host capture class drifted from the pinned APK profile")
+if capture_method.group(1) != status_hook.get("methodName"):
+    fail("status host capture method drifted from the pinned APK profile")
+
 component_markers = profile.get("verifiedSystemUiComponentClasses", [])
 if len(component_markers) < 1:
     fail("SystemUI component APK has no verified class markers")
@@ -80,3 +106,4 @@ print(
 )
 print(f"Runtime markers: {len(runtime_markers)}/{len(runtime_markers)}")
 print(f"Component markers: {len(component_markers)}/{len(component_markers)}")
+print(f"Verified hook points: {len(hook_points)}/{len(hook_points)}")

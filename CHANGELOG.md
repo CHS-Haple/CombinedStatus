@@ -19,6 +19,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Modern Xposed API 102 module baseline with a single Java entry point and a static `com.android.systemui` scope.
 - One-shot SystemUI structural compatibility probe for the status bar, Control Center, keyguard header, and battery-view hosts.
 - Pinned compatibility profile generated from the exact HyperOS SystemUI 17.03.260226.r and SystemUI component 18.3.2.22.0 APKs.
+- Read-only capture of the primary HyperOS status-bar host after `MiuiNotificationStatusContainer.onFinishInflate()`, stored as a weak reference for later rendering integration.
 
 ### Changed
 - Minimum Android version is Android 13 / API 33 to match the current MIUIX blur baseline.
