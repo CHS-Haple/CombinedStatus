@@ -97,6 +97,55 @@ internal object DiagnosticsReportFiles {
         }.getOrNull()
     }
 
+    fun logMimeCompatibilityProbe(
+        context: Context,
+        uri: Uri,
+    ) {
+        if (!BuildConfig.DEBUG) {
+            return
+        }
+
+        listOf(
+            "text/plain",
+            "application/octet-stream",
+            "*/*",
+        ).forEach { mimeType ->
+            val probeIntent = Intent(Intent.ACTION_SEND).apply {
+                type = mimeType
+                putExtra(Intent.EXTRA_STREAM, uri)
+                clipData = android.content.ClipData.newRawUri("diagnostic-report", uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+
+            val activities = runCatching {
+                context.packageManager
+                    .queryIntentActivities(probeIntent, 0)
+                    .mapNotNull { info ->
+                        val activity = info.activityInfo ?: return@mapNotNull null
+                        "${activity.packageName}/${activity.name}"
+                    }
+                    .distinct()
+                    .sorted()
+            }.getOrDefault(emptyList())
+
+            val qqActivities =
+                activities.filter { component ->
+                    component.startsWith("com.tencent.mobileqq/")
+                }
+            val wechatActivities =
+                activities.filter { component ->
+                    component.startsWith("com.tencent.mm/")
+                }
+
+            val message =
+                "mimeProbe type=$mimeType targets=${activities.size} " +
+                    "qq=${qqActivities.joinToString(prefix = "[", postfix = "]")} " +
+                    "wechat=${wechatActivities.joinToString(prefix = "[", postfix = "]")}"
+            Log.i(ShareLogTag, message)
+            ShareDiagnosticsStore.append(context, message)
+        }
+    }
+
     fun logShareIntent(
         context: Context,
         intent: Intent,

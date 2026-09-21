@@ -278,6 +278,10 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
                             clipData = ClipData.newRawUri(reportShareTitle, prepared.uri)
                             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                         }
+                        DiagnosticsReportFiles.logMimeCompatibilityProbe(
+                            context = context,
+                            uri = prepared.uri,
+                        )
                         DiagnosticsReportFiles.logShareIntent(
                             context = context,
                             intent = sendIntent,
