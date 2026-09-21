@@ -11,18 +11,27 @@ internal object SystemUiNativeStatusInventory {
     const val BATTERY_VIEW_CLASS_NAME =
         "com.android.systemui.statusbar.views.MiuiBatteryMeterView"
 
+    const val MIUI_STATUS_ICON_CONTAINER_CLASS_NAME =
+        "com.android.systemui.statusbar.views.MiuiStatusIconContainer"
+    const val STATUS_ICON_CONTAINER_CLASS_NAME =
+        "com.android.systemui.statusbar.phone.StatusIconContainer"
+    const val BATTERY_CONTAINER_CLASS_NAME =
+        "com.android.systemui.statusbar.views.MiuiStatusBatteryContainer"
+
+    private const val MAX_SCANNED_VIEWS = 1024
+
     fun schedule(
         host: Any,
         onSnapshot: (Snapshot) -> Unit,
     ) {
-        val root = host as? View ?: return
+        val hostView = host as? View ?: return
 
-        if (root.isLaidOut) {
-            onSnapshot(inspect(root))
+        if (hostView.isLaidOut) {
+            onSnapshot(inspect(hostView))
             return
         }
 
-        root.addOnLayoutChangeListener(
+        hostView.addOnLayoutChangeListener(
             object : View.OnLayoutChangeListener {
                 override fun onLayoutChange(
                     view: View,
@@ -36,23 +45,26 @@ internal object SystemUiNativeStatusInventory {
                     oldBottom: Int,
                 ) {
                     view.removeOnLayoutChangeListener(this)
-                    onSnapshot(inspect(root))
+                    onSnapshot(inspect(hostView))
                 }
             },
         )
     }
 
-    private fun inspect(root: View): Snapshot {
-        val entries = buildList {
-            collect(
-                view = root,
-                depth = 0,
-                path = "root",
-                destination = this,
-            )
-        }
+    private fun inspect(host: View): Snapshot {
+        val scanRoot = host.rootView
+        val entries = mutableListOf<Entry>()
+        val scanState = ScanState()
 
-        val directChildren = (root as? ViewGroup)
+        collect(
+            view = scanRoot,
+            depth = 0,
+            path = "root",
+            destination = entries,
+            scanState = scanState,
+        )
+
+        val directChildren = (host as? ViewGroup)
             ?.let { group ->
                 buildList {
                     for (index in 0 until group.childCount) {
@@ -63,12 +75,17 @@ internal object SystemUiNativeStatusInventory {
             .orEmpty()
 
         return Snapshot(
-            hostClassName = root.javaClass.name,
-            hostWidth = root.width,
-            hostHeight = root.height,
-            hostMeasuredWidth = root.measuredWidth,
-            hostMeasuredHeight = root.measuredHeight,
+            hostClassName = host.javaClass.name,
+            hostWidth = host.width,
+            hostHeight = host.height,
+            hostMeasuredWidth = host.measuredWidth,
+            hostMeasuredHeight = host.measuredHeight,
             directChildren = directChildren,
+            scanRootClassName = scanRoot.javaClass.name,
+            hostPath = pathFromRoot(host, scanRoot),
+            ancestorChain = ancestorChain(host),
+            scannedViews = scanState.scannedViews,
+            truncated = scanState.truncated,
             entries = entries,
         )
     }
@@ -78,7 +95,14 @@ internal object SystemUiNativeStatusInventory {
         depth: Int,
         path: String,
         destination: MutableList<Entry>,
+        scanState: ScanState,
     ) {
+        if (scanState.scannedViews >= MAX_SCANNED_VIEWS) {
+            scanState.truncated = true
+            return
+        }
+        scanState.scannedViews += 1
+
         roleFor(view.javaClass.name)?.let { role ->
             val parent = view.parent as? ViewGroup
             destination += Entry(
@@ -105,11 +129,15 @@ internal object SystemUiNativeStatusInventory {
 
         val group = view as? ViewGroup ?: return
         for (index in 0 until group.childCount) {
+            if (scanState.truncated) {
+                return
+            }
             collect(
                 view = group.getChildAt(index),
                 depth = depth + 1,
                 path = "$path/$index",
                 destination = destination,
+                scanState = scanState,
             )
         }
     }
@@ -119,7 +147,52 @@ internal object SystemUiNativeStatusInventory {
             MOBILE_NETWORK_VIEW_CLASS_NAME -> "mobileNetwork"
             WIFI_VIEW_CLASS_NAME -> "wifi"
             BATTERY_VIEW_CLASS_NAME -> "battery"
+            MIUI_STATUS_ICON_CONTAINER_CLASS_NAME -> "miuiStatusIcons"
+            STATUS_ICON_CONTAINER_CLASS_NAME -> "statusIcons"
+            BATTERY_CONTAINER_CLASS_NAME -> "batteryContainer"
             else -> null
+        }
+
+    private fun pathFromRoot(
+        view: View,
+        root: View,
+    ): String {
+        if (view === root) {
+            return "root"
+        }
+
+        val indices = mutableListOf<Int>()
+        var current: View = view
+
+        while (current !== root) {
+            val parent = current.parent as? ViewGroup ?: return "unresolved"
+            indices += parent.indexOfChild(current)
+            current = parent
+        }
+
+        return buildString {
+            append("root")
+            indices.asReversed().forEach { index ->
+                append('/')
+                append(index)
+            }
+        }
+    }
+
+    private fun ancestorChain(view: View): List<String> =
+        buildList {
+            var current: View? = view
+            while (current != null) {
+                add(
+                    buildString {
+                        append(current.javaClass.simpleName)
+                        append('[')
+                        append(resourceId(current))
+                        append(']')
+                    },
+                )
+                current = current.parent as? View
+            }
         }
 
     private fun resourceId(view: View): String {
@@ -142,6 +215,11 @@ internal object SystemUiNativeStatusInventory {
             else -> visibility.toString()
         }
 
+    private class ScanState(
+        var scannedViews: Int = 0,
+        var truncated: Boolean = false,
+    )
+
     internal data class Snapshot(
         val hostClassName: String,
         val hostWidth: Int,
@@ -149,38 +227,50 @@ internal object SystemUiNativeStatusInventory {
         val hostMeasuredWidth: Int,
         val hostMeasuredHeight: Int,
         val directChildren: List<String>,
+        val scanRootClassName: String,
+        val hostPath: String,
+        val ancestorChain: List<String>,
+        val scannedViews: Int,
+        val truncated: Boolean,
         val entries: List<Entry>,
     ) {
         val summary: String
             get() {
-                val mobileCount = entries.count { it.role == "mobileNetwork" }
-                val wifiCount = entries.count { it.role == "wifi" }
-                val batteryCount = entries.count { it.role == "battery" }
-                val childSummary = directChildren.joinToString(",")
+                val counts = entries.groupingBy { it.role }.eachCount()
 
                 return buildString {
-                    append("nativeStatus inventory ")
-                    append("host=")
+                    append("nativeStatus topology ")
+                    append("root=")
+                    append(scanRootClassName.substringAfterLast('.'))
+                    append(" host=")
                     append(hostClassName.substringAfterLast('.'))
-                    append(" size=")
-                    append(hostWidth)
-                    append('x')
-                    append(hostHeight)
-                    append(" measured=")
-                    append(hostMeasuredWidth)
-                    append('x')
-                    append(hostMeasuredHeight)
+                    append(" hostPath=")
+                    append(hostPath)
+                    append(" scanned=")
+                    append(scannedViews)
+                    append(" truncated=")
+                    append(truncated)
                     append(" mobileNetwork=")
-                    append(mobileCount)
+                    append(counts["mobileNetwork"] ?: 0)
                     append(" wifi=")
-                    append(wifiCount)
+                    append(counts["wifi"] ?: 0)
                     append(" battery=")
-                    append(batteryCount)
-                    append(" directChildren=[")
-                    append(childSummary)
-                    append(']')
+                    append(counts["battery"] ?: 0)
+                    append(" miuiStatusIcons=")
+                    append(counts["miuiStatusIcons"] ?: 0)
+                    append(" statusIcons=")
+                    append(counts["statusIcons"] ?: 0)
+                    append(" batteryContainer=")
+                    append(counts["batteryContainer"] ?: 0)
                 }
             }
+
+        val hostLine: String
+            get() =
+                "nativeStatus host " +
+                    "size=${hostWidth}x$hostHeight measured=${hostMeasuredWidth}x$hostMeasuredHeight " +
+                    "directChildren=[${directChildren.joinToString(",")}] " +
+                    "ancestors=[${ancestorChain.joinToString(" <- ")}]"
     }
 
     internal data class Entry(
@@ -212,6 +302,6 @@ internal object SystemUiNativeStatusInventory {
                     "visibility=$visibility " +
                     "bounds=$left,$top-$right,$bottom " +
                     "size=${width}x$height measured=${measuredWidth}x$measuredHeight " +
-                    "translation=${translationX},${translationY}"
+                    "translation=${translationX},$translationY"
     }
 }

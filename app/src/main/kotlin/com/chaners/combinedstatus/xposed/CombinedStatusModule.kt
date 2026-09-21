@@ -102,6 +102,7 @@ class CombinedStatusModule : XposedModule() {
 
         SystemUiNativeStatusInventory.schedule(capture.host) { snapshot ->
             log(Log.INFO, TAG, snapshot.summary)
+            log(Log.INFO, TAG, snapshot.hostLine)
             snapshot.entries.forEach { entry ->
                 log(Log.INFO, TAG, entry.logLine)
             }

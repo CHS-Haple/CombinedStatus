@@ -112,6 +112,33 @@ for role, match in inventory_constants.items():
     if match.group(1) != native_status_views[role]:
         fail(f"native status inventory class drifted from profile: {role}")
 
+native_status_containers = profile.get("nativeStatusContainers", {})
+expected_native_containers = {"miuiStatusIcons", "statusIcons", "batteryContainer"}
+if set(native_status_containers) != expected_native_containers:
+    fail("nativeStatusContainers must define miuiStatusIcons, statusIcons, and batteryContainer")
+if not set(native_status_containers.values()).issubset(verified_systemui):
+    fail("native status container classes are not all verified in the SystemUI APK")
+
+container_constants = {
+    "miuiStatusIcons": re.search(
+        r'MIUI_STATUS_ICON_CONTAINER_CLASS_NAME\s*=\s*\n?\s*"([^"]+)"',
+        inventory_text,
+    ),
+    "statusIcons": re.search(
+        r'STATUS_ICON_CONTAINER_CLASS_NAME\s*=\s*\n?\s*"([^"]+)"',
+        inventory_text,
+    ),
+    "batteryContainer": re.search(
+        r'BATTERY_CONTAINER_CLASS_NAME\s*=\s*\n?\s*"([^"]+)"',
+        inventory_text,
+    ),
+}
+for role, match in container_constants.items():
+    if not match:
+        fail(f"native status container constant is missing: {role}")
+    if match.group(1) != native_status_containers[role]:
+        fail(f"native status container class drifted from profile: {role}")
+
 component_markers = profile.get("verifiedSystemUiComponentClasses", [])
 if len(component_markers) < 1:
     fail("SystemUI component APK has no verified class markers")
@@ -137,3 +164,4 @@ print(f"Runtime markers: {len(runtime_markers)}/{len(runtime_markers)}")
 print(f"Component markers: {len(component_markers)}/{len(component_markers)}")
 print(f"Verified hook points: {len(hook_points)}/{len(hook_points)}")
 print(f"Native status views: {len(native_status_views)}/{len(native_status_views)}")
+print(f"Native status containers: {len(native_status_containers)}/{len(native_status_containers)}")
