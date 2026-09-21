@@ -47,6 +47,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Native status probe wording now describes the status-bar topology check without exposing host-lifecycle implementation details.
 - Diagnostics now follow build type: release keeps low-frequency operational diagnostics, while debug adds detailed topology, geometry, and Hook reporting without changing core module behavior.
 - SystemUI restart and on-demand diagnostic collection now share one bounded Root shell executor instead of duplicating process lifecycle code.
+- CI now builds the release variant and rejects release APKs that retain the detailed debug topology marker.
 - LibXposed artifacts are resolved explicitly from Maven Central at `repo.maven.apache.org`, restricted to the `io.github.libxposed` group.
 - Restart confirmation now follows the MIUIX two-action dialog layout with equal-width actions and user-facing SystemUI wording.
 - Xposed lifecycle diagnostics now include the internal build ID to make hot-reload generation changes directly visible in LSPosed logs.
