@@ -25,7 +25,7 @@ internal object NativePresentationResolver {
                     state.mobile[subscriptionId]
                         ?.signal
                         ?.let { signal -> signal !is SignalStrength.Unknown }
-                        == true
+                        ?: false
                 }
         val visible =
             bindings.filter { binding ->
@@ -91,7 +91,7 @@ internal object NativePresentationResolver {
                 if (label.isNotEmpty()) {
                     return NetworkType(
                         label = label,
-                        enhanced = drawable.readBooleanField(MOBILE_TYPE_ENHANCED_FIELD) == true,
+                        enhanced = drawable?.readBooleanField(MOBILE_TYPE_ENHANCED_FIELD) == true,
                         source = NetworkTypeSource.MOBILE_TYPE_DRAWABLE,
                     )
                 }
