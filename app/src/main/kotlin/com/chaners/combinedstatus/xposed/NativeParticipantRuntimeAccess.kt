@@ -248,6 +248,34 @@ internal object NativeParticipantRuntimeAccess {
         }.getOrNull()
     }
 
+    fun iconVisible(view: View): Boolean? {
+        val accessor =
+            view.javaClass
+                .allMethods()
+                .firstOrNull { method ->
+                    method.name == "isIconVisible" &&
+                        method.parameterCount == 0 &&
+                        (
+                            method.returnType == Boolean::class.javaPrimitiveType ||
+                                method.returnType == Boolean::class.java
+                        )
+                }
+
+        val viaAccessor =
+            accessor?.let { method ->
+                runCatching {
+                    method.isAccessible = true
+                    method.invoke(view) as? Boolean
+                }.getOrNull()
+            }
+        if (viaAccessor != null) {
+            return viaAccessor
+        }
+
+        val icon = view.readField("mIcon") ?: return null
+        return icon.readField("visible") as? Boolean
+    }
+
     fun findBootstrapResource(group: ViewGroup): BootstrapResource? {
         val expectedPackage = group.context.packageName
         for (index in 0 until group.childCount) {

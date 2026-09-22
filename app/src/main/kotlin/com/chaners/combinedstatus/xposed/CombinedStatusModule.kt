@@ -1088,10 +1088,12 @@ class CombinedStatusModule : XposedModule() {
                         "root" to shadow.rootClass,
                         "rootIndex" to shadow.rootIndex,
                         "visibility" to shadow.rootVisibility,
+                        "iconVisible" to shadow.iconVisible,
                         "measured" to
                             shadow.measuredWidth.toString() +
                                 "x" +
                                 shadow.measuredHeight,
+                        "layoutHidden" to shadow.layoutHidden,
                         "childrenBefore" to shadow.childrenBefore,
                         "childrenAfter" to shadow.childrenAfter,
                         "bootstrapRes" to

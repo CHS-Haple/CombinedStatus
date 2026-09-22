@@ -30,20 +30,33 @@ internal object NativeParticipantShadowSession {
 
         val existing = current
         if (existing?.matches(handles) == true) {
-            return existing.verify()
-        }
-
-        if (existing != null) {
+            val verified = existing.verify(requireLayoutHidden = true)
+            if (verified is AttachResult.Ready) {
+                return verified
+            }
+            current = null
             when (val stopped = existing.stop()) {
-                NativeParticipantShadowSession.DetachResult.Removed,
-                NativeParticipantShadowSession.DetachResult.AlreadyDetached -> Unit
+                DetachResult.Removed,
+                DetachResult.AlreadyDetached -> Unit
 
-                is NativeParticipantShadowSession.DetachResult.Failure ->
+                is DetachResult.Failure ->
+                    return AttachResult.Failure(
+                        "existing-shadow-cleanup-" + stopped.reason,
+                    )
+            }
+        } else if (existing != null) {
+            current = null
+            when (val stopped = existing.stop()) {
+                DetachResult.Removed,
+                DetachResult.AlreadyDetached -> Unit
+
+                is DetachResult.Failure ->
                     return AttachResult.Failure(
                         "previous-shadow-cleanup-" + stopped.reason,
                     )
             }
         }
+
         val session = Session(handles, onEvent)
         val result = session.start()
         current =
@@ -60,6 +73,13 @@ internal object NativeParticipantShadowSession {
         val session = current ?: return DetachResult.AlreadyDetached
         current = null
         return session.stop()
+    }
+
+    @Synchronized
+    private fun invalidate(session: Session) {
+        if (current === session) {
+            current = null
+        }
     }
 
     private class Session(
@@ -80,6 +100,43 @@ internal object NativeParticipantShadowSession {
             )
 
         private var snapshot: Snapshot? = null
+        private var root: View? = null
+        private var stopped = false
+
+        private val postLayoutValidation =
+            Runnable {
+                if (stopped) {
+                    return@Runnable
+                }
+                val result = verifyOnMain(requireLayoutHidden = true)
+                when (result) {
+                    is AttachResult.Ready -> {
+                        val verified = result.snapshot
+                        onEvent(
+                            "nativeParticipantShadow postLayout " +
+                                "slot=" + SLOT +
+                                " state=ready" +
+                                " visibility=" + verified.rootVisibility +
+                                " iconVisible=" + verified.iconVisible +
+                                " measured=" + verified.measuredWidth +
+                                "x" + verified.measuredHeight +
+                                " layoutHidden=" + verified.layoutHidden +
+                                " nativeGeometryWrites=0",
+                        )
+                    }
+
+                    is AttachResult.Failure -> {
+                        cleanupOnMain()
+                        invalidate(this)
+                        onEvent(
+                            "nativeParticipantShadow postLayout " +
+                                "slot=" + SLOT +
+                                " state=error reason=" + result.reason +
+                                " cleanup=attempted nativeGeometryWrites=0",
+                        )
+                    }
+                }
+            }
 
         fun matches(
             candidate: NativeParticipantRuntimeAccess.Handles,
@@ -104,36 +161,10 @@ internal object NativeParticipantShadowSession {
                 )
             }
 
-        fun verify(): AttachResult =
+        fun verify(requireLayoutHidden: Boolean): AttachResult =
             runCatching {
                 runOnMainBlocking {
-                    val root =
-                        NativeParticipantRuntimeAccess.findSlotView(
-                            handles.group,
-                            SLOT,
-                        )
-                        ?: return@runOnMainBlocking AttachResult.Failure(
-                            "shadow-root-missing",
-                        )
-                    if (root.visibility == View.VISIBLE) {
-                        return@runOnMainBlocking AttachResult.Failure(
-                            "shadow-root-visible",
-                        )
-                    }
-                    val previousSnapshot =
-                        snapshot
-                            ?: return@runOnMainBlocking AttachResult.Failure(
-                                "shadow-snapshot-missing",
-                            )
-                    val currentSnapshot =
-                        previousSnapshot.copy(
-                            rootIndex = handles.group.indexOfChild(root),
-                            rootVisibility = visibilityName(root.visibility),
-                            measuredWidth = root.measuredWidth,
-                            measuredHeight = root.measuredHeight,
-                        )
-                    snapshot = currentSnapshot
-                    AttachResult.Ready(currentSnapshot)
+                    verifyOnMain(requireLayoutHidden)
                 }
             }.getOrElse { error ->
                 AttachResult.Failure(
@@ -145,7 +176,10 @@ internal object NativeParticipantShadowSession {
         fun stop(): DetachResult =
             runCatching {
                 runOnMainBlocking {
+                    stopped = true
+                    root?.removeCallbacks(postLayoutValidation)
                     cleanupOnMain()
+                    root = null
                     val remaining =
                         NativeParticipantRuntimeAccess.findSlotView(
                             handles.group,
@@ -214,7 +248,7 @@ internal object NativeParticipantShadowSession {
                 visible = false,
             )
 
-            val root =
+            val createdRoot =
                 NativeParticipantRuntimeAccess.findSlotView(
                     handles.group,
                     SLOT,
@@ -226,20 +260,32 @@ internal object NativeParticipantShadowSession {
                         )
                     }
 
-            if (root.visibility == View.VISIBLE) {
+            val iconVisible =
+                NativeParticipantRuntimeAccess.iconVisible(createdRoot)
+            if (!NativeParticipantShadowPolicy.isSemanticallyHidden(iconVisible)) {
                 cleanupOnMain()
                 return AttachResult.Failure(
-                    "shadow-hide-not-applied",
+                    "shadow-semantic-hide-not-applied iconVisible=" +
+                        (iconVisible?.toString() ?: "unknown"),
                 )
             }
 
+            root = createdRoot
+            stopped = false
+
             val resolved =
                 snapshotOf(
-                    root = root,
+                    root = createdRoot,
                     childrenBefore = childrenBefore,
                     bootstrap = bootstrap,
+                    iconVisible = iconVisible,
                 )
             snapshot = resolved
+
+            createdRoot.removeCallbacks(postLayoutValidation)
+            check(createdRoot.post(postLayoutValidation)) {
+                "shadow-post-layout-validation-rejected"
+            }
 
             onEvent(
                 "nativeParticipantShadow attached " +
@@ -247,6 +293,10 @@ internal object NativeParticipantShadowSession {
                     " root=" + resolved.rootClass +
                     " index=" + resolved.rootIndex +
                     " visibility=" + resolved.rootVisibility +
+                    " iconVisible=" + resolved.iconVisible +
+                    " measured=" + resolved.measuredWidth +
+                    "x" + resolved.measuredHeight +
+                    " layoutHidden=" + resolved.layoutHidden +
                     " children=" + resolved.childrenBefore +
                     "->" + resolved.childrenAfter +
                     " bootstrapRes=0x" +
@@ -254,11 +304,65 @@ internal object NativeParticipantShadowSession {
                     " bootstrapSlot=" + (resolved.bootstrapSourceSlot ?: "unknown") +
                     " setter=" + resolved.creationMode +
                     " remover=" + resolved.removalMode +
-                    " mainThread=true transientVisibleFrame=false " +
+                    " mainThread=true sameLooperTurnHide=true " +
                     "nativeGeometryWrites=0",
             )
 
             return AttachResult.Ready(resolved)
+        }
+
+        private fun verifyOnMain(
+            requireLayoutHidden: Boolean,
+        ): AttachResult {
+            val currentRoot =
+                NativeParticipantRuntimeAccess.findSlotView(
+                    handles.group,
+                    SLOT,
+                )
+                    ?: return AttachResult.Failure(
+                        "shadow-root-missing",
+                    )
+
+            val iconVisible =
+                NativeParticipantRuntimeAccess.iconVisible(currentRoot)
+            if (!NativeParticipantShadowPolicy.isSemanticallyHidden(iconVisible)) {
+                return AttachResult.Failure(
+                    "shadow-semantic-visible iconVisible=" +
+                        (iconVisible?.toString() ?: "unknown"),
+                )
+            }
+
+            val layoutHidden =
+                NativeParticipantShadowPolicy.isLayoutHidden(
+                    rootVisible = currentRoot.visibility == View.VISIBLE,
+                    measuredWidth = currentRoot.measuredWidth,
+                )
+            if (requireLayoutHidden && !layoutHidden) {
+                return AttachResult.Failure(
+                    "shadow-layout-visible visibility=" +
+                        visibilityName(currentRoot.visibility) +
+                        " measuredWidth=" + currentRoot.measuredWidth,
+                )
+            }
+
+            val previousSnapshot =
+                snapshot
+                    ?: return AttachResult.Failure(
+                        "shadow-snapshot-missing",
+                    )
+            val currentSnapshot =
+                previousSnapshot.copy(
+                    rootIndex = handles.group.indexOfChild(currentRoot),
+                    rootVisibility = visibilityName(currentRoot.visibility),
+                    iconVisible = false,
+                    measuredWidth = currentRoot.measuredWidth,
+                    measuredHeight = currentRoot.measuredHeight,
+                    layoutHidden = layoutHidden,
+                    childrenAfter = handles.group.childCount,
+                )
+            root = currentRoot
+            snapshot = currentSnapshot
+            return AttachResult.Ready(currentSnapshot)
         }
 
         private fun cleanupOnMain() {
@@ -274,14 +378,21 @@ internal object NativeParticipantShadowSession {
             root: View,
             childrenBefore: Int,
             bootstrap: NativeParticipantRuntimeAccess.BootstrapResource,
+            iconVisible: Boolean?,
         ): Snapshot =
             Snapshot(
                 slot = SLOT,
                 rootClass = root.javaClass.name,
                 rootIndex = handles.group.indexOfChild(root),
                 rootVisibility = visibilityName(root.visibility),
+                iconVisible = iconVisible == true,
                 measuredWidth = root.measuredWidth,
                 measuredHeight = root.measuredHeight,
+                layoutHidden =
+                    NativeParticipantShadowPolicy.isLayoutHidden(
+                        rootVisible = root.visibility == View.VISIBLE,
+                        measuredWidth = root.measuredWidth,
+                    ),
                 childrenBefore = childrenBefore,
                 childrenAfter = handles.group.childCount,
                 bootstrapResourceId = bootstrap.resourceId,
@@ -319,8 +430,10 @@ internal object NativeParticipantShadowSession {
         val rootClass: String,
         val rootIndex: Int,
         val rootVisibility: String,
+        val iconVisible: Boolean,
         val measuredWidth: Int,
         val measuredHeight: Int,
+        val layoutHidden: Boolean,
         val childrenBefore: Int,
         val childrenAfter: Int,
         val bootstrapResourceId: Int,
