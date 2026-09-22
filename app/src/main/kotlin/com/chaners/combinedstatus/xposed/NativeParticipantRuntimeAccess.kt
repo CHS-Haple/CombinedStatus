@@ -302,7 +302,7 @@ internal object NativeParticipantRuntimeAccess {
             .toList()
     }
 
-    fun hasMethod(
+    fun hasMethodSignature(
         clazz: Class<*>?,
         name: String,
         parameterTypes: List<String>,

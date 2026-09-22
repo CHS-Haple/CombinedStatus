@@ -931,7 +931,6 @@ class CombinedStatusModule : XposedModule() {
         CombinedStatusPresentationStateStore.reset()
         SystemUiIslandMotionSource.resetRuntimeState()
         airplaneObserverAttached = false
-        defaultDataSubscriptionObserverAttached = false
 
         val nativeShadowDetached =
             nativeShadowDetach !is NativeParticipantShadowSession.DetachResult.Failure

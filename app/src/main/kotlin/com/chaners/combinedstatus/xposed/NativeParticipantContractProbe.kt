@@ -55,19 +55,19 @@ internal object NativeParticipantContractProbe {
             )
 
         val addIconGroup =
-            NativeParticipantRuntimeAccess.hasMethod(
+            NativeParticipantRuntimeAccess.hasMethodSignature(
                 clazz = controllerClass,
                 name = "addIconGroup",
                 parameterTypes = listOf(managerClass.name),
             )
         val removeIconGroup =
-            NativeParticipantRuntimeAccess.hasMethod(
+            NativeParticipantRuntimeAccess.hasMethodSignature(
                 clazz = controllerClass,
                 name = "removeIconGroup",
                 parameterTypes = listOf(managerClass.name),
             )
         val addHolder =
-            NativeParticipantRuntimeAccess.hasMethod(
+            NativeParticipantRuntimeAccess.hasMethodSignature(
                 clazz = managerClass,
                 name = "addHolder",
                 parameterTypes =
