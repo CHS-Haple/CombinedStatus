@@ -34,7 +34,7 @@ The project follows a Keep a Changelog-style structure. Until the first formal r
 - Hot reload rotates runtime-session identity, replaces the previous hook generation, revalidates compatibility, and restores current host health instead of stacking duplicate generations.
 - The app uses native MIUIX 0.9.4 components and shared production material definitions for navigation and appearance previews instead of separate visual approximations.
 - Diagnostics, app descriptions, and user-facing copy consistently identify Xiaomi HyperOS as the target and use **mobile network / 移动网络** terminology.
-- Build and release tooling separates Debug, Canary, and formal Release signing/CI responsibilities; application build identity is independent from GitHub Actions run numbers.
+- Build and release tooling separates Debug, Canary, and formal Release signing/CI responsibilities; distributable APK filenames use application version/build identity rather than GitHub Actions run numbers, while test-release tags may retain the run number as CI execution metadata.
 
 ### Fixed
 
