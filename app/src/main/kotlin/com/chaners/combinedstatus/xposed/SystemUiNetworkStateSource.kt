@@ -360,7 +360,7 @@ internal object SystemUiNetworkStateSource {
         val mobile = ArrayList<Any>(mobileRoots.size)
         mobileRoots.forEach { (root, subscriptionId) ->
             if (root.isAttachedToWindow) {
-                mobile += arrayOf(root, subscriptionId)
+                mobile.add(arrayOf(root, subscriptionId))
             }
         }
 
