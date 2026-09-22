@@ -93,17 +93,11 @@ internal class LegacyCombinedStatusPainter {
         opacity: Float,
     ) {
         val level = model.mobileLevel
-        if (level == null) {
-            stroke(tint, 210, 4f, opacity)
-            canvas.drawLine(56f, 90f, 64f, 98f, paint)
-            canvas.drawLine(64f, 90f, 56f, 98f, paint)
-            return
-        }
 
         for (index in 0 until MOBILE_DOT_COUNT) {
             fill(
                 color = tint,
-                alpha = if (level > index) 255 else 48,
+                alpha = if (level != null && level > index) 255 else 48,
                 opacity = opacity,
             )
             val angle = bottomDotAngle(index)
@@ -113,6 +107,12 @@ internal class LegacyCombinedStatusPainter {
                 MOBILE_DOT_RADIUS,
                 paint,
             )
+        }
+
+        if (level == null) {
+            stroke(tint, 210, 4f, opacity)
+            canvas.drawLine(56f, 90f, 64f, 98f, paint)
+            canvas.drawLine(64f, 90f, 56f, 98f, paint)
         }
     }
 
