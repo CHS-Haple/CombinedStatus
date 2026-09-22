@@ -6,6 +6,7 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -153,6 +154,11 @@ private fun ThemeColorSwatch(color: Color) {
                 .size(width = 30.dp, height = 24.dp),
         shape = RoundedCornerShape(8.dp),
         color = color,
+        border =
+            BorderStroke(
+                width = 1.dp,
+                color = MiuixTheme.colorScheme.outline.copy(alpha = 0.2f),
+            ),
     ) {}
 }
 

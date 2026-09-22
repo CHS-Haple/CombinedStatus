@@ -48,6 +48,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Appearance settings now model light/dark mode and dynamic color as independent preferences. The page uses a compact MIUIX theme-mode dropdown, a separate dynamic-color switch, and a concise live palette preview; legacy `theme_mode=Dynamic` is interpreted as System + dynamic color without losing the previous choice.
 - Swipe-back behavior is now configured from the main Settings page instead of Appearance, keeping Appearance limited to theme and visual effects.
 - Appearance copy now labels the read-only palette card as current colors and shortens the theme-mode description to reflect its actual light/dark responsibility.
+- Current-color swatches now use a uniform 1 dp low-alpha MIUIX outline while preserving their actual theme-token fill colors.
 - Renamed swipe-back copy to describe a page-level horizontal return gesture, avoiding confusion with the system-wide edge-back gesture.
 - Minimum Android version is Android 13 / API 33 to match the current MIUIX blur baseline.
 - Android compile and target SDK baseline is API 37.
