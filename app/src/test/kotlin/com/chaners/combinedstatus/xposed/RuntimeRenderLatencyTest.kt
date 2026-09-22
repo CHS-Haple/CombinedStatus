@@ -62,6 +62,32 @@ class RuntimeRenderLatencyTest {
     }
 
     @Test
+    fun sampleSupportsPresentationOnlyTrace() {
+        val trace =
+            RuntimeRenderTrace(
+                id = 9L,
+                source = "mobileType",
+                sourceNanos = 20_000_000L,
+            ).withPresentationCommitted(20_400_000L)
+
+        val sample =
+            RuntimeRenderLatencySample.from(
+                trace = trace,
+                modelCommittedNanos = 20_800_000L,
+                drawNanos = 21_300_000L,
+                committedOnMainThread = true,
+            )
+
+        assertNull(sample.sourceToStateUs)
+        assertEquals(400L, sample.sourceToPresentationUs)
+        assertNull(sample.stateToPresentationUs)
+        assertNull(sample.stateToModelUs)
+        assertEquals(400L, sample.presentationToModelUs)
+        assertEquals(500L, sample.modelToDrawUs)
+        assertEquals(1_300L, sample.sourceToDrawUs)
+    }
+
+    @Test
     fun stageMarkersKeepFirstCommitTimestamp() {
         val initial =
             RuntimeRenderTrace(
