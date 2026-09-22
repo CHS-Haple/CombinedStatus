@@ -33,6 +33,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Debug builds now include a Home-only, non-layout visual probe that reproduces the P11BJ 120-unit ring/Wi-Fi/mobile-dot geometry inside the verified native 105×108 battery slot using ViewGroupOverlay; native icons remain visible and native geometry is untouched.
 - A pure shared layout-policy layer now models visual size, adaptive neighbor gap, requested/applied slot width, end anchoring, render mode, and motion ownership for future multi-scene reuse; it is not wired to runtime layout yet.
 - A pure scene-capability policy now classifies Home, notification-shade transition, Control Center, keyguard, and AOD without duplicating geometry rules; charging variants remain render state rather than a separate scene.
+- Debug stable-status diagnostics now capture one-shot Home slot readiness metrics (padding, layout params, margins, adjacent status-icon boundary, clipping, RTL, and native translation) without mutating geometry.
 
 ### Changed
 - Minimum Android version is Android 13 / API 33 to match the current MIUIX blur baseline.

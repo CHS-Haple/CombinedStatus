@@ -15,6 +15,8 @@ internal object StatusBarStableSession {
         "com.android.systemui.statusbar.views.MiuiStatusBatteryContainer"
     private const val BATTERY_VIEW_CLASS_NAME =
         "com.android.systemui.statusbar.views.MiuiBatteryMeterView"
+    private const val STATUS_ICON_CONTAINER_CLASS_NAME =
+        "com.android.systemui.statusbar.views.MiuiStatusIconContainer"
 
     private var current: Session? = null
 
@@ -188,6 +190,35 @@ internal object StatusBarStableSession {
                     batteryMeasuredHeight = view.measuredHeight,
                 ).logLine,
             )
+
+            val statusIcons = container.directChild(STATUS_ICON_CONTAINER_CLASS_NAME)
+            val layoutParams = view.layoutParams
+            val margins = layoutParams as? ViewGroup.MarginLayoutParams
+            onEvent(
+                SlotMetrics(
+                    batteryPaddingStart = view.paddingStart,
+                    batteryPaddingEnd = view.paddingEnd,
+                    batteryPaddingTop = view.paddingTop,
+                    batteryPaddingBottom = view.paddingBottom,
+                    batteryMinimumWidth = view.minimumWidth,
+                    batteryLayoutWidth = layoutParams?.width ?: Int.MIN_VALUE,
+                    batteryLayoutHeight = layoutParams?.height ?: Int.MIN_VALUE,
+                    batteryMarginStart = margins?.marginStart ?: 0,
+                    batteryMarginEnd = margins?.marginEnd ?: 0,
+                    containerPaddingStart = container.paddingStart,
+                    containerPaddingEnd = container.paddingEnd,
+                    statusIconsWidth = statusIcons?.width ?: -1,
+                    statusIconsRight = statusIcons?.right ?: -1,
+                    batteryLeft = view.left,
+                    batteryRight = view.right,
+                    adjacentGap =
+                        statusIcons?.let { icons -> view.left - icons.right } ?: -1,
+                    batteryClipChildren = view.clipChildren,
+                    containerClipChildren = container.clipChildren,
+                    layoutRtl = view.layoutDirection == View.LAYOUT_DIRECTION_RTL,
+                    batteryTranslationX = view.translationX,
+                ).logLine,
+            )
             return true
         }
 
@@ -299,6 +330,44 @@ internal object StatusBarStableSession {
                     "containerIndex=$batteryContainerIndex batteryIndex=$batteryIndex " +
                     "batterySize=${batteryWidth}x$batteryHeight " +
                     "batteryMeasured=${batteryMeasuredWidth}x$batteryMeasuredHeight " +
+                    "nativeGeometryWrites=0"
+    }
+
+    internal data class SlotMetrics(
+        val batteryPaddingStart: Int,
+        val batteryPaddingEnd: Int,
+        val batteryPaddingTop: Int,
+        val batteryPaddingBottom: Int,
+        val batteryMinimumWidth: Int,
+        val batteryLayoutWidth: Int,
+        val batteryLayoutHeight: Int,
+        val batteryMarginStart: Int,
+        val batteryMarginEnd: Int,
+        val containerPaddingStart: Int,
+        val containerPaddingEnd: Int,
+        val statusIconsWidth: Int,
+        val statusIconsRight: Int,
+        val batteryLeft: Int,
+        val batteryRight: Int,
+        val adjacentGap: Int,
+        val batteryClipChildren: Boolean,
+        val containerClipChildren: Boolean,
+        val layoutRtl: Boolean,
+        val batteryTranslationX: Float,
+    ) {
+        val logLine: String
+            get() =
+                "stableStatus slotMetrics " +
+                    "batteryPadding=$batteryPaddingStart,$batteryPaddingEnd," +
+                    "$batteryPaddingTop,$batteryPaddingBottom " +
+                    "batteryMinWidth=$batteryMinimumWidth " +
+                    "layout=${batteryLayoutWidth}x$batteryLayoutHeight " +
+                    "margins=$batteryMarginStart,$batteryMarginEnd " +
+                    "containerPadding=$containerPaddingStart,$containerPaddingEnd " +
+                    "statusIconsWidth=$statusIconsWidth statusIconsRight=$statusIconsRight " +
+                    "batteryBounds=$batteryLeft-$batteryRight adjacentGap=$adjacentGap " +
+                    "clipChildren=$batteryClipChildren,$containerClipChildren " +
+                    "rtl=$layoutRtl translationX=$batteryTranslationX " +
                     "nativeGeometryWrites=0"
     }
 
