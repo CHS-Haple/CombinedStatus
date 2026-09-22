@@ -96,7 +96,7 @@ class CombinedStatusLayoutPolicyTest {
         scale: Float,
         renderMode: CombinedStatusRenderMode = CombinedStatusRenderMode.OWNED_SLOT,
         motionOwnership: CombinedStatusMotionOwnership =
-            CombinedStatusMotionOwnership.COMBINED_STATUS,
+            CombinedStatusMotionOwnership.NONE,
     ): CombinedStatusResolvedLayout =
         CombinedStatusLayoutPolicy.resolve(
             settings = CombinedStatusLayoutSettings(

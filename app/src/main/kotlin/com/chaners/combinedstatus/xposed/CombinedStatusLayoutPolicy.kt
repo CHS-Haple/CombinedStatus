@@ -7,6 +7,7 @@ internal enum class CombinedStatusRenderMode {
 }
 
 internal enum class CombinedStatusMotionOwnership {
+    NONE,
     COMBINED_STATUS,
     SYSTEM_UI,
 }
