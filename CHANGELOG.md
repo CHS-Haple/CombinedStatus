@@ -8,6 +8,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 
 ### Added
 - Structured runtime diagnostics protocol with stable event/component/state fields and a report-time health snapshot for module loading, compatibility, status-host capture, network/airplane/tint sources, renderer, hot reload, and diagnostics transport without polling or resident collection.
+- Structured diagnostics now carry a schema version, bounded runtime-session identity, monotonic uptime, and sequence metadata so report health can isolate the current cold-start/hot-reload generation without resident tracing.
 - Canary build channel: non-debuggable and release-optimized like the production artifact, while retaining bounded runtime diagnostics controlled by the in-app General/Detailed preference.
 - App-side diagnostics level preference with General/Detailed choices, defaulting to General and mirrored through libxposed API 102 RemotePreferences for later hook-side consumption.
 - English and Simplified Chinese MIUIX application shell for HyperOS.
@@ -49,6 +50,8 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Debug owned-slot validation now records one matched pre/post geometry pair around the existing paddingStart write, including measured-width expansion, stable battery end-anchor delta, adjacent status-icon boundary movement, and neighbor-gap delta without adding hooks or continuous sampling.
 
 ### Changed
+- General diagnostics no longer emit the full mobile-presentation resolution payload; detailed state remains available only when Detailed diagnostics are enabled, while rendering behavior is unchanged.
+- Diagnostic reports now compare the app-requested level with the effective SystemUI runtime level and scope current-generation logs by session metadata before falling back to the legacy PID/build heuristic.
 - Language selection now shows its current value on the Settings page, matching the existing value display used by Theme mode, Floating navigation style, and Diagnostics level. Switch-based settings remain unchanged because the switch itself already communicates state.
 - Appearance preview now fixes the bottom-navigation scene only at the parent-container level. Both real MIUIX navigation components are measured at their native heights inside one 64 dp visible viewport; standard NavigationBar fits its native 64 dp visual body exactly, while FloatingNavigationBar keeps its native 52 dp capsule and shadow but the parent clips only the remaining screen-safe-area tail. No child geometry, MIUIX parameters, 82% preview scale, MainHub layout, or SystemUI behavior is changed.
 - Diagnostics copy now uses HyperOS as the product focus instead of presenting MIUIX or SystemUI as the module identity: the localized product name is used in Chinese, the subtitle describes the actual combined-status function, framework text is reduced to Xposed API 102, and scope/target/report labels are clarified. README positioning is aligned with the same HyperOS-first description.
