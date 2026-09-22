@@ -22,11 +22,11 @@ internal data class RuntimeEnvironmentInfo(
             if (codename.isBlank() || codename.equals(model, ignoreCase = true)) {
                 model
             } else {
-                "$model · $codename"
+                "$model ($codename)"
             }
 
     val androidDisplay: String
-        get() = "Android $androidVersion · API $sdk"
+        get() = "Android $androidVersion (API $sdk)"
 
     val systemUiDisplay: String
         get() =

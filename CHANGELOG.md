@@ -50,6 +50,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Debug owned-slot validation now records one matched pre/post geometry pair around the existing paddingStart write, including measured-width expansion, stable battery end-anchor delta, adjacent status-icon boundary movement, and neighbor-gap delta without adding hooks or continuous sampling.
 
 ### Changed
+- Diagnostics device/system metadata now uses parentheses for subordinate identifiers: model shows its device codename as `Model (codename)`, Android shows `Android 17 (API 37)`, and the localized labels mirror the same primary-plus-detail relationship.
 - General diagnostics no longer emit the full mobile-presentation resolution payload; detailed state remains available only when Detailed diagnostics are enabled, while rendering behavior is unchanged.
 - Diagnostic reports now compare the app-requested level with the effective SystemUI runtime level and scope current-generation logs by session metadata before falling back to the legacy PID/build heuristic.
 - Language selection now shows its current value on the Settings page, matching the existing value display used by Theme mode, Floating navigation style, and Diagnostics level. Switch-based settings remain unchanged because the switch itself already communicates state.

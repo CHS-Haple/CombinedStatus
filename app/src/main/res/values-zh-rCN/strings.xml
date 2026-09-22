@@ -96,8 +96,8 @@
     <string name="diagnostics_package_label">包名</string>
 
     <string name="section_device_system">设备与系统</string>
-    <string name="device_model_label">型号 · 设备代号</string>
-    <string name="android_version_label">Android</string>
+    <string name="device_model_label">型号（设备代号）</string>
+    <string name="android_version_label">Android（API）</string>
     <string name="os_version_label">HyperOS</string>
     <string name="systemui_version_label">SystemUI</string>
 

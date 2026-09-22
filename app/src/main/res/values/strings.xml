@@ -96,8 +96,8 @@
     <string name="diagnostics_package_label">Package</string>
 
     <string name="section_device_system">Device &amp; system</string>
-    <string name="device_model_label">Model · device codename</string>
-    <string name="android_version_label">Android</string>
+    <string name="device_model_label">Model (device codename)</string>
+    <string name="android_version_label">Android (API)</string>
     <string name="os_version_label">HyperOS</string>
     <string name="systemui_version_label">SystemUI</string>
 
