@@ -7,6 +7,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 ## [Unreleased]
 
 ### Added
+- Structured runtime diagnostics protocol with stable event/component/state fields and a report-time health snapshot for module loading, compatibility, status-host capture, network/airplane/tint sources, renderer, hot reload, and diagnostics transport without polling or resident collection.
 - Canary build channel: non-debuggable and release-optimized like the production artifact, while retaining bounded runtime diagnostics controlled by the in-app General/Detailed preference.
 - App-side diagnostics level preference with General/Detailed choices, defaulting to General and mirrored through libxposed API 102 RemotePreferences for later hook-side consumption.
 - English and Simplified Chinese MIUIX application shell for HyperOS.

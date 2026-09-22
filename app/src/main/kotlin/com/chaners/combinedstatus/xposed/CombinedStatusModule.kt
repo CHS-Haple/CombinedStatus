@@ -6,6 +6,7 @@ import com.chaners.combinedstatus.BuildConfig
 import com.chaners.combinedstatus.settings.DIAGNOSTICS_LEVEL_KEY
 import com.chaners.combinedstatus.settings.DIAGNOSTICS_REMOTE_PREFS_NAME
 import com.chaners.combinedstatus.settings.DiagnosticsLevel
+import com.chaners.combinedstatus.system.RuntimeDiagnosticsProtocol
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.HotReloadedParam
 import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
@@ -41,6 +42,16 @@ class CombinedStatusModule : XposedModule() {
                 " diagnostics=" + if (detailedDiagnosticsEnabled) "detailed" else "general" +
                 " with Xposed API " + apiVersion,
         )
+        logDiagnostic(
+            level = Log.INFO,
+            event = "module.loaded",
+            component = "module",
+            state = "ready",
+            "process" to param.processName,
+            "build" to BuildConfig.BUILD_ID,
+            "channel" to BuildConfig.BUILD_CHANNEL,
+            "api" to apiVersion,
+        )
     }
 
     override fun onPackageReady(param: PackageReadyParam) {
@@ -50,8 +61,16 @@ class CombinedStatusModule : XposedModule() {
 
         val compatibility = SystemUiCompatibilityProbe.inspect(param.classLoader)
         log(Log.INFO, TAG, compatibility.summary)
+        val statusHostAvailable = compatibility.isAvailable("statusHost")
+        logDiagnostic(
+            level = if (statusHostAvailable) Log.INFO else Log.WARN,
+            event = "compatibility.probe",
+            component = "compatibility",
+            state = if (statusHostAvailable) "ready" else "unavailable",
+            "statusHost" to if (statusHostAvailable) "available" else "missing",
+        )
 
-        if (!compatibility.isAvailable("statusHost")) {
+        if (!statusHostAvailable) {
             return
         }
 
@@ -63,7 +82,20 @@ class CombinedStatusModule : XposedModule() {
             )
         }.onSuccess {
             statusHostHookInstalled = true
+            logDiagnostic(
+                level = Log.INFO,
+                event = "hook.install",
+                component = "statusHostHook",
+                state = "ready",
+            )
         }.onFailure { error ->
+            logDiagnostic(
+                level = Log.ERROR,
+                event = "hook.install",
+                component = "statusHostHook",
+                state = "error",
+                "reason" to (error.message ?: error.javaClass.simpleName),
+            )
             log(Log.ERROR, TAG, "Status host hook installation failed", error)
         }
 
@@ -87,6 +119,13 @@ class CombinedStatusModule : XposedModule() {
 
     override fun onHotReloading(param: HotReloadingParam): Boolean {
         if (!statusHostHookInstalled) {
+            logDiagnostic(
+                level = Log.WARN,
+                event = "hotReload.prepare",
+                component = "hotReload",
+                state = "unavailable",
+                "reason" to "status-host-hook-not-ready",
+            )
             log(Log.WARN, TAG, "Hot reload declined reason=status-host-hook-not-ready")
             return false
         }
@@ -108,6 +147,14 @@ class CombinedStatusModule : XposedModule() {
                 } else {
                     0
                 }
+        logDiagnostic(
+            level = Log.INFO,
+            event = "hotReload.prepare",
+            component = "hotReload",
+            state = "preparing",
+            "hooks" to hookCount,
+            "build" to BuildConfig.BUILD_ID,
+        )
         log(
             Log.INFO,
             TAG,
@@ -122,6 +169,14 @@ class CombinedStatusModule : XposedModule() {
         val statusHostHandle = oldHandles.firstOrNull(StatusBarHostCapture::matches)
 
         if (statusHostHandle == null) {
+            logDiagnostic(
+                level = Log.ERROR,
+                event = "hotReload.complete",
+                component = "hotReload",
+                state = "error",
+                "reason" to "status-host-hook-missing",
+                "restartScope" to true,
+            )
             log(
                 Log.ERROR,
                 TAG,
@@ -172,6 +227,15 @@ class CombinedStatusModule : XposedModule() {
                 )
             }
 
+            logDiagnostic(
+                level = Log.INFO,
+                event = "hotReload.complete",
+                component = "hotReload",
+                state = "ready",
+                "build" to BuildConfig.BUILD_ID,
+                "statusHostHook" to "replaced",
+                "staleHooks" to removed,
+            )
             log(
                 Log.INFO,
                 TAG,
@@ -179,6 +243,14 @@ class CombinedStatusModule : XposedModule() {
                     " statusHostHook=replaced staleHooks=" + removed,
             )
         }.onFailure { error ->
+            logDiagnostic(
+                level = Log.ERROR,
+                event = "hotReload.complete",
+                component = "hotReload",
+                state = "error",
+                "reason" to (error.message ?: error.javaClass.simpleName),
+                "restartScope" to true,
+            )
             log(Log.ERROR, TAG, "Hot reload failed restartScope=true", error)
         }
     }
@@ -205,6 +277,15 @@ class CombinedStatusModule : XposedModule() {
             )
         }.onSuccess { handles ->
             networkSourceInstalled = handles.size == SystemUiNetworkStateSource.HOOK_COUNT
+            logDiagnostic(
+                level = if (networkSourceInstalled) Log.INFO else Log.WARN,
+                event = "source.install",
+                component = "network",
+                state = if (networkSourceInstalled) "ready" else "partial",
+                "hooks" to handles.size,
+                "expectedHooks" to SystemUiNetworkStateSource.HOOK_COUNT,
+                "source" to source,
+            )
             log(
                 Log.INFO,
                 TAG,
@@ -214,6 +295,14 @@ class CombinedStatusModule : XposedModule() {
             )
         }.onFailure { error ->
             networkSourceInstalled = false
+            logDiagnostic(
+                level = Log.ERROR,
+                event = "source.install",
+                component = "network",
+                state = "error",
+                "reason" to (error.message ?: error.javaClass.simpleName),
+                "source" to source,
+            )
             log(Log.ERROR, TAG, "Network state source installation failed", error)
         }
     }
@@ -225,6 +314,14 @@ class CombinedStatusModule : XposedModule() {
         val view = host as? android.view.View
         if (view == null) {
             airplaneObserverAttached = false
+            logDiagnostic(
+                level = Log.WARN,
+                event = "source.attach",
+                component = "airplane",
+                state = "unavailable",
+                "source" to source,
+                "reason" to "host-not-view",
+            )
             log(
                 Log.WARN,
                 TAG,
@@ -245,6 +342,14 @@ class CombinedStatusModule : XposedModule() {
             )
         }.onSuccess { attached ->
             airplaneObserverAttached = attached
+            logDiagnostic(
+                level = if (attached) Log.INFO else Log.WARN,
+                event = "source.attach",
+                component = "airplane",
+                state = if (attached) "ready" else "unavailable",
+                "source" to source,
+                "observer" to "settings-global-content-observer",
+            )
             log(
                 Log.INFO,
                 TAG,
@@ -255,6 +360,14 @@ class CombinedStatusModule : XposedModule() {
             )
         }.onFailure { error ->
             airplaneObserverAttached = false
+            logDiagnostic(
+                level = Log.ERROR,
+                event = "source.attach",
+                component = "airplane",
+                state = "error",
+                "reason" to (error.message ?: error.javaClass.simpleName),
+                "source" to source,
+            )
             log(Log.ERROR, TAG, "Airplane state observer failed", error)
         }
     }
@@ -272,6 +385,16 @@ class CombinedStatusModule : XposedModule() {
         }.onSuccess { handles ->
             islandMotionSourceInstalled =
                 handles.size == SystemUiIslandMotionSource.HOOK_COUNT
+            logDiagnostic(
+                level = if (islandMotionSourceInstalled) Log.INFO else Log.WARN,
+                event = "source.install",
+                component = "islandMotion",
+                state = if (islandMotionSourceInstalled) "ready" else "partial",
+                "hooks" to handles.size,
+                "expectedHooks" to SystemUiIslandMotionSource.HOOK_COUNT,
+                "source" to source,
+                "nativeGeometryWrites" to 0,
+            )
             log(
                 Log.INFO,
                 TAG,
@@ -281,6 +404,14 @@ class CombinedStatusModule : XposedModule() {
             )
         }.onFailure { error ->
             islandMotionSourceInstalled = false
+            logDiagnostic(
+                level = Log.ERROR,
+                event = "source.install",
+                component = "islandMotion",
+                state = "error",
+                "reason" to (error.message ?: error.javaClass.simpleName),
+                "source" to source,
+            )
             log(Log.ERROR, TAG, "Island motion source installation failed", error)
         }
     }
@@ -304,6 +435,15 @@ class CombinedStatusModule : XposedModule() {
             )
         }.onSuccess { handles ->
             tintSourceInstalled = handles.size == SystemUiTintStateSource.HOOK_COUNT
+            logDiagnostic(
+                level = if (tintSourceInstalled) Log.INFO else Log.WARN,
+                event = "source.install",
+                component = "tint",
+                state = if (tintSourceInstalled) "ready" else "partial",
+                "hooks" to handles.size,
+                "expectedHooks" to SystemUiTintStateSource.HOOK_COUNT,
+                "source" to source,
+            )
             log(
                 Log.INFO,
                 TAG,
@@ -312,6 +452,14 @@ class CombinedStatusModule : XposedModule() {
             )
         }.onFailure { error ->
             tintSourceInstalled = false
+            logDiagnostic(
+                level = Log.ERROR,
+                event = "source.install",
+                component = "tint",
+                state = "error",
+                "reason" to (error.message ?: error.javaClass.simpleName),
+                "source" to source,
+            )
             log(Log.ERROR, TAG, "Tint state source installation failed", error)
         }
     }
@@ -335,6 +483,14 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun onStatusHostCaptured(capture: SystemUiHostRegistry.Capture) {
+        logDiagnostic(
+            level = Log.INFO,
+            event = "host.capture",
+            component = "statusHost",
+            state = "ready",
+            "identity" to capture.identity,
+            "replacement" to capture.replacement,
+        )
         log(
             Log.INFO,
             TAG,
@@ -359,9 +515,23 @@ class CombinedStatusModule : XposedModule() {
                 },
             )
         ) {
-            StatusBarStableSession.AttachResult.Ready -> Unit
+            StatusBarStableSession.AttachResult.Ready -> {
+                logDiagnostic(
+                    level = Log.INFO,
+                    event = "session.attach",
+                    component = "stableStatus",
+                    state = "ready",
+                )
+            }
 
             is StatusBarStableSession.AttachResult.Failure -> {
+                logDiagnostic(
+                    level = Log.WARN,
+                    event = "session.attach",
+                    component = "stableStatus",
+                    state = "unavailable",
+                    "reason" to stableSession.reason,
+                )
                 log(
                     Log.WARN,
                     TAG,
@@ -380,9 +550,23 @@ class CombinedStatusModule : XposedModule() {
                 },
             )
         ) {
-            CombinedStatusHomeRenderSession.AttachResult.Ready -> Unit
+            CombinedStatusHomeRenderSession.AttachResult.Ready -> {
+                logDiagnostic(
+                    level = Log.INFO,
+                    event = "renderer.attach",
+                    component = "renderer",
+                    state = "ready",
+                )
+            }
 
             is CombinedStatusHomeRenderSession.AttachResult.Failure -> {
+                logDiagnostic(
+                    level = Log.WARN,
+                    event = "renderer.attach",
+                    component = "renderer",
+                    state = "unavailable",
+                    "reason" to renderSession.reason,
+                )
                 log(
                     Log.WARN,
                     TAG,
@@ -411,6 +595,13 @@ class CombinedStatusModule : XposedModule() {
     private fun bindRuntimeDiagnostics() {
         if (!BuildConfig.RUNTIME_DIAGNOSTICS) {
             detailedDiagnosticsEnabled = BuildConfig.DEVELOPMENT_PROBES
+            logDiagnostic(
+                level = Log.INFO,
+                event = "diagnostics.bind",
+                component = "diagnostics",
+                state = "disabled",
+                "channel" to BuildConfig.BUILD_CHANNEL,
+            )
             return
         }
 
@@ -420,9 +611,24 @@ class CombinedStatusModule : XposedModule() {
             diagnosticsPreferences = preferences
             updateDetailedDiagnostics(preferences)
             preferences.registerOnSharedPreferenceChangeListener(diagnosticsPreferenceListener)
+            logDiagnostic(
+                level = Log.INFO,
+                event = "diagnostics.bind",
+                component = "diagnostics",
+                state = "ready",
+                "level" to if (detailedDiagnosticsEnabled) "detailed" else "general",
+                "transport" to "remote-preferences",
+            )
         }.onFailure { error ->
             diagnosticsPreferences = null
             detailedDiagnosticsEnabled = BuildConfig.DEVELOPMENT_PROBES
+            logDiagnostic(
+                level = Log.WARN,
+                event = "diagnostics.bind",
+                component = "diagnostics",
+                state = "unavailable",
+                "reason" to (error.message ?: error.javaClass.simpleName),
+            )
             log(Log.WARN, TAG, "Runtime diagnostics preference unavailable", error)
         }
     }
@@ -434,12 +640,49 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun updateDetailedDiagnostics(preferences: SharedPreferences) {
+        val previous = detailedDiagnosticsEnabled
         detailedDiagnosticsEnabled =
             BuildConfig.DEVELOPMENT_PROBES ||
                 preferences.getString(
                     DIAGNOSTICS_LEVEL_KEY,
                     DiagnosticsLevel.General.name,
                 ) == DiagnosticsLevel.Detailed.name
+        if (previous != detailedDiagnosticsEnabled) {
+            logDiagnostic(
+                level = Log.INFO,
+                event = "diagnostics.level",
+                component = "diagnostics",
+                state = "ready",
+                "level" to if (detailedDiagnosticsEnabled) "detailed" else "general",
+            )
+        }
+    }
+
+    private fun logDiagnostic(
+        level: Int,
+        event: String,
+        component: String,
+        state: String,
+        vararg fields: Pair<String, Any?>,
+    ) {
+        val values =
+            buildMap {
+                fields.forEach { (key, value) ->
+                    if (value != null) {
+                        put(key, value.toString())
+                    }
+                }
+            }
+        log(
+            level,
+            TAG,
+            RuntimeDiagnosticsProtocol.format(
+                event = event,
+                component = component,
+                state = state,
+                fields = values,
+            ),
+        )
     }
 
     private companion object {

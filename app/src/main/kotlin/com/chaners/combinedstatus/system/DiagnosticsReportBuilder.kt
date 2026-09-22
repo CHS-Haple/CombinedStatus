@@ -80,7 +80,9 @@ internal object DiagnosticsReportBuilder {
             } else {
                 ReleaseLogLineLimit
             }
-        val moduleLines = selectLatestSession(selected.lines).takeLast(lineLimit)
+        val sessionLines = selectLatestSession(selected.lines)
+        val runtimeHealth = RuntimeHealthSnapshot.fromLines(sessionLines)
+        val moduleLines = sessionLines.takeLast(lineLimit)
 
         return buildString {
             appendLine("CombinedStatus Diagnostic Report")
@@ -114,6 +116,10 @@ internal object DiagnosticsReportBuilder {
                 "systemUiVersionCode=" +
                     (environment.systemUiVersionCode?.toString() ?: "unknown"),
             )
+            appendLine()
+            appendLine("[Runtime health]")
+            appendLine("source=structured-runtime-events")
+            runtimeHealth.reportLines().forEach(::appendLine)
             appendLine()
             appendLine("[Runtime log]")
             appendLine("source=" + selected.source)
