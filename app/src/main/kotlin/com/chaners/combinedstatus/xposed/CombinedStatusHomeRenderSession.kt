@@ -93,6 +93,7 @@ internal object CombinedStatusHomeRenderSession {
         private var rejectedTintLogged = false
         private var stableModel: CombinedStatusRenderModel? = null
         private var stableTint: CombinedStatusTintState? = null
+        private val anchorRect = Rect()
 
         private val batteryLayoutListener =
             View.OnLayoutChangeListener {
