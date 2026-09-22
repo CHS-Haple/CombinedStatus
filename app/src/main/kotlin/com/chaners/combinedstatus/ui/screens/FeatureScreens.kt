@@ -9,16 +9,14 @@ import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -36,11 +34,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.chaners.combinedstatus.BuildConfig
 import com.chaners.combinedstatus.R
 import com.chaners.combinedstatus.settings.AppThemeMode
@@ -56,11 +55,17 @@ import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
+import top.yukonga.miuix.kmp.basic.FloatingToolbarDefaults
 import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.NavigationBar
+import top.yukonga.miuix.kmp.basic.NavigationBarItem
 import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.Slider
+import top.yukonga.miuix.kmp.basic.SliderDefaults
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Surface
+import top.yukonga.miuix.kmp.basic.Switch
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
@@ -69,6 +74,7 @@ import top.yukonga.miuix.kmp.icon.extended.Settings
 import top.yukonga.miuix.kmp.icon.extended.Tune
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
+import top.yukonga.miuix.kmp.squircle.squircleBackground
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -216,10 +222,7 @@ private fun AppearanceMiniPreview(settings: AppearanceSettings) {
             verticalArrangement = Arrangement.spacedBy(9.dp),
         ) {
             MiniPreviewHeader()
-            MiniDialogScenePreview()
-            MiniSwitchSettingPreview(
-                enabled = settings.dynamicColorEnabled,
-            )
+            MiniSwitchSettingPreview()
             MiniSliderSettingPreview()
             MiniNavigationPreview(
                 floating = settings.floatingNavigationBarEnabled,
@@ -252,115 +255,7 @@ private fun MiniPreviewHeader() {
 }
 
 @Composable
-private fun MiniDialogScenePreview() {
-    Surface(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .height(116.dp),
-        shape = RoundedCornerShape(16.dp),
-        color = MiuixTheme.colorScheme.surfaceContainer.copy(alpha = 0.72f),
-    ) {
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 10.dp, vertical = 9.dp),
-        ) {
-            Column(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .alpha(0.52f),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                MiniTextBar(width = 78.dp, emphasized = true)
-                MiniTextBar(width = 132.dp)
-                Surface(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .height(36.dp),
-                    shape = RoundedCornerShape(11.dp),
-                    color = MiuixTheme.colorScheme.surface,
-                ) {}
-            }
-
-            Surface(
-                modifier = Modifier.fillMaxSize(),
-                color = Color.Black.copy(alpha = 0.13f),
-            ) {}
-
-            MiniDialogPreview(
-                modifier =
-                    Modifier
-                        .fillMaxWidth(0.92f)
-                        .align(Alignment.BottomCenter),
-            )
-        }
-    }
-}
-
-@Composable
-private fun MiniDialogPreview(modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(24.dp),
-        color = MiuixTheme.colorScheme.surfaceContainerHigh,
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 13.dp, vertical = 11.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(7.dp),
-        ) {
-            MiniTextBar(width = 72.dp, emphasized = true)
-            MiniTextBar(width = 156.dp)
-            MiniTextBar(width = 132.dp)
-
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(top = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Surface(
-                    modifier =
-                        Modifier
-                            .weight(1f)
-                            .height(27.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    color = MiuixTheme.colorScheme.onSurfaceContainerVariant.copy(alpha = 0.10f),
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        MiniTextBar(width = 34.dp, emphasized = true)
-                    }
-                }
-                Surface(
-                    modifier =
-                        Modifier
-                            .weight(1f)
-                            .height(27.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    color = MiuixTheme.colorScheme.primary,
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Surface(
-                            modifier =
-                                Modifier
-                                    .width(34.dp)
-                                    .height(5.dp),
-                            shape = RoundedCornerShape(3.dp),
-                            color = MiuixTheme.colorScheme.surface.copy(alpha = 0.94f),
-                        ) {}
-                    }
-                }
-            }
-        }
-    }
-}
-@Composable
-private fun MiniSwitchSettingPreview(enabled: Boolean) {
+private fun MiniSwitchSettingPreview() {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
@@ -377,7 +272,10 @@ private fun MiniSwitchSettingPreview(enabled: Boolean) {
                 MiniTextBar(width = 82.dp, emphasized = true)
                 MiniTextBar(width = 54.dp)
             }
-            MiniSwitchPreview(enabled = enabled)
+            Switch(
+                checked = true,
+                onCheckedChange = null,
+            )
         }
     }
 }
@@ -391,7 +289,7 @@ private fun MiniSliderSettingPreview() {
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(7.dp),
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -404,7 +302,18 @@ private fun MiniSliderSettingPreview() {
                 ) {}
                 MiniTextBar(width = 72.dp, emphasized = true)
             }
-            MiniSliderPreview()
+            Slider(
+                value = 0.43f,
+                onValueChange = {},
+                modifier = Modifier.fillMaxWidth(),
+                enabled = false,
+                colors =
+                    SliderDefaults.sliderColors(
+                        disabledForegroundColor = MiuixTheme.colorScheme.primary,
+                        disabledBackgroundColor = MiuixTheme.colorScheme.sliderBackground,
+                        disabledThumbColor = MiuixTheme.colorScheme.onPrimary,
+                    ),
+            )
         }
     }
 }
@@ -442,199 +351,96 @@ private fun MiniThemeSwatch(color: Color) {
 }
 
 @Composable
-private fun MiniSwitchPreview(enabled: Boolean) {
-    Surface(
-        modifier =
-            Modifier
-                .width(34.dp)
-                .height(20.dp),
-        shape = RoundedCornerShape(10.dp),
-        color =
-            if (enabled) {
-                MiuixTheme.colorScheme.primary
-            } else {
-                MiuixTheme.colorScheme.outline.copy(alpha = 0.22f)
-            },
-    ) {
-        Row(
-            modifier = Modifier.padding(3.dp),
-            horizontalArrangement =
-                if (enabled) {
-                    Arrangement.End
-                } else {
-                    Arrangement.Start
-                },
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Surface(
-                modifier = Modifier.size(14.dp),
-                shape = RoundedCornerShape(7.dp),
-                color = MiuixTheme.colorScheme.surface,
-            ) {}
-        }
-    }
-}
-
-@Composable
-private fun MiniSliderPreview() {
-    BoxWithConstraints(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .height(24.dp),
-    ) {
-        val activeFraction = 0.43f
-        val thumbSize = 22.dp
-        val activeWidth = maxWidth * activeFraction
-        val thumbOffset = activeWidth - (thumbSize / 2)
-
-        Surface(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(12.dp)
-                    .align(Alignment.Center),
-            shape = RoundedCornerShape(6.dp),
-            color = MiuixTheme.colorScheme.outline.copy(alpha = 0.14f),
-        ) {}
-        Surface(
-            modifier =
-                Modifier
-                    .width(activeWidth)
-                    .height(12.dp)
-                    .align(Alignment.CenterStart),
-            shape = RoundedCornerShape(6.dp),
-            color = MiuixTheme.colorScheme.primary,
-        ) {}
-        Surface(
-            modifier =
-                Modifier
-                    .offset(x = thumbOffset)
-                    .size(thumbSize)
-                    .align(Alignment.CenterStart),
-            shape = RoundedCornerShape(11.dp),
-            color = MiuixTheme.colorScheme.surface,
-            border =
-                BorderStroke(
-                    width = 2.dp,
-                    color = MiuixTheme.colorScheme.primary,
-                ),
-        ) {}
-    }
-}
-
-@Composable
 private fun MiniNavigationPreview(floating: Boolean) {
     if (floating) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
             horizontalArrangement = Arrangement.Center,
         ) {
-            Surface(
-                modifier = Modifier.width(184.dp),
-                shape = RoundedCornerShape(24.dp),
-                color = MiuixTheme.colorScheme.surfaceContainer,
-                border =
-                    BorderStroke(
-                        width = 1.dp,
-                        color = MiuixTheme.colorScheme.outline.copy(alpha = 0.16f),
-                    ),
+            val shape = RoundedCornerShape(FloatingToolbarDefaults.CornerRadius)
+            Row(
+                modifier =
+                    Modifier
+                        .defaultMinSize(minHeight = 52.dp)
+                        .dropShadow(
+                            shape = shape,
+                            shadow =
+                                Shadow(
+                                    radius = 10.dp,
+                                    color = Color.Black,
+                                    alpha = 0.20f,
+                                ),
+                        )
+                        .squircleBackground(
+                            color = MiuixTheme.colorScheme.surfaceContainer,
+                            cornerRadius = FloatingToolbarDefaults.CornerRadius,
+                        )
+                        .padding(horizontal = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                MiniNavigationItems(
-                    compact = true,
+                MiniFloatingNavigationItem(
+                    icon = MiuixIcons.Home,
+                    selected = false,
+                )
+                MiniFloatingNavigationItem(
+                    icon = MiuixIcons.Tune,
+                    selected = false,
+                )
+                MiniFloatingNavigationItem(
+                    icon = MiuixIcons.Settings,
+                    selected = true,
                 )
             }
         }
     } else {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
+        NavigationBar(
+            color = MiuixTheme.colorScheme.surface,
+            showDivider = true,
+            defaultWindowInsetsPadding = false,
         ) {
-            Surface(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .height(1.dp),
-                color = MiuixTheme.colorScheme.outline.copy(alpha = 0.18f),
-            ) {}
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(0.dp),
-                color = MiuixTheme.colorScheme.surface,
-            ) {
-                MiniNavigationItems(
-                    compact = false,
-                )
-            }
+            NavigationBarItem(
+                selected = false,
+                onClick = {},
+                icon = MiuixIcons.Home,
+                label = stringResource(R.string.nav_home),
+                enabled = false,
+            )
+            NavigationBarItem(
+                selected = false,
+                onClick = {},
+                icon = MiuixIcons.Tune,
+                label = stringResource(R.string.nav_features),
+                enabled = false,
+            )
+            NavigationBarItem(
+                selected = true,
+                onClick = {},
+                icon = MiuixIcons.Settings,
+                label = stringResource(R.string.nav_settings),
+                enabled = false,
+            )
         }
     }
 }
 
 @Composable
-private fun MiniNavigationItems(compact: Boolean) {
-    Row(
-        modifier =
-            Modifier.padding(
-                horizontal = if (compact) 12.dp else 4.dp,
-                vertical = if (compact) 6.dp else 7.dp,
-            ),
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        MiniNavigationItem(
-            icon = MiuixIcons.Home,
-            label = stringResource(R.string.nav_home),
-            selected = false,
-            compact = compact,
-        )
-        MiniNavigationItem(
-            icon = MiuixIcons.Tune,
-            label = stringResource(R.string.nav_features),
-            selected = false,
-            compact = compact,
-        )
-        MiniNavigationItem(
-            icon = MiuixIcons.Settings,
-            label = stringResource(R.string.nav_settings),
-            selected = true,
-            compact = compact,
-        )
-    }
-}
-
-@Composable
-private fun MiniNavigationItem(
+private fun MiniFloatingNavigationItem(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
     selected: Boolean,
-    compact: Boolean,
 ) {
-    Column(
+    Icon(
         modifier =
             Modifier
-                .width(if (compact) 44.dp else 58.dp)
-                .alpha(if (selected) 1f else 0.48f),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(if (compact) 2.dp else 3.dp),
-    ) {
-        Icon(
-            modifier = Modifier.size(if (compact) 17.dp else 19.dp),
-            imageVector = icon,
-            contentDescription = null,
-        )
-        Text(
-            text = label,
-            style =
-                MiuixTheme.textStyles.body2.copy(
-                    fontSize = if (compact) 8.sp else 9.sp,
-                ),
-            color =
-                if (selected) {
-                    MiuixTheme.colorScheme.onSurfaceContainer
-                } else {
-                    MiuixTheme.colorScheme.onSurfaceContainerVariant
-                },
-        )
-    }
+                .padding(10.dp)
+                .size(28.dp)
+                .alpha(if (selected) 1f else 0.40f),
+        imageVector = icon,
+        contentDescription = null,
+    )
 }
 
 @Composable
