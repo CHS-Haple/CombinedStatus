@@ -1,58 +1,129 @@
 # CombinedStatus
 
-**CombinedStatus** is an LSPosed module for HyperOS that combines battery, mobile network, and Wi-Fi status into one status bar indicator. Its goal is to integrate naturally with HyperOS status-bar behavior while keeping the module lightweight and maintainable.
+**CombinedStatus** is an LSPosed module for Xiaomi HyperOS that combines battery, mobile-network, and Wi-Fi status into a single status-bar indicator.
 
-## Target platform
+The project is being rebuilt around explicit SystemUI lifecycle ownership, event-driven state, conservative native-geometry integration, and bounded diagnostics so that new features remain maintainable instead of accumulating scene-specific patches.
 
-- Xiaomi HyperOS
-- LSPosed module architecture
-- HyperOS status bar / SystemUI integration
-- MIUIX application interface
+> **Status:** pre-release development. The planned initial display version is **0.0.1** and has not yet been formally released.
 
-## Terminology
+## Current scope
 
-Project-facing terminology uses **mobile network / 移动网络** consistently. Internal domain names should use `mobileNetwork` or `mobileSignal`; exact Android/HyperOS API and class identifiers keep their upstream names.
+CombinedStatus currently targets:
 
-## Current milestone
+- Xiaomi HyperOS;
+- `com.android.systemui`;
+- Modern Xposed API 102;
+- Android 13 / API 33 and later;
+- MIUIX 0.9.4 for the companion application.
 
-The project now has a modern Xposed API 102 module baseline in addition to its application shell and navigation layer. The Android app uses MIUIX 0.9.4, a type-safe MIUIX navigation stack, adaptive launcher icons, localized resources, and reproducible CI signing. The module is statically scoped only to `com.android.systemui` and its compatibility baseline is derived only from the target SystemUI APK. After the one-shot compatibility probe, it installs one read-only lifecycle hook that captures the primary HyperOS status-bar host after inflation. The hook does not alter layout, measurement, translation, visibility, or drawing.
+The current verified compatibility baseline is:
 
-The top-level interface is organized as Home, Features, and Settings. Deeper settings pages use the MIUIX navigation runtime with standard transitions, system predictive back, and direction-aware swipe-back gestures. Appearance preferences are persisted with Jetpack DataStore and can control theme mode, optional MIUIX blur on the official floating navigation bar, and in-app swipe-back behavior. Android 13+ per-app language preferences are handled by the platform LocaleManager, and the launcher entry can be hidden without disabling the main activity or its non-launcher front door.
+- HyperOS SystemUI `17.03.260226.r`.
 
-- Package: com.chaners.combinedstatus
-- Display version: 0.0.1
-- Android: minSdk 33, compileSdk 37.0, targetSdk 37
-- JVM: 21
-- MIUIX: 0.9.4
-- Kotlin: 2.4.20
-- Android Gradle Plugin: 9.4.1
-- Languages: English, Simplified Chinese
-- Minimum Android version: Android 13 / API 33
+Compatibility is validated against the exact target SystemUI rather than inferred from version names alone. Other HyperOS builds or device variants may differ internally and are not assumed compatible without evidence.
 
-The current build follows the system language and uses a compile-only modern Xposed API 102 dependency. Its SystemUI integration observes the primary status-bar host after inflation. Debug builds can additionally perform a bounded, one-shot, read-only topology inventory for native status views and containers; release builds keep only low-frequency operational diagnostics. Neither diagnostics mode modifies SystemUI geometry or visual state. API 102 hot reload is enabled with a single Java entry and hook migration between module generations. The app also provides an explicit Root-confirmed action to restart the static SystemUI scope when a full process refresh is required. It does not register background services or request additional permissions.
+## Current capabilities
 
-## Diagnostics
+### SystemUI runtime
 
-Core module behavior is shared between debug and release builds. Release builds retain basic low-frequency diagnostics for version, compatibility, lifecycle, hot reload, and errors. Debug builds add detailed status-bar topology, geometry, and Hook information. The Diagnostics screen can build a feedback report from app/build information, basic device information, and recent CombinedStatus runtime log entries. Runtime-log collection is user-triggered and uses Root only while the report is generated; no resident logging service, polling loop, or continuous View-tree sampling is added.
+- Combined battery, mobile-network, and Wi-Fi presentation for the Home status bar.
+- Event-driven state acquisition for battery, Wi-Fi, mobile network, airplane mode, default-data subscription, connectivity, and native tint.
+- Verified SystemUI host capture and runtime compatibility checks.
+- Modern Xposed hot reload with generation replacement rather than duplicate hook stacking.
+- Shared scene and layout-policy models for future Home, notification-shade, Control Center, keyguard, and AOD integration.
+- Conservative SystemUI integration: native layout, translation, visibility, and animation ownership are preserved wherever practical.
+
+### Diagnostics
+
+- General and Detailed diagnostics levels independent from build type.
+- Bounded lifecycle, compatibility, state, rendering, topology, and geometry diagnostics.
+- Built-in feedback report export/share using LSPosed module logs with logcat fallback.
+- Explicit, user-confirmed SystemUI restart through bounded Root execution.
+- No resident logging service, polling loop, or continuous View-tree sampling.
+
+### Companion app
+
+- MIUIX 0.9.4 interface with Home, Features, and Settings.
+- Predictive back and direction-aware swipe-back navigation.
+- Light/dark mode and dynamic-color preferences.
+- Standard or floating bottom navigation with optional Blur/Glass material.
+- English and Simplified Chinese.
+- Android 13+ per-app language selection.
+- Optional launcher-icon hiding while retaining a non-launcher app entry point.
+
+## Design principles
+
+CombinedStatus follows three project-wide principles:
+
+- **Standardized** — respect Android, HyperOS, MIUIX, and Modern Xposed lifecycle and ownership conventions.
+- **Lightweight** — avoid unnecessary polling, duplicate state, hooks, listeners, background work, Root processes, and high-frequency diagnostics.
+- **Modern** — prefer maintained platform/library APIs when they fit the lifecycle and compatibility requirements.
+
+SystemUI integration also follows several architectural constraints:
+
+- host-scoped runtime state should remain host-scoped;
+- long-lived resources require an explicit owner and cleanup path;
+- one live SystemUI property should have one runtime writer;
+- native layout geometry, CombinedStatus visual geometry, transition geometry, and optical adjustment are separate responsibilities;
+- observation of SystemUI behavior does not automatically grant CombinedStatus ownership of that behavior;
+- when safe replacement cannot be established, the module should degrade toward native HyperOS behavior rather than leave a broken partial replacement.
+
+The complete engineering rules for developers and contributors are in [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Build channels
+
+CombinedStatus uses three build channels:
+
+| Channel | Purpose |
+| --- | --- |
+| **Debug** | Development probes, assertions, detailed topology/ownership diagnostics, and experimental validation. |
+| **Canary** | Daily real-device testing close to Release behavior; non-debuggable and release-optimized while retaining bounded runtime diagnostics. |
+| **Release** | Formal distributable build with production diagnostics only. |
+
+Core feature behavior is shared across build channels. Build type controls diagnostic capability, not whether the core CombinedStatus renderer exists.
 
 ## Development workflow
 
-Engineering rules and the required change-control process are documented in [CONTRIBUTING.md](CONTRIBUTING.md). New directions are evaluated first, then a bounded implementation plan is defined and validated before project mutation. After meaningful diagnostics, the full solution space must be reassessed rather than only the current repair path; new evidence can therefore replace an earlier approach instead of accumulating local patches. If runtime evidence invalidates the active plan, implementation stops for re-evaluation before continuing. Functional changes also require pre/post-change checks, copy review for text changes, and MIUIX review for UI changes.
+- `main` is the stable, installable, validated integration baseline.
+- `dev` is the active integration branch.
+- `feat/*` is reserved for larger isolated experiments that return to `dev` after validation.
 
-`main` is the stable integration baseline. SystemUI module work is developed on `dev`, where each small feature must pass CI and real-device validation before it is promoted to `main`. Short-lived `feat/*` branches are reserved for higher-risk experiments and are merged back into `dev` once validated.
+Runtime-sensitive changes require both CI and focused real-device validation. CI success alone is not treated as proof that SystemUI behavior is correct.
 
-Both `main` and `dev` run the Android build workflow. CI uses per-branch concurrency so a newer push cancels an obsolete in-progress build for the same branch.
+Detailed contribution, lifecycle, ownership, migration, changelog, and validation rules are defined in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## Build and signing
+## Build requirements
 
-Pushes to main use a dedicated fixed CI debug certificate so successive test APKs can update in place. The test certificate is separate from the release certificate and its keystore is supplied only through the CI_DEBUG_KEYSTORE_BASE64 repository secret. Release builds use a separate manually triggered workflow and read signing material only from the protected release environment. Signing keys and credentials are not stored in the repository.
+Current project baseline:
 
-Test builds are published as GitHub Actions artifacts. Stable releases use the v<versionName> tag and require the display version to be advanced before another stable release can be published.
+| Item | Value |
+| --- | --- |
+| Package | `com.chaners.combinedstatus` |
+| Planned initial display version | `0.0.1` (unreleased) |
+| minSdk | 33 |
+| compileSdk / targetSdk | 37 |
+| JVM | 21 |
+| Modern Xposed API | 102 |
+| MIUIX | 0.9.4 |
+| Kotlin | 2.4.20 |
+| Android Gradle Plugin | 9.4.1 |
 
-## Build
+Build with Android Studio using the Android 17 / API 37 SDK and JDK 21, or use the repository's GitHub Actions workflows.
 
-Use Android Studio with the Android 17 / API 37 SDK and JDK 21 installed, or run the repository build workflow.
+Test artifacts use a dedicated CI test certificate so compatible builds can update in place. Formal Release signing is isolated from CI test signing, and signing credentials are not stored in the repository.
 
-## Changelog
+## Versioning and changelog
 
-Notable changes are tracked in CHANGELOG.md.
+The external display version changes only when a formal version is intentionally advanced. Ordinary development iterations use internal build identifiers.
+
+Until the first formal release, [CHANGELOG.md](CHANGELOG.md) keeps a single `[Unreleased]` section describing the **net state intended for 0.0.1**, not the full sequence of experiments used to reach it.
+
+## Terminology
+
+Project-facing text consistently uses:
+
+- English: **mobile network**
+- Chinese: **移动网络**
+- Internal domain names: `mobileNetwork` / `mobileSignal`
+
+Exact upstream Android/HyperOS API, class, field, method, and resource identifiers keep their original names.
