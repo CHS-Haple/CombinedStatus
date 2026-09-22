@@ -83,6 +83,28 @@ internal object DiagnosticsReportBuilder {
         val sessionLines = selectLatestSession(selected.lines)
         val runtimeHealth = RuntimeHealthSnapshot.fromLines(sessionLines)
         val moduleLines = sessionLines.takeLast(lineLimit)
+        val requestedDiagnosticsLevel = diagnosticsLevel.name.lowercase()
+        val runtimeDiagnostics = runtimeHealth.component("diagnostics")
+        val effectiveDiagnosticsLevel = runtimeDiagnostics?.fields?.get("level")
+        val diagnosticsSyncState =
+            when {
+                !BuildConfig.RUNTIME_DIAGNOSTICS && !BuildConfig.DEVELOPMENT_PROBES ->
+                    "not-applicable"
+                runtimeDiagnostics == null ||
+                    runtimeDiagnostics.state == "unknown" ||
+                    runtimeDiagnostics.state == "unavailable" ->
+                    "unavailable"
+                BuildConfig.DEVELOPMENT_PROBES ->
+                    if (effectiveDiagnosticsLevel == "detailed") {
+                        "development-forced"
+                    } else {
+                        "mismatch"
+                    }
+                effectiveDiagnosticsLevel == requestedDiagnosticsLevel ->
+                    "matched"
+                else ->
+                    "mismatch"
+            }
 
         return buildString {
             appendLine("CombinedStatus Diagnostic Report")
@@ -102,6 +124,13 @@ internal object DiagnosticsReportBuilder {
                         else -> "release"
                     },
             )
+            appendLine()
+            appendLine("[Diagnostics state]")
+            appendLine("requestedLevel=" + requestedDiagnosticsLevel)
+            appendLine("effectiveRuntimeLevel=" + (effectiveDiagnosticsLevel ?: "unavailable"))
+            appendLine("syncState=" + diagnosticsSyncState)
+            appendLine("schemaVersion=" + runtimeHealth.schemaVersion)
+            appendLine("sessionId=" + (runtimeHealth.sessionId ?: "legacy-or-unavailable"))
             appendLine()
             appendLine("[Device]")
             appendLine("manufacturer=" + environment.manufacturer)
@@ -170,6 +199,29 @@ internal object DiagnosticsReportBuilder {
             return lines
         }
 
+        val structuredEvents =
+            lines.mapIndexedNotNull { index, line ->
+                RuntimeDiagnosticsProtocol.parse(line)
+                    ?.fields
+                    ?.get("sessionId")
+                    ?.let { sessionId -> index to sessionId }
+            }
+        val latestSessionId = structuredEvents.lastOrNull()?.second
+        if (latestSessionId != null) {
+            val start =
+                structuredEvents.firstOrNull { (_, sessionId) ->
+                    sessionId == latestSessionId
+                }?.first
+                    ?: return lines
+            val processId = processId(lines[start])
+            if (processId == null) {
+                return lines.drop(start)
+            }
+            return lines
+                .subList(start, lines.size)
+                .filter { line -> processId(line) == processId }
+        }
+
         val currentBuild = "build=" + BuildConfig.BUILD_ID
         val currentAnchor = lines.indexOfLast { line ->
             line.contains(currentBuild) &&
@@ -178,23 +230,25 @@ internal object DiagnosticsReportBuilder {
                         line.contains("Hot reload completed")
                 )
         }
-        val anchor = if (currentAnchor >= 0) {
-            currentAnchor
-        } else {
-            lines.indexOfLast { line ->
-                line.contains("Module loaded in com.android.systemui")
+        val anchor =
+            if (currentAnchor >= 0) {
+                currentAnchor
+            } else {
+                lines.indexOfLast { line ->
+                    line.contains("Module loaded in com.android.systemui")
+                }
             }
-        }
 
         if (anchor < 0) {
             return lines
         }
 
         val processId = processId(lines[anchor]) ?: return lines.drop(anchor)
-        val start = (anchor downTo 0).firstOrNull { index ->
-            processId(lines[index]) == processId &&
-                lines[index].contains("Module loaded in com.android.systemui")
-        } ?: anchor
+        val start =
+            (anchor downTo 0).firstOrNull { index ->
+                processId(lines[index]) == processId &&
+                    lines[index].contains("Module loaded in com.android.systemui")
+            } ?: anchor
 
         return lines
             .subList(start, lines.size)
