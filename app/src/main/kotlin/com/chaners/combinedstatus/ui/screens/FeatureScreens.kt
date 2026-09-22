@@ -222,6 +222,7 @@ private fun AppearanceMiniPreview(
     ) {
         ScaledPreviewContent(
             scale = MiniPreviewScale,
+            bottomCrop = 10.dp,
             modifier = Modifier.fillMaxWidth(),
         ) {
             Column(
@@ -384,11 +385,12 @@ private const val MiniPreviewScale = 0.82f
 @Composable
 private fun ScaledPreviewContent(
     scale: Float,
+    bottomCrop: androidx.compose.ui.unit.Dp = 0.dp,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
     Layout(
-        modifier = modifier,
+        modifier = modifier.clipToBounds(),
         content = content,
     ) { measurables, constraints ->
         val maxWidth =
@@ -407,8 +409,9 @@ private fun ScaledPreviewContent(
                 ),
             )
         val scaledHeight = (placeable.height * scale).roundToInt()
+        val croppedHeight = (scaledHeight - bottomCrop.roundToPx()).coerceAtLeast(0)
         val layoutHeight =
-            scaledHeight.coerceIn(
+            croppedHeight.coerceIn(
                 constraints.minHeight,
                 if (constraints.hasBoundedHeight) constraints.maxHeight else scaledHeight,
             )
@@ -458,8 +461,7 @@ private fun MiniNavigationPreview(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .height(78.dp)
-                .clipToBounds(),
+                .height(90.dp),
         contentAlignment = Alignment.TopCenter,
     ) {
         Box(
