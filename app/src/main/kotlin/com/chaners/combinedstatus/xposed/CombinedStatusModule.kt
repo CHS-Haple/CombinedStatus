@@ -25,10 +25,7 @@ class CombinedStatusModule : XposedModule() {
     private var mobileTypeSourceInstalled = false
     private var islandMotionSourceInstalled = false
     private var diagnosticsPreferences: SharedPreferences? = null
-    private val runtimeSessionId =
-        BuildConfig.BUILD_ID + "-" +
-            Process.myPid() + "-" +
-            SystemClock.elapsedRealtime().toString(36)
+    private var runtimeSessionId = newRuntimeSessionId()
     private val diagnosticSequence = AtomicLong(0L)
 
     @Volatile
@@ -258,6 +255,7 @@ class CombinedStatusModule : XposedModule() {
     }
 
     override fun onHotReloaded(param: HotReloadedParam) {
+        rotateDiagnosticSession()
         val oldHandles = param.oldHookHandles
         val statusHostHandle = oldHandles.firstOrNull(StatusBarHostCapture::matches)
 
@@ -1112,6 +1110,16 @@ class CombinedStatusModule : XposedModule() {
             )
         }
     }
+
+    private fun rotateDiagnosticSession() {
+        runtimeSessionId = newRuntimeSessionId()
+        diagnosticSequence.set(0L)
+    }
+
+    private fun newRuntimeSessionId(): String =
+        BuildConfig.BUILD_ID + "-" +
+            Process.myPid() + "-" +
+            SystemClock.elapsedRealtime().toString(36)
 
     private fun logDiagnostic(
         level: Int,
