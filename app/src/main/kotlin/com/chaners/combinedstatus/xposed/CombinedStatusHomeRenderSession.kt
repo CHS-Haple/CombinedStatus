@@ -23,6 +23,7 @@ internal object CombinedStatusHomeRenderSession {
         host: Any,
         onEvent: (String) -> Unit,
         onLatencySample: ((RuntimeRenderLatencySample) -> Unit)? = null,
+        isDetailedDiagnosticsEnabled: () -> Boolean = { true },
     ): AttachResult {
         val hostView = host as? ViewGroup
             ?: return AttachResult.Failure("host-not-view-group")
@@ -44,6 +45,7 @@ internal object CombinedStatusHomeRenderSession {
             batteryView = batteryView,
             onEvent = onEvent,
             onLatencySample = onLatencySample,
+            isDetailedDiagnosticsEnabled = isDetailedDiagnosticsEnabled,
         )
         current = session
         session.start()
@@ -96,6 +98,7 @@ internal object CombinedStatusHomeRenderSession {
         batteryView: ViewGroup,
         private val onEvent: (String) -> Unit,
         private val onLatencySample: ((RuntimeRenderLatencySample) -> Unit)?,
+        private val isDetailedDiagnosticsEnabled: () -> Boolean,
     ) : View.OnAttachStateChangeListener {
         private val host = WeakReference(host)
         private val batteryContainer = WeakReference(batteryContainer)
@@ -105,11 +108,11 @@ internal object CombinedStatusHomeRenderSession {
                 if (sample != null && onLatencySample != null) {
                     onLatencySample.invoke(sample)
                 } else {
-                    onEvent(
+                    emitEvent {
                         "homeRenderLatency stateToDrawMs=" + latencyMs +
                             " commitMainThread=" + committedOnMainThread +
-                            " scheduling=sameFramePreferred",
-                    )
+                            " scheduling=sameFramePreferred"
+                    }
                 }
             }
         private var readyLogged = false
@@ -195,14 +198,14 @@ internal object CombinedStatusHomeRenderSession {
                 probeView.clearPendingLatency()
             }
 
-            onEvent(
+            emitEvent {
                 "homeRenderScene source=" + source +
                     " raw=" + update.rawState +
                     " surface=" + update.surface.name +
                     " visible=" + visible +
                     " policy=failClosedOutsideUnlockedStatusBar " +
-                    " nativeGeometryWrites=0",
-            )
+                    " nativeGeometryWrites=0"
+            }
         }
 
         fun updateTint(update: SystemUiTintStateSource.TintUpdate) {
@@ -229,12 +232,12 @@ internal object CombinedStatusHomeRenderSession {
                     !rejectedTintLogged
                 ) {
                     rejectedTintLogged = true
-                    onEvent(
+                    emitEvent {
                         "homeRenderTint deferred source=" + source +
                             " applied=#" +
                             state.appliedTint.toUInt().toString(16).padStart(8, '0') +
-                            " reason=transparent retainStable=true",
-                    )
+                            " reason=transparent retainStable=true"
+                    }
                 }
                 return
             }
@@ -243,12 +246,12 @@ internal object CombinedStatusHomeRenderSession {
             probeView.setTintState(resolved)
             if (!tintLogged) {
                 tintLogged = true
-                onEvent(
+                emitEvent {
                     "homeRenderTint source=" + source +
                         " applied=#" +
                         resolved.appliedTint.toUInt().toString(16).padStart(8, '0') +
-                        " eventDriven=true stable=true",
-                )
+                        " eventDriven=true stable=true"
+                }
             }
         }
 
@@ -274,10 +277,10 @@ internal object CombinedStatusHomeRenderSession {
             if (candidate == null) {
                 if (stableModel != null && !deferredStateLogged) {
                     deferredStateLogged = true
-                    onEvent(
+                    emitEvent {
                         "homeRenderState deferred incomplete=true " +
-                            "retainStable=true",
-                    )
+                            "retainStable=true"
+                    }
                 }
                 return
             }
@@ -294,15 +297,15 @@ internal object CombinedStatusHomeRenderSession {
 
             if (model != null && !readyLogged) {
                 readyLogged = true
-                onEvent(
+                emitEvent {
                     "homeRenderProbe ready " +
                         "battery=" + model.batteryPercent +
                         " charging=" + model.charging +
                         " center=" + model.centerIndicator.javaClass.simpleName +
                         " mobileLevel=" + (model.mobileLevel ?: -1) +
                         " effectiveDataSubId=" + model.effectiveDataSubscriptionId +
-                        " defaultDataSubId=" + defaultDataSubscriptionId,
-                )
+                        " defaultDataSubId=" + defaultDataSubscriptionId
+                }
             }
         }
 
@@ -325,7 +328,7 @@ internal object CombinedStatusHomeRenderSession {
 
             if (!layoutLogged) {
                 layoutLogged = true
-                onEvent(
+                emitEvent {
                     "homeRenderProbe attached " +
                         "slot=homeHostOverlay anchor=battery " +
                         "bounds=" + anchorRect.left + "," + anchorRect.top + "-" +
@@ -333,8 +336,14 @@ internal object CombinedStatusHomeRenderSession {
                         " size=" + anchorRect.width() + "x" + anchorRect.height() +
                         " opacity=" + PROBE_OPACITY +
                         " ancestorVisibilityIndependent=true " +
-                        "originalsHidden=false nativeGeometryWrites=0",
-                )
+                        "originalsHidden=false nativeGeometryWrites=0"
+                }
+            }
+        }
+
+        private inline fun emitEvent(message: () -> String) {
+            if (isDetailedDiagnosticsEnabled()) {
+                onEvent(message())
             }
         }
 
