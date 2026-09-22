@@ -51,8 +51,78 @@ jobs:
           HAPLE_KEYSTORE_BASE64: ${{ secrets.HAPLE_KEYSTORE_BASE64 }}
         run: bash tools/setup_haple_signing.sh
 
+      - name: Verify pinned HyperOS target profile
+        run: python3 tools/verify_target_profile.py
+
+      - name: Run unit tests
+        run: ./gradlew :app:testDebugUnitTest --stacktrace
+
       - name: Build signed release APK
         run: ./gradlew :app:assembleRelease --stacktrace
+
+      - name: Verify modern Xposed metadata
+        shell: bash
+        run: |
+          APK="app/build/outputs/apk/release/app-release.apk"
+          REQUIRED_ENTRIES=(
+            "META-INF/xposed/java_init.list"
+            "META-INF/xposed/module.prop"
+            "META-INF/xposed/scope.list"
+          )
+
+          for entry in "${REQUIRED_ENTRIES[@]}"; do
+            if ! unzip -Z1 "$APK" | grep -Fxq "$entry"; then
+              echo "Missing modern Xposed metadata in $APK: $entry"
+              exit 1
+            fi
+          done
+
+          if unzip -Z1 "$APK" | grep -Fxq "assets/xposed_init"; then
+            echo "Legacy Xposed entry metadata must not be packaged in $APK."
+            exit 1
+          fi
+
+          if [[ "$(unzip -p "$APK" META-INF/xposed/scope.list | tr -d '\r\n')" != "com.android.systemui" ]]; then
+            echo "Unexpected Xposed scope in $APK."
+            exit 1
+          fi
+
+          if ! unzip -p "$APK" META-INF/xposed/module.prop | grep -Fxq "targetApiVersion=102"; then
+            echo "Modern Xposed target API 102 metadata is missing from $APK."
+            exit 1
+          fi
+
+          if ! unzip -p "$APK" META-INF/xposed/module.prop | grep -Fxq "autoHotReload=true"; then
+            echo "Modern Xposed hot reload metadata is missing from $APK."
+            exit 1
+          fi
+
+          JAVA_ENTRY_COUNT="$(
+            unzip -p "$APK" META-INF/xposed/java_init.list |
+              tr -d '\r' |
+              sed '/^[[:space:]]*$/d' |
+              wc -l |
+              tr -d ' '
+          )"
+          if [[ "$JAVA_ENTRY_COUNT" != "1" ]]; then
+            echo "Hot reload requires exactly one Java entry class in $APK."
+            exit 1
+          fi
+
+      - name: Verify release is non-debuggable
+        shell: bash
+        run: |
+          SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          APKANALYZER="$(find "$SDK_ROOT/cmdline-tools" -type f -name apkanalyzer | sort -V | tail -n 1)"
+          if [[ -z "$APKANALYZER" ]]; then
+            echo "apkanalyzer was not found."
+            exit 1
+          fi
+
+          if [[ "$("$APKANALYZER" manifest debuggable app/build/outputs/apk/release/app-release.apk)" != "false" ]]; then
+            echo "Release APK must be non-debuggable."
+            exit 1
+          fi
 
       - name: Verify APK signature
         shell: bash
