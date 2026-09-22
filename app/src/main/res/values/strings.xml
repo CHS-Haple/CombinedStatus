@@ -107,8 +107,9 @@
     <string name="runtime_target_summary">SystemUI 17.03.260226.r</string>
     <string name="runtime_inventory_title">Native status probe</string>
     <string name="runtime_inventory_summary">Enabled · one-shot status-bar structure and geometry snapshot</string>
-    <string name="diagnostics_mode_title">Diagnostics</string>
-    <string name="diagnostics_mode_basic">Basic</string>
+    <string name="diagnostics_mode_title">Diagnostics level</string>
+    <string name="diagnostics_mode_summary">Set the amount of runtime diagnostic detail</string>
+    <string name="diagnostics_mode_basic">General</string>
     <string name="diagnostics_mode_detailed">Detailed</string>
     <string name="section_diagnostic_report">Diagnostic report</string>
     <string name="export_diagnostic_report">Export diagnostic report</string>

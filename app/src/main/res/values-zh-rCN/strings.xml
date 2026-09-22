@@ -107,8 +107,9 @@
     <string name="runtime_target_summary">SystemUI 17.03.260226.r</string>
     <string name="runtime_inventory_title">原生状态探针</string>
     <string name="runtime_inventory_summary">已启用 · 一次性记录状态栏结构与几何信息</string>
-    <string name="diagnostics_mode_title">诊断模式</string>
-    <string name="diagnostics_mode_basic">基础</string>
+    <string name="diagnostics_mode_title">诊断等级</string>
+    <string name="diagnostics_mode_summary">设置模块运行时诊断信息的详细程度</string>
+    <string name="diagnostics_mode_basic">一般</string>
     <string name="diagnostics_mode_detailed">详细</string>
     <string name="section_diagnostic_report">诊断报告</string>
     <string name="export_diagnostic_report">导出诊断报告</string>

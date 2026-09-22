@@ -7,6 +7,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 ## [Unreleased]
 
 ### Added
+- App-side diagnostics level preference with General/Detailed choices, defaulting to General and mirrored through libxposed API 102 RemotePreferences for later hook-side consumption.
 - English and Simplified Chinese MIUIX application shell for HyperOS.
 - Adaptive launcher icon with separate foreground/background resources and Android themed-icon support.
 - Fixed CI debug signing so successive test APKs can update in place.
@@ -46,6 +47,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Debug owned-slot validation now records one matched pre/post geometry pair around the existing paddingStart write, including measured-width expansion, stable battery end-anchor delta, adjacent status-icon boundary movement, and neighbor-gap delta without adding hooks or continuous sampling.
 
 ### Changed
+- Diagnostics level is now a persistent runtime preference rather than being presented as a direct alias of the APK build type; build type remains a separate capability boundary.
 - Diagnostics now uses an MIUIX device-information card hierarchy inspired by established HyperOS settings patterns: app details, live device/system values, module runtime, and report actions are separated clearly.
 - Device diagnostics now resolve the market device name, Android/API level, HyperOS incremental version with software-update suffix when available, and the installed SystemUI package version at runtime instead of showing a fixed platform label.
 - Appearance settings now model light/dark mode and dynamic color as independent preferences. The page uses a compact MIUIX theme-mode dropdown, a separate dynamic-color switch, and a concise live palette preview; legacy `theme_mode=Dynamic` is interpreted as System + dynamic color without losing the previous choice.

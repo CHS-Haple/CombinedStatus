@@ -6,6 +6,7 @@
     </queries>
 
     <application
+        android:name=".CombinedStatusApplication"
         android:allowBackup="false"
         android:description="@string/app_description"
         android:enableOnBackInvokedCallback="true"

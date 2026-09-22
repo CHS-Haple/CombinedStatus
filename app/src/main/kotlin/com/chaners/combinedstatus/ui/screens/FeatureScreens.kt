@@ -21,9 +21,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -37,6 +39,9 @@ import com.chaners.combinedstatus.BuildConfig
 import com.chaners.combinedstatus.R
 import com.chaners.combinedstatus.settings.AppThemeMode
 import com.chaners.combinedstatus.settings.AppearanceSettings
+import com.chaners.combinedstatus.settings.DiagnosticsLevel
+import com.chaners.combinedstatus.settings.DiagnosticsSettings
+import com.chaners.combinedstatus.settings.DiagnosticsSettingsRepository
 import com.chaners.combinedstatus.system.DiagnosticsReportBuilder
 import com.chaners.combinedstatus.system.DiagnosticsReportFiles
 import com.chaners.combinedstatus.system.RuntimeEnvironmentInfo
@@ -273,17 +278,22 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
         ) {
             value = RuntimeEnvironmentInfo.resolve(context.applicationContext)
         }
+    val diagnosticsRepository =
+        remember(context.applicationContext) {
+            DiagnosticsSettingsRepository(context.applicationContext)
+        }
+    val diagnosticsSettings by
+        diagnosticsRepository.settings.collectAsState(
+            initial = DiagnosticsSettings(level = diagnosticsRepository.currentLevel()),
+        )
+    val diagnosticsLevelOptions =
+        listOf(
+            stringResource(R.string.diagnostics_mode_basic),
+            stringResource(R.string.diagnostics_mode_detailed),
+        )
     var reportInProgress by rememberSaveable { mutableStateOf(false) }
     var exportPickerOpen by rememberSaveable { mutableStateOf(false) }
 
-    val diagnosticsModeSummary =
-        stringResource(
-            if (BuildConfig.DEBUG) {
-                R.string.diagnostics_mode_detailed
-            } else {
-                R.string.diagnostics_mode_basic
-            },
-        )
     val reportShareTitle = stringResource(R.string.share_diagnostic_report)
     val exportSucceededMessage = stringResource(R.string.diagnostic_report_exported)
     val exportFailedMessage = stringResource(R.string.diagnostic_report_export_failed)
@@ -376,9 +386,19 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
                 title = stringResource(R.string.runtime_target_title),
                 summary = stringResource(R.string.runtime_target_summary),
             )
-            BasicComponent(
+            OverlayDropdownPreference(
+                items = diagnosticsLevelOptions,
+                selectedIndex = diagnosticsSettings.level.ordinal,
                 title = stringResource(R.string.diagnostics_mode_title),
-                summary = diagnosticsModeSummary,
+                summary = stringResource(R.string.diagnostics_mode_summary),
+                showValue = true,
+                onSelectedIndexChange = { index ->
+                    DiagnosticsLevel.entries.getOrNull(index)?.let { level ->
+                        if (level != diagnosticsSettings.level) {
+                            diagnosticsRepository.setLevel(level)
+                        }
+                    }
+                },
             )
             if (BuildConfig.DEBUG) {
                 BasicComponent(

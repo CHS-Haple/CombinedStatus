@@ -2,6 +2,7 @@ package com.chaners.combinedstatus.system
 
 import android.content.Context
 import com.chaners.combinedstatus.BuildConfig
+import com.chaners.combinedstatus.settings.DiagnosticsSettingsRepository
 import java.time.OffsetDateTime
 
 internal object DiagnosticsReportBuilder {
@@ -29,6 +30,7 @@ internal object DiagnosticsReportBuilder {
 
     suspend fun build(context: Context): String {
         val environment = RuntimeEnvironmentInfo.resolve(context)
+        val diagnosticsLevel = DiagnosticsSettingsRepository(context).currentLevel()
         val lsposedResult = RootShell.execute(
             command = LsposedModuleLogCommand,
             timeoutSeconds = LogTimeoutSeconds,
@@ -85,7 +87,11 @@ internal object DiagnosticsReportBuilder {
             appendLine("build=" + BuildConfig.BUILD_ID)
             appendLine("package=" + BuildConfig.APPLICATION_ID)
             appendLine("buildType=" + if (BuildConfig.DEBUG) "debug" else "release")
-            appendLine("diagnostics=" + if (BuildConfig.DEBUG) "detailed" else "basic")
+            appendLine("diagnosticsPreference=" + diagnosticsLevel.name.lowercase())
+            appendLine(
+                "diagnosticsCapability=" +
+                    if (BuildConfig.DEBUG) "development" else "release",
+            )
             appendLine()
             appendLine("[Device]")
             appendLine("manufacturer=" + environment.manufacturer)
