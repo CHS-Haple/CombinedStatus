@@ -418,13 +418,14 @@ class CombinedStatusModule : XposedModule() {
                     val previous = CombinedStatusStateStore.snapshot().wifi
                     val changed = CombinedStatusStateStore.updateWifi(state)
                     if (changed != null) {
-                        val stateTrace = markStateCommitted(trace)
+                        var stateTrace = markStateCommitted(trace)
                         val wasVisible =
                             previous is CombinedStatusStateStore.WifiState.Visible
                         val isVisible =
                             state is CombinedStatusStateStore.WifiState.Visible
                         if (wasVisible != isVisible) {
                             CombinedStatusPresentationStateStore.markWifiSemanticChanged()
+                            stateTrace = markPresentationCommitted(stateTrace)
                         }
                         onCombinedStateChanged(
                             snapshot = changed,
