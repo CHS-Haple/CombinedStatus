@@ -222,7 +222,12 @@ private fun AppearanceMiniPreview(
     ) {
         ScaledPreviewContent(
             scale = MiniPreviewScale,
-            bottomCrop = 10.dp,
+            bottomCrop =
+                if (settings.floatingNavigationBarEnabled) {
+                    10.dp
+                } else {
+                    30.dp
+                },
             modifier = Modifier.fillMaxWidth(),
         ) {
             Column(
