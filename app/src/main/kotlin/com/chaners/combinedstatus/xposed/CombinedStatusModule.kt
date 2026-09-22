@@ -12,6 +12,7 @@ class CombinedStatusModule : XposedModule() {
     private var statusHostHookInstalled = false
     private var networkSourceInstalled = false
     private var tintSourceInstalled = false
+    private var islandMotionProbeInstalled = false
 
     override fun onModuleLoaded(param: ModuleLoadedParam) {
         log(
@@ -57,6 +58,12 @@ class CombinedStatusModule : XposedModule() {
                 classLoader = param.classLoader,
                 source = "coldStart",
             )
+            if (BuildConfig.DEBUG) {
+                installIslandMotionProbe(
+                    classLoader = param.classLoader,
+                    source = "coldStart",
+                )
+            }
         }
     }
 
@@ -75,6 +82,11 @@ class CombinedStatusModule : XposedModule() {
                 } +
                 if (tintSourceInstalled) {
                     SystemUiTintStateSource.HOOK_COUNT
+                } else {
+                    0
+                } +
+                if (islandMotionProbeInstalled) {
+                    SystemUiIslandMotionProbe.HOOK_COUNT
                 } else {
                     0
                 }
@@ -116,6 +128,7 @@ class CombinedStatusModule : XposedModule() {
             statusHostHookInstalled = true
             networkSourceInstalled = false
             tintSourceInstalled = false
+            islandMotionProbeInstalled = false
 
             val classLoader = statusHostHandle.executable.declaringClass.classLoader
                 ?: error("SystemUI class loader unavailable after hot reload")
@@ -127,6 +140,12 @@ class CombinedStatusModule : XposedModule() {
                 classLoader = classLoader,
                 source = "hotReload",
             )
+            if (BuildConfig.DEBUG) {
+                installIslandMotionProbe(
+                    classLoader = classLoader,
+                    source = "hotReload",
+                )
+            }
 
             log(
                 Log.INFO,
@@ -153,6 +172,10 @@ class CombinedStatusModule : XposedModule() {
                 onMobileIcon = { update ->
                     CombinedStatusStateStore.updateMobile(update)?.let(::onCombinedStateChanged)
                 },
+                onAirplaneMode = { enabled ->
+                    CombinedStatusStateStore.updateAirplaneMode(enabled)
+                        ?.let(::onCombinedStateChanged)
+                },
                 onEvent = if (BuildConfig.DEBUG) ::onNetworkPipelineEvent else null,
             )
         }.onSuccess { handles ->
@@ -167,6 +190,38 @@ class CombinedStatusModule : XposedModule() {
         }.onFailure { error ->
             networkSourceInstalled = false
             log(Log.ERROR, TAG, "Network state source installation failed", error)
+        }
+    }
+
+    private fun installIslandMotionProbe(
+        classLoader: ClassLoader,
+        source: String,
+    ) {
+        runCatching {
+            SystemUiIslandMotionProbe.install(
+                module = this,
+                classLoader = classLoader,
+                onEvent = ::onIslandMotionEvent,
+            )
+        }.onSuccess { handles ->
+            islandMotionProbeInstalled =
+                handles.size == SystemUiIslandMotionProbe.HOOK_COUNT
+            log(
+                Log.INFO,
+                TAG,
+                "islandMotionProbe hooks=ready count=" + handles.size +
+                    " source=" + source +
+                    " geometryWrites=0",
+            )
+        }.onFailure { error ->
+            islandMotionProbeInstalled = false
+            log(Log.ERROR, TAG, "Island motion probe installation failed", error)
+        }
+    }
+
+    private fun onIslandMotionEvent(event: String) {
+        if (BuildConfig.DEBUG) {
+            log(Log.INFO, TAG, event)
         }
     }
 

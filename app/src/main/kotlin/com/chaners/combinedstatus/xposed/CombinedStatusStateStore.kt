@@ -27,6 +27,16 @@ internal object CombinedStatusStateStore {
     }
 
     @Synchronized
+    fun updateAirplaneMode(enabled: Boolean): Snapshot? {
+        if (current.airplaneMode == enabled) {
+            return null
+        }
+
+        current = current.copy(airplaneMode = enabled)
+        return current
+    }
+
+    @Synchronized
     fun updateMobile(update: MobileIconUpdate): Snapshot? {
         val previous = current.mobile[update.subscriptionId] ?: MobileState()
         val resourceId = update.resourceId?.takeIf { it != 0 }
@@ -53,6 +63,7 @@ internal object CombinedStatusStateStore {
         val battery: BatteryState? = null,
         val wifi: WifiState = WifiState.Unknown,
         val mobile: Map<Int, MobileState> = emptyMap(),
+        val airplaneMode: Boolean? = null,
     ) {
         val logLine: String
             get() {
@@ -80,7 +91,8 @@ internal object CombinedStatusStateStore {
                         ",vowifi=" + (state.vowifiResId ?: 0)
                 }
 
-                return "battery=$batteryText wifi=$wifiText mobile=$mobileText"
+                return "battery=$batteryText wifi=$wifiText mobile=$mobileText " +
+                    "airplane=" + (airplaneMode?.toString() ?: "unknown")
             }
     }
 

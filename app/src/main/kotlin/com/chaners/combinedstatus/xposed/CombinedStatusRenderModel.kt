@@ -25,6 +25,21 @@ internal data class CombinedStatusRenderModel(
                 }
             }
 
+            if (snapshot.airplaneMode == true) {
+                val selectedSubscriptionId =
+                    defaultDataSubscriptionId
+                        .takeIf { it >= 0 }
+                        ?: snapshot.mobile.keys.firstOrNull()
+                        ?: -1
+                return CombinedStatusRenderModel(
+                    batteryPercent = battery.percent.coerceIn(0, 100),
+                    charging = battery.charging,
+                    wifiSegments = wifiSegments,
+                    mobileLevel = null,
+                    mobileSubscriptionId = selectedSubscriptionId,
+                )
+            }
+
             val selectedMobile =
                 snapshot.mobile[defaultDataSubscriptionId]
                     ?.takeIf { it.signal !is SignalStrength.Unknown }

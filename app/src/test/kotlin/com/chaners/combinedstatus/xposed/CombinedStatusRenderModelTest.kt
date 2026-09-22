@@ -65,6 +65,32 @@ class CombinedStatusRenderModelTest {
     }
 
     @Test
+    fun airplaneModeOverridesStillLiveDefaultDataSignalImmediately() {
+        val model = CombinedStatusRenderModel.from(
+            snapshot(
+                wifi = CombinedStatusStateStore.WifiState.Visible(
+                    iconResId = 1,
+                    signal = SignalStrength.Level(3),
+                ),
+                mobile = mapOf(
+                    1 to CombinedStatusStateStore.MobileState(
+                        signal = SignalStrength.Level(4),
+                    ),
+                    4 to CombinedStatusStateStore.MobileState(
+                        signal = SignalStrength.Level(4),
+                    ),
+                ),
+                airplaneMode = true,
+            ),
+            defaultDataSubscriptionId = 4,
+        )
+
+        assertEquals(4, model?.mobileSubscriptionId)
+        assertNull(model?.mobileLevel)
+        assertEquals(3, model?.wifiSegments)
+    }
+
+    @Test
     fun unavailableMobileUsesLegacyUnavailableGlyphState() {
         val model = CombinedStatusRenderModel.from(
             snapshot(
@@ -97,6 +123,7 @@ class CombinedStatusRenderModelTest {
     private fun snapshot(
         wifi: CombinedStatusStateStore.WifiState,
         mobile: Map<Int, CombinedStatusStateStore.MobileState>,
+        airplaneMode: Boolean? = false,
     ) =
         CombinedStatusStateStore.Snapshot(
             battery = CombinedStatusStateStore.BatteryState(
@@ -106,5 +133,6 @@ class CombinedStatusRenderModelTest {
             ),
             wifi = wifi,
             mobile = mobile,
+            airplaneMode = airplaneMode,
         )
 }
