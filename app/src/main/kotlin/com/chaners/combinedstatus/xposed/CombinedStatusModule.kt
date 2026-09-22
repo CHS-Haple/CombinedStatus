@@ -20,7 +20,6 @@ class CombinedStatusModule : XposedModule() {
     private var statusHostHookInstalled = false
     private var networkSourceHookCount = 0
     private var airplaneObserverAttached = false
-    private var defaultDataSubscriptionObserverAttached = false
     private var tintSourceInstalled = false
     private var sceneSourceInstalled = false
     private var mobileTypeSourceInstalled = false
@@ -570,7 +569,6 @@ class CombinedStatusModule : XposedModule() {
     ) {
         val view = host as? android.view.View
         if (view == null) {
-            defaultDataSubscriptionObserverAttached = false
             logDiagnostic(
                 level = Log.WARN,
                 event = "source.attach",
@@ -598,7 +596,6 @@ class CombinedStatusModule : XposedModule() {
                     },
             )
         }.onSuccess { attached ->
-            defaultDataSubscriptionObserverAttached = attached
             logDiagnostic(
                 level = if (attached) Log.INFO else Log.WARN,
                 event = "source.attach",
@@ -611,8 +608,7 @@ class CombinedStatusModule : XposedModule() {
                 "eventDriven" to true,
             )
         }.onFailure { error ->
-            defaultDataSubscriptionObserverAttached = false
-            logDiagnostic(
+                logDiagnostic(
                 level = Log.ERROR,
                 event = "source.attach",
                 component = "defaultDataSubscription",
