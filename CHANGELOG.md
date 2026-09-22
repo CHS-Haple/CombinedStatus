@@ -25,6 +25,7 @@ The project follows a Keep a Changelog-style structure. Until the first formal r
 
 ### Changed
 
+- Diagnostic reports now limit log collection to CombinedStatus-related runtime/share diagnostics and no longer collect broad third-party application/system share logs.
 - Runtime state acquisition now favors authoritative event-driven platform/SystemUI sources and cached process-scoped state instead of repeated querying or polling.
 - Wi-Fi and mobile semantic updates are committed before their verified SystemUI emitters proceed so CombinedStatus can enter the same UI frame as native icon changes.
 - Render-state commits are atomic: incomplete candidates retain the last stable frame, while explicit Hidden/Unavailable states update immediately.
