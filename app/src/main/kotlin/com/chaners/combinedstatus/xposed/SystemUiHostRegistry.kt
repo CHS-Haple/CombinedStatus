@@ -6,6 +6,9 @@ internal object SystemUiHostRegistry {
     private var statusHost = WeakReference<Any>(null)
 
     @Synchronized
+    fun currentStatusHost(): Any? = statusHost.get()
+
+    @Synchronized
     fun captureStatusHost(host: Any): Capture? {
         val previous = statusHost.get()
         if (previous === host) {

@@ -1,66 +1,81 @@
 package com.chaners.combinedstatus.xposed
 
-import io.github.libxposed.api.XposedInterface.HookHandle
-import io.github.libxposed.api.XposedInterface.Hooker
-import io.github.libxposed.api.XposedModule
+import android.content.ContentResolver
+import android.content.Context
+import android.database.ContentObserver
+import android.os.Handler
+import android.os.Looper
+import android.provider.Settings
 
 internal object SystemUiAirplaneStateSource {
-    const val HOOK_COUNT = 1
+    private val uri = Settings.Global.getUriFor(Settings.Global.AIRPLANE_MODE_ON)
 
-    private const val REPOSITORY_CLASS_NAME =
-        "com.android.systemui.statusbar.pipeline.airplane.data.repository.impl.AirplaneModeRepositoryImpl"
-    private const val SET_AIRPLANE_MODE_METHOD_NAME = "setIsAirplaneMode"
-    private const val HOOK_ID = "combinedstatus.airplane.repository.set"
+    private var resolver: ContentResolver? = null
+    private var observer: ContentObserver? = null
 
     @Volatile
-    private var lastRequestedState: Boolean? = null
+    private var onAirplaneMode: ((Boolean) -> Unit)? = null
 
-    fun install(
-        module: XposedModule,
-        classLoader: ClassLoader,
+    @Volatile
+    private var onEvent: ((String) -> Unit)? = null
+
+    @Volatile
+    private var lastState: Boolean? = null
+
+    @Synchronized
+    fun attach(
+        context: Context,
         onAirplaneMode: (Boolean) -> Unit,
         onEvent: ((String) -> Unit)?,
-    ): List<HookHandle> {
-        val repositoryClass =
-            Class.forName(REPOSITORY_CLASS_NAME, false, classLoader)
-        val continuationClass =
-            Class.forName("kotlin.coroutines.Continuation", false, classLoader)
-        val method =
-            repositoryClass.getDeclaredMethod(
-                SET_AIRPLANE_MODE_METHOD_NAME,
-                Boolean::class.javaPrimitiveType,
-                continuationClass,
-            ).apply { isAccessible = true }
+    ): Boolean {
+        this.onAirplaneMode = onAirplaneMode
+        this.onEvent = onEvent
 
-        val handle =
-            module
-                .hook(method)
-                .setId(HOOK_ID)
-                .intercept(
-                    Hooker { chain ->
-                        val enabled = chain.getArg(0) as? Boolean
-                        if (enabled != null) {
-                            val changed =
-                                synchronized(this) {
-                                    val previous = lastRequestedState
-                                    lastRequestedState = enabled
-                                    previous != enabled
-                                }
-                            if (changed) {
-                                onAirplaneMode(enabled)
-                                onEvent?.invoke(
-                                    "airplaneState repository phase=beforeProceed " +
-                                        "enabled=" + enabled +
-                                        " source=setIsAirplaneMode",
-                                )
-                            }
-                        }
-                        chain.proceed()
-                    },
-                )
+        val nextResolver = context.contentResolver
+        if (resolver !== nextResolver || observer == null) {
+            observer?.let { old ->
+                runCatching { resolver?.unregisterContentObserver(old) }
+            }
 
-        return listOf(handle)
+            val nextObserver =
+                object : ContentObserver(Handler(Looper.getMainLooper())) {
+                    override fun onChange(selfChange: Boolean) {
+                        publish("contentObserver")
+                    }
+                }
+
+            nextResolver.registerContentObserver(
+                uri,
+                false,
+                nextObserver,
+            )
+            resolver = nextResolver
+            observer = nextObserver
+        }
+
+        publish("seed")
+        return observer != null
     }
 
-    fun matches(handle: HookHandle): Boolean = handle.id == HOOK_ID
+    @Synchronized
+    private fun publish(source: String) {
+        val currentResolver = resolver ?: return
+        val enabled =
+            Settings.Global.getInt(
+                currentResolver,
+                Settings.Global.AIRPLANE_MODE_ON,
+                0,
+            ) != 0
+
+        if (lastState == enabled) {
+            return
+        }
+        lastState = enabled
+        onAirplaneMode?.invoke(enabled)
+        onEvent?.invoke(
+            "airplaneState setting enabled=" + enabled +
+                " source=" + source +
+                " eventDriven=true",
+        )
+    }
 }

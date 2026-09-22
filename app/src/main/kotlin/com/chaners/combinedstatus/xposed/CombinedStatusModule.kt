@@ -11,7 +11,7 @@ import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
 class CombinedStatusModule : XposedModule() {
     private var statusHostHookInstalled = false
     private var networkSourceInstalled = false
-    private var airplaneSourceInstalled = false
+    private var airplaneObserverAttached = false
     private var tintSourceInstalled = false
     private var islandMotionSourceInstalled = false
 
@@ -55,18 +55,16 @@ class CombinedStatusModule : XposedModule() {
                 classLoader = param.classLoader,
                 source = "coldStart",
             )
-            installAirplaneStateSource(
-                classLoader = param.classLoader,
-                source = "coldStart",
-            )
             installTintStateSource(
                 classLoader = param.classLoader,
                 source = "coldStart",
             )
-            installIslandMotionSource(
-                classLoader = param.classLoader,
-                source = "coldStart",
-            )
+            if (BuildConfig.DEBUG) {
+                installIslandMotionSource(
+                    classLoader = param.classLoader,
+                    source = "coldStart",
+                )
+            }
         }
     }
 
@@ -80,11 +78,6 @@ class CombinedStatusModule : XposedModule() {
             1 +
                 if (networkSourceInstalled) {
                     SystemUiNetworkStateSource.HOOK_COUNT
-                } else {
-                    0
-                } +
-                if (airplaneSourceInstalled) {
-                    SystemUiAirplaneStateSource.HOOK_COUNT
                 } else {
                     0
                 } +
@@ -135,7 +128,6 @@ class CombinedStatusModule : XposedModule() {
 
             statusHostHookInstalled = true
             networkSourceInstalled = false
-            airplaneSourceInstalled = false
             tintSourceInstalled = false
             islandMotionSourceInstalled = false
 
@@ -145,18 +137,22 @@ class CombinedStatusModule : XposedModule() {
                 classLoader = classLoader,
                 source = "hotReload",
             )
-            installAirplaneStateSource(
-                classLoader = classLoader,
-                source = "hotReload",
-            )
             installTintStateSource(
                 classLoader = classLoader,
                 source = "hotReload",
             )
-            installIslandMotionSource(
-                classLoader = classLoader,
-                source = "hotReload",
-            )
+            if (BuildConfig.DEBUG) {
+                installIslandMotionSource(
+                    classLoader = classLoader,
+                    source = "hotReload",
+                )
+            }
+            SystemUiHostRegistry.currentStatusHost()?.let { host ->
+                attachAirplaneStateSource(
+                    host = host,
+                    source = "hotReload",
+                )
+            }
 
             log(
                 Log.INFO,
@@ -204,32 +200,44 @@ class CombinedStatusModule : XposedModule() {
         }
     }
 
-    private fun installAirplaneStateSource(
-        classLoader: ClassLoader,
+    private fun attachAirplaneStateSource(
+        host: Any,
         source: String,
     ) {
+        val view = host as? android.view.View
+        if (view == null) {
+            airplaneObserverAttached = false
+            log(
+                Log.WARN,
+                TAG,
+                "airplaneSource observer=unavailable source=" + source +
+                    " reason=host-not-view",
+            )
+            return
+        }
+
         runCatching {
-            SystemUiAirplaneStateSource.install(
-                module = this,
-                classLoader = classLoader,
+            SystemUiAirplaneStateSource.attach(
+                context = view.context,
                 onAirplaneMode = { enabled ->
                     CombinedStatusStateStore.updateAirplaneMode(enabled)
                         ?.let(::onCombinedStateChanged)
                 },
                 onEvent = if (BuildConfig.DEBUG) ::onNetworkPipelineEvent else null,
             )
-        }.onSuccess { handles ->
-            airplaneSourceInstalled =
-                handles.size == SystemUiAirplaneStateSource.HOOK_COUNT
+        }.onSuccess { attached ->
+            airplaneObserverAttached = attached
             log(
                 Log.INFO,
                 TAG,
-                "airplaneSource hooks=ready count=" + handles.size +
-                    " source=" + source,
+                "airplaneSource observer=" +
+                    if (attached) "ready" else "unavailable" +
+                    " source=" + source +
+                    " event=settings-global-content-observer",
             )
         }.onFailure { error ->
-            airplaneSourceInstalled = false
-            log(Log.ERROR, TAG, "Airplane state source installation failed", error)
+            airplaneObserverAttached = false
+            log(Log.ERROR, TAG, "Airplane state observer failed", error)
         }
     }
 
@@ -241,9 +249,7 @@ class CombinedStatusModule : XposedModule() {
             SystemUiIslandMotionSource.install(
                 module = this,
                 classLoader = classLoader,
-                onIslandStatusChanged =
-                    CombinedStatusHomeRenderSession::onIslandStatusChanged,
-                onEvent = if (BuildConfig.DEBUG) ::onIslandMotionEvent else null,
+                onEvent = ::onIslandMotionEvent,
             )
         }.onSuccess { handles ->
             islandMotionSourceInstalled =
@@ -253,7 +259,7 @@ class CombinedStatusModule : XposedModule() {
                 TAG,
                 "islandMotionSource hooks=ready count=" + handles.size +
                     " source=" + source +
-                    " motion=nativeAnchorFollow nativeGeometryWrites=0",
+                    " motion=ownerProbe nativeGeometryWrites=0",
             )
         }.onFailure { error ->
             islandMotionSourceInstalled = false
@@ -318,6 +324,10 @@ class CombinedStatusModule : XposedModule() {
             TAG,
             "statusHost captured id=" + capture.identity +
                 " replacement=" + capture.replacement,
+        )
+        attachAirplaneStateSource(
+            host = capture.host,
+            source = if (capture.replacement) "hostReplacement" else "hostCapture",
         )
 
         when (

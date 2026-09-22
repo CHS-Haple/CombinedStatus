@@ -1,32 +1,61 @@
 package com.chaners.combinedstatus.xposed
 
+import android.os.SystemClock
+import android.view.View
+import android.view.ViewTreeObserver
 import io.github.libxposed.api.XposedInterface.HookHandle
 import io.github.libxposed.api.XposedInterface.Hooker
 import io.github.libxposed.api.XposedModule
+import java.lang.ref.WeakReference
+import java.lang.reflect.Field
 
 internal object SystemUiIslandMotionSource {
     const val HOOK_COUNT = 1
 
-    private const val ISLAND_LISTENER_CLASS_NAME =
+    private const val INJECTOR_CLASS_NAME =
+        "com.android.systemui.statusbar.pipeline.shared.ui.binder.HomeStatusBarViewBinderInjector"
+    private const val LISTENER_CLASS_NAME =
         "com.android.systemui.statusbar.pipeline.shared.ui.binder.HomeStatusBarViewBinderInjector\$islandListener\$1"
-    private const val ISLAND_STATUS_METHOD_NAME = "onIslandStatusChanged"
+    private const val STATUS_METHOD_NAME = "onIslandStatusChanged"
     private const val HOOK_ID = "combinedstatus.island.home.status"
+
+    private val trackedNames =
+        listOf(
+            "mStatusContainer",
+            "mEndSideContent",
+            "mStatusBarIcons",
+            "mBatteryContainer",
+            "mBatteryView",
+        )
 
     fun install(
         module: XposedModule,
         classLoader: ClassLoader,
-        onIslandStatusChanged: (IslandStatus) -> Unit,
-        onEvent: ((String) -> Unit)?,
+        onEvent: (String) -> Unit,
     ): List<HookHandle> {
+        val injectorClass =
+            Class.forName(INJECTOR_CLASS_NAME, false, classLoader)
         val listenerClass =
-            Class.forName(ISLAND_LISTENER_CLASS_NAME, false, classLoader)
+            Class.forName(LISTENER_CLASS_NAME, false, classLoader)
         val method =
             listenerClass.getDeclaredMethod(
-                ISLAND_STATUS_METHOD_NAME,
+                STATUS_METHOD_NAME,
                 Boolean::class.javaPrimitiveType,
                 Boolean::class.javaPrimitiveType,
                 Boolean::class.javaPrimitiveType,
             ).apply { isAccessible = true }
+
+        val outerField =
+            listenerClass.declaredFields
+                .firstOrNull { it.type == injectorClass }
+                ?.apply { isAccessible = true }
+        val trackedFields =
+            trackedNames.mapNotNull { name ->
+                runCatching {
+                    injectorClass.getDeclaredField(name)
+                        .apply { isAccessible = true }
+                }.getOrNull()?.let { name to it }
+            }
 
         val handle =
             module
@@ -39,31 +68,135 @@ internal object SystemUiIslandMotionSource {
                         val animate = chain.getArg(2) as? Boolean ?: false
                         val result = chain.proceed()
 
-                        val status =
-                            IslandStatus(
-                                showing = showing,
-                                secondary = secondary,
-                                animate = animate,
-                            )
-                        onIslandStatusChanged(status)
-                        onEvent?.invoke(
-                            "islandMotion nativeStatus showing=" + showing +
+                        val injector =
+                            outerField?.let { field ->
+                                runCatching { field.get(chain.thisObject) }.getOrNull()
+                            }
+                        val views =
+                            if (injector == null) {
+                                emptyMap()
+                            } else {
+                                trackedFields.mapNotNull { (name, field) ->
+                                    (runCatching { field.get(injector) as? View }.getOrNull())
+                                        ?.let { name to it }
+                                }.toMap()
+                            }
+
+                        onEvent(
+                            "islandOwner event showing=" + showing +
                                 " secondary=" + secondary +
                                 " animate=" + animate +
-                                " follow=nativeAnchor",
+                                " fields=" + views.keys.joinToString(",") +
+                                " geometryWrites=0",
                         )
+                        if (views.isNotEmpty()) {
+                            OwnerProbe.start(
+                                views = views,
+                                onEvent = onEvent,
+                            )
+                        }
                         result
                     },
                 )
-
         return listOf(handle)
     }
 
     fun matches(handle: HookHandle): Boolean = handle.id == HOOK_ID
 
-    internal data class IslandStatus(
-        val showing: Boolean,
-        val secondary: Boolean,
-        val animate: Boolean,
-    )
+    private object OwnerProbe {
+        private var generation = 0
+        private var activeRoot = WeakReference<View>(null)
+        private var listener: ViewTreeObserver.OnPreDrawListener? = null
+
+        fun start(
+            views: Map<String, View>,
+            onEvent: (String) -> Unit,
+        ) {
+            stop()
+            generation += 1
+            val currentGeneration = generation
+            val root = views.values.first().rootView ?: return
+            val observer = root.viewTreeObserver
+            if (!observer.isAlive) {
+                return
+            }
+
+            val startedAt = SystemClock.uptimeMillis()
+            var frame = 0
+            var samples = 0
+            var previous = ""
+
+            val nextListener =
+                ViewTreeObserver.OnPreDrawListener {
+                    frame += 1
+                    val snapshot =
+                        views.entries.joinToString(" ") { (name, view) ->
+                            name + "=" + motion(view)
+                        }
+
+                    if (snapshot != previous && samples < MAX_SAMPLES) {
+                        previous = snapshot
+                        samples += 1
+                        onEvent(
+                            "islandOwner sample frame=" + frame +
+                                " elapsedMs=" +
+                                (SystemClock.uptimeMillis() - startedAt) +
+                                " " + snapshot +
+                                " sample=" + samples + "/" + MAX_SAMPLES +
+                                " geometryWrites=0",
+                        )
+                    }
+
+                    if (
+                        currentGeneration == generation &&
+                        SystemClock.uptimeMillis() - startedAt >= DURATION_MS
+                    ) {
+                        stop()
+                    }
+                    true
+                }
+
+            listener = nextListener
+            activeRoot = WeakReference(root)
+            observer.addOnPreDrawListener(nextListener)
+
+            root.postDelayed(
+                {
+                    if (currentGeneration == generation) {
+                        stop()
+                    }
+                },
+                DURATION_MS,
+            )
+        }
+
+        private fun stop() {
+            val root = activeRoot.get()
+            val currentListener = listener
+            if (root != null && currentListener != null) {
+                val observer = root.viewTreeObserver
+                if (observer.isAlive) {
+                    observer.removeOnPreDrawListener(currentListener)
+                }
+            }
+            listener = null
+            activeRoot = WeakReference(null)
+        }
+
+        private fun motion(view: View): String {
+            val location = IntArray(2)
+            view.getLocationOnScreen(location)
+            return view.javaClass.simpleName +
+                "{x=" + view.x +
+                ",screenX=" + location[0] +
+                ",tx=" + view.translationX +
+                ",a=" + view.alpha +
+                ",v=" + view.visibility +
+                ",w=" + view.width +
+                "}"
+        }
+
+        private const val MAX_SAMPLES = 16
+        private const val DURATION_MS = 900L
+    }
 }
