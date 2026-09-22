@@ -222,12 +222,7 @@ private fun AppearanceMiniPreview(
     ) {
         ScaledPreviewContent(
             scale = MiniPreviewScale,
-            bottomCrop =
-                if (settings.floatingNavigationBarEnabled) {
-                    10.dp
-                } else {
-                    30.dp
-                },
+            bottomCrop = MiniPreviewBottomCrop,
             modifier = Modifier.fillMaxWidth(),
         ) {
             Column(
@@ -386,6 +381,7 @@ private fun MiniThemeSwatch(color: Color) {
 }
 
 private const val MiniPreviewScale = 0.82f
+private val MiniPreviewBottomCrop = 10.dp
 
 @Composable
 private fun ScaledPreviewContent(
@@ -529,6 +525,10 @@ private fun MiniNavigationPreview(
             }
         } else {
             NavigationBar(
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = MiniPreviewBottomCrop / MiniPreviewScale),
                 color = MiuixTheme.colorScheme.surface,
                 showDivider = true,
                 defaultWindowInsetsPadding = false,
