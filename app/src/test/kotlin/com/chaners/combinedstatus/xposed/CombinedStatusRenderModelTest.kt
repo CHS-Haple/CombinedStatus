@@ -115,6 +115,42 @@ class CombinedStatusRenderModelTest {
     }
 
     @Test
+    fun defaultDataFallbackSelectsMatchingMobileSignal() {
+        val model =
+            CombinedStatusRenderModel.from(
+                snapshot =
+                    snapshot(
+                        wifi =
+                            CombinedStatusStateStore.WifiState.Visible(
+                                iconResId = 1,
+                                signal = SignalStrength.Level(3),
+                            ),
+                        mobile =
+                            linkedMapOf(
+                                1 to CombinedStatusStateStore.MobileState(
+                                    signal = SignalStrength.Level(1),
+                                ),
+                                4 to CombinedStatusStateStore.MobileState(
+                                    signal = SignalStrength.Level(4),
+                                ),
+                            ),
+                    ),
+                presentation =
+                    CombinedStatusPresentationStateStore.Snapshot(
+                        connectivity =
+                            connectivity(
+                                transport = SystemUiConnectivityStateSource.Transport.WIFI,
+                                validated = true,
+                            ),
+                    ),
+                defaultDataSubscriptionId = 4,
+            )
+
+        assertEquals(4, model?.effectiveDataSubscriptionId)
+        assertEquals(4, model?.mobileLevel)
+    }
+
+    @Test
     fun cellularValidatedUsesSystemMobileType() {
         val model =
             CombinedStatusRenderModel.from(
