@@ -42,8 +42,6 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '9.7.1'
 
       - name: Restore and verify Haple signing
         if: github.event_name != 'pull_request'
@@ -56,10 +54,10 @@ jobs:
         run: python3 tools/verify_target_profile.py
 
       - name: Run unit tests
-        run: gradle :app:testDebugUnitTest --stacktrace
+        run: ./gradlew :app:testDebugUnitTest --stacktrace
 
       - name: Build debug and canary APKs
-        run: gradle :app:assembleDebug :app:assembleCanary --stacktrace
+        run: ./gradlew :app:assembleDebug :app:assembleCanary --stacktrace
 
       - name: Verify modern Xposed metadata
         shell: bash
