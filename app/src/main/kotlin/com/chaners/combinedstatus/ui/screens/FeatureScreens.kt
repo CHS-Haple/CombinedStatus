@@ -148,10 +148,11 @@ private fun AppearanceThemePreview(settings: AppearanceSettings) {
         } else {
             Highlight.GlassStrokeSmallLight
         }
+    val previewSurfaceColor = MiuixTheme.colorScheme.surfaceContainer
     val previewBackdrop =
         if (glassHighlightSupported) {
             rememberLayerBackdrop {
-                drawRect(MiuixTheme.colorScheme.surfaceContainer)
+                drawRect(previewSurfaceColor)
                 drawContent()
             }
         } else {
