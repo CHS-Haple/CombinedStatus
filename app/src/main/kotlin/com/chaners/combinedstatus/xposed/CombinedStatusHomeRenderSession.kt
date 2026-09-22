@@ -284,9 +284,8 @@ internal object CombinedStatusHomeRenderSession {
                 stableModel = model
                 val visibleTrace =
                     trace?.takeIf {
-                        probeView.visibility == View.VISIBLE &&
-                            probeView.width > 0 &&
-                            probeView.height > 0
+                        layoutLogged &&
+                            SystemUiSceneStateSource.allowsHomeOverlay(sceneSurface)
                     }
                 probeView.setModel(model, visibleTrace)
             }
