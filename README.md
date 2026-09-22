@@ -35,6 +35,17 @@ Current verified compatibility baseline:
 
 Compatibility is validated against the exact target SystemUI rather than inferred from version names alone. Other HyperOS builds or device variants may differ internally and are not assumed compatible without evidence.
 
+### Current limitations
+
+CombinedStatus is still pre-release software.
+
+- Home stable is the only runtime-verified CombinedStatus rendering scene.
+- Notification-shade transitions, Control Center, keyguard, and AOD currently remain native-only by policy.
+- The current Home path is a projected integration that preserves native SystemUI geometry; complete native-icon replacement across all scenes is not claimed yet.
+- Compatibility has been verified only against the pinned SystemUI baseline above.
+- Broader device/version compatibility and additional scene support require separate runtime evidence and real-device validation.
+
+
 ### Current capabilities
 
 #### SystemUI runtime
@@ -120,6 +131,8 @@ Core feature behavior is shared across build channels. Build type controls diagn
 
 Runtime-sensitive changes require both CI and focused real-device validation. CI success alone is not treated as proof that SystemUI behavior is correct.
 
+Pull requests are validated without repository signing secrets. Signed Debug/Canary artifacts remain a maintainer push responsibility and are not produced for untrusted PRs.
+
 Detailed contribution, lifecycle, ownership, migration, changelog, and validation rules are defined in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ### Build requirements
@@ -181,6 +194,17 @@ CombinedStatus 当前面向：
 - HyperOS SystemUI `17.03.260226.r`。
 
 兼容性以目标 SystemUI 的真实结构和运行时行为为依据，而不是仅根据版本号推断。其他 HyperOS 版本或不同机型内部实现可能存在差异，在没有证据前不会默认视为兼容。
+
+### 当前限制
+
+CombinedStatus 目前仍处于预发布阶段。
+
+- 主状态栏稳态是当前唯一经过运行时验证的 CombinedStatus 渲染场景。
+- 通知栏过渡、控制中心、锁屏和 AOD 当前仍按策略保持原生显示。
+- 当前主状态栏采用投影式接入并保留 SystemUI 原生几何所有权，尚不宣称已经完成所有场景下的原生图标替换。
+- 当前兼容性只针对上方固定的 SystemUI 基线完成验证。
+- 其他机型、系统版本与更多场景必须分别取得运行时证据并通过实机验证后才能纳入支持范围。
+
 
 ### 当前能力
 
@@ -267,6 +291,8 @@ SystemUI 接入还遵循以下架构约束：
 
 涉及 SystemUI 运行时行为的修改必须同时经过 CI 和针对性的实机验证。CI 通过本身不能证明 SystemUI 运行时行为正确。
 
+Pull Request 使用不接触仓库签名 Secrets 的验证流程；带维护者签名的 Debug/Canary 构建仍只由维护者 push 流程生成，不会为不受信任的 PR 产出签名 APK。
+
 详细的贡献流程、生命周期、所有权、迁移、Changelog 和验证规则见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 ### 构建要求
@@ -302,3 +328,11 @@ SystemUI 接入还遵循以下架构约束：
 - 内部领域命名：`mobileNetwork` / `mobileSignal`
 
 Android / HyperOS 上游 API、类、字段、方法和资源标识符保持原名。
+
+---
+
+## Disclaimer / 免责声明
+
+CombinedStatus is an independent community project and is not affiliated with, endorsed by, or maintained by Xiaomi, HyperOS, LSPosed, or the MIUIX project.
+
+CombinedStatus 是独立的社区项目，与 Xiaomi、HyperOS、LSPosed 或 MIUIX 项目不存在官方隶属、背书或维护关系。
