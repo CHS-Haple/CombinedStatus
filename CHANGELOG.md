@@ -50,7 +50,8 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Debug Home rendering now validates a real measured CombinedStatus slot without adding a fourth MiuiStatusBatteryContainer child: it preserves the native MiuiBatteryMeterView as the lifecycle/island-motion carrier, extends only its leading padding by one native square status unit, renders CombinedStatus into that leading region, and leaves native Battery/Wi-Fi/mobile visibility and translation untouched.
 - Debug owned-slot validation now records one matched pre/post geometry pair around the existing paddingStart write, including measured-width expansion, stable battery end-anchor delta, adjacent status-icon boundary movement, and neighbor-gap delta without adding hooks or continuous sampling.
 
-### Changed\n- Hot reload now re-emits the actually revalidated status-host compatibility, replaced host-hook, and restored host health in the new diagnostic generation so a successful reload is not falsely reported as degraded.
+### Changed
+- Hot reload now re-emits the actually revalidated status-host compatibility, replaced host-hook, and restored host health in the new diagnostic generation so a successful reload is not falsely reported as degraded.
 - Home renderer diagnostic strings are now built only while Detailed diagnostics are enabled; General keeps the existing render path without per-transition diagnostic string allocation.
 - Diagnostics device/system metadata now uses parentheses for subordinate identifiers: model shows its device codename as `Model (codename)`, Android shows `Android 17 (API 37)`, and the localized labels mirror the same primary-plus-detail relationship.
 - General diagnostics no longer emit the full mobile-presentation resolution payload; detailed state remains available only when Detailed diagnostics are enabled, while rendering behavior is unchanged.
