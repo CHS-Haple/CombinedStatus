@@ -17,10 +17,6 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      HAPLE_KEYSTORE_PASSWORD: ${{ secrets.HAPLE_KEYSTORE_PASSWORD }}
-      HAPLE_KEY_ALIAS: ${{ secrets.HAPLE_KEY_ALIAS }}
-      HAPLE_CERT_SHA256: 7a64fc85325afe79439afb63369d832d7ddc20fd5b3935b4c28d7bcb85e92fc7
 
     steps:
       - name: Checkout
@@ -51,6 +47,9 @@ jobs:
         shell: bash
         env:
           HAPLE_KEYSTORE_BASE64: ${{ secrets.HAPLE_KEYSTORE_BASE64 }}
+          HAPLE_KEYSTORE_PASSWORD: ${{ secrets.HAPLE_KEYSTORE_PASSWORD }}
+          HAPLE_KEY_ALIAS: ${{ secrets.HAPLE_KEY_ALIAS }}
+          HAPLE_CERT_SHA256: 7a64fc85325afe79439afb63369d832d7ddc20fd5b3935b4c28d7bcb85e92fc7
         run: bash tools/setup_haple_signing.sh
 
       - name: Verify pinned HyperOS target profile
@@ -60,6 +59,9 @@ jobs:
         run: ./gradlew :app:testDebugUnitTest --stacktrace
 
       - name: Build debug and canary APKs
+        env:
+          HAPLE_KEYSTORE_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.HAPLE_KEYSTORE_PASSWORD || '' }}
+          HAPLE_KEY_ALIAS: ${{ github.event_name != 'pull_request' && secrets.HAPLE_KEY_ALIAS || '' }}
         run: ./gradlew :app:assembleDebug :app:assembleCanary --stacktrace
 
       - name: Verify modern Xposed metadata
@@ -115,6 +117,8 @@ jobs:
       - name: Verify Haple APK signatures
         if: github.event_name != 'pull_request'
         shell: bash
+        env:
+          HAPLE_CERT_SHA256: 7a64fc85325afe79439afb63369d832d7ddc20fd5b3935b4c28d7bcb85e92fc7
         run: |
           SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
           for APK in             app/build/outputs/apk/debug/app-debug.apk             app/build/outputs/apk/canary/app-canary.apk; do
