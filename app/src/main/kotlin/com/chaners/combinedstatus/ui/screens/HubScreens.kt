@@ -90,10 +90,34 @@ internal fun SettingsHubScreen(
 
     HubPage(
         title = stringResource(R.string.settings_title),
-        sectionTitle = stringResource(R.string.section_settings),
+        sectionTitle = stringResource(R.string.section_appearance_interaction),
         bottomContentPadding = bottomContentPadding,
-        secondarySectionTitle = stringResource(R.string.section_module),
+        secondarySectionTitle = stringResource(R.string.section_app),
         secondaryContent = {
+            OverlayDropdownPreference(
+                items = languageOptions,
+                selectedIndex = appLanguage.ordinal,
+                title = stringResource(R.string.language_title),
+                summary = stringResource(R.string.language_summary),
+                showValue = false,
+                onSelectedIndexChange = { index ->
+                    AppLanguage.entries.getOrNull(index)?.let(onAppLanguageChange)
+                },
+            )
+            SwitchPreference(
+                title = stringResource(R.string.hide_launcher_icon),
+                summary = stringResource(R.string.hide_launcher_icon_summary),
+                checked = launcherIconHidden,
+                onCheckedChange = onLauncherIconHiddenChange,
+            )
+        },
+        tertiarySectionTitle = stringResource(R.string.section_diagnostics_maintenance),
+        tertiaryContent = {
+            ArrowPreference(
+                title = stringResource(R.string.diagnostics_title),
+                summary = stringResource(R.string.diagnostics_summary),
+                onClick = { onNavigate(AppRoute.Diagnostics) },
+            )
             BasicComponent(
                 title = stringResource(R.string.restart_scope),
                 summary = stringResource(R.string.restart_scope_summary),
@@ -163,27 +187,6 @@ internal fun SettingsHubScreen(
             checked = swipeBackEnabled,
             onCheckedChange = onSwipeBackEnabledChange,
         )
-        OverlayDropdownPreference(
-            items = languageOptions,
-            selectedIndex = appLanguage.ordinal,
-            title = stringResource(R.string.language_title),
-            summary = stringResource(R.string.language_summary),
-            showValue = false,
-            onSelectedIndexChange = { index ->
-                AppLanguage.entries.getOrNull(index)?.let(onAppLanguageChange)
-            },
-        )
-        SwitchPreference(
-            title = stringResource(R.string.hide_launcher_icon),
-            summary = stringResource(R.string.hide_launcher_icon_summary),
-            checked = launcherIconHidden,
-            onCheckedChange = onLauncherIconHiddenChange,
-        )
-        ArrowPreference(
-            title = stringResource(R.string.diagnostics_title),
-            summary = stringResource(R.string.diagnostics_summary),
-            onClick = { onNavigate(AppRoute.Diagnostics) },
-        )
     }
 }
 
@@ -194,6 +197,8 @@ private fun HubPage(
     bottomContentPadding: Dp,
     secondarySectionTitle: String? = null,
     secondaryContent: (@Composable ColumnScope.() -> Unit)? = null,
+    tertiarySectionTitle: String? = null,
+    tertiaryContent: (@Composable ColumnScope.() -> Unit)? = null,
     overlay: @Composable () -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -235,6 +240,18 @@ private fun HubPage(
                             .padding(horizontal = 12.dp)
                             .padding(bottom = 12.dp),
                         content = secondaryContent,
+                    )
+                }
+            }
+
+            if (tertiarySectionTitle != null && tertiaryContent != null) {
+                item {
+                    SmallTitle(tertiarySectionTitle)
+                    Card(
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp)
+                            .padding(bottom = 12.dp),
+                        content = tertiaryContent,
                     )
                 }
             }

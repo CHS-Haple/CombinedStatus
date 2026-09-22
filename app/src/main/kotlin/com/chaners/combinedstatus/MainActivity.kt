@@ -79,6 +79,9 @@ class MainActivity : ComponentActivity() {
                 onDynamicColorEnabledChange = { enabled ->
                     scope.launch { repository.setDynamicColorEnabled(enabled) }
                 },
+                onFloatingNavigationBarEnabledChange = { enabled ->
+                    scope.launch { repository.setFloatingNavigationBarEnabled(enabled) }
+                },
                 onFloatingNavigationBlurEnabledChange = { enabled ->
                     scope.launch { repository.setFloatingNavigationBlurEnabled(enabled) }
                 },

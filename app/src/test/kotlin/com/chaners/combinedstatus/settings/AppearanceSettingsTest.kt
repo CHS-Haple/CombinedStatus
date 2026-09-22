@@ -7,6 +7,14 @@ import org.junit.Test
 
 class AppearanceSettingsTest {
     @Test
+    fun defaultsPreserveExistingFloatingNavigationStyle() {
+        val settings = AppearanceSettings()
+
+        assertTrue(settings.floatingNavigationBarEnabled)
+        assertTrue(settings.floatingNavigationBlurEnabled)
+    }
+
+    @Test
     fun legacyDynamicModeMigratesToSystemWithDynamicColor() {
         val result =
             decodeThemeSelection(

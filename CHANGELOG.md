@@ -32,6 +32,10 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Deterministic signal parsing maps SystemUI mobile `signal_0..4` / `signal_null` and Wi-Fi `wifi_signal_0..3` resources to semantic levels, covered by local unit tests.
 
 ### Changed
+- Bottom navigation can now switch between the official MIUIX 0.9.4 FloatingNavigationBar and the standard full-width NavigationBar; floating remains the default.
+- Appearance now exposes the floating-navigation style switch and only shows its blur option while floating navigation is enabled.
+- The Settings hub is regrouped into Appearance & interaction, App, and Diagnostics & maintenance cards without changing underlying actions.
+- The palette preview keeps the verified uniform 1 dp MIUIX outline at 30% opacity; the experimental Small GlassStroke preview is not part of the stable branch.
 - Appearance now treats light/dark mode and dynamic color as independent preferences, including migration of the legacy Dynamic theme choice to System + dynamic color.
 - Appearance now uses a compact MIUIX theme-mode dropdown, separate dynamic-color switch, and a read-only palette preview with two-level state text and three real theme-token swatches.
 - The palette preview uses primary, secondary, and surfaceContainerHigh samples with a 1 dp MIUIX outline at 30% opacity for dark-mode separation.

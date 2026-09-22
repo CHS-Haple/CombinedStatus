@@ -6,6 +6,7 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -59,6 +60,7 @@ internal fun AppearanceScreen(
     settings: AppearanceSettings,
     onThemeModeChange: (AppThemeMode) -> Unit,
     onDynamicColorEnabledChange: (Boolean) -> Unit,
+    onFloatingNavigationBarEnabledChange: (Boolean) -> Unit,
     onFloatingNavigationBlurEnabledChange: (Boolean) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -100,11 +102,19 @@ internal fun AppearanceScreen(
 
         Section(R.string.section_visual_effects) {
             SwitchPreference(
-                title = stringResource(R.string.floating_navigation_blur),
-                summary = stringResource(R.string.floating_navigation_blur_summary),
-                checked = settings.floatingNavigationBlurEnabled,
-                onCheckedChange = onFloatingNavigationBlurEnabledChange,
+                title = stringResource(R.string.floating_navigation_bar),
+                summary = stringResource(R.string.floating_navigation_bar_summary),
+                checked = settings.floatingNavigationBarEnabled,
+                onCheckedChange = onFloatingNavigationBarEnabledChange,
             )
+            AnimatedVisibility(visible = settings.floatingNavigationBarEnabled) {
+                SwitchPreference(
+                    title = stringResource(R.string.floating_navigation_blur),
+                    summary = stringResource(R.string.floating_navigation_blur_summary),
+                    checked = settings.floatingNavigationBlurEnabled,
+                    onCheckedChange = onFloatingNavigationBlurEnabledChange,
+                )
+            }
         }
     }
 }

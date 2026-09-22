@@ -29,6 +29,7 @@ internal fun CombinedStatusApp(
     launcherIconHidden: Boolean,
     onThemeModeChange: (AppThemeMode) -> Unit,
     onDynamicColorEnabledChange: (Boolean) -> Unit,
+    onFloatingNavigationBarEnabledChange: (Boolean) -> Unit,
     onFloatingNavigationBlurEnabledChange: (Boolean) -> Unit,
     onSwipeBackEnabledChange: (Boolean) -> Unit,
     onAppLanguageChange: (AppLanguage) -> Unit,
@@ -83,6 +84,8 @@ internal fun CombinedStatusApp(
                     settings = settings,
                     onThemeModeChange = onThemeModeChange,
                     onDynamicColorEnabledChange = onDynamicColorEnabledChange,
+                    onFloatingNavigationBarEnabledChange =
+                        onFloatingNavigationBarEnabledChange,
                     onFloatingNavigationBlurEnabledChange =
                         onFloatingNavigationBlurEnabledChange,
                     onBack = ::navigateBack,
