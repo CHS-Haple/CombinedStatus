@@ -5,7 +5,6 @@ import android.graphics.Canvas
 import android.graphics.Rect
 import android.os.Looper
 import android.os.SystemClock
-import android.telephony.SubscriptionManager
 import android.view.View
 import android.view.ViewGroup
 import java.lang.ref.WeakReference
@@ -260,8 +259,7 @@ internal object CombinedStatusHomeRenderSession {
             trace: RuntimeRenderTrace? = null,
         ) {
             val defaultDataSubscriptionId =
-                runCatching { SubscriptionManager.getDefaultDataSubscriptionId() }
-                    .getOrDefault(-1)
+                SystemUiDefaultDataSubscriptionSource.currentSubscriptionId()
             val candidate =
                 CombinedStatusRenderModel.from(
                     snapshot = snapshot,
