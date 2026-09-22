@@ -13,7 +13,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - MIUIX 0.9.4 navigation runtime with serializable routes, standard page transitions, predictive back, and direction-aware swipe-back gestures.
 - Home, Features, and Settings top-level navigation with a MIUIX floating navigation bar.
 - Official MIUIX 0.9.4 floating-navigation blur recipe with automatic runtime-shader fallback, 25 px texture blur, 60% surface blend, and theme-aware glass-stroke highlight.
-- Persistent appearance preferences for theme mode, floating-navigation blur, and in-app swipe-back.
+- Persistent appearance preferences for theme mode, floating/non-floating bottom navigation style, floating-navigation blur, and in-app swipe-back.
 - Android 13+ per-app language selection for system default, English, and Simplified Chinese.
 - Optional launcher icon hiding through a dedicated activity alias while retaining a non-launcher CATEGORY_INFO front door.
 - Modern Xposed API 102 module baseline with a single Java entry point and a static `com.android.systemui` scope.
@@ -48,7 +48,8 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Appearance settings now model light/dark mode and dynamic color as independent preferences. The page uses a compact MIUIX theme-mode dropdown, a separate dynamic-color switch, and a concise live palette preview; legacy `theme_mode=Dynamic` is interpreted as System + dynamic color without losing the previous choice.
 - Swipe-back behavior is now configured from the main Settings page instead of Appearance, keeping Appearance limited to theme and visual effects.
 - Appearance copy now labels the read-only palette card as current colors and shortens the theme-mode description to reflect its actual light/dark responsibility.
-- The color preview uses a compact horizontal read-only layout with primary, secondary, and surfaceContainerHigh samples. On RuntimeShader-capable devices the 24 dp samples use MIUIX 0.9.4's official Small GlassStroke highlight through a shared, effect-free backdrop; unsupported paths retain the verified 1 dp outline at 30% opacity.
+- The color preview uses a compact horizontal read-only layout with primary, secondary, and surfaceContainerHigh samples and a uniform 1 dp MIUIX outline at 30% opacity in both light and dark themes.
+- Bottom navigation can now switch between MIUIX 0.9.4 FloatingNavigationBar and the standard full-width NavigationBar. Floating style remains the default; floating blur is disabled in settings when the standard bar is selected.
 - Renamed swipe-back copy to describe a page-level horizontal return gesture, avoiding confusion with the system-wide edge-back gesture.
 - Minimum Android version is Android 13 / API 33 to match the current MIUIX blur baseline.
 - Android compile and target SDK baseline is API 37.

@@ -31,6 +31,8 @@ import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.FloatingNavigationBar
 import top.yukonga.miuix.kmp.basic.FloatingNavigationBarItem
 import top.yukonga.miuix.kmp.basic.FloatingToolbarDefaults
+import top.yukonga.miuix.kmp.basic.NavigationBar
+import top.yukonga.miuix.kmp.basic.NavigationBarItem
 import top.yukonga.miuix.kmp.basic.NavigationItem
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.blur.BlendColorEntry
@@ -63,14 +65,20 @@ internal fun MainHub(
 ) {
     val pagerState = rememberPagerState(pageCount = { TopLevelPageCount })
     val scope = rememberCoroutineScope()
-    val blurActive =
-        settings.floatingNavigationBlurEnabled &&
+    val floatingBlurActive =
+        settings.floatingNavigationBarEnabled &&
+            settings.floatingNavigationBlurEnabled &&
             isRuntimeShaderSupported()
     val surfaceColor = MiuixTheme.colorScheme.surface
-    val backdrop = rememberLayerBackdrop {
-        drawRect(surfaceColor)
-        drawContent()
-    }
+    val backdrop =
+        if (floatingBlurActive) {
+            rememberLayerBackdrop {
+                drawRect(surfaceColor)
+                drawContent()
+            }
+        } else {
+            null
+        }
 
     val items = listOf(
         NavigationItem(stringResource(R.string.nav_home), MiuixIcons.Home),
@@ -100,7 +108,7 @@ internal fun MainHub(
     )
 
     val navigationBarModifier =
-        if (blurActive) {
+        if (backdrop != null) {
             Modifier.textureBlur(
                 backdrop = backdrop,
                 shape = RoundedCornerShape(FloatingToolbarDefaults.CornerRadius),
@@ -120,29 +128,50 @@ internal fun MainHub(
 
     Scaffold(
         bottomBar = {
-            FloatingNavigationBar(
-                modifier = navigationBarModifier,
-                color = if (blurActive) {
-                    Color.Transparent
-                } else {
-                    MiuixTheme.colorScheme.surfaceContainer
-                },
-            ) {
-                items.forEachIndexed { index, item ->
-                    FloatingNavigationBarItem(
-                        selected = pagerState.currentPage == index,
-                        onClick = { selectPage(index) },
-                        icon = item.icon,
-                        label = item.label,
-                    )
+            if (settings.floatingNavigationBarEnabled) {
+                FloatingNavigationBar(
+                    modifier = navigationBarModifier,
+                    color =
+                        if (backdrop != null) {
+                            Color.Transparent
+                        } else {
+                            MiuixTheme.colorScheme.surfaceContainer
+                        },
+                ) {
+                    items.forEachIndexed { index, item ->
+                        FloatingNavigationBarItem(
+                            selected = pagerState.currentPage == index,
+                            onClick = { selectPage(index) },
+                            icon = item.icon,
+                            label = item.label,
+                        )
+                    }
+                }
+            } else {
+                NavigationBar {
+                    items.forEachIndexed { index, item ->
+                        NavigationBarItem(
+                            selected = pagerState.currentPage == index,
+                            onClick = { selectPage(index) },
+                            icon = item.icon,
+                            label = item.label,
+                        )
+                    }
                 }
             }
         },
     ) { innerPadding ->
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .then(if (blurActive) Modifier.layerBackdrop(backdrop) else Modifier),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .then(
+                        if (backdrop != null) {
+                            Modifier.layerBackdrop(backdrop)
+                        } else {
+                            Modifier
+                        },
+                    ),
         ) {
             TopLevelPager(
                 pagerState = pagerState,

@@ -55,8 +55,10 @@
     <string name="theme_preview">配色预览</string>
     <string name="theme_preview_summary">%1$s · %2$s</string>
     <string name="section_visual_effects">界面效果</string>
-    <string name="floating_navigation_blur">浮动导航栏模糊</string>
-    <string name="floating_navigation_blur_summary">为底部浮动导航栏启用背景模糊</string>
+    <string name="floating_navigation_bar">悬浮导航栏</string>
+    <string name="floating_navigation_bar_summary">使用悬浮样式的底部导航栏</string>
+    <string name="floating_navigation_blur">悬浮导航栏模糊</string>
+    <string name="floating_navigation_blur_summary">为悬浮底部导航栏启用背景模糊</string>
     <string name="swipe_back">页面滑动返回</string>
     <string name="swipe_back_summary">横向滑动页面返回上一级</string>
 

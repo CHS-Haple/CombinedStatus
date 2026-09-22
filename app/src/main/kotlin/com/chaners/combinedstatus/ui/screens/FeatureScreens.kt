@@ -7,9 +7,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -50,12 +48,6 @@ import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Surface
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.blur.LayerBackdrop
-import top.yukonga.miuix.kmp.blur.drawBackdrop
-import top.yukonga.miuix.kmp.blur.highlight.Highlight
-import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
-import top.yukonga.miuix.kmp.blur.layerBackdrop
-import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
@@ -67,6 +59,7 @@ internal fun AppearanceScreen(
     settings: AppearanceSettings,
     onThemeModeChange: (AppThemeMode) -> Unit,
     onDynamicColorEnabledChange: (Boolean) -> Unit,
+    onFloatingNavigationBarEnabledChange: (Boolean) -> Unit,
     onFloatingNavigationBlurEnabledChange: (Boolean) -> Unit,
     onBack: () -> Unit,
 ) {
@@ -108,10 +101,17 @@ internal fun AppearanceScreen(
 
         Section(R.string.section_visual_effects) {
             SwitchPreference(
+                title = stringResource(R.string.floating_navigation_bar),
+                summary = stringResource(R.string.floating_navigation_bar_summary),
+                checked = settings.floatingNavigationBarEnabled,
+                onCheckedChange = onFloatingNavigationBarEnabledChange,
+            )
+            SwitchPreference(
                 title = stringResource(R.string.floating_navigation_blur),
                 summary = stringResource(R.string.floating_navigation_blur_summary),
                 checked = settings.floatingNavigationBlurEnabled,
                 onCheckedChange = onFloatingNavigationBlurEnabledChange,
+                enabled = settings.floatingNavigationBarEnabled,
             )
         }
     }
@@ -135,29 +135,6 @@ private fun AppearanceThemePreview(settings: AppearanceSettings) {
                 R.string.dynamic_color_off
             },
         )
-    val glassHighlightSupported = isRuntimeShaderSupported()
-    val isDark =
-        when (settings.themeMode) {
-            AppThemeMode.System -> isSystemInDarkTheme()
-            AppThemeMode.Light -> false
-            AppThemeMode.Dark -> true
-        }
-    val glassHighlight =
-        if (isDark) {
-            Highlight.GlassStrokeSmallDark
-        } else {
-            Highlight.GlassStrokeSmallLight
-        }
-    val previewSurfaceColor = MiuixTheme.colorScheme.surfaceContainer
-    val previewBackdrop =
-        if (glassHighlightSupported) {
-            rememberLayerBackdrop {
-                drawRect(previewSurfaceColor)
-                drawContent()
-            }
-        } else {
-            null
-        }
 
     Card(
         modifier =
@@ -166,95 +143,47 @@ private fun AppearanceThemePreview(settings: AppearanceSettings) {
                 .padding(bottom = 12.dp),
         insideMargin = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
     ) {
-        Box(
+        Row(
             modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (previewBackdrop != null) {
-                Box(
-                    modifier =
-                        Modifier
-                            .matchParentSize()
-                            .layerBackdrop(previewBackdrop),
+            Column(
+                modifier = Modifier.weight(1f),
+            ) {
+                Text(
+                    text = colorLabel,
+                    style = MiuixTheme.textStyles.body1,
+                    color = MiuixTheme.colorScheme.onSurfaceContainer,
+                )
+                Text(
+                    text = modeLabel,
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
                 )
             }
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Text(
-                        text = colorLabel,
-                        style = MiuixTheme.textStyles.body1,
-                        color = MiuixTheme.colorScheme.onSurfaceContainer,
-                    )
-                    Text(
-                        text = modeLabel,
-                        style = MiuixTheme.textStyles.body2,
-                        color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
-                    )
-                }
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    ThemeColorSwatch(
-                        color = MiuixTheme.colorScheme.primary,
-                        backdrop = previewBackdrop,
-                        highlight = glassHighlight,
-                    )
-                    ThemeColorSwatch(
-                        color = MiuixTheme.colorScheme.secondary,
-                        backdrop = previewBackdrop,
-                        highlight = glassHighlight,
-                    )
-                    ThemeColorSwatch(
-                        color = MiuixTheme.colorScheme.surfaceContainerHigh,
-                        backdrop = previewBackdrop,
-                        highlight = glassHighlight,
-                    )
-                }
+                ThemeColorSwatch(MiuixTheme.colorScheme.primary)
+                ThemeColorSwatch(MiuixTheme.colorScheme.secondary)
+                ThemeColorSwatch(MiuixTheme.colorScheme.surfaceContainerHigh)
             }
         }
     }
 }
 
 @Composable
-private fun ThemeColorSwatch(
-    color: Color,
-    backdrop: LayerBackdrop?,
-    highlight: Highlight,
-) {
-    val shape = RoundedCornerShape(7.dp)
-    val glassModifier =
-        if (backdrop != null) {
-            Modifier.drawBackdrop(
-                backdrop = backdrop,
-                shape = { shape },
-                effects = {},
-                highlight = { highlight },
-            )
-        } else {
-            Modifier
-        }
-
+private fun ThemeColorSwatch(color: Color) {
     Surface(
-        modifier =
-            Modifier
-                .size(24.dp)
-                .then(glassModifier),
-        shape = shape,
+        modifier = Modifier.size(24.dp),
+        shape = RoundedCornerShape(7.dp),
         color = color,
         border =
-            if (backdrop == null) {
-                BorderStroke(
-                    width = 1.dp,
-                    color = MiuixTheme.colorScheme.outline.copy(alpha = 0.3f),
-                )
-            } else {
-                null
-            },
+            BorderStroke(
+                width = 1.dp,
+                color = MiuixTheme.colorScheme.outline.copy(alpha = 0.3f),
+            ),
     ) {}
 }
 
