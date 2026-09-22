@@ -397,7 +397,7 @@ internal object CombinedStatusHomeRenderSession {
             sample: RuntimeRenderLatencySample?,
         ) -> Unit,
     ) : View(context) {
-        private val painter = LegacyCombinedStatusPainter()
+        private val painter = CombinedStatusPainter()
 
         @Volatile
         private var model: CombinedStatusRenderModel? = null
