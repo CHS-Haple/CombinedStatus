@@ -80,7 +80,6 @@ internal fun AppearanceScreen(
 
     SettingsPage(title = stringResource(R.string.appearance_title), onBack = onBack) {
         item {
-            SmallTitle(stringResource(R.string.theme_preview))
             AppearanceThemePreview(settings)
         }
 
@@ -170,13 +169,23 @@ private fun AppearanceThemePreview(settings: AppearanceSettings) {
                     color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
                 )
             }
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                ThemeColorSwatch(MiuixTheme.colorScheme.primary)
-                ThemeColorSwatch(MiuixTheme.colorScheme.secondary)
-                ThemeColorSwatch(MiuixTheme.colorScheme.surfaceContainerHigh)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    ThemeColorSwatch(MiuixTheme.colorScheme.primary)
+                    ThemeColorSwatch(MiuixTheme.colorScheme.secondary)
+                    ThemeColorSwatch(MiuixTheme.colorScheme.surfaceContainerHigh)
+                }
+                Text(
+                    modifier = Modifier.padding(top = 4.dp),
+                    text = stringResource(R.string.theme_preview),
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
+                )
             }
         }
     }

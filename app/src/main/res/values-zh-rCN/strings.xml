@@ -53,7 +53,7 @@
     <string name="dynamic_color_summary">根据系统壁纸生成应用配色</string>
     <string name="dynamic_color_on">动态配色</string>
     <string name="dynamic_color_off">默认配色</string>
-    <string name="theme_preview">配色预览</string>
+    <string name="theme_preview">当前配色</string>
     <string name="theme_preview_summary">%1$s · %2$s</string>
     <string name="section_visual_effects">界面效果</string>
     <string name="floating_navigation_bar">悬浮导航栏</string>

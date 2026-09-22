@@ -47,6 +47,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Debug owned-slot validation now records one matched pre/post geometry pair around the existing paddingStart write, including measured-width expansion, stable battery end-anchor delta, adjacent status-icon boundary movement, and neighbor-gap delta without adding hooks or continuous sampling.
 
 ### Changed
+- Appearance palette preview no longer uses a separate section title; its secondary "Current colors" label now sits directly beneath the three theme swatches using MIUIX body2 and onSurfaceContainerVariant styling.
 - Diagnostics level is now a persistent runtime preference rather than being presented as a direct alias of the APK build type; build type remains a separate capability boundary.
 - Diagnostics now uses an MIUIX device-information card hierarchy inspired by established HyperOS settings patterns: app details, live device/system values, module runtime, and report actions are separated clearly.
 - Device diagnostics now resolve the market device name, Android/API level, HyperOS incremental version with software-update suffix when available, and the installed SystemUI package version at runtime instead of showing a fixed platform label.
