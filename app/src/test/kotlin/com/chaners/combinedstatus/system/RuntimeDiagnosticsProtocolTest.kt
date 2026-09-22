@@ -133,6 +133,40 @@ class RuntimeDiagnosticsProtocolTest {
     }
 
     @Test
+    fun metricEventsDoNotReplaceHealthState() {
+        val lines =
+            listOf(
+                RuntimeDiagnosticsProtocol.format(
+                    event = "source.install",
+                    component = "network",
+                    state = "ready",
+                    fields = mapOf("hooks" to "4"),
+                ),
+                RuntimeDiagnosticsProtocol.format(
+                    event = "pipeline.latency",
+                    component = "network",
+                    state = "observed",
+                    fields =
+                        mapOf(
+                            "healthSnapshot" to "false",
+                            "sourceToDrawUs" to "1200",
+                        ),
+                ),
+            )
+
+        val network =
+            requireNotNull(
+                RuntimeHealthSnapshot
+                    .fromLines(lines)
+                    .component("network"),
+            )
+
+        assertEquals("ready", network.state)
+        assertEquals("source.install", network.event)
+        assertEquals("4", network.fields["hooks"])
+    }
+
+    @Test
     fun missingCoreComponentsNeverReportHealthy() {
         val snapshot =
             RuntimeHealthSnapshot.fromLines(
