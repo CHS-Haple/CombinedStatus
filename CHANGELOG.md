@@ -2,7 +2,7 @@
 
 All notable changes to CombinedStatus are documented in this file.
 
-The project follows a Keep a Changelog-style structure. Until the first formal release is published, `[Unreleased]` describes the **current net state intended for the initial 0.0.1 release**. Intermediate experiments, superseded implementations, CI-by-CI adjustments, and diagnostic investigation history belong in Git history or dedicated development documentation.
+The project follows a Keep a Changelog-style structure. During normal development before the first formal release, `[Unreleased]` describes the **current net state intended for the initial 0.0.1 release**. The final release-preparation commit freezes those changes into a dated version section immediately before publication. Intermediate experiments, superseded implementations, CI-by-CI adjustments, and diagnostic investigation history belong in Git history or dedicated development documentation.
 
 ## [Unreleased]
 
@@ -55,15 +55,9 @@ The project follows a Keep a Changelog-style structure. Until the first formal r
 
 ### Engineering
 
-- The repository now includes the official Gradle 9.7.1 Wrapper and uses it consistently in local/CI build guidance and workflows.
-- Stable release automation now fails closed unless it runs from `main` with a dated matching changelog section, and stable GitHub release notes are extracted from that section.
-- Public-repository hygiene now excludes common local signing, environment, and distributable artifact files from accidental commits.
-- Public contribution CI now validates pull requests without repository signing secrets; project-signed Debug/Canary artifacts remain limited to maintainer push workflows.
-- Public contribution guidance now standardizes the normal `dev` PR target, architecture-aware PR reporting, and private security reporting expectations.
-- Runtime architecture is moving toward explicit `Host -> HostSession -> owned resources` boundaries instead of global host-specific mutable state.
-- Long-lived runtime resources require explicit ownership and cleanup; SystemUI recreation, host replacement, and hot reload must not leave stale sessions active.
-- Live SystemUI properties follow a single-writer rule, and diagnostic observation does not implicitly grant CombinedStatus ownership of native geometry.
-- Native SystemUI layout geometry, CombinedStatus visual geometry, transition geometry, and optical adjustment are treated as separate responsibilities.
-- Compatibility-sensitive hooks are tied to verified members from the pinned HyperOS SystemUI `17.03.260226.r` target profile and validated against the live runtime when ownership matters.
-- Contributor rules now define MUST/SHOULD/MAY boundaries, fail-native fallback, reference-project limits, staged ownership migration, and changelog authoring discipline.
-- The staged ownership-migration gate prevents long-lived lifecycle responsibilities from accumulating indefinitely in `CombinedStatusModule`.
+- Public/reproducible development now uses the checked-in official Gradle 9.7.1 Wrapper, secret-free pull-request validation, hardened ignore rules for local signing/environment artifacts, and explicit third-party dependency notices.
+- Stable release automation is fail-closed: formal releases must come from a prepared `main` commit with a matching dated changelog section, pass target-profile/tests/Xposed-metadata/non-debuggable/signature checks, and use application release/build identity rather than CI run numbers for distributable APKs.
+- Runtime architecture is moving toward explicit `Host -> HostSession -> owned resources` boundaries with required cleanup across host replacement, SystemUI recreation, and hot reload.
+- Live SystemUI properties follow a single-writer rule; native layout geometry, CombinedStatus visual geometry, transition geometry, and optical adjustment remain separate responsibilities, and observation does not itself grant write ownership.
+- Compatibility-sensitive hooks are tied to verified members from the pinned HyperOS SystemUI `17.03.260226.r` target profile and are validated against the live runtime when ownership matters.
+- Contributor rules define MUST/SHOULD/MAY boundaries, fail-native fallback, staged ownership migration, changelog discipline, the normal `dev` contribution target, and private security-reporting expectations.
