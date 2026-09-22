@@ -23,11 +23,6 @@ internal object DiagnosticsReportBuilder {
     private const val ShareLogcatCommand =
         "logcat -d -b all -v threadtime -t 3000 | grep -F 'CombinedStatusShare' || true"
 
-    private const val ShareSystemLogCommand =
-        "logcat -d -b all -v threadtime -t 5000 | " +
-            "grep -Ei 'com\\.tencent\\.mobileqq|com\\.tencent\\.mm|Permission Denial|" +
-            "SecurityException|FileProvider|combinedstatus\\.fileprovider|No such file|ENOENT' || true"
-
     suspend fun build(context: Context): String {
         val environment = RuntimeEnvironmentInfo.resolve(context)
         val diagnosticsLevel = DiagnosticsSettingsRepository(context).currentLevel()
@@ -61,16 +56,6 @@ internal object DiagnosticsReportBuilder {
         )
         val shareLines = ShareDiagnosticsStore.read(context)
             .takeLast(ShareLogLineLimit)
-        val shareSystemLogResult = RootShell.execute(
-            command = ShareSystemLogCommand,
-            timeoutSeconds = LogTimeoutSeconds,
-        )
-        val shareSystemLines = shareSystemLogResult.output
-            .lineSequence()
-            .filter(String::isNotBlank)
-            .toList()
-            .takeLast(ShareLogLineLimit)
-
         val lineLimit =
             if (
                 diagnosticsLevel.name == "Detailed" &&
@@ -168,16 +153,6 @@ internal object DiagnosticsReportBuilder {
                 appendLine("No share diagnostic entries were available.")
             } else {
                 shareLines.forEach(::appendLine)
-            }
-            appendLine()
-            appendLine("[Share system log]")
-            appendLine("source=logcat")
-            appendLine("collection=" + collectionState(shareSystemLogResult))
-            appendLine("lines=" + shareSystemLines.size)
-            if (shareSystemLines.isEmpty()) {
-                appendLine("No relevant share-system entries were available.")
-            } else {
-                shareSystemLines.forEach(::appendLine)
             }
             appendLine()
             appendLine("[Report]")
