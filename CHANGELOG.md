@@ -54,6 +54,9 @@ The project follows a Keep a Changelog-style structure. Until the first formal r
 
 ### Engineering
 
+- The repository now includes the official Gradle 9.7.1 Wrapper and uses it consistently in local/CI build guidance and workflows.
+- Stable release automation now fails closed unless it runs from `main` with a dated matching changelog section, and stable GitHub release notes are extracted from that section.
+- Public-repository hygiene now excludes common local signing, environment, and distributable artifact files from accidental commits.
 - Public contribution CI now validates pull requests without repository signing secrets; project-signed Debug/Canary artifacts remain limited to maintainer push workflows.
 - Public contribution guidance now standardizes the normal `dev` PR target, architecture-aware PR reporting, and private security reporting expectations.
 - Runtime architecture is moving toward explicit `Host -> HostSession -> owned resources` boundaries instead of global host-specific mutable state.
