@@ -167,6 +167,43 @@ class RuntimeDiagnosticsProtocolTest {
     }
 
     @Test
+    fun completeHotReloadGenerationReportsHealthy() {
+        val coreComponents =
+            listOf(
+                "module",
+                "diagnostics",
+                "compatibility",
+                "statusHostHook",
+                "statusHost",
+                "network",
+                "airplane",
+                "tint",
+                "scene",
+                "stableStatus",
+                "renderer",
+                "runtimeSession",
+            )
+        val lines =
+            coreComponents.mapIndexed { index, component ->
+                RuntimeDiagnosticsProtocol.format(
+                    event = "hotReload.test",
+                    component = component,
+                    state = "ready",
+                    fields =
+                        mapOf(
+                            "sessionId" to "hot",
+                            "sequence" to (index + 1).toString(),
+                        ),
+                )
+            }
+
+        val snapshot = RuntimeHealthSnapshot.fromLines(lines)
+
+        assertEquals("healthy", snapshot.overall)
+        assertEquals("hot", snapshot.sessionId)
+    }
+
+    @Test
     fun missingCoreComponentsNeverReportHealthy() {
         val snapshot =
             RuntimeHealthSnapshot.fromLines(
