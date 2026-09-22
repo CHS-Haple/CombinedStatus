@@ -102,5 +102,16 @@
     "miuiStatusIcons": "com.android.systemui.statusbar.views.MiuiStatusIconContainer",
     "statusIcons": "com.android.systemui.statusbar.phone.StatusIconContainer",
     "batteryContainer": "com.android.systemui.statusbar.views.MiuiStatusBatteryContainer"
+  },
+  "sourceEnvironment": {
+    "manufacturer": "Xiaomi",
+    "model": "2410DPN6CC",
+    "codename": "haotian",
+    "androidVersion": 17,
+    "sdk": 37,
+    "hyperOsBaseVersion": "4.0.0.14.XOBCNXM",
+    "softwareUpdateRevision": "D01",
+    "fullBuild": "4.0.0.14.XOBCNXM.D01",
+    "note": "Environment metadata is descriptive provenance; systemUi.sha256 remains the exact artifact identity."
   }
 }

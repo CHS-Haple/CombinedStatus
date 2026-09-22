@@ -26,6 +26,18 @@ The project is under active development. Features in `dev` may still require rea
 
 Compatibility work is based on a pinned HyperOS SystemUI reference artifact instead of relying on the displayed SystemUI version alone.
 
+### Validated environment
+
+- Device: Xiaomi 2410DPN6CC (`haotian`)
+- Android: 17 / API 37
+- HyperOS base version: `4.0.0.14.XOBCNXM`
+- Software update revision: `D01`
+- Full device build: `4.0.0.14.XOBCNXM.D01`
+- SystemUI: `17.03.260226.r` (`202602260`)
+- SystemUI SHA-256: `a0e738e41fe599b97950cbf52a9e2ddc6ae2ceff986efbacb1c9840bea78768d`
+
+The device and HyperOS values describe the environment used for validation. Exact SystemUI compatibility identity is determined by the artifact fingerprint, not by device or version strings alone.
+
 ## Architecture
 
 The module keeps SystemUI responsible for host layout, lifecycle, and transition ownership wherever possible. CombinedStatus handles state normalization and presentation without replacing the surrounding SystemUI structure.
