@@ -10,14 +10,24 @@ import top.yukonga.miuix.kmp.theme.ThemeController
 @Composable
 internal fun CombinedStatusTheme(
     themeMode: AppThemeMode,
+    dynamicColorEnabled: Boolean,
     content: @Composable () -> Unit,
 ) {
-    val colorSchemeMode = when (themeMode) {
-        AppThemeMode.System -> ColorSchemeMode.System
-        AppThemeMode.Light -> ColorSchemeMode.Light
-        AppThemeMode.Dark -> ColorSchemeMode.Dark
-        AppThemeMode.Dynamic -> ColorSchemeMode.MonetSystem
-    }
+    val colorSchemeMode =
+        when {
+            dynamicColorEnabled && themeMode == AppThemeMode.System ->
+                ColorSchemeMode.MonetSystem
+            dynamicColorEnabled && themeMode == AppThemeMode.Light ->
+                ColorSchemeMode.MonetLight
+            dynamicColorEnabled && themeMode == AppThemeMode.Dark ->
+                ColorSchemeMode.MonetDark
+            themeMode == AppThemeMode.System ->
+                ColorSchemeMode.System
+            themeMode == AppThemeMode.Light ->
+                ColorSchemeMode.Light
+            else ->
+                ColorSchemeMode.Dark
+        }
     val controller = remember(colorSchemeMode) {
         ThemeController(colorSchemeMode = colorSchemeMode)
     }

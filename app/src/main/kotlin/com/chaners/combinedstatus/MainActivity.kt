@@ -50,13 +50,12 @@ class MainActivity : ComponentActivity() {
             val settings by repository.settings.collectAsState(initial = AppearanceSettings())
             val scope = rememberCoroutineScope()
             val systemDark = isSystemInDarkTheme()
-            val darkMode = when (settings.themeMode) {
-                AppThemeMode.Light -> false
-                AppThemeMode.Dark -> true
-                AppThemeMode.System,
-                AppThemeMode.Dynamic,
-                -> systemDark
-            }
+            val darkMode =
+                when (settings.themeMode) {
+                    AppThemeMode.Light -> false
+                    AppThemeMode.Dark -> true
+                    AppThemeMode.System -> systemDark
+                }
             var appLanguage by remember {
                 mutableStateOf(initialAppLanguage)
             }
@@ -76,6 +75,9 @@ class MainActivity : ComponentActivity() {
                 launcherIconHidden = launcherIconHidden,
                 onThemeModeChange = { mode ->
                     scope.launch { repository.setThemeMode(mode) }
+                },
+                onDynamicColorEnabledChange = { enabled ->
+                    scope.launch { repository.setDynamicColorEnabled(enabled) }
                 },
                 onFloatingNavigationBlurEnabledChange = { enabled ->
                     scope.launch { repository.setFloatingNavigationBlurEnabled(enabled) }

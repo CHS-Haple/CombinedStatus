@@ -6,9 +6,18 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -16,7 +25,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -35,39 +46,58 @@ import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.basic.Surface
+import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
 internal fun AppearanceScreen(
     settings: AppearanceSettings,
     onThemeModeChange: (AppThemeMode) -> Unit,
+    onDynamicColorEnabledChange: (Boolean) -> Unit,
     onFloatingNavigationBlurEnabledChange: (Boolean) -> Unit,
-    onSwipeBackEnabledChange: (Boolean) -> Unit,
     onBack: () -> Unit,
 ) {
-    val themeOptions = listOf(
-        stringResource(R.string.theme_system),
-        stringResource(R.string.theme_light),
-        stringResource(R.string.theme_dark),
-        stringResource(R.string.theme_dynamic),
-    )
+    val themeOptions =
+        listOf(
+            stringResource(R.string.theme_system),
+            stringResource(R.string.theme_light),
+            stringResource(R.string.theme_dark),
+        )
 
     SettingsPage(title = stringResource(R.string.appearance_title), onBack = onBack) {
+        item {
+            SmallTitle(stringResource(R.string.theme_preview))
+            AppearanceThemePreview(settings)
+        }
+
         Section(R.string.section_theme) {
             OverlayDropdownPreference(
                 items = themeOptions,
                 selectedIndex = settings.themeMode.ordinal,
                 title = stringResource(R.string.theme_mode),
                 summary = stringResource(R.string.theme_mode_summary),
-                showValue = false,
+                showValue = true,
                 onSelectedIndexChange = { index ->
-                    AppThemeMode.entries.getOrNull(index)?.let(onThemeModeChange)
+                    AppThemeMode.entries.getOrNull(index)?.let { mode ->
+                        if (mode != settings.themeMode) {
+                            onThemeModeChange(mode)
+                        }
+                    }
                 },
             )
+            SwitchPreference(
+                title = stringResource(R.string.dynamic_color),
+                summary = stringResource(R.string.dynamic_color_summary),
+                checked = settings.dynamicColorEnabled,
+                onCheckedChange = onDynamicColorEnabledChange,
+            )
         }
+
         Section(R.string.section_visual_effects) {
             SwitchPreference(
                 title = stringResource(R.string.floating_navigation_blur),
@@ -76,15 +106,77 @@ internal fun AppearanceScreen(
                 onCheckedChange = onFloatingNavigationBlurEnabledChange,
             )
         }
-        Section(R.string.section_navigation) {
-            SwitchPreference(
-                title = stringResource(R.string.swipe_back),
-                summary = stringResource(R.string.swipe_back_summary),
-                checked = settings.swipeBackEnabled,
-                onCheckedChange = onSwipeBackEnabledChange,
-            )
+    }
+}
+
+@Composable
+private fun AppearanceThemePreview(settings: AppearanceSettings) {
+    val modeLabel =
+        stringResource(
+            when (settings.themeMode) {
+                AppThemeMode.System -> R.string.theme_system
+                AppThemeMode.Light -> R.string.theme_light
+                AppThemeMode.Dark -> R.string.theme_dark
+            },
+        )
+    val colorLabel =
+        stringResource(
+            if (settings.dynamicColorEnabled) {
+                R.string.dynamic_color_on
+            } else {
+                R.string.dynamic_color_off
+            },
+        )
+
+    Card(
+        modifier =
+            Modifier
+                .padding(horizontal = 12.dp)
+                .padding(bottom = 12.dp),
+        insideMargin = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+            ) {
+                Text(
+                    text = colorLabel,
+                    style = MiuixTheme.textStyles.body1,
+                    color = MiuixTheme.colorScheme.onSurfaceContainer,
+                )
+                Text(
+                    text = modeLabel,
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
+                )
+            }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                ThemeColorSwatch(MiuixTheme.colorScheme.primary)
+                ThemeColorSwatch(MiuixTheme.colorScheme.secondary)
+                ThemeColorSwatch(MiuixTheme.colorScheme.surfaceContainerHigh)
+            }
         }
     }
+}
+
+@Composable
+private fun ThemeColorSwatch(color: Color) {
+    Surface(
+        modifier = Modifier.size(24.dp),
+        shape = RoundedCornerShape(7.dp),
+        color = color,
+        border =
+            BorderStroke(
+                width = 1.dp,
+                color = MiuixTheme.colorScheme.outline.copy(alpha = 0.3f),
+            ),
+    ) {}
 }
 
 @Composable

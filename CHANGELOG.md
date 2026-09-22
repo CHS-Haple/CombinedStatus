@@ -32,6 +32,11 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Deterministic signal parsing maps SystemUI mobile `signal_0..4` / `signal_null` and Wi-Fi `wifi_signal_0..3` resources to semantic levels, covered by local unit tests.
 
 ### Changed
+- Appearance now treats light/dark mode and dynamic color as independent preferences, including migration of the legacy Dynamic theme choice to System + dynamic color.
+- Appearance now uses a compact MIUIX theme-mode dropdown, separate dynamic-color switch, and a read-only palette preview with two-level state text and three real theme-token swatches.
+- The palette preview uses primary, secondary, and surfaceContainerHigh samples with a 1 dp MIUIX outline at 30% opacity for dark-mode separation.
+- Swipe-back is configured from the main Settings page and described as a page-level horizontal return gesture; Appearance remains focused on theme and interface effects.
+- Refined English and Simplified Chinese appearance copy, including theme-mode, dynamic-color, floating-navigation blur, and page-swipe-back wording.
 - Minimum Android version is Android 13 / API 33 to match the current MIUIX blur baseline.
 - Android compile and target SDK baseline is API 37.
 - Application JVM target is 21 to align with the MIUIX 0.9.4 navigation runtime.

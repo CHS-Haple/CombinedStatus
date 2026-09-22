@@ -28,12 +28,16 @@ internal fun CombinedStatusApp(
     appLanguage: AppLanguage,
     launcherIconHidden: Boolean,
     onThemeModeChange: (AppThemeMode) -> Unit,
+    onDynamicColorEnabledChange: (Boolean) -> Unit,
     onFloatingNavigationBlurEnabledChange: (Boolean) -> Unit,
     onSwipeBackEnabledChange: (Boolean) -> Unit,
     onAppLanguageChange: (AppLanguage) -> Unit,
     onLauncherIconHiddenChange: (Boolean) -> Unit,
 ) {
-    CombinedStatusTheme(themeMode = settings.themeMode) {
+    CombinedStatusTheme(
+        themeMode = settings.themeMode,
+        dynamicColorEnabled = settings.dynamicColorEnabled,
+    ) {
         val backStack = rememberNavBackStack<AppRoute>(AppRoute.Home)
         val swipeBackDirection = when {
             !settings.swipeBackEnabled -> NavSwipeDirection.None
@@ -70,6 +74,7 @@ internal fun CombinedStatusApp(
                     launcherIconHidden = launcherIconHidden,
                     onAppLanguageChange = onAppLanguageChange,
                     onLauncherIconHiddenChange = onLauncherIconHiddenChange,
+                    onSwipeBackEnabledChange = onSwipeBackEnabledChange,
                     onNavigate = ::navigate,
                 )
             }
@@ -77,9 +82,9 @@ internal fun CombinedStatusApp(
                 AppearanceScreen(
                     settings = settings,
                     onThemeModeChange = onThemeModeChange,
+                    onDynamicColorEnabledChange = onDynamicColorEnabledChange,
                     onFloatingNavigationBlurEnabledChange =
                         onFloatingNavigationBlurEnabledChange,
-                    onSwipeBackEnabledChange = onSwipeBackEnabledChange,
                     onBack = ::navigateBack,
                 )
             }
