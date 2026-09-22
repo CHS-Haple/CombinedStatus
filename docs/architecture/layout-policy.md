@@ -2,100 +2,109 @@
 
 ## Purpose
 
-CombinedStatus must support one visual/layout rule across Home, keyguard, AOD, and transition surfaces without copying geometry formulas into each scene.
+CombinedStatus keeps visual geometry separate from native SystemUI layout and transition ownership.
 
-This document defines the architectural boundary before any production slot mutation is introduced.
+This policy defines shared visual calculations for every scene so geometry rules do not drift into scene-specific hooks or compensation code.
 
-## Shared policy
+## Current render modes
 
-The shared policy owns:
-
-- user visual scale;
-- canonical/base visual size;
-- size-to-neighbor-gap scaling;
-- requested CombinedStatus slot width;
-- end/right anchoring;
-- centered vertical visual bounds.
-
-A scene must not reimplement these calculations.
-
-The current policy intentionally accepts base visual size and base neighbor gap as inputs. **No production default gap is locked yet.** That value will be calibrated only after a real owned-slot experiment proves how the adjacent native status icon reacts.
-
-## Scene capabilities
-
-A scene adapter supplies only host facts and capabilities.
-
-### OWNED_SLOT
-
-CombinedStatus is allowed to own a real layout slot. The applied slot width equals the globally requested slot width.
-
-This is the eventual target for a verified Home-stable implementation.
+The runtime currently supports two layout modes:
 
 ### PROJECTED
 
-CombinedStatus reuses the exact same global visual size, gap request, and end anchor, but the native slot width is preserved.
+CombinedStatus renders its visual against a verified native anchor while preserving the native SystemUI slot width.
 
-This is intended for surfaces where SystemUI owns geometry or transition motion and a visual projection is safer than mutating layout.
+In this mode:
+
+- `visualSidePx` describes the CombinedStatus drawing size;
+- `neighborGapPx` and `requestedSlotWidthPx` describe the desired visual/layout intent;
+- `appliedSlotWidthPx` remains the native slot width supplied by SystemUI;
+- the visual is end-anchored to the verified native anchor;
+- the policy does not grant permission to rewrite native measurement, layout, translation, or visibility.
+
+Home stable currently uses this mode.
 
 ### NATIVE_ONLY
 
-CombinedStatus does not render on that surface. The native slot and native motion remain authoritative.
+CombinedStatus does not render on the surface. Native SystemUI content and motion remain authoritative.
 
-Shade/Control Center handoff is a likely use case unless later runtime evidence proves a safer combined rendering path.
+Notification-shade transition, Control Center, keyguard, and AOD currently use this mode.
+
+## Shared geometry
+
+The shared policy owns only CombinedStatus-side calculations:
+
+- canonical/base visual size;
+- user visual scale;
+- desired neighbor gap;
+- requested visual slot width;
+- end/right visual anchoring;
+- vertically centered visual bounds.
+
+Scene adapters must not duplicate these formulas.
+
+The policy intentionally distinguishes:
+
+1. native SystemUI slot geometry;
+2. CombinedStatus visual geometry;
+3. transition/motion geometry;
+4. optical adjustment.
+
+A value from one responsibility must not silently become the control value for another.
+
+## Native slot preservation
+
+`CombinedStatusLayoutPolicy.resolve()` currently preserves `host.nativeSlotWidthPx` as the applied slot width.
+
+`requestedSlotWidthPx` is therefore not a production instruction to resize the native slot. It is a resolved CombinedStatus requirement that can be used for diagnostics, future capability evaluation, or a later explicitly owned layout contract.
+
+Any future change that makes requested width affect native SystemUI geometry must first establish a new ownership contract and pass the validation requirements below.
 
 ## Motion ownership
 
-Motion ownership is explicit and separate from size/layout policy:
+Motion ownership is independent from layout size:
 
-- `COMBINED_STATUS` — only for stable geometry that CombinedStatus actually owns.
-- `SYSTEM_UI` — SystemUI is already animating/positioning the surface.
+- `NONE` — no CombinedStatus-owned motion exists for the scene.
+- `SYSTEM_UI` — SystemUI owns positioning/transition motion.
+- `COMBINED_STATUS` — reserved for a future transition proven to be owned entirely by CombinedStatus.
 
-A scene whose motion owner is SystemUI must not add independent translation formulas, width-difference corrections, or endpoint compensation.
+A SystemUI-owned scene must not add independent translation formulas, width-difference corrections, or endpoint compensation.
 
-## Right/end-anchor invariant
+## End-anchor invariant
 
-Changing user scale expands or contracts the visual toward the leading/left side while keeping the end/right edge stable.
+Changing CombinedStatus visual scale should preserve the resolved end/right visual anchor.
 
-This is deliberate: a larger CombinedStatus visual should request more leading space and push neighboring icons through layout, rather than move the visual afterward with `translationX`.
+Scaling affects the CombinedStatus drawing bounds. It must not be implemented by moving the final result with an unrelated `translationX` correction.
 
 ## Neighbor gap
 
-The gap is part of the requested CombinedStatus slot and sits on the leading side of the visual.
+Neighbor gap is part of the CombinedStatus visual/layout requirement, but the current PROJECTED integration does not claim native neighbor-layout ownership.
 
-The initial pure policy scales this gap from one global base value together with user scale. If real-device validation later shows that a nonlinear or clamped gap feels better, that formula must still remain in this single policy rather than move into scene adapters.
+If a future native layout contract is established, the gap calculation must remain centralized here rather than being copied into individual scene adapters.
 
-## Historical anti-pattern to avoid
+## Rejected geometry pattern
 
-Static inspection of the P11BJ legacy implementation shows that its size path combined custom measured-dimension handling with later alignment compensation (including width-derived motion/alignment difference correction).
+Runtime validation previously showed that mutating native battery-slot geometry can expand or move more of the SystemUI layout than the requested CombinedStatus visual size and can leak effects into other scenes.
 
-That historical structure is intentionally **not** being carried forward. New CombinedStatus code must not implement the pattern:
+That experiment was removed.
 
-`custom measured width -> scene-specific width difference -> translation/alignment correction`
+The project must not return to the pattern:
 
-If a runtime integration cannot satisfy the shared resolved layout without a second scene-specific width/translation correction, the integration design must be reconsidered instead of adding another compensation layer.
+`custom native width -> scene-specific width difference -> translation/alignment compensation`
 
-## What build 83 does not do
+without new runtime evidence and an explicit ownership transfer.
 
-Build 83 does not:
+## Requirements before any future native geometry ownership
 
-- resize the current Home overlay;
-- hide native icons;
-- mutate `MiuiBatteryMeterView` width;
-- write any SystemUI translation;
-- add keyguard/AOD/Control Center rendering;
-- expose a user size setting.
+Before CombinedStatus may write native slot geometry, contributors must verify:
 
-It only establishes the reusable policy and tests its invariants before production integration.
+1. the exact owning SystemUI host and lifecycle;
+2. which component is the single writer for the affected property;
+3. the stable end anchor;
+4. adjacent-icon behavior when the slot changes;
+5. notification-shade, keyguard, AOD, Control Center, and island-transition behavior;
+6. restore/fallback behavior when CombinedStatus is unavailable or hidden;
+7. cleanup across host replacement, SystemUI recreation, and hot reload;
+8. that the change is safer than remaining PROJECTED.
 
-## Required validation before runtime integration
-
-Before an adapter may use `OWNED_SLOT`, verify:
-
-1. the owning Host and its lifecycle;
-2. the stable end anchor;
-3. adjacent-icon behavior when slot width changes;
-4. no duplicate ownership during shade/keyguard/AOD transitions;
-5. restore behavior when CombinedStatus becomes hidden;
-6. zero custom translation during SystemUI-owned motion.
-
-Any scene-specific exception must be documented with SystemUI artifact/runtime evidence before code is changed.
+Until those requirements are met, native SystemUI geometry remains authoritative.
