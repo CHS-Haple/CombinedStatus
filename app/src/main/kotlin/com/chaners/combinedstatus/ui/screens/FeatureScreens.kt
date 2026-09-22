@@ -35,6 +35,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.layout.Layout
@@ -457,7 +458,8 @@ private fun MiniNavigationPreview(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .height(90.dp),
+                .height(78.dp)
+                .clipToBounds(),
         contentAlignment = Alignment.TopCenter,
     ) {
         Box(
