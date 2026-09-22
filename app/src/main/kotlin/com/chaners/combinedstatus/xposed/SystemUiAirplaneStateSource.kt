@@ -58,6 +58,18 @@ internal object SystemUiAirplaneStateSource {
     }
 
     @Synchronized
+    fun detach() {
+        observer?.let { currentObserver ->
+            runCatching { resolver?.unregisterContentObserver(currentObserver) }
+        }
+        observer = null
+        resolver = null
+        onAirplaneMode = null
+        onEvent = null
+        lastState = null
+    }
+
+    @Synchronized
     private fun publish(source: String) {
         val currentResolver = resolver ?: return
         val enabled =

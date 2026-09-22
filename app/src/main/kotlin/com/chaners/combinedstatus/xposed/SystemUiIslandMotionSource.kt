@@ -103,6 +103,10 @@ internal object SystemUiIslandMotionSource {
 
     fun matches(handle: HookHandle): Boolean = handle.id == HOOK_ID
 
+    fun resetRuntimeState() {
+        OwnerProbe.reset()
+    }
+
     private object OwnerProbe {
         private var generation = 0
         private var activeRoot = WeakReference<View>(null)
@@ -168,6 +172,10 @@ internal object SystemUiIslandMotionSource {
                 },
                 DURATION_MS,
             )
+        }
+
+        fun reset() {
+            stop()
         }
 
         private fun stop() {

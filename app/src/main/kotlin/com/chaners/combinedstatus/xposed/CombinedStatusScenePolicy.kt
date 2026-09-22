@@ -26,7 +26,7 @@ internal object CombinedStatusScenePolicy {
             CombinedStatusScene.HOME_STABLE to
                 CombinedStatusSceneCapability(
                     scene = CombinedStatusScene.HOME_STABLE,
-                    renderMode = CombinedStatusRenderMode.OWNED_SLOT,
+                    renderMode = CombinedStatusRenderMode.PROJECTED,
                     motionOwnership = CombinedStatusMotionOwnership.NONE,
                     evidence = CombinedStatusSceneEvidence.RUNTIME_VERIFIED,
                 ),

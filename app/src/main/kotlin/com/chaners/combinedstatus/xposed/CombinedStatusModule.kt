@@ -156,6 +156,7 @@ class CombinedStatusModule : XposedModule() {
             TAG,
             "Hot reload preparing build=" + BuildConfig.BUILD_ID + " hooks=" + hookCount,
         )
+        teardownRuntimeResources("hotReload.prepare")
         unbindRuntimeDiagnostics()
         return true
     }
@@ -199,6 +200,9 @@ class CombinedStatusModule : XposedModule() {
             networkSourceHookCount = 0
             tintSourceInstalled = false
             islandMotionSourceInstalled = false
+            SystemUiNetworkStateSource.resetRuntimeState()
+            SystemUiTintStateSource.resetRuntimeState()
+            SystemUiIslandMotionSource.resetRuntimeState()
 
             val classLoader = statusHostHandle.executable.declaringClass.classLoader
                 ?: error("SystemUI class loader unavailable after hot reload")
@@ -217,7 +221,7 @@ class CombinedStatusModule : XposedModule() {
                 )
             }
             SystemUiHostRegistry.currentStatusHost()?.let { host ->
-                attachAirplaneStateSource(
+                attachHostRuntime(
                     host = host,
                     source = "hotReload",
                 )
@@ -521,29 +525,33 @@ class CombinedStatusModule : XposedModule() {
         CombinedStatusHomeRenderSession.onState(snapshot)
     }
 
-    private fun onStatusHostCaptured(capture: SystemUiHostRegistry.Capture) {
+    private fun teardownRuntimeResources(source: String) {
+        CombinedStatusHomeRenderSession.detach()
+        StatusBarStableSession.detach()
+        SystemUiAirplaneStateSource.detach()
+        SystemUiIslandMotionSource.resetRuntimeState()
+        airplaneObserverAttached = false
         logDiagnostic(
             level = Log.INFO,
-            event = "host.capture",
-            component = "statusHost",
+            event = "runtime.teardown",
+            component = "runtimeSession",
             state = "ready",
-            "identity" to capture.identity,
-            "replacement" to capture.replacement,
+            "source" to source,
+            "rendererDetached" to true,
+            "stableStatusDetached" to true,
+            "airplaneObserverDetached" to true,
         )
-        log(
-            Log.INFO,
-            TAG,
-            "statusHost captured id=" + capture.identity +
-                " replacement=" + capture.replacement,
-        )
-        attachAirplaneStateSource(
-            host = capture.host,
-            source = if (capture.replacement) "hostReplacement" else "hostCapture",
-        )
+    }
+
+    private fun attachHostRuntime(
+        host: Any,
+        source: String,
+    ) {
+        attachAirplaneStateSource(host = host, source = source)
 
         when (
             val stableSession = StatusBarStableSession.attach(
-                host = capture.host,
+                host = host,
                 onBatteryState = { state ->
                     CombinedStatusStateStore.updateBattery(state)?.let(::onCombinedStateChanged)
                 },
@@ -560,6 +568,7 @@ class CombinedStatusModule : XposedModule() {
                     event = "session.attach",
                     component = "stableStatus",
                     state = "ready",
+                    "source" to source,
                 )
             }
 
@@ -570,18 +579,14 @@ class CombinedStatusModule : XposedModule() {
                     component = "stableStatus",
                     state = "unavailable",
                     "reason" to stableSession.reason,
-                )
-                log(
-                    Log.WARN,
-                    TAG,
-                    "stableStatus unavailable reason=" + stableSession.reason,
+                    "source" to source,
                 )
             }
         }
 
         when (
             val renderSession = CombinedStatusHomeRenderSession.attach(
-                host = capture.host,
+                host = host,
                 onEvent = { event ->
                     if (detailedDiagnosticsEnabled) {
                         log(Log.INFO, TAG, event)
@@ -595,6 +600,7 @@ class CombinedStatusModule : XposedModule() {
                     event = "renderer.attach",
                     component = "renderer",
                     state = "ready",
+                    "source" to source,
                 )
             }
 
@@ -605,14 +611,39 @@ class CombinedStatusModule : XposedModule() {
                     component = "renderer",
                     state = "unavailable",
                     "reason" to renderSession.reason,
-                )
-                log(
-                    Log.WARN,
-                    TAG,
-                    "homeRender unavailable reason=" + renderSession.reason,
+                    "source" to source,
                 )
             }
         }
+
+        logDiagnostic(
+            level = Log.INFO,
+            event = "runtime.attach",
+            component = "runtimeSession",
+            state = "ready",
+            "source" to source,
+        )
+    }
+
+    private fun onStatusHostCaptured(capture: SystemUiHostRegistry.Capture) {
+        logDiagnostic(
+            level = Log.INFO,
+            event = "host.capture",
+            component = "statusHost",
+            state = "ready",
+            "identity" to capture.identity,
+            "replacement" to capture.replacement,
+        )
+        log(
+            Log.INFO,
+            TAG,
+            "statusHost captured id=" + capture.identity +
+                " replacement=" + capture.replacement,
+        )
+        attachHostRuntime(
+            host = capture.host,
+            source = if (capture.replacement) "hostReplacement" else "hostCapture",
+        )
 
         if (BuildConfig.DEVELOPMENT_PROBES) {
             SystemUiNativeStatusInventory.schedule(capture.host) { snapshot ->

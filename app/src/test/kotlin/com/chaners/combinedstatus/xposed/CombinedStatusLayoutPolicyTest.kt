@@ -19,36 +19,12 @@ class CombinedStatusLayoutPolicyTest {
     }
 
     @Test
-    fun ownedSlotAppliesTheSharedRequestedWidth() {
-        val layout = resolve(
-            scale = 1.2f,
-            renderMode = CombinedStatusRenderMode.OWNED_SLOT,
-        )
-
-        assertEquals(layout.requestedSlotWidthPx, layout.appliedSlotWidthPx, 0.001f)
-        assertEquals(
-            layout.visualSidePx + layout.neighborGapPx,
-            layout.appliedSlotWidthPx,
-            0.001f,
-        )
-    }
-
-    @Test
     fun projectedSceneKeepsNativeSlotButReusesTheSameVisualRule() {
-        val owned = resolve(
-            scale = 1.2f,
-            renderMode = CombinedStatusRenderMode.OWNED_SLOT,
-        )
-        val projected = resolve(
-            scale = 1.2f,
-            renderMode = CombinedStatusRenderMode.PROJECTED,
-        )
+        val projected = resolve(scale = 1.2f)
 
-        assertEquals(owned.visualSidePx, projected.visualSidePx, 0.001f)
-        assertEquals(owned.neighborGapPx, projected.neighborGapPx, 0.001f)
-        assertEquals(owned.requestedSlotWidthPx, projected.requestedSlotWidthPx, 0.001f)
         assertEquals(105f, projected.appliedSlotWidthPx, 0.001f)
-        assertEquals(owned.visualRightPx, projected.visualRightPx, 0.001f)
+        assertTrue(projected.requestedSlotWidthPx > projected.appliedSlotWidthPx)
+        assertEquals(587f, projected.visualRightPx, 0.001f)
     }
 
     @Test
@@ -66,35 +42,24 @@ class CombinedStatusLayoutPolicyTest {
 
     @Test
     fun sharedPolicyDoesNotChangeIdealGeometryBySceneCapability() {
-        val owned = resolve(
-            scale = 0.9f,
-            renderMode = CombinedStatusRenderMode.OWNED_SLOT,
-        )
-        val projected = resolve(
-            scale = 0.9f,
-            renderMode = CombinedStatusRenderMode.PROJECTED,
-            motionOwnership = CombinedStatusMotionOwnership.SYSTEM_UI,
-        )
+        val projected = resolve(scale = 0.9f)
         val nativeOnly = resolve(
             scale = 0.9f,
             renderMode = CombinedStatusRenderMode.NATIVE_ONLY,
             motionOwnership = CombinedStatusMotionOwnership.SYSTEM_UI,
         )
 
-        listOf(projected, nativeOnly).forEach { other ->
-            assertEquals(owned.visualSidePx, other.visualSidePx, 0.001f)
-            assertEquals(owned.neighborGapPx, other.neighborGapPx, 0.001f)
-            assertEquals(owned.requestedSlotWidthPx, other.requestedSlotWidthPx, 0.001f)
-            assertEquals(owned.visualLeftPx, other.visualLeftPx, 0.001f)
-            assertEquals(owned.visualRightPx, other.visualRightPx, 0.001f)
-        }
-        assertTrue(owned.renderCombined)
+        assertEquals(projected.visualSidePx, nativeOnly.visualSidePx, 0.001f)
+        assertEquals(projected.neighborGapPx, nativeOnly.neighborGapPx, 0.001f)
+        assertEquals(projected.requestedSlotWidthPx, nativeOnly.requestedSlotWidthPx, 0.001f)
+        assertEquals(projected.visualLeftPx, nativeOnly.visualLeftPx, 0.001f)
+        assertEquals(projected.visualRightPx, nativeOnly.visualRightPx, 0.001f)
         assertTrue(projected.renderCombined)
     }
 
     private fun resolve(
         scale: Float,
-        renderMode: CombinedStatusRenderMode = CombinedStatusRenderMode.OWNED_SLOT,
+        renderMode: CombinedStatusRenderMode = CombinedStatusRenderMode.PROJECTED,
         motionOwnership: CombinedStatusMotionOwnership =
             CombinedStatusMotionOwnership.NONE,
     ): CombinedStatusResolvedLayout =

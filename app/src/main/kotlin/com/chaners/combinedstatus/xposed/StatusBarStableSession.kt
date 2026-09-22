@@ -54,6 +54,12 @@ internal object StatusBarStableSession {
         return AttachResult.Ready
     }
 
+    @Synchronized
+    fun detach() {
+        current?.stop()
+        current = null
+    }
+
     private fun ViewGroup.directChild(className: String): ViewGroup? {
         for (index in 0 until childCount) {
             val child = getChildAt(index)

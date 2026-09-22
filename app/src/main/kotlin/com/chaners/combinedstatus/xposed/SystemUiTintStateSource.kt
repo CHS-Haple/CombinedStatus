@@ -98,6 +98,13 @@ internal object SystemUiTintStateSource {
     fun matches(handle: HookHandle): Boolean = handle.id == HOOK_ID
 
     @Synchronized
+    fun resetRuntimeState() {
+        lastStates.clear()
+        firstEventLogged.clear()
+        batteryPercentViewField = null
+    }
+
+    @Synchronized
     fun currentState(sourceView: View): CombinedStatusTintState? {
         lastStates[sourceView]?.let { return it }
         val field = batteryPercentViewField ?: return null

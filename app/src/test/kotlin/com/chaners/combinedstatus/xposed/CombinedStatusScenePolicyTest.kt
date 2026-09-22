@@ -17,18 +17,12 @@ class CombinedStatusScenePolicyTest {
     }
 
     @Test
-    fun homeStableIsTheOnlyInitialOwnedSlotCandidate() {
-        val owned =
-            CombinedStatusScenePolicy.all()
-                .filter { it.renderMode == CombinedStatusRenderMode.OWNED_SLOT }
+    fun homeStableUsesProjectedOverlayWithoutNativeSlotMutation() {
+        val home = CombinedStatusScenePolicy.capability(CombinedStatusScene.HOME_STABLE)
 
-        assertEquals(1, owned.size)
-        assertEquals(CombinedStatusScene.HOME_STABLE, owned.single().scene)
-        assertEquals(CombinedStatusMotionOwnership.NONE, owned.single().motionOwnership)
-        assertEquals(
-            CombinedStatusSceneEvidence.RUNTIME_VERIFIED,
-            owned.single().evidence,
-        )
+        assertEquals(CombinedStatusRenderMode.PROJECTED, home.renderMode)
+        assertEquals(CombinedStatusMotionOwnership.NONE, home.motionOwnership)
+        assertEquals(CombinedStatusSceneEvidence.RUNTIME_VERIFIED, home.evidence)
     }
 
     @Test
@@ -39,7 +33,7 @@ class CombinedStatusScenePolicyTest {
 
         assertTrue(systemUiOwned.isNotEmpty())
         systemUiOwned.forEach { capability ->
-            assertTrue(capability.renderMode != CombinedStatusRenderMode.OWNED_SLOT)
+            assertTrue(capability.renderMode in CombinedStatusRenderMode.entries)
         }
     }
 

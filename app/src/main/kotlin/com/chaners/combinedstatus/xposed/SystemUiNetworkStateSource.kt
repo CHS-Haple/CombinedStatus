@@ -321,13 +321,27 @@ internal object SystemUiNetworkStateSource {
             }
 
         val method =
-            candidates.singleOrNull()
-                ?: candidates.firstOrNull()
-                ?: throw NoSuchMethodException(
+            when (candidates.size) {
+                1 -> candidates.single()
+                0 -> throw NoSuchMethodException(
                     emitterClass.name + "#" + methodName + "(Object, <continuation>)",
                 )
+                else -> throw NoSuchMethodException(
+                    emitterClass.name + "#" + methodName +
+                        " is ambiguous candidates=" +
+                        candidates.joinToString(",") { candidate -> candidate.toGenericString() },
+                )
+            }
 
         return method.apply { isAccessible = true }
+    }
+
+    @Synchronized
+    fun resetRuntimeState() {
+        wifiRoots.clear()
+        mobileRoots.clear()
+        lastWifiEvents.clear()
+        lastMobileEvents.clear()
     }
 
     private inline fun <T> atStage(

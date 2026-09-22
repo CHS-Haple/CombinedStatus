@@ -1,7 +1,6 @@
 package com.chaners.combinedstatus.xposed
 
 internal enum class CombinedStatusRenderMode {
-    OWNED_SLOT,
     PROJECTED,
     NATIVE_ONLY,
 }
@@ -62,13 +61,7 @@ internal object CombinedStatusLayoutPolicy {
         val neighborGap = settings.baseNeighborGapPx * settings.userScale
         val requestedSlotWidth = visualSide + neighborGap
 
-        val appliedSlotWidth =
-            when (host.renderMode) {
-                CombinedStatusRenderMode.OWNED_SLOT -> requestedSlotWidth
-                CombinedStatusRenderMode.PROJECTED,
-                CombinedStatusRenderMode.NATIVE_ONLY,
-                -> host.nativeSlotWidthPx
-            }
+        val appliedSlotWidth = host.nativeSlotWidthPx
 
         val visualRight = host.endAnchorPx
         val visualLeft = visualRight - visualSide
