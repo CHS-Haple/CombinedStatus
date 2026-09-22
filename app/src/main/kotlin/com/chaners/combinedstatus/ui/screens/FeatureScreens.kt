@@ -37,11 +37,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import com.chaners.combinedstatus.BuildConfig
 import com.chaners.combinedstatus.R
@@ -85,7 +82,6 @@ import top.yukonga.miuix.kmp.icon.extended.Tune
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-import kotlin.math.roundToInt
 
 @Composable
 internal fun AppearanceScreen(
@@ -220,26 +216,21 @@ private fun AppearanceMiniPreview(
                 color = MiuixTheme.colorScheme.outline.copy(alpha = 0.18f),
             ),
     ) {
-        ScaledPreviewContent(
-            scale = MiniPreviewScale,
-            modifier = Modifier.fillMaxWidth(),
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 11.dp),
+            verticalArrangement = Arrangement.spacedBy(9.dp),
         ) {
-            Column(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 13.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                MiniPreviewHeader()
-                MiniSwitchSettingPreview()
-                MiniSliderSettingPreview()
-                MiniNavigationPreview(
-                    floating = settings.floatingNavigationBarEnabled,
-                    style = settings.floatingNavigationStyle,
-                    darkMode = darkMode,
-                )
-            }
+            MiniPreviewHeader()
+            MiniSwitchSettingPreview()
+            MiniSliderSettingPreview()
+            MiniNavigationPreview(
+                floating = settings.floatingNavigationBarEnabled,
+                style = settings.floatingNavigationStyle,
+                darkMode = darkMode,
+            )
         }
     }
 }
@@ -379,50 +370,6 @@ private fun MiniThemeSwatch(color: Color) {
     ) {}
 }
 
-private const val MiniPreviewScale = 0.82f
-
-@Composable
-private fun ScaledPreviewContent(
-    scale: Float,
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit,
-) {
-    Layout(
-        modifier = modifier,
-        content = content,
-    ) { measurables, constraints ->
-        val maxWidth =
-            if (constraints.hasBoundedWidth) {
-                (constraints.maxWidth / scale).roundToInt()
-            } else {
-                constraints.maxWidth
-            }
-        val placeable =
-            measurables.single().measure(
-                Constraints(
-                    minWidth = 0,
-                    maxWidth = maxWidth,
-                    minHeight = 0,
-                    maxHeight = Constraints.Infinity,
-                ),
-            )
-        val scaledHeight = (placeable.height * scale).roundToInt()
-        val layoutHeight =
-            scaledHeight.coerceIn(
-                constraints.minHeight,
-                if (constraints.hasBoundedHeight) constraints.maxHeight else scaledHeight,
-            )
-
-        layout(constraints.maxWidth, layoutHeight) {
-            placeable.placeRelativeWithLayer(0, 0) {
-                scaleX = scale
-                scaleY = scale
-                transformOrigin = TransformOrigin(0f, 0f)
-            }
-        }
-    }
-}
-
 @Composable
 private fun MiniNavigationPreview(
     floating: Boolean,
@@ -458,7 +405,7 @@ private fun MiniNavigationPreview(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .height(76.dp)
+                .height(70.dp)
                 .clipToBounds(),
         contentAlignment = Alignment.TopCenter,
     ) {
@@ -495,7 +442,7 @@ private fun MiniNavigationPreview(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .padding(top = 8.dp),
+                        .padding(top = 6.dp),
             ) {
                 FloatingNavigationBar(
                     modifier = floatingModifier,
