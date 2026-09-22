@@ -61,9 +61,10 @@ CombinedStatus is still pre-release software.
 
 - General and Detailed diagnostics levels independent from build type.
 - Bounded lifecycle, compatibility, state, rendering, topology, and geometry diagnostics.
-- Built-in feedback report export/share using LSPosed module logs with logcat fallback.
+- Built-in feedback report export/share using CombinedStatus-related LSPosed module logs with logcat fallback.
 - Explicit, user-confirmed SystemUI restart through bounded Root execution.
-- No resident logging service, polling loop, or continuous View-tree sampling.
+- No resident logging service, polling loop, continuous View-tree sampling, or intentional third-party-app log collection.
+- Privacy and diagnostic-data handling are documented in [PRIVACY.md](PRIVACY.md).
 
 #### Companion app
 
@@ -227,9 +228,10 @@ CombinedStatus 目前仍处于预发布阶段。
 
 - General / Detailed 两档诊断等级与构建类型相互独立。
 - 有边界的生命周期、兼容性、状态、渲染、拓扑和几何诊断。
-- 内置反馈报告导出/分享，优先读取 LSPosed 模块日志，并以 logcat 作为回退。
+- 内置反馈报告导出/分享，优先读取与 CombinedStatus 相关的 LSPosed 模块日志，并以 logcat 作为回退。
 - 可由用户明确确认后执行 SystemUI 重启，Root 操作保持有边界。
-- 不使用常驻日志服务、轮询循环或持续 View 树扫描。
+- 不使用常驻日志服务、轮询循环、持续 View 树扫描，也不主动收集无关第三方应用日志。
+- 隐私与诊断数据处理说明见 [PRIVACY.md](PRIVACY.md)。
 
 #### 配套应用
 
