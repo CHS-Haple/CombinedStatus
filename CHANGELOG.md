@@ -54,6 +54,8 @@ The project follows a Keep a Changelog-style structure. Until the first formal r
 
 ### Engineering
 
+- Public contribution CI now validates pull requests without repository signing secrets; project-signed Debug/Canary artifacts remain limited to maintainer push workflows.
+- Public contribution guidance now standardizes the normal `dev` PR target, architecture-aware PR reporting, and private security reporting expectations.
 - Runtime architecture is moving toward explicit `Host -> HostSession -> owned resources` boundaries instead of global host-specific mutable state.
 - Long-lived runtime resources require explicit ownership and cleanup; SystemUI recreation, host replacement, and hot reload must not leave stale sessions active.
 - Live SystemUI properties follow a single-writer rule, and diagnostic observation does not implicitly grant CombinedStatus ownership of native geometry.
