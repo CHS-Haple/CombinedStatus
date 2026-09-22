@@ -13,10 +13,10 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
@@ -135,7 +135,10 @@ private fun AppearanceThemePreview(settings: AppearanceSettings) {
                 .padding(bottom = 12.dp),
         insideMargin = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
     ) {
-        Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text(
                 text =
                     stringResource(
@@ -143,17 +146,17 @@ private fun AppearanceThemePreview(settings: AppearanceSettings) {
                         modeLabel,
                         colorLabel,
                     ),
+                modifier = Modifier.weight(1f),
                 style = MiuixTheme.textStyles.body2,
                 color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
             )
-            Spacer(modifier = Modifier.height(12.dp))
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 ThemeColorSwatch(MiuixTheme.colorScheme.primary)
                 ThemeColorSwatch(MiuixTheme.colorScheme.secondary)
-                ThemeColorSwatch(MiuixTheme.colorScheme.primaryContainer)
+                ThemeColorSwatch(MiuixTheme.colorScheme.surfaceContainerHigh)
             }
         }
     }
