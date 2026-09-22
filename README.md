@@ -1,5 +1,12 @@
 # CombinedStatus
 
+[![Build](https://github.com/CHS-Haple/CombinedStatus/actions/workflows/build.yml/badge.svg?branch=dev)](https://github.com/CHS-Haple/CombinedStatus/actions/workflows/build.yml)
+![Android 13+](https://img.shields.io/badge/Android-13%2B-3DDC84?logo=android&logoColor=white)
+![Modern Xposed API 102](https://img.shields.io/badge/Modern%20Xposed%20API-102-3F51B5)
+![MIUIX 0.9.4](https://img.shields.io/badge/MIUIX-0.9.4-FF6900)
+![Kotlin 2.4.20](https://img.shields.io/badge/Kotlin-2.4.20-7F52FF?logo=kotlin&logoColor=white)
+![Status: pre-release](https://img.shields.io/badge/status-pre--release-orange)
+
 [English](#english) | [简体中文](#简体中文)
 
 ---
@@ -56,6 +63,25 @@ Compatibility is validated against the exact target SystemUI rather than inferre
 - English and Simplified Chinese.
 - Android 13+ per-app language selection.
 - Optional launcher-icon hiding while retaining a non-launcher app entry point.
+
+### Architecture
+
+CombinedStatus separates the **state/rendering flow** from **lifecycle ownership** so a visual change does not implicitly become a SystemUI lifecycle or geometry owner.
+
+```mermaid
+flowchart LR
+    A["Android / HyperOS events"] --> B["State sources"]
+    B --> C["Combined domain state"]
+    C --> D["Scene / presentation policy"]
+    D --> E["Renderer"]
+    E --> F["CombinedStatus view"]
+
+    H["SystemUI host"] --> S["Host/session boundary"]
+    S --> R["Owned listeners / observers / render target"]
+    R --> X["Dispose / replace"]
+```
+
+The upper path represents the current state-to-render flow. The lower path represents the ownership model being progressively enforced during the ongoing runtime migration: host-specific resources should be created, replaced, and disposed within an explicit host/session boundary.
 
 ### Design principles
 
@@ -184,6 +210,25 @@ CombinedStatus 当前面向：
 - 支持英文和简体中文。
 - Android 13+ 支持应用内语言选择。
 - 可隐藏桌面图标，同时保留非桌面入口。
+
+### 架构
+
+CombinedStatus 将**状态/渲染链**与**生命周期所有权**分开处理，避免一个视觉修改顺带接管 SystemUI 的生命周期或原生几何。
+
+```mermaid
+flowchart LR
+    A["Android / HyperOS 事件"] --> B["状态源"]
+    B --> C["Combined 领域状态"]
+    C --> D["场景 / 展示策略"]
+    D --> E["渲染器"]
+    E --> F["CombinedStatus View"]
+
+    H["SystemUI Host"] --> S["Host / Session 边界"]
+    S --> R["受管监听 / Observer / 渲染目标"]
+    R --> X["释放 / 替换"]
+```
+
+上方表示当前的状态到渲染链；下方表示正在渐进落实的 ownership 迁移方向：Host 相关资源应在明确的 Host / Session 边界内创建、替换和释放，而不是重新堆回全局模块状态。
 
 ### 设计原则
 
