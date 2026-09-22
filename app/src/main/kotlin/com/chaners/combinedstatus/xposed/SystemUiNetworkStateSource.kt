@@ -47,6 +47,7 @@ internal object SystemUiNetworkStateSource {
     private const val WIFI_BIND_HOOK_ID = "combinedstatus.network.wifi.bind"
     private const val WIFI_ICON_HOOK_ID = "combinedstatus.network.wifi.icon"
     private const val WIFI_ICON_COLLECTOR_CLASS_ID = 1
+    private const val MAX_PARENT_CHAIN_DEPTH = 8
     private const val MOBILE_BIND_HOOK_ID = "combinedstatus.network.mobile.bind"
     private const val MOBILE_SIGNAL_HOOK_ID = "combinedstatus.network.mobile.signal"
 
@@ -337,12 +338,34 @@ internal object SystemUiNetworkStateSource {
     }
 
     @Synchronized
-    fun resetRuntimeState() {
-        wifiRoots.clear()
-        mobileRoots.clear()
+    fun resetEventState() {
         lastWifiEvents.clear()
         lastMobileEvents.clear()
     }
+
+    @Synchronized
+    fun bindingTopologyLines(): List<String> =
+        buildList {
+            wifiRoots.keys.forEach { root ->
+                add(
+                    "nativeSlot binding=wifi root=" + root.javaClass.simpleName +
+                        " rootId=" + resourceId(root) +
+                        " parentChain=" + parentChain(root) +
+                        " layout=" + layoutToken(root) +
+                        " geometryWrites=0",
+                )
+            }
+            mobileRoots.forEach { (root, subscriptionId) ->
+                add(
+                    "nativeSlot binding=mobile subId=" + subscriptionId +
+                        " root=" + root.javaClass.simpleName +
+                        " rootId=" + resourceId(root) +
+                        " parentChain=" + parentChain(root) +
+                        " layout=" + layoutToken(root) +
+                        " geometryWrites=0",
+                )
+            }
+        }
 
     private inline fun <T> atStage(
         stage: String,
@@ -388,7 +411,11 @@ internal object SystemUiNetworkStateSource {
                         "stage=beforeProceed " +
                         "root=" + root.javaClass.simpleName +
                         " rootId=" + resourceId(root) +
-                        " vm=" + viewModel.javaClass.simpleName,
+                        " vm=" + viewModel.javaClass.simpleName +
+                        " nativeSlotCandidate=true " +
+                        " parentChain=" + parentChain(root) +
+                        " layout=" + layoutToken(root) +
+                        " geometryWrites=0",
                 )
             }
         }
@@ -491,7 +518,11 @@ internal object SystemUiNetworkStateSource {
                         " rootId=" + resourceId(root) +
                         " locationVm=" + locationViewModel.javaClass.simpleName +
                         " subId=" + subscriptionId +
-                        " iconVm=" + (iconViewModel?.javaClass?.simpleName ?: "none")
+                        " iconVm=" + (iconViewModel?.javaClass?.simpleName ?: "none") +
+                        " nativeSlotCandidate=true " +
+                        " parentChain=" + parentChain(root) +
+                        " layout=" + layoutToken(root) +
+                        " geometryWrites=0"
             }
         }
 
@@ -608,6 +639,29 @@ internal object SystemUiNetworkStateSource {
             current = current.parent as? View
         }
         return null
+    }
+
+    private fun parentChain(view: View): String =
+        buildList {
+            var current: View? = view
+            repeat(MAX_PARENT_CHAIN_DEPTH) {
+                val value = current ?: return@repeat
+                add(
+                    value.javaClass.simpleName +
+                        "[" + resourceId(value) + "]",
+                )
+                current = value.parent as? View
+            }
+        }.joinToString(">")
+
+    private fun layoutToken(view: View): String {
+        val params = view.layoutParams
+        return if (params == null) {
+            "none"
+        } else {
+            params.width.toString() + "x" + params.height +
+                ":measured=" + view.measuredWidth + "x" + view.measuredHeight
+        }
     }
 
     private fun visibilityName(visibility: Int): String = when (visibility) {

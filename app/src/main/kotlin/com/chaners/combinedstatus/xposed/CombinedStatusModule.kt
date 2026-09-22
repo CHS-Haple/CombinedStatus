@@ -18,6 +18,7 @@ class CombinedStatusModule : XposedModule() {
     private var networkSourceHookCount = 0
     private var airplaneObserverAttached = false
     private var tintSourceInstalled = false
+    private var sceneSourceInstalled = false
     private var islandMotionSourceInstalled = false
     private var diagnosticsPreferences: SharedPreferences? = null
 
@@ -108,6 +109,10 @@ class CombinedStatusModule : XposedModule() {
                 classLoader = param.classLoader,
                 source = "coldStart",
             )
+            installSceneStateSource(
+                classLoader = param.classLoader,
+                source = "coldStart",
+            )
             if (BuildConfig.RUNTIME_DIAGNOSTICS) {
                 installIslandMotionSource(
                     classLoader = param.classLoader,
@@ -135,6 +140,11 @@ class CombinedStatusModule : XposedModule() {
                 networkSourceHookCount +
                 if (tintSourceInstalled) {
                     SystemUiTintStateSource.HOOK_COUNT
+                } else {
+                    0
+                } +
+                if (sceneSourceInstalled) {
+                    SystemUiSceneStateSource.HOOK_COUNT
                 } else {
                     0
                 } +
@@ -199,10 +209,21 @@ class CombinedStatusModule : XposedModule() {
             statusHostHookInstalled = true
             networkSourceHookCount = 0
             tintSourceInstalled = false
+            sceneSourceInstalled = false
             islandMotionSourceInstalled = false
-            SystemUiNetworkStateSource.resetRuntimeState()
+            SystemUiNetworkStateSource.resetEventState()
             SystemUiTintStateSource.resetRuntimeState()
+            SystemUiSceneStateSource.resetRuntimeState()
             SystemUiIslandMotionSource.resetRuntimeState()
+            bindRuntimeDiagnostics()
+            logDiagnostic(
+                level = Log.INFO,
+                event = "module.reloaded",
+                component = "module",
+                state = "ready",
+                "build" to BuildConfig.BUILD_ID,
+                "channel" to BuildConfig.BUILD_CHANNEL,
+            )
 
             val classLoader = statusHostHandle.executable.declaringClass.classLoader
                 ?: error("SystemUI class loader unavailable after hot reload")
@@ -211,6 +232,10 @@ class CombinedStatusModule : XposedModule() {
                 source = "hotReload",
             )
             installTintStateSource(
+                classLoader = classLoader,
+                source = "hotReload",
+            )
+            installSceneStateSource(
                 classLoader = classLoader,
                 source = "hotReload",
             )
@@ -507,6 +532,49 @@ class CombinedStatusModule : XposedModule() {
         }
     }
 
+    private fun installSceneStateSource(
+        classLoader: ClassLoader,
+        source: String,
+    ) {
+        runCatching {
+            SystemUiSceneStateSource.install(
+                module = this,
+                classLoader = classLoader,
+                onSceneState = CombinedStatusHomeRenderSession::onSceneUpdate,
+                onEvent = if (BuildConfig.RUNTIME_DIAGNOSTICS) ::onSceneSourceEvent else null,
+            )
+        }.onSuccess { handles ->
+            sceneSourceInstalled = handles.size == SystemUiSceneStateSource.HOOK_COUNT
+            logDiagnostic(
+                level = if (sceneSourceInstalled) Log.INFO else Log.WARN,
+                event = "source.install",
+                component = "scene",
+                state = if (sceneSourceInstalled) "ready" else "partial",
+                "hooks" to handles.size,
+                "expectedHooks" to SystemUiSceneStateSource.HOOK_COUNT,
+                "source" to source,
+                "nativeGeometryWrites" to 0,
+            )
+        }.onFailure { error ->
+            sceneSourceInstalled = false
+            logDiagnostic(
+                level = Log.ERROR,
+                event = "source.install",
+                component = "scene",
+                state = "error",
+                "reason" to (error.message ?: error.javaClass.simpleName),
+                "source" to source,
+            )
+            log(Log.ERROR, TAG, "Scene state source installation failed", error)
+        }
+    }
+
+    private fun onSceneSourceEvent(event: String) {
+        if (detailedDiagnosticsEnabled) {
+            log(Log.INFO, TAG, event)
+        }
+    }
+
     private fun onTintSourceEvent(event: String) {
         if (detailedDiagnosticsEnabled) {
             log(Log.INFO, TAG, event)
@@ -616,6 +684,8 @@ class CombinedStatusModule : XposedModule() {
             }
         }
 
+        scheduleNativeSlotProbe(host = host, source = source)
+
         logDiagnostic(
             level = Log.INFO,
             event = "runtime.attach",
@@ -623,6 +693,48 @@ class CombinedStatusModule : XposedModule() {
             state = "ready",
             "source" to source,
         )
+    }
+
+    private fun scheduleNativeSlotProbe(
+        host: Any,
+        source: String,
+    ) {
+        if (
+            !BuildConfig.DEVELOPMENT_PROBES &&
+            !(BuildConfig.RUNTIME_DIAGNOSTICS && detailedDiagnosticsEnabled)
+        ) {
+            return
+        }
+
+        SystemUiNetworkStateSource.bindingTopologyLines().forEach { line ->
+            log(Log.INFO, TAG, line)
+        }
+
+        SystemUiNativeStatusInventory.schedule(host) { snapshot ->
+            log(Log.INFO, TAG, snapshot.summary)
+            log(Log.INFO, TAG, snapshot.hostLine)
+            snapshot.entries.forEach { entry ->
+                log(Log.INFO, TAG, entry.logLine)
+            }
+            snapshot.statusIconSubtree?.let { subtree ->
+                log(Log.INFO, TAG, subtree.summary)
+                subtree.entries.forEach { entry ->
+                    log(Log.INFO, TAG, entry.logLine)
+                }
+                logDiagnostic(
+                    level = Log.INFO,
+                    event = "slot.probe",
+                    component = "nativeSlot",
+                    state = "observed",
+                    "source" to source,
+                    "root" to subtree.rootClassName,
+                    "children" to subtree.rootChildCount,
+                    "nodes" to subtree.entries.size,
+                    "truncated" to subtree.truncated,
+                    "nativeGeometryWrites" to 0,
+                )
+            }
+        }
     }
 
     private fun onStatusHostCaptured(capture: SystemUiHostRegistry.Capture) {
@@ -645,21 +757,6 @@ class CombinedStatusModule : XposedModule() {
             source = if (capture.replacement) "hostReplacement" else "hostCapture",
         )
 
-        if (BuildConfig.DEVELOPMENT_PROBES) {
-            SystemUiNativeStatusInventory.schedule(capture.host) { snapshot ->
-                log(Log.INFO, TAG, snapshot.summary)
-                log(Log.INFO, TAG, snapshot.hostLine)
-                snapshot.entries.forEach { entry ->
-                    log(Log.INFO, TAG, entry.logLine)
-                }
-                snapshot.statusIconSubtree?.let { subtree ->
-                    log(Log.INFO, TAG, subtree.summary)
-                    subtree.entries.forEach { entry ->
-                        log(Log.INFO, TAG, entry.logLine)
-                    }
-                }
-            }
-        }
     }
 
     private fun bindRuntimeDiagnostics() {

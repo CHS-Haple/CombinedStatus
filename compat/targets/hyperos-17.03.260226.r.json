@@ -72,6 +72,12 @@
       "className": "com.android.systemui.statusbar.pipeline.wifi.ui.binder.MiuiWifiViewBinder$bind$1$1$2$1",
       "methodName": "emit",
       "descriptor": "(Ljava/lang/Object;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;"
+    },
+    "batteryStatusBarState": {
+      "sourceArtifact": "systemUi",
+      "className": "com.android.systemui.statusbar.views.MiuiBatteryMeterView",
+      "methodName": "updateState",
+      "descriptor": "(I)V"
     }
   },
   "verifiedSystemUiMethods": {
@@ -91,6 +97,9 @@
     ],
     "com.android.systemui.statusbar.pipeline.wifi.ui.binder.MiuiWifiViewBinder$bind$1$1$2$1": [
       "emit(Ljava/lang/Object;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;"
+    ],
+    "com.android.systemui.statusbar.views.MiuiBatteryMeterView": [
+      "updateState(I)V"
     ]
   },
   "nativeStatusViews": {
@@ -102,5 +111,10 @@
     "miuiStatusIcons": "com.android.systemui.statusbar.views.MiuiStatusIconContainer",
     "statusIcons": "com.android.systemui.statusbar.phone.StatusIconContainer",
     "batteryContainer": "com.android.systemui.statusbar.views.MiuiStatusBatteryContainer"
+  },
+  "verifiedSystemUiFields": {
+    "com.android.systemui.statusbar.views.MiuiBatteryMeterView": [
+      "mStatusBarState"
+    ]
   }
 }

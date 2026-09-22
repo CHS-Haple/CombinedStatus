@@ -47,14 +47,14 @@ internal object CombinedStatusScenePolicy {
             CombinedStatusScene.KEYGUARD to
                 CombinedStatusSceneCapability(
                     scene = CombinedStatusScene.KEYGUARD,
-                    renderMode = CombinedStatusRenderMode.PROJECTED,
+                    renderMode = CombinedStatusRenderMode.NATIVE_ONLY,
                     motionOwnership = CombinedStatusMotionOwnership.SYSTEM_UI,
                     evidence = CombinedStatusSceneEvidence.STATIC_VERIFIED,
                 ),
             CombinedStatusScene.AOD to
                 CombinedStatusSceneCapability(
                     scene = CombinedStatusScene.AOD,
-                    renderMode = CombinedStatusRenderMode.PROJECTED,
+                    renderMode = CombinedStatusRenderMode.NATIVE_ONLY,
                     motionOwnership = CombinedStatusMotionOwnership.SYSTEM_UI,
                     evidence = CombinedStatusSceneEvidence.STATIC_VERIFIED,
                 ),

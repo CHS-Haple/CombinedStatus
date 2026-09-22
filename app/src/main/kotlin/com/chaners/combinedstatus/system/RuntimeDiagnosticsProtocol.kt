@@ -54,8 +54,10 @@ internal data class RuntimeHealthSnapshot(
                 "network",
                 "airplane",
                 "tint",
+                "scene",
                 "stableStatus",
                 "renderer",
+                "runtimeSession",
                 "islandMotion",
                 "hotReload",
             )
@@ -70,8 +72,10 @@ internal data class RuntimeHealthSnapshot(
                 "network",
                 "airplane",
                 "tint",
+                "scene",
                 "stableStatus",
                 "renderer",
+                "runtimeSession",
             )
 
         fun fromLines(lines: List<String>): RuntimeHealthSnapshot {

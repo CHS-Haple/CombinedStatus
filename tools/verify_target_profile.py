@@ -10,6 +10,7 @@ PROBE_PATH = ROOT / "app" / "src" / "main" / "kotlin" / "com" / "chaners" / "com
 STATUS_HOST_CAPTURE_PATH = ROOT / "app" / "src" / "main" / "kotlin" / "com" / "chaners" / "combinedstatus" / "xposed" / "StatusBarHostCapture.kt"
 NATIVE_STATUS_INVENTORY_PATH = ROOT / "app" / "src" / "main" / "kotlin" / "com" / "chaners" / "combinedstatus" / "xposed" / "SystemUiNativeStatusInventory.kt"
 NETWORK_STATE_SOURCE_PATH = ROOT / "app" / "src" / "main" / "kotlin" / "com" / "chaners" / "combinedstatus" / "xposed" / "SystemUiNetworkStateSource.kt"
+SCENE_STATE_SOURCE_PATH = ROOT / "app" / "src" / "main" / "kotlin" / "com" / "chaners" / "combinedstatus" / "xposed" / "SystemUiSceneStateSource.kt"
 
 HEX_LENGTHS = {"md5": 32, "sha1": 40, "sha256": 64}
 
@@ -117,6 +118,35 @@ for hook_name, (class_constant, method_constant) in network_source_hook_constant
         fail(f"network state source class drifted from profile: {hook_name}")
     if method_match.group(1) != hook_point.get("methodName"):
         fail(f"network state source method drifted from profile: {hook_name}")
+
+scene_hook = hook_points.get("batteryStatusBarState")
+if not isinstance(scene_hook, dict):
+    fail("missing batteryStatusBarState hook point")
+
+scene_source_text = SCENE_STATE_SOURCE_PATH.read_text(encoding="utf-8")
+scene_class = re.search(
+    r'BATTERY_VIEW_CLASS_NAME\s*=\s*\n?\s*"([^"]+)"',
+    scene_source_text,
+)
+scene_method = re.search(
+    r'UPDATE_STATE_METHOD_NAME\s*=\s*"([^"]+)"',
+    scene_source_text,
+)
+scene_field = re.search(
+    r'STATUS_BAR_STATE_FIELD_NAME\s*=\s*"([^"]+)"',
+    scene_source_text,
+)
+if not scene_class or not scene_method or not scene_field:
+    fail("scene state source constants are missing")
+if scene_class.group(1) != scene_hook.get("className"):
+    fail("scene state source class drifted from profile")
+if scene_method.group(1) != scene_hook.get("methodName"):
+    fail("scene state source method drifted from profile")
+
+verified_fields = profile.get("verifiedSystemUiFields", {})
+if scene_field.group(1) not in set(verified_fields.get(scene_class.group(1), [])):
+    fail("scene state source field is not verified in the SystemUI APK")
+
 
 native_status_views = profile.get("nativeStatusViews", {})
 expected_native_roles = {"mobileNetwork", "wifi", "battery"}

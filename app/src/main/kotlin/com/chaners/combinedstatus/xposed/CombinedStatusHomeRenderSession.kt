@@ -60,6 +60,11 @@ internal object CombinedStatusHomeRenderSession {
     }
 
     @Synchronized
+    fun onSceneUpdate(update: SystemUiSceneStateSource.SceneUpdate) {
+        current?.updateScene(update)
+    }
+
+    @Synchronized
     fun detach() {
         current?.stop()
         current = null
@@ -99,6 +104,7 @@ internal object CombinedStatusHomeRenderSession {
         private var rejectedTintLogged = false
         private var stableModel: CombinedStatusRenderModel? = null
         private var stableTint: CombinedStatusTintState? = null
+        private var sceneSurface = SystemUiSceneStateSource.Surface.UNKNOWN
         private val anchorRect = Rect()
 
         private val batteryLayoutListener =
@@ -132,7 +138,11 @@ internal object CombinedStatusHomeRenderSession {
 
             hostView.addOnAttachStateChangeListener(this)
             battery.addOnLayoutChangeListener(batteryLayoutListener)
+            probeView.visibility = View.GONE
             hostView.overlay.add(probeView)
+            SystemUiSceneStateSource.currentState(battery)?.let {
+                applySceneState(it, "seed")
+            }
             SystemUiTintStateSource.currentState(battery)?.let {
                 applyTintState(it, "seed")
             }
@@ -143,6 +153,39 @@ internal object CombinedStatusHomeRenderSession {
             host.get()?.removeOnAttachStateChangeListener(this)
             batteryView.get()?.removeOnLayoutChangeListener(batteryLayoutListener)
             host.get()?.overlay?.remove(probeView)
+        }
+
+        fun updateScene(update: SystemUiSceneStateSource.SceneUpdate) {
+            val battery = batteryView.get() ?: return
+            if (update.sourceView !== battery) {
+                return
+            }
+            applySceneState(update, "updateState")
+        }
+
+        private fun applySceneState(
+            update: SystemUiSceneStateSource.SceneUpdate,
+            source: String,
+        ) {
+            if (sceneSurface == update.surface) {
+                return
+            }
+
+            sceneSurface = update.surface
+            val visible = SystemUiSceneStateSource.allowsHomeOverlay(update.surface)
+            probeView.visibility = if (visible) View.VISIBLE else View.GONE
+            if (visible) {
+                probeView.invalidate()
+            }
+
+            onEvent(
+                "homeRenderScene source=" + source +
+                    " raw=" + update.rawState +
+                    " surface=" + update.surface.name +
+                    " visible=" + visible +
+                    " policy=failClosedOutsideUnlockedStatusBar " +
+                    " nativeGeometryWrites=0",
+            )
         }
 
         fun updateTint(update: SystemUiTintStateSource.TintUpdate) {
@@ -238,6 +281,11 @@ internal object CombinedStatusHomeRenderSession {
         }
 
         override fun onViewAttachedToWindow(view: View) {
+            batteryView.get()?.let { battery ->
+                SystemUiSceneStateSource.currentState(battery)?.let {
+                    applySceneState(it, "reattach")
+                }
+            }
             layoutProbe()
         }
 

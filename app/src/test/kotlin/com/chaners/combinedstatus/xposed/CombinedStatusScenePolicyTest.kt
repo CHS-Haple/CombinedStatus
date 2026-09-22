@@ -47,13 +47,13 @@ class CombinedStatusScenePolicyTest {
     }
 
     @Test
-    fun keyguardAndAodReuseProjectionInsteadOfOwningAnotherGeometryFormula() {
+    fun keyguardAndAodRemainNativeOnlyUntilDedicatedAdaptersAreVerified() {
         listOf(
             CombinedStatusScene.KEYGUARD,
             CombinedStatusScene.AOD,
         ).forEach { scene ->
             val capability = CombinedStatusScenePolicy.capability(scene)
-            assertEquals(CombinedStatusRenderMode.PROJECTED, capability.renderMode)
+            assertEquals(CombinedStatusRenderMode.NATIVE_ONLY, capability.renderMode)
             assertEquals(
                 CombinedStatusMotionOwnership.SYSTEM_UI,
                 capability.motionOwnership,
