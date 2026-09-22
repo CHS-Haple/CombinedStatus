@@ -136,10 +136,6 @@ internal object SystemUiNetworkStateSource {
                 atStage("wifi.resolve.locationViewModelClass") {
                     Class.forName(WIFI_LOCATION_VIEW_MODEL_CLASS_NAME, false, classLoader)
                 }
-            val continuationClass =
-                atStage("wifi.resolve.continuationClass") {
-                    Class.forName("kotlin.coroutines.Continuation", false, classLoader)
-                }
             val wifiBindMethod =
                 atStage("wifi.resolve.bindMethod") {
                     wifiBinderClass.getDeclaredMethod(
@@ -154,10 +150,9 @@ internal object SystemUiNetworkStateSource {
                 }
             val wifiIconEmitMethod =
                 atStage("wifi.resolve.iconEmitMethod") {
-                    wifiIconEmitterClass.getDeclaredMethod(
-                        WIFI_ICON_EMIT_METHOD_NAME,
-                        Any::class.java,
-                        continuationClass,
+                    resolveEmitterMethod(
+                        emitterClass = wifiIconEmitterClass,
+                        methodName = WIFI_ICON_EMIT_METHOD_NAME,
                     )
                 }
             val wifiIconImageField =
@@ -220,10 +215,6 @@ internal object SystemUiNetworkStateSource {
         val created = mutableListOf<HookHandle>()
 
         return try {
-            val continuationClass =
-                atStage("mobile.resolve.continuationClass") {
-                    Class.forName("kotlin.coroutines.Continuation", false, classLoader)
-                }
             val mobileBinderClass =
                 atStage("mobile.resolve.binderClass") {
                     Class.forName(MOBILE_BINDER_CLASS_NAME, false, classLoader)
@@ -256,10 +247,9 @@ internal object SystemUiNetworkStateSource {
                 }
             val mobileSignalEmitMethod =
                 atStage("mobile.resolve.signalEmitMethod") {
-                    mobileSignalEmitterClass.getDeclaredMethod(
-                        MOBILE_SIGNAL_EMIT_METHOD_NAME,
-                        Any::class.java,
-                        continuationClass,
+                    resolveEmitterMethod(
+                        emitterClass = mobileSignalEmitterClass,
+                        methodName = MOBILE_SIGNAL_EMIT_METHOD_NAME,
                     )
                 }
             val mobileImageField =
@@ -317,6 +307,27 @@ internal object SystemUiNetworkStateSource {
                 failure = installFailure("mobile", error),
             )
         }
+    }
+
+    private fun resolveEmitterMethod(
+        emitterClass: Class<*>,
+        methodName: String,
+    ): Method {
+        val candidates =
+            emitterClass.declaredMethods.filter { method ->
+                method.name == methodName &&
+                    method.parameterCount == 2 &&
+                    method.parameterTypes.firstOrNull() == Any::class.java
+            }
+
+        val method =
+            candidates.singleOrNull()
+                ?: candidates.firstOrNull()
+                ?: throw NoSuchMethodException(
+                    emitterClass.name + "#" + methodName + "(Object, <continuation>)",
+                )
+
+        return method.apply { isAccessible = true }
     }
 
     private inline fun <T> atStage(
