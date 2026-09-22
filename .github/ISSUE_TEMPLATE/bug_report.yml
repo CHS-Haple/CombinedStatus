@@ -1,0 +1,85 @@
+name: Bug report
+description: Report a reproducible CombinedStatus problem
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem. CombinedStatus is pre-release software and currently has a narrow verified SystemUI baseline. Please provide enough runtime context to reproduce the issue.
+
+        Before attaching diagnostics or logs, review them and remove unrelated personal or sensitive information.
+  - type: input
+    id: build
+    attributes:
+      label: CombinedStatus version and build
+      description: Include versionName, internal build ID, and channel (Debug/Canary/Release) when known.
+      placeholder: "0.0.1 / 20260923-173 / Canary"
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Device and Android version
+      placeholder: "Device model / Android 17 (API 37)"
+    validations:
+      required: true
+  - type: input
+    id: hyperos
+    attributes:
+      label: HyperOS and SystemUI version
+      description: The exact SystemUI version is especially important for hook/runtime issues.
+      placeholder: "HyperOS ... / SystemUI 17.03.260226.r"
+    validations:
+      required: true
+  - type: dropdown
+    id: scene
+    attributes:
+      label: Affected scene
+      options:
+        - Home status bar
+        - Notification-shade transition
+        - Control Center
+        - Lock screen / keyguard
+        - AOD
+        - Companion app
+        - Hot reload / SystemUI restart
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Use the smallest reliable sequence.
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics and evidence
+      description: Attach the built-in diagnostic report, relevant LSPosed log excerpt, screenshot, or recording when useful. Remove unrelated sensitive information first.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I reproduced the problem on the build identified above.
+          required: true
+        - label: I checked that the report does not contain signing secrets, credentials, or unrelated private data.
+          required: true
