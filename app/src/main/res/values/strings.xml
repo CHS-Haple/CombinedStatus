@@ -81,9 +81,13 @@
     <string name="distinguish_super_charging">Super charging indicator</string>
     <string name="distinguish_super_charging_summary">Use a separate icon for super charging in the preview</string>
 
-    <string name="section_current_build">App</string>
+    <string name="section_current_build">Version information</string>
+    <string name="section_diagnostics_app">App</string>
     <string name="product_name">CombinedStatus</string>
     <string name="product_summary">HyperOS SystemUI module</string>
+    <string name="target_platform_value">HyperOS SystemUI module</string>
+    <string name="version_value">Version: %1$s</string>
+    <string name="build_value">Build: %1$s</string>
     <string name="diagnostics_version_label">Version</string>
     <string name="diagnostics_build_label">Build</string>
     <string name="diagnostics_package_label">Package</string>

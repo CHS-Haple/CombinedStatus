@@ -81,9 +81,13 @@
     <string name="distinguish_super_charging">超级快充图标</string>
     <string name="distinguish_super_charging_summary">超级快充使用独立图标，仅供界面预览</string>
 
-    <string name="section_current_build">应用</string>
+    <string name="section_current_build">版本信息</string>
+    <string name="section_diagnostics_app">应用</string>
     <string name="product_name">CombinedStatus</string>
     <string name="product_summary">HyperOS SystemUI 模块</string>
+    <string name="target_platform_value">HyperOS SystemUI 模块</string>
+    <string name="version_value">版本：%1$s</string>
+    <string name="build_value">构建：%1$s</string>
     <string name="diagnostics_version_label">版本</string>
     <string name="diagnostics_build_label">构建</string>
     <string name="diagnostics_package_label">包名</string>

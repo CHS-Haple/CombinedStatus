@@ -324,7 +324,7 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
         }
 
     SettingsPage(title = stringResource(R.string.diagnostics_title), onBack = onBack) {
-        Section(R.string.section_current_build) {
+        Section(R.string.section_diagnostics_app) {
             DiagnosticsCardHeader(
                 title = stringResource(R.string.product_name),
                 subtitle = stringResource(R.string.product_summary),
