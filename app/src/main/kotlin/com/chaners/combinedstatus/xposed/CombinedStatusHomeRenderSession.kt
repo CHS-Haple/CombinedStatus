@@ -22,6 +22,7 @@ internal object CombinedStatusHomeRenderSession {
     fun attach(
         host: Any,
         onEvent: (String) -> Unit,
+        onLatencySample: ((RuntimeRenderLatencySample) -> Unit)? = null,
     ): AttachResult {
         val hostView = host as? ViewGroup
             ?: return AttachResult.Failure("host-not-view-group")
@@ -42,6 +43,7 @@ internal object CombinedStatusHomeRenderSession {
             batteryContainer = batteryContainer,
             batteryView = batteryView,
             onEvent = onEvent,
+            onLatencySample = onLatencySample,
         )
         current = session
         session.start()
@@ -50,13 +52,16 @@ internal object CombinedStatusHomeRenderSession {
     }
 
     @Synchronized
-    fun onState(snapshot: CombinedStatusStateStore.Snapshot) {
-        current?.update(snapshot)
+    fun onState(
+        snapshot: CombinedStatusStateStore.Snapshot,
+        trace: RuntimeRenderTrace? = null,
+    ) {
+        current?.update(snapshot, trace)
     }
 
     @Synchronized
-    fun onPresentationStateChanged() {
-        current?.update(CombinedStatusStateStore.snapshot())
+    fun onPresentationStateChanged(trace: RuntimeRenderTrace? = null) {
+        current?.update(CombinedStatusStateStore.snapshot(), trace)
     }
 
     @Synchronized
@@ -90,17 +95,22 @@ internal object CombinedStatusHomeRenderSession {
         batteryContainer: ViewGroup,
         batteryView: ViewGroup,
         private val onEvent: (String) -> Unit,
+        private val onLatencySample: ((RuntimeRenderLatencySample) -> Unit)?,
     ) : View.OnAttachStateChangeListener {
         private val host = WeakReference(host)
         private val batteryContainer = WeakReference(batteryContainer)
         private val batteryView = WeakReference(batteryView)
         private val probeView =
-            ProbeView(host.context) { latencyMs, committedOnMainThread ->
-                onEvent(
-                    "homeRenderLatency stateToDrawMs=" + latencyMs +
-                        " commitMainThread=" + committedOnMainThread +
-                        " scheduling=sameFramePreferred",
-                )
+            ProbeView(host.context) { latencyMs, committedOnMainThread, sample ->
+                if (sample != null && onLatencySample != null) {
+                    onLatencySample.invoke(sample)
+                } else {
+                    onEvent(
+                        "homeRenderLatency stateToDrawMs=" + latencyMs +
+                            " commitMainThread=" + committedOnMainThread +
+                            " scheduling=sameFramePreferred",
+                    )
+                }
             }
         private var readyLogged = false
         private var layoutLogged = false
@@ -240,7 +250,10 @@ internal object CombinedStatusHomeRenderSession {
             }
         }
 
-        fun update(snapshot: CombinedStatusStateStore.Snapshot) {
+        fun update(
+            snapshot: CombinedStatusStateStore.Snapshot,
+            trace: RuntimeRenderTrace? = null,
+        ) {
             val defaultDataSubscriptionId =
                 runCatching { SubscriptionManager.getDefaultDataSubscriptionId() }
                     .getOrDefault(-1)
@@ -269,7 +282,13 @@ internal object CombinedStatusHomeRenderSession {
 
             if (model != stableModel) {
                 stableModel = model
-                probeView.setModel(model)
+                val visibleTrace =
+                    trace?.takeIf {
+                        probeView.visibility == View.VISIBLE &&
+                            probeView.width > 0 &&
+                            probeView.height > 0
+                    }
+                probeView.setModel(model, visibleTrace)
             }
 
             if (model != null && !readyLogged) {
@@ -364,7 +383,11 @@ internal object CombinedStatusHomeRenderSession {
 
     private class ProbeView(
         context: Context,
-        private val onStateRendered: (latencyMs: Long, committedOnMainThread: Boolean) -> Unit,
+        private val onStateRendered: (
+            latencyMs: Long,
+            committedOnMainThread: Boolean,
+            sample: RuntimeRenderLatencySample?,
+        ) -> Unit,
     ) : View(context) {
         private val painter = LegacyCombinedStatusPainter()
 
@@ -387,7 +410,16 @@ internal object CombinedStatusHomeRenderSession {
         @Volatile
         private var pendingStateCommittedOnMainThread: Boolean = false
 
-        fun setModel(model: CombinedStatusRenderModel?) {
+        @Volatile
+        private var pendingTrace: RuntimeRenderTrace? = null
+
+        @Volatile
+        private var pendingModelCommittedNanos: Long = 0L
+
+        fun setModel(
+            model: CombinedStatusRenderModel?,
+            trace: RuntimeRenderTrace? = null,
+        ) {
             if (this.model == model) {
                 return
             }
@@ -395,6 +427,13 @@ internal object CombinedStatusHomeRenderSession {
             pendingStateUptimeMs = SystemClock.uptimeMillis()
             pendingStateCommittedOnMainThread =
                 Looper.myLooper() === Looper.getMainLooper()
+            pendingTrace = trace
+            pendingModelCommittedNanos =
+                if (trace == null) {
+                    0L
+                } else {
+                    SystemClock.elapsedRealtimeNanos()
+                }
             requestRedraw()
         }
 
@@ -430,9 +469,25 @@ internal object CombinedStatusHomeRenderSession {
             val committedAt = pendingStateUptimeMs
             if (committedAt != 0L) {
                 pendingStateUptimeMs = 0L
+                val trace = pendingTrace
+                val modelCommittedNanos = pendingModelCommittedNanos
+                pendingTrace = null
+                pendingModelCommittedNanos = 0L
+                val sample =
+                    if (trace != null && modelCommittedNanos != 0L) {
+                        RuntimeRenderLatencySample.from(
+                            trace = trace,
+                            modelCommittedNanos = modelCommittedNanos,
+                            drawNanos = SystemClock.elapsedRealtimeNanos(),
+                            committedOnMainThread = pendingStateCommittedOnMainThread,
+                        )
+                    } else {
+                        null
+                    }
                 onStateRendered(
                     (SystemClock.uptimeMillis() - committedAt).coerceAtLeast(0L),
                     pendingStateCommittedOnMainThread,
+                    sample,
                 )
             }
         }
