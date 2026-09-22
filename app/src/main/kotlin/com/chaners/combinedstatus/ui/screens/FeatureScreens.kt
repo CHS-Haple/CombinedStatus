@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -33,10 +32,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -54,8 +50,9 @@ import com.chaners.combinedstatus.ui.layout.pageContentPadding
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.FloatingNavigationBar
+import top.yukonga.miuix.kmp.basic.FloatingNavigationBarItem
 import top.yukonga.miuix.kmp.basic.Icon
-import top.yukonga.miuix.kmp.basic.FloatingToolbarDefaults
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.NavigationBar
 import top.yukonga.miuix.kmp.basic.NavigationBarItem
@@ -74,7 +71,6 @@ import top.yukonga.miuix.kmp.icon.extended.Settings
 import top.yukonga.miuix.kmp.icon.extended.Tune
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
-import top.yukonga.miuix.kmp.squircle.squircleBackground
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
@@ -256,13 +252,12 @@ private fun MiniPreviewHeader() {
 
 @Composable
 private fun MiniSwitchSettingPreview() {
-    Surface(
+    Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        color = MiuixTheme.colorScheme.surfaceContainer.copy(alpha = 0.64f),
+        insideMargin = PaddingValues(horizontal = 12.dp, vertical = 9.dp),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(
@@ -282,13 +277,12 @@ private fun MiniSwitchSettingPreview() {
 
 @Composable
 private fun MiniSliderSettingPreview() {
-    Surface(
+    Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        color = MiuixTheme.colorScheme.surfaceContainer.copy(alpha = 0.64f),
+        insideMargin = PaddingValues(horizontal = 12.dp, vertical = 9.dp),
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(7.dp),
         ) {
             Row(
@@ -353,48 +347,31 @@ private fun MiniThemeSwatch(color: Color) {
 @Composable
 private fun MiniNavigationPreview(floating: Boolean) {
     if (floating) {
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-            horizontalArrangement = Arrangement.Center,
+        FloatingNavigationBar(
+            color = MiuixTheme.colorScheme.surfaceContainer,
+            defaultWindowInsetsPadding = false,
         ) {
-            val shape = RoundedCornerShape(FloatingToolbarDefaults.CornerRadius)
-            Row(
-                modifier =
-                    Modifier
-                        .defaultMinSize(minHeight = 52.dp)
-                        .dropShadow(
-                            shape = shape,
-                            shadow =
-                                Shadow(
-                                    radius = 10.dp,
-                                    color = Color.Black,
-                                    alpha = 0.20f,
-                                ),
-                        )
-                        .squircleBackground(
-                            color = MiuixTheme.colorScheme.surfaceContainer,
-                            cornerRadius = FloatingToolbarDefaults.CornerRadius,
-                        )
-                        .padding(horizontal = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                MiniFloatingNavigationItem(
-                    icon = MiuixIcons.Home,
-                    selected = false,
-                )
-                MiniFloatingNavigationItem(
-                    icon = MiuixIcons.Tune,
-                    selected = false,
-                )
-                MiniFloatingNavigationItem(
-                    icon = MiuixIcons.Settings,
-                    selected = true,
-                )
-            }
+            FloatingNavigationBarItem(
+                selected = false,
+                onClick = {},
+                icon = MiuixIcons.Home,
+                label = stringResource(R.string.nav_home),
+                enabled = false,
+            )
+            FloatingNavigationBarItem(
+                selected = false,
+                onClick = {},
+                icon = MiuixIcons.Tune,
+                label = stringResource(R.string.nav_features),
+                enabled = false,
+            )
+            FloatingNavigationBarItem(
+                selected = true,
+                onClick = {},
+                icon = MiuixIcons.Settings,
+                label = stringResource(R.string.nav_settings),
+                enabled = false,
+            )
         }
     } else {
         NavigationBar(
@@ -425,22 +402,6 @@ private fun MiniNavigationPreview(floating: Boolean) {
             )
         }
     }
-}
-
-@Composable
-private fun MiniFloatingNavigationItem(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    selected: Boolean,
-) {
-    Icon(
-        modifier =
-            Modifier
-                .padding(10.dp)
-                .size(28.dp)
-                .alpha(if (selected) 1f else 0.40f),
-        imageVector = icon,
-        contentDescription = null,
-    )
 }
 
 @Composable
