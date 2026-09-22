@@ -312,6 +312,21 @@ class CombinedStatusModule : XposedModule() {
                 "build" to BuildConfig.BUILD_ID,
                 "channel" to BuildConfig.BUILD_CHANNEL,
             )
+            logDiagnostic(
+                level = Log.INFO,
+                event = "compatibility.revalidated",
+                component = "compatibility",
+                state = "ready",
+                "statusHost" to "available",
+                "source" to "hotReloadHook",
+            )
+            logDiagnostic(
+                level = Log.INFO,
+                event = "hook.replace",
+                component = "statusHostHook",
+                state = "ready",
+                "source" to "hotReload",
+            )
             logCurrentDiagnosticsHealth()
 
             val classLoader = statusHostHandle.executable.declaringClass.classLoader
@@ -343,6 +358,15 @@ class CombinedStatusModule : XposedModule() {
             val restoreReady =
                 if (restored != null) {
                     val capture = SystemUiHostRegistry.restoreStatusHost(restored.host)
+                    logDiagnostic(
+                        level = Log.INFO,
+                        event = "host.restore",
+                        component = "statusHost",
+                        state = "ready",
+                        "identity" to capture.identity,
+                        "replacement" to capture.replacement,
+                        "source" to "hotReloadTransfer",
+                    )
                     val restoredSnapshot =
                         CombinedStatusStateStore.restoreHotReloadState(restored.state)
                     val bindings =
