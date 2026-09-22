@@ -860,6 +860,12 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun teardownRuntimeResources(source: String) {
+        val nativeShadowDetach =
+            if (BuildConfig.RUNTIME_DIAGNOSTICS) {
+                NativeParticipantShadowSession.detach()
+            } else {
+                NativeParticipantShadowSession.DetachResult.AlreadyDetached
+            }
         CombinedStatusHomeRenderSession.detach()
         StatusBarStableSession.detach()
         SystemUiAirplaneStateSource.detach()
@@ -867,15 +873,44 @@ class CombinedStatusModule : XposedModule() {
         CombinedStatusPresentationStateStore.reset()
         SystemUiIslandMotionSource.resetRuntimeState()
         airplaneObserverAttached = false
+
+        val nativeShadowDetached =
+            nativeShadowDetach !is NativeParticipantShadowSession.DetachResult.Failure
+        if (BuildConfig.RUNTIME_DIAGNOSTICS) {
+            logDiagnostic(
+                level = if (nativeShadowDetached) Log.INFO else Log.WARN,
+                event = "participant.detach",
+                component = "nativeParticipantShadow",
+                state = if (nativeShadowDetached) "ready" else "error",
+                "source" to source,
+                "cleanup" to
+                    when (nativeShadowDetach) {
+                        NativeParticipantShadowSession.DetachResult.Removed ->
+                            "removed"
+                        NativeParticipantShadowSession.DetachResult.AlreadyDetached ->
+                            "already-detached"
+                        is NativeParticipantShadowSession.DetachResult.Failure ->
+                            "failed"
+                    },
+                "reason" to
+                    (nativeShadowDetach as? NativeParticipantShadowSession.DetachResult.Failure)
+                        ?.reason,
+                "nativeGeometryWrites" to 0,
+            )
+        }
         logDiagnostic(
-            level = Log.INFO,
+            level = if (nativeShadowDetached) Log.INFO else Log.WARN,
             event = "runtime.teardown",
             component = "runtimeSession",
-            state = "ready",
+            state = if (nativeShadowDetached) "ready" else "partial",
             "source" to source,
             "rendererDetached" to true,
             "stableStatusDetached" to true,
             "airplaneObserverDetached" to true,
+            "nativeShadowDetached" to nativeShadowDetached,
+            "nativeShadowReason" to
+                (nativeShadowDetach as? NativeParticipantShadowSession.DetachResult.Failure)
+                    ?.reason,
         )
     }
 
@@ -969,6 +1004,65 @@ class CombinedStatusModule : XposedModule() {
             }
         }
 
+        if (BuildConfig.RUNTIME_DIAGNOSTICS) {
+            when (
+                val nativeShadow =
+                    NativeParticipantShadowSession.attach(
+                        host = host,
+                        onEvent = { event ->
+                            if (detailedDiagnosticsEnabled) {
+                                log(Log.INFO, TAG, event)
+                            }
+                        },
+                    )
+            ) {
+                is NativeParticipantShadowSession.AttachResult.Ready -> {
+                    val shadow = nativeShadow.snapshot
+                    logDiagnostic(
+                        level = Log.INFO,
+                        event = "participant.attach",
+                        component = "nativeParticipantShadow",
+                        state = "ready",
+                        "source" to source,
+                        "slot" to shadow.slot,
+                        "root" to shadow.rootClass,
+                        "rootIndex" to shadow.rootIndex,
+                        "visibility" to shadow.rootVisibility,
+                        "measured" to
+                            shadow.measuredWidth.toString() +
+                                "x" +
+                                shadow.measuredHeight,
+                        "childrenBefore" to shadow.childrenBefore,
+                        "childrenAfter" to shadow.childrenAfter,
+                        "bootstrapRes" to
+                            "0x" +
+                                shadow.bootstrapResourceId
+                                    .toUInt()
+                                    .toString(16),
+                        "bootstrapSlot" to shadow.bootstrapSourceSlot,
+                        "bootstrapIndex" to shadow.bootstrapSourceIndex,
+                        "creationMode" to shadow.creationMode,
+                        "removalMode" to shadow.removalMode,
+                        "visible" to false,
+                        "nativeGeometryWrites" to 0,
+                    )
+                }
+
+                is NativeParticipantShadowSession.AttachResult.Failure -> {
+                    logDiagnostic(
+                        level = Log.WARN,
+                        event = "participant.attach",
+                        component = "nativeParticipantShadow",
+                        state = "unavailable",
+                        "source" to source,
+                        "reason" to nativeShadow.reason,
+                        "visible" to false,
+                        "nativeGeometryWrites" to 0,
+                    )
+                }
+            }
+        }
+
         when (
             val renderSession = CombinedStatusHomeRenderSession.attach(
                 host = host,
@@ -1056,9 +1150,10 @@ class CombinedStatusModule : XposedModule() {
             "managerMatches" to nativeParticipant.managerMatches,
             "groupMatches" to nativeParticipant.groupMatches,
             "setIconHolder" to nativeParticipant.setIconHolder,
-            "resourceSetIconMode" to nativeParticipant.resourceSetIconMode.name,
+            "resourceSetIconMode" to nativeParticipant.resourceSetIconMode,
             "setIconVisibility" to nativeParticipant.setIconVisibility,
             "removalReady" to nativeParticipant.removalReady,
+            "removalMode" to nativeParticipant.removalMode,
             "addIconGroup" to nativeParticipant.addIconGroup,
             "removeIconGroup" to nativeParticipant.removeIconGroup,
             "addHolder" to nativeParticipant.addHolder,

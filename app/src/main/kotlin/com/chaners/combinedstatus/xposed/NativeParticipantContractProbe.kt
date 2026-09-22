@@ -1,155 +1,88 @@
 package com.chaners.combinedstatus.xposed
 
-import android.view.View
-import android.view.ViewGroup
-import java.lang.reflect.Method
-import java.lang.reflect.Modifier
-
 internal object NativeParticipantContractProbe {
-    private const val PHONE_STATUS_BAR_VIEW =
-        "com.android.systemui.statusbar.phone.MiuiPhoneStatusBarView"
-
-    private val CONTROLLER_IMPL_CANDIDATES =
-        listOf(
-            "com.android.systemui.statusbar.phone.ui.StatusBarIconControllerImpl",
-            "com.android.systemui.statusbar.phone.StatusBarIconControllerImpl",
-        )
-
-    private val ICON_MANAGER_CANDIDATES =
-        listOf(
-            "com.android.systemui.statusbar.phone.ui.IconManager",
-            "com.android.systemui.statusbar.phone.StatusBarIconController\$IconManager",
-        )
-
-    private const val ICON_HOLDER =
-        "com.android.systemui.statusbar.phone.StatusBarIconHolder"
-    private const val STATUS_BAR_ICON_VIEW =
-        "com.android.systemui.statusbar.StatusBarIconView"
-    private const val STATUS_ICON_DISPLAYABLE =
-        "com.android.systemui.statusbar.StatusIconDisplayable"
-
     fun inspect(host: Any): Snapshot {
-        val hostView = host as? View
-            ?: return Snapshot.unavailable("host-not-view")
+        val resolution = NativeParticipantRuntimeAccess.resolve(host)
+        val handles =
+            when (resolution) {
+                is NativeParticipantRuntimeAccess.ResolveResult.Ready ->
+                    resolution.handles
 
-        val statusBarView =
-            generateSequence(hostView) { view -> view.parent as? View }
-                .firstOrNull { view -> view.javaClass.name == PHONE_STATUS_BAR_VIEW }
-                ?: return Snapshot.unavailable("phone-status-bar-view-missing")
+                is NativeParticipantRuntimeAccess.ResolveResult.Failure ->
+                    return Snapshot.unavailable(resolution.reason)
+            }
 
-        val classLoader = statusBarView.javaClass.classLoader
-            ?: return Snapshot.unavailable("systemui-classloader-missing")
-
-        val manager = statusBarView.readField("mDarkIconManager")
-        val group = manager?.readField("mGroup") as? ViewGroup
-        val controller = manager?.readField("mController")
-
-        val controllerImpl = classOrNull(CONTROLLER_IMPL_CANDIDATES, classLoader)
-        val managerClass = classOrNull(ICON_MANAGER_CANDIDATES, classLoader)
-        val holderClass = classOrNull(ICON_HOLDER, classLoader)
-        val iconViewClass = classOrNull(STATUS_BAR_ICON_VIEW, classLoader)
-        val displayableClass = classOrNull(STATUS_ICON_DISPLAYABLE, classLoader)
+        val managerClass = handles.manager.javaClass
+        val controllerClass = handles.controller.javaClass
+        val holderClass = handles.holderClass
+        val iconViewClass = handles.iconViewClass
+        val displayableClass = handles.displayableClass
 
         val controllerMatches =
-            controller != null &&
-                controllerImpl?.isInstance(controller) == true
+            controllerClass.name.endsWith("StatusBarIconControllerImpl")
         val managerMatches =
-            manager != null &&
-                managerClass?.isInstance(manager) == true
+            managerClass.name.endsWith("DarkIconManager") ||
+                managerClass.name.endsWith("IconManager")
         val groupMatches =
-            group != null &&
-                resourceEntryName(group) == "statusIcons"
+            NativeParticipantRuntimeAccess.resourceEntryName(handles.group) ==
+                "statusIcons"
 
-        val setIconMethods =
-            controllerImpl
-                ?.allMethods()
-                ?.filter { method -> method.name == "setIcon" }
-                ?.distinctBy(::methodSignature)
-                ?.sortedBy(::methodSignature)
-                ?.toList()
-                .orEmpty()
-
-        val setIconHolder =
-            setIconMethods.any { method ->
-                method.parameterTypes.map { type -> type.name } ==
-                    listOf(
-                        "java.lang.String",
-                        ICON_HOLDER,
-                    )
-            }
-
-        val resourceSetIconMode =
-            setIconMethods
-                .mapNotNull(::resourceSetIconMode)
-                .firstOrNull()
-                ?: ResourceSetIconMode.NONE
-
-        val setIconVisibility =
-            controllerImpl.hasMethod(
-                "setIconVisibility",
-                listOf(
-                    "java.lang.String",
-                    "boolean",
-                ),
+        val setIconSignatures =
+            NativeParticipantRuntimeAccess.methodSignatures(
+                clazz = controllerClass,
+                names = setOf("setIcon"),
             )
-
-        val removeMethods =
-            controllerImpl
-                ?.allMethods()
-                ?.filter { method ->
-                    method.name == "removeIcon" ||
-                        method.name == "removeAllIconsForSlot"
-                }
-                ?.distinctBy(::methodSignature)
-                ?.sortedBy(::methodSignature)
-                ?.toList()
-                .orEmpty()
-
-        val removalReady =
-            removeMethods.any { method ->
-                val params = method.parameterTypes.map { type -> type.name }
-                when (method.name) {
-                    "removeAllIconsForSlot" ->
-                        params == listOf("java.lang.String")
-                    "removeIcon" ->
-                        params == listOf("java.lang.String") ||
-                            params == listOf("java.lang.String", "int")
-                    else -> false
-                }
-            }
+        val setIconHolder =
+            NativeParticipantRuntimeAccess.setIconHolderAvailable(
+                controllerClass,
+            )
+        val resourceSetter =
+            NativeParticipantRuntimeAccess.resourceSetter(
+                controllerClass,
+            )
+        val setIconVisibility =
+            NativeParticipantRuntimeAccess.visibilityMethod(
+                controllerClass,
+            ) != null
+        val removal =
+            NativeParticipantRuntimeAccess.removal(
+                controllerClass,
+            )
+        val removeSignatures =
+            NativeParticipantRuntimeAccess.methodSignatures(
+                clazz = controllerClass,
+                names = setOf("removeIcon", "removeAllIconsForSlot"),
+            )
 
         val addIconGroup =
-            controllerImpl.hasMethod(
-                "addIconGroup",
-                listOf(managerClass?.name ?: ""),
+            NativeParticipantRuntimeAccess.hasMethod(
+                clazz = controllerClass,
+                name = "addIconGroup",
+                parameterTypes = listOf(managerClass.name),
             )
         val removeIconGroup =
-            controllerImpl.hasMethod(
-                "removeIconGroup",
-                listOf(managerClass?.name ?: ""),
+            NativeParticipantRuntimeAccess.hasMethod(
+                clazz = controllerClass,
+                name = "removeIconGroup",
+                parameterTypes = listOf(managerClass.name),
             )
         val addHolder =
-            managerClass.hasMethod(
-                "addHolder",
-                listOf(
-                    "int",
-                    "java.lang.String",
-                    "boolean",
-                    ICON_HOLDER,
-                ),
+            NativeParticipantRuntimeAccess.hasMethod(
+                clazz = managerClass,
+                name = "addHolder",
+                parameterTypes =
+                    listOf(
+                        "int",
+                        "java.lang.String",
+                        "boolean",
+                        NativeParticipantRuntimeAccess.ICON_HOLDER,
+                    ),
             )
 
         val holderFactories =
-            holderClass
-                ?.declaredMethods
-                ?.filter { method ->
-                    Modifier.isStatic(method.modifiers) &&
-                        holderClass.isAssignableFrom(method.returnType)
-                }
-                ?.sortedBy(::methodSignature)
-                ?.toList()
-                .orEmpty()
-
+            NativeParticipantRuntimeAccess.holderFactories(
+                holderClass,
+            )
         val holderFactoryReady = holderFactories.isNotEmpty()
 
         val iconViewDisplayable =
@@ -158,7 +91,7 @@ internal object NativeParticipantContractProbe {
 
         val iconViewSlotAccessor =
             iconViewClass
-                ?.allMethods()
+                ?.methods
                 ?.any { method ->
                     method.name == "getSlot" &&
                         method.parameterCount == 0 &&
@@ -166,7 +99,7 @@ internal object NativeParticipantContractProbe {
                 } == true
 
         val systemManagedCreationReady =
-            resourceSetIconMode != ResourceSetIconMode.NONE ||
+            resourceSetter != null ||
                 (setIconHolder && holderFactoryReady)
 
         val registrationContractReady =
@@ -175,24 +108,29 @@ internal object NativeParticipantContractProbe {
                 controllerMatches &&
                 systemManagedCreationReady &&
                 setIconVisibility &&
-                removalReady &&
+                removal != null &&
                 iconViewDisplayable &&
                 iconViewSlotAccessor
 
         return Snapshot(
             available = true,
             reason = null,
-            managerClass = manager?.javaClass?.name,
-            groupClass = group?.javaClass?.name,
-            groupResource = group?.let(::resourceEntryName),
-            controllerClass = controller?.javaClass?.name,
+            managerClass = managerClass.name,
+            groupClass = handles.group.javaClass.name,
+            groupResource =
+                NativeParticipantRuntimeAccess.resourceEntryName(
+                    handles.group,
+                ),
+            controllerClass = controllerClass.name,
             controllerMatches = controllerMatches,
             managerMatches = managerMatches,
             groupMatches = groupMatches,
             setIconHolder = setIconHolder,
-            resourceSetIconMode = resourceSetIconMode,
+            resourceSetIconMode =
+                resourceSetter?.mode?.name ?: "NONE",
             setIconVisibility = setIconVisibility,
-            removalReady = removalReady,
+            removalReady = removal != null,
+            removalMode = removal?.mode?.name,
             addIconGroup = addIconGroup,
             removeIconGroup = removeIconGroup,
             addHolder = addHolder,
@@ -201,102 +139,13 @@ internal object NativeParticipantContractProbe {
             iconViewSlotAccessor = iconViewSlotAccessor,
             systemManagedCreationReady = systemManagedCreationReady,
             registrationContractReady = registrationContractReady,
-            setIconSignatures = setIconMethods.map(::methodSignature),
-            removeSignatures = removeMethods.map(::methodSignature),
-            holderFactorySignatures = holderFactories.map(::methodSignature),
+            setIconSignatures = setIconSignatures,
+            removeSignatures = removeSignatures,
+            holderFactorySignatures =
+                holderFactories.map(
+                    NativeParticipantRuntimeAccess::methodSignature,
+                ),
         )
-    }
-
-    private fun resourceSetIconMode(method: Method): ResourceSetIconMode? {
-        if (method.parameterCount != 3) {
-            return null
-        }
-        val params = method.parameterTypes.map { type -> type.name }
-
-        if (
-            params[1] == "java.lang.String" &&
-            params[2] == "int" &&
-            !method.parameterTypes[0].isPrimitive
-        ) {
-            return ResourceSetIconMode.CONTENT_SLOT_RES
-        }
-
-        if (
-            params[0] == "java.lang.String" &&
-            params[1] == "int" &&
-            !method.parameterTypes[2].isPrimitive
-        ) {
-            return ResourceSetIconMode.SLOT_RES_CONTENT
-        }
-
-        return null
-    }
-
-    private fun methodSignature(method: Method): String =
-        method.name +
-            "(" +
-            method.parameterTypes.joinToString(",") { type -> type.name } +
-            "):" +
-            method.returnType.name
-
-    private fun Class<*>?.hasMethod(
-        name: String,
-        parameterTypes: List<String>,
-    ): Boolean =
-        this
-            ?.allMethods()
-            ?.any { method ->
-                method.name == name &&
-                    method.parameterTypes.map { type -> type.name } == parameterTypes
-            } == true
-
-    private fun Class<*>.allMethods(): Sequence<Method> =
-        generateSequence(this) { clazz -> clazz.superclass }
-            .flatMap { clazz -> clazz.declaredMethods.asSequence() }
-
-    private fun Any.readField(name: String): Any? {
-        val field =
-            generateSequence(javaClass) { clazz -> clazz.superclass }
-                .mapNotNull { clazz -> clazz.declaredFields.firstOrNull { it.name == name } }
-                .firstOrNull()
-                ?: return null
-        return runCatching {
-            field.isAccessible = true
-            field.get(this)
-        }.getOrNull()
-    }
-
-    private fun classOrNull(
-        candidates: List<String>,
-        classLoader: ClassLoader,
-    ): Class<*>? =
-        candidates.firstNotNullOfOrNull { name ->
-            runCatching {
-                Class.forName(name, false, classLoader)
-            }.getOrNull()
-        }
-
-    private fun classOrNull(
-        name: String,
-        classLoader: ClassLoader,
-    ): Class<*>? =
-        runCatching {
-            Class.forName(name, false, classLoader)
-        }.getOrNull()
-
-    private fun resourceEntryName(view: View): String? {
-        if (view.id == View.NO_ID) {
-            return null
-        }
-        return runCatching {
-            view.resources.getResourceEntryName(view.id)
-        }.getOrNull()
-    }
-
-    internal enum class ResourceSetIconMode {
-        CONTENT_SLOT_RES,
-        SLOT_RES_CONTENT,
-        NONE,
     }
 
     internal data class Snapshot(
@@ -310,9 +159,10 @@ internal object NativeParticipantContractProbe {
         val managerMatches: Boolean,
         val groupMatches: Boolean,
         val setIconHolder: Boolean,
-        val resourceSetIconMode: ResourceSetIconMode,
+        val resourceSetIconMode: String,
         val setIconVisibility: Boolean,
         val removalReady: Boolean,
+        val removalMode: String?,
         val addIconGroup: Boolean,
         val removeIconGroup: Boolean,
         val addHolder: Boolean,
@@ -337,9 +187,10 @@ internal object NativeParticipantContractProbe {
                     " managerMatches=" + managerMatches +
                     " groupMatches=" + groupMatches +
                     " setIconHolder=" + setIconHolder +
-                    " resourceSetIconMode=" + resourceSetIconMode.name +
+                    " resourceSetIconMode=" + resourceSetIconMode +
                     " setIconVisibility=" + setIconVisibility +
                     " removalReady=" + removalReady +
+                    " removalMode=" + (removalMode ?: "none") +
                     " addIconGroup=" + addIconGroup +
                     " removeIconGroup=" + removeIconGroup +
                     " addHolder=" + addHolder +
@@ -366,9 +217,10 @@ internal object NativeParticipantContractProbe {
                     managerMatches = false,
                     groupMatches = false,
                     setIconHolder = false,
-                    resourceSetIconMode = ResourceSetIconMode.NONE,
+                    resourceSetIconMode = "NONE",
                     setIconVisibility = false,
                     removalReady = false,
+                    removalMode = null,
                     addIconGroup = false,
                     removeIconGroup = false,
                     addHolder = false,
