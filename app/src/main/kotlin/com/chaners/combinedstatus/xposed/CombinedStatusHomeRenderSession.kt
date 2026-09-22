@@ -112,12 +112,12 @@ internal object CombinedStatusHomeRenderSession {
 
         fun start() {
             val hostView = host.get() ?: return
-            val container = batteryContainer.get() ?: return
+            batteryContainer.get() ?: return
             val battery = batteryView.get() ?: return
 
             hostView.addOnAttachStateChangeListener(this)
             battery.addOnLayoutChangeListener(batteryLayoutListener)
-            container.overlay.add(probeView)
+            battery.overlay.add(probeView)
             SystemUiTintStateSource.currentState(battery)?.let {
                 applyTintState(it, "seed")
             }
@@ -127,7 +127,7 @@ internal object CombinedStatusHomeRenderSession {
         fun stop() {
             host.get()?.removeOnAttachStateChangeListener(this)
             batteryView.get()?.removeOnLayoutChangeListener(batteryLayoutListener)
-            batteryContainer.get()?.overlay?.remove(probeView)
+            batteryView.get()?.overlay?.remove(probeView)
         }
 
         fun updateTint(update: SystemUiTintStateSource.TintUpdate) {
@@ -371,19 +371,18 @@ internal object CombinedStatusHomeRenderSession {
             )
             probeView.measure(widthSpec, heightSpec)
             probeView.layout(
-                battery.left,
-                battery.top,
-                battery.right,
-                battery.bottom,
+                0,
+                0,
+                battery.width,
+                battery.height,
             )
 
             if (!layoutLogged) {
                 layoutLogged = true
                 onEvent(
                     "homeRenderProbe attached " +
-                        "slot=batteryOverlay bounds=" +
-                        battery.left + "," + battery.top + "-" +
-                        battery.right + "," + battery.bottom +
+                        "slot=batteryViewOverlay bounds=0,0-" +
+                        battery.width + "," + battery.height +
                         " size=" + battery.width + "x" + battery.height +
                         " opacity=" + PROBE_OPACITY +
                         " originalsHidden=false nativeGeometryWrites=0",
