@@ -13,16 +13,14 @@ on:
           - stable
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   release:
     runs-on: ubuntu-latest
     environment: release
-    env:
-      HAPLE_KEYSTORE_PASSWORD: ${{ secrets.HAPLE_KEYSTORE_PASSWORD }}
-      HAPLE_KEY_ALIAS: ${{ secrets.HAPLE_KEY_ALIAS }}
-      HAPLE_CERT_SHA256: 7a64fc85325afe79439afb63369d832d7ddc20fd5b3935b4c28d7bcb85e92fc7
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
@@ -52,6 +50,9 @@ jobs:
         shell: bash
         env:
           HAPLE_KEYSTORE_BASE64: ${{ secrets.HAPLE_KEYSTORE_BASE64 }}
+          HAPLE_KEYSTORE_PASSWORD: ${{ secrets.HAPLE_KEYSTORE_PASSWORD }}
+          HAPLE_KEY_ALIAS: ${{ secrets.HAPLE_KEY_ALIAS }}
+          HAPLE_CERT_SHA256: 7a64fc85325afe79439afb63369d832d7ddc20fd5b3935b4c28d7bcb85e92fc7
         run: bash tools/setup_haple_signing.sh
 
       - name: Verify pinned HyperOS target profile
@@ -61,6 +62,9 @@ jobs:
         run: ./gradlew :app:testDebugUnitTest --stacktrace
 
       - name: Build signed release APK
+        env:
+          HAPLE_KEYSTORE_PASSWORD: ${{ secrets.HAPLE_KEYSTORE_PASSWORD }}
+          HAPLE_KEY_ALIAS: ${{ secrets.HAPLE_KEY_ALIAS }}
         run: ./gradlew :app:assembleRelease --stacktrace
 
       - name: Verify modern Xposed metadata
@@ -129,6 +133,8 @@ jobs:
 
       - name: Verify APK signature
         shell: bash
+        env:
+          HAPLE_CERT_SHA256: 7a64fc85325afe79439afb63369d832d7ddc20fd5b3935b4c28d7bcb85e92fc7
         run: |
           SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
           APKSIGNER="$SDK_ROOT/build-tools/37.0.0/apksigner"
