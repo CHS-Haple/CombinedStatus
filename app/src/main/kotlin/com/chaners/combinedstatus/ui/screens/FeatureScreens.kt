@@ -171,11 +171,11 @@ private fun AppearanceThemePreview(settings: AppearanceSettings) {
             }
             Surface(
                 shape = RoundedCornerShape(16.dp),
-                color = MiuixTheme.colorScheme.surfaceContainerHigh,
+                color = MiuixTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.28f),
                 border =
                     BorderStroke(
                         width = 1.dp,
-                        color = MiuixTheme.colorScheme.outline.copy(alpha = 0.18f),
+                        color = MiuixTheme.colorScheme.outline.copy(alpha = 0.22f),
                     ),
             ) {
                 Column(
@@ -211,7 +211,7 @@ private fun ThemeColorSwatch(color: Color) {
         border =
             BorderStroke(
                 width = 1.dp,
-                color = MiuixTheme.colorScheme.outline.copy(alpha = 0.3f),
+                color = MiuixTheme.colorScheme.outline.copy(alpha = 0.42f),
             ),
     ) {}
 }
