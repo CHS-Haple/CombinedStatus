@@ -31,6 +31,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Event-driven normalized state storage now combines battery state, semantic Home Wi-Fi visibility/resource state, and per-subscription mobile signal/VoLTE/VoWiFi resources without drawing or changing native SystemUI geometry.
 - Deterministic signal parsing maps SystemUI mobile `signal_0..4` / `signal_null` and Wi-Fi `wifi_signal_0..3` resources to semantic levels, covered by local unit tests.
 - Debug builds now include a Home-only, non-layout visual probe that reproduces the P11BJ 120-unit ring/Wi-Fi/mobile-dot geometry inside the verified native 105×108 battery slot using ViewGroupOverlay; native icons remain visible and native geometry is untouched.
+- A pure shared layout-policy layer now models visual size, adaptive neighbor gap, requested/applied slot width, end anchoring, render mode, and motion ownership for future multi-scene reuse; it is not wired to runtime layout yet.
 
 ### Changed
 - Minimum Android version is Android 13 / API 33 to match the current MIUIX blur baseline.
