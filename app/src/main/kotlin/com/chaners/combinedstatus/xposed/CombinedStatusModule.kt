@@ -27,6 +27,7 @@ class CombinedStatusModule : XposedModule() {
     private var diagnosticsPreferences: SharedPreferences? = null
     private var runtimeSessionId = newRuntimeSessionId()
     private val diagnosticSequence = AtomicLong(0L)
+    private val renderTraceSequence = AtomicLong(0L)
 
     @Volatile
     private var detailedDiagnosticsEnabled = BuildConfig.DEVELOPMENT_PROBES
@@ -413,6 +414,7 @@ class CombinedStatusModule : XposedModule() {
                 module = this,
                 classLoader = classLoader,
                 onWifiState = { state ->
+                    val trace = beginRenderTrace("wifi")
                     val previous = CombinedStatusStateStore.snapshot().wifi
                     val changed = CombinedStatusStateStore.updateWifi(state)
                     if (changed != null) {
@@ -423,19 +425,41 @@ class CombinedStatusModule : XposedModule() {
                         if (wasVisible != isVisible) {
                             CombinedStatusPresentationStateStore.markWifiSemanticChanged()
                         }
-                        onCombinedStateChanged(changed)
+                        onCombinedStateChanged(
+                            snapshot = changed,
+                            trace = markStateCommitted(trace),
+                        )
                     }
                 },
                 onMobileIcon = { update ->
+                    val trace = beginRenderTrace("mobile")
                     val changed = CombinedStatusStateStore.updateMobile(update)
-                    refreshMobilePresentation()
-                    changed?.let(::onCombinedStateChanged)
+                    val stateTrace =
+                        if (changed != null) {
+                            markStateCommitted(trace)
+                        } else {
+                            trace
+                        }
+                    refreshMobilePresentation(stateTrace)
+                    changed?.let { snapshot ->
+                        onCombinedStateChanged(
+                            snapshot = snapshot,
+                            trace = stateTrace,
+                        )
+                    }
                 },
                 onAirplaneMode = { enabled ->
-                    CombinedStatusStateStore.updateAirplaneMode(enabled)
-                        ?.let(::onCombinedStateChanged)
+                    val trace = beginRenderTrace("airplaneSignal")
+                    CombinedStatusStateStore.updateAirplaneMode(enabled)?.let { snapshot ->
+                        onCombinedStateChanged(
+                            snapshot = snapshot,
+                            trace = markStateCommitted(trace),
+                        )
+                    }
                 },
-                onPresentationChanged = ::refreshMobilePresentation,
+                onPresentationChanged = {
+                    refreshMobilePresentation(beginRenderTrace("networkPresentation"))
+                },
                 onEvent = if (BuildConfig.RUNTIME_DIAGNOSTICS) ::onNetworkPipelineEvent else null,
             )
         }.onSuccess { result ->
@@ -541,8 +565,13 @@ class CombinedStatusModule : XposedModule() {
             SystemUiAirplaneStateSource.attach(
                 context = view.context,
                 onAirplaneMode = { enabled ->
-                    CombinedStatusStateStore.updateAirplaneMode(enabled)
-                        ?.let(::onCombinedStateChanged)
+                    val trace = beginRenderTrace("airplaneObserver")
+                    CombinedStatusStateStore.updateAirplaneMode(enabled)?.let { snapshot ->
+                        onCombinedStateChanged(
+                            snapshot = snapshot,
+                            trace = markStateCommitted(trace),
+                        )
+                    }
                 },
                 onEvent = if (BuildConfig.RUNTIME_DIAGNOSTICS) ::onNetworkPipelineEvent else null,
             )
@@ -715,7 +744,9 @@ class CombinedStatusModule : XposedModule() {
             SystemUiMobileTypeStateSource.install(
                 module = this,
                 classLoader = classLoader,
-                onChanged = ::refreshMobilePresentation,
+                onChanged = {
+                    refreshMobilePresentation(beginRenderTrace("mobileType"))
+                },
             )
         }.onSuccess { handles ->
             mobileTypeSourceInstalled =
@@ -744,7 +775,7 @@ class CombinedStatusModule : XposedModule() {
         }
     }
 
-    private fun refreshMobilePresentation() {
+    private fun refreshMobilePresentation(trace: RuntimeRenderTrace? = null) {
         val presentation =
             NativePresentationResolver.resolve(
                 state = CombinedStatusStateStore.snapshot(),
@@ -770,7 +801,9 @@ class CombinedStatusModule : XposedModule() {
                         "geometryWrites" to 0,
                     )
                 }
-                CombinedStatusHomeRenderSession.onPresentationStateChanged()
+                CombinedStatusHomeRenderSession.onPresentationStateChanged(
+                    markPresentationCommitted(trace),
+                )
             }
     }
 
@@ -794,8 +827,9 @@ class CombinedStatusModule : XposedModule() {
 
     private fun onCombinedStateChanged(
         snapshot: CombinedStatusStateStore.Snapshot,
+        trace: RuntimeRenderTrace? = null,
     ) {
-        CombinedStatusHomeRenderSession.onState(snapshot)
+        CombinedStatusHomeRenderSession.onState(snapshot, trace)
     }
 
     private fun teardownRuntimeResources(source: String) {
@@ -830,11 +864,20 @@ class CombinedStatusModule : XposedModule() {
                 SystemUiConnectivityStateSource.attach(
                     context = context,
                     onState = { state ->
+                        val trace = beginRenderTrace("connectivity")
                         val changed =
                             CombinedStatusPresentationStateStore.updateConnectivity(state)
-                        refreshMobilePresentation()
+                        val presentationTrace =
+                            if (changed != null) {
+                                markPresentationCommitted(trace)
+                            } else {
+                                trace
+                            }
+                        refreshMobilePresentation(presentationTrace)
                         changed?.let {
-                            CombinedStatusHomeRenderSession.onPresentationStateChanged()
+                            CombinedStatusHomeRenderSession.onPresentationStateChanged(
+                                presentationTrace,
+                            )
                         }
                     },
                     onEvent =
@@ -862,7 +905,13 @@ class CombinedStatusModule : XposedModule() {
             val stableSession = StatusBarStableSession.attach(
                 host = host,
                 onBatteryState = { state ->
-                    CombinedStatusStateStore.updateBattery(state)?.let(::onCombinedStateChanged)
+                    val trace = beginRenderTrace("battery")
+                    CombinedStatusStateStore.updateBattery(state)?.let { snapshot ->
+                        onCombinedStateChanged(
+                            snapshot = snapshot,
+                            trace = markStateCommitted(trace),
+                        )
+                    }
                 },
                 onEvent = { event ->
                     if (detailedDiagnosticsEnabled) {
@@ -901,6 +950,7 @@ class CombinedStatusModule : XposedModule() {
                         log(Log.INFO, TAG, event)
                     }
                 },
+                onLatencySample = ::onRenderLatencySample,
             )
         ) {
             CombinedStatusHomeRenderSession.AttachResult.Ready -> {
@@ -1125,6 +1175,49 @@ class CombinedStatusModule : XposedModule() {
     private fun rotateDiagnosticSession() {
         runtimeSessionId = newRuntimeSessionId()
         diagnosticSequence.set(0L)
+        renderTraceSequence.set(0L)
+    }
+
+    private fun beginRenderTrace(source: String): RuntimeRenderTrace? {
+        if (!detailedDiagnosticsEnabled) {
+            return null
+        }
+
+        return RuntimeRenderTrace(
+            id = renderTraceSequence.incrementAndGet(),
+            source = source,
+            sourceNanos = SystemClock.elapsedRealtimeNanos(),
+        )
+    }
+
+    private fun markStateCommitted(trace: RuntimeRenderTrace?): RuntimeRenderTrace? =
+        trace?.withStateCommitted(SystemClock.elapsedRealtimeNanos())
+
+    private fun markPresentationCommitted(trace: RuntimeRenderTrace?): RuntimeRenderTrace? =
+        trace?.withPresentationCommitted(SystemClock.elapsedRealtimeNanos())
+
+    private fun onRenderLatencySample(sample: RuntimeRenderLatencySample) {
+        if (!detailedDiagnosticsEnabled) {
+            return
+        }
+
+        logDiagnostic(
+            level = Log.INFO,
+            event = "pipeline.latency",
+            component = "renderLatency",
+            state = "observed",
+            "traceId" to sample.traceId,
+            "source" to sample.source,
+            "sourceToStateUs" to sample.sourceToStateUs,
+            "sourceToPresentationUs" to sample.sourceToPresentationUs,
+            "stateToPresentationUs" to sample.stateToPresentationUs,
+            "stateToModelUs" to sample.stateToModelUs,
+            "presentationToModelUs" to sample.presentationToModelUs,
+            "modelToDrawUs" to sample.modelToDrawUs,
+            "sourceToDrawUs" to sample.sourceToDrawUs,
+            "commitMainThread" to sample.committedOnMainThread,
+            "sampling" to "latest-visible-change-only",
+        )
     }
 
     private fun newRuntimeSessionId(): String =
