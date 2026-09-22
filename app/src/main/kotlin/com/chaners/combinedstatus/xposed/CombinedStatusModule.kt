@@ -418,6 +418,7 @@ class CombinedStatusModule : XposedModule() {
                     val previous = CombinedStatusStateStore.snapshot().wifi
                     val changed = CombinedStatusStateStore.updateWifi(state)
                     if (changed != null) {
+                        val stateTrace = markStateCommitted(trace)
                         val wasVisible =
                             previous is CombinedStatusStateStore.WifiState.Visible
                         val isVisible =
@@ -427,7 +428,7 @@ class CombinedStatusModule : XposedModule() {
                         }
                         onCombinedStateChanged(
                             snapshot = changed,
-                            trace = markStateCommitted(trace),
+                            trace = stateTrace,
                         )
                     }
                 },
@@ -780,31 +781,32 @@ class CombinedStatusModule : XposedModule() {
             NativePresentationResolver.resolve(
                 state = CombinedStatusStateStore.snapshot(),
             )
-        CombinedStatusPresentationStateStore
-            .updateMobilePresentation(presentation)
-            ?.let {
-                if (detailedDiagnosticsEnabled) {
-                    log(Log.INFO, TAG, presentation.logLine)
-                    logDiagnostic(
-                        level = Log.INFO,
-                        event = "presentation.resolve",
-                        component = "mobilePresentation",
-                        state = "ready",
-                        "mode" to presentation.mode.name,
-                        "boundRoots" to presentation.boundRoots,
-                        "visibleRoots" to presentation.visibleRoots,
-                        "activeSubIds" to presentation.activeSubscriptionIds.joinToString(","),
-                        "presentationRootSubId" to presentation.presentationRootSubscriptionId,
-                        "effectiveDataSubId" to presentation.effectiveDataSubscriptionId,
-                        "networkType" to presentation.networkType?.label,
-                        "enhanced" to presentation.networkType?.enhanced,
-                        "geometryWrites" to 0,
-                    )
-                }
-                CombinedStatusHomeRenderSession.onPresentationStateChanged(
-                    markPresentationCommitted(trace),
+        val changed =
+            CombinedStatusPresentationStateStore.updateMobilePresentation(presentation)
+        if (changed != null) {
+            val presentationTrace = markPresentationCommitted(trace)
+            if (detailedDiagnosticsEnabled) {
+                log(Log.INFO, TAG, presentation.logLine)
+                logDiagnostic(
+                    level = Log.INFO,
+                    event = "presentation.resolve",
+                    component = "mobilePresentation",
+                    state = "ready",
+                    "mode" to presentation.mode.name,
+                    "boundRoots" to presentation.boundRoots,
+                    "visibleRoots" to presentation.visibleRoots,
+                    "activeSubIds" to presentation.activeSubscriptionIds.joinToString(","),
+                    "presentationRootSubId" to presentation.presentationRootSubscriptionId,
+                    "effectiveDataSubId" to presentation.effectiveDataSubscriptionId,
+                    "networkType" to presentation.networkType?.label,
+                    "enhanced" to presentation.networkType?.enhanced,
+                    "geometryWrites" to 0,
                 )
             }
+            CombinedStatusHomeRenderSession.onPresentationStateChanged(
+                presentationTrace,
+            )
+        }
     }
 
     private fun onSceneSourceEvent(event: String) {
