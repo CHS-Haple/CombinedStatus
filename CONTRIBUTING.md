@@ -619,15 +619,16 @@ A changelog entry SHOULD answer **what is now different**, not **how many attemp
 
 #### 12.4.1 Release boundary
 
-Until the first formal release, `[Unreleased]` MUST describe the current net state intended for the initial release.
+During normal development before the first formal release, `[Unreleased]` MUST describe the current net state intended for the initial release.
 
-Do not create a dated/versioned release section before that version is actually published.
+A dated/versioned section MUST NOT be created early merely to represent an intended future release. It is created only in the final release-preparation commit, immediately before the stable release workflow is run.
 
-After a formal release:
+For a formal release:
 
-1. move the applicable net changes into `## [<version>] - YYYY-MM-DD`;
-2. create a fresh `## [Unreleased]`;
-3. record only changes made after that release boundary.
+1. freeze the applicable `[Unreleased]` net changes into `## [<version>] - YYYY-MM-DD` in the final release-preparation commit;
+2. leave a fresh `## [Unreleased]` section for subsequent development;
+3. run the stable release workflow from that prepared `main` commit;
+4. do not continue unrelated development between the release-preparation commit and publication.
 
 #### 12.4.2 Categories
 
