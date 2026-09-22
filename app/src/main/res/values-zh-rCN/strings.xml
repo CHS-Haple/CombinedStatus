@@ -57,8 +57,8 @@
     <string name="section_visual_effects">界面效果</string>
     <string name="floating_navigation_blur">浮动导航栏模糊</string>
     <string name="floating_navigation_blur_summary">为底部浮动导航栏启用背景模糊</string>
-    <string name="swipe_back">应用内滑动返回</string>
-    <string name="swipe_back_summary">在应用页面内横向滑动返回上一页</string>
+    <string name="swipe_back">页面滑动返回</string>
+    <string name="swipe_back_summary">在页面内横向滑动返回上一页</string>
 
     <string name="section_hyperos_systemui">显示与过渡</string>
     <string name="enable_combined_icon">三合一图标</string>

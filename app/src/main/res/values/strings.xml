@@ -57,8 +57,8 @@
     <string name="section_visual_effects">Interface effects</string>
     <string name="floating_navigation_blur">Floating navigation blur</string>
     <string name="floating_navigation_blur_summary">Blur the background of the floating bottom navigation bar</string>
-    <string name="swipe_back">In-app swipe back</string>
-    <string name="swipe_back_summary">Swipe horizontally within the app to go back</string>
+    <string name="swipe_back">Page swipe back</string>
+    <string name="swipe_back_summary">Swipe horizontally on a page to go back</string>
 
     <string name="section_hyperos_systemui">Display and transitions</string>
     <string name="enable_combined_icon">Combined indicator</string>
