@@ -1,41 +1,53 @@
 # CombinedStatus
 
-**CombinedStatus for HyperOS** is an LSPosed module for Xiaomi HyperOS that brings battery, mobile signal, and Wi-Fi status into a single status-bar indicator.
+**CombinedStatus for HyperOS** is an LSPosed module for Xiaomi HyperOS that combines battery, mobile network, and Wi-Fi status into a single status-bar indicator.
 
-The project focuses on clean SystemUI integration, native-looking behavior, and a lightweight MIUIX settings app.
+The project is designed around native SystemUI behavior, lightweight runtime integration, and a MIUIX-based configuration app.
 
-## Highlights
+## Project scope
 
-- Combined battery, mobile signal, and Wi-Fi indicator
-- Xiaomi HyperOS SystemUI integration
-- MIUIX-based settings interface
-- Light, dark, and dynamic color support
-- Built-in compatibility and diagnostic tools
-- Modern Xposed API 102
+CombinedStatus focuses on three areas:
 
-## Platform
+- status-bar integration for battery, mobile network, and Wi-Fi state;
+- native-looking behavior across HyperOS SystemUI transitions;
+- a lightweight settings and diagnostics interface built with MIUIX.
+
+The project is under active development. Features in `dev` may still require real-device validation before they are promoted to `main`.
+
+## Compatibility
 
 - Xiaomi HyperOS
-- Android 13 or later
-- LSPosed
+- Android 13+ / API 33+
+- SystemUI scope: `com.android.systemui`
+- Modern Xposed API 102
 - MIUIX 0.9.4
-- Android API 37
+- Compile / target SDK: API 37
 - JDK 21
 
-## Development
+Compatibility work is based on a pinned HyperOS SystemUI reference artifact instead of relying on the displayed SystemUI version alone.
 
-The project is under active development.
+## Architecture
+
+The module keeps SystemUI responsible for host layout, lifecycle, and transition ownership wherever possible. CombinedStatus handles state normalization and presentation without replacing the surrounding SystemUI structure.
+
+Runtime integration is event-driven. Debug builds may expose additional bounded diagnostics for compatibility and layout validation, while release behavior remains lightweight.
+
+The companion app uses MIUIX for its interface and Jetpack DataStore for persistent appearance and navigation preferences.
+
+## Repository structure
 
 - `main` — stable integration baseline
 - `dev` — active development and device validation
+- `compat/` — compatibility profiles and reference metadata
+- `app/` — Android application and module implementation
 
-Changes are validated through CI and real-device testing before promotion to `main`.
+Changes are validated through CI and, where SystemUI behavior is involved, real-device testing before promotion to `main`.
 
 ## Build
 
 Use Android Studio with Android API 37 and JDK 21, or run the repository's GitHub Actions workflow.
 
-CI test builds are available as workflow artifacts.
+CI test builds are published as workflow artifacts.
 
 ## Documentation
 
