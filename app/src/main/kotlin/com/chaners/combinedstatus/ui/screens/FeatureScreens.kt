@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
@@ -151,69 +152,205 @@ private fun AppearanceThemePreview(settings: AppearanceSettings) {
                 .padding(bottom = 12.dp),
         insideMargin = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
     ) {
-        Row(
+        Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(
-                modifier = Modifier.weight(1f),
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(
+                        text = colorLabel,
+                        style = MiuixTheme.textStyles.body1,
+                        color = MiuixTheme.colorScheme.onSurfaceContainer,
+                    )
+                    Text(
+                        text = modeLabel,
+                        style = MiuixTheme.textStyles.body2,
+                        color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
+                    )
+                }
                 Text(
-                    text = colorLabel,
-                    style = MiuixTheme.textStyles.body1,
-                    color = MiuixTheme.colorScheme.onSurfaceContainer,
-                )
-                Text(
-                    text = modeLabel,
+                    text = stringResource(R.string.theme_preview),
                     style = MiuixTheme.textStyles.body2,
                     color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
                 )
             }
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = MiuixTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.28f),
-                border =
-                    BorderStroke(
-                        width = 1.dp,
-                        color = MiuixTheme.colorScheme.outline.copy(alpha = 0.22f),
-                    ),
-            ) {
-                Column(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                ) {
-                    Text(
-                        text = stringResource(R.string.theme_preview),
-                        style = MiuixTheme.textStyles.body2,
-                        color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
-                    )
-                    Row(
-                        modifier = Modifier.padding(top = 6.dp),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        ThemeColorSwatch(MiuixTheme.colorScheme.primary)
-                        ThemeColorSwatch(MiuixTheme.colorScheme.secondary)
-                        ThemeColorSwatch(MiuixTheme.colorScheme.surfaceContainerHigh)
-                    }
-                }
-            }
+
+            AppearanceMiniPreview(
+                settings = settings,
+                modeLabel = modeLabel,
+            )
         }
     }
 }
 
 @Composable
-private fun ThemeColorSwatch(color: Color) {
+private fun AppearanceMiniPreview(
+    settings: AppearanceSettings,
+    modeLabel: String,
+) {
     Surface(
-        modifier = Modifier.size(22.dp),
-        shape = RoundedCornerShape(6.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(top = 12.dp),
+        shape = RoundedCornerShape(18.dp),
+        color = MiuixTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.42f),
+        border =
+            BorderStroke(
+                width = 1.dp,
+                color = MiuixTheme.colorScheme.outline.copy(alpha = 0.18f),
+            ),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    modifier = Modifier.weight(1f),
+                    text = "Aa",
+                    style = MiuixTheme.textStyles.title2,
+                    color = MiuixTheme.colorScheme.primary,
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(5.dp),
+                ) {
+                    MiniThemeSwatch(MiuixTheme.colorScheme.primary)
+                    MiniThemeSwatch(MiuixTheme.colorScheme.secondary)
+                    MiniThemeSwatch(MiuixTheme.colorScheme.surfaceContainer)
+                }
+            }
+
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(14.dp),
+                color = MiuixTheme.colorScheme.surfaceContainer,
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.theme_mode),
+                            style = MiuixTheme.textStyles.body2,
+                            color = MiuixTheme.colorScheme.onSurfaceContainer,
+                        )
+                        Text(
+                            text = modeLabel,
+                            style = MiuixTheme.textStyles.body2,
+                            color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
+                        )
+                    }
+                    MiniSwitchPreview(enabled = settings.dynamicColorEnabled)
+                }
+            }
+
+            MiniNavigationPreview(floating = settings.floatingNavigationBarEnabled)
+        }
+    }
+}
+
+@Composable
+private fun MiniThemeSwatch(color: Color) {
+    Surface(
+        modifier = Modifier.size(14.dp),
+        shape = RoundedCornerShape(5.dp),
         color = color,
         border =
             BorderStroke(
                 width = 1.dp,
-                color = MiuixTheme.colorScheme.outline.copy(alpha = 0.42f),
+                color = MiuixTheme.colorScheme.outline.copy(alpha = 0.28f),
             ),
     ) {}
+}
+
+@Composable
+private fun MiniSwitchPreview(enabled: Boolean) {
+    Surface(
+        modifier =
+            Modifier
+                .width(34.dp)
+                .height(20.dp),
+        shape = RoundedCornerShape(10.dp),
+        color =
+            if (enabled) {
+                MiuixTheme.colorScheme.primary
+            } else {
+                MiuixTheme.colorScheme.outline.copy(alpha = 0.24f)
+            },
+    ) {
+        Row(
+            modifier = Modifier.padding(3.dp),
+            horizontalArrangement =
+                if (enabled) {
+                    Arrangement.End
+                } else {
+                    Arrangement.Start
+                },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Surface(
+                modifier = Modifier.size(14.dp),
+                shape = RoundedCornerShape(7.dp),
+                color = MiuixTheme.colorScheme.surface,
+            ) {}
+        }
+    }
+}
+
+@Composable
+private fun MiniNavigationPreview(floating: Boolean) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        Surface(
+            modifier =
+                if (floating) {
+                    Modifier.width(104.dp)
+                } else {
+                    Modifier.fillMaxWidth()
+                },
+            shape = RoundedCornerShape(if (floating) 14.dp else 10.dp),
+            color = MiuixTheme.colorScheme.surfaceContainer,
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Surface(
+                    modifier =
+                        Modifier
+                            .width(18.dp)
+                            .height(6.dp),
+                    shape = RoundedCornerShape(3.dp),
+                    color = MiuixTheme.colorScheme.primary,
+                ) {}
+                Surface(
+                    modifier = Modifier.size(6.dp),
+                    shape = RoundedCornerShape(3.dp),
+                    color = MiuixTheme.colorScheme.onSurfaceContainerVariant.copy(alpha = 0.45f),
+                ) {}
+                Surface(
+                    modifier = Modifier.size(6.dp),
+                    shape = RoundedCornerShape(3.dp),
+                    color = MiuixTheme.colorScheme.onSurfaceContainerVariant.copy(alpha = 0.45f),
+                ) {}
+            }
+        }
+    }
 }
 
 @Composable

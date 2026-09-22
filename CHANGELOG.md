@@ -48,6 +48,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Debug owned-slot validation now records one matched pre/post geometry pair around the existing paddingStart write, including measured-width expansion, stable battery end-anchor delta, adjacent status-icon boundary movement, and neighbor-gap delta without adding hooks or continuous sampling.
 
 ### Changed
+- Appearance preview is now a compact full-width miniature MIUIX scene instead of a left-right color-swatch control: the card previews typography, semantic surfaces, theme colors, switch state, and floating/standard navigation while remaining read-only and density-conscious.
 - Appearance preview tray now uses a restrained translucent MIUIX tonal surface instead of a solid high-container fill, with clearer semantic sample outlines to avoid a disabled, greyed-out appearance in light mode.
 - Appearance palette preview now uses a compact read-only inset tray with MIUIX surface hierarchy, a restrained outline, and smaller color samples so it reads as a preview rather than another interactive preference while preserving the settings-page density.
 - Core Home rendering no longer depends on `BuildConfig.DEBUG`; build-channel flags now isolate development probes from runtime rendering and bounded Canary diagnostics.
