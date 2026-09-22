@@ -82,6 +82,7 @@ internal fun CombinedStatusApp(
             entry<AppRoute.Appearance>(swipeDismiss = swipeBackDirection) {
                 AppearanceScreen(
                     settings = settings,
+                    darkMode = darkMode,
                     onThemeModeChange = onThemeModeChange,
                     onDynamicColorEnabledChange = onDynamicColorEnabledChange,
                     onFloatingNavigationBarEnabledChange =

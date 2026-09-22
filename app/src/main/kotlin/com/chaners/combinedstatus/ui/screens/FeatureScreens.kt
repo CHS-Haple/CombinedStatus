@@ -9,6 +9,7 @@ import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -32,6 +33,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -52,6 +54,7 @@ import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.FloatingNavigationBar
 import top.yukonga.miuix.kmp.basic.FloatingNavigationBarItem
+import top.yukonga.miuix.kmp.basic.FloatingToolbarDefaults
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.NavigationBar
@@ -64,6 +67,13 @@ import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Surface
 import top.yukonga.miuix.kmp.basic.Switch
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.blur.BlendColorEntry
+import top.yukonga.miuix.kmp.blur.BlurDefaults
+import top.yukonga.miuix.kmp.blur.highlight.Highlight
+import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
+import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
+import top.yukonga.miuix.kmp.blur.textureBlur
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.Home
@@ -76,6 +86,7 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 @Composable
 internal fun AppearanceScreen(
     settings: AppearanceSettings,
+    darkMode: Boolean,
     onThemeModeChange: (AppThemeMode) -> Unit,
     onDynamicColorEnabledChange: (Boolean) -> Unit,
     onFloatingNavigationBarEnabledChange: (Boolean) -> Unit,
@@ -91,7 +102,10 @@ internal fun AppearanceScreen(
 
     SettingsPage(title = stringResource(R.string.appearance_title), onBack = onBack) {
         item {
-            AppearanceThemePreview(settings)
+            AppearanceThemePreview(
+                settings = settings,
+                darkMode = darkMode,
+            )
         }
 
         Section(R.string.section_theme) {
@@ -137,7 +151,10 @@ internal fun AppearanceScreen(
 }
 
 @Composable
-private fun AppearanceThemePreview(settings: AppearanceSettings) {
+private fun AppearanceThemePreview(
+    settings: AppearanceSettings,
+    darkMode: Boolean,
+) {
     val modeLabel =
         stringResource(
             when (settings.themeMode) {
@@ -190,13 +207,19 @@ private fun AppearanceThemePreview(settings: AppearanceSettings) {
                 )
             }
 
-            AppearanceMiniPreview(settings = settings)
+            AppearanceMiniPreview(
+                settings = settings,
+                darkMode = darkMode,
+            )
         }
     }
 }
 
 @Composable
-private fun AppearanceMiniPreview(settings: AppearanceSettings) {
+private fun AppearanceMiniPreview(
+    settings: AppearanceSettings,
+    darkMode: Boolean,
+) {
     Surface(
         modifier =
             Modifier
@@ -222,6 +245,8 @@ private fun AppearanceMiniPreview(settings: AppearanceSettings) {
             MiniSliderSettingPreview()
             MiniNavigationPreview(
                 floating = settings.floatingNavigationBarEnabled,
+                blurEnabled = settings.floatingNavigationBlurEnabled,
+                darkMode = darkMode,
             )
         }
     }
@@ -345,61 +370,151 @@ private fun MiniThemeSwatch(color: Color) {
 }
 
 @Composable
-private fun MiniNavigationPreview(floating: Boolean) {
-    if (floating) {
-        FloatingNavigationBar(
-            color = MiuixTheme.colorScheme.surfaceContainer,
-            defaultWindowInsetsPadding = false,
-        ) {
-            FloatingNavigationBarItem(
-                selected = false,
-                onClick = {},
-                icon = MiuixIcons.Home,
-                label = stringResource(R.string.nav_home),
-                enabled = false,
-            )
-            FloatingNavigationBarItem(
-                selected = false,
-                onClick = {},
-                icon = MiuixIcons.Tune,
-                label = stringResource(R.string.nav_features),
-                enabled = false,
-            )
-            FloatingNavigationBarItem(
-                selected = true,
-                onClick = {},
-                icon = MiuixIcons.Settings,
-                label = stringResource(R.string.nav_settings),
-                enabled = false,
-            )
+private fun MiniNavigationPreview(
+    floating: Boolean,
+    blurEnabled: Boolean,
+    darkMode: Boolean,
+) {
+    val blurActive = floating && blurEnabled && isRuntimeShaderSupported()
+    val surfaceColor = MiuixTheme.colorScheme.surface
+    val backdrop =
+        if (blurActive) {
+            rememberLayerBackdrop {
+                drawRect(surfaceColor)
+                drawContent()
+            }
+        } else {
+            null
         }
-    } else {
-        NavigationBar(
-            color = MiuixTheme.colorScheme.surface,
-            showDivider = true,
-            defaultWindowInsetsPadding = false,
+    val highlight =
+        remember(darkMode) {
+            if (darkMode) {
+                Highlight.GlassStrokeMiddleDark
+            } else {
+                Highlight.GlassStrokeMiddleLight
+            }
+        }
+    val floatingModifier =
+        if (backdrop != null) {
+            Modifier.textureBlur(
+                backdrop = backdrop,
+                shape = RoundedCornerShape(FloatingToolbarDefaults.CornerRadius),
+                blurRadius = 25f,
+                colors =
+                    BlurDefaults.blurColors(
+                        blendColors =
+                            listOf(
+                                BlendColorEntry(
+                                    color =
+                                        MiuixTheme.colorScheme.surfaceContainer.copy(
+                                            alpha = 0.6f,
+                                        ),
+                                ),
+                            ),
+                    ),
+                highlight = highlight,
+            )
+        } else {
+            Modifier
+        }
+
+    // Keep the preview slot invariant so switching navigation styles cannot
+    // remeasure the surrounding page. 65 dp = 64 dp MIUIX standard item
+    // height plus its divider. The floating bar keeps its native 52 dp visual
+    // body; only the real-screen navigation-inset tail is clipped in preview.
+    Box(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(65.dp)
+                .clipToBounds(),
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .then(
+                        if (backdrop != null) {
+                            Modifier.layerBackdrop(backdrop)
+                        } else {
+                            Modifier
+                        },
+                    ),
         ) {
-            NavigationBarItem(
-                selected = false,
-                onClick = {},
-                icon = MiuixIcons.Home,
-                label = stringResource(R.string.nav_home),
-                enabled = false,
-            )
-            NavigationBarItem(
-                selected = false,
-                onClick = {},
-                icon = MiuixIcons.Tune,
-                label = stringResource(R.string.nav_features),
-                enabled = false,
-            )
-            NavigationBarItem(
-                selected = true,
-                onClick = {},
-                icon = MiuixIcons.Settings,
-                label = stringResource(R.string.nav_settings),
-                enabled = false,
-            )
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                color = MiuixTheme.colorScheme.surface,
+            ) {}
+        }
+
+        if (floating) {
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 6.dp),
+            ) {
+                FloatingNavigationBar(
+                    modifier = floatingModifier,
+                    color =
+                        if (backdrop != null) {
+                            Color.Transparent
+                        } else {
+                            MiuixTheme.colorScheme.surfaceContainer
+                        },
+                    defaultWindowInsetsPadding = false,
+                ) {
+                    FloatingNavigationBarItem(
+                        selected = false,
+                        onClick = {},
+                        icon = MiuixIcons.Home,
+                        label = stringResource(R.string.nav_home),
+                        enabled = false,
+                    )
+                    FloatingNavigationBarItem(
+                        selected = false,
+                        onClick = {},
+                        icon = MiuixIcons.Tune,
+                        label = stringResource(R.string.nav_features),
+                        enabled = false,
+                    )
+                    FloatingNavigationBarItem(
+                        selected = true,
+                        onClick = {},
+                        icon = MiuixIcons.Settings,
+                        label = stringResource(R.string.nav_settings),
+                        enabled = false,
+                    )
+                }
+            }
+        } else {
+            NavigationBar(
+                color = MiuixTheme.colorScheme.surface,
+                showDivider = true,
+                defaultWindowInsetsPadding = false,
+            ) {
+                NavigationBarItem(
+                    selected = false,
+                    onClick = {},
+                    icon = MiuixIcons.Home,
+                    label = stringResource(R.string.nav_home),
+                    enabled = false,
+                )
+                NavigationBarItem(
+                    selected = false,
+                    onClick = {},
+                    icon = MiuixIcons.Tune,
+                    label = stringResource(R.string.nav_features),
+                    enabled = false,
+                )
+                NavigationBarItem(
+                    selected = true,
+                    onClick = {},
+                    icon = MiuixIcons.Settings,
+                    label = stringResource(R.string.nav_settings),
+                    enabled = false,
+                )
+            }
         }
     }
 }
