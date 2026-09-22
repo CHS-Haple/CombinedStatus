@@ -2,12 +2,9 @@ package com.chaners.combinedstatus.xposed
 
 import android.content.Context
 import android.graphics.Canvas
-import android.graphics.Color
 import android.telephony.SubscriptionManager
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ImageView
-import android.widget.TextView
 import java.lang.ref.WeakReference
 
 internal object CombinedStatusHomeRenderSession {
@@ -54,6 +51,11 @@ internal object CombinedStatusHomeRenderSession {
         current?.update(snapshot)
     }
 
+    @Synchronized
+    fun onTintUpdate(update: SystemUiTintStateSource.TintUpdate) {
+        current?.updateTint(update)
+    }
+
     private fun ViewGroup.directChild(className: String): ViewGroup? {
         for (index in 0 until childCount) {
             val child = getChildAt(index)
@@ -73,9 +75,10 @@ internal object CombinedStatusHomeRenderSession {
         private val host = WeakReference(host)
         private val batteryContainer = WeakReference(batteryContainer)
         private val batteryView = WeakReference(batteryView)
-        private val probeView = ProbeView(host.context, batteryView)
+        private val probeView = ProbeView(host.context)
         private var readyLogged = false
         private var layoutLogged = false
+        private var tintLogged = false
 
         private val batteryLayoutListener =
             View.OnLayoutChangeListener {
@@ -109,6 +112,9 @@ internal object CombinedStatusHomeRenderSession {
             hostView.addOnAttachStateChangeListener(this)
             battery.addOnLayoutChangeListener(batteryLayoutListener)
             container.overlay.add(probeView)
+            SystemUiTintStateSource.currentState(battery)?.let {
+                applyTintState(it, "seed")
+            }
             layoutProbe()
         }
 
@@ -116,6 +122,30 @@ internal object CombinedStatusHomeRenderSession {
             host.get()?.removeOnAttachStateChangeListener(this)
             batteryView.get()?.removeOnLayoutChangeListener(batteryLayoutListener)
             batteryContainer.get()?.overlay?.remove(probeView)
+        }
+
+        fun updateTint(update: SystemUiTintStateSource.TintUpdate) {
+            val battery = batteryView.get() ?: return
+            if (update.sourceView !== battery) {
+                return
+            }
+            applyTintState(update.state, "darkReceiver")
+        }
+
+        private fun applyTintState(
+            state: CombinedStatusTintState,
+            source: String,
+        ) {
+            probeView.setTintState(state)
+            if (!tintLogged) {
+                tintLogged = true
+                onEvent(
+                    "homeRenderTint source=" + source +
+                        " applied=#" +
+                        state.appliedTint.toUInt().toString(16).padStart(8, '0') +
+                        " eventDriven=true",
+                )
+            }
         }
 
         fun update(snapshot: CombinedStatusStateStore.Snapshot) {
@@ -191,13 +221,14 @@ internal object CombinedStatusHomeRenderSession {
 
     private class ProbeView(
         context: Context,
-        sourceView: ViewGroup,
     ) : View(context) {
-        private val sourceView = WeakReference(sourceView)
         private val painter = LegacyCombinedStatusPainter()
 
         @Volatile
         private var model: CombinedStatusRenderModel? = null
+
+        @Volatile
+        private var tintState: CombinedStatusTintState? = null
 
         init {
             isClickable = false
@@ -214,65 +245,26 @@ internal object CombinedStatusHomeRenderSession {
             postInvalidateOnAnimation()
         }
 
+        fun setTintState(state: CombinedStatusTintState) {
+            if (tintState == state) {
+                return
+            }
+            tintState = state
+            postInvalidateOnAnimation()
+        }
+
         override fun onDraw(canvas: Canvas) {
             super.onDraw(canvas)
             val current = model ?: return
+            val tint = tintState ?: return
             painter.draw(
                 canvas = canvas,
                 width = width,
                 height = height,
                 model = current,
-                tint = resolveTint(sourceView.get()),
+                colors = CombinedStatusColorPolicy.resolve(current, tint),
                 opacity = PROBE_OPACITY,
             )
-        }
-
-        private fun resolveTint(root: View?): Int {
-            if (root == null) {
-                return Color.WHITE
-            }
-
-            if (root is ImageView) {
-                root.imageTintList?.defaultColor?.let { color ->
-                    if (Color.alpha(color) != 0) {
-                        return color
-                    }
-                }
-            }
-
-            if (root is TextView) {
-                val color = root.currentTextColor
-                if (Color.alpha(color) != 0) {
-                    return color
-                }
-            }
-
-            if (root is ViewGroup) {
-                for (index in 0 until root.childCount) {
-                    val child = root.getChildAt(index)
-                    if (child is ImageView) {
-                        child.imageTintList?.defaultColor?.let { color ->
-                            if (Color.alpha(color) != 0) {
-                                return color
-                            }
-                        }
-                    }
-                    if (child is TextView) {
-                        val color = child.currentTextColor
-                        if (Color.alpha(color) != 0) {
-                            return color
-                        }
-                    }
-                    if (child is ViewGroup) {
-                        val color = resolveTint(child)
-                        if (color != Color.WHITE) {
-                            return color
-                        }
-                    }
-                }
-            }
-
-            return Color.WHITE
         }
     }
 
@@ -284,5 +276,5 @@ internal object CombinedStatusHomeRenderSession {
         ) : AttachResult
     }
 
-    private const val PROBE_OPACITY = 0.72f
+    private const val PROBE_OPACITY = 1f
 }

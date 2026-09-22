@@ -34,6 +34,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - A pure shared layout-policy layer now models visual size, adaptive neighbor gap, requested/applied slot width, end anchoring, render mode, and motion ownership for future multi-scene reuse; it is not wired to runtime layout yet.
 - A pure scene-capability policy now classifies Home, notification-shade transition, Control Center, keyguard, and AOD without duplicating geometry rules; charging variants remain render state rather than a separate scene.
 - Debug stable-status diagnostics now capture one-shot Home slot readiness metrics (padding, layout params, margins, adjacent status-icon boundary, clipping, RTL, and native translation) without mutating geometry.
+- A shared event-driven SystemUI tint source now follows MiuiBatteryMeterView's native DarkIconDispatcher application path, with a reusable color policy for scene rendering.
 
 ### Changed
 - Minimum Android version is Android 13 / API 33 to match the current MIUIX blur baseline.
@@ -69,6 +70,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Stable status geometry capture now waits for the first valid battery-view layout before recording the anchor, while keeping native SystemUI geometry untouched.
 - Compatibility metadata, diagnostics copy, and CI verification now target SystemUI only, matching the module's actual `com.android.systemui` scope.
 - Verified network collectors now feed the typed CombinedStatus state snapshot in all build types, while detailed change-only diagnostics remain Debug-only.
+- The Home visual probe now renders at full opacity and repaints from the native battery receiver's applied tint instead of recursively guessing colors from arbitrary child views.
 
 ### Fixed
 - Home Wi-Fi roots are registered before the native binder proceeds; Wi-Fi icon tracing now follows the verified `getWifiIcon()` collector (`classId=1`) instead of the unrelated `setImageViewResId()` helper.

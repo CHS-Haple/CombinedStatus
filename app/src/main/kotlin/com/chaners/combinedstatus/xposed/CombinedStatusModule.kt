@@ -11,6 +11,7 @@ import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
 class CombinedStatusModule : XposedModule() {
     private var statusHostHookInstalled = false
     private var networkSourceInstalled = false
+    private var tintSourceInstalled = false
 
     override fun onModuleLoaded(param: ModuleLoadedParam) {
         log(
@@ -52,6 +53,10 @@ class CombinedStatusModule : XposedModule() {
                 classLoader = param.classLoader,
                 source = "coldStart",
             )
+            installTintStateSource(
+                classLoader = param.classLoader,
+                source = "coldStart",
+            )
         }
     }
 
@@ -62,11 +67,17 @@ class CombinedStatusModule : XposedModule() {
         }
 
         val hookCount =
-            1 + if (networkSourceInstalled) {
-                SystemUiNetworkStateSource.HOOK_COUNT
-            } else {
-                0
-            }
+            1 +
+                if (networkSourceInstalled) {
+                    SystemUiNetworkStateSource.HOOK_COUNT
+                } else {
+                    0
+                } +
+                if (tintSourceInstalled) {
+                    SystemUiTintStateSource.HOOK_COUNT
+                } else {
+                    0
+                }
         log(
             Log.INFO,
             TAG,
@@ -104,10 +115,15 @@ class CombinedStatusModule : XposedModule() {
 
             statusHostHookInstalled = true
             networkSourceInstalled = false
+            tintSourceInstalled = false
 
             val classLoader = statusHostHandle.executable.declaringClass.classLoader
                 ?: error("SystemUI class loader unavailable after hot reload")
             installNetworkStateSource(
+                classLoader = classLoader,
+                source = "hotReload",
+            )
+            installTintStateSource(
                 classLoader = classLoader,
                 source = "hotReload",
             )
@@ -151,6 +167,37 @@ class CombinedStatusModule : XposedModule() {
         }.onFailure { error ->
             networkSourceInstalled = false
             log(Log.ERROR, TAG, "Network state source installation failed", error)
+        }
+    }
+
+    private fun installTintStateSource(
+        classLoader: ClassLoader,
+        source: String,
+    ) {
+        runCatching {
+            SystemUiTintStateSource.install(
+                module = this,
+                classLoader = classLoader,
+                onTintState = CombinedStatusHomeRenderSession::onTintUpdate,
+                onEvent = if (BuildConfig.DEBUG) ::onTintSourceEvent else null,
+            )
+        }.onSuccess { handles ->
+            tintSourceInstalled = handles.size == SystemUiTintStateSource.HOOK_COUNT
+            log(
+                Log.INFO,
+                TAG,
+                "tintSource hooks=ready count=" + handles.size +
+                    " source=" + source,
+            )
+        }.onFailure { error ->
+            tintSourceInstalled = false
+            log(Log.ERROR, TAG, "Tint state source installation failed", error)
+        }
+    }
+
+    private fun onTintSourceEvent(event: String) {
+        if (BuildConfig.DEBUG) {
+            log(Log.INFO, TAG, event)
         }
     }
 

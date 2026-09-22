@@ -24,7 +24,7 @@ internal class LegacyCombinedStatusPainter {
         width: Int,
         height: Int,
         model: CombinedStatusRenderModel,
-        tint: Int,
+        colors: CombinedStatusColors,
         opacity: Float,
     ) {
         if (width <= 0 || height <= 0) {
@@ -41,25 +41,24 @@ internal class LegacyCombinedStatusPainter {
         )
         canvas.scale(scale, scale)
 
-        drawBattery(canvas, model, tint, opacity)
-        drawWifi(canvas, model, tint, opacity)
-        drawMobile(canvas, model, tint, opacity)
+        drawBattery(canvas, model, colors.batteryTint, opacity)
+        drawWifi(canvas, model, colors.primaryTint, opacity)
+        drawMobile(canvas, model, colors.primaryTint, opacity)
         canvas.restoreToCount(save)
     }
 
     private fun drawBattery(
         canvas: Canvas,
         model: CombinedStatusRenderModel,
-        tint: Int,
+        batteryTint: Int,
         opacity: Float,
     ) {
-        val ringColor = if (model.charging) CHARGING_COLOR else tint
-        stroke(ringColor, 48, RING_STROKE, opacity)
+        stroke(batteryTint, 48, RING_STROKE, opacity)
         canvas.drawArc(batteryRing, BATTERY_START_DEGREES, BATTERY_MAX_SWEEP, false, paint)
 
         val sweep = model.batteryPercent * BATTERY_DEGREES_PER_PERCENT
         if (sweep > 0f) {
-            stroke(ringColor, 255, RING_STROKE, opacity)
+            stroke(batteryTint, 255, RING_STROKE, opacity)
             canvas.drawArc(batteryRing, BATTERY_START_DEGREES, sweep, false, paint)
         }
     }
@@ -246,6 +245,5 @@ internal class LegacyCombinedStatusPainter {
         const val MOBILE_CENTER_Y = 58f
         const val MOBILE_ORBIT_RADIUS = 51f
         const val MOBILE_DOT_RADIUS = 4.9f
-        const val CHARGING_COLOR = 0xff1cb753.toInt()
     }
 }
