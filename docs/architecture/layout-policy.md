@@ -64,6 +64,16 @@ The gap is part of the requested CombinedStatus slot and sits on the leading sid
 
 The initial pure policy scales this gap from one global base value together with user scale. If real-device validation later shows that a nonlinear or clamped gap feels better, that formula must still remain in this single policy rather than move into scene adapters.
 
+## Historical anti-pattern to avoid
+
+Static inspection of the P11BJ legacy implementation shows that its size path combined custom measured-dimension handling with later alignment compensation (including width-derived motion/alignment difference correction).
+
+That historical structure is intentionally **not** being carried forward. New CombinedStatus code must not implement the pattern:
+
+`custom measured width -> scene-specific width difference -> translation/alignment correction`
+
+If a runtime integration cannot satisfy the shared resolved layout without a second scene-specific width/translation correction, the integration design must be reconsidered instead of adding another compensation layer.
+
 ## What build 83 does not do
 
 Build 83 does not:
