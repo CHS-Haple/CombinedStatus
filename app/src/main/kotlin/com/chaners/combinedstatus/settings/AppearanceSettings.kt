@@ -17,14 +17,33 @@ internal enum class AppThemeMode {
     System,
     Light,
     Dark,
-    Dynamic,
 }
 
 internal data class AppearanceSettings(
     val themeMode: AppThemeMode = AppThemeMode.System,
+    val dynamicColorEnabled: Boolean = false,
     val floatingNavigationBlurEnabled: Boolean = true,
     val swipeBackEnabled: Boolean = true,
 )
+
+internal data class ThemeSelection(
+    val mode: AppThemeMode,
+    val dynamicColorEnabled: Boolean,
+)
+
+internal fun decodeThemeSelection(
+    storedMode: String?,
+    storedDynamicColorEnabled: Boolean?,
+): ThemeSelection {
+    val legacyDynamic = storedMode == LEGACY_DYNAMIC_THEME_MODE
+    val mode =
+        AppThemeMode.entries.firstOrNull { it.name == storedMode }
+            ?: AppThemeMode.System
+    return ThemeSelection(
+        mode = mode,
+        dynamicColorEnabled = storedDynamicColorEnabled ?: legacyDynamic,
+    )
+}
 
 private val Context.appearanceDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "appearance",
@@ -42,10 +61,14 @@ internal class AppearanceSettingsRepository(context: Context) {
             }
         }
         .map { preferences ->
+            val themeSelection =
+                decodeThemeSelection(
+                    storedMode = preferences[ThemeModeKey],
+                    storedDynamicColorEnabled = preferences[DynamicColorEnabledKey],
+                )
             AppearanceSettings(
-                themeMode = preferences[ThemeModeKey]
-                    ?.let { stored -> AppThemeMode.entries.firstOrNull { it.name == stored } }
-                    ?: AppThemeMode.System,
+                themeMode = themeSelection.mode,
+                dynamicColorEnabled = themeSelection.dynamicColorEnabled,
                 floatingNavigationBlurEnabled =
                     preferences[FloatingNavigationBlurEnabledKey]
                         ?: (
@@ -59,6 +82,15 @@ internal class AppearanceSettingsRepository(context: Context) {
     suspend fun setThemeMode(mode: AppThemeMode) {
         dataStore.edit { preferences ->
             preferences[ThemeModeKey] = mode.name
+        }
+    }
+
+    suspend fun setDynamicColorEnabled(enabled: Boolean) {
+        dataStore.edit { preferences ->
+            if (preferences[ThemeModeKey] == LEGACY_DYNAMIC_THEME_MODE) {
+                preferences[ThemeModeKey] = AppThemeMode.System.name
+            }
+            preferences[DynamicColorEnabledKey] = enabled
         }
     }
 
@@ -78,6 +110,7 @@ internal class AppearanceSettingsRepository(context: Context) {
 
     private companion object {
         val ThemeModeKey = stringPreferencesKey("theme_mode")
+        val DynamicColorEnabledKey = booleanPreferencesKey("dynamic_color_enabled")
         val LegacyBlurEnabledKey = booleanPreferencesKey("blur_enabled")
         val LegacyGlassBottomBarEnabledKey = booleanPreferencesKey("glass_bottom_bar_enabled")
         val FloatingNavigationBlurEnabledKey =
@@ -85,3 +118,5 @@ internal class AppearanceSettingsRepository(context: Context) {
         val SwipeBackEnabledKey = booleanPreferencesKey("swipe_back_enabled")
     }
 }
+
+private const val LEGACY_DYNAMIC_THEME_MODE = "Dynamic"

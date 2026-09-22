@@ -44,11 +44,16 @@
 
     <string name="section_theme">主题</string>
     <string name="theme_mode">主题模式</string>
-    <string name="theme_mode_summary">跟随系统或选择浅色、深色、动态色</string>
+    <string name="theme_mode_summary">控制明暗外观，与应用配色独立</string>
     <string name="theme_system">跟随系统</string>
     <string name="theme_light">浅色</string>
     <string name="theme_dark">深色</string>
-    <string name="theme_dynamic">动态色</string>
+    <string name="dynamic_color">动态颜色</string>
+    <string name="dynamic_color_summary">根据系统壁纸生成应用配色，同时保留所选明暗模式</string>
+    <string name="dynamic_color_on">动态颜色</string>
+    <string name="dynamic_color_off">默认配色</string>
+    <string name="theme_preview">主题预览</string>
+    <string name="theme_preview_summary">%1$s · %2$s</string>
     <string name="section_visual_effects">界面效果</string>
     <string name="floating_navigation_blur">导航栏模糊</string>
     <string name="floating_navigation_blur_summary">启用背景模糊，不支持时自动使用标准样式</string>

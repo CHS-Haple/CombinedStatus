@@ -45,6 +45,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Debug Home rendering now validates a real measured CombinedStatus slot without adding a fourth MiuiStatusBatteryContainer child: it preserves the native MiuiBatteryMeterView as the lifecycle/island-motion carrier, extends only its leading padding by one native square status unit, renders CombinedStatus into that leading region, and leaves native Battery/Wi-Fi/mobile visibility and translation untouched.
 
 ### Changed
+- Appearance settings now model light/dark mode and dynamic color as independent preferences. The page uses MIUIX 0.9.4 radio preferences for System/Light/Dark, a separate dynamic-color switch, and a compact live palette preview; legacy `theme_mode=Dynamic` is interpreted as System + dynamic color without losing the previous choice.
 - Minimum Android version is Android 13 / API 33 to match the current MIUIX blur baseline.
 - Android compile and target SDK baseline is API 37.
 - Application JVM target is 21 to align with the MIUIX 0.9.4 navigation runtime.

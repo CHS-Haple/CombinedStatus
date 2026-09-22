@@ -44,11 +44,16 @@
 
     <string name="section_theme">Theme</string>
     <string name="theme_mode">Theme mode</string>
-    <string name="theme_mode_summary">Follow the system or choose light, dark, or dynamic color</string>
+    <string name="theme_mode_summary">Controls light and dark appearance independently from app colors</string>
     <string name="theme_system">System</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
-    <string name="theme_dynamic">Dynamic color</string>
+    <string name="dynamic_color">Dynamic color</string>
+    <string name="dynamic_color_summary">Generate app colors from the system wallpaper palette while keeping the selected theme mode</string>
+    <string name="dynamic_color_on">Dynamic color</string>
+    <string name="dynamic_color_off">Default colors</string>
+    <string name="theme_preview">Theme preview</string>
+    <string name="theme_preview_summary">%1$s · %2$s</string>
     <string name="section_visual_effects">Interface effects</string>
     <string name="floating_navigation_blur">Navigation bar blur</string>
     <string name="floating_navigation_blur_summary">Blur the background, or use the standard style when unsupported</string>
