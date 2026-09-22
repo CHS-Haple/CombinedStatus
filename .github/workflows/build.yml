@@ -17,6 +17,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -73,7 +74,9 @@ jobs:
             "META-INF/xposed/scope.list"
           )
 
-          for APK in             app/build/outputs/apk/debug/app-debug.apk             app/build/outputs/apk/canary/app-canary.apk; do
+          for APK in \
+            app/build/outputs/apk/debug/app-debug.apk \
+            app/build/outputs/apk/canary/app-canary.apk; do
             for entry in "${REQUIRED_ENTRIES[@]}"; do
               if ! unzip -Z1 "$APK" | grep -Fxq "$entry"; then
                 echo "Missing modern Xposed metadata in $APK: $entry"
