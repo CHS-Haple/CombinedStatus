@@ -8,9 +8,24 @@
 /captures/
 .externalNativeBuild/
 .cxx/
+/dist/
 
-# Local signing material
-*.jks
-*.keystore
+# Local build artifacts
+*.apk
+*.aab
+
+# Local environment and secret material
+.env
+.env.*
+!.env.example
+secrets.properties
 keystore.properties
 signing.properties
+
+# Signing keys and certificates
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.pem
+*.key
