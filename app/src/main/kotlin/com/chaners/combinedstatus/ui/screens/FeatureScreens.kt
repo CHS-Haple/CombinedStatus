@@ -35,7 +35,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.layout.Layout
@@ -178,7 +177,7 @@ private fun AppearanceThemePreview(
             Modifier
                 .padding(horizontal = 12.dp)
                 .padding(bottom = 12.dp),
-        insideMargin = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+        insideMargin = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
@@ -458,8 +457,7 @@ private fun MiniNavigationPreview(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .height(64.dp)
-                .clipToBounds(),
+                .height(90.dp),
         contentAlignment = Alignment.TopCenter,
     ) {
         Box(
