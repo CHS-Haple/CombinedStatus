@@ -13,9 +13,9 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
@@ -148,35 +148,22 @@ private fun AppearanceThemePreview(settings: AppearanceSettings) {
             )
             Spacer(modifier = Modifier.height(12.dp))
             Row(
-                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                ThemeColorSwatch(
-                    color = MiuixTheme.colorScheme.primary,
-                    modifier = Modifier.weight(1f),
-                )
-                ThemeColorSwatch(
-                    color = MiuixTheme.colorScheme.secondary,
-                    modifier = Modifier.weight(1f),
-                )
-                ThemeColorSwatch(
-                    color = MiuixTheme.colorScheme.surfaceContainerHigh,
-                    modifier = Modifier.weight(1f),
-                )
+                ThemeColorSwatch(MiuixTheme.colorScheme.primary)
+                ThemeColorSwatch(MiuixTheme.colorScheme.secondary)
+                ThemeColorSwatch(MiuixTheme.colorScheme.primaryContainer)
             }
         }
     }
 }
 
 @Composable
-private fun ThemeColorSwatch(
-    color: Color,
-    modifier: Modifier = Modifier,
-) {
+private fun ThemeColorSwatch(color: Color) {
     Surface(
-        modifier = modifier.height(28.dp),
-        shape = RoundedCornerShape(8.dp),
+        modifier = Modifier.size(24.dp),
+        shape = RoundedCornerShape(7.dp),
         color = color,
         border =
             BorderStroke(
