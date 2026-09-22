@@ -1,7 +1,7 @@
 # CombinedStatus
 
 [![Build](https://github.com/CHS-Haple/CombinedStatus/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/CHS-Haple/CombinedStatus/actions/workflows/build.yml)
-![Android 13+](https://img.shields.io/badge/Android-13%2B-3DDC84?logo=android&logoColor=white)
+![minSdk 33](https://img.shields.io/badge/minSdk-33-3DDC84?logo=android&logoColor=white)
 ![Modern Xposed API 102](https://img.shields.io/badge/Modern%20Xposed%20API-102-3F51B5)
 ![MIUIX 0.9.4](https://img.shields.io/badge/MIUIX-0.9.4-FF6900)
 ![Kotlin 2.4.20](https://img.shields.io/badge/Kotlin-2.4.20-7F52FF?logo=kotlin&logoColor=white)
@@ -26,7 +26,7 @@ CombinedStatus currently targets:
 - Xiaomi HyperOS;
 - `com.android.systemui`;
 - Modern Xposed API 102;
-- Android 13 / API 33 and later;
+- companion-app minimum SDK: Android 13 / API 33;
 - MIUIX 0.9.4 for the companion application.
 
 Current verified compatibility baseline:
@@ -193,7 +193,7 @@ CombinedStatus 当前面向：
 - Xiaomi HyperOS；
 - `com.android.systemui`；
 - Modern Xposed API 102；
-- Android 13 / API 33 及以上；
+- 配套应用最低系统版本：Android 13 / API 33；
 - 配套应用使用 MIUIX 0.9.4。
 
 当前已验证兼容性基线：
