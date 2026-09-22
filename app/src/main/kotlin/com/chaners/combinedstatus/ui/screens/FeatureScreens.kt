@@ -34,6 +34,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -205,17 +206,33 @@ private fun AppearanceMiniPreview(settings: AppearanceSettings) {
                 color = MiuixTheme.colorScheme.outline.copy(alpha = 0.18f),
             ),
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp),
-            verticalArrangement = Arrangement.spacedBy(9.dp),
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 11.dp),
         ) {
-            MiniPreviewHeader()
-            MiniDialogPreview()
-            MiniPreferenceControlPreview(
-                switchEnabled = settings.dynamicColorEnabled,
-            )
-            MiniNavigationPreview(
-                floating = settings.floatingNavigationBarEnabled,
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .alpha(0.58f),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                MiniPreviewHeader()
+                MiniPreferenceControlPreview(
+                    switchEnabled = settings.dynamicColorEnabled,
+                )
+                MiniNavigationPreview(
+                    floating = settings.floatingNavigationBarEnabled,
+                )
+            }
+
+            MiniDialogPreview(
+                modifier =
+                    Modifier
+                        .fillMaxWidth(0.76f)
+                        .align(Alignment.Center),
             )
         }
     }
@@ -245,18 +262,15 @@ private fun MiniPreviewHeader() {
 }
 
 @Composable
-private fun MiniDialogPreview() {
+private fun MiniDialogPreview(modifier: Modifier = Modifier) {
     Surface(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 10.dp),
-        shape = RoundedCornerShape(17.dp),
-        color = MiuixTheme.colorScheme.surfaceContainer,
+        modifier = modifier,
+        shape = RoundedCornerShape(18.dp),
+        color = MiuixTheme.colorScheme.surfaceContainerHigh,
         border =
             BorderStroke(
                 width = 1.dp,
-                color = MiuixTheme.colorScheme.outline.copy(alpha = 0.14f),
+                color = MiuixTheme.colorScheme.outline.copy(alpha = 0.20f),
             ),
     ) {
         Column(
@@ -290,7 +304,7 @@ private fun MiniDialogPreview() {
                             .width(44.dp)
                             .height(16.dp),
                     shape = RoundedCornerShape(8.dp),
-                    color = MiuixTheme.colorScheme.primary.copy(alpha = 0.22f),
+                    color = MiuixTheme.colorScheme.primary.copy(alpha = 0.82f),
                 ) {}
             }
         }

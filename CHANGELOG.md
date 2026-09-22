@@ -49,6 +49,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Debug owned-slot validation now records one matched pre/post geometry pair around the existing paddingStart write, including measured-width expansion, stable battery end-anchor delta, adjacent status-icon boundary movement, and neighbor-gap delta without adding hooks or continuous sampling.
 
 ### Changed
+- The miniature MIUIX dialog is now rendered as a centered overlay over a deliberately subdued page skeleton instead of occupying a normal layout row, preserving real dialog semantics while keeping the switch, slider, palette, and navigation context visible behind it.
 - Appearance preview now behaves as an abstract MIUIX component board: a miniature dialog, switch, slider, theme swatches, skeleton text bars, and the real Home/Tune/Settings navigation icons replace literal preview copy; floating versus standard navigation follows the actual appearance setting while the preview remains read-only and content-sized.
 - Appearance preview is now a compact full-width miniature MIUIX scene instead of a left-right color-swatch control: the card previews typography, semantic surfaces, theme colors, switch state, and floating/standard navigation while remaining read-only and density-conscious.
 - Appearance preview tray now uses a restrained translucent MIUIX tonal surface instead of a solid high-container fill, with clearer semantic sample outlines to avoid a disabled, greyed-out appearance in light mode.
