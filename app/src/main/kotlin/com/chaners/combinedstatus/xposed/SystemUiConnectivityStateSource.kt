@@ -6,7 +6,6 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.os.Handler
 import android.os.Looper
-import android.telephony.SubscriptionManager
 import android.telephony.TelephonyManager
 
 internal object SystemUiConnectivityStateSource {
@@ -95,8 +94,7 @@ internal object SystemUiConnectivityStateSource {
 
     private fun mobileDataEnabled(context: Context): Boolean? {
         val subscriptionId =
-            runCatching { SubscriptionManager.getDefaultDataSubscriptionId() }
-                .getOrDefault(-1)
+            SystemUiDefaultDataSubscriptionSource.currentSubscriptionId()
         if (subscriptionId < 0) {
             return null
         }
