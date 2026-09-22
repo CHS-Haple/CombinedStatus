@@ -191,6 +191,8 @@ internal object CombinedStatusHomeRenderSession {
             probeView.visibility = if (visible) View.VISIBLE else View.GONE
             if (visible) {
                 probeView.invalidate()
+            } else {
+                probeView.clearPendingLatency()
             }
 
             onEvent(
@@ -442,6 +444,12 @@ internal object CombinedStatusHomeRenderSession {
             }
             tintState = state
             requestRedraw()
+        }
+
+        fun clearPendingLatency() {
+            pendingStateUptimeMs = 0L
+            pendingTrace = null
+            pendingModelCommittedNanos = 0L
         }
 
         private fun requestRedraw() {
