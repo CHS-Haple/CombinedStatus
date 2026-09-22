@@ -53,10 +53,12 @@ internal data class RuntimeHealthSnapshot(
 
     companion object {
         private const val SessionIdField = "sessionId"
+        private const val HealthSnapshotField = "healthSnapshot"
 
         private val eventMetadataFields =
             setOf(
                 SessionIdField,
+                HealthSnapshotField,
                 "uptimeMs",
                 "sequence",
             )
@@ -115,9 +117,13 @@ internal data class RuntimeHealthSnapshot(
                 }
 
             val latest = linkedMapOf<String, RuntimeDiagnosticEvent>()
-            scopedEvents.forEach { event ->
-                latest[event.component] = event
-            }
+            scopedEvents
+                .filterNot { event ->
+                    event.fields[HealthSnapshotField].equals("false", ignoreCase = true)
+                }
+                .forEach { event ->
+                    latest[event.component] = event
+                }
 
             val components =
                 buildList {
