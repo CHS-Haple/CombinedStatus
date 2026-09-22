@@ -1,182 +1,548 @@
 # Contributing to CombinedStatus
 
-This file defines the engineering rules for CombinedStatus. These checks are part of every change, not optional cleanup.
+This document defines the engineering rules for **developers and contributors** working on CombinedStatus. These rules are part of the implementation contract, not optional cleanup guidance.
 
-## Project principles
+## 1. Scope and normative language
 
-Every change should improve the project in three directions:
+These rules apply to changes involving application code, SystemUI hooks, runtime state, compatibility logic, diagnostics, UI, resources, build logic, CI, documentation that changes engineering behavior, and migration work.
 
-- **Standardized**: follow Android, HyperOS, MIUIX, and Modern Xposed conventions; keep lifecycle, state, ownership, and compatibility boundaries explicit.
-- **Lightweight**: avoid polling, duplicate listeners/state, unnecessary hooks, resident Root processes, background services, repeated View-tree scans, and high-frequency logs.
-- **Modern**: prefer current Android APIs, Modern Xposed API 102, MIUIX 0.9.4, LocaleManager, predictive back/navigation APIs, and DataStore only where persistence is actually needed.
+Normative terms are used deliberately:
+
+- **MUST / MUST NOT**: required. A change that violates the rule is not acceptable unless an exception is explicitly justified by verified evidence.
+- **SHOULD / SHOULD NOT**: the default. A different approach is allowed only when the contributor can explain why it is safer or more appropriate.
+- **MAY**: optional.
+
+When an exception to a MUST-level architectural rule is genuinely required, the implementation report MUST state the evidence, affected lifecycle, rollback boundary, compatibility risk, and real-device validation required.
 
 Package identity is always `com.chaners.combinedstatus`.
 
-## Mandatory workflow for every functional change
+## 2. Project principles
 
-### 0. Change control gate
+Every change MUST preserve three project qualities.
 
-A new idea, requested change, or implementation direction is a **candidate**, not an automatic instruction to modify the project. This gate applies before changing code, resources, UI, copy, configuration, build logic, hooks, or compatibility metadata.
+### 2.1 Standardized
 
-#### 0.1 Evaluate the direction
+Follow Android, HyperOS, MIUIX, and Modern Xposed conventions. Keep lifecycle, ownership, state flow, compatibility boundaries, and platform responsibilities explicit.
 
-Objectively assess:
+### 2.2 Lightweight
 
-- **reasonableness**: does it solve a real problem, and is the proposed mechanism actually related to the root cause?
-- **necessity**: is the change needed now, or would it add complexity without clear value?
-- **feasibility**: can it be implemented reliably with the current Android, HyperOS, MIUIX, and Modern Xposed constraints?
-- **standards compliance**: does it fit platform conventions and the project's standardized/lightweight/modern principles?
-- **architectural fit**: does it preserve lifecycle, ownership, state flow, compatibility boundaries, and existing validated behavior?
-- **runtime cost**: does it introduce unnecessary hooks, listeners, wakeups, reflection, polling, logging, Root work, or retained objects?
-- **maintenance cost**: will it create special cases, duplicated logic, fragile version checks, or migration debt?
-- **evidence**: is there enough source/runtime evidence to justify the direction, or is more diagnosis required first?
-- **alternatives**: is there a simpler, safer, more native, or more maintainable way to reach the same goal?
+"Lightweight" means minimizing unnecessary runtime work and architectural redundancy, not merely reducing APK size.
 
-Classify the result as **accept**, **accept with adjustments**, **defer for evidence**, or **reject**. If the proposal is weak, premature, redundant, or conflicts with the architecture, do not implement it merely because it was requested or suggested. Explain the reason and propose the smallest sound alternative or the next diagnostic step.
+Avoid unnecessary:
 
-This applies equally to user suggestions and implementation ideas generated during development.
+- polling;
+- duplicated state;
+- duplicate hooks or listeners;
+- resident Root processes;
+- background services;
+- repeated View-tree traversal;
+- per-frame logging;
+- reflection on hot paths;
+- wakeups or callbacks that occur more frequently than the underlying state can meaningfully change.
 
-#### 0.2 Define the change plan before editing
+### 2.3 Modern
 
-After the direction is accepted, describe the intended implementation process before making project changes. The plan should state:
+Prefer maintained platform and library APIs over custom infrastructure when they satisfy the requirement.
 
-- the problem and verified owner/call chain;
-- files/layers expected to change;
-- files/layers explicitly expected **not** to change;
-- implementation order and dependency order;
-- diagnostics or evidence required during the change;
-- compatibility and rollback boundaries;
+Current project baselines include:
+
+- Modern Xposed API 102;
+- MIUIX 0.9.4;
+- Android LocaleManager for per-app language;
+- DataStore only for real persistent preferences;
+- current Android navigation and predictive-back APIs.
+
+Modern does not mean adopting a newer mechanism merely because it exists. It MUST still satisfy lifecycle, stability, compatibility, and maintenance requirements.
+
+## 3. Mandatory change workflow
+
+### 3.1 Evaluate before modifying
+
+A request, idea, reference implementation, or proposed fix is a **candidate direction**, not automatic permission to mutate the project.
+
+Before changing project state, contributors MUST evaluate:
+
+- whether the problem is real and sufficiently understood;
+- whether the proposed mechanism addresses the verified cause rather than only the symptom;
+- whether the change is necessary now;
+- whether a simpler, more native, or lower-risk solution exists;
+- whether lifecycle and ownership remain explicit;
+- whether runtime cost is justified;
+- whether the change creates duplicated state, special cases, or compatibility debt;
+- whether the available evidence is sufficient.
+
+Classify the direction as:
+
+- **accept**;
+- **accept with adjustments**;
+- **defer for evidence**;
+- **reject**.
+
+Do not implement a weak or speculative direction merely because it was requested or previously attempted.
+
+### 3.2 Define the change boundary
+
+For an accepted functional change, the contributor MUST define a bounded plan before editing.
+
+The plan MUST identify:
+
+- the verified runtime owner and relevant call chain;
+- the subsystem/layer expected to change;
+- the subsystem/layer explicitly expected not to change;
+- lifecycle and state dependencies;
+- compatibility assumptions;
 - Debug/Release impact;
-- copy review if text may change;
-- MIUIX UI review if UI may change;
+- diagnostics required to validate uncertain runtime behavior;
+- rollback boundary;
 - CI checks;
 - real-device scenarios required after implementation.
 
-The plan must be the smallest process that can solve the verified problem without broadening scope unnecessarily.
+The plan SHOULD be the smallest change that can solve the verified problem.
 
-#### 0.3 Validate the plan
+### 3.3 Validate the plan
 
-Before implementation, check the plan itself for correctness:
+Before implementation, confirm that:
 
-- no step relies on an unverified assumption;
-- steps occur in a safe dependency/lifecycle order;
-- no unnecessary subsystem is included;
-- the plan respects standardized/lightweight/modern principles;
-- diagnostic work is bounded and event-driven;
-- the proposed rollback path leaves the validated baseline intact;
-- runtime-sensitive claims have a real-device verification step.
+- no critical step depends on an unverified assumption;
+- the order respects dependency and lifecycle boundaries;
+- unrelated cleanup is not mixed into the change;
+- diagnostics are bounded and event-driven;
+- rollback leaves the last validated baseline intact;
+- runtime-sensitive claims have a real-device verification path.
 
-Only after the direction **and** the plan are both confirmed should project mutation begin.
+### 3.4 Stay inside the confirmed boundary
 
-#### 0.4 Execute against the confirmed plan
+Implementation MUST NOT silently broaden into unrelated cleanup, speculative fixes, or additional feature work.
 
-During implementation, treat the confirmed plan as the active change boundary. Do not silently broaden scope, add speculative fixes, or improvise unrelated cleanup.
+Read-only investigation such as code inspection, logs, CI status, APK/source analysis, and runtime evidence review may proceed without a new mutation plan.
 
-Read-only actions such as code inspection, log inspection, CI/status checks, and analysis may proceed without a new mutation plan because they do not change project state.
+### 3.5 Stop when evidence invalidates the plan
 
-#### 0.5 Stop on plan deviation or invalidated assumptions
+If implementation reveals that the real owner, call chain, required scope, or platform behavior differs materially from the confirmed plan, stop mutation at that boundary.
 
-If implementation reveals that:
+Do not stack another workaround.
 
-- a verified assumption is false;
-- the real owner/call chain differs from the planned one;
-- the required scope becomes broader or materially different;
-- a step would violate lifecycle, compatibility, performance, UI, copy, or diagnostics rules;
-- the actual implementation starts to diverge from the confirmed plan;
+The contributor MUST:
 
-**stop further project modification at that boundary.**
+1. state which assumption was invalidated;
+2. record the new evidence;
+3. identify what remains untouched;
+4. reassess the available solution families;
+5. define a revised bounded plan before resuming mutation.
 
-Do not continue by stacking another workaround.
+### 3.6 Reassess the solution space after meaningful diagnostics
 
-State what changed, why the original plan is no longer valid, what evidence was discovered, and what remains untouched. Then produce the currently most reasonable and standards-compliant revised plan, evaluate it again, and obtain confirmation before resuming project mutation.
+Logs, recordings, crash traces, geometry snapshots, and other diagnostics are not only used to decide whether the current patch worked.
 
-If no sound revised plan can be justified, do not modify the project further and explain why.
+After meaningful new evidence, contributors MUST reconsider:
 
-#### 0.6 Reassess the full solution space after diagnostics
+- native/platform mechanisms;
+- a fix within the current architecture;
+- an alternative integration point;
+- compatibility or fallback handling;
+- a bounded workaround;
+- a justified redesign.
 
-After collecting logs, runtime traces, crash evidence, screenshots, recordings, or other diagnostic evidence, do not evaluate only whether the **current implementation path** can be repaired.
+Previous engineering effort is not evidence that the current path remains correct.
 
-Step back and reassess the problem globally:
+Choose the best solution supported by current evidence, not the next patch on the existing path.
 
-- restate the verified facts and explicitly separate them from assumptions;
-- reconsider the root cause and owner/call chain in light of the new evidence;
-- enumerate all materially plausible solution families, including native/platform mechanisms, fixes within the current architecture, alternative integration points, compatibility layers, bounded workarounds, and justified redesigns;
-- compare the alternatives on standards compliance, runtime stability, compatibility, complexity, maintenance cost, performance/energy cost, privacy/security impact, rollback safety, and available evidence;
-- identify which earlier hypotheses or paths have been weakened or disproved;
-- do not prefer an existing path merely because previous iterations invested effort in it;
-- select the **best overall solution supported by the current evidence**, not merely the next local patch on the current path.
+### 3.7 Preserve diagnostic isolation
 
-If the globally preferred solution differs materially from the active plan, stop mutation, explain why the previous path is no longer preferred, define and validate a revised plan, and obtain confirmation before continuing.
+When several hypotheses remain plausible, prefer single-variable A/B builds.
 
-Diagnostic work is complete only when it improves both **root-cause confidence** and **solution selection**. Logs are not just for deciding whether the current patch worked; they are evidence for choosing the best next architecture or implementation path.
+Multiple independently understood fixes MAY share one test build only when each retains:
 
-#### 0.7 Preserve diagnostic isolation in multi-fix builds
+- an explicit owner and affected layer;
+- independent diagnostics where needed;
+- separate acceptance criteria;
+- a result that remains interpretable if another fix fails;
+- an independent rollback path.
 
-When evidence is incomplete, multiple hypotheses are still plausible, or one change could mask another, use single-variable A/B builds. One experimental build should answer one unresolved question whenever combining changes would make the result ambiguous.
+A test build MUST NOT recreate the question: "which change caused this result?"
 
-Once multiple problems are independently confirmed, they may be fixed in the same application build for efficiency only if each problem keeps an independent verification boundary:
+## 4. Runtime ownership and lifecycle
 
-- its affected files/layers and runtime owner are explicit;
-- its implementation does not depend on the other fix unless that dependency is verified and documented;
-- it has distinct low-overhead diagnostics or log markers where runtime evidence is needed;
-- it has its own acceptance criteria and pass/fail result;
-- it can be rolled back or revised without obscuring the state of the other fix.
+### 4.1 Every long-lived runtime object MUST have one explicit owner
 
-A multi-fix build must not recreate the question "which change caused this result?" If one fix fails real-device validation, the evidence for the other fixes must remain independently interpretable.
+This applies to:
 
-The implementation report and real-device checklist must report each confirmed problem separately rather than treating the whole build as one undifferentiated pass/fail result.
+- SystemUI host references;
+- CombinedStatus Views;
+- host/render sessions;
+- state observers;
+- listeners and callbacks;
+- hook handles;
+- module-owned animations;
+- temporary transition state;
+- host-derived geometry caches.
 
+For each long-lived object, contributors MUST be able to answer:
 
-### 1. Pre-change review
+1. who creates it;
+2. who owns it;
+3. when it becomes invalid;
+4. who disposes it;
+5. what happens when its SystemUI host or module generation is replaced.
 
-Before coding, inspect the full call chain and lifecycle.
+If these questions cannot be answered, the object is not ready to become part of the runtime architecture.
 
-Confirm:
-- the owning process, class, host, and state source;
-- who owns measurement, layout, translation, visibility, animation, and drawing;
-- whether a new hook/listener is really necessary;
-- whether the design is event-driven rather than polling;
-- effects on SystemUI recreation, hot reload, lock screen, AOD, Control Center, charging, and configuration changes;
-- Debug/Release differences;
-- safe behavior when a target member is missing.
+A global singleton MUST NOT implicitly become the lifetime owner of SystemUI Views or host-specific state.
 
-Do not patch a visual symptom before locating the real owner of the behavior.
+### 4.2 Host-scoped state MUST remain host-scoped
 
-### 2. Implementation rules
+Prefer:
 
-- Prefer exact verified hook points over broad reflection.
-- Keep hook count as low as practical.
-- Keep hook callbacks short and event-driven.
-- Use weak references for SystemUI Views/hosts unless stronger ownership is clearly required.
-- Never retain an Activity, Context, or View past its lifecycle.
-- Avoid resident Root helpers and background services.
-- Root work must be bounded, have timeouts, and be user-triggered where practical.
-- Reuse native state instead of duplicating SystemUI state.
-- Do not add redundant compatibility branches or hard-coded geometry without evidence.
+`Host -> HostSession -> owned resources`
 
-### 3. Text review
+over:
 
-Whenever user-facing text is added or changed, perform a copy pass before completion.
+`global module -> multiple hosts -> shared mutable state`
 
-Chinese should use concise HyperOS/MIUIX-style titles and natural summaries. English should read as natural product English, not literal translation.
+State derived from a specific SystemUI host MUST NOT silently become global runtime state.
 
-Fixed terminology:
-- Chinese: **移动网络**
-- English: **mobile network**
-- Internal: `mobileNetwork` / `mobileSignal`
+When multiple hosts exist for normal status bar, keyguard, AOD, Control Center, transition/fake hosts, or future platform variants, each host that requires independent behavior SHOULD have an explicit identity and lifecycle boundary.
 
-Keep exact upstream Android/HyperOS class, field, method, and resource identifiers unchanged.
+A stale host-specific View, geometry snapshot, listener, or transition state MUST NOT be reused after host replacement.
 
-Normal settings should not expose internal terms such as host, role, hook chain, writer, probe path, or implementation class names unless the screen is explicitly diagnostic.
+### 4.3 Every resource-owning session MUST have a disposal path
 
-### 4. UI review
+Creating a session creates an obligation to dispose it.
 
-Whenever UI changes, perform a MIUIX 0.9.4 review before completion.
+A session that owns runtime resources MUST provide an explicit cleanup path equivalent to `close()` or `dispose()`.
 
-Prefer official MIUIX components and defaults for spacing, typography, shape, pressed state, disabled state, dialogs, and navigation. Do not hand-tune values merely to imitate MIUIX when an official component already provides the behavior.
+Cleanup MUST cover every resource owned by that session where applicable:
+
+- unregister observers;
+- remove listeners;
+- cancel pending callbacks;
+- cancel module-owned animations;
+- release hook/session handles;
+- invalidate host-specific caches;
+- clear host/View references;
+- discard temporary transition state.
+
+SystemUI recreation, host replacement, and Modern Xposed hot reload MUST NOT leave the previous generation active.
+
+Resource creation without a verified cleanup path is incomplete implementation.
+
+### 4.4 One live property SHOULD have one runtime writer
+
+Before modifying a live SystemUI property, identify its current writer.
+
+Treat these as ownership-sensitive:
+
+- measured width;
+- layout width;
+- position;
+- `translationX` / `translationY`;
+- alpha;
+- visibility;
+- tint;
+- animation state;
+- parent/child attachment.
+
+Contributors MUST NOT introduce a second writer merely to counteract the result of the first writer.
+
+If SystemUI already owns a property, prefer observing or deriving from it.
+
+If CombinedStatus must become the writer, the ownership transfer MUST be deliberate, narrow, documented, reversible, and validated across the affected lifecycle.
+
+Two independent writers controlling the same property are an **ownership conflict**, not an animation-tuning problem.
+
+## 5. Architecture boundaries
+
+### 5.1 Keep acquisition, state, presentation, and rendering separate
+
+Runtime behavior SHOULD follow this conceptual flow:
+
+`native/event source -> domain state -> scene/presentation policy -> renderer`
+
+A state source reports facts. It SHOULD NOT decide layout.
+
+A scene or presentation policy decides whether and how the feature should appear. It SHOULD NOT acquire unrelated native state.
+
+A renderer consumes resolved presentation state. It MUST NOT become a second SystemUI state repository.
+
+Avoid callbacks that mix state acquisition, lifecycle decisions, layout writes, and drawing in one execution path.
+
+### 5.2 Prefer authoritative native state
+
+When HyperOS exposes a reliable authoritative state or event, prefer observing it rather than maintaining a parallel model.
+
+Any duplicate or fallback state source MUST define:
+
+- when it is active;
+- which source has authority;
+- how disagreement is resolved;
+- when fallback state is discarded.
+
+Two equivalent sources MUST NOT update the same domain state without defined priority.
+
+### 5.3 Observation does not grant ownership
+
+A hook, reflection lookup, View-tree probe, runtime trace, or geometry sample MAY be used to understand SystemUI without granting CombinedStatus control of that behavior.
+
+The normal progression is:
+
+`observe -> identify owner -> understand contract -> choose integration point -> modify only if necessary`
+
+Do not turn a diagnostic observation into a production writer without separately justifying ownership.
+
+### 5.4 Hooks are integration points, not architecture
+
+A hook MUST have:
+
+- one specific responsibility;
+- an owning subsystem;
+- a lifecycle boundary;
+- a hot-reload/cleanup strategy where applicable;
+- defined failure behavior.
+
+The runtime architecture MUST NOT degrade into a growing collection of unrelated hook callbacks.
+
+Hooks SHOULD feed owned state sources, sessions, or integration components.
+
+### 5.5 CombinedStatusModule is a bootstrap/integration boundary
+
+`CombinedStatusModule` MUST NOT become the permanent owner of every long-lived runtime concern.
+
+It MAY coordinate bootstrap, compatibility checks, and top-level hook installation, but long-lived domain/state/host ownership SHOULD live in dedicated runtime components.
+
+Do not add permanent responsibilities to `CombinedStatusModule` merely because it is the convenient place where a hook is installed.
+
+## 6. Ownership migration gate
+
+Functional work may continue while the architecture remains within its intended boundaries. However, contributors MUST NOT indefinitely accumulate long-lived lifecycle responsibilities in `CombinedStatusModule`.
+
+The migration gate is crossed when a new change would require adding another persistent host/state/observer/hook ownership responsibility to `CombinedStatusModule`, or when an existing ownership domain can no longer be understood or disposed independently.
+
+At that point, complete the next bounded ownership migration before adding more persistent responsibility.
+
+Current migration order:
+
+1. **DefaultDataSubscription + Airplane + Connectivity ownership**
+2. **Tint + Scene + MobileType ownership**
+3. **Network hook ownership**
+4. **Host + Hot Reload ownership**
+
+Migration rules:
+
+- migrate ownership, not unrelated behavior;
+- keep one active owner for each responsibility;
+- old and new owners MUST NOT run concurrently except in an explicit A/B diagnostic;
+- do not combine ownership migration with unrelated visual redesign;
+- each batch MUST remain independently testable and reversible;
+- after a batch is complete, later code MUST use the new owner rather than reintroducing the old path.
+
+This gate exists to prevent a gradual return to a monolithic module while allowing normal feature work to continue between migration points.
+
+## 7. SystemUI geometry and visual ownership
+
+Preserve native HyperOS geometry ownership wherever practical.
+
+### 7.1 Separate geometry responsibilities
+
+The following MUST remain conceptually independent:
+
+1. native SystemUI layout slot;
+2. CombinedStatus visual/drawing geometry;
+3. transition/animation geometry;
+4. optical adjustment.
+
+A visual-width requirement MUST NOT automatically change native layout width.
+
+An animation correction MUST NOT automatically change stable-state geometry.
+
+An optical offset MUST NOT silently become layout ownership.
+
+Do not use one hard-coded width or translation value to satisfy several unrelated responsibilities.
+
+### 7.2 Native geometry writes are exceptional
+
+Do not modify native `measuredWidth`, layout width, translation, or visibility as the first-choice solution.
+
+Prefer solving CombinedStatus-specific appearance inside its own drawing/presentation layer.
+
+An unavoidable native geometry change MUST be:
+
+- supported by verified runtime evidence;
+- owned by one clearly identified component;
+- limited to the narrowest state and lifecycle;
+- reversible;
+- documented;
+- covered by focused real-device testing.
+
+### 7.3 Pixel correctness is not sufficient
+
+A visually correct result on one device state does not prove architectural correctness.
+
+For runtime-sensitive geometry or animation fixes, verify that:
+
+- the expected owner performed the write;
+- no competing writer counteracted it;
+- stable-state and transition-state geometry remain separate;
+- host replacement does not leave stale state;
+- relevant charging, keyguard, AOD, Control Center, island, and recreation paths still behave correctly.
+
+Accidental compensation between incorrect writers MUST NOT be accepted as a stable fix.
+
+## 8. Failure and fallback behavior
+
+### 8.1 Fail native, not broken
+
+SystemUI integration SHOULD degrade toward native HyperOS behavior.
+
+If CombinedStatus cannot safely establish the required host, compatibility, lifecycle, or state contract, prefer:
+
+`CombinedStatus unavailable -> native status representation remains/restores`
+
+rather than:
+
+`CombinedStatus partially active -> native representation hidden -> broken or missing status`
+
+Native-icon suppression and replacement activation MUST be coordinated.
+
+Do not hide a native representation until the replacement is valid for the current session.
+
+Compatibility failure SHOULD disable the smallest affected feature rather than destabilize SystemUI.
+
+### 8.2 Historical fixes are evidence, not reusable architecture
+
+Previous CombinedStatus builds, successful constants, and old patches MAY be used to understand observed SystemUI behavior.
+
+They MUST NOT be reintroduced automatically.
+
+Before porting a historical fix, determine:
+
+- what real behavior it compensated for;
+- which runtime owner produced that behavior;
+- whether that owner still exists;
+- whether the new architecture already addresses the cause;
+- whether the old fix would violate current lifecycle or geometry ownership.
+
+Port the verified requirement, not the historical implementation.
+
+### 8.3 Reference projects provide patterns, not authority
+
+KeiMi and other SystemUI modules MAY be studied for:
+
+- per-host state;
+- lifecycle/session ownership;
+- cleanup design;
+- fallback behavior;
+- sizing abstractions;
+- integration points.
+
+A mechanism MUST NOT be copied solely because a mature reference project uses it.
+
+In particular, another module's `onMeasure`, `onLayout`, translation, visibility, or native-geometry hooks do not justify introducing the same ownership into CombinedStatus.
+
+Adopt the architectural benefit while preserving CombinedStatus's more conservative native-geometry contract whenever possible.
+
+## 9. SystemUI and compatibility rules
+
+### 9.1 Verified integration points
+
+Prefer exact verified hook points over broad reflection.
+
+A class or member existing in an APK does not prove that it owns live behavior. Use runtime evidence when hierarchy, ownership, or transitions matter.
+
+Hooks MUST be based on verified members from the exact target APKs and represented in the pinned compatibility profile where appropriate.
+
+Current baseline:
+
+- HyperOS SystemUI `17.03.260226.r`
+
+Do not expand module scope to unrelated packages without a verified runtime dependency.
+
+### 9.2 References and host retention
+
+Use weak references for SystemUI hosts/Views unless a stronger reference is required by an explicit session ownership contract.
+
+Never retain an Activity, Context, or View beyond its valid lifecycle.
+
+### 9.3 Modern Xposed
+
+Use Modern Xposed API 102.
+
+Keep one Java entry unless a verified API requirement changes that decision.
+
+Hot reload MUST replace or migrate hook/session ownership rather than stacking duplicate generations.
+
+CI success does not prove runtime hook correctness or hot reload correctness.
+
+### 9.4 Runtime structure is authoritative
+
+Other modules or HyperOS variants may alter the live SystemUI tree.
+
+Diagnostics SHOULD inspect actual runtime topology when parentage, identity, ownership, or transition behavior matters instead of assuming the stock hierarchy.
+
+## 10. Diagnostics, performance, and energy
+
+### 10.1 Diagnostics policy
+
+Debug and Release MUST share core feature behavior. Diagnostics depth may differ.
+
+**Release** may retain low-frequency operational diagnostics such as:
+
+- build identity;
+- compatibility readiness;
+- essential lifecycle/hook readiness;
+- hot reload result;
+- important errors.
+
+**Debug** may additionally provide bounded:
+
+- topology and parent/index/path snapshots;
+- bounds and measured geometry;
+- translation;
+- hook lifecycle;
+- state snapshots;
+- ownership probes.
+
+Prefer:
+
+`event -> bounded snapshot -> report`
+
+over polling or continuous sampling.
+
+Diagnostics MUST NOT become a second runtime workload that materially changes the behavior being measured.
+
+### 10.2 Runtime cost
+
+Before adding a hook, observer, listener, coroutine, callback, reflection path, shell call, or View-tree probe, ask whether it wakes more often than the underlying state can meaningfully change.
+
+Prefer:
+
+- native callbacks;
+- one-shot inspection;
+- cached immutable metadata;
+- shared helpers;
+- scoped coroutines;
+- bounded user-triggered Root work.
+
+Root work SHOULD be user-triggered where practical and MUST be bounded by timeout/failure handling.
+
+## 11. Application, UI, and text rules
+
+### 11.1 App architecture
+
+Persist only real user preferences.
+
+Do not confuse UI preview state with module runtime state.
+
+Prefer platform APIs over custom infrastructure when the platform already provides the required lifecycle and behavior.
+
+### 11.2 MIUIX UI review
+
+Whenever UI changes, contributors MUST perform a MIUIX 0.9.4 review.
+
+Prefer official MIUIX components and defaults for spacing, typography, shape, pressed state, disabled state, dialogs, and navigation.
 
 Check:
-- page hierarchy and section grouping;
+
+- information hierarchy and section grouping;
 - Card/list-item semantics;
 - pressed, enabled, and disabled states;
 - light/dark/dynamic themes;
@@ -184,150 +550,136 @@ Check:
 - transitions;
 - accessibility labels;
 - localized text expansion;
-- dialog primary/secondary action hierarchy.
+- dialog action hierarchy.
 
-UI polish is part of the feature.
+Do not hand-tune values merely to imitate MIUIX when an official component already provides the behavior.
 
-### 5. Post-change review
+### 11.3 Text review
 
-Repeat the engineering review after implementation and check for:
-- duplicate hooks/listeners/jobs/state;
-- repeated reflection or View-tree traversal;
-- per-frame/high-frequency logs;
-- strong-reference leaks;
-- unbounded main-thread work;
-- unnecessary wakeups/background work;
-- geometry/animation ownership accidentally moved from SystemUI to the module;
-- Debug-only details leaking into Release;
-- stale compatibility constants or target-profile drift.
+Any user-facing text change MUST receive a copy review.
 
-Compiling successfully is not the definition of done.
+Fixed terminology:
 
-## SystemUI integration rules
+- Chinese: **移动网络**
+- English: **mobile network**
+- Internal domain naming: `mobileNetwork` / `mobileSignal`
 
-Preserve native HyperOS ownership wherever possible.
+Keep exact upstream Android/HyperOS class, field, method, and resource identifiers unchanged.
 
-Do not modify native `measuredWidth`, layout width, `translationX`, `translationY`, or visibility as the first-choice solution. Prefer solving visual requirements inside the custom drawing layer.
+Normal settings UI SHOULD NOT expose internal terms such as host, role, writer, hook chain, probe path, or implementation class name unless the screen is explicitly diagnostic.
 
-Keep these three concepts separate:
-1. native SystemUI layout slot;
-2. CombinedStatus visual/drawing width;
-3. transition/animation geometry.
+## 12. Branching, versioning, CI, and release discipline
 
-Do not collapse them into a single hard-coded width/offset.
+### 12.1 Branches
 
-Any unavoidable native geometry change must be justified by verified runtime behavior, isolated to the narrowest state/lifecycle, documented, and real-device tested.
-
-## Compatibility baseline
-
-Hooks must be based on verified members from the exact target APKs. Keep compatibility facts in the pinned target profile and keep runtime probes aligned with it.
-
-Current baseline:
-- HyperOS SystemUI `17.03.260226.r`
-
-The module scope, compatibility profile, runtime markers, and hook verification must be based on SystemUI only. Do not add unrelated HyperOS component packages to the module baseline unless a future feature has a verified runtime dependency on them.
-
-A class existing in an APK does not prove it owns the live behavior. Use runtime evidence when hierarchy, ownership, or transitions matter.
-
-Other modules may alter the live SystemUI tree. Debug diagnostics should inspect the actual runtime structure instead of assuming stock parent/container relationships.
-
-## Modern Xposed rules
-
-Use Modern Xposed API 102. Keep one Java entry unless a verified API requirement changes that decision.
-
-Hot reload must replace/migrate hook handles instead of stacking duplicates. CI success does not prove runtime hooking or hot reload; confirm runtime-sensitive behavior on a real device.
-
-When LibXposed documentation is temporarily unavailable:
-- Gradle repository root: `https://repo.maven.apache.org/maven2`
-- Direct LibXposed artifact path: `https://repo.maven.apache.org/maven2/io/github/libxposed`
-
-Use Maven Central for artifacts, POMs, source JARs, and Javadocs. Do not mechanically replace documentation URLs with Maven paths. Do not guess API signatures; verify them from the actual API artifact/source.
-
-## Diagnostics policy
-
-Debug and Release share the same core feature logic. Only diagnostics depth may differ.
-
-**Release** keeps low-frequency operational diagnostics: build identity, compatibility, essential lifecycle/hook readiness, hot reload result, and important errors.
-
-**Debug** may additionally include bounded event-driven topology, parent/index/path, bounds, measured size, translation, hook lifecycle, and state snapshots.
-
-Detailed diagnostics must still be lightweight: prefer **event -> snapshot -> report** over polling or continuous sampling.
-
-The built-in diagnostic report is the preferred feedback path. Collection must remain user-triggered and bounded.
-
-## Performance and energy rules
-
-Before adding a hook, observer, listener, coroutine, callback, or shell call, ask whether it wakes more often than the underlying state can meaningfully change.
-
-Prefer native callbacks, one-shot inspection, cached immutable metadata, structured low-frequency events, scoped coroutines, and shared helpers.
-
-"Lightweight" means reducing unnecessary runtime work and architectural redundancy, not merely shrinking APK size.
-
-## App architecture
-
-Persist only real user preferences. Do not confuse UI preview state with module runtime state.
-
-Prefer platform solutions:
-- LocaleManager for per-app language;
-- DataStore for appropriate persistent preferences;
-- predictive back/navigation APIs;
-- normal Android component/manifest behavior for launcher and activity entries.
-
-Avoid custom infrastructure when a maintained platform solution already exists.
-
-## Branching and versioning
-
-- `main`: stable/installable/validated baseline.
+- `main`: stable, installable, validated baseline.
 - `dev`: ongoing module integration.
-- `feat/*`: only for larger isolated experiments; merge back into `dev`.
+- `feat/*`: larger isolated experiments that will return to `dev` after validation.
 
-Do not promote SystemUI work to `main` until structurally complete, CI-green, diagnostics-clean, and required real-device validation is complete.
+Do not promote SystemUI work to `main` until it is structurally complete, CI-green, diagnostics-clean, and has completed required real-device validation.
 
-Keep commits atomic and semantic. For APK-affecting changes, code/resources, changelog, and internal build identity should remain one logical change.
+### 12.2 Commits
 
-The display version changes only when explicitly advancing the formal external version. Normal APK-affecting iterations advance internal versionCode/buildId. Documentation-only changes do not require an APK build-number bump.
+Keep commits atomic and semantic.
 
-GitHub Actions run numbers are CI execution metadata, not application version identifiers. Do not derive versionCode, buildId, or distributable APK file names from `GITHUB_RUN_NUMBER`. Debug artifact names should be stable for a given application build and use `versionName` plus `buildId`; refer to the Actions run number separately when tracing CI execution.
+Do not mix unrelated architecture migration, feature work, visual redesign, and cleanup into one change merely for convenience.
 
-## CI and real-device validation
+### 12.3 Versioning
+
+The display version changes only when the formal external version is explicitly advanced.
+
+Normal APK-affecting iterations advance the internal `versionCode` / `buildId`.
+
+Documentation-only changes do not require an APK build-number bump.
+
+GitHub Actions run numbers are CI execution metadata and MUST NOT be used as application version identifiers.
+
+### 12.4 CI and device validation
 
 CI is a gate, not a replacement for runtime testing.
 
-For APK-affecting work verify the pinned profile, Debug build, Release build where applicable, Modern Xposed metadata, signing, Debug/Release diagnostics boundary, and artifact generation.
+For APK-affecting work, verify as applicable:
 
-For runtime-sensitive work provide a focused real-device test list. Depending on impact this can include normal status bar, charging/non-charging, lock screen, AOD, Control Center open/close, SystemUI restart, hot reload, configuration changes, and coexistence with other status-bar modules.
+- pinned compatibility profile;
+- Debug build;
+- Release build;
+- Modern Xposed metadata;
+- signing;
+- Debug/Release diagnostics boundary;
+- artifact generation.
 
-## Definition of done
+For runtime-sensitive work, provide focused real-device scenarios based on the affected owner/lifecycle. These may include:
 
-A change is complete only when all applicable checks pass:
-- proposal/direction objectively evaluated before implementation;
-- change plan defined, validated, and confirmed before project mutation;
-- any implementation deviation stopped and re-evaluated before continuing;
-- post-diagnostic evidence reviewed against the full solution space rather than only the current path;
-- pre-change review;
-- standardized/lightweight/modern implementation review;
-- copy review when text changed;
-- MIUIX UI review when UI changed;
-- post-change review;
-- appropriate Debug/Release diagnostics;
-- CI;
-- explicit real-device validation result or a clear "awaiting device validation" status;
-- CHANGELOG update for user-visible or engineering-significant changes;
-- no runtime claim based on CI alone.
+- normal status bar;
+- charging/non-charging;
+- lock screen;
+- AOD;
+- Control Center open/close;
+- island transitions;
+- SystemUI restart;
+- hot reload;
+- configuration changes;
+- coexistence with other status-bar modules.
 
-## Required implementation report
+Do not claim runtime correctness from CI alone.
 
-Every implementation report should state:
-1. how the proposed direction was evaluated and why it was accepted, adjusted, deferred, or rejected;
-2. the confirmed change plan and whether execution stayed within it;
-3. any plan deviation, the evidence that caused it, and the revised confirmed plan if applicable;
-4. after meaningful diagnostics, the alternative solution families considered and why the selected path is currently preferred overall;
-5. what changed and why;
-6. standardization/lightweight/modernization review result;
-7. text-review result when text changed;
-8. MIUIX UI-review result when UI changed;
-9. CI result;
-10. required real-device test scenarios;
-11. known limitations or compatibility boundaries.
+## 13. Post-change review
 
-These rules should be re-read and applied for every future feature or fix.
+After implementation, contributors MUST review for:
+
+- duplicate hooks, observers, listeners, jobs, or state;
+- multiple writers for the same runtime property;
+- stale host/session references;
+- missing cleanup paths;
+- repeated reflection or View-tree traversal;
+- polling or unnecessary wakeups;
+- high-frequency logs;
+- unbounded main-thread work;
+- geometry/animation ownership accidentally moved from SystemUI to the module;
+- Debug-only behavior leaking into Release;
+- compatibility profile drift;
+- new long-lived responsibilities added to `CombinedStatusModule` without checking the ownership migration gate.
+
+A successful build is not the definition of done.
+
+## 14. Definition of done
+
+A change is complete only when all applicable requirements are satisfied:
+
+- direction evaluated before mutation;
+- bounded plan defined and validated;
+- verified owner/call chain identified for runtime-sensitive work;
+- implementation stayed within the plan or stopped for re-evaluation;
+- meaningful diagnostics were used to reassess the full solution space;
+- lifecycle and ownership are explicit;
+- resource cleanup/fallback is defined;
+- no accidental multi-writer geometry/state ownership was introduced;
+- standardized/lightweight/modern review completed;
+- copy review completed when text changed;
+- MIUIX review completed when UI changed;
+- appropriate Debug/Release diagnostics are present;
+- CI passed where applicable;
+- required real-device validation passed or is explicitly marked **awaiting device validation**;
+- CHANGELOG is updated for user-visible or engineering-significant changes;
+- runtime claims are not based on CI alone.
+
+## 15. Required implementation report
+
+Every completed implementation report MUST state:
+
+1. how the direction was evaluated and why it was accepted, adjusted, deferred, or rejected;
+2. the confirmed change boundary and whether execution stayed inside it;
+3. the verified owner/call chain for runtime-sensitive work;
+4. any invalidated assumption or plan deviation and the evidence that caused it;
+5. alternative solution families considered after meaningful diagnostics;
+6. what changed and why;
+7. ownership/lifecycle impact, including cleanup and fallback behavior where applicable;
+8. whether the ownership migration gate was evaluated or crossed;
+9. standardization/lightweight/modernization review result;
+10. text-review result when text changed;
+11. MIUIX UI-review result when UI changed;
+12. CI result;
+13. required real-device test scenarios and current result;
+14. known limitations and compatibility boundaries.
+
+These rules MUST be re-read and applied by developers and contributors for every future feature, fix, migration, and runtime-sensitive refactor.
