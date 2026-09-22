@@ -705,9 +705,27 @@ Before completing a functional change, ask:
 
 If the answer to the first two questions is no, the change normally does not belong in `CHANGELOG.md`.
 
-### 12.5 CI and device validation
+### 12.5 Release publication
+
+Formal stable releases MUST satisfy all of the following:
+
+- publish from `main` only;
+- the intended display version is already present in project version metadata;
+- `CHANGELOG.md` contains a dated `## [<version>] - YYYY-MM-DD` section;
+- the release notes describe that version's net changes rather than copying development history;
+- README release-status wording is updated when the first stable release or another user-visible release state changes;
+- the stable tag does not already exist;
+- the Release workflow rebuilds and verifies the signed APK from the selected `main` commit.
+
+The Release workflow MUST fail closed when the branch or changelog release boundary is not ready.
+
+Test/prerelease tags MAY include CI execution identity. Stable version tags and distributable APK filenames MUST use application release/build identity rather than GitHub Actions run numbers.
+
+### 12.6 CI and device validation
 
 CI is a gate, not a replacement for runtime testing.
+
+The checked-in Gradle Wrapper is the canonical Gradle entry point for contributors and CI. Workflows SHOULD use `./gradlew` rather than depending on an independently selected runner Gradle version.
 
 For APK-affecting work, verify as applicable:
 
