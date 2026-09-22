@@ -15,6 +15,8 @@ internal object CombinedStatusHomeRenderSession {
         "com.android.systemui.statusbar.views.MiuiStatusBatteryContainer"
     private const val BATTERY_VIEW_CLASS_NAME =
         "com.android.systemui.statusbar.views.MiuiBatteryMeterView"
+    private const val STATUS_ICON_CONTAINER_CLASS_NAME =
+        "com.android.systemui.statusbar.views.MiuiStatusIconContainer"
 
     private var current: Session? = null
 
@@ -93,6 +95,16 @@ internal object CombinedStatusHomeRenderSession {
         private var rejectedTintLogged = false
         private var stableModel: CombinedStatusRenderModel? = null
         private var stableTint: CombinedStatusTintState? = null
+        private var baselinePaddingCaptured = false
+        private var baselinePaddingStart = 0
+        private var baselinePaddingEnd = 0
+        private var baselinePaddingTop = 0
+        private var baselinePaddingBottom = 0
+        private var baselineBatteryWidthPx = 0
+        private var ownedSlotWidthPx = 0
+        private var ownedSlotApplied = false
+        private var ownedSlotVerificationPending = false
+        private var ownedSlotVerifiedLogged = false
         private val anchorRect = Rect()
 
         private val batteryLayoutListener =
@@ -107,7 +119,11 @@ internal object CombinedStatusHomeRenderSession {
                     _,
                     _,
                 ->
+                if (applyOwnedSlotIfReady("layout")) {
+                    return@OnLayoutChangeListener
+                }
                 layoutProbe()
+                verifyOwnedSlotIfReady()
             }
 
         fun matches(
@@ -130,13 +146,17 @@ internal object CombinedStatusHomeRenderSession {
             SystemUiTintStateSource.currentState(battery)?.let {
                 applyTintState(it, "seed")
             }
-            layoutProbe()
+            if (!applyOwnedSlotIfReady("start")) {
+                layoutProbe()
+                verifyOwnedSlotIfReady()
+            }
         }
 
         fun stop() {
             host.get()?.removeOnAttachStateChangeListener(this)
             batteryView.get()?.removeOnLayoutChangeListener(batteryLayoutListener)
             host.get()?.overlay?.remove(probeView)
+            restoreOwnedSlot()
         }
 
         fun updateTint(update: SystemUiTintStateSource.TintUpdate) {
@@ -232,13 +252,125 @@ internal object CombinedStatusHomeRenderSession {
         }
 
         override fun onViewAttachedToWindow(view: View) {
-            layoutProbe()
+            if (!applyOwnedSlotIfReady("attach")) {
+                layoutProbe()
+                verifyOwnedSlotIfReady()
+            }
         }
 
         override fun onViewDetachedFromWindow(view: View) = Unit
 
+        private fun applyOwnedSlotIfReady(source: String): Boolean {
+            if (ownedSlotApplied) {
+                return false
+            }
+
+            val battery = batteryView.get() ?: return false
+            if (
+                !battery.isLaidOut ||
+                battery.width <= 0 ||
+                battery.height <= 0
+            ) {
+                return false
+            }
+
+            baselinePaddingStart = battery.paddingStart
+            baselinePaddingEnd = battery.paddingEnd
+            baselinePaddingTop = battery.paddingTop
+            baselinePaddingBottom = battery.paddingBottom
+            baselinePaddingCaptured = true
+            baselineBatteryWidthPx = battery.width
+            ownedSlotWidthPx = minOf(battery.width, battery.height).coerceAtLeast(1)
+            ownedSlotApplied = true
+            ownedSlotVerificationPending = true
+
+            battery.setPaddingRelative(
+                baselinePaddingStart + ownedSlotWidthPx,
+                baselinePaddingTop,
+                baselinePaddingEnd,
+                baselinePaddingBottom,
+            )
+
+            onEvent(
+                "homeOwnedSlot applied source=" + source +
+                    " baselineBatteryWidth=" + baselineBatteryWidthPx +
+                    " slotWidth=" + ownedSlotWidthPx +
+                    " paddingStart=" + baselinePaddingStart + "->" + battery.paddingStart +
+                    " owner=MiuiBatteryMeterView originalsHidden=false " +
+                    "animationAdded=false visibilityWrites=0 translationWrites=0 " +
+                    "nativeGeometryWrites=paddingStartOnly",
+            )
+            return true
+        }
+
+        private fun restoreOwnedSlot() {
+            if (!ownedSlotApplied || !baselinePaddingCaptured) {
+                return
+            }
+
+            val battery = batteryView.get() ?: return
+            battery.setPaddingRelative(
+                baselinePaddingStart,
+                baselinePaddingTop,
+                baselinePaddingEnd,
+                baselinePaddingBottom,
+            )
+            onEvent(
+                "homeOwnedSlot restored paddingStart=" + baselinePaddingStart +
+                    " visibilityWrites=0 translationWrites=0",
+            )
+            ownedSlotApplied = false
+            ownedSlotVerificationPending = false
+        }
+
+        private fun verifyOwnedSlotIfReady() {
+            if (
+                !ownedSlotApplied ||
+                !ownedSlotVerificationPending ||
+                ownedSlotVerifiedLogged
+            ) {
+                return
+            }
+
+            val container = batteryContainer.get() ?: return
+            val battery = batteryView.get() ?: return
+            if (!battery.isLaidOut || battery.width <= 0) {
+                return
+            }
+
+            var statusIcons: View? = null
+            for (index in 0 until container.childCount) {
+                val child = container.getChildAt(index)
+                if (child.javaClass.name == STATUS_ICON_CONTAINER_CLASS_NAME) {
+                    statusIcons = child
+                    break
+                }
+            }
+
+            ownedSlotVerificationPending = false
+            ownedSlotVerifiedLogged = true
+            val occupiedWidthDelta = battery.width - baselineBatteryWidthPx
+            val adjacentGap =
+                statusIcons?.let { icons -> battery.left - icons.right } ?: -1
+            onEvent(
+                "homeOwnedSlot verified " +
+                    "baselineBatteryWidth=" + baselineBatteryWidthPx +
+                    " currentBatteryWidth=" + battery.width +
+                    " measuredWidth=" + battery.measuredWidth +
+                    " occupiedWidthDelta=" + occupiedWidthDelta +
+                    " requestedSlotWidth=" + ownedSlotWidthPx +
+                    " paddingStart=" + battery.paddingStart +
+                    " statusIconsWidth=" + (statusIcons?.width ?: -1) +
+                    " statusIconsRight=" + (statusIcons?.right ?: -1) +
+                    " batteryBounds=" + battery.left + "-" + battery.right +
+                    " adjacentGap=" + adjacentGap +
+                    " originalBatteryPreserved=true " +
+                    "animationAdded=false visibilityWrites=0 translationWrites=0",
+            )
+        }
+
         private fun layoutProbe() {
-            if (!resolveNativeAnchor(anchorRect)) {
+            if (!ownedSlotApplied || !resolveOwnedSlot(anchorRect)) {
                 return
             }
             applyAnchorBounds(anchorRect)
@@ -247,25 +379,27 @@ internal object CombinedStatusHomeRenderSession {
                 layoutLogged = true
                 onEvent(
                     "homeRenderProbe attached " +
-                        "slot=homeHostOverlay anchor=battery " +
+                        "slot=homeOwnedPaddingSlot anchor=batteryStart " +
                         "bounds=" + anchorRect.left + "," + anchorRect.top + "-" +
                         anchorRect.right + "," + anchorRect.bottom +
                         " size=" + anchorRect.width() + "x" + anchorRect.height() +
                         " opacity=" + PROBE_OPACITY +
                         " ancestorVisibilityIndependent=true " +
-                        "originalsHidden=false nativeGeometryWrites=0",
+                        "originalsHidden=false nativeGeometryWrites=paddingStartOnly " +
+                        "translationWrites=0 animationAdded=false",
                 )
             }
         }
 
-        private fun resolveNativeAnchor(out: Rect): Boolean {
+        private fun resolveOwnedSlot(out: Rect): Boolean {
             val hostView = host.get() ?: return false
             val battery = batteryView.get() ?: return false
             if (
                 !hostView.isLaidOut ||
                 !battery.isLaidOut ||
                 battery.width <= 0 ||
-                battery.height <= 0
+                battery.height <= 0 ||
+                ownedSlotWidthPx <= 0
             ) {
                 return false
             }
@@ -275,7 +409,12 @@ internal object CombinedStatusHomeRenderSession {
                 battery,
                 out,
             )
-            return true
+            if (battery.layoutDirection == View.LAYOUT_DIRECTION_RTL) {
+                out.left = out.right - ownedSlotWidthPx
+            } else {
+                out.right = out.left + ownedSlotWidthPx
+            }
+            return out.width() > 0 && out.height() > 0
         }
 
         private fun applyAnchorBounds(bounds: Rect) {

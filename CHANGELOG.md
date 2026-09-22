@@ -42,6 +42,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Runtime validation showed the native battery anchor does not move during the charging-island transition, so the ineffective battery-anchor follower was removed; Debug now maps the real Home right-side owner candidates (status container, end-side content, status-bar icons, battery container/view) with bounded pre-draw samples and zero geometry writes.
 - The Home visual probe is now hosted by the real MiuiBatteryMeterView overlay instead of the broader MiuiStatusBatteryContainer overlay, so sibling Wi-Fi/mobile relayouts no longer own the probe's overlay lifecycle.
 - Runtime transition diagnostics proved SystemUI temporarily sets MiuiStatusBatteryContainer to alpha=0 and INVISIBLE during Wi-Fi/mobile semantic changes; the Home probe is therefore lifted to MiuiNotificationStatusContainer's overlay while remaining anchored to the real battery bounds, so native container visibility no longer blanks CombinedStatus.
+- Debug Home rendering now validates a real measured CombinedStatus slot without adding a fourth MiuiStatusBatteryContainer child: it preserves the native MiuiBatteryMeterView as the lifecycle/island-motion carrier, extends only its leading padding by one native square status unit, renders CombinedStatus into that leading region, and leaves native Battery/Wi-Fi/mobile visibility and translation untouched.
 
 ### Changed
 - Minimum Android version is Android 13 / API 33 to match the current MIUIX blur baseline.
