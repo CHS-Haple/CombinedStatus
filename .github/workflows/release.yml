@@ -44,8 +44,6 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '9.7.1'
 
       - name: Restore and verify Haple signing
         shell: bash
@@ -54,7 +52,7 @@ jobs:
         run: bash tools/setup_haple_signing.sh
 
       - name: Build signed release APK
-        run: gradle :app:assembleRelease --stacktrace
+        run: ./gradlew :app:assembleRelease --stacktrace
 
       - name: Verify APK signature
         shell: bash
@@ -95,9 +93,36 @@ jobs:
             RELEASE_TITLE="CombinedStatus $VERSION_NAME ($BUILD_ID)"
           fi
 
+          echo "VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
+          echo "BUILD_ID=$BUILD_ID" >> "$GITHUB_ENV"
           echo "APK_NAME=$APK_NAME" >> "$GITHUB_ENV"
           echo "RELEASE_TAG=$RELEASE_TAG" >> "$GITHUB_ENV"
           echo "RELEASE_TITLE=$RELEASE_TITLE" >> "$GITHUB_ENV"
+
+      - name: Validate stable release boundary
+        if: inputs.channel == 'stable'
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF_NAME" != "main" ]]; then
+            echo "Stable releases must be published from main, not $GITHUB_REF_NAME."
+            exit 1
+          fi
+
+          if ! grep -Eq "^## \\\[$VERSION_NAME\\\] - [0-9]{4}-[0-9]{2}-[0-9]{2}$" CHANGELOG.md; then
+            echo "CHANGELOG.md must contain a dated ## [$VERSION_NAME] release section before publishing stable."
+            exit 1
+          fi
+
+          awk -v version="$VERSION_NAME" '
+            $0 ~ "^## \\[" version "\\] - " { capture=1; next }
+            capture && /^## \\[/ { exit }
+            capture { print }
+          ' CHANGELOG.md > release-notes.md
+
+          if [[ ! -s release-notes.md ]]; then
+            echo "The CHANGELOG release section for $VERSION_NAME has no release notes."
+            exit 1
+          fi
 
       - name: Check stable tag
         if: inputs.channel == 'stable'
@@ -123,7 +148,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$RELEASE_TAG" "dist/$APK_NAME"             --target "$GITHUB_SHA"             --title "$RELEASE_TITLE"             --notes "Signed HyperOS test build $RELEASE_TAG."             --prerelease
+          gh release create "$RELEASE_TAG" "dist/$APK_NAME" \
+            --target "$GITHUB_SHA" \
+            --title "$RELEASE_TITLE" \
+            --notes "Signed HyperOS test build $RELEASE_TAG." \
+            --prerelease
 
       - name: Publish stable release
         if: inputs.channel == 'stable'
@@ -131,4 +160,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$RELEASE_TAG" "dist/$APK_NAME"             --target "$GITHUB_SHA"             --title "$RELEASE_TITLE"             --notes "Signed CombinedStatus release $RELEASE_TAG."
+          gh release create "$RELEASE_TAG" "dist/$APK_NAME" \
+            --target "$GITHUB_SHA" \
+            --title "$RELEASE_TITLE" \
+            --notes-file release-notes.md
