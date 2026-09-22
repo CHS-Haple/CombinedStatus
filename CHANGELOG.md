@@ -9,6 +9,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 ### Added
 - Structured runtime diagnostics protocol with stable event/component/state fields and a report-time health snapshot for module loading, compatibility, status-host capture, network/airplane/tint sources, renderer, hot reload, and diagnostics transport without polling or resident collection.
 - Structured diagnostics now carry a schema version, bounded runtime-session identity, monotonic uptime, and sequence metadata so report health can isolate the current cold-start/hot-reload generation without resident tracing.
+- Detailed diagnostics now correlate actual visible render changes from source callback through state/presentation commit to model commit and draw using bounded last-write-wins traces; hidden scenes are excluded, no polling or frame queue is introduced, and metric events stay outside runtime-health evaluation.
 - Canary build channel: non-debuggable and release-optimized like the production artifact, while retaining bounded runtime diagnostics controlled by the in-app General/Detailed preference.
 - App-side diagnostics level preference with General/Detailed choices, defaulting to General and mirrored through libxposed API 102 RemotePreferences for later hook-side consumption.
 - English and Simplified Chinese MIUIX application shell for HyperOS.
@@ -50,6 +51,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Debug owned-slot validation now records one matched pre/post geometry pair around the existing paddingStart write, including measured-width expansion, stable battery end-anchor delta, adjacent status-icon boundary movement, and neighbor-gap delta without adding hooks or continuous sampling.
 
 ### Changed
+- Home renderer diagnostic strings are now built only while Detailed diagnostics are enabled; General keeps the existing render path without per-transition diagnostic string allocation.
 - Diagnostics device/system metadata now uses parentheses for subordinate identifiers: model shows its device codename as `Model (codename)`, Android shows `Android 17 (API 37)`, and the localized labels mirror the same primary-plus-detail relationship.
 - General diagnostics no longer emit the full mobile-presentation resolution payload; detailed state remains available only when Detailed diagnostics are enabled, while rendering behavior is unchanged.
 - Diagnostic reports now compare the app-requested level with the effective SystemUI runtime level and scope current-generation logs by session metadata before falling back to the legacy PID/build heuristic.
