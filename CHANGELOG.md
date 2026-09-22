@@ -35,7 +35,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - A pure scene-capability policy now classifies Home, notification-shade transition, Control Center, keyguard, and AOD without duplicating geometry rules; charging variants remain render state rather than a separate scene.
 - Debug stable-status diagnostics now capture one-shot Home slot readiness metrics (padding, layout params, margins, adjacent status-icon boundary, clipping, RTL, and native translation) without mutating geometry.
 - A shared event-driven SystemUI tint source now follows MiuiBatteryMeterView's native DarkIconDispatcher application path, with a reusable color policy for scene rendering.
-- Debug Home rendering now includes a bounded eight-frame transition probe after accepted Wi-Fi/mobile/charging model changes, capturing host/container/battery/probe alpha, visibility, attachment, geometry, translation, overlay parent, and draw progress without geometry mutation.
+- Debug Home rendering now records one bounded state-to-draw latency line per actually rendered state transition; the temporary eight-frame transition probe has been removed after it identified the native visibility owner.
 - The Home visual probe is now hosted by the real MiuiBatteryMeterView overlay instead of the broader MiuiStatusBatteryContainer overlay, so sibling Wi-Fi/mobile relayouts no longer own the probe's overlay lifecycle.
 - Runtime transition diagnostics proved SystemUI temporarily sets MiuiStatusBatteryContainer to alpha=0 and INVISIBLE during Wi-Fi/mobile semantic changes; the Home probe is therefore lifted to MiuiNotificationStatusContainer's overlay while remaining anchored to the real battery bounds, so native container visibility no longer blanks CombinedStatus.
 
@@ -73,6 +73,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Stable status geometry capture now waits for the first valid battery-view layout before recording the anchor, while keeping native SystemUI geometry untouched.
 - Compatibility metadata, diagnostics copy, and CI verification now target SystemUI only, matching the module's actual `com.android.systemui` scope.
 - Verified network collectors now feed the typed CombinedStatus state snapshot in all build types, while detailed change-only diagnostics remain Debug-only.
+- Wi-Fi and mobile semantic state is now committed before the verified SystemUI emitter proceeds, and main-thread render invalidation is requested immediately so CombinedStatus and the native icon transition can enter the same UI frame.
 - The Home visual probe now renders at full opacity and repaints from the native battery receiver's applied tint instead of recursively guessing colors from arbitrary child views.
 
 ### Fixed

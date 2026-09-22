@@ -3,6 +3,7 @@ package com.chaners.combinedstatus.xposed
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Rect
+import android.os.Looper
 import android.os.SystemClock
 import android.telephony.SubscriptionManager
 import android.view.View
@@ -77,7 +78,14 @@ internal object CombinedStatusHomeRenderSession {
         private val host = WeakReference(host)
         private val batteryContainer = WeakReference(batteryContainer)
         private val batteryView = WeakReference(batteryView)
-        private val probeView = ProbeView(host.context)
+        private val probeView =
+            ProbeView(host.context) { latencyMs, committedOnMainThread ->
+                onEvent(
+                    "homeRenderLatency stateToDrawMs=" + latencyMs +
+                        " commitMainThread=" + committedOnMainThread +
+                        " scheduling=sameFramePreferred",
+                )
+            }
         private var readyLogged = false
         private var layoutLogged = false
         private var tintLogged = false
@@ -85,7 +93,6 @@ internal object CombinedStatusHomeRenderSession {
         private var rejectedTintLogged = false
         private var stableModel: CombinedStatusRenderModel? = null
         private var stableTint: CombinedStatusTintState? = null
-        private var transitionProbeGeneration = 0
 
         private val batteryLayoutListener =
             View.OnLayoutChangeListener {
@@ -204,16 +211,9 @@ internal object CombinedStatusHomeRenderSession {
                 return
             }
 
-            val previousModel = stableModel
             if (model != stableModel) {
                 stableModel = model
                 probeView.setModel(model)
-                if (readyLogged && previousModel != null && model != null) {
-                    scheduleTransitionProbe(
-                        previous = previousModel,
-                        current = model,
-                    )
-                }
             }
 
             if (model != null && !readyLogged) {
@@ -229,122 +229,6 @@ internal object CombinedStatusHomeRenderSession {
                 )
             }
         }
-
-        private fun scheduleTransitionProbe(
-            previous: CombinedStatusRenderModel,
-            current: CombinedStatusRenderModel,
-        ) {
-            val hostView = host.get() ?: return
-            transitionProbeGeneration += 1
-            val generation = transitionProbeGeneration
-            val reason =
-                "wifi=" + (previous.wifiSegments ?: 0) + "->" +
-                    (current.wifiSegments ?: 0) +
-                    ",mobile=" + (previous.mobileLevel ?: -1) + "->" +
-                    (current.mobileLevel ?: -1) +
-                    ",charging=" + previous.charging + "->" + current.charging
-
-            sampleTransitionFrame(
-                generation = generation,
-                frame = 0,
-                reason = reason,
-            )
-            scheduleNextTransitionFrame(
-                hostView = hostView,
-                generation = generation,
-                frame = 1,
-                reason = reason,
-            )
-        }
-
-        private fun scheduleNextTransitionFrame(
-            hostView: View,
-            generation: Int,
-            frame: Int,
-            reason: String,
-        ) {
-            if (frame >= TRANSITION_PROBE_FRAME_COUNT) {
-                return
-            }
-            hostView.postOnAnimation {
-                if (generation != transitionProbeGeneration) {
-                    return@postOnAnimation
-                }
-                sampleTransitionFrame(
-                    generation = generation,
-                    frame = frame,
-                    reason = reason,
-                )
-                scheduleNextTransitionFrame(
-                    hostView = hostView,
-                    generation = generation,
-                    frame = frame + 1,
-                    reason = reason,
-                )
-            }
-        }
-
-        private fun sampleTransitionFrame(
-            generation: Int,
-            frame: Int,
-            reason: String,
-        ) {
-            val hostView = host.get() ?: return
-            val container = batteryContainer.get() ?: return
-            val battery = batteryView.get() ?: return
-            val drawSnapshot = probeView.drawSnapshot()
-
-            onEvent(
-                "homeTransitionFrame gen=" + generation +
-                    " frame=" + frame +
-                    " reason=" + reason +
-                    " host=" + viewState(hostView) +
-                    " container=" + viewState(container) +
-                    " battery=" + viewState(battery) +
-                    " probe=" + viewState(probeView) +
-                    " probeParent=" +
-                    (probeView.parent?.javaClass?.simpleName ?: "none") +
-                    " drawCount=" + drawSnapshot.count +
-                    " lastDrawAgeMs=" +
-                    if (drawSnapshot.lastUptimeMs == 0L) {
-                        -1
-                    } else {
-                        (SystemClock.uptimeMillis() - drawSnapshot.lastUptimeMs)
-                            .coerceAtLeast(0L)
-                    },
-            )
-        }
-
-        private fun viewState(view: View): String =
-            view.javaClass.simpleName +
-                "{a=" + view.alpha +
-                ",ea=" + effectiveAlpha(view) +
-                ",v=" + visibilityToken(view.visibility) +
-                ",shown=" + view.isShown +
-                ",attached=" + view.isAttachedToWindow +
-                ",windowV=" + visibilityToken(view.windowVisibility) +
-                ",b=" + view.left + "," + view.top + "-" +
-                view.right + "," + view.bottom +
-                ",t=" + view.translationX + "," + view.translationY +
-                "}"
-
-        private fun effectiveAlpha(view: View): Float {
-            var alpha = 1f
-            var current: View? = view
-            while (current != null) {
-                alpha *= current.alpha
-                current = current.parent as? View
-            }
-            return alpha
-        }
-
-        private fun visibilityToken(value: Int): String =
-            when (value) {
-                View.VISIBLE -> "V"
-                View.INVISIBLE -> "I"
-                View.GONE -> "G"
-                else -> value.toString()
-            }
 
         override fun onViewAttachedToWindow(view: View) {
             layoutProbe()
@@ -404,6 +288,7 @@ internal object CombinedStatusHomeRenderSession {
 
     private class ProbeView(
         context: Context,
+        private val onStateRendered: (latencyMs: Long, committedOnMainThread: Boolean) -> Unit,
     ) : View(context) {
         private val painter = LegacyCombinedStatusPainter()
 
@@ -420,12 +305,21 @@ internal object CombinedStatusHomeRenderSession {
             setWillNotDraw(false)
         }
 
+        @Volatile
+        private var pendingStateUptimeMs: Long = 0
+
+        @Volatile
+        private var pendingStateCommittedOnMainThread: Boolean = false
+
         fun setModel(model: CombinedStatusRenderModel?) {
             if (this.model == model) {
                 return
             }
             this.model = model
-            postInvalidateOnAnimation()
+            pendingStateUptimeMs = SystemClock.uptimeMillis()
+            pendingStateCommittedOnMainThread =
+                Looper.myLooper() === Looper.getMainLooper()
+            requestRedraw()
         }
 
         fun setTintState(state: CombinedStatusTintState) {
@@ -433,25 +327,19 @@ internal object CombinedStatusHomeRenderSession {
                 return
             }
             tintState = state
-            postInvalidateOnAnimation()
+            requestRedraw()
         }
 
-        @Volatile
-        private var drawCount: Long = 0
-
-        @Volatile
-        private var lastDrawUptimeMs: Long = 0
-
-        fun drawSnapshot(): DrawSnapshot =
-            DrawSnapshot(
-                count = drawCount,
-                lastUptimeMs = lastDrawUptimeMs,
-            )
+        private fun requestRedraw() {
+            if (Looper.myLooper() === Looper.getMainLooper()) {
+                invalidate()
+            } else {
+                postInvalidateOnAnimation()
+            }
+        }
 
         override fun onDraw(canvas: Canvas) {
             super.onDraw(canvas)
-            drawCount += 1
-            lastDrawUptimeMs = SystemClock.uptimeMillis()
             val current = model ?: return
             val tint = tintState ?: return
             painter.draw(
@@ -462,12 +350,16 @@ internal object CombinedStatusHomeRenderSession {
                 colors = CombinedStatusColorPolicy.resolve(current, tint),
                 opacity = PROBE_OPACITY,
             )
-        }
 
-        data class DrawSnapshot(
-            val count: Long,
-            val lastUptimeMs: Long,
-        )
+            val committedAt = pendingStateUptimeMs
+            if (committedAt != 0L) {
+                pendingStateUptimeMs = 0L
+                onStateRendered(
+                    (SystemClock.uptimeMillis() - committedAt).coerceAtLeast(0L),
+                    pendingStateCommittedOnMainThread,
+                )
+            }
+        }
     }
 
     internal sealed interface AttachResult {
@@ -479,5 +371,4 @@ internal object CombinedStatusHomeRenderSession {
     }
 
     private const val PROBE_OPACITY = 1f
-    private const val TRANSITION_PROBE_FRAME_COUNT = 8
 }

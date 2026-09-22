@@ -211,7 +211,6 @@ class CombinedStatusModule : XposedModule() {
         snapshot: CombinedStatusStateStore.Snapshot,
     ) {
         if (BuildConfig.DEBUG) {
-            log(Log.INFO, TAG, "combinedState " + snapshot.logLine)
             CombinedStatusHomeRenderSession.onState(snapshot)
         }
     }

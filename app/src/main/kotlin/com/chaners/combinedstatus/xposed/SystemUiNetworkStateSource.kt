@@ -23,6 +23,8 @@ internal object SystemUiNetworkStateSource {
         "com.android.systemui.statusbar.pipeline.wifi.ui.model.WifiIcon\$Visible"
     private const val WIFI_ICON_HIDDEN_CLASS_NAME =
         "com.android.systemui.statusbar.pipeline.wifi.ui.model.WifiIcon\$Hidden"
+    private const val ICON_RESOURCE_CLASS_NAME =
+        "com.android.systemui.common.shared.model.Icon\$Resource"
     const val HOME_WIFI_VIEW_MODEL_CLASS_NAME =
         "com.android.systemui.statusbar.pipeline.wifi.ui.viewmodel.HomeWifiViewModel"
 
@@ -94,6 +96,16 @@ internal object SystemUiNetworkStateSource {
             val wifiIconClassIdField = wifiIconEmitterClass
                 .getDeclaredField("\$r8\$classId")
                 .apply { isAccessible = true }
+            val wifiVisibleClass =
+                Class.forName(WIFI_ICON_VISIBLE_CLASS_NAME, false, classLoader)
+            val wifiVisibleIconField = wifiVisibleClass
+                .getDeclaredField("icon")
+                .apply { isAccessible = true }
+            val iconResourceClass =
+                Class.forName(ICON_RESOURCE_CLASS_NAME, false, classLoader)
+            val iconResourceResIdField = iconResourceClass
+                .getDeclaredField("resId")
+                .apply { isAccessible = true }
 
             val mobileBinderClass = Class.forName(MOBILE_BINDER_CLASS_NAME, false, classLoader)
             val mobileLocationVmClass =
@@ -138,6 +150,8 @@ internal object SystemUiNetworkStateSource {
                     wifiIconHooker(
                         wifiImageField = wifiIconImageField,
                         wifiClassIdField = wifiIconClassIdField,
+                        wifiVisibleIconField = wifiVisibleIconField,
+                        iconResourceResIdField = iconResourceResIdField,
                         onWifiState = onWifiState,
                         onEvent = onEvent,
                     ),
@@ -199,64 +213,90 @@ internal object SystemUiNetworkStateSource {
     private fun wifiIconHooker(
         wifiImageField: Field,
         wifiClassIdField: Field,
+        wifiVisibleIconField: Field,
+        iconResourceResIdField: Field,
         onWifiState: (CombinedStatusStateStore.WifiState) -> Unit,
         onEvent: ((String) -> Unit)?,
     ): Hooker = Hooker { chain ->
-        val result = chain.proceed()
         val emitter = chain.thisObject
         val classId = runCatching {
             wifiClassIdField.getInt(emitter)
         }.getOrDefault(-1)
 
         if (classId != WIFI_ICON_COLLECTOR_CLASS_ID) {
-            return@Hooker result
+            return@Hooker chain.proceed()
         }
 
         val image = runCatching {
             wifiImageField.get(emitter) as? ImageView
         }.getOrNull()
+        val value = chain.getArg(0)
 
-        if (image != null && findWifiBinding(image)) {
-            val value = chain.getArg(0)
-            val taggedResId = (image.tag as? Number)?.toInt()
-            val eventKey =
-                (taggedResId?.toString() ?: "none") + ":" +
-                    image.visibility + ":" +
-                    (value?.javaClass?.name ?: "null")
-            val changed = synchronized(this) {
-                lastWifiEvents.put(image, eventKey) != eventKey
-            }
+        if (image == null || !findWifiBinding(image)) {
+            return@Hooker chain.proceed()
+        }
 
-            if (changed) {
-                val wifiResourceName = taggedResId
-                    ?.takeIf { it != 0 }
-                    ?.let { id -> resourceName(image, id) }
-
-                when (value?.javaClass?.name) {
-                    WIFI_ICON_VISIBLE_CLASS_NAME -> {
-                        onWifiState(
-                            CombinedStatusStateStore.WifiState.Visible(
-                                iconResId = taggedResId?.takeIf { it != 0 },
-                                signal = SystemUiSignalParser.wifi(wifiResourceName),
-                            ),
-                        )
-                    }
-
-                    WIFI_ICON_HIDDEN_CLASS_NAME -> {
-                        onWifiState(CombinedStatusStateStore.WifiState.Hidden)
-                    }
+        val semanticState =
+            when (value?.javaClass?.name) {
+                WIFI_ICON_VISIBLE_CLASS_NAME -> {
+                    val resId =
+                        runCatching {
+                            val icon = wifiVisibleIconField.get(value)
+                            iconResourceResIdField.getInt(icon)
+                        }.getOrDefault(0)
+                            .takeIf { it != 0 }
+                    val resourceName = resId?.let { id -> resourceName(image, id) }
+                    CombinedStatusStateStore.WifiState.Visible(
+                        iconResId = resId,
+                        signal = SystemUiSignalParser.wifi(resourceName),
+                    )
                 }
 
-                onEvent?.invoke(
-                    "networkPipeline wifi iconEvent " +
-                        "viewId=" + resourceId(image) +
-                        " classId=" + classId +
-                        " valueType=" + (value?.javaClass?.simpleName ?: "null") +
-                        " visibility=" + visibilityName(image.visibility) +
-                        " taggedResId=" + (taggedResId ?: 0) +
-                        " resource=" + (wifiResourceName ?: "n/a"),
-                )
+                WIFI_ICON_HIDDEN_CLASS_NAME ->
+                    CombinedStatusStateStore.WifiState.Hidden
+
+                else -> null
             }
+
+        val eventKey =
+            when (semanticState) {
+                null -> "unknown:" + (value?.javaClass?.name ?: "null")
+                CombinedStatusStateStore.WifiState.Hidden -> "hidden"
+                is CombinedStatusStateStore.WifiState.Visible ->
+                    "visible:" + (semanticState.iconResId ?: 0)
+                CombinedStatusStateStore.WifiState.Unknown -> "unknown"
+            }
+        val changed =
+            semanticState != null &&
+                synchronized(this) {
+                    lastWifiEvents.put(image, eventKey) != eventKey
+                }
+
+        if (changed) {
+            onWifiState(requireNotNull(semanticState))
+        }
+
+        val result = chain.proceed()
+
+        if (changed) {
+            val appliedTaggedResId = (image.tag as? Number)?.toInt()
+            val semanticResId =
+                (semanticState as? CombinedStatusStateStore.WifiState.Visible)
+                    ?.iconResId
+            val semanticResourceName =
+                semanticResId?.let { id -> resourceName(image, id) }
+
+            onEvent?.invoke(
+                "networkPipeline wifi iconEvent " +
+                    "phase=beforeProceed " +
+                    "viewId=" + resourceId(image) +
+                    " classId=" + classId +
+                    " valueType=" + (value?.javaClass?.simpleName ?: "null") +
+                    " visibility=" + visibilityName(image.visibility) +
+                    " semanticResId=" + (semanticResId ?: 0) +
+                    " appliedTaggedResId=" + (appliedTaggedResId ?: 0) +
+                    " resource=" + (semanticResourceName ?: "n/a"),
+            )
         }
 
         result
@@ -266,10 +306,10 @@ internal object SystemUiNetworkStateSource {
         subscriptionIdMethod: Method,
         onEvent: ((String) -> Unit)?,
     ): Hooker = Hooker { chain ->
-        val result = chain.proceed()
         val root = chain.getArg(0) as? ViewGroup
         val locationViewModel = chain.getArg(1)
         val iconViewModel = chain.getArg(2)
+        var bindingLog: String? = null
 
         if (
             root != null &&
@@ -283,17 +323,19 @@ internal object SystemUiNetworkStateSource {
                 mobileRoots.put(root, subscriptionId)
             }
             if (previous == null || previous != subscriptionId) {
-                onEvent?.invoke(
+                bindingLog =
                     "networkPipeline mobile bound " +
+                        "stage=beforeProceed " +
                         "root=" + root.javaClass.simpleName +
                         " rootId=" + resourceId(root) +
                         " locationVm=" + locationViewModel.javaClass.simpleName +
                         " subId=" + subscriptionId +
-                        " iconVm=" + (iconViewModel?.javaClass?.simpleName ?: "none"),
-                )
+                        " iconVm=" + (iconViewModel?.javaClass?.simpleName ?: "none")
             }
         }
 
+        val result = chain.proceed()
+        bindingLog?.let { onEvent?.invoke(it) }
         result
     }
 
@@ -303,7 +345,6 @@ internal object SystemUiNetworkStateSource {
         onMobileIcon: (CombinedStatusStateStore.MobileIconUpdate) -> Unit,
         onEvent: ((String) -> Unit)?,
     ): Hooker = Hooker { chain ->
-        val result = chain.proceed()
         val emitter = chain.thisObject
         val image = runCatching {
             mobileImageField.get(emitter) as? ImageView
@@ -313,6 +354,7 @@ internal object SystemUiNetworkStateSource {
         }.getOrDefault(-1)
         val value = chain.getArg(0)
 
+        var eventLog: String? = null
         if (image != null) {
             val subscriptionId = findMobileSubscription(image)
             if (subscriptionId != null) {
@@ -343,7 +385,9 @@ internal object SystemUiNetworkStateSource {
                                 subscriptionId = subscriptionId,
                                 kind = kind,
                                 resourceId = resourceId,
-                                signal = if (kind == CombinedStatusStateStore.MobileIconKind.SIGNAL) {
+                                signal = if (
+                                    kind == CombinedStatusStateStore.MobileIconKind.SIGNAL
+                                ) {
                                     SystemUiSignalParser.mobile(resourceName)
                                 } else {
                                     null
@@ -352,18 +396,20 @@ internal object SystemUiNetworkStateSource {
                         )
                     }
 
-                    onEvent?.invoke(
+                    eventLog =
                         "networkPipeline mobile iconEvent " +
+                            "phase=beforeProceed " +
                             "subId=" + subscriptionId +
                             " viewId=" + resourceId(image) +
                             " classId=" + classId +
                             " value=" + valueText +
-                            " resource=" + (resourceName ?: "n/a"),
-                    )
+                            " resource=" + (resourceName ?: "n/a")
                 }
             }
         }
 
+        val result = chain.proceed()
+        eventLog?.let { onEvent?.invoke(it) }
         result
     }
 
