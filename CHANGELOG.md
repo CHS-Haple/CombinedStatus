@@ -56,6 +56,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Application JVM target is 21 to align with the MIUIX 0.9.4 navigation runtime.
 - Launcher icon resources now use the Android adaptive-icon resource model.
 - The original single-screen settings index is split into top-level Home, Features, and Settings areas while deeper settings remain on the navigation stack.
+- The Settings hub now groups controls into Appearance & interaction, App, and Diagnostics & maintenance cards, keeping related actions together without changing their behavior.
 - Appearance settings now drive the root theme and navigation behavior instead of temporary screen-local preview state.
 - Aligned system bar icon appearance with the selected theme mode.
 - Aligned top-level pager fling and back-to-home behavior with the MIUIX 0.9.4 example patterns.
