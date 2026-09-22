@@ -425,7 +425,7 @@ Port the verified requirement, not the historical implementation.
 
 ### 8.3 Reference projects provide patterns, not authority
 
-KeiMi and other SystemUI modules MAY be studied for:
+External SystemUI projects MAY be studied for:
 
 - per-host state;
 - lifecycle/session ownership;
