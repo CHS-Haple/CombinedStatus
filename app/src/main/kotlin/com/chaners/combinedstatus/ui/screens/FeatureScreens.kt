@@ -6,11 +6,9 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -44,8 +42,7 @@ import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Surface
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
-import top.yukonga.miuix.kmp.preference.RadioButtonLocation
-import top.yukonga.miuix.kmp.preference.RadioButtonPreference
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
@@ -55,38 +52,35 @@ internal fun AppearanceScreen(
     onThemeModeChange: (AppThemeMode) -> Unit,
     onDynamicColorEnabledChange: (Boolean) -> Unit,
     onFloatingNavigationBlurEnabledChange: (Boolean) -> Unit,
-    onSwipeBackEnabledChange: (Boolean) -> Unit,
     onBack: () -> Unit,
 ) {
+    val themeOptions =
+        listOf(
+            stringResource(R.string.theme_system),
+            stringResource(R.string.theme_light),
+            stringResource(R.string.theme_dark),
+        )
+
     SettingsPage(title = stringResource(R.string.appearance_title), onBack = onBack) {
         item {
             AppearanceThemePreview(settings)
         }
 
         Section(R.string.section_theme) {
-            BasicComponent(
+            OverlayDropdownPreference(
+                items = themeOptions,
+                selectedIndex = settings.themeMode.ordinal,
                 title = stringResource(R.string.theme_mode),
                 summary = stringResource(R.string.theme_mode_summary),
-            )
-            AppThemeMode.entries.forEach { mode ->
-                RadioButtonPreference(
-                    title =
-                        stringResource(
-                            when (mode) {
-                                AppThemeMode.System -> R.string.theme_system
-                                AppThemeMode.Light -> R.string.theme_light
-                                AppThemeMode.Dark -> R.string.theme_dark
-                            },
-                        ),
-                    selected = settings.themeMode == mode,
-                    onClick = {
-                        if (settings.themeMode != mode) {
+                showValue = true,
+                onSelectedIndexChange = { index ->
+                    AppThemeMode.entries.getOrNull(index)?.let { mode ->
+                        if (mode != settings.themeMode) {
                             onThemeModeChange(mode)
                         }
-                    },
-                    radioButtonLocation = RadioButtonLocation.End,
-                )
-            }
+                    }
+                },
+            )
             SwitchPreference(
                 title = stringResource(R.string.dynamic_color),
                 summary = stringResource(R.string.dynamic_color_summary),
@@ -94,20 +88,13 @@ internal fun AppearanceScreen(
                 onCheckedChange = onDynamicColorEnabledChange,
             )
         }
+
         Section(R.string.section_visual_effects) {
             SwitchPreference(
                 title = stringResource(R.string.floating_navigation_blur),
                 summary = stringResource(R.string.floating_navigation_blur_summary),
                 checked = settings.floatingNavigationBlurEnabled,
                 onCheckedChange = onFloatingNavigationBlurEnabledChange,
-            )
-        }
-        Section(R.string.section_navigation) {
-            SwitchPreference(
-                title = stringResource(R.string.swipe_back),
-                summary = stringResource(R.string.swipe_back_summary),
-                checked = settings.swipeBackEnabled,
-                onCheckedChange = onSwipeBackEnabledChange,
             )
         }
     }
@@ -146,11 +133,8 @@ private fun AppearanceThemePreview(settings: AppearanceSettings) {
                     modeLabel,
                     colorLabel,
                 ),
-            bottomAction = {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
+            endActions = {
+                Row {
                     ThemeColorSwatch(MiuixTheme.colorScheme.primary)
                     ThemeColorSwatch(MiuixTheme.colorScheme.secondary)
                     ThemeColorSwatch(MiuixTheme.colorScheme.surfaceContainerHigh)
@@ -163,8 +147,11 @@ private fun AppearanceThemePreview(settings: AppearanceSettings) {
 @Composable
 private fun ThemeColorSwatch(color: Color) {
     Surface(
-        modifier = Modifier.size(width = 54.dp, height = 30.dp),
-        shape = RoundedCornerShape(10.dp),
+        modifier =
+            Modifier
+                .padding(start = 6.dp)
+                .size(width = 30.dp, height = 24.dp),
+        shape = RoundedCornerShape(8.dp),
         color = color,
     ) {}
 }

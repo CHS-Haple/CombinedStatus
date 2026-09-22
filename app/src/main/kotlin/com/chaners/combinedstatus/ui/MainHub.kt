@@ -58,6 +58,7 @@ internal fun MainHub(
     launcherIconHidden: Boolean,
     onAppLanguageChange: (AppLanguage) -> Unit,
     onLauncherIconHiddenChange: (Boolean) -> Unit,
+    onSwipeBackEnabledChange: (Boolean) -> Unit,
     onNavigate: (AppRoute) -> Unit,
 ) {
     val pagerState = rememberPagerState(pageCount = { TopLevelPageCount })
@@ -148,8 +149,10 @@ internal fun MainHub(
                 bottomPadding = innerPadding,
                 appLanguage = appLanguage,
                 launcherIconHidden = launcherIconHidden,
+                swipeBackEnabled = settings.swipeBackEnabled,
                 onAppLanguageChange = onAppLanguageChange,
                 onLauncherIconHiddenChange = onLauncherIconHiddenChange,
+                onSwipeBackEnabledChange = onSwipeBackEnabledChange,
                 onNavigate = onNavigate,
             )
         }
@@ -179,8 +182,10 @@ private fun TopLevelPager(
     bottomPadding: PaddingValues,
     appLanguage: AppLanguage,
     launcherIconHidden: Boolean,
+    swipeBackEnabled: Boolean,
     onAppLanguageChange: (AppLanguage) -> Unit,
     onLauncherIconHiddenChange: (Boolean) -> Unit,
+    onSwipeBackEnabledChange: (Boolean) -> Unit,
     onNavigate: (AppRoute) -> Unit,
 ) {
     val flingBehavior = PagerDefaults.flingBehavior(
@@ -205,8 +210,10 @@ private fun TopLevelPager(
                 bottomContentPadding = bottom,
                 appLanguage = appLanguage,
                 launcherIconHidden = launcherIconHidden,
+                swipeBackEnabled = swipeBackEnabled,
                 onAppLanguageChange = onAppLanguageChange,
                 onLauncherIconHiddenChange = onLauncherIconHiddenChange,
+                onSwipeBackEnabledChange = onSwipeBackEnabledChange,
                 onNavigate = onNavigate,
             )
         }

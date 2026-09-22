@@ -72,8 +72,10 @@ internal fun SettingsHubScreen(
     bottomContentPadding: Dp,
     appLanguage: AppLanguage,
     launcherIconHidden: Boolean,
+    swipeBackEnabled: Boolean,
     onAppLanguageChange: (AppLanguage) -> Unit,
     onLauncherIconHiddenChange: (Boolean) -> Unit,
+    onSwipeBackEnabledChange: (Boolean) -> Unit,
     onNavigate: (AppRoute) -> Unit,
 ) {
     val languageOptions = listOf(
@@ -154,6 +156,12 @@ internal fun SettingsHubScreen(
             title = stringResource(R.string.appearance_title),
             summary = stringResource(R.string.appearance_summary),
             onClick = { onNavigate(AppRoute.Appearance) },
+        )
+        SwitchPreference(
+            title = stringResource(R.string.swipe_back),
+            summary = stringResource(R.string.swipe_back_summary),
+            checked = swipeBackEnabled,
+            onCheckedChange = onSwipeBackEnabledChange,
         )
         OverlayDropdownPreference(
             items = languageOptions,

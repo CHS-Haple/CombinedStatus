@@ -44,22 +44,21 @@
 
     <string name="section_theme">Theme</string>
     <string name="theme_mode">Theme mode</string>
-    <string name="theme_mode_summary">Controls light and dark appearance independently from app colors</string>
+    <string name="theme_mode_summary">Follow the system or choose light or dark</string>
     <string name="theme_system">System</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
     <string name="dynamic_color">Dynamic color</string>
-    <string name="dynamic_color_summary">Generate app colors from the system wallpaper palette while keeping the selected theme mode</string>
+    <string name="dynamic_color_summary">Use colors generated from the system wallpaper</string>
     <string name="dynamic_color_on">Dynamic color</string>
     <string name="dynamic_color_off">Default colors</string>
-    <string name="theme_preview">Theme preview</string>
+    <string name="theme_preview">Current appearance</string>
     <string name="theme_preview_summary">%1$s · %2$s</string>
     <string name="section_visual_effects">Interface effects</string>
-    <string name="floating_navigation_blur">Navigation bar blur</string>
-    <string name="floating_navigation_blur_summary">Blur the background, or use the standard style when unsupported</string>
-    <string name="section_navigation">Navigation</string>
+    <string name="floating_navigation_blur">Floating navigation blur</string>
+    <string name="floating_navigation_blur_summary">Blur the background of the floating bottom navigation bar</string>
     <string name="swipe_back">Swipe back</string>
-    <string name="swipe_back_summary">Swipe from the screen edge to go back without changing system back gestures</string>
+    <string name="swipe_back_summary">Swipe from the screen edge to go back</string>
 
     <string name="section_hyperos_systemui">Display and transitions</string>
     <string name="enable_combined_icon">Combined indicator</string>

@@ -74,6 +74,7 @@ internal fun CombinedStatusApp(
                     launcherIconHidden = launcherIconHidden,
                     onAppLanguageChange = onAppLanguageChange,
                     onLauncherIconHiddenChange = onLauncherIconHiddenChange,
+                    onSwipeBackEnabledChange = onSwipeBackEnabledChange,
                     onNavigate = ::navigate,
                 )
             }
@@ -84,7 +85,6 @@ internal fun CombinedStatusApp(
                     onDynamicColorEnabledChange = onDynamicColorEnabledChange,
                     onFloatingNavigationBlurEnabledChange =
                         onFloatingNavigationBlurEnabledChange,
-                    onSwipeBackEnabledChange = onSwipeBackEnabledChange,
                     onBack = ::navigateBack,
                 )
             }
