@@ -11,8 +11,9 @@ import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
 class CombinedStatusModule : XposedModule() {
     private var statusHostHookInstalled = false
     private var networkSourceInstalled = false
+    private var airplaneSourceInstalled = false
     private var tintSourceInstalled = false
-    private var islandMotionProbeInstalled = false
+    private var islandMotionSourceInstalled = false
 
     override fun onModuleLoaded(param: ModuleLoadedParam) {
         log(
@@ -54,16 +55,18 @@ class CombinedStatusModule : XposedModule() {
                 classLoader = param.classLoader,
                 source = "coldStart",
             )
+            installAirplaneStateSource(
+                classLoader = param.classLoader,
+                source = "coldStart",
+            )
             installTintStateSource(
                 classLoader = param.classLoader,
                 source = "coldStart",
             )
-            if (BuildConfig.DEBUG) {
-                installIslandMotionProbe(
-                    classLoader = param.classLoader,
-                    source = "coldStart",
-                )
-            }
+            installIslandMotionSource(
+                classLoader = param.classLoader,
+                source = "coldStart",
+            )
         }
     }
 
@@ -80,13 +83,18 @@ class CombinedStatusModule : XposedModule() {
                 } else {
                     0
                 } +
+                if (airplaneSourceInstalled) {
+                    SystemUiAirplaneStateSource.HOOK_COUNT
+                } else {
+                    0
+                } +
                 if (tintSourceInstalled) {
                     SystemUiTintStateSource.HOOK_COUNT
                 } else {
                     0
                 } +
-                if (islandMotionProbeInstalled) {
-                    SystemUiIslandMotionProbe.HOOK_COUNT
+                if (islandMotionSourceInstalled) {
+                    SystemUiIslandMotionSource.HOOK_COUNT
                 } else {
                     0
                 }
@@ -127,8 +135,9 @@ class CombinedStatusModule : XposedModule() {
 
             statusHostHookInstalled = true
             networkSourceInstalled = false
+            airplaneSourceInstalled = false
             tintSourceInstalled = false
-            islandMotionProbeInstalled = false
+            islandMotionSourceInstalled = false
 
             val classLoader = statusHostHandle.executable.declaringClass.classLoader
                 ?: error("SystemUI class loader unavailable after hot reload")
@@ -136,16 +145,18 @@ class CombinedStatusModule : XposedModule() {
                 classLoader = classLoader,
                 source = "hotReload",
             )
+            installAirplaneStateSource(
+                classLoader = classLoader,
+                source = "hotReload",
+            )
             installTintStateSource(
                 classLoader = classLoader,
                 source = "hotReload",
             )
-            if (BuildConfig.DEBUG) {
-                installIslandMotionProbe(
-                    classLoader = classLoader,
-                    source = "hotReload",
-                )
-            }
+            installIslandMotionSource(
+                classLoader = classLoader,
+                source = "hotReload",
+            )
 
             log(
                 Log.INFO,
@@ -193,29 +204,60 @@ class CombinedStatusModule : XposedModule() {
         }
     }
 
-    private fun installIslandMotionProbe(
+    private fun installAirplaneStateSource(
         classLoader: ClassLoader,
         source: String,
     ) {
         runCatching {
-            SystemUiIslandMotionProbe.install(
+            SystemUiAirplaneStateSource.install(
                 module = this,
                 classLoader = classLoader,
-                onEvent = ::onIslandMotionEvent,
+                onAirplaneMode = { enabled ->
+                    CombinedStatusStateStore.updateAirplaneMode(enabled)
+                        ?.let(::onCombinedStateChanged)
+                },
+                onEvent = if (BuildConfig.DEBUG) ::onNetworkPipelineEvent else null,
             )
         }.onSuccess { handles ->
-            islandMotionProbeInstalled =
-                handles.size == SystemUiIslandMotionProbe.HOOK_COUNT
+            airplaneSourceInstalled =
+                handles.size == SystemUiAirplaneStateSource.HOOK_COUNT
             log(
                 Log.INFO,
                 TAG,
-                "islandMotionProbe hooks=ready count=" + handles.size +
-                    " source=" + source +
-                    " geometryWrites=0",
+                "airplaneSource hooks=ready count=" + handles.size +
+                    " source=" + source,
             )
         }.onFailure { error ->
-            islandMotionProbeInstalled = false
-            log(Log.ERROR, TAG, "Island motion probe installation failed", error)
+            airplaneSourceInstalled = false
+            log(Log.ERROR, TAG, "Airplane state source installation failed", error)
+        }
+    }
+
+    private fun installIslandMotionSource(
+        classLoader: ClassLoader,
+        source: String,
+    ) {
+        runCatching {
+            SystemUiIslandMotionSource.install(
+                module = this,
+                classLoader = classLoader,
+                onIslandStatusChanged =
+                    CombinedStatusHomeRenderSession::onIslandStatusChanged,
+                onEvent = if (BuildConfig.DEBUG) ::onIslandMotionEvent else null,
+            )
+        }.onSuccess { handles ->
+            islandMotionSourceInstalled =
+                handles.size == SystemUiIslandMotionSource.HOOK_COUNT
+            log(
+                Log.INFO,
+                TAG,
+                "islandMotionSource hooks=ready count=" + handles.size +
+                    " source=" + source +
+                    " motion=nativeAnchorFollow nativeGeometryWrites=0",
+            )
+        }.onFailure { error ->
+            islandMotionSourceInstalled = false
+            log(Log.ERROR, TAG, "Island motion source installation failed", error)
         }
     }
 

@@ -8,6 +8,7 @@ import android.os.SystemClock
 import android.telephony.SubscriptionManager
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewTreeObserver
 import java.lang.ref.WeakReference
 
 internal object CombinedStatusHomeRenderSession {
@@ -59,6 +60,13 @@ internal object CombinedStatusHomeRenderSession {
         current?.updateTint(update)
     }
 
+    @Synchronized
+    fun onIslandStatusChanged(
+        status: SystemUiIslandMotionSource.IslandStatus,
+    ) {
+        current?.followNativeAnchor(status)
+    }
+
     private fun ViewGroup.directChild(className: String): ViewGroup? {
         for (index in 0 until childCount) {
             val child = getChildAt(index)
@@ -93,6 +101,38 @@ internal object CombinedStatusHomeRenderSession {
         private var rejectedTintLogged = false
         private var stableModel: CombinedStatusRenderModel? = null
         private var stableTint: CombinedStatusTintState? = null
+        private var anchorFollowGeneration = 0
+        private var anchorFollowActive = false
+        private var anchorFollowMoved = false
+        private var anchorFollowStableFrames = 0
+        private var anchorFollowFrames = 0
+        private var anchorFollowMoves = 0
+        private var anchorFollowStartedAt = 0L
+        private var anchorFollowStartLeft = 0
+        private val anchorRect = Rect()
+
+        private val anchorPreDrawListener =
+            ViewTreeObserver.OnPreDrawListener {
+                if (anchorFollowActive) {
+                    val changed = syncProbeToNativeAnchor()
+                    anchorFollowFrames += 1
+                    if (changed) {
+                        anchorFollowMoved = true
+                        anchorFollowMoves += 1
+                        anchorFollowStableFrames = 0
+                    } else if (anchorFollowMoved) {
+                        anchorFollowStableFrames += 1
+                    }
+
+                    if (
+                        anchorFollowMoved &&
+                        anchorFollowStableFrames >= ANCHOR_STABLE_FRAME_COUNT
+                    ) {
+                        finishAnchorFollow("stable")
+                    }
+                }
+                true
+            }
 
         private val batteryLayoutListener =
             View.OnLayoutChangeListener {
@@ -133,9 +173,77 @@ internal object CombinedStatusHomeRenderSession {
         }
 
         fun stop() {
+            finishAnchorFollow("sessionStop")
             host.get()?.removeOnAttachStateChangeListener(this)
             batteryView.get()?.removeOnLayoutChangeListener(batteryLayoutListener)
             host.get()?.overlay?.remove(probeView)
+        }
+
+        fun followNativeAnchor(
+            status: SystemUiIslandMotionSource.IslandStatus,
+        ) {
+            val hostView = host.get() ?: return
+            anchorFollowGeneration += 1
+            val generation = anchorFollowGeneration
+
+            if (!anchorFollowActive) {
+                val observer = hostView.viewTreeObserver
+                if (observer.isAlive) {
+                    observer.addOnPreDrawListener(anchorPreDrawListener)
+                    anchorFollowActive = true
+                }
+            }
+
+            anchorFollowMoved = false
+            anchorFollowStableFrames = 0
+            anchorFollowFrames = 0
+            anchorFollowMoves = 0
+            anchorFollowStartedAt = SystemClock.uptimeMillis()
+            anchorFollowStartLeft = probeView.left
+
+            onEvent(
+                "homeAnchorFollow start showing=" + status.showing +
+                    " secondary=" + status.secondary +
+                    " animate=" + status.animate +
+                    " anchorLeft=" + anchorFollowStartLeft +
+                    " source=nativeBatteryCoords",
+            )
+
+            hostView.postDelayed(
+                {
+                    if (
+                        generation == anchorFollowGeneration &&
+                        anchorFollowActive
+                    ) {
+                        finishAnchorFollow("timeout")
+                    }
+                },
+                ANCHOR_FOLLOW_TIMEOUT_MS,
+            )
+        }
+
+        private fun finishAnchorFollow(reason: String) {
+            if (!anchorFollowActive) {
+                return
+            }
+
+            val hostView = host.get()
+            val observer = hostView?.viewTreeObserver
+            if (observer?.isAlive == true) {
+                observer.removeOnPreDrawListener(anchorPreDrawListener)
+            }
+            anchorFollowActive = false
+
+            onEvent(
+                "homeAnchorFollow end reason=" + reason +
+                    " durationMs=" +
+                    (SystemClock.uptimeMillis() - anchorFollowStartedAt)
+                        .coerceAtLeast(0L) +
+                    " frames=" + anchorFollowFrames +
+                    " moves=" + anchorFollowMoves +
+                    " deltaX=" + (probeView.left - anchorFollowStartLeft) +
+                    " nativeGeometryWrites=0",
+            )
         }
 
         fun updateTint(update: SystemUiTintStateSource.TintUpdate) {
@@ -237,52 +345,83 @@ internal object CombinedStatusHomeRenderSession {
         override fun onViewDetachedFromWindow(view: View) = Unit
 
         private fun layoutProbe() {
-            val hostView = host.get() ?: return
-            val battery = batteryView.get() ?: return
-            if (
-                !hostView.isLaidOut ||
-                !battery.isLaidOut ||
-                battery.width <= 0 ||
-                battery.height <= 0
-            ) {
+            if (!resolveNativeAnchor(anchorRect)) {
                 return
             }
-
-            val anchorBounds = Rect(0, 0, battery.width, battery.height)
-            hostView.offsetDescendantRectToMyCoords(
-                battery,
-                anchorBounds,
-            )
-
-            val widthSpec = View.MeasureSpec.makeMeasureSpec(
-                anchorBounds.width(),
-                View.MeasureSpec.EXACTLY,
-            )
-            val heightSpec = View.MeasureSpec.makeMeasureSpec(
-                anchorBounds.height(),
-                View.MeasureSpec.EXACTLY,
-            )
-            probeView.measure(widthSpec, heightSpec)
-            probeView.layout(
-                anchorBounds.left,
-                anchorBounds.top,
-                anchorBounds.right,
-                anchorBounds.bottom,
-            )
+            applyAnchorBounds(anchorRect)
 
             if (!layoutLogged) {
                 layoutLogged = true
                 onEvent(
                     "homeRenderProbe attached " +
                         "slot=homeHostOverlay anchor=battery " +
-                        "bounds=" + anchorBounds.left + "," + anchorBounds.top + "-" +
-                        anchorBounds.right + "," + anchorBounds.bottom +
-                        " size=" + anchorBounds.width() + "x" + anchorBounds.height() +
+                        "bounds=" + anchorRect.left + "," + anchorRect.top + "-" +
+                        anchorRect.right + "," + anchorRect.bottom +
+                        " size=" + anchorRect.width() + "x" + anchorRect.height() +
                         " opacity=" + PROBE_OPACITY +
                         " ancestorVisibilityIndependent=true " +
                         "originalsHidden=false nativeGeometryWrites=0",
                 )
             }
+        }
+
+        private fun syncProbeToNativeAnchor(): Boolean {
+            if (!resolveNativeAnchor(anchorRect)) {
+                return false
+            }
+            if (
+                probeView.left == anchorRect.left &&
+                probeView.top == anchorRect.top &&
+                probeView.right == anchorRect.right &&
+                probeView.bottom == anchorRect.bottom
+            ) {
+                return false
+            }
+            applyAnchorBounds(anchorRect)
+            return true
+        }
+
+        private fun resolveNativeAnchor(out: Rect): Boolean {
+            val hostView = host.get() ?: return false
+            val battery = batteryView.get() ?: return false
+            if (
+                !hostView.isLaidOut ||
+                !battery.isLaidOut ||
+                battery.width <= 0 ||
+                battery.height <= 0
+            ) {
+                return false
+            }
+
+            out.set(0, 0, battery.width, battery.height)
+            hostView.offsetDescendantRectToMyCoords(
+                battery,
+                out,
+            )
+            return true
+        }
+
+        private fun applyAnchorBounds(bounds: Rect) {
+            if (
+                probeView.measuredWidth != bounds.width() ||
+                probeView.measuredHeight != bounds.height()
+            ) {
+                val widthSpec = View.MeasureSpec.makeMeasureSpec(
+                    bounds.width(),
+                    View.MeasureSpec.EXACTLY,
+                )
+                val heightSpec = View.MeasureSpec.makeMeasureSpec(
+                    bounds.height(),
+                    View.MeasureSpec.EXACTLY,
+                )
+                probeView.measure(widthSpec, heightSpec)
+            }
+            probeView.layout(
+                bounds.left,
+                bounds.top,
+                bounds.right,
+                bounds.bottom,
+            )
         }
     }
 
@@ -371,4 +510,6 @@ internal object CombinedStatusHomeRenderSession {
     }
 
     private const val PROBE_OPACITY = 1f
+    private const val ANCHOR_STABLE_FRAME_COUNT = 4
+    private const val ANCHOR_FOLLOW_TIMEOUT_MS = 1_200L
 }
