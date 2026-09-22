@@ -48,13 +48,13 @@ import com.chaners.combinedstatus.settings.DiagnosticsSettingsRepository
 import com.chaners.combinedstatus.system.DiagnosticsReportBuilder
 import com.chaners.combinedstatus.system.DiagnosticsReportFiles
 import com.chaners.combinedstatus.system.RuntimeEnvironmentInfo
+import com.chaners.combinedstatus.ui.components.floatingNavigationGlass
 import com.chaners.combinedstatus.ui.layout.pageContentPadding
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.FloatingNavigationBar
 import top.yukonga.miuix.kmp.basic.FloatingNavigationBarItem
-import top.yukonga.miuix.kmp.basic.FloatingToolbarDefaults
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.NavigationBar
@@ -67,13 +67,9 @@ import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Surface
 import top.yukonga.miuix.kmp.basic.Switch
 import top.yukonga.miuix.kmp.basic.Text
-import top.yukonga.miuix.kmp.blur.BlendColorEntry
-import top.yukonga.miuix.kmp.blur.BlurDefaults
-import top.yukonga.miuix.kmp.blur.highlight.Highlight
 import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
-import top.yukonga.miuix.kmp.blur.textureBlur
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.icon.extended.Home
@@ -386,33 +382,11 @@ private fun MiniNavigationPreview(
         } else {
             null
         }
-    val highlight =
-        remember(darkMode) {
-            if (darkMode) {
-                Highlight.GlassStrokeMiddleDark
-            } else {
-                Highlight.GlassStrokeMiddleLight
-            }
-        }
     val floatingModifier =
         if (backdrop != null) {
-            Modifier.textureBlur(
+            Modifier.floatingNavigationGlass(
                 backdrop = backdrop,
-                shape = RoundedCornerShape(FloatingToolbarDefaults.CornerRadius),
-                blurRadius = 25f,
-                colors =
-                    BlurDefaults.blurColors(
-                        blendColors =
-                            listOf(
-                                BlendColorEntry(
-                                    color =
-                                        MiuixTheme.colorScheme.surfaceContainer.copy(
-                                            alpha = 0.6f,
-                                        ),
-                                ),
-                            ),
-                    ),
-                highlight = highlight,
+                darkMode = darkMode,
             )
         } else {
             Modifier

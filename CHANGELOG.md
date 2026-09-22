@@ -15,7 +15,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Fixed CI debug signing so successive test APKs can update in place.
 - MIUIX 0.9.4 navigation runtime with serializable routes, standard page transitions, predictive back, and direction-aware swipe-back gestures.
 - Home, Features, and Settings top-level navigation with a MIUIX floating navigation bar.
-- Official MIUIX 0.9.4 floating-navigation blur recipe with automatic runtime-shader fallback, 25 px texture blur, 60% surface blend, and theme-aware glass-stroke highlight.
+- Official MIUIX 0.9.4 floating-navigation blur recipe with automatic runtime-shader fallback, 22 dp texture blur, 45% surface blend, and compact theme-aware GlassStrokeSmall highlight.
 - Persistent appearance preferences for theme mode, floating/non-floating bottom navigation style, floating-navigation blur, and in-app swipe-back.
 - Android 13+ per-app language selection for system default, English, and Simplified Chinese.
 - Optional launcher icon hiding through a dedicated activity alias while retaining a non-launcher CATEGORY_INFO front door.
@@ -49,6 +49,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Debug owned-slot validation now records one matched pre/post geometry pair around the existing paddingStart write, including measured-width expansion, stable battery end-anchor delta, adjacent status-icon boundary movement, and neighbor-gap delta without adding hooks or continuous sampling.
 
 ### Changed
+- Real MainHub floating navigation and Appearance preview now share one MIUIX 0.9.4 glass-material specification: 22 dp texture blur, 45% surfaceContainer blend, GlassStrokeSmallDark in dark mode and GlassStrokeSmallLight in light mode. The preview therefore follows future material tuning automatically instead of carrying a duplicated approximation.
 - Appearance navigation preview now reuses the same MIUIX 0.9.4 textureBlur/BlurDefaults/BlendColorEntry/GlassStroke highlight path as the real MainHub when floating blur is enabled, and both navigation styles render inside a fixed 65 dp preview slot so switching styles cannot remeasure the page; the standard bar retains its native 64 dp item height + divider and the floating capsule retains its native 52 dp visual body while only preview-irrelevant system navigation inset space is clipped.
 - Appearance preview now delegates both bottom-navigation modes to MIUIX 0.9.4 itself: floating uses the real FloatingNavigationBar/FloatingNavigationBarItem implementation (including the library squircle, shadow, spacing, selection alpha, and icon geometry), standard mode uses NavigationBar/NavigationBarItem (including library typography and divider), and the switch/slider sample rows now use real MIUIX Card containers rather than custom rounded surfaces.
 - Appearance preview removes the dialog and now uses MIUIX 0.9.4 control geometry directly: the switch is the real 49x28dp checked Switch, the slider is the real 28dp Slider with enabled-state semantic colors while remaining read-only, non-floating navigation uses the actual NavigationBar/NavigationBarItem components, and floating navigation mirrors MIUIX's 50dp-radius capsule, 52dp minimum height, 28dp icons, 10dp icon padding, 12dp spacing, and 10dp/20%-black drop shadow.
