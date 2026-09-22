@@ -7,13 +7,16 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -48,6 +51,12 @@ import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Surface
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.blur.LayerBackdrop
+import top.yukonga.miuix.kmp.blur.drawBackdrop
+import top.yukonga.miuix.kmp.blur.highlight.Highlight
+import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
+import top.yukonga.miuix.kmp.blur.layerBackdrop
+import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
@@ -127,6 +136,28 @@ private fun AppearanceThemePreview(settings: AppearanceSettings) {
                 R.string.dynamic_color_off
             },
         )
+    val glassHighlightSupported = isRuntimeShaderSupported()
+    val isDark =
+        when (settings.themeMode) {
+            AppThemeMode.System -> isSystemInDarkTheme()
+            AppThemeMode.Light -> false
+            AppThemeMode.Dark -> true
+        }
+    val glassHighlight =
+        if (isDark) {
+            Highlight.GlassStrokeSmallDark
+        } else {
+            Highlight.GlassStrokeSmallLight
+        }
+    val previewBackdrop =
+        if (glassHighlightSupported) {
+            rememberLayerBackdrop {
+                drawRect(MiuixTheme.colorScheme.surfaceContainer)
+                drawContent()
+            }
+        } else {
+            null
+        }
 
     Card(
         modifier =
@@ -135,47 +166,95 @@ private fun AppearanceThemePreview(settings: AppearanceSettings) {
                 .padding(bottom = 12.dp),
         insideMargin = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
     ) {
-        Row(
+        Box(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(
-                modifier = Modifier.weight(1f),
-            ) {
-                Text(
-                    text = colorLabel,
-                    style = MiuixTheme.textStyles.body1,
-                    color = MiuixTheme.colorScheme.onSurfaceContainer,
-                )
-                Text(
-                    text = modeLabel,
-                    style = MiuixTheme.textStyles.body2,
-                    color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
+            if (previewBackdrop != null) {
+                Box(
+                    modifier =
+                        Modifier
+                            .matchParentSize()
+                            .layerBackdrop(previewBackdrop),
                 )
             }
             Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                ThemeColorSwatch(MiuixTheme.colorScheme.primary)
-                ThemeColorSwatch(MiuixTheme.colorScheme.secondary)
-                ThemeColorSwatch(MiuixTheme.colorScheme.surfaceContainerHigh)
+                Column(
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(
+                        text = colorLabel,
+                        style = MiuixTheme.textStyles.body1,
+                        color = MiuixTheme.colorScheme.onSurfaceContainer,
+                    )
+                    Text(
+                        text = modeLabel,
+                        style = MiuixTheme.textStyles.body2,
+                        color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
+                    )
+                }
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    ThemeColorSwatch(
+                        color = MiuixTheme.colorScheme.primary,
+                        backdrop = previewBackdrop,
+                        highlight = glassHighlight,
+                    )
+                    ThemeColorSwatch(
+                        color = MiuixTheme.colorScheme.secondary,
+                        backdrop = previewBackdrop,
+                        highlight = glassHighlight,
+                    )
+                    ThemeColorSwatch(
+                        color = MiuixTheme.colorScheme.surfaceContainerHigh,
+                        backdrop = previewBackdrop,
+                        highlight = glassHighlight,
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-private fun ThemeColorSwatch(color: Color) {
+private fun ThemeColorSwatch(
+    color: Color,
+    backdrop: LayerBackdrop?,
+    highlight: Highlight,
+) {
+    val shape = RoundedCornerShape(7.dp)
+    val glassModifier =
+        if (backdrop != null) {
+            Modifier.drawBackdrop(
+                backdrop = backdrop,
+                shape = { shape },
+                effects = {},
+                highlight = { highlight },
+            )
+        } else {
+            Modifier
+        }
+
     Surface(
-        modifier = Modifier.size(24.dp),
-        shape = RoundedCornerShape(7.dp),
+        modifier =
+            Modifier
+                .size(24.dp)
+                .then(glassModifier),
+        shape = shape,
         color = color,
         border =
-            BorderStroke(
-                width = 1.dp,
-                color = MiuixTheme.colorScheme.outline.copy(alpha = 0.3f),
-            ),
+            if (backdrop == null) {
+                BorderStroke(
+                    width = 1.dp,
+                    color = MiuixTheme.colorScheme.outline.copy(alpha = 0.3f),
+                )
+            } else {
+                null
+            },
     ) {}
 }
 
