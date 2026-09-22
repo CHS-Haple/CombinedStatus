@@ -5,6 +5,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.RectF
+import android.graphics.Typeface
 import kotlin.math.asin
 import kotlin.math.cos
 import kotlin.math.min
@@ -42,7 +43,7 @@ internal class LegacyCombinedStatusPainter {
         canvas.scale(scale, scale)
 
         drawBattery(canvas, model, colors.batteryTint, opacity)
-        drawWifi(canvas, model, colors.primaryTint, opacity)
+        drawCenter(canvas, model, colors.primaryTint, opacity)
         drawMobile(canvas, model, colors.primaryTint, opacity)
         canvas.restoreToCount(save)
     }
@@ -63,13 +64,37 @@ internal class LegacyCombinedStatusPainter {
         }
     }
 
-    private fun drawWifi(
+    private fun drawCenter(
         canvas: Canvas,
         model: CombinedStatusRenderModel,
         tint: Int,
         opacity: Float,
     ) {
-        val segments = model.wifiSegments ?: return
+        when (val indicator = model.centerIndicator) {
+            is CenterIndicator.Wifi -> {
+                drawWifi(canvas, indicator.segments, tint, opacity)
+                if (indicator.internet == InternetState.NO_INTERNET) {
+                    drawSmallNoInternetMark(canvas, tint, opacity)
+                }
+            }
+
+            is CenterIndicator.MobileType -> {
+                drawMobileType(canvas, indicator, tint, opacity)
+                if (indicator.internet == InternetState.NO_INTERNET) {
+                    drawSmallNoInternetMark(canvas, tint, opacity)
+                }
+            }
+
+            CenterIndicator.NoNetwork -> drawNoNetwork(canvas, tint, opacity)
+        }
+    }
+
+    private fun drawWifi(
+        canvas: Canvas,
+        segments: Int,
+        tint: Int,
+        opacity: Float,
+    ) {
         val save = canvas.save()
         canvas.translate(30f, 27f)
         canvas.scale(3f, 3f)
@@ -83,6 +108,87 @@ internal class LegacyCombinedStatusPainter {
             canvas.drawPath(path, paint)
         }
         canvas.restoreToCount(save)
+    }
+
+    private fun drawMobileType(
+        canvas: Canvas,
+        indicator: CenterIndicator.MobileType,
+        tint: Int,
+        opacity: Float,
+    ) {
+        val normalized = indicator.label.trim().uppercase()
+        val split =
+            when {
+                normalized == "5GA" || normalized == "5G-A" || normalized == "5G_A" ->
+                    "5G" to "A"
+                normalized.startsWith("5G") && normalized.length > 2 ->
+                    "5G" to
+                        normalized
+                            .removePrefix("5G")
+                            .removePrefix("-")
+                            .removePrefix("_")
+                normalized.startsWith("4G") && normalized.length > 2 ->
+                    "4G" to
+                        normalized
+                            .removePrefix("4G")
+                            .removePrefix("-")
+                            .removePrefix("_")
+                indicator.enhanced && normalized == "5G" -> "5G" to "++"
+                else -> normalized to ""
+            }
+
+        paint.style = Paint.Style.FILL
+        paint.color = tint
+        paint.alpha = effectiveAlpha(tint, 255, opacity)
+        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        paint.textAlign = Paint.Align.LEFT
+        paint.textSize = MOBILE_TYPE_TEXT_SIZE
+
+        val mainWidth = paint.measureText(split.first)
+        if (split.second.isEmpty()) {
+            canvas.drawText(
+                split.first,
+                MOBILE_TYPE_CENTER_X - mainWidth / 2f,
+                MOBILE_TYPE_BASELINE_Y,
+                paint,
+            )
+            return
+        }
+
+        paint.textSize = MOBILE_TYPE_SUFFIX_SIZE
+        val suffixWidth = paint.measureText(split.second)
+        val totalWidth = mainWidth + MOBILE_TYPE_SUFFIX_GAP + suffixWidth
+        val startX = MOBILE_TYPE_CENTER_X - totalWidth / 2f
+
+        paint.textSize = MOBILE_TYPE_TEXT_SIZE
+        canvas.drawText(split.first, startX, MOBILE_TYPE_BASELINE_Y, paint)
+        paint.textSize = MOBILE_TYPE_SUFFIX_SIZE
+        canvas.drawText(
+            split.second,
+            startX + mainWidth + MOBILE_TYPE_SUFFIX_GAP,
+            MOBILE_TYPE_SUFFIX_BASELINE_Y,
+            paint,
+        )
+    }
+
+    private fun drawNoNetwork(
+        canvas: Canvas,
+        tint: Int,
+        opacity: Float,
+    ) {
+        stroke(tint, 220, 5f, opacity)
+        canvas.drawLine(50f, 48f, 70f, 68f, paint)
+        canvas.drawLine(70f, 48f, 50f, 68f, paint)
+    }
+
+    private fun drawSmallNoInternetMark(
+        canvas: Canvas,
+        tint: Int,
+        opacity: Float,
+    ) {
+        stroke(tint, 220, 3f, opacity)
+        canvas.drawLine(76f, 66f, 84f, 74f, paint)
+        canvas.drawLine(84f, 66f, 76f, 74f, paint)
     }
 
     private fun drawMobile(
@@ -245,5 +351,11 @@ internal class LegacyCombinedStatusPainter {
         const val MOBILE_CENTER_Y = 58f
         const val MOBILE_ORBIT_RADIUS = 51f
         const val MOBILE_DOT_RADIUS = 4.9f
+        const val MOBILE_TYPE_CENTER_X = 60f
+        const val MOBILE_TYPE_BASELINE_Y = 66f
+        const val MOBILE_TYPE_SUFFIX_BASELINE_Y = 58f
+        const val MOBILE_TYPE_TEXT_SIZE = 28f
+        const val MOBILE_TYPE_SUFFIX_SIZE = 17f
+        const val MOBILE_TYPE_SUFFIX_GAP = 2f
     }
 }

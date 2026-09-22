@@ -32,7 +32,11 @@ class CombinedStatusColorPolicyTest {
         CombinedStatusRenderModel(
             batteryPercent = 80,
             charging = charging,
-            wifiSegments = 3,
+            centerIndicator =
+                CenterIndicator.Wifi(
+                    segments = 3,
+                    internet = InternetState.VALIDATED,
+                ),
             mobileLevel = 4,
             mobileSubscriptionId = 1,
         )

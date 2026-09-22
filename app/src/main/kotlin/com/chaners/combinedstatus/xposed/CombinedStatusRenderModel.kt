@@ -3,42 +3,17 @@ package com.chaners.combinedstatus.xposed
 internal data class CombinedStatusRenderModel(
     val batteryPercent: Int,
     val charging: Boolean,
-    val wifiSegments: Int?,
+    val centerIndicator: CenterIndicator,
     val mobileLevel: Int?,
     val mobileSubscriptionId: Int,
 ) {
     companion object {
         fun from(
             snapshot: CombinedStatusStateStore.Snapshot,
+            presentation: CombinedStatusPresentationStateStore.Snapshot,
             defaultDataSubscriptionId: Int,
         ): CombinedStatusRenderModel? {
             val battery = snapshot.battery ?: return null
-            val wifiSegments = when (val wifi = snapshot.wifi) {
-                CombinedStatusStateStore.WifiState.Unknown -> return null
-                CombinedStatusStateStore.WifiState.Hidden -> null
-                is CombinedStatusStateStore.WifiState.Visible -> {
-                    when (val signal = wifi.signal) {
-                        SignalStrength.Unknown -> return null
-                        SignalStrength.Unavailable -> null
-                        is SignalStrength.Level -> wifiSegments(signal.value)
-                    }
-                }
-            }
-
-            if (snapshot.airplaneMode == true) {
-                val selectedSubscriptionId =
-                    defaultDataSubscriptionId
-                        .takeIf { it >= 0 }
-                        ?: snapshot.mobile.keys.firstOrNull()
-                        ?: -1
-                return CombinedStatusRenderModel(
-                    batteryPercent = battery.percent.coerceIn(0, 100),
-                    charging = battery.charging,
-                    wifiSegments = wifiSegments,
-                    mobileLevel = null,
-                    mobileSubscriptionId = selectedSubscriptionId,
-                )
-            }
 
             val selectedMobile =
                 snapshot.mobile[defaultDataSubscriptionId]
@@ -47,28 +22,41 @@ internal data class CombinedStatusRenderModel(
                     ?: snapshot.mobile.entries
                         .firstOrNull { it.value.signal !is SignalStrength.Unknown }
                         ?.let { it.key to it.value }
-                    ?: return null
 
-            val mobileLevel = when (val signal = selectedMobile.second.signal) {
-                SignalStrength.Unknown -> return null
-                SignalStrength.Unavailable -> null
-                is SignalStrength.Level -> signal.value.coerceIn(0, 4)
-            }
+            val selectedSubscriptionId =
+                selectedMobile?.first
+                    ?: defaultDataSubscriptionId.takeIf { it >= 0 }
+                    ?: snapshot.mobile.keys.firstOrNull()
+                    ?: -1
+
+            val mobileLevel =
+                if (snapshot.airplaneMode == true) {
+                    null
+                } else {
+                    when (val signal = selectedMobile?.second?.signal) {
+                        null -> null
+                        SignalStrength.Unknown -> null
+                        SignalStrength.Unavailable -> null
+                        is SignalStrength.Level -> signal.value.coerceIn(0, 4)
+                    }
+                }
+
+            val centerIndicator =
+                CombinedStatusConnectivityPolicy.resolve(
+                    wifi = snapshot.wifi,
+                    mobileSignal = selectedMobile?.second?.signal,
+                    airplaneMode = snapshot.airplaneMode == true,
+                    connectivity = presentation.connectivity,
+                    mobileType = presentation.mobilePresentation?.networkType,
+                ) ?: return null
 
             return CombinedStatusRenderModel(
                 batteryPercent = battery.percent.coerceIn(0, 100),
                 charging = battery.charging,
-                wifiSegments = wifiSegments,
+                centerIndicator = centerIndicator,
                 mobileLevel = mobileLevel,
-                mobileSubscriptionId = selectedMobile.first,
+                mobileSubscriptionId = selectedSubscriptionId,
             )
         }
-
-        private fun wifiSegments(level: Int): Int =
-            when {
-                level <= 0 -> 1
-                level == 1 -> 2
-                else -> 3
-            }
     }
 }

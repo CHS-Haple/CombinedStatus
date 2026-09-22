@@ -9,7 +9,7 @@ import org.junit.Test
 class CombinedStatusPresentationPolicyTest {
     @Test
     fun incompleteCandidateKeepsLastStableModel() {
-        val previous = model(wifiSegments = 3, mobileLevel = 4)
+        val previous = model(centerIndicator = wifi(), mobileLevel = 4)
 
         val resolved =
             CombinedStatusPresentationPolicy.resolveModel(
@@ -23,7 +23,7 @@ class CombinedStatusPresentationPolicyTest {
     @Test
     fun explicitHiddenOrUnavailableModelStillCommits() {
         val previous = model(wifiSegments = 3, mobileLevel = 4)
-        val candidate = model(wifiSegments = null, mobileLevel = null)
+        val candidate = model(centerIndicator = CenterIndicator.NoNetwork, mobileLevel = null)
 
         val resolved =
             CombinedStatusPresentationPolicy.resolveModel(
@@ -83,14 +83,20 @@ class CombinedStatusPresentationPolicyTest {
     }
 
     private fun model(
-        wifiSegments: Int?,
+        centerIndicator: CenterIndicator,
         mobileLevel: Int?,
     ) =
         CombinedStatusRenderModel(
             batteryPercent = 83,
             charging = false,
-            wifiSegments = wifiSegments,
+            centerIndicator = centerIndicator,
             mobileLevel = mobileLevel,
             mobileSubscriptionId = 4,
+        )
+
+    private fun wifi(): CenterIndicator =
+        CenterIndicator.Wifi(
+            segments = 3,
+            internet = InternetState.VALIDATED,
         )
 }

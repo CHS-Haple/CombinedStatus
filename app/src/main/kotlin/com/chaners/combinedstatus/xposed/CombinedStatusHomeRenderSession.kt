@@ -55,6 +55,11 @@ internal object CombinedStatusHomeRenderSession {
     }
 
     @Synchronized
+    fun onPresentationStateChanged() {
+        current?.update(CombinedStatusStateStore.snapshot())
+    }
+
+    @Synchronized
     fun onTintUpdate(update: SystemUiTintStateSource.TintUpdate) {
         current?.updateTint(update)
     }
@@ -242,6 +247,7 @@ internal object CombinedStatusHomeRenderSession {
             val candidate =
                 CombinedStatusRenderModel.from(
                     snapshot = snapshot,
+                    presentation = CombinedStatusPresentationStateStore.snapshot(),
                     defaultDataSubscriptionId = defaultDataSubscriptionId,
                 )
             val model =
@@ -272,7 +278,7 @@ internal object CombinedStatusHomeRenderSession {
                     "homeRenderProbe ready " +
                         "battery=" + model.batteryPercent +
                         " charging=" + model.charging +
-                        " wifiSegments=" + (model.wifiSegments ?: 0) +
+                        " center=" + model.centerIndicator.javaClass.simpleName +
                         " mobileLevel=" + (model.mobileLevel ?: -1) +
                         " mobileSubId=" + model.mobileSubscriptionId +
                         " defaultDataSubId=" + defaultDataSubscriptionId,

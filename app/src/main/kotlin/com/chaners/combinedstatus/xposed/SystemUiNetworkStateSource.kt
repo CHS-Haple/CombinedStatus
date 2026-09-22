@@ -70,6 +70,11 @@ internal object SystemUiNetworkStateSource {
         val reason: String,
     )
 
+    internal data class MobilePresentationBinding(
+        val root: ViewGroup,
+        val subscriptionId: Int,
+    )
+
     internal data class BindingRestoreResult(
         val wifiRoots: Int,
         val mobileRoots: Int,
@@ -99,6 +104,7 @@ internal object SystemUiNetworkStateSource {
         onWifiState: (CombinedStatusStateStore.WifiState) -> Unit,
         onMobileIcon: (CombinedStatusStateStore.MobileIconUpdate) -> Unit,
         onAirplaneMode: (Boolean) -> Unit,
+        onPresentationChanged: (() -> Unit)?,
         onEvent: ((String) -> Unit)?,
     ): InstallResult {
         val wifi =
@@ -114,6 +120,7 @@ internal object SystemUiNetworkStateSource {
                 classLoader = classLoader,
                 onMobileIcon = onMobileIcon,
                 onAirplaneMode = onAirplaneMode,
+                onPresentationChanged = onPresentationChanged,
                 onEvent = onEvent,
             )
 
@@ -216,6 +223,7 @@ internal object SystemUiNetworkStateSource {
         classLoader: ClassLoader,
         onMobileIcon: (CombinedStatusStateStore.MobileIconUpdate) -> Unit,
         onAirplaneMode: (Boolean) -> Unit,
+        onPresentationChanged: (() -> Unit)?,
         onEvent: ((String) -> Unit)?,
     ): BranchInstallResult {
         val created = mutableListOf<HookHandle>()
@@ -282,7 +290,13 @@ internal object SystemUiNetworkStateSource {
                     module
                         .hook(mobileBindMethod)
                         .setId(MOBILE_BIND_HOOK_ID)
-                        .intercept(mobileBindHooker(subscriptionIdMethod, onEvent))
+                        .intercept(
+                            mobileBindHooker(
+                                subscriptionIdMethod = subscriptionIdMethod,
+                                onPresentationChanged = onPresentationChanged,
+                                onEvent = onEvent,
+                            ),
+                        )
                 }
             created +=
                 atStage("mobile.hook.signalEmit") {
@@ -405,6 +419,16 @@ internal object SystemUiNetworkStateSource {
     fun hotReloadBindingCounts(): Pair<Int, Int> =
         wifiRoots.keys.count { root -> root.isAttachedToWindow } to
             mobileRoots.keys.count { root -> root.isAttachedToWindow }
+
+    @Synchronized
+    fun mobilePresentationBindings(): List<MobilePresentationBinding> =
+        mobileRoots.mapNotNull { (root, subscriptionId) ->
+            if (root.isAttachedToWindow) {
+                MobilePresentationBinding(root, subscriptionId)
+            } else {
+                null
+            }
+        }
 
     @Synchronized
     fun bindingTopologyLines(): List<String> =
@@ -555,6 +579,7 @@ internal object SystemUiNetworkStateSource {
 
     private fun mobileBindHooker(
         subscriptionIdMethod: Method,
+        onPresentationChanged: (() -> Unit)?,
         onEvent: ((String) -> Unit)?,
     ): Hooker = Hooker { chain ->
         val root = chain.getArg(0) as? ViewGroup
@@ -590,7 +615,10 @@ internal object SystemUiNetworkStateSource {
         }
 
         val result = chain.proceed()
-        bindingLog?.let { onEvent?.invoke(it) }
+        bindingLog?.let {
+            onEvent?.invoke(it)
+            onPresentationChanged?.invoke()
+        }
         result
     }
 

@@ -19,6 +19,7 @@ class CombinedStatusModule : XposedModule() {
     private var airplaneObserverAttached = false
     private var tintSourceInstalled = false
     private var sceneSourceInstalled = false
+    private var mobileTypeSourceInstalled = false
     private var islandMotionSourceInstalled = false
     private var diagnosticsPreferences: SharedPreferences? = null
 
@@ -111,6 +112,10 @@ class CombinedStatusModule : XposedModule() {
                 source = "coldStart",
             )
             installSceneStateSource(
+                classLoader = param.classLoader,
+                source = "coldStart",
+            )
+            installMobileTypeStateSource(
                 classLoader = param.classLoader,
                 source = "coldStart",
             )
@@ -210,6 +215,11 @@ class CombinedStatusModule : XposedModule() {
                 } else {
                     0
                 } +
+                if (mobileTypeSourceInstalled) {
+                    SystemUiMobileTypeStateSource.HOOK_COUNT
+                } else {
+                    0
+                } +
                 if (islandMotionSourceInstalled) {
                     SystemUiIslandMotionSource.HOOK_COUNT
                 } else {
@@ -280,6 +290,7 @@ class CombinedStatusModule : XposedModule() {
             networkSourceHookCount = 0
             tintSourceInstalled = false
             sceneSourceInstalled = false
+            mobileTypeSourceInstalled = false
             islandMotionSourceInstalled = false
             SystemUiNetworkStateSource.resetEventState()
             SystemUiTintStateSource.resetRuntimeState()
@@ -307,6 +318,10 @@ class CombinedStatusModule : XposedModule() {
                 source = "hotReload",
             )
             installSceneStateSource(
+                classLoader = classLoader,
+                source = "hotReload",
+            )
+            installMobileTypeStateSource(
                 classLoader = classLoader,
                 source = "hotReload",
             )
@@ -395,12 +410,15 @@ class CombinedStatusModule : XposedModule() {
                     CombinedStatusStateStore.updateWifi(state)?.let(::onCombinedStateChanged)
                 },
                 onMobileIcon = { update ->
-                    CombinedStatusStateStore.updateMobile(update)?.let(::onCombinedStateChanged)
+                    val changed = CombinedStatusStateStore.updateMobile(update)
+                    refreshMobilePresentation()
+                    changed?.let(::onCombinedStateChanged)
                 },
                 onAirplaneMode = { enabled ->
                     CombinedStatusStateStore.updateAirplaneMode(enabled)
                         ?.let(::onCombinedStateChanged)
                 },
+                onPresentationChanged = ::refreshMobilePresentation,
                 onEvent = if (BuildConfig.RUNTIME_DIAGNOSTICS) ::onNetworkPipelineEvent else null,
             )
         }.onSuccess { result ->
@@ -672,6 +690,72 @@ class CombinedStatusModule : XposedModule() {
         }
     }
 
+    private fun installMobileTypeStateSource(
+        classLoader: ClassLoader,
+        source: String,
+    ) {
+        runCatching {
+            SystemUiMobileTypeStateSource.install(
+                module = this,
+                classLoader = classLoader,
+                onChanged = ::refreshMobilePresentation,
+            )
+        }.onSuccess { handles ->
+            mobileTypeSourceInstalled =
+                handles.size == SystemUiMobileTypeStateSource.HOOK_COUNT
+            logDiagnostic(
+                level = if (mobileTypeSourceInstalled) Log.INFO else Log.WARN,
+                event = "source.install",
+                component = "mobileType",
+                state = if (mobileTypeSourceInstalled) "ready" else "partial",
+                "hooks" to handles.size,
+                "expectedHooks" to SystemUiMobileTypeStateSource.HOOK_COUNT,
+                "source" to source,
+                "nativeGeometryWrites" to 0,
+            )
+        }.onFailure { error ->
+            mobileTypeSourceInstalled = false
+            logDiagnostic(
+                level = Log.WARN,
+                event = "source.install",
+                component = "mobileType",
+                state = "unavailable",
+                "reason" to (error.message ?: error.javaClass.simpleName),
+                "source" to source,
+                "nativeGeometryWrites" to 0,
+            )
+        }
+    }
+
+    private fun refreshMobilePresentation() {
+        val presentation =
+            NativePresentationResolver.resolve(
+                state = CombinedStatusStateStore.snapshot(),
+            )
+        CombinedStatusPresentationStateStore
+            .updateMobilePresentation(presentation)
+            ?.let {
+                if (detailedDiagnosticsEnabled) {
+                    log(Log.INFO, TAG, presentation.logLine)
+                }
+                logDiagnostic(
+                    level = Log.INFO,
+                    event = "presentation.resolve",
+                    component = "mobilePresentation",
+                    state = "ready",
+                    "mode" to presentation.mode.name,
+                    "boundRoots" to presentation.boundRoots,
+                    "visibleRoots" to presentation.visibleRoots,
+                    "activeSubIds" to presentation.activeSubscriptionIds.joinToString(","),
+                    "targetSubId" to presentation.targetSubscriptionId,
+                    "networkType" to presentation.networkType?.label,
+                    "enhanced" to presentation.networkType?.enhanced,
+                    "geometryWrites" to 0,
+                )
+                CombinedStatusHomeRenderSession.onPresentationStateChanged()
+            }
+    }
+
     private fun onSceneSourceEvent(event: String) {
         if (detailedDiagnosticsEnabled) {
             log(Log.INFO, TAG, event)
@@ -700,6 +784,8 @@ class CombinedStatusModule : XposedModule() {
         CombinedStatusHomeRenderSession.detach()
         StatusBarStableSession.detach()
         SystemUiAirplaneStateSource.detach()
+        SystemUiConnectivityStateSource.detach()
+        CombinedStatusPresentationStateStore.reset()
         SystemUiIslandMotionSource.resetRuntimeState()
         airplaneObserverAttached = false
         logDiagnostic(
@@ -719,6 +805,40 @@ class CombinedStatusModule : XposedModule() {
         source: String,
     ) {
         attachAirplaneStateSource(host = host, source = source)
+
+        val hostContext = (host as? android.view.View)?.context
+        val connectivityReady =
+            hostContext?.let { context ->
+                SystemUiConnectivityStateSource.attach(
+                    context = context,
+                    onState = { state ->
+                        val changed =
+                            CombinedStatusPresentationStateStore.updateConnectivity(state)
+                        refreshMobilePresentation()
+                        changed?.let {
+                            CombinedStatusHomeRenderSession.onPresentationStateChanged()
+                        }
+                    },
+                    onEvent =
+                        if (BuildConfig.RUNTIME_DIAGNOSTICS) {
+                            { event ->
+                                if (detailedDiagnosticsEnabled) {
+                                    log(Log.INFO, TAG, event)
+                                }
+                            }
+                        } else {
+                            null
+                        },
+                )
+            } == true
+        logDiagnostic(
+            level = if (connectivityReady) Log.INFO else Log.WARN,
+            event = "source.attach",
+            component = "connectivity",
+            state = if (connectivityReady) "ready" else "unavailable",
+            "source" to source,
+        )
+        refreshMobilePresentation()
 
         when (
             val stableSession = StatusBarStableSession.attach(
