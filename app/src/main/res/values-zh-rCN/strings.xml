@@ -58,7 +58,7 @@
     <string name="floating_navigation_blur">浮动导航栏模糊</string>
     <string name="floating_navigation_blur_summary">为底部浮动导航栏启用背景模糊</string>
     <string name="swipe_back">页面滑动返回</string>
-    <string name="swipe_back_summary">在页面内横向滑动返回上一页</string>
+    <string name="swipe_back_summary">横向滑动页面返回上一级</string>
 
     <string name="section_hyperos_systemui">显示与过渡</string>
     <string name="enable_combined_icon">三合一图标</string>
