@@ -1221,6 +1221,7 @@ class CombinedStatusModule : XposedModule() {
             "sourceToDrawUs" to sample.sourceToDrawUs,
             "commitMainThread" to sample.committedOnMainThread,
             "sampling" to "latest-visible-change-only",
+            "healthSnapshot" to false,
         )
     }
 
