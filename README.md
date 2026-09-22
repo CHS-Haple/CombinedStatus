@@ -166,6 +166,15 @@ The external display version changes only when a formal version is intentionally
 
 During normal development before the first formal release, [CHANGELOG.md](CHANGELOG.md) keeps a single `[Unreleased]` section describing the **net state intended for 0.0.1**, not the full sequence of experiments used to reach it. A dated `[0.0.1]` section is created only in the final release-preparation commit immediately before publication.
 
+### Project documents
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) — developer and contributor engineering rules.
+- [CHANGELOG.md](CHANGELOG.md) — net unreleased/release changes.
+- [PRIVACY.md](PRIVACY.md) — local data, Root, diagnostics, export, and sharing behavior.
+- [SECURITY.md](SECURITY.md) — private security-reporting policy.
+- [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) — direct third-party dependency/license summary.
+- [docs/architecture](docs/architecture) — current layout and scene-capability architecture notes.
+
 ### Terminology
 
 Project-facing text consistently uses:
@@ -332,6 +341,15 @@ GitHub Actions 也使用同一套 Gradle Wrapper 版本。
 外显版本号只在明确推进正式版本时更新；普通开发迭代使用内部构建标识。
 
 在首个正式版本的日常开发阶段，[CHANGELOG.md](CHANGELOG.md) 只保留一个 `[Unreleased]` 区域，用于描述**准备进入 0.0.1 的当前净状态**，而不是记录达到该状态经历过的全部实验过程。只有在正式发布前的最后一个 release-prep 提交中，才会冻结为带日期的 `[0.0.1]` 版本段并立即进入发布流程。
+
+### 项目文档
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) — 开发者与贡献者工程规范。
+- [CHANGELOG.md](CHANGELOG.md) — 当前未发布/正式版本的净变化。
+- [PRIVACY.md](PRIVACY.md) — 本地数据、Root、诊断、导出与分享说明。
+- [SECURITY.md](SECURITY.md) — 安全问题私密报告规则。
+- [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) — 直接第三方依赖与许可证摘要。
+- [docs/architecture](docs/architecture) — 当前布局与场景能力架构说明。
 
 ### 术语
 
