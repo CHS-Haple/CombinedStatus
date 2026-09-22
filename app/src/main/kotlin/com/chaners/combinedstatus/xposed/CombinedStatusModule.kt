@@ -413,7 +413,18 @@ class CombinedStatusModule : XposedModule() {
                 module = this,
                 classLoader = classLoader,
                 onWifiState = { state ->
-                    CombinedStatusStateStore.updateWifi(state)?.let(::onCombinedStateChanged)
+                    val previous = CombinedStatusStateStore.snapshot().wifi
+                    val changed = CombinedStatusStateStore.updateWifi(state)
+                    if (changed != null) {
+                        val wasVisible =
+                            previous is CombinedStatusStateStore.WifiState.Visible
+                        val isVisible =
+                            state is CombinedStatusStateStore.WifiState.Visible
+                        if (wasVisible != isVisible) {
+                            CombinedStatusPresentationStateStore.markWifiSemanticChanged()
+                        }
+                        onCombinedStateChanged(changed)
+                    }
                 },
                 onMobileIcon = { update ->
                     val changed = CombinedStatusStateStore.updateMobile(update)

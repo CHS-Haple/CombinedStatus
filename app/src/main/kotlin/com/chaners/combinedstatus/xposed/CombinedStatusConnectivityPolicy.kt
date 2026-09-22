@@ -6,6 +6,7 @@ internal object CombinedStatusConnectivityPolicy {
         mobileSignal: SignalStrength?,
         airplaneMode: Boolean,
         connectivity: SystemUiConnectivityStateSource.State,
+        connectivityFreshForWifi: Boolean,
         mobileType: NativePresentationResolver.NetworkType?,
     ): CenterIndicator? {
         val wifiSegments =
@@ -20,104 +21,73 @@ internal object CombinedStatusConnectivityPolicy {
                     }
             }
 
-        if (!connectivity.known) {
-            return when {
-                wifiSegments != null && wifiSegments > 0 ->
-                    CenterIndicator.Wifi(
-                        segments = wifiSegments,
-                        internet = InternetState.UNKNOWN,
-                    )
-
-                !airplaneMode && mobileType != null ->
-                    CenterIndicator.MobileType(
-                        label = mobileType.label,
-                        enhanced = mobileType.enhanced,
-                        internet = InternetState.UNKNOWN,
-                    )
-
-                else -> null
-            }
+        if (wifiSegments != null && wifiSegments > 0) {
+            val internet =
+                when {
+                    !connectivity.known -> InternetState.UNKNOWN
+                    !connectivityFreshForWifi -> InternetState.UNKNOWN
+                    connectivity.transport == SystemUiConnectivityStateSource.Transport.WIFI ->
+                        connectivity.internetState()
+                    else -> InternetState.NO_INTERNET
+                }
+            return CenterIndicator.Wifi(
+                segments = wifiSegments,
+                internet = internet,
+            )
         }
 
         if (airplaneMode) {
-            return if (
-                connectivity.transport == SystemUiConnectivityStateSource.Transport.WIFI &&
-                wifiSegments != null &&
-                wifiSegments > 0
-            ) {
-                CenterIndicator.Wifi(
-                    segments = wifiSegments,
-                    internet = connectivity.internetState(),
+            return CenterIndicator.NoNetwork
+        }
+
+        if (!connectivity.known) {
+            return mobileType?.let {
+                CenterIndicator.MobileType(
+                    label = it.label,
+                    enhanced = it.enhanced,
+                    internet = InternetState.UNKNOWN,
                 )
-            } else {
-                CenterIndicator.NoNetwork
             }
         }
 
-        return when (connectivity.transport) {
-            SystemUiConnectivityStateSource.Transport.WIFI -> {
-                if (wifiSegments == null || wifiSegments <= 0) {
-                    null
-                } else {
-                    CenterIndicator.Wifi(
-                        segments = wifiSegments,
-                        internet = connectivity.internetState(),
-                    )
-                }
-            }
-
-            SystemUiConnectivityStateSource.Transport.CELLULAR -> {
+        if (
+            mobileType != null &&
+            connectivity.mobileDataEnabled != false
+        ) {
+            val internet =
                 when {
-                    mobileType != null ->
-                        CenterIndicator.MobileType(
-                            label = mobileType.label,
-                            enhanced = mobileType.enhanced,
-                            internet = connectivity.internetState(),
-                        )
-                    connectivity.validated -> null
-                    else -> CenterIndicator.NoNetwork
+                    !connectivityFreshForWifi &&
+                        connectivity.transport == SystemUiConnectivityStateSource.Transport.WIFI ->
+                        InternetState.UNKNOWN
+
+                    connectivity.transport == SystemUiConnectivityStateSource.Transport.CELLULAR ->
+                        connectivity.internetState()
+
+                    connectivity.transport == SystemUiConnectivityStateSource.Transport.NONE ->
+                        InternetState.NO_INTERNET
+
+                    connectivity.transport == SystemUiConnectivityStateSource.Transport.OTHER ->
+                        connectivity.internetState()
+
+                    else -> InternetState.UNKNOWN
                 }
-            }
 
-            SystemUiConnectivityStateSource.Transport.NONE -> {
-                when {
-                    wifiSegments != null && wifiSegments > 0 ->
-                        CenterIndicator.Wifi(
-                            segments = wifiSegments,
-                            internet = InternetState.NO_INTERNET,
-                        )
+            return CenterIndicator.MobileType(
+                label = mobileType.label,
+                enhanced = mobileType.enhanced,
+                internet = internet,
+            )
+        }
 
-                    connectivity.mobileDataEnabled == true &&
-                        mobileSignal !is SignalStrength.Unknown &&
-                        mobileType != null ->
-                        CenterIndicator.MobileType(
-                            label = mobileType.label,
-                            enhanced = mobileType.enhanced,
-                            internet = InternetState.NO_INTERNET,
-                        )
+        return when {
+            mobileSignal !is SignalStrength.Unknown &&
+                connectivity.mobileDataEnabled == true ->
+                CenterIndicator.NoNetwork
 
-                    else -> CenterIndicator.NoNetwork
-                }
-            }
+            connectivity.transport == SystemUiConnectivityStateSource.Transport.NONE ->
+                CenterIndicator.NoNetwork
 
-            SystemUiConnectivityStateSource.Transport.OTHER -> {
-                when {
-                    wifiSegments != null && wifiSegments > 0 ->
-                        CenterIndicator.Wifi(
-                            segments = wifiSegments,
-                            internet = connectivity.internetState(),
-                        )
-
-                    mobileType != null && connectivity.mobileDataEnabled != false ->
-                        CenterIndicator.MobileType(
-                            label = mobileType.label,
-                            enhanced = mobileType.enhanced,
-                            internet = connectivity.internetState(),
-                        )
-
-                    else -> CenterIndicator.NoNetwork
-                }
-            }
+            else -> null
         }
     }
 

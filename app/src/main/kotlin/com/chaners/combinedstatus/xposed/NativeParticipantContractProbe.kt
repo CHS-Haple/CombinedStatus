@@ -8,10 +8,16 @@ import java.lang.reflect.Method
 internal object NativeParticipantContractProbe {
     private const val PHONE_STATUS_BAR_VIEW =
         "com.android.systemui.statusbar.phone.MiuiPhoneStatusBarView"
-    private const val CONTROLLER_IMPL =
-        "com.android.systemui.statusbar.phone.StatusBarIconControllerImpl"
-    private const val ICON_MANAGER =
-        "com.android.systemui.statusbar.phone.StatusBarIconController\$IconManager"
+    private val CONTROLLER_IMPL_CANDIDATES =
+        listOf(
+            "com.android.systemui.statusbar.phone.ui.StatusBarIconControllerImpl",
+            "com.android.systemui.statusbar.phone.StatusBarIconControllerImpl",
+        )
+    private val ICON_MANAGER_CANDIDATES =
+        listOf(
+            "com.android.systemui.statusbar.phone.ui.IconManager",
+            "com.android.systemui.statusbar.phone.StatusBarIconController\$IconManager",
+        )
     private const val ICON_HOLDER =
         "com.android.systemui.statusbar.phone.StatusBarIconHolder"
     private const val STATUS_BAR_ICON_VIEW =
@@ -35,8 +41,8 @@ internal object NativeParticipantContractProbe {
         val group = manager?.readField("mGroup") as? ViewGroup
         val controller = manager?.readField("mController")
 
-        val controllerImpl = classOrNull(CONTROLLER_IMPL, classLoader)
-        val managerClass = classOrNull(ICON_MANAGER, classLoader)
+        val controllerImpl = classOrNull(CONTROLLER_IMPL_CANDIDATES, classLoader)
+        val managerClass = classOrNull(ICON_MANAGER_CANDIDATES, classLoader)
         val holderClass = classOrNull(ICON_HOLDER, classLoader)
         val iconViewClass = classOrNull(STATUS_BAR_ICON_VIEW, classLoader)
         val displayableClass = classOrNull(STATUS_ICON_DISPLAYABLE, classLoader)
@@ -70,12 +76,12 @@ internal object NativeParticipantContractProbe {
         val addIconGroup =
             controllerImpl.hasMethod(
                 "addIconGroup",
-                listOf(ICON_MANAGER),
+                listOf(managerClass?.name ?: ""),
             )
         val removeIconGroup =
             controllerImpl.hasMethod(
                 "removeIconGroup",
-                listOf(ICON_MANAGER),
+                listOf(managerClass?.name ?: ""),
             )
         val addHolder =
             managerClass.hasMethod(
@@ -173,6 +179,16 @@ internal object NativeParticipantContractProbe {
             field.get(this)
         }.getOrNull()
     }
+
+    private fun classOrNull(
+        candidates: List<String>,
+        classLoader: ClassLoader,
+    ): Class<*>? =
+        candidates.firstNotNullOfOrNull { name ->
+            runCatching {
+                Class.forName(name, false, classLoader)
+            }.getOrNull()
+        }
 
     private fun classOrNull(
         name: String,
