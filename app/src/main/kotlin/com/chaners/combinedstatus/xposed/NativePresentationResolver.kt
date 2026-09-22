@@ -1,7 +1,6 @@
 package com.chaners.combinedstatus.xposed
 
 import android.graphics.drawable.Drawable
-import android.telephony.SubscriptionManager
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
@@ -11,8 +10,7 @@ internal object NativePresentationResolver {
     fun resolve(
         state: CombinedStatusStateStore.Snapshot,
         defaultDataSubscriptionId: Int =
-            runCatching { SubscriptionManager.getDefaultDataSubscriptionId() }
-                .getOrDefault(-1),
+            SystemUiDefaultDataSubscriptionSource.currentSubscriptionId(),
     ): Snapshot {
         val bindings =
             SystemUiNetworkStateSource.mobilePresentationBindings()
