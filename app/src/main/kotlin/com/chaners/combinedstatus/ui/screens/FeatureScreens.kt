@@ -380,8 +380,7 @@ private fun MiniThemeSwatch(color: Color) {
 }
 
 private const val MiniPreviewScale = 0.82f
-private val MiniNavigationViewportHeight = 74.dp
-private val MiniFloatingNavigationOffset = 12.dp
+private val MiniNavigationViewportHeight = 64.dp
 
 @Composable
 private fun ScaledPreviewContent(
@@ -493,7 +492,7 @@ private fun MiniNavigationPreview(
         }
 
         if (floating) {
-            MiniNavigationLayer(yOffset = MiniFloatingNavigationOffset) {
+            MiniNavigationViewportContent {
                 FloatingNavigationBar(
                     modifier = floatingModifier,
                     color =
@@ -525,7 +524,7 @@ private fun MiniNavigationPreview(
                 }
             }
         } else {
-            MiniNavigationLayer {
+            MiniNavigationViewportContent {
                 NavigationBar(
                     color = MiuixTheme.colorScheme.surface,
                     showDivider = true,
@@ -541,8 +540,7 @@ private fun MiniNavigationPreview(
 }
 
 @Composable
-private fun MiniNavigationLayer(
-    yOffset: androidx.compose.ui.unit.Dp = 0.dp,
+private fun MiniNavigationViewportContent(
     content: @Composable () -> Unit,
 ) {
     Layout(
@@ -559,7 +557,7 @@ private fun MiniNavigationLayer(
         layout(constraints.maxWidth, constraints.maxHeight) {
             placeable.placeRelative(
                 x = ((constraints.maxWidth - placeable.width) / 2).coerceAtLeast(0),
-                y = yOffset.roundToPx(),
+                y = 0,
             )
         }
     }
