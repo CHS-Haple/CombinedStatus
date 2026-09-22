@@ -1,6 +1,7 @@
 package com.chaners.combinedstatus.system
 
 internal data class RuntimeDiagnosticEvent(
+    val schemaVersion: Int,
     val event: String,
     val component: String,
     val state: String,
@@ -16,11 +17,18 @@ internal data class RuntimeHealthComponent(
 
 internal data class RuntimeHealthSnapshot(
     val overall: String,
+    val schemaVersion: Int,
+    val sessionId: String?,
     val components: List<RuntimeHealthComponent>,
 ) {
+    fun component(name: String): RuntimeHealthComponent? =
+        components.firstOrNull { component -> component.component == name }
+
     fun reportLines(): List<String> =
         buildList {
             add("overall=$overall")
+            add("schemaVersion=$schemaVersion")
+            add("sessionId=" + (sessionId ?: "legacy-or-unavailable"))
             components.forEach { component ->
                 add(
                     buildString {
@@ -44,6 +52,15 @@ internal data class RuntimeHealthSnapshot(
         }
 
     companion object {
+        private const val SessionIdField = "sessionId"
+
+        private val eventMetadataFields =
+            setOf(
+                SessionIdField,
+                "uptimeMs",
+                "sequence",
+            )
+
         private val expectedComponents =
             listOf(
                 "module",
@@ -82,11 +99,24 @@ internal data class RuntimeHealthSnapshot(
             )
 
         fun fromLines(lines: List<String>): RuntimeHealthSnapshot {
-            val latest = linkedMapOf<String, RuntimeDiagnosticEvent>()
-            lines.forEach { line ->
-                RuntimeDiagnosticsProtocol.parse(line)?.let { event ->
-                    latest[event.component] = event
+            val parsedEvents =
+                lines.mapNotNull(RuntimeDiagnosticsProtocol::parse)
+            val latestSessionId =
+                parsedEvents
+                    .asReversed()
+                    .firstNotNullOfOrNull { event -> event.fields[SessionIdField] }
+            val scopedEvents =
+                if (latestSessionId == null) {
+                    parsedEvents
+                } else {
+                    parsedEvents.filter { event ->
+                        event.fields[SessionIdField] == latestSessionId
+                    }
                 }
+
+            val latest = linkedMapOf<String, RuntimeDiagnosticEvent>()
+            scopedEvents.forEach { event ->
+                latest[event.component] = event
             }
 
             val components =
@@ -98,7 +128,7 @@ internal data class RuntimeHealthSnapshot(
                                 component = component,
                                 state = event?.state ?: "unknown",
                                 event = event?.event ?: "not-observed",
-                                fields = event?.fields.orEmpty(),
+                                fields = event?.fields.orEmpty() - eventMetadataFields,
                             ),
                         )
                     }
@@ -113,7 +143,7 @@ internal data class RuntimeHealthSnapshot(
                                     component = component,
                                     state = event.state,
                                     event = event.event,
-                                    fields = event.fields,
+                                    fields = event.fields - eventMetadataFields,
                                 ),
                             )
                         }
@@ -134,6 +164,8 @@ internal data class RuntimeHealthSnapshot(
 
             return RuntimeHealthSnapshot(
                 overall = overall,
+                schemaVersion = scopedEvents.maxOfOrNull { event -> event.schemaVersion } ?: 0,
+                sessionId = latestSessionId,
                 components = components,
             )
         }
@@ -141,6 +173,8 @@ internal data class RuntimeHealthSnapshot(
 }
 
 internal object RuntimeDiagnosticsProtocol {
+    const val SchemaVersion = 1
+
     private const val Marker = "diag "
 
     fun format(
@@ -151,7 +185,9 @@ internal object RuntimeDiagnosticsProtocol {
     ): String =
         buildString {
             append(Marker)
-            append("event=")
+            append("schema=")
+            append(SchemaVersion)
+            append(" event=")
             append(encode(event))
             append(" component=")
             append(encode(component))
@@ -193,10 +229,11 @@ internal object RuntimeDiagnosticsProtocol {
         val state = values["state"] ?: return null
 
         return RuntimeDiagnosticEvent(
+            schemaVersion = values["schema"]?.toIntOrNull() ?: 0,
             event = event,
             component = component,
             state = state,
-            fields = values - setOf("event", "component", "state"),
+            fields = values - setOf("schema", "event", "component", "state"),
         )
     }
 
