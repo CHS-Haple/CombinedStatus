@@ -3,6 +3,8 @@ name: Build
 on:
   push:
     branches: [ main, dev ]
+  pull_request:
+    branches: [ main, dev ]
   workflow_dispatch:
 
 permissions:
@@ -44,6 +46,7 @@ jobs:
           gradle-version: '9.7.1'
 
       - name: Restore and verify Haple signing
+        if: github.event_name != 'pull_request'
         shell: bash
         env:
           HAPLE_KEYSTORE_BASE64: ${{ secrets.HAPLE_KEYSTORE_BASE64 }}
@@ -109,6 +112,7 @@ jobs:
           done
 
       - name: Verify Haple APK signatures
+        if: github.event_name != 'pull_request'
         shell: bash
         run: |
           SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
@@ -143,6 +147,7 @@ jobs:
           fi
 
       - name: Prepare APKs
+        if: github.event_name != 'pull_request'
         shell: bash
         run: |
           VERSION_NAME="$(sed -n 's/^combinedStatus.versionName=//p' gradle.properties)"
@@ -156,6 +161,7 @@ jobs:
           echo "CANARY_APK_NAME=$CANARY_APK_NAME" >> "$GITHUB_ENV"
 
       - name: Upload debug APK
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.DEBUG_APK_NAME }}
@@ -163,6 +169,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload canary APK
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.CANARY_APK_NAME }}
