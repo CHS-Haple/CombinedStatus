@@ -174,7 +174,7 @@ private fun ThemeColorSwatch(color: Color) {
         border =
             BorderStroke(
                 width = 1.dp,
-                color = MiuixTheme.colorScheme.outline.copy(alpha = 0.2f),
+                color = MiuixTheme.colorScheme.outline.copy(alpha = 0.3f),
             ),
     ) {}
 }
