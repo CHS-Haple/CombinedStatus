@@ -722,7 +722,22 @@ The Release workflow MUST fail closed when the branch or changelog release bound
 
 Test/prerelease tags MAY include CI execution identity. Stable version tags and distributable APK filenames MUST use application release/build identity rather than GitHub Actions run numbers.
 
-### 12.6 CI and device validation
+### 12.6 Local verification
+
+Use the checked-in Gradle Wrapper as the canonical Gradle entry point.
+
+Minimum local verification for ordinary code changes:
+
+```bash
+./gradlew :app:testDebugUnitTest
+./gradlew :app:assembleDebug
+```
+
+When a change affects Release/Canary build behavior, signing-independent configuration, shrinking, resources, or Xposed metadata, also run the applicable non-secret build/check locally where possible. Maintainer signing credentials are never required for an external contributor to validate source changes.
+
+Do not commit local SDK paths, signing material, generated APK/AAB files, or environment-specific Gradle configuration.
+
+### 12.7 CI and device validation
 
 CI is a gate, not a replacement for runtime testing.
 
