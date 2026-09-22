@@ -49,7 +49,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Swipe-back behavior is now configured from the main Settings page instead of Appearance, keeping Appearance limited to theme and visual effects.
 - Appearance copy now labels the read-only palette card as current colors and shortens the theme-mode description to reflect its actual light/dark responsibility.
 - The color preview uses a compact horizontal read-only layout with primary, secondary, and surfaceContainerHigh samples and a uniform 1 dp MIUIX outline at 30% opacity in both light and dark themes.
-- Bottom navigation can now switch between MIUIX 0.9.4 FloatingNavigationBar and the standard full-width NavigationBar. Floating style remains the default; floating blur is disabled in settings when the standard bar is selected.
+- Bottom navigation can now switch between MIUIX 0.9.4 FloatingNavigationBar and the standard full-width NavigationBar. Floating style remains the default; its blur option follows the parent style with MIUIX AnimatedVisibility and stays hidden when the standard bar is selected.
 - Renamed swipe-back copy to describe a page-level horizontal return gesture, avoiding confusion with the system-wide edge-back gesture.
 - Minimum Android version is Android 13 / API 33 to match the current MIUIX blur baseline.
 - Android compile and target SDK baseline is API 37.

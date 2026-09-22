@@ -6,6 +6,7 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -106,13 +107,14 @@ internal fun AppearanceScreen(
                 checked = settings.floatingNavigationBarEnabled,
                 onCheckedChange = onFloatingNavigationBarEnabledChange,
             )
-            SwitchPreference(
-                title = stringResource(R.string.floating_navigation_blur),
-                summary = stringResource(R.string.floating_navigation_blur_summary),
-                checked = settings.floatingNavigationBlurEnabled,
-                onCheckedChange = onFloatingNavigationBlurEnabledChange,
-                enabled = settings.floatingNavigationBarEnabled,
-            )
+            AnimatedVisibility(visible = settings.floatingNavigationBarEnabled) {
+                SwitchPreference(
+                    title = stringResource(R.string.floating_navigation_blur),
+                    summary = stringResource(R.string.floating_navigation_blur_summary),
+                    checked = settings.floatingNavigationBlurEnabled,
+                    onCheckedChange = onFloatingNavigationBlurEnabledChange,
+                )
+            }
         }
     }
 }
