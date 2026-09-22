@@ -50,7 +50,7 @@
     <string name="theme_dark">Dark</string>
     <string name="dynamic_color">Dynamic color</string>
     <string name="dynamic_color_summary">Use colors generated from the system wallpaper</string>
-    <string name="dynamic_color_on">Dynamic color</string>
+    <string name="dynamic_color_on">Dynamic colors</string>
     <string name="dynamic_color_off">Default colors</string>
     <string name="theme_preview">Color preview</string>
     <string name="theme_preview_summary">%1$s · %2$s</string>

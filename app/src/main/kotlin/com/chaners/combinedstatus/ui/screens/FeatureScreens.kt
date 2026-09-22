@@ -139,17 +139,20 @@ private fun AppearanceThemePreview(settings: AppearanceSettings) {
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text =
-                    stringResource(
-                        R.string.theme_preview_summary,
-                        modeLabel,
-                        colorLabel,
-                    ),
+            Column(
                 modifier = Modifier.weight(1f),
-                style = MiuixTheme.textStyles.body2,
-                color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
-            )
+            ) {
+                Text(
+                    text = colorLabel,
+                    style = MiuixTheme.textStyles.body1,
+                    color = MiuixTheme.colorScheme.onSurfaceContainer,
+                )
+                Text(
+                    text = modeLabel,
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
+                )
+            }
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,

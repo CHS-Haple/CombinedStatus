@@ -50,7 +50,7 @@
     <string name="theme_dark">深色</string>
     <string name="dynamic_color">动态颜色</string>
     <string name="dynamic_color_summary">根据系统壁纸生成应用配色</string>
-    <string name="dynamic_color_on">动态颜色</string>
+    <string name="dynamic_color_on">动态配色</string>
     <string name="dynamic_color_off">默认配色</string>
     <string name="theme_preview">配色预览</string>
     <string name="theme_preview_summary">%1$s · %2$s</string>
