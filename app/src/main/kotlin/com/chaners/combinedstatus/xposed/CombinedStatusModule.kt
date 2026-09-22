@@ -20,6 +20,7 @@ class CombinedStatusModule : XposedModule() {
     private var statusHostHookInstalled = false
     private var networkSourceHookCount = 0
     private var airplaneObserverAttached = false
+    private var defaultDataSubscriptionObserverAttached = false
     private var tintSourceInstalled = false
     private var sceneSourceInstalled = false
     private var mobileTypeSourceInstalled = false
@@ -563,6 +564,66 @@ class CombinedStatusModule : XposedModule() {
         }
     }
 
+    private fun attachDefaultDataSubscriptionSource(
+        host: Any,
+        source: String,
+    ) {
+        val view = host as? android.view.View
+        if (view == null) {
+            defaultDataSubscriptionObserverAttached = false
+            logDiagnostic(
+                level = Log.WARN,
+                event = "source.attach",
+                component = "defaultDataSubscription",
+                state = "unavailable",
+                "source" to source,
+                "reason" to "host-not-view",
+            )
+            return
+        }
+
+        runCatching {
+            SystemUiDefaultDataSubscriptionSource.attach(
+                context = view.context,
+                onChanged = {
+                    refreshMobilePresentation(
+                        beginRenderTrace("defaultDataSubscription"),
+                    )
+                },
+                onEvent =
+                    if (BuildConfig.RUNTIME_DIAGNOSTICS) {
+                        ::onNetworkPipelineEvent
+                    } else {
+                        null
+                    },
+            )
+        }.onSuccess { attached ->
+            defaultDataSubscriptionObserverAttached = attached
+            logDiagnostic(
+                level = if (attached) Log.INFO else Log.WARN,
+                event = "source.attach",
+                component = "defaultDataSubscription",
+                state = if (attached) "ready" else "unavailable",
+                "source" to source,
+                "observer" to "default-data-subscription-broadcast",
+                "subscriptionId" to
+                    SystemUiDefaultDataSubscriptionSource.currentSubscriptionId(),
+                "eventDriven" to true,
+            )
+        }.onFailure { error ->
+            defaultDataSubscriptionObserverAttached = false
+            logDiagnostic(
+                level = Log.ERROR,
+                event = "source.attach",
+                component = "defaultDataSubscription",
+                state = "error",
+                "reason" to (error.message ?: error.javaClass.simpleName),
+                "source" to source,
+            )
+            log(Log.ERROR, TAG, "Default data subscription observer failed", error)
+        }
+    }
+
     private fun attachAirplaneStateSource(
         host: Any,
         source: String,
@@ -869,10 +930,12 @@ class CombinedStatusModule : XposedModule() {
         CombinedStatusHomeRenderSession.detach()
         StatusBarStableSession.detach()
         SystemUiAirplaneStateSource.detach()
+        SystemUiDefaultDataSubscriptionSource.detach()
         SystemUiConnectivityStateSource.detach()
         CombinedStatusPresentationStateStore.reset()
         SystemUiIslandMotionSource.resetRuntimeState()
         airplaneObserverAttached = false
+        defaultDataSubscriptionObserverAttached = false
 
         val nativeShadowDetached =
             nativeShadowDetach !is NativeParticipantShadowSession.DetachResult.Failure
@@ -907,6 +970,7 @@ class CombinedStatusModule : XposedModule() {
             "rendererDetached" to true,
             "stableStatusDetached" to true,
             "airplaneObserverDetached" to true,
+            "defaultDataSubscriptionObserverDetached" to true,
             "nativeShadowDetached" to nativeShadowDetached,
             "nativeShadowReason" to
                 (nativeShadowDetach as? NativeParticipantShadowSession.DetachResult.Failure)
@@ -919,6 +983,7 @@ class CombinedStatusModule : XposedModule() {
         source: String,
     ) {
         attachAirplaneStateSource(host = host, source = source)
+        attachDefaultDataSubscriptionSource(host = host, source = source)
 
         val hostContext = (host as? android.view.View)?.context
         val connectivityReady =
