@@ -594,7 +594,26 @@ Documentation-only changes do not require an APK build-number bump.
 
 GitHub Actions run numbers are CI execution metadata and MUST NOT be used as application version identifiers.
 
-### 12.4 CI and device validation
+### 12.4 Changelog discipline
+
+`CHANGELOG.md` records **net project changes**, not commit-by-commit development history.
+
+Contributors MUST:
+
+- describe the final behavior that remains true at the current unreleased/released boundary;
+- collapse superseded experiments into their final outcome;
+- omit CI build numbers, temporary probes, intermediate UI iterations, and implementation paths that were later replaced unless they remain materially relevant to users or contributors;
+- place removed experiments under `Removed` only when their removal is itself important to understanding the current architecture;
+- keep detailed investigation history in Git commits, pull requests, diagnostics, or dedicated development documentation instead of duplicating it in the changelog;
+- keep `[Unreleased]` as the active development boundary until a formal display version is actually published.
+
+Before the first formal release, `[Unreleased]` SHOULD describe the current net state intended for that release rather than preserving every step taken to reach it.
+
+After a release, move the applicable net changes into the dated release section and start a fresh `[Unreleased]` section.
+
+A changelog entry SHOULD answer **what is now different**, not **how many attempts were made**.
+
+### 12.5 CI and device validation
 
 CI is a gate, not a replacement for runtime testing.
 
