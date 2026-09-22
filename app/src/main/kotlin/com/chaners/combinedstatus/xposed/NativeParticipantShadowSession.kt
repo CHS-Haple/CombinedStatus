@@ -10,6 +10,7 @@ internal object NativeParticipantShadowSession {
     private const val SLOT = "combined_status_shadow"
     private const val CONTENT_DESCRIPTION = "CombinedStatus native shadow"
     private const val MAIN_THREAD_TIMEOUT_MS = 1_000L
+    private const val POST_LAYOUT_VALIDATION_DELAY_MS = 48L
 
     private var current: Session? = null
 
@@ -108,33 +109,33 @@ internal object NativeParticipantShadowSession {
                 if (stopped) {
                     return@Runnable
                 }
-                val result = verifyOnMain(requireLayoutHidden = true)
-                when (result) {
-                    is AttachResult.Ready -> {
-                        val verified = result.snapshot
-                        onEvent(
-                            "nativeParticipantShadow postLayout " +
-                                "slot=" + SLOT +
-                                " state=ready" +
-                                " visibility=" + verified.rootVisibility +
-                                " iconVisible=" + verified.iconVisible +
-                                " measured=" + verified.measuredWidth +
-                                "x" + verified.measuredHeight +
-                                " layoutHidden=" + verified.layoutHidden +
-                                " nativeGeometryWrites=0",
-                        )
-                    }
 
-                    is AttachResult.Failure -> {
-                        cleanupOnMain()
-                        invalidate(this)
-                        onEvent(
-                            "nativeParticipantShadow postLayout " +
-                                "slot=" + SLOT +
-                                " state=error reason=" + result.reason +
-                                " cleanup=attempted nativeGeometryWrites=0",
-                        )
+                runCatching {
+                    when (val result = verifyOnMain(requireLayoutHidden = true)) {
+                        is AttachResult.Ready -> {
+                            val verified = result.snapshot
+                            onEvent(
+                                "nativeParticipantShadow postLayout " +
+                                    "slot=" + SLOT +
+                                    " state=ready" +
+                                    " visibility=" + verified.rootVisibility +
+                                    " iconVisible=" + verified.iconVisible +
+                                    " measured=" + verified.measuredWidth +
+                                    "x" + verified.measuredHeight +
+                                    " layoutHidden=" + verified.layoutHidden +
+                                    " nativeGeometryWrites=0",
+                            )
+                        }
+
+                        is AttachResult.Failure -> {
+                            cleanupAfterValidationFailure(result.reason)
+                        }
                     }
+                }.onFailure { error ->
+                    cleanupAfterValidationFailure(
+                        "shadow-post-layout-exception-" +
+                            (error.message ?: error.javaClass.simpleName),
+                    )
                 }
             }
 
@@ -283,7 +284,12 @@ internal object NativeParticipantShadowSession {
             snapshot = resolved
 
             createdRoot.removeCallbacks(postLayoutValidation)
-            check(createdRoot.post(postLayoutValidation)) {
+            check(
+                createdRoot.postDelayed(
+                    postLayoutValidation,
+                    POST_LAYOUT_VALIDATION_DELAY_MS,
+                ),
+            ) {
                 "shadow-post-layout-validation-rejected"
             }
 
@@ -363,6 +369,30 @@ internal object NativeParticipantShadowSession {
             root = currentRoot
             snapshot = currentSnapshot
             return AttachResult.Ready(currentSnapshot)
+        }
+
+        private fun cleanupAfterValidationFailure(reason: String) {
+            val cleanupResult =
+                runCatching {
+                    cleanupOnMain()
+                    NativeParticipantRuntimeAccess.findSlotView(
+                        handles.group,
+                        SLOT,
+                    ) == null
+                }.getOrDefault(false)
+
+            if (cleanupResult) {
+                invalidate(this)
+                root = null
+            }
+
+            onEvent(
+                "nativeParticipantShadow postLayout " +
+                    "slot=" + SLOT +
+                    " state=error reason=" + reason +
+                    " cleanup=" + if (cleanupResult) "verified" else "failed" +
+                    " nativeGeometryWrites=0",
+            )
         }
 
         private fun cleanupOnMain() {
