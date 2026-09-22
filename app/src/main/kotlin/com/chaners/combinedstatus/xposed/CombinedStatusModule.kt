@@ -1055,16 +1055,24 @@ class CombinedStatusModule : XposedModule() {
             "controllerMatches" to nativeParticipant.controllerMatches,
             "managerMatches" to nativeParticipant.managerMatches,
             "groupMatches" to nativeParticipant.groupMatches,
-            "setIcon" to nativeParticipant.setIcon,
+            "setIconHolder" to nativeParticipant.setIconHolder,
+            "resourceSetIconMode" to nativeParticipant.resourceSetIconMode.name,
             "setIconVisibility" to nativeParticipant.setIconVisibility,
+            "removalReady" to nativeParticipant.removalReady,
             "addIconGroup" to nativeParticipant.addIconGroup,
             "removeIconGroup" to nativeParticipant.removeIconGroup,
             "addHolder" to nativeParticipant.addHolder,
-            "createLayoutParams" to nativeParticipant.createLayoutParams,
-            "holderCtor" to nativeParticipant.holderConstructor,
-            "iconViewCtor" to nativeParticipant.iconViewConstructor,
+            "holderFactoryReady" to nativeParticipant.holderFactoryReady,
             "statusIconDisplayable" to nativeParticipant.iconViewDisplayable,
+            "slotAccessor" to nativeParticipant.iconViewSlotAccessor,
+            "systemManagedCreationReady" to nativeParticipant.systemManagedCreationReady,
             "registrationReady" to nativeParticipant.registrationContractReady,
+            "setIconSignatures" to
+                nativeParticipant.setIconSignatures.joinToString("|"),
+            "removeSignatures" to
+                nativeParticipant.removeSignatures.joinToString("|"),
+            "holderFactories" to
+                nativeParticipant.holderFactorySignatures.joinToString("|"),
             "nativeGeometryWrites" to 0,
         )
 

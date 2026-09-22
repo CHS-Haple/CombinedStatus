@@ -2,22 +2,25 @@ package com.chaners.combinedstatus.xposed
 
 import android.view.View
 import android.view.ViewGroup
-import java.lang.reflect.Field
 import java.lang.reflect.Method
+import java.lang.reflect.Modifier
 
 internal object NativeParticipantContractProbe {
     private const val PHONE_STATUS_BAR_VIEW =
         "com.android.systemui.statusbar.phone.MiuiPhoneStatusBarView"
+
     private val CONTROLLER_IMPL_CANDIDATES =
         listOf(
             "com.android.systemui.statusbar.phone.ui.StatusBarIconControllerImpl",
             "com.android.systemui.statusbar.phone.StatusBarIconControllerImpl",
         )
+
     private val ICON_MANAGER_CANDIDATES =
         listOf(
             "com.android.systemui.statusbar.phone.ui.IconManager",
             "com.android.systemui.statusbar.phone.StatusBarIconController\$IconManager",
         )
+
     private const val ICON_HOLDER =
         "com.android.systemui.statusbar.phone.StatusBarIconHolder"
     private const val STATUS_BAR_ICON_VIEW =
@@ -57,14 +60,30 @@ internal object NativeParticipantContractProbe {
             group != null &&
                 resourceEntryName(group) == "statusIcons"
 
-        val setIcon =
-            controllerImpl.hasMethod(
-                "setIcon",
-                listOf(
-                    "java.lang.String",
-                    ICON_HOLDER,
-                ),
-            )
+        val setIconMethods =
+            controllerImpl
+                ?.allMethods()
+                ?.filter { method -> method.name == "setIcon" }
+                ?.distinctBy(::methodSignature)
+                ?.sortedBy(::methodSignature)
+                ?.toList()
+                .orEmpty()
+
+        val setIconHolder =
+            setIconMethods.any { method ->
+                method.parameterTypes.map { type -> type.name } ==
+                    listOf(
+                        "java.lang.String",
+                        ICON_HOLDER,
+                    )
+            }
+
+        val resourceSetIconMode =
+            setIconMethods
+                .mapNotNull(::resourceSetIconMode)
+                .firstOrNull()
+                ?: ResourceSetIconMode.NONE
+
         val setIconVisibility =
             controllerImpl.hasMethod(
                 "setIconVisibility",
@@ -73,6 +92,32 @@ internal object NativeParticipantContractProbe {
                     "boolean",
                 ),
             )
+
+        val removeMethods =
+            controllerImpl
+                ?.allMethods()
+                ?.filter { method ->
+                    method.name == "removeIcon" ||
+                        method.name == "removeAllIconsForSlot"
+                }
+                ?.distinctBy(::methodSignature)
+                ?.sortedBy(::methodSignature)
+                ?.toList()
+                .orEmpty()
+
+        val removalReady =
+            removeMethods.any { method ->
+                val params = method.parameterTypes.map { type -> type.name }
+                when (method.name) {
+                    "removeAllIconsForSlot" ->
+                        params == listOf("java.lang.String")
+                    "removeIcon" ->
+                        params == listOf("java.lang.String") ||
+                            params == listOf("java.lang.String", "int")
+                    else -> false
+                }
+            }
+
         val addIconGroup =
             controllerImpl.hasMethod(
                 "addIconGroup",
@@ -93,42 +138,46 @@ internal object NativeParticipantContractProbe {
                     ICON_HOLDER,
                 ),
             )
-        val createLayoutParams =
-            managerClass.hasMethod(
-                "onCreateLayoutParams",
-                emptyList(),
-            )
-        val holderConstructor =
-            holderClass?.declaredConstructors?.any { constructor ->
-                constructor.parameterCount == 0
-            } == true
-        val iconViewConstructor =
-            iconViewClass?.declaredConstructors?.any { constructor ->
-                constructor.parameterTypes.map { type -> type.name } ==
-                    listOf(
-                        "android.content.Context",
-                        "java.lang.String",
-                        "com.android.systemui.statusbar.notification.ExpandedNotification",
-                        "boolean",
-                    )
-            } == true
+
+        val holderFactories =
+            holderClass
+                ?.declaredMethods
+                ?.filter { method ->
+                    Modifier.isStatic(method.modifiers) &&
+                        holderClass.isAssignableFrom(method.returnType)
+                }
+                ?.sortedBy(::methodSignature)
+                ?.toList()
+                .orEmpty()
+
+        val holderFactoryReady = holderFactories.isNotEmpty()
+
         val iconViewDisplayable =
             iconViewClass != null &&
                 displayableClass?.isAssignableFrom(iconViewClass) == true
+
+        val iconViewSlotAccessor =
+            iconViewClass
+                ?.allMethods()
+                ?.any { method ->
+                    method.name == "getSlot" &&
+                        method.parameterCount == 0 &&
+                        method.returnType == String::class.java
+                } == true
+
+        val systemManagedCreationReady =
+            resourceSetIconMode != ResourceSetIconMode.NONE ||
+                (setIconHolder && holderFactoryReady)
 
         val registrationContractReady =
             managerMatches &&
                 groupMatches &&
                 controllerMatches &&
-                setIcon &&
+                systemManagedCreationReady &&
                 setIconVisibility &&
-                addIconGroup &&
-                removeIconGroup &&
-                addHolder &&
-                createLayoutParams &&
-                holderConstructor &&
-                iconViewConstructor &&
-                iconViewDisplayable
+                removalReady &&
+                iconViewDisplayable &&
+                iconViewSlotAccessor
 
         return Snapshot(
             available = true,
@@ -140,18 +189,55 @@ internal object NativeParticipantContractProbe {
             controllerMatches = controllerMatches,
             managerMatches = managerMatches,
             groupMatches = groupMatches,
-            setIcon = setIcon,
+            setIconHolder = setIconHolder,
+            resourceSetIconMode = resourceSetIconMode,
             setIconVisibility = setIconVisibility,
+            removalReady = removalReady,
             addIconGroup = addIconGroup,
             removeIconGroup = removeIconGroup,
             addHolder = addHolder,
-            createLayoutParams = createLayoutParams,
-            holderConstructor = holderConstructor,
-            iconViewConstructor = iconViewConstructor,
+            holderFactoryReady = holderFactoryReady,
             iconViewDisplayable = iconViewDisplayable,
+            iconViewSlotAccessor = iconViewSlotAccessor,
+            systemManagedCreationReady = systemManagedCreationReady,
             registrationContractReady = registrationContractReady,
+            setIconSignatures = setIconMethods.map(::methodSignature),
+            removeSignatures = removeMethods.map(::methodSignature),
+            holderFactorySignatures = holderFactories.map(::methodSignature),
         )
     }
+
+    private fun resourceSetIconMode(method: Method): ResourceSetIconMode? {
+        if (method.parameterCount != 3) {
+            return null
+        }
+        val params = method.parameterTypes.map { type -> type.name }
+
+        if (
+            params[1] == "java.lang.String" &&
+            params[2] == "int" &&
+            !method.parameterTypes[0].isPrimitive
+        ) {
+            return ResourceSetIconMode.CONTENT_SLOT_RES
+        }
+
+        if (
+            params[0] == "java.lang.String" &&
+            params[1] == "int" &&
+            !method.parameterTypes[2].isPrimitive
+        ) {
+            return ResourceSetIconMode.SLOT_RES_CONTENT
+        }
+
+        return null
+    }
+
+    private fun methodSignature(method: Method): String =
+        method.name +
+            "(" +
+            method.parameterTypes.joinToString(",") { type -> type.name } +
+            "):" +
+            method.returnType.name
 
     private fun Class<*>?.hasMethod(
         name: String,
@@ -207,6 +293,12 @@ internal object NativeParticipantContractProbe {
         }.getOrNull()
     }
 
+    internal enum class ResourceSetIconMode {
+        CONTENT_SLOT_RES,
+        SLOT_RES_CONTENT,
+        NONE,
+    }
+
     internal data class Snapshot(
         val available: Boolean,
         val reason: String?,
@@ -217,16 +309,21 @@ internal object NativeParticipantContractProbe {
         val controllerMatches: Boolean,
         val managerMatches: Boolean,
         val groupMatches: Boolean,
-        val setIcon: Boolean,
+        val setIconHolder: Boolean,
+        val resourceSetIconMode: ResourceSetIconMode,
         val setIconVisibility: Boolean,
+        val removalReady: Boolean,
         val addIconGroup: Boolean,
         val removeIconGroup: Boolean,
         val addHolder: Boolean,
-        val createLayoutParams: Boolean,
-        val holderConstructor: Boolean,
-        val iconViewConstructor: Boolean,
+        val holderFactoryReady: Boolean,
         val iconViewDisplayable: Boolean,
+        val iconViewSlotAccessor: Boolean,
+        val systemManagedCreationReady: Boolean,
         val registrationContractReady: Boolean,
+        val setIconSignatures: List<String>,
+        val removeSignatures: List<String>,
+        val holderFactorySignatures: List<String>,
     ) {
         val logLine: String
             get() =
@@ -239,16 +336,21 @@ internal object NativeParticipantContractProbe {
                     " controllerMatches=" + controllerMatches +
                     " managerMatches=" + managerMatches +
                     " groupMatches=" + groupMatches +
-                    " setIcon=" + setIcon +
+                    " setIconHolder=" + setIconHolder +
+                    " resourceSetIconMode=" + resourceSetIconMode.name +
                     " setIconVisibility=" + setIconVisibility +
+                    " removalReady=" + removalReady +
                     " addIconGroup=" + addIconGroup +
                     " removeIconGroup=" + removeIconGroup +
                     " addHolder=" + addHolder +
-                    " createLayoutParams=" + createLayoutParams +
-                    " holderCtor=" + holderConstructor +
-                    " iconViewCtor=" + iconViewConstructor +
+                    " holderFactoryReady=" + holderFactoryReady +
                     " statusIconDisplayable=" + iconViewDisplayable +
+                    " slotAccessor=" + iconViewSlotAccessor +
+                    " systemManagedCreationReady=" + systemManagedCreationReady +
                     " registrationReady=" + registrationContractReady +
+                    " setIconSignatures=" + setIconSignatures.joinToString("|") +
+                    " removeSignatures=" + removeSignatures.joinToString("|") +
+                    " holderFactories=" + holderFactorySignatures.joinToString("|") +
                     " geometryWrites=0"
 
         companion object {
@@ -263,16 +365,21 @@ internal object NativeParticipantContractProbe {
                     controllerMatches = false,
                     managerMatches = false,
                     groupMatches = false,
-                    setIcon = false,
+                    setIconHolder = false,
+                    resourceSetIconMode = ResourceSetIconMode.NONE,
                     setIconVisibility = false,
+                    removalReady = false,
                     addIconGroup = false,
                     removeIconGroup = false,
                     addHolder = false,
-                    createLayoutParams = false,
-                    holderConstructor = false,
-                    iconViewConstructor = false,
+                    holderFactoryReady = false,
                     iconViewDisplayable = false,
+                    iconViewSlotAccessor = false,
+                    systemManagedCreationReady = false,
                     registrationContractReady = false,
+                    setIconSignatures = emptyList(),
+                    removeSignatures = emptyList(),
+                    holderFactorySignatures = emptyList(),
                 )
         }
     }
