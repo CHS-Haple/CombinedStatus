@@ -101,9 +101,11 @@ internal object CombinedStatusHomeRenderSession {
         private var baselinePaddingTop = 0
         private var baselinePaddingBottom = 0
         private var baselineBatteryWidthPx = 0
+        private var baselineGeometry: SlotGeometry? = null
         private var ownedSlotWidthPx = 0
         private var ownedSlotApplied = false
         private var ownedSlotVerificationPending = false
+        private var ownedSlotVerificationPosted = false
         private var ownedSlotVerifiedLogged = false
         private val anchorRect = Rect()
 
@@ -123,7 +125,7 @@ internal object CombinedStatusHomeRenderSession {
                     return@OnLayoutChangeListener
                 }
                 layoutProbe()
-                verifyOwnedSlotIfReady()
+                scheduleOwnedSlotVerification()
             }
 
         fun matches(
@@ -148,7 +150,7 @@ internal object CombinedStatusHomeRenderSession {
             }
             if (!applyOwnedSlotIfReady("start")) {
                 layoutProbe()
-                verifyOwnedSlotIfReady()
+                scheduleOwnedSlotVerification()
             }
         }
 
@@ -254,7 +256,7 @@ internal object CombinedStatusHomeRenderSession {
         override fun onViewAttachedToWindow(view: View) {
             if (!applyOwnedSlotIfReady("attach")) {
                 layoutProbe()
-                verifyOwnedSlotIfReady()
+                scheduleOwnedSlotVerification()
             }
         }
 
@@ -279,6 +281,7 @@ internal object CombinedStatusHomeRenderSession {
             baselinePaddingTop = battery.paddingTop
             baselinePaddingBottom = battery.paddingBottom
             baselinePaddingCaptured = true
+            baselineGeometry = captureSlotGeometry()
             baselineBatteryWidthPx = battery.width
             ownedSlotWidthPx = minOf(battery.width, battery.height).coerceAtLeast(1)
             ownedSlotApplied = true
@@ -294,6 +297,9 @@ internal object CombinedStatusHomeRenderSession {
             onEvent(
                 "homeOwnedSlot applied source=" + source +
                     " baselineBatteryWidth=" + baselineBatteryWidthPx +
+                    " baselineMeasuredWidth=" + (baselineGeometry?.batteryMeasuredWidth ?: -1) +
+                    " baselineEndScreen=" + (baselineGeometry?.batteryEndScreen ?: -1) +
+                    " baselineAdjacentGap=" + (baselineGeometry?.adjacentGap ?: -1) +
                     " slotWidth=" + ownedSlotWidthPx +
                     " paddingStart=" + baselinePaddingStart + "->" + battery.paddingStart +
                     " owner=MiuiBatteryMeterView originalsHidden=false " +
@@ -321,6 +327,29 @@ internal object CombinedStatusHomeRenderSession {
             )
             ownedSlotApplied = false
             ownedSlotVerificationPending = false
+            ownedSlotVerificationPosted = false
+        }
+
+        private fun scheduleOwnedSlotVerification() {
+            if (
+                !ownedSlotApplied ||
+                !ownedSlotVerificationPending ||
+                ownedSlotVerifiedLogged ||
+                ownedSlotVerificationPosted
+            ) {
+                return
+            }
+
+            val battery = batteryView.get() ?: return
+            ownedSlotVerificationPosted = true
+            battery.post {
+                ownedSlotVerificationPosted = false
+                if (!ownedSlotApplied || !ownedSlotVerificationPending) {
+                    return@post
+                }
+                layoutProbe()
+                verifyOwnedSlotIfReady()
+            }
         }
 
         private fun verifyOwnedSlotIfReady() {
@@ -332,42 +361,132 @@ internal object CombinedStatusHomeRenderSession {
                 return
             }
 
-            val container = batteryContainer.get() ?: return
             val battery = batteryView.get() ?: return
             if (!battery.isLaidOut || battery.width <= 0) {
                 return
             }
 
-            var statusIcons: View? = null
-            for (index in 0 until container.childCount) {
-                val child = container.getChildAt(index)
-                if (child.javaClass.name == STATUS_ICON_CONTAINER_CLASS_NAME) {
-                    statusIcons = child
-                    break
-                }
-            }
+            val baseline = baselineGeometry ?: return
+            val currentGeometry = captureSlotGeometry() ?: return
 
             ownedSlotVerificationPending = false
             ownedSlotVerifiedLogged = true
-            val occupiedWidthDelta = battery.width - baselineBatteryWidthPx
-            val adjacentGap =
-                statusIcons?.let { icons -> battery.left - icons.right } ?: -1
+            val occupiedWidthDelta = currentGeometry.batteryWidth - baseline.batteryWidth
+            val measuredWidthDelta =
+                currentGeometry.batteryMeasuredWidth - baseline.batteryMeasuredWidth
+            val endAnchorScreenDelta =
+                currentGeometry.batteryEndScreen - baseline.batteryEndScreen
+            val leadingEdgeScreenDelta =
+                currentGeometry.batteryLeadingScreen - baseline.batteryLeadingScreen
+            val adjacentBoundaryScreenDelta =
+                deltaOrNull(
+                    current = currentGeometry.statusIconsAdjacentBoundaryScreen,
+                    baseline = baseline.statusIconsAdjacentBoundaryScreen,
+                )
+            val adjacentGapDelta =
+                deltaOrNull(
+                    current = currentGeometry.adjacentGap,
+                    baseline = baseline.adjacentGap,
+                )
+
             onEvent(
                 "homeOwnedSlot verified " +
-                    "baselineBatteryWidth=" + baselineBatteryWidthPx +
-                    " currentBatteryWidth=" + battery.width +
-                    " measuredWidth=" + battery.measuredWidth +
+                    "baselineBatteryWidth=" + baseline.batteryWidth +
+                    " currentBatteryWidth=" + currentGeometry.batteryWidth +
                     " occupiedWidthDelta=" + occupiedWidthDelta +
+                    " baselineMeasuredWidth=" + baseline.batteryMeasuredWidth +
+                    " currentMeasuredWidth=" + currentGeometry.batteryMeasuredWidth +
+                    " measuredWidthDelta=" + measuredWidthDelta +
                     " requestedSlotWidth=" + ownedSlotWidthPx +
+                    " endAnchorScreenDelta=" + endAnchorScreenDelta +
+                    " leadingEdgeScreenDelta=" + leadingEdgeScreenDelta +
+                    " adjacentBoundaryScreenDelta=" +
+                    formatOptionalDelta(adjacentBoundaryScreenDelta) +
+                    " baselineAdjacentGap=" + formatOptionalValue(baseline.adjacentGap) +
+                    " currentAdjacentGap=" + formatOptionalValue(currentGeometry.adjacentGap) +
+                    " adjacentGapDelta=" + formatOptionalDelta(adjacentGapDelta) +
                     " paddingStart=" + battery.paddingStart +
-                    " statusIconsWidth=" + (statusIcons?.width ?: -1) +
-                    " statusIconsRight=" + (statusIcons?.right ?: -1) +
-                    " batteryBounds=" + battery.left + "-" + battery.right +
-                    " adjacentGap=" + adjacentGap +
+                    " rtl=" + currentGeometry.rtl +
                     " originalBatteryPreserved=true " +
                     "animationAdded=false visibilityWrites=0 translationWrites=0",
             )
         }
+
+        private fun captureSlotGeometry(): SlotGeometry? {
+            val container = batteryContainer.get() ?: return null
+            val battery = batteryView.get() ?: return null
+            if (
+                !battery.isLaidOut ||
+                battery.width <= 0 ||
+                battery.height <= 0
+            ) {
+                return null
+            }
+
+            val rtl = battery.layoutDirection == View.LAYOUT_DIRECTION_RTL
+            val batteryLocation = IntArray(2)
+            battery.getLocationOnScreen(batteryLocation)
+            val batteryScreenLeft = batteryLocation[0]
+            val batteryScreenRight = batteryScreenLeft + battery.width
+            val batteryLeadingScreen =
+                if (rtl) batteryScreenRight else batteryScreenLeft
+            val batteryEndScreen =
+                if (rtl) batteryScreenLeft else batteryScreenRight
+
+            val statusIcons = findStatusIcons(container)
+            val statusIconsAdjacentBoundaryScreen =
+                statusIcons?.takeIf { it.isLaidOut && it.width > 0 }?.let { icons ->
+                    val iconsLocation = IntArray(2)
+                    icons.getLocationOnScreen(iconsLocation)
+                    if (rtl) {
+                        iconsLocation[0]
+                    } else {
+                        iconsLocation[0] + icons.width
+                    }
+                }
+            val adjacentGap =
+                statusIcons?.takeIf { it.isLaidOut && it.width > 0 }?.let { icons ->
+                    if (rtl) {
+                        icons.left - battery.right
+                    } else {
+                        battery.left - icons.right
+                    }
+                }
+
+            return SlotGeometry(
+                batteryWidth = battery.width,
+                batteryMeasuredWidth = battery.measuredWidth,
+                batteryLeadingScreen = batteryLeadingScreen,
+                batteryEndScreen = batteryEndScreen,
+                statusIconsAdjacentBoundaryScreen = statusIconsAdjacentBoundaryScreen,
+                adjacentGap = adjacentGap,
+                rtl = rtl,
+            )
+        }
+
+        private fun findStatusIcons(container: ViewGroup): View? {
+            for (index in 0 until container.childCount) {
+                val child = container.getChildAt(index)
+                if (child.javaClass.name == STATUS_ICON_CONTAINER_CLASS_NAME) {
+                    return child
+                }
+            }
+            return null
+        }
+
+        private fun deltaOrNull(
+            current: Int?,
+            baseline: Int?,
+        ): Int? =
+            if (current != null && baseline != null) {
+                current - baseline
+            } else {
+                null
+            }
+
+        private fun formatOptionalDelta(value: Int?): String = value?.toString() ?: "na"
+
+        private fun formatOptionalValue(value: Int?): String = value?.toString() ?: "na"
 
         private fun layoutProbe() {
             if (!ownedSlotApplied || !resolveOwnedSlot(anchorRect)) {
@@ -440,6 +559,16 @@ internal object CombinedStatusHomeRenderSession {
             )
         }
     }
+
+    private data class SlotGeometry(
+        val batteryWidth: Int,
+        val batteryMeasuredWidth: Int,
+        val batteryLeadingScreen: Int,
+        val batteryEndScreen: Int,
+        val statusIconsAdjacentBoundaryScreen: Int?,
+        val adjacentGap: Int?,
+        val rtl: Boolean,
+    )
 
     private class ProbeView(
         context: Context,
