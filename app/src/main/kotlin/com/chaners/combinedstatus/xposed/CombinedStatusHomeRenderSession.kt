@@ -2,6 +2,7 @@ package com.chaners.combinedstatus.xposed
 
 import android.content.Context
 import android.graphics.Canvas
+import android.graphics.Rect
 import android.os.SystemClock
 import android.telephony.SubscriptionManager
 import android.view.View
@@ -117,7 +118,7 @@ internal object CombinedStatusHomeRenderSession {
 
             hostView.addOnAttachStateChangeListener(this)
             battery.addOnLayoutChangeListener(batteryLayoutListener)
-            battery.overlay.add(probeView)
+            hostView.overlay.add(probeView)
             SystemUiTintStateSource.currentState(battery)?.let {
                 applyTintState(it, "seed")
             }
@@ -127,7 +128,7 @@ internal object CombinedStatusHomeRenderSession {
         fun stop() {
             host.get()?.removeOnAttachStateChangeListener(this)
             batteryView.get()?.removeOnLayoutChangeListener(batteryLayoutListener)
-            batteryView.get()?.overlay?.remove(probeView)
+            host.get()?.overlay?.remove(probeView)
         }
 
         fun updateTint(update: SystemUiTintStateSource.TintUpdate) {
@@ -352,8 +353,10 @@ internal object CombinedStatusHomeRenderSession {
         override fun onViewDetachedFromWindow(view: View) = Unit
 
         private fun layoutProbe() {
+            val hostView = host.get() ?: return
             val battery = batteryView.get() ?: return
             if (
+                !hostView.isLaidOut ||
                 !battery.isLaidOut ||
                 battery.width <= 0 ||
                 battery.height <= 0
@@ -361,31 +364,39 @@ internal object CombinedStatusHomeRenderSession {
                 return
             }
 
+            val anchorBounds = Rect(0, 0, battery.width, battery.height)
+            hostView.offsetDescendantRectToMyCoords(
+                battery,
+                anchorBounds,
+            )
+
             val widthSpec = View.MeasureSpec.makeMeasureSpec(
-                battery.width,
+                anchorBounds.width(),
                 View.MeasureSpec.EXACTLY,
             )
             val heightSpec = View.MeasureSpec.makeMeasureSpec(
-                battery.height,
+                anchorBounds.height(),
                 View.MeasureSpec.EXACTLY,
             )
             probeView.measure(widthSpec, heightSpec)
             probeView.layout(
-                0,
-                0,
-                battery.width,
-                battery.height,
+                anchorBounds.left,
+                anchorBounds.top,
+                anchorBounds.right,
+                anchorBounds.bottom,
             )
 
             if (!layoutLogged) {
                 layoutLogged = true
                 onEvent(
                     "homeRenderProbe attached " +
-                        "slot=batteryViewOverlay bounds=0,0-" +
-                        battery.width + "," + battery.height +
-                        " size=" + battery.width + "x" + battery.height +
+                        "slot=homeHostOverlay anchor=battery " +
+                        "bounds=" + anchorBounds.left + "," + anchorBounds.top + "-" +
+                        anchorBounds.right + "," + anchorBounds.bottom +
+                        " size=" + anchorBounds.width() + "x" + anchorBounds.height() +
                         " opacity=" + PROBE_OPACITY +
-                        " originalsHidden=false nativeGeometryWrites=0",
+                        " ancestorVisibilityIndependent=true " +
+                        "originalsHidden=false nativeGeometryWrites=0",
                 )
             }
         }
