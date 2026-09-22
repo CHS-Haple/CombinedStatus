@@ -1,13 +1,13 @@
 package com.chaners.combinedstatus.system
 
 import android.content.Context
-import android.os.Build
 import com.chaners.combinedstatus.BuildConfig
+import com.chaners.combinedstatus.settings.DiagnosticsSettingsRepository
 import java.time.OffsetDateTime
 
 internal object DiagnosticsReportBuilder {
     private const val LogTimeoutSeconds = 10L
-    private const val DebugLogLineLimit = 600
+    private const val DetailedLogLineLimit = 600
     private const val ReleaseLogLineLimit = 120
     private const val ShareLogLineLimit = 80
 
@@ -29,6 +29,8 @@ internal object DiagnosticsReportBuilder {
             "SecurityException|FileProvider|combinedstatus\\.fileprovider|No such file|ENOENT' || true"
 
     suspend fun build(context: Context): String {
+        val environment = RuntimeEnvironmentInfo.resolve(context)
+        val diagnosticsLevel = DiagnosticsSettingsRepository(context).currentLevel()
         val lsposedResult = RootShell.execute(
             command = LsposedModuleLogCommand,
             timeoutSeconds = LogTimeoutSeconds,
@@ -70,12 +72,39 @@ internal object DiagnosticsReportBuilder {
             .takeLast(ShareLogLineLimit)
 
         val lineLimit =
-            if (BuildConfig.DEBUG) {
-                DebugLogLineLimit
+            if (
+                diagnosticsLevel.name == "Detailed" &&
+                (BuildConfig.RUNTIME_DIAGNOSTICS || BuildConfig.DEVELOPMENT_PROBES)
+            ) {
+                DetailedLogLineLimit
             } else {
                 ReleaseLogLineLimit
             }
-        val moduleLines = selectLatestSession(selected.lines).takeLast(lineLimit)
+        val sessionLines = selectLatestSession(selected.lines)
+        val runtimeHealth = RuntimeHealthSnapshot.fromLines(sessionLines)
+        val moduleLines = sessionLines.takeLast(lineLimit)
+        val requestedDiagnosticsLevel = diagnosticsLevel.name.lowercase()
+        val runtimeDiagnostics = runtimeHealth.component("diagnostics")
+        val effectiveDiagnosticsLevel = runtimeDiagnostics?.fields?.get("level")
+        val diagnosticsSyncState =
+            when {
+                !BuildConfig.RUNTIME_DIAGNOSTICS && !BuildConfig.DEVELOPMENT_PROBES ->
+                    "not-applicable"
+                runtimeDiagnostics == null ||
+                    runtimeDiagnostics.state == "unknown" ||
+                    runtimeDiagnostics.state == "unavailable" ->
+                    "unavailable"
+                BuildConfig.DEVELOPMENT_PROBES ->
+                    if (effectiveDiagnosticsLevel == "detailed") {
+                        "development-forced"
+                    } else {
+                        "mismatch"
+                    }
+                effectiveDiagnosticsLevel == requestedDiagnosticsLevel ->
+                    "matched"
+                else ->
+                    "mismatch"
+            }
 
         return buildString {
             appendLine("CombinedStatus Diagnostic Report")
@@ -84,15 +113,42 @@ internal object DiagnosticsReportBuilder {
             appendLine("version=" + BuildConfig.VERSION_NAME)
             appendLine("build=" + BuildConfig.BUILD_ID)
             appendLine("package=" + BuildConfig.APPLICATION_ID)
-            appendLine("buildType=" + if (BuildConfig.DEBUG) "debug" else "release")
-            appendLine("diagnostics=" + if (BuildConfig.DEBUG) "detailed" else "basic")
+            appendLine("buildType=" + BuildConfig.BUILD_TYPE)
+            appendLine("channel=" + BuildConfig.BUILD_CHANNEL)
+            appendLine("diagnosticsPreference=" + diagnosticsLevel.name.lowercase())
+            appendLine(
+                "diagnosticsCapability=" +
+                    when {
+                        BuildConfig.DEVELOPMENT_PROBES -> "development"
+                        BuildConfig.RUNTIME_DIAGNOSTICS -> "runtime"
+                        else -> "release"
+                    },
+            )
+            appendLine()
+            appendLine("[Diagnostics state]")
+            appendLine("requestedLevel=" + requestedDiagnosticsLevel)
+            appendLine("effectiveRuntimeLevel=" + (effectiveDiagnosticsLevel ?: "unavailable"))
+            appendLine("syncState=" + diagnosticsSyncState)
+            appendLine("schemaVersion=" + runtimeHealth.schemaVersion)
+            appendLine("sessionId=" + (runtimeHealth.sessionId ?: "legacy-or-unavailable"))
             appendLine()
             appendLine("[Device]")
-            appendLine("manufacturer=" + Build.MANUFACTURER)
-            appendLine("model=" + Build.MODEL)
-            appendLine("device=" + Build.DEVICE)
-            appendLine("android=" + Build.VERSION.RELEASE)
-            appendLine("sdk=" + Build.VERSION.SDK_INT)
+            appendLine("manufacturer=" + environment.manufacturer)
+            appendLine("name=" + environment.deviceName)
+            appendLine("model=" + environment.model)
+            appendLine("device=" + environment.codename)
+            appendLine("android=" + environment.androidVersion)
+            appendLine("sdk=" + environment.sdk)
+            appendLine("os=" + environment.osVersion)
+            appendLine("systemUiVersion=" + environment.systemUiVersionName)
+            appendLine(
+                "systemUiVersionCode=" +
+                    (environment.systemUiVersionCode?.toString() ?: "unknown"),
+            )
+            appendLine()
+            appendLine("[Runtime health]")
+            appendLine("source=structured-runtime-events")
+            runtimeHealth.reportLines().forEach(::appendLine)
             appendLine()
             appendLine("[Runtime log]")
             appendLine("source=" + selected.source)
@@ -143,6 +199,29 @@ internal object DiagnosticsReportBuilder {
             return lines
         }
 
+        val structuredEvents =
+            lines.mapIndexedNotNull { index, line ->
+                RuntimeDiagnosticsProtocol.parse(line)
+                    ?.fields
+                    ?.get("sessionId")
+                    ?.let { sessionId -> index to sessionId }
+            }
+        val latestSessionId = structuredEvents.lastOrNull()?.second
+        if (latestSessionId != null) {
+            val start =
+                structuredEvents.firstOrNull { (_, sessionId) ->
+                    sessionId == latestSessionId
+                }?.first
+                    ?: return lines
+            val processId = processId(lines[start])
+            if (processId == null) {
+                return lines.drop(start)
+            }
+            return lines
+                .subList(start, lines.size)
+                .filter { line -> processId(line) == processId }
+        }
+
         val currentBuild = "build=" + BuildConfig.BUILD_ID
         val currentAnchor = lines.indexOfLast { line ->
             line.contains(currentBuild) &&
@@ -151,23 +230,25 @@ internal object DiagnosticsReportBuilder {
                         line.contains("Hot reload completed")
                 )
         }
-        val anchor = if (currentAnchor >= 0) {
-            currentAnchor
-        } else {
-            lines.indexOfLast { line ->
-                line.contains("Module loaded in com.android.systemui")
+        val anchor =
+            if (currentAnchor >= 0) {
+                currentAnchor
+            } else {
+                lines.indexOfLast { line ->
+                    line.contains("Module loaded in com.android.systemui")
+                }
             }
-        }
 
         if (anchor < 0) {
             return lines
         }
 
         val processId = processId(lines[anchor]) ?: return lines.drop(anchor)
-        val start = (anchor downTo 0).firstOrNull { index ->
-            processId(lines[index]) == processId &&
-                lines[index].contains("Module loaded in com.android.systemui")
-        } ?: anchor
+        val start =
+            (anchor downTo 0).firstOrNull { index ->
+                processId(lines[index]) == processId &&
+                    lines[index].contains("Module loaded in com.android.systemui")
+            } ?: anchor
 
         return lines
             .subList(start, lines.size)

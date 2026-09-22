@@ -72,6 +72,12 @@
       "className": "com.android.systemui.statusbar.pipeline.wifi.ui.binder.MiuiWifiViewBinder$bind$1$1$2$1",
       "methodName": "emit",
       "descriptor": "(Ljava/lang/Object;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;"
+    },
+    "batteryStatusBarState": {
+      "sourceArtifact": "systemUi",
+      "className": "com.android.systemui.statusbar.views.MiuiBatteryMeterView",
+      "methodName": "updateState",
+      "descriptor": "(I)V"
     }
   },
   "verifiedSystemUiMethods": {
@@ -91,6 +97,9 @@
     ],
     "com.android.systemui.statusbar.pipeline.wifi.ui.binder.MiuiWifiViewBinder$bind$1$1$2$1": [
       "emit(Ljava/lang/Object;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;"
+    ],
+    "com.android.systemui.statusbar.views.MiuiBatteryMeterView": [
+      "updateState(I)V"
     ]
   },
   "nativeStatusViews": {
@@ -103,15 +112,9 @@
     "statusIcons": "com.android.systemui.statusbar.phone.StatusIconContainer",
     "batteryContainer": "com.android.systemui.statusbar.views.MiuiStatusBatteryContainer"
   },
-  "sourceEnvironment": {
-    "manufacturer": "Xiaomi",
-    "deviceName": "Xiaomi 15 Pro",
-    "model": "2410DPN6CC",
-    "codename": "haotian",
-    "androidVersion": 17,
-    "sdk": 37,
-    "osVersion": "4.0.0.14.XOBCNXM.D01",
-    "softwareUpdateRevision": "D01",
-    "note": "OS version is recorded exactly as displayed by the device. softwareUpdateRevision is auxiliary provenance only; systemUi.sha256 remains the exact artifact identity."
+  "verifiedSystemUiFields": {
+    "com.android.systemui.statusbar.views.MiuiBatteryMeterView": [
+      "mStatusBarState"
+    ]
   }
 }

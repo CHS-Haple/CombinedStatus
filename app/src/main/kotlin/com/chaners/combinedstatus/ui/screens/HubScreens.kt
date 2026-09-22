@@ -99,7 +99,7 @@ internal fun SettingsHubScreen(
                 selectedIndex = appLanguage.ordinal,
                 title = stringResource(R.string.language_title),
                 summary = stringResource(R.string.language_summary),
-                showValue = false,
+                showValue = true,
                 onSelectedIndexChange = { index ->
                     AppLanguage.entries.getOrNull(index)?.let(onAppLanguageChange)
                 },

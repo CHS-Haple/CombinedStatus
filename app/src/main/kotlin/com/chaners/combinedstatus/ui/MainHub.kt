@@ -7,7 +7,6 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -23,6 +22,8 @@ import androidx.navigationevent.compose.rememberNavigationEventState
 import com.chaners.combinedstatus.R
 import com.chaners.combinedstatus.settings.AppLanguage
 import com.chaners.combinedstatus.settings.AppearanceSettings
+import com.chaners.combinedstatus.ui.components.floatingNavigationMaterial
+import com.chaners.combinedstatus.ui.components.requiresTextureBackdrop
 import com.chaners.combinedstatus.ui.navigation.AppRoute
 import com.chaners.combinedstatus.ui.screens.FeaturesScreen
 import com.chaners.combinedstatus.ui.screens.HomeScreen
@@ -30,18 +31,13 @@ import com.chaners.combinedstatus.ui.screens.SettingsHubScreen
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.FloatingNavigationBar
 import top.yukonga.miuix.kmp.basic.FloatingNavigationBarItem
-import top.yukonga.miuix.kmp.basic.FloatingToolbarDefaults
 import top.yukonga.miuix.kmp.basic.NavigationBar
 import top.yukonga.miuix.kmp.basic.NavigationBarItem
 import top.yukonga.miuix.kmp.basic.NavigationItem
 import top.yukonga.miuix.kmp.basic.Scaffold
-import top.yukonga.miuix.kmp.blur.BlendColorEntry
-import top.yukonga.miuix.kmp.blur.BlurDefaults
-import top.yukonga.miuix.kmp.blur.highlight.Highlight
 import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
-import top.yukonga.miuix.kmp.blur.textureBlur
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Home
 import top.yukonga.miuix.kmp.icon.extended.Settings
@@ -65,13 +61,13 @@ internal fun MainHub(
 ) {
     val pagerState = rememberPagerState(pageCount = { TopLevelPageCount })
     val scope = rememberCoroutineScope()
-    val floatingBlurActive =
+    val floatingMaterialActive =
         settings.floatingNavigationBarEnabled &&
-            settings.floatingNavigationBlurEnabled &&
+            settings.floatingNavigationStyle.requiresTextureBackdrop &&
             isRuntimeShaderSupported()
     val surfaceColor = MiuixTheme.colorScheme.surface
     val backdrop =
-        if (floatingBlurActive) {
+        if (floatingMaterialActive) {
             rememberLayerBackdrop {
                 drawRect(surfaceColor)
                 drawContent()
@@ -85,14 +81,6 @@ internal fun MainHub(
         NavigationItem(stringResource(R.string.nav_features), MiuixIcons.Tune),
         NavigationItem(stringResource(R.string.nav_settings), MiuixIcons.Settings),
     )
-
-    val floatingHighlight = remember(darkMode) {
-        if (darkMode) {
-            Highlight.GlassStrokeMiddleDark
-        } else {
-            Highlight.GlassStrokeMiddleLight
-        }
-    }
 
     fun selectPage(index: Int) {
         if (pagerState.currentPage != index) {
@@ -109,18 +97,10 @@ internal fun MainHub(
 
     val navigationBarModifier =
         if (backdrop != null) {
-            Modifier.textureBlur(
+            Modifier.floatingNavigationMaterial(
                 backdrop = backdrop,
-                shape = RoundedCornerShape(FloatingToolbarDefaults.CornerRadius),
-                blurRadius = 25f,
-                colors = BlurDefaults.blurColors(
-                    blendColors = listOf(
-                        BlendColorEntry(
-                            color = MiuixTheme.colorScheme.surfaceContainer.copy(alpha = 0.6f),
-                        ),
-                    ),
-                ),
-                highlight = floatingHighlight,
+                darkMode = darkMode,
+                style = settings.floatingNavigationStyle,
             )
         } else {
             Modifier

@@ -61,11 +61,17 @@ android {
 
     buildTypes {
         debug {
+            buildConfigField("String", "BUILD_CHANNEL", "\"debug\"")
+            buildConfigField("boolean", "DEVELOPMENT_PROBES", "true")
+            buildConfigField("boolean", "RUNTIME_DIAGNOSTICS", "true")
             if (hapleSigningEnabled) {
                 signingConfig = signingConfigs.getByName("haple")
             }
         }
         release {
+            buildConfigField("String", "BUILD_CHANNEL", "\"release\"")
+            buildConfigField("boolean", "DEVELOPMENT_PROBES", "false")
+            buildConfigField("boolean", "RUNTIME_DIAGNOSTICS", "false")
             isMinifyEnabled = true
             isShrinkResources = true
             if (hapleSigningEnabled) {
@@ -75,6 +81,14 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+        }
+        create("canary") {
+            initWith(getByName("release"))
+            matchingFallbacks += listOf("release")
+            isDebuggable = false
+            buildConfigField("String", "BUILD_CHANNEL", "\"canary\"")
+            buildConfigField("boolean", "DEVELOPMENT_PROBES", "false")
+            buildConfigField("boolean", "RUNTIME_DIAGNOSTICS", "true")
         }
     }
 
@@ -92,6 +106,7 @@ android {
 
 dependencies {
     compileOnly("io.github.libxposed:api:102.0.0")
+    implementation("io.github.libxposed:service:102.0.0")
 
     testImplementation("junit:junit:4.13.2")
 

@@ -55,88 +55,116 @@ jobs:
       - name: Run unit tests
         run: gradle :app:testDebugUnitTest --stacktrace
 
-      - name: Build debug APK
-        run: gradle :app:assembleDebug --stacktrace
+      - name: Build debug and canary APKs
+        run: gradle :app:assembleDebug :app:assembleCanary --stacktrace
 
       - name: Verify modern Xposed metadata
         shell: bash
         run: |
-          APK="app/build/outputs/apk/debug/app-debug.apk"
           REQUIRED_ENTRIES=(
             "META-INF/xposed/java_init.list"
             "META-INF/xposed/module.prop"
             "META-INF/xposed/scope.list"
           )
 
-          for entry in "${REQUIRED_ENTRIES[@]}"; do
-            if ! unzip -Z1 "$APK" | grep -Fxq "$entry"; then
-              echo "Missing modern Xposed metadata: $entry"
+          for APK in             app/build/outputs/apk/debug/app-debug.apk             app/build/outputs/apk/canary/app-canary.apk; do
+            for entry in "${REQUIRED_ENTRIES[@]}"; do
+              if ! unzip -Z1 "$APK" | grep -Fxq "$entry"; then
+                echo "Missing modern Xposed metadata in $APK: $entry"
+                exit 1
+              fi
+            done
+
+            if unzip -Z1 "$APK" | grep -Fxq "assets/xposed_init"; then
+              echo "Legacy Xposed entry metadata must not be packaged in $APK."
+              exit 1
+            fi
+
+            if [[ "$(unzip -p "$APK" META-INF/xposed/scope.list | tr -d '\r\n')" != "com.android.systemui" ]]; then
+              echo "Unexpected Xposed scope in $APK."
+              exit 1
+            fi
+
+            if ! unzip -p "$APK" META-INF/xposed/module.prop | grep -Fxq "targetApiVersion=102"; then
+              echo "Modern Xposed target API 102 metadata is missing from $APK."
+              exit 1
+            fi
+
+            if ! unzip -p "$APK" META-INF/xposed/module.prop | grep -Fxq "autoHotReload=true"; then
+              echo "Modern Xposed hot reload metadata is missing from $APK."
+              exit 1
+            fi
+
+            JAVA_ENTRY_COUNT="$(
+              unzip -p "$APK" META-INF/xposed/java_init.list |
+                tr -d '\r' |
+                sed '/^[[:space:]]*$/d' |
+                wc -l |
+                tr -d ' '
+            )"
+            if [[ "$JAVA_ENTRY_COUNT" != "1" ]]; then
+              echo "Hot reload requires exactly one Java entry class in $APK."
               exit 1
             fi
           done
 
-          if unzip -Z1 "$APK" | grep -Fxq "assets/xposed_init"; then
-            echo "Legacy Xposed entry metadata must not be packaged."
-            exit 1
-          fi
-
-          if [[ "$(unzip -p "$APK" META-INF/xposed/scope.list | tr -d '\r\n')" != "com.android.systemui" ]]; then
-            echo "Unexpected Xposed scope."
-            exit 1
-          fi
-
-          if ! unzip -p "$APK" META-INF/xposed/module.prop | grep -Fxq "targetApiVersion=102"; then
-            echo "Modern Xposed target API 102 metadata is missing."
-            exit 1
-          fi
-
-          if ! unzip -p "$APK" META-INF/xposed/module.prop | grep -Fxq "autoHotReload=true"; then
-            echo "Modern Xposed hot reload metadata is missing."
-            exit 1
-          fi
-
-          JAVA_ENTRY_COUNT="$(
-            unzip -p "$APK" META-INF/xposed/java_init.list |
-              tr -d '\r' |
-              sed '/^[[:space:]]*$/d' |
-              wc -l |
-              tr -d ' '
-          )"
-          if [[ "$JAVA_ENTRY_COUNT" != "1" ]]; then
-            echo "Hot reload requires exactly one Java entry class."
-            exit 1
-          fi
-
-      - name: Verify Haple debug APK signature
+      - name: Verify Haple APK signatures
         shell: bash
         run: |
           SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
-          "$SDK_ROOT/build-tools/37.0.0/apksigner" verify             --verbose             --print-certs             app/build/outputs/apk/debug/app-debug.apk
+          for APK in             app/build/outputs/apk/debug/app-debug.apk             app/build/outputs/apk/canary/app-canary.apk; do
+            "$SDK_ROOT/build-tools/37.0.0/apksigner" verify               --verbose               --print-certs               "$APK"
 
-          ACTUAL_CERT_SHA256="$(
-            "$SDK_ROOT/build-tools/37.0.0/apksigner" verify               --print-certs               app/build/outputs/apk/debug/app-debug.apk |
-              awk -F': ' '/certificate SHA-256 digest:/ { print $NF; exit }' |
-              tr '[:upper:]' '[:lower:]'
-          )"
+            ACTUAL_CERT_SHA256="$(
+              "$SDK_ROOT/build-tools/37.0.0/apksigner" verify                 --print-certs                 "$APK" |
+                awk -F': ' '/certificate SHA-256 digest:/ { print $NF; exit }' |
+                tr '[:upper:]' '[:lower:]'
+            )"
 
-          if [[ "$ACTUAL_CERT_SHA256" != "$HAPLE_CERT_SHA256" ]]; then
-            echo "Built debug APK is not signed by the Haple certificate."
+            if [[ "$ACTUAL_CERT_SHA256" != "$HAPLE_CERT_SHA256" ]]; then
+              echo "Built APK is not signed by the Haple certificate: $APK"
+              exit 1
+            fi
+          done
+
+      - name: Verify canary is non-debuggable
+        shell: bash
+        run: |
+          SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+          APKANALYZER="$(find "$SDK_ROOT/cmdline-tools" -type f -name apkanalyzer | sort -V | tail -n 1)"
+          if [[ -z "$APKANALYZER" ]]; then
+            echo "apkanalyzer was not found."
             exit 1
           fi
 
-      - name: Prepare debug APK
+          if [[ "$("$APKANALYZER" manifest debuggable app/build/outputs/apk/canary/app-canary.apk)" != "false" ]]; then
+            echo "Canary APK must be non-debuggable."
+            exit 1
+          fi
+
+      - name: Prepare APKs
         shell: bash
         run: |
           VERSION_NAME="$(sed -n 's/^combinedStatus.versionName=//p' gradle.properties)"
           BUILD_ID="$(sed -n 's/^combinedStatus.buildId=//p' gradle.properties)"
           mkdir -p dist
-          APK_NAME="CombinedStatus-${VERSION_NAME}-HyperOS-${BUILD_ID}-debug.apk"
-          cp app/build/outputs/apk/debug/app-debug.apk "dist/$APK_NAME"
-          echo "APK_NAME=$APK_NAME" >> "$GITHUB_ENV"
+          DEBUG_APK_NAME="CombinedStatus-${VERSION_NAME}-HyperOS-${BUILD_ID}-debug.apk"
+          CANARY_APK_NAME="CombinedStatus-${VERSION_NAME}-HyperOS-${BUILD_ID}-canary.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "dist/$DEBUG_APK_NAME"
+          cp app/build/outputs/apk/canary/app-canary.apk "dist/$CANARY_APK_NAME"
+          echo "DEBUG_APK_NAME=$DEBUG_APK_NAME" >> "$GITHUB_ENV"
+          echo "CANARY_APK_NAME=$CANARY_APK_NAME" >> "$GITHUB_ENV"
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.APK_NAME }}
-          path: dist/${{ env.APK_NAME }}
+          name: ${{ env.DEBUG_APK_NAME }}
+          path: dist/${{ env.DEBUG_APK_NAME }}
+          if-no-files-found: error
+
+      - name: Upload canary APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.CANARY_APK_NAME }}
+          path: dist/${{ env.CANARY_APK_NAME }}
           if-no-files-found: error

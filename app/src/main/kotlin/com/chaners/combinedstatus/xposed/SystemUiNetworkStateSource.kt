@@ -1,5 +1,6 @@
 package com.chaners.combinedstatus.xposed
 
+import android.provider.Settings
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
@@ -46,6 +47,7 @@ internal object SystemUiNetworkStateSource {
     private const val WIFI_BIND_HOOK_ID = "combinedstatus.network.wifi.bind"
     private const val WIFI_ICON_HOOK_ID = "combinedstatus.network.wifi.icon"
     private const val WIFI_ICON_COLLECTOR_CLASS_ID = 1
+    private const val MAX_PARENT_CHAIN_DEPTH = 8
     private const val MOBILE_BIND_HOOK_ID = "combinedstatus.network.mobile.bind"
     private const val MOBILE_SIGNAL_HOOK_ID = "combinedstatus.network.mobile.signal"
 
@@ -61,110 +63,418 @@ internal object SystemUiNetworkStateSource {
     private val lastWifiEvents = WeakHashMap<ImageView, String>()
     private val lastMobileEvents = WeakHashMap<ImageView, String>()
 
+    internal data class InstallFailure(
+        val component: String,
+        val stage: String,
+        val errorType: String,
+        val reason: String,
+    )
+
+    internal data class MobilePresentationBinding(
+        val root: ViewGroup,
+        val subscriptionId: Int,
+    )
+
+    internal data class BindingRestoreResult(
+        val wifiRoots: Int,
+        val mobileRoots: Int,
+    )
+
+    internal data class InstallResult(
+        val handles: List<HookHandle>,
+        val wifiReady: Boolean,
+        val mobileReady: Boolean,
+        val failures: List<InstallFailure>,
+    )
+
+    private data class BranchInstallResult(
+        val handles: List<HookHandle>,
+        val ready: Boolean,
+        val failure: InstallFailure?,
+    )
+
+    private class InstallStageException(
+        val stage: String,
+        cause: Throwable,
+    ) : RuntimeException(cause)
+
     fun install(
         module: XposedModule,
         classLoader: ClassLoader,
         onWifiState: (CombinedStatusStateStore.WifiState) -> Unit,
         onMobileIcon: (CombinedStatusStateStore.MobileIconUpdate) -> Unit,
+        onAirplaneMode: (Boolean) -> Unit,
+        onPresentationChanged: (() -> Unit)?,
         onEvent: ((String) -> Unit)?,
-    ): List<HookHandle> {
+    ): InstallResult {
+        val wifi =
+            installWifi(
+                module = module,
+                classLoader = classLoader,
+                onWifiState = onWifiState,
+                onEvent = onEvent,
+            )
+        val mobile =
+            installMobile(
+                module = module,
+                classLoader = classLoader,
+                onMobileIcon = onMobileIcon,
+                onAirplaneMode = onAirplaneMode,
+                onPresentationChanged = onPresentationChanged,
+                onEvent = onEvent,
+            )
+
+        return InstallResult(
+            handles = wifi.handles + mobile.handles,
+            wifiReady = wifi.ready,
+            mobileReady = mobile.ready,
+            failures = listOfNotNull(wifi.failure, mobile.failure),
+        )
+    }
+
+    private fun installWifi(
+        module: XposedModule,
+        classLoader: ClassLoader,
+        onWifiState: (CombinedStatusStateStore.WifiState) -> Unit,
+        onEvent: ((String) -> Unit)?,
+    ): BranchInstallResult {
         val created = mutableListOf<HookHandle>()
 
         return try {
-            val wifiBinderClass = Class.forName(WIFI_BINDER_CLASS_NAME, false, classLoader)
+            val wifiBinderClass =
+                atStage("wifi.resolve.binderClass") {
+                    Class.forName(WIFI_BINDER_CLASS_NAME, false, classLoader)
+                }
             val wifiLocationVmClass =
-                Class.forName(WIFI_LOCATION_VIEW_MODEL_CLASS_NAME, false, classLoader)
-            val continuationClass =
-                Class.forName("kotlin.coroutines.Continuation", false, classLoader)
-            val wifiBindMethod = wifiBinderClass.getDeclaredMethod(
-                WIFI_BIND_METHOD_NAME,
-                ViewGroup::class.java,
-                wifiLocationVmClass,
-            )
+                atStage("wifi.resolve.locationViewModelClass") {
+                    Class.forName(WIFI_LOCATION_VIEW_MODEL_CLASS_NAME, false, classLoader)
+                }
+            val wifiBindMethod =
+                atStage("wifi.resolve.bindMethod") {
+                    wifiBinderClass.getDeclaredMethod(
+                        WIFI_BIND_METHOD_NAME,
+                        ViewGroup::class.java,
+                        wifiLocationVmClass,
+                    )
+                }
             val wifiIconEmitterClass =
-                Class.forName(WIFI_ICON_EMITTER_CLASS_NAME, false, classLoader)
-            val wifiIconEmitMethod = wifiIconEmitterClass.getDeclaredMethod(
-                WIFI_ICON_EMIT_METHOD_NAME,
-                Any::class.java,
-                continuationClass,
+                atStage("wifi.resolve.iconEmitterClass") {
+                    Class.forName(WIFI_ICON_EMITTER_CLASS_NAME, false, classLoader)
+                }
+            val wifiIconEmitMethod =
+                atStage("wifi.resolve.iconEmitMethod") {
+                    resolveEmitterMethod(
+                        emitterClass = wifiIconEmitterClass,
+                        methodName = WIFI_ICON_EMIT_METHOD_NAME,
+                    )
+                }
+            val wifiIconImageField =
+                atStage("wifi.resolve.iconViewField") {
+                    wifiIconEmitterClass
+                        .getDeclaredField("\$iconView")
+                        .apply { isAccessible = true }
+                }
+            val wifiIconClassIdField =
+                atStage("wifi.resolve.classIdField") {
+                    wifiIconEmitterClass
+                        .getDeclaredField("\$r8\$classId")
+                        .apply { isAccessible = true }
+                }
+
+            created +=
+                atStage("wifi.hook.bind") {
+                    module
+                        .hook(wifiBindMethod)
+                        .setId(WIFI_BIND_HOOK_ID)
+                        .intercept(wifiBindHooker(onEvent))
+                }
+            created +=
+                atStage("wifi.hook.iconEmit") {
+                    module
+                        .hook(wifiIconEmitMethod)
+                        .setId(WIFI_ICON_HOOK_ID)
+                        .intercept(
+                            wifiIconHooker(
+                                wifiImageField = wifiIconImageField,
+                                wifiClassIdField = wifiIconClassIdField,
+                                onWifiState = onWifiState,
+                                onEvent = onEvent,
+                            ),
+                        )
+                }
+
+            BranchInstallResult(
+                handles = created.toList(),
+                ready = true,
+                failure = null,
             )
-            val wifiIconImageField = wifiIconEmitterClass
-                .getDeclaredField("\$iconView")
-                .apply { isAccessible = true }
-            val wifiIconClassIdField = wifiIconEmitterClass
-                .getDeclaredField("\$r8\$classId")
-                .apply { isAccessible = true }
-
-            val mobileBinderClass = Class.forName(MOBILE_BINDER_CLASS_NAME, false, classLoader)
-            val mobileLocationVmClass =
-                Class.forName(MOBILE_LOCATION_VIEW_MODEL_CLASS_NAME, false, classLoader)
-            val mobileIconVmClass =
-                Class.forName(MOBILE_ICON_VIEW_MODEL_CLASS_NAME, false, classLoader)
-            val mobileLoggerClass =
-                Class.forName(MOBILE_VIEW_LOGGER_CLASS_NAME, false, classLoader)
-            val mobileBindMethod = mobileBinderClass.getDeclaredMethod(
-                MOBILE_BIND_METHOD_NAME,
-                ViewGroup::class.java,
-                mobileLocationVmClass,
-                mobileIconVmClass,
-                mobileLoggerClass,
+        } catch (error: InstallStageException) {
+            created.forEach { handle -> runCatching { handle.unhook() } }
+            BranchInstallResult(
+                handles = emptyList(),
+                ready = false,
+                failure = installFailure("wifi", error),
             )
-
-            val mobileSignalEmitterClass =
-                Class.forName(MOBILE_SIGNAL_EMITTER_CLASS_NAME, false, classLoader)
-            val mobileSignalEmitMethod = mobileSignalEmitterClass.getDeclaredMethod(
-                MOBILE_SIGNAL_EMIT_METHOD_NAME,
-                Any::class.java,
-                continuationClass,
-            )
-            val mobileImageField = mobileSignalEmitterClass
-                .getDeclaredField("\$mobile")
-                .apply { isAccessible = true }
-            val mobileClassIdField = mobileSignalEmitterClass
-                .getDeclaredField("\$r8\$classId")
-                .apply { isAccessible = true }
-            val subscriptionIdMethod = mobileLocationVmClass
-                .getDeclaredMethod("getSubscriptionId")
-                .apply { isAccessible = true }
-
-            created += module
-                .hook(wifiBindMethod)
-                .setId(WIFI_BIND_HOOK_ID)
-                .intercept(wifiBindHooker(onEvent))
-            created += module
-                .hook(wifiIconEmitMethod)
-                .setId(WIFI_ICON_HOOK_ID)
-                .intercept(
-                    wifiIconHooker(
-                        wifiImageField = wifiIconImageField,
-                        wifiClassIdField = wifiIconClassIdField,
-                        onWifiState = onWifiState,
-                        onEvent = onEvent,
-                    ),
-                )
-            created += module
-                .hook(mobileBindMethod)
-                .setId(MOBILE_BIND_HOOK_ID)
-                .intercept(mobileBindHooker(subscriptionIdMethod, onEvent))
-            created += module
-                .hook(mobileSignalEmitMethod)
-                .setId(MOBILE_SIGNAL_HOOK_ID)
-                .intercept(
-                    mobileSignalHooker(
-                        mobileImageField = mobileImageField,
-                        mobileClassIdField = mobileClassIdField,
-                        onMobileIcon = onMobileIcon,
-                        onEvent = onEvent,
-                    ),
-                )
-
-            created.toList()
-        } catch (error: Throwable) {
-            created.forEach { handle ->
-                runCatching { handle.unhook() }
-            }
-            throw error
         }
+    }
+
+    private fun installMobile(
+        module: XposedModule,
+        classLoader: ClassLoader,
+        onMobileIcon: (CombinedStatusStateStore.MobileIconUpdate) -> Unit,
+        onAirplaneMode: (Boolean) -> Unit,
+        onPresentationChanged: (() -> Unit)?,
+        onEvent: ((String) -> Unit)?,
+    ): BranchInstallResult {
+        val created = mutableListOf<HookHandle>()
+
+        return try {
+            val mobileBinderClass =
+                atStage("mobile.resolve.binderClass") {
+                    Class.forName(MOBILE_BINDER_CLASS_NAME, false, classLoader)
+                }
+            val mobileLocationVmClass =
+                atStage("mobile.resolve.locationViewModelClass") {
+                    Class.forName(MOBILE_LOCATION_VIEW_MODEL_CLASS_NAME, false, classLoader)
+                }
+            val mobileIconVmClass =
+                atStage("mobile.resolve.iconViewModelClass") {
+                    Class.forName(MOBILE_ICON_VIEW_MODEL_CLASS_NAME, false, classLoader)
+                }
+            val mobileLoggerClass =
+                atStage("mobile.resolve.loggerClass") {
+                    Class.forName(MOBILE_VIEW_LOGGER_CLASS_NAME, false, classLoader)
+                }
+            val mobileBindMethod =
+                atStage("mobile.resolve.bindMethod") {
+                    mobileBinderClass.getDeclaredMethod(
+                        MOBILE_BIND_METHOD_NAME,
+                        ViewGroup::class.java,
+                        mobileLocationVmClass,
+                        mobileIconVmClass,
+                        mobileLoggerClass,
+                    )
+                }
+            val mobileSignalEmitterClass =
+                atStage("mobile.resolve.signalEmitterClass") {
+                    Class.forName(MOBILE_SIGNAL_EMITTER_CLASS_NAME, false, classLoader)
+                }
+            val mobileSignalEmitMethod =
+                atStage("mobile.resolve.signalEmitMethod") {
+                    resolveEmitterMethod(
+                        emitterClass = mobileSignalEmitterClass,
+                        methodName = MOBILE_SIGNAL_EMIT_METHOD_NAME,
+                    )
+                }
+            val mobileImageField =
+                atStage("mobile.resolve.imageField") {
+                    mobileSignalEmitterClass
+                        .getDeclaredField("\$mobile")
+                        .apply { isAccessible = true }
+                }
+            val mobileClassIdField =
+                atStage("mobile.resolve.classIdField") {
+                    mobileSignalEmitterClass
+                        .getDeclaredField("\$r8\$classId")
+                        .apply { isAccessible = true }
+                }
+            val subscriptionIdMethod =
+                atStage("mobile.resolve.subscriptionIdMethod") {
+                    mobileLocationVmClass
+                        .getDeclaredMethod("getSubscriptionId")
+                        .apply { isAccessible = true }
+                }
+
+            created +=
+                atStage("mobile.hook.bind") {
+                    module
+                        .hook(mobileBindMethod)
+                        .setId(MOBILE_BIND_HOOK_ID)
+                        .intercept(
+                            mobileBindHooker(
+                                subscriptionIdMethod = subscriptionIdMethod,
+                                onPresentationChanged = onPresentationChanged,
+                                onEvent = onEvent,
+                            ),
+                        )
+                }
+            created +=
+                atStage("mobile.hook.signalEmit") {
+                    module
+                        .hook(mobileSignalEmitMethod)
+                        .setId(MOBILE_SIGNAL_HOOK_ID)
+                        .intercept(
+                            mobileSignalHooker(
+                                mobileImageField = mobileImageField,
+                                mobileClassIdField = mobileClassIdField,
+                                onMobileIcon = onMobileIcon,
+                                onAirplaneMode = onAirplaneMode,
+                                onEvent = onEvent,
+                            ),
+                        )
+                }
+
+            BranchInstallResult(
+                handles = created.toList(),
+                ready = true,
+                failure = null,
+            )
+        } catch (error: InstallStageException) {
+            created.forEach { handle -> runCatching { handle.unhook() } }
+            BranchInstallResult(
+                handles = emptyList(),
+                ready = false,
+                failure = installFailure("mobile", error),
+            )
+        }
+    }
+
+    private fun resolveEmitterMethod(
+        emitterClass: Class<*>,
+        methodName: String,
+    ): Method {
+        val candidates =
+            emitterClass.declaredMethods.filter { method ->
+                method.name == methodName &&
+                    method.parameterCount == 2 &&
+                    method.parameterTypes.firstOrNull() == Any::class.java
+            }
+
+        val method =
+            when (candidates.size) {
+                1 -> candidates.single()
+                0 -> throw NoSuchMethodException(
+                    emitterClass.name + "#" + methodName + "(Object, <continuation>)",
+                )
+                else -> throw NoSuchMethodException(
+                    emitterClass.name + "#" + methodName +
+                        " is ambiguous candidates=" +
+                        candidates.joinToString(",") { candidate -> candidate.toGenericString() },
+                )
+            }
+
+        return method.apply { isAccessible = true }
+    }
+
+    @Synchronized
+    fun resetEventState() {
+        lastWifiEvents.clear()
+        lastMobileEvents.clear()
+    }
+
+    @Synchronized
+    fun exportHotReloadBindings(): Array<Any?> {
+        val wifi = ArrayList<Any>(wifiRoots.size)
+        wifiRoots.keys.forEach { root ->
+            if (root.isAttachedToWindow) {
+                wifi += root
+            }
+        }
+
+        val mobile = ArrayList<Any>(mobileRoots.size)
+        mobileRoots.forEach { (root, subscriptionId) ->
+            if (root.isAttachedToWindow) {
+                mobile.add(arrayOf(root, subscriptionId))
+            }
+        }
+
+        return arrayOf(wifi, mobile)
+    }
+
+    @Synchronized
+    fun restoreHotReloadBindings(raw: Any?): BindingRestoreResult {
+        wifiRoots.clear()
+        mobileRoots.clear()
+        lastWifiEvents.clear()
+        lastMobileEvents.clear()
+
+        val payload = raw as? Array<*>
+            ?: return BindingRestoreResult(wifiRoots = 0, mobileRoots = 0)
+
+        val wifi = payload.getOrNull(0) as? List<*>
+        wifi.orEmpty().forEach { value ->
+            val root = value as? ViewGroup ?: return@forEach
+            if (root.isAttachedToWindow) {
+                wifiRoots[root] = Unit
+            }
+        }
+
+        val mobile = payload.getOrNull(1) as? List<*>
+        mobile.orEmpty().forEach { value ->
+            val pair = value as? Array<*> ?: return@forEach
+            val root = pair.getOrNull(0) as? ViewGroup ?: return@forEach
+            val subscriptionId = (pair.getOrNull(1) as? Number)?.toInt() ?: return@forEach
+            if (root.isAttachedToWindow) {
+                mobileRoots[root] = subscriptionId
+            }
+        }
+
+        return BindingRestoreResult(
+            wifiRoots = wifiRoots.size,
+            mobileRoots = mobileRoots.size,
+        )
+    }
+
+    @Synchronized
+    fun hotReloadBindingCounts(): Pair<Int, Int> =
+        wifiRoots.keys.count { root -> root.isAttachedToWindow } to
+            mobileRoots.keys.count { root -> root.isAttachedToWindow }
+
+    @Synchronized
+    fun mobilePresentationBindings(): List<MobilePresentationBinding> =
+        mobileRoots.mapNotNull { (root, subscriptionId) ->
+            if (root.isAttachedToWindow) {
+                MobilePresentationBinding(root, subscriptionId)
+            } else {
+                null
+            }
+        }
+
+    @Synchronized
+    fun bindingTopologyLines(): List<String> =
+        buildList {
+            wifiRoots.keys.forEach { root ->
+                add(
+                    "nativeSlot binding=wifi root=" + root.javaClass.simpleName +
+                        " rootId=" + resourceId(root) +
+                        " parentChain=" + parentChain(root) +
+                        " layout=" + layoutToken(root) +
+                        " geometryWrites=0",
+                )
+            }
+            mobileRoots.forEach { (root, subscriptionId) ->
+                add(
+                    "nativeSlot binding=mobile subId=" + subscriptionId +
+                        " root=" + root.javaClass.simpleName +
+                        " rootId=" + resourceId(root) +
+                        " parentChain=" + parentChain(root) +
+                        " layout=" + layoutToken(root) +
+                        " geometryWrites=0",
+                )
+            }
+        }
+
+    private inline fun <T> atStage(
+        stage: String,
+        block: () -> T,
+    ): T =
+        try {
+            block()
+        } catch (error: Throwable) {
+            throw InstallStageException(stage, error)
+        }
+
+    private fun installFailure(
+        component: String,
+        error: InstallStageException,
+    ): InstallFailure {
+        val cause = error.cause ?: error
+        return InstallFailure(
+            component = component,
+            stage = error.stage,
+            errorType = cause.javaClass.name,
+            reason = cause.message ?: cause.javaClass.simpleName,
+        )
     }
 
     fun matches(handle: HookHandle): Boolean = handle.id in hookIds
@@ -188,7 +498,11 @@ internal object SystemUiNetworkStateSource {
                         "stage=beforeProceed " +
                         "root=" + root.javaClass.simpleName +
                         " rootId=" + resourceId(root) +
-                        " vm=" + viewModel.javaClass.simpleName,
+                        " vm=" + viewModel.javaClass.simpleName +
+                        " nativeSlotCandidate=true " +
+                        " parentChain=" + parentChain(root) +
+                        " layout=" + layoutToken(root) +
+                        " geometryWrites=0",
                 )
             }
         }
@@ -204,39 +518,39 @@ internal object SystemUiNetworkStateSource {
     ): Hooker = Hooker { chain ->
         val result = chain.proceed()
         val emitter = chain.thisObject
-        val classId = runCatching {
-            wifiClassIdField.getInt(emitter)
-        }.getOrDefault(-1)
+        val classId =
+            runCatching {
+                wifiClassIdField.getInt(emitter)
+            }.getOrDefault(-1)
 
         if (classId != WIFI_ICON_COLLECTOR_CLASS_ID) {
             return@Hooker result
         }
 
-        val image = runCatching {
-            wifiImageField.get(emitter) as? ImageView
-        }.getOrNull()
+        val image =
+            runCatching {
+                wifiImageField.get(emitter) as? ImageView
+            }.getOrNull()
 
         if (image != null && findWifiBinding(image)) {
             val value = chain.getArg(0)
-            val taggedResId = (image.tag as? Number)?.toInt()
+            val taggedResId = (image.tag as? Number)?.toInt()?.takeIf { it != 0 }
             val eventKey =
                 (taggedResId?.toString() ?: "none") + ":" +
                     image.visibility + ":" +
                     (value?.javaClass?.name ?: "null")
-            val changed = synchronized(this) {
-                lastWifiEvents.put(image, eventKey) != eventKey
-            }
+            val changed =
+                synchronized(this) {
+                    lastWifiEvents.put(image, eventKey) != eventKey
+                }
 
             if (changed) {
-                val wifiResourceName = taggedResId
-                    ?.takeIf { it != 0 }
-                    ?.let { id -> resourceName(image, id) }
-
+                val wifiResourceName = taggedResId?.let { id -> resourceName(image, id) }
                 when (value?.javaClass?.name) {
                     WIFI_ICON_VISIBLE_CLASS_NAME -> {
                         onWifiState(
                             CombinedStatusStateStore.WifiState.Visible(
-                                iconResId = taggedResId?.takeIf { it != 0 },
+                                iconResId = taggedResId,
                                 signal = SystemUiSignalParser.wifi(wifiResourceName),
                             ),
                         )
@@ -249,6 +563,7 @@ internal object SystemUiNetworkStateSource {
 
                 onEvent?.invoke(
                     "networkPipeline wifi iconEvent " +
+                        "phase=afterProceed " +
                         "viewId=" + resourceId(image) +
                         " classId=" + classId +
                         " valueType=" + (value?.javaClass?.simpleName ?: "null") +
@@ -264,12 +579,13 @@ internal object SystemUiNetworkStateSource {
 
     private fun mobileBindHooker(
         subscriptionIdMethod: Method,
+        onPresentationChanged: (() -> Unit)?,
         onEvent: ((String) -> Unit)?,
     ): Hooker = Hooker { chain ->
-        val result = chain.proceed()
         val root = chain.getArg(0) as? ViewGroup
         val locationViewModel = chain.getArg(1)
         val iconViewModel = chain.getArg(2)
+        var bindingLog: String? = null
 
         if (
             root != null &&
@@ -283,17 +599,26 @@ internal object SystemUiNetworkStateSource {
                 mobileRoots.put(root, subscriptionId)
             }
             if (previous == null || previous != subscriptionId) {
-                onEvent?.invoke(
+                bindingLog =
                     "networkPipeline mobile bound " +
+                        "stage=beforeProceed " +
                         "root=" + root.javaClass.simpleName +
                         " rootId=" + resourceId(root) +
                         " locationVm=" + locationViewModel.javaClass.simpleName +
                         " subId=" + subscriptionId +
-                        " iconVm=" + (iconViewModel?.javaClass?.simpleName ?: "none"),
-                )
+                        " iconVm=" + (iconViewModel?.javaClass?.simpleName ?: "none") +
+                        " nativeSlotCandidate=true " +
+                        " parentChain=" + parentChain(root) +
+                        " layout=" + layoutToken(root) +
+                        " geometryWrites=0"
             }
         }
 
+        val result = chain.proceed()
+        bindingLog?.let {
+            onEvent?.invoke(it)
+            onPresentationChanged?.invoke()
+        }
         result
     }
 
@@ -301,9 +626,9 @@ internal object SystemUiNetworkStateSource {
         mobileImageField: Field,
         mobileClassIdField: Field,
         onMobileIcon: (CombinedStatusStateStore.MobileIconUpdate) -> Unit,
+        onAirplaneMode: (Boolean) -> Unit,
         onEvent: ((String) -> Unit)?,
     ): Hooker = Hooker { chain ->
-        val result = chain.proceed()
         val emitter = chain.thisObject
         val image = runCatching {
             mobileImageField.get(emitter) as? ImageView
@@ -313,6 +638,7 @@ internal object SystemUiNetworkStateSource {
         }.getOrDefault(-1)
         val value = chain.getArg(0)
 
+        var eventLog: String? = null
         if (image != null) {
             val subscriptionId = findMobileSubscription(image)
             if (subscriptionId != null) {
@@ -337,13 +663,24 @@ internal object SystemUiNetworkStateSource {
                         2 -> CombinedStatusStateStore.MobileIconKind.VOWIFI
                         else -> null
                     }
+                    if (kind == CombinedStatusStateStore.MobileIconKind.SIGNAL) {
+                        val airplaneMode =
+                            Settings.Global.getInt(
+                                image.context.contentResolver,
+                                Settings.Global.AIRPLANE_MODE_ON,
+                                0,
+                            ) != 0
+                        onAirplaneMode(airplaneMode)
+                    }
                     if (kind != null) {
                         onMobileIcon(
                             CombinedStatusStateStore.MobileIconUpdate(
                                 subscriptionId = subscriptionId,
                                 kind = kind,
                                 resourceId = resourceId,
-                                signal = if (kind == CombinedStatusStateStore.MobileIconKind.SIGNAL) {
+                                signal = if (
+                                    kind == CombinedStatusStateStore.MobileIconKind.SIGNAL
+                                ) {
                                     SystemUiSignalParser.mobile(resourceName)
                                 } else {
                                     null
@@ -352,18 +689,20 @@ internal object SystemUiNetworkStateSource {
                         )
                     }
 
-                    onEvent?.invoke(
+                    eventLog =
                         "networkPipeline mobile iconEvent " +
+                            "phase=beforeProceed " +
                             "subId=" + subscriptionId +
                             " viewId=" + resourceId(image) +
                             " classId=" + classId +
                             " value=" + valueText +
-                            " resource=" + (resourceName ?: "n/a"),
-                    )
+                            " resource=" + (resourceName ?: "n/a")
                 }
             }
         }
 
+        val result = chain.proceed()
+        eventLog?.let { onEvent?.invoke(it) }
         result
     }
 
@@ -391,6 +730,29 @@ internal object SystemUiNetworkStateSource {
             current = current.parent as? View
         }
         return null
+    }
+
+    private fun parentChain(view: View): String =
+        buildList {
+            var current: View? = view
+            repeat(MAX_PARENT_CHAIN_DEPTH) {
+                val value = current ?: return@repeat
+                add(
+                    value.javaClass.simpleName +
+                        "[" + resourceId(value) + "]",
+                )
+                current = value.parent as? View
+            }
+        }.joinToString(">")
+
+    private fun layoutToken(view: View): String {
+        val params = view.layoutParams
+        return if (params == null) {
+            "none"
+        } else {
+            params.width.toString() + "x" + params.height +
+                ":measured=" + view.measuredWidth + "x" + view.measuredHeight
+        }
     }
 
     private fun visibilityName(visibility: Int): String = when (visibility) {
