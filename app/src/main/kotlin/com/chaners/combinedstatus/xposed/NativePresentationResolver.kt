@@ -39,6 +39,11 @@ internal object NativePresentationResolver {
                 activeSubscriptions = activeBindingSubIds.size,
             )
 
+        val effectiveDataSubscriptionId =
+            defaultDataSubscriptionId
+                .takeIf { subscriptionId -> subscriptionId >= 0 }
+                ?: activeBindingSubIds.firstOrNull()
+
         val target =
             when (mode) {
                 Mode.DUAL_AGGREGATED,
@@ -47,7 +52,7 @@ internal object NativePresentationResolver {
 
                 Mode.DUAL_SEPARATE ->
                     visible.firstOrNull { binding ->
-                        binding.subscriptionId == defaultDataSubscriptionId
+                        binding.subscriptionId == effectiveDataSubscriptionId
                     } ?: visible.firstOrNull()
 
                 Mode.UNKNOWN -> visible.firstOrNull()
@@ -60,7 +65,8 @@ internal object NativePresentationResolver {
             boundRoots = bindings.size,
             visibleRoots = visible.size,
             activeSubscriptionIds = activeBindingSubIds.sorted(),
-            targetSubscriptionId = target?.subscriptionId,
+            presentationRootSubscriptionId = target?.subscriptionId,
+            effectiveDataSubscriptionId = effectiveDataSubscriptionId,
             networkType = networkType,
         )
     }
@@ -174,7 +180,8 @@ internal object NativePresentationResolver {
         val boundRoots: Int,
         val visibleRoots: Int,
         val activeSubscriptionIds: List<Int>,
-        val targetSubscriptionId: Int?,
+        val presentationRootSubscriptionId: Int?,
+        val effectiveDataSubscriptionId: Int?,
         val networkType: NetworkType?,
     ) {
         val logLine: String
@@ -183,7 +190,8 @@ internal object NativePresentationResolver {
                     " boundRoots=" + boundRoots +
                     " visibleRoots=" + visibleRoots +
                     " activeSubIds=" + activeSubscriptionIds.joinToString(",", prefix = "[", postfix = "]") +
-                    " targetSubId=" + (targetSubscriptionId ?: -1) +
+                    " presentationRootSubId=" + (presentationRootSubscriptionId ?: -1) +
+                    " effectiveDataSubId=" + (effectiveDataSubscriptionId ?: -1) +
                     " networkType=" + (networkType?.label ?: "unknown") +
                     " enhanced=" + (networkType?.enhanced ?: false) +
                     " typeSource=" + (networkType?.source?.name ?: "none") +

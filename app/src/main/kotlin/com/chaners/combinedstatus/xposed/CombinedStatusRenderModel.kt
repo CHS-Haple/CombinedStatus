@@ -5,7 +5,7 @@ internal data class CombinedStatusRenderModel(
     val charging: Boolean,
     val centerIndicator: CenterIndicator,
     val mobileLevel: Int?,
-    val mobileSubscriptionId: Int,
+    val effectiveDataSubscriptionId: Int,
 ) {
     companion object {
         fun from(
@@ -15,17 +15,23 @@ internal data class CombinedStatusRenderModel(
         ): CombinedStatusRenderModel? {
             val battery = snapshot.battery ?: return null
 
+            val preferredDataSubscriptionId =
+                presentation.mobilePresentation
+                    ?.effectiveDataSubscriptionId
+                    ?.takeIf { subscriptionId -> subscriptionId >= 0 }
+                    ?: defaultDataSubscriptionId
+
             val selectedMobile =
-                snapshot.mobile[defaultDataSubscriptionId]
+                snapshot.mobile[preferredDataSubscriptionId]
                     ?.takeIf { it.signal !is SignalStrength.Unknown }
-                    ?.let { defaultDataSubscriptionId to it }
+                    ?.let { preferredDataSubscriptionId to it }
                     ?: snapshot.mobile.entries
                         .firstOrNull { it.value.signal !is SignalStrength.Unknown }
                         ?.let { it.key to it.value }
 
             val selectedSubscriptionId =
                 selectedMobile?.first
-                    ?: defaultDataSubscriptionId.takeIf { it >= 0 }
+                    ?: preferredDataSubscriptionId.takeIf { it >= 0 }
                     ?: snapshot.mobile.keys.firstOrNull()
                     ?: -1
 
@@ -55,7 +61,7 @@ internal data class CombinedStatusRenderModel(
                 charging = battery.charging,
                 centerIndicator = centerIndicator,
                 mobileLevel = mobileLevel,
-                mobileSubscriptionId = selectedSubscriptionId,
+                effectiveDataSubscriptionId = selectedSubscriptionId,
             )
         }
     }

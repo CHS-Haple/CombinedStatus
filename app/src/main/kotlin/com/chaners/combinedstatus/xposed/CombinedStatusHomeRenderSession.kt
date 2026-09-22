@@ -280,7 +280,7 @@ internal object CombinedStatusHomeRenderSession {
                         " charging=" + model.charging +
                         " center=" + model.centerIndicator.javaClass.simpleName +
                         " mobileLevel=" + (model.mobileLevel ?: -1) +
-                        " mobileSubId=" + model.mobileSubscriptionId +
+                        " effectiveDataSubId=" + model.effectiveDataSubscriptionId +
                         " defaultDataSubId=" + defaultDataSubscriptionId,
                 )
             }

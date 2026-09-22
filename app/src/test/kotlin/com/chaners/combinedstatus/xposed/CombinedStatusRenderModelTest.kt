@@ -70,7 +70,7 @@ class CombinedStatusRenderModelTest {
         val center = model?.centerIndicator as? CenterIndicator.MobileType
         assertEquals("5G-A", center?.label)
         assertEquals(InternetState.VALIDATED, center?.internet)
-        assertEquals(4, model?.mobileSubscriptionId)
+        assertEquals(4, model?.effectiveDataSubscriptionId)
     }
 
     @Test
@@ -294,7 +294,8 @@ class CombinedStatusRenderModelTest {
                     boundRoots = 1,
                     visibleRoots = 1,
                     activeSubscriptionIds = listOf(1),
-                    targetSubscriptionId = 1,
+                    presentationRootSubscriptionId = 1,
+                    effectiveDataSubscriptionId = 1,
                     networkType = networkType,
                 ),
         )

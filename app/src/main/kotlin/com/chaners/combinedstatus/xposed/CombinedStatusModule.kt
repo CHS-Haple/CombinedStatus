@@ -747,7 +747,8 @@ class CombinedStatusModule : XposedModule() {
                     "boundRoots" to presentation.boundRoots,
                     "visibleRoots" to presentation.visibleRoots,
                     "activeSubIds" to presentation.activeSubscriptionIds.joinToString(","),
-                    "targetSubId" to presentation.targetSubscriptionId,
+                    "presentationRootSubId" to presentation.presentationRootSubscriptionId,
+                    "effectiveDataSubId" to presentation.effectiveDataSubscriptionId,
                     "networkType" to presentation.networkType?.label,
                     "enhanced" to presentation.networkType?.enhanced,
                     "geometryWrites" to 0,
@@ -932,6 +933,45 @@ class CombinedStatusModule : XposedModule() {
         SystemUiNetworkStateSource.bindingTopologyLines().forEach { line ->
             log(Log.INFO, TAG, line)
         }
+
+        val nativeParticipant = NativeParticipantContractProbe.inspect(host)
+        log(Log.INFO, TAG, nativeParticipant.logLine)
+        logDiagnostic(
+            level =
+                if (nativeParticipant.registrationContractReady) {
+                    Log.INFO
+                } else {
+                    Log.WARN
+                },
+            event = "contract.probe",
+            component = "nativeParticipant",
+            state =
+                if (nativeParticipant.registrationContractReady) {
+                    "ready"
+                } else {
+                    "observed"
+                },
+            "available" to nativeParticipant.available,
+            "reason" to nativeParticipant.reason,
+            "manager" to nativeParticipant.managerClass,
+            "group" to nativeParticipant.groupClass,
+            "groupRes" to nativeParticipant.groupResource,
+            "controller" to nativeParticipant.controllerClass,
+            "controllerMatches" to nativeParticipant.controllerMatches,
+            "managerMatches" to nativeParticipant.managerMatches,
+            "groupMatches" to nativeParticipant.groupMatches,
+            "setIcon" to nativeParticipant.setIcon,
+            "setIconVisibility" to nativeParticipant.setIconVisibility,
+            "addIconGroup" to nativeParticipant.addIconGroup,
+            "removeIconGroup" to nativeParticipant.removeIconGroup,
+            "addHolder" to nativeParticipant.addHolder,
+            "createLayoutParams" to nativeParticipant.createLayoutParams,
+            "holderCtor" to nativeParticipant.holderConstructor,
+            "iconViewCtor" to nativeParticipant.iconViewConstructor,
+            "statusIconDisplayable" to nativeParticipant.iconViewDisplayable,
+            "registrationReady" to nativeParticipant.registrationContractReady,
+            "nativeGeometryWrites" to 0,
+        )
 
         SystemUiNativeStatusInventory.schedule(host) { snapshot ->
             log(Log.INFO, TAG, snapshot.summary)
