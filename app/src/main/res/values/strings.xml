@@ -52,7 +52,7 @@
     <string name="dynamic_color_summary">Use colors generated from the system wallpaper</string>
     <string name="dynamic_color_on">Dynamic color</string>
     <string name="dynamic_color_off">Default colors</string>
-    <string name="theme_preview">Current colors</string>
+    <string name="theme_preview">Color preview</string>
     <string name="theme_preview_summary">%1$s · %2$s</string>
     <string name="section_visual_effects">Interface effects</string>
     <string name="floating_navigation_blur">Floating navigation blur</string>

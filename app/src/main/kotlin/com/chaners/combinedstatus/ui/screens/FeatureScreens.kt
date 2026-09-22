@@ -7,11 +7,16 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
@@ -20,6 +25,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -41,6 +47,7 @@ import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Surface
+import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
@@ -64,6 +71,7 @@ internal fun AppearanceScreen(
 
     SettingsPage(title = stringResource(R.string.appearance_title), onBack = onBack) {
         item {
+            SmallTitle(stringResource(R.string.theme_preview))
             AppearanceThemePreview(settings)
         }
 
@@ -125,33 +133,49 @@ private fun AppearanceThemePreview(settings: AppearanceSettings) {
             Modifier
                 .padding(horizontal = 12.dp)
                 .padding(bottom = 12.dp),
+        insideMargin = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
     ) {
-        BasicComponent(
-            title = stringResource(R.string.theme_preview),
-            summary =
-                stringResource(
-                    R.string.theme_preview_summary,
-                    modeLabel,
-                    colorLabel,
-                ),
-            endActions = {
-                Row {
-                    ThemeColorSwatch(MiuixTheme.colorScheme.primary)
-                    ThemeColorSwatch(MiuixTheme.colorScheme.secondary)
-                    ThemeColorSwatch(MiuixTheme.colorScheme.surfaceContainerHigh)
-                }
-            },
-        )
+        Column {
+            Text(
+                text =
+                    stringResource(
+                        R.string.theme_preview_summary,
+                        modeLabel,
+                        colorLabel,
+                    ),
+                style = MiuixTheme.textStyles.body2,
+                color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                ThemeColorSwatch(
+                    color = MiuixTheme.colorScheme.primary,
+                    modifier = Modifier.weight(1f),
+                )
+                ThemeColorSwatch(
+                    color = MiuixTheme.colorScheme.secondary,
+                    modifier = Modifier.weight(1f),
+                )
+                ThemeColorSwatch(
+                    color = MiuixTheme.colorScheme.surfaceContainerHigh,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
     }
 }
 
 @Composable
-private fun ThemeColorSwatch(color: Color) {
+private fun ThemeColorSwatch(
+    color: Color,
+    modifier: Modifier = Modifier,
+) {
     Surface(
-        modifier =
-            Modifier
-                .padding(start = 6.dp)
-                .size(width = 30.dp, height = 24.dp),
+        modifier = modifier.height(28.dp),
         shape = RoundedCornerShape(8.dp),
         color = color,
         border =
