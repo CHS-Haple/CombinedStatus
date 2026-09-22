@@ -22,7 +22,7 @@ class CombinedStatusPresentationPolicyTest {
 
     @Test
     fun explicitHiddenOrUnavailableModelStillCommits() {
-        val previous = model(wifiSegments = 3, mobileLevel = 4)
+        val previous = model(centerIndicator = wifi(), mobileLevel = 4)
         val candidate = model(centerIndicator = CenterIndicator.NoNetwork, mobileLevel = null)
 
         val resolved =
