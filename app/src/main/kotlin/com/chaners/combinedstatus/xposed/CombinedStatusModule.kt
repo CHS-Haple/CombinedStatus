@@ -880,6 +880,7 @@ class CombinedStatusModule : XposedModule() {
                     "activeSubIds" to presentation.activeSubscriptionIds.joinToString(","),
                     "presentationRootSubId" to presentation.presentationRootSubscriptionId,
                     "effectiveDataSubId" to presentation.effectiveDataSubscriptionId,
+                    "networkTypeSubId" to presentation.networkTypeSubscriptionId,
                     "networkType" to presentation.networkType?.label,
                     "enhanced" to presentation.networkType?.enhanced,
                     "geometryWrites" to 0,

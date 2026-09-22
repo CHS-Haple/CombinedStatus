@@ -14,11 +14,37 @@ class NativePresentationResolverTest {
                 activeSubscriptionIds = listOf(1, 4),
                 presentationRootSubscriptionId = 1,
                 effectiveDataSubscriptionId = 4,
+                networkTypeSubscriptionId = 4,
                 networkType = null,
             )
 
         assertEquals(1, snapshot.presentationRootSubscriptionId)
         assertEquals(4, snapshot.effectiveDataSubscriptionId)
+        assertEquals(4, snapshot.networkTypeSubscriptionId)
+    }
+
+    @Test
+    fun aggregatedNetworkTypeFollowsDefaultDataSubscription() {
+        assertEquals(
+            4,
+            NativePresentationResolver.selectNetworkTypeSubscriptionId(
+                effectiveDataSubscriptionId = 4,
+                presentationRootSubscriptionId = 1,
+                boundSubscriptionIds = listOf(1, 4),
+            ),
+        )
+    }
+
+    @Test
+    fun networkTypeFallsBackToPresentationRootWhenDefaultDataBindingIsMissing() {
+        assertEquals(
+            1,
+            NativePresentationResolver.selectNetworkTypeSubscriptionId(
+                effectiveDataSubscriptionId = 4,
+                presentationRootSubscriptionId = 1,
+                boundSubscriptionIds = listOf(1),
+            ),
+        )
     }
 
     @Test

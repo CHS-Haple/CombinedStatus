@@ -56,7 +56,19 @@ internal object NativePresentationResolver {
                 Mode.UNKNOWN -> visible.firstOrNull()
             }
 
-        val networkType = target?.let(::resolveNetworkType)
+        val networkTypeSubscriptionId =
+            selectNetworkTypeSubscriptionId(
+                effectiveDataSubscriptionId = effectiveDataSubscriptionId,
+                presentationRootSubscriptionId = target?.subscriptionId,
+                boundSubscriptionIds = bindings.map { binding -> binding.subscriptionId },
+            )
+        val networkTypeTarget =
+            networkTypeSubscriptionId?.let { subscriptionId ->
+                bindings.firstOrNull { binding ->
+                    binding.subscriptionId == subscriptionId
+                }
+            }
+        val networkType = networkTypeTarget?.let(::resolveNetworkType)
 
         return Snapshot(
             mode = mode,
@@ -65,9 +77,21 @@ internal object NativePresentationResolver {
             activeSubscriptionIds = activeBindingSubIds.sorted(),
             presentationRootSubscriptionId = target?.subscriptionId,
             effectiveDataSubscriptionId = effectiveDataSubscriptionId,
+            networkTypeSubscriptionId = networkTypeSubscriptionId,
             networkType = networkType,
         )
     }
+
+    internal fun selectNetworkTypeSubscriptionId(
+        effectiveDataSubscriptionId: Int?,
+        presentationRootSubscriptionId: Int?,
+        boundSubscriptionIds: List<Int>,
+    ): Int? =
+        effectiveDataSubscriptionId
+            ?.takeIf { subscriptionId -> subscriptionId in boundSubscriptionIds }
+            ?: presentationRootSubscriptionId
+                ?.takeIf { subscriptionId -> subscriptionId in boundSubscriptionIds }
+            ?: boundSubscriptionIds.firstOrNull()
 
     internal fun classify(
         boundRoots: Int,
@@ -180,6 +204,7 @@ internal object NativePresentationResolver {
         val activeSubscriptionIds: List<Int>,
         val presentationRootSubscriptionId: Int?,
         val effectiveDataSubscriptionId: Int?,
+        val networkTypeSubscriptionId: Int?,
         val networkType: NetworkType?,
     ) {
         val logLine: String
@@ -190,6 +215,7 @@ internal object NativePresentationResolver {
                     " activeSubIds=" + activeSubscriptionIds.joinToString(",", prefix = "[", postfix = "]") +
                     " presentationRootSubId=" + (presentationRootSubscriptionId ?: -1) +
                     " effectiveDataSubId=" + (effectiveDataSubscriptionId ?: -1) +
+                    " networkTypeSubId=" + (networkTypeSubscriptionId ?: -1) +
                     " networkType=" + (networkType?.label ?: "unknown") +
                     " enhanced=" + (networkType?.enhanced ?: false) +
                     " typeSource=" + (networkType?.source?.name ?: "none") +
