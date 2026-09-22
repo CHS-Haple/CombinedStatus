@@ -48,6 +48,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Debug owned-slot validation now records one matched pre/post geometry pair around the existing paddingStart write, including measured-width expansion, stable battery end-anchor delta, adjacent status-icon boundary movement, and neighbor-gap delta without adding hooks or continuous sampling.
 
 ### Changed
+- Appearance palette preview now uses a compact read-only inset tray with MIUIX surface hierarchy, a restrained outline, and smaller color samples so it reads as a preview rather than another interactive preference while preserving the settings-page density.
 - Core Home rendering no longer depends on `BuildConfig.DEBUG`; build-channel flags now isolate development probes from runtime rendering and bounded Canary diagnostics.
 - Appearance palette preview no longer uses a separate section title; its secondary "Current colors" label now sits directly beneath the three theme swatches using MIUIX body2 and onSurfaceContainerVariant styling.
 - Diagnostics level is now a persistent runtime preference rather than being presented as a direct alias of the APK build type; build type remains a separate capability boundary.

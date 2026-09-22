@@ -169,23 +169,34 @@ private fun AppearanceThemePreview(settings: AppearanceSettings) {
                     color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
                 )
             }
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MiuixTheme.colorScheme.surfaceContainerHigh,
+                border =
+                    BorderStroke(
+                        width = 1.dp,
+                        color = MiuixTheme.colorScheme.outline.copy(alpha = 0.18f),
+                    ),
             ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                Column(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    ThemeColorSwatch(MiuixTheme.colorScheme.primary)
-                    ThemeColorSwatch(MiuixTheme.colorScheme.secondary)
-                    ThemeColorSwatch(MiuixTheme.colorScheme.surfaceContainerHigh)
+                    Text(
+                        text = stringResource(R.string.theme_preview),
+                        style = MiuixTheme.textStyles.body2,
+                        color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
+                    )
+                    Row(
+                        modifier = Modifier.padding(top = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        ThemeColorSwatch(MiuixTheme.colorScheme.primary)
+                        ThemeColorSwatch(MiuixTheme.colorScheme.secondary)
+                        ThemeColorSwatch(MiuixTheme.colorScheme.surfaceContainerHigh)
+                    }
                 }
-                Text(
-                    modifier = Modifier.padding(top = 4.dp),
-                    text = stringResource(R.string.theme_preview),
-                    style = MiuixTheme.textStyles.body2,
-                    color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
-                )
             }
         }
     }
@@ -194,8 +205,8 @@ private fun AppearanceThemePreview(settings: AppearanceSettings) {
 @Composable
 private fun ThemeColorSwatch(color: Color) {
     Surface(
-        modifier = Modifier.size(24.dp),
-        shape = RoundedCornerShape(7.dp),
+        modifier = Modifier.size(22.dp),
+        shape = RoundedCornerShape(6.dp),
         color = color,
         border =
             BorderStroke(
