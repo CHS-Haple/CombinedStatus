@@ -9,6 +9,17 @@ internal object SystemUiHostRegistry {
     fun currentStatusHost(): Any? = statusHost.get()
 
     @Synchronized
+    fun restoreStatusHost(host: Any): Capture {
+        statusHost = WeakReference(host)
+        return Capture(
+            host = host,
+            className = host.javaClass.name,
+            identity = System.identityHashCode(host),
+            replacement = false,
+        )
+    }
+
+    @Synchronized
     fun captureStatusHost(host: Any): Capture? {
         val previous = statusHost.get()
         if (previous === host) {

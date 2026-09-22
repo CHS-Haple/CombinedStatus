@@ -70,6 +70,11 @@ internal object SystemUiNetworkStateSource {
         val reason: String,
     )
 
+    internal data class BindingRestoreResult(
+        val wifiRoots: Int,
+        val mobileRoots: Int,
+    )
+
     internal data class InstallResult(
         val handles: List<HookHandle>,
         val wifiReady: Boolean,
@@ -342,6 +347,64 @@ internal object SystemUiNetworkStateSource {
         lastWifiEvents.clear()
         lastMobileEvents.clear()
     }
+
+    @Synchronized
+    fun exportHotReloadBindings(): Array<Any?> {
+        val wifi = ArrayList<Any>(wifiRoots.size)
+        wifiRoots.keys.forEach { root ->
+            if (root.isAttachedToWindow) {
+                wifi += root
+            }
+        }
+
+        val mobile = ArrayList<Any>(mobileRoots.size)
+        mobileRoots.forEach { (root, subscriptionId) ->
+            if (root.isAttachedToWindow) {
+                mobile += arrayOf(root, subscriptionId)
+            }
+        }
+
+        return arrayOf(wifi, mobile)
+    }
+
+    @Synchronized
+    fun restoreHotReloadBindings(raw: Any?): BindingRestoreResult {
+        wifiRoots.clear()
+        mobileRoots.clear()
+        lastWifiEvents.clear()
+        lastMobileEvents.clear()
+
+        val payload = raw as? Array<*>
+            ?: return BindingRestoreResult(wifiRoots = 0, mobileRoots = 0)
+
+        val wifi = payload.getOrNull(0) as? List<*>
+        wifi.orEmpty().forEach { value ->
+            val root = value as? ViewGroup ?: return@forEach
+            if (root.isAttachedToWindow) {
+                wifiRoots[root] = Unit
+            }
+        }
+
+        val mobile = payload.getOrNull(1) as? List<*>
+        mobile.orEmpty().forEach { value ->
+            val pair = value as? Array<*> ?: return@forEach
+            val root = pair.getOrNull(0) as? ViewGroup ?: return@forEach
+            val subscriptionId = (pair.getOrNull(1) as? Number)?.toInt() ?: return@forEach
+            if (root.isAttachedToWindow) {
+                mobileRoots[root] = subscriptionId
+            }
+        }
+
+        return BindingRestoreResult(
+            wifiRoots = wifiRoots.size,
+            mobileRoots = mobileRoots.size,
+        )
+    }
+
+    @Synchronized
+    fun hotReloadBindingCounts(): Pair<Int, Int> =
+        wifiRoots.keys.count { root -> root.isAttachedToWindow } to
+            mobileRoots.keys.count { root -> root.isAttachedToWindow }
 
     @Synchronized
     fun bindingTopologyLines(): List<String> =

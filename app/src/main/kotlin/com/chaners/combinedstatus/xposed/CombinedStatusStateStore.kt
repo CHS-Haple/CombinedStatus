@@ -1,5 +1,7 @@
 package com.chaners.combinedstatus.xposed
 
+import android.os.Bundle
+
 internal object CombinedStatusStateStore {
     @Volatile
     private var current = Snapshot()
@@ -58,6 +60,120 @@ internal object CombinedStatusStateStore {
         current = current.copy(mobile = mobile.toSortedMap())
         return current
     }
+
+    @Synchronized
+    fun exportHotReloadState(): Bundle =
+        Bundle().apply {
+            current.battery?.let { battery ->
+                putBoolean(KEY_BATTERY_PRESENT, true)
+                putInt(KEY_BATTERY_PERCENT, battery.percent)
+                putBoolean(KEY_BATTERY_CHARGING, battery.charging)
+                putInt(KEY_BATTERY_PLUGGED, battery.plugged)
+            }
+            when (val wifi = current.wifi) {
+                WifiState.Unknown -> putInt(KEY_WIFI_KIND, WIFI_KIND_UNKNOWN)
+                WifiState.Hidden -> putInt(KEY_WIFI_KIND, WIFI_KIND_HIDDEN)
+                is WifiState.Visible -> {
+                    putInt(KEY_WIFI_KIND, WIFI_KIND_VISIBLE)
+                    putInt(KEY_WIFI_RES_ID, wifi.iconResId ?: 0)
+                    putInt(KEY_WIFI_SIGNAL, encodeSignal(wifi.signal))
+                }
+            }
+            putInt(
+                KEY_AIRPLANE,
+                when (current.airplaneMode) {
+                    null -> AIRPLANE_UNKNOWN
+                    false -> AIRPLANE_OFF
+                    true -> AIRPLANE_ON
+                },
+            )
+
+            val flattened = IntArray(current.mobile.size * MOBILE_STRIDE)
+            current.mobile.entries.forEachIndexed { index, (subscriptionId, state) ->
+                val base = index * MOBILE_STRIDE
+                flattened[base] = subscriptionId
+                flattened[base + 1] = state.signalResId ?: 0
+                flattened[base + 2] = encodeSignal(state.signal)
+                flattened[base + 3] = state.volteResId ?: 0
+                flattened[base + 4] = state.vowifiResId ?: 0
+            }
+            putIntArray(KEY_MOBILE, flattened)
+        }
+
+    @Synchronized
+    fun restoreHotReloadState(bundle: Bundle?): Snapshot {
+        if (bundle == null) {
+            current = Snapshot()
+            return current
+        }
+
+        val battery =
+            if (bundle.getBoolean(KEY_BATTERY_PRESENT, false)) {
+                BatteryState(
+                    percent = bundle.getInt(KEY_BATTERY_PERCENT),
+                    charging = bundle.getBoolean(KEY_BATTERY_CHARGING),
+                    plugged = bundle.getInt(KEY_BATTERY_PLUGGED),
+                )
+            } else {
+                null
+            }
+
+        val wifi =
+            when (bundle.getInt(KEY_WIFI_KIND, WIFI_KIND_UNKNOWN)) {
+                WIFI_KIND_HIDDEN -> WifiState.Hidden
+                WIFI_KIND_VISIBLE ->
+                    WifiState.Visible(
+                        iconResId = bundle.getInt(KEY_WIFI_RES_ID).takeIf { it != 0 },
+                        signal = decodeSignal(bundle.getInt(KEY_WIFI_SIGNAL, SIGNAL_UNKNOWN)),
+                    )
+                else -> WifiState.Unknown
+            }
+
+        val airplane =
+            when (bundle.getInt(KEY_AIRPLANE, AIRPLANE_UNKNOWN)) {
+                AIRPLANE_OFF -> false
+                AIRPLANE_ON -> true
+                else -> null
+            }
+
+        val mobile = sortedMapOf<Int, MobileState>()
+        val flattened = bundle.getIntArray(KEY_MOBILE) ?: IntArray(0)
+        var offset = 0
+        while (offset + MOBILE_STRIDE <= flattened.size) {
+            val subscriptionId = flattened[offset]
+            mobile[subscriptionId] =
+                MobileState(
+                    signalResId = flattened[offset + 1].takeIf { it != 0 },
+                    signal = decodeSignal(flattened[offset + 2]),
+                    volteResId = flattened[offset + 3].takeIf { it != 0 },
+                    vowifiResId = flattened[offset + 4].takeIf { it != 0 },
+                )
+            offset += MOBILE_STRIDE
+        }
+
+        current =
+            Snapshot(
+                battery = battery,
+                wifi = wifi,
+                mobile = mobile,
+                airplaneMode = airplane,
+            )
+        return current
+    }
+
+    private fun encodeSignal(signal: SignalStrength): Int =
+        when (signal) {
+            SignalStrength.Unknown -> SIGNAL_UNKNOWN
+            SignalStrength.Unavailable -> SIGNAL_UNAVAILABLE
+            is SignalStrength.Level -> signal.value.coerceIn(0, 4)
+        }
+
+    private fun decodeSignal(value: Int): SignalStrength =
+        when (value) {
+            SIGNAL_UNKNOWN -> SignalStrength.Unknown
+            SIGNAL_UNAVAILABLE -> SignalStrength.Unavailable
+            else -> SignalStrength.Level(value.coerceIn(0, 4))
+        }
 
     internal data class Snapshot(
         val battery: BatteryState? = null,
@@ -131,4 +247,26 @@ internal object CombinedStatusStateStore {
         val volteResId: Int? = null,
         val vowifiResId: Int? = null,
     )
+
+    private const val KEY_BATTERY_PRESENT = "batteryPresent"
+    private const val KEY_BATTERY_PERCENT = "batteryPercent"
+    private const val KEY_BATTERY_CHARGING = "batteryCharging"
+    private const val KEY_BATTERY_PLUGGED = "batteryPlugged"
+    private const val KEY_WIFI_KIND = "wifiKind"
+    private const val KEY_WIFI_RES_ID = "wifiResId"
+    private const val KEY_WIFI_SIGNAL = "wifiSignal"
+    private const val KEY_AIRPLANE = "airplane"
+    private const val KEY_MOBILE = "mobile"
+
+    private const val WIFI_KIND_UNKNOWN = 0
+    private const val WIFI_KIND_HIDDEN = 1
+    private const val WIFI_KIND_VISIBLE = 2
+
+    private const val AIRPLANE_UNKNOWN = -1
+    private const val AIRPLANE_OFF = 0
+    private const val AIRPLANE_ON = 1
+
+    private const val SIGNAL_UNKNOWN = -2
+    private const val SIGNAL_UNAVAILABLE = -1
+    private const val MOBILE_STRIDE = 5
 }

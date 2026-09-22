@@ -53,6 +53,7 @@ class CombinedStatusModule : XposedModule() {
             "channel" to BuildConfig.BUILD_CHANNEL,
             "api" to apiVersion,
         )
+        logCurrentDiagnosticsHealth()
     }
 
     override fun onPackageReady(param: PackageReadyParam) {
@@ -135,6 +136,67 @@ class CombinedStatusModule : XposedModule() {
             return false
         }
 
+        val host = SystemUiHostRegistry.currentStatusHost()
+        val snapshot = CombinedStatusStateStore.snapshot()
+        val bindingCounts = SystemUiNetworkStateSource.hotReloadBindingCounts()
+        val bindingStateReady =
+            (snapshot.wifi is CombinedStatusStateStore.WifiState.Unknown || bindingCounts.first > 0) &&
+                (snapshot.mobile.isEmpty() || bindingCounts.second > 0)
+        if (host == null || !bindingStateReady) {
+            logDiagnostic(
+                level = Log.WARN,
+                event = "hotReload.prepare",
+                component = "hotReload",
+                state = "unavailable",
+                "reason" to if (host == null) "status-host-not-captured" else "network-bindings-not-ready",
+                "wifiRoots" to bindingCounts.first,
+                "mobileRoots" to bindingCounts.second,
+                "restartScope" to true,
+            )
+            log(
+                Log.WARN,
+                TAG,
+                "Hot reload declined reason=" +
+                    if (host == null) "status-host-not-captured" else "network-bindings-not-ready",
+            )
+            return false
+        }
+
+        val transfer =
+            CombinedStatusHotReloadTransfer.capture(
+                host = host,
+                state = CombinedStatusStateStore.exportHotReloadState(),
+                bindings = SystemUiNetworkStateSource.exportHotReloadBindings(),
+            )
+        if (transfer == null) {
+            logDiagnostic(
+                level = Log.ERROR,
+                event = "hotReload.prepare",
+                component = "hotReload",
+                state = "error",
+                "reason" to "state-transfer-capture-failed",
+                "restartScope" to true,
+            )
+            return false
+        }
+
+        val saved = runCatching {
+            param.setSavedInstanceState(transfer)
+        }
+        if (saved.isFailure) {
+            val error = saved.exceptionOrNull()
+            logDiagnostic(
+                level = Log.ERROR,
+                event = "hotReload.prepare",
+                component = "hotReload",
+                state = "error",
+                "reason" to (error?.message ?: error?.javaClass?.simpleName ?: "saved-state-rejected"),
+                "restartScope" to true,
+            )
+            log(Log.ERROR, TAG, "Hot reload saved-state transfer rejected", error)
+            return false
+        }
+
         val hookCount =
             1 +
                 networkSourceHookCount +
@@ -160,11 +222,17 @@ class CombinedStatusModule : XposedModule() {
             state = "preparing",
             "hooks" to hookCount,
             "build" to BuildConfig.BUILD_ID,
+            "transfer" to "saved-instance-state",
+            "hostIdentity" to System.identityHashCode(host),
+            "wifiRoots" to bindingCounts.first,
+            "mobileRoots" to bindingCounts.second,
         )
         log(
             Log.INFO,
             TAG,
-            "Hot reload preparing build=" + BuildConfig.BUILD_ID + " hooks=" + hookCount,
+            "Hot reload preparing build=" + BuildConfig.BUILD_ID +
+                " hooks=" + hookCount +
+                " transfer=saved-instance-state",
         )
         teardownRuntimeResources("hotReload.prepare")
         unbindRuntimeDiagnostics()
@@ -176,6 +244,8 @@ class CombinedStatusModule : XposedModule() {
         val statusHostHandle = oldHandles.firstOrNull(StatusBarHostCapture::matches)
 
         if (statusHostHandle == null) {
+            oldHandles.forEach { handle -> runCatching { handle.unhook() } }
+            bindRuntimeDiagnostics()
             logDiagnostic(
                 level = Log.ERROR,
                 event = "hotReload.complete",
@@ -224,6 +294,7 @@ class CombinedStatusModule : XposedModule() {
                 "build" to BuildConfig.BUILD_ID,
                 "channel" to BuildConfig.BUILD_CHANNEL,
             )
+            logCurrentDiagnosticsHealth()
 
             val classLoader = statusHostHandle.executable.declaringClass.classLoader
                 ?: error("SystemUI class loader unavailable after hot reload")
@@ -245,27 +316,59 @@ class CombinedStatusModule : XposedModule() {
                     source = "hotReload",
                 )
             }
-            SystemUiHostRegistry.currentStatusHost()?.let { host ->
-                attachHostRuntime(
-                    host = host,
-                    source = "hotReload",
-                )
-            }
+
+            val restored = CombinedStatusHotReloadTransfer.restore(param.savedInstanceState)
+            val restoreReady =
+                if (restored != null) {
+                    val capture = SystemUiHostRegistry.restoreStatusHost(restored.host)
+                    val restoredSnapshot =
+                        CombinedStatusStateStore.restoreHotReloadState(restored.state)
+                    val bindings =
+                        SystemUiNetworkStateSource.restoreHotReloadBindings(restored.bindings)
+                    attachHostRuntime(
+                        host = capture.host,
+                        source = "hotReloadRestore",
+                    )
+                    logDiagnostic(
+                        level = Log.INFO,
+                        event = "hotReload.restore",
+                        component = "hotReload",
+                        state = "ready",
+                        "hostIdentity" to capture.identity,
+                        "wifiRoots" to bindings.wifiRoots,
+                        "mobileRoots" to bindings.mobileRoots,
+                        "state" to restoredSnapshot.logLine,
+                    )
+                    true
+                } else {
+                    CombinedStatusStateStore.restoreHotReloadState(null)
+                    logDiagnostic(
+                        level = Log.WARN,
+                        event = "hotReload.restore",
+                        component = "hotReload",
+                        state = "unavailable",
+                        "reason" to "saved-state-missing-or-legacy-generation",
+                        "restartScope" to true,
+                    )
+                    false
+                }
 
             logDiagnostic(
-                level = Log.INFO,
+                level = if (restoreReady) Log.INFO else Log.WARN,
                 event = "hotReload.complete",
                 component = "hotReload",
-                state = "ready",
+                state = if (restoreReady) "ready" else "partial",
                 "build" to BuildConfig.BUILD_ID,
                 "statusHostHook" to "replaced",
                 "staleHooks" to removed,
+                "restartScope" to !restoreReady,
             )
             log(
-                Log.INFO,
+                if (restoreReady) Log.INFO else Log.WARN,
                 TAG,
                 "Hot reload completed build=" + BuildConfig.BUILD_ID +
-                    " statusHostHook=replaced staleHooks=" + removed,
+                    " statusHostHook=replaced staleHooks=" + removed +
+                    " restored=" + restoreReady,
             )
         }.onFailure { error ->
             logDiagnostic(
@@ -798,6 +901,23 @@ class CombinedStatusModule : XposedModule() {
             )
             log(Log.WARN, TAG, "Runtime diagnostics preference unavailable", error)
         }
+    }
+
+    private fun logCurrentDiagnosticsHealth() {
+        val state =
+            when {
+                !BuildConfig.RUNTIME_DIAGNOSTICS -> "disabled"
+                diagnosticsPreferences != null -> "ready"
+                else -> "unavailable"
+            }
+        logDiagnostic(
+            level = if (state == "unavailable") Log.WARN else Log.INFO,
+            event = "diagnostics.snapshot",
+            component = "diagnostics",
+            state = state,
+            "level" to if (detailedDiagnosticsEnabled) "detailed" else "general",
+            "channel" to BuildConfig.BUILD_CHANNEL,
+        )
     }
 
     private fun unbindRuntimeDiagnostics() {
