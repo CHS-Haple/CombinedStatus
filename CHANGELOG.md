@@ -51,6 +51,9 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Debug owned-slot validation now records one matched pre/post geometry pair around the existing paddingStart write, including measured-width expansion, stable battery end-anchor delta, adjacent status-icon boundary movement, and neighbor-gap delta without adding hooks or continuous sampling.
 
 ### Changed
+- Diagnostics page information architecture now visually separates read-only environment data, editable diagnostics settings, and immediate report actions: module runtime uses the same value/label presentation as other read-only metadata, Diagnostics level moves under Diagnostics & reports, and export/share rows gain explicit action icons and disabled-state feedback.
+- The LSPosed/application description and Diagnostics subtitle now share the same localized `app_description` source, consistently positioning CombinedStatus as an LSPosed module for HyperOS.
+- Appearance preview keeps the 64 dp parent layout viewport but no longer hard-clips drawing at that boundary, allowing the native MIUIX floating-navigation shadow/glass edge to render naturally without restoring the preview-only safe-area tail.
 - Hot reload now re-emits the actually revalidated status-host compatibility, replaced host-hook, and restored host health in the new diagnostic generation so a successful reload is not falsely reported as degraded.
 - Home renderer diagnostic strings are now built only while Detailed diagnostics are enabled; General keeps the existing render path without per-transition diagnostic string allocation.
 - Diagnostics device/system metadata now uses parentheses for subordinate identifiers: model shows its device codename as `Model (codename)`, Android shows `Android 17 (API 37)`, and the localized labels mirror the same primary-plus-detail relationship.

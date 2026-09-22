@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Combined Status</string>
-    <string name="app_description">Built for HyperOS, combining battery, mobile network, and Wi‑Fi status into one status bar indicator</string>
+    <string name="app_description">An LSPosed module for HyperOS that combines battery, mobile network, and Wi-Fi status into one status bar indicator</string>
 
     <string name="home_title">Combined Status</string>
     <string name="nav_home">Home</string>
@@ -87,7 +87,6 @@
     <string name="section_current_build">Version information</string>
     <string name="section_diagnostics_app">App</string>
     <string name="product_name">CombinedStatus</string>
-    <string name="product_summary">An LSPosed module for HyperOS that combines battery, mobile network, and Wi-Fi status into one status bar indicator</string>
     <string name="target_platform_value">HyperOS SystemUI module</string>
     <string name="version_value">Version: %1$s</string>
     <string name="build_value">Build: %1$s</string>
@@ -114,7 +113,7 @@
     <string name="diagnostics_mode_summary">Choose the level of runtime diagnostic detail</string>
     <string name="diagnostics_mode_basic">General</string>
     <string name="diagnostics_mode_detailed">Detailed</string>
-    <string name="section_diagnostic_report">Diagnostic report</string>
+    <string name="section_diagnostic_report">Diagnostics &amp; reports</string>
     <string name="export_diagnostic_report">Export diagnostic report</string>
     <string name="export_diagnostic_report_summary">Save as a text file for records or issue feedback</string>
     <string name="share_diagnostic_report">Share diagnostic report</string>

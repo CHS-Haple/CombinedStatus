@@ -35,8 +35,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalContext
@@ -80,8 +80,10 @@ import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
+import top.yukonga.miuix.kmp.icon.extended.Download
 import top.yukonga.miuix.kmp.icon.extended.Home
 import top.yukonga.miuix.kmp.icon.extended.Settings
+import top.yukonga.miuix.kmp.icon.extended.Share
 import top.yukonga.miuix.kmp.icon.extended.Tune
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
@@ -459,8 +461,7 @@ private fun MiniNavigationPreview(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .height(MiniNavigationViewportHeight)
-                .clipToBounds(),
+                .height(MiniNavigationViewportHeight),
         contentAlignment = Alignment.TopCenter,
     ) {
         Box(
@@ -736,7 +737,7 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
         Section(R.string.section_diagnostics_app) {
             DiagnosticsCardHeader(
                 title = stringResource(R.string.product_name),
-                subtitle = stringResource(R.string.product_summary),
+                subtitle = stringResource(R.string.app_description),
             )
             DiagnosticsInfoValue(
                 value = BuildConfig.VERSION_NAME,
@@ -773,18 +774,27 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
         }
 
         Section(R.string.section_module_runtime) {
-            BasicComponent(
-                title = stringResource(R.string.runtime_framework_title),
-                summary = stringResource(R.string.runtime_framework_summary),
+            DiagnosticsInfoValue(
+                value = stringResource(R.string.runtime_framework_summary),
+                label = stringResource(R.string.runtime_framework_title),
             )
-            BasicComponent(
-                title = stringResource(R.string.runtime_scope_title),
-                summary = stringResource(R.string.runtime_scope_summary),
+            DiagnosticsInfoValue(
+                value = stringResource(R.string.runtime_scope_summary),
+                label = stringResource(R.string.runtime_scope_title),
             )
-            BasicComponent(
-                title = stringResource(R.string.runtime_target_title),
-                summary = stringResource(R.string.runtime_target_summary),
+            DiagnosticsInfoValue(
+                value = stringResource(R.string.runtime_target_summary),
+                label = stringResource(R.string.runtime_target_title),
             )
+            if (BuildConfig.DEVELOPMENT_PROBES) {
+                DiagnosticsInfoValue(
+                    value = stringResource(R.string.runtime_inventory_summary),
+                    label = stringResource(R.string.runtime_inventory_title),
+                )
+            }
+        }
+
+        Section(R.string.section_diagnostic_report) {
             OverlayDropdownPreference(
                 items = diagnosticsLevelOptions,
                 selectedIndex = diagnosticsSettings.level.ordinal,
@@ -799,84 +809,75 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
                     }
                 },
             )
-            if (BuildConfig.DEVELOPMENT_PROBES) {
-                BasicComponent(
-                    title = stringResource(R.string.runtime_inventory_title),
-                    summary = stringResource(R.string.runtime_inventory_summary),
-                )
-            }
-        }
-
-        Section(R.string.section_diagnostic_report) {
-            BasicComponent(
+            DiagnosticsActionRow(
                 title = stringResource(R.string.export_diagnostic_report),
                 summary = stringResource(R.string.export_diagnostic_report_summary),
+                icon = MiuixIcons.Download,
+                enabled = !reportInProgress && !exportPickerOpen,
                 onClick = {
-                    if (!reportInProgress && !exportPickerOpen) {
-                        exportPickerOpen = true
-                        exportLauncher.launch(DiagnosticsReportFiles.suggestedFileName())
-                    }
+                    exportPickerOpen = true
+                    exportLauncher.launch(DiagnosticsReportFiles.suggestedFileName())
                 },
             )
-            BasicComponent(
+            DiagnosticsActionRow(
                 title = stringResource(R.string.share_diagnostic_report),
                 summary = stringResource(R.string.share_diagnostic_report_summary),
+                icon = MiuixIcons.Share,
+                enabled = !reportInProgress && !exportPickerOpen,
                 onClick = {
-                    if (!reportInProgress && !exportPickerOpen) {
-                        buildReport { report ->
-                            val prepared =
-                                DiagnosticsReportFiles.prepareShare(
-                                    context = context,
-                                    report = report,
-                                )
-                            if (prepared == null) {
-                                Toast.makeText(
-                                    context,
-                                    shareFailedMessage,
-                                    Toast.LENGTH_SHORT,
-                                ).show()
-                                return@buildReport
-                            }
-
-                            val sendIntent =
-                                Intent(Intent.ACTION_SEND).apply {
-                                    type = DiagnosticsReportFiles.ShareMimeType
-                                    putExtra(Intent.EXTRA_STREAM, prepared.uri)
-                                    clipData =
-                                        ClipData.newUri(
-                                            context.contentResolver,
-                                            reportShareTitle,
-                                            prepared.uri,
-                                        )
-                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                }
-                            DiagnosticsReportFiles.logShareIntent(
+                    buildReport { report ->
+                        val prepared =
+                            DiagnosticsReportFiles.prepareShare(
                                 context = context,
-                                intent = sendIntent,
-                                uri = prepared.uri,
+                                report = report,
                             )
+                        if (prepared == null) {
+                            Toast.makeText(
+                                context,
+                                shareFailedMessage,
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                            return@buildReport
+                        }
 
-                            val chooserIntent =
-                                Intent.createChooser(
-                                    sendIntent,
-                                    reportShareTitle,
-                                ).apply {
-                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                                }
-
-                            runCatching {
-                                context.startActivity(chooserIntent)
-                            }.onSuccess {
-                                DiagnosticsReportFiles.logChooserLaunch(context)
-                            }.onFailure { error ->
-                                DiagnosticsReportFiles.logChooserLaunch(context, error)
-                                DiagnosticsReportFiles.discardShare(context, prepared)
-                                Toast.makeText(
-                                    context,
-                                    shareFailedMessage,
-                                    Toast.LENGTH_SHORT,
-                                ).show()
+                        val sendIntent =
+                            Intent(Intent.ACTION_SEND).apply {
+                                type = DiagnosticsReportFiles.ShareMimeType
+                                putExtra(Intent.EXTRA_STREAM, prepared.uri)
+                                clipData =
+                                    ClipData.newUri(
+                                        context.contentResolver,
+                                        reportShareTitle,
+                                        prepared.uri,
+                                    )
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                             }
+                        DiagnosticsReportFiles.logShareIntent(
+                            context = context,
+                            intent = sendIntent,
+                            uri = prepared.uri,
+                        )
+
+                        val chooserIntent =
+                            Intent.createChooser(
+                                sendIntent,
+                                reportShareTitle,
+                            ).apply {
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+
+                        runCatching {
+                            context.startActivity(chooserIntent)
+                        }.onSuccess {
+                            DiagnosticsReportFiles.logChooserLaunch(context)
+                        }.onFailure { error ->
+                            DiagnosticsReportFiles.logChooserLaunch(context, error)
+                            DiagnosticsReportFiles.discardShare(context, prepared)
+                            Toast.makeText(
+                                context,
+                                shareFailedMessage,
+                                Toast.LENGTH_SHORT,
+                            ).show()
                         }
                     }
                 },
@@ -934,6 +935,36 @@ private fun DiagnosticsInfoValue(
             color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
         )
     }
+}
+
+@Composable
+private fun DiagnosticsActionRow(
+    title: String,
+    summary: String,
+    icon: ImageVector,
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+) {
+    BasicComponent(
+        title = title,
+        summary = summary,
+        endActions = {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(22.dp),
+                tint =
+                    if (enabled) {
+                        MiuixTheme.colorScheme.primary
+                    } else {
+                        MiuixTheme.colorScheme.onSurfaceContainerVariant.copy(alpha = 0.38f)
+                    },
+            )
+        },
+        onClick = onClick,
+        onClickLabel = title,
+        enabled = enabled,
+    )
 }
 
 @Composable
