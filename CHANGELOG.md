@@ -78,3 +78,4 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Per-app language selection now keeps the explicit System/English/Simplified Chinese choice visible even when the chosen language matches the current system locale.
 - Normalized state diagnostics now include the battery plugged source consistently for both charging and discharging states.
 - The Home visual probe now matches P11BJ unavailable/mobile-airplane rendering: all four mobile dots remain as low-alpha filled dots and the X marker is drawn on top.
+- Render-state transitions now commit atomically: incomplete/unknown candidates retain the last stable CombinedStatus frame, while explicit Hidden/Unavailable states still update immediately; transparent uninitialized tint samples are ignored instead of blanking the icon.

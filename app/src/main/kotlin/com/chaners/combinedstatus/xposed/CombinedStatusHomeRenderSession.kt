@@ -79,6 +79,10 @@ internal object CombinedStatusHomeRenderSession {
         private var readyLogged = false
         private var layoutLogged = false
         private var tintLogged = false
+        private var deferredStateLogged = false
+        private var rejectedTintLogged = false
+        private var stableModel: CombinedStatusRenderModel? = null
+        private var stableTint: CombinedStatusTintState? = null
 
         private val batteryLayoutListener =
             View.OnLayoutChangeListener {
@@ -136,14 +140,37 @@ internal object CombinedStatusHomeRenderSession {
             state: CombinedStatusTintState,
             source: String,
         ) {
-            probeView.setTintState(state)
+            val resolved =
+                CombinedStatusPresentationPolicy.resolveTint(
+                    previous = stableTint,
+                    candidate = state,
+                )
+
+            if (resolved == null || resolved == stableTint) {
+                if (
+                    !CombinedStatusPresentationPolicy.isValidTint(state) &&
+                    !rejectedTintLogged
+                ) {
+                    rejectedTintLogged = true
+                    onEvent(
+                        "homeRenderTint deferred source=" + source +
+                            " applied=#" +
+                            state.appliedTint.toUInt().toString(16).padStart(8, '0') +
+                            " reason=transparent retainStable=true",
+                    )
+                }
+                return
+            }
+
+            stableTint = resolved
+            probeView.setTintState(resolved)
             if (!tintLogged) {
                 tintLogged = true
                 onEvent(
                     "homeRenderTint source=" + source +
                         " applied=#" +
-                        state.appliedTint.toUInt().toString(16).padStart(8, '0') +
-                        " eventDriven=true",
+                        resolved.appliedTint.toUInt().toString(16).padStart(8, '0') +
+                        " eventDriven=true stable=true",
                 )
             }
         }
@@ -152,11 +179,32 @@ internal object CombinedStatusHomeRenderSession {
             val defaultDataSubscriptionId =
                 runCatching { SubscriptionManager.getDefaultDataSubscriptionId() }
                     .getOrDefault(-1)
-            val model = CombinedStatusRenderModel.from(
-                snapshot = snapshot,
-                defaultDataSubscriptionId = defaultDataSubscriptionId,
-            )
-            probeView.setModel(model)
+            val candidate =
+                CombinedStatusRenderModel.from(
+                    snapshot = snapshot,
+                    defaultDataSubscriptionId = defaultDataSubscriptionId,
+                )
+            val model =
+                CombinedStatusPresentationPolicy.resolveModel(
+                    previous = stableModel,
+                    candidate = candidate,
+                )
+
+            if (candidate == null) {
+                if (stableModel != null && !deferredStateLogged) {
+                    deferredStateLogged = true
+                    onEvent(
+                        "homeRenderState deferred incomplete=true " +
+                            "retainStable=true",
+                    )
+                }
+                return
+            }
+
+            if (model != stableModel) {
+                stableModel = model
+                probeView.setModel(model)
+            }
 
             if (model != null && !readyLogged) {
                 readyLogged = true
