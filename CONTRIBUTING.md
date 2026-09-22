@@ -573,10 +573,19 @@ Normal settings UI SHOULD NOT expose internal terms such as host, role, writer, 
 ### 12.1 Branches
 
 - `main`: stable, installable, validated baseline.
-- `dev`: ongoing module integration.
+- `dev`: ongoing module integration and the normal pull-request target.
 - `feat/*`: larger isolated experiments that will return to `dev` after validation.
 
+External and routine contributions SHOULD target `dev`. `main` is reserved for validated promotions and exceptional maintenance work.
+
 Do not promote SystemUI work to `main` until it is structurally complete, CI-green, diagnostics-clean, and has completed required real-device validation.
+
+Pull-request CI MUST remain safe for untrusted forks:
+
+- PR validation must not require repository signing secrets;
+- tests, compatibility checks, metadata checks, and unsigned build validation may run on PRs;
+- project-signed Debug/Canary artifacts remain a maintainer push responsibility;
+- contributors must never request, expose, reproduce, or bypass project signing credentials.
 
 ### 12.2 Commits
 
