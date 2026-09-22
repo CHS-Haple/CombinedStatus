@@ -15,7 +15,7 @@ import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
 
 class CombinedStatusModule : XposedModule() {
     private var statusHostHookInstalled = false
-    private var networkSourceInstalled = false
+    private var networkSourceHookCount = 0
     private var airplaneObserverAttached = false
     private var tintSourceInstalled = false
     private var islandMotionSourceInstalled = false
@@ -132,11 +132,7 @@ class CombinedStatusModule : XposedModule() {
 
         val hookCount =
             1 +
-                if (networkSourceInstalled) {
-                    SystemUiNetworkStateSource.HOOK_COUNT
-                } else {
-                    0
-                } +
+                networkSourceHookCount +
                 if (tintSourceInstalled) {
                     SystemUiTintStateSource.HOOK_COUNT
                 } else {
@@ -200,7 +196,7 @@ class CombinedStatusModule : XposedModule() {
             }
 
             statusHostHookInstalled = true
-            networkSourceInstalled = false
+            networkSourceHookCount = 0
             tintSourceInstalled = false
             islandMotionSourceInstalled = false
 
@@ -275,31 +271,74 @@ class CombinedStatusModule : XposedModule() {
                 },
                 onEvent = if (BuildConfig.RUNTIME_DIAGNOSTICS) ::onNetworkPipelineEvent else null,
             )
-        }.onSuccess { handles ->
-            networkSourceInstalled = handles.size == SystemUiNetworkStateSource.HOOK_COUNT
+        }.onSuccess { result ->
+            networkSourceHookCount = result.handles.size
+            val fullyReady =
+                result.wifiReady &&
+                    result.mobileReady &&
+                    networkSourceHookCount == SystemUiNetworkStateSource.HOOK_COUNT
+            val state =
+                when {
+                    fullyReady -> "ready"
+                    networkSourceHookCount > 0 -> "partial"
+                    else -> "error"
+                }
             logDiagnostic(
-                level = if (networkSourceInstalled) Log.INFO else Log.WARN,
+                level =
+                    when (state) {
+                        "ready" -> Log.INFO
+                        "partial" -> Log.WARN
+                        else -> Log.ERROR
+                    },
                 event = "source.install",
                 component = "network",
-                state = if (networkSourceInstalled) "ready" else "partial",
-                "hooks" to handles.size,
+                state = state,
+                "hooks" to networkSourceHookCount,
                 "expectedHooks" to SystemUiNetworkStateSource.HOOK_COUNT,
+                "wifi" to if (result.wifiReady) "ready" else "error",
+                "mobile" to if (result.mobileReady) "ready" else "error",
                 "source" to source,
             )
+            result.failures.forEach { failure ->
+                logDiagnostic(
+                    level = Log.ERROR,
+                    event = "source.install.branch",
+                    component = "network." + failure.component,
+                    state = "error",
+                    "stage" to failure.stage,
+                    "errorType" to failure.errorType,
+                    "reason" to failure.reason,
+                    "source" to source,
+                )
+                log(
+                    Log.ERROR,
+                    TAG,
+                    "Network branch installation failed component=" + failure.component +
+                        " stage=" + failure.stage +
+                        " errorType=" + failure.errorType +
+                        " reason=" + failure.reason +
+                        " source=" + source,
+                )
+            }
             log(
-                Log.INFO,
+                if (fullyReady) Log.INFO else Log.WARN,
                 TAG,
-                "networkSource hooks=ready count=" + handles.size +
+                "networkSource state=" + state +
+                    " hooks=" + networkSourceHookCount +
+                    "/" + SystemUiNetworkStateSource.HOOK_COUNT +
+                    " wifi=" + result.wifiReady +
+                    " mobile=" + result.mobileReady +
                     " source=" + source +
                     " rebindRequired=" + (source == "hotReload"),
             )
         }.onFailure { error ->
-            networkSourceInstalled = false
+            networkSourceHookCount = 0
             logDiagnostic(
                 level = Log.ERROR,
                 event = "source.install",
                 component = "network",
                 state = "error",
+                "errorType" to error.javaClass.name,
                 "reason" to (error.message ?: error.javaClass.simpleName),
                 "source" to source,
             )

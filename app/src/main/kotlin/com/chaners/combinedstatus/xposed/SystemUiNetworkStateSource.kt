@@ -24,8 +24,6 @@ internal object SystemUiNetworkStateSource {
         "com.android.systemui.statusbar.pipeline.wifi.ui.model.WifiIcon\$Visible"
     private const val WIFI_ICON_HIDDEN_CLASS_NAME =
         "com.android.systemui.statusbar.pipeline.wifi.ui.model.WifiIcon\$Hidden"
-    private const val ICON_RESOURCE_CLASS_NAME =
-        "com.android.systemui.common.shared.model.Icon\$Resource"
     const val HOME_WIFI_VIEW_MODEL_CLASS_NAME =
         "com.android.systemui.statusbar.pipeline.wifi.ui.viewmodel.HomeWifiViewModel"
 
@@ -64,6 +62,31 @@ internal object SystemUiNetworkStateSource {
     private val lastWifiEvents = WeakHashMap<ImageView, String>()
     private val lastMobileEvents = WeakHashMap<ImageView, String>()
 
+    internal data class InstallFailure(
+        val component: String,
+        val stage: String,
+        val errorType: String,
+        val reason: String,
+    )
+
+    internal data class InstallResult(
+        val handles: List<HookHandle>,
+        val wifiReady: Boolean,
+        val mobileReady: Boolean,
+        val failures: List<InstallFailure>,
+    )
+
+    private data class BranchInstallResult(
+        val handles: List<HookHandle>,
+        val ready: Boolean,
+        val failure: InstallFailure?,
+    )
+
+    private class InstallStageException(
+        val stage: String,
+        cause: Throwable,
+    ) : RuntimeException(cause)
+
     fun install(
         module: XposedModule,
         classLoader: ClassLoader,
@@ -71,117 +94,252 @@ internal object SystemUiNetworkStateSource {
         onMobileIcon: (CombinedStatusStateStore.MobileIconUpdate) -> Unit,
         onAirplaneMode: (Boolean) -> Unit,
         onEvent: ((String) -> Unit)?,
-    ): List<HookHandle> {
+    ): InstallResult {
+        val wifi =
+            installWifi(
+                module = module,
+                classLoader = classLoader,
+                onWifiState = onWifiState,
+                onEvent = onEvent,
+            )
+        val mobile =
+            installMobile(
+                module = module,
+                classLoader = classLoader,
+                onMobileIcon = onMobileIcon,
+                onAirplaneMode = onAirplaneMode,
+                onEvent = onEvent,
+            )
+
+        return InstallResult(
+            handles = wifi.handles + mobile.handles,
+            wifiReady = wifi.ready,
+            mobileReady = mobile.ready,
+            failures = listOfNotNull(wifi.failure, mobile.failure),
+        )
+    }
+
+    private fun installWifi(
+        module: XposedModule,
+        classLoader: ClassLoader,
+        onWifiState: (CombinedStatusStateStore.WifiState) -> Unit,
+        onEvent: ((String) -> Unit)?,
+    ): BranchInstallResult {
         val created = mutableListOf<HookHandle>()
 
         return try {
-            val wifiBinderClass = Class.forName(WIFI_BINDER_CLASS_NAME, false, classLoader)
+            val wifiBinderClass =
+                atStage("wifi.resolve.binderClass") {
+                    Class.forName(WIFI_BINDER_CLASS_NAME, false, classLoader)
+                }
             val wifiLocationVmClass =
-                Class.forName(WIFI_LOCATION_VIEW_MODEL_CLASS_NAME, false, classLoader)
+                atStage("wifi.resolve.locationViewModelClass") {
+                    Class.forName(WIFI_LOCATION_VIEW_MODEL_CLASS_NAME, false, classLoader)
+                }
             val continuationClass =
-                Class.forName("kotlin.coroutines.Continuation", false, classLoader)
-            val wifiBindMethod = wifiBinderClass.getDeclaredMethod(
-                WIFI_BIND_METHOD_NAME,
-                ViewGroup::class.java,
-                wifiLocationVmClass,
-            )
+                atStage("wifi.resolve.continuationClass") {
+                    Class.forName("kotlin.coroutines.Continuation", false, classLoader)
+                }
+            val wifiBindMethod =
+                atStage("wifi.resolve.bindMethod") {
+                    wifiBinderClass.getDeclaredMethod(
+                        WIFI_BIND_METHOD_NAME,
+                        ViewGroup::class.java,
+                        wifiLocationVmClass,
+                    )
+                }
             val wifiIconEmitterClass =
-                Class.forName(WIFI_ICON_EMITTER_CLASS_NAME, false, classLoader)
-            val wifiIconEmitMethod = wifiIconEmitterClass.getDeclaredMethod(
-                WIFI_ICON_EMIT_METHOD_NAME,
-                Any::class.java,
-                continuationClass,
+                atStage("wifi.resolve.iconEmitterClass") {
+                    Class.forName(WIFI_ICON_EMITTER_CLASS_NAME, false, classLoader)
+                }
+            val wifiIconEmitMethod =
+                atStage("wifi.resolve.iconEmitMethod") {
+                    wifiIconEmitterClass.getDeclaredMethod(
+                        WIFI_ICON_EMIT_METHOD_NAME,
+                        Any::class.java,
+                        continuationClass,
+                    )
+                }
+            val wifiIconImageField =
+                atStage("wifi.resolve.iconViewField") {
+                    wifiIconEmitterClass
+                        .getDeclaredField("\$iconView")
+                        .apply { isAccessible = true }
+                }
+            val wifiIconClassIdField =
+                atStage("wifi.resolve.classIdField") {
+                    wifiIconEmitterClass
+                        .getDeclaredField("\$r8\$classId")
+                        .apply { isAccessible = true }
+                }
+
+            created +=
+                atStage("wifi.hook.bind") {
+                    module
+                        .hook(wifiBindMethod)
+                        .setId(WIFI_BIND_HOOK_ID)
+                        .intercept(wifiBindHooker(onEvent))
+                }
+            created +=
+                atStage("wifi.hook.iconEmit") {
+                    module
+                        .hook(wifiIconEmitMethod)
+                        .setId(WIFI_ICON_HOOK_ID)
+                        .intercept(
+                            wifiIconHooker(
+                                wifiImageField = wifiIconImageField,
+                                wifiClassIdField = wifiIconClassIdField,
+                                onWifiState = onWifiState,
+                                onEvent = onEvent,
+                            ),
+                        )
+                }
+
+            BranchInstallResult(
+                handles = created.toList(),
+                ready = true,
+                failure = null,
             )
-            val wifiIconImageField = wifiIconEmitterClass
-                .getDeclaredField("\$iconView")
-                .apply { isAccessible = true }
-            val wifiIconClassIdField = wifiIconEmitterClass
-                .getDeclaredField("\$r8\$classId")
-                .apply { isAccessible = true }
-            val wifiVisibleClass =
-                Class.forName(WIFI_ICON_VISIBLE_CLASS_NAME, false, classLoader)
-            val wifiVisibleIconField = wifiVisibleClass
-                .getDeclaredField("icon")
-                .apply { isAccessible = true }
-            val iconResourceClass =
-                Class.forName(ICON_RESOURCE_CLASS_NAME, false, classLoader)
-            val iconResourceResIdField = iconResourceClass
-                .getDeclaredField("resId")
-                .apply { isAccessible = true }
-
-            val mobileBinderClass = Class.forName(MOBILE_BINDER_CLASS_NAME, false, classLoader)
-            val mobileLocationVmClass =
-                Class.forName(MOBILE_LOCATION_VIEW_MODEL_CLASS_NAME, false, classLoader)
-            val mobileIconVmClass =
-                Class.forName(MOBILE_ICON_VIEW_MODEL_CLASS_NAME, false, classLoader)
-            val mobileLoggerClass =
-                Class.forName(MOBILE_VIEW_LOGGER_CLASS_NAME, false, classLoader)
-            val mobileBindMethod = mobileBinderClass.getDeclaredMethod(
-                MOBILE_BIND_METHOD_NAME,
-                ViewGroup::class.java,
-                mobileLocationVmClass,
-                mobileIconVmClass,
-                mobileLoggerClass,
+        } catch (error: InstallStageException) {
+            created.forEach { handle -> runCatching { handle.unhook() } }
+            BranchInstallResult(
+                handles = emptyList(),
+                ready = false,
+                failure = installFailure("wifi", error),
             )
-
-            val mobileSignalEmitterClass =
-                Class.forName(MOBILE_SIGNAL_EMITTER_CLASS_NAME, false, classLoader)
-            val mobileSignalEmitMethod = mobileSignalEmitterClass.getDeclaredMethod(
-                MOBILE_SIGNAL_EMIT_METHOD_NAME,
-                Any::class.java,
-                continuationClass,
-            )
-            val mobileImageField = mobileSignalEmitterClass
-                .getDeclaredField("\$mobile")
-                .apply { isAccessible = true }
-            val mobileClassIdField = mobileSignalEmitterClass
-                .getDeclaredField("\$r8\$classId")
-                .apply { isAccessible = true }
-            val subscriptionIdMethod = mobileLocationVmClass
-                .getDeclaredMethod("getSubscriptionId")
-                .apply { isAccessible = true }
-
-            created += module
-                .hook(wifiBindMethod)
-                .setId(WIFI_BIND_HOOK_ID)
-                .intercept(wifiBindHooker(onEvent))
-            created += module
-                .hook(wifiIconEmitMethod)
-                .setId(WIFI_ICON_HOOK_ID)
-                .intercept(
-                    wifiIconHooker(
-                        wifiImageField = wifiIconImageField,
-                        wifiClassIdField = wifiIconClassIdField,
-                        wifiVisibleIconField = wifiVisibleIconField,
-                        iconResourceResIdField = iconResourceResIdField,
-                        onWifiState = onWifiState,
-                        onEvent = onEvent,
-                    ),
-                )
-            created += module
-                .hook(mobileBindMethod)
-                .setId(MOBILE_BIND_HOOK_ID)
-                .intercept(mobileBindHooker(subscriptionIdMethod, onEvent))
-            created += module
-                .hook(mobileSignalEmitMethod)
-                .setId(MOBILE_SIGNAL_HOOK_ID)
-                .intercept(
-                    mobileSignalHooker(
-                        mobileImageField = mobileImageField,
-                        mobileClassIdField = mobileClassIdField,
-                        onMobileIcon = onMobileIcon,
-                        onAirplaneMode = onAirplaneMode,
-                        onEvent = onEvent,
-                    ),
-                )
-
-            created.toList()
-        } catch (error: Throwable) {
-            created.forEach { handle ->
-                runCatching { handle.unhook() }
-            }
-            throw error
         }
+    }
+
+    private fun installMobile(
+        module: XposedModule,
+        classLoader: ClassLoader,
+        onMobileIcon: (CombinedStatusStateStore.MobileIconUpdate) -> Unit,
+        onAirplaneMode: (Boolean) -> Unit,
+        onEvent: ((String) -> Unit)?,
+    ): BranchInstallResult {
+        val created = mutableListOf<HookHandle>()
+
+        return try {
+            val continuationClass =
+                atStage("mobile.resolve.continuationClass") {
+                    Class.forName("kotlin.coroutines.Continuation", false, classLoader)
+                }
+            val mobileBinderClass =
+                atStage("mobile.resolve.binderClass") {
+                    Class.forName(MOBILE_BINDER_CLASS_NAME, false, classLoader)
+                }
+            val mobileLocationVmClass =
+                atStage("mobile.resolve.locationViewModelClass") {
+                    Class.forName(MOBILE_LOCATION_VIEW_MODEL_CLASS_NAME, false, classLoader)
+                }
+            val mobileIconVmClass =
+                atStage("mobile.resolve.iconViewModelClass") {
+                    Class.forName(MOBILE_ICON_VIEW_MODEL_CLASS_NAME, false, classLoader)
+                }
+            val mobileLoggerClass =
+                atStage("mobile.resolve.loggerClass") {
+                    Class.forName(MOBILE_VIEW_LOGGER_CLASS_NAME, false, classLoader)
+                }
+            val mobileBindMethod =
+                atStage("mobile.resolve.bindMethod") {
+                    mobileBinderClass.getDeclaredMethod(
+                        MOBILE_BIND_METHOD_NAME,
+                        ViewGroup::class.java,
+                        mobileLocationVmClass,
+                        mobileIconVmClass,
+                        mobileLoggerClass,
+                    )
+                }
+            val mobileSignalEmitterClass =
+                atStage("mobile.resolve.signalEmitterClass") {
+                    Class.forName(MOBILE_SIGNAL_EMITTER_CLASS_NAME, false, classLoader)
+                }
+            val mobileSignalEmitMethod =
+                atStage("mobile.resolve.signalEmitMethod") {
+                    mobileSignalEmitterClass.getDeclaredMethod(
+                        MOBILE_SIGNAL_EMIT_METHOD_NAME,
+                        Any::class.java,
+                        continuationClass,
+                    )
+                }
+            val mobileImageField =
+                atStage("mobile.resolve.imageField") {
+                    mobileSignalEmitterClass
+                        .getDeclaredField("\$mobile")
+                        .apply { isAccessible = true }
+                }
+            val mobileClassIdField =
+                atStage("mobile.resolve.classIdField") {
+                    mobileSignalEmitterClass
+                        .getDeclaredField("\$r8\$classId")
+                        .apply { isAccessible = true }
+                }
+            val subscriptionIdMethod =
+                atStage("mobile.resolve.subscriptionIdMethod") {
+                    mobileLocationVmClass
+                        .getDeclaredMethod("getSubscriptionId")
+                        .apply { isAccessible = true }
+                }
+
+            created +=
+                atStage("mobile.hook.bind") {
+                    module
+                        .hook(mobileBindMethod)
+                        .setId(MOBILE_BIND_HOOK_ID)
+                        .intercept(mobileBindHooker(subscriptionIdMethod, onEvent))
+                }
+            created +=
+                atStage("mobile.hook.signalEmit") {
+                    module
+                        .hook(mobileSignalEmitMethod)
+                        .setId(MOBILE_SIGNAL_HOOK_ID)
+                        .intercept(
+                            mobileSignalHooker(
+                                mobileImageField = mobileImageField,
+                                mobileClassIdField = mobileClassIdField,
+                                onMobileIcon = onMobileIcon,
+                                onAirplaneMode = onAirplaneMode,
+                                onEvent = onEvent,
+                            ),
+                        )
+                }
+
+            BranchInstallResult(
+                handles = created.toList(),
+                ready = true,
+                failure = null,
+            )
+        } catch (error: InstallStageException) {
+            created.forEach { handle -> runCatching { handle.unhook() } }
+            BranchInstallResult(
+                handles = emptyList(),
+                ready = false,
+                failure = installFailure("mobile", error),
+            )
+        }
+    }
+
+    private inline fun <T> atStage(
+        stage: String,
+        block: () -> T,
+    ): T =
+        try {
+            block()
+        } catch (error: Throwable) {
+            throw InstallStageException(stage, error)
+        }
+
+    private fun installFailure(
+        component: String,
+        error: InstallStageException,
+    ): InstallFailure {
+        val cause = error.cause ?: error
+        return InstallFailure(
+            component = component,
+            stage = error.stage,
+            errorType = cause.javaClass.name,
+            reason = cause.message ?: cause.javaClass.simpleName,
+        )
     }
 
     fun matches(handle: HookHandle): Boolean = handle.id in hookIds
@@ -216,90 +374,65 @@ internal object SystemUiNetworkStateSource {
     private fun wifiIconHooker(
         wifiImageField: Field,
         wifiClassIdField: Field,
-        wifiVisibleIconField: Field,
-        iconResourceResIdField: Field,
         onWifiState: (CombinedStatusStateStore.WifiState) -> Unit,
         onEvent: ((String) -> Unit)?,
     ): Hooker = Hooker { chain ->
+        val result = chain.proceed()
         val emitter = chain.thisObject
-        val classId = runCatching {
-            wifiClassIdField.getInt(emitter)
-        }.getOrDefault(-1)
+        val classId =
+            runCatching {
+                wifiClassIdField.getInt(emitter)
+            }.getOrDefault(-1)
 
         if (classId != WIFI_ICON_COLLECTOR_CLASS_ID) {
-            return@Hooker chain.proceed()
+            return@Hooker result
         }
 
-        val image = runCatching {
-            wifiImageField.get(emitter) as? ImageView
-        }.getOrNull()
-        val value = chain.getArg(0)
+        val image =
+            runCatching {
+                wifiImageField.get(emitter) as? ImageView
+            }.getOrNull()
 
-        if (image == null || !findWifiBinding(image)) {
-            return@Hooker chain.proceed()
-        }
-
-        val semanticState =
-            when (value?.javaClass?.name) {
-                WIFI_ICON_VISIBLE_CLASS_NAME -> {
-                    val resId =
-                        runCatching {
-                            val icon = wifiVisibleIconField.get(value)
-                            iconResourceResIdField.getInt(icon)
-                        }.getOrDefault(0)
-                            .takeIf { it != 0 }
-                    val resourceName = resId?.let { id -> resourceName(image, id) }
-                    CombinedStatusStateStore.WifiState.Visible(
-                        iconResId = resId,
-                        signal = SystemUiSignalParser.wifi(resourceName),
-                    )
-                }
-
-                WIFI_ICON_HIDDEN_CLASS_NAME ->
-                    CombinedStatusStateStore.WifiState.Hidden
-
-                else -> null
-            }
-
-        val eventKey =
-            when (semanticState) {
-                null -> "unknown:" + (value?.javaClass?.name ?: "null")
-                CombinedStatusStateStore.WifiState.Hidden -> "hidden"
-                is CombinedStatusStateStore.WifiState.Visible ->
-                    "visible:" + (semanticState.iconResId ?: 0)
-                CombinedStatusStateStore.WifiState.Unknown -> "unknown"
-            }
-        val changed =
-            semanticState != null &&
+        if (image != null && findWifiBinding(image)) {
+            val value = chain.getArg(0)
+            val taggedResId = (image.tag as? Number)?.toInt()?.takeIf { it != 0 }
+            val eventKey =
+                (taggedResId?.toString() ?: "none") + ":" +
+                    image.visibility + ":" +
+                    (value?.javaClass?.name ?: "null")
+            val changed =
                 synchronized(this) {
                     lastWifiEvents.put(image, eventKey) != eventKey
                 }
 
-        if (changed) {
-            onWifiState(requireNotNull(semanticState))
-        }
+            if (changed) {
+                val wifiResourceName = taggedResId?.let { id -> resourceName(image, id) }
+                when (value?.javaClass?.name) {
+                    WIFI_ICON_VISIBLE_CLASS_NAME -> {
+                        onWifiState(
+                            CombinedStatusStateStore.WifiState.Visible(
+                                iconResId = taggedResId,
+                                signal = SystemUiSignalParser.wifi(wifiResourceName),
+                            ),
+                        )
+                    }
 
-        val result = chain.proceed()
+                    WIFI_ICON_HIDDEN_CLASS_NAME -> {
+                        onWifiState(CombinedStatusStateStore.WifiState.Hidden)
+                    }
+                }
 
-        if (changed) {
-            val appliedTaggedResId = (image.tag as? Number)?.toInt()
-            val semanticResId =
-                (semanticState as? CombinedStatusStateStore.WifiState.Visible)
-                    ?.iconResId
-            val semanticResourceName =
-                semanticResId?.let { id -> resourceName(image, id) }
-
-            onEvent?.invoke(
-                "networkPipeline wifi iconEvent " +
-                    "phase=beforeProceed " +
-                    "viewId=" + resourceId(image) +
-                    " classId=" + classId +
-                    " valueType=" + (value?.javaClass?.simpleName ?: "null") +
-                    " visibility=" + visibilityName(image.visibility) +
-                    " semanticResId=" + (semanticResId ?: 0) +
-                    " appliedTaggedResId=" + (appliedTaggedResId ?: 0) +
-                    " resource=" + (semanticResourceName ?: "n/a"),
-            )
+                onEvent?.invoke(
+                    "networkPipeline wifi iconEvent " +
+                        "phase=afterProceed " +
+                        "viewId=" + resourceId(image) +
+                        " classId=" + classId +
+                        " valueType=" + (value?.javaClass?.simpleName ?: "null") +
+                        " visibility=" + visibilityName(image.visibility) +
+                        " taggedResId=" + (taggedResId ?: 0) +
+                        " resource=" + (wifiResourceName ?: "n/a"),
+                )
+            }
         }
 
         result
