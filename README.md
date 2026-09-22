@@ -1,6 +1,6 @@
 # CombinedStatus
 
-[![Build](https://github.com/CHS-Haple/CombinedStatus/actions/workflows/build.yml/badge.svg?branch=dev)](https://github.com/CHS-Haple/CombinedStatus/actions/workflows/build.yml)
+[![Build](https://github.com/CHS-Haple/CombinedStatus/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/CHS-Haple/CombinedStatus/actions/workflows/build.yml)
 ![Android 13+](https://img.shields.io/badge/Android-13%2B-3DDC84?logo=android&logoColor=white)
 ![Modern Xposed API 102](https://img.shields.io/badge/Modern%20Xposed%20API-102-3F51B5)
 ![MIUIX 0.9.4](https://img.shields.io/badge/MIUIX-0.9.4-FF6900)
@@ -111,7 +111,7 @@ SystemUI integration also follows these architectural constraints:
 - observing SystemUI behavior does not automatically grant CombinedStatus ownership of that behavior;
 - when a safe replacement cannot be established, the module should degrade toward native HyperOS behavior rather than leave a broken partial replacement.
 
-The complete engineering rules for developers and contributors are in [CONTRIBUTING.md](CONTRIBUTING.md).
+Detailed architecture notes are available in [layout policy](docs/architecture/layout-policy.md) and [scene capability policy](docs/architecture/scene-policy.md). The complete engineering rules for developers and contributors are in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ### Build channels
 
@@ -149,7 +149,13 @@ Detailed contribution, lifecycle, ownership, migration, changelog, and validatio
 | Kotlin | 2.4.20 |
 | Android Gradle Plugin | 9.4.1 |
 
-Build with Android Studio using the Android 17 / API 37 SDK and JDK 21, or use the repository's GitHub Actions workflows.
+Build with Android Studio using the Android 17 / API 37 SDK and JDK 21, or use the checked-in Gradle Wrapper:
+
+```bash
+./gradlew :app:assembleDebug
+```
+
+GitHub Actions uses the same Gradle Wrapper version.
 
 Test artifacts use a dedicated CI test certificate so compatible builds can update in place. Formal Release signing is isolated from CI test signing, and signing credentials are not stored in the repository.
 
@@ -271,7 +277,7 @@ SystemUI 接入还遵循以下架构约束：
 - 能观察 SystemUI 行为，不等于获得修改该行为的所有权；
 - 当无法安全建立替换关系时，应优先退回 HyperOS 原生行为，而不是留下半工作状态。
 
-完整的开发者与贡献者工程规范见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+更详细的架构说明见 [布局策略](docs/architecture/layout-policy.md) 与 [场景能力策略](docs/architecture/scene-policy.md)。完整的开发者与贡献者工程规范见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 ### 构建通道
 
@@ -309,7 +315,13 @@ Pull Request 使用不接触仓库签名 Secrets 的验证流程；带维护者�
 | Kotlin | 2.4.20 |
 | Android Gradle Plugin | 9.4.1 |
 
-可使用安装了 Android 17 / API 37 SDK 与 JDK 21 的 Android Studio 构建，也可以使用仓库中的 GitHub Actions 工作流。
+可使用安装了 Android 17 / API 37 SDK 与 JDK 21 的 Android Studio 构建，也可以直接使用仓库内固定版本的 Gradle Wrapper：
+
+```bash
+./gradlew :app:assembleDebug
+```
+
+GitHub Actions 也使用同一套 Gradle Wrapper 版本。
 
 测试构建使用独立的 CI 测试证书，以便兼容构建可以直接覆盖安装。正式 Release 签名与 CI 测试签名相互隔离，签名凭据不会存入仓库。
 
