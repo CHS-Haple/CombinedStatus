@@ -164,7 +164,7 @@ Test artifacts use a dedicated CI test certificate so compatible builds can upda
 
 The external display version changes only when a formal version is intentionally advanced. Ordinary development iterations use internal build identifiers.
 
-Until the first formal release, [CHANGELOG.md](CHANGELOG.md) keeps a single `[Unreleased]` section describing the **net state intended for 0.0.1**, not the full sequence of experiments used to reach it.
+During normal development before the first formal release, [CHANGELOG.md](CHANGELOG.md) keeps a single `[Unreleased]` section describing the **net state intended for 0.0.1**, not the full sequence of experiments used to reach it. A dated `[0.0.1]` section is created only in the final release-preparation commit immediately before publication.
 
 ### Terminology
 
@@ -331,7 +331,7 @@ GitHub Actions 也使用同一套 Gradle Wrapper 版本。
 
 外显版本号只在明确推进正式版本时更新；普通开发迭代使用内部构建标识。
 
-在首个正式版本发布前，[CHANGELOG.md](CHANGELOG.md) 始终只保留一个 `[Unreleased]` 区域，用于描述**准备进入 0.0.1 的当前净状态**，而不是记录达到该状态经历过的全部实验过程。
+在首个正式版本的日常开发阶段，[CHANGELOG.md](CHANGELOG.md) 只保留一个 `[Unreleased]` 区域，用于描述**准备进入 0.0.1 的当前净状态**，而不是记录达到该状态经历过的全部实验过程。只有在正式发布前的最后一个 release-prep 提交中，才会冻结为带日期的 `[0.0.1]` 版本段并立即进入发布流程。
 
 ### 术语
 
