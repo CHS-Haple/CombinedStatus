@@ -105,13 +105,13 @@
   },
   "sourceEnvironment": {
     "manufacturer": "Xiaomi",
+    "deviceName": "Xiaomi 15 Pro",
     "model": "2410DPN6CC",
     "codename": "haotian",
     "androidVersion": 17,
     "sdk": 37,
-    "hyperOsBaseVersion": "4.0.0.14.XOBCNXM",
+    "osVersion": "4.0.0.14.XOBCNXM.D01",
     "softwareUpdateRevision": "D01",
-    "fullBuild": "4.0.0.14.XOBCNXM.D01",
-    "note": "Environment metadata is descriptive provenance; systemUi.sha256 remains the exact artifact identity."
+    "note": "OS version is recorded exactly as displayed by the device. softwareUpdateRevision is auxiliary provenance only; systemUi.sha256 remains the exact artifact identity."
   }
 }

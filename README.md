@@ -28,11 +28,10 @@ Compatibility work is based on a pinned HyperOS SystemUI reference artifact inst
 
 ### Validated environment
 
-- Device: Xiaomi 2410DPN6CC (`haotian`)
+- Device: Xiaomi 15 Pro
+- Model: `2410DPN6CC` (`haotian`)
 - Android: 17 / API 37
-- HyperOS base version: `4.0.0.14.XOBCNXM`
-- Software update revision: `D01`
-- Full device build: `4.0.0.14.XOBCNXM.D01`
+- OS version: `4.0.0.14.XOBCNXM.D01`
 - SystemUI: `17.03.260226.r` (`202602260`)
 - SystemUI SHA-256: `a0e738e41fe599b97950cbf52a9e2ddc6ae2ceff986efbacb1c9840bea78768d`
 
