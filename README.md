@@ -1,12 +1,12 @@
 # CombinedStatus
 
-**CombinedStatus for HyperOS** is a status-bar module built specifically for Xiaomi HyperOS. It combines battery, mobile network, and Wi-Fi status into a single indicator while preserving native HyperOS SystemUI layout and transition behavior.
+**CombinedStatus** is an LSPosed module for HyperOS that combines battery, mobile network, and Wi-Fi status into one status bar indicator. Its goal is to integrate naturally with HyperOS status-bar behavior while keeping the module lightweight and maintainable.
 
 ## Target platform
 
 - Xiaomi HyperOS
-- HyperOS SystemUI
 - LSPosed module architecture
+- HyperOS status bar / SystemUI integration
 - MIUIX application interface
 
 ## Terminology

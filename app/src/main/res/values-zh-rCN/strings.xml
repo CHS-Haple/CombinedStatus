@@ -86,8 +86,8 @@
 
     <string name="section_current_build">版本信息</string>
     <string name="section_diagnostics_app">应用</string>
-    <string name="product_name">CombinedStatus</string>
-    <string name="product_summary">HyperOS SystemUI 模块</string>
+    <string name="product_name">三合一状态图标</string>
+    <string name="product_summary">面向 HyperOS，将电量、移动网络和 Wi-Fi 状态整合为一个状态栏图标的 LSPosed 模块</string>
     <string name="target_platform_value">HyperOS SystemUI 模块</string>
     <string name="version_value">版本：%1$s</string>
     <string name="build_value">构建：%1$s</string>
@@ -98,27 +98,27 @@
     <string name="section_device_system">设备与系统</string>
     <string name="device_model_label">型号 · 设备代号</string>
     <string name="android_version_label">Android</string>
-    <string name="os_version_label">OS 版本</string>
+    <string name="os_version_label">HyperOS</string>
     <string name="systemui_version_label">SystemUI</string>
 
     <string name="section_module_runtime">模块运行</string>
     <string name="runtime_framework_title">框架</string>
-    <string name="runtime_framework_summary">Modern Xposed API 102 · 支持热重载</string>
+    <string name="runtime_framework_summary">Xposed API 102</string>
     <string name="runtime_scope_title">作用域</string>
-    <string name="runtime_scope_summary">SystemUI</string>
-    <string name="runtime_target_title">兼容性基线</string>
+    <string name="runtime_scope_summary">系统界面（com.android.systemui）</string>
+    <string name="runtime_target_title">适配基线</string>
     <string name="runtime_target_summary">SystemUI 17.03.260226.r</string>
     <string name="runtime_inventory_title">原生状态探针</string>
     <string name="runtime_inventory_summary">已启用 · 一次性记录状态栏结构与几何信息</string>
     <string name="diagnostics_mode_title">诊断等级</string>
-    <string name="diagnostics_mode_summary">设置模块运行时诊断信息的详细程度</string>
+    <string name="diagnostics_mode_summary">选择模块运行时诊断信息的详细程度</string>
     <string name="diagnostics_mode_basic">一般</string>
     <string name="diagnostics_mode_detailed">详细</string>
     <string name="section_diagnostic_report">诊断报告</string>
     <string name="export_diagnostic_report">导出诊断报告</string>
-    <string name="export_diagnostic_report_summary">将报告保存为文本文件，并选择保存位置</string>
+    <string name="export_diagnostic_report_summary">保存为文本文件，便于记录或反馈问题</string>
     <string name="share_diagnostic_report">分享诊断报告</string>
-    <string name="share_diagnostic_report_summary">将报告作为文本文件附件分享</string>
+    <string name="share_diagnostic_report_summary">以文本附件分享诊断报告</string>
     <string name="diagnostic_report_exported">诊断报告已导出</string>
     <string name="diagnostic_report_export_failed">诊断报告导出失败</string>
     <string name="diagnostic_report_share_failed">诊断报告分享失败</string>
