@@ -1,7 +1,6 @@
 package com.chaners.combinedstatus.system
 
 import android.content.Context
-import android.os.Build
 import com.chaners.combinedstatus.BuildConfig
 import java.time.OffsetDateTime
 
@@ -29,6 +28,7 @@ internal object DiagnosticsReportBuilder {
             "SecurityException|FileProvider|combinedstatus\\.fileprovider|No such file|ENOENT' || true"
 
     suspend fun build(context: Context): String {
+        val environment = RuntimeEnvironmentInfo.resolve(context)
         val lsposedResult = RootShell.execute(
             command = LsposedModuleLogCommand,
             timeoutSeconds = LogTimeoutSeconds,
@@ -88,11 +88,18 @@ internal object DiagnosticsReportBuilder {
             appendLine("diagnostics=" + if (BuildConfig.DEBUG) "detailed" else "basic")
             appendLine()
             appendLine("[Device]")
-            appendLine("manufacturer=" + Build.MANUFACTURER)
-            appendLine("model=" + Build.MODEL)
-            appendLine("device=" + Build.DEVICE)
-            appendLine("android=" + Build.VERSION.RELEASE)
-            appendLine("sdk=" + Build.VERSION.SDK_INT)
+            appendLine("manufacturer=" + environment.manufacturer)
+            appendLine("name=" + environment.deviceName)
+            appendLine("model=" + environment.model)
+            appendLine("device=" + environment.codename)
+            appendLine("android=" + environment.androidVersion)
+            appendLine("sdk=" + environment.sdk)
+            appendLine("os=" + environment.osVersion)
+            appendLine("systemUiVersion=" + environment.systemUiVersionName)
+            appendLine(
+                "systemUiVersionCode=" +
+                    (environment.systemUiVersionCode?.toString() ?: "unknown"),
+            )
             appendLine()
             appendLine("[Runtime log]")
             appendLine("source=" + selected.source)

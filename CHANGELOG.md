@@ -46,6 +46,8 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Debug owned-slot validation now records one matched pre/post geometry pair around the existing paddingStart write, including measured-width expansion, stable battery end-anchor delta, adjacent status-icon boundary movement, and neighbor-gap delta without adding hooks or continuous sampling.
 
 ### Changed
+- Diagnostics now uses an MIUIX device-information card hierarchy inspired by established HyperOS settings patterns: app details, live device/system values, module runtime, and report actions are separated clearly.
+- Device diagnostics now resolve the market device name, Android/API level, HyperOS incremental version with software-update suffix when available, and the installed SystemUI package version at runtime instead of showing a fixed platform label.
 - Appearance settings now model light/dark mode and dynamic color as independent preferences. The page uses a compact MIUIX theme-mode dropdown, a separate dynamic-color switch, and a concise live palette preview; legacy `theme_mode=Dynamic` is interpreted as System + dynamic color without losing the previous choice.
 - Swipe-back behavior is now configured from the main Settings page instead of Appearance, keeping Appearance limited to theme and visual effects.
 - Appearance copy now labels the read-only palette card as current colors and shortens the theme-mode description to reflect its actual light/dark responsibility.

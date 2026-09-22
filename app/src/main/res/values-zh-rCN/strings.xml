@@ -81,23 +81,31 @@
     <string name="distinguish_super_charging">超级快充图标</string>
     <string name="distinguish_super_charging_summary">超级快充使用独立图标，仅供界面预览</string>
 
-    <string name="section_current_build">版本信息</string>
-    <string name="product_name">CombinedStatus for HyperOS</string>
-    <string name="target_platform_value">平台：Xiaomi HyperOS / SystemUI</string>
-    <string name="version_value">版本：%1$s</string>
-    <string name="build_value">构建：%1$s</string>
-    <string name="package_value">包名：%1$s</string>
+    <string name="section_current_build">应用</string>
+    <string name="product_name">CombinedStatus</string>
+    <string name="product_summary">HyperOS SystemUI 模块</string>
+    <string name="diagnostics_version_label">版本</string>
+    <string name="diagnostics_build_label">构建</string>
+    <string name="diagnostics_package_label">包名</string>
 
-    <string name="section_runtime_stage">运行环境</string>
-    <string name="runtime_framework_title">模块框架</string>
-    <string name="runtime_framework_summary">Modern Xposed API 102 · 作用域：SystemUI · 支持热重载</string>
+    <string name="section_device_system">设备与系统</string>
+    <string name="device_model_label">型号 · 设备代号</string>
+    <string name="android_version_label">Android</string>
+    <string name="os_version_label">OS 版本</string>
+    <string name="systemui_version_label">SystemUI</string>
+
+    <string name="section_module_runtime">模块运行</string>
+    <string name="runtime_framework_title">框架</string>
+    <string name="runtime_framework_summary">Modern Xposed API 102 · 支持热重载</string>
+    <string name="runtime_scope_title">作用域</string>
+    <string name="runtime_scope_summary">SystemUI</string>
     <string name="runtime_target_title">兼容性基线</string>
     <string name="runtime_target_summary">SystemUI 17.03.260226.r</string>
     <string name="runtime_inventory_title">原生状态探针</string>
-    <string name="runtime_inventory_summary">一次性记录状态栏结构与几何信息，不修改 SystemUI 布局</string>
-    <string name="diagnostics_mode_title">诊断级别</string>
-    <string name="diagnostics_mode_basic">基础诊断 · 版本、兼容性、生命周期、热重载与错误信息</string>
-    <string name="diagnostics_mode_detailed">详细诊断 · 附带状态栏结构、几何与 Hook 细节</string>
+    <string name="runtime_inventory_summary">已启用 · 一次性记录状态栏结构与几何信息</string>
+    <string name="diagnostics_mode_title">诊断模式</string>
+    <string name="diagnostics_mode_basic">基础</string>
+    <string name="diagnostics_mode_detailed">详细</string>
     <string name="section_diagnostic_report">诊断报告</string>
     <string name="export_diagnostic_report">导出诊断报告</string>
     <string name="export_diagnostic_report_summary">将报告保存为文本文件，并选择保存位置</string>

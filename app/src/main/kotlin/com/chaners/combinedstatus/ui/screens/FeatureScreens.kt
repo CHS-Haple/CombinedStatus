@@ -23,6 +23,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -38,6 +39,7 @@ import com.chaners.combinedstatus.settings.AppThemeMode
 import com.chaners.combinedstatus.settings.AppearanceSettings
 import com.chaners.combinedstatus.system.DiagnosticsReportBuilder
 import com.chaners.combinedstatus.system.DiagnosticsReportFiles
+import com.chaners.combinedstatus.system.RuntimeEnvironmentInfo
 import com.chaners.combinedstatus.ui.layout.pageContentPadding
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.BasicComponent
@@ -264,22 +266,24 @@ internal fun ChargingScreen(onBack: () -> Unit) {
 internal fun DiagnosticsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val environment by
+        produceState(
+            initialValue = RuntimeEnvironmentInfo.basic(),
+            key1 = context.applicationContext,
+        ) {
+            value = RuntimeEnvironmentInfo.resolve(context.applicationContext)
+        }
     var reportInProgress by rememberSaveable { mutableStateOf(false) }
     var exportPickerOpen by rememberSaveable { mutableStateOf(false) }
 
-    val buildSummary = listOf(
-        stringResource(R.string.target_platform_value),
-        stringResource(R.string.version_value, BuildConfig.VERSION_NAME),
-        stringResource(R.string.build_value, BuildConfig.BUILD_ID),
-        stringResource(R.string.package_value, BuildConfig.APPLICATION_ID),
-    ).joinToString("\n")
-    val diagnosticsModeSummary = stringResource(
-        if (BuildConfig.DEBUG) {
-            R.string.diagnostics_mode_detailed
-        } else {
-            R.string.diagnostics_mode_basic
-        },
-    )
+    val diagnosticsModeSummary =
+        stringResource(
+            if (BuildConfig.DEBUG) {
+                R.string.diagnostics_mode_detailed
+            } else {
+                R.string.diagnostics_mode_basic
+            },
+        )
     val reportShareTitle = stringResource(R.string.share_diagnostic_report)
     val exportSucceededMessage = stringResource(R.string.diagnostic_report_exported)
     val exportFailedMessage = stringResource(R.string.diagnostic_report_export_failed)
@@ -297,37 +301,76 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
         }
     }
 
-    val exportLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("text/plain"),
-    ) { uri ->
-        exportPickerOpen = false
-        if (uri != null) {
-            buildReport { report ->
-                val success = DiagnosticsReportFiles.writeExport(
-                    context = context,
-                    uri = uri,
-                    report = report,
-                )
-                Toast.makeText(
-                    context,
-                    if (success) exportSucceededMessage else exportFailedMessage,
-                    Toast.LENGTH_SHORT,
-                ).show()
+    val exportLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.CreateDocument("text/plain"),
+        ) { uri ->
+            exportPickerOpen = false
+            if (uri != null) {
+                buildReport { report ->
+                    val success =
+                        DiagnosticsReportFiles.writeExport(
+                            context = context,
+                            uri = uri,
+                            report = report,
+                        )
+                    Toast.makeText(
+                        context,
+                        if (success) exportSucceededMessage else exportFailedMessage,
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                }
             }
         }
-    }
 
     SettingsPage(title = stringResource(R.string.diagnostics_title), onBack = onBack) {
         Section(R.string.section_current_build) {
-            BasicComponent(
+            DiagnosticsCardHeader(
                 title = stringResource(R.string.product_name),
-                summary = buildSummary,
+                subtitle = stringResource(R.string.product_summary),
+            )
+            DiagnosticsInfoValue(
+                value = BuildConfig.VERSION_NAME,
+                label = stringResource(R.string.diagnostics_version_label),
+            )
+            DiagnosticsInfoValue(
+                value = BuildConfig.BUILD_ID,
+                label = stringResource(R.string.diagnostics_build_label),
+            )
+            DiagnosticsInfoValue(
+                value = BuildConfig.APPLICATION_ID,
+                label = stringResource(R.string.diagnostics_package_label),
             )
         }
-        Section(R.string.section_runtime_stage) {
+
+        Section(R.string.section_device_system) {
+            DiagnosticsCardHeader(title = environment.deviceName)
+            DiagnosticsInfoValue(
+                value = environment.modelAndCodename,
+                label = stringResource(R.string.device_model_label),
+            )
+            DiagnosticsInfoValue(
+                value = environment.androidDisplay,
+                label = stringResource(R.string.android_version_label),
+            )
+            DiagnosticsInfoValue(
+                value = environment.osVersion,
+                label = stringResource(R.string.os_version_label),
+            )
+            DiagnosticsInfoValue(
+                value = environment.systemUiDisplay,
+                label = stringResource(R.string.systemui_version_label),
+            )
+        }
+
+        Section(R.string.section_module_runtime) {
             BasicComponent(
                 title = stringResource(R.string.runtime_framework_title),
                 summary = stringResource(R.string.runtime_framework_summary),
+            )
+            BasicComponent(
+                title = stringResource(R.string.runtime_scope_title),
+                summary = stringResource(R.string.runtime_scope_summary),
             )
             BasicComponent(
                 title = stringResource(R.string.runtime_target_title),
@@ -344,6 +387,7 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
                 )
             }
         }
+
         Section(R.string.section_diagnostic_report) {
             BasicComponent(
                 title = stringResource(R.string.export_diagnostic_report),
@@ -361,60 +405,115 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
                 onClick = {
                     if (!reportInProgress && !exportPickerOpen) {
                         buildReport { report ->
-                        val prepared = DiagnosticsReportFiles.prepareShare(
-                            context = context,
-                            report = report,
-                        )
-                        if (prepared == null) {
-                            Toast.makeText(
-                                context,
-                                shareFailedMessage,
-                                Toast.LENGTH_SHORT,
-                            ).show()
-                            return@buildReport
-                        }
+                            val prepared =
+                                DiagnosticsReportFiles.prepareShare(
+                                    context = context,
+                                    report = report,
+                                )
+                            if (prepared == null) {
+                                Toast.makeText(
+                                    context,
+                                    shareFailedMessage,
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                                return@buildReport
+                            }
 
-                        val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                            type = DiagnosticsReportFiles.ShareMimeType
-                            putExtra(Intent.EXTRA_STREAM, prepared.uri)
-                            clipData = ClipData.newUri(
-                                context.contentResolver,
-                                reportShareTitle,
-                                prepared.uri,
+                            val sendIntent =
+                                Intent(Intent.ACTION_SEND).apply {
+                                    type = DiagnosticsReportFiles.ShareMimeType
+                                    putExtra(Intent.EXTRA_STREAM, prepared.uri)
+                                    clipData =
+                                        ClipData.newUri(
+                                            context.contentResolver,
+                                            reportShareTitle,
+                                            prepared.uri,
+                                        )
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
+                            DiagnosticsReportFiles.logShareIntent(
+                                context = context,
+                                intent = sendIntent,
+                                uri = prepared.uri,
                             )
-                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                        }
-                        DiagnosticsReportFiles.logShareIntent(
-                            context = context,
-                            intent = sendIntent,
-                            uri = prepared.uri,
-                        )
 
-                        val chooserIntent = Intent.createChooser(
-                            sendIntent,
-                            reportShareTitle,
-                        ).apply {
-                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                        }
+                            val chooserIntent =
+                                Intent.createChooser(
+                                    sendIntent,
+                                    reportShareTitle,
+                                ).apply {
+                                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                }
 
-                        runCatching {
-                            context.startActivity(chooserIntent)
-                        }.onSuccess {
-                            DiagnosticsReportFiles.logChooserLaunch(context)
-                        }.onFailure { error ->
-                            DiagnosticsReportFiles.logChooserLaunch(context, error)
-                            DiagnosticsReportFiles.discardShare(context, prepared)
-                            Toast.makeText(
-                                context,
-                                shareFailedMessage,
-                                Toast.LENGTH_SHORT,
-                            ).show()
+                            runCatching {
+                                context.startActivity(chooserIntent)
+                            }.onSuccess {
+                                DiagnosticsReportFiles.logChooserLaunch(context)
+                            }.onFailure { error ->
+                                DiagnosticsReportFiles.logChooserLaunch(context, error)
+                                DiagnosticsReportFiles.discardShare(context, prepared)
+                                Toast.makeText(
+                                    context,
+                                    shareFailedMessage,
+                                    Toast.LENGTH_SHORT,
+                                ).show()
+                            }
                         }
-                    }
                     }
                 },
             )
         }
+    }
+}
+
+@Composable
+private fun DiagnosticsCardHeader(
+    title: String,
+    subtitle: String? = null,
+) {
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 18.dp)
+                .padding(top = 18.dp, bottom = 10.dp),
+    ) {
+        Text(
+            text = title,
+            style = MiuixTheme.textStyles.title2,
+            color = MiuixTheme.colorScheme.onSurfaceContainer,
+        )
+        if (!subtitle.isNullOrBlank()) {
+            Text(
+                text = subtitle,
+                style = MiuixTheme.textStyles.body2,
+                color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun DiagnosticsInfoValue(
+    value: String,
+    label: String,
+) {
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 18.dp, vertical = 8.dp),
+    ) {
+        Text(
+            text = value.ifBlank { "—" },
+            style = MiuixTheme.textStyles.body1,
+            color = MiuixTheme.colorScheme.onSurfaceContainer,
+        )
+        Text(
+            text = label,
+            style = MiuixTheme.textStyles.body2,
+            color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
+        )
     }
 }
 
