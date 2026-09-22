@@ -35,6 +35,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - A pure scene-capability policy now classifies Home, notification-shade transition, Control Center, keyguard, and AOD without duplicating geometry rules; charging variants remain render state rather than a separate scene.
 - Debug stable-status diagnostics now capture one-shot Home slot readiness metrics (padding, layout params, margins, adjacent status-icon boundary, clipping, RTL, and native translation) without mutating geometry.
 - A shared event-driven SystemUI tint source now follows MiuiBatteryMeterView's native DarkIconDispatcher application path, with a reusable color policy for scene rendering.
+- Debug Home rendering now includes a bounded eight-frame transition probe after accepted Wi-Fi/mobile/charging model changes, capturing host/container/battery/probe alpha, visibility, attachment, geometry, translation, overlay parent, and draw progress without geometry mutation.
 
 ### Changed
 - Minimum Android version is Android 13 / API 33 to match the current MIUIX blur baseline.
