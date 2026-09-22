@@ -91,7 +91,7 @@ class CombinedStatusPresentationPolicyTest {
             charging = false,
             centerIndicator = centerIndicator,
             mobileLevel = mobileLevel,
-            mobileSubscriptionId = 4,
+            effectiveDataSubscriptionId = 4,
         )
 
     private fun wifi(): CenterIndicator =

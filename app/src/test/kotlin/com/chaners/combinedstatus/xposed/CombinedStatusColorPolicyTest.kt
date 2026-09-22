@@ -38,6 +38,6 @@ class CombinedStatusColorPolicyTest {
                     internet = InternetState.VALIDATED,
                 ),
             mobileLevel = 4,
-            mobileSubscriptionId = 1,
+            effectiveDataSubscriptionId = 1,
         )
 }
