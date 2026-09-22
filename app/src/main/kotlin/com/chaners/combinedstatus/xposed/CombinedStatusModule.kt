@@ -1,6 +1,8 @@
 package com.chaners.combinedstatus.xposed
 
 import android.content.SharedPreferences
+import android.os.Process
+import android.os.SystemClock
 import android.util.Log
 import com.chaners.combinedstatus.BuildConfig
 import com.chaners.combinedstatus.settings.DIAGNOSTICS_LEVEL_KEY
@@ -12,6 +14,7 @@ import io.github.libxposed.api.XposedModuleInterface.HotReloadedParam
 import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
 import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
+import java.util.concurrent.atomic.AtomicLong
 
 class CombinedStatusModule : XposedModule() {
     private var statusHostHookInstalled = false
@@ -22,6 +25,11 @@ class CombinedStatusModule : XposedModule() {
     private var mobileTypeSourceInstalled = false
     private var islandMotionSourceInstalled = false
     private var diagnosticsPreferences: SharedPreferences? = null
+    private val runtimeSessionId =
+        BuildConfig.BUILD_ID + "-" +
+            Process.myPid() + "-" +
+            SystemClock.elapsedRealtime().toString(36)
+    private val diagnosticSequence = AtomicLong(0L)
 
     @Volatile
     private var detailedDiagnosticsEnabled = BuildConfig.DEVELOPMENT_PROBES
@@ -737,22 +745,22 @@ class CombinedStatusModule : XposedModule() {
             ?.let {
                 if (detailedDiagnosticsEnabled) {
                     log(Log.INFO, TAG, presentation.logLine)
+                    logDiagnostic(
+                        level = Log.INFO,
+                        event = "presentation.resolve",
+                        component = "mobilePresentation",
+                        state = "ready",
+                        "mode" to presentation.mode.name,
+                        "boundRoots" to presentation.boundRoots,
+                        "visibleRoots" to presentation.visibleRoots,
+                        "activeSubIds" to presentation.activeSubscriptionIds.joinToString(","),
+                        "presentationRootSubId" to presentation.presentationRootSubscriptionId,
+                        "effectiveDataSubId" to presentation.effectiveDataSubscriptionId,
+                        "networkType" to presentation.networkType?.label,
+                        "enhanced" to presentation.networkType?.enhanced,
+                        "geometryWrites" to 0,
+                    )
                 }
-                logDiagnostic(
-                    level = Log.INFO,
-                    event = "presentation.resolve",
-                    component = "mobilePresentation",
-                    state = "ready",
-                    "mode" to presentation.mode.name,
-                    "boundRoots" to presentation.boundRoots,
-                    "visibleRoots" to presentation.visibleRoots,
-                    "activeSubIds" to presentation.activeSubscriptionIds.joinToString(","),
-                    "presentationRootSubId" to presentation.presentationRootSubscriptionId,
-                    "effectiveDataSubId" to presentation.effectiveDataSubscriptionId,
-                    "networkType" to presentation.networkType?.label,
-                    "enhanced" to presentation.networkType?.enhanced,
-                    "geometryWrites" to 0,
-                )
                 CombinedStatusHomeRenderSession.onPresentationStateChanged()
             }
     }
@@ -1119,6 +1127,9 @@ class CombinedStatusModule : XposedModule() {
                         put(key, value.toString())
                     }
                 }
+                put("sessionId", runtimeSessionId)
+                put("uptimeMs", SystemClock.elapsedRealtime().toString())
+                put("sequence", diagnosticSequence.incrementAndGet().toString())
             }
         log(
             level,
