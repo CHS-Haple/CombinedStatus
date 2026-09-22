@@ -222,14 +222,13 @@ private fun AppearanceMiniPreview(
     ) {
         ScaledPreviewContent(
             scale = MiniPreviewScale,
-            bottomCrop = MiniPreviewBottomCrop,
             modifier = Modifier.fillMaxWidth(),
         ) {
             Column(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 13.dp),
+                        .padding(start = 14.dp, top = 13.dp, end = 14.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 MiniPreviewHeader()
@@ -381,17 +380,17 @@ private fun MiniThemeSwatch(color: Color) {
 }
 
 private const val MiniPreviewScale = 0.82f
-private val MiniPreviewBottomCrop = 10.dp
+private val MiniNavigationViewportHeight = 74.dp
+private val MiniFloatingNavigationOffset = 12.dp
 
 @Composable
 private fun ScaledPreviewContent(
     scale: Float,
-    bottomCrop: androidx.compose.ui.unit.Dp = 0.dp,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
     Layout(
-        modifier = modifier.clipToBounds(),
+        modifier = modifier,
         content = content,
     ) { measurables, constraints ->
         val maxWidth =
@@ -410,9 +409,8 @@ private fun ScaledPreviewContent(
                 ),
             )
         val scaledHeight = (placeable.height * scale).roundToInt()
-        val croppedHeight = (scaledHeight - bottomCrop.roundToPx()).coerceAtLeast(0)
         val layoutHeight =
-            croppedHeight.coerceIn(
+            scaledHeight.coerceIn(
                 constraints.minHeight,
                 if (constraints.hasBoundedHeight) constraints.maxHeight else scaledHeight,
             )
@@ -462,7 +460,8 @@ private fun MiniNavigationPreview(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .height(90.dp),
+                .height(MiniNavigationViewportHeight)
+                .clipToBounds(),
         contentAlignment = Alignment.TopCenter,
     ) {
         Box(
@@ -494,49 +493,74 @@ private fun MiniNavigationPreview(
         }
 
         if (floating) {
-            FloatingNavigationBar(
-                modifier = floatingModifier,
-                color =
-                    if (backdrop != null) {
-                        Color.Transparent
-                    } else {
-                        MiuixTheme.colorScheme.surfaceContainer
-                    },
-                defaultWindowInsetsPadding = false,
-            ) {
-                FloatingNavigationBarItem(
-                    selected = false,
-                    onClick = {},
-                    icon = MiuixIcons.Home,
-                    label = stringResource(R.string.nav_home),
-                )
-                FloatingNavigationBarItem(
-                    selected = false,
-                    onClick = {},
-                    icon = MiuixIcons.Tune,
-                    label = stringResource(R.string.nav_features),
-                )
-                FloatingNavigationBarItem(
-                    selected = true,
-                    onClick = {},
-                    icon = MiuixIcons.Settings,
-                    label = stringResource(R.string.nav_settings),
-                )
+            MiniNavigationLayer(yOffset = MiniFloatingNavigationOffset) {
+                FloatingNavigationBar(
+                    modifier = floatingModifier,
+                    color =
+                        if (backdrop != null) {
+                            Color.Transparent
+                        } else {
+                            MiuixTheme.colorScheme.surfaceContainer
+                        },
+                    defaultWindowInsetsPadding = false,
+                ) {
+                    FloatingNavigationBarItem(
+                        selected = false,
+                        onClick = {},
+                        icon = MiuixIcons.Home,
+                        label = stringResource(R.string.nav_home),
+                    )
+                    FloatingNavigationBarItem(
+                        selected = false,
+                        onClick = {},
+                        icon = MiuixIcons.Tune,
+                        label = stringResource(R.string.nav_features),
+                    )
+                    FloatingNavigationBarItem(
+                        selected = true,
+                        onClick = {},
+                        icon = MiuixIcons.Settings,
+                        label = stringResource(R.string.nav_settings),
+                    )
+                }
             }
         } else {
-            NavigationBar(
-                modifier =
-                    Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = MiniPreviewBottomCrop / MiniPreviewScale),
-                color = MiuixTheme.colorScheme.surface,
-                showDivider = true,
-                defaultWindowInsetsPadding = false,
-            ) {
-                MiniStandardNavigationItem(selected = false, icon = MiuixIcons.Home)
-                MiniStandardNavigationItem(selected = false, icon = MiuixIcons.Tune)
-                MiniStandardNavigationItem(selected = true, icon = MiuixIcons.Settings)
+            MiniNavigationLayer {
+                NavigationBar(
+                    color = MiuixTheme.colorScheme.surface,
+                    showDivider = true,
+                    defaultWindowInsetsPadding = false,
+                ) {
+                    MiniStandardNavigationItem(selected = false, icon = MiuixIcons.Home)
+                    MiniStandardNavigationItem(selected = false, icon = MiuixIcons.Tune)
+                    MiniStandardNavigationItem(selected = true, icon = MiuixIcons.Settings)
+                }
             }
+        }
+    }
+}
+
+@Composable
+private fun MiniNavigationLayer(
+    yOffset: androidx.compose.ui.unit.Dp = 0.dp,
+    content: @Composable () -> Unit,
+) {
+    Layout(
+        modifier = Modifier.fillMaxSize(),
+        content = content,
+    ) { measurables, constraints ->
+        val placeable =
+            measurables.single().measure(
+                constraints.copy(
+                    minHeight = 0,
+                    maxHeight = Constraints.Infinity,
+                ),
+            )
+        layout(constraints.maxWidth, constraints.maxHeight) {
+            placeable.placeRelative(
+                x = ((constraints.maxWidth - placeable.width) / 2).coerceAtLeast(0),
+                y = yOffset.roundToPx(),
+            )
         }
     }
 }
