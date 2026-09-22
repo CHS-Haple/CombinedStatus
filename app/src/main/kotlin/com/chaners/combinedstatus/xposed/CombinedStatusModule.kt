@@ -954,6 +954,7 @@ class CombinedStatusModule : XposedModule() {
                     }
                 },
                 onLatencySample = ::onRenderLatencySample,
+                isDetailedDiagnosticsEnabled = { detailedDiagnosticsEnabled },
             )
         ) {
             CombinedStatusHomeRenderSession.AttachResult.Ready -> {
