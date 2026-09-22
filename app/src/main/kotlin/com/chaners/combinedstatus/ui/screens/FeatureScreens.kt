@@ -409,7 +409,7 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
                     }
                 },
             )
-            if (BuildConfig.DEBUG) {
+            if (BuildConfig.DEVELOPMENT_PROBES) {
                 BasicComponent(
                     title = stringResource(R.string.runtime_inventory_title),
                     summary = stringResource(R.string.runtime_inventory_summary),

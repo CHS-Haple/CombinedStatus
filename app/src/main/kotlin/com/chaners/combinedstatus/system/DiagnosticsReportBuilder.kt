@@ -7,7 +7,7 @@ import java.time.OffsetDateTime
 
 internal object DiagnosticsReportBuilder {
     private const val LogTimeoutSeconds = 10L
-    private const val DebugLogLineLimit = 600
+    private const val DetailedLogLineLimit = 600
     private const val ReleaseLogLineLimit = 120
     private const val ShareLogLineLimit = 80
 
@@ -72,8 +72,11 @@ internal object DiagnosticsReportBuilder {
             .takeLast(ShareLogLineLimit)
 
         val lineLimit =
-            if (BuildConfig.DEBUG) {
-                DebugLogLineLimit
+            if (
+                diagnosticsLevel.name == "Detailed" &&
+                (BuildConfig.RUNTIME_DIAGNOSTICS || BuildConfig.DEVELOPMENT_PROBES)
+            ) {
+                DetailedLogLineLimit
             } else {
                 ReleaseLogLineLimit
             }
@@ -86,11 +89,16 @@ internal object DiagnosticsReportBuilder {
             appendLine("version=" + BuildConfig.VERSION_NAME)
             appendLine("build=" + BuildConfig.BUILD_ID)
             appendLine("package=" + BuildConfig.APPLICATION_ID)
-            appendLine("buildType=" + if (BuildConfig.DEBUG) "debug" else "release")
+            appendLine("buildType=" + BuildConfig.BUILD_TYPE)
+            appendLine("channel=" + BuildConfig.BUILD_CHANNEL)
             appendLine("diagnosticsPreference=" + diagnosticsLevel.name.lowercase())
             appendLine(
                 "diagnosticsCapability=" +
-                    if (BuildConfig.DEBUG) "development" else "release",
+                    when {
+                        BuildConfig.DEVELOPMENT_PROBES -> "development"
+                        BuildConfig.RUNTIME_DIAGNOSTICS -> "runtime"
+                        else -> "release"
+                    },
             )
             appendLine()
             appendLine("[Device]")

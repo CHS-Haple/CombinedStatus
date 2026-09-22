@@ -1,7 +1,11 @@
 package com.chaners.combinedstatus.xposed
 
+import android.content.SharedPreferences
 import android.util.Log
 import com.chaners.combinedstatus.BuildConfig
+import com.chaners.combinedstatus.settings.DIAGNOSTICS_LEVEL_KEY
+import com.chaners.combinedstatus.settings.DIAGNOSTICS_REMOTE_PREFS_NAME
+import com.chaners.combinedstatus.settings.DiagnosticsLevel
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.HotReloadedParam
 import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
@@ -14,14 +18,27 @@ class CombinedStatusModule : XposedModule() {
     private var airplaneObserverAttached = false
     private var tintSourceInstalled = false
     private var islandMotionSourceInstalled = false
+    private var diagnosticsPreferences: SharedPreferences? = null
+
+    @Volatile
+    private var detailedDiagnosticsEnabled = BuildConfig.DEVELOPMENT_PROBES
+
+    private val diagnosticsPreferenceListener =
+        SharedPreferences.OnSharedPreferenceChangeListener { preferences, key ->
+            if (key == DIAGNOSTICS_LEVEL_KEY) {
+                updateDetailedDiagnostics(preferences)
+            }
+        }
 
     override fun onModuleLoaded(param: ModuleLoadedParam) {
+        bindRuntimeDiagnostics()
         log(
             Log.INFO,
             TAG,
             "Module loaded in " + param.processName +
                 " build=" + BuildConfig.BUILD_ID +
-                " diagnostics=" + if (BuildConfig.DEBUG) "detailed" else "basic" +
+                " channel=" + BuildConfig.BUILD_CHANNEL +
+                " diagnostics=" + if (detailedDiagnosticsEnabled) "detailed" else "general" +
                 " with Xposed API " + apiVersion,
         )
     }
@@ -59,7 +76,7 @@ class CombinedStatusModule : XposedModule() {
                 classLoader = param.classLoader,
                 source = "coldStart",
             )
-            if (BuildConfig.DEBUG) {
+            if (BuildConfig.RUNTIME_DIAGNOSTICS) {
                 installIslandMotionSource(
                     classLoader = param.classLoader,
                     source = "coldStart",
@@ -96,6 +113,7 @@ class CombinedStatusModule : XposedModule() {
             TAG,
             "Hot reload preparing build=" + BuildConfig.BUILD_ID + " hooks=" + hookCount,
         )
+        unbindRuntimeDiagnostics()
         return true
     }
 
@@ -141,7 +159,7 @@ class CombinedStatusModule : XposedModule() {
                 classLoader = classLoader,
                 source = "hotReload",
             )
-            if (BuildConfig.DEBUG) {
+            if (BuildConfig.RUNTIME_DIAGNOSTICS) {
                 installIslandMotionSource(
                     classLoader = classLoader,
                     source = "hotReload",
@@ -183,7 +201,7 @@ class CombinedStatusModule : XposedModule() {
                     CombinedStatusStateStore.updateAirplaneMode(enabled)
                         ?.let(::onCombinedStateChanged)
                 },
-                onEvent = if (BuildConfig.DEBUG) ::onNetworkPipelineEvent else null,
+                onEvent = if (BuildConfig.RUNTIME_DIAGNOSTICS) ::onNetworkPipelineEvent else null,
             )
         }.onSuccess { handles ->
             networkSourceInstalled = handles.size == SystemUiNetworkStateSource.HOOK_COUNT
@@ -223,7 +241,7 @@ class CombinedStatusModule : XposedModule() {
                     CombinedStatusStateStore.updateAirplaneMode(enabled)
                         ?.let(::onCombinedStateChanged)
                 },
-                onEvent = if (BuildConfig.DEBUG) ::onNetworkPipelineEvent else null,
+                onEvent = if (BuildConfig.RUNTIME_DIAGNOSTICS) ::onNetworkPipelineEvent else null,
             )
         }.onSuccess { attached ->
             airplaneObserverAttached = attached
@@ -268,7 +286,7 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun onIslandMotionEvent(event: String) {
-        if (BuildConfig.DEBUG) {
+        if (detailedDiagnosticsEnabled) {
             log(Log.INFO, TAG, event)
         }
     }
@@ -282,7 +300,7 @@ class CombinedStatusModule : XposedModule() {
                 module = this,
                 classLoader = classLoader,
                 onTintState = CombinedStatusHomeRenderSession::onTintUpdate,
-                onEvent = if (BuildConfig.DEBUG) ::onTintSourceEvent else null,
+                onEvent = if (BuildConfig.RUNTIME_DIAGNOSTICS) ::onTintSourceEvent else null,
             )
         }.onSuccess { handles ->
             tintSourceInstalled = handles.size == SystemUiTintStateSource.HOOK_COUNT
@@ -299,13 +317,13 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun onTintSourceEvent(event: String) {
-        if (BuildConfig.DEBUG) {
+        if (detailedDiagnosticsEnabled) {
             log(Log.INFO, TAG, event)
         }
     }
 
     private fun onNetworkPipelineEvent(event: String) {
-        if (BuildConfig.DEBUG) {
+        if (detailedDiagnosticsEnabled) {
             log(Log.INFO, TAG, event)
         }
     }
@@ -313,9 +331,7 @@ class CombinedStatusModule : XposedModule() {
     private fun onCombinedStateChanged(
         snapshot: CombinedStatusStateStore.Snapshot,
     ) {
-        if (BuildConfig.DEBUG) {
-            CombinedStatusHomeRenderSession.onState(snapshot)
-        }
+        CombinedStatusHomeRenderSession.onState(snapshot)
     }
 
     private fun onStatusHostCaptured(capture: SystemUiHostRegistry.Capture) {
@@ -337,7 +353,7 @@ class CombinedStatusModule : XposedModule() {
                     CombinedStatusStateStore.updateBattery(state)?.let(::onCombinedStateChanged)
                 },
                 onEvent = { event ->
-                    if (BuildConfig.DEBUG) {
+                    if (detailedDiagnosticsEnabled) {
                         log(Log.INFO, TAG, event)
                     }
                 },
@@ -354,24 +370,28 @@ class CombinedStatusModule : XposedModule() {
             }
         }
 
-        if (BuildConfig.DEBUG) {
-            when (
-                val renderSession = CombinedStatusHomeRenderSession.attach(
-                    host = capture.host,
-                    onEvent = { event -> log(Log.INFO, TAG, event) },
+        when (
+            val renderSession = CombinedStatusHomeRenderSession.attach(
+                host = capture.host,
+                onEvent = { event ->
+                    if (detailedDiagnosticsEnabled) {
+                        log(Log.INFO, TAG, event)
+                    }
+                },
+            )
+        ) {
+            CombinedStatusHomeRenderSession.AttachResult.Ready -> Unit
+
+            is CombinedStatusHomeRenderSession.AttachResult.Failure -> {
+                log(
+                    Log.WARN,
+                    TAG,
+                    "homeRender unavailable reason=" + renderSession.reason,
                 )
-            ) {
-                CombinedStatusHomeRenderSession.AttachResult.Ready -> Unit
-
-                is CombinedStatusHomeRenderSession.AttachResult.Failure -> {
-                    log(
-                        Log.WARN,
-                        TAG,
-                        "homeRenderProbe unavailable reason=" + renderSession.reason,
-                    )
-                }
             }
+        }
 
+        if (BuildConfig.DEVELOPMENT_PROBES) {
             SystemUiNativeStatusInventory.schedule(capture.host) { snapshot ->
                 log(Log.INFO, TAG, snapshot.summary)
                 log(Log.INFO, TAG, snapshot.hostLine)
@@ -386,6 +406,40 @@ class CombinedStatusModule : XposedModule() {
                 }
             }
         }
+    }
+
+    private fun bindRuntimeDiagnostics() {
+        if (!BuildConfig.RUNTIME_DIAGNOSTICS) {
+            detailedDiagnosticsEnabled = BuildConfig.DEVELOPMENT_PROBES
+            return
+        }
+
+        runCatching {
+            getRemotePreferences(DIAGNOSTICS_REMOTE_PREFS_NAME)
+        }.onSuccess { preferences ->
+            diagnosticsPreferences = preferences
+            updateDetailedDiagnostics(preferences)
+            preferences.registerOnSharedPreferenceChangeListener(diagnosticsPreferenceListener)
+        }.onFailure { error ->
+            diagnosticsPreferences = null
+            detailedDiagnosticsEnabled = BuildConfig.DEVELOPMENT_PROBES
+            log(Log.WARN, TAG, "Runtime diagnostics preference unavailable", error)
+        }
+    }
+
+    private fun unbindRuntimeDiagnostics() {
+        diagnosticsPreferences
+            ?.unregisterOnSharedPreferenceChangeListener(diagnosticsPreferenceListener)
+        diagnosticsPreferences = null
+    }
+
+    private fun updateDetailedDiagnostics(preferences: SharedPreferences) {
+        detailedDiagnosticsEnabled =
+            BuildConfig.DEVELOPMENT_PROBES ||
+                preferences.getString(
+                    DIAGNOSTICS_LEVEL_KEY,
+                    DiagnosticsLevel.General.name,
+                ) == DiagnosticsLevel.Detailed.name
     }
 
     private companion object {

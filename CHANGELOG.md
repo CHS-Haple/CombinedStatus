@@ -7,6 +7,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 ## [Unreleased]
 
 ### Added
+- Canary build channel: non-debuggable and release-optimized like the production artifact, while retaining bounded runtime diagnostics controlled by the in-app General/Detailed preference.
 - App-side diagnostics level preference with General/Detailed choices, defaulting to General and mirrored through libxposed API 102 RemotePreferences for later hook-side consumption.
 - English and Simplified Chinese MIUIX application shell for HyperOS.
 - Adaptive launcher icon with separate foreground/background resources and Android themed-icon support.
@@ -47,6 +48,7 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Debug owned-slot validation now records one matched pre/post geometry pair around the existing paddingStart write, including measured-width expansion, stable battery end-anchor delta, adjacent status-icon boundary movement, and neighbor-gap delta without adding hooks or continuous sampling.
 
 ### Changed
+- Core Home rendering no longer depends on `BuildConfig.DEBUG`; build-channel flags now isolate development probes from runtime rendering and bounded Canary diagnostics.
 - Appearance palette preview no longer uses a separate section title; its secondary "Current colors" label now sits directly beneath the three theme swatches using MIUIX body2 and onSurfaceContainerVariant styling.
 - Diagnostics level is now a persistent runtime preference rather than being presented as a direct alias of the APK build type; build type remains a separate capability boundary.
 - Diagnostics now uses an MIUIX device-information card hierarchy inspired by established HyperOS settings patterns: app details, live device/system values, module runtime, and report actions are separated clearly.
@@ -76,9 +78,9 @@ The project follows a Keep a Changelog-style structure. Development changes rema
 - Diagnostics now report the active Modern Xposed API 102 runtime and hot-reload capability instead of the earlier pre-hook placeholder state.
 - Diagnostics UI now uses MIUIX read-only information rows for module framework, compatibility baseline, and the native status probe; preview copy no longer claims SystemUI is disconnected.
 - Native status probe wording now describes the status-bar topology check without exposing host-lifecycle implementation details.
-- Diagnostics now follow build type: release keeps low-frequency operational diagnostics, while debug adds detailed topology, geometry, and Hook reporting without changing core module behavior.
+- Build channel and diagnostics level are now separate capability axes: Debug retains development-only probes, Canary keeps bounded runtime diagnostics switchable from the app, and Release keeps only low-frequency operational diagnostics.
 - SystemUI restart and on-demand diagnostic collection now share one bounded Root shell executor instead of duplicating process lifecycle code.
-- Push CI remains debug-only for `main`/`dev`; signed release builds remain explicit manual workflow runs.
+- Push CI for `main`/`dev` now produces signed Debug and non-debuggable Canary artifacts; signed Release remains a separate formal build path.
 - LibXposed artifacts are resolved explicitly from Maven Central at `repo.maven.apache.org`, restricted to the `io.github.libxposed` group.
 - Restart confirmation now follows the MIUIX two-action dialog layout with equal-width actions and user-facing SystemUI wording.
 - Xposed lifecycle diagnostics now include the internal build ID to make hot-reload generation changes directly visible in LSPosed logs.
