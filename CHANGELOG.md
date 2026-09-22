@@ -55,7 +55,7 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Engineering
 
-- Public/reproducible development now uses the checked-in official Gradle 9.7.1 Wrapper, secret-free pull-request validation, hardened ignore rules for local signing/environment artifacts, and explicit third-party dependency notices.
+- Public/reproducible development now uses the checked-in official Gradle 9.7.1 Wrapper with distribution/integrity validation, commit-pinned GitHub Actions, secret-free pull-request validation, hardened ignore rules for local signing/environment artifacts, least-privilege workflow credentials, dependency-update automation, and explicit third-party dependency notices.
 - Stable release automation is fail-closed: formal releases must come from a prepared `main` commit with a matching dated changelog section, pass target-profile/tests/Xposed-metadata/non-debuggable/signature checks, and use application release/build identity rather than CI run numbers for distributable APKs.
 - Runtime architecture is moving toward explicit `Host -> HostSession -> owned resources` boundaries with required cleanup across host replacement, SystemUI recreation, and hot reload.
 - Live SystemUI properties follow a single-writer rule; native layout geometry, CombinedStatus visual geometry, transition geometry, and optical adjustment remain separate responsibilities, and observation does not itself grant write ownership.
