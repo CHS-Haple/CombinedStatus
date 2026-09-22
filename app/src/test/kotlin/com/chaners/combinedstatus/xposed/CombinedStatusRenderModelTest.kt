@@ -409,6 +409,7 @@ class CombinedStatusRenderModelTest {
                     activeSubscriptionIds = listOf(1),
                     presentationRootSubscriptionId = 1,
                     effectiveDataSubscriptionId = 1,
+                    networkTypeSubscriptionId = 1,
                     networkType = networkType,
                 ),
         )
