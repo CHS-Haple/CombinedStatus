@@ -22,7 +22,8 @@ import androidx.navigationevent.compose.rememberNavigationEventState
 import com.chaners.combinedstatus.R
 import com.chaners.combinedstatus.settings.AppLanguage
 import com.chaners.combinedstatus.settings.AppearanceSettings
-import com.chaners.combinedstatus.ui.components.floatingNavigationGlass
+import com.chaners.combinedstatus.ui.components.floatingNavigationMaterial
+import com.chaners.combinedstatus.ui.components.requiresTextureBackdrop
 import com.chaners.combinedstatus.ui.navigation.AppRoute
 import com.chaners.combinedstatus.ui.screens.FeaturesScreen
 import com.chaners.combinedstatus.ui.screens.HomeScreen
@@ -60,13 +61,13 @@ internal fun MainHub(
 ) {
     val pagerState = rememberPagerState(pageCount = { TopLevelPageCount })
     val scope = rememberCoroutineScope()
-    val floatingBlurActive =
+    val floatingMaterialActive =
         settings.floatingNavigationBarEnabled &&
-            settings.floatingNavigationBlurEnabled &&
+            settings.floatingNavigationStyle.requiresTextureBackdrop &&
             isRuntimeShaderSupported()
     val surfaceColor = MiuixTheme.colorScheme.surface
     val backdrop =
-        if (floatingBlurActive) {
+        if (floatingMaterialActive) {
             rememberLayerBackdrop {
                 drawRect(surfaceColor)
                 drawContent()
@@ -96,9 +97,10 @@ internal fun MainHub(
 
     val navigationBarModifier =
         if (backdrop != null) {
-            Modifier.floatingNavigationGlass(
+            Modifier.floatingNavigationMaterial(
                 backdrop = backdrop,
                 darkMode = darkMode,
+                style = settings.floatingNavigationStyle,
             )
         } else {
             Modifier

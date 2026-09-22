@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -33,22 +35,26 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.dp
 import com.chaners.combinedstatus.BuildConfig
 import com.chaners.combinedstatus.R
 import com.chaners.combinedstatus.settings.AppThemeMode
 import com.chaners.combinedstatus.settings.AppearanceSettings
 import com.chaners.combinedstatus.settings.DiagnosticsLevel
+import com.chaners.combinedstatus.settings.FloatingNavigationStyle
 import com.chaners.combinedstatus.settings.DiagnosticsSettings
 import com.chaners.combinedstatus.settings.DiagnosticsSettingsRepository
 import com.chaners.combinedstatus.system.DiagnosticsReportBuilder
 import com.chaners.combinedstatus.system.DiagnosticsReportFiles
 import com.chaners.combinedstatus.system.RuntimeEnvironmentInfo
-import com.chaners.combinedstatus.ui.components.floatingNavigationGlass
+import com.chaners.combinedstatus.ui.components.floatingNavigationMaterial
+import com.chaners.combinedstatus.ui.components.requiresTextureBackdrop
 import com.chaners.combinedstatus.ui.layout.pageContentPadding
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.BasicComponent
@@ -58,7 +64,7 @@ import top.yukonga.miuix.kmp.basic.FloatingNavigationBarItem
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.NavigationBar
-import top.yukonga.miuix.kmp.basic.NavigationBarItem
+import top.yukonga.miuix.kmp.basic.NavigationBarDefaults
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.Slider
 import top.yukonga.miuix.kmp.basic.SliderDefaults
@@ -78,6 +84,7 @@ import top.yukonga.miuix.kmp.icon.extended.Tune
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import kotlin.math.roundToInt
 
 @Composable
 internal fun AppearanceScreen(
@@ -86,7 +93,7 @@ internal fun AppearanceScreen(
     onThemeModeChange: (AppThemeMode) -> Unit,
     onDynamicColorEnabledChange: (Boolean) -> Unit,
     onFloatingNavigationBarEnabledChange: (Boolean) -> Unit,
-    onFloatingNavigationBlurEnabledChange: (Boolean) -> Unit,
+    onFloatingNavigationStyleChange: (FloatingNavigationStyle) -> Unit,
     onBack: () -> Unit,
 ) {
     val themeOptions =
@@ -94,6 +101,12 @@ internal fun AppearanceScreen(
             stringResource(R.string.theme_system),
             stringResource(R.string.theme_light),
             stringResource(R.string.theme_dark),
+        )
+    val floatingStyleOptions =
+        listOf(
+            stringResource(R.string.floating_navigation_style_standard),
+            stringResource(R.string.floating_navigation_style_blur),
+            stringResource(R.string.floating_navigation_style_glass),
         )
 
     SettingsPage(title = stringResource(R.string.appearance_title), onBack = onBack) {
@@ -135,11 +148,19 @@ internal fun AppearanceScreen(
                 onCheckedChange = onFloatingNavigationBarEnabledChange,
             )
             AnimatedVisibility(visible = settings.floatingNavigationBarEnabled) {
-                SwitchPreference(
-                    title = stringResource(R.string.floating_navigation_blur),
-                    summary = stringResource(R.string.floating_navigation_blur_summary),
-                    checked = settings.floatingNavigationBlurEnabled,
-                    onCheckedChange = onFloatingNavigationBlurEnabledChange,
+                OverlayDropdownPreference(
+                    items = floatingStyleOptions,
+                    selectedIndex = settings.floatingNavigationStyle.ordinal,
+                    title = stringResource(R.string.floating_navigation_style),
+                    summary = stringResource(R.string.floating_navigation_style_summary),
+                    showValue = true,
+                    onSelectedIndexChange = { index ->
+                        FloatingNavigationStyle.entries.getOrNull(index)?.let { style ->
+                            if (style != settings.floatingNavigationStyle) {
+                                onFloatingNavigationStyleChange(style)
+                            }
+                        }
+                    },
                 )
             }
         }
@@ -229,21 +250,26 @@ private fun AppearanceMiniPreview(
                 color = MiuixTheme.colorScheme.outline.copy(alpha = 0.18f),
             ),
     ) {
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 11.dp),
-            verticalArrangement = Arrangement.spacedBy(9.dp),
+        ScaledPreviewContent(
+            scale = MiniPreviewScale,
+            modifier = Modifier.fillMaxWidth(),
         ) {
-            MiniPreviewHeader()
-            MiniSwitchSettingPreview()
-            MiniSliderSettingPreview()
-            MiniNavigationPreview(
-                floating = settings.floatingNavigationBarEnabled,
-                blurEnabled = settings.floatingNavigationBlurEnabled,
-                darkMode = darkMode,
-            )
+            Column(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 13.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                MiniPreviewHeader()
+                MiniSwitchSettingPreview()
+                MiniSliderSettingPreview()
+                MiniNavigationPreview(
+                    floating = settings.floatingNavigationBarEnabled,
+                    style = settings.floatingNavigationStyle,
+                    darkMode = darkMode,
+                )
+            }
         }
     }
 }
@@ -258,8 +284,8 @@ private fun MiniPreviewHeader() {
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            MiniTextBar(width = 70.dp, emphasized = true)
-            MiniTextBar(width = 42.dp)
+            MiniTextBar(width = 88.dp, role = MiniTextRole.Title)
+            MiniTextBar(width = 54.dp, role = MiniTextRole.Body2)
         }
         Row(
             horizontalArrangement = Arrangement.spacedBy(5.dp),
@@ -285,8 +311,8 @@ private fun MiniSwitchSettingPreview() {
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                MiniTextBar(width = 82.dp, emphasized = true)
-                MiniTextBar(width = 54.dp)
+                MiniTextBar(width = 82.dp, role = MiniTextRole.Body1)
+                MiniTextBar(width = 56.dp, role = MiniTextRole.Body2)
             }
             Switch(
                 checked = true,
@@ -315,7 +341,7 @@ private fun MiniSliderSettingPreview() {
                     shape = RoundedCornerShape(7.dp),
                     color = MiuixTheme.colorScheme.onSurfaceContainerVariant.copy(alpha = 0.20f),
                 ) {}
-                MiniTextBar(width = 72.dp, emphasized = true)
+                MiniTextBar(width = 72.dp, role = MiniTextRole.Body1)
             }
             Slider(
                 value = 0.43f,
@@ -333,21 +359,39 @@ private fun MiniSliderSettingPreview() {
     }
 }
 
+private enum class MiniTextRole {
+    Title,
+    Body1,
+    Body2,
+}
+
 @Composable
 private fun MiniTextBar(
     width: androidx.compose.ui.unit.Dp,
-    emphasized: Boolean = false,
+    role: MiniTextRole,
+    modifier: Modifier = Modifier,
 ) {
+    val fontSize =
+        when (role) {
+            MiniTextRole.Title -> MiuixTheme.textStyles.title3.fontSize
+            MiniTextRole.Body1 -> MiuixTheme.textStyles.body1.fontSize
+            MiniTextRole.Body2 -> MiuixTheme.textStyles.body2.fontSize
+        }
+    val height = (fontSize.value * 0.35f).dp
+    val alpha =
+        when (role) {
+            MiniTextRole.Title -> 0.34f
+            MiniTextRole.Body1 -> 0.27f
+            MiniTextRole.Body2 -> 0.17f
+        }
+
     Surface(
         modifier =
-            Modifier
+            modifier
                 .width(width)
-                .height(if (emphasized) 7.dp else 5.dp),
-        shape = RoundedCornerShape(4.dp),
-        color =
-            MiuixTheme.colorScheme.onSurfaceContainerVariant.copy(
-                alpha = if (emphasized) 0.30f else 0.16f,
-            ),
+                .height(height),
+        shape = RoundedCornerShape(height / 2f),
+        color = MiuixTheme.colorScheme.onSurfaceContainerVariant.copy(alpha = alpha),
     ) {}
 }
 
@@ -365,16 +409,63 @@ private fun MiniThemeSwatch(color: Color) {
     ) {}
 }
 
+private const val MiniPreviewScale = 0.82f
+
+@Composable
+private fun ScaledPreviewContent(
+    scale: Float,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Layout(
+        modifier = modifier,
+        content = content,
+    ) { measurables, constraints ->
+        val maxWidth =
+            if (constraints.hasBoundedWidth) {
+                (constraints.maxWidth / scale).roundToInt()
+            } else {
+                constraints.maxWidth
+            }
+        val placeable =
+            measurables.single().measure(
+                Constraints(
+                    minWidth = 0,
+                    maxWidth = maxWidth,
+                    minHeight = 0,
+                    maxHeight = Constraints.Infinity,
+                ),
+            )
+        val scaledHeight = (placeable.height * scale).roundToInt()
+        val layoutHeight =
+            scaledHeight.coerceIn(
+                constraints.minHeight,
+                if (constraints.hasBoundedHeight) constraints.maxHeight else scaledHeight,
+            )
+
+        layout(constraints.maxWidth, layoutHeight) {
+            placeable.placeRelativeWithLayer(0, 0) {
+                scaleX = scale
+                scaleY = scale
+                transformOrigin = TransformOrigin(0f, 0f)
+            }
+        }
+    }
+}
+
 @Composable
 private fun MiniNavigationPreview(
     floating: Boolean,
-    blurEnabled: Boolean,
+    style: FloatingNavigationStyle,
     darkMode: Boolean,
 ) {
-    val blurActive = floating && blurEnabled && isRuntimeShaderSupported()
+    val materialActive =
+        floating &&
+            style.requiresTextureBackdrop &&
+            isRuntimeShaderSupported()
     val surfaceColor = MiuixTheme.colorScheme.surface
     val backdrop =
-        if (blurActive) {
+        if (materialActive) {
             rememberLayerBackdrop {
                 drawRect(surfaceColor)
                 drawContent()
@@ -384,24 +475,21 @@ private fun MiniNavigationPreview(
         }
     val floatingModifier =
         if (backdrop != null) {
-            Modifier.floatingNavigationGlass(
+            Modifier.floatingNavigationMaterial(
                 backdrop = backdrop,
                 darkMode = darkMode,
+                style = style,
             )
         } else {
             Modifier
         }
 
-    // Keep the preview slot invariant so switching navigation styles cannot
-    // remeasure the surrounding page. 65 dp = 64 dp MIUIX standard item
-    // height plus its divider. The floating bar keeps its native 52 dp visual
-    // body; only the real-screen navigation-inset tail is clipped in preview.
     Box(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .height(65.dp)
-                .clipToBounds(),
+                .height(90.dp),
+        contentAlignment = Alignment.TopCenter,
     ) {
         Box(
             modifier =
@@ -419,47 +507,47 @@ private fun MiniNavigationPreview(
                 modifier = Modifier.fillMaxSize(),
                 color = MiuixTheme.colorScheme.surface,
             ) {}
-        }
-
-        if (floating) {
-            Box(
+            Column(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .padding(top = 6.dp),
+                        .padding(horizontal = 22.dp, vertical = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(5.dp),
             ) {
-                FloatingNavigationBar(
-                    modifier = floatingModifier,
-                    color =
-                        if (backdrop != null) {
-                            Color.Transparent
-                        } else {
-                            MiuixTheme.colorScheme.surfaceContainer
-                        },
-                    defaultWindowInsetsPadding = false,
-                ) {
-                    FloatingNavigationBarItem(
-                        selected = false,
-                        onClick = {},
-                        icon = MiuixIcons.Home,
-                        label = stringResource(R.string.nav_home),
-                        enabled = false,
-                    )
-                    FloatingNavigationBarItem(
-                        selected = false,
-                        onClick = {},
-                        icon = MiuixIcons.Tune,
-                        label = stringResource(R.string.nav_features),
-                        enabled = false,
-                    )
-                    FloatingNavigationBarItem(
-                        selected = true,
-                        onClick = {},
-                        icon = MiuixIcons.Settings,
-                        label = stringResource(R.string.nav_settings),
-                        enabled = false,
-                    )
-                }
+                MiniTextBar(width = 92.dp, role = MiniTextRole.Body1)
+                MiniTextBar(width = 58.dp, role = MiniTextRole.Body2)
+            }
+        }
+
+        if (floating) {
+            FloatingNavigationBar(
+                modifier = floatingModifier,
+                color =
+                    if (backdrop != null) {
+                        Color.Transparent
+                    } else {
+                        MiuixTheme.colorScheme.surfaceContainer
+                    },
+                defaultWindowInsetsPadding = false,
+            ) {
+                FloatingNavigationBarItem(
+                    selected = false,
+                    onClick = {},
+                    icon = MiuixIcons.Home,
+                    label = stringResource(R.string.nav_home),
+                )
+                FloatingNavigationBarItem(
+                    selected = false,
+                    onClick = {},
+                    icon = MiuixIcons.Tune,
+                    label = stringResource(R.string.nav_features),
+                )
+                FloatingNavigationBarItem(
+                    selected = true,
+                    onClick = {},
+                    icon = MiuixIcons.Settings,
+                    label = stringResource(R.string.nav_settings),
+                )
             }
         } else {
             NavigationBar(
@@ -467,29 +555,43 @@ private fun MiniNavigationPreview(
                 showDivider = true,
                 defaultWindowInsetsPadding = false,
             ) {
-                NavigationBarItem(
-                    selected = false,
-                    onClick = {},
-                    icon = MiuixIcons.Home,
-                    label = stringResource(R.string.nav_home),
-                    enabled = false,
-                )
-                NavigationBarItem(
-                    selected = false,
-                    onClick = {},
-                    icon = MiuixIcons.Tune,
-                    label = stringResource(R.string.nav_features),
-                    enabled = false,
-                )
-                NavigationBarItem(
-                    selected = true,
-                    onClick = {},
-                    icon = MiuixIcons.Settings,
-                    label = stringResource(R.string.nav_settings),
-                    enabled = false,
-                )
+                MiniStandardNavigationItem(selected = false, icon = MiuixIcons.Home)
+                MiniStandardNavigationItem(selected = false, icon = MiuixIcons.Tune)
+                MiniStandardNavigationItem(selected = true, icon = MiuixIcons.Settings)
             }
         }
+    }
+}
+
+@Composable
+private fun RowScope.MiniStandardNavigationItem(
+    selected: Boolean,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+) {
+    val contentColor =
+        MiuixTheme.colorScheme.onSurface.copy(
+            alpha = if (selected) 1f else 0.4f,
+        )
+
+    Column(
+        modifier =
+            Modifier
+                .height(NavigationBarDefaults.ItemHeight)
+                .weight(1f),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Spacer(modifier = Modifier.height(NavigationBarDefaults.IconTopPadding))
+        Icon(
+            modifier = Modifier.size(NavigationBarDefaults.IconSize),
+            imageVector = icon,
+            contentDescription = null,
+            tint = contentColor,
+        )
+        Spacer(modifier = Modifier.height(3.dp))
+        MiniTextBar(
+            width = if (selected) 30.dp else 26.dp,
+            role = MiniTextRole.Body2,
+        )
     }
 }
 

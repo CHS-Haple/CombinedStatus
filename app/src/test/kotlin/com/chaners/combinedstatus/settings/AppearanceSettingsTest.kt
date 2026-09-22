@@ -11,7 +11,73 @@ class AppearanceSettingsTest {
         val settings = AppearanceSettings()
 
         assertTrue(settings.floatingNavigationBarEnabled)
-        assertTrue(settings.floatingNavigationBlurEnabled)
+        assertEquals(FloatingNavigationStyle.Glass, settings.floatingNavigationStyle)
+    }
+
+    @Test
+    fun storedFloatingStyleWinsOverLegacyFlags() {
+        val result =
+            decodeFloatingNavigationStyle(
+                storedStyle = "Blur",
+                storedFloatingBlurEnabled = false,
+                legacyBlurEnabled = false,
+                legacyGlassEnabled = false,
+            )
+
+        assertEquals(FloatingNavigationStyle.Blur, result)
+    }
+
+    @Test
+    fun currentBlurBooleanMigratesToPreviousGlassAppearance() {
+        assertEquals(
+            FloatingNavigationStyle.Glass,
+            decodeFloatingNavigationStyle(
+                storedStyle = null,
+                storedFloatingBlurEnabled = true,
+                legacyBlurEnabled = null,
+                legacyGlassEnabled = null,
+            ),
+        )
+        assertEquals(
+            FloatingNavigationStyle.Standard,
+            decodeFloatingNavigationStyle(
+                storedStyle = null,
+                storedFloatingBlurEnabled = false,
+                legacyBlurEnabled = null,
+                legacyGlassEnabled = null,
+            ),
+        )
+    }
+
+    @Test
+    fun oldSeparateBlurAndGlassFlagsPreserveThreeStyles() {
+        assertEquals(
+            FloatingNavigationStyle.Blur,
+            decodeFloatingNavigationStyle(
+                storedStyle = null,
+                storedFloatingBlurEnabled = null,
+                legacyBlurEnabled = true,
+                legacyGlassEnabled = false,
+            ),
+        )
+        assertEquals(
+            FloatingNavigationStyle.Glass,
+            decodeFloatingNavigationStyle(
+                storedStyle = null,
+                storedFloatingBlurEnabled = null,
+                legacyBlurEnabled = true,
+                legacyGlassEnabled = true,
+            ),
+        )
+        assertEquals(
+            FloatingNavigationStyle.Standard,
+            decodeFloatingNavigationStyle(
+                storedStyle = null,
+                storedFloatingBlurEnabled = null,
+                legacyBlurEnabled = false,
+                legacyGlassEnabled = true,
+            ),
+        )
     }
 
     @Test

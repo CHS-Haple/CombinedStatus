@@ -58,8 +58,11 @@
     <string name="section_visual_effects">Interface effects</string>
     <string name="floating_navigation_bar">Floating navigation bar</string>
     <string name="floating_navigation_bar_summary">Use the floating style for the bottom navigation bar</string>
-    <string name="floating_navigation_blur">Floating navigation blur</string>
-    <string name="floating_navigation_blur_summary">Blur the background of the floating bottom navigation bar</string>
+    <string name="floating_navigation_style">Floating navigation style</string>
+    <string name="floating_navigation_style_summary">Choose the material effect used by the floating bottom navigation bar</string>
+    <string name="floating_navigation_style_standard">Standard</string>
+    <string name="floating_navigation_style_blur">Blur</string>
+    <string name="floating_navigation_style_glass">Glass</string>
     <string name="swipe_back">Page swipe back</string>
     <string name="swipe_back_summary">Swipe horizontally on a page to go back</string>
 

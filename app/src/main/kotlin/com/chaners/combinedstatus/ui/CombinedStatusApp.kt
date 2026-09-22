@@ -6,6 +6,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import com.chaners.combinedstatus.settings.AppLanguage
 import com.chaners.combinedstatus.settings.AppThemeMode
 import com.chaners.combinedstatus.settings.AppearanceSettings
+import com.chaners.combinedstatus.settings.FloatingNavigationStyle
 import com.chaners.combinedstatus.ui.navigation.AppRoute
 import com.chaners.combinedstatus.ui.screens.AppearanceScreen
 import com.chaners.combinedstatus.ui.screens.ChargingScreen
@@ -30,7 +31,7 @@ internal fun CombinedStatusApp(
     onThemeModeChange: (AppThemeMode) -> Unit,
     onDynamicColorEnabledChange: (Boolean) -> Unit,
     onFloatingNavigationBarEnabledChange: (Boolean) -> Unit,
-    onFloatingNavigationBlurEnabledChange: (Boolean) -> Unit,
+    onFloatingNavigationStyleChange: (FloatingNavigationStyle) -> Unit,
     onSwipeBackEnabledChange: (Boolean) -> Unit,
     onAppLanguageChange: (AppLanguage) -> Unit,
     onLauncherIconHiddenChange: (Boolean) -> Unit,
@@ -87,8 +88,8 @@ internal fun CombinedStatusApp(
                     onDynamicColorEnabledChange = onDynamicColorEnabledChange,
                     onFloatingNavigationBarEnabledChange =
                         onFloatingNavigationBarEnabledChange,
-                    onFloatingNavigationBlurEnabledChange =
-                        onFloatingNavigationBlurEnabledChange,
+                    onFloatingNavigationStyleChange =
+                        onFloatingNavigationStyleChange,
                     onBack = ::navigateBack,
                 )
             }
