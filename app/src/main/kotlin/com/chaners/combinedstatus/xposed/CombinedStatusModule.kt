@@ -165,6 +165,7 @@ class CombinedStatusModule : XposedModule() {
     ) {
         if (BuildConfig.DEBUG) {
             log(Log.INFO, TAG, "combinedState " + snapshot.logLine)
+            CombinedStatusHomeRenderSession.onState(snapshot)
         }
     }
 
@@ -201,6 +202,23 @@ class CombinedStatusModule : XposedModule() {
         }
 
         if (BuildConfig.DEBUG) {
+            when (
+                val renderSession = CombinedStatusHomeRenderSession.attach(
+                    host = capture.host,
+                    onEvent = { event -> log(Log.INFO, TAG, event) },
+                )
+            ) {
+                CombinedStatusHomeRenderSession.AttachResult.Ready -> Unit
+
+                is CombinedStatusHomeRenderSession.AttachResult.Failure -> {
+                    log(
+                        Log.WARN,
+                        TAG,
+                        "homeRenderProbe unavailable reason=" + renderSession.reason,
+                    )
+                }
+            }
+
             SystemUiNativeStatusInventory.schedule(capture.host) { snapshot ->
                 log(Log.INFO, TAG, snapshot.summary)
                 log(Log.INFO, TAG, snapshot.hostLine)
