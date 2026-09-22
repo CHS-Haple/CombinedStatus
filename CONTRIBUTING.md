@@ -596,22 +596,105 @@ GitHub Actions run numbers are CI execution metadata and MUST NOT be used as app
 
 ### 12.4 Changelog discipline
 
-`CHANGELOG.md` records **net project changes**, not commit-by-commit development history.
+`CHANGELOG.md` records **net project changes at a release boundary**, not commit-by-commit development history.
 
-Contributors MUST:
+Its purpose is to let a user or contributor answer:
 
-- describe the final behavior that remains true at the current unreleased/released boundary;
-- collapse superseded experiments into their final outcome;
-- omit CI build numbers, temporary probes, intermediate UI iterations, and implementation paths that were later replaced unless they remain materially relevant to users or contributors;
-- place removed experiments under `Removed` only when their removal is itself important to understanding the current architecture;
-- keep detailed investigation history in Git commits, pull requests, diagnostics, or dedicated development documentation instead of duplicating it in the changelog;
-- keep `[Unreleased]` as the active development boundary until a formal display version is actually published.
-
-Before the first formal release, `[Unreleased]` SHOULD describe the current net state intended for that release rather than preserving every step taken to reach it.
-
-After a release, move the applicable net changes into the dated release section and start a fresh `[Unreleased]` section.
+- what capability exists now that did not exist before;
+- what existing behavior now works differently;
+- what defect is now fixed;
+- what relevant mechanism has been removed;
+- what engineering constraint materially affects future development.
 
 A changelog entry SHOULD answer **what is now different**, not **how many attempts were made**.
+
+#### 12.4.1 Release boundary
+
+Until the first formal release, `[Unreleased]` MUST describe the current net state intended for the initial release.
+
+Do not create a dated/versioned release section before that version is actually published.
+
+After a formal release:
+
+1. move the applicable net changes into `## [<version>] - YYYY-MM-DD`;
+2. create a fresh `## [Unreleased]`;
+3. record only changes made after that release boundary.
+
+#### 12.4.2 Categories
+
+Use the smallest category that accurately describes the final change:
+
+- **Added** — a capability, supported behavior, user-facing option, diagnostic facility, build channel, or integration that did not previously exist and remains present.
+- **Changed** — an existing capability now behaves, integrates, or presents differently.
+- **Fixed** — a defect or incorrect behavior is now corrected.
+- **Removed** — a previously present capability or a materially important experimental mechanism has been intentionally removed.
+- **Engineering** — a non-user-facing architectural, lifecycle, compatibility, build, or contributor constraint that materially changes how future work must be implemented.
+
+Do not use **Engineering** as a dumping ground for implementation details. If a change has no durable effect on users or future contributors, it belongs in Git history rather than the changelog.
+
+#### 12.4.3 What to include
+
+Contributors MUST include a changelog entry when a change materially affects at least one of:
+
+- user-visible behavior or settings;
+- supported runtime behavior;
+- compatibility or fallback behavior;
+- diagnostics that contributors rely on;
+- build/release channels or signing behavior;
+- persistent architecture or lifecycle ownership;
+- contributor rules that change how future code must be written;
+- removal of a mechanism whose absence is important to understanding the current architecture.
+
+#### 12.4.4 What to omit
+
+Contributors MUST NOT use the changelog as a development diary.
+
+Normally omit:
+
+- CI run/build numbers;
+- temporary diagnostic probes;
+- intermediate UI iterations;
+- trial constants or offsets;
+- failed hypotheses;
+- one-off instrumentation;
+- implementation paths that were later replaced;
+- refactors with no durable behavior or architecture effect;
+- repeated entries for the same final outcome.
+
+Keep detailed investigation history in commits, pull requests, diagnostics, issue discussions, or dedicated development documentation.
+
+A superseded experiment SHOULD be collapsed into the final outcome. Mention its removal only when future contributors need to know that the approach was deliberately rejected.
+
+#### 12.4.5 Entry style
+
+Each bullet SHOULD describe one final change unit using:
+
+`action + object + final effect/reason when needed`
+
+Prefer concise, present-state wording:
+
+- Good: `Fixed CombinedStatus disappearing during native Wi-Fi/mobile transitions.`
+- Good: `Changed airplane-mode tracking to use the authoritative global setting.`
+- Good: `Removed the experimental owned-slot padding mutation after it was shown to alter native geometry.`
+- Avoid: `Build 93 added a probe, then Build 94 moved it, and later Build 95 removed it.`
+
+Do not write chronological narratives inside a bullet.
+
+Avoid internal class names, field names, CI identifiers, and low-level implementation detail unless they are necessary to understand compatibility or architecture.
+
+One bullet SHOULD represent one durable outcome. If a sentence contains several unrelated changes joined by `and`, split it or keep only the release-relevant result.
+
+#### 12.4.6 Final review
+
+Before completing a functional change, ask:
+
+1. If someone installs only the final APK and never reads the commit history, is this entry still true and useful?
+2. Is the entry describing a result rather than the investigation process?
+3. Has an earlier entry already been superseded by this result?
+4. Is the selected category still correct?
+5. Could the wording be shorter without losing the durable effect?
+
+If the answer to the first two questions is no, the change normally does not belong in `CHANGELOG.md`.
 
 ### 12.5 CI and device validation
 
