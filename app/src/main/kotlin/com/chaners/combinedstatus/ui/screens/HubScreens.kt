@@ -49,20 +49,9 @@ internal fun FeaturesScreen(
         sectionTitle = stringResource(R.string.section_hyperos_display),
         bottomContentPadding = bottomContentPadding,
     ) {
-        ArrowPreference(
-            title = stringResource(R.string.status_bar_title),
-            summary = stringResource(R.string.status_bar_summary),
-            onClick = { onNavigate(AppRoute.StatusBar) },
-        )
-        ArrowPreference(
-            title = stringResource(R.string.keyguard_aod_title),
-            summary = stringResource(R.string.keyguard_aod_summary),
-            onClick = { onNavigate(AppRoute.Keyguard) },
-        )
-        ArrowPreference(
-            title = stringResource(R.string.charging_title),
-            summary = stringResource(R.string.charging_summary),
-            onClick = { onNavigate(AppRoute.Charging) },
+        BasicComponent(
+            title = stringResource(R.string.combined_status_feature_title),
+            summary = stringResource(R.string.combined_status_feature_summary),
         )
     }
 }
