@@ -405,6 +405,15 @@ internal object NativeParticipantRuntimeAccess {
         classLoader: ClassLoader,
         manager: Any,
     ): ControllerResolution {
+        val observedController =
+            SystemUiNativeParticipantRuntimeOwner.controllerFor(manager)
+        if (observedController != null) {
+            return ControllerResolution.Ready(
+                controller = observedController,
+                source = "add-icon-group-observer",
+            )
+        }
+
         val dependencyClass = classOrNull(DEPENDENCY, classLoader)
         if (dependencyClass != null) {
             val getMethod =
