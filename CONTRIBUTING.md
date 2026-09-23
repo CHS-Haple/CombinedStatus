@@ -64,7 +64,7 @@ Modern does not mean adopting a newer mechanism merely because it exists. It MUS
 
 ### 3.1 Evaluate before modifying
 
-A request, idea, reference implementation, or proposed fix is a **candidate direction**, not automatic permission to mutate the project.
+A request, idea, or proposed fix is a **candidate direction**, not automatic permission to mutate the project.
 
 Before changing project state, contributors MUST evaluate:
 
@@ -419,7 +419,7 @@ Previous CombinedStatus builds, successful constants, and old patches MAY be use
 
 They MUST NOT be reintroduced automatically.
 
-Before porting a historical fix, determine:
+Before reusing a historical fix, determine:
 
 - what real behavior it compensated for;
 - which runtime owner produced that behavior;
@@ -427,24 +427,7 @@ Before porting a historical fix, determine:
 - whether the new architecture already addresses the cause;
 - whether the old fix would violate current lifecycle or geometry ownership.
 
-Port the verified requirement, not the historical implementation.
-
-### 8.3 Reference projects provide patterns, not authority
-
-External SystemUI projects MAY be studied for:
-
-- per-host state;
-- lifecycle/session ownership;
-- cleanup design;
-- fallback behavior;
-- sizing abstractions;
-- integration points.
-
-A mechanism MUST NOT be copied solely because a mature reference project uses it.
-
-In particular, another module's `onMeasure`, `onLayout`, translation, visibility, or native-geometry hooks do not justify introducing the same ownership into CombinedStatus.
-
-Adopt the architectural benefit while preserving CombinedStatus's more conservative native-geometry contract whenever possible.
+Preserve the verified requirement, not the historical implementation.
 
 ## 9. SystemUI and compatibility rules
 
@@ -574,6 +557,8 @@ Keep exact upstream Android/HyperOS class, field, method, and resource identifie
 
 Normal settings UI SHOULD NOT expose internal terms such as host, role, writer, hook chain, probe path, or implementation class name unless the screen is explicitly diagnostic.
 
+Public-facing documentation SHOULD describe the project's current behavior, compatibility, architecture, and user-facing limitations. Development lineage, superseded implementation history, and unrelated projects SHOULD be omitted unless they are required for licensing, attribution, or compatibility context.
+
 ## 12. Branching, versioning, CI, and release discipline
 
 ### 12.1 Branches
@@ -674,7 +659,7 @@ Normally omit:
 - failed hypotheses;
 - one-off instrumentation;
 - implementation paths that were later replaced;
-- refactors with no durable behavior or architecture effect;
+- internal cleanup with no durable behavior or architecture effect;
 - repeated entries for the same final outcome.
 
 Keep detailed investigation history in commits, pull requests, diagnostics, issue discussions, or dedicated development documentation.
@@ -897,4 +882,4 @@ Every completed implementation report MUST state:
 13. required real-device test scenarios and current result;
 14. known limitations and compatibility boundaries.
 
-These rules MUST be re-read and applied by developers and contributors for every future feature, fix, migration, and runtime-sensitive refactor.
+These rules MUST be re-read and applied by developers and contributors for every future feature, fix, migration, and runtime-sensitive change.
