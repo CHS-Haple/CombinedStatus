@@ -837,7 +837,7 @@ A failed CI run MUST be understood before it is retried:
 
 A green CI result means only that the checks performed by that workflow passed. It does not prove SystemUI runtime correctness, lifecycle correctness, UI behavior, or device compatibility.
 
-Before merging, required checks for the target branch MUST pass. Runtime-sensitive changes MUST also complete focused real-device validation for the affected lifecycle and scenes. Work still awaiting required device validation MUST remain marked as such and MUST NOT be promoted to `main`.
+Before merging, required checks for the target branch MUST pass. For `feat/*` or `fix/* -> dev`, runtime-sensitive work may remain explicitly marked `awaiting device validation` only under the integration conditions defined in §12.1.3. Before `dev -> main` promotion, all required focused real-device validation for the affected lifecycle and scenes MUST pass; no affected change may remain `awaiting device validation`.
 
 Create a new CI build when the source, configuration, diagnostics, or validation target has meaningfully changed. Do not create commits or builds solely to obtain another CI/run number.
 
