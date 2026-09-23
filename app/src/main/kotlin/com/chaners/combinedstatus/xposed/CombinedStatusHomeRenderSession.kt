@@ -119,13 +119,12 @@ internal object CombinedStatusHomeRenderSession {
                     }
                 }
             }
+        private val renderController = CombinedStatusRenderController(probeView)
         private var readyLogged = false
         private var layoutLogged = false
         private var tintLogged = false
         private var deferredStateLogged = false
         private var rejectedTintLogged = false
-        private var stableModel: CombinedStatusRenderModel? = null
-        private var stableTint: CombinedStatusTintState? = null
         private var sceneSurface = SystemUiSceneStateSource.Surface.UNKNOWN
         private val anchorRect = Rect()
         private var previousVisual: View? = null
@@ -235,31 +234,20 @@ internal object CombinedStatusHomeRenderSession {
             state: CombinedStatusTintState,
             source: String,
         ) {
-            val resolved =
-                CombinedStatusPresentationPolicy.resolveTint(
-                    previous = stableTint,
-                    candidate = state,
-                )
+            val update = renderController.updateTint(state)
 
-            if (resolved == null || resolved == stableTint) {
-                if (
-                    !CombinedStatusPresentationPolicy.isValidTint(state) &&
-                    !rejectedTintLogged
-                ) {
-                    rejectedTintLogged = true
-                    emitEvent {
-                        "homeRenderTint deferred source=" + source +
-                            " applied=#" +
-                            state.appliedTint.toUInt().toString(16).padStart(8, '0') +
-                            " reason=transparent retainStable=true"
-                    }
+            if (update.rejectedInvalidCandidate && !rejectedTintLogged) {
+                rejectedTintLogged = true
+                emitEvent {
+                    "homeRenderTint deferred source=" + source +
+                        " applied=#" +
+                        state.appliedTint.toUInt().toString(16).padStart(8, '0') +
+                        " reason=transparent retainStable=true"
                 }
-                return
             }
 
-            stableTint = resolved
-            probeView.setTintState(resolved)
-            if (!tintLogged) {
+            if (update.changed && !tintLogged) {
+                val resolved = update.resolved ?: return
                 tintLogged = true
                 emitEvent {
                     "homeRenderTint source=" + source +
@@ -274,22 +262,19 @@ internal object CombinedStatusHomeRenderSession {
             snapshot: CombinedStatusStateStore.Snapshot,
             trace: RuntimeRenderTrace? = null,
         ) {
-            val defaultDataSubscriptionId =
-                SystemUiDefaultDataSubscriptionSource.currentSubscriptionId()
-            val candidate =
-                CombinedStatusRenderModel.from(
+            val visibleTrace =
+                trace?.takeIf {
+                    layoutLogged &&
+                        SystemUiSceneStateSource.allowsHomeOverlay(sceneSurface)
+                }
+            val update =
+                renderController.update(
                     snapshot = snapshot,
-                    presentation = CombinedStatusPresentationStateStore.snapshot(),
-                    defaultDataSubscriptionId = defaultDataSubscriptionId,
-                )
-            val model =
-                CombinedStatusPresentationPolicy.resolveModel(
-                    previous = stableModel,
-                    candidate = candidate,
+                    trace = visibleTrace,
                 )
 
-            if (candidate == null) {
-                if (stableModel != null && !deferredStateLogged) {
+            if (!update.candidateComplete) {
+                if (update.retainedStable && !deferredStateLogged) {
                     deferredStateLogged = true
                     emitEvent {
                         "homeRenderState deferred incomplete=true " +
@@ -299,16 +284,7 @@ internal object CombinedStatusHomeRenderSession {
                 return
             }
 
-            if (model != stableModel) {
-                stableModel = model
-                val visibleTrace =
-                    trace?.takeIf {
-                        layoutLogged &&
-                            SystemUiSceneStateSource.allowsHomeOverlay(sceneSurface)
-                    }
-                probeView.setModel(model, visibleTrace)
-            }
-
+            val model = update.model
             if (model != null && !readyLogged) {
                 readyLogged = true
                 emitEvent {
@@ -318,7 +294,7 @@ internal object CombinedStatusHomeRenderSession {
                         " center=" + model.centerIndicator.javaClass.simpleName +
                         " mobileLevel=" + (model.mobileLevel ?: -1) +
                         " effectiveDataSubId=" + model.effectiveDataSubscriptionId +
-                        " defaultDataSubId=" + defaultDataSubscriptionId
+                        " defaultDataSubId=" + update.defaultDataSubscriptionId
                 }
             }
         }
