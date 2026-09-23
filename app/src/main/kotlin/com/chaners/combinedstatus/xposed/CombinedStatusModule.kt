@@ -920,23 +920,6 @@ class CombinedStatusModule : XposedModule() {
         host: Any,
         source: String,
     ) {
-        val discovery = NativeParticipantRuntimeAccess.discoverySnapshot(host)
-        log(Log.INFO, TAG, discovery.logLine)
-        logDiagnostic(
-            level = if (discovery.available) Log.INFO else Log.WARN,
-            event = "contract.discovery",
-            component = "nativeParticipant",
-            state = if (discovery.available) "observed" else "unavailable",
-            "source" to source,
-            "reason" to discovery.reason,
-            "statusBarView" to discovery.statusBarViewClass,
-            "manager" to discovery.managerClass,
-            "group" to discovery.groupClass,
-            "statusBarFields" to discovery.statusBarFields.joinToString("|"),
-            "managerFields" to discovery.managerFields.joinToString("|"),
-            "nativeGeometryWrites" to 0,
-        )
-
         if (BuildConfig.RUNTIME_DIAGNOSTICS) {
             when (
                 val nativeShadow =
@@ -1020,6 +1003,7 @@ class CombinedStatusModule : XposedModule() {
             "group" to nativeParticipant.groupClass,
             "groupRes" to nativeParticipant.groupResource,
             "controller" to nativeParticipant.controllerClass,
+            "controllerSource" to nativeParticipant.controllerSource,
             "controllerMatches" to nativeParticipant.controllerMatches,
             "managerMatches" to nativeParticipant.managerMatches,
             "groupMatches" to nativeParticipant.groupMatches,
