@@ -2,15 +2,17 @@ name: Build
 
 on:
   push:
-    branches: [ main, dev ]
+    branches: [ main, dev, validation/dev ]
   pull_request:
     branches: [ main, dev ]
     types: [ opened, synchronize, reopened, ready_for_review, converted_to_draft ]
   workflow_dispatch:
 
 permissions:
+  actions: read
   contents: read
   packages: read
+  statuses: write
 
 concurrency:
   group: build-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -45,7 +47,10 @@ jobs:
           FULL_BUILD=true
           REASON="trusted branch or manual build"
 
-          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+          if [[ "$EVENT_NAME" == "push" && "$GITHUB_REF" == "refs/heads/validation/dev" ]]; then
+            FULL_BUILD=false
+            REASON="device-validation marker update"
+          elif [[ "$EVENT_NAME" == "pull_request" ]]; then
             FULL_BUILD=false
             REASON="lightweight pull-request validation"
 
@@ -272,3 +277,101 @@ jobs:
           if [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.pull_request.draft }}" == "true" ]]; then
             echo "- Pull request state: draft (lightweight validation only)" >> "$GITHUB_STEP_SUMMARY"
           fi
+
+  promotion-readiness:
+    needs: build
+    if: always() && github.event_name == 'push' && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/validation/dev')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+      statuses: write
+
+    steps:
+      - name: Checkout current dev
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: dev
+          fetch-depth: 0
+
+      - name: Evaluate dev promotion readiness
+        id: readiness
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git fetch origin main --no-tags
+          git fetch origin validation/dev --no-tags || true
+
+          DEV_SHA="$(git rev-parse HEAD)"
+          MAIN_SHA="$(git rev-parse origin/main)"
+          VALIDATED_SHA="$(git rev-parse origin/validation/dev 2>/dev/null || true)"
+          AHEAD_BY="$(git rev-list --count origin/main..HEAD)"
+
+          CI_OK=false
+          SUCCESSFUL_DEV_RUN="$(
+            gh api -X GET "repos/$GITHUB_REPOSITORY/actions/workflows/build.yml/runs" \
+              -f branch=dev \
+              -f event=push \
+              -f status=success \
+              -f per_page=20 \
+              --jq ".workflow_runs[] | select(.head_sha == \"$DEV_SHA\") | .id" |
+              head -n 1
+          )"
+          if [[ -n "$SUCCESSFUL_DEV_RUN" ]]; then
+            CI_OK=true
+          fi
+
+          DEVICE_OK=false
+          if [[ -n "$VALIDATED_SHA" && "$VALIDATED_SHA" == "$DEV_SHA" ]]; then
+            DEVICE_OK=true
+          fi
+
+          CHANGELOG_OK=false
+          if grep -Fq "## [Unreleased]" CHANGELOG.md; then
+            CHANGELOG_OK=true
+          fi
+
+          READY=false
+          STATE=pending
+          DESCRIPTION="Promotion blocked: awaiting readiness gates"
+
+          if [[ "$AHEAD_BY" -le 0 ]]; then
+            DESCRIPTION="Promotion not needed: dev matches main"
+          elif [[ "$CI_OK" != "true" ]]; then
+            DESCRIPTION="Promotion blocked: dev Build is not green"
+          elif [[ "$DEVICE_OK" != "true" ]]; then
+            DESCRIPTION="Promotion blocked: dev device validation is stale or missing"
+          elif [[ "$CHANGELOG_OK" != "true" ]]; then
+            DESCRIPTION="Promotion blocked: Unreleased changelog section missing"
+          else
+            READY=true
+            STATE=success
+            DESCRIPTION="READY: dev is CI-green and device-validated"
+          fi
+
+          echo "dev_sha=$DEV_SHA" >> "$GITHUB_OUTPUT"
+          echo "main_sha=$MAIN_SHA" >> "$GITHUB_OUTPUT"
+          echo "validated_sha=$VALIDATED_SHA" >> "$GITHUB_OUTPUT"
+          echo "ahead_by=$AHEAD_BY" >> "$GITHUB_OUTPUT"
+          echo "ci_ok=$CI_OK" >> "$GITHUB_OUTPUT"
+          echo "device_ok=$DEVICE_OK" >> "$GITHUB_OUTPUT"
+          echo "changelog_ok=$CHANGELOG_OK" >> "$GITHUB_OUTPUT"
+          echo "ready=$READY" >> "$GITHUB_OUTPUT"
+
+          gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$DEV_SHA" \
+            -f state="$STATE" \
+            -f context="promotion/readiness" \
+            -f description="$DESCRIPTION"
+
+      - name: Promotion readiness summary
+        shell: bash
+        run: |
+          echo "### Promotion readiness" >> "$GITHUB_STEP_SUMMARY"
+          echo "- dev: `${{ steps.readiness.outputs.dev_sha }}`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- ahead of main: `${{ steps.readiness.outputs.ahead_by }}` commit(s)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- dev Build green: `${{ steps.readiness.outputs.ci_ok }}`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- device validation current: `${{ steps.readiness.outputs.device_ok }}`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- changelog boundary present: `${{ steps.readiness.outputs.changelog_ok }}`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- READY: `${{ steps.readiness.outputs.ready }}`" >> "$GITHUB_STEP_SUMMARY"
