@@ -953,7 +953,7 @@ class CombinedStatusModule : XposedModule() {
                     component = "nativeParticipant",
                     state = "pending",
                     "source" to source,
-                    "trigger" to "host-attached-next-main-turn",
+                    "trigger" to "native-dark-icon-manager-registered",
                     "nativeGeometryWrites" to 0,
                 )
             }
