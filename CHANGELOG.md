@@ -25,7 +25,6 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Changed
 
-- Page-level vertical scrolling now uses MIUIX spring overscroll consistently, including pages whose content fits within the viewport.
 - Top app bars now use MIUIX progressive backdrop blur while scrolling content beneath them on supported devices, with the standard solid surface retained as fallback.
 - Companion-app transient feedback now uses MIUIX Snackbar, and icon-only SystemUI reload exposes a native MIUIX long-press tooltip without changing the action layout.
 - Top-level page navigation now uses MIUIX Cross-Axis pager gesture ownership so horizontal page switching remains available while vertical child content is settling, without adding a second app-owned gesture recognizer.
