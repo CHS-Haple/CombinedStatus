@@ -1025,13 +1025,46 @@ class CombinedStatusModule : XposedModule() {
                     bindableParticipant.viewOnlySlots.joinToString("|"),
                 "runtimeViews" to
                     bindableParticipant.runtimeBindableViews.joinToString("|"),
+                "groupClipChildren" to bindableParticipant.groupClipChildren,
+                "groupClipToPadding" to bindableParticipant.groupClipToPadding,
+                "groupHeight" to bindableParticipant.groupHeight,
                 "staticContractReady" to bindableParticipant.staticContractReady,
-                "dynamicRegistrationProven" to
-                    bindableParticipant.dynamicRegistrationProven,
+                "dynamicRegistrationObserved" to
+                    bindableParticipant.dynamicRegistrationObserved,
                 "nativeGeometryWrites" to 0,
             )
 
-
+            val visualGeometry =
+                NativeBindableVisualGeometryProbe.inspect(host)
+            log(Log.INFO, TAG, visualGeometry.logLine)
+            logDiagnostic(
+                level = if (visualGeometry.ready) Log.INFO else Log.WARN,
+                event = "contract.probe",
+                component = "nativeBindableVisualGeometry",
+                state = if (visualGeometry.ready) "ready" else "observed",
+                "source" to source,
+                "available" to visualGeometry.available,
+                "reason" to visualGeometry.reason,
+                "reference" to visualGeometry.referenceClass,
+                "referenceBounds" to visualGeometry.referenceBounds,
+                "referenceLayoutWidth" to visualGeometry.referenceLayoutWidth,
+                "referenceLayoutHeight" to visualGeometry.referenceLayoutHeight,
+                "groupHeight" to visualGeometry.groupHeight,
+                "groupClipChildren" to visualGeometry.groupClipChildren,
+                "groupClipToPadding" to visualGeometry.groupClipToPadding,
+                "visualWidth" to visualGeometry.visualWidth,
+                "visualHeight" to visualGeometry.visualHeight,
+                "shellMeasuredWidth" to visualGeometry.shellMeasuredWidth,
+                "shellMeasuredHeight" to visualGeometry.shellMeasuredHeight,
+                "shellClipChildren" to visualGeometry.shellClipChildren,
+                "renderMeasuredWidth" to visualGeometry.renderMeasuredWidth,
+                "renderMeasuredHeight" to visualGeometry.renderMeasuredHeight,
+                "renderBounds" to visualGeometry.renderBounds,
+                "projectedTop" to visualGeometry.projectedTop,
+                "projectedBottom" to visualGeometry.projectedBottom,
+                "projectedFitsGroup" to visualGeometry.projectedFitsGroup,
+                "nativeGeometryWrites" to 0,
+            )
         }
     }
 
