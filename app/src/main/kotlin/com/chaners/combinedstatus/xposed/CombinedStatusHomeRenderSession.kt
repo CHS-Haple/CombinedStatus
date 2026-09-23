@@ -78,11 +78,6 @@ internal object CombinedStatusHomeRenderSession {
     }
 
     @Synchronized
-    fun onIslandMotion(update: SystemUiIslandMotionSource.MotionUpdate) {
-        current?.updateIslandMotion(update)
-    }
-
-    @Synchronized
     fun visualHandoffView(): View? = current?.visualHandoffView()
 
     @Synchronized
@@ -203,14 +198,6 @@ internal object CombinedStatusHomeRenderSession {
                 return
             }
             applySceneState(update, "updateState")
-        }
-
-        fun updateIslandMotion(update: SystemUiIslandMotionSource.MotionUpdate) {
-            val battery = batteryView.get() ?: return
-            if (update.anchor !== battery) {
-                return
-            }
-            layoutProbe()
         }
 
         private fun applySceneState(
