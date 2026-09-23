@@ -509,6 +509,21 @@ Normal sequence:
 
 After a dependency revision is validated, a later upstream revision is a new adoption boundary rather than an append-only continuation of the already-validated state.
 
+### 9.4 Dependabot policy
+
+Dependabot is discovery and proposal automation, not an acceptance authority.
+
+For normal version updates:
+
+- Dependabot targets `dev`, not `main`.
+- Minor and patch updates may be grouped per package ecosystem to reduce pull-request churn.
+- Major updates remain separate so breaking-change review, migration notes, and rollback remain attributable.
+- Dependency pull requests are not auto-merged by default. Merge only after the applicable relevance/maturity review and CI/Canary/device validation required by this section.
+
+Security updates are higher priority and may follow GitHub's default-branch security-update behavior. When a security update lands on `main`, reconcile the equivalent update into `dev` before the next normal promotion.
+
+Do not keep obsolete Dependabot pull requests open merely because they were generated automatically. Close superseded, irrelevant, or intentionally deferred proposals with the reason recorded where useful.
+
 ## 10. Definition of done and change record
 
 Review only what is relevant to the change; do not create artificial N/A-heavy process.
