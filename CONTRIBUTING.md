@@ -804,34 +804,66 @@ Test/prerelease tags MAY include CI execution identity. Stable version tags and 
 
 Use the checked-in Gradle Wrapper as the canonical Gradle entry point.
 
-Minimum local verification for ordinary code changes:
+Validation is checkpoint-based, not commit-based. Atomic local commits MAY accumulate between meaningful validation checkpoints; contributors are not required to run the full local build after every intermediate commit.
+
+For an ordinary code-change checkpoint that is being presented for integration, the normal local baseline is:
 
 ```bash
 ./gradlew :app:testDebugUnitTest
 ./gradlew :app:assembleDebug
 ```
 
-When a change affects Release/Canary build behavior, signing-independent configuration, shrinking, resources, or Xposed metadata, also run the applicable non-secret build/check locally where possible. Maintainer signing credentials are never required for an external contributor to validate source changes.
+When a checkpoint affects Release/Canary build behavior, signing-independent configuration, shrinking, resources, or Xposed metadata, also run the applicable non-secret build/check locally where practical. Maintainer signing credentials are never required for an external contributor to validate source changes.
+
+Do not create commits merely to trigger CI. Prefer grouping coherent local progress into a meaningful source checkpoint before pushing when no collaboration, backup, or review need requires an earlier push.
 
 Do not commit local SDK paths, signing material, generated APK/AAB files, or environment-specific Gradle configuration.
 
 ### 12.7 CI and device validation
 
-CI verifies a source state; real-device testing verifies runtime behavior. Neither replaces the other.
+CI verifies a source state; real-device testing verifies runtime behavior. Neither replaces the other. Validation depth MUST be proportional to the risk and promotion stage rather than mechanically repeated for every commit.
+
+#### 12.7.1 CI scope
 
 Use CI by purpose:
 
-- **Pull-request CI** runs secret-independent checks for tests, buildability, compatibility, metadata, and other safe validation.
-- **Trusted pushes to `dev` or `main`** may additionally build and verify project-signed Debug/Canary artifacts.
+- **Draft pull requests** are an iterative review state. They SHOULD use lightweight repository validation and defer expensive Android build/test work until the pull request becomes ready for review.
+- **Ready pull requests to `dev`** use path-aware validation. Documentation/governance-only changes that cannot affect APK, build, compatibility, or CI behavior SHOULD remain lightweight; APK/build/compatibility/CI-affecting paths require the full secret-independent Android validation.
+- **Pull requests to `main`** require the full applicable validation because they represent promotion or hotfix boundaries.
+- **Trusted pushes to `dev` or `main`** may build and verify project-signed Debug/Canary artifacts for integration/device testing.
 - **Release CI** is reserved for deliberate test or stable publication, not ordinary development builds.
 - CI and local builds MUST use the checked-in Gradle Wrapper.
 
+A CI-workflow change is itself CI-affecting and MUST receive full validation before integration even if the surrounding pull request is otherwise documentation-focused.
+
+Superseded CI runs for the same branch/PR SHOULD be cancelled when a newer source state makes them irrelevant.
+
 For APK-affecting work, verify the checks relevant to the change, including compatibility profiles, tests, required build variants, Modern Xposed metadata, signing where applicable, diagnostics boundaries, and artifact generation.
+
+#### 12.7.2 Behavioral and device checkpoints
+
+Real-device testing is tied to observable behavior checkpoints, not individual commits.
+
+Request or repeat device testing when:
+
+- a source state first becomes meaningfully testable;
+- new evidence is required to choose between remaining implementation hypotheses;
+- a later change can affect a previously validated owner, lifecycle, scene, transition, geometry, compatibility path, or user-visible behavior;
+- an integration checkpoint in `dev` needs cross-feature validation;
+- the candidate state is being prepared for promotion to `main`.
+
+Do not request repeated device tests for intermediate commits whose observable behavior and affected risk surface have not meaningfully changed.
+
+Use impact-based regression scope. Test the directly affected behavior and its credible shared dependencies; do not rerun unrelated full-device scenarios merely because another commit exists.
+
+Several independently completed changes MAY be validated together at a `dev` integration checkpoint when doing so preserves clear acceptance criteria and failure attribution. If a failure cannot be attributed cleanly, split the validation or return to single-variable A/B testing.
+
+#### 12.7.3 Failure and promotion gates
 
 A failed CI run MUST be understood before it is retried:
 
-- fix deterministic code, configuration, dependency, metadata, or signing failures and validate the resulting commit with a new run;
-- rerun the same commit only when there is reasonable evidence of a transient runner, network, package-hosting, or upstream-service failure;
+- fix deterministic code, configuration, dependency, metadata, or signing failures and validate the resulting checkpoint with a new run;
+- rerun the same source state only when there is reasonable evidence of a transient runner, network, package-hosting, or upstream-service failure;
 - if the cause is unclear, inspect the logs or reproduce the failure before retrying;
 - repeated reruns MUST NOT be used to obtain a green result from an unresolved deterministic failure.
 
