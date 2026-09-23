@@ -733,6 +733,70 @@ For runtime-sensitive work, provide focused real-device scenarios based on the a
 
 Do not claim runtime correctness from CI alone.
 
+### 12.8 Upstream dependency adoption
+
+Dependency updates MUST be evaluated by relevance and maturity rather than adopted merely because a newer commit exists.
+
+#### 12.8.1 Relevance classes
+
+Classify a meaningful upstream change before adoption:
+
+- **A — priority**: directly fixes a current or likely CombinedStatus problem, removes a project workaround, addresses a crash/lifecycle/state issue, or carries important maintainer guidance for an API or component the project uses.
+- **B — canary candidate**: provides a clear interaction, stability, performance, compatibility, or maintainability improvement worth isolated validation.
+- **C — normally ignore**: dependency-only churn, docs/example-only changes, unrelated platform changes, or changes to components CombinedStatus does not use.
+
+For MIUIX, pay particular attention to pager/gesture handling, navigation, Preference, dialogs, horizontally draggable controls, floating navigation, Blur/backdrop, theme behavior, Android lifecycle/state restoration, performance, and maintainer warnings.
+
+#### 12.8.2 Maturity levels
+
+Treat upstream maturity explicitly:
+
+1. **open/experimental PR** — investigation only; MUST NOT be adopted as a project dependency solely because its CI is green;
+2. **merged main/canary** — MAY be considered when an exact revision is published and passes the project adoption gate;
+3. **stable release** — preferred when it already contains the required fix or feature.
+
+Maintainer warnings such as “do not use yet”, known regressions, incomplete follow-up fixes, or missing artifacts override apparent freshness and MUST block adoption until resolved.
+
+#### 12.8.3 Exact-revision gate
+
+For an upstream main snapshot or canary dependency, CombinedStatus MUST pin one exact revision and verify the evidence for that same revision.
+
+For MIUIX main snapshots, all of the following MUST be true before adoption:
+
+- upstream **Build All Tests** succeeds;
+- upstream **Build Example App** succeeds;
+- upstream **Publish to GitHub Packages** succeeds;
+- the commit-specific SNAPSHOT for that exact revision is actually resolvable;
+- all MIUIX modules used by the app resolve to the same revision;
+- credentials remain outside the repository.
+
+Equivalent test/build/publish evidence SHOULD be required for other dependencies when upstream provides it.
+
+Do not substitute an unpublished head for the newest fully green published revision.
+
+#### 12.8.4 Adoption workflow
+
+Use a short-lived branch such as `feat/<dependency>-<revision>` and target `dev`.
+
+The normal sequence is:
+
+1. inspect the upstream PR/issue/maintainer discussion and classify the change A/B/C;
+2. identify the exact merged revision and confirm its maturity/evidence;
+3. centralize the dependency version/revision where practical;
+4. update all related modules atomically so mixed revisions are not introduced;
+5. update repository-facing dependency references and notices when applicable;
+6. run CI and a dependency-only Canary first when the update can affect runtime/UI behavior;
+7. if the new upstream version introduces a recommended API path, integrate that behavior as a separate bounded change or second Canary when practical;
+8. perform focused real-device validation for runtime-sensitive behavior;
+9. review the final diff for unrelated changes;
+10. squash/merge the validated result into `dev`, verify post-merge CI, and delete the short-lived branch.
+
+Do not combine a dependency update with unrelated UI redesign, architecture migration, or feature work merely because the newer dependency makes those changes possible.
+
+A dependency-only validation and a behavior/API-integration validation SHOULD remain distinguishable when that separation materially improves fault isolation.
+
+Once a dependency-update branch has been validated, later upstream revisions MUST be handled as a separate update rather than appended to that already-validated branch.
+
 ## 13. Post-change review and definition of done
 
 Review only the checks that are relevant to the change. Runtime-sensitive work requires the deeper lifecycle and ownership checks; documentation-only or mechanical changes do not need artificial N/A-heavy reporting.
