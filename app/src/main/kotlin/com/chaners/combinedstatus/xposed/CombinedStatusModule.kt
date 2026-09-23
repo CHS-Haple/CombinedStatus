@@ -79,6 +79,10 @@ class CombinedStatusModule : XposedModule() {
         }
 
         if (BuildConfig.RUNTIME_DIAGNOSTICS) {
+            installNativeCombinedParticipant(
+                classLoader = param.classLoader,
+                source = "coldStart",
+            )
             installNativeParticipantControllerObserver(
                 classLoader = param.classLoader,
                 source = "coldStart",
@@ -154,6 +158,7 @@ class CombinedStatusModule : XposedModule() {
                 SystemUiNetworkRuntimeOwner.installedHookCount +
                 SystemUiPresentationRuntimeOwner.installedHookCount +
                 SystemUiNativeParticipantRuntimeOwner.installedHookCount +
+                SystemUiNativeCombinedParticipantOwner.installedHookCount +
                 if (islandMotionSourceInstalled) {
                     SystemUiIslandMotionSource.HOOK_COUNT
                 } else {
@@ -336,6 +341,50 @@ class CombinedStatusModule : XposedModule() {
                 "restartScope" to true,
             )
             log(Log.ERROR, TAG, "Hot reload failed restartScope=true", error)
+        }
+    }
+
+    private fun installNativeCombinedParticipant(
+        classLoader: ClassLoader,
+        source: String,
+    ) {
+        when (
+            val result =
+                SystemUiNativeCombinedParticipantOwner.install(
+                    module = this,
+                    classLoader = classLoader,
+                    onEvent = { event ->
+                        if (detailedDiagnosticsEnabled) {
+                            log(Log.INFO, TAG, event)
+                        }
+                    },
+                )
+        ) {
+            SystemUiNativeCombinedParticipantOwner.InstallResult.Installed,
+            SystemUiNativeCombinedParticipantOwner.InstallResult.AlreadyInstalled -> {
+                logDiagnostic(
+                    level = Log.INFO,
+                    event = "hook.install",
+                    component = "nativeCombinedParticipant",
+                    state = "ready",
+                    "source" to source,
+                    "hooks" to SystemUiNativeCombinedParticipantOwner.installedHookCount,
+                    "visible" to false,
+                    "nativeGeometryWrites" to 0,
+                )
+            }
+
+            is SystemUiNativeCombinedParticipantOwner.InstallResult.Failure -> {
+                logDiagnostic(
+                    level = Log.WARN,
+                    event = "hook.install",
+                    component = "nativeCombinedParticipant",
+                    state = "unavailable",
+                    "source" to source,
+                    "reason" to result.reason,
+                    "nativeGeometryWrites" to 0,
+                )
+            }
         }
     }
 
