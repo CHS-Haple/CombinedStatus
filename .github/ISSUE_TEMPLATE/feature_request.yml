@@ -41,7 +41,7 @@ body:
     id: context
     attributes:
       label: Runtime evidence or reference
-      description: Optional. Include SystemUI behavior, screenshots, recordings, or reference implementations when they materially help explain the request.
+      description: Optional. Include SystemUI behavior, screenshots, recordings, or other technical context when they materially help explain the request.
   - type: textarea
     id: alternatives
     attributes:
