@@ -235,14 +235,10 @@ private fun TopLevelPager(
             )
             1 -> FeaturesScreen(
                 bottomContentPadding = bottom,
-                hotReloadInProgress = hotReloadInProgress,
-                onHotReload = onHotReload,
                 onNavigate = onNavigate,
             )
             2 -> SettingsHubScreen(
                 bottomContentPadding = bottom,
-                hotReloadInProgress = hotReloadInProgress,
-                onHotReload = onHotReload,
                 appLanguage = appLanguage,
                 launcherIconHidden = launcherIconHidden,
                 swipeBackEnabled = swipeBackEnabled,
