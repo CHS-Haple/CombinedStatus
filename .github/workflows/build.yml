@@ -93,13 +93,15 @@ jobs:
           echo "Validation scope: full_build=$FULL_BUILD ($REASON)"
 
       - name: Lightweight repository checks
-        if: github.event_name == 'pull_request'
+        if: steps.scope.outputs.full_build == 'false' && github.ref != 'refs/heads/validation/dev'
         shell: bash
         env:
-          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
-          git diff --check "$PR_BASE_SHA" "$PR_HEAD_SHA"
+          if [[ -n "$BASE_SHA" && "$BASE_SHA" != "0000000000000000000000000000000000000000" ]]; then
+            git diff --check "$BASE_SHA" "$HEAD_SHA"
+          fi
 
       - name: Validate Gradle Wrapper
         if: steps.scope.outputs.full_build == 'true'
@@ -348,8 +350,27 @@ jobs:
           fi
 
           DEVICE_OK=false
+          DEVICE_CARRIED=false
+
           if [[ -n "$VALIDATED_SHA" && "$VALIDATED_SHA" == "$DEV_SHA" ]]; then
             DEVICE_OK=true
+          elif [[ -n "$VALIDATED_SHA" ]] && git merge-base --is-ancestor "$VALIDATED_SHA" "$DEV_SHA"; then
+            DEVICE_IMPACT=false
+            mapfile -t VALIDATION_DELTA < <(git diff --name-only "$VALIDATED_SHA" "$DEV_SHA")
+
+            for path in "${VALIDATION_DELTA[@]}"; do
+              case "$path" in
+                app/*|compat/*|gradle/*|tools/*|build.gradle.kts|settings.gradle.kts|gradle.properties|gradlew|gradlew.bat)
+                  DEVICE_IMPACT=true
+                  break
+                  ;;
+              esac
+            done
+
+            if [[ "$DEVICE_IMPACT" == "false" ]]; then
+              DEVICE_OK=true
+              DEVICE_CARRIED=true
+            fi
           fi
 
           CHANGELOG_OK=false
@@ -381,6 +402,7 @@ jobs:
           echo "ahead_by=$AHEAD_BY" >> "$GITHUB_OUTPUT"
           echo "ci_ok=$CI_OK" >> "$GITHUB_OUTPUT"
           echo "device_ok=$DEVICE_OK" >> "$GITHUB_OUTPUT"
+          echo "device_carried=$DEVICE_CARRIED" >> "$GITHUB_OUTPUT"
           echo "changelog_ok=$CHANGELOG_OK" >> "$GITHUB_OUTPUT"
           echo "ready=$READY" >> "$GITHUB_OUTPUT"
 
@@ -397,5 +419,6 @@ jobs:
           echo "- ahead of main: `${{ steps.readiness.outputs.ahead_by }}` commit(s)" >> "$GITHUB_STEP_SUMMARY"
           echo "- dev Build green: `${{ steps.readiness.outputs.ci_ok }}`" >> "$GITHUB_STEP_SUMMARY"
           echo "- device validation current: `${{ steps.readiness.outputs.device_ok }}`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- device validation carried across non-runtime delta: `${{ steps.readiness.outputs.device_carried }}`" >> "$GITHUB_STEP_SUMMARY"
           echo "- changelog boundary present: `${{ steps.readiness.outputs.changelog_ok }}`" >> "$GITHUB_STEP_SUMMARY"
           echo "- READY: `${{ steps.readiness.outputs.ready }}`" >> "$GITHUB_STEP_SUMMARY"
