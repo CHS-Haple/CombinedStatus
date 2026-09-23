@@ -513,8 +513,8 @@ internal object SystemUiNativeCombinedParticipantOwner {
 
     @Synchronized
     fun onSceneUpdate(update: SystemUiSceneStateSource.SceneUpdate) {
-        val battery = batteryRef?.get()
-        if (battery != null && update.sourceView !== battery) {
+        val sourceBattery = batteryRef?.get()
+        if (sourceBattery != null && update.sourceView !== sourceBattery) {
             return
         }
         currentSurface = update.surface
