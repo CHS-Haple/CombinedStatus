@@ -58,6 +58,7 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Engineering
 
+- Promotion readiness now runs as a lightweight post-Build workflow, so readiness infrastructure failures cannot turn an otherwise successful APK Build red; readiness still gates `dev -> main` through the same CI/device/changelog conditions.
 - CI validation now separates Light, Fast, Integration, and Full scopes: ordinary work branches prove changes with Debug, trusted `dev` runtime integration builds signed Canary only, and full Debug+Canary validation is reserved for build-system or stable-boundary risk.
 - Dependabot version updates now target `dev`; minor/patch updates are grouped per ecosystem to reduce PR noise, major updates remain individually reviewable, and generated dependency PRs are not auto-merged by default.
 - Contribution governance uses risk-based routing: repository text/governance and repository automation may move independently of runtime promotion when their own validation passes, shared `main` changes are history-preserving back-synced into `dev`, normal work reuses bounded active `feat/*`/`fix/*` branches instead of creating one branch per sub-task, device validation is checkpoint-based, hotfixes return to `dev`, and merged short-lived branches are cleaned up automatically.
