@@ -78,6 +78,13 @@ class CombinedStatusModule : XposedModule() {
             return
         }
 
+        if (BuildConfig.RUNTIME_DIAGNOSTICS) {
+            installNativeParticipantControllerObserver(
+                classLoader = param.classLoader,
+                source = "coldStart",
+            )
+        }
+
         runCatching {
             SystemUiHostRuntimeOwner.install(
                 module = this,
@@ -146,6 +153,7 @@ class CombinedStatusModule : XposedModule() {
             1 +
                 SystemUiNetworkRuntimeOwner.installedHookCount +
                 SystemUiPresentationRuntimeOwner.installedHookCount +
+                SystemUiNativeParticipantRuntimeOwner.installedHookCount +
                 if (islandMotionSourceInstalled) {
                     SystemUiIslandMotionSource.HOOK_COUNT
                 } else {
@@ -208,6 +216,7 @@ class CombinedStatusModule : XposedModule() {
             islandMotionSourceInstalled = false
             SystemUiPresentationRuntimeOwner.resetRuntimeState()
             SystemUiIslandMotionSource.resetRuntimeState()
+            SystemUiNativeParticipantRuntimeOwner.resetControllerRuntimeState()
             bindRuntimeDiagnostics()
             logDiagnostic(
                 level = Log.INFO,
@@ -244,6 +253,10 @@ class CombinedStatusModule : XposedModule() {
                 source = "hotReload",
             )
             if (BuildConfig.RUNTIME_DIAGNOSTICS) {
+                installNativeParticipantControllerObserver(
+                    classLoader = classLoader,
+                    source = "hotReload",
+                )
                 installIslandMotionSource(
                     classLoader = classLoader,
                     source = "hotReload",
@@ -323,6 +336,49 @@ class CombinedStatusModule : XposedModule() {
                 "restartScope" to true,
             )
             log(Log.ERROR, TAG, "Hot reload failed restartScope=true", error)
+        }
+    }
+
+    private fun installNativeParticipantControllerObserver(
+        classLoader: ClassLoader,
+        source: String,
+    ) {
+        when (
+            val result =
+                SystemUiNativeParticipantRuntimeOwner.installControllerObserver(
+                    module = this,
+                    classLoader = classLoader,
+                    onEvent = { event ->
+                        if (detailedDiagnosticsEnabled) {
+                            log(Log.INFO, TAG, event)
+                        }
+                    },
+                )
+        ) {
+            SystemUiNativeParticipantRuntimeOwner.InstallResult.Installed,
+            SystemUiNativeParticipantRuntimeOwner.InstallResult.AlreadyInstalled -> {
+                logDiagnostic(
+                    level = Log.INFO,
+                    event = "hook.install",
+                    component = "nativeParticipantControllerObserver",
+                    state = "ready",
+                    "source" to source,
+                    "hooks" to SystemUiNativeParticipantRuntimeOwner.installedHookCount,
+                    "nativeGeometryWrites" to 0,
+                )
+            }
+
+            is SystemUiNativeParticipantRuntimeOwner.InstallResult.Failure -> {
+                logDiagnostic(
+                    level = Log.WARN,
+                    event = "hook.install",
+                    component = "nativeParticipantControllerObserver",
+                    state = "unavailable",
+                    "source" to source,
+                    "reason" to result.reason,
+                    "nativeGeometryWrites" to 0,
+                )
+            }
         }
     }
 
@@ -631,12 +687,8 @@ class CombinedStatusModule : XposedModule() {
         source: String,
         preserveRendererVisual: Boolean = false,
     ) {
-        val nativeShadowDetach =
-            if (BuildConfig.RUNTIME_DIAGNOSTICS) {
-                NativeParticipantShadowSession.detach()
-            } else {
-                NativeParticipantShadowSession.DetachResult.AlreadyDetached
-            }
+        val nativeParticipantPendingCancelled =
+            SystemUiNativeParticipantRuntimeOwner.cancelPending()
         CombinedStatusHomeRenderSession.detach(preserveVisual = preserveRendererVisual)
         StatusBarStableSession.detach()
         SystemUiCoreRuntimeOwner.detach()
@@ -644,45 +696,18 @@ class CombinedStatusModule : XposedModule() {
         CombinedStatusPresentationStateStore.reset()
         SystemUiIslandMotionSource.resetRuntimeState()
 
-        val nativeShadowDetached =
-            nativeShadowDetach !is NativeParticipantShadowSession.DetachResult.Failure
-        if (BuildConfig.RUNTIME_DIAGNOSTICS) {
-            logDiagnostic(
-                level = if (nativeShadowDetached) Log.INFO else Log.WARN,
-                event = "participant.detach",
-                component = "nativeParticipantShadow",
-                state = if (nativeShadowDetached) "ready" else "error",
-                "source" to source,
-                "cleanup" to
-                    when (nativeShadowDetach) {
-                        NativeParticipantShadowSession.DetachResult.Removed ->
-                            "removed"
-                        NativeParticipantShadowSession.DetachResult.AlreadyDetached ->
-                            "already-detached"
-                        is NativeParticipantShadowSession.DetachResult.Failure ->
-                            "failed"
-                    },
-                "reason" to
-                    (nativeShadowDetach as? NativeParticipantShadowSession.DetachResult.Failure)
-                        ?.reason,
-                "nativeGeometryWrites" to 0,
-            )
-        }
         logDiagnostic(
-            level = if (nativeShadowDetached) Log.INFO else Log.WARN,
+            level = Log.INFO,
             event = "runtime.teardown",
             component = "runtimeSession",
-            state = if (nativeShadowDetached) "ready" else "partial",
+            state = "ready",
             "source" to source,
             "rendererDetached" to !preserveRendererVisual,
             "rendererVisualPreserved" to preserveRendererVisual,
             "stableStatusDetached" to true,
             "airplaneObserverDetached" to true,
             "defaultDataSubscriptionObserverDetached" to true,
-            "nativeShadowDetached" to nativeShadowDetached,
-            "nativeShadowReason" to
-                (nativeShadowDetach as? NativeParticipantShadowSession.DetachResult.Failure)
-                    ?.reason,
+            "nativeParticipantPendingCancelled" to nativeParticipantPendingCancelled,
         )
     }
 
@@ -807,64 +832,10 @@ class CombinedStatusModule : XposedModule() {
         }
 
         if (BuildConfig.RUNTIME_DIAGNOSTICS) {
-            when (
-                val nativeShadow =
-                    NativeParticipantShadowSession.attach(
-                        host = host,
-                        onEvent = { event ->
-                            if (detailedDiagnosticsEnabled) {
-                                log(Log.INFO, TAG, event)
-                            }
-                        },
-                    )
-            ) {
-                is NativeParticipantShadowSession.AttachResult.Ready -> {
-                    val shadow = nativeShadow.snapshot
-                    logDiagnostic(
-                        level = Log.INFO,
-                        event = "participant.attach",
-                        component = "nativeParticipantShadow",
-                        state = "ready",
-                        "source" to source,
-                        "slot" to shadow.slot,
-                        "root" to shadow.rootClass,
-                        "rootIndex" to shadow.rootIndex,
-                        "visibility" to shadow.rootVisibility,
-                        "iconVisible" to shadow.iconVisible,
-                        "measured" to
-                            shadow.measuredWidth.toString() +
-                                "x" +
-                                shadow.measuredHeight,
-                        "layoutHidden" to shadow.layoutHidden,
-                        "childrenBefore" to shadow.childrenBefore,
-                        "childrenAfter" to shadow.childrenAfter,
-                        "bootstrapRes" to
-                            "0x" +
-                                shadow.bootstrapResourceId
-                                    .toUInt()
-                                    .toString(16),
-                        "bootstrapSlot" to shadow.bootstrapSourceSlot,
-                        "bootstrapIndex" to shadow.bootstrapSourceIndex,
-                        "creationMode" to shadow.creationMode,
-                        "removalMode" to shadow.removalMode,
-                        "visible" to false,
-                        "nativeGeometryWrites" to 0,
-                    )
-                }
-
-                is NativeParticipantShadowSession.AttachResult.Failure -> {
-                    logDiagnostic(
-                        level = Log.WARN,
-                        event = "participant.attach",
-                        component = "nativeParticipantShadow",
-                        state = "unavailable",
-                        "source" to source,
-                        "reason" to nativeShadow.reason,
-                        "visible" to false,
-                        "nativeGeometryWrites" to 0,
-                    )
-                }
-            }
+            scheduleNativeParticipantDiagnostics(
+                host = host,
+                source = source,
+            )
         }
 
         when (
@@ -913,21 +884,63 @@ class CombinedStatusModule : XposedModule() {
         )
     }
 
-    private fun scheduleNativeSlotProbe(
+    private fun scheduleNativeParticipantDiagnostics(
         host: Any,
         source: String,
     ) {
-        if (
-            !BuildConfig.DEVELOPMENT_PROBES &&
-            !(BuildConfig.RUNTIME_DIAGNOSTICS && detailedDiagnosticsEnabled)
+        when (
+            val result =
+                SystemUiNativeParticipantRuntimeOwner.schedule(
+                    host = host,
+                    onReady = { readyHost ->
+                        runNativeParticipantDiagnostics(
+                            host = readyHost,
+                            source = source,
+                        )
+                    },
+                    onFailure = { reason ->
+                        logDiagnostic(
+                            level = Log.WARN,
+                            event = "participant.lifecycle",
+                            component = "nativeParticipant",
+                            state = "unavailable",
+                            "source" to source,
+                            "reason" to reason,
+                            "nativeGeometryWrites" to 0,
+                        )
+                    },
+                )
         ) {
-            return
-        }
+            SystemUiNativeParticipantRuntimeOwner.ScheduleResult.Scheduled -> {
+                logDiagnostic(
+                    level = Log.INFO,
+                    event = "participant.lifecycle",
+                    component = "nativeParticipant",
+                    state = "pending",
+                    "source" to source,
+                    "trigger" to "native-dark-icon-manager-registered",
+                    "nativeGeometryWrites" to 0,
+                )
+            }
 
-        SystemUiNetworkStateSource.bindingTopologyLines().forEach { line ->
-            log(Log.INFO, TAG, line)
+            is SystemUiNativeParticipantRuntimeOwner.ScheduleResult.Failure -> {
+                logDiagnostic(
+                    level = Log.WARN,
+                    event = "participant.lifecycle",
+                    component = "nativeParticipant",
+                    state = "unavailable",
+                    "source" to source,
+                    "reason" to result.reason,
+                    "nativeGeometryWrites" to 0,
+                )
+            }
         }
+    }
 
+    private fun runNativeParticipantDiagnostics(
+        host: Any,
+        source: String,
+    ) {
         val nativeParticipant = NativeParticipantContractProbe.inspect(host)
         log(Log.INFO, TAG, nativeParticipant.logLine)
         logDiagnostic(
@@ -951,6 +964,7 @@ class CombinedStatusModule : XposedModule() {
             "group" to nativeParticipant.groupClass,
             "groupRes" to nativeParticipant.groupResource,
             "controller" to nativeParticipant.controllerClass,
+            "controllerSource" to nativeParticipant.controllerSource,
             "controllerMatches" to nativeParticipant.controllerMatches,
             "managerMatches" to nativeParticipant.managerMatches,
             "groupMatches" to nativeParticipant.groupMatches,
@@ -975,6 +989,24 @@ class CombinedStatusModule : XposedModule() {
                 nativeParticipant.holderFactorySignatures.joinToString("|"),
             "nativeGeometryWrites" to 0,
         )
+    }
+
+    private fun scheduleNativeSlotProbe(
+        host: Any,
+        source: String,
+    ) {
+        if (
+            !BuildConfig.DEVELOPMENT_PROBES &&
+            !(BuildConfig.RUNTIME_DIAGNOSTICS && detailedDiagnosticsEnabled)
+        ) {
+            return
+        }
+
+        SystemUiNetworkStateSource.bindingTopologyLines().forEach { line ->
+            log(Log.INFO, TAG, line)
+        }
+
+
 
         SystemUiNativeStatusInventory.schedule(host) { snapshot ->
             log(Log.INFO, TAG, snapshot.summary)
