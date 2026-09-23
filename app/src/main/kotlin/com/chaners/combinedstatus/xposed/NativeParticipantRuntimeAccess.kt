@@ -22,6 +22,15 @@ internal object NativeParticipantRuntimeAccess {
             "com.android.systemui.statusbar.phone.StatusBarIconController",
         )
 
+    fun managerFor(host: Any): Any? {
+        val hostView = host as? View ?: return null
+        val statusBarView =
+            generateSequence(hostView) { view -> view.parent as? View }
+                .firstOrNull { view -> view.javaClass.name == PHONE_STATUS_BAR_VIEW }
+                ?: return null
+        return statusBarView.readField("mDarkIconManager")
+    }
+
     fun resolve(host: Any): ResolveResult {
         val hostView = host as? View
             ?: return ResolveResult.Failure("host-not-view")
