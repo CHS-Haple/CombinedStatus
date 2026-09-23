@@ -6,10 +6,6 @@ import android.view.ViewGroup
 import java.lang.reflect.Method
 
 internal object NativeParticipantRuntimeAccess {
-    private const val DISCOVERY_FIELD_LIMIT = 24
-    private val DISCOVERY_FIELD_KEYWORDS =
-        listOf("controller", "icon", "group", "manager", "status")
-
     const val PHONE_STATUS_BAR_VIEW =
         "com.android.systemui.statusbar.phone.MiuiPhoneStatusBarView"
     const val ICON_HOLDER =
@@ -18,6 +14,13 @@ internal object NativeParticipantRuntimeAccess {
         "com.android.systemui.statusbar.StatusBarIconView"
     const val STATUS_ICON_DISPLAYABLE =
         "com.android.systemui.statusbar.StatusIconDisplayable"
+    private const val DEPENDENCY =
+        "com.android.systemui.Dependency"
+    private val STATUS_BAR_ICON_CONTROLLER_CANDIDATES =
+        listOf(
+            "com.android.systemui.statusbar.phone.ui.StatusBarIconController",
+            "com.android.systemui.statusbar.phone.StatusBarIconController",
+        )
 
     fun resolve(host: Any): ResolveResult {
         val hostView = host as? View
@@ -34,8 +37,17 @@ internal object NativeParticipantRuntimeAccess {
             ?: return ResolveResult.Failure("dark-icon-manager-missing")
         val group = manager.readField("mGroup") as? ViewGroup
             ?: return ResolveResult.Failure("status-icon-group-missing")
-        val controller = manager.readField("mController")
-            ?: return ResolveResult.Failure("status-icon-controller-missing")
+        val controllerResolution =
+            resolveStatusBarIconController(
+                classLoader = classLoader,
+                manager = manager,
+            )
+        val controller =
+            when (controllerResolution) {
+                is ControllerResolution.Ready -> controllerResolution.controller
+                is ControllerResolution.Failure ->
+                    return ResolveResult.Failure(controllerResolution.reason)
+            }
 
         return ResolveResult.Ready(
             Handles(
@@ -43,6 +55,8 @@ internal object NativeParticipantRuntimeAccess {
                 manager = manager,
                 group = group,
                 controller = controller,
+                controllerSource =
+                    (controllerResolution as ControllerResolution.Ready).source,
                 classLoader = classLoader,
                 holderClass = classOrNull(ICON_HOLDER, classLoader),
                 iconViewClass = classOrNull(STATUS_BAR_ICON_VIEW, classLoader),
@@ -50,62 +64,6 @@ internal object NativeParticipantRuntimeAccess {
             ),
         )
     }
-
-    fun discoverySnapshot(host: Any): DiscoverySnapshot {
-        val hostView =
-            host as? View
-                ?: return DiscoverySnapshot.unavailable("host-not-view")
-
-        val statusBarView =
-            generateSequence(hostView) { view -> view.parent as? View }
-                .firstOrNull { view -> view.javaClass.name == PHONE_STATUS_BAR_VIEW }
-                ?: return DiscoverySnapshot.unavailable("phone-status-bar-view-missing")
-
-        val manager = statusBarView.readField("mDarkIconManager")
-            ?: return DiscoverySnapshot(
-                available = true,
-                reason = "dark-icon-manager-missing",
-                statusBarViewClass = statusBarView.javaClass.name,
-                managerClass = null,
-                groupClass = null,
-                statusBarFields = candidateFields(statusBarView),
-                managerFields = emptyList(),
-            )
-
-        val group = manager.readField("mGroup") as? ViewGroup
-
-        return DiscoverySnapshot(
-            available = true,
-            reason = null,
-            statusBarViewClass = statusBarView.javaClass.name,
-            managerClass = manager.javaClass.name,
-            groupClass = group?.javaClass?.name,
-            statusBarFields = candidateFields(statusBarView),
-            managerFields = candidateFields(manager),
-        )
-    }
-
-    private fun candidateFields(instance: Any): List<String> =
-        generateSequence(instance.javaClass) { clazz -> clazz.superclass }
-            .flatMap { clazz -> clazz.declaredFields.asSequence() }
-            .filter { field ->
-                val identity =
-                    (field.name + " " + field.type.name).lowercase()
-                DISCOVERY_FIELD_KEYWORDS.any(identity::contains)
-            }
-            .distinctBy { field -> field.name + ":" + field.type.name }
-            .take(DISCOVERY_FIELD_LIMIT)
-            .map { field ->
-                val runtimeType =
-                    runCatching {
-                        field.isAccessible = true
-                        field.get(instance)?.javaClass?.name
-                    }.getOrNull()
-                field.name + ":" + field.type.name +
-                    "=" + (runtimeType ?: "null")
-            }
-            .sorted()
-            .toList()
 
     fun resourceSetter(controllerClass: Class<*>): ResourceSetter? =
         controllerClass
@@ -443,6 +401,56 @@ internal object NativeParticipantRuntimeAccess {
         }.getOrNull()
     }
 
+    private fun resolveStatusBarIconController(
+        classLoader: ClassLoader,
+        manager: Any,
+    ): ControllerResolution {
+        val dependencyClass = classOrNull(DEPENDENCY, classLoader)
+        if (dependencyClass != null) {
+            val getMethod =
+                dependencyClass
+                    .allMethods()
+                    .firstOrNull { method ->
+                        method.name == "get" &&
+                            java.lang.reflect.Modifier.isStatic(method.modifiers) &&
+                            method.parameterTypes.contentEquals(
+                                arrayOf<Class<*>>(Class::class.java),
+                            )
+                    }
+
+            if (getMethod != null) {
+                STATUS_BAR_ICON_CONTROLLER_CANDIDATES.forEach { className ->
+                    val controllerType =
+                        classOrNull(className, classLoader)
+                            ?: return@forEach
+                    val controller =
+                        runCatching {
+                            getMethod.isAccessible = true
+                            getMethod.invoke(null, controllerType)
+                        }.getOrNull()
+                    if (controller != null) {
+                        return ControllerResolution.Ready(
+                            controller = controller,
+                            source = "dependency",
+                        )
+                    }
+                }
+            }
+        }
+
+        val legacyController = manager.readField("mController")
+        if (legacyController != null) {
+            return ControllerResolution.Ready(
+                controller = legacyController,
+                source = "manager-field",
+            )
+        }
+
+        return ControllerResolution.Failure(
+            "status-icon-controller-missing",
+        )
+    }
+
     private fun classOrNull(
         name: String,
         classLoader: ClassLoader,
@@ -451,45 +459,12 @@ internal object NativeParticipantRuntimeAccess {
             Class.forName(name, false, classLoader)
         }.getOrNull()
 
-    internal data class DiscoverySnapshot(
-        val available: Boolean,
-        val reason: String?,
-        val statusBarViewClass: String?,
-        val managerClass: String?,
-        val groupClass: String?,
-        val statusBarFields: List<String>,
-        val managerFields: List<String>,
-    ) {
-        val logLine: String
-            get() =
-                "nativeParticipantDiscovery available=" + available +
-                    " reason=" + (reason ?: "none") +
-                    " statusBarView=" + (statusBarViewClass ?: "none") +
-                    " manager=" + (managerClass ?: "none") +
-                    " group=" + (groupClass ?: "none") +
-                    " statusBarFields=" + statusBarFields.joinToString("|") +
-                    " managerFields=" + managerFields.joinToString("|") +
-                    " geometryWrites=0"
-
-        companion object {
-            fun unavailable(reason: String): DiscoverySnapshot =
-                DiscoverySnapshot(
-                    available = false,
-                    reason = reason,
-                    statusBarViewClass = null,
-                    managerClass = null,
-                    groupClass = null,
-                    statusBarFields = emptyList(),
-                    managerFields = emptyList(),
-                )
-        }
-    }
-
     internal data class Handles(
         val statusBarView: View,
         val manager: Any,
         val group: ViewGroup,
         val controller: Any,
+        val controllerSource: String,
         val classLoader: ClassLoader,
         val holderClass: Class<*>?,
         val iconViewClass: Class<*>?,
@@ -504,6 +479,17 @@ internal object NativeParticipantRuntimeAccess {
         data class Failure(
             val reason: String,
         ) : ResolveResult
+    }
+
+    private sealed interface ControllerResolution {
+        data class Ready(
+            val controller: Any,
+            val source: String,
+        ) : ControllerResolution
+
+        data class Failure(
+            val reason: String,
+        ) : ControllerResolution
     }
 
     internal data class ResourceSetter(
