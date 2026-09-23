@@ -1143,38 +1143,6 @@ class CombinedStatusModule : XposedModule() {
                 "nativeGeometryWrites" to 0,
             )
 
-            val slotOrdering =
-                NativeStatusBarSlotOrderingProbe.inspect(host)
-            log(Log.INFO, TAG, slotOrdering.logLine)
-            logDiagnostic(
-                level = if (slotOrdering.ready) Log.INFO else Log.WARN,
-                event = "contract.probe",
-                component = "nativeSlotOrdering",
-                state = if (slotOrdering.ready) "ready" else "observed",
-                "source" to source,
-                "available" to slotOrdering.available,
-                "reason" to slotOrdering.reason,
-                "iconList" to slotOrdering.iconListClass,
-                "slots" to
-                    slotOrdering.slots.joinToString("|") { entry -> entry.compact },
-                "viewOnlySlots" to slotOrdering.viewOnlySlots.joinToString("|"),
-                "methods" to slotOrdering.methods.joinToString("|"),
-                "constructors" to slotOrdering.constructors.joinToString("|"),
-                "fields" to slotOrdering.fields.joinToString("|"),
-                "slotElementContracts" to
-                    slotOrdering.slotElementContracts.joinToString("|"),
-                "slotListClass" to slotOrdering.listRelation.slotsClass,
-                "viewOnlyListClass" to slotOrdering.listRelation.viewOnlyClass,
-                "sameListIdentity" to slotOrdering.listRelation.sameIdentity,
-                "sameListSize" to slotOrdering.listRelation.sameSize,
-                "sameElementIdentity" to slotOrdering.listRelation.sameElementIdentity,
-                "viewOnlyBackingFields" to
-                    slotOrdering.listRelation.backingFields.joinToString("|"),
-                "indices" to slotOrdering.indexResults.joinToString("|"),
-                "groupOrder" to slotOrdering.groupOrder.joinToString("|"),
-                "nativeGeometryWrites" to 0,
-            )
-
             val visualGeometry =
                 NativeBindableVisualGeometryProbe.inspect(host)
             log(Log.INFO, TAG, visualGeometry.logLine)

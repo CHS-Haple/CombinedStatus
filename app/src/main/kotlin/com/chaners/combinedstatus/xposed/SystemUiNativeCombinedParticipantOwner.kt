@@ -548,13 +548,6 @@ internal object SystemUiNativeCombinedParticipantOwner {
                 (rootRef?.get()?.let { visibilityName(it.visibility) } ?: "none") +
                 " visible=false nativeGeometryWrites=0",
         )
-        eventSink?.invoke(
-            "nativeCombinedParticipant unlockedSlotOrder " +
-                NativeStatusBarSlotOrderingProbe
-                    .inspectLaidOutGroup(host)
-                    .joinToString("|") +
-                " nativeGeometryWrites=0",
-        )
     }
 
     @Synchronized
