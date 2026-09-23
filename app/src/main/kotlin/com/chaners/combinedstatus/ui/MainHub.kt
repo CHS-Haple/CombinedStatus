@@ -16,6 +16,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.navigationevent.NavigationEventInfo
@@ -35,7 +36,6 @@ import top.yukonga.miuix.kmp.basic.FloatingNavigationBar
 import top.yukonga.miuix.kmp.basic.FloatingNavigationBarItem
 import top.yukonga.miuix.kmp.basic.NavigationBar
 import top.yukonga.miuix.kmp.basic.NavigationBarItem
-import top.yukonga.miuix.kmp.basic.NavigationItem
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.blur.isRuntimeShaderSupported
 import top.yukonga.miuix.kmp.blur.layerBackdrop
@@ -51,6 +51,12 @@ import top.yukonga.miuix.kmp.utils.pagerGestureOverride
 import top.yukonga.miuix.kmp.utils.springAnimateToPage
 
 private const val TopLevelPageCount = 3
+
+private data class WeightedNavigationItem(
+    val label: String,
+    val icon: ImageVector,
+    val selectedIcon: ImageVector,
+)
 
 @Composable
 internal fun MainHub(
@@ -83,9 +89,21 @@ internal fun MainHub(
         }
 
     val items = listOf(
-        NavigationItem(stringResource(R.string.nav_home), MiuixIcons.Home),
-        NavigationItem(stringResource(R.string.nav_features), MiuixIcons.Tune),
-        NavigationItem(stringResource(R.string.nav_settings), MiuixIcons.Settings),
+        WeightedNavigationItem(
+            label = stringResource(R.string.nav_home),
+            icon = MiuixIcons.Normal.Home,
+            selectedIcon = MiuixIcons.Medium.Home,
+        ),
+        WeightedNavigationItem(
+            label = stringResource(R.string.nav_features),
+            icon = MiuixIcons.Normal.Tune,
+            selectedIcon = MiuixIcons.Medium.Tune,
+        ),
+        WeightedNavigationItem(
+            label = stringResource(R.string.nav_settings),
+            icon = MiuixIcons.Normal.Settings,
+            selectedIcon = MiuixIcons.Medium.Settings,
+        ),
     )
 
     fun selectPage(index: Int) {
@@ -125,10 +143,11 @@ internal fun MainHub(
                         },
                 ) {
                     items.forEachIndexed { index, item ->
+                        val selected = pagerState.currentPage == index
                         FloatingNavigationBarItem(
-                            selected = pagerState.currentPage == index,
+                            selected = selected,
                             onClick = { selectPage(index) },
-                            icon = item.icon,
+                            icon = if (selected) item.selectedIcon else item.icon,
                             label = item.label,
                         )
                     }
@@ -136,10 +155,11 @@ internal fun MainHub(
             } else {
                 NavigationBar {
                     items.forEachIndexed { index, item ->
+                        val selected = pagerState.currentPage == index
                         NavigationBarItem(
-                            selected = pagerState.currentPage == index,
+                            selected = selected,
                             onClick = { selectPage(index) },
-                            icon = item.icon,
+                            icon = if (selected) item.selectedIcon else item.icon,
                             label = item.label,
                         )
                     }

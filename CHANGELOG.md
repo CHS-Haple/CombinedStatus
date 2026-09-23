@@ -25,6 +25,7 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Changed
 
+- Bottom-navigation icons now use a lighter unselected MIUIX weight and a medium selected weight, adding state hierarchy without changing icon geometry or navigation behavior.
 - MIUIX top bars now use a narrow progressive top-edge blur over scrolling content when RuntimeShader is available, with the existing solid presentation retained as the unsupported-platform fallback.
 - Companion-app transient feedback now uses MIUIX Snackbar, and icon-only SystemUI reload exposes a native MIUIX long-press tooltip without changing the action layout.
 - Top-level page navigation now uses MIUIX Cross-Axis pager gesture ownership so horizontal page switching remains available while vertical child content is settling, without adding a second app-owned gesture recognizer.

@@ -511,19 +511,19 @@ private fun MiniNavigationPreview(
                     FloatingNavigationBarItem(
                         selected = false,
                         onClick = {},
-                        icon = MiuixIcons.Home,
+                        icon = MiuixIcons.Normal.Home,
                         label = stringResource(R.string.nav_home),
                     )
                     FloatingNavigationBarItem(
                         selected = false,
                         onClick = {},
-                        icon = MiuixIcons.Tune,
+                        icon = MiuixIcons.Normal.Tune,
                         label = stringResource(R.string.nav_features),
                     )
                     FloatingNavigationBarItem(
                         selected = true,
                         onClick = {},
-                        icon = MiuixIcons.Settings,
+                        icon = MiuixIcons.Medium.Settings,
                         label = stringResource(R.string.nav_settings),
                     )
                 }
@@ -535,9 +535,9 @@ private fun MiniNavigationPreview(
                     showDivider = true,
                     defaultWindowInsetsPadding = false,
                 ) {
-                    MiniStandardNavigationItem(selected = false, icon = MiuixIcons.Home)
-                    MiniStandardNavigationItem(selected = false, icon = MiuixIcons.Tune)
-                    MiniStandardNavigationItem(selected = true, icon = MiuixIcons.Settings)
+                    MiniStandardNavigationItem(selected = false, icon = MiuixIcons.Normal.Home)
+                    MiniStandardNavigationItem(selected = false, icon = MiuixIcons.Normal.Tune)
+                    MiniStandardNavigationItem(selected = true, icon = MiuixIcons.Medium.Settings)
                 }
             }
         }
