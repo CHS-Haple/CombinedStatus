@@ -203,7 +203,7 @@ internal object NativeStatusBarSlotPredeclaration {
         }.getOrNull()
     }
 
-    internal class Reservation private constructor(
+    internal class Reservation(
         private val slots: MutableList<Any?>?,
         private val original: List<Any?>?,
     ) {
@@ -216,14 +216,6 @@ internal object NativeStatusBarSlotPredeclaration {
         companion object {
             fun noOp(): Reservation = Reservation(null, null)
         }
-
-        constructor(
-            slots: MutableList<Any?>,
-            original: List<Any?>,
-        ) : this(
-            slots = slots as MutableList<Any?>?,
-            original = original as List<Any?>?,
-        )
     }
 
     internal sealed interface ReservationResult {
