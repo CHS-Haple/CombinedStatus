@@ -225,11 +225,13 @@ Choose the lightest path that preserves correctness.
 
 ### 6.1 Route the change first
 
+Use the lightest route that matches the **effect** of the change.
+
 #### A. Repository text and governance
 
 Text-only repository maintenance does not participate in runtime stability promotion when it cannot affect the installed application, SystemUI integration, build output, dependency resolution, compatibility, signing, CI/release execution, or published release facts.
 
-Such changes may go directly to `main` with lightweight review/checking and be mirrored promptly to `dev`. They do not require a work branch, Canary, device validation, `validation/dev`, or a `dev -> main` promotion checkpoint.
+Such changes may go directly to `main` with lightweight review/checking. Then back-sync that `main` commit/history into `dev` so both branches share the policy without creating duplicate equivalent commits.
 
 This route includes, when their effect is purely textual:
 
@@ -239,25 +241,35 @@ This route includes, when their effect is purely textual:
 - comments and non-executable metadata;
 - documentation restructuring that preserves accurate current project state.
 
-Normative contributor rules are judged for **semantic consistency**, not runtime stability. They may use this route as long as the edit itself does not change executable automation, dependency/build behavior, compatibility contracts, release artifacts, or runtime behavior.
+Normative contributor rules are judged for **semantic consistency**, not runtime stability. They do not require Canary, device validation, `validation/dev`, or a runtime promotion checkpoint merely because they are normative.
 
-Documentation that describes a runtime feature not yet present on `main` must not present that feature as current stable behavior. Either keep that user-facing documentation with the feature promotion or clearly scope it to development state.
+Documentation that describes a runtime feature not yet present on `main` must not present that feature as current stable behavior. Keep such user-facing documentation with the feature promotion or clearly scope it to development state.
 
-Because `dev` continues toward the next stable baseline, keep equivalent repository-policy/documentation changes synchronized across `main` and `dev`. The commits need not share a SHA; the effective text must remain consistent where the branches are intended to share policy.
+Prefer one history-preserving back-sync from `main` into `dev` over recreating the same documentation commit independently on both branches.
 
-If a supposedly textual change requires executable workflow/configuration changes to become true, it is not text-only and must use the applicable engineering path.
+#### B. Repository automation
 
-File extension does not determine the route. YAML, Gradle, scripts, release metadata, and compatibility data remain engineering inputs even though they are text files.
+Repository automation that does not change installed/runtime behavior may be validated and synchronized independently of runtime promotion. This includes CI orchestration, Dependabot policy, repository templates, and branch-maintenance automation.
 
-#### B. Normal product/engineering work
+Use the validation appropriate to the automation itself:
 
-Behavioral, architectural, compatibility, dependency, build/CI, release-automation, or runtime-affecting changes use:
+- documentation-like configuration may use Light;
+- CI/build/release workflow changes require their own applicable Fast/Full self-validation;
+- no device validation is required unless the automation change also changes the produced APK/runtime contract.
+
+After the automation proves itself, keep the applicable files aligned between `main` and `dev` without waiting for `validation/dev` or a SystemUI stability checkpoint.
+
+A repository-automation change that also changes dependency resolution, generated APK contents, signing identity, target compatibility, or release artifact semantics is no longer automation-only and uses the product/engineering route.
+
+#### C. Product/runtime engineering
+
+Application/SystemUI behavior, architecture/ownership, compatibility, dependency versions or resolution, build logic that changes APK output, and other installed/runtime-affecting work use:
 
 `feat/* or fix/* -> dev -> validated promotion -> main`
 
 Continue an existing unmerged work branch when it already owns the same objective and acceptance boundary. A new feature does **not** automatically justify a new branch.
 
-#### C. Urgent stable-baseline defect
+#### D. Urgent stable-baseline defect
 
 Use `hotfix/* -> main` only when the current `main` baseline has an urgent defect that should not wait for the normal `dev` cycle. Propagate the equivalent fix back to `dev` before the next promotion.
 
@@ -423,16 +435,25 @@ Never commit local SDK paths, signing material, generated APK/AAB files, or envi
 
 CI verifies source/build state; it does not prove SystemUI runtime correctness.
 
-Use the lightest applicable CI:
+Use three validation tiers:
 
-- Draft PR — lightweight repository checks unless deeper validation is specifically needed.
-- Ready PR to `dev` — path-aware; full Android validation only when APK/build/compatibility/CI-affecting paths require it.
-- Mechanical direct maintenance on `main` / `dev` — lightweight checks only when the change is proven non-behavioral.
-- PR to `main` for promotion/hotfix — full applicable validation.
-- Trusted APK-affecting pushes to `dev` / `main` — signed Debug/Canary validation where applicable.
-- Release workflow — deliberate publication only.
+- **Light** — repository/diff checks only. Use for Draft PRs and proven mechanical/documentation-only changes.
+- **Fast** — the normal `feat/*` / `fix/* -> dev` gate for ordinary app/runtime changes: required repository checks, target-profile checks, unit tests, Debug APK build, and Debug Xposed-metadata validation. Do not build Canary merely to decide whether an ordinary bounded change may enter `dev`.
+- **Full** — integration/stable validation: Debug + Canary and all applicable metadata, non-debuggable, signing, artifact, and compatibility checks.
 
-A CI-workflow change is itself CI-affecting and requires full validation.
+Routing:
+
+- Draft PR -> Light unless deeper validation is specifically required.
+- Ready ordinary product/runtime PR to `dev` -> Fast.
+- Dependency/build/CI/tooling changes -> Full.
+- Trusted APK-affecting push to `dev` / `main` -> Full.
+- Mechanical direct maintenance on `main` / `dev` -> Light when proven non-behavioral.
+- Promotion/hotfix PR to `main` -> Full.
+- Release workflow -> deliberate publication validation.
+
+This deliberately shifts expensive Canary validation from each ordinary feature PR to the integrated `dev` checkpoint. A feature should pay the Full cost only when its risk class requires it or after it joins the integration branch.
+
+A CI-workflow change is itself CI-affecting and requires Full validation.
 
 Superseded runs for the same PR/branch should be cancelled when a newer source state makes them irrelevant.
 
