@@ -85,9 +85,7 @@ internal class CombinedStatusPainter {
                 }
             }
 
-            CenterIndicator.MobileDataOff -> drawMobileDataOff(canvas, tint, opacity)
-
-            CenterIndicator.NoNetwork -> drawNoNetwork(canvas, tint, opacity)
+            CenterIndicator.Empty -> Unit
         }
     }
 
@@ -171,25 +169,6 @@ internal class CombinedStatusPainter {
             MOBILE_TYPE_SUFFIX_BASELINE_Y,
             paint,
         )
-    }
-
-    private fun drawMobileDataOff(
-        canvas: Canvas,
-        tint: Int,
-        opacity: Float,
-    ) {
-        stroke(tint, 220, 5f, opacity)
-        canvas.drawLine(49f, 58f, 71f, 58f, paint)
-    }
-
-    private fun drawNoNetwork(
-        canvas: Canvas,
-        tint: Int,
-        opacity: Float,
-    ) {
-        stroke(tint, 220, 5f, opacity)
-        canvas.drawLine(50f, 48f, 70f, 68f, paint)
-        canvas.drawLine(70f, 48f, 50f, 68f, paint)
     }
 
     private fun drawSmallNoInternetMark(

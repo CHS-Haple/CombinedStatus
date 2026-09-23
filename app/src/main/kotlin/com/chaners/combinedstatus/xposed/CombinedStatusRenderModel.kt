@@ -50,10 +50,8 @@ internal data class CombinedStatusRenderModel(
             val centerIndicator =
                 CombinedStatusConnectivityPolicy.resolve(
                     wifi = snapshot.wifi,
-                    mobileSignal = selectedMobile?.second?.signal,
                     airplaneMode = snapshot.airplaneMode == true,
                     connectivity = presentation.connectivity,
-                    connectivityFreshForWifi = presentation.connectivityFreshForWifi,
                     mobileType = presentation.mobilePresentation?.networkType,
                 ) ?: return null
 
