@@ -62,6 +62,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
         module: XposedModule,
         classLoader: ClassLoader,
         onEvent: ((String) -> Unit)? = null,
+        onSlotOrderResult: ((SystemUiNativeSlotOrderRuntimeOwner.ReorderResult) -> Unit)? = null,
     ): InstallResult {
         if (constructorHook != null) return InstallResult.AlreadyInstalled
         eventSink = onEvent
@@ -233,8 +234,15 @@ internal object SystemUiNativeCombinedParticipantOwner {
                             failureReason = null
                             try {
                                 val result = chain.proceed()
-                                chain.thisObject?.let {
-                                    controllerRef = WeakReference(it)
+                                chain.thisObject?.let { controller ->
+                                    controllerRef = WeakReference(controller)
+                                    val slotOrder =
+                                        SystemUiNativeSlotOrderRuntimeOwner.moveSlotToTail(
+                                            controller = controller,
+                                            slot = SLOT,
+                                        )
+                                    onSlotOrderResult?.invoke(slotOrder)
+                                    onEvent?.invoke(slotOrder.logLine)
                                 }
                                 onEvent?.invoke(
                                     "nativeCombinedParticipant injected slot=" + SLOT +

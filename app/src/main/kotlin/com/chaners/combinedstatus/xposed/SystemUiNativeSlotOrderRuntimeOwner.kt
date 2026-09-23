@@ -1,118 +1,179 @@
 package com.chaners.combinedstatus.xposed
 
-import io.github.libxposed.api.XposedInterface.HookHandle
-import io.github.libxposed.api.XposedInterface.Hooker
-import io.github.libxposed.api.XposedModule
-
 internal object SystemUiNativeSlotOrderRuntimeOwner {
-    private const val STATUS_BAR_ICON_LIST =
-        "com.android.systemui.statusbar.phone.ui.StatusBarIconList"
-    private const val HOOK_ID =
-        "combinedstatus.nativeSlotOrder.constructor"
-
-    private var constructorHook: HookHandle? = null
-
-    val installedHookCount: Int
-        @Synchronized get() = if (constructorHook != null) 1 else 0
+    private const val STATUS_BAR_ICON_LIST_FIELD = "mStatusBarIconList"
+    private const val SLOTS_FIELD = "mSlots"
+    private const val VIEW_ONLY_SLOTS_FIELD = "mViewOnlySlots"
+    private const val ICON_GROUPS_FIELD = "mIconGroups"
 
     @Synchronized
-    fun install(
-        module: XposedModule,
-        classLoader: ClassLoader,
-        onEvent: ((String) -> Unit)? = null,
-    ): InstallResult {
-        if (constructorHook != null) {
-            return InstallResult.AlreadyInstalled
+    fun moveSlotToTail(
+        controller: Any,
+        slot: String,
+    ): ReorderResult {
+        val iconGroups =
+            readField(controller, ICON_GROUPS_FIELD) as? Collection<*>
+                ?: return ReorderResult.Failure("icon-groups-unreadable")
+        if (iconGroups.isNotEmpty()) {
+            return ReorderResult.Failure("icon-groups-already-registered")
         }
 
-        val iconListClass =
-            runCatching {
-                Class.forName(STATUS_BAR_ICON_LIST, false, classLoader)
-            }.getOrNull()
-                ?: return InstallResult.Failure("status-bar-icon-list-class-missing")
+        val iconList =
+            readField(controller, STATUS_BAR_ICON_LIST_FIELD)
+                ?: return ReorderResult.Failure("status-bar-icon-list-missing")
 
-        val constructor =
-            iconListClass.declaredConstructors
-                .firstOrNull { candidate ->
-                    candidate.parameterCount == 1 &&
-                        candidate.parameterTypes[0].isArray &&
-                        candidate.parameterTypes[0].componentType == String::class.java
+        @Suppress("UNCHECKED_CAST")
+        val slots =
+            readField(iconList, SLOTS_FIELD) as? MutableList<Any?>
+                ?: return ReorderResult.Failure("slot-list-unreadable")
+        val viewOnlySlots =
+            readField(iconList, VIEW_ONLY_SLOTS_FIELD) as? List<*>
+                ?: return ReorderResult.Failure("view-only-slot-list-unreadable")
+
+        if (slots.size != viewOnlySlots.size) {
+            return ReorderResult.Failure("slot-list-size-mismatch")
+        }
+
+        val fromIndex = slots.indexOfFirst { value -> slotName(value) == slot }
+        if (fromIndex < 0) {
+            return ReorderResult.Failure("slot-missing")
+        }
+
+        val original = slots.toList()
+        val target = slots[fromIndex]
+        val toIndex = slots.lastIndex
+
+        if (fromIndex != toIndex) {
+            val mutation =
+                runCatching {
+                    slots.removeAt(fromIndex)
+                    slots.add(target)
                 }
-                ?: return InstallResult.Failure(
-                    "status-bar-icon-list-string-array-constructor-missing",
-                )
-        constructor.isAccessible = true
-
-        val handle =
-            runCatching {
-                module
-                    .hook(constructor)
-                    .setId(HOOK_ID)
-                    .intercept(
-                        Hooker { chain ->
-                            @Suppress("UNCHECKED_CAST")
-                            val original =
-                                chain.getArg(0) as? Array<String>
-                                    ?: return@Hooker chain.proceed()
-
-                            val existingIndex =
-                                original.indexOf(SystemUiNativeCombinedParticipantOwner.SLOT)
-                            if (existingIndex >= 0) {
-                                onEvent?.invoke(
-                                    "nativeSlotOrder predeclared " +
-                                        "slot=" +
-                                        SystemUiNativeCombinedParticipantOwner.SLOT +
-                                        " index=" + existingIndex +
-                                        " source=existing nativeGeometryWrites=0",
-                                )
-                                return@Hooker chain.proceed()
-                            }
-
-                            val extended =
-                                java.util.Arrays.copyOf(
-                                    original,
-                                    original.size + 1,
-                                )
-                            extended[original.size] =
-                                SystemUiNativeCombinedParticipantOwner.SLOT
-
-                            val args = chain.getArgs().toTypedArray()
-                            args[0] = extended
-
-                            onEvent?.invoke(
-                                "nativeSlotOrder predeclare " +
-                                    "slot=" +
-                                    SystemUiNativeCombinedParticipantOwner.SLOT +
-                                    " original=" + original.size +
-                                    " extended=" + extended.size +
-                                    " targetIndex=" + original.size +
-                                    " mode=constructor-append nativeGeometryWrites=0",
-                            )
-                            chain.proceed(args)
-                        },
-                    )
-            }.getOrElse { error ->
-                return InstallResult.Failure(
-                    "constructor-hook-" +
-                        (error.message ?: error.javaClass.simpleName),
+            if (mutation.isFailure) {
+                restore(slots, original)
+                return ReorderResult.Failure(
+                    "slot-list-mutation-" +
+                        (mutation.exceptionOrNull()?.javaClass?.simpleName ?: "failed"),
                 )
             }
+        }
 
-        constructorHook = handle
-        return InstallResult.Installed
+        val slotsSynced =
+            slots.size == original.size &&
+                slotName(slots.lastOrNull()) == slot
+        val viewOnlySynced =
+            viewOnlySlots.size == slots.size &&
+                slotName(viewOnlySlots.lastOrNull()) == slot
+
+        if (!slotsSynced || !viewOnlySynced) {
+            val restored = restore(slots, original)
+            return ReorderResult.Failure(
+                if (restored) {
+                    "post-mutation-verification-failed"
+                } else {
+                    "post-mutation-verification-and-rollback-failed"
+                },
+            )
+        }
+
+        return ReorderResult.Ready(
+            fromIndex = fromIndex,
+            toIndex = slots.lastIndex,
+            slotCount = slots.size,
+            iconGroups = iconGroups.size,
+            viewOnlySynced = true,
+        )
     }
 
-    @Synchronized
-    fun resetRuntimeState() {
-        constructorHook = null
+    private fun restore(
+        slots: MutableList<Any?>,
+        original: List<Any?>,
+    ): Boolean =
+        runCatching {
+            slots.clear()
+            slots.addAll(original)
+            slots.size == original.size &&
+                slots.indices.all { index -> slots[index] === original[index] }
+        }.getOrDefault(false)
+
+    private fun slotName(value: Any?): String? {
+        if (value == null) return null
+        if (value is String) return value
+
+        listOf("mName", "name", "slot", "mSlot").forEach { fieldName ->
+            val candidate = readField(value, fieldName) as? String
+            if (!candidate.isNullOrBlank()) {
+                return candidate
+            }
+        }
+
+        val accessor =
+            generateSequence(value.javaClass) { clazz -> clazz.superclass }
+                .flatMap { clazz -> clazz.declaredMethods.asSequence() }
+                .firstOrNull { method ->
+                    method.parameterCount == 0 &&
+                        method.returnType == String::class.java &&
+                        method.name in setOf("getName", "getSlot", "getSlotName")
+                }
+                ?: return null
+
+        return runCatching {
+            accessor.isAccessible = true
+            accessor.invoke(value) as? String
+        }.getOrNull()
     }
 
-    internal sealed interface InstallResult {
-        data object Installed : InstallResult
-        data object AlreadyInstalled : InstallResult
+    private fun readField(
+        target: Any,
+        name: String,
+    ): Any? {
+        val field =
+            generateSequence(target.javaClass) { clazz -> clazz.superclass }
+                .mapNotNull { clazz ->
+                    clazz.declaredFields.firstOrNull { candidate ->
+                        candidate.name == name
+                    }
+                }
+                .firstOrNull()
+                ?: return null
+
+        return runCatching {
+            field.isAccessible = true
+            field.get(target)
+        }.getOrNull()
+    }
+
+    internal sealed interface ReorderResult {
+        val logLine: String
+
+        data class Ready(
+            val fromIndex: Int,
+            val toIndex: Int,
+            val slotCount: Int,
+            val iconGroups: Int,
+            val viewOnlySynced: Boolean,
+        ) : ReorderResult {
+            override val logLine: String
+                get() =
+                    "nativeSlotOrder reorder slot=" +
+                        SystemUiNativeCombinedParticipantOwner.SLOT +
+                        " from=" + fromIndex +
+                        " to=" + toIndex +
+                        " slots=" + slotCount +
+                        " iconGroups=" + iconGroups +
+                        " viewOnlySynced=" + viewOnlySynced +
+                        " mode=controller-post-init nativeGeometryWrites=0"
+        }
 
         data class Failure(
             val reason: String,
-        ) : InstallResult
+        ) : ReorderResult {
+            override val logLine: String
+                get() =
+                    "nativeSlotOrder unchanged slot=" +
+                        SystemUiNativeCombinedParticipantOwner.SLOT +
+                        " reason=" + reason +
+                        " mode=controller-post-init nativeGeometryWrites=0"
+        }
     }
 }

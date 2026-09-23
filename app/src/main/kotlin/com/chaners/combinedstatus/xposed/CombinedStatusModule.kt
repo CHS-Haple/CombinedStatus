@@ -79,10 +79,6 @@ class CombinedStatusModule : XposedModule() {
         }
 
         if (BuildConfig.RUNTIME_DIAGNOSTICS) {
-            installNativeSlotOrderPredeclaration(
-                classLoader = param.classLoader,
-                source = "coldStart",
-            )
             installNativeCombinedParticipant(
                 classLoader = param.classLoader,
                 source = "coldStart",
@@ -163,7 +159,6 @@ class CombinedStatusModule : XposedModule() {
                 SystemUiPresentationRuntimeOwner.installedHookCount +
                 SystemUiNativeParticipantRuntimeOwner.installedHookCount +
                 SystemUiNativeCombinedParticipantOwner.installedHookCount +
-                SystemUiNativeSlotOrderRuntimeOwner.installedHookCount +
                 if (islandMotionSourceInstalled) {
                     SystemUiIslandMotionSource.HOOK_COUNT
                 } else {
@@ -227,7 +222,6 @@ class CombinedStatusModule : XposedModule() {
             SystemUiPresentationRuntimeOwner.resetRuntimeState()
             SystemUiIslandMotionSource.resetRuntimeState()
             SystemUiNativeParticipantRuntimeOwner.resetControllerRuntimeState()
-            SystemUiNativeSlotOrderRuntimeOwner.resetRuntimeState()
             bindRuntimeDiagnostics()
             logDiagnostic(
                 level = Log.INFO,
@@ -350,51 +344,6 @@ class CombinedStatusModule : XposedModule() {
         }
     }
 
-    private fun installNativeSlotOrderPredeclaration(
-        classLoader: ClassLoader,
-        source: String,
-    ) {
-        when (
-            val result =
-                SystemUiNativeSlotOrderRuntimeOwner.install(
-                    module = this,
-                    classLoader = classLoader,
-                    onEvent = { event ->
-                        if (detailedDiagnosticsEnabled) {
-                            log(Log.INFO, TAG, event)
-                        }
-                    },
-                )
-        ) {
-            SystemUiNativeSlotOrderRuntimeOwner.InstallResult.Installed,
-            SystemUiNativeSlotOrderRuntimeOwner.InstallResult.AlreadyInstalled -> {
-                logDiagnostic(
-                    level = Log.INFO,
-                    event = "hook.install",
-                    component = "nativeSlotOrder",
-                    state = "ready",
-                    "source" to source,
-                    "hooks" to SystemUiNativeSlotOrderRuntimeOwner.installedHookCount,
-                    "mode" to "constructor-append",
-                    "visible" to false,
-                    "nativeGeometryWrites" to 0,
-                )
-            }
-
-            is SystemUiNativeSlotOrderRuntimeOwner.InstallResult.Failure -> {
-                logDiagnostic(
-                    level = Log.WARN,
-                    event = "hook.install",
-                    component = "nativeSlotOrder",
-                    state = "unavailable",
-                    "source" to source,
-                    "reason" to result.reason,
-                    "nativeGeometryWrites" to 0,
-                )
-            }
-        }
-    }
-
     private fun installNativeCombinedParticipant(
         classLoader: ClassLoader,
         source: String,
@@ -407,6 +356,41 @@ class CombinedStatusModule : XposedModule() {
                     onEvent = { event ->
                         if (detailedDiagnosticsEnabled) {
                             log(Log.INFO, TAG, event)
+                        }
+                    },
+                    onSlotOrderResult = { slotOrder ->
+                        when (slotOrder) {
+                            is SystemUiNativeSlotOrderRuntimeOwner.ReorderResult.Ready -> {
+                                logDiagnostic(
+                                    level = Log.INFO,
+                                    event = "slot.order",
+                                    component = "nativeSlotOrder",
+                                    state = "ready",
+                                    "source" to source,
+                                    "mode" to "controller-post-init",
+                                    "fromIndex" to slotOrder.fromIndex,
+                                    "toIndex" to slotOrder.toIndex,
+                                    "slotCount" to slotOrder.slotCount,
+                                    "iconGroups" to slotOrder.iconGroups,
+                                    "viewOnlySynced" to slotOrder.viewOnlySynced,
+                                    "visible" to false,
+                                    "nativeGeometryWrites" to 0,
+                                )
+                            }
+
+                            is SystemUiNativeSlotOrderRuntimeOwner.ReorderResult.Failure -> {
+                                logDiagnostic(
+                                    level = Log.WARN,
+                                    event = "slot.order",
+                                    component = "nativeSlotOrder",
+                                    state = "unavailable",
+                                    "source" to source,
+                                    "mode" to "controller-post-init",
+                                    "reason" to slotOrder.reason,
+                                    "visible" to false,
+                                    "nativeGeometryWrites" to 0,
+                                )
+                            }
                         }
                     },
                 )
