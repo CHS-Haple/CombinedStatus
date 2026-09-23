@@ -557,7 +557,7 @@ Keep exact upstream Android/HyperOS class, field, method, and resource identifie
 
 Normal settings UI SHOULD NOT expose internal terms such as host, role, writer, hook chain, probe path, or implementation class name unless the screen is explicitly diagnostic.
 
-Public-facing documentation SHOULD describe the project's current behavior, compatibility, architecture, and user-facing limitations. Development lineage, superseded implementation history, and unrelated projects SHOULD be omitted unless they are required for licensing, attribution, or compatibility context.
+Public-facing documentation SHOULD describe the project's current behavior, compatibility, architecture, and user-facing limitations. Development lineage, superseded implementation history, and unrelated projects SHOULD be omitted. Actual project dependencies, bundled third-party code or assets, and any required license or attribution notices MUST be documented accurately in the appropriate project metadata or third-party notices.
 
 ## 12. Branching, versioning, CI, and release discipline
 
