@@ -390,7 +390,7 @@ jobs:
         shell: bash
         run: |
           echo "### Build validation" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Validation scope: `${{ steps.scope.outputs.scope }}`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Validation scope: ${{ steps.scope.outputs.scope }}" >> "$GITHUB_STEP_SUMMARY"
           if [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.pull_request.draft }}" == "true" ]]; then
             echo "- Pull request state: draft (lightweight validation only)" >> "$GITHUB_STEP_SUMMARY"
           fi
@@ -529,10 +529,10 @@ jobs:
         shell: bash
         run: |
           echo "### Promotion readiness" >> "$GITHUB_STEP_SUMMARY"
-          echo "- dev: `${{ steps.readiness.outputs.dev_sha }}`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- ahead of main: `${{ steps.readiness.outputs.ahead_by }}` commit(s)" >> "$GITHUB_STEP_SUMMARY"
-          echo "- dev Build green: `${{ steps.readiness.outputs.ci_ok }}`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- device validation current: `${{ steps.readiness.outputs.device_ok }}`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- device validation carried across non-runtime delta: `${{ steps.readiness.outputs.device_carried }}`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- changelog boundary present: `${{ steps.readiness.outputs.changelog_ok }}`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- READY: `${{ steps.readiness.outputs.ready }}`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- dev: ${{ steps.readiness.outputs.dev_sha }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- ahead of main: ${{ steps.readiness.outputs.ahead_by }} commit(s)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- dev Build green: ${{ steps.readiness.outputs.ci_ok }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- device validation current: ${{ steps.readiness.outputs.device_ok }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- device validation carried across non-runtime delta: ${{ steps.readiness.outputs.device_carried }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- changelog boundary present: ${{ steps.readiness.outputs.changelog_ok }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- READY: ${{ steps.readiness.outputs.ready }}" >> "$GITHUB_STEP_SUMMARY"
