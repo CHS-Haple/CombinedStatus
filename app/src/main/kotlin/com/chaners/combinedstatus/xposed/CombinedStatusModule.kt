@@ -20,9 +20,6 @@ import java.util.concurrent.atomic.AtomicLong
 class CombinedStatusModule : XposedModule() {
     private var statusHostHookInstalled = false
     private var networkSourceHookCount = 0
-    private var tintSourceInstalled = false
-    private var sceneSourceInstalled = false
-    private var mobileTypeSourceInstalled = false
     private var islandMotionSourceInstalled = false
     private var diagnosticsPreferences: SharedPreferences? = null
     private var runtimeSessionId = newRuntimeSessionId()
@@ -113,15 +110,7 @@ class CombinedStatusModule : XposedModule() {
                 classLoader = param.classLoader,
                 source = "coldStart",
             )
-            installTintStateSource(
-                classLoader = param.classLoader,
-                source = "coldStart",
-            )
-            installSceneStateSource(
-                classLoader = param.classLoader,
-                source = "coldStart",
-            )
-            installMobileTypeStateSource(
+            installPresentationRuntimeSources(
                 classLoader = param.classLoader,
                 source = "coldStart",
             )
@@ -296,13 +285,9 @@ class CombinedStatusModule : XposedModule() {
 
             statusHostHookInstalled = true
             networkSourceHookCount = 0
-            tintSourceInstalled = false
-            sceneSourceInstalled = false
-            mobileTypeSourceInstalled = false
             islandMotionSourceInstalled = false
             SystemUiNetworkStateSource.resetEventState()
-            SystemUiTintStateSource.resetRuntimeState()
-            SystemUiSceneStateSource.resetRuntimeState()
+            SystemUiPresentationRuntimeOwner.resetRuntimeState()
             SystemUiIslandMotionSource.resetRuntimeState()
             bindRuntimeDiagnostics()
             logDiagnostic(
@@ -336,15 +321,7 @@ class CombinedStatusModule : XposedModule() {
                 classLoader = classLoader,
                 source = "hotReload",
             )
-            installTintStateSource(
-                classLoader = classLoader,
-                source = "hotReload",
-            )
-            installSceneStateSource(
-                classLoader = classLoader,
-                source = "hotReload",
-            )
-            installMobileTypeStateSource(
+            installPresentationRuntimeSources(
                 classLoader = classLoader,
                 source = "hotReload",
             )
@@ -615,124 +592,58 @@ class CombinedStatusModule : XposedModule() {
         }
     }
 
-    private fun installTintStateSource(
+    private fun installPresentationRuntimeSources(
         classLoader: ClassLoader,
         source: String,
     ) {
         runCatching {
-            SystemUiTintStateSource.install(
+            SystemUiPresentationRuntimeOwner.attach(
                 module = this,
                 classLoader = classLoader,
                 onTintState = CombinedStatusHomeRenderSession::onTintUpdate,
-                onEvent = if (BuildConfig.RUNTIME_DIAGNOSTICS) ::onTintSourceEvent else null,
-            )
-        }.onSuccess { handles ->
-            tintSourceInstalled = handles.size == SystemUiTintStateSource.HOOK_COUNT
-            logDiagnostic(
-                level = if (tintSourceInstalled) Log.INFO else Log.WARN,
-                event = "source.install",
-                component = "tint",
-                state = if (tintSourceInstalled) "ready" else "partial",
-                "hooks" to handles.size,
-                "expectedHooks" to SystemUiTintStateSource.HOOK_COUNT,
-                "source" to source,
-            )
-            log(
-                Log.INFO,
-                TAG,
-                "tintSource hooks=ready count=" + handles.size +
-                    " source=" + source,
-            )
-        }.onFailure { error ->
-            tintSourceInstalled = false
-            logDiagnostic(
-                level = Log.ERROR,
-                event = "source.install",
-                component = "tint",
-                state = "error",
-                "reason" to (error.message ?: error.javaClass.simpleName),
-                "source" to source,
-            )
-            log(Log.ERROR, TAG, "Tint state source installation failed", error)
-        }
-    }
-
-    private fun installSceneStateSource(
-        classLoader: ClassLoader,
-        source: String,
-    ) {
-        runCatching {
-            SystemUiSceneStateSource.install(
-                module = this,
-                classLoader = classLoader,
                 onSceneState = CombinedStatusHomeRenderSession::onSceneUpdate,
-                onEvent = if (BuildConfig.RUNTIME_DIAGNOSTICS) ::onSceneSourceEvent else null,
-            )
-        }.onSuccess { handles ->
-            sceneSourceInstalled = handles.size == SystemUiSceneStateSource.HOOK_COUNT
-            logDiagnostic(
-                level = if (sceneSourceInstalled) Log.INFO else Log.WARN,
-                event = "source.install",
-                component = "scene",
-                state = if (sceneSourceInstalled) "ready" else "partial",
-                "hooks" to handles.size,
-                "expectedHooks" to SystemUiSceneStateSource.HOOK_COUNT,
-                "source" to source,
-                "nativeGeometryWrites" to 0,
-            )
-        }.onFailure { error ->
-            sceneSourceInstalled = false
-            logDiagnostic(
-                level = Log.ERROR,
-                event = "source.install",
-                component = "scene",
-                state = "error",
-                "reason" to (error.message ?: error.javaClass.simpleName),
-                "source" to source,
-            )
-            log(Log.ERROR, TAG, "Scene state source installation failed", error)
-        }
-    }
-
-    private fun installMobileTypeStateSource(
-        classLoader: ClassLoader,
-        source: String,
-    ) {
-        runCatching {
-            SystemUiMobileTypeStateSource.install(
-                module = this,
-                classLoader = classLoader,
-                onChanged = { drawable ->
+                onMobileTypeChanged = { drawable ->
                     refreshMobilePresentation(
                         trace = beginRenderTrace("mobileType"),
                         pendingMobileTypeDrawable = drawable,
                     )
                 },
+                onTintEvent = if (BuildConfig.RUNTIME_DIAGNOSTICS) ::onTintSourceEvent else null,
+                onSceneEvent = if (BuildConfig.RUNTIME_DIAGNOSTICS) ::onSceneSourceEvent else null,
             )
-        }.onSuccess { handles ->
-            mobileTypeSourceInstalled =
-                handles.size == SystemUiMobileTypeStateSource.HOOK_COUNT
+        }.onSuccess { result ->
             logDiagnostic(
-                level = if (mobileTypeSourceInstalled) Log.INFO else Log.WARN,
+                level =
+                    if (result.tintReady && result.sceneReady && result.mobileTypeReady) {
+                        Log.INFO
+                    } else {
+                        Log.WARN
+                    },
                 event = "source.install",
-                component = "mobileType",
-                state = if (mobileTypeSourceInstalled) "ready" else "partial",
-                "hooks" to handles.size,
-                "expectedHooks" to SystemUiMobileTypeStateSource.HOOK_COUNT,
+                component = "presentationRuntime",
+                state =
+                    if (result.tintReady && result.sceneReady && result.mobileTypeReady) {
+                        "ready"
+                    } else {
+                        "partial"
+                    },
+                "tintHooks" to result.tintHooks,
+                "sceneHooks" to result.sceneHooks,
+                "mobileTypeHooks" to result.mobileTypeHooks,
                 "source" to source,
                 "nativeGeometryWrites" to 0,
             )
         }.onFailure { error ->
-            mobileTypeSourceInstalled = false
             logDiagnostic(
-                level = Log.WARN,
+                level = Log.ERROR,
                 event = "source.install",
-                component = "mobileType",
-                state = "unavailable",
+                component = "presentationRuntime",
+                state = "error",
                 "reason" to (error.message ?: error.javaClass.simpleName),
                 "source" to source,
                 "nativeGeometryWrites" to 0,
             )
+            log(Log.ERROR, TAG, "Presentation runtime source installation failed", error)
         }
     }
 
@@ -812,6 +723,7 @@ class CombinedStatusModule : XposedModule() {
         CombinedStatusHomeRenderSession.detach(preserveVisual = preserveRendererVisual)
         StatusBarStableSession.detach()
         SystemUiCoreRuntimeOwner.detach()
+        SystemUiPresentationRuntimeOwner.resetRuntimeState()
         CombinedStatusPresentationStateStore.reset()
         SystemUiIslandMotionSource.resetRuntimeState()
 
