@@ -79,6 +79,10 @@ class CombinedStatusModule : XposedModule() {
         }
 
         if (BuildConfig.RUNTIME_DIAGNOSTICS) {
+            installBindableParticipantShadow(
+                classLoader = param.classLoader,
+                source = "coldStart",
+            )
             installNativeParticipantControllerObserver(
                 classLoader = param.classLoader,
                 source = "coldStart",
@@ -154,6 +158,7 @@ class CombinedStatusModule : XposedModule() {
                 SystemUiNetworkRuntimeOwner.installedHookCount +
                 SystemUiPresentationRuntimeOwner.installedHookCount +
                 SystemUiNativeParticipantRuntimeOwner.installedHookCount +
+                SystemUiBindableParticipantShadowOwner.installedHookCount +
                 if (islandMotionSourceInstalled) {
                     SystemUiIslandMotionSource.HOOK_COUNT
                 } else {
@@ -217,6 +222,7 @@ class CombinedStatusModule : XposedModule() {
             SystemUiPresentationRuntimeOwner.resetRuntimeState()
             SystemUiIslandMotionSource.resetRuntimeState()
             SystemUiNativeParticipantRuntimeOwner.resetControllerRuntimeState()
+            SystemUiBindableParticipantShadowOwner.resetRuntimeState()
             bindRuntimeDiagnostics()
             logDiagnostic(
                 level = Log.INFO,
@@ -336,6 +342,49 @@ class CombinedStatusModule : XposedModule() {
                 "restartScope" to true,
             )
             log(Log.ERROR, TAG, "Hot reload failed restartScope=true", error)
+        }
+    }
+
+    private fun installBindableParticipantShadow(
+        classLoader: ClassLoader,
+        source: String,
+    ) {
+        when (
+            val result =
+                SystemUiBindableParticipantShadowOwner.install(
+                    module = this,
+                    classLoader = classLoader,
+                    onEvent = { event ->
+                        if (detailedDiagnosticsEnabled) {
+                            log(Log.INFO, TAG, event)
+                        }
+                    },
+                )
+        ) {
+            SystemUiBindableParticipantShadowOwner.InstallResult.Installed,
+            SystemUiBindableParticipantShadowOwner.InstallResult.AlreadyInstalled -> {
+                logDiagnostic(
+                    level = Log.INFO,
+                    event = "hook.install",
+                    component = "nativeBindableShadow",
+                    state = "ready",
+                    "source" to source,
+                    "hooks" to SystemUiBindableParticipantShadowOwner.installedHookCount,
+                    "nativeGeometryWrites" to 0,
+                )
+            }
+
+            is SystemUiBindableParticipantShadowOwner.InstallResult.Failure -> {
+                logDiagnostic(
+                    level = Log.WARN,
+                    event = "hook.install",
+                    component = "nativeBindableShadow",
+                    state = "unavailable",
+                    "source" to source,
+                    "reason" to result.reason,
+                    "nativeGeometryWrites" to 0,
+                )
+            }
         }
     }
 
@@ -1030,6 +1079,62 @@ class CombinedStatusModule : XposedModule() {
                     bindableParticipant.dynamicRegistrationProven,
                 "nativeGeometryWrites" to 0,
             )
+
+            when (
+                val shadow =
+                    SystemUiBindableParticipantShadowOwner.validateAndCleanup(host)
+            ) {
+                SystemUiBindableParticipantShadowOwner.ValidationResult.NotAttempted -> {
+                    logDiagnostic(
+                        level = Log.INFO,
+                        event = "participant.shadow",
+                        component = "nativeBindableShadow",
+                        state = "not-attempted",
+                        "source" to source,
+                        "nativeGeometryWrites" to 0,
+                    )
+                }
+
+                is SystemUiBindableParticipantShadowOwner.ValidationResult.Ready -> {
+                    logDiagnostic(
+                        level = Log.INFO,
+                        event = "participant.shadow",
+                        component = "nativeBindableShadow",
+                        state = "ready",
+                        "source" to source,
+                        "slot" to SystemUiBindableParticipantShadowOwner.SLOT,
+                        "registryRestored" to shadow.registryRestored,
+                        "creatorCalls" to shadow.creatorCalls,
+                        "view" to shadow.viewClass,
+                        "visibility" to shadow.visibility,
+                        "measured" to
+                            shadow.measuredWidth.toString() +
+                                "x" + shadow.measuredHeight,
+                        "layout" to
+                            shadow.layoutWidth.toString() +
+                                "x" + shadow.layoutHeight,
+                        "iconVisible" to shadow.iconVisible,
+                        "managerEntryBefore" to shadow.managerEntryBefore,
+                        "removalMode" to shadow.removalMode,
+                        "cleanup" to "verified",
+                        "nativeGeometryWrites" to 0,
+                    )
+                }
+
+                is SystemUiBindableParticipantShadowOwner.ValidationResult.Failure -> {
+                    logDiagnostic(
+                        level = Log.WARN,
+                        event = "participant.shadow",
+                        component = "nativeBindableShadow",
+                        state = "unavailable",
+                        "source" to source,
+                        "reason" to shadow.reason,
+                        "registryRestored" to shadow.registryRestored,
+                        "creatorCalls" to shadow.creatorCalls,
+                        "nativeGeometryWrites" to 0,
+                    )
+                }
+            }
         }
     }
 
