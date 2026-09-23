@@ -9,10 +9,7 @@ import com.chaners.combinedstatus.settings.AppearanceSettings
 import com.chaners.combinedstatus.settings.FloatingNavigationStyle
 import com.chaners.combinedstatus.ui.navigation.AppRoute
 import com.chaners.combinedstatus.ui.screens.AppearanceScreen
-import com.chaners.combinedstatus.ui.screens.ChargingScreen
 import com.chaners.combinedstatus.ui.screens.DiagnosticsScreen
-import com.chaners.combinedstatus.ui.screens.KeyguardScreen
-import com.chaners.combinedstatus.ui.screens.StatusBarScreen
 import com.chaners.combinedstatus.ui.theme.CombinedStatusTheme
 import top.yukonga.miuix.kmp.nav.core.NavDisplay
 import top.yukonga.miuix.kmp.nav.core.NavDisplayEffects
@@ -94,15 +91,6 @@ internal fun CombinedStatusApp(
                         onFloatingNavigationStyleChange,
                     onBack = ::navigateBack,
                 )
-            }
-            entry<AppRoute.StatusBar>(swipeDismiss = swipeBackDirection) {
-                StatusBarScreen(onBack = ::navigateBack)
-            }
-            entry<AppRoute.Keyguard>(swipeDismiss = swipeBackDirection) {
-                KeyguardScreen(onBack = ::navigateBack)
-            }
-            entry<AppRoute.Charging>(swipeDismiss = swipeBackDirection) {
-                ChargingScreen(onBack = ::navigateBack)
             }
             entry<AppRoute.Diagnostics>(swipeDismiss = swipeBackDirection) {
                 DiagnosticsScreen(onBack = ::navigateBack)
