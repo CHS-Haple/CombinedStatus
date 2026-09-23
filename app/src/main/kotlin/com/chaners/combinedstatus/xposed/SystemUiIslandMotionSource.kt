@@ -11,12 +11,6 @@ import java.lang.ref.WeakReference
 internal object SystemUiIslandMotionSource {
     const val HOOK_COUNT = 1
 
-    internal data class MotionUpdate(
-        val anchor: View,
-        val showing: Boolean,
-        val secondary: Boolean,
-        val animate: Boolean,
-    )
 
     private const val INJECTOR_CLASS_NAME =
         "com.android.systemui.statusbar.pipeline.shared.ui.binder.HomeStatusBarViewBinderInjector"
@@ -38,7 +32,6 @@ internal object SystemUiIslandMotionSource {
     fun install(
         module: XposedModule,
         classLoader: ClassLoader,
-        onMotion: (MotionUpdate) -> Unit,
         onEvent: ((String) -> Unit)? = null,
     ): List<HookHandle> {
         val injectorClass = Class.forName(INJECTOR_CLASS_NAME, false, classLoader)
@@ -54,9 +47,6 @@ internal object SystemUiIslandMotionSource {
             listenerClass.declaredFields
                 .firstOrNull { it.type == injectorClass }
                 ?.apply { isAccessible = true }
-        val batteryField =
-            injectorClass.getDeclaredField(BATTERY_VIEW_FIELD)
-                .apply { isAccessible = true }
         val diagnosticFields =
             if (onEvent == null) {
                 emptyList()
@@ -82,22 +72,6 @@ internal object SystemUiIslandMotionSource {
                             outerField?.let { field ->
                                 runCatching { field.get(chain.thisObject) }.getOrNull()
                             }
-                        val battery =
-                            injector?.let {
-                                runCatching { batteryField.get(it) as? View }.getOrNull()
-                            }
-                        if (battery != null) {
-                            MotionFollower.start(
-                                update =
-                                    MotionUpdate(
-                                        anchor = battery,
-                                        showing = showing,
-                                        secondary = secondary,
-                                        animate = animate,
-                                    ),
-                                onMotion = onMotion,
-                            )
-                        }
 
                         if (onEvent != null && injector != null) {
                             val views =
@@ -125,64 +99,7 @@ internal object SystemUiIslandMotionSource {
     fun matches(handle: HookHandle): Boolean = handle.id == HOOK_ID
 
     fun resetRuntimeState() {
-        MotionFollower.reset()
         DiagnosticProbe.reset()
-    }
-
-    private object MotionFollower {
-        private var generation = 0
-        private var activeRoot = WeakReference<View>(null)
-        private var listener: ViewTreeObserver.OnPreDrawListener? = null
-
-        fun start(
-            update: MotionUpdate,
-            onMotion: (MotionUpdate) -> Unit,
-        ) {
-            stop()
-            generation += 1
-            val currentGeneration = generation
-            val root = update.anchor.rootView ?: return
-            val observer = root.viewTreeObserver
-            if (!observer.isAlive) return
-            val startedAt = SystemClock.uptimeMillis()
-
-            val nextListener =
-                ViewTreeObserver.OnPreDrawListener {
-                    if (currentGeneration == generation) {
-                        onMotion(update)
-                        if (SystemClock.uptimeMillis() - startedAt >= FOLLOW_DURATION_MS) {
-                            stop()
-                        }
-                    }
-                    true
-                }
-            listener = nextListener
-            activeRoot = WeakReference(root)
-            observer.addOnPreDrawListener(nextListener)
-            onMotion(update)
-            root.postDelayed(
-                {
-                    if (currentGeneration == generation) {
-                        onMotion(update)
-                        stop()
-                    }
-                },
-                FOLLOW_DURATION_MS,
-            )
-        }
-
-        fun reset() = stop()
-
-        private fun stop() {
-            val root = activeRoot.get()
-            val currentListener = listener
-            if (root != null && currentListener != null) {
-                val observer = root.viewTreeObserver
-                if (observer.isAlive) observer.removeOnPreDrawListener(currentListener)
-            }
-            listener = null
-            activeRoot = WeakReference(null)
-        }
     }
 
     private object DiagnosticProbe {
