@@ -125,18 +125,148 @@ internal object SystemUiBindableParticipantShadowOwner {
                     .setId(HOOK_ID)
                     .intercept(
                         Hooker { chain ->
-                            interceptControllerConstruction(
-                                chain = chain,
-                                registryField = registryField,
-                                bindableIconClass = bindableIconClass,
-                                creatorClass = creatorClass,
-                                modernViewClass = modernViewClass,
-                                bindingClass = bindingClass,
-                                function0Class = function0Class,
-                                viewConstructor = viewConstructor,
-                                initView = initView,
-                                onEvent = onEvent,
-                            )
+                            val registry =
+                                chain.getArg(constructor.parameterCount - 1)
+                            val context =
+                                chain.getArg(0) as? Context
+
+                            if (
+                                registry == null ||
+                                context == null ||
+                                !registryClass.isInstance(registry)
+                            ) {
+                                recordFailure("controller-constructor-args-missing")
+                                return@Hooker chain.proceed()
+                            }
+
+                            val originalList =
+                                runCatching {
+                                    @Suppress("UNCHECKED_CAST")
+                                    registryField.get(registry) as? List<Any?>
+                                }.getOrNull()
+                            if (originalList == null) {
+                                recordFailure("registry-list-unreadable")
+                                return@Hooker chain.proceed()
+                            }
+
+                            if (
+                                originalList.any { icon ->
+                                    slotOfBindableIcon(icon) == SLOT
+                                }
+                            ) {
+                                recordFailure("shadow-slot-already-present")
+                                return@Hooker chain.proceed()
+                            }
+
+                            val creatorCalls = AtomicInteger(0)
+                            val creatorProxy =
+                                runCatching {
+                                    createCreatorProxy(
+                                        classLoader = classLoader,
+                                        creatorClass = creatorClass,
+                                        modernViewClass = modernViewClass,
+                                        bindingClass = bindingClass,
+                                        function0Class = function0Class,
+                                        viewConstructor = viewConstructor,
+                                        initView = initView,
+                                        creatorCalls = creatorCalls,
+                                    )
+                                }.getOrElse { error ->
+                                    recordFailure(
+                                        "creator-proxy-" +
+                                            (error.message ?: error.javaClass.simpleName),
+                                    )
+                                    return@Hooker chain.proceed()
+                                }
+
+                            val bindableProxy =
+                                runCatching {
+                                    createBindableIconProxy(
+                                        classLoader = classLoader,
+                                        bindableIconClass = bindableIconClass,
+                                        creatorProxy = creatorProxy,
+                                    )
+                                }.getOrElse { error ->
+                                    recordFailure(
+                                        "bindable-proxy-" +
+                                            (error.message ?: error.javaClass.simpleName),
+                                    )
+                                    return@Hooker chain.proceed()
+                                }
+
+                            val preflight =
+                                runCatching {
+                                    createShadowView(
+                                        context = context,
+                                        modernViewClass = modernViewClass,
+                                        bindingClass = bindingClass,
+                                        function0Class = function0Class,
+                                        viewConstructor = viewConstructor,
+                                        initView = initView,
+                                        classLoader = classLoader,
+                                    )
+                                }.getOrNull()
+                            if (preflight !is View) {
+                                recordFailure("creator-preflight-failed")
+                                return@Hooker chain.proceed()
+                            }
+
+                            val extended =
+                                ArrayList<Any?>(originalList.size + 1).apply {
+                                    addAll(originalList)
+                                    add(bindableProxy)
+                                }
+
+                            val replaced =
+                                runCatching {
+                                    registryField.set(registry, extended)
+                                    registryField.get(registry) === extended
+                                }.getOrDefault(false)
+                            if (!replaced) {
+                                recordFailure("registry-list-replacement-failed")
+                                return@Hooker chain.proceed()
+                            }
+
+                            markInjectedAttempt()
+                            var registryRestored = false
+                            try {
+                                val result = chain.proceed()
+                                val controller = chain.thisObject
+                                if (controller != null) {
+                                    rememberController(controller)
+                                }
+                                onEvent?.invoke(
+                                    "nativeBindableShadow injected " +
+                                        "slot=" + SLOT +
+                                        " registryOriginal=" + originalList.size +
+                                        " registryExtended=" + extended.size +
+                                        " preflight=ready nativeGeometryWrites=0",
+                                )
+                                result
+                            } finally {
+                                registryRestored =
+                                    runCatching {
+                                        registryField.set(registry, originalList)
+                                        registryField.get(registry) === originalList
+                                    }.getOrDefault(false)
+                                finishConstructor(
+                                    registryRestored = registryRestored,
+                                    creatorCalls = creatorCalls.get(),
+                                    failureReason =
+                                        if (registryRestored) {
+                                            null
+                                        } else {
+                                            "registry-restore-failed"
+                                        },
+                                )
+                                onEvent?.invoke(
+                                    "nativeBindableShadow constructorComplete " +
+                                        "slot=" + SLOT +
+                                        " registryRestored=" + registryRestored +
+                                        " creatorCalls=" + creatorCalls.get() +
+                                        " nativeGeometryWrites=0",
+                                )
+                            }
                         },
                     )
             }.getOrElse { error ->
@@ -150,20 +280,192 @@ internal object SystemUiBindableParticipantShadowOwner {
         return InstallResult.Installed
     }
 
-    private fun interceptControllerConstruction(
-        chain: io.github.libxposed.api.XposedInterface.BeforeHookCallback,
-        registryField: Field,
+    private fun createBindableIconProxy(
+        classLoader: ClassLoader,
         bindableIconClass: Class<*>,
+        creatorProxy: Any,
+    ): Any =
+        Proxy.newProxyInstance(
+            classLoader,
+            arrayOf(bindableIconClass),
+        ) { proxy, method, args ->
+            when (method.name) {
+                "getSlot" -> SLOT
+                "getShouldBindIcon" -> true
+                "getInitializer" -> creatorProxy
+                "toString" -> "CombinedStatusBindableShadow(slot=$SLOT)"
+                "hashCode" -> System.identityHashCode(proxy)
+                "equals" -> proxy === args?.firstOrNull()
+                else -> defaultValue(method.returnType)
+            }
+        }
+
+    private fun createCreatorProxy(
+        classLoader: ClassLoader,
         creatorClass: Class<*>,
         modernViewClass: Class<*>,
         bindingClass: Class<*>,
         function0Class: Class<*>,
         viewConstructor: java.lang.reflect.Constructor<*>,
         initView: Method,
-        onEvent: ((String) -> Unit)?,
-    ): Any? {
-        // Placeholder overload guard; libxposed Hooker exposes the runtime chain type.
-        return chain.proceed()
+        creatorCalls: AtomicInteger,
+    ): Any =
+        Proxy.newProxyInstance(
+            classLoader,
+            arrayOf(creatorClass),
+        ) { proxy, method, args ->
+            when (method.name) {
+                "createAndBind" -> {
+                    creatorCalls.incrementAndGet()
+                    val context =
+                        args?.firstOrNull() as? Context
+                            ?: error("creator-context-missing")
+                    createShadowView(
+                        context = context,
+                        modernViewClass = modernViewClass,
+                        bindingClass = bindingClass,
+                        function0Class = function0Class,
+                        viewConstructor = viewConstructor,
+                        initView = initView,
+                        classLoader = classLoader,
+                    )
+                }
+
+                "toString" -> "CombinedStatusBindableShadowCreator"
+                "hashCode" -> System.identityHashCode(proxy)
+                "equals" -> proxy === args?.firstOrNull()
+                else -> defaultValue(method.returnType)
+            }
+        }
+
+    private fun createShadowView(
+        context: Context,
+        modernViewClass: Class<*>,
+        bindingClass: Class<*>,
+        function0Class: Class<*>,
+        viewConstructor: java.lang.reflect.Constructor<*>,
+        initView: Method,
+        classLoader: ClassLoader,
+    ): Any {
+        val binding =
+            Proxy.newProxyInstance(
+                classLoader,
+                arrayOf(bindingClass),
+            ) { proxy, method, args ->
+                when (method.name) {
+                    "getShouldIconBeVisible" -> false
+                    "isCollecting" -> true
+                    "toString" -> "CombinedStatusBindableShadowBinding"
+                    "hashCode" -> System.identityHashCode(proxy)
+                    "equals" -> proxy === args?.firstOrNull()
+                    else -> defaultValue(method.returnType)
+                }
+            }
+
+        val bindingFactory =
+            Proxy.newProxyInstance(
+                classLoader,
+                arrayOf(function0Class),
+            ) { proxy, method, args ->
+                when (method.name) {
+                    "invoke" -> binding
+                    "toString" -> "CombinedStatusBindableShadowBindingFactory"
+                    "hashCode" -> System.identityHashCode(proxy)
+                    "equals" -> proxy === args?.firstOrNull()
+                    else -> defaultValue(method.returnType)
+                }
+            }
+
+        val view =
+            viewConstructor.newInstance(
+                context,
+                null as AttributeSet?,
+            )
+        check(modernViewClass.isInstance(view)) {
+            "modern-view-instance-mismatch"
+        }
+        initView.invoke(
+            view,
+            SLOT,
+            bindingFactory,
+        )
+        (view as View).visibility = View.GONE
+        return view
+    }
+
+    private fun slotOfBindableIcon(icon: Any?): String? {
+        if (icon == null) {
+            return null
+        }
+        val accessor =
+            icon.javaClass.methods
+                .firstOrNull { method ->
+                    method.name == "getSlot" &&
+                        method.parameterCount == 0 &&
+                        method.returnType == String::class.java
+                }
+                ?: return null
+        return runCatching {
+            accessor.invoke(icon) as? String
+        }.getOrNull()
+    }
+
+    private fun defaultValue(type: Class<*>): Any? =
+        when (type) {
+            java.lang.Boolean.TYPE -> false
+            java.lang.Byte.TYPE -> 0.toByte()
+            java.lang.Short.TYPE -> 0.toShort()
+            java.lang.Integer.TYPE -> 0
+            java.lang.Long.TYPE -> 0L
+            java.lang.Float.TYPE -> 0f
+            java.lang.Double.TYPE -> 0.0
+            java.lang.Character.TYPE -> 0.toChar()
+            java.lang.Void.TYPE -> null
+            else -> null
+        }
+
+    @Synchronized
+    private fun markInjectedAttempt() {
+        state =
+            state.copy(
+                injectionAttempted = true,
+                injected = true,
+                failureReason = null,
+            )
+    }
+
+    @Synchronized
+    private fun rememberController(controller: Any) {
+        state =
+            state.copy(
+                controller = WeakReference(controller),
+            )
+    }
+
+    @Synchronized
+    private fun finishConstructor(
+        registryRestored: Boolean,
+        creatorCalls: Int,
+        failureReason: String?,
+    ) {
+        state =
+            state.copy(
+                registryRestored = registryRestored,
+                creatorCalls = creatorCalls,
+                failureReason = failureReason,
+            )
+    }
+
+    @Synchronized
+    private fun recordFailure(reason: String) {
+        state =
+            State(
+                injectionAttempted = true,
+                injected = false,
+                registryRestored = false,
+                creatorCalls = 0,
+                failureReason = reason,
+            )
     }
 
     @Synchronized
@@ -377,6 +679,7 @@ internal object SystemUiBindableParticipantShadowOwner {
         val registryRestored: Boolean = false,
         val creatorCalls: Int = 0,
         val failureReason: String? = null,
+        val controller: WeakReference<Any>? = null,
     )
 
     internal sealed interface InstallResult {
