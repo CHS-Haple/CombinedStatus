@@ -11,7 +11,7 @@ import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
 
-internal class LegacyCombinedStatusPainter {
+internal class CombinedStatusPainter {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val batteryRing = RectF(10f, 8f, 110f, 108f)
     private val wifiPaths = arrayOf(
@@ -85,7 +85,7 @@ internal class LegacyCombinedStatusPainter {
                 }
             }
 
-            CenterIndicator.NoNetwork -> drawNoNetwork(canvas, tint, opacity)
+            CenterIndicator.Empty -> Unit
         }
     }
 
@@ -169,16 +169,6 @@ internal class LegacyCombinedStatusPainter {
             MOBILE_TYPE_SUFFIX_BASELINE_Y,
             paint,
         )
-    }
-
-    private fun drawNoNetwork(
-        canvas: Canvas,
-        tint: Int,
-        opacity: Float,
-    ) {
-        stroke(tint, 220, 5f, opacity)
-        canvas.drawLine(50f, 48f, 70f, 68f, paint)
-        canvas.drawLine(70f, 48f, 50f, 68f, paint)
     }
 
     private fun drawSmallNoInternetMark(

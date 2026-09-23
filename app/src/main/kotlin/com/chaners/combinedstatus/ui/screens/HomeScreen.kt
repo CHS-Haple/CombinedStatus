@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.dp
 import com.chaners.combinedstatus.BuildConfig
 import com.chaners.combinedstatus.R
 import com.chaners.combinedstatus.ui.components.CombinedStatusPreview
+import com.chaners.combinedstatus.ui.components.HotReloadAction
 import com.chaners.combinedstatus.ui.layout.pageContentPadding
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
@@ -21,7 +22,11 @@ import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.TopAppBar
 
 @Composable
-internal fun HomeScreen(bottomContentPadding: Dp) {
+internal fun HomeScreen(
+    bottomContentPadding: Dp,
+    hotReloadInProgress: Boolean,
+    onHotReload: () -> Unit,
+) {
     val scrollBehavior = MiuixScrollBehavior()
     val buildSummary = listOf(
         stringResource(R.string.target_platform_value),
@@ -33,6 +38,12 @@ internal fun HomeScreen(bottomContentPadding: Dp) {
         topBar = {
             TopAppBar(
                 title = stringResource(R.string.home_title),
+                actions = {
+                    HotReloadAction(
+                        inProgress = hotReloadInProgress,
+                        onClick = onHotReload,
+                    )
+                },
                 scrollBehavior = scrollBehavior,
             )
         },

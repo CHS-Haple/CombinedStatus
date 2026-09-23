@@ -52,6 +52,33 @@ class CombinedStatusApplication :
         super.onTerminate()
     }
 
+    fun hotReloadSystemUi(onComplete: () -> Unit = {}): Boolean {
+        val service = xposedService ?: return false
+        if (service.apiVersion < 102) return false
+
+        val target =
+            runCatching {
+                service.runningTargets.firstOrNull { it.processName == SYSTEM_UI_PROCESS }
+            }.getOrElse { throwable ->
+                Log.w(TAG, "Unable to query running targets: " + throwable.message)
+                return false
+            } ?: return false
+
+        return runCatching {
+            service.hotReloadModule(target, null) { process, result ->
+                Log.i(
+                    TAG,
+                    "Hot reload completed process=" + process.processName + " result=" + result,
+                )
+                mainExecutor.execute(onComplete)
+            }
+            true
+        }.getOrElse { throwable ->
+            Log.w(TAG, "Unable to request hot reload: " + throwable.message)
+            false
+        }
+    }
+
     private fun syncDiagnosticsLevel(service: XposedService) {
         val level =
             diagnosticsPreferences.getString(
@@ -74,5 +101,6 @@ class CombinedStatusApplication :
 
     private companion object {
         const val TAG = "CombinedStatus[App]"
+        const val SYSTEM_UI_PROCESS = "com.android.systemui"
     }
 }

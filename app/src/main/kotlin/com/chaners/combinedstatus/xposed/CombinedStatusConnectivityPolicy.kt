@@ -3,11 +3,10 @@ package com.chaners.combinedstatus.xposed
 internal object CombinedStatusConnectivityPolicy {
     fun resolve(
         wifi: CombinedStatusStateStore.WifiState,
-        mobileSignal: SignalStrength?,
         airplaneMode: Boolean,
         connectivity: SystemUiConnectivityStateSource.State,
-        connectivityFreshForWifi: Boolean,
         mobileType: NativePresentationResolver.NetworkType?,
+        connectivityFreshForWifi: Boolean,
     ): CenterIndicator? {
         val wifiSegments =
             when (wifi) {
@@ -21,26 +20,23 @@ internal object CombinedStatusConnectivityPolicy {
                     }
             }
 
-        if (wifiSegments != null && wifiSegments > 0) {
-            val internet =
-                when {
-                    !connectivity.known -> InternetState.UNKNOWN
-                    !connectivityFreshForWifi -> InternetState.UNKNOWN
-                    connectivity.transport == SystemUiConnectivityStateSource.Transport.WIFI ->
-                        connectivity.internetState()
-                    else -> InternetState.NO_INTERNET
-                }
+        if (wifiSegments != null && wifiSegments > 0 && !connectivityFreshForWifi) {
             return CenterIndicator.Wifi(
                 segments = wifiSegments,
-                internet = internet,
+                internet = InternetState.UNKNOWN,
             )
         }
 
-        if (airplaneMode) {
-            return CenterIndicator.NoNetwork
-        }
-
         if (!connectivity.known) {
+            if (wifiSegments != null && wifiSegments > 0) {
+                return CenterIndicator.Wifi(
+                    segments = wifiSegments,
+                    internet = InternetState.UNKNOWN,
+                )
+            }
+            if (airplaneMode) {
+                return CenterIndicator.Empty
+            }
             return mobileType?.let {
                 CenterIndicator.MobileType(
                     label = it.label,
@@ -50,44 +46,57 @@ internal object CombinedStatusConnectivityPolicy {
             }
         }
 
-        if (
-            mobileType != null &&
-            connectivity.mobileDataEnabled != false
-        ) {
-            val internet =
-                when {
-                    !connectivityFreshForWifi &&
-                        connectivity.transport == SystemUiConnectivityStateSource.Transport.WIFI ->
-                        InternetState.UNKNOWN
-
-                    connectivity.transport == SystemUiConnectivityStateSource.Transport.CELLULAR ->
-                        connectivity.internetState()
-
-                    connectivity.transport == SystemUiConnectivityStateSource.Transport.NONE ->
-                        InternetState.NO_INTERNET
-
-                    connectivity.transport == SystemUiConnectivityStateSource.Transport.OTHER ->
-                        connectivity.internetState()
-
-                    else -> InternetState.UNKNOWN
-                }
-
-            return CenterIndicator.MobileType(
-                label = mobileType.label,
-                enhanced = mobileType.enhanced,
-                internet = internet,
+        if (connectivity.transport == SystemUiConnectivityStateSource.Transport.WIFI) {
+            if (wifiSegments == null || wifiSegments <= 0) {
+                return null
+            }
+            return CenterIndicator.Wifi(
+                segments = wifiSegments,
+                internet = connectivity.internetState(),
             )
         }
 
-        return when {
-            mobileSignal !is SignalStrength.Unknown &&
-                connectivity.mobileDataEnabled == true ->
-                CenterIndicator.NoNetwork
+        if (airplaneMode) {
+            return CenterIndicator.Empty
+        }
 
-            connectivity.transport == SystemUiConnectivityStateSource.Transport.NONE ->
-                CenterIndicator.NoNetwork
+        return when (connectivity.transport) {
+            SystemUiConnectivityStateSource.Transport.CELLULAR ->
+                if (connectivity.mobileDataEnabled == false) {
+                    CenterIndicator.Empty
+                } else {
+                    mobileType?.let {
+                        CenterIndicator.MobileType(
+                            label = it.label,
+                            enhanced = it.enhanced,
+                            internet = connectivity.internetState(),
+                        )
+                    } ?: CenterIndicator.Empty
+                }
 
-            else -> null
+            SystemUiConnectivityStateSource.Transport.OTHER ->
+                when {
+                    wifiSegments != null && wifiSegments > 0 ->
+                        CenterIndicator.Wifi(
+                            segments = wifiSegments,
+                            internet = connectivity.internetState(),
+                        )
+
+                    connectivity.mobileDataEnabled == true && mobileType != null ->
+                        CenterIndicator.MobileType(
+                            label = mobileType.label,
+                            enhanced = mobileType.enhanced,
+                            internet = connectivity.internetState(),
+                        )
+
+                    else -> CenterIndicator.Empty
+                }
+
+            SystemUiConnectivityStateSource.Transport.NONE ->
+                CenterIndicator.Empty
+
+            SystemUiConnectivityStateSource.Transport.WIFI ->
+                error("Wi-Fi transport handled above")
         }
     }
 
@@ -124,5 +133,5 @@ internal sealed interface CenterIndicator {
         val internet: InternetState,
     ) : CenterIndicator
 
-    data object NoNetwork : CenterIndicator
+    data object Empty : CenterIndicator
 }

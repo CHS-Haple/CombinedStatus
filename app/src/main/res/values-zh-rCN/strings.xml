@@ -4,6 +4,7 @@
     <string name="app_description">面向 HyperOS，将电量、移动网络和 Wi-Fi 状态整合为一个状态栏图标的 LSPosed 模块</string>
 
     <string name="home_title">三合一状态图标</string>
+    <string name="hot_reload">热重载 SystemUI 模块</string>
     <string name="nav_home">首页</string>
     <string name="nav_features">功能</string>
     <string name="nav_settings">设置</string>
@@ -24,6 +25,8 @@
     <string name="preview_label">示意</string>
 
     <string name="section_hyperos_display">系统界面</string>
+    <string name="combined_status_feature_title">三合一状态图标</string>
+    <string name="combined_status_feature_summary">整合电量、当前数据网络与 Wi-Fi 状态，并跟随 SystemUI 状态与过渡显示</string>
     <string name="appearance_title">外观</string>
     <string name="appearance_summary">主题与界面效果</string>
     <string name="status_bar_title">状态栏</string>

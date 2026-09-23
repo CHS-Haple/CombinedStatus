@@ -72,6 +72,7 @@ internal data class RuntimeHealthSnapshot(
                 "statusHost",
                 "network",
                 "connectivity",
+                "defaultDataSubscription",
                 "mobileType",
                 "mobilePresentation",
                 "airplane",

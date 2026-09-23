@@ -11,14 +11,6 @@ internal sealed interface AppRoute : NavKey {
     @Serializable
     data object Appearance : AppRoute
 
-    @Serializable
-    data object StatusBar : AppRoute
-
-    @Serializable
-    data object Keyguard : AppRoute
-
-    @Serializable
-    data object Charging : AppRoute
 
     @Serializable
     data object Diagnostics : AppRoute

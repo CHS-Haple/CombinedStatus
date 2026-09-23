@@ -42,7 +42,7 @@ class CombinedStatusRenderModelTest {
     }
 
     @Test
-    fun wifiVisibleRendersImmediatelyBeforeConnectivityCatchesUp() {
+    fun staleConnectivityLetsNativeWifiVisibilityLead() {
         val model =
             CombinedStatusRenderModel.from(
                 snapshot =
@@ -79,7 +79,7 @@ class CombinedStatusRenderModelTest {
     }
 
     @Test
-    fun freshCellularObservationAfterWifiVisibleMarksWifiNoInternet() {
+    fun freshCellularObservationDoesNotRenderWifiNoInternetFrame() {
         val model =
             CombinedStatusRenderModel.from(
                 snapshot =
@@ -110,8 +110,45 @@ class CombinedStatusRenderModelTest {
                 defaultDataSubscriptionId = 1,
             )
 
-        val center = model?.centerIndicator as? CenterIndicator.Wifi
-        assertEquals(InternetState.NO_INTERNET, center?.internet)
+        val center = model?.centerIndicator as? CenterIndicator.MobileType
+        assertEquals("5G", center?.label)
+        assertEquals(InternetState.VALIDATED, center?.internet)
+    }
+
+    @Test
+    fun defaultDataFallbackSelectsMatchingMobileSignal() {
+        val model =
+            CombinedStatusRenderModel.from(
+                snapshot =
+                    snapshot(
+                        wifi =
+                            CombinedStatusStateStore.WifiState.Visible(
+                                iconResId = 1,
+                                signal = SignalStrength.Level(3),
+                            ),
+                        mobile =
+                            linkedMapOf(
+                                1 to CombinedStatusStateStore.MobileState(
+                                    signal = SignalStrength.Level(1),
+                                ),
+                                4 to CombinedStatusStateStore.MobileState(
+                                    signal = SignalStrength.Level(4),
+                                ),
+                            ),
+                    ),
+                presentation =
+                    CombinedStatusPresentationStateStore.Snapshot(
+                        connectivity =
+                            connectivity(
+                                transport = SystemUiConnectivityStateSource.Transport.WIFI,
+                                validated = true,
+                            ),
+                    ),
+                defaultDataSubscriptionId = 4,
+            )
+
+        assertEquals(4, model?.effectiveDataSubscriptionId)
+        assertEquals(4, model?.mobileLevel)
     }
 
     @Test
@@ -211,7 +248,75 @@ class CombinedStatusRenderModelTest {
     }
 
     @Test
-    fun mobileDataEnabledWithoutDefaultNetworkShowsTypeAsNoInternet() {
+    fun otherTransportKeepsWifiWhenVpnMasksUnderlyingWifi() {
+        val model =
+            CombinedStatusRenderModel.from(
+                snapshot =
+                    snapshot(
+                        wifi =
+                            CombinedStatusStateStore.WifiState.Visible(
+                                iconResId = 1,
+                                signal = SignalStrength.Level(3),
+                            ),
+                        mobile =
+                            mapOf(
+                                1 to CombinedStatusStateStore.MobileState(
+                                    signal = SignalStrength.Level(4),
+                                ),
+                            ),
+                    ),
+                presentation =
+                    presentation(
+                        connectivity =
+                            connectivity(
+                                transport = SystemUiConnectivityStateSource.Transport.OTHER,
+                                validated = true,
+                                mobileDataEnabled = true,
+                            ),
+                        networkType = mobileType("5G"),
+                    ),
+                defaultDataSubscriptionId = 1,
+            )
+
+        val center = model?.centerIndicator as? CenterIndicator.Wifi
+        assertEquals(3, center?.segments)
+        assertEquals(InternetState.VALIDATED, center?.internet)
+    }
+
+    @Test
+    fun otherTransportFallsBackToMobileTypeWhenWifiIsHidden() {
+        val model =
+            CombinedStatusRenderModel.from(
+                snapshot =
+                    snapshot(
+                        wifi = CombinedStatusStateStore.WifiState.Hidden,
+                        mobile =
+                            mapOf(
+                                1 to CombinedStatusStateStore.MobileState(
+                                    signal = SignalStrength.Level(4),
+                                ),
+                            ),
+                    ),
+                presentation =
+                    presentation(
+                        connectivity =
+                            connectivity(
+                                transport = SystemUiConnectivityStateSource.Transport.OTHER,
+                                validated = true,
+                                mobileDataEnabled = true,
+                            ),
+                        networkType = mobileType("5G"),
+                    ),
+                defaultDataSubscriptionId = 1,
+            )
+
+        val center = model?.centerIndicator as? CenterIndicator.MobileType
+        assertEquals("5G", center?.label)
+        assertEquals(InternetState.VALIDATED, center?.internet)
+    }
+
+    @Test
+    fun mobileDataEnabledWithoutActiveTransportLeavesCenterEmpty() {
         val model =
             CombinedStatusRenderModel.from(
                 snapshot =
@@ -237,12 +342,43 @@ class CombinedStatusRenderModelTest {
                 defaultDataSubscriptionId = 1,
             )
 
-        val center = model?.centerIndicator as? CenterIndicator.MobileType
-        assertEquals(InternetState.NO_INTERNET, center?.internet)
+        assertTrue(model?.centerIndicator is CenterIndicator.Empty)
     }
 
     @Test
-    fun completeNoNetworkShowsExplicitNoNetworkIndicator() {
+    fun mobileDataDisabledWithSignalLeavesCenterEmptyAndKeepsSignalLevel() {
+        val model =
+            CombinedStatusRenderModel.from(
+                snapshot =
+                    snapshot(
+                        wifi = CombinedStatusStateStore.WifiState.Hidden,
+                        mobile =
+                            mapOf(
+                                1 to CombinedStatusStateStore.MobileState(
+                                    signal = SignalStrength.Level(3),
+                                ),
+                            ),
+                    ),
+                presentation =
+                    presentation(
+                        connectivity =
+                            connectivity(
+                                transport = SystemUiConnectivityStateSource.Transport.NONE,
+                                validated = false,
+                                mobileDataEnabled = false,
+                            ),
+                        networkType = mobileType("5G"),
+                    ),
+                defaultDataSubscriptionId = 1,
+            )
+
+        assertTrue(model?.centerIndicator is CenterIndicator.Empty)
+        assertEquals(3, model?.mobileLevel)
+        assertEquals(1, model?.effectiveDataSubscriptionId)
+    }
+
+    @Test
+    fun completeNoNetworkLeavesCenterEmptyAndUsesSignalAreaForStatus() {
         val model =
             CombinedStatusRenderModel.from(
                 snapshot =
@@ -268,7 +404,8 @@ class CombinedStatusRenderModelTest {
                 defaultDataSubscriptionId = 1,
             )
 
-        assertTrue(model?.centerIndicator is CenterIndicator.NoNetwork)
+        assertTrue(model?.centerIndicator is CenterIndicator.Empty)
+        assertNull(model?.mobileLevel)
     }
 
     @Test
@@ -321,7 +458,7 @@ class CombinedStatusRenderModelTest {
                 defaultDataSubscriptionId = 1,
             )
 
-        assertTrue(model?.centerIndicator is CenterIndicator.NoNetwork)
+        assertTrue(model?.centerIndicator is CenterIndicator.Empty)
         assertNull(model?.mobileLevel)
     }
 
@@ -373,6 +510,7 @@ class CombinedStatusRenderModelTest {
                     activeSubscriptionIds = listOf(1),
                     presentationRootSubscriptionId = 1,
                     effectiveDataSubscriptionId = 1,
+                    networkTypeSubscriptionId = 1,
                     networkType = networkType,
                 ),
         )

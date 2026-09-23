@@ -1,6 +1,7 @@
 package com.chaners.combinedstatus.xposed
 
 import android.content.SharedPreferences
+import android.graphics.drawable.Drawable
 import android.os.Process
 import android.os.SystemClock
 import android.util.Log
@@ -17,12 +18,6 @@ import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
 import java.util.concurrent.atomic.AtomicLong
 
 class CombinedStatusModule : XposedModule() {
-    private var statusHostHookInstalled = false
-    private var networkSourceHookCount = 0
-    private var airplaneObserverAttached = false
-    private var tintSourceInstalled = false
-    private var sceneSourceInstalled = false
-    private var mobileTypeSourceInstalled = false
     private var islandMotionSourceInstalled = false
     private var diagnosticsPreferences: SharedPreferences? = null
     private var runtimeSessionId = newRuntimeSessionId()
@@ -84,13 +79,12 @@ class CombinedStatusModule : XposedModule() {
         }
 
         runCatching {
-            StatusBarHostCapture.install(
+            SystemUiHostRuntimeOwner.install(
                 module = this,
                 classLoader = param.classLoader,
                 onCaptured = ::onStatusHostCaptured,
             )
         }.onSuccess {
-            statusHostHookInstalled = true
             logDiagnostic(
                 level = Log.INFO,
                 event = "hook.install",
@@ -108,20 +102,12 @@ class CombinedStatusModule : XposedModule() {
             log(Log.ERROR, TAG, "Status host hook installation failed", error)
         }
 
-        if (statusHostHookInstalled) {
+        if (SystemUiHostRuntimeOwner.isReady) {
             installNetworkStateSource(
                 classLoader = param.classLoader,
                 source = "coldStart",
             )
-            installTintStateSource(
-                classLoader = param.classLoader,
-                source = "coldStart",
-            )
-            installSceneStateSource(
-                classLoader = param.classLoader,
-                source = "coldStart",
-            )
-            installMobileTypeStateSource(
+            installPresentationRuntimeSources(
                 classLoader = param.classLoader,
                 source = "coldStart",
             )
@@ -135,97 +121,31 @@ class CombinedStatusModule : XposedModule() {
     }
 
     override fun onHotReloading(param: HotReloadingParam): Boolean {
-        if (!statusHostHookInstalled) {
+        val prepared =
+            SystemUiHotReloadRuntimeOwner.prepare(
+                param = param,
+                visual = CombinedStatusHomeRenderSession.visualHandoffView(),
+            )
+        if (prepared is SystemUiHotReloadRuntimeOwner.PrepareResult.Unavailable) {
             logDiagnostic(
                 level = Log.WARN,
                 event = "hotReload.prepare",
                 component = "hotReload",
                 state = "unavailable",
-                "reason" to "status-host-hook-not-ready",
-            )
-            log(Log.WARN, TAG, "Hot reload declined reason=status-host-hook-not-ready")
-            return false
-        }
-
-        val host = SystemUiHostRegistry.currentStatusHost()
-        val snapshot = CombinedStatusStateStore.snapshot()
-        val bindingCounts = SystemUiNetworkStateSource.hotReloadBindingCounts()
-        val bindingStateReady =
-            (snapshot.wifi is CombinedStatusStateStore.WifiState.Unknown || bindingCounts.first > 0) &&
-                (snapshot.mobile.isEmpty() || bindingCounts.second > 0)
-        if (host == null || !bindingStateReady) {
-            logDiagnostic(
-                level = Log.WARN,
-                event = "hotReload.prepare",
-                component = "hotReload",
-                state = "unavailable",
-                "reason" to if (host == null) "status-host-not-captured" else "network-bindings-not-ready",
-                "wifiRoots" to bindingCounts.first,
-                "mobileRoots" to bindingCounts.second,
+                "reason" to prepared.reason,
+                "wifiRoots" to prepared.wifiRoots,
+                "mobileRoots" to prepared.mobileRoots,
                 "restartScope" to true,
             )
-            log(
-                Log.WARN,
-                TAG,
-                "Hot reload declined reason=" +
-                    if (host == null) "status-host-not-captured" else "network-bindings-not-ready",
-            )
+            log(Log.WARN, TAG, "Hot reload declined reason=" + prepared.reason)
             return false
         }
 
-        val transfer =
-            CombinedStatusHotReloadTransfer.capture(
-                host = host,
-                state = CombinedStatusStateStore.exportHotReloadState(),
-                bindings = SystemUiNetworkStateSource.exportHotReloadBindings(),
-            )
-        if (transfer == null) {
-            logDiagnostic(
-                level = Log.ERROR,
-                event = "hotReload.prepare",
-                component = "hotReload",
-                state = "error",
-                "reason" to "state-transfer-capture-failed",
-                "restartScope" to true,
-            )
-            return false
-        }
-
-        val saved = runCatching {
-            param.setSavedInstanceState(transfer)
-        }
-        if (saved.isFailure) {
-            val error = saved.exceptionOrNull()
-            logDiagnostic(
-                level = Log.ERROR,
-                event = "hotReload.prepare",
-                component = "hotReload",
-                state = "error",
-                "reason" to (error?.message ?: error?.javaClass?.simpleName ?: "saved-state-rejected"),
-                "restartScope" to true,
-            )
-            log(Log.ERROR, TAG, "Hot reload saved-state transfer rejected", error)
-            return false
-        }
-
+        prepared as SystemUiHotReloadRuntimeOwner.PrepareResult.Ready
         val hookCount =
             1 +
-                networkSourceHookCount +
-                if (tintSourceInstalled) {
-                    SystemUiTintStateSource.HOOK_COUNT
-                } else {
-                    0
-                } +
-                if (sceneSourceInstalled) {
-                    SystemUiSceneStateSource.HOOK_COUNT
-                } else {
-                    0
-                } +
-                if (mobileTypeSourceInstalled) {
-                    SystemUiMobileTypeStateSource.HOOK_COUNT
-                } else {
-                    0
-                } +
+                SystemUiNetworkRuntimeOwner.installedHookCount +
+                SystemUiPresentationRuntimeOwner.installedHookCount +
                 if (islandMotionSourceInstalled) {
                     SystemUiIslandMotionSource.HOOK_COUNT
                 } else {
@@ -239,9 +159,9 @@ class CombinedStatusModule : XposedModule() {
             "hooks" to hookCount,
             "build" to BuildConfig.BUILD_ID,
             "transfer" to "saved-instance-state",
-            "hostIdentity" to System.identityHashCode(host),
-            "wifiRoots" to bindingCounts.first,
-            "mobileRoots" to bindingCounts.second,
+            "hostIdentity" to System.identityHashCode(prepared.host),
+            "wifiRoots" to prepared.wifiRoots,
+            "mobileRoots" to prepared.mobileRoots,
         )
         log(
             Log.INFO,
@@ -250,18 +170,20 @@ class CombinedStatusModule : XposedModule() {
                 " hooks=" + hookCount +
                 " transfer=saved-instance-state",
         )
-        teardownRuntimeResources("hotReload.prepare")
+        teardownRuntimeResources("hotReload.prepare", preserveRendererVisual = true)
         unbindRuntimeDiagnostics()
         return true
     }
 
     override fun onHotReloaded(param: HotReloadedParam) {
         rotateDiagnosticSession()
-        val oldHandles = param.oldHookHandles
-        val statusHostHandle = oldHandles.firstOrNull(StatusBarHostCapture::matches)
+        val takeover =
+            SystemUiHotReloadRuntimeOwner.takeOverHooks(
+                param = param,
+                onCaptured = ::onStatusHostCaptured,
+            )
 
-        if (statusHostHandle == null) {
-            oldHandles.forEach { handle -> runCatching { handle.unhook() } }
+        if (takeover == null) {
             bindRuntimeDiagnostics()
             logDiagnostic(
                 level = Log.ERROR,
@@ -280,28 +202,11 @@ class CombinedStatusModule : XposedModule() {
         }
 
         runCatching {
-            StatusBarHostCapture.replace(
-                handle = statusHostHandle,
-                onCaptured = ::onStatusHostCaptured,
-            )
+            val removed = takeover.removedHooks
 
-            var removed = 0
-            oldHandles.forEach { handle ->
-                if (handle !== statusHostHandle) {
-                    handle.unhook()
-                    removed += 1
-                }
-            }
-
-            statusHostHookInstalled = true
-            networkSourceHookCount = 0
-            tintSourceInstalled = false
-            sceneSourceInstalled = false
-            mobileTypeSourceInstalled = false
+            SystemUiNetworkRuntimeOwner.resetRuntimeState()
             islandMotionSourceInstalled = false
-            SystemUiNetworkStateSource.resetEventState()
-            SystemUiTintStateSource.resetRuntimeState()
-            SystemUiSceneStateSource.resetRuntimeState()
+            SystemUiPresentationRuntimeOwner.resetRuntimeState()
             SystemUiIslandMotionSource.resetRuntimeState()
             bindRuntimeDiagnostics()
             logDiagnostic(
@@ -329,21 +234,12 @@ class CombinedStatusModule : XposedModule() {
             )
             logCurrentDiagnosticsHealth()
 
-            val classLoader = statusHostHandle.executable.declaringClass.classLoader
-                ?: error("SystemUI class loader unavailable after hot reload")
+            val classLoader = takeover.classLoader
             installNetworkStateSource(
                 classLoader = classLoader,
                 source = "hotReload",
             )
-            installTintStateSource(
-                classLoader = classLoader,
-                source = "hotReload",
-            )
-            installSceneStateSource(
-                classLoader = classLoader,
-                source = "hotReload",
-            )
-            installMobileTypeStateSource(
+            installPresentationRuntimeSources(
                 classLoader = classLoader,
                 source = "hotReload",
             )
@@ -354,7 +250,7 @@ class CombinedStatusModule : XposedModule() {
                 )
             }
 
-            val restored = CombinedStatusHotReloadTransfer.restore(param.savedInstanceState)
+            val restored = SystemUiHotReloadRuntimeOwner.restoreTransfer(param)
             val restoreReady =
                 if (restored != null) {
                     val capture = SystemUiHostRegistry.restoreStatusHost(restored.host)
@@ -374,6 +270,7 @@ class CombinedStatusModule : XposedModule() {
                     attachHostRuntime(
                         host = capture.host,
                         source = "hotReloadRestore",
+                        previousVisual = restored.visual,
                     )
                     logDiagnostic(
                         level = Log.INFO,
@@ -434,7 +331,7 @@ class CombinedStatusModule : XposedModule() {
         source: String,
     ) {
         runCatching {
-            SystemUiNetworkStateSource.install(
+            SystemUiNetworkRuntimeOwner.attach(
                 module = this,
                 classLoader = classLoader,
                 onWifiState = { state ->
@@ -489,15 +386,14 @@ class CombinedStatusModule : XposedModule() {
                 onEvent = if (BuildConfig.RUNTIME_DIAGNOSTICS) ::onNetworkPipelineEvent else null,
             )
         }.onSuccess { result ->
-            networkSourceHookCount = result.handles.size
             val fullyReady =
                 result.wifiReady &&
                     result.mobileReady &&
-                    networkSourceHookCount == SystemUiNetworkStateSource.HOOK_COUNT
+                    SystemUiNetworkRuntimeOwner.installedHookCount == SystemUiNetworkStateSource.HOOK_COUNT
             val state =
                 when {
                     fullyReady -> "ready"
-                    networkSourceHookCount > 0 -> "partial"
+                    SystemUiNetworkRuntimeOwner.installedHookCount > 0 -> "partial"
                     else -> "error"
                 }
             logDiagnostic(
@@ -510,7 +406,7 @@ class CombinedStatusModule : XposedModule() {
                 event = "source.install",
                 component = "network",
                 state = state,
-                "hooks" to networkSourceHookCount,
+                "hooks" to SystemUiNetworkRuntimeOwner.installedHookCount,
                 "expectedHooks" to SystemUiNetworkStateSource.HOOK_COUNT,
                 "wifi" to if (result.wifiReady) "ready" else "error",
                 "mobile" to if (result.mobileReady) "ready" else "error",
@@ -541,7 +437,7 @@ class CombinedStatusModule : XposedModule() {
                 if (fullyReady) Log.INFO else Log.WARN,
                 TAG,
                 "networkSource state=" + state +
-                    " hooks=" + networkSourceHookCount +
+                    " hooks=" + SystemUiNetworkRuntimeOwner.installedHookCount +
                     "/" + SystemUiNetworkStateSource.HOOK_COUNT +
                     " wifi=" + result.wifiReady +
                     " mobile=" + result.mobileReady +
@@ -549,7 +445,7 @@ class CombinedStatusModule : XposedModule() {
                     " rebindRequired=" + (source == "hotReload"),
             )
         }.onFailure { error ->
-            networkSourceHookCount = 0
+            SystemUiNetworkRuntimeOwner.resetRuntimeState()
             logDiagnostic(
                 level = Log.ERROR,
                 event = "source.install",
@@ -560,76 +456,6 @@ class CombinedStatusModule : XposedModule() {
                 "source" to source,
             )
             log(Log.ERROR, TAG, "Network state source installation failed", error)
-        }
-    }
-
-    private fun attachAirplaneStateSource(
-        host: Any,
-        source: String,
-    ) {
-        val view = host as? android.view.View
-        if (view == null) {
-            airplaneObserverAttached = false
-            logDiagnostic(
-                level = Log.WARN,
-                event = "source.attach",
-                component = "airplane",
-                state = "unavailable",
-                "source" to source,
-                "reason" to "host-not-view",
-            )
-            log(
-                Log.WARN,
-                TAG,
-                "airplaneSource observer=unavailable source=" + source +
-                    " reason=host-not-view",
-            )
-            return
-        }
-
-        runCatching {
-            SystemUiAirplaneStateSource.attach(
-                context = view.context,
-                onAirplaneMode = { enabled ->
-                    val trace = beginRenderTrace("airplaneObserver")
-                    CombinedStatusStateStore.updateAirplaneMode(enabled)?.let { snapshot ->
-                        onCombinedStateChanged(
-                            snapshot = snapshot,
-                            trace = markStateCommitted(trace),
-                        )
-                    }
-                },
-                onEvent = if (BuildConfig.RUNTIME_DIAGNOSTICS) ::onNetworkPipelineEvent else null,
-            )
-        }.onSuccess { attached ->
-            airplaneObserverAttached = attached
-            logDiagnostic(
-                level = if (attached) Log.INFO else Log.WARN,
-                event = "source.attach",
-                component = "airplane",
-                state = if (attached) "ready" else "unavailable",
-                "source" to source,
-                "observer" to "settings-global-content-observer",
-            )
-            log(
-                Log.INFO,
-                TAG,
-                "airplaneSource observer=" +
-                    if (attached) "ready" else "unavailable" +
-                    " source=" + source +
-                    " event=settings-global-content-observer",
-            )
-        }.onFailure { error ->
-            airplaneObserverAttached = false
-            logDiagnostic(
-                level = Log.ERROR,
-                event = "source.attach",
-                component = "airplane",
-                state = "error",
-                "reason" to (error.message ?: error.javaClass.simpleName),
-                "source" to source,
-            )
-            log(Log.ERROR, TAG, "Airplane state observer failed", error)
         }
     }
 
@@ -683,128 +509,69 @@ class CombinedStatusModule : XposedModule() {
         }
     }
 
-    private fun installTintStateSource(
+    private fun installPresentationRuntimeSources(
         classLoader: ClassLoader,
         source: String,
     ) {
         runCatching {
-            SystemUiTintStateSource.install(
+            SystemUiPresentationRuntimeOwner.attach(
                 module = this,
                 classLoader = classLoader,
                 onTintState = CombinedStatusHomeRenderSession::onTintUpdate,
-                onEvent = if (BuildConfig.RUNTIME_DIAGNOSTICS) ::onTintSourceEvent else null,
-            )
-        }.onSuccess { handles ->
-            tintSourceInstalled = handles.size == SystemUiTintStateSource.HOOK_COUNT
-            logDiagnostic(
-                level = if (tintSourceInstalled) Log.INFO else Log.WARN,
-                event = "source.install",
-                component = "tint",
-                state = if (tintSourceInstalled) "ready" else "partial",
-                "hooks" to handles.size,
-                "expectedHooks" to SystemUiTintStateSource.HOOK_COUNT,
-                "source" to source,
-            )
-            log(
-                Log.INFO,
-                TAG,
-                "tintSource hooks=ready count=" + handles.size +
-                    " source=" + source,
-            )
-        }.onFailure { error ->
-            tintSourceInstalled = false
-            logDiagnostic(
-                level = Log.ERROR,
-                event = "source.install",
-                component = "tint",
-                state = "error",
-                "reason" to (error.message ?: error.javaClass.simpleName),
-                "source" to source,
-            )
-            log(Log.ERROR, TAG, "Tint state source installation failed", error)
-        }
-    }
-
-    private fun installSceneStateSource(
-        classLoader: ClassLoader,
-        source: String,
-    ) {
-        runCatching {
-            SystemUiSceneStateSource.install(
-                module = this,
-                classLoader = classLoader,
                 onSceneState = CombinedStatusHomeRenderSession::onSceneUpdate,
-                onEvent = if (BuildConfig.RUNTIME_DIAGNOSTICS) ::onSceneSourceEvent else null,
+                onMobileTypeChanged = { drawable ->
+                    refreshMobilePresentation(
+                        trace = beginRenderTrace("mobileType"),
+                        pendingMobileTypeDrawable = drawable,
+                    )
+                },
+                onTintEvent = if (BuildConfig.RUNTIME_DIAGNOSTICS) ::onTintSourceEvent else null,
+                onSceneEvent = if (BuildConfig.RUNTIME_DIAGNOSTICS) ::onSceneSourceEvent else null,
             )
-        }.onSuccess { handles ->
-            sceneSourceInstalled = handles.size == SystemUiSceneStateSource.HOOK_COUNT
+        }.onSuccess { result ->
             logDiagnostic(
-                level = if (sceneSourceInstalled) Log.INFO else Log.WARN,
+                level =
+                    if (result.tintReady && result.sceneReady && result.mobileTypeReady) {
+                        Log.INFO
+                    } else {
+                        Log.WARN
+                    },
                 event = "source.install",
-                component = "scene",
-                state = if (sceneSourceInstalled) "ready" else "partial",
-                "hooks" to handles.size,
-                "expectedHooks" to SystemUiSceneStateSource.HOOK_COUNT,
+                component = "presentationRuntime",
+                state =
+                    if (result.tintReady && result.sceneReady && result.mobileTypeReady) {
+                        "ready"
+                    } else {
+                        "partial"
+                    },
+                "tintHooks" to result.tintHooks,
+                "sceneHooks" to result.sceneHooks,
+                "mobileTypeHooks" to result.mobileTypeHooks,
                 "source" to source,
                 "nativeGeometryWrites" to 0,
             )
         }.onFailure { error ->
-            sceneSourceInstalled = false
             logDiagnostic(
                 level = Log.ERROR,
                 event = "source.install",
-                component = "scene",
+                component = "presentationRuntime",
                 state = "error",
                 "reason" to (error.message ?: error.javaClass.simpleName),
                 "source" to source,
+                "nativeGeometryWrites" to 0,
             )
-            log(Log.ERROR, TAG, "Scene state source installation failed", error)
+            log(Log.ERROR, TAG, "Presentation runtime source installation failed", error)
         }
     }
 
-    private fun installMobileTypeStateSource(
-        classLoader: ClassLoader,
-        source: String,
+    private fun refreshMobilePresentation(
+        trace: RuntimeRenderTrace? = null,
+        pendingMobileTypeDrawable: Drawable? = null,
     ) {
-        runCatching {
-            SystemUiMobileTypeStateSource.install(
-                module = this,
-                classLoader = classLoader,
-                onChanged = {
-                    refreshMobilePresentation(beginRenderTrace("mobileType"))
-                },
-            )
-        }.onSuccess { handles ->
-            mobileTypeSourceInstalled =
-                handles.size == SystemUiMobileTypeStateSource.HOOK_COUNT
-            logDiagnostic(
-                level = if (mobileTypeSourceInstalled) Log.INFO else Log.WARN,
-                event = "source.install",
-                component = "mobileType",
-                state = if (mobileTypeSourceInstalled) "ready" else "partial",
-                "hooks" to handles.size,
-                "expectedHooks" to SystemUiMobileTypeStateSource.HOOK_COUNT,
-                "source" to source,
-                "nativeGeometryWrites" to 0,
-            )
-        }.onFailure { error ->
-            mobileTypeSourceInstalled = false
-            logDiagnostic(
-                level = Log.WARN,
-                event = "source.install",
-                component = "mobileType",
-                state = "unavailable",
-                "reason" to (error.message ?: error.javaClass.simpleName),
-                "source" to source,
-                "nativeGeometryWrites" to 0,
-            )
-        }
-    }
-
-    private fun refreshMobilePresentation(trace: RuntimeRenderTrace? = null) {
         val presentation =
             NativePresentationResolver.resolve(
                 state = CombinedStatusStateStore.snapshot(),
+                pendingMobileTypeDrawable = pendingMobileTypeDrawable,
             )
         val changed =
             CombinedStatusPresentationStateStore.updateMobilePresentation(presentation)
@@ -823,6 +590,7 @@ class CombinedStatusModule : XposedModule() {
                     "activeSubIds" to presentation.activeSubscriptionIds.joinToString(","),
                     "presentationRootSubId" to presentation.presentationRootSubscriptionId,
                     "effectiveDataSubId" to presentation.effectiveDataSubscriptionId,
+                    "networkTypeSubId" to presentation.networkTypeSubscriptionId,
                     "networkType" to presentation.networkType?.label,
                     "enhanced" to presentation.networkType?.enhanced,
                     "geometryWrites" to 0,
@@ -859,38 +627,90 @@ class CombinedStatusModule : XposedModule() {
         CombinedStatusHomeRenderSession.onState(snapshot, trace)
     }
 
-    private fun teardownRuntimeResources(source: String) {
-        CombinedStatusHomeRenderSession.detach()
+    private fun teardownRuntimeResources(
+        source: String,
+        preserveRendererVisual: Boolean = false,
+    ) {
+        val nativeShadowDetach =
+            if (BuildConfig.RUNTIME_DIAGNOSTICS) {
+                NativeParticipantShadowSession.detach()
+            } else {
+                NativeParticipantShadowSession.DetachResult.AlreadyDetached
+            }
+        CombinedStatusHomeRenderSession.detach(preserveVisual = preserveRendererVisual)
         StatusBarStableSession.detach()
-        SystemUiAirplaneStateSource.detach()
-        SystemUiConnectivityStateSource.detach()
+        SystemUiCoreRuntimeOwner.detach()
+        SystemUiPresentationRuntimeOwner.resetRuntimeState()
         CombinedStatusPresentationStateStore.reset()
         SystemUiIslandMotionSource.resetRuntimeState()
-        airplaneObserverAttached = false
+
+        val nativeShadowDetached =
+            nativeShadowDetach !is NativeParticipantShadowSession.DetachResult.Failure
+        if (BuildConfig.RUNTIME_DIAGNOSTICS) {
+            logDiagnostic(
+                level = if (nativeShadowDetached) Log.INFO else Log.WARN,
+                event = "participant.detach",
+                component = "nativeParticipantShadow",
+                state = if (nativeShadowDetached) "ready" else "error",
+                "source" to source,
+                "cleanup" to
+                    when (nativeShadowDetach) {
+                        NativeParticipantShadowSession.DetachResult.Removed ->
+                            "removed"
+                        NativeParticipantShadowSession.DetachResult.AlreadyDetached ->
+                            "already-detached"
+                        is NativeParticipantShadowSession.DetachResult.Failure ->
+                            "failed"
+                    },
+                "reason" to
+                    (nativeShadowDetach as? NativeParticipantShadowSession.DetachResult.Failure)
+                        ?.reason,
+                "nativeGeometryWrites" to 0,
+            )
+        }
         logDiagnostic(
-            level = Log.INFO,
+            level = if (nativeShadowDetached) Log.INFO else Log.WARN,
             event = "runtime.teardown",
             component = "runtimeSession",
-            state = "ready",
+            state = if (nativeShadowDetached) "ready" else "partial",
             "source" to source,
-            "rendererDetached" to true,
+            "rendererDetached" to !preserveRendererVisual,
+            "rendererVisualPreserved" to preserveRendererVisual,
             "stableStatusDetached" to true,
             "airplaneObserverDetached" to true,
+            "defaultDataSubscriptionObserverDetached" to true,
+            "nativeShadowDetached" to nativeShadowDetached,
+            "nativeShadowReason" to
+                (nativeShadowDetach as? NativeParticipantShadowSession.DetachResult.Failure)
+                    ?.reason,
         )
     }
 
     private fun attachHostRuntime(
         host: Any,
         source: String,
+        previousVisual: android.view.View? = null,
     ) {
-        attachAirplaneStateSource(host = host, source = source)
-
         val hostContext = (host as? android.view.View)?.context
-        val connectivityReady =
+        val coreRuntime =
             hostContext?.let { context ->
-                SystemUiConnectivityStateSource.attach(
+                SystemUiCoreRuntimeOwner.attach(
                     context = context,
-                    onState = { state ->
+                    onAirplaneMode = { enabled ->
+                        val trace = beginRenderTrace("airplaneObserver")
+                        CombinedStatusStateStore.updateAirplaneMode(enabled)?.let { snapshot ->
+                            onCombinedStateChanged(
+                                snapshot = snapshot,
+                                trace = markStateCommitted(trace),
+                            )
+                        }
+                    },
+                    onDefaultDataSubscriptionChanged = {
+                        refreshMobilePresentation(
+                            beginRenderTrace("defaultDataSubscription"),
+                        )
+                    },
+                    onConnectivityState = { state ->
                         val trace = beginRenderTrace("connectivity")
                         val changed =
                             CombinedStatusPresentationStateStore.updateConnectivity(state)
@@ -909,21 +729,38 @@ class CombinedStatusModule : XposedModule() {
                     },
                     onEvent =
                         if (BuildConfig.RUNTIME_DIAGNOSTICS) {
-                            { event ->
-                                if (detailedDiagnosticsEnabled) {
-                                    log(Log.INFO, TAG, event)
-                                }
-                            }
+                            ::onNetworkPipelineEvent
                         } else {
                             null
                         },
                 )
-            } == true
+            }
+
         logDiagnostic(
-            level = if (connectivityReady) Log.INFO else Log.WARN,
+            level = if (coreRuntime?.airplaneReady == true) Log.INFO else Log.WARN,
+            event = "source.attach",
+            component = "airplane",
+            state = if (coreRuntime?.airplaneReady == true) "ready" else "unavailable",
+            "source" to source,
+            "observer" to "settings-global-content-observer",
+        )
+        logDiagnostic(
+            level =
+                if (coreRuntime?.defaultDataSubscriptionReady == true) Log.INFO else Log.WARN,
+            event = "source.attach",
+            component = "defaultDataSubscription",
+            state =
+                if (coreRuntime?.defaultDataSubscriptionReady == true) "ready" else "unavailable",
+            "source" to source,
+            "observer" to "default-data-subscription-broadcast",
+            "subscriptionId" to SystemUiDefaultDataSubscriptionSource.currentSubscriptionId(),
+            "eventDriven" to true,
+        )
+        logDiagnostic(
+            level = if (coreRuntime?.connectivityReady == true) Log.INFO else Log.WARN,
             event = "source.attach",
             component = "connectivity",
-            state = if (connectivityReady) "ready" else "unavailable",
+            state = if (coreRuntime?.connectivityReady == true) "ready" else "unavailable",
             "source" to source,
         )
         refreshMobilePresentation()
@@ -969,6 +806,67 @@ class CombinedStatusModule : XposedModule() {
             }
         }
 
+        if (BuildConfig.RUNTIME_DIAGNOSTICS) {
+            when (
+                val nativeShadow =
+                    NativeParticipantShadowSession.attach(
+                        host = host,
+                        onEvent = { event ->
+                            if (detailedDiagnosticsEnabled) {
+                                log(Log.INFO, TAG, event)
+                            }
+                        },
+                    )
+            ) {
+                is NativeParticipantShadowSession.AttachResult.Ready -> {
+                    val shadow = nativeShadow.snapshot
+                    logDiagnostic(
+                        level = Log.INFO,
+                        event = "participant.attach",
+                        component = "nativeParticipantShadow",
+                        state = "ready",
+                        "source" to source,
+                        "slot" to shadow.slot,
+                        "root" to shadow.rootClass,
+                        "rootIndex" to shadow.rootIndex,
+                        "visibility" to shadow.rootVisibility,
+                        "iconVisible" to shadow.iconVisible,
+                        "measured" to
+                            shadow.measuredWidth.toString() +
+                                "x" +
+                                shadow.measuredHeight,
+                        "layoutHidden" to shadow.layoutHidden,
+                        "childrenBefore" to shadow.childrenBefore,
+                        "childrenAfter" to shadow.childrenAfter,
+                        "bootstrapRes" to
+                            "0x" +
+                                shadow.bootstrapResourceId
+                                    .toUInt()
+                                    .toString(16),
+                        "bootstrapSlot" to shadow.bootstrapSourceSlot,
+                        "bootstrapIndex" to shadow.bootstrapSourceIndex,
+                        "creationMode" to shadow.creationMode,
+                        "removalMode" to shadow.removalMode,
+                        "visible" to false,
+                        "nativeGeometryWrites" to 0,
+                    )
+                }
+
+                is NativeParticipantShadowSession.AttachResult.Failure -> {
+                    logDiagnostic(
+                        level = Log.WARN,
+                        event = "participant.attach",
+                        component = "nativeParticipantShadow",
+                        state = "unavailable",
+                        "source" to source,
+                        "reason" to nativeShadow.reason,
+                        "visible" to false,
+                        "nativeGeometryWrites" to 0,
+                    )
+                }
+            }
+        }
+
         when (
             val renderSession = CombinedStatusHomeRenderSession.attach(
                 host = host,
@@ -979,6 +877,7 @@ class CombinedStatusModule : XposedModule() {
                 },
                 onLatencySample = ::onRenderLatencySample,
                 isDetailedDiagnosticsEnabled = { detailedDiagnosticsEnabled },
+                previousVisual = previousVisual,
             )
         ) {
             CombinedStatusHomeRenderSession.AttachResult.Ready -> {
@@ -1056,9 +955,10 @@ class CombinedStatusModule : XposedModule() {
             "managerMatches" to nativeParticipant.managerMatches,
             "groupMatches" to nativeParticipant.groupMatches,
             "setIconHolder" to nativeParticipant.setIconHolder,
-            "resourceSetIconMode" to nativeParticipant.resourceSetIconMode.name,
+            "resourceSetIconMode" to nativeParticipant.resourceSetIconMode,
             "setIconVisibility" to nativeParticipant.setIconVisibility,
             "removalReady" to nativeParticipant.removalReady,
+            "removalMode" to nativeParticipant.removalMode,
             "addIconGroup" to nativeParticipant.addIconGroup,
             "removeIconGroup" to nativeParticipant.removeIconGroup,
             "addHolder" to nativeParticipant.addHolder,

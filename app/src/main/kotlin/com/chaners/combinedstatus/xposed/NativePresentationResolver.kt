@@ -1,7 +1,6 @@
 package com.chaners.combinedstatus.xposed
 
 import android.graphics.drawable.Drawable
-import android.telephony.SubscriptionManager
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
@@ -11,8 +10,8 @@ internal object NativePresentationResolver {
     fun resolve(
         state: CombinedStatusStateStore.Snapshot,
         defaultDataSubscriptionId: Int =
-            runCatching { SubscriptionManager.getDefaultDataSubscriptionId() }
-                .getOrDefault(-1),
+            SystemUiDefaultDataSubscriptionSource.currentSubscriptionId(),
+        pendingMobileTypeDrawable: Drawable? = null,
     ): Snapshot {
         val bindings =
             SystemUiNetworkStateSource.mobilePresentationBindings()
@@ -58,7 +57,25 @@ internal object NativePresentationResolver {
                 Mode.UNKNOWN -> visible.firstOrNull()
             }
 
-        val networkType = target?.let(::resolveNetworkType)
+        val networkTypeSubscriptionId =
+            selectNetworkTypeSubscriptionId(
+                effectiveDataSubscriptionId = effectiveDataSubscriptionId,
+                presentationRootSubscriptionId = target?.subscriptionId,
+                boundSubscriptionIds = bindings.map { binding -> binding.subscriptionId },
+            )
+        val networkTypeTarget =
+            networkTypeSubscriptionId?.let { subscriptionId ->
+                bindings.firstOrNull { binding ->
+                    binding.subscriptionId == subscriptionId
+                }
+            }
+        val networkType =
+            networkTypeTarget?.let { binding ->
+                resolveNetworkType(
+                    binding = binding,
+                    pendingMobileTypeDrawable = pendingMobileTypeDrawable,
+                )
+            }
 
         return Snapshot(
             mode = mode,
@@ -67,9 +84,21 @@ internal object NativePresentationResolver {
             activeSubscriptionIds = activeBindingSubIds.sorted(),
             presentationRootSubscriptionId = target?.subscriptionId,
             effectiveDataSubscriptionId = effectiveDataSubscriptionId,
+            networkTypeSubscriptionId = networkTypeSubscriptionId,
             networkType = networkType,
         )
     }
+
+    internal fun selectNetworkTypeSubscriptionId(
+        effectiveDataSubscriptionId: Int?,
+        presentationRootSubscriptionId: Int?,
+        boundSubscriptionIds: List<Int>,
+    ): Int? =
+        effectiveDataSubscriptionId
+            ?.takeIf { subscriptionId -> subscriptionId in boundSubscriptionIds }
+            ?: presentationRootSubscriptionId
+                ?.takeIf { subscriptionId -> subscriptionId in boundSubscriptionIds }
+            ?: boundSubscriptionIds.firstOrNull()
 
     internal fun classify(
         boundRoots: Int,
@@ -86,6 +115,7 @@ internal object NativePresentationResolver {
 
     private fun resolveNetworkType(
         binding: SystemUiNetworkStateSource.MobilePresentationBinding,
+        pendingMobileTypeDrawable: Drawable?,
     ): NetworkType? {
         val root = binding.root
 
@@ -93,13 +123,15 @@ internal object NativePresentationResolver {
             ?.let { view ->
                 val image = view as? ImageView
                 val drawable = image?.drawable
-                val label = drawable?.readStringField(MOBILE_TYPE_FIELD)?.trim().orEmpty()
-                if (label.isNotEmpty()) {
-                    return NetworkType(
-                        label = label,
-                        enhanced = drawable?.readBooleanField(MOBILE_TYPE_ENHANCED_FIELD) == true,
-                        source = NetworkTypeSource.MOBILE_TYPE_DRAWABLE,
+                val networkType =
+                    normalizeDrawableNetworkType(
+                        rawLabel = drawable?.readStringField(MOBILE_TYPE_FIELD).orEmpty(),
+                        enhanced =
+                            drawable?.readBooleanField(MOBILE_TYPE_ENHANCED_FIELD) == true,
+                        beforeMeasure = drawable != null && drawable === pendingMobileTypeDrawable,
                     )
+                if (networkType != null) {
+                    return networkType
                 }
             }
 
@@ -116,6 +148,39 @@ internal object NativePresentationResolver {
             }
 
         return null
+    }
+
+    internal fun normalizeDrawableNetworkType(
+        rawLabel: String,
+        enhanced: Boolean,
+        beforeMeasure: Boolean,
+    ): NetworkType? {
+        val label = rawLabel.trim()
+        if (label.isEmpty()) {
+            return null
+        }
+
+        if (beforeMeasure) {
+            return if (label == MOBILE_TYPE_DOUBLE_PLUS_LABEL) {
+                NetworkType(
+                    label = MOBILE_TYPE_DOUBLE_PLUS_BASE_LABEL,
+                    enhanced = true,
+                    source = NetworkTypeSource.MOBILE_TYPE_DRAWABLE,
+                )
+            } else {
+                NetworkType(
+                    label = label,
+                    enhanced = false,
+                    source = NetworkTypeSource.MOBILE_TYPE_DRAWABLE,
+                )
+            }
+        }
+
+        return NetworkType(
+            label = label,
+            enhanced = enhanced,
+            source = NetworkTypeSource.MOBILE_TYPE_DRAWABLE,
+        )
     }
 
     private fun findViewByResourceEntry(
@@ -182,6 +247,7 @@ internal object NativePresentationResolver {
         val activeSubscriptionIds: List<Int>,
         val presentationRootSubscriptionId: Int?,
         val effectiveDataSubscriptionId: Int?,
+        val networkTypeSubscriptionId: Int?,
         val networkType: NetworkType?,
     ) {
         val logLine: String
@@ -192,6 +258,7 @@ internal object NativePresentationResolver {
                     " activeSubIds=" + activeSubscriptionIds.joinToString(",", prefix = "[", postfix = "]") +
                     " presentationRootSubId=" + (presentationRootSubscriptionId ?: -1) +
                     " effectiveDataSubId=" + (effectiveDataSubscriptionId ?: -1) +
+                    " networkTypeSubId=" + (networkTypeSubscriptionId ?: -1) +
                     " networkType=" + (networkType?.label ?: "unknown") +
                     " enhanced=" + (networkType?.enhanced ?: false) +
                     " typeSource=" + (networkType?.source?.name ?: "none") +
@@ -202,4 +269,6 @@ internal object NativePresentationResolver {
     private const val MOBILE_TYPE_SINGLE_RESOURCE_ENTRY = "mobile_type_single"
     private const val MOBILE_TYPE_FIELD = "mMobileType"
     private const val MOBILE_TYPE_ENHANCED_FIELD = "mShowMobileTypeDoublePlus"
+    private const val MOBILE_TYPE_DOUBLE_PLUS_LABEL = "5G++"
+    private const val MOBILE_TYPE_DOUBLE_PLUS_BASE_LABEL = "5G"
 }

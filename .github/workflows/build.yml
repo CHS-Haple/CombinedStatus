@@ -3,6 +3,8 @@ name: Build
 on:
   push:
     branches: [ main, dev ]
+  pull_request:
+    branches: [ main, dev ]
   workflow_dispatch:
 
 permissions:
@@ -15,17 +17,17 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      HAPLE_KEYSTORE_PASSWORD: ${{ secrets.HAPLE_KEYSTORE_PASSWORD }}
-      HAPLE_KEY_ALIAS: ${{ secrets.HAPLE_KEY_ALIAS }}
-      HAPLE_CERT_SHA256: 7a64fc85325afe79439afb63369d832d7ddc20fd5b3935b4c28d7bcb85e92fc7
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - name: Validate Gradle Wrapper
+        uses: gradle/actions/wrapper-validation@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.3
 
       - name: Set up Java
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: temurin
           java-version: '21'
@@ -39,24 +41,29 @@ jobs:
           "$SDKMANAGER" --channel=3 "platforms;android-37.0" "build-tools;37.0.0"
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '9.7.1'
+        uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.3
 
       - name: Restore and verify Haple signing
+        if: github.event_name != 'pull_request'
         shell: bash
         env:
           HAPLE_KEYSTORE_BASE64: ${{ secrets.HAPLE_KEYSTORE_BASE64 }}
+          HAPLE_KEYSTORE_PASSWORD: ${{ secrets.HAPLE_KEYSTORE_PASSWORD }}
+          HAPLE_KEY_ALIAS: ${{ secrets.HAPLE_KEY_ALIAS }}
+          HAPLE_CERT_SHA256: 7a64fc85325afe79439afb63369d832d7ddc20fd5b3935b4c28d7bcb85e92fc7
         run: bash tools/setup_haple_signing.sh
 
       - name: Verify pinned HyperOS target profile
         run: python3 tools/verify_target_profile.py
 
       - name: Run unit tests
-        run: gradle :app:testDebugUnitTest --stacktrace
+        run: ./gradlew :app:testDebugUnitTest --stacktrace
 
       - name: Build debug and canary APKs
-        run: gradle :app:assembleDebug :app:assembleCanary --stacktrace
+        env:
+          HAPLE_KEYSTORE_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.HAPLE_KEYSTORE_PASSWORD || '' }}
+          HAPLE_KEY_ALIAS: ${{ github.event_name != 'pull_request' && secrets.HAPLE_KEY_ALIAS || '' }}
+        run: ./gradlew :app:assembleDebug :app:assembleCanary --stacktrace
 
       - name: Verify modern Xposed metadata
         shell: bash
@@ -67,7 +74,9 @@ jobs:
             "META-INF/xposed/scope.list"
           )
 
-          for APK in             app/build/outputs/apk/debug/app-debug.apk             app/build/outputs/apk/canary/app-canary.apk; do
+          for APK in \
+            app/build/outputs/apk/debug/app-debug.apk \
+            app/build/outputs/apk/canary/app-canary.apk; do
             for entry in "${REQUIRED_ENTRIES[@]}"; do
               if ! unzip -Z1 "$APK" | grep -Fxq "$entry"; then
                 echo "Missing modern Xposed metadata in $APK: $entry"
@@ -109,7 +118,10 @@ jobs:
           done
 
       - name: Verify Haple APK signatures
+        if: github.event_name != 'pull_request'
         shell: bash
+        env:
+          HAPLE_CERT_SHA256: 7a64fc85325afe79439afb63369d832d7ddc20fd5b3935b4c28d7bcb85e92fc7
         run: |
           SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
           for APK in             app/build/outputs/apk/debug/app-debug.apk             app/build/outputs/apk/canary/app-canary.apk; do
@@ -143,6 +155,7 @@ jobs:
           fi
 
       - name: Prepare APKs
+        if: github.event_name != 'pull_request'
         shell: bash
         run: |
           VERSION_NAME="$(sed -n 's/^combinedStatus.versionName=//p' gradle.properties)"
@@ -156,14 +169,16 @@ jobs:
           echo "CANARY_APK_NAME=$CANARY_APK_NAME" >> "$GITHUB_ENV"
 
       - name: Upload debug APK
-        uses: actions/upload-artifact@v4
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ${{ env.DEBUG_APK_NAME }}
           path: dist/${{ env.DEBUG_APK_NAME }}
           if-no-files-found: error
 
       - name: Upload canary APK
-        uses: actions/upload-artifact@v4
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ${{ env.CANARY_APK_NAME }}
           path: dist/${{ env.CANARY_APK_NAME }}

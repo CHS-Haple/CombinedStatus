@@ -74,6 +74,9 @@ class MainActivity : ComponentActivity() {
                 darkMode = darkMode,
                 appLanguage = appLanguage,
                 launcherIconHidden = launcherIconHidden,
+                onHotReload = { onComplete ->
+                    (application as CombinedStatusApplication).hotReloadSystemUi(onComplete)
+                },
                 onThemeModeChange = { mode ->
                     scope.launch { repository.setThemeMode(mode) }
                 },

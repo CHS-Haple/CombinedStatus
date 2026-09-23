@@ -35,7 +35,10 @@ PY
 chmod 600 "$KEYSTORE_PATH"
 
 ACTUAL_CERT_SHA256="$(
-  keytool -list -v     -keystore "$KEYSTORE_PATH"     -storepass "$HAPLE_KEYSTORE_PASSWORD"     -alias "$HAPLE_KEY_ALIAS" |
+  keytool -list -v \
+    -keystore "$KEYSTORE_PATH" \
+    -storepass "$HAPLE_KEYSTORE_PASSWORD" \
+    -alias "$HAPLE_KEY_ALIAS" |
     sed -n 's/^.*SHA256: //p' |
     head -n 1 |
     tr -d ':' |
@@ -51,7 +54,16 @@ fi
 
 PROBE="$RUNNER_TEMP/haple-key-probe.p12"
 rm -f "$PROBE"
-if ! keytool -importkeystore   -srckeystore "$KEYSTORE_PATH"   -srcstorepass "$HAPLE_KEYSTORE_PASSWORD"   -srcalias "$HAPLE_KEY_ALIAS"   -srckeypass "$HAPLE_KEYSTORE_PASSWORD"   -destkeystore "$PROBE"   -deststoretype PKCS12   -deststorepass "ci-probe-password"   -destkeypass "ci-probe-password"   -noprompt >/dev/null 2>&1; then
+if ! keytool -importkeystore \
+  -srckeystore "$KEYSTORE_PATH" \
+  -srcstorepass "$HAPLE_KEYSTORE_PASSWORD" \
+  -srcalias "$HAPLE_KEY_ALIAS" \
+  -srckeypass "$HAPLE_KEYSTORE_PASSWORD" \
+  -destkeystore "$PROBE" \
+  -deststoretype PKCS12 \
+  -deststorepass "ci-probe-password" \
+  -destkeypass "ci-probe-password" \
+  -noprompt >/dev/null 2>&1; then
   echo "Cannot recover Haple private key with HAPLE_KEYSTORE_PASSWORD."
   exit 1
 fi
