@@ -48,6 +48,7 @@ internal object NativeStatusBarSlotOrderingProbe {
                 .orEmpty()
 
         val viewOnlyRaw = readField(iconList, "mViewOnlySlots")
+        val viewOnlyList = viewOnlyRaw as? List<*>
         val viewOnlySlots =
             when (viewOnlyRaw) {
                 is Iterable<*> ->
@@ -58,6 +59,11 @@ internal object NativeStatusBarSlotOrderingProbe {
                         }
                 else -> emptyList()
             }
+        val listRelation =
+            inspectListRelation(
+                slots = slotsRaw,
+                viewOnly = viewOnlyList,
+            )
 
         val constructors =
             iconList.javaClass.declaredConstructors
@@ -194,6 +200,7 @@ internal object NativeStatusBarSlotOrderingProbe {
             constructors = constructors,
             fields = fields,
             slotElementContracts = slotElementContracts,
+            listRelation = listRelation,
             indexResults = indexResults,
             groupOrder = groupOrder,
         )
@@ -211,6 +218,95 @@ internal object NativeStatusBarSlotOrderingProbe {
     private fun isContractMethod(method: Method): Boolean {
         val lower = method.name.lowercase()
         return contractKeywords.any(lower::contains)
+    }
+
+    private fun inspectListRelation(
+        slots: List<*>?,
+        viewOnly: List<*>?,
+    ): ListRelation {
+        if (slots == null || viewOnly == null) {
+            return ListRelation(
+                slotsClass = slots?.javaClass?.name,
+                viewOnlyClass = viewOnly?.javaClass?.name,
+                sameIdentity = false,
+                sameSize = slots?.size == viewOnly?.size,
+                sameElementIdentity = false,
+                backingFields = emptyList(),
+            )
+        }
+
+        val sameSize = slots.size == viewOnly.size
+        val sameElementIdentity =
+            sameSize &&
+                slots.indices.all { index ->
+                    slots[index] === viewOnly[index]
+                }
+
+        return ListRelation(
+            slotsClass = slots.javaClass.name,
+            viewOnlyClass = viewOnly.javaClass.name,
+            sameIdentity = slots === viewOnly,
+            sameSize = sameSize,
+            sameElementIdentity = sameElementIdentity,
+            backingFields =
+                findBackingReferences(
+                    target = viewOnly,
+                    expected = slots,
+                    maxDepth = 2,
+                ),
+        )
+    }
+
+    private fun findBackingReferences(
+        target: Any,
+        expected: Any,
+        maxDepth: Int,
+    ): List<String> {
+        val visited = java.util.Collections.newSetFromMap(
+            java.util.IdentityHashMap<Any, Boolean>(),
+        )
+
+        fun scan(
+            value: Any,
+            path: String,
+            depth: Int,
+        ): List<String> {
+            if (!visited.add(value) || depth > maxDepth) {
+                return emptyList()
+            }
+
+            return value.javaClass
+                .allFields()
+                .mapNotNull { field ->
+                    val fieldValue =
+                        runCatching {
+                            field.isAccessible = true
+                            field.get(value)
+                        }.getOrNull()
+                        ?: return@mapNotNull null
+                    val fieldPath =
+                        if (path.isEmpty()) {
+                            field.declaringClass.simpleName + "." + field.name
+                        } else {
+                            path + "." + field.declaringClass.simpleName + "." + field.name
+                        }
+
+                    when {
+                        fieldValue === expected -> listOf(fieldPath)
+                        depth < maxDepth &&
+                            fieldValue !== value &&
+                            fieldValue is Collection<*> ->
+                            scan(fieldValue, fieldPath, depth + 1)
+                        else -> emptyList()
+                    }
+                }
+                .flatten()
+                .distinct()
+                .sorted()
+                .toList()
+        }
+
+        return scan(target, "", 0)
     }
 
     private fun describeSlotElementClass(clazz: Class<*>): String {
@@ -370,6 +466,37 @@ internal object NativeStatusBarSlotOrderingProbe {
             else -> visibility.toString()
         }
 
+    internal data class ListRelation(
+        val slotsClass: String?,
+        val viewOnlyClass: String?,
+        val sameIdentity: Boolean,
+        val sameSize: Boolean,
+        val sameElementIdentity: Boolean,
+        val backingFields: List<String>,
+    ) {
+        val compact: String
+            get() =
+                "slotsClass=" + (slotsClass ?: "none") +
+                    ",viewOnlyClass=" + (viewOnlyClass ?: "none") +
+                    ",sameIdentity=" + sameIdentity +
+                    ",sameSize=" + sameSize +
+                    ",sameElementIdentity=" + sameElementIdentity +
+                    ",backingFields=" +
+                    if (backingFields.isEmpty()) "none" else backingFields.joinToString(";")
+
+        companion object {
+            fun unavailable(): ListRelation =
+                ListRelation(
+                    slotsClass = null,
+                    viewOnlyClass = null,
+                    sameIdentity = false,
+                    sameSize = false,
+                    sameElementIdentity = false,
+                    backingFields = emptyList(),
+                )
+        }
+    }
+
     internal data class SlotEntry(
         val index: Int,
         val name: String,
@@ -389,6 +516,7 @@ internal object NativeStatusBarSlotOrderingProbe {
         val constructors: List<String>,
         val fields: List<String>,
         val slotElementContracts: List<String>,
+        val listRelation: ListRelation,
         val indexResults: List<String>,
         val groupOrder: List<String>,
     ) {
@@ -409,6 +537,7 @@ internal object NativeStatusBarSlotOrderingProbe {
                     " fields=" + fields.joinToString("|") +
                     " methods=" + methods.joinToString("|") +
                     " slotElementContracts=" + slotElementContracts.joinToString("|") +
+                    " listRelation=" + listRelation.compact +
                     " indices=" + indexResults.joinToString("|") +
                     " groupOrder=" + groupOrder.joinToString("|") +
                     " nativeGeometryWrites=0"
@@ -425,6 +554,7 @@ internal object NativeStatusBarSlotOrderingProbe {
                     constructors = emptyList(),
                     fields = emptyList(),
                     slotElementContracts = emptyList(),
+                    listRelation = ListRelation.unavailable(),
                     indexResults = emptyList(),
                     groupOrder = emptyList(),
                 )

@@ -1121,6 +1121,13 @@ class CombinedStatusModule : XposedModule() {
                 "fields" to slotOrdering.fields.joinToString("|"),
                 "slotElementContracts" to
                     slotOrdering.slotElementContracts.joinToString("|"),
+                "slotListClass" to slotOrdering.listRelation.slotsClass,
+                "viewOnlyListClass" to slotOrdering.listRelation.viewOnlyClass,
+                "sameListIdentity" to slotOrdering.listRelation.sameIdentity,
+                "sameListSize" to slotOrdering.listRelation.sameSize,
+                "sameElementIdentity" to slotOrdering.listRelation.sameElementIdentity,
+                "viewOnlyBackingFields" to
+                    slotOrdering.listRelation.backingFields.joinToString("|"),
                 "indices" to slotOrdering.indexResults.joinToString("|"),
                 "groupOrder" to slotOrdering.groupOrder.joinToString("|"),
                 "nativeGeometryWrites" to 0,
