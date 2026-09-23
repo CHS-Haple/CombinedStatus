@@ -43,13 +43,38 @@ jobs:
           PR_BASE_REF: ${{ github.event.pull_request.base.ref || '' }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || '' }}
+          PUSH_BEFORE_SHA: ${{ github.event.before || '' }}
+          PUSH_HEAD_SHA: ${{ github.sha }}
         run: |
           FULL_BUILD=true
           REASON="trusted branch or manual build"
 
+          classify_paths() {
+            local base_sha="$1"
+            local head_sha="$2"
+
+            FULL_BUILD=false
+            REASON="mechanical/documentation-only change"
+
+            mapfile -t CHANGED_FILES < <(git diff --name-only "$base_sha" "$head_sha")
+            for path in "${CHANGED_FILES[@]}"; do
+              case "$path" in
+                app/*|compat/*|gradle/*|tools/*|.github/workflows/*|build.gradle.kts|settings.gradle.kts|gradle.properties|gradlew|gradlew.bat)
+                  FULL_BUILD=true
+                  REASON="APK/build/compatibility/CI-affecting path changed: $path"
+                  break
+                  ;;
+              esac
+            done
+          }
+
           if [[ "$EVENT_NAME" == "push" && "$GITHUB_REF" == "refs/heads/validation/dev" ]]; then
             FULL_BUILD=false
             REASON="device-validation marker update"
+          elif [[ "$EVENT_NAME" == "push" && ( "$GITHUB_REF" == "refs/heads/main" || "$GITHUB_REF" == "refs/heads/dev" ) ]]; then
+            if [[ -n "$PUSH_BEFORE_SHA" && "$PUSH_BEFORE_SHA" != "0000000000000000000000000000000000000000" ]]; then
+              classify_paths "$PUSH_BEFORE_SHA" "$PUSH_HEAD_SHA"
+            fi
           elif [[ "$EVENT_NAME" == "pull_request" ]]; then
             FULL_BUILD=false
             REASON="lightweight pull-request validation"
@@ -60,16 +85,7 @@ jobs:
               FULL_BUILD=true
               REASON="ready pull request targeting main"
             else
-              mapfile -t CHANGED_FILES < <(git diff --name-only "$PR_BASE_SHA" "$PR_HEAD_SHA")
-              for path in "${CHANGED_FILES[@]}"; do
-                case "$path" in
-                  app/*|compat/*|gradle/*|tools/*|.github/workflows/*|build.gradle.kts|settings.gradle.kts|gradle.properties|gradlew|gradlew.bat)
-                    FULL_BUILD=true
-                    REASON="APK/build/compatibility/CI-affecting path changed: $path"
-                    break
-                    ;;
-                esac
-              done
+              classify_paths "$PR_BASE_SHA" "$PR_HEAD_SHA"
             fi
           fi
 
