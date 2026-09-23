@@ -1,0 +1,59 @@
+name: Cleanup merged work branch
+
+on:
+  pull_request:
+    branches: [ dev, main ]
+    types: [ closed ]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: cleanup-branch-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    if: github.event.pull_request.merged == true && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Classify merged branch
+        id: branch
+        shell: bash
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          DELETE_BRANCH=false
+
+          case "$HEAD_REF" in
+            feat/*|fix/*)
+              if [[ "$BASE_REF" == "dev" ]]; then
+                DELETE_BRANCH=true
+              fi
+              ;;
+            promote/*|hotfix/*)
+              if [[ "$BASE_REF" == "main" ]]; then
+                DELETE_BRANCH=true
+              fi
+              ;;
+          esac
+
+          echo "delete=$DELETE_BRANCH" >> "$GITHUB_OUTPUT"
+          echo "Merged branch: $HEAD_REF -> $BASE_REF; delete=$DELETE_BRANCH"
+
+      - name: Delete merged short-lived branch
+        if: steps.branch.outputs.delete == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$HEAD_REF" >/dev/null 2>&1; then
+            gh api --silent --method DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$HEAD_REF"
+            echo "Deleted merged branch: $HEAD_REF"
+          else
+            echo "Branch already absent: $HEAD_REF"
+          fi

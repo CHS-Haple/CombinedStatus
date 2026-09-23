@@ -1,451 +1,187 @@
 # Contributing to CombinedStatus
 
-This document defines the contribution and engineering rules for **developers and contributors** working on CombinedStatus. Requirements are applied in proportion to the change: runtime-sensitive work needs deeper ownership and device validation, while documentation-only or mechanical changes use a lighter review path.
+This document is the engineering source of truth for CombinedStatus contributors. Apply its rules in proportion to risk: runtime-sensitive SystemUI work needs deeper ownership and device validation, while deterministic mechanical maintenance should remain lightweight.
 
-## 1. Scope and normative language
+## 1. Scope, language, and licensing
 
-These rules apply to changes involving application code, SystemUI hooks, runtime state, compatibility logic, diagnostics, UI, resources, build logic, CI, documentation that changes engineering behavior, and migration work.
+These rules apply to application code, SystemUI integration, runtime state, compatibility logic, diagnostics, UI/resources, dependencies, build/release logic, CI, engineering-governance documentation, and migration work.
 
-Normative terms are used deliberately:
+Normative terms are deliberate:
 
-- **MUST / MUST NOT**: required. A change that violates the rule is not acceptable unless an exception is explicitly justified by verified evidence.
-- **SHOULD / SHOULD NOT**: the default. A different approach is allowed only when the contributor can explain why it is safer or more appropriate.
-- **MAY**: optional.
+- **MUST / MUST NOT** — required.
+- **SHOULD / SHOULD NOT** — the default; deviations need a concrete reason.
+- **MAY** — optional.
 
-When an exception to a MUST-level architectural rule is genuinely required, the change record or pull request MUST explain the evidence, affected lifecycle, rollback boundary, compatibility risk, and required validation.
+A justified exception to a MUST-level architectural rule must record the evidence, affected lifecycle, rollback/fallback boundary, compatibility risk, and required validation.
 
 The application ID and package namespace are `com.chaners.combinedstatus`. Changing that identity requires an explicit compatibility and migration plan.
 
-### 1.1 Contribution licensing
-
-CombinedStatus is licensed under the [Apache License 2.0](LICENSE). Unless explicitly stated otherwise, any contribution intentionally submitted for inclusion in CombinedStatus is provided under the same license, without additional terms or conditions.
-
-Contributors MUST only submit material they have the right to license to the project. Third-party code, assets, or derived material MUST retain any attribution, notice, and license obligations required by their upstream source.
+CombinedStatus is licensed under the [Apache License 2.0](LICENSE). Contributions submitted for inclusion are provided under the same license unless explicitly stated otherwise. Contributors must have the right to submit their material and must preserve required third-party attribution, notices, and license obligations.
 
 ## 2. Project principles
 
-Every change MUST preserve three project qualities.
+Every change should preserve four qualities.
 
 ### 2.1 Standardized
 
-Follow Android, HyperOS, MIUIX, and Modern Xposed conventions. Keep lifecycle, ownership, state flow, compatibility boundaries, and platform responsibilities explicit.
+Follow Android, HyperOS, MIUIX, and Modern Xposed contracts before inventing project-specific behavior. Keep lifecycle, ownership, state flow, compatibility boundaries, and platform responsibilities explicit.
 
 ### 2.2 Lightweight
 
-"Lightweight" means minimizing unnecessary runtime work and architectural redundancy, not merely reducing APK size.
+"Lightweight" means reducing unnecessary runtime work and architectural redundancy, not merely APK size.
 
-Avoid unnecessary:
-
-- polling;
-- duplicated state;
-- duplicate hooks or listeners;
-- resident Root processes;
-- background services;
-- repeated View-tree traversal;
-- per-frame logging;
-- reflection on hot paths;
-- wakeups or callbacks that occur more frequently than the underlying state can meaningfully change.
+Avoid unnecessary polling, duplicate state, duplicate hooks/listeners, resident Root processes, background services, repeated View-tree traversal, hot-path reflection, per-frame logging, and wakeups more frequent than the underlying state can meaningfully change.
 
 ### 2.3 Modern
 
-Prefer maintained platform and library APIs over custom infrastructure when they satisfy the requirement.
+Prefer maintained platform/library APIs when they satisfy the requirement. Build files and compatibility profiles are the source of truth for pinned versions.
 
-Repository build files and compatibility profiles are the source of truth for pinned versions. Architectural expectations include:
+A newer API or dependency is not automatically better. Adoption still needs lifecycle, stability, compatibility, and maintenance evidence.
 
-- Modern Xposed APIs for module integration;
-- the currently pinned MIUIX build for the companion app;
-- Android LocaleManager for per-app language;
-- DataStore only for real persistent preferences;
-- current Android navigation and predictive-back APIs.
+### 2.4 Fail native
 
-A newer mechanism is not automatically a better one. Adoption still MUST satisfy lifecycle, stability, compatibility, and maintenance requirements.
+When CombinedStatus cannot safely establish the required contract, degrade toward native HyperOS behavior rather than leaving a partially active replacement.
 
-## 3. Change workflow
+Do not hide a native representation until the replacement is valid for the current session. Compatibility failure should disable the smallest affected feature, not destabilize SystemUI.
+
+## 3. Change method
 
 ### 3.1 Evaluate before editing
 
-Before changing code or behavior, confirm the problem or requirement, the available evidence, and the likely cause.
+Before changing code or behavior:
 
-Prefer the simplest safe solution that:
+1. confirm the actual problem or requirement;
+2. identify the relevant owner, state source, lifecycle, API contract, or layout rule;
+3. define the smallest useful change boundary;
+4. identify what must remain unchanged;
+5. decide what evidence will prove the result.
 
-- addresses the cause rather than only the symptom;
-- respects lifecycle and ownership;
-- uses native or maintained APIs where practical;
-- avoids duplicate state, special cases, and unnecessary runtime cost;
-- does not create avoidable compatibility debt.
-
-Do not patch speculative behavior merely because it is easy to change.
+Prefer a source-level fix over symptom compensation. Do not patch speculative behavior because it is easy to change.
 
 ### 3.2 Investigate in root-cause order
 
-For defects, regressions, incompatibilities, or unexpected behavior, investigate in this order:
+For defects, regressions, incompatibilities, and unexpected behavior:
 
-1. **Find the root cause.** Identify the owner, state source, lifecycle transition, API contract, layout rule, or integration point that produces the behavior.
-2. **Fix the source when practical.** Prefer correcting the responsible lifecycle, ownership boundary, state source, or contract violation when it can be done safely.
-3. **Check existing rules and authoritative guidance.** Review this project's rules and architecture, the documented contracts of libraries and APIs actually in use, and relevant official Android, HyperOS, Modern Xposed, MIUIX, or other upstream documentation and maintainer guidance.
-4. **Compare established practice.** If authoritative sources do not determine the solution, review well-understood patterns for the same class of lifecycle, UI, compatibility, performance, or integration problem and compare their trade-offs.
-5. **Patch last.** Use a workaround only when the root cause cannot currently be corrected safely and no better authoritative or established solution is viable.
+1. **Find the root cause.**
+2. **Fix the responsible source when practical.**
+3. **Check project rules and authoritative upstream guidance.**
+4. **Compare established patterns when authoritative guidance is insufficient.**
+5. **Use a workaround only as the last viable option.**
 
-A workaround MUST be narrow, conditionally activated, and removable. Record why a direct fix is not currently viable, when the workaround applies, when it can be removed, and how it is validated.
+A workaround must be narrow, conditional, removable, and documented with the reason a direct fix is not currently viable.
 
-### 3.3 Define the change boundary proportionally
+### 3.3 Keep one clear boundary
 
-Every change MUST have a clear boundary; planning depth should match risk.
+Planning depth should match risk.
 
-For documentation-only, metadata-only, or mechanical changes, identifying the affected files and applicable validation is normally sufficient.
+For mechanical documentation/metadata work, affected files plus applicable validation are normally enough.
 
-For runtime-sensitive, architectural, compatibility, build/release, or user-visible behavior changes, identify as applicable:
+For runtime-sensitive, architectural, compatibility, build/release, or user-visible changes, identify as applicable:
 
-- the relevant owner/call chain and affected layer;
-- what is intentionally left unchanged;
-- lifecycle, state, and compatibility assumptions;
+- owner/call chain and affected layer;
+- intentionally unchanged behavior;
+- lifecycle/state/compatibility assumptions;
+- diagnostics and fallback/rollback boundary;
 - build-channel impact;
-- diagnostics and rollback/fallback boundary;
 - CI and real-device validation.
 
-Use the smallest change that can solve the verified problem.
+Do not silently expand implementation into unrelated cleanup, speculative fixes, or additional features.
 
-### 3.4 Validate assumptions
+If new evidence changes the assumed owner, call chain, or platform behavior, stop expanding the current solution. Reframe the boundary before continuing.
 
-Before implementation, confirm that critical steps do not depend on unverified assumptions, unrelated cleanup is excluded, diagnostics are bounded, rollback/fallback is defined, and runtime-sensitive claims have a real-device validation path.
+### 3.4 Let evidence change the solution
 
-### 3.5 Stay inside the boundary
+New logs, recordings, crash traces, topology/geometry snapshots, or runtime evidence must reopen the solution choice when they contradict the current hypothesis.
 
-Implementation MUST NOT silently expand into unrelated cleanup, speculative fixes, or additional feature work.
+Previous engineering effort is not evidence that the current path is still correct.
 
-Read-only investigation such as code inspection, logs, CI status, APK/source analysis, and runtime evidence review may proceed without redefining the mutation boundary.
+When several hypotheses remain plausible, prefer single-variable A/B diagnostics. Several changes may share one test build only when ownership, evidence, acceptance criteria, and rollback remain independently attributable.
 
-### 3.6 Stop when evidence changes the problem
+## 4. Runtime architecture and SystemUI ownership
 
-If new evidence invalidates the assumed owner, call chain, scope, or platform behavior, stop at that boundary. Record the new evidence, identify what remains untouched, and revise the plan before continuing.
+### 4.1 Ownership and lifecycle
 
-Do not stack another workaround on top of an invalid assumption.
+Every long-lived runtime object needs one explicit owner. This includes hosts, Views, sessions, state observers, listeners/callbacks, hook handles, animations, transition state, and host-derived caches.
 
-### 3.7 Reassess after meaningful diagnostics
-
-New logs, recordings, crash traces, geometry snapshots, or other evidence MUST reopen the solution choice. Re-run the root-cause order in §3.2 instead of merely tuning the current implementation.
-
-Previous engineering effort is not evidence that the current path remains correct.
-
-### 3.8 Preserve diagnostic isolation
-
-When several hypotheses remain plausible, prefer single-variable A/B builds.
-
-Several fixes MAY share one test build only when their owners, diagnostics, acceptance criteria, and rollback paths remain independently interpretable.
-
-A test build MUST NOT recreate the question: "which change caused this result?"
-
-## 4. Runtime ownership and lifecycle
-
-### 4.1 Every long-lived runtime object MUST have one explicit owner
-
-This applies to:
-
-- SystemUI host references;
-- CombinedStatus Views;
-- host/render sessions;
-- state observers;
-- listeners and callbacks;
-- hook handles;
-- module-owned animations;
-- temporary transition state;
-- host-derived geometry caches.
-
-For each long-lived object, contributors MUST be able to answer:
+For each owned runtime object, be able to answer:
 
 1. who creates it;
 2. who owns it;
 3. when it becomes invalid;
-4. who disposes it;
-5. what happens when its SystemUI host or module generation is replaced.
-
-If these questions cannot be answered, the object is not ready to become part of the runtime architecture.
-
-A global singleton MUST NOT implicitly become the lifetime owner of SystemUI Views or host-specific state.
-
-### 4.2 Host-scoped state MUST remain host-scoped
+4. who disposes/replaces it;
+5. what happens on host replacement, SystemUI recreation, or hot reload.
 
 Prefer:
 
 `Host -> HostSession -> owned resources`
 
-over:
+over global mutable ownership of multiple hosts.
 
-`global module -> multiple hosts -> shared mutable state`
+Host-derived state stays host-scoped. A stale View, geometry snapshot, listener, or transition state must not survive host replacement.
 
-State derived from a specific SystemUI host MUST NOT silently become global runtime state.
+Any session that owns resources must have an explicit cleanup path. Cleanup includes applicable observer/listener unregistering, callback cancellation, module-owned animation cancellation, hook/session release, cache invalidation, and reference clearing.
 
-When multiple hosts exist for normal status bar, keyguard, AOD, Control Center, transition/fake hosts, or future platform variants, each host that requires independent behavior SHOULD have an explicit identity and lifecycle boundary.
+### 4.2 State flow, writers, and hooks
 
-A stale host-specific View, geometry snapshot, listener, or transition state MUST NOT be reused after host replacement.
-
-### 4.3 Every resource-owning session MUST have a disposal path
-
-Creating a session creates an obligation to dispose it.
-
-A session that owns runtime resources MUST provide an explicit cleanup path equivalent to `close()` or `dispose()`.
-
-Cleanup MUST cover every resource owned by that session where applicable:
-
-- unregister observers;
-- remove listeners;
-- cancel pending callbacks;
-- cancel module-owned animations;
-- release hook/session handles;
-- invalidate host-specific caches;
-- clear host/View references;
-- discard temporary transition state.
-
-SystemUI recreation, host replacement, and Modern Xposed hot reload MUST NOT leave the previous generation active.
-
-Resource creation without a verified cleanup path is incomplete implementation.
-
-### 4.4 One live property SHOULD have one runtime writer
-
-Before modifying a live SystemUI property, identify its current writer.
-
-Treat these as ownership-sensitive:
-
-- measured width;
-- layout width;
-- position;
-- `translationX` / `translationY`;
-- alpha;
-- visibility;
-- tint;
-- animation state;
-- parent/child attachment.
-
-Contributors MUST NOT introduce a second writer merely to counteract the result of the first writer.
-
-If SystemUI already owns a property, prefer observing or deriving from it.
-
-If CombinedStatus must become the writer, the ownership transfer MUST be deliberate, narrow, documented, reversible, and validated across the affected lifecycle.
-
-Two independent writers controlling the same property are an **ownership conflict**, not an animation-tuning problem.
-
-## 5. Architecture boundaries
-
-### 5.1 Keep acquisition, state, presentation, and rendering separate
-
-Runtime behavior SHOULD follow this conceptual flow:
+Runtime behavior should follow:
 
 `native/event source -> domain state -> scene/presentation policy -> renderer`
 
-A state source reports facts. It SHOULD NOT decide layout.
+State acquisition reports facts; presentation policy decides how/where to show them; rendering consumes resolved presentation state. Avoid callbacks that mix acquisition, lifecycle decisions, layout ownership, and drawing.
 
-A scene or presentation policy decides whether and how the feature should appear. It SHOULD NOT acquire unrelated native state.
+Prefer authoritative native state. If a fallback/duplicate source exists, define when it is active, which source wins, how disagreement is resolved, and when fallback state is discarded.
 
-A renderer consumes resolved presentation state. It MUST NOT become a second SystemUI state repository.
+Observation does not grant ownership. A hook, reflection lookup, topology probe, or geometry sample may explain SystemUI behavior without giving CombinedStatus permission to write that property.
 
-Avoid callbacks that mix state acquisition, lifecycle decisions, layout writes, and drawing in one execution path.
+One live property should have one runtime writer. Treat measured/layout width, position, translation, alpha, visibility, tint, animation state, and parent/child attachment as ownership-sensitive. Do not add a second writer merely to counteract the first.
 
-### 5.2 Prefer authoritative native state
+Hooks are integration points, not architecture. Each hook needs one responsibility, an owning subsystem, a lifecycle boundary, failure behavior, and a cleanup/hot-reload strategy where applicable.
 
-When HyperOS exposes a reliable authoritative state or event, prefer observing it rather than maintaining a parallel model.
+`CombinedStatusModule` is a bootstrap/integration boundary. It may coordinate compatibility checks and top-level hook installation, but long-lived state/host responsibilities should move to dedicated owners rather than accumulating there.
 
-Any duplicate or fallback state source MUST define:
+When ownership moves, move one bounded responsibility at a time, keep one active owner, avoid unrelated feature/visual changes, and keep the migration independently testable and reversible.
 
-- when it is active;
-- which source has authority;
-- how disagreement is resolved;
-- when fallback state is discarded.
+### 4.3 Geometry and visual ownership
 
-Two equivalent sources MUST NOT update the same domain state without defined priority.
-
-### 5.3 Observation does not grant ownership
-
-A hook, reflection lookup, View-tree probe, runtime trace, or geometry sample MAY be used to understand SystemUI without granting CombinedStatus control of that behavior.
-
-The normal progression is:
-
-`observe -> identify owner -> understand contract -> choose integration point -> modify only if necessary`
-
-Do not turn a diagnostic observation into a production writer without separately justifying ownership.
-
-### 5.4 Hooks are integration points, not architecture
-
-A hook MUST have:
-
-- one specific responsibility;
-- an owning subsystem;
-- a lifecycle boundary;
-- a hot-reload/cleanup strategy where applicable;
-- defined failure behavior.
-
-The runtime architecture MUST NOT degrade into a growing collection of unrelated hook callbacks.
-
-Hooks SHOULD feed owned state sources, sessions, or integration components.
-
-### 5.5 CombinedStatusModule is a bootstrap/integration boundary
-
-`CombinedStatusModule` MUST NOT become the permanent owner of every long-lived runtime concern.
-
-It MAY coordinate bootstrap, compatibility checks, and top-level hook installation, but long-lived domain/state/host ownership SHOULD live in dedicated runtime components.
-
-Do not add permanent responsibilities to `CombinedStatusModule` merely because it is the convenient place where a hook is installed.
-
-## 6. Ownership boundary
-
-`CombinedStatusModule` is an integration boundary, not a catch-all lifetime owner. A change MUST NOT add another persistent host, state, observer, or hook responsibility there when that responsibility has a clear dedicated owner.
-
-When ownership needs to move:
-
-- move one bounded responsibility at a time;
-- keep one active owner for each responsibility;
-- old and new owners MUST NOT run concurrently except in an explicit A/B diagnostic;
-- do not combine ownership movement with unrelated visual redesign or feature work;
-- keep each step independently testable and reversible;
-- once ownership has moved, later code MUST use the dedicated owner rather than reintroducing the old path.
-
-Current ownership status belongs in architecture documentation or code, not in a permanent ordered migration list in this contributor guide.
-
-## 7. SystemUI geometry and visual ownership
-
-Preserve native HyperOS geometry ownership wherever practical.
-
-### 7.1 Separate geometry responsibilities
-
-The following MUST remain conceptually independent:
+Keep these responsibilities conceptually separate:
 
 1. native SystemUI layout slot;
 2. CombinedStatus visual/drawing geometry;
 3. transition/animation geometry;
 4. optical adjustment.
 
-A visual-width requirement MUST NOT automatically change native layout width.
+A visual-width requirement does not automatically justify native layout-width mutation. An animation correction does not automatically change stable geometry. An optical offset must not silently become layout ownership.
 
-An animation correction MUST NOT automatically change stable-state geometry.
+Prefer solving CombinedStatus-specific appearance inside its own presentation/rendering layer. Native measured width, layout width, translation, or visibility writes are exceptional and require verified runtime evidence, a single owner, narrow scope, reversibility, and focused device validation.
 
-An optical offset MUST NOT silently become layout ownership.
+Pixel correctness in one scene is not enough. For runtime-sensitive geometry or animation work, verify the expected writer, absence of competing writers, stable/transition separation, host replacement, and the relevant Home, keyguard, AOD, shade/Control Center, charging/island, and recreation paths.
 
-Do not use one hard-coded width or translation value to satisfy several unrelated responsibilities.
+### 4.4 Compatibility and fallback
 
-### 7.2 Native geometry writes are exceptional
+Prefer exact verified integration points over broad reflection. A class/member existing in an APK does not prove that it owns live behavior.
 
-Do not modify native `measuredWidth`, layout width, translation, or visibility as the first-choice solution.
-
-Prefer solving CombinedStatus-specific appearance inside its own drawing/presentation layer.
-
-An unavoidable native geometry change MUST be:
-
-- supported by verified runtime evidence;
-- owned by one clearly identified component;
-- limited to the narrowest state and lifecycle;
-- reversible;
-- documented;
-- covered by focused real-device testing.
-
-### 7.3 Pixel correctness is not sufficient
-
-A visually correct result on one device state does not prove architectural correctness.
-
-For runtime-sensitive geometry or animation fixes, verify that:
-
-- the expected owner performed the write;
-- no competing writer counteracted it;
-- stable-state and transition-state geometry remain separate;
-- host replacement does not leave stale state;
-- relevant charging, keyguard, AOD, Control Center, island, and recreation paths still behave correctly.
-
-Accidental compensation between incorrect writers MUST NOT be accepted as a stable fix.
-
-## 8. Failure and fallback behavior
-
-### 8.1 Fail native, not broken
-
-SystemUI integration SHOULD degrade toward native HyperOS behavior.
-
-If CombinedStatus cannot safely establish the required host, compatibility, lifecycle, or state contract, prefer:
-
-`CombinedStatus unavailable -> native status representation remains/restores`
-
-rather than:
-
-`CombinedStatus partially active -> native representation hidden -> broken or missing status`
-
-Native-icon suppression and replacement activation MUST be coordinated.
-
-Do not hide a native representation until the replacement is valid for the current session.
-
-Compatibility failure SHOULD disable the smallest affected feature rather than destabilize SystemUI.
-
-### 8.2 Historical fixes are evidence, not reusable architecture
-
-Previous CombinedStatus builds, successful constants, and old patches MAY be used to understand observed SystemUI behavior.
-
-They MUST NOT be reintroduced automatically.
-
-Before reusing a historical fix, determine:
-
-- what real behavior it compensated for;
-- which runtime owner produced that behavior;
-- whether that owner still exists;
-- whether the current architecture already addresses the cause;
-- whether the old fix would violate current lifecycle or geometry ownership.
-
-Preserve the verified requirement, not the historical implementation.
-
-## 9. SystemUI and compatibility rules
-
-### 9.1 Verified integration points
-
-Prefer exact verified hook points over broad reflection.
-
-A class or member existing in an APK does not prove that it owns live behavior. Use runtime evidence when hierarchy, ownership, or transitions matter.
-
-Hooks MUST be based on verified members from the exact target APKs and represented in the pinned compatibility profile where appropriate.
-
-Current baseline:
+Compatibility-sensitive hooks must use verified members from the pinned target profile where appropriate. Current target baseline:
 
 - HyperOS SystemUI `17.03.260226.r`
-
-Do not expand module scope to unrelated packages without a verified runtime dependency.
-
-### 9.2 References and host retention
-
-Reference strength MUST follow ownership and lifecycle. Non-owning observers SHOULD avoid extending the lifetime of SystemUI hosts or Views; an owning session MAY hold a strong reference only for the session's valid lifetime.
-
-Never retain an Activity, Context, or View beyond its valid lifecycle, and clear owned references when the owning session is disposed or replaced.
-
-### 9.3 Modern Xposed
-
-Use Modern Xposed API 102.
+- Modern Xposed API `102`
 
 Keep one Java entry unless a verified API requirement changes that decision.
 
-Hot reload MUST replace or migrate hook/session ownership rather than stacking duplicate generations.
+Reference strength must follow ownership. Non-owning observers should not extend host/View lifetime; owning sessions may retain strong references only for their valid session.
 
-CI success does not prove runtime hook correctness or hot reload correctness.
+Live runtime topology is authoritative. Other modules and HyperOS variants may change the SystemUI tree, so inspect runtime parentage/identity when it matters.
 
-### 9.4 Runtime structure is authoritative
+Historical builds, constants, and patches are evidence, not reusable architecture. Reuse the verified requirement only after confirming that the old owner/cause still exists and that the historical fix does not violate current ownership.
 
-Other modules or HyperOS variants may alter the live SystemUI tree.
+## 5. Diagnostics, performance, app UI, and text
 
-Diagnostics SHOULD inspect actual runtime topology when parentage, identity, ownership, or transition behavior matters instead of assuming the stock hierarchy.
+### 5.1 Diagnostics and runtime cost
 
-## 10. Diagnostics, performance, and energy
+Build channels must not silently change core feature semantics.
 
-### 10.1 Diagnostics policy
+**Release** may retain only low-frequency operational diagnostics such as build identity, compatibility readiness, lifecycle/hook readiness, hot-reload result, and important errors.
 
-Build channels MUST NOT silently change core user-facing feature semantics. Channel differences SHOULD be limited to diagnostics, development probes, optimization, signing, or other explicitly documented build behavior.
-
-**Release** may retain only low-frequency operational diagnostics where enabled, such as:
-
-- build identity;
-- compatibility readiness;
-- essential lifecycle/hook readiness;
-- hot reload result;
-- important errors.
-
-**Debug** may additionally provide bounded:
-
-- topology and parent/index/path snapshots;
-- bounds and measured geometry;
-- translation;
-- hook lifecycle;
-- state snapshots;
-- ownership probes.
+**Debug** may additionally expose bounded topology, geometry, state, lifecycle, and ownership probes.
 
 Prefer:
 
@@ -453,56 +189,23 @@ Prefer:
 
 over polling or continuous sampling.
 
-Diagnostics MUST NOT become a second runtime workload that materially changes the behavior being measured.
-
-### 10.2 Runtime cost
-
 Before adding a hook, observer, listener, coroutine, callback, reflection path, shell call, or View-tree probe, ask whether it wakes more often than the underlying state can meaningfully change.
 
-Prefer:
+Prefer native callbacks, one-shot inspection, cached immutable metadata, shared helpers, scoped coroutines, and bounded user-triggered Root work. Root work should be user-triggered where practical and must have timeout/failure handling.
 
-- native callbacks;
-- one-shot inspection;
-- cached immutable metadata;
-- shared helpers;
-- scoped coroutines;
-- bounded user-triggered Root work.
+### 5.2 App and MIUIX
 
-Root work SHOULD be user-triggered where practical and MUST be bounded by timeout/failure handling.
+Persist only real user preferences. Do not confuse UI preview state with module runtime state.
 
-## 11. Application, UI, and text rules
+For UI changes, review against the currently pinned MIUIX build. Prefer official components/defaults for spacing, typography, shape, pressed/disabled states, dialogs, navigation, and backdrop behavior.
 
-### 11.1 App architecture
+Check the affected information hierarchy, section grouping, light/dark/dynamic themes, predictive/system back, transitions, accessibility, localized text expansion, and dialog action hierarchy.
 
-Persist only real user preferences.
+Do not hand-tune values merely to imitate MIUIX when an official component already provides the intended behavior.
 
-Do not confuse UI preview state with module runtime state.
+### 5.3 Text and public documentation
 
-Prefer platform APIs over custom infrastructure when the platform already provides the required lifecycle and behavior.
-
-### 11.2 MIUIX UI review
-
-Whenever UI changes, contributors MUST review the change against the currently pinned MIUIX version and its supported components.
-
-Prefer official MIUIX components and defaults for spacing, typography, shape, pressed state, disabled state, dialogs, and navigation.
-
-Check:
-
-- information hierarchy and section grouping;
-- Card/list-item semantics;
-- pressed, enabled, and disabled states;
-- light/dark/dynamic themes;
-- system/predictive back;
-- transitions;
-- accessibility labels;
-- localized text expansion;
-- dialog action hierarchy.
-
-Do not hand-tune values merely to imitate MIUIX when an official component already provides the behavior.
-
-### 11.3 Text review
-
-Any user-facing text change MUST receive a copy review.
+Any user-facing text change needs copy review.
 
 Fixed terminology:
 
@@ -512,467 +215,327 @@ Fixed terminology:
 
 Keep exact upstream Android/HyperOS class, field, method, and resource identifiers unchanged.
 
-Normal settings UI SHOULD NOT expose internal terms such as host, role, writer, hook chain, probe path, or implementation class name unless the screen is explicitly diagnostic.
+Normal settings UI should not expose internal terms such as host, role, writer, hook chain, probe path, or implementation class unless the screen is explicitly diagnostic.
 
-Public-facing documentation SHOULD describe the project's current behavior, compatibility, architecture, and user-facing limitations. Development lineage, superseded implementation history, and unrelated projects SHOULD be omitted. Actual project dependencies, bundled third-party code or assets, and any required license or attribution notices MUST be documented accurately in the appropriate project metadata or third-party notices.
+Public documentation should describe current behavior, compatibility, architecture, dependencies, and user-facing limitations. Omit superseded implementation lineage and unrelated projects. Document actual third-party dependencies/assets and required notices accurately.
 
-## 12. Branching, versioning, CI, and release discipline
+## 6. Git and branch workflow
 
-### 12.1 Branches and promotion path
+Choose the lightest path that preserves correctness.
 
-The normal product-development path is:
+### 6.1 Route the change first
 
-`bounded work branch -> dev -> validated promotion -> main`
+#### A. Mechanical maintenance
 
-Branch roles are intentionally different:
+A deterministic maintenance edit may go directly to `main` without a work branch or PR when **all** of the following are true:
 
-- `feat/*`: short-lived branch for one bounded new capability, intentional behavior change, architecture/ownership migration, or engineering-governance change.
-- `fix/*`: short-lived branch for one bounded defect or regression correction.
-- `dev`: integration branch. It combines completed bounded changes, detects cross-change conflicts, produces trusted integration builds, and carries changes that are still completing explicitly declared integrated device validation.
-- `promote/*`: short-lived promotion branch created from one exact validated `dev` commit. It targets `main` and MUST NOT contain new feature, fix, cleanup, dependency, or governance work.
-- `hotfix/*`: exceptional short-lived branch created from `main` only when the current stable baseline needs an urgent isolated correction that should not wait for the normal `dev` promotion cycle.
-- `main`: stable, installable, validated baseline.
+- no APK/runtime behavior changes;
+- no user-visible behavior or meaning changes;
+- no build output, dependency resolution, CI/release behavior, signing, compatibility profile, or target changes;
+- no normative engineering/governance rule changes;
+- no release fact/version meaning changes;
+- the edit is obvious enough that an isolated review branch adds no meaningful safety.
 
-Normal feature and defect work MUST target `dev`; it MUST NOT bypass `dev` and target `main` directly.
+Typical examples: typo/grammar correction, formatting, dead-link repair, non-normative wording cleanup, comment cleanup, or equivalent metadata maintenance.
 
-#### 12.1.1 Change boundary and branch choice
+Because `dev` continues toward the next stable baseline, apply the same mechanical correction to `dev` promptly. The two branches do not need identical commit SHAs, but their effective maintenance result must remain equivalent.
 
-A behavior-affecting change MUST use a bounded `feat/*` or `fix/*` branch. This includes application or SystemUI behavior, UI interaction, lifecycle, state ownership, listeners, hooks, settings semantics, compatibility behavior, dependencies, runtime/build behavior, CI/release behavior, and contributor rules that change mandatory engineering behavior.
+If the patch does not apply cleanly to both branches, the branches disagree materially, or the change stops being obviously mechanical, use the normal `dev` workflow instead.
 
-Use `feat/*` when introducing or deliberately changing a capability, architecture, ownership model, workflow, or engineering rule. Use `fix/*` when correcting behavior that is already defined or intended.
+A text/YAML/Gradle diff is not automatically mechanical. Meaning and effect determine the route, not file type.
 
-A single branch SHOULD represent one independently reviewable and reversible change boundary. Split work when two changes:
+#### B. Normal product/engineering work
 
-- have different runtime or engineering owners;
-- can be tested independently;
-- can be reverted independently without making the other invalid; or
-- solve different root causes.
+Behavioral, architectural, compatibility, dependency, build/CI, release, or governance changes use:
 
-Keep supporting work in the same branch when it is required for that bounded change to be correct, such as lifecycle cleanup required by a newly introduced owned resource.
+`feat/* or fix/* -> dev -> validated promotion -> main`
 
-Unrelated cleanup, visual polish, migration, and feature work MUST NOT be bundled merely because they touch nearby files.
+Continue an existing unmerged work branch when it already owns the same objective and acceptance boundary. A new feature does **not** automatically justify a new branch.
 
-#### 12.1.2 Work-branch lifecycle
+#### C. Urgent stable-baseline defect
 
-Every `feat/*` and `fix/*` branch is temporary:
+Use `hotfix/* -> main` only when the current `main` baseline has an urgent defect that should not wait for the normal `dev` cycle. Propagate the equivalent fix back to `dev` before the next promotion.
 
-1. create it from the current `dev` baseline;
-2. implement and review only the declared boundary;
-3. open or update a pull request targeting `dev`;
-4. satisfy the branch-level merge gate;
-5. merge into `dev`;
-6. confirm the merged state and delete the branch when no explicit short-term rollback or diagnostic need remains.
+### 6.2 Branch roles
 
-Opening a pull request does not replace normal commits. A work branch MAY continue receiving atomic commits while its pull request is open.
+- `feat/*` — one bounded capability, intentional behavior change, architecture/ownership migration, dependency adoption, or engineering-governance change.
+- `fix/*` — one bounded correction for intended behavior that is already defined.
+- `dev` — integration branch for completed work and integrated validation.
+- `validation/dev` — state marker for the most recent `dev` runtime baseline whose required integrated device scenarios passed; it is not a development branch and must contain no unique commits.
+- `promote/*` — exact validated `dev` candidate for `main`; no new feature/fix/cleanup belongs here.
+- `hotfix/*` — urgent isolated correction created from `main`.
+- `main` — current stable, installable, accepted baseline.
 
-A merged work branch MUST NOT be reused. Follow-up work starts from the latest appropriate `dev` state in a new bounded branch.
+### 6.3 Work-branch admission
 
-If a branch is abandoned, superseded, or its approach is rejected, close its pull request and delete the branch once its remaining diagnostic value is exhausted. Stale work branches MUST NOT become permanent pseudo-environments.
+A work branch represents one independently mergeable/reversible change boundary, **not** every task, sub-feature, file, build, experiment, visual adjustment, or test response.
 
-#### 12.1.3 Gate from work branch to dev
+Before creating another `feat/*` or `fix/*`, check whether an active unmerged branch already owns the same objective. Stay in that branch for coherent implementation sub-steps, diagnostics, validation fixes, acceptance-driven UI/behavior adjustments, and multiple checkpoints.
 
-A `feat/*` or `fix/*` branch may merge into `dev` only when:
+Create a new work branch only when at least one is true:
 
-- its declared change boundary is complete;
-- required review findings are resolved;
-- required PR/local CI checks pass;
-- no known deterministic blocker remains inside the declared boundary;
-- diagnostics and fallback/rollback boundaries are adequate for the risk;
-- required branch-level validation has either passed or is explicitly recorded as `awaiting device validation`.
+- the work can be merged/shipped independently;
+- it can be reverted independently without invalidating the active branch;
+- it has a different root cause, runtime/engineering owner, or validation surface;
+- real parallel development requires isolation;
+- keeping it together would mix unrelated work or destroy failure attribution.
 
-Runtime-sensitive work MAY enter `dev` as `awaiting device validation` only when integrated validation reasonably depends on a trusted `dev` build, interaction with other merged work, or another integration-only condition. The pull request MUST list the required device scenarios and why validation remains pending.
+Keep simultaneously active work branches low. A branch with no active PR, no diagnostic value, and no meaningful progress for seven days should be reviewed for closure rather than kept indefinitely.
 
-`awaiting device validation` is not a waiver. It is an explicit integration state and blocks promotion of the affected state to `main`.
+### 6.4 Work-branch lifecycle and merge gate
 
-A known reproducible runtime defect, crash, ownership conflict, invalid fallback, or failed required device scenario MUST NOT be merged merely to obtain another build unless the branch is an explicitly isolated diagnostic experiment that cannot alter the stable promotion path.
+Normal lifecycle:
 
-#### 12.1.4 Direct-to-dev exception
+1. create from current `dev`;
+2. implement only the declared boundary;
+3. open/update a PR to `dev` when useful;
+4. satisfy applicable review/CI/validation;
+5. squash merge to `dev`;
+6. delete the branch after no explicit short-term rollback/diagnostic need remains.
 
-Direct commits to `dev` are allowed only for genuinely mechanical changes that do not alter any of the following:
+Opening a PR does not freeze development. Related follow-up inside the same acceptance boundary should remain in that branch until merge.
 
-- APK/runtime behavior;
-- UI or user-visible semantics;
-- build outputs or dependency resolution;
-- CI triggers, validation, signing, artifact, or release behavior;
-- compatibility behavior or target profiles;
-- normative contributor/engineering governance.
+Do not reuse a merged branch. Abandoned/superseded branches should be closed and removed once their diagnostic value is exhausted.
 
-Examples normally safe for direct `dev` maintenance include typo correction, formatting, dead-link repair, non-normative wording cleanup, and equivalent metadata/comment maintenance with no behavioral meaning.
+A work branch may merge to `dev` when:
 
-A Markdown/YAML/Gradle/text-only diff is NOT automatically non-behavioral. If it changes a rule, build, workflow, dependency, compatibility contract, or release behavior, it MUST use a bounded work branch.
+- its boundary is complete;
+- deterministic blockers are resolved;
+- required CI passes;
+- diagnostics/fallback are adequate for the risk;
+- branch-level validation passed or remaining integrated device validation is explicitly marked `awaiting device validation`.
 
-The direct-to-`dev` exception MUST NOT be used to avoid review, CI, or validation that would otherwise apply.
+`awaiting device validation` is allowed only when validation genuinely depends on a trusted `dev` build or integrated state. It blocks promotion to `main`.
 
-#### 12.1.5 Device-validation completion
+Known reproducible crashes, ownership conflicts, invalid fallbacks, or failed required device scenarios must not be merged merely to obtain another build.
 
-Required real-device validation is complete only when the scenarios declared for the bounded change have been exercised against the source/build state being accepted and each required scenario has a recorded passing result.
-
-For runtime-sensitive changes, the validation record SHOULD identify the tested build or source revision sufficiently to determine what was actually tested.
-
-The repository uses `validation/dev` as a state marker for integrated device validation. It is not a development branch and MUST NOT contain unique commits. After all required integrated device scenarios for one exact `dev` commit pass and no known runtime blocker remains, maintainer tooling MAY move `validation/dev` to that exact commit.
-
-Moving `validation/dev` certifies only that exact `dev` source state. If `dev` advances, the marker no longer matches `dev` and promotion readiness automatically returns to pending until the new state is validated. The marker MUST NOT be advanced merely to satisfy a promotion gate.
-
-If a later change can affect the validated behavior, lifecycle, ownership, compatibility, or scene, the relevant device-validation result is no longer automatically transferable and the affected scenarios MUST be re-evaluated.
-
-Use `N/A` only when the change cannot reasonably affect runtime, user-visible behavior, integration behavior, or device compatibility. "Installed successfully" or "did not crash once" does not by itself complete a broader runtime test plan.
-
-#### 12.1.6 Promotion from dev to main
+### 6.5 Promotion and device-validation marker
 
 Promotion is a stability decision, not ordinary development.
 
-The Build workflow evaluates promotion readiness for the current `dev` state. A candidate is READY only when the current `dev` commit is ahead of `main`, the corresponding trusted `dev` Build has succeeded, `validation/dev` points to that exact commit, and the required changelog boundary is present. This automated readiness result is evidence for promotion; it does not replace the underlying review or device testing.
+After all required integrated device scenarios pass for one `dev` runtime baseline and no known runtime blocker remains, `validation/dev` may move to that SHA.
 
-Create `promote/*` from the exact `dev` commit selected as the candidate stable baseline. The promotion branch MUST contain no new functional or engineering change; any required fix returns to a bounded `feat/*` or `fix/*` branch and is integrated through `dev` first.
+A later `dev` commit does not automatically invalidate device validation. Readiness may carry the validation forward only when automation can prove that every change since `validation/dev` is outside APK/runtime-affecting paths. Any runtime/build/compatibility delta that can change the installed behavior makes the marker stale for promotion purposes and requires applicable re-validation.
 
-A `dev` state may be promoted only when:
+Never move `validation/dev` merely to satisfy a gate.
 
-- automated promotion readiness reports READY for that exact candidate;
-- the intended integrated changes are complete;
-- relevant diagnostics show no unresolved blocker;
-- all required real-device validation for that candidate state has passed;
-- no affected change remains `awaiting device validation`;
-- changelog/release metadata is consistent with the intended baseline where applicable.
+Promotion readiness is READY only when the candidate:
 
-The promotion pull request MUST identify the exact candidate `dev` revision. Newer unrelated `dev` commits do not silently join an already validated promotion candidate.
+- is ahead of `main`;
+- has a successful trusted `dev` Build;
+- is device-validated directly or inherits validation only across a proven non-runtime delta;
+- has the required changelog boundary;
+- has no unresolved blocker or affected `awaiting device validation` state.
 
-After a successful promotion, delete the `promote/*` branch.
+Create `promote/*` from the exact READY `dev` SHA. The promotion branch contains no new functional/engineering work. Any required fix returns through `feat/*` or `fix/*` and `dev` first.
 
-#### 12.1.7 Hotfix path
+Use a merge commit for `promote/* -> main` so the stable-baseline boundary remains explicit.
 
-A `hotfix/*` branch is reserved for an urgent defect in the current `main` baseline where waiting for the normal `dev` cycle would unnecessarily leave the stable baseline broken.
+### 6.6 Hotfix
 
-A hotfix MUST:
+A hotfix must:
 
-- branch from the affected `main` baseline;
-- contain the smallest correction needed;
-- avoid unrelated cleanup, feature work, dependency adoption, or architecture migration;
-- pass the validation appropriate to the defect before merging to `main`;
-- be propagated back to `dev` through a bounded reviewed change before the next normal promotion.
+- branch from the affected `main`;
+- contain the smallest necessary correction;
+- avoid unrelated cleanup/features/dependency adoption/architecture migration;
+- pass validation appropriate to the defect;
+- merge to `main`;
+- be propagated back to `dev` before the next normal promotion.
 
-If `dev` already contains an equivalent correction, verify and record that equivalence instead of duplicating the fix.
+Use squash merge by default.
 
-A hotfix MUST NOT become a parallel long-lived development line.
+### 6.7 Cleanup and repository history
 
-#### 12.1.8 Merge strategy
+Use squash merge for `feat/* -> dev` and `fix/* -> dev`. Internal branch commits may remain granular for development/review.
 
-Use merge strategy to preserve meaningful repository history:
+Merged short-lived branches should be removed automatically when role and target are provably correct; otherwise clean them up manually. Never auto-delete `main`, `dev`, `validation/dev`, fork branches, or unknown branch roles.
 
-- `feat/* -> dev` and `fix/* -> dev`: **squash merge**. Internal branch commits may remain granular for development/review, while `dev` receives one semantic change unit.
-- `promote/* -> main`: **merge commit** so the stable-baseline promotion remains an explicit history boundary.
-- `hotfix/* -> main`: **squash merge** unless preserving a multi-commit hotfix is explicitly necessary and documented.
+## 7. Versioning, changelog, and release
 
-Do not use a different merge method merely for convenience.
-
-Pull-request CI MUST remain safe for untrusted forks:
-
-- PR validation must not require repository signing secrets;
-- tests, compatibility checks, metadata checks, and unsigned build validation may run on PRs;
-- project-signed Debug/Canary artifacts remain a maintainer push responsibility;
-- contributors must never request, expose, reproduce, or bypass project signing credentials.
-
-### 12.2 Commits
-
-Keep commits atomic and semantic.
-
-Do not mix unrelated architecture migration, feature work, visual redesign, and cleanup into one change merely for convenience.
-
-### 12.3 Versioning
+### 7.1 Versioning
 
 The display version changes only when the formal external version is explicitly advanced.
 
-Normal APK-affecting iterations advance the internal `versionCode` / `buildId`.
+Normal APK-affecting iterations advance internal `versionCode` / `buildId` according to project rules. Documentation-only changes do not require an APK build-number bump.
 
-Documentation-only changes do not require an APK build-number bump.
+GitHub Actions run numbers are CI execution metadata, not application version identifiers.
 
-GitHub Actions run numbers are CI execution metadata and MUST NOT be used as application version identifiers.
+### 7.2 Changelog
 
-### 12.4 Changelog discipline
+`CHANGELOG.md` records durable **net project state**, not the development diary.
 
-`CHANGELOG.md` records **net project changes at a release boundary**, not commit-by-commit development history.
+Add an entry when a change materially affects user-visible behavior/settings, supported runtime behavior, compatibility/fallback, contributor-relevant diagnostics, build/release channels, persistent architecture/lifecycle ownership, or engineering rules that future work must follow.
 
-Its purpose is to let a user or contributor answer:
+Use the smallest accurate category:
 
-- what capability exists now that did not exist before;
-- what existing behavior now works differently;
-- what defect is now fixed;
-- what relevant mechanism has been removed;
-- what engineering constraint materially affects future development.
+- **Added** — new durable capability.
+- **Changed** — existing capability behaves/presents/integrates differently.
+- **Fixed** — incorrect behavior corrected.
+- **Removed** — meaningful mechanism intentionally removed.
+- **Engineering** — durable non-user-facing architecture/lifecycle/compatibility/build/contributor constraint.
 
-A changelog entry SHOULD answer **what is now different**, not **how many attempts were made**.
+Normally omit CI run numbers, temporary probes, intermediate UI attempts, trial constants, failed hypotheses, one-off instrumentation, superseded implementations, and internal cleanup with no durable effect.
 
-#### 12.4.1 Release boundary
+One bullet should describe one final outcome in present-state wording. Collapse superseded experiments into the final result.
 
-During normal development before the first formal release, `[Unreleased]` MUST describe the current net state intended for the initial release.
+Before keeping an entry, ask: would it still be true and useful to someone who sees only the final project state? If not, it usually belongs in Git/PR history instead.
 
-A dated/versioned section MUST NOT be created early merely to represent an intended future release. It is created only in the final release-preparation commit, immediately before the stable release workflow is run.
+### 7.3 Release boundary
+
+Before the first formal release, `[Unreleased]` describes the current net state intended for that release.
 
 For a formal release:
 
-1. freeze the applicable `[Unreleased]` net changes into `## [<version>] - YYYY-MM-DD` in the final release-preparation commit;
-2. leave a fresh `## [Unreleased]` section for subsequent development;
-3. run the stable release workflow from that prepared `main` commit;
-4. do not continue unrelated development between the release-preparation commit and publication.
+1. freeze applicable `[Unreleased]` changes into `## [<version>] - YYYY-MM-DD` in the final release-preparation commit;
+2. leave a fresh `[Unreleased]` section;
+3. publish only from the prepared `main` commit;
+4. do not add unrelated development between preparation and publication.
 
-#### 12.4.2 Categories
+Stable publication must verify the intended display version, dated changelog section, release notes, tag uniqueness, target profile/tests, Xposed metadata, non-debuggable release properties, and expected signing.
 
-Use the smallest category that accurately describes the final change:
+Stable tags/APK filenames use application release/build identity rather than CI run numbers.
 
-- **Added** — a capability, supported behavior, user-facing option, diagnostic facility, build channel, or integration that did not previously exist and remains present.
-- **Changed** — an existing capability now behaves, integrates, or presents differently.
-- **Fixed** — a defect or incorrect behavior is now corrected.
-- **Removed** — a previously present capability or a materially important experimental mechanism has been intentionally removed.
-- **Engineering** — a non-user-facing architectural, lifecycle, compatibility, build, or contributor constraint that materially changes how future work must be implemented.
+## 8. Validation and CI
 
-Do not use **Engineering** as a dumping ground for implementation details. If a change has no durable effect on users or future contributors, it belongs in Git history rather than the changelog.
+Validation is **checkpoint-based and risk-based**, not commit-based.
 
-#### 12.4.3 What to include
+### 8.1 Local/checkpoint validation
 
-Contributors MUST include a changelog entry when a change materially affects at least one of:
+Atomic commits may accumulate between meaningful checkpoints. Do not create commits merely to trigger CI.
 
-- user-visible behavior or settings;
-- supported runtime behavior;
-- compatibility or fallback behavior;
-- diagnostics that contributors rely on;
-- build/release channels or signing behavior;
-- persistent architecture or lifecycle ownership;
-- contributor rules that change how future code must be written;
-- removal of a mechanism whose absence is important to understanding the current architecture.
+For an ordinary code checkpoint presented for integration, the normal local baseline is:
 
-#### 12.4.4 What to omit
-
-Contributors MUST NOT use the changelog as a development diary.
-
-Normally omit:
-
-- CI run/build numbers;
-- temporary diagnostic probes;
-- intermediate UI iterations;
-- trial constants or offsets;
-- failed hypotheses;
-- one-off instrumentation;
-- implementation paths that were later replaced;
-- internal cleanup with no durable behavior or architecture effect;
-- repeated entries for the same final outcome.
-
-Keep detailed investigation history in commits, pull requests, diagnostics, issue discussions, or dedicated development documentation.
-
-A superseded experiment SHOULD be collapsed into the final outcome. Mention its removal only when future contributors need to know that the approach was deliberately rejected.
-
-#### 12.4.5 Entry style
-
-Each bullet SHOULD describe one final change unit using:
-
-`action + object + final effect/reason when needed`
-
-Prefer concise, present-state wording:
-
-- Good: `Fixed CombinedStatus disappearing during native Wi-Fi/mobile transitions.`
-- Good: `Changed airplane-mode tracking to use the authoritative global setting.`
-- Good: `Removed the experimental owned-slot padding mutation after it was shown to alter native geometry.`
-- Avoid: `Build 93 added a probe, then Build 94 moved it, and later Build 95 removed it.`
-
-Do not write chronological narratives inside a bullet.
-
-Avoid internal class names, field names, CI identifiers, and low-level implementation detail unless they are necessary to understand compatibility or architecture.
-
-One bullet SHOULD represent one durable outcome. If a sentence contains several unrelated changes joined by `and`, split it or keep only the release-relevant result.
-
-#### 12.4.6 Final review
-
-Before completing a functional change, ask:
-
-1. If someone installs only the final APK and never reads the commit history, is this entry still true and useful?
-2. Is the entry describing a result rather than the investigation process?
-3. Has an earlier entry already been superseded by this result?
-4. Is the selected category still correct?
-5. Could the wording be shorter without losing the durable effect?
-
-If the answer to the first two questions is no, the change normally does not belong in `CHANGELOG.md`.
-
-### 12.5 Release publication
-
-Formal stable releases MUST satisfy all of the following:
-
-- publish from `main` only;
-- the intended display version is already present in project version metadata;
-- `CHANGELOG.md` contains a dated `## [<version>] - YYYY-MM-DD` section;
-- the release notes describe that version's net changes rather than copying development history;
-- README release-status wording is updated when the first stable release or another user-visible release state changes;
-- the stable tag does not already exist;
-- the Release workflow builds and verifies the signed APK from the selected `main` commit.
-
-The Release workflow MUST fail closed when the branch or changelog release boundary is not ready.
-
-Test/prerelease tags MAY include CI execution identity. Stable version tags and distributable APK filenames MUST use application release/build identity rather than GitHub Actions run numbers.
-
-### 12.6 Local verification
-
-Use the checked-in Gradle Wrapper as the canonical Gradle entry point.
-
-Validation is checkpoint-based, not commit-based. Atomic local commits MAY accumulate between meaningful validation checkpoints; contributors are not required to run the full local build after every intermediate commit.
-
-For an ordinary code-change checkpoint that is being presented for integration, the normal local baseline is:
-
-```bash
+~~~bash
 ./gradlew :app:testDebugUnitTest
 ./gradlew :app:assembleDebug
-```
+~~~
 
-When a checkpoint affects Release/Canary build behavior, signing-independent configuration, shrinking, resources, or Xposed metadata, also run the applicable non-secret build/check locally where practical. Maintainer signing credentials are never required for an external contributor to validate source changes.
+Add applicable checks when Release/Canary behavior, resources, shrinking, Xposed metadata, dependencies, or build configuration change.
 
-Do not create commits merely to trigger CI. Prefer grouping coherent local progress into a meaningful source checkpoint before pushing when no collaboration, backup, or review need requires an earlier push.
+Never commit local SDK paths, signing material, generated APK/AAB files, or environment-specific Gradle configuration.
 
-Do not commit local SDK paths, signing material, generated APK/AAB files, or environment-specific Gradle configuration.
+### 8.2 CI scope
 
-### 12.7 CI and device validation
+CI verifies source/build state; it does not prove SystemUI runtime correctness.
 
-CI verifies a source state; real-device testing verifies runtime behavior. Neither replaces the other. Validation depth MUST be proportional to the risk and promotion stage rather than mechanically repeated for every commit.
+Use the lightest applicable CI:
 
-#### 12.7.1 CI scope
+- Draft PR — lightweight repository checks unless deeper validation is specifically needed.
+- Ready PR to `dev` — path-aware; full Android validation only when APK/build/compatibility/CI-affecting paths require it.
+- Mechanical direct maintenance on `main` / `dev` — lightweight checks only when the change is proven non-behavioral.
+- PR to `main` for promotion/hotfix — full applicable validation.
+- Trusted APK-affecting pushes to `dev` / `main` — signed Debug/Canary validation where applicable.
+- Release workflow — deliberate publication only.
 
-Use CI by purpose:
+A CI-workflow change is itself CI-affecting and requires full validation.
 
-- **Draft pull requests** are an iterative review state. They SHOULD use lightweight repository validation and defer expensive Android build/test work until the pull request becomes ready for review.
-- **Ready pull requests to `dev`** use path-aware validation. Documentation/governance-only changes that cannot affect APK, build, compatibility, or CI behavior SHOULD remain lightweight; APK/build/compatibility/CI-affecting paths require the full secret-independent Android validation.
-- **Pull requests to `main`** require the full applicable validation because they represent promotion or hotfix boundaries.
-- **Trusted pushes to `dev` or `main`** may build and verify project-signed Debug/Canary artifacts for integration/device testing.
-- **Release CI** is reserved for deliberate test or stable publication, not ordinary development builds.
-- CI and local builds MUST use the checked-in Gradle Wrapper.
+Superseded runs for the same PR/branch should be cancelled when a newer source state makes them irrelevant.
 
-A CI-workflow change is itself CI-affecting and MUST receive full validation before integration even if the surrounding pull request is otherwise documentation-focused.
+Pull-request CI must remain safe for untrusted forks: never require or expose repository signing secrets. Secret-independent tests/build/compatibility/metadata checks are allowed; project-signed artifacts remain a trusted-maintainer responsibility.
 
-Superseded CI runs for the same branch/PR SHOULD be cancelled when a newer source state makes them irrelevant.
-
-For APK-affecting work, verify the checks relevant to the change, including compatibility profiles, tests, required build variants, Modern Xposed metadata, signing where applicable, diagnostics boundaries, and artifact generation.
-
-#### 12.7.2 Behavioral and device checkpoints
+### 8.3 Device validation
 
 Real-device testing is tied to observable behavior checkpoints, not individual commits.
 
-Request or repeat device testing when:
+Request/repeat device testing when:
 
-- a source state first becomes meaningfully testable;
-- new evidence is required to choose between remaining implementation hypotheses;
-- a later change can affect a previously validated owner, lifecycle, scene, transition, geometry, compatibility path, or user-visible behavior;
-- an integration checkpoint in `dev` needs cross-feature validation;
-- the candidate state is being prepared for promotion to `main`.
+- a state first becomes meaningfully testable;
+- device evidence is needed to choose between hypotheses;
+- a later change can affect a previously validated owner/lifecycle/scene/transition/geometry/compatibility path;
+- a `dev` integration checkpoint needs cross-feature validation;
+- a candidate is being prepared for `main`.
 
-Do not request repeated device tests for intermediate commits whose observable behavior and affected risk surface have not meaningfully changed.
+Use impact-based regression scope. Test the affected behavior plus credible shared dependencies, not unrelated full-device scenarios after every commit.
 
-Use impact-based regression scope. Test the directly affected behavior and its credible shared dependencies; do not rerun unrelated full-device scenarios merely because another commit exists.
+Several completed changes may share one `dev` integration checkpoint only when acceptance criteria and failure attribution remain clear. If not, split validation or return to single-variable A/B.
 
-Several independently completed changes MAY be validated together at a `dev` integration checkpoint when doing so preserves clear acceptance criteria and failure attribution. If a failure cannot be attributed cleanly, split the validation or return to single-variable A/B testing.
+A runtime-sensitive result is complete only when the declared scenarios pass against the accepted source/build state. "Installed successfully" or "did not crash once" is not enough for a broader runtime plan.
 
-#### 12.7.3 Failure and promotion gates
+### 8.4 Failure handling
 
-A failed CI run MUST be understood before it is retried:
+Understand a failed CI run before retrying.
 
-- fix deterministic code, configuration, dependency, metadata, or signing failures and validate the resulting checkpoint with a new run;
-- rerun the same source state only when there is reasonable evidence of a transient runner, network, package-hosting, or upstream-service failure;
-- if the cause is unclear, inspect the logs or reproduce the failure before retrying;
-- repeated reruns MUST NOT be used to obtain a green result from an unresolved deterministic failure.
+- Fix deterministic code/config/dependency/metadata/signing failures and validate the new source state.
+- Rerun the same SHA only with reasonable evidence of a transient runner/network/package/upstream failure.
+- If unclear, inspect logs or reproduce first.
+- Do not rerun repeatedly to obtain a green result from an unresolved deterministic failure.
 
-A green CI result means only that the checks performed by that workflow passed. It does not prove SystemUI runtime correctness, lifecycle correctness, UI behavior, or device compatibility.
+Before `dev -> main` promotion, all required focused device validation must pass and no affected change may remain `awaiting device validation`.
 
-Before merging, required checks for the target branch MUST pass. For `feat/*` or `fix/* -> dev`, runtime-sensitive work may remain explicitly marked `awaiting device validation` only under the integration conditions defined in §12.1.3. Before `dev -> main` promotion, all required focused real-device validation for the affected lifecycle and scenes MUST pass; no affected change may remain `awaiting device validation`.
+## 9. Upstream dependency adoption
 
-Create a new CI build when the source, configuration, diagnostics, or validation target has meaningfully changed. Do not create commits or builds solely to obtain another CI/run number.
+Do not adopt a dependency update merely because it is newer.
 
-### 12.8 Upstream dependency adoption
+### 9.1 Classify relevance and maturity
 
-Dependency updates MUST be evaluated by relevance and maturity rather than adopted merely because a newer commit exists.
+Classify meaningful upstream changes:
 
-#### 12.8.1 Relevance classes
+- **A — priority**: fixes a current/likely project issue, removes a workaround, addresses lifecycle/state/crash risk, or contains important maintainer guidance for an API/component in use.
+- **B — canary candidate**: clear interaction/stability/performance/compatibility/maintainability benefit worth isolated validation.
+- **C — normally ignore**: unrelated churn, docs/examples only, or components not used by CombinedStatus.
 
-Classify a meaningful upstream change before adoption:
+Treat maturity separately:
 
-- **A — priority**: directly fixes a current or likely CombinedStatus problem, removes a project workaround, addresses a crash/lifecycle/state issue, or carries important maintainer guidance for an API or component the project uses.
-- **B — canary candidate**: provides a clear interaction, stability, performance, compatibility, or maintainability improvement worth isolated validation.
-- **C — normally ignore**: dependency-only churn, docs/example-only changes, unrelated platform changes, or changes to components CombinedStatus does not use.
+1. open/experimental PR — investigation only;
+2. merged main/canary — may be considered when an exact published revision exists and passes the project gate;
+3. stable release — preferred when it already contains the needed change.
 
-For MIUIX, pay particular attention to pager/gesture handling, navigation, Preference, dialogs, horizontally draggable controls, floating navigation, Blur/backdrop, theme behavior, Android lifecycle/state restoration, performance, and maintainer warnings.
+Maintainer warnings, known regressions, incomplete follow-ups, or missing artifacts block adoption regardless of freshness.
 
-#### 12.8.2 Maturity levels
+### 9.2 Exact-revision gate
 
-Treat upstream maturity explicitly:
+Pin one exact revision and verify evidence for that same revision.
 
-1. **open/experimental PR** — investigation only; MUST NOT be adopted as a project dependency solely because its CI is green;
-2. **merged main/canary** — MAY be considered when an exact revision is published and passes the project adoption gate;
-3. **stable release** — preferred when it already contains the required fix or feature.
+For MIUIX main snapshots, require successful upstream tests/example build/package publication, actual resolvability of the commit-specific snapshot, consistent revision across all MIUIX modules in use, and credentials outside the repository.
 
-Maintainer warnings such as “do not use yet”, known regressions, incomplete follow-up fixes, or missing artifacts override apparent freshness and MUST block adoption until resolved.
+Use equivalent evidence for other dependencies where available. Do not substitute an unpublished head for the newest fully green published revision.
 
-#### 12.8.3 Exact-revision gate
+### 9.3 Adoption workflow
 
-For an upstream main snapshot or canary dependency, CombinedStatus MUST pin one exact revision and verify the evidence for that same revision.
+Dependency adoption follows the normal branch-admission rules. Use one bounded dependency work branch only when an existing active branch does not already own the same adoption boundary.
 
-For MIUIX main snapshots, all of the following MUST be true before adoption:
+Normal sequence:
 
-- upstream **Build All Tests** succeeds;
-- upstream **Build Example App** succeeds;
-- upstream **Publish to GitHub Packages** succeeds;
-- the commit-specific SNAPSHOT for that exact revision is actually resolvable;
-- all MIUIX modules used by the app resolve to the same revision;
-- credentials remain outside the repository.
+1. inspect upstream issue/PR/maintainer guidance and classify relevance;
+2. identify the exact revision and maturity;
+3. centralize related version identity where practical;
+4. update related modules atomically;
+5. update notices/repository references where applicable;
+6. run CI and dependency-only Canary when runtime/UI may change;
+7. separate a new upstream API integration from dependency adoption when that materially improves fault isolation;
+8. perform focused device validation;
+9. review for unrelated changes;
+10. squash into `dev` and remove the short-lived branch.
 
-Equivalent test/build/publish evidence SHOULD be required for other dependencies when upstream provides it.
+After a dependency revision is validated, a later upstream revision is a new adoption boundary rather than an append-only continuation of the already-validated state.
 
-Do not substitute an unpublished head for the newest fully green published revision.
+## 10. Definition of done and change record
 
-#### 12.8.4 Adoption workflow
+Review only what is relevant to the change; do not create artificial N/A-heavy process.
 
-Use a short-lived branch such as `feat/<dependency>-<revision>` and target `dev`.
+For applicable runtime/engineering work, verify:
 
-The normal sequence is:
-
-1. inspect the upstream PR/issue/maintainer discussion and classify the change A/B/C;
-2. identify the exact merged revision and confirm its maturity/evidence;
-3. centralize the dependency version/revision where practical;
-4. update all related modules atomically so mixed revisions are not introduced;
-5. update repository-facing dependency references and notices when applicable;
-6. run CI and a dependency-only Canary first when the update can affect runtime/UI behavior;
-7. if the new upstream version introduces a recommended API path, integrate that behavior as a separate bounded change or second Canary when practical;
-8. perform focused real-device validation for runtime-sensitive behavior;
-9. review the final diff for unrelated changes;
-10. squash/merge the validated result into `dev`, verify post-merge CI, and delete the short-lived branch.
-
-Do not combine a dependency update with unrelated UI redesign, architecture migration, or feature work merely because the newer dependency makes those changes possible.
-
-A dependency-only validation and a behavior/API-integration validation SHOULD remain distinguishable when that separation materially improves fault isolation.
-
-Once a dependency-update branch has been validated, later upstream revisions MUST be handled as a separate update rather than appended to that already-validated branch.
-
-## 13. Post-change review and definition of done
-
-Review only the checks that are relevant to the change. Runtime-sensitive work requires the deeper lifecycle and ownership checks; documentation-only or mechanical changes do not need artificial N/A-heavy reporting.
-
-For applicable changes, verify:
-
-- no duplicate hooks, observers, listeners, jobs, or equivalent state sources were introduced;
-- live properties still have a clear writer;
-- host/session references do not outlive their lifecycle;
-- resource-owning sessions have cleanup or replacement paths;
-- hot paths avoid repeated reflection, View-tree traversal, polling, unnecessary wakeups, or high-frequency logging;
-- native geometry/animation ownership has not moved unintentionally;
-- build-channel differences are intentional and documented;
-- compatibility profiles and dependency notices remain accurate;
+- no duplicate hooks/observers/listeners/jobs/state sources;
+- each live property still has a clear writer;
+- host/session references respect lifecycle;
+- owned resources have cleanup/replacement paths;
+- hot paths avoid unnecessary polling/reflection/tree traversal/wakeups/high-frequency logging;
+- geometry/animation ownership did not move accidentally;
+- fallback behavior remains safe;
+- compatibility profiles/dependency notices remain accurate;
 - user-facing copy and MIUIX behavior were reviewed when changed;
-- CI/local checks passed where applicable;
-- required real-device validation passed, or the change is explicitly marked **awaiting device validation**;
-- `CHANGELOG.md` is updated when the final change is user-visible or materially affects future engineering constraints.
+- applicable CI/local/device validation passed;
+- changelog reflects the durable final outcome when required.
 
-A successful build alone is not evidence of runtime correctness.
+A successful build alone is not runtime proof.
 
-## 14. Change report
+A completed non-trivial change should leave a concise record answering:
 
-Every completed change SHOULD leave a concise record that answers:
+1. What changed and why?
+2. What was intentionally left unchanged?
+3. How was it validated?
+4. What limitation or follow-up remains?
 
-1. **What changed and why?**
-2. **What was intentionally left unchanged?**
-3. **How was it validated?**
-4. **What limitations or follow-up remain?**
+For runtime-sensitive/architectural work, also record the relevant owner/call chain, lifecycle/cleanup impact, fallback behavior, meaningful evidence, and required device scenarios.
 
-For runtime-sensitive or architectural changes, also record the relevant owner/call chain, lifecycle or cleanup impact, fallback behavior, meaningful diagnostic evidence, and required real-device test scenarios.
-
-The repository pull-request template is the preferred format when a pull request is used. Small documentation-only or mechanical changes may use a shorter commit/merge description as long as the applicable validation remains clear.
+Use the PR template when a PR exists. Mechanical maintenance may use a short commit description as long as its non-behavioral nature and branch synchronization are clear.
