@@ -35,6 +35,8 @@ internal object SystemUiNativeCombinedParticipantOwner {
         "com.android.systemui.statusbar.views.MiuiStatusBatteryContainer"
     private const val BATTERY_VIEW =
         "com.android.systemui.statusbar.views.MiuiBatteryMeterView"
+    private const val STATUS_ICON_CONTAINER =
+        "com.android.systemui.statusbar.views.MiuiStatusIconContainer"
     private const val HOOK_ID =
         "combinedstatus.nativeCombinedParticipant.constructor"
 
@@ -44,6 +46,10 @@ internal object SystemUiNativeCombinedParticipantOwner {
     private var renderController: CombinedStatusRenderController? = null
     private var controllerRef: WeakReference<Any>? = null
     private var handlesRef: WeakReference<NativeParticipantRuntimeAccess.Handles>? = null
+    private var hostRef: WeakReference<ViewGroup>? = null
+    private var eventSink: ((String) -> Unit)? = null
+    private var modelReadyLogged = false
+    private var unlockedGeometryLogged = false
     private var registryRestored = false
     private var injected = false
     private var failureReason: String? = null
@@ -58,6 +64,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
         onEvent: ((String) -> Unit)? = null,
     ): InstallResult {
         if (constructorHook != null) return InstallResult.AlreadyInstalled
+        eventSink = onEvent
 
         val controllerClass =
             classOrNull(CONTROLLER_IMPL, classLoader)
@@ -349,6 +356,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
 
         rootRef = WeakReference(root)
         handlesRef = WeakReference(handles)
+        hostRef = WeakReference(hostView)
 
         return AttachResult.Ready(
             registryRestored = registryRestored,
@@ -374,7 +382,61 @@ internal object SystemUiNativeCombinedParticipantOwner {
         snapshot: CombinedStatusStateStore.Snapshot,
         trace: RuntimeRenderTrace? = null,
     ) {
-        renderController?.update(snapshot, trace)
+        val update = renderController?.update(snapshot, trace)
+        if (
+            update?.model != null &&
+            !modelReadyLogged
+        ) {
+            modelReadyLogged = true
+            val render = renderViewRef?.get()
+            val root = rootRef?.get()
+            eventSink?.invoke(
+                "nativeCombinedParticipant rendererReady " +
+                    "modelReady=true" +
+                    " candidateComplete=" + update.candidateComplete +
+                    " render=" +
+                    (render?.measuredWidth ?: -1) + "x" +
+                    (render?.measuredHeight ?: -1) +
+                    " rootVisibility=" +
+                    (root?.let { visibilityName(it.visibility) } ?: "none") +
+                    " iconVisible=" +
+                    (root?.let { NativeParticipantRuntimeAccess.iconVisible(it) } ?: "none") +
+                    " visible=false nativeGeometryWrites=0",
+            )
+        }
+    }
+
+    @Synchronized
+    fun onSceneUpdate(update: SystemUiSceneStateSource.SceneUpdate) {
+        if (
+            update.surface != SystemUiSceneStateSource.Surface.UNLOCKED_STATUS_BAR ||
+            unlockedGeometryLogged
+        ) {
+            return
+        }
+        val host = hostRef?.get() ?: return
+        val batteryContainer =
+            host.directChild(BATTERY_CONTAINER) as? ViewGroup
+                ?: return
+        val statusIcons =
+            batteryContainer.directChild(STATUS_ICON_CONTAINER)
+                ?: return
+        val battery =
+            batteryContainer.directChild(BATTERY_VIEW)
+                ?: return
+
+        unlockedGeometryLogged = true
+        eventSink?.invoke(
+            "nativeCombinedParticipant unlockedGeometry " +
+                "statusIconsWidth=" + statusIcons.width +
+                " statusIconsRight=" + statusIcons.right +
+                " batteryWidth=" + battery.width +
+                " batteryBounds=" + battery.left + "-" + battery.right +
+                " adjacentGap=" + (battery.left - statusIcons.right) +
+                " rootVisibility=" +
+                (rootRef?.get()?.let { visibilityName(it.visibility) } ?: "none") +
+                " visible=false nativeGeometryWrites=0",
+        )
     }
 
     @Synchronized
@@ -430,6 +492,10 @@ internal object SystemUiNativeCombinedParticipantOwner {
         }
         rootRef = null
         renderViewRef = null
+        hostRef = null
+        eventSink = null
+        modelReadyLogged = false
+        unlockedGeometryLogged = false
         renderController = null
         controllerRef = null
         handlesRef = null
