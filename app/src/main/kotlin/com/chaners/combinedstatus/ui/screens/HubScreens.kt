@@ -1,7 +1,6 @@
 package com.chaners.combinedstatus.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -16,7 +15,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
@@ -25,9 +23,6 @@ import androidx.compose.ui.unit.dp
 import com.chaners.combinedstatus.R
 import com.chaners.combinedstatus.settings.AppLanguage
 import com.chaners.combinedstatus.system.SystemUiScopeController
-import com.chaners.combinedstatus.ui.components.TopBarProgressiveEdge
-import com.chaners.combinedstatus.ui.components.captureForTopBarBlur
-import com.chaners.combinedstatus.ui.components.rememberTopBarContentBackdrop
 import com.chaners.combinedstatus.ui.layout.pageContentPadding
 import com.chaners.combinedstatus.ui.navigation.AppRoute
 import kotlinx.coroutines.launch
@@ -197,7 +192,6 @@ private fun HubPage(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val scrollBehavior = MiuixScrollBehavior()
-    val topBarBackdrop = rememberTopBarContentBackdrop()
 
     Scaffold(
         topBar = {
@@ -207,60 +201,51 @@ private fun HubPage(
             )
         },
     ) { paddingValues ->
-        Box(modifier = Modifier.fillMaxSize()) {
-            LazyColumn(
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .captureForTopBarBlur(topBarBackdrop)
-                        .nestedScroll(scrollBehavior.nestedScrollConnection),
-                contentPadding = pageContentPadding(
-                    innerPadding = paddingValues,
-                    outerBottomPadding = bottomContentPadding,
-                    extraBottom = 12.dp,
-                ),
-            ) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .nestedScroll(scrollBehavior.nestedScrollConnection),
+            contentPadding = pageContentPadding(
+                innerPadding = paddingValues,
+                outerBottomPadding = bottomContentPadding,
+                extraBottom = 12.dp,
+            ),
+        ) {
+            item {
+                SmallTitle(sectionTitle)
+                Card(
+                    modifier = Modifier
+                        .padding(horizontal = 12.dp)
+                        .padding(bottom = 12.dp),
+                    content = content,
+                )
+            }
+
+            if (secondarySectionTitle != null && secondaryContent != null) {
                 item {
-                    SmallTitle(sectionTitle)
+                    SmallTitle(secondarySectionTitle)
                     Card(
                         modifier = Modifier
                             .padding(horizontal = 12.dp)
                             .padding(bottom = 12.dp),
-                        content = content,
+                        content = secondaryContent,
                     )
-                }
-
-                if (secondarySectionTitle != null && secondaryContent != null) {
-                    item {
-                        SmallTitle(secondarySectionTitle)
-                        Card(
-                            modifier = Modifier
-                                .padding(horizontal = 12.dp)
-                                .padding(bottom = 12.dp),
-                            content = secondaryContent,
-                        )
-                    }
-                }
-
-                if (tertiarySectionTitle != null && tertiaryContent != null) {
-                    item {
-                        SmallTitle(tertiarySectionTitle)
-                        Card(
-                            modifier = Modifier
-                                .padding(horizontal = 12.dp)
-                                .padding(bottom = 12.dp),
-                            content = tertiaryContent,
-                        )
-                    }
                 }
             }
 
-            TopBarProgressiveEdge(
-                backdrop = topBarBackdrop,
-                topPadding = paddingValues.calculateTopPadding(),
-                modifier = Modifier.align(Alignment.TopCenter),
-            )
-            overlay()
+            if (tertiarySectionTitle != null && tertiaryContent != null) {
+                item {
+                    SmallTitle(tertiarySectionTitle)
+                    Card(
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp)
+                            .padding(bottom = 12.dp),
+                        content = tertiaryContent,
+                    )
+                }
+            }
         }
+
+        overlay()
     }
 }
