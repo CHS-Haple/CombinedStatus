@@ -34,6 +34,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.TransformOrigin
@@ -59,7 +60,6 @@ import com.chaners.combinedstatus.ui.components.rememberTopBarBackdrop
 import com.chaners.combinedstatus.ui.components.topBarBackdropSource
 import com.chaners.combinedstatus.ui.components.requiresTextureBackdrop
 import com.chaners.combinedstatus.ui.layout.pageContentPadding
-import com.chaners.combinedstatus.ui.layout.pageVerticalOverscroll
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 import top.yukonga.miuix.kmp.basic.BasicComponent
@@ -940,8 +940,7 @@ private fun SettingsPage(
                 modifier =
                     Modifier
                         .fillMaxSize()
-                        .pageVerticalOverscroll(scrollBehavior),
-                overscrollEffect = null,
+                        .nestedScroll(scrollBehavior.nestedScrollConnection),
                 contentPadding = pageContentPadding(
                     innerPadding = paddingValues,
                     extraBottom = 12.dp,

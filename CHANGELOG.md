@@ -25,7 +25,6 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Changed
 
-- Page-level vertical scrolling now uses MIUIX spring overscroll consistently, including pages whose content fits within the viewport.
 - Top app bars now use MIUIX progressive backdrop blur while scrolling content beneath them on supported devices, with the standard solid surface retained as fallback.
 - Companion-app transient feedback now uses MIUIX Snackbar, and icon-only SystemUI reload exposes a native MIUIX long-press tooltip without changing the action layout.
 - Top-level page navigation now uses MIUIX Cross-Axis pager gesture ownership so horizontal page switching remains available while vertical child content is settling, without adding a second app-owned gesture recognizer.
@@ -61,8 +60,10 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Engineering
 
-- Home CombinedStatus rendering now hands off from the overlay fallback to a SystemUI-managed native status-bar participant only after model, tint, scene, attachment, and layout readiness are verified, preserving native layout and charging-island ownership.
-- Contribution workflow now defines bounded `feat/*`/`fix/*` branch roles, explicit `dev` integration gates, direct-to-`dev` limits, checkpoint/risk-based CI and device validation, SHA-bound `validation/dev` readiness tracking, exact-state `dev -> main` promotion, hotfix back-propagation, branch cleanup, and merge strategy.
+- Home CombinedStatus rendering now hands off from the overlay fallback to a SystemUI-managed native status-bar participant only after model, tint, scene, attachment, and layout readiness are verified, while preserving fail-native fallback, native charging-island ownership, and lifecycle-safe Hot Reload replacement.
+- CI validation now separates Light, Fast, Integration, and Full scopes: ordinary work branches prove changes with Debug, trusted `dev` runtime integration builds signed Canary only, and full Debug+Canary validation is reserved for build-system or stable-boundary risk.
+- Dependabot version updates now target `dev`; minor/patch updates are grouped per ecosystem to reduce PR noise, major updates remain individually reviewable, and generated dependency PRs are not auto-merged by default.
+- Contribution governance now uses risk-based routing: deterministic mechanical maintenance may be mirrored directly across `main`/`dev`, normal work reuses bounded active `feat/*`/`fix/*` branches instead of creating one branch per sub-task, CI/device validation is checkpoint-based, validated runtime baselines may carry across proven non-runtime deltas, hotfixes return to `dev`, and merged short-lived branches are cleaned up automatically.
 - Upstream dependency adoption now uses relevance classes, explicit maturity levels, exact-revision CI/artifact gates, isolated Canary validation, and short-lived feature branches before promotion to `dev`.
 - Project source and contributions are licensed under Apache License 2.0, with third-party components retaining their upstream license obligations.
 - Public/reproducible development now uses the checked-in official Gradle 9.7.1 Wrapper with distribution/integrity validation, commit-pinned GitHub Actions, secret-free pull-request validation, hardened ignore rules for local signing/environment artifacts, least-privilege workflow credentials, dependency-update automation, and explicit third-party dependency notices.
@@ -70,4 +71,3 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 - Runtime architecture is moving toward explicit `Host -> HostSession -> owned resources` boundaries with required cleanup across host replacement, SystemUI recreation, and hot reload.
 - Live SystemUI properties follow a single-writer rule; native layout geometry, CombinedStatus visual geometry, transition geometry, and optical adjustment remain separate responsibilities, and observation does not itself grant write ownership.
 - Compatibility-sensitive hooks are tied to verified members from the pinned HyperOS SystemUI `17.03.260226.r` target profile and are validated against the live runtime when ownership matters.
-- Contributor rules define MUST/SHOULD/MAY boundaries, fail-native fallback, staged ownership migration, changelog discipline, the normal `dev` contribution target, and private security-reporting expectations.

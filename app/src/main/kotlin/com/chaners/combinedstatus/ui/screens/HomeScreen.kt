@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -17,7 +18,6 @@ import com.chaners.combinedstatus.ui.components.MiuixBlurredTopBar
 import com.chaners.combinedstatus.ui.components.rememberTopBarBackdrop
 import com.chaners.combinedstatus.ui.components.topBarBackdropSource
 import com.chaners.combinedstatus.ui.layout.pageContentPadding
-import com.chaners.combinedstatus.ui.layout.pageVerticalOverscroll
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
@@ -69,8 +69,7 @@ internal fun HomeScreen(
                 modifier =
                     Modifier
                         .fillMaxSize()
-                        .pageVerticalOverscroll(scrollBehavior),
-                overscrollEffect = null,
+                        .nestedScroll(scrollBehavior.nestedScrollConnection),
                 contentPadding = pageContentPadding(
                     innerPadding = paddingValues,
                     outerBottomPadding = bottomContentPadding,

@@ -43,61 +43,141 @@ jobs:
           PR_BASE_REF: ${{ github.event.pull_request.base.ref || '' }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || '' }}
+          PUSH_BEFORE_SHA: ${{ github.event.before || '' }}
+          PUSH_HEAD_SHA: ${{ github.sha }}
         run: |
-          FULL_BUILD=true
-          REASON="trusted branch or manual build"
+          SCOPE=full
+          REASON="trusted main/manual validation"
+
+          apply_runtime_scope() {
+            local mode="$1"
+            case "$mode" in
+              fast)
+                if [[ "$SCOPE" != "full" ]]; then
+                  SCOPE=fast
+                  REASON="ordinary product/runtime PR"
+                fi
+                ;;
+              integration)
+                if [[ "$SCOPE" != "full" ]]; then
+                  SCOPE=integration
+                  REASON="trusted dev runtime integration"
+                fi
+                ;;
+              full)
+                SCOPE=full
+                REASON="stable/full runtime validation"
+                ;;
+            esac
+          }
+
+          classify_paths() {
+            local base_sha="$1"
+            local head_sha="$2"
+            local runtime_mode="$3"
+
+            SCOPE=light
+            REASON="mechanical/documentation-only change"
+
+            mapfile -t CHANGED_FILES < <(git diff --name-only "$base_sha" "$head_sha")
+            for path in "${CHANGED_FILES[@]}"; do
+              case "$path" in
+                .github/workflows/*|gradle/*|tools/*|build.gradle.kts|settings.gradle.kts|app/build.gradle.kts|app/proguard-rules.pro|gradlew|gradlew.bat)
+                  SCOPE=full
+                  REASON="build/CI/dependency-affecting path changed: $path"
+                  break
+                  ;;
+                gradle.properties)
+                  NON_ROUTINE_PROPERTIES="$(
+                    git diff --unified=0 "$base_sha" "$head_sha" -- gradle.properties |
+                      awk '/^[+-][^+-]/ {
+                        line = substr($0, 2)
+                        if (line !~ /^combinedStatus\.(versionCode|buildId)=/) {
+                          print line
+                        }
+                      }'
+                  )"
+                  if [[ -n "$NON_ROUTINE_PROPERTIES" ]]; then
+                    SCOPE=full
+                    REASON="non-routine Gradle property changed"
+                    break
+                  fi
+                  apply_runtime_scope "$runtime_mode"
+                  ;;
+                app/*|compat/*)
+                  apply_runtime_scope "$runtime_mode"
+                  ;;
+              esac
+            done
+          }
 
           if [[ "$EVENT_NAME" == "push" && "$GITHUB_REF" == "refs/heads/validation/dev" ]]; then
-            FULL_BUILD=false
+            SCOPE=light
             REASON="device-validation marker update"
+          elif [[ "$EVENT_NAME" == "push" && "$GITHUB_REF" == "refs/heads/dev" ]]; then
+            if [[ -n "$PUSH_BEFORE_SHA" && "$PUSH_BEFORE_SHA" != "0000000000000000000000000000000000000000" ]]; then
+              classify_paths "$PUSH_BEFORE_SHA" "$PUSH_HEAD_SHA" integration
+            fi
+          elif [[ "$EVENT_NAME" == "push" && "$GITHUB_REF" == "refs/heads/main" ]]; then
+            if [[ -n "$PUSH_BEFORE_SHA" && "$PUSH_BEFORE_SHA" != "0000000000000000000000000000000000000000" ]]; then
+              classify_paths "$PUSH_BEFORE_SHA" "$PUSH_HEAD_SHA" full
+            fi
           elif [[ "$EVENT_NAME" == "pull_request" ]]; then
-            FULL_BUILD=false
-            REASON="lightweight pull-request validation"
-
             if [[ "$PR_DRAFT" == "true" ]]; then
+              SCOPE=light
               REASON="draft pull request"
             elif [[ "$PR_BASE_REF" == "main" ]]; then
-              FULL_BUILD=true
+              SCOPE=full
               REASON="ready pull request targeting main"
             else
-              mapfile -t CHANGED_FILES < <(git diff --name-only "$PR_BASE_SHA" "$PR_HEAD_SHA")
-              for path in "${CHANGED_FILES[@]}"; do
-                case "$path" in
-                  app/*|compat/*|gradle/*|tools/*|.github/workflows/*|build.gradle.kts|settings.gradle.kts|gradle.properties|gradlew|gradlew.bat)
-                    FULL_BUILD=true
-                    REASON="APK/build/compatibility/CI-affecting path changed: $path"
-                    break
-                    ;;
-                esac
-              done
+              classify_paths "$PR_BASE_SHA" "$PR_HEAD_SHA" fast
             fi
           fi
 
-          echo "full_build=$FULL_BUILD" >> "$GITHUB_OUTPUT"
-          echo "Validation scope: full_build=$FULL_BUILD ($REASON)"
+          RUN_ANDROID=false
+          RUN_DEBUG=false
+          RUN_CANARY=false
+
+          if [[ "$SCOPE" == "fast" || "$SCOPE" == "integration" || "$SCOPE" == "full" ]]; then
+            RUN_ANDROID=true
+          fi
+          if [[ "$SCOPE" == "fast" || "$SCOPE" == "full" ]]; then
+            RUN_DEBUG=true
+          fi
+          if [[ "$SCOPE" == "integration" || "$SCOPE" == "full" ]]; then
+            RUN_CANARY=true
+          fi
+
+          echo "scope=$SCOPE" >> "$GITHUB_OUTPUT"
+          echo "run_android=$RUN_ANDROID" >> "$GITHUB_OUTPUT"
+          echo "run_debug=$RUN_DEBUG" >> "$GITHUB_OUTPUT"
+          echo "run_canary=$RUN_CANARY" >> "$GITHUB_OUTPUT"
+          echo "Validation scope: $SCOPE ($REASON)"
 
       - name: Lightweight repository checks
-        if: github.event_name == 'pull_request'
+        if: steps.scope.outputs.scope == 'light' && github.ref != 'refs/heads/validation/dev'
         shell: bash
         env:
-          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
-          git diff --check "$PR_BASE_SHA" "$PR_HEAD_SHA"
+          if [[ -n "$BASE_SHA" && "$BASE_SHA" != "0000000000000000000000000000000000000000" ]]; then
+            git diff --check "$BASE_SHA" "$HEAD_SHA"
+          fi
 
       - name: Validate Gradle Wrapper
-        if: steps.scope.outputs.full_build == 'true'
+        if: steps.scope.outputs.run_android == 'true'
         uses: gradle/actions/wrapper-validation@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.3
 
       - name: Set up Java
-        if: steps.scope.outputs.full_build == 'true'
+        if: steps.scope.outputs.run_android == 'true'
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: temurin
           java-version: '21'
 
       - name: Install Android API 37
-        if: steps.scope.outputs.full_build == 'true'
+        if: steps.scope.outputs.run_android == 'true'
         shell: bash
         run: |
           SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
@@ -106,11 +186,11 @@ jobs:
           "$SDKMANAGER" --channel=3 "platforms;android-37.0" "build-tools;37.0.0"
 
       - name: Set up Gradle
-        if: steps.scope.outputs.full_build == 'true'
+        if: steps.scope.outputs.run_android == 'true'
         uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.3
 
       - name: Restore and verify Haple signing
-        if: steps.scope.outputs.full_build == 'true' && github.event_name != 'pull_request'
+        if: steps.scope.outputs.run_android == 'true' && github.event_name != 'pull_request'
         shell: bash
         env:
           HAPLE_KEYSTORE_BASE64: ${{ secrets.HAPLE_KEYSTORE_BASE64 }}
@@ -120,38 +200,52 @@ jobs:
         run: bash tools/setup_haple_signing.sh
 
       - name: Verify pinned HyperOS target profile
-        if: steps.scope.outputs.full_build == 'true'
+        if: steps.scope.outputs.run_android == 'true'
         run: python3 tools/verify_target_profile.py
 
-      - name: Run unit tests
-        if: steps.scope.outputs.full_build == 'true'
-        run: ./gradlew :app:testDebugUnitTest --stacktrace
-
-      - name: Build debug and canary APKs
-        if: steps.scope.outputs.full_build == 'true'
+      - name: Test and build required APK variants
+        if: steps.scope.outputs.run_android == 'true'
         env:
           HAPLE_KEYSTORE_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.HAPLE_KEYSTORE_PASSWORD || '' }}
           HAPLE_KEY_ALIAS: ${{ github.event_name != 'pull_request' && secrets.HAPLE_KEY_ALIAS || '' }}
-        run: ./gradlew :app:assembleDebug :app:assembleCanary --stacktrace
-
-      - name: Resolve built APK paths
-        if: steps.scope.outputs.full_build == 'true'
         shell: bash
         run: |
-          DEBUG_APK_PATH="app/build/outputs/apk/debug/app-debug.apk"
-          if [[ -f "app/build/outputs/apk/canary/app-canary.apk" ]]; then
-            CANARY_APK_PATH="app/build/outputs/apk/canary/app-canary.apk"
-          elif [[ -f "app/build/outputs/apk/canary/app-canary-unsigned.apk" ]]; then
-            CANARY_APK_PATH="app/build/outputs/apk/canary/app-canary-unsigned.apk"
-          else
-            echo "Canary APK output was not found."
-            exit 1
+          TASKS=(":app:testDebugUnitTest")
+          if [[ "${{ steps.scope.outputs.run_debug }}" == "true" ]]; then
+            TASKS+=(":app:assembleDebug")
           fi
-          echo "DEBUG_APK_PATH=$DEBUG_APK_PATH" >> "$GITHUB_ENV"
-          echo "CANARY_APK_PATH=$CANARY_APK_PATH" >> "$GITHUB_ENV"
+          if [[ "${{ steps.scope.outputs.run_canary }}" == "true" ]]; then
+            TASKS+=(":app:assembleCanary")
+          fi
+          ./gradlew "${TASKS[@]}" --stacktrace
+
+      - name: Resolve built APK paths
+        if: steps.scope.outputs.run_android == 'true'
+        shell: bash
+        run: |
+          if [[ "${{ steps.scope.outputs.run_debug }}" == "true" ]]; then
+            DEBUG_APK_PATH="app/build/outputs/apk/debug/app-debug.apk"
+            if [[ ! -f "$DEBUG_APK_PATH" ]]; then
+              echo "Debug APK output was not found."
+              exit 1
+            fi
+            echo "DEBUG_APK_PATH=$DEBUG_APK_PATH" >> "$GITHUB_ENV"
+          fi
+
+          if [[ "${{ steps.scope.outputs.run_canary }}" == "true" ]]; then
+            if [[ -f "app/build/outputs/apk/canary/app-canary.apk" ]]; then
+              CANARY_APK_PATH="app/build/outputs/apk/canary/app-canary.apk"
+            elif [[ -f "app/build/outputs/apk/canary/app-canary-unsigned.apk" ]]; then
+              CANARY_APK_PATH="app/build/outputs/apk/canary/app-canary-unsigned.apk"
+            else
+              echo "Canary APK output was not found."
+              exit 1
+            fi
+            echo "CANARY_APK_PATH=$CANARY_APK_PATH" >> "$GITHUB_ENV"
+          fi
 
       - name: Verify modern Xposed metadata
-        if: steps.scope.outputs.full_build == 'true'
+        if: steps.scope.outputs.run_android == 'true'
         shell: bash
         run: |
           REQUIRED_ENTRIES=(
@@ -160,7 +254,15 @@ jobs:
             "META-INF/xposed/scope.list"
           )
 
-          for APK in "$DEBUG_APK_PATH" "$CANARY_APK_PATH"; do
+          APKS=()
+          if [[ "${{ steps.scope.outputs.run_debug }}" == "true" ]]; then
+            APKS+=("$DEBUG_APK_PATH")
+          fi
+          if [[ "${{ steps.scope.outputs.run_canary }}" == "true" ]]; then
+            APKS+=("$CANARY_APK_PATH")
+          fi
+
+          for APK in "${APKS[@]}"; do
             for entry in "${REQUIRED_ENTRIES[@]}"; do
               if ! unzip -Z1 "$APK" | grep -Fxq "$entry"; then
                 echo "Missing modern Xposed metadata in $APK: $entry"
@@ -202,17 +304,25 @@ jobs:
           done
 
       - name: Verify Haple APK signatures
-        if: steps.scope.outputs.full_build == 'true' && github.event_name != 'pull_request'
+        if: steps.scope.outputs.run_android == 'true' && github.event_name != 'pull_request'
         shell: bash
         env:
           HAPLE_CERT_SHA256: 7a64fc85325afe79439afb63369d832d7ddc20fd5b3935b4c28d7bcb85e92fc7
         run: |
           SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
-          for APK in "$DEBUG_APK_PATH" "$CANARY_APK_PATH"; do
-            "$SDK_ROOT/build-tools/37.0.0/apksigner" verify               --verbose               --print-certs               "$APK"
+          APKS=()
+          if [[ "${{ steps.scope.outputs.run_debug }}" == "true" ]]; then
+            APKS+=("$DEBUG_APK_PATH")
+          fi
+          if [[ "${{ steps.scope.outputs.run_canary }}" == "true" ]]; then
+            APKS+=("$CANARY_APK_PATH")
+          fi
+
+          for APK in "${APKS[@]}"; do
+            "$SDK_ROOT/build-tools/37.0.0/apksigner" verify --verbose --print-certs "$APK"
 
             ACTUAL_CERT_SHA256="$(
-              "$SDK_ROOT/build-tools/37.0.0/apksigner" verify                 --print-certs                 "$APK" |
+              "$SDK_ROOT/build-tools/37.0.0/apksigner" verify --print-certs "$APK" |
                 awk -F': ' '/certificate SHA-256 digest:/ { print $NF; exit }' |
                 tr '[:upper:]' '[:lower:]'
             )"
@@ -224,7 +334,7 @@ jobs:
           done
 
       - name: Verify canary is non-debuggable
-        if: steps.scope.outputs.full_build == 'true'
+        if: steps.scope.outputs.run_canary == 'true'
         shell: bash
         run: |
           SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
@@ -240,21 +350,27 @@ jobs:
           fi
 
       - name: Prepare APKs
-        if: steps.scope.outputs.full_build == 'true' && github.event_name != 'pull_request'
+        if: steps.scope.outputs.run_android == 'true' && github.event_name != 'pull_request'
         shell: bash
         run: |
           VERSION_NAME="$(sed -n 's/^combinedStatus.versionName=//p' gradle.properties)"
           BUILD_ID="$(sed -n 's/^combinedStatus.buildId=//p' gradle.properties)"
           mkdir -p dist
-          DEBUG_APK_NAME="CombinedStatus-${VERSION_NAME}-HyperOS-${BUILD_ID}-debug.apk"
-          CANARY_APK_NAME="CombinedStatus-${VERSION_NAME}-HyperOS-${BUILD_ID}-canary.apk"
-          cp "$DEBUG_APK_PATH" "dist/$DEBUG_APK_NAME"
-          cp "$CANARY_APK_PATH" "dist/$CANARY_APK_NAME"
-          echo "DEBUG_APK_NAME=$DEBUG_APK_NAME" >> "$GITHUB_ENV"
-          echo "CANARY_APK_NAME=$CANARY_APK_NAME" >> "$GITHUB_ENV"
+
+          if [[ "${{ steps.scope.outputs.run_debug }}" == "true" ]]; then
+            DEBUG_APK_NAME="CombinedStatus-${VERSION_NAME}-HyperOS-${BUILD_ID}-debug.apk"
+            cp "$DEBUG_APK_PATH" "dist/$DEBUG_APK_NAME"
+            echo "DEBUG_APK_NAME=$DEBUG_APK_NAME" >> "$GITHUB_ENV"
+          fi
+
+          if [[ "${{ steps.scope.outputs.run_canary }}" == "true" ]]; then
+            CANARY_APK_NAME="CombinedStatus-${VERSION_NAME}-HyperOS-${BUILD_ID}-canary.apk"
+            cp "$CANARY_APK_PATH" "dist/$CANARY_APK_NAME"
+            echo "CANARY_APK_NAME=$CANARY_APK_NAME" >> "$GITHUB_ENV"
+          fi
 
       - name: Upload debug APK
-        if: steps.scope.outputs.full_build == 'true' && github.event_name != 'pull_request'
+        if: steps.scope.outputs.run_debug == 'true' && github.event_name != 'pull_request'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ${{ env.DEBUG_APK_NAME }}
@@ -262,18 +378,19 @@ jobs:
           if-no-files-found: error
 
       - name: Upload canary APK
-        if: steps.scope.outputs.full_build == 'true' && github.event_name != 'pull_request'
+        if: steps.scope.outputs.run_canary == 'true' && github.event_name != 'pull_request'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ${{ env.CANARY_APK_NAME }}
           path: dist/${{ env.CANARY_APK_NAME }}
           if-no-files-found: error
+
       - name: Validation summary
         if: always()
         shell: bash
         run: |
           echo "### Build validation" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Full Android build: `${{ steps.scope.outputs.full_build }}`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Validation scope: `${{ steps.scope.outputs.scope }}`" >> "$GITHUB_STEP_SUMMARY"
           if [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.pull_request.draft }}" == "true" ]]; then
             echo "- Pull request state: draft (lightweight validation only)" >> "$GITHUB_STEP_SUMMARY"
           fi
@@ -332,8 +449,27 @@ jobs:
           fi
 
           DEVICE_OK=false
+          DEVICE_CARRIED=false
+
           if [[ -n "$VALIDATED_SHA" && "$VALIDATED_SHA" == "$DEV_SHA" ]]; then
             DEVICE_OK=true
+          elif [[ -n "$VALIDATED_SHA" ]] && git merge-base --is-ancestor "$VALIDATED_SHA" "$DEV_SHA"; then
+            DEVICE_IMPACT=false
+            mapfile -t VALIDATION_DELTA < <(git diff --name-only "$VALIDATED_SHA" "$DEV_SHA")
+
+            for path in "${VALIDATION_DELTA[@]}"; do
+              case "$path" in
+                app/*|compat/*|gradle/*|tools/*|build.gradle.kts|settings.gradle.kts|gradle.properties|gradlew|gradlew.bat)
+                  DEVICE_IMPACT=true
+                  break
+                  ;;
+              esac
+            done
+
+            if [[ "$DEVICE_IMPACT" == "false" ]]; then
+              DEVICE_OK=true
+              DEVICE_CARRIED=true
+            fi
           fi
 
           CHANGELOG_OK=false
@@ -365,6 +501,7 @@ jobs:
           echo "ahead_by=$AHEAD_BY" >> "$GITHUB_OUTPUT"
           echo "ci_ok=$CI_OK" >> "$GITHUB_OUTPUT"
           echo "device_ok=$DEVICE_OK" >> "$GITHUB_OUTPUT"
+          echo "device_carried=$DEVICE_CARRIED" >> "$GITHUB_OUTPUT"
           echo "changelog_ok=$CHANGELOG_OK" >> "$GITHUB_OUTPUT"
           echo "ready=$READY" >> "$GITHUB_OUTPUT"
 
@@ -381,5 +518,6 @@ jobs:
           echo "- ahead of main: `${{ steps.readiness.outputs.ahead_by }}` commit(s)" >> "$GITHUB_STEP_SUMMARY"
           echo "- dev Build green: `${{ steps.readiness.outputs.ci_ok }}`" >> "$GITHUB_STEP_SUMMARY"
           echo "- device validation current: `${{ steps.readiness.outputs.device_ok }}`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- device validation carried across non-runtime delta: `${{ steps.readiness.outputs.device_carried }}`" >> "$GITHUB_STEP_SUMMARY"
           echo "- changelog boundary present: `${{ steps.readiness.outputs.changelog_ok }}`" >> "$GITHUB_STEP_SUMMARY"
           echo "- READY: `${{ steps.readiness.outputs.ready }}`" >> "$GITHUB_STEP_SUMMARY"
