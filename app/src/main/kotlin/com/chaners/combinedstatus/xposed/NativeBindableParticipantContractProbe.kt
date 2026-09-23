@@ -17,6 +17,7 @@ internal object NativeBindableParticipantContractProbe {
     private const val SINGLE_BINDABLE_VIEW =
         "com.android.systemui.statusbar.pipeline.shared.ui.view.SingleBindableStatusBarIconView"
     private const val MAX_RUNTIME_ENTRIES = 16
+    private const val MAX_SLOT_ORDER_ENTRIES = 40
 
     fun inspect(host: Any): Snapshot {
         val resolution = NativeParticipantRuntimeAccess.resolve(host)
@@ -146,6 +147,36 @@ internal object NativeBindableParticipantContractProbe {
                 }
             }
 
+        val runtimeSlotOrder =
+            buildList {
+                for (index in 0 until handles.group.childCount) {
+                    val child = handles.group.getChildAt(index)
+                    val slot = slotOf(child) ?: continue
+                    val layoutParams = child.layoutParams
+                    add(
+                        "index=" + index +
+                            ",slot=" + slot +
+                            ",class=" + child.javaClass.name +
+                            ",visibility=" + visibilityName(child.visibility) +
+                            ",iconVisible=" +
+                            (NativeParticipantRuntimeAccess.iconVisible(child)
+                                ?.toString() ?: "unknown") +
+                            ",bounds=" +
+                            child.left + "," + child.top + "-" +
+                            child.right + "," + child.bottom +
+                            ",size=" + child.width + "x" + child.height +
+                            ",measured=" +
+                            child.measuredWidth + "x" + child.measuredHeight +
+                            ",layout=" +
+                            (layoutParams?.width ?: Int.MIN_VALUE) + "x" +
+                            (layoutParams?.height ?: Int.MIN_VALUE),
+                    )
+                    if (size >= MAX_SLOT_ORDER_ENTRIES) {
+                        break
+                    }
+                }
+            }
+
         val dynamicRegistrationObserved =
             managerEntries.any { entry -> entry.startsWith("combined_status_") } ||
                 viewOnlySlots.any { slot -> slot.contains("combined_status_") }
@@ -175,6 +206,7 @@ internal object NativeBindableParticipantContractProbe {
             viewOnlySlotsReady = viewOnlySlotsCollection != null,
             viewOnlySlots = viewOnlySlots,
             runtimeBindableViews = runtimeBindableViews,
+            runtimeSlotOrder = runtimeSlotOrder,
             groupClipChildren = handles.group.clipChildren,
             groupClipToPadding = handles.group.clipToPadding,
             groupHeight = handles.group.height,
@@ -267,6 +299,7 @@ internal object NativeBindableParticipantContractProbe {
         val viewOnlySlotsReady: Boolean,
         val viewOnlySlots: List<String>,
         val runtimeBindableViews: List<String>,
+        val runtimeSlotOrder: List<String>,
         val groupClipChildren: Boolean,
         val groupClipToPadding: Boolean,
         val groupHeight: Int,
@@ -291,6 +324,7 @@ internal object NativeBindableParticipantContractProbe {
                     " viewOnlySlotsReady=" + viewOnlySlotsReady +
                     " viewOnlySlots=" + viewOnlySlots.joinToString("|") +
                     " runtimeViews=" + runtimeBindableViews.joinToString("|") +
+                    " slotOrder=" + runtimeSlotOrder.joinToString("|") +
                     " groupClipChildren=" + groupClipChildren +
                     " groupClipToPadding=" + groupClipToPadding +
                     " groupHeight=" + groupHeight +
@@ -317,6 +351,7 @@ internal object NativeBindableParticipantContractProbe {
                     viewOnlySlotsReady = false,
                     viewOnlySlots = emptyList(),
                     runtimeBindableViews = emptyList(),
+                    runtimeSlotOrder = emptyList(),
                     groupClipChildren = true,
                     groupClipToPadding = true,
                     groupHeight = -1,
