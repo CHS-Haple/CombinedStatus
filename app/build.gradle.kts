@@ -7,6 +7,8 @@ plugins {
 val combinedStatusVersionName = providers.gradleProperty("combinedStatus.versionName").get()
 val combinedStatusVersionCode = providers.gradleProperty("combinedStatus.versionCode").get().toInt()
 val combinedStatusBuildId = providers.gradleProperty("combinedStatus.buildId").get()
+val miuixVersion = providers.gradleProperty("miuix.version").get()
+val miuixRevision = providers.gradleProperty("miuix.revision").get()
 
 val hapleKeystorePath = providers.environmentVariable("HAPLE_KEYSTORE_PATH").orNull
 val hapleKeystorePassword = providers.environmentVariable("HAPLE_KEYSTORE_PASSWORD").orNull
@@ -36,6 +38,8 @@ android {
         versionName = combinedStatusVersionName
 
         buildConfigField("String", "BUILD_ID", "\"$combinedStatusBuildId\"")
+        buildConfigField("String", "MIUIX_VERSION", "\"$miuixVersion\"")
+        buildConfigField("String", "MIUIX_REVISION", "\"$miuixRevision\"")
     }
 
     signingConfigs {
@@ -99,6 +103,9 @@ android {
 
     packaging {
         resources {
+            // Modern Xposed metadata is loaded directly by the framework and must survive
+            // optimized Canary/Release packaging even when dependency graphs change.
+            merges += "META-INF/xposed/**"
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
@@ -113,10 +120,10 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.13.0")
     implementation("androidx.navigationevent:navigationevent-compose:1.1.2")
     implementation("androidx.datastore:datastore-preferences:1.2.1")
-    implementation("top.yukonga.miuix.kmp:miuix-ui-android:0.9.4")
-    implementation("top.yukonga.miuix.kmp:miuix-preference-android:0.9.4")
-    implementation("top.yukonga.miuix.kmp:miuix-icons-android:0.9.4")
-    implementation("top.yukonga.miuix.kmp:miuix-nav-android:0.9.4")
-    implementation("top.yukonga.miuix.kmp:miuix-blur-android:0.9.4")
+    implementation("top.yukonga.miuix.kmp:miuix-ui-android:$miuixVersion")
+    implementation("top.yukonga.miuix.kmp:miuix-preference-android:$miuixVersion")
+    implementation("top.yukonga.miuix.kmp:miuix-icons-android:$miuixVersion")
+    implementation("top.yukonga.miuix.kmp:miuix-nav-android:$miuixVersion")
+    implementation("top.yukonga.miuix.kmp:miuix-blur-android:$miuixVersion")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-core:1.11.0")
 }

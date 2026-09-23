@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  packages: read
 
 concurrency:
   group: build-${{ github.ref }}
@@ -18,6 +19,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      MIUIX_GITHUB_ACTOR: ${{ github.repository_owner }}
+      MIUIX_GITHUB_TOKEN: ${{ secrets.MIUIX_GITHUB_TOKEN }}
+      GITHUB_ACTOR: ${{ github.actor }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
       - name: Checkout
@@ -65,6 +71,21 @@ jobs:
           HAPLE_KEY_ALIAS: ${{ github.event_name != 'pull_request' && secrets.HAPLE_KEY_ALIAS || '' }}
         run: ./gradlew :app:assembleDebug :app:assembleCanary --stacktrace
 
+      - name: Resolve built APK paths
+        shell: bash
+        run: |
+          DEBUG_APK_PATH="app/build/outputs/apk/debug/app-debug.apk"
+          if [[ -f "app/build/outputs/apk/canary/app-canary.apk" ]]; then
+            CANARY_APK_PATH="app/build/outputs/apk/canary/app-canary.apk"
+          elif [[ -f "app/build/outputs/apk/canary/app-canary-unsigned.apk" ]]; then
+            CANARY_APK_PATH="app/build/outputs/apk/canary/app-canary-unsigned.apk"
+          else
+            echo "Canary APK output was not found."
+            exit 1
+          fi
+          echo "DEBUG_APK_PATH=$DEBUG_APK_PATH" >> "$GITHUB_ENV"
+          echo "CANARY_APK_PATH=$CANARY_APK_PATH" >> "$GITHUB_ENV"
+
       - name: Verify modern Xposed metadata
         shell: bash
         run: |
@@ -74,9 +95,7 @@ jobs:
             "META-INF/xposed/scope.list"
           )
 
-          for APK in \
-            app/build/outputs/apk/debug/app-debug.apk \
-            app/build/outputs/apk/canary/app-canary.apk; do
+          for APK in "$DEBUG_APK_PATH" "$CANARY_APK_PATH"; do
             for entry in "${REQUIRED_ENTRIES[@]}"; do
               if ! unzip -Z1 "$APK" | grep -Fxq "$entry"; then
                 echo "Missing modern Xposed metadata in $APK: $entry"
@@ -124,7 +143,7 @@ jobs:
           HAPLE_CERT_SHA256: 7a64fc85325afe79439afb63369d832d7ddc20fd5b3935b4c28d7bcb85e92fc7
         run: |
           SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
-          for APK in             app/build/outputs/apk/debug/app-debug.apk             app/build/outputs/apk/canary/app-canary.apk; do
+          for APK in "$DEBUG_APK_PATH" "$CANARY_APK_PATH"; do
             "$SDK_ROOT/build-tools/37.0.0/apksigner" verify               --verbose               --print-certs               "$APK"
 
             ACTUAL_CERT_SHA256="$(
@@ -149,7 +168,7 @@ jobs:
             exit 1
           fi
 
-          if [[ "$("$APKANALYZER" manifest debuggable app/build/outputs/apk/canary/app-canary.apk)" != "false" ]]; then
+          if [[ "$("$APKANALYZER" manifest debuggable "$CANARY_APK_PATH")" != "false" ]]; then
             echo "Canary APK must be non-debuggable."
             exit 1
           fi
@@ -163,8 +182,8 @@ jobs:
           mkdir -p dist
           DEBUG_APK_NAME="CombinedStatus-${VERSION_NAME}-HyperOS-${BUILD_ID}-debug.apk"
           CANARY_APK_NAME="CombinedStatus-${VERSION_NAME}-HyperOS-${BUILD_ID}-canary.apk"
-          cp app/build/outputs/apk/debug/app-debug.apk "dist/$DEBUG_APK_NAME"
-          cp app/build/outputs/apk/canary/app-canary.apk "dist/$CANARY_APK_NAME"
+          cp "$DEBUG_APK_PATH" "dist/$DEBUG_APK_NAME"
+          cp "$CANARY_APK_PATH" "dist/$CANARY_APK_NAME"
           echo "DEBUG_APK_NAME=$DEBUG_APK_NAME" >> "$GITHUB_ENV"
           echo "CANARY_APK_NAME=$CANARY_APK_NAME" >> "$GITHUB_ENV"
 
