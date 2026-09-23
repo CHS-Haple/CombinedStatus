@@ -42,7 +42,7 @@ class CombinedStatusRenderModelTest {
     }
 
     @Test
-    fun wifiVisibleRendersImmediatelyBeforeConnectivityCatchesUp() {
+    fun staleWifiVisibilityDoesNotOverrideCurrentCellularTransport() {
         val model =
             CombinedStatusRenderModel.from(
                 snapshot =
@@ -73,13 +73,13 @@ class CombinedStatusRenderModelTest {
                 defaultDataSubscriptionId = 1,
             )
 
-        val center = model?.centerIndicator as? CenterIndicator.Wifi
-        assertEquals(3, center?.segments)
-        assertEquals(InternetState.UNKNOWN, center?.internet)
+        val center = model?.centerIndicator as? CenterIndicator.MobileType
+        assertEquals("5G", center?.label)
+        assertEquals(InternetState.VALIDATED, center?.internet)
     }
 
     @Test
-    fun freshCellularObservationAfterWifiVisibleMarksWifiNoInternet() {
+    fun freshCellularObservationDoesNotRenderWifiNoInternetFrame() {
         val model =
             CombinedStatusRenderModel.from(
                 snapshot =
@@ -110,8 +110,9 @@ class CombinedStatusRenderModelTest {
                 defaultDataSubscriptionId = 1,
             )
 
-        val center = model?.centerIndicator as? CenterIndicator.Wifi
-        assertEquals(InternetState.NO_INTERNET, center?.internet)
+        val center = model?.centerIndicator as? CenterIndicator.MobileType
+        assertEquals("5G", center?.label)
+        assertEquals(InternetState.VALIDATED, center?.internet)
     }
 
     @Test
@@ -244,41 +245,6 @@ class CombinedStatusRenderModelTest {
 
         val center = model?.centerIndicator as? CenterIndicator.MobileType
         assertEquals("4G", center?.label)
-    }
-
-    @Test
-    fun cellularTransportWinsOverStaleWifiVisibilityDuringWifiShutdown() {
-        val model =
-            CombinedStatusRenderModel.from(
-                snapshot =
-                    snapshot(
-                        wifi =
-                            CombinedStatusStateStore.WifiState.Visible(
-                                iconResId = 1,
-                                signal = SignalStrength.Level(3),
-                            ),
-                        mobile =
-                            mapOf(
-                                1 to CombinedStatusStateStore.MobileState(
-                                    signal = SignalStrength.Level(4),
-                                ),
-                            ),
-                    ),
-                presentation =
-                    presentation(
-                        connectivity =
-                            connectivity(
-                                transport = SystemUiConnectivityStateSource.Transport.CELLULAR,
-                                validated = true,
-                                mobileDataEnabled = true,
-                            ),
-                        networkType = mobileType("5G"),
-                    ),
-                defaultDataSubscriptionId = 1,
-            )
-
-        val center = model?.centerIndicator as? CenterIndicator.MobileType
-        assertEquals("5G", center?.label)
     }
 
     @Test
