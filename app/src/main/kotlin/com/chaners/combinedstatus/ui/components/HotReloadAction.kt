@@ -14,8 +14,9 @@ internal fun HotReloadAction(
     onClick: () -> Unit,
 ) {
     IconButton(
-        onClick = onClick,
-        enabled = !inProgress,
+        onClick = { if (!inProgress) onClick() },
+        enabled = true,
+        holdDownState = inProgress,
     ) {
         Icon(
             imageVector = MiuixIcons.Refresh,
