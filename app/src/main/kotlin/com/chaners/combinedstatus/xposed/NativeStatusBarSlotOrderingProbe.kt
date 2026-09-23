@@ -2,14 +2,23 @@ package com.chaners.combinedstatus.xposed
 
 import android.view.View
 import java.lang.reflect.Method
+import java.lang.reflect.Modifier
 
 internal object NativeStatusBarSlotOrderingProbe {
     private const val MAX_SLOTS = 64
-    private val INTERESTING_METHOD_NAMES =
-        setOf(
-            "getSlotIndex",
-            "getSlotName",
-            "getViewIndex",
+    private const val MAX_METHODS = 64
+    private const val MAX_FIELDS = 48
+    private const val MAX_SLOT_ELEMENT_TYPES = 8
+    private const val MAX_SLOT_ELEMENT_MEMBERS = 24
+
+    private val contractKeywords =
+        listOf(
+            "slot",
+            "index",
+            "view",
+            "icon",
+            "holder",
+            "tag",
         )
 
     fun inspect(host: Any): Snapshot {
@@ -26,8 +35,9 @@ internal object NativeStatusBarSlotOrderingProbe {
             readField(handles.controller, "mStatusBarIconList")
                 ?: return Snapshot.unavailable("status-bar-icon-list-missing")
 
+        val slotsRaw = readField(iconList, "mSlots") as? List<*>
         val slots =
-            (readField(iconList, "mSlots") as? List<*>)
+            slotsRaw
                 ?.take(MAX_SLOTS)
                 ?.mapIndexed { index, value ->
                     SlotEntry(
@@ -50,13 +60,46 @@ internal object NativeStatusBarSlotOrderingProbe {
                 else -> emptyList()
             }
 
+        val constructors =
+            iconList.javaClass.declaredConstructors
+                .map { constructor ->
+                    constructor.parameterTypes.joinToString(
+                        prefix = iconList.javaClass.simpleName + "(",
+                        postfix = ")",
+                    ) { type -> type.name }
+                }
+                .sorted()
+
+        val fields =
+            iconList.javaClass
+                .allFields()
+                .map { field ->
+                    field.declaringClass.simpleName + "." +
+                        field.name + ":" + field.type.name
+                }
+                .distinct()
+                .sorted()
+                .take(MAX_FIELDS)
+
         val methods =
             iconList.javaClass
                 .allMethods()
-                .filter { method -> method.name in INTERESTING_METHOD_NAMES }
+                .filter(::isContractMethod)
                 .map(NativeParticipantRuntimeAccess::methodSignature)
                 .distinct()
                 .sorted()
+                .take(MAX_METHODS)
+                .toList()
+
+        val slotElementContracts =
+            slotsRaw
+                .orEmpty()
+                .asSequence()
+                .filterNotNull()
+                .map { value -> value.javaClass }
+                .distinctBy { clazz -> clazz.name }
+                .take(MAX_SLOT_ELEMENT_TYPES)
+                .map(::describeSlotElementClass)
                 .toList()
 
         val slotNames = slots.map { entry -> entry.name }.toSet()
@@ -148,6 +191,9 @@ internal object NativeStatusBarSlotOrderingProbe {
             slots = slots,
             viewOnlySlots = viewOnlySlots,
             methods = methods,
+            constructors = constructors,
+            fields = fields,
+            slotElementContracts = slotElementContracts,
             indexResults = indexResults,
             groupOrder = groupOrder,
         )
@@ -160,6 +206,50 @@ internal object NativeStatusBarSlotOrderingProbe {
                 ?.handles
                 ?: return emptyList()
         return inspectGroup(handles.group)
+    }
+
+    private fun isContractMethod(method: Method): Boolean {
+        val lower = method.name.lowercase()
+        return contractKeywords.any(lower::contains)
+    }
+
+    private fun describeSlotElementClass(clazz: Class<*>): String {
+        val constructors =
+            clazz.declaredConstructors
+                .map { constructor ->
+                    constructor.parameterTypes.joinToString(
+                        prefix = "(",
+                        postfix = ")",
+                    ) { type -> type.name }
+                }
+                .sorted()
+                .take(8)
+                .joinToString(";")
+
+        val fields =
+            clazz
+                .allFields()
+                .map { field -> field.name + ":" + field.type.name }
+                .distinct()
+                .sorted()
+                .take(MAX_SLOT_ELEMENT_MEMBERS)
+                .joinToString(";")
+
+        val methods =
+            clazz
+                .allMethods()
+                .filter(::isContractMethod)
+                .map(NativeParticipantRuntimeAccess::methodSignature)
+                .distinct()
+                .sorted()
+                .take(MAX_SLOT_ELEMENT_MEMBERS)
+                .joinToString(";")
+
+        return clazz.name +
+            "{constructors=" + constructors +
+            ",fields=" + fields +
+            ",methods=" + methods +
+            "}"
     }
 
     private fun inspectGroup(group: android.view.ViewGroup): List<String> =
@@ -267,6 +357,11 @@ internal object NativeStatusBarSlotOrderingProbe {
         generateSequence(this) { clazz -> clazz.superclass }
             .flatMap { clazz -> clazz.declaredMethods.asSequence() }
 
+    private fun Class<*>.allFields() =
+        generateSequence(this) { clazz -> clazz.superclass }
+            .flatMap { clazz -> clazz.declaredFields.asSequence() }
+            .filterNot { field -> Modifier.isSynthetic(field.modifiers) }
+
     private fun visibilityName(visibility: Int): String =
         when (visibility) {
             View.VISIBLE -> "VISIBLE"
@@ -291,6 +386,9 @@ internal object NativeStatusBarSlotOrderingProbe {
         val slots: List<SlotEntry>,
         val viewOnlySlots: List<String>,
         val methods: List<String>,
+        val constructors: List<String>,
+        val fields: List<String>,
+        val slotElementContracts: List<String>,
         val indexResults: List<String>,
         val groupOrder: List<String>,
     ) {
@@ -307,7 +405,10 @@ internal object NativeStatusBarSlotOrderingProbe {
                     " iconList=" + (iconListClass ?: "none") +
                     " slots=" + slots.joinToString("|") { entry -> entry.compact } +
                     " viewOnly=" + viewOnlySlots.joinToString("|") +
+                    " constructors=" + constructors.joinToString("|") +
+                    " fields=" + fields.joinToString("|") +
                     " methods=" + methods.joinToString("|") +
+                    " slotElementContracts=" + slotElementContracts.joinToString("|") +
                     " indices=" + indexResults.joinToString("|") +
                     " groupOrder=" + groupOrder.joinToString("|") +
                     " nativeGeometryWrites=0"
@@ -321,6 +422,9 @@ internal object NativeStatusBarSlotOrderingProbe {
                     slots = emptyList(),
                     viewOnlySlots = emptyList(),
                     methods = emptyList(),
+                    constructors = emptyList(),
+                    fields = emptyList(),
+                    slotElementContracts = emptyList(),
                     indexResults = emptyList(),
                     groupOrder = emptyList(),
                 )

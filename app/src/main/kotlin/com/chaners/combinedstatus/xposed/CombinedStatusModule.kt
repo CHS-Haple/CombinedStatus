@@ -79,10 +79,6 @@ class CombinedStatusModule : XposedModule() {
         }
 
         if (BuildConfig.RUNTIME_DIAGNOSTICS) {
-            installNativeCombinedParticipant(
-                classLoader = param.classLoader,
-                source = "coldStart",
-            )
             installNativeParticipantControllerObserver(
                 classLoader = param.classLoader,
                 source = "coldStart",
@@ -1156,6 +1152,10 @@ class CombinedStatusModule : XposedModule() {
                     slotOrdering.slots.joinToString("|") { entry -> entry.compact },
                 "viewOnlySlots" to slotOrdering.viewOnlySlots.joinToString("|"),
                 "methods" to slotOrdering.methods.joinToString("|"),
+                "constructors" to slotOrdering.constructors.joinToString("|"),
+                "fields" to slotOrdering.fields.joinToString("|"),
+                "slotElementContracts" to
+                    slotOrdering.slotElementContracts.joinToString("|"),
                 "indices" to slotOrdering.indexResults.joinToString("|"),
                 "groupOrder" to slotOrdering.groupOrder.joinToString("|"),
                 "nativeGeometryWrites" to 0,
@@ -1193,49 +1193,16 @@ class CombinedStatusModule : XposedModule() {
                 "nativeGeometryWrites" to 0,
             )
 
-            when (
-                val nativeCombined =
-                    SystemUiNativeCombinedParticipantOwner.attachHidden(host)
-            ) {
-                is SystemUiNativeCombinedParticipantOwner.AttachResult.Ready -> {
-                    logDiagnostic(
-                        level = Log.INFO,
-                        event = "participant.attach",
-                        component = "nativeCombinedParticipant",
-                        state = "ready",
-                        "source" to source,
-                        "slot" to SystemUiNativeCombinedParticipantOwner.SLOT,
-                        "visible" to false,
-                        "registryRestored" to nativeCombined.registryRestored,
-                        "root" to nativeCombined.rootClass,
-                        "rootVisibility" to nativeCombined.rootVisibility,
-                        "iconVisible" to nativeCombined.iconVisible,
-                        "layoutWidth" to nativeCombined.layoutWidth,
-                        "layoutHeight" to nativeCombined.layoutHeight,
-                        "renderWidth" to nativeCombined.renderWidth,
-                        "renderHeight" to nativeCombined.renderHeight,
-                        "renderTop" to nativeCombined.renderTop,
-                        "renderBottom" to nativeCombined.renderBottom,
-                        "managerEntry" to nativeCombined.managerEntry,
-                        "modelReady" to nativeCombined.modelReady,
-                        "tintReady" to nativeCombined.tintReady,
-                        "nativeGeometryWrites" to 0,
-                    )
-                }
-
-                is SystemUiNativeCombinedParticipantOwner.AttachResult.Failure -> {
-                    logDiagnostic(
-                        level = Log.WARN,
-                        event = "participant.attach",
-                        component = "nativeCombinedParticipant",
-                        state = "unavailable",
-                        "source" to source,
-                        "reason" to nativeCombined.reason,
-                        "visible" to false,
-                        "nativeGeometryWrites" to 0,
-                    )
-                }
-            }
+            logDiagnostic(
+                level = Log.INFO,
+                event = "participant.defer",
+                component = "nativeCombinedParticipant",
+                state = "observed",
+                "source" to source,
+                "reason" to "slot-contract-investigation",
+                "visible" to false,
+                "nativeGeometryWrites" to 0,
+            )
         }
     }
 
