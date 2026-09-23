@@ -25,6 +25,8 @@
     <string name="preview_label">Sample</string>
 
     <string name="section_hyperos_display">System UI</string>
+    <string name="combined_status_feature_title">Combined status indicator</string>
+    <string name="combined_status_feature_summary">Combines battery, active data network, and Wi-Fi status while following SystemUI state and transitions</string>
     <string name="appearance_title">Appearance</string>
     <string name="appearance_summary">Theme and interface effects</string>
     <string name="status_bar_title">Status bar</string>
