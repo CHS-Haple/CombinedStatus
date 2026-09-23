@@ -569,6 +569,8 @@ A merged work branch MUST NOT be reused. Follow-up work starts from the latest a
 
 If a branch is abandoned, superseded, or its approach is rejected, close its pull request and delete the branch once its remaining diagnostic value is exhausted. Stale work branches MUST NOT become permanent pseudo-environments.
 
+Merged short-lived branches SHOULD be removed automatically when repository automation can prove the merge target and branch role. If automated cleanup is unavailable or fails, the maintainer MUST complete the same cleanup manually after confirming that no explicit short-term rollback or diagnostic need remains.
+
 #### 12.1.3 Gate from work branch to dev
 
 A `feat/*` or `fix/*` branch may merge into `dev` only when:
