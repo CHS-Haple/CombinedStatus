@@ -745,6 +745,7 @@ class CombinedStatusModule : XposedModule() {
 
     private fun onSceneStateUpdate(update: SystemUiSceneStateSource.SceneUpdate) {
         CombinedStatusHomeRenderSession.onSceneUpdate(update)
+        SystemUiNativeCombinedParticipantOwner.onSceneUpdate(update)
     }
 
     private fun teardownRuntimeResources(
