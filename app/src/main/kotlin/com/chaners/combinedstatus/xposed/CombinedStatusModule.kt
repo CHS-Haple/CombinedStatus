@@ -452,7 +452,6 @@ class CombinedStatusModule : XposedModule() {
                 onEvent = if (BuildConfig.RUNTIME_DIAGNOSTICS) ::onNetworkPipelineEvent else null,
             )
         }.onSuccess { result ->
-            SystemUiNetworkRuntimeOwner.installedHookCount = result.handles.size
             val fullyReady =
                 result.wifiReady &&
                     result.mobileReady &&
@@ -512,7 +511,7 @@ class CombinedStatusModule : XposedModule() {
                     " rebindRequired=" + (source == "hotReload"),
             )
         }.onFailure { error ->
-            SystemUiNetworkRuntimeOwner.installedHookCount = 0
+            SystemUiNetworkRuntimeOwner.resetRuntimeState()
             logDiagnostic(
                 level = Log.ERROR,
                 event = "source.install",
