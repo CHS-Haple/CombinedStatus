@@ -1023,6 +1023,8 @@ class CombinedStatusModule : XposedModule() {
                 "viewOnlySlotsReady" to bindableParticipant.viewOnlySlotsReady,
                 "viewOnlySlots" to
                     bindableParticipant.viewOnlySlots.joinToString("|"),
+                "runtimeViews" to
+                    bindableParticipant.runtimeBindableViews.joinToString("|"),
                 "staticContractReady" to bindableParticipant.staticContractReady,
                 "dynamicRegistrationProven" to
                     bindableParticipant.dynamicRegistrationProven,
