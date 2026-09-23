@@ -223,23 +223,7 @@ internal object NativeParticipantShadowSession {
                     "removal-method-missing",
                 )
 
-            val preExistingSlot =
-                NativeParticipantRuntimeAccess.findSlotView(
-                    handles.group,
-                    SLOT,
-                ) != null
             cleanupOnMain()
-            val residualAfterCleanup =
-                NativeParticipantRuntimeAccess.findSlotView(
-                    handles.group,
-                    SLOT,
-                )
-            if (residualAfterCleanup != null) {
-                return AttachResult.Failure(
-                    "shadow-pre-attach-cleanup-failed index=" +
-                        handles.group.indexOfChild(residualAfterCleanup),
-                )
-            }
 
             val bootstrap =
                 NativeParticipantRuntimeAccess.findBootstrapResource(
@@ -296,7 +280,6 @@ internal object NativeParticipantShadowSession {
                     childrenBefore = childrenBefore,
                     bootstrap = bootstrap,
                     iconVisible = iconVisible,
-                    preExistingSlot = preExistingSlot,
                 )
             snapshot = resolved
 
@@ -322,8 +305,6 @@ internal object NativeParticipantShadowSession {
                     " layoutHidden=" + resolved.layoutHidden +
                     " children=" + resolved.childrenBefore +
                     "->" + resolved.childrenAfter +
-                    " preExistingSlot=" + resolved.preExistingSlot +
-                    " preAttachCleanup=verified" +
                     " bootstrapRes=0x" +
                     resolved.bootstrapResourceId.toUInt().toString(16) +
                     " bootstrapSlot=" + (resolved.bootstrapSourceSlot ?: "unknown") +
@@ -428,7 +409,6 @@ internal object NativeParticipantShadowSession {
             childrenBefore: Int,
             bootstrap: NativeParticipantRuntimeAccess.BootstrapResource,
             iconVisible: Boolean?,
-            preExistingSlot: Boolean,
         ): Snapshot =
             Snapshot(
                 slot = SLOT,
@@ -445,8 +425,6 @@ internal object NativeParticipantShadowSession {
                     ),
                 childrenBefore = childrenBefore,
                 childrenAfter = handles.group.childCount,
-                preExistingSlot = preExistingSlot,
-                preAttachCleanupVerified = true,
                 bootstrapResourceId = bootstrap.resourceId,
                 bootstrapSourceSlot = bootstrap.sourceSlot,
                 bootstrapSourceIndex = bootstrap.sourceIndex,
@@ -488,8 +466,6 @@ internal object NativeParticipantShadowSession {
         val layoutHidden: Boolean,
         val childrenBefore: Int,
         val childrenAfter: Int,
-        val preExistingSlot: Boolean,
-        val preAttachCleanupVerified: Boolean,
         val bootstrapResourceId: Int,
         val bootstrapSourceSlot: String?,
         val bootstrapSourceIndex: Int,
