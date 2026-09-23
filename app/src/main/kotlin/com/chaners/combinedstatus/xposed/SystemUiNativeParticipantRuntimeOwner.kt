@@ -1,9 +1,111 @@
 package com.chaners.combinedstatus.xposed
 
 import android.view.View
+import io.github.libxposed.api.XposedInterface.HookHandle
+import io.github.libxposed.api.XposedInterface.Hooker
+import io.github.libxposed.api.XposedModule
+import java.lang.ref.WeakReference
+import java.util.WeakHashMap
 
 internal object SystemUiNativeParticipantRuntimeOwner {
+    private const val CONTROLLER_IMPL =
+        "com.android.systemui.statusbar.phone.ui.StatusBarIconControllerImpl"
+    private const val ADD_ICON_GROUP = "addIconGroup"
+    private const val CONTROLLER_HOOK_ID =
+        "combinedstatus.nativeParticipant.controllerObserver"
+
     private var pending: PendingActivation? = null
+    private var controllerHook: HookHandle? = null
+    private val controllersByManager =
+        WeakHashMap<Any, WeakReference<Any>>()
+
+    val installedHookCount: Int
+        @Synchronized get() = if (controllerHook != null) 1 else 0
+
+    @Synchronized
+    fun installControllerObserver(
+        module: XposedModule,
+        classLoader: ClassLoader,
+        onEvent: ((String) -> Unit)? = null,
+    ): InstallResult {
+        if (controllerHook != null) {
+            return InstallResult.AlreadyInstalled
+        }
+
+        val controllerClass =
+            runCatching {
+                Class.forName(CONTROLLER_IMPL, false, classLoader)
+            }.getOrElse {
+                return InstallResult.Failure("controller-class-missing")
+            }
+
+        val method =
+            controllerClass.declaredMethods
+                .filter { candidate ->
+                    candidate.name == ADD_ICON_GROUP &&
+                        candidate.parameterCount == 1 &&
+                        candidate.parameterTypes[0].name.contains("IconManager")
+                }
+                .sortedBy { candidate ->
+                    candidate.parameterTypes[0].name
+                }
+                .firstOrNull()
+                ?: return InstallResult.Failure("add-icon-group-method-missing")
+
+        method.isAccessible = true
+        val handle =
+            runCatching {
+                module
+                    .hook(method)
+                    .setId(CONTROLLER_HOOK_ID)
+                    .intercept(
+                        Hooker { chain ->
+                            val manager = chain.getArg(0)
+                            val result = chain.proceed()
+                            val controller = chain.thisObject
+                            if (manager != null && controller != null) {
+                                recordController(
+                                    manager = manager,
+                                    controller = controller,
+                                )
+                                onEvent?.invoke(
+                                    "nativeParticipantController observed " +
+                                        "controller=" + controller.javaClass.name +
+                                        " manager=" + manager.javaClass.name +
+                                        " source=addIconGroup geometryWrites=0",
+                                )
+                            }
+                            result
+                        },
+                    )
+            }.getOrElse { error ->
+                return InstallResult.Failure(
+                    "controller-observer-hook-" +
+                        (error.message ?: error.javaClass.simpleName),
+                )
+            }
+
+        controllerHook = handle
+        return InstallResult.Installed
+    }
+
+    @Synchronized
+    fun controllerFor(manager: Any): Any? =
+        controllersByManager[manager]?.get()
+
+    @Synchronized
+    private fun recordController(
+        manager: Any,
+        controller: Any,
+    ) {
+        controllersByManager[manager] = WeakReference(controller)
+    }
+
+    @Synchronized
+    fun resetControllerRuntimeState() {
+        controllersByManager.clear()
+        controllerHook = null
+    }
 
     @Synchronized
     fun schedule(
@@ -95,6 +197,15 @@ internal object SystemUiNativeParticipantRuntimeOwner {
             }
             onReady(hostView)
         }
+    }
+
+    internal sealed interface InstallResult {
+        data object Installed : InstallResult
+        data object AlreadyInstalled : InstallResult
+
+        data class Failure(
+            val reason: String,
+        ) : InstallResult
     }
 
     internal sealed interface ScheduleResult {
