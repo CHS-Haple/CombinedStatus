@@ -122,6 +122,7 @@ internal object NativeParticipantContractProbe {
                     handles.group,
                 ),
             controllerClass = controllerClass.name,
+            controllerSource = handles.controllerSource,
             controllerMatches = controllerMatches,
             managerMatches = managerMatches,
             groupMatches = groupMatches,
@@ -155,6 +156,7 @@ internal object NativeParticipantContractProbe {
         val groupClass: String?,
         val groupResource: String?,
         val controllerClass: String?,
+        val controllerSource: String?,
         val controllerMatches: Boolean,
         val managerMatches: Boolean,
         val groupMatches: Boolean,
@@ -183,6 +185,7 @@ internal object NativeParticipantContractProbe {
                     " group=" + (groupClass ?: "none") +
                     " groupRes=" + (groupResource ?: "none") +
                     " controller=" + (controllerClass ?: "none") +
+                    " controllerSource=" + (controllerSource ?: "none") +
                     " controllerMatches=" + controllerMatches +
                     " managerMatches=" + managerMatches +
                     " groupMatches=" + groupMatches +
@@ -213,6 +216,7 @@ internal object NativeParticipantContractProbe {
                     groupClass = null,
                     groupResource = null,
                     controllerClass = null,
+                    controllerSource = null,
                     controllerMatches = false,
                     managerMatches = false,
                     groupMatches = false,
