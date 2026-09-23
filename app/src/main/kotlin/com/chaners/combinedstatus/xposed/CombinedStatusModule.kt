@@ -989,6 +989,46 @@ class CombinedStatusModule : XposedModule() {
                 nativeParticipant.holderFactorySignatures.joinToString("|"),
             "nativeGeometryWrites" to 0,
         )
+
+        if (nativeParticipant.registrationContractReady) {
+            val bindableParticipant =
+                NativeBindableParticipantContractProbe.inspect(host)
+            log(Log.INFO, TAG, bindableParticipant.logLine)
+            val bindableProbeReady =
+                bindableParticipant.staticContractReady &&
+                    bindableParticipant.managerBindableMapReady &&
+                    bindableParticipant.viewOnlySlotsReady
+            logDiagnostic(
+                level = if (bindableProbeReady) Log.INFO else Log.WARN,
+                event = "contract.probe",
+                component = "nativeBindableParticipant",
+                state = if (bindableProbeReady) "ready" else "observed",
+                "source" to source,
+                "available" to bindableParticipant.available,
+                "reason" to bindableParticipant.reason,
+                "interfaceReady" to bindableParticipant.bindableInterfaceReady,
+                "creatorReady" to bindableParticipant.creatorReady,
+                "registry" to bindableParticipant.registryClass,
+                "registryConstructors" to
+                    bindableParticipant.registryConstructors.joinToString("|"),
+                "holder" to bindableParticipant.holderClass,
+                "holderConstructors" to
+                    bindableParticipant.holderConstructors.joinToString("|"),
+                "modernView" to bindableParticipant.modernViewClass,
+                "singleView" to bindableParticipant.singleBindableViewClass,
+                "managerMapReady" to bindableParticipant.managerBindableMapReady,
+                "managerMapCount" to bindableParticipant.managerBindableCount,
+                "managerEntries" to
+                    bindableParticipant.managerBindableEntries.joinToString("|"),
+                "viewOnlySlotsReady" to bindableParticipant.viewOnlySlotsReady,
+                "viewOnlySlots" to
+                    bindableParticipant.viewOnlySlots.joinToString("|"),
+                "staticContractReady" to bindableParticipant.staticContractReady,
+                "dynamicRegistrationProven" to
+                    bindableParticipant.dynamicRegistrationProven,
+                "nativeGeometryWrites" to 0,
+            )
+        }
     }
 
     private fun scheduleNativeSlotProbe(
