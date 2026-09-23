@@ -25,6 +25,8 @@
     <string name="preview_label">示意</string>
 
     <string name="section_hyperos_display">系统界面</string>
+    <string name="combined_status_feature_title">三合一状态图标</string>
+    <string name="combined_status_feature_summary">整合电量、当前数据网络与 Wi-Fi 状态，并跟随 SystemUI 状态与过渡显示</string>
     <string name="appearance_title">外观</string>
     <string name="appearance_summary">主题与界面效果</string>
     <string name="status_bar_title">状态栏</string>
