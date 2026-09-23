@@ -7,6 +7,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.MutatePriority
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,6 +26,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -38,6 +42,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -902,6 +908,8 @@ private fun SettingsPage(
     onBack: () -> Unit,
     content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit,
 ) {
+    val listState = rememberLazyListState()
+
     Scaffold(
         topBar = {
             SmallTopAppBar(
@@ -918,7 +926,11 @@ private fun SettingsPage(
         },
     ) { paddingValues ->
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
+            state = listState,
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .interruptMomentumBeforeNavSwipe(listState),
             contentPadding = pageContentPadding(
                 innerPadding = paddingValues,
                 extraBottom = 12.dp,
@@ -927,6 +939,28 @@ private fun SettingsPage(
         )
     }
 }
+
+/**
+ * Compatibility bridge for miuix-nav 0.9.4-2afdbb39.
+ *
+ * A new touch should stop an in-flight vertical list animation before miuix-nav performs its
+ * swipe-dismiss arbitration. Remove this helper once upstream swipe-dismiss can take ownership
+ * directly from child momentum.
+ */
+private fun Modifier.interruptMomentumBeforeNavSwipe(listState: LazyListState): Modifier =
+    pointerInput(listState) {
+        while (true) {
+            awaitPointerEventScope {
+                awaitFirstDown(
+                    requireUnconsumed = false,
+                    pass = PointerEventPass.Initial,
+                )
+            }
+            if (listState.isScrollInProgress) {
+                listState.scroll(MutatePriority.UserInput) {}
+            }
+        }
+    }
 
 private fun androidx.compose.foundation.lazy.LazyListScope.Section(
     @StringRes titleRes: Int,
