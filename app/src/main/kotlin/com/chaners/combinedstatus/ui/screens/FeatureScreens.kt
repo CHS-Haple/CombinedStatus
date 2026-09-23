@@ -37,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -53,7 +54,10 @@ import com.chaners.combinedstatus.settings.DiagnosticsSettingsRepository
 import com.chaners.combinedstatus.system.DiagnosticsReportBuilder
 import com.chaners.combinedstatus.system.DiagnosticsReportFiles
 import com.chaners.combinedstatus.system.RuntimeEnvironmentInfo
+import com.chaners.combinedstatus.ui.components.MiuixBlurredTopBar
 import com.chaners.combinedstatus.ui.components.floatingNavigationMaterial
+import com.chaners.combinedstatus.ui.components.rememberTopBarBackdrop
+import com.chaners.combinedstatus.ui.components.topBarBackdropSource
 import com.chaners.combinedstatus.ui.components.requiresTextureBackdrop
 import com.chaners.combinedstatus.ui.layout.pageContentPadding
 import kotlinx.coroutines.launch
@@ -64,6 +68,7 @@ import top.yukonga.miuix.kmp.basic.FloatingNavigationBar
 import top.yukonga.miuix.kmp.basic.FloatingNavigationBarItem
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.NavigationBar
 import top.yukonga.miuix.kmp.basic.NavigationBarDefaults
 import top.yukonga.miuix.kmp.basic.Scaffold
@@ -899,30 +904,50 @@ private fun SettingsPage(
     snackbarHost: @Composable () -> Unit = {},
     content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit,
 ) {
+    val scrollBehavior = MiuixScrollBehavior()
+    val topBarBackdrop = rememberTopBarBackdrop()
+
     Scaffold(
         snackbarHost = snackbarHost,
         topBar = {
-            SmallTopAppBar(
-                title = title,
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            MiuixIcons.Back,
-                            contentDescription = stringResource(R.string.back),
-                        )
-                    }
-                },
-            )
+            MiuixBlurredTopBar(
+                backdrop = topBarBackdrop,
+                scrollBehavior = scrollBehavior,
+            ) { barColor ->
+                SmallTopAppBar(
+                    title = title,
+                    color = barColor,
+                    scrollBehavior = scrollBehavior,
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                MiuixIcons.Back,
+                                contentDescription = stringResource(R.string.back),
+                            )
+                        }
+                    },
+                )
+            }
         },
     ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = pageContentPadding(
-                innerPadding = paddingValues,
-                extraBottom = 12.dp,
-            ),
-            content = content,
-        )
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .topBarBackdropSource(topBarBackdrop),
+        ) {
+            LazyColumn(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .nestedScroll(scrollBehavior.nestedScrollConnection),
+                contentPadding = pageContentPadding(
+                    innerPadding = paddingValues,
+                    extraBottom = 12.dp,
+                ),
+                content = content,
+            )
+        }
     }
 }
 
