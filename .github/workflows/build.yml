@@ -5,6 +5,7 @@ on:
     branches: [ main, dev ]
   pull_request:
     branches: [ main, dev ]
+    types: [ opened, synchronize, reopened, ready_for_review, converted_to_draft ]
   workflow_dispatch:
 
 permissions:
@@ -12,7 +13,7 @@ permissions:
   packages: read
 
 concurrency:
-  group: build-${{ github.ref }}
+  group: build-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -28,17 +29,70 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+
+      - name: Classify validation scope
+        id: scope
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_DRAFT: ${{ github.event.pull_request.draft || false }}
+          PR_BASE_REF: ${{ github.event.pull_request.base.ref || '' }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha || '' }}
+        run: |
+          FULL_BUILD=true
+          REASON="trusted branch or manual build"
+
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            FULL_BUILD=false
+            REASON="lightweight pull-request validation"
+
+            if [[ "$PR_DRAFT" == "true" ]]; then
+              REASON="draft pull request"
+            elif [[ "$PR_BASE_REF" == "main" ]]; then
+              FULL_BUILD=true
+              REASON="ready pull request targeting main"
+            else
+              mapfile -t CHANGED_FILES < <(git diff --name-only "$PR_BASE_SHA" "$PR_HEAD_SHA")
+              for path in "${CHANGED_FILES[@]}"; do
+                case "$path" in
+                  app/*|compat/*|gradle/*|tools/*|.github/workflows/*|build.gradle.kts|settings.gradle.kts|gradle.properties|gradlew|gradlew.bat)
+                    FULL_BUILD=true
+                    REASON="APK/build/compatibility/CI-affecting path changed: $path"
+                    break
+                    ;;
+                esac
+              done
+            fi
+          fi
+
+          echo "full_build=$FULL_BUILD" >> "$GITHUB_OUTPUT"
+          echo "Validation scope: full_build=$FULL_BUILD ($REASON)"
+
+      - name: Lightweight repository checks
+        if: github.event_name == 'pull_request'
+        shell: bash
+        env:
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git diff --check "$PR_BASE_SHA" "$PR_HEAD_SHA"
 
       - name: Validate Gradle Wrapper
+        if: steps.scope.outputs.full_build == 'true'
         uses: gradle/actions/wrapper-validation@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.3
 
       - name: Set up Java
+        if: steps.scope.outputs.full_build == 'true'
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
         with:
           distribution: temurin
           java-version: '21'
 
       - name: Install Android API 37
+        if: steps.scope.outputs.full_build == 'true'
         shell: bash
         run: |
           SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
@@ -47,10 +101,11 @@ jobs:
           "$SDKMANAGER" --channel=3 "platforms;android-37.0" "build-tools;37.0.0"
 
       - name: Set up Gradle
+        if: steps.scope.outputs.full_build == 'true'
         uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.3
 
       - name: Restore and verify Haple signing
-        if: github.event_name != 'pull_request'
+        if: steps.scope.outputs.full_build == 'true' && github.event_name != 'pull_request'
         shell: bash
         env:
           HAPLE_KEYSTORE_BASE64: ${{ secrets.HAPLE_KEYSTORE_BASE64 }}
@@ -60,18 +115,22 @@ jobs:
         run: bash tools/setup_haple_signing.sh
 
       - name: Verify pinned HyperOS target profile
+        if: steps.scope.outputs.full_build == 'true'
         run: python3 tools/verify_target_profile.py
 
       - name: Run unit tests
+        if: steps.scope.outputs.full_build == 'true'
         run: ./gradlew :app:testDebugUnitTest --stacktrace
 
       - name: Build debug and canary APKs
+        if: steps.scope.outputs.full_build == 'true'
         env:
           HAPLE_KEYSTORE_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.HAPLE_KEYSTORE_PASSWORD || '' }}
           HAPLE_KEY_ALIAS: ${{ github.event_name != 'pull_request' && secrets.HAPLE_KEY_ALIAS || '' }}
         run: ./gradlew :app:assembleDebug :app:assembleCanary --stacktrace
 
       - name: Resolve built APK paths
+        if: steps.scope.outputs.full_build == 'true'
         shell: bash
         run: |
           DEBUG_APK_PATH="app/build/outputs/apk/debug/app-debug.apk"
@@ -87,6 +146,7 @@ jobs:
           echo "CANARY_APK_PATH=$CANARY_APK_PATH" >> "$GITHUB_ENV"
 
       - name: Verify modern Xposed metadata
+        if: steps.scope.outputs.full_build == 'true'
         shell: bash
         run: |
           REQUIRED_ENTRIES=(
@@ -137,7 +197,7 @@ jobs:
           done
 
       - name: Verify Haple APK signatures
-        if: github.event_name != 'pull_request'
+        if: steps.scope.outputs.full_build == 'true' && github.event_name != 'pull_request'
         shell: bash
         env:
           HAPLE_CERT_SHA256: 7a64fc85325afe79439afb63369d832d7ddc20fd5b3935b4c28d7bcb85e92fc7
@@ -159,6 +219,7 @@ jobs:
           done
 
       - name: Verify canary is non-debuggable
+        if: steps.scope.outputs.full_build == 'true'
         shell: bash
         run: |
           SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
@@ -174,7 +235,7 @@ jobs:
           fi
 
       - name: Prepare APKs
-        if: github.event_name != 'pull_request'
+        if: steps.scope.outputs.full_build == 'true' && github.event_name != 'pull_request'
         shell: bash
         run: |
           VERSION_NAME="$(sed -n 's/^combinedStatus.versionName=//p' gradle.properties)"
@@ -188,7 +249,7 @@ jobs:
           echo "CANARY_APK_NAME=$CANARY_APK_NAME" >> "$GITHUB_ENV"
 
       - name: Upload debug APK
-        if: github.event_name != 'pull_request'
+        if: steps.scope.outputs.full_build == 'true' && github.event_name != 'pull_request'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ${{ env.DEBUG_APK_NAME }}
@@ -196,9 +257,19 @@ jobs:
           if-no-files-found: error
 
       - name: Upload canary APK
-        if: github.event_name != 'pull_request'
+        if: steps.scope.outputs.full_build == 'true' && github.event_name != 'pull_request'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ${{ env.CANARY_APK_NAME }}
           path: dist/${{ env.CANARY_APK_NAME }}
           if-no-files-found: error
+      - name: Validation summary
+        if: always()
+        shell: bash
+        run: |
+          echo "### Build validation" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Full Android build: `${{ steps.scope.outputs.full_build }}`" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.pull_request.draft }}" == "true" ]]; then
+            echo "- Pull request state: draft (lightweight validation only)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
