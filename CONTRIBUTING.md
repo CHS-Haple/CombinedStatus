@@ -423,16 +423,25 @@ Never commit local SDK paths, signing material, generated APK/AAB files, or envi
 
 CI verifies source/build state; it does not prove SystemUI runtime correctness.
 
-Use the lightest applicable CI:
+Use three validation tiers:
 
-- Draft PR — lightweight repository checks unless deeper validation is specifically needed.
-- Ready PR to `dev` — path-aware; full Android validation only when APK/build/compatibility/CI-affecting paths require it.
-- Mechanical direct maintenance on `main` / `dev` — lightweight checks only when the change is proven non-behavioral.
-- PR to `main` for promotion/hotfix — full applicable validation.
-- Trusted APK-affecting pushes to `dev` / `main` — signed Debug/Canary validation where applicable.
-- Release workflow — deliberate publication only.
+- **Light** — repository/diff checks only. Use for Draft PRs and proven mechanical/documentation-only changes.
+- **Fast** — the normal `feat/*` / `fix/* -> dev` gate for ordinary app/runtime changes: required repository checks, target-profile checks, unit tests, Debug APK build, and Debug Xposed-metadata validation. Do not build Canary merely to decide whether an ordinary bounded change may enter `dev`.
+- **Full** — integration/stable validation: Debug + Canary and all applicable metadata, non-debuggable, signing, artifact, and compatibility checks.
 
-A CI-workflow change is itself CI-affecting and requires full validation.
+Routing:
+
+- Draft PR -> Light unless deeper validation is specifically required.
+- Ready ordinary product/runtime PR to `dev` -> Fast.
+- Dependency/build/CI/tooling changes -> Full.
+- Trusted APK-affecting push to `dev` / `main` -> Full.
+- Mechanical direct maintenance on `main` / `dev` -> Light when proven non-behavioral.
+- Promotion/hotfix PR to `main` -> Full.
+- Release workflow -> deliberate publication validation.
+
+This deliberately shifts expensive Canary validation from each ordinary feature PR to the integrated `dev` checkpoint. A feature should pay the Full cost only when its risk class requires it or after it joins the integration branch.
+
+A CI-workflow change is itself CI-affecting and requires Full validation.
 
 Superseded runs for the same PR/branch should be cancelled when a newer source state makes them irrelevant.
 
