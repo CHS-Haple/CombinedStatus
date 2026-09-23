@@ -2,7 +2,6 @@ package com.chaners.combinedstatus.xposed
 
 import android.view.View
 import java.lang.reflect.Method
-import java.lang.reflect.Modifier
 
 internal object NativeStatusBarSlotOrderingProbe {
     private const val MAX_SLOTS = 64
@@ -80,6 +79,7 @@ internal object NativeStatusBarSlotOrderingProbe {
                 .distinct()
                 .sorted()
                 .take(MAX_FIELDS)
+                .toList()
 
         val methods =
             iconList.javaClass
@@ -360,7 +360,7 @@ internal object NativeStatusBarSlotOrderingProbe {
     private fun Class<*>.allFields() =
         generateSequence(this) { clazz -> clazz.superclass }
             .flatMap { clazz -> clazz.declaredFields.asSequence() }
-            .filterNot { field -> Modifier.isSynthetic(field.modifiers) }
+            .filterNot { field -> field.isSynthetic }
 
     private fun visibilityName(visibility: Int): String =
         when (visibility) {

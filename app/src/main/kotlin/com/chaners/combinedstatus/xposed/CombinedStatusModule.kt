@@ -354,41 +354,6 @@ class CombinedStatusModule : XposedModule() {
                             log(Log.INFO, TAG, event)
                         }
                     },
-                    onSlotOrderResult = { slotOrder ->
-                        when (slotOrder) {
-                            is NativeStatusBarSlotPredeclaration.Result.Ready -> {
-                                logDiagnostic(
-                                    level = Log.INFO,
-                                    event = "slot.predeclare",
-                                    component = "nativeSlotOrder",
-                                    state = "ready",
-                                    "source" to source,
-                                    "mode" to "controller-pre-init",
-                                    "created" to slotOrder.created,
-                                    "fromIndex" to slotOrder.fromIndex,
-                                    "toIndex" to slotOrder.toIndex,
-                                    "slotCount" to slotOrder.slotCount,
-                                    "viewOnlySynced" to slotOrder.viewOnlySynced,
-                                    "visible" to false,
-                                    "nativeGeometryWrites" to 0,
-                                )
-                            }
-
-                            is NativeStatusBarSlotPredeclaration.Result.Failure -> {
-                                logDiagnostic(
-                                    level = Log.WARN,
-                                    event = "slot.predeclare",
-                                    component = "nativeSlotOrder",
-                                    state = "unavailable",
-                                    "source" to source,
-                                    "mode" to "controller-pre-init",
-                                    "reason" to slotOrder.reason,
-                                    "visible" to false,
-                                    "nativeGeometryWrites" to 0,
-                                )
-                            }
-                        }
-                    },
                 )
         ) {
             SystemUiNativeCombinedParticipantOwner.InstallResult.Installed,
