@@ -277,6 +277,7 @@ Use `hotfix/* -> main` only when the current `main` baseline has an urgent defec
 
 - `feat/*` — one bounded capability, intentional behavior change, architecture/ownership migration, dependency adoption, or other executable engineering change that follows the normal development route.
 - `fix/*` — one bounded correction for intended behavior that is already defined.
+- `dependabot/*` — GitHub-managed dependency proposal branch targeting `dev`; this is the only routine exception to human `feat/*` / `fix/*` naming and must not be reused for manual development.
 - `dev` — integration branch for completed work and integrated validation.
 - `validation/dev` — state marker for the most recent `dev` runtime baseline whose required integrated device scenarios passed; it is not a development branch and must contain no unique commits.
 - `promote/*` — exact validated `dev` candidate for `main`; no new feature/fix/cleanup belongs here.
@@ -539,7 +540,7 @@ After a dependency revision is validated, a later upstream revision is a new ado
 
 ### 9.4 Dependabot policy
 
-Dependabot is discovery and proposal automation, not an acceptance authority.
+Dependabot is discovery and proposal automation, not an acceptance authority. Dependabot-generated `dependabot/*` branches are bot-managed bounded proposals and are exempt from the human work-branch naming rule; their lifecycle remains owned by GitHub/Dependabot.
 
 For normal version updates:
 
