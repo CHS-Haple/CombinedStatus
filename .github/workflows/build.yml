@@ -82,7 +82,7 @@ jobs:
             mapfile -t CHANGED_FILES < <(git diff --name-only "$base_sha" "$head_sha")
             for path in "${CHANGED_FILES[@]}"; do
               case "$path" in
-                .github/workflows/*|gradle/*|tools/*|build.gradle.kts|settings.gradle.kts|gradlew|gradlew.bat)
+                .github/workflows/*|gradle/*|tools/*|build.gradle.kts|settings.gradle.kts|app/build.gradle.kts|app/proguard-rules.pro|gradlew|gradlew.bat)
                   SCOPE=full
                   REASON="build/CI/dependency-affecting path changed: $path"
                   break
