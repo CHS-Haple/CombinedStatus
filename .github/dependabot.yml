@@ -5,7 +5,7 @@ updates:
     directory: "/"
     target-branch: dev
     schedule:
-      interval: weekly
+      interval: daily
     open-pull-requests-limit: 3
     groups:
       gradle-minor-patch:
@@ -20,7 +20,7 @@ updates:
     directory: "/"
     target-branch: dev
     schedule:
-      interval: weekly
+      interval: daily
     open-pull-requests-limit: 3
     groups:
       actions-minor-patch:
