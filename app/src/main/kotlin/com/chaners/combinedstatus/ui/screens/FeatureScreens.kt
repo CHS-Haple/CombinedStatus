@@ -2,7 +2,6 @@ package com.chaners.combinedstatus.ui.screens
 
 import android.content.ClipData
 import android.content.Intent
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
@@ -68,6 +67,8 @@ import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.NavigationBar
 import top.yukonga.miuix.kmp.basic.NavigationBarDefaults
 import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.SnackbarHost
+import top.yukonga.miuix.kmp.basic.SnackbarHostState
 import top.yukonga.miuix.kmp.basic.Slider
 import top.yukonga.miuix.kmp.basic.SliderDefaults
 import top.yukonga.miuix.kmp.basic.SmallTitle
@@ -600,6 +601,7 @@ private fun RowScope.MiniStandardNavigationItem(
 internal fun DiagnosticsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
     val environment by
         produceState(
             initialValue = RuntimeEnvironmentInfo.basic(),
@@ -653,16 +655,18 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
                             uri = uri,
                             report = report,
                         )
-                    Toast.makeText(
-                        context,
+                    snackbarHostState.showSnackbar(
                         if (success) exportSucceededMessage else exportFailedMessage,
-                        Toast.LENGTH_SHORT,
-                    ).show()
+                    )
                 }
             }
         }
 
-    SettingsPage(title = stringResource(R.string.diagnostics_title), onBack = onBack) {
+    SettingsPage(
+        title = stringResource(R.string.diagnostics_title),
+        onBack = onBack,
+        snackbarHost = { SnackbarHost(state = snackbarHostState) },
+    ) {
         Section(R.string.section_diagnostics_app) {
             DiagnosticsCardHeader(
                 title = stringResource(R.string.product_name),
@@ -761,11 +765,7 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
                                 report = report,
                             )
                         if (prepared == null) {
-                            Toast.makeText(
-                                context,
-                                shareFailedMessage,
-                                Toast.LENGTH_SHORT,
-                            ).show()
+                            snackbarHostState.showSnackbar(shareFailedMessage)
                             return@buildReport
                         }
 
@@ -802,11 +802,7 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
                         }.onFailure { error ->
                             DiagnosticsReportFiles.logChooserLaunch(context, error)
                             DiagnosticsReportFiles.discardShare(context, prepared)
-                            Toast.makeText(
-                                context,
-                                shareFailedMessage,
-                                Toast.LENGTH_SHORT,
-                            ).show()
+                            snackbarHostState.showSnackbar(shareFailedMessage)
                         }
                     }
                 },
@@ -900,9 +896,11 @@ private fun DiagnosticsActionRow(
 private fun SettingsPage(
     title: String,
     onBack: () -> Unit,
+    snackbarHost: @Composable () -> Unit = {},
     content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit,
 ) {
     Scaffold(
+        snackbarHost = snackbarHost,
         topBar = {
             SmallTopAppBar(
                 title = title,
