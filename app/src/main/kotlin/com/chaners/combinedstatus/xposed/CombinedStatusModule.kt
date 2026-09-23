@@ -631,6 +631,8 @@ class CombinedStatusModule : XposedModule() {
         source: String,
         preserveRendererVisual: Boolean = false,
     ) {
+        val nativeParticipantPendingCancelled =
+            SystemUiNativeParticipantRuntimeOwner.cancelPending()
         val nativeShadowDetach =
             if (BuildConfig.RUNTIME_DIAGNOSTICS) {
                 NativeParticipantShadowSession.detach()
@@ -653,6 +655,7 @@ class CombinedStatusModule : XposedModule() {
                 component = "nativeParticipantShadow",
                 state = if (nativeShadowDetached) "ready" else "error",
                 "source" to source,
+                "pendingCancelled" to nativeParticipantPendingCancelled,
                 "cleanup" to
                     when (nativeShadowDetach) {
                         NativeParticipantShadowSession.DetachResult.Removed ->
@@ -679,6 +682,7 @@ class CombinedStatusModule : XposedModule() {
             "stableStatusDetached" to true,
             "airplaneObserverDetached" to true,
             "defaultDataSubscriptionObserverDetached" to true,
+            "nativeParticipantPendingCancelled" to nativeParticipantPendingCancelled,
             "nativeShadowDetached" to nativeShadowDetached,
             "nativeShadowReason" to
                 (nativeShadowDetach as? NativeParticipantShadowSession.DetachResult.Failure)
@@ -807,6 +811,116 @@ class CombinedStatusModule : XposedModule() {
         }
 
         if (BuildConfig.RUNTIME_DIAGNOSTICS) {
+            scheduleNativeParticipantDiagnostics(
+                host = host,
+                source = source,
+            )
+        }
+
+        when (
+            val renderSession = CombinedStatusHomeRenderSession.attach(
+                host = host,
+                onEvent = { event ->
+                    if (detailedDiagnosticsEnabled) {
+                        log(Log.INFO, TAG, event)
+                    }
+                },
+                onLatencySample = ::onRenderLatencySample,
+                isDetailedDiagnosticsEnabled = { detailedDiagnosticsEnabled },
+                previousVisual = previousVisual,
+            )
+        ) {
+            CombinedStatusHomeRenderSession.AttachResult.Ready -> {
+                logDiagnostic(
+                    level = Log.INFO,
+                    event = "renderer.attach",
+                    component = "renderer",
+                    state = "ready",
+                    "source" to source,
+                )
+            }
+
+            is CombinedStatusHomeRenderSession.AttachResult.Failure -> {
+                logDiagnostic(
+                    level = Log.WARN,
+                    event = "renderer.attach",
+                    component = "renderer",
+                    state = "unavailable",
+                    "reason" to renderSession.reason,
+                    "source" to source,
+                )
+            }
+        }
+
+        scheduleNativeSlotProbe(host = host, source = source)
+
+        logDiagnostic(
+            level = Log.INFO,
+            event = "runtime.attach",
+            component = "runtimeSession",
+            state = "ready",
+            "source" to source,
+        )
+    }
+
+    private fun scheduleNativeParticipantDiagnostics(
+        host: Any,
+        source: String,
+    ) {
+        when (
+            val result =
+                SystemUiNativeParticipantRuntimeOwner.schedule(
+                    host = host,
+                    onReady = { readyHost ->
+                        runNativeParticipantDiagnostics(
+                            host = readyHost,
+                            source = source,
+                        )
+                    },
+                    onFailure = { reason ->
+                        logDiagnostic(
+                            level = Log.WARN,
+                            event = "participant.lifecycle",
+                            component = "nativeParticipant",
+                            state = "unavailable",
+                            "source" to source,
+                            "reason" to reason,
+                            "nativeGeometryWrites" to 0,
+                        )
+                    },
+                )
+        ) {
+            SystemUiNativeParticipantRuntimeOwner.ScheduleResult.Scheduled -> {
+                logDiagnostic(
+                    level = Log.INFO,
+                    event = "participant.lifecycle",
+                    component = "nativeParticipant",
+                    state = "pending",
+                    "source" to source,
+                    "trigger" to "host-attached-next-main-turn",
+                    "nativeGeometryWrites" to 0,
+                )
+            }
+
+            is SystemUiNativeParticipantRuntimeOwner.ScheduleResult.Failure -> {
+                logDiagnostic(
+                    level = Log.WARN,
+                    event = "participant.lifecycle",
+                    component = "nativeParticipant",
+                    state = "unavailable",
+                    "source" to source,
+                    "reason" to result.reason,
+                    "nativeGeometryWrites" to 0,
+                )
+            }
+        }
+    }
+
+    private fun runNativeParticipantDiagnostics(
+        host: Any,
+        source: String,
+    ) {
+        if (BuildConfig.RUNTIME_DIAGNOSTICS) {
             when (
                 val nativeShadow =
                     NativeParticipantShadowSession.attach(
@@ -866,68 +980,6 @@ class CombinedStatusModule : XposedModule() {
                 }
             }
         }
-
-        when (
-            val renderSession = CombinedStatusHomeRenderSession.attach(
-                host = host,
-                onEvent = { event ->
-                    if (detailedDiagnosticsEnabled) {
-                        log(Log.INFO, TAG, event)
-                    }
-                },
-                onLatencySample = ::onRenderLatencySample,
-                isDetailedDiagnosticsEnabled = { detailedDiagnosticsEnabled },
-                previousVisual = previousVisual,
-            )
-        ) {
-            CombinedStatusHomeRenderSession.AttachResult.Ready -> {
-                logDiagnostic(
-                    level = Log.INFO,
-                    event = "renderer.attach",
-                    component = "renderer",
-                    state = "ready",
-                    "source" to source,
-                )
-            }
-
-            is CombinedStatusHomeRenderSession.AttachResult.Failure -> {
-                logDiagnostic(
-                    level = Log.WARN,
-                    event = "renderer.attach",
-                    component = "renderer",
-                    state = "unavailable",
-                    "reason" to renderSession.reason,
-                    "source" to source,
-                )
-            }
-        }
-
-        scheduleNativeSlotProbe(host = host, source = source)
-
-        logDiagnostic(
-            level = Log.INFO,
-            event = "runtime.attach",
-            component = "runtimeSession",
-            state = "ready",
-            "source" to source,
-        )
-    }
-
-    private fun scheduleNativeSlotProbe(
-        host: Any,
-        source: String,
-    ) {
-        if (
-            !BuildConfig.DEVELOPMENT_PROBES &&
-            !(BuildConfig.RUNTIME_DIAGNOSTICS && detailedDiagnosticsEnabled)
-        ) {
-            return
-        }
-
-        SystemUiNetworkStateSource.bindingTopologyLines().forEach { line ->
-            log(Log.INFO, TAG, line)
-        }
-
         val nativeParticipant = NativeParticipantContractProbe.inspect(host)
         log(Log.INFO, TAG, nativeParticipant.logLine)
         logDiagnostic(
@@ -975,6 +1027,24 @@ class CombinedStatusModule : XposedModule() {
                 nativeParticipant.holderFactorySignatures.joinToString("|"),
             "nativeGeometryWrites" to 0,
         )
+    }
+
+    private fun scheduleNativeSlotProbe(
+        host: Any,
+        source: String,
+    ) {
+        if (
+            !BuildConfig.DEVELOPMENT_PROBES &&
+            !(BuildConfig.RUNTIME_DIAGNOSTICS && detailedDiagnosticsEnabled)
+        ) {
+            return
+        }
+
+        SystemUiNetworkStateSource.bindingTopologyLines().forEach { line ->
+            log(Log.INFO, TAG, line)
+        }
+
+
 
         SystemUiNativeStatusInventory.schedule(host) { snapshot ->
             log(Log.INFO, TAG, snapshot.summary)
