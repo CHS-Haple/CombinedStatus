@@ -534,6 +534,18 @@ A change that affects real application or SystemUI behavior — including UI, li
 
 Keep feature branches bounded. Unrelated functional changes MUST NOT be combined in one branch or pull request merely for convenience.
 
+Feature branches have an explicit lifecycle:
+
+1. create the `feat/*` branch from the current `dev` baseline for one bounded task;
+2. develop and validate the bounded change on that branch;
+3. open or update the pull request targeting `dev`;
+4. merge into `dev` only after the branch-level review and required checks are satisfied;
+5. after the merge is confirmed in `dev` and no rollback/debugging need requires keeping the branch temporarily, delete the merged `feat/*` branch.
+
+A merged feature branch MUST NOT be reused for later work. Follow-up work starts from the latest `dev` state in a new bounded `feat/*` branch.
+
+If a feature branch is abandoned, superseded, or its approach is rejected, close any associated pull request and delete the branch once its remaining diagnostic value is no longer needed. Do not leave stale `feat/*` branches as permanent pseudo-environments.
+
 Opening a pull request does not replace normal commits. A `feat/*` branch MAY continue receiving atomic commits while its pull request is open; the pull request is the review, CI, and integration gate for that branch.
 
 A change MAY be committed directly to `dev` only when it is genuinely small and non-behavioral, such as a documentation typo, wording correction, metadata cleanup, or equivalent mechanical maintenance. This exception MUST NOT be used to bypass applicable CI, review, or validation.
