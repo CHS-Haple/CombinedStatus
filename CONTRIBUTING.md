@@ -609,6 +609,10 @@ Required real-device validation is complete only when the scenarios declared for
 
 For runtime-sensitive changes, the validation record SHOULD identify the tested build or source revision sufficiently to determine what was actually tested.
 
+The repository uses `validation/dev` as a state marker for integrated device validation. It is not a development branch and MUST NOT contain unique commits. After all required integrated device scenarios for one exact `dev` commit pass and no known runtime blocker remains, maintainer tooling MAY move `validation/dev` to that exact commit.
+
+Moving `validation/dev` certifies only that exact `dev` source state. If `dev` advances, the marker no longer matches `dev` and promotion readiness automatically returns to pending until the new state is validated. The marker MUST NOT be advanced merely to satisfy a promotion gate.
+
 If a later change can affect the validated behavior, lifecycle, ownership, compatibility, or scene, the relevant device-validation result is no longer automatically transferable and the affected scenarios MUST be re-evaluated.
 
 Use `N/A` only when the change cannot reasonably affect runtime, user-visible behavior, integration behavior, or device compatibility. "Installed successfully" or "did not crash once" does not by itself complete a broader runtime test plan.
@@ -617,12 +621,14 @@ Use `N/A` only when the change cannot reasonably affect runtime, user-visible be
 
 Promotion is a stability decision, not ordinary development.
 
+The Build workflow evaluates promotion readiness for the current `dev` state. A candidate is READY only when the current `dev` commit is ahead of `main`, the corresponding trusted `dev` Build has succeeded, `validation/dev` points to that exact commit, and the required changelog boundary is present. This automated readiness result is evidence for promotion; it does not replace the underlying review or device testing.
+
 Create `promote/*` from the exact `dev` commit selected as the candidate stable baseline. The promotion branch MUST contain no new functional or engineering change; any required fix returns to a bounded `feat/*` or `fix/*` branch and is integrated through `dev` first.
 
 A `dev` state may be promoted only when:
 
+- automated promotion readiness reports READY for that exact candidate;
 - the intended integrated changes are complete;
-- required CI is green for the candidate state;
 - relevant diagnostics show no unresolved blocker;
 - all required real-device validation for that candidate state has passed;
 - no affected change remains `awaiting device validation`;
