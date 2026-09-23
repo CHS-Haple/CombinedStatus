@@ -1,6 +1,6 @@
 # Contributing to CombinedStatus
 
-This document defines the engineering rules for **developers and contributors** working on CombinedStatus. These rules are part of the implementation contract, not optional cleanup guidance.
+This document defines the contribution and engineering rules for **developers and contributors** working on CombinedStatus. Requirements are applied in proportion to the change: runtime-sensitive work needs deeper ownership and device validation, while documentation-only or mechanical changes use a lighter review path.
 
 ## 1. Scope and normative language
 
@@ -12,9 +12,9 @@ Normative terms are used deliberately:
 - **SHOULD / SHOULD NOT**: the default. A different approach is allowed only when the contributor can explain why it is safer or more appropriate.
 - **MAY**: optional.
 
-When an exception to a MUST-level architectural rule is genuinely required, the implementation report MUST state the evidence, affected lifecycle, rollback boundary, compatibility risk, and real-device validation required.
+When an exception to a MUST-level architectural rule is genuinely required, the change record or pull request MUST explain the evidence, affected lifecycle, rollback boundary, compatibility risk, and required validation.
 
-Package identity is always `com.chaners.combinedstatus`.
+The application ID and package namespace are `com.chaners.combinedstatus`. Changing that identity requires an explicit compatibility and migration plan.
 
 ### 1.1 Contribution licensing
 
@@ -50,26 +50,24 @@ Avoid unnecessary:
 
 Prefer maintained platform and library APIs over custom infrastructure when they satisfy the requirement.
 
-Current project baselines include:
+Repository build files and compatibility profiles are the source of truth for pinned versions. Architectural expectations include:
 
-- Modern Xposed API 102;
-- MIUIX 0.9.4;
+- Modern Xposed APIs for module integration;
+- the currently pinned MIUIX build for the companion app;
 - Android LocaleManager for per-app language;
 - DataStore only for real persistent preferences;
 - current Android navigation and predictive-back APIs.
 
-Modern does not mean adopting a newer mechanism merely because it exists. It MUST still satisfy lifecycle, stability, compatibility, and maintenance requirements.
+A newer mechanism is not automatically a better one. Adoption still MUST satisfy lifecycle, stability, compatibility, and maintenance requirements.
 
-## 3. Mandatory change workflow
+## 3. Change workflow
 
-### 3.1 Evaluate before modifying
+### 3.1 Evaluate before editing
 
-A request, idea, or proposed fix is a **candidate direction**, not automatic permission to mutate the project.
+Before changing code or behavior, verify that the problem or requirement is sufficiently understood and that the proposed change addresses the likely cause rather than only the symptom.
 
-Before changing project state, contributors MUST evaluate:
+Consider:
 
-- whether the problem is real and sufficiently understood;
-- whether the proposed mechanism addresses the verified cause rather than only the symptom;
 - whether the change is necessary now;
 - whether a simpler, more native, or lower-risk solution exists;
 - whether lifecycle and ownership remain explicit;
@@ -77,35 +75,30 @@ Before changing project state, contributors MUST evaluate:
 - whether the change creates duplicated state, special cases, or compatibility debt;
 - whether the available evidence is sufficient.
 
-Classify the direction as:
+Do not implement speculative behavior merely because it is easy to patch.
 
-- **accept**;
-- **accept with adjustments**;
-- **defer for evidence**;
-- **reject**.
+### 3.2 Define the change boundary proportionally
 
-Do not implement a weak or speculative direction merely because it was requested or previously attempted.
+Every change MUST have a clear boundary, but the amount of planning should match its risk.
 
-### 3.2 Define the change boundary
+For documentation-only, metadata-only, or mechanical changes, it is normally sufficient to identify the affected files and applicable validation.
 
-For an accepted functional change, the contributor MUST define a bounded plan before editing.
+For runtime-sensitive, architectural, compatibility, build/release, or user-visible behavior changes, the plan SHOULD identify:
 
-The plan MUST identify:
-
-- the verified runtime owner and relevant call chain;
+- the verified runtime owner and relevant call chain where applicable;
 - the subsystem/layer expected to change;
 - the subsystem/layer explicitly expected not to change;
 - lifecycle and state dependencies;
 - compatibility assumptions;
-- Debug/Release impact;
+- build-channel impact;
 - diagnostics required to validate uncertain runtime behavior;
-- rollback boundary;
+- rollback or fallback boundary;
 - CI checks;
 - real-device scenarios required after implementation.
 
-The plan SHOULD be the smallest change that can solve the verified problem.
+Use the smallest change that can solve the verified problem.
 
-### 3.3 Validate the plan
+### 3.3 Validate assumptions
 
 Before implementation, confirm that:
 
@@ -113,7 +106,7 @@ Before implementation, confirm that:
 - the order respects dependency and lifecycle boundaries;
 - unrelated cleanup is not mixed into the change;
 - diagnostics are bounded and event-driven;
-- rollback leaves the last validated baseline intact;
+- rollback or fallback leaves the last validated baseline intact;
 - runtime-sensitive claims have a real-device verification path.
 
 ### 3.4 Stay inside the confirmed boundary
@@ -124,17 +117,9 @@ Read-only investigation such as code inspection, logs, CI status, APK/source ana
 
 ### 3.5 Stop when evidence invalidates the plan
 
-If implementation reveals that the real owner, call chain, required scope, or platform behavior differs materially from the confirmed plan, stop mutation at that boundary.
+If implementation reveals that the real owner, call chain, required scope, or platform behavior differs materially from the confirmed plan, stop at that boundary rather than layering another workaround over an invalid assumption.
 
-Do not stack another workaround.
-
-The contributor MUST:
-
-1. state which assumption was invalidated;
-2. record the new evidence;
-3. identify what remains untouched;
-4. reassess the available solution families;
-5. define a revised bounded plan before resuming mutation.
+Record the invalidated assumption and new evidence, identify what remains untouched, and revise the bounded plan before resuming mutation.
 
 ### 3.6 Reassess the solution space after meaningful diagnostics
 
@@ -317,31 +302,20 @@ It MAY coordinate bootstrap, compatibility checks, and top-level hook installati
 
 Do not add permanent responsibilities to `CombinedStatusModule` merely because it is the convenient place where a hook is installed.
 
-## 6. Ownership migration gate
+## 6. Ownership boundary
 
-Functional work may continue while the architecture remains within its intended boundaries. However, contributors MUST NOT indefinitely accumulate long-lived lifecycle responsibilities in `CombinedStatusModule`.
+`CombinedStatusModule` is an integration boundary, not a catch-all lifetime owner. A change MUST NOT add another persistent host, state, observer, or hook responsibility there when that responsibility has a clear dedicated owner.
 
-The migration gate is crossed when a new change would require adding another persistent host/state/observer/hook ownership responsibility to `CombinedStatusModule`, or when an existing ownership domain can no longer be understood or disposed independently.
+When ownership needs to move:
 
-At that point, complete the next bounded ownership migration before adding more persistent responsibility.
-
-Current migration order:
-
-1. **DefaultDataSubscription + Airplane + Connectivity ownership**
-2. **Tint + Scene + MobileType ownership**
-3. **Network hook ownership**
-4. **Host + Hot Reload ownership**
-
-Migration rules:
-
-- migrate ownership, not unrelated behavior;
+- move one bounded responsibility at a time;
 - keep one active owner for each responsibility;
 - old and new owners MUST NOT run concurrently except in an explicit A/B diagnostic;
-- do not combine ownership migration with unrelated visual redesign;
-- each batch MUST remain independently testable and reversible;
-- after a batch is complete, later code MUST use the new owner rather than reintroducing the old path.
+- do not combine ownership movement with unrelated visual redesign or feature work;
+- keep each step independently testable and reversible;
+- once ownership has moved, later code MUST use the dedicated owner rather than reintroducing the old path.
 
-This gate exists to prevent a gradual return to a monolithic module while allowing normal feature work to continue between migration points.
+Current ownership status belongs in architecture documentation or code, not in a permanent ordered migration list in this contributor guide.
 
 ## 7. SystemUI geometry and visual ownership
 
@@ -424,7 +398,7 @@ Before reusing a historical fix, determine:
 - what real behavior it compensated for;
 - which runtime owner produced that behavior;
 - whether that owner still exists;
-- whether the new architecture already addresses the cause;
+- whether the current architecture already addresses the cause;
 - whether the old fix would violate current lifecycle or geometry ownership.
 
 Preserve the verified requirement, not the historical implementation.
@@ -447,9 +421,9 @@ Do not expand module scope to unrelated packages without a verified runtime depe
 
 ### 9.2 References and host retention
 
-Use weak references for SystemUI hosts/Views unless a stronger reference is required by an explicit session ownership contract.
+Reference strength MUST follow ownership and lifecycle. Non-owning observers SHOULD avoid extending the lifetime of SystemUI hosts or Views; an owning session MAY hold a strong reference only for the session's valid lifetime.
 
-Never retain an Activity, Context, or View beyond its valid lifecycle.
+Never retain an Activity, Context, or View beyond its valid lifecycle, and clear owned references when the owning session is disposed or replaced.
 
 ### 9.3 Modern Xposed
 
@@ -471,9 +445,9 @@ Diagnostics SHOULD inspect actual runtime topology when parentage, identity, own
 
 ### 10.1 Diagnostics policy
 
-Debug and Release MUST share core feature behavior. Diagnostics depth may differ.
+Build channels MUST NOT silently change core user-facing feature semantics. Channel differences SHOULD be limited to diagnostics, development probes, optimization, signing, or other explicitly documented build behavior.
 
-**Release** may retain low-frequency operational diagnostics such as:
+**Release** may retain only low-frequency operational diagnostics where enabled, such as:
 
 - build identity;
 - compatibility readiness;
@@ -525,7 +499,7 @@ Prefer platform APIs over custom infrastructure when the platform already provid
 
 ### 11.2 MIUIX UI review
 
-Whenever UI changes, contributors MUST perform a MIUIX 0.9.4 review.
+Whenever UI changes, contributors MUST review the change against the currently pinned MIUIX version and its supported components.
 
 Prefer official MIUIX components and defaults for spacing, typography, shape, pressed state, disabled state, dialogs, and navigation.
 
@@ -569,7 +543,7 @@ Public-facing documentation SHOULD describe the project's current behavior, comp
 
 External and routine contributions SHOULD target `dev`. `main` is reserved for validated promotions and exceptional maintenance work.
 
-Do not promote SystemUI work to `main` until it is structurally complete, CI-green, diagnostics-clean, and has completed required real-device validation.
+Do not promote SystemUI work to `main` until the bounded change is complete, required CI is green, relevant diagnostics show no unresolved blocker, and required real-device validation has passed.
 
 Pull-request CI MUST remain safe for untrusted forks:
 
@@ -759,63 +733,36 @@ For runtime-sensitive work, provide focused real-device scenarios based on the a
 
 Do not claim runtime correctness from CI alone.
 
-## 13. Post-change review
+## 13. Post-change review and definition of done
 
-After implementation, contributors MUST review for:
+Review only the checks that are relevant to the change. Runtime-sensitive work requires the deeper lifecycle and ownership checks; documentation-only or mechanical changes do not need artificial N/A-heavy reporting.
 
-- duplicate hooks, observers, listeners, jobs, or state;
-- multiple writers for the same runtime property;
-- stale host/session references;
-- missing cleanup paths;
-- repeated reflection or View-tree traversal;
-- polling or unnecessary wakeups;
-- high-frequency logs;
-- unbounded main-thread work;
-- geometry/animation ownership accidentally moved from SystemUI to the module;
-- Debug-only behavior leaking into Release;
-- compatibility profile drift;
-- new long-lived responsibilities added to `CombinedStatusModule` without checking the ownership migration gate.
+For applicable changes, verify:
 
-A successful build is not the definition of done.
+- no duplicate hooks, observers, listeners, jobs, or equivalent state sources were introduced;
+- live properties still have a clear writer;
+- host/session references do not outlive their lifecycle;
+- resource-owning sessions have cleanup or replacement paths;
+- hot paths avoid repeated reflection, View-tree traversal, polling, unnecessary wakeups, or high-frequency logging;
+- native geometry/animation ownership has not moved unintentionally;
+- build-channel differences are intentional and documented;
+- compatibility profiles and dependency notices remain accurate;
+- user-facing copy and MIUIX behavior were reviewed when changed;
+- CI/local checks passed where applicable;
+- required real-device validation passed, or the change is explicitly marked **awaiting device validation**;
+- `CHANGELOG.md` is updated when the final change is user-visible or materially affects future engineering constraints.
 
-## 14. Definition of done
+A successful build alone is not evidence of runtime correctness.
 
-A change is complete only when all applicable requirements are satisfied:
+## 14. Change report
 
-- direction evaluated before mutation;
-- bounded plan defined and validated;
-- verified owner/call chain identified for runtime-sensitive work;
-- implementation stayed within the plan or stopped for re-evaluation;
-- meaningful diagnostics were used to reassess the full solution space;
-- lifecycle and ownership are explicit;
-- resource cleanup/fallback is defined;
-- no accidental multi-writer geometry/state ownership was introduced;
-- standardized/lightweight/modern review completed;
-- copy review completed when text changed;
-- MIUIX review completed when UI changed;
-- appropriate Debug/Release diagnostics are present;
-- CI passed where applicable;
-- required real-device validation passed or is explicitly marked **awaiting device validation**;
-- CHANGELOG is updated for user-visible or engineering-significant changes;
-- runtime claims are not based on CI alone.
+Every completed change SHOULD leave a concise record that answers:
 
-## 15. Required implementation report
+1. **What changed and why?**
+2. **What was intentionally left unchanged?**
+3. **How was it validated?**
+4. **What limitations or follow-up remain?**
 
-Every completed implementation report MUST state:
+For runtime-sensitive or architectural changes, also record the relevant owner/call chain, lifecycle or cleanup impact, fallback behavior, meaningful diagnostic evidence, and required real-device test scenarios.
 
-1. how the direction was evaluated and why it was accepted, adjusted, deferred, or rejected;
-2. the confirmed change boundary and whether execution stayed inside it;
-3. the verified owner/call chain for runtime-sensitive work;
-4. any invalidated assumption or plan deviation and the evidence that caused it;
-5. alternative solution families considered after meaningful diagnostics;
-6. what changed and why;
-7. ownership/lifecycle impact, including cleanup and fallback behavior where applicable;
-8. whether the ownership migration gate was evaluated or crossed;
-9. standardization/lightweight/modernization review result;
-10. text-review result when text changed;
-11. MIUIX UI-review result when UI changed;
-12. CI result;
-13. required real-device test scenarios and current result;
-14. known limitations and compatibility boundaries.
-
-These rules MUST be re-read and applied by developers and contributors for every future feature, fix, migration, and runtime-sensitive change.
+The repository pull-request template is the preferred format when a pull request is used. Small documentation-only or mechanical changes may use a shorter commit/merge description as long as the applicable validation remains clear.
