@@ -535,22 +535,39 @@ Branch roles are intentionally different:
 
 Normal feature and defect work MUST target `dev`; it MUST NOT bypass `dev` and target `main` directly.
 
-#### 12.1.1 Change boundary and branch choice
+#### 12.1.1 Change boundary and branch admission
 
-A behavior-affecting change MUST use a bounded `feat/*` or `fix/*` branch. This includes application or SystemUI behavior, UI interaction, lifecycle, state ownership, listeners, hooks, settings semantics, compatibility behavior, dependencies, runtime/build behavior, CI/release behavior, and contributor rules that change mandatory engineering behavior.
+A behavior-affecting workstream MUST be isolated from `dev` in a bounded `feat/*` or `fix/*` branch before integration. The branch is the unit of an independently mergeable/reversible change boundary; it is NOT the unit of every task, sub-feature, checkpoint, experiment, or test response.
 
-Use `feat/*` when introducing or deliberately changing a capability, architecture, ownership model, workflow, or engineering rule. Use `fix/*` when correcting behavior that is already defined or intended.
+**A new feature does not automatically justify a new branch.** Before creating a work branch, first check whether an existing unmerged `feat/*` or `fix/*` already owns the same objective and acceptance boundary. If it does, continue that branch unless adding the work would make review, testing, rollback, or failure attribution materially ambiguous.
 
-A single branch SHOULD represent one independently reviewable and reversible change boundary. Split work when two changes:
+Use `feat/*` when introducing or deliberately changing one bounded capability, architecture/ownership model, workflow, or engineering rule. Use `fix/*` when correcting one bounded defect or regression whose intended behavior is already defined.
 
-- have different runtime or engineering owners;
-- can be tested independently;
-- can be reverted independently without making the other invalid; or
-- solve different root causes.
+The same active work branch SHOULD contain the coherent implementation cycle for its declared objective, including:
+
+- implementation sub-steps required to make that objective complete;
+- diagnostics introduced to resolve uncertainty inside that boundary;
+- fixes discovered while validating that same implementation;
+- UI or behavior adjustments required by the same acceptance criteria;
+- multiple commits or validation checkpoints needed to converge on the result.
+
+Do NOT open sibling `feat/*` branches merely for each sub-feature, code file, build, test round, visual adjustment, or intermediate hypothesis.
+
+Create a new work branch only when at least one of these conditions is true:
+
+- the work can be merged and shipped independently of the current active branch;
+- it can be reverted independently without invalidating the current active branch;
+- it has a different root cause, runtime/engineering owner, or validation surface;
+- concurrent development genuinely requires isolation to avoid blocking another bounded change;
+- the current branch would otherwise contain unrelated work or lose clear failure attribution.
+
+If none of these conditions is true, keep the work in the existing active branch.
 
 Keep supporting work in the same branch when it is required for that bounded change to be correct, such as lifecycle cleanup required by a newly introduced owned resource.
 
 Unrelated cleanup, visual polish, migration, and feature work MUST NOT be bundled merely because they touch nearby files.
+
+The repository SHOULD keep the number of simultaneously active work branches low. Before opening another `feat/*` or `fix/*`, merge, close, or supersede completed/stale branches where practical. A branch with no active pull request, no ongoing diagnostic value, and no meaningful progress for seven days SHOULD be reviewed for closure rather than left as indefinite work-in-progress.
 
 #### 12.1.2 Work-branch lifecycle
 
@@ -563,9 +580,9 @@ Every `feat/*` and `fix/*` branch is temporary:
 5. merge into `dev`;
 6. confirm the merged state and delete the branch when no explicit short-term rollback or diagnostic need remains.
 
-Opening a pull request does not replace normal commits. A work branch MAY continue receiving atomic commits while its pull request is open.
+Opening a pull request does not replace normal commits. A work branch MAY continue receiving atomic commits and validation checkpoints while its pull request is open. Related follow-up discovered before merge SHOULD stay in that branch when it remains inside the declared acceptance boundary.
 
-A merged work branch MUST NOT be reused. Follow-up work starts from the latest appropriate `dev` state in a new bounded branch.
+A merged work branch MUST NOT be reused. Follow-up work after merge starts from the latest appropriate `dev` state and only creates a new bounded branch when the branch-admission conditions in §12.1.1 are met.
 
 If a branch is abandoned, superseded, or its approach is rejected, close its pull request and delete the branch once its remaining diagnostic value is exhausted. Stale work branches MUST NOT become permanent pseudo-environments.
 
