@@ -201,21 +201,7 @@ class CombinedStatusModule : XposedModule() {
         val hookCount =
             1 +
                 networkSourceHookCount +
-                if (tintSourceInstalled) {
-                    SystemUiTintStateSource.HOOK_COUNT
-                } else {
-                    0
-                } +
-                if (sceneSourceInstalled) {
-                    SystemUiSceneStateSource.HOOK_COUNT
-                } else {
-                    0
-                } +
-                if (mobileTypeSourceInstalled) {
-                    SystemUiMobileTypeStateSource.HOOK_COUNT
-                } else {
-                    0
-                } +
+                SystemUiPresentationRuntimeOwner.installedHookCount +
                 if (islandMotionSourceInstalled) {
                     SystemUiIslandMotionSource.HOOK_COUNT
                 } else {
