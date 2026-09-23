@@ -1,5 +1,6 @@
 package com.chaners.combinedstatus.xposed
 
+import android.view.View
 import java.lang.reflect.Method
 
 internal object NativeBindableParticipantContractProbe {
@@ -112,6 +113,36 @@ internal object NativeBindableParticipantContractProbe {
                 ?.sorted()
                 .orEmpty()
 
+        val runtimeBindableViews =
+            if (modernViewClass == null) {
+                emptyList()
+            } else {
+                buildList {
+                    for (index in 0 until handles.group.childCount) {
+                        val child = handles.group.getChildAt(index)
+                        if (!modernViewClass.isInstance(child)) {
+                            continue
+                        }
+                        val layoutParams = child.layoutParams
+                        add(
+                            "index=" + index +
+                                ",class=" + child.javaClass.name +
+                                ",slot=" + (slotOf(child) ?: "unknown") +
+                                ",size=" + child.width + "x" + child.height +
+                                ",measured=" +
+                                child.measuredWidth + "x" + child.measuredHeight +
+                                ",layout=" +
+                                (layoutParams?.width ?: Int.MIN_VALUE) + "x" +
+                                (layoutParams?.height ?: Int.MIN_VALUE) +
+                                ",visibility=" + visibilityName(child.visibility),
+                        )
+                        if (size >= MAX_RUNTIME_ENTRIES) {
+                            break
+                        }
+                    }
+                }
+            }
+
         val staticContractReady =
             bindableInterfaceReady &&
                 creatorReady &&
@@ -136,6 +167,7 @@ internal object NativeBindableParticipantContractProbe {
             managerBindableEntries = managerEntries,
             viewOnlySlotsReady = viewOnlySlotsCollection != null,
             viewOnlySlots = viewOnlySlots,
+            runtimeBindableViews = runtimeBindableViews,
             staticContractReady = staticContractReady,
             dynamicRegistrationProven = false,
         )
@@ -168,6 +200,31 @@ internal object NativeBindableParticipantContractProbe {
         }.getOrNull()
     }
 
+    private fun slotOf(view: View): String? {
+        val accessor =
+            generateSequence(view.javaClass) { clazz -> clazz.superclass }
+                .flatMap { clazz -> clazz.declaredMethods.asSequence() }
+                .firstOrNull { method ->
+                    method.name == "getSlot" &&
+                        method.parameterCount == 0 &&
+                        method.returnType == String::class.java
+                }
+                ?: return null
+
+        return runCatching {
+            accessor.isAccessible = true
+            accessor.invoke(view) as? String
+        }.getOrNull()
+    }
+
+    private fun visibilityName(visibility: Int): String =
+        when (visibility) {
+            View.VISIBLE -> "VISIBLE"
+            View.INVISIBLE -> "INVISIBLE"
+            View.GONE -> "GONE"
+            else -> visibility.toString()
+        }
+
     private fun Class<*>.hasMethod(
         name: String,
         parameterTypes: List<String>,
@@ -199,6 +256,7 @@ internal object NativeBindableParticipantContractProbe {
         val managerBindableEntries: List<String>,
         val viewOnlySlotsReady: Boolean,
         val viewOnlySlots: List<String>,
+        val runtimeBindableViews: List<String>,
         val staticContractReady: Boolean,
         val dynamicRegistrationProven: Boolean,
     ) {
@@ -219,6 +277,7 @@ internal object NativeBindableParticipantContractProbe {
                     " managerEntries=" + managerBindableEntries.joinToString("|") +
                     " viewOnlySlotsReady=" + viewOnlySlotsReady +
                     " viewOnlySlots=" + viewOnlySlots.joinToString("|") +
+                    " runtimeViews=" + runtimeBindableViews.joinToString("|") +
                     " staticContractReady=" + staticContractReady +
                     " dynamicRegistrationProven=" + dynamicRegistrationProven +
                     " geometryWrites=0"
@@ -241,6 +300,7 @@ internal object NativeBindableParticipantContractProbe {
                     managerBindableEntries = emptyList(),
                     viewOnlySlotsReady = false,
                     viewOnlySlots = emptyList(),
+                    runtimeBindableViews = emptyList(),
                     staticContractReady = false,
                     dynamicRegistrationProven = false,
                 )
