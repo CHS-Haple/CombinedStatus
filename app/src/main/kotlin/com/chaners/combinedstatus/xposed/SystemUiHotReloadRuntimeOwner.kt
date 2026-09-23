@@ -29,6 +29,7 @@ internal object SystemUiHotReloadRuntimeOwner {
     fun prepare(
         param: HotReloadingParam,
         visual: View?,
+        nativeHolder: Any?,
     ): PrepareResult {
         if (!SystemUiHostRuntimeOwner.isReady) {
             return PrepareResult.Unavailable("status-host-hook-not-ready")
@@ -56,6 +57,7 @@ internal object SystemUiHotReloadRuntimeOwner {
                 state = CombinedStatusStateStore.exportHotReloadState(),
                 bindings = SystemUiNetworkStateSource.exportHotReloadBindings(),
                 visual = visual,
+                nativeHolder = nativeHolder,
             ) ?: return PrepareResult.Unavailable(
                 reason = "state-transfer-capture-failed",
                 wifiRoots = bindingCounts.first,
