@@ -154,22 +154,58 @@ internal object SystemUiNativeCombinedParticipantOwner {
                                 return@Hooker chain.proceed()
                             }
 
+                            val preflight =
+                                runCatching {
+                                    createRoot(
+                                        context = context,
+                                        classLoader = classLoader,
+                                        modernViewClass = modernViewClass,
+                                        bindingClass = bindingClass,
+                                        function0Class = function0Class,
+                                        viewConstructor = viewConstructor,
+                                        initView = initView,
+                                    )
+                                }.getOrElse { error ->
+                                    recordFailure(
+                                        "creator-preflight-" +
+                                            (error.message ?: error.javaClass.simpleName),
+                                    )
+                                    return@Hooker chain.proceed()
+                                }
+                            preflight.removeAllViews()
+
                             val creator =
-                                createCreatorProxy(
-                                    classLoader = classLoader,
-                                    creatorClass = creatorClass,
-                                    modernViewClass = modernViewClass,
-                                    bindingClass = bindingClass,
-                                    function0Class = function0Class,
-                                    viewConstructor = viewConstructor,
-                                    initView = initView,
-                                )
+                                runCatching {
+                                    createCreatorProxy(
+                                        classLoader = classLoader,
+                                        creatorClass = creatorClass,
+                                        modernViewClass = modernViewClass,
+                                        bindingClass = bindingClass,
+                                        function0Class = function0Class,
+                                        viewConstructor = viewConstructor,
+                                        initView = initView,
+                                    )
+                                }.getOrElse { error ->
+                                    recordFailure(
+                                        "creator-proxy-" +
+                                            (error.message ?: error.javaClass.simpleName),
+                                    )
+                                    return@Hooker chain.proceed()
+                                }
                             val bindable =
-                                createBindableIconProxy(
-                                    classLoader = classLoader,
-                                    bindableIconClass = bindableIconClass,
-                                    creator = creator,
-                                )
+                                runCatching {
+                                    createBindableIconProxy(
+                                        classLoader = classLoader,
+                                        bindableIconClass = bindableIconClass,
+                                        creator = creator,
+                                    )
+                                }.getOrElse { error ->
+                                    recordFailure(
+                                        "bindable-proxy-" +
+                                            (error.message ?: error.javaClass.simpleName),
+                                    )
+                                    return@Hooker chain.proceed()
+                                }
                             val extended =
                                 ArrayList<Any?>(original.size + 1).apply {
                                     addAll(original)
