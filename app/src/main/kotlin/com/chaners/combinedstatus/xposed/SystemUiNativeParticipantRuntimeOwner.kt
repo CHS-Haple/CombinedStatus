@@ -68,6 +68,7 @@ internal object SystemUiNativeParticipantRuntimeOwner {
                                     manager = manager,
                                     controller = controller,
                                 )
+                                notifyControllerObserved(manager)
                                 onEvent?.invoke(
                                     "nativeParticipantController observed " +
                                         "controller=" + controller.javaClass.name +
@@ -131,7 +132,7 @@ internal object SystemUiNativeParticipantRuntimeOwner {
             ScheduleResult.Scheduled
         } else {
             pending = null
-            ScheduleResult.Failure("host-readiness-schedule-rejected")
+            ScheduleResult.Failure("native-controller-readiness-rejected")
         }
     }
 
@@ -147,6 +148,11 @@ internal object SystemUiNativeParticipantRuntimeOwner {
         return true
     }
 
+    @Synchronized
+    private fun notifyControllerObserved(manager: Any) {
+        pending?.onControllerObserved(manager)
+    }
+
     private fun cancelPendingLocked(): Boolean {
         val activation = pending ?: return false
         pending = null
@@ -160,10 +166,11 @@ internal object SystemUiNativeParticipantRuntimeOwner {
         private val onFailure: (String) -> Unit,
     ) : View.OnAttachStateChangeListener, Runnable {
         private var listeningForAttach = false
+        private var readyPosted = false
 
         fun start(): Boolean {
             return if (hostView.isAttachedToWindow) {
-                hostView.post(this)
+                armForController()
             } else {
                 hostView.addOnAttachStateChangeListener(this)
                 listeningForAttach = true
@@ -176,7 +183,10 @@ internal object SystemUiNativeParticipantRuntimeOwner {
                 hostView.removeOnAttachStateChangeListener(this)
                 listeningForAttach = false
             }
-            hostView.removeCallbacks(this)
+            if (readyPosted) {
+                hostView.removeCallbacks(this)
+                readyPosted = false
+            }
         }
 
         override fun onViewAttachedToWindow(view: View) {
@@ -184,14 +194,48 @@ internal object SystemUiNativeParticipantRuntimeOwner {
                 view.removeOnAttachStateChangeListener(this)
                 listeningForAttach = false
             }
-            if (!view.post(this) && complete(this)) {
-                onFailure("host-readiness-post-rejected")
+            if (!armForController() && complete(this)) {
+                onFailure("native-controller-readiness-rejected")
             }
         }
 
         override fun onViewDetachedFromWindow(view: View) = Unit
 
+        fun onControllerObserved(manager: Any) {
+            if (readyPosted) {
+                return
+            }
+            val targetManager =
+                NativeParticipantRuntimeAccess.managerFor(hostView)
+                    ?: return
+            if (targetManager !== manager) {
+                return
+            }
+            postReady()
+        }
+
+        private fun armForController(): Boolean {
+            val manager =
+                NativeParticipantRuntimeAccess.managerFor(hostView)
+            if (
+                manager != null &&
+                controllerFor(manager) != null
+            ) {
+                return postReady()
+            }
+            return true
+        }
+
+        private fun postReady(): Boolean {
+            if (readyPosted) {
+                return true
+            }
+            readyPosted = hostView.post(this)
+            return readyPosted
+        }
+
         override fun run() {
+            readyPosted = false
             if (!complete(this)) {
                 return
             }
