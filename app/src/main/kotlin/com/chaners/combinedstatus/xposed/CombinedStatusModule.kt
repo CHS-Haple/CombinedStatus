@@ -19,7 +19,6 @@ import java.util.concurrent.atomic.AtomicLong
 
 class CombinedStatusModule : XposedModule() {
     private var statusHostHookInstalled = false
-    private var networkSourceHookCount = 0
     private var islandMotionSourceInstalled = false
     private var diagnosticsPreferences: SharedPreferences? = null
     private var runtimeSessionId = newRuntimeSessionId()
@@ -200,7 +199,7 @@ class CombinedStatusModule : XposedModule() {
 
         val hookCount =
             1 +
-                networkSourceHookCount +
+                SystemUiNetworkRuntimeOwner.installedHookCount +
                 SystemUiPresentationRuntimeOwner.installedHookCount +
                 if (islandMotionSourceInstalled) {
                     SystemUiIslandMotionSource.HOOK_COUNT
@@ -270,9 +269,8 @@ class CombinedStatusModule : XposedModule() {
             }
 
             statusHostHookInstalled = true
-            networkSourceHookCount = 0
+            SystemUiNetworkRuntimeOwner.resetRuntimeState()
             islandMotionSourceInstalled = false
-            SystemUiNetworkStateSource.resetEventState()
             SystemUiPresentationRuntimeOwner.resetRuntimeState()
             SystemUiIslandMotionSource.resetRuntimeState()
             bindRuntimeDiagnostics()
@@ -399,7 +397,7 @@ class CombinedStatusModule : XposedModule() {
         source: String,
     ) {
         runCatching {
-            SystemUiNetworkStateSource.install(
+            SystemUiNetworkRuntimeOwner.attach(
                 module = this,
                 classLoader = classLoader,
                 onWifiState = { state ->
@@ -454,15 +452,15 @@ class CombinedStatusModule : XposedModule() {
                 onEvent = if (BuildConfig.RUNTIME_DIAGNOSTICS) ::onNetworkPipelineEvent else null,
             )
         }.onSuccess { result ->
-            networkSourceHookCount = result.handles.size
+            SystemUiNetworkRuntimeOwner.installedHookCount = result.handles.size
             val fullyReady =
                 result.wifiReady &&
                     result.mobileReady &&
-                    networkSourceHookCount == SystemUiNetworkStateSource.HOOK_COUNT
+                    SystemUiNetworkRuntimeOwner.installedHookCount == SystemUiNetworkStateSource.HOOK_COUNT
             val state =
                 when {
                     fullyReady -> "ready"
-                    networkSourceHookCount > 0 -> "partial"
+                    SystemUiNetworkRuntimeOwner.installedHookCount > 0 -> "partial"
                     else -> "error"
                 }
             logDiagnostic(
@@ -475,7 +473,7 @@ class CombinedStatusModule : XposedModule() {
                 event = "source.install",
                 component = "network",
                 state = state,
-                "hooks" to networkSourceHookCount,
+                "hooks" to SystemUiNetworkRuntimeOwner.installedHookCount,
                 "expectedHooks" to SystemUiNetworkStateSource.HOOK_COUNT,
                 "wifi" to if (result.wifiReady) "ready" else "error",
                 "mobile" to if (result.mobileReady) "ready" else "error",
@@ -506,7 +504,7 @@ class CombinedStatusModule : XposedModule() {
                 if (fullyReady) Log.INFO else Log.WARN,
                 TAG,
                 "networkSource state=" + state +
-                    " hooks=" + networkSourceHookCount +
+                    " hooks=" + SystemUiNetworkRuntimeOwner.installedHookCount +
                     "/" + SystemUiNetworkStateSource.HOOK_COUNT +
                     " wifi=" + result.wifiReady +
                     " mobile=" + result.mobileReady +
@@ -514,7 +512,7 @@ class CombinedStatusModule : XposedModule() {
                     " rebindRequired=" + (source == "hotReload"),
             )
         }.onFailure { error ->
-            networkSourceHookCount = 0
+            SystemUiNetworkRuntimeOwner.installedHookCount = 0
             logDiagnostic(
                 level = Log.ERROR,
                 event = "source.install",
