@@ -202,7 +202,7 @@ internal object NativeBindableParticipantContractProbe {
 
     private fun slotOf(view: View): String? {
         val accessor =
-            generateSequence(view.javaClass) { clazz -> clazz.superclass }
+            generateSequence<Class<*>>(view.javaClass) { clazz -> clazz.superclass }
                 .flatMap { clazz -> clazz.declaredMethods.asSequence() }
                 .firstOrNull { method ->
                     method.name == "getSlot" &&
