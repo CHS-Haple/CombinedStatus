@@ -60,7 +60,8 @@ internal object NativeStatusBarSlotPredeclaration {
 
         val original = slots.toList()
         val getSlot =
-            iconList.javaClass.declaredMethods
+            generateSequence(iconList.javaClass) { clazz -> clazz.superclass }
+                .flatMap { clazz -> clazz.declaredMethods.asSequence() }
                 .firstOrNull { method ->
                     method.name == "getSlot" &&
                         method.parameterTypes.contentEquals(
