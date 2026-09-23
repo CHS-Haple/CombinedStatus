@@ -18,7 +18,6 @@ import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
 import java.util.concurrent.atomic.AtomicLong
 
 class CombinedStatusModule : XposedModule() {
-    private var statusHostHookInstalled = false
     private var islandMotionSourceInstalled = false
     private var diagnosticsPreferences: SharedPreferences? = null
     private var runtimeSessionId = newRuntimeSessionId()
@@ -80,13 +79,12 @@ class CombinedStatusModule : XposedModule() {
         }
 
         runCatching {
-            StatusBarHostCapture.install(
+            SystemUiHostRuntimeOwner.install(
                 module = this,
                 classLoader = param.classLoader,
                 onCaptured = ::onStatusHostCaptured,
             )
         }.onSuccess {
-            statusHostHookInstalled = true
             logDiagnostic(
                 level = Log.INFO,
                 event = "hook.install",
@@ -104,7 +102,7 @@ class CombinedStatusModule : XposedModule() {
             log(Log.ERROR, TAG, "Status host hook installation failed", error)
         }
 
-        if (statusHostHookInstalled) {
+        if (SystemUiHostRuntimeOwner.isReady) {
             installNetworkStateSource(
                 classLoader = param.classLoader,
                 source = "coldStart",
@@ -123,7 +121,7 @@ class CombinedStatusModule : XposedModule() {
     }
 
     override fun onHotReloading(param: HotReloadingParam): Boolean {
-        if (!statusHostHookInstalled) {
+        if (!SystemUiHostRuntimeOwner.isReady) {
             logDiagnostic(
                 level = Log.WARN,
                 event = "hotReload.prepare",
@@ -233,7 +231,7 @@ class CombinedStatusModule : XposedModule() {
     override fun onHotReloaded(param: HotReloadedParam) {
         rotateDiagnosticSession()
         val oldHandles = param.oldHookHandles
-        val statusHostHandle = oldHandles.firstOrNull(StatusBarHostCapture::matches)
+        val statusHostHandle = SystemUiHostRuntimeOwner.findOwnedHandle(oldHandles)
 
         if (statusHostHandle == null) {
             oldHandles.forEach { handle -> runCatching { handle.unhook() } }
@@ -255,7 +253,7 @@ class CombinedStatusModule : XposedModule() {
         }
 
         runCatching {
-            StatusBarHostCapture.replace(
+            SystemUiHostRuntimeOwner.replace(
                 handle = statusHostHandle,
                 onCaptured = ::onStatusHostCaptured,
             )
@@ -268,7 +266,6 @@ class CombinedStatusModule : XposedModule() {
                 }
             }
 
-            statusHostHookInstalled = true
             SystemUiNetworkRuntimeOwner.resetRuntimeState()
             islandMotionSourceInstalled = false
             SystemUiPresentationRuntimeOwner.resetRuntimeState()
