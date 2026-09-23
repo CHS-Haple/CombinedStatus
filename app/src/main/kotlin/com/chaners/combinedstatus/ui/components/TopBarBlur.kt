@@ -20,6 +20,7 @@ import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 private const val ProgressiveTopBarBlurRadius = 10f
 private const val ProgressiveTopBarCurve = 2.2f
+private const val ProgressiveTopBarFullStrengthFraction = 0.70f
 private const val ProgressiveTopBarBlendAlpha = 0.3f
 
 @Composable
@@ -66,7 +67,12 @@ internal fun MiuixBlurredTopBar(
                         .progressiveTextureBlur(
                             backdrop = backdrop,
                             shape = RectangleShape,
-                            gradient = ProgressiveBlur.Top.copy(curve = ProgressiveTopBarCurve),
+                            gradient =
+                                ProgressiveBlur.Top.copy(
+                                    startFraction = ProgressiveTopBarFullStrengthFraction,
+                                    endFraction = 1f,
+                                    curve = ProgressiveTopBarCurve,
+                                ),
                             blurRadius = ProgressiveTopBarBlurRadius,
                             colors = blurColors,
                         ),
