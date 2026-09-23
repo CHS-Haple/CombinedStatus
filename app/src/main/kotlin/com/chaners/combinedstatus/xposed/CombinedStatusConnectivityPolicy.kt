@@ -6,6 +6,7 @@ internal object CombinedStatusConnectivityPolicy {
         airplaneMode: Boolean,
         connectivity: SystemUiConnectivityStateSource.State,
         mobileType: NativePresentationResolver.NetworkType?,
+        connectivityFreshForWifi: Boolean,
     ): CenterIndicator? {
         val wifiSegments =
             when (wifi) {
@@ -18,6 +19,13 @@ internal object CombinedStatusConnectivityPolicy {
                         is SignalStrength.Level -> wifiSegments(signal.value)
                     }
             }
+
+        if (wifiSegments != null && wifiSegments > 0 && !connectivityFreshForWifi) {
+            return CenterIndicator.Wifi(
+                segments = wifiSegments,
+                internet = InternetState.UNKNOWN,
+            )
+        }
 
         if (!connectivity.known) {
             if (wifiSegments != null && wifiSegments > 0) {
