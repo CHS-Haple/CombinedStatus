@@ -74,6 +74,11 @@ internal object CombinedStatusHomeRenderSession {
     }
 
     @Synchronized
+    fun setNativeHandoffActive(active: Boolean) {
+        current?.setNativeHandoffActive(active)
+    }
+
+    @Synchronized
     fun visualHandoffView(): View? = current?.visualHandoffView()
 
     @Synchronized
@@ -126,6 +131,7 @@ internal object CombinedStatusHomeRenderSession {
         private var deferredStateLogged = false
         private var rejectedTintLogged = false
         private var sceneSurface = SystemUiSceneStateSource.Surface.UNKNOWN
+        private var nativeHandoffActive = false
         private val anchorRect = Rect()
         private var previousVisual: View? = null
 
@@ -204,7 +210,9 @@ internal object CombinedStatusHomeRenderSession {
             }
 
             sceneSurface = update.surface
-            val visible = SystemUiSceneStateSource.allowsHomeOverlay(update.surface)
+            val visible =
+                SystemUiSceneStateSource.allowsHomeOverlay(update.surface) &&
+                    !nativeHandoffActive
             probeView.visibility = if (visible) View.VISIBLE else View.GONE
             if (visible) {
                 probeView.invalidate()
@@ -218,6 +226,28 @@ internal object CombinedStatusHomeRenderSession {
                     " surface=" + update.surface.name +
                     " visible=" + visible +
                     " policy=failClosedOutsideUnlockedStatusBar " +
+                    " nativeGeometryWrites=0"
+            }
+        }
+
+        fun setNativeHandoffActive(active: Boolean) {
+            if (nativeHandoffActive == active) {
+                return
+            }
+            nativeHandoffActive = active
+            val visible =
+                SystemUiSceneStateSource.allowsHomeOverlay(sceneSurface) &&
+                    !nativeHandoffActive
+            probeView.visibility = if (visible) View.VISIBLE else View.GONE
+            if (visible) {
+                probeView.invalidate()
+            } else {
+                probeView.clearPendingLatency()
+            }
+            emitEvent {
+                "homeRenderHandoff nativeActive=" + nativeHandoffActive +
+                    " overlayVisible=" + visible +
+                    " scene=" + sceneSurface.name +
                     " nativeGeometryWrites=0"
             }
         }

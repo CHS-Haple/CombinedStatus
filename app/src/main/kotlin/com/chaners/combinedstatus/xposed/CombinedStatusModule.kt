@@ -1209,7 +1209,22 @@ class CombinedStatusModule : XposedModule() {
 
             when (
                 val nativeCombined =
-                    SystemUiNativeCombinedParticipantOwner.attachHidden(host)
+                    SystemUiNativeCombinedParticipantOwner.attachHidden(
+                        host = host,
+                        onHandoffStateChanged = { active ->
+                            CombinedStatusHomeRenderSession.setNativeHandoffActive(active)
+                            logDiagnostic(
+                                level = Log.INFO,
+                                event = "visibility.handoff",
+                                component = "nativeCombinedParticipant",
+                                state = if (active) "active" else "fallback",
+                                "source" to source,
+                                "nativeActive" to active,
+                                "overlayActive" to !active,
+                                "nativeGeometryWrites" to 0,
+                            )
+                        },
+                    )
             ) {
                 is SystemUiNativeCombinedParticipantOwner.AttachResult.Ready -> {
                     logDiagnostic(

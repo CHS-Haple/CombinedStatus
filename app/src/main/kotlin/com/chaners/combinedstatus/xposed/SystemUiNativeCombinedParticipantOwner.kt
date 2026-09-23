@@ -5,6 +5,7 @@ import android.util.AttributeSet
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewTreeObserver
 import android.widget.FrameLayout
 import io.github.libxposed.api.XposedInterface.HookHandle
 import io.github.libxposed.api.XposedInterface.Hooker
@@ -14,6 +15,8 @@ import java.lang.reflect.Field
 import java.lang.reflect.Method
 import java.lang.reflect.Proxy
 import java.util.ArrayList
+import java.util.Collections
+import java.util.WeakHashMap
 
 internal object SystemUiNativeCombinedParticipantOwner {
     const val SLOT = "combined_status"
@@ -48,6 +51,20 @@ internal object SystemUiNativeCombinedParticipantOwner {
     private var handlesRef: WeakReference<NativeParticipantRuntimeAccess.Handles>? = null
     private var hostRef: WeakReference<ViewGroup>? = null
     private var eventSink: ((String) -> Unit)? = null
+    private val bindingStates =
+        Collections.synchronizedMap(
+            WeakHashMap<FrameLayout, BindingState>(),
+        )
+    private var targetBindingState: BindingState? = null
+    private var batteryRef: WeakReference<View>? = null
+    private var handoffSink: ((Boolean) -> Unit)? = null
+    private var pendingPreDrawRoot: WeakReference<View>? = null
+    private var pendingPreDrawListener: ViewTreeObserver.OnPreDrawListener? = null
+    private var modelReady = false
+    private var tintReady = false
+    private var currentSurface = SystemUiSceneStateSource.Surface.UNKNOWN
+    private var handoffPending = false
+    private var handoffCommitted = false
     private var modelReadyLogged = false
     private var unlockedGeometryLogged = false
     private var registryRestored = false
@@ -336,7 +353,10 @@ internal object SystemUiNativeCombinedParticipantOwner {
     }
 
     @Synchronized
-    fun attachHidden(host: Any): AttachResult {
+    fun attachHidden(
+        host: Any,
+        onHandoffStateChanged: ((Boolean) -> Unit)? = null,
+    ): AttachResult {
         if (!injected) {
             return AttachResult.Failure(failureReason ?: "participant-not-injected")
         }
@@ -352,6 +372,9 @@ internal object SystemUiNativeCombinedParticipantOwner {
         val root =
             NativeParticipantRuntimeAccess.findSlotView(handles.group, SLOT) as? FrameLayout
                 ?: return AttachResult.Failure("native-root-missing")
+        val bindingState =
+            bindingStates[root]
+                ?: return AttachResult.Failure("native-binding-state-missing")
         val hostView =
             host as? ViewGroup
                 ?: return AttachResult.Failure("host-not-view-group")
@@ -367,6 +390,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
 
         root.clipChildren = false
         root.clipToPadding = false
+        bindingState.visible = false
         root.visibility = View.GONE
 
         val existing = renderViewRef?.get()
@@ -422,6 +446,17 @@ internal object SystemUiNativeCombinedParticipantOwner {
         rootRef = WeakReference(root)
         handlesRef = WeakReference(handles)
         hostRef = WeakReference(hostView)
+        batteryRef = WeakReference(battery)
+        targetBindingState = bindingState
+        handoffSink = onHandoffStateChanged
+        modelReady =
+            modelUpdate?.model != null &&
+                modelUpdate.candidateComplete
+        tintReady = tintUpdate?.resolved != null
+        currentSurface =
+            SystemUiSceneStateSource.currentState(battery)?.surface
+                ?: SystemUiSceneStateSource.Surface.UNKNOWN
+        reconcileVisibleHandoff("attach")
 
         return AttachResult.Ready(
             registryRestored = registryRestored,
@@ -437,8 +472,8 @@ internal object SystemUiNativeCombinedParticipantOwner {
             managerEntry =
                 (readField(handles.manager, "mBindableIcons") as? Map<*, *>)
                     ?.containsKey(SLOT) == true,
-            modelReady = modelUpdate?.model != null,
-            tintReady = tintUpdate?.resolved != null,
+            modelReady = modelReady,
+            tintReady = tintReady,
         )
     }
 
@@ -448,6 +483,9 @@ internal object SystemUiNativeCombinedParticipantOwner {
         trace: RuntimeRenderTrace? = null,
     ) {
         val update = renderController?.update(snapshot, trace)
+        if (update?.model != null && update.candidateComplete) {
+            modelReady = true
+        }
         if (
             update?.model != null &&
             !modelReadyLogged
@@ -466,13 +504,21 @@ internal object SystemUiNativeCombinedParticipantOwner {
                     (root?.let { visibilityName(it.visibility) } ?: "none") +
                     " iconVisible=" +
                     (root?.let { NativeParticipantRuntimeAccess.iconVisible(it) } ?: "none") +
-                    " visible=false nativeGeometryWrites=0",
+                    " visible=" + handoffCommitted +
+                    " nativeGeometryWrites=0",
             )
         }
+        reconcileVisibleHandoff("state")
     }
 
     @Synchronized
     fun onSceneUpdate(update: SystemUiSceneStateSource.SceneUpdate) {
+        val battery = batteryRef?.get()
+        if (battery != null && update.sourceView !== battery) {
+            return
+        }
+        currentSurface = update.surface
+        reconcileVisibleHandoff("scene-" + update.surface.name)
         if (
             update.surface != SystemUiSceneStateSource.Surface.UNLOCKED_STATUS_BAR ||
             unlockedGeometryLogged
@@ -513,15 +559,145 @@ internal object SystemUiNativeCombinedParticipantOwner {
 
     @Synchronized
     fun onPresentationStateChanged(trace: RuntimeRenderTrace? = null) {
-        renderController?.update(
-            CombinedStatusStateStore.snapshot(),
-            trace,
-        )
+        val update =
+            renderController?.update(
+                CombinedStatusStateStore.snapshot(),
+                trace,
+            )
+        if (update?.model != null && update.candidateComplete) {
+            modelReady = true
+        }
+        reconcileVisibleHandoff("presentation")
     }
 
     @Synchronized
     fun onTintUpdate(update: SystemUiTintStateSource.TintUpdate) {
-        renderController?.updateTint(update.state)
+        val tintUpdate = renderController?.updateTint(update.state)
+        if (tintUpdate?.resolved != null) {
+            tintReady = true
+        }
+        reconcileVisibleHandoff("tint")
+    }
+
+    private fun reconcileVisibleHandoff(source: String) {
+        val root = rootRef?.get() ?: return
+        val bindingState = targetBindingState ?: return
+        val sceneVisible =
+            currentSurface == SystemUiSceneStateSource.Surface.UNLOCKED_STATUS_BAR
+
+        if (handoffCommitted) {
+            if (bindingState.visible != sceneVisible) {
+                bindingState.visible = sceneVisible
+                requestNativeLayout(root)
+                eventSink?.invoke(
+                    "nativeCombinedParticipant visibilityState source=" + source +
+                        " scene=" + currentSurface.name +
+                        " bindingVisible=" + sceneVisible +
+                        " handoffCommitted=true nativeGeometryWrites=0",
+                )
+            }
+            return
+        }
+
+        if (
+            handoffPending ||
+            !modelReady ||
+            !tintReady ||
+            !sceneVisible ||
+            !root.isAttachedToWindow ||
+            root.parent == null
+        ) {
+            return
+        }
+
+        bindingState.visible = true
+        root.visibility = View.VISIBLE
+        handoffPending = true
+        requestNativeLayout(root)
+        eventSink?.invoke(
+            "nativeCombinedParticipant handoffPrepare source=" + source +
+                " modelReady=" + modelReady +
+                " tintReady=" + tintReady +
+                " scene=" + currentSurface.name +
+                " bootstrapVisibilityRelease=true nativeGeometryWrites=0",
+        )
+
+        val listener =
+            object : ViewTreeObserver.OnPreDrawListener {
+                override fun onPreDraw(): Boolean {
+                    removePendingPreDraw()
+                    synchronized(this@SystemUiNativeCombinedParticipantOwner) {
+                        handoffPending = false
+                        if (
+                            rootRef?.get() !== root ||
+                            targetBindingState !== bindingState
+                        ) {
+                            return@synchronized
+                        }
+
+                        val iconVisible =
+                            NativeParticipantRuntimeAccess.iconVisible(root) == true
+                        val ready =
+                            modelReady &&
+                                tintReady &&
+                                currentSurface ==
+                                    SystemUiSceneStateSource.Surface.UNLOCKED_STATUS_BAR &&
+                                bindingState.visible &&
+                                iconVisible &&
+                                root.isAttachedToWindow &&
+                                root.measuredWidth > 0 &&
+                                root.measuredHeight > 0
+
+                        if (ready) {
+                            handoffCommitted = true
+                            handoffSink?.invoke(true)
+                            eventSink?.invoke(
+                                "nativeCombinedParticipant handoffCommit " +
+                                    "measured=" + root.measuredWidth + "x" +
+                                    root.measuredHeight +
+                                    " iconVisible=true overlayActive=false " +
+                                    "nativeGeometryWrites=0",
+                            )
+                        } else {
+                            bindingState.visible = false
+                            root.visibility = View.GONE
+                            requestNativeLayout(root)
+                            eventSink?.invoke(
+                                "nativeCombinedParticipant handoffRollback " +
+                                    "modelReady=" + modelReady +
+                                    " tintReady=" + tintReady +
+                                    " scene=" + currentSurface.name +
+                                    " iconVisible=" + iconVisible +
+                                    " measured=" + root.measuredWidth + "x" +
+                                    root.measuredHeight +
+                                    " overlayActive=true nativeGeometryWrites=0",
+                            )
+                        }
+                    }
+                    return true
+                }
+            }
+        pendingPreDrawRoot = WeakReference(root)
+        pendingPreDrawListener = listener
+        root.viewTreeObserver.addOnPreDrawListener(listener)
+    }
+
+    private fun requestNativeLayout(root: View) {
+        root.requestLayout()
+        (root.parent as? View)?.requestLayout()
+    }
+
+    private fun removePendingPreDraw() {
+        val root = pendingPreDrawRoot?.get()
+        val listener = pendingPreDrawListener
+        if (root != null && listener != null) {
+            val observer = root.viewTreeObserver
+            if (observer.isAlive) {
+                observer.removeOnPreDrawListener(listener)
+            }
+        }
+        pendingPreDrawRoot = null
+        pendingPreDrawListener = null
     }
 
     @Synchronized
@@ -559,12 +735,26 @@ internal object SystemUiNativeCombinedParticipantOwner {
     }
 
     private fun <T> reset(result: T): T {
+        removePendingPreDraw()
+        if (handoffCommitted) {
+            handoffSink?.invoke(false)
+        }
+        targetBindingState?.visible = false
         renderViewRef?.get()?.let { render ->
             (render.parent as? ViewGroup)?.removeView(render)
         }
+        bindingStates.clear()
         rootRef = null
         renderViewRef = null
         hostRef = null
+        batteryRef = null
+        handoffSink = null
+        targetBindingState = null
+        modelReady = false
+        tintReady = false
+        currentSurface = SystemUiSceneStateSource.Surface.UNKNOWN
+        handoffPending = false
+        handoffCommitted = false
         eventSink = null
         modelReadyLogged = false
         unlockedGeometryLogged = false
@@ -641,13 +831,14 @@ internal object SystemUiNativeCombinedParticipantOwner {
         viewConstructor: java.lang.reflect.Constructor<*>,
         initView: Method,
     ): FrameLayout {
+        val bindingState = BindingState()
         val binding =
             Proxy.newProxyInstance(
                 classLoader,
                 arrayOf(bindingClass),
             ) { proxy, method, args ->
                 when (method.name) {
-                    "getShouldIconBeVisible" -> false
+                    "getShouldIconBeVisible" -> bindingState.visible
                     "isCollecting" -> true
                     "toString" -> "CombinedStatusNativeParticipantBinding"
                     "hashCode" -> System.identityHashCode(proxy)
@@ -681,6 +872,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
         root.clipChildren = false
         root.clipToPadding = false
         initView.invoke(root, SLOT, bindingFactory)
+        bindingStates[root] = bindingState
         root.visibility = View.GONE
         return root
     }
@@ -753,6 +945,10 @@ internal object SystemUiNativeCombinedParticipantOwner {
         data object AlreadyInstalled : InstallResult
         data class Failure(val reason: String) : InstallResult
     }
+
+    private class BindingState(
+        @Volatile var visible: Boolean = false,
+    )
 
     internal sealed interface AttachResult {
         data class Ready(
