@@ -111,12 +111,10 @@ class CombinedStatusModule : XposedModule() {
                 classLoader = param.classLoader,
                 source = "coldStart",
             )
-            if (BuildConfig.RUNTIME_DIAGNOSTICS) {
-                installIslandMotionSource(
-                    classLoader = param.classLoader,
-                    source = "coldStart",
-                )
-            }
+            installIslandMotionSource(
+                classLoader = param.classLoader,
+                source = "coldStart",
+            )
         }
     }
 
@@ -243,12 +241,10 @@ class CombinedStatusModule : XposedModule() {
                 classLoader = classLoader,
                 source = "hotReload",
             )
-            if (BuildConfig.RUNTIME_DIAGNOSTICS) {
-                installIslandMotionSource(
-                    classLoader = classLoader,
-                    source = "hotReload",
-                )
-            }
+            installIslandMotionSource(
+                classLoader = classLoader,
+                source = "hotReload",
+            )
 
             val restored = SystemUiHotReloadRuntimeOwner.restoreTransfer(param)
             val restoreReady =
@@ -467,7 +463,8 @@ class CombinedStatusModule : XposedModule() {
             SystemUiIslandMotionSource.install(
                 module = this,
                 classLoader = classLoader,
-                onEvent = ::onIslandMotionEvent,
+                onMotion = CombinedStatusHomeRenderSession::onIslandMotion,
+                onEvent = if (BuildConfig.RUNTIME_DIAGNOSTICS) ::onIslandMotionEvent else null,
             )
         }.onSuccess { handles ->
             islandMotionSourceInstalled =
@@ -487,7 +484,7 @@ class CombinedStatusModule : XposedModule() {
                 TAG,
                 "islandMotionSource hooks=ready count=" + handles.size +
                     " source=" + source +
-                    " motion=ownerProbe nativeGeometryWrites=0",
+                    " motion=nativeAnchorFollow nativeGeometryWrites=0",
             )
         }.onFailure { error ->
             islandMotionSourceInstalled = false
