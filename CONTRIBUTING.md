@@ -254,7 +254,7 @@ Repository automation that does not change installed/runtime behavior may be val
 Use the validation appropriate to the automation itself:
 
 - documentation-like configuration may use Light;
-- CI/build/release workflow changes require their own applicable Fast/Full self-validation;
+- CI/build/release workflow changes require Full self-validation because they change the validation or publication mechanism itself;
 - no device validation is required unless the automation change also changes the produced APK/runtime contract.
 
 After the automation proves itself, keep the applicable files aligned between `main` and `dev` without waiting for `validation/dev` or a SystemUI stability checkpoint.
@@ -275,7 +275,7 @@ Use `hotfix/* -> main` only when the current `main` baseline has an urgent defec
 
 ### 6.2 Branch roles
 
-- `feat/*` — one bounded capability, intentional behavior change, architecture/ownership migration, dependency adoption, or engineering-governance change.
+- `feat/*` — one bounded capability, intentional behavior change, architecture/ownership migration, dependency adoption, or other executable engineering change that follows the normal development route.
 - `fix/*` — one bounded correction for intended behavior that is already defined.
 - `dev` — integration branch for completed work and integrated validation.
 - `validation/dev` — state marker for the most recent `dev` runtime baseline whose required integrated device scenarios passed; it is not a development branch and must contain no unique commits.

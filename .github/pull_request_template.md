@@ -4,8 +4,8 @@ Describe the problem or engineering need and the final bounded change.
 
 ## Route and boundary
 
-- Branch role: feat / fix / promote / hotfix
-- Target: dev / main
+- Route: repository text/governance / repository automation / feat / fix / promote / hotfix
+- Target: main + back-sync dev / dev / main
 - Objective:
 - Explicitly unchanged:
 - Why this is one change boundary:
