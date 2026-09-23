@@ -77,7 +77,19 @@ Consider:
 
 Do not implement speculative behavior merely because it is easy to patch.
 
-### 3.2 Define the change boundary proportionally
+### 3.2 Investigate in root-cause order
+
+When a defect, regression, incompatibility, or unexpected behavior is reported or observed, contributors MUST investigate solution options in this order before choosing an implementation:
+
+1. **Identify the root cause.** Determine which owner, state source, lifecycle transition, API contract, layout rule, or integration point actually produces the behavior. A patch that only hides the visible symptom is not evidence that the cause is understood.
+2. **Ask whether the root cause can be removed or corrected directly.** Prefer fixing the responsible source, ownership boundary, lifecycle, or contract violation when that can be done safely and within scope.
+3. **Check existing rules and authoritative documentation.** Before inventing a mechanism, review the project's own engineering rules and architecture constraints, the documented contract of the libraries and APIs actually used by the project, and relevant official Android, HyperOS, Modern Xposed, MIUIX, or other upstream documentation and maintainer guidance.
+4. **Review established practice for the same class of problem.** If the authoritative sources do not fully determine the solution, examine common, well-understood implementation patterns for equivalent lifecycle, UI, compatibility, performance, or integration problems. Use them to compare solution families and trade-offs rather than copying an implementation mechanically.
+5. **Use a workaround or patch only as the last resort.** A workaround is acceptable only when the root cause cannot currently be corrected safely, the authoritative guidance does not provide a viable path, and the chosen workaround is narrower and lower-risk than the alternatives.
+
+A workaround or compatibility patch MUST state why a root-cause fix is not currently viable, what exact condition activates it, its rollback or removal condition, and the validation needed to ensure that it does not become permanent accidental architecture.
+
+### 3.3 Define the change boundary proportionally
 
 Every change MUST have a clear boundary, but the amount of planning should match its risk.
 
@@ -98,7 +110,7 @@ For runtime-sensitive, architectural, compatibility, build/release, or user-visi
 
 Use the smallest change that can solve the verified problem.
 
-### 3.3 Validate assumptions
+### 3.4 Validate assumptions
 
 Before implementation, confirm that:
 
@@ -109,19 +121,19 @@ Before implementation, confirm that:
 - rollback or fallback leaves the last validated baseline intact;
 - runtime-sensitive claims have a real-device verification path.
 
-### 3.4 Stay inside the confirmed boundary
+### 3.5 Stay inside the confirmed boundary
 
 Implementation MUST NOT silently broaden into unrelated cleanup, speculative fixes, or additional feature work.
 
 Read-only investigation such as code inspection, logs, CI status, APK/source analysis, and runtime evidence review may proceed without a new mutation plan.
 
-### 3.5 Stop when evidence invalidates the plan
+### 3.6 Stop when evidence invalidates the plan
 
 If implementation reveals that the real owner, call chain, required scope, or platform behavior differs materially from the confirmed plan, stop at that boundary rather than layering another workaround over an invalid assumption.
 
 Record the invalidated assumption and new evidence, identify what remains untouched, and revise the bounded plan before resuming mutation.
 
-### 3.6 Reassess the solution space after meaningful diagnostics
+### 3.7 Reassess the solution space after meaningful diagnostics
 
 Logs, recordings, crash traces, geometry snapshots, and other diagnostics are not only used to decide whether the current patch worked.
 
@@ -138,7 +150,7 @@ Previous engineering effort is not evidence that the current path remains correc
 
 Choose the best solution supported by current evidence, not the next patch on the existing path.
 
-### 3.7 Preserve diagnostic isolation
+### 3.8 Preserve diagnostic isolation
 
 When several hypotheses remain plausible, prefer single-variable A/B builds.
 
