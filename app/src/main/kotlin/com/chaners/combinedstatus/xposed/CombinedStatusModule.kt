@@ -622,8 +622,8 @@ class CombinedStatusModule : XposedModule() {
             SystemUiPresentationRuntimeOwner.attach(
                 module = this,
                 classLoader = classLoader,
-                onTintState = CombinedStatusHomeRenderSession::onTintUpdate,
-                onSceneState = CombinedStatusHomeRenderSession::onSceneUpdate,
+                onTintState = ::onTintStateUpdate,
+                onSceneState = ::onSceneStateUpdate,
                 onMobileTypeChanged = { drawable ->
                     refreshMobilePresentation(
                         trace = beginRenderTrace("mobileType"),
@@ -701,7 +701,7 @@ class CombinedStatusModule : XposedModule() {
                     "geometryWrites" to 0,
                 )
             }
-            CombinedStatusHomeRenderSession.onPresentationStateChanged(
+            onPresentationStateChanged(
                 presentationTrace,
             )
         }
@@ -730,6 +730,21 @@ class CombinedStatusModule : XposedModule() {
         trace: RuntimeRenderTrace? = null,
     ) {
         CombinedStatusHomeRenderSession.onState(snapshot, trace)
+        SystemUiNativeCombinedParticipantOwner.onState(snapshot, trace)
+    }
+
+    private fun onPresentationStateChanged(trace: RuntimeRenderTrace? = null) {
+        CombinedStatusHomeRenderSession.onPresentationStateChanged(trace)
+        SystemUiNativeCombinedParticipantOwner.onPresentationStateChanged(trace)
+    }
+
+    private fun onTintStateUpdate(update: SystemUiTintStateSource.TintUpdate) {
+        CombinedStatusHomeRenderSession.onTintUpdate(update)
+        SystemUiNativeCombinedParticipantOwner.onTintUpdate(update)
+    }
+
+    private fun onSceneStateUpdate(update: SystemUiSceneStateSource.SceneUpdate) {
+        CombinedStatusHomeRenderSession.onSceneUpdate(update)
     }
 
     private fun teardownRuntimeResources(
@@ -738,6 +753,8 @@ class CombinedStatusModule : XposedModule() {
     ) {
         val nativeParticipantPendingCancelled =
             SystemUiNativeParticipantRuntimeOwner.cancelPending()
+        val nativeCombinedDetach =
+            SystemUiNativeCombinedParticipantOwner.detach()
         CombinedStatusHomeRenderSession.detach(preserveVisual = preserveRendererVisual)
         StatusBarStableSession.detach()
         SystemUiCoreRuntimeOwner.detach()
@@ -757,6 +774,8 @@ class CombinedStatusModule : XposedModule() {
             "airplaneObserverDetached" to true,
             "defaultDataSubscriptionObserverDetached" to true,
             "nativeParticipantPendingCancelled" to nativeParticipantPendingCancelled,
+            "nativeCombinedParticipantDetached" to
+                nativeCombinedDetach.javaClass.simpleName,
         )
     }
 
@@ -796,7 +815,7 @@ class CombinedStatusModule : XposedModule() {
                             }
                         refreshMobilePresentation(presentationTrace)
                         changed?.let {
-                            CombinedStatusHomeRenderSession.onPresentationStateChanged(
+                            onPresentationStateChanged(
                                 presentationTrace,
                             )
                         }
@@ -1114,6 +1133,50 @@ class CombinedStatusModule : XposedModule() {
                 "projectedFitsGroup" to visualGeometry.projectedFitsGroup,
                 "nativeGeometryWrites" to 0,
             )
+
+            when (
+                val nativeCombined =
+                    SystemUiNativeCombinedParticipantOwner.attachHidden(host)
+            ) {
+                is SystemUiNativeCombinedParticipantOwner.AttachResult.Ready -> {
+                    logDiagnostic(
+                        level = Log.INFO,
+                        event = "participant.attach",
+                        component = "nativeCombinedParticipant",
+                        state = "ready",
+                        "source" to source,
+                        "slot" to SystemUiNativeCombinedParticipantOwner.SLOT,
+                        "visible" to false,
+                        "registryRestored" to nativeCombined.registryRestored,
+                        "root" to nativeCombined.rootClass,
+                        "rootVisibility" to nativeCombined.rootVisibility,
+                        "iconVisible" to nativeCombined.iconVisible,
+                        "layoutWidth" to nativeCombined.layoutWidth,
+                        "layoutHeight" to nativeCombined.layoutHeight,
+                        "renderWidth" to nativeCombined.renderWidth,
+                        "renderHeight" to nativeCombined.renderHeight,
+                        "renderTop" to nativeCombined.renderTop,
+                        "renderBottom" to nativeCombined.renderBottom,
+                        "managerEntry" to nativeCombined.managerEntry,
+                        "modelReady" to nativeCombined.modelReady,
+                        "tintReady" to nativeCombined.tintReady,
+                        "nativeGeometryWrites" to 0,
+                    )
+                }
+
+                is SystemUiNativeCombinedParticipantOwner.AttachResult.Failure -> {
+                    logDiagnostic(
+                        level = Log.WARN,
+                        event = "participant.attach",
+                        component = "nativeCombinedParticipant",
+                        state = "unavailable",
+                        "source" to source,
+                        "reason" to nativeCombined.reason,
+                        "visible" to false,
+                        "nativeGeometryWrites" to 0,
+                    )
+                }
+            }
         }
     }
 
