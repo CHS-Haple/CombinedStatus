@@ -61,7 +61,7 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Engineering
 
-- Contribution governance now uses risk-based routing: deterministic mechanical maintenance may be mirrored directly across `main`/`dev`, normal work reuses bounded active `feat/*`/`fix/*` branches instead of creating one branch per sub-task, CI/device validation is checkpoint-based, `validation/dev` tracks exact-SHA promotion readiness, hotfixes return to `dev`, and merged short-lived branches are cleaned up automatically.
+- Contribution governance now uses risk-based routing: deterministic mechanical maintenance may be mirrored directly across `main`/`dev`, normal work reuses bounded active `feat/*`/`fix/*` branches instead of creating one branch per sub-task, CI/device validation is checkpoint-based, validated runtime baselines may carry across proven non-runtime deltas, hotfixes return to `dev`, and merged short-lived branches are cleaned up automatically.
 - Upstream dependency adoption now uses relevance classes, explicit maturity levels, exact-revision CI/artifact gates, isolated Canary validation, and short-lived feature branches before promotion to `dev`.
 - Project source and contributions are licensed under Apache License 2.0, with third-party components retaining their upstream license obligations.
 - Public/reproducible development now uses the checked-in official Gradle 9.7.1 Wrapper with distribution/integrity validation, commit-pinned GitHub Actions, secret-free pull-request validation, hardened ignore rules for local signing/environment artifacts, least-privilege workflow credentials, dependency-update automation, and explicit third-party dependency notices.
