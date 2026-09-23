@@ -53,7 +53,10 @@ import com.chaners.combinedstatus.settings.DiagnosticsSettingsRepository
 import com.chaners.combinedstatus.system.DiagnosticsReportBuilder
 import com.chaners.combinedstatus.system.DiagnosticsReportFiles
 import com.chaners.combinedstatus.system.RuntimeEnvironmentInfo
+import com.chaners.combinedstatus.ui.components.TopBarProgressiveEdge
+import com.chaners.combinedstatus.ui.components.captureForTopBarBlur
 import com.chaners.combinedstatus.ui.components.floatingNavigationMaterial
+import com.chaners.combinedstatus.ui.components.rememberTopBarContentBackdrop
 import com.chaners.combinedstatus.ui.components.requiresTextureBackdrop
 import com.chaners.combinedstatus.ui.layout.pageContentPadding
 import kotlinx.coroutines.launch
@@ -899,6 +902,8 @@ private fun SettingsPage(
     snackbarHost: @Composable () -> Unit = {},
     content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit,
 ) {
+    val topBarBackdrop = rememberTopBarContentBackdrop()
+
     Scaffold(
         snackbarHost = snackbarHost,
         topBar = {
@@ -915,14 +920,25 @@ private fun SettingsPage(
             )
         },
     ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = pageContentPadding(
-                innerPadding = paddingValues,
-                extraBottom = 12.dp,
-            ),
-            content = content,
-        )
+        Box(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .captureForTopBarBlur(topBarBackdrop),
+                contentPadding = pageContentPadding(
+                    innerPadding = paddingValues,
+                    extraBottom = 12.dp,
+                ),
+                content = content,
+            )
+
+            TopBarProgressiveEdge(
+                backdrop = topBarBackdrop,
+                topPadding = paddingValues.calculateTopPadding(),
+                modifier = Modifier.align(Alignment.TopCenter),
+            )
+        }
     }
 }
 
