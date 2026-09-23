@@ -435,23 +435,25 @@ Never commit local SDK paths, signing material, generated APK/AAB files, or envi
 
 CI verifies source/build state; it does not prove SystemUI runtime correctness.
 
-Use three validation tiers:
+Use four purpose-specific validation scopes:
 
 - **Light** — repository/diff checks only. Use for Draft PRs and proven mechanical/documentation-only changes.
-- **Fast** — the normal `feat/*` / `fix/* -> dev` gate for ordinary app/runtime changes: required repository checks, target-profile checks, unit tests, Debug APK build, and Debug Xposed-metadata validation. Do not build Canary merely to decide whether an ordinary bounded change may enter `dev`.
-- **Full** — integration/stable validation: Debug + Canary and all applicable metadata, non-debuggable, signing, artifact, and compatibility checks.
+- **Fast** — the normal `feat/*` / `fix/* -> dev` gate for ordinary app/runtime changes: target-profile checks, unit tests, Debug APK build, and Debug Xposed-metadata validation.
+- **Integration** — trusted ordinary runtime pushes to `dev`: target-profile checks, unit tests, signed Canary build, metadata/signature validation, non-debuggable verification, and Canary artifact publication. Do not rebuild Debug after the work branch already passed Fast unless another risk requires it.
+- **Full** — build/dependency/CI/tooling changes and stable boundaries: Debug + Canary with all applicable metadata, signing, artifact, and compatibility checks.
 
 Routing:
 
 - Draft PR -> Light unless deeper validation is specifically required.
 - Ready ordinary product/runtime PR to `dev` -> Fast.
-- Dependency/build/CI/tooling changes -> Full.
-- Trusted APK-affecting push to `dev` / `main` -> Full.
+- Trusted ordinary runtime push to `dev` -> Integration.
+- Routine internal `versionCode` / `buildId` changes may remain in Fast/Integration with the runtime change they identify.
+- Dependency/build/CI/tooling changes, including `app/build.gradle.kts` and ProGuard configuration -> Full.
 - Mechanical direct maintenance on `main` / `dev` -> Light when proven non-behavioral.
-- Promotion/hotfix PR to `main` -> Full.
+- Runtime-affecting push or promotion/hotfix boundary on `main` -> Full.
 - Release workflow -> deliberate publication validation.
 
-This deliberately shifts expensive Canary validation from each ordinary feature PR to the integrated `dev` checkpoint. A feature should pay the Full cost only when its risk class requires it or after it joins the integration branch.
+This keeps validation proportional to the lifecycle stage: work branches prove the bounded change with Debug; `dev` produces the trusted Canary used for integration/device checkpoints; Full is reserved for changes that can alter the build system or stable artifact contract.
 
 A CI-workflow change is itself CI-affecting and requires Full validation.
 
