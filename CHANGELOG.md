@@ -56,6 +56,7 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Engineering
 
+- Project source and contributions are licensed under Apache License 2.0, with third-party components retaining their upstream license obligations.
 - Public/reproducible development now uses the checked-in official Gradle 9.7.1 Wrapper with distribution/integrity validation, commit-pinned GitHub Actions, secret-free pull-request validation, hardened ignore rules for local signing/environment artifacts, least-privilege workflow credentials, dependency-update automation, and explicit third-party dependency notices.
 - Stable release automation is fail-closed: formal releases must come from a prepared `main` commit with a matching dated changelog section, pass target-profile/tests/Xposed-metadata/non-debuggable/signature checks, and use application release/build identity rather than CI run numbers for distributable APKs.
 - Runtime architecture is moving toward explicit `Host -> HostSession -> owned resources` boundaries with required cleanup across host replacement, SystemUI recreation, and hot reload.
