@@ -61,7 +61,7 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Engineering
 
-- Contribution workflow now defines bounded `feat/*`/`fix/*` branch roles, explicit `dev` integration gates, direct-to-`dev` limits, source-bound device-validation completion, exact-state `dev -> main` promotion, hotfix back-propagation, branch cleanup, and merge strategy.
+- Contribution workflow now defines bounded `feat/*`/`fix/*` branch roles, explicit `dev` integration gates, direct-to-`dev` limits, checkpoint/risk-based CI and device validation, exact-state `dev -> main` promotion, hotfix back-propagation, branch cleanup, and merge strategy.
 - Upstream dependency adoption now uses relevance classes, explicit maturity levels, exact-revision CI/artifact gates, isolated Canary validation, and short-lived feature branches before promotion to `dev`.
 - Project source and contributions are licensed under Apache License 2.0, with third-party components retaining their upstream license obligations.
 - Public/reproducible development now uses the checked-in official Gradle 9.7.1 Wrapper with distribution/integrity validation, commit-pinned GitHub Actions, secret-free pull-request validation, hardened ignore rules for local signing/environment artifacts, least-privilege workflow credentials, dependency-update automation, and explicit third-party dependency notices.
