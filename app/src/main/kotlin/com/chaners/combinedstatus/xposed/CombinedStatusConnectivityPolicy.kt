@@ -51,6 +51,13 @@ internal object CombinedStatusConnectivityPolicy {
         }
 
         if (
+            connectivity.mobileDataEnabled == false &&
+            mobileSignal is SignalStrength.Level
+        ) {
+            return CenterIndicator.MobileDataOff
+        }
+
+        if (
             mobileType != null &&
             connectivity.mobileDataEnabled != false
         ) {
@@ -123,6 +130,8 @@ internal sealed interface CenterIndicator {
         val enhanced: Boolean,
         val internet: InternetState,
     ) : CenterIndicator
+
+    data object MobileDataOff : CenterIndicator
 
     data object NoNetwork : CenterIndicator
 }

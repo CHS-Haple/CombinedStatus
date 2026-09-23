@@ -278,6 +278,38 @@ class CombinedStatusRenderModelTest {
     }
 
     @Test
+    fun mobileDataDisabledWithSignalShowsHorizontalBarAndKeepsSignalLevel() {
+        val model =
+            CombinedStatusRenderModel.from(
+                snapshot =
+                    snapshot(
+                        wifi = CombinedStatusStateStore.WifiState.Hidden,
+                        mobile =
+                            mapOf(
+                                1 to CombinedStatusStateStore.MobileState(
+                                    signal = SignalStrength.Level(3),
+                                ),
+                            ),
+                    ),
+                presentation =
+                    presentation(
+                        connectivity =
+                            connectivity(
+                                transport = SystemUiConnectivityStateSource.Transport.NONE,
+                                validated = false,
+                                mobileDataEnabled = false,
+                            ),
+                        networkType = mobileType("5G"),
+                    ),
+                defaultDataSubscriptionId = 1,
+            )
+
+        assertTrue(model?.centerIndicator is CenterIndicator.MobileDataOff)
+        assertEquals(3, model?.mobileLevel)
+        assertEquals(1, model?.effectiveDataSubscriptionId)
+    }
+
+    @Test
     fun completeNoNetworkShowsExplicitNoNetworkIndicator() {
         val model =
             CombinedStatusRenderModel.from(

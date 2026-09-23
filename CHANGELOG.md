@@ -44,6 +44,7 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 - Wi-Fi state tracking follows the verified HyperOS Wi-Fi collector and registers the relevant root before the native binder proceeds.
 - CombinedStatus remains visible when HyperOS temporarily hides the native battery container during Wi-Fi/mobile status transitions.
 - Airplane-mode presentation follows the authoritative global setting used by the target device, with mobile-signal sampling retained only as fallback evidence.
+- Disabling mobile data while cellular service remains available now preserves the real SIM signal dots and shows a centered horizontal bar instead of a 4G/5G label or no-network cross.
 - Transparent or uninitialized tint samples no longer blank the CombinedStatus renderer.
 - Per-app language selection preserves an explicit language choice even when it currently matches the system locale.
 - CI signing verification remains pinned to the expected certificate while accepting current Android Build Tools signer output.

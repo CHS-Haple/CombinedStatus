@@ -85,6 +85,8 @@ internal class CombinedStatusPainter {
                 }
             }
 
+            CenterIndicator.MobileDataOff -> drawMobileDataOff(canvas, tint, opacity)
+
             CenterIndicator.NoNetwork -> drawNoNetwork(canvas, tint, opacity)
         }
     }
@@ -169,6 +171,15 @@ internal class CombinedStatusPainter {
             MOBILE_TYPE_SUFFIX_BASELINE_Y,
             paint,
         )
+    }
+
+    private fun drawMobileDataOff(
+        canvas: Canvas,
+        tint: Int,
+        opacity: Float,
+    ) {
+        stroke(tint, 220, 5f, opacity)
+        canvas.drawLine(49f, 58f, 71f, 58f, paint)
     }
 
     private fun drawNoNetwork(
