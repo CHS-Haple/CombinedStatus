@@ -178,6 +178,7 @@ class CombinedStatusModule : XposedModule() {
                 host = host,
                 state = CombinedStatusStateStore.exportHotReloadState(),
                 bindings = SystemUiNetworkStateSource.exportHotReloadBindings(),
+                visual = CombinedStatusHomeRenderSession.visualHandoffView(),
             )
         if (transfer == null) {
             logDiagnostic(
@@ -250,7 +251,7 @@ class CombinedStatusModule : XposedModule() {
                 " hooks=" + hookCount +
                 " transfer=saved-instance-state",
         )
-        teardownRuntimeResources("hotReload.prepare")
+        teardownRuntimeResources("hotReload.prepare", preserveRendererVisual = true)
         unbindRuntimeDiagnostics()
         return true
     }
@@ -374,6 +375,7 @@ class CombinedStatusModule : XposedModule() {
                     attachHostRuntime(
                         host = capture.host,
                         source = "hotReloadRestore",
+                        previousVisual = restored.visual,
                     )
                     logDiagnostic(
                         level = Log.INFO,
@@ -797,14 +799,17 @@ class CombinedStatusModule : XposedModule() {
         CombinedStatusHomeRenderSession.onState(snapshot, trace)
     }
 
-    private fun teardownRuntimeResources(source: String) {
+    private fun teardownRuntimeResources(
+        source: String,
+        preserveRendererVisual: Boolean = false,
+    ) {
         val nativeShadowDetach =
             if (BuildConfig.RUNTIME_DIAGNOSTICS) {
                 NativeParticipantShadowSession.detach()
             } else {
                 NativeParticipantShadowSession.DetachResult.AlreadyDetached
             }
-        CombinedStatusHomeRenderSession.detach()
+        CombinedStatusHomeRenderSession.detach(preserveVisual = preserveRendererVisual)
         StatusBarStableSession.detach()
         SystemUiCoreRuntimeOwner.detach()
         CombinedStatusPresentationStateStore.reset()
@@ -840,7 +845,8 @@ class CombinedStatusModule : XposedModule() {
             component = "runtimeSession",
             state = if (nativeShadowDetached) "ready" else "partial",
             "source" to source,
-            "rendererDetached" to true,
+            "rendererDetached" to !preserveRendererVisual,
+            "rendererVisualPreserved" to preserveRendererVisual,
             "stableStatusDetached" to true,
             "airplaneObserverDetached" to true,
             "defaultDataSubscriptionObserverDetached" to true,
@@ -854,6 +860,7 @@ class CombinedStatusModule : XposedModule() {
     private fun attachHostRuntime(
         host: Any,
         source: String,
+        previousVisual: android.view.View? = null,
     ) {
         val hostContext = (host as? android.view.View)?.context
         val coreRuntime =
@@ -1041,6 +1048,7 @@ class CombinedStatusModule : XposedModule() {
                 },
                 onLatencySample = ::onRenderLatencySample,
                 isDetailedDiagnosticsEnabled = { detailedDiagnosticsEnabled },
+                previousVisual = previousVisual,
             )
         ) {
             CombinedStatusHomeRenderSession.AttachResult.Ready -> {
