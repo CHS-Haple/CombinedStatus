@@ -13,7 +13,7 @@ The exact resolved dependency graph is defined by Gradle and may include additio
 | AndroidX Activity Compose | 1.13.0 | Android/Compose activity integration | Apache License 2.0 |
 | AndroidX Navigation Event Compose | 1.1.2 | Predictive/navigation event integration | Apache License 2.0 |
 | AndroidX DataStore Preferences | 1.2.1 | Local application preferences | Apache License 2.0 |
-| MIUIX UI / Preference / Icons / Nav / Blur | 0.9.4 | Xiaomi HyperOS-style companion-app UI | Apache License 2.0 |
+| MIUIX UI / Preference / Icons / Nav / Blur | 0.9.4-2afdbb39-SNAPSHOT (`2afdbb39f1aac5747165cc354cafd4b918fa55a5`) | Xiaomi HyperOS-style companion-app UI; published main-canary snapshot | Apache License 2.0 |
 | kotlinx.serialization core | 1.11.0 | Kotlin serialization support | Apache License 2.0 |
 
 ## Test dependencies

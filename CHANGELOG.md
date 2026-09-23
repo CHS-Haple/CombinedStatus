@@ -17,7 +17,7 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 - Built-in diagnostic report export/share using LSPosed module logs with logcat fallback, without a resident collection service.
 - Debug, Canary, and Release build channels with diagnostics depth separated from core feature behavior; Canary is non-debuggable and release-optimized while retaining bounded runtime diagnostics.
 - Manual, explicitly confirmed SystemUI restart using bounded Root execution without a resident Root service.
-- MIUIX 0.9.4 application shell with Home, Features, and Settings navigation, predictive back, direction-aware swipe-back, and adaptive launcher icons.
+- MIUIX application shell with Home, Features, and Settings navigation, predictive back, direction-aware swipe-back, and adaptive launcher icons.
 - Appearance settings for light/dark mode, dynamic color, standard/floating navigation, Blur/Glass floating-navigation material, and in-app swipe-back behavior.
 - Android 13+ per-app language selection for system default, English, and Simplified Chinese.
 - Optional launcher-icon hiding while retaining a non-launcher app entry point.
@@ -25,6 +25,7 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Changed
 
+- Companion-app MIUIX dependencies now track the validated published main-canary snapshot `0.9.4-2afdbb39-SNAPSHOT` from upstream revision `2afdbb39f1aac5747165cc354cafd4b918fa55a5`, with one shared dependency identity used across all MIUIX modules.
 - Diagnostic reports now limit log collection to CombinedStatus-related runtime/share diagnostics and no longer collect broad third-party application/system share logs.
 - Runtime state acquisition now favors authoritative event-driven platform/SystemUI sources and cached process-scoped state instead of repeated querying or polling.
 - Wi-Fi and mobile semantic updates are committed before their verified SystemUI emitters proceed so CombinedStatus can enter the same UI frame as native icon changes.
@@ -33,7 +34,7 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 - SystemUI integration preserves native layout, translation, visibility, and animation ownership wherever practical; CombinedStatus-specific appearance remains in its own presentation/rendering layer.
 - Diagnostics use bounded event-driven snapshots rather than continuous collection, and General mode avoids detailed per-transition diagnostic allocation.
 - Hot reload rotates runtime-session identity, replaces the previous hook generation, revalidates compatibility, and restores current host health instead of stacking duplicate generations.
-- The app uses native MIUIX 0.9.4 components and shared production material definitions for navigation and appearance previews instead of separate visual approximations.
+- The app uses native MIUIX components and shared production material definitions for navigation and appearance previews instead of separate visual approximations.
 - Diagnostics, app descriptions, and user-facing copy consistently identify Xiaomi HyperOS as the target and use **mobile network / 移动网络** terminology.
 - Build and release tooling separates Debug, Canary, and formal Release signing/CI responsibilities; distributable APK filenames use application version/build identity rather than GitHub Actions run numbers, while test-release tags may retain the run number as CI execution metadata.
 
