@@ -78,6 +78,13 @@ class CombinedStatusModule : XposedModule() {
             return
         }
 
+        if (BuildConfig.RUNTIME_DIAGNOSTICS) {
+            installNativeParticipantControllerObserver(
+                classLoader = param.classLoader,
+                source = "coldStart",
+            )
+        }
+
         runCatching {
             SystemUiHostRuntimeOwner.install(
                 module = this,
@@ -146,6 +153,7 @@ class CombinedStatusModule : XposedModule() {
             1 +
                 SystemUiNetworkRuntimeOwner.installedHookCount +
                 SystemUiPresentationRuntimeOwner.installedHookCount +
+                SystemUiNativeParticipantRuntimeOwner.installedHookCount +
                 if (islandMotionSourceInstalled) {
                     SystemUiIslandMotionSource.HOOK_COUNT
                 } else {
@@ -208,6 +216,7 @@ class CombinedStatusModule : XposedModule() {
             islandMotionSourceInstalled = false
             SystemUiPresentationRuntimeOwner.resetRuntimeState()
             SystemUiIslandMotionSource.resetRuntimeState()
+            SystemUiNativeParticipantRuntimeOwner.resetControllerRuntimeState()
             bindRuntimeDiagnostics()
             logDiagnostic(
                 level = Log.INFO,
@@ -244,6 +253,10 @@ class CombinedStatusModule : XposedModule() {
                 source = "hotReload",
             )
             if (BuildConfig.RUNTIME_DIAGNOSTICS) {
+                installNativeParticipantControllerObserver(
+                    classLoader = classLoader,
+                    source = "hotReload",
+                )
                 installIslandMotionSource(
                     classLoader = classLoader,
                     source = "hotReload",
@@ -323,6 +336,49 @@ class CombinedStatusModule : XposedModule() {
                 "restartScope" to true,
             )
             log(Log.ERROR, TAG, "Hot reload failed restartScope=true", error)
+        }
+    }
+
+    private fun installNativeParticipantControllerObserver(
+        classLoader: ClassLoader,
+        source: String,
+    ) {
+        when (
+            val result =
+                SystemUiNativeParticipantRuntimeOwner.installControllerObserver(
+                    module = this,
+                    classLoader = classLoader,
+                    onEvent = { event ->
+                        if (detailedDiagnosticsEnabled) {
+                            log(Log.INFO, TAG, event)
+                        }
+                    },
+                )
+        ) {
+            SystemUiNativeParticipantRuntimeOwner.InstallResult.Installed,
+            SystemUiNativeParticipantRuntimeOwner.InstallResult.AlreadyInstalled -> {
+                logDiagnostic(
+                    level = Log.INFO,
+                    event = "hook.install",
+                    component = "nativeParticipantControllerObserver",
+                    state = "ready",
+                    "source" to source,
+                    "hooks" to SystemUiNativeParticipantRuntimeOwner.installedHookCount,
+                    "nativeGeometryWrites" to 0,
+                )
+            }
+
+            is SystemUiNativeParticipantRuntimeOwner.InstallResult.Failure -> {
+                logDiagnostic(
+                    level = Log.WARN,
+                    event = "hook.install",
+                    component = "nativeParticipantControllerObserver",
+                    state = "unavailable",
+                    "source" to source,
+                    "reason" to result.reason,
+                    "nativeGeometryWrites" to 0,
+                )
+            }
         }
     }
 
