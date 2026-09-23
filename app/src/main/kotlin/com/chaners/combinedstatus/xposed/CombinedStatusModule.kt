@@ -1094,6 +1094,8 @@ class CombinedStatusModule : XposedModule() {
                     bindableParticipant.viewOnlySlots.joinToString("|"),
                 "runtimeViews" to
                     bindableParticipant.runtimeBindableViews.joinToString("|"),
+                "slotOrder" to
+                    bindableParticipant.runtimeSlotOrder.joinToString("|"),
                 "groupClipChildren" to bindableParticipant.groupClipChildren,
                 "groupClipToPadding" to bindableParticipant.groupClipToPadding,
                 "groupHeight" to bindableParticipant.groupHeight,
