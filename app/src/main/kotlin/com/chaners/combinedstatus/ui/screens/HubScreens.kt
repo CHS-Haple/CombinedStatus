@@ -1,6 +1,7 @@
 package com.chaners.combinedstatus.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -23,6 +24,9 @@ import androidx.compose.ui.unit.dp
 import com.chaners.combinedstatus.R
 import com.chaners.combinedstatus.settings.AppLanguage
 import com.chaners.combinedstatus.system.SystemUiScopeController
+import com.chaners.combinedstatus.ui.components.MiuixBlurredTopBar
+import com.chaners.combinedstatus.ui.components.rememberTopBarBackdrop
+import com.chaners.combinedstatus.ui.components.topBarBackdropSource
 import com.chaners.combinedstatus.ui.layout.pageContentPadding
 import com.chaners.combinedstatus.ui.navigation.AppRoute
 import kotlinx.coroutines.launch
@@ -192,56 +196,71 @@ private fun HubPage(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val scrollBehavior = MiuixScrollBehavior()
+    val topBarBackdrop = rememberTopBarBackdrop()
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = title,
+            MiuixBlurredTopBar(
+                backdrop = topBarBackdrop,
                 scrollBehavior = scrollBehavior,
-            )
-        },
-    ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .nestedScroll(scrollBehavior.nestedScrollConnection),
-            contentPadding = pageContentPadding(
-                innerPadding = paddingValues,
-                outerBottomPadding = bottomContentPadding,
-                extraBottom = 12.dp,
-            ),
-        ) {
-            item {
-                SmallTitle(sectionTitle)
-                Card(
-                    modifier = Modifier
-                        .padding(horizontal = 12.dp)
-                        .padding(bottom = 12.dp),
-                    content = content,
+            ) { barColor ->
+                TopAppBar(
+                    title = title,
+                    color = barColor,
+                    scrollBehavior = scrollBehavior,
                 )
             }
-
-            if (secondarySectionTitle != null && secondaryContent != null) {
+        },
+    ) { paddingValues ->
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .topBarBackdropSource(topBarBackdrop),
+        ) {
+            LazyColumn(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .nestedScroll(scrollBehavior.nestedScrollConnection),
+                contentPadding = pageContentPadding(
+                    innerPadding = paddingValues,
+                    outerBottomPadding = bottomContentPadding,
+                    extraBottom = 12.dp,
+                ),
+            ) {
                 item {
-                    SmallTitle(secondarySectionTitle)
+                    SmallTitle(sectionTitle)
                     Card(
                         modifier = Modifier
                             .padding(horizontal = 12.dp)
                             .padding(bottom = 12.dp),
-                        content = secondaryContent,
+                        content = content,
                     )
                 }
-            }
 
-            if (tertiarySectionTitle != null && tertiaryContent != null) {
-                item {
-                    SmallTitle(tertiarySectionTitle)
-                    Card(
-                        modifier = Modifier
-                            .padding(horizontal = 12.dp)
-                            .padding(bottom = 12.dp),
-                        content = tertiaryContent,
-                    )
+                if (secondarySectionTitle != null && secondaryContent != null) {
+                    item {
+                        SmallTitle(secondarySectionTitle)
+                        Card(
+                            modifier = Modifier
+                                .padding(horizontal = 12.dp)
+                                .padding(bottom = 12.dp),
+                            content = secondaryContent,
+                        )
+                    }
+                }
+
+                if (tertiarySectionTitle != null && tertiaryContent != null) {
+                    item {
+                        SmallTitle(tertiarySectionTitle)
+                        Card(
+                            modifier = Modifier
+                                .padding(horizontal = 12.dp)
+                                .padding(bottom = 12.dp),
+                            content = tertiaryContent,
+                        )
+                    }
                 }
             }
         }
