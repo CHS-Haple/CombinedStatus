@@ -687,34 +687,29 @@ Do not commit local SDK paths, signing material, generated APK/AAB files, or env
 
 ### 12.7 CI and device validation
 
-CI is a gate, not a replacement for runtime testing.
+CI verifies a source state; real-device testing verifies runtime behavior. Neither replaces the other.
 
-The checked-in Gradle Wrapper is the canonical Gradle entry point for contributors and CI. Workflows SHOULD use `./gradlew` rather than depending on an independently selected runner Gradle version.
+Use CI by purpose:
 
-For APK-affecting work, verify as applicable:
+- **Pull-request CI** runs secret-independent checks for tests, buildability, compatibility, metadata, and other safe validation.
+- **Trusted pushes to `dev` or `main`** may additionally build and verify project-signed Debug/Canary artifacts.
+- **Release CI** is reserved for deliberate test or stable publication, not ordinary development builds.
+- CI and local builds MUST use the checked-in Gradle Wrapper.
 
-- pinned compatibility profile;
-- Debug build;
-- Release build;
-- Modern Xposed metadata;
-- signing;
-- Debug/Release diagnostics boundary;
-- artifact generation.
+For APK-affecting work, verify the checks relevant to the change, including compatibility profiles, tests, required build variants, Modern Xposed metadata, signing where applicable, diagnostics boundaries, and artifact generation.
 
-For runtime-sensitive work, provide focused real-device scenarios based on the affected owner/lifecycle. These may include:
+A failed CI run MUST be understood before it is retried:
 
-- normal status bar;
-- charging/non-charging;
-- lock screen;
-- AOD;
-- Control Center open/close;
-- island transitions;
-- SystemUI restart;
-- hot reload;
-- configuration changes;
-- coexistence with other status-bar modules.
+- fix deterministic code, configuration, dependency, metadata, or signing failures and validate the resulting commit with a new run;
+- rerun the same commit only when there is reasonable evidence of a transient runner, network, package-hosting, or upstream-service failure;
+- if the cause is unclear, inspect the logs or reproduce the failure before retrying;
+- repeated reruns MUST NOT be used to obtain a green result from an unresolved deterministic failure.
 
-Do not claim runtime correctness from CI alone.
+A green CI result means only that the checks performed by that workflow passed. It does not prove SystemUI runtime correctness, lifecycle correctness, UI behavior, or device compatibility.
+
+Before merging, required checks for the target branch MUST pass. Runtime-sensitive changes MUST also complete focused real-device validation for the affected lifecycle and scenes. Work still awaiting required device validation MUST remain marked as such and MUST NOT be promoted to `main`.
+
+Create a new CI build when the source, configuration, diagnostics, or validation target has meaningfully changed. Do not create commits or builds solely to obtain another CI/run number.
 
 ### 12.8 Upstream dependency adoption
 
