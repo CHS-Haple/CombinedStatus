@@ -1,6 +1,5 @@
 package com.chaners.combinedstatus.xposed
 
-import java.lang.reflect.Field
 import java.lang.reflect.Method
 
 internal object NativeBindableParticipantContractProbe {
@@ -102,10 +101,12 @@ internal object NativeBindableParticipantContractProbe {
 
         val statusBarIconList =
             readField(handles.controller, "mStatusBarIconList")
-        val viewOnlySlots =
-            (statusBarIconList?.let {
+        val viewOnlySlotsCollection =
+            statusBarIconList?.let {
                 readField(it, "mViewOnlySlots")
-            } as? Collection<*>)
+            } as? Collection<*>
+        val viewOnlySlots =
+            viewOnlySlotsCollection
                 ?.take(MAX_RUNTIME_ENTRIES)
                 ?.mapNotNull { value -> value?.toString() }
                 ?.sorted()
@@ -133,7 +134,7 @@ internal object NativeBindableParticipantContractProbe {
             managerBindableMapReady = managerBindableMap != null,
             managerBindableCount = managerBindableMap?.size ?: -1,
             managerBindableEntries = managerEntries,
-            viewOnlySlotsReady = statusBarIconList != null,
+            viewOnlySlotsReady = viewOnlySlotsCollection != null,
             viewOnlySlots = viewOnlySlots,
             staticContractReady = staticContractReady,
             dynamicRegistrationProven = false,
