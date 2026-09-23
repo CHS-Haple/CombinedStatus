@@ -1097,6 +1097,8 @@ class CombinedStatusModule : XposedModule() {
                         "layoutHidden" to shadow.layoutHidden,
                         "childrenBefore" to shadow.childrenBefore,
                         "childrenAfter" to shadow.childrenAfter,
+                        "preExistingSlot" to shadow.preExistingSlot,
+                        "preAttachCleanupVerified" to shadow.preAttachCleanupVerified,
                         "bootstrapRes" to
                             "0x" +
                                 shadow.bootstrapResourceId
