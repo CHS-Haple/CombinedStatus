@@ -1,10 +1,6 @@
 package com.chaners.combinedstatus.xposed
 
-import android.content.Context
-import android.graphics.Canvas
 import android.graphics.Rect
-import android.os.Looper
-import android.os.SystemClock
 import android.view.View
 import android.view.ViewGroup
 import java.lang.ref.WeakReference
@@ -108,7 +104,7 @@ internal object CombinedStatusHomeRenderSession {
         private val batteryContainer = WeakReference(batteryContainer)
         private val batteryView = WeakReference(batteryView)
         private val probeView =
-            ProbeView(host.context) { latencyMs, committedOnMainThread, sample ->
+            CombinedStatusRenderView(host.context) { latencyMs, committedOnMainThread, sample ->
                 previousVisual?.let { oldView ->
                     this.host.get()?.overlay?.remove(oldView)
                     previousVisual = null
@@ -352,7 +348,7 @@ internal object CombinedStatusHomeRenderSession {
                         "bounds=" + anchorRect.left + "," + anchorRect.top + "-" +
                         anchorRect.right + "," + anchorRect.bottom +
                         " size=" + anchorRect.width() + "x" + anchorRect.height() +
-                        " opacity=" + PROBE_OPACITY +
+                        " opacity=" + RENDER_OPACITY +
                         " ancestorVisibilityIndependent=true " +
                         "originalsHidden=false nativeGeometryWrites=0"
                 }
@@ -409,124 +405,6 @@ internal object CombinedStatusHomeRenderSession {
         }
     }
 
-    private class ProbeView(
-        context: Context,
-        private val onStateRendered: (
-            latencyMs: Long,
-            committedOnMainThread: Boolean,
-            sample: RuntimeRenderLatencySample?,
-        ) -> Unit,
-    ) : View(context) {
-        private val painter = CombinedStatusPainter()
-
-        @Volatile
-        private var model: CombinedStatusRenderModel? = null
-
-        @Volatile
-        private var tintState: CombinedStatusTintState? = null
-
-        init {
-            isClickable = false
-            isFocusable = false
-            importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
-            setWillNotDraw(false)
-        }
-
-        @Volatile
-        private var pendingStateUptimeMs: Long = 0
-
-        @Volatile
-        private var pendingStateCommittedOnMainThread: Boolean = false
-
-        @Volatile
-        private var pendingTrace: RuntimeRenderTrace? = null
-
-        @Volatile
-        private var pendingModelCommittedNanos: Long = 0L
-
-        fun setModel(
-            model: CombinedStatusRenderModel?,
-            trace: RuntimeRenderTrace? = null,
-        ) {
-            if (this.model == model) {
-                return
-            }
-            this.model = model
-            pendingStateUptimeMs = SystemClock.uptimeMillis()
-            pendingStateCommittedOnMainThread =
-                Looper.myLooper() === Looper.getMainLooper()
-            pendingTrace = trace
-            pendingModelCommittedNanos =
-                if (trace == null) {
-                    0L
-                } else {
-                    SystemClock.elapsedRealtimeNanos()
-                }
-            requestRedraw()
-        }
-
-        fun setTintState(state: CombinedStatusTintState) {
-            if (tintState == state) {
-                return
-            }
-            tintState = state
-            requestRedraw()
-        }
-
-        fun clearPendingLatency() {
-            pendingStateUptimeMs = 0L
-            pendingTrace = null
-            pendingModelCommittedNanos = 0L
-        }
-
-        private fun requestRedraw() {
-            if (Looper.myLooper() === Looper.getMainLooper()) {
-                invalidate()
-            } else {
-                postInvalidateOnAnimation()
-            }
-        }
-
-        override fun onDraw(canvas: Canvas) {
-            super.onDraw(canvas)
-            val current = model ?: return
-            val tint = tintState ?: return
-            painter.draw(
-                canvas = canvas,
-                width = width,
-                height = height,
-                model = current,
-                colors = CombinedStatusColorPolicy.resolve(current, tint),
-                opacity = PROBE_OPACITY,
-            )
-
-            val committedAt = pendingStateUptimeMs
-            if (committedAt != 0L) {
-                pendingStateUptimeMs = 0L
-                val trace = pendingTrace
-                val modelCommittedNanos = pendingModelCommittedNanos
-                pendingTrace = null
-                pendingModelCommittedNanos = 0L
-                val sample =
-                    if (trace != null && modelCommittedNanos != 0L) {
-                        RuntimeRenderLatencySample.from(
-                            trace = trace,
-                            modelCommittedNanos = modelCommittedNanos,
-                            drawNanos = SystemClock.elapsedRealtimeNanos(),
-                            committedOnMainThread = pendingStateCommittedOnMainThread,
-                        )
-                    } else {
-                        null
-                    }
-                onStateRendered(
-                    (SystemClock.uptimeMillis() - committedAt).coerceAtLeast(0L),
-                    pendingStateCommittedOnMainThread,
-                    sample,
-                )
-            }
-        }
-    }
-
     internal sealed interface AttachResult {
         data object Ready : AttachResult
 
@@ -535,5 +413,5 @@ internal object CombinedStatusHomeRenderSession {
         ) : AttachResult
     }
 
-    private const val PROBE_OPACITY = 1f
+    private const val RENDER_OPACITY = 1f
 }
