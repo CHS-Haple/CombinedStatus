@@ -1,0 +1,248 @@
+package com.chaners.combinedstatus.xposed
+
+import java.lang.reflect.Field
+import java.lang.reflect.Method
+
+internal object NativeBindableParticipantContractProbe {
+    private const val BINDABLE_ICON =
+        "com.android.systemui.statusbar.pipeline.icons.shared.model.BindableIcon"
+    private const val MODERN_VIEW_CREATOR =
+        "com.android.systemui.statusbar.pipeline.icons.shared.model.ModernStatusBarViewCreator"
+    private const val BINDABLE_REGISTRY =
+        "com.android.systemui.statusbar.pipeline.icons.shared.BindableIconsRegistryImpl"
+    private const val BINDABLE_HOLDER =
+        "com.android.systemui.statusbar.phone.StatusBarIconHolder\$BindableIconHolder"
+    private const val MODERN_STATUS_BAR_VIEW =
+        "com.android.systemui.statusbar.pipeline.shared.ui.view.ModernStatusBarView"
+    private const val SINGLE_BINDABLE_VIEW =
+        "com.android.systemui.statusbar.pipeline.shared.ui.view.SingleBindableStatusBarIconView"
+    private const val MAX_RUNTIME_ENTRIES = 16
+
+    fun inspect(host: Any): Snapshot {
+        val resolution = NativeParticipantRuntimeAccess.resolve(host)
+        val handles =
+            when (resolution) {
+                is NativeParticipantRuntimeAccess.ResolveResult.Ready ->
+                    resolution.handles
+
+                is NativeParticipantRuntimeAccess.ResolveResult.Failure ->
+                    return Snapshot.unavailable(resolution.reason)
+            }
+
+        val classLoader = handles.classLoader
+        val bindableIconClass = classOrNull(BINDABLE_ICON, classLoader)
+        val creatorClass = classOrNull(MODERN_VIEW_CREATOR, classLoader)
+        val registryClass = classOrNull(BINDABLE_REGISTRY, classLoader)
+        val holderClass = classOrNull(BINDABLE_HOLDER, classLoader)
+        val modernViewClass = classOrNull(MODERN_STATUS_BAR_VIEW, classLoader)
+        val singleBindableViewClass = classOrNull(SINGLE_BINDABLE_VIEW, classLoader)
+
+        val bindableInterfaceReady =
+            bindableIconClass != null &&
+                bindableIconClass.hasMethod(
+                    name = "getSlot",
+                    parameterTypes = emptyList(),
+                    returnType = String::class.java.name,
+                ) &&
+                bindableIconClass.hasMethod(
+                    name = "getShouldBindIcon",
+                    parameterTypes = emptyList(),
+                    returnType = "boolean",
+                ) &&
+                bindableIconClass.hasMethod(
+                    name = "getInitializer",
+                    parameterTypes = emptyList(),
+                    returnType = MODERN_VIEW_CREATOR,
+                )
+
+        val creatorReady =
+            creatorClass?.hasMethod(
+                name = "createAndBind",
+                parameterTypes = listOf("android.content.Context"),
+                returnType = MODERN_STATUS_BAR_VIEW,
+            ) == true
+
+        val registryConstructors =
+            registryClass
+                ?.declaredConstructors
+                ?.map { constructor ->
+                    constructor.parameterTypes.joinToString(
+                        prefix = "(",
+                        postfix = ")",
+                    ) { type -> type.name }
+                }
+                ?.sorted()
+                .orEmpty()
+
+        val holderConstructors =
+            holderClass
+                ?.declaredConstructors
+                ?.map { constructor ->
+                    constructor.parameterTypes.joinToString(
+                        prefix = "(",
+                        postfix = ")",
+                    ) { type -> type.name }
+                }
+                ?.sorted()
+                .orEmpty()
+
+        val managerBindableMap =
+            readField(handles.manager, "mBindableIcons") as? Map<*, *>
+        val managerEntries =
+            managerBindableMap
+                ?.entries
+                ?.take(MAX_RUNTIME_ENTRIES)
+                ?.map { entry ->
+                    val key = entry.key?.toString() ?: "null"
+                    val valueClass = entry.value?.javaClass?.name ?: "null"
+                    key + ":" + valueClass
+                }
+                ?.sorted()
+                .orEmpty()
+
+        val statusBarIconList =
+            readField(handles.controller, "mStatusBarIconList")
+        val viewOnlySlots =
+            (statusBarIconList?.let {
+                readField(it, "mViewOnlySlots")
+            } as? Collection<*>)
+                ?.take(MAX_RUNTIME_ENTRIES)
+                ?.mapNotNull { value -> value?.toString() }
+                ?.sorted()
+                .orEmpty()
+
+        val staticContractReady =
+            bindableInterfaceReady &&
+                creatorReady &&
+                modernViewClass != null &&
+                singleBindableViewClass != null &&
+                holderClass != null &&
+                registryClass != null
+
+        return Snapshot(
+            available = true,
+            reason = null,
+            bindableInterfaceReady = bindableInterfaceReady,
+            creatorReady = creatorReady,
+            registryClass = registryClass?.name,
+            registryConstructors = registryConstructors,
+            holderClass = holderClass?.name,
+            holderConstructors = holderConstructors,
+            modernViewClass = modernViewClass?.name,
+            singleBindableViewClass = singleBindableViewClass?.name,
+            managerBindableMapReady = managerBindableMap != null,
+            managerBindableCount = managerBindableMap?.size ?: -1,
+            managerBindableEntries = managerEntries,
+            viewOnlySlotsReady = statusBarIconList != null,
+            viewOnlySlots = viewOnlySlots,
+            staticContractReady = staticContractReady,
+            dynamicRegistrationProven = false,
+        )
+    }
+
+    private fun classOrNull(
+        name: String,
+        classLoader: ClassLoader,
+    ): Class<*>? =
+        runCatching {
+            Class.forName(name, false, classLoader)
+        }.getOrNull()
+
+    private fun readField(
+        target: Any,
+        name: String,
+    ): Any? {
+        val field =
+            generateSequence(target.javaClass) { clazz -> clazz.superclass }
+                .mapNotNull { clazz ->
+                    clazz.declaredFields
+                        .firstOrNull { candidate -> candidate.name == name }
+                }
+                .firstOrNull()
+                ?: return null
+
+        return runCatching {
+            field.isAccessible = true
+            field.get(target)
+        }.getOrNull()
+    }
+
+    private fun Class<*>.hasMethod(
+        name: String,
+        parameterTypes: List<String>,
+        returnType: String,
+    ): Boolean =
+        allMethods().any { method ->
+            method.name == name &&
+                method.parameterTypes.map { type -> type.name } == parameterTypes &&
+                method.returnType.name == returnType
+        }
+
+    private fun Class<*>.allMethods(): Sequence<Method> =
+        generateSequence(this) { clazz -> clazz.superclass }
+            .flatMap { clazz -> clazz.declaredMethods.asSequence() }
+
+    internal data class Snapshot(
+        val available: Boolean,
+        val reason: String?,
+        val bindableInterfaceReady: Boolean,
+        val creatorReady: Boolean,
+        val registryClass: String?,
+        val registryConstructors: List<String>,
+        val holderClass: String?,
+        val holderConstructors: List<String>,
+        val modernViewClass: String?,
+        val singleBindableViewClass: String?,
+        val managerBindableMapReady: Boolean,
+        val managerBindableCount: Int,
+        val managerBindableEntries: List<String>,
+        val viewOnlySlotsReady: Boolean,
+        val viewOnlySlots: List<String>,
+        val staticContractReady: Boolean,
+        val dynamicRegistrationProven: Boolean,
+    ) {
+        val logLine: String
+            get() =
+                "nativeBindableContract available=" + available +
+                    " reason=" + (reason ?: "none") +
+                    " interfaceReady=" + bindableInterfaceReady +
+                    " creatorReady=" + creatorReady +
+                    " registry=" + (registryClass ?: "none") +
+                    " registryConstructors=" + registryConstructors.joinToString("|") +
+                    " holder=" + (holderClass ?: "none") +
+                    " holderConstructors=" + holderConstructors.joinToString("|") +
+                    " modernView=" + (modernViewClass ?: "none") +
+                    " singleView=" + (singleBindableViewClass ?: "none") +
+                    " managerMapReady=" + managerBindableMapReady +
+                    " managerMapCount=" + managerBindableCount +
+                    " managerEntries=" + managerBindableEntries.joinToString("|") +
+                    " viewOnlySlotsReady=" + viewOnlySlotsReady +
+                    " viewOnlySlots=" + viewOnlySlots.joinToString("|") +
+                    " staticContractReady=" + staticContractReady +
+                    " dynamicRegistrationProven=" + dynamicRegistrationProven +
+                    " geometryWrites=0"
+
+        companion object {
+            fun unavailable(reason: String): Snapshot =
+                Snapshot(
+                    available = false,
+                    reason = reason,
+                    bindableInterfaceReady = false,
+                    creatorReady = false,
+                    registryClass = null,
+                    registryConstructors = emptyList(),
+                    holderClass = null,
+                    holderConstructors = emptyList(),
+                    modernViewClass = null,
+                    singleBindableViewClass = null,
+                    managerBindableMapReady = false,
+                    managerBindableCount = -1,
+                    managerBindableEntries = emptyList(),
+                    viewOnlySlotsReady = false,
+                    viewOnlySlots = emptyList(),
+                    staticContractReady = false,
+                    dynamicRegistrationProven = false,
+                )
+        }
+    }
+}
