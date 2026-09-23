@@ -518,15 +518,41 @@ Public-facing documentation SHOULD describe the project's current behavior, comp
 
 ## 12. Branching, versioning, CI, and release discipline
 
-### 12.1 Branches
+### 12.1 Branches and promotion path
 
-- `main`: stable, installable, validated baseline.
-- `dev`: ongoing module integration and the normal pull-request target.
-- `feat/*`: larger isolated experiments that will return to `dev` after validation.
+The normal development path is:
 
-External and routine contributions SHOULD target `dev`. `main` is reserved for validated promotions and exceptional maintenance work.
+`feat/* -> dev -> main`
 
-Do not promote SystemUI work to `main` until the bounded change is complete, required CI is green, relevant diagnostics show no unresolved blocker, and required real-device validation has passed.
+Each branch has a distinct responsibility:
+
+- `feat/*`: short-lived development branch for one bounded feature, defect, behavior change, or engineering task. It is created from `dev` and returns to `dev` through a pull request after the change is ready for integration.
+- `dev`: integration and validation branch. It combines completed bounded changes and is used to detect cross-feature conflicts, verify post-merge CI, and perform any required integrated real-device validation before promotion.
+- `main`: stable, installable, validated baseline. Normal development reaches `main` only through controlled promotion from `dev`.
+
+A change that affects real application or SystemUI behavior — including UI, lifecycle, state ownership, listeners, hooks, settings, compatibility, runtime behavior, or build behavior — MUST begin in a dedicated `feat/*` branch and target `dev`.
+
+Keep feature branches bounded. Unrelated functional changes MUST NOT be combined in one branch or pull request merely for convenience.
+
+Feature branches have an explicit lifecycle:
+
+1. create the `feat/*` branch from the current `dev` baseline for one bounded task;
+2. develop and validate the bounded change on that branch;
+3. open or update the pull request targeting `dev`;
+4. merge into `dev` only after the branch-level review and required checks are satisfied;
+5. after the merge is confirmed in `dev` and no rollback/debugging need requires keeping the branch temporarily, delete the merged `feat/*` branch.
+
+A merged feature branch MUST NOT be reused for later work. Follow-up work starts from the latest `dev` state in a new bounded `feat/*` branch.
+
+If a feature branch is abandoned, superseded, or its approach is rejected, close any associated pull request and delete the branch once its remaining diagnostic value is no longer needed. Do not leave stale `feat/*` branches as permanent pseudo-environments.
+
+Opening a pull request does not replace normal commits. A `feat/*` branch MAY continue receiving atomic commits while its pull request is open; the pull request is the review, CI, and integration gate for that branch.
+
+A change MAY be committed directly to `dev` only when it is genuinely small and non-behavioral, such as a documentation typo, wording correction, metadata cleanup, or equivalent mechanical maintenance. This exception MUST NOT be used to bypass applicable CI, review, or validation.
+
+External contributions SHOULD normally use a bounded branch and target `dev`. Normal feature work MUST NOT target `main` directly. `main` is reserved for validated promotions from `dev` and exceptional maintenance work whose scope and reason are explicit.
+
+Promotion from `dev` to `main` is appropriate only when the integrated state is suitable to become the new stable baseline: the intended bounded changes are complete, required CI is green, relevant diagnostics show no unresolved blocker, and required real-device validation has passed. A feature branch MUST NOT bypass `dev` and be promoted directly to `main` as the normal workflow.
 
 Pull-request CI MUST remain safe for untrusted forks:
 
