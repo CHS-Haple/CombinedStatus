@@ -354,14 +354,23 @@ class CombinedStatusModule : XposedModule() {
                             host = capture.host,
                             transferredHolder = restored.nativeHolder,
                         )
-                    val nativeReady =
+                    val nativeAccepted =
                         nativeRebind !is
                             SystemUiNativeCombinedParticipantOwner.HotReloadRebindResult.Failure
+                    val nativeState =
+                        when (nativeRebind) {
+                            SystemUiNativeCombinedParticipantOwner.HotReloadRebindResult.Ready ->
+                                "ready"
+                            SystemUiNativeCombinedParticipantOwner.HotReloadRebindResult.NotTransferred ->
+                                "fallback"
+                            is SystemUiNativeCombinedParticipantOwner.HotReloadRebindResult.Failure ->
+                                "fallback"
+                        }
                     logDiagnostic(
-                        level = if (nativeReady) Log.INFO else Log.WARN,
+                        level = if (nativeAccepted) Log.INFO else Log.WARN,
                         event = "hotReload.rebind",
                         component = "nativeCombinedParticipant",
-                        state = if (nativeReady) "ready" else "fallback",
+                        state = nativeState,
                         "result" to nativeRebind.javaClass.simpleName,
                         "reason" to
                             (
@@ -378,17 +387,17 @@ class CombinedStatusModule : XposedModule() {
                         previousVisual = restored.visual,
                     )
                     logDiagnostic(
-                        level = if (nativeReady) Log.INFO else Log.WARN,
+                        level = if (nativeAccepted) Log.INFO else Log.WARN,
                         event = "hotReload.restore",
                         component = "hotReload",
-                        state = if (nativeReady) "ready" else "partial",
+                        state = if (nativeAccepted) "ready" else "partial",
                         "hostIdentity" to capture.identity,
                         "wifiRoots" to bindings.wifiRoots,
                         "mobileRoots" to bindings.mobileRoots,
                         "state" to restoredSnapshot.logLine,
                         "nativeRebind" to nativeRebind.javaClass.simpleName,
                     )
-                    nativeReady
+                    nativeAccepted
                 } else {
                     CombinedStatusStateStore.restoreHotReloadState(null)
                     logDiagnostic(
