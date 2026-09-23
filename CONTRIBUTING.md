@@ -707,7 +707,7 @@ Formal stable releases MUST satisfy all of the following:
 - the release notes describe that version's net changes rather than copying development history;
 - README release-status wording is updated when the first stable release or another user-visible release state changes;
 - the stable tag does not already exist;
-- the Release workflow rebuilds and verifies the signed APK from the selected `main` commit.
+- the Release workflow builds and verifies the signed APK from the selected `main` commit.
 
 The Release workflow MUST fail closed when the branch or changelog release boundary is not ready.
 
