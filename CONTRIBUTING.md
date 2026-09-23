@@ -520,39 +520,143 @@ Public-facing documentation SHOULD describe the project's current behavior, comp
 
 ### 12.1 Branches and promotion path
 
-The normal development path is:
+The normal product-development path is:
 
-`feat/* -> dev -> main`
+`bounded work branch -> dev -> validated promotion -> main`
 
-Each branch has a distinct responsibility:
+Branch roles are intentionally different:
 
-- `feat/*`: short-lived development branch for one bounded feature, defect, behavior change, or engineering task. It is created from `dev` and returns to `dev` through a pull request after the change is ready for integration.
-- `dev`: integration and validation branch. It combines completed bounded changes and is used to detect cross-feature conflicts, verify post-merge CI, and perform any required integrated real-device validation before promotion.
-- `main`: stable, installable, validated baseline. Normal development reaches `main` only through controlled promotion from `dev`.
+- `feat/*`: short-lived branch for one bounded new capability, intentional behavior change, architecture/ownership migration, or engineering-governance change.
+- `fix/*`: short-lived branch for one bounded defect or regression correction.
+- `dev`: integration branch. It combines completed bounded changes, detects cross-change conflicts, produces trusted integration builds, and carries changes that are still completing explicitly declared integrated device validation.
+- `promote/*`: short-lived promotion branch created from one exact validated `dev` commit. It targets `main` and MUST NOT contain new feature, fix, cleanup, dependency, or governance work.
+- `hotfix/*`: exceptional short-lived branch created from `main` only when the current stable baseline needs an urgent isolated correction that should not wait for the normal `dev` promotion cycle.
+- `main`: stable, installable, validated baseline.
 
-A change that affects real application or SystemUI behavior — including UI, lifecycle, state ownership, listeners, hooks, settings, compatibility, runtime behavior, or build behavior — MUST begin in a dedicated `feat/*` branch and target `dev`.
+Normal feature and defect work MUST target `dev`; it MUST NOT bypass `dev` and target `main` directly.
 
-Keep feature branches bounded. Unrelated functional changes MUST NOT be combined in one branch or pull request merely for convenience.
+#### 12.1.1 Change boundary and branch choice
 
-Feature branches have an explicit lifecycle:
+A behavior-affecting change MUST use a bounded `feat/*` or `fix/*` branch. This includes application or SystemUI behavior, UI interaction, lifecycle, state ownership, listeners, hooks, settings semantics, compatibility behavior, dependencies, runtime/build behavior, CI/release behavior, and contributor rules that change mandatory engineering behavior.
 
-1. create the `feat/*` branch from the current `dev` baseline for one bounded task;
-2. develop and validate the bounded change on that branch;
-3. open or update the pull request targeting `dev`;
-4. merge into `dev` only after the branch-level review and required checks are satisfied;
-5. after the merge is confirmed in `dev` and no rollback/debugging need requires keeping the branch temporarily, delete the merged `feat/*` branch.
+Use `feat/*` when introducing or deliberately changing a capability, architecture, ownership model, workflow, or engineering rule. Use `fix/*` when correcting behavior that is already defined or intended.
 
-A merged feature branch MUST NOT be reused for later work. Follow-up work starts from the latest `dev` state in a new bounded `feat/*` branch.
+A single branch SHOULD represent one independently reviewable and reversible change boundary. Split work when two changes:
 
-If a feature branch is abandoned, superseded, or its approach is rejected, close any associated pull request and delete the branch once its remaining diagnostic value is no longer needed. Do not leave stale `feat/*` branches as permanent pseudo-environments.
+- have different runtime or engineering owners;
+- can be tested independently;
+- can be reverted independently without making the other invalid; or
+- solve different root causes.
 
-Opening a pull request does not replace normal commits. A `feat/*` branch MAY continue receiving atomic commits while its pull request is open; the pull request is the review, CI, and integration gate for that branch.
+Keep supporting work in the same branch when it is required for that bounded change to be correct, such as lifecycle cleanup required by a newly introduced owned resource.
 
-A change MAY be committed directly to `dev` only when it is genuinely small and non-behavioral, such as a documentation typo, wording correction, metadata cleanup, or equivalent mechanical maintenance. This exception MUST NOT be used to bypass applicable CI, review, or validation.
+Unrelated cleanup, visual polish, migration, and feature work MUST NOT be bundled merely because they touch nearby files.
 
-External contributions SHOULD normally use a bounded branch and target `dev`. Normal feature work MUST NOT target `main` directly. `main` is reserved for validated promotions from `dev` and exceptional maintenance work whose scope and reason are explicit.
+#### 12.1.2 Work-branch lifecycle
 
-Promotion from `dev` to `main` is appropriate only when the integrated state is suitable to become the new stable baseline: the intended bounded changes are complete, required CI is green, relevant diagnostics show no unresolved blocker, and required real-device validation has passed. A feature branch MUST NOT bypass `dev` and be promoted directly to `main` as the normal workflow.
+Every `feat/*` and `fix/*` branch is temporary:
+
+1. create it from the current `dev` baseline;
+2. implement and review only the declared boundary;
+3. open or update a pull request targeting `dev`;
+4. satisfy the branch-level merge gate;
+5. merge into `dev`;
+6. confirm the merged state and delete the branch when no explicit short-term rollback or diagnostic need remains.
+
+Opening a pull request does not replace normal commits. A work branch MAY continue receiving atomic commits while its pull request is open.
+
+A merged work branch MUST NOT be reused. Follow-up work starts from the latest appropriate `dev` state in a new bounded branch.
+
+If a branch is abandoned, superseded, or its approach is rejected, close its pull request and delete the branch once its remaining diagnostic value is exhausted. Stale work branches MUST NOT become permanent pseudo-environments.
+
+#### 12.1.3 Gate from work branch to dev
+
+A `feat/*` or `fix/*` branch may merge into `dev` only when:
+
+- its declared change boundary is complete;
+- required review findings are resolved;
+- required PR/local CI checks pass;
+- no known deterministic blocker remains inside the declared boundary;
+- diagnostics and fallback/rollback boundaries are adequate for the risk;
+- required branch-level validation has either passed or is explicitly recorded as `awaiting device validation`.
+
+Runtime-sensitive work MAY enter `dev` as `awaiting device validation` only when integrated validation reasonably depends on a trusted `dev` build, interaction with other merged work, or another integration-only condition. The pull request MUST list the required device scenarios and why validation remains pending.
+
+`awaiting device validation` is not a waiver. It is an explicit integration state and blocks promotion of the affected state to `main`.
+
+A known reproducible runtime defect, crash, ownership conflict, invalid fallback, or failed required device scenario MUST NOT be merged merely to obtain another build unless the branch is an explicitly isolated diagnostic experiment that cannot alter the stable promotion path.
+
+#### 12.1.4 Direct-to-dev exception
+
+Direct commits to `dev` are allowed only for genuinely mechanical changes that do not alter any of the following:
+
+- APK/runtime behavior;
+- UI or user-visible semantics;
+- build outputs or dependency resolution;
+- CI triggers, validation, signing, artifact, or release behavior;
+- compatibility behavior or target profiles;
+- normative contributor/engineering governance.
+
+Examples normally safe for direct `dev` maintenance include typo correction, formatting, dead-link repair, non-normative wording cleanup, and equivalent metadata/comment maintenance with no behavioral meaning.
+
+A Markdown/YAML/Gradle/text-only diff is NOT automatically non-behavioral. If it changes a rule, build, workflow, dependency, compatibility contract, or release behavior, it MUST use a bounded work branch.
+
+The direct-to-`dev` exception MUST NOT be used to avoid review, CI, or validation that would otherwise apply.
+
+#### 12.1.5 Device-validation completion
+
+Required real-device validation is complete only when the scenarios declared for the bounded change have been exercised against the source/build state being accepted and each required scenario has a recorded passing result.
+
+For runtime-sensitive changes, the validation record SHOULD identify the tested build or source revision sufficiently to determine what was actually tested.
+
+If a later change can affect the validated behavior, lifecycle, ownership, compatibility, or scene, the relevant device-validation result is no longer automatically transferable and the affected scenarios MUST be re-evaluated.
+
+Use `N/A` only when the change cannot reasonably affect runtime, user-visible behavior, integration behavior, or device compatibility. "Installed successfully" or "did not crash once" does not by itself complete a broader runtime test plan.
+
+#### 12.1.6 Promotion from dev to main
+
+Promotion is a stability decision, not ordinary development.
+
+Create `promote/*` from the exact `dev` commit selected as the candidate stable baseline. The promotion branch MUST contain no new functional or engineering change; any required fix returns to a bounded `feat/*` or `fix/*` branch and is integrated through `dev` first.
+
+A `dev` state may be promoted only when:
+
+- the intended integrated changes are complete;
+- required CI is green for the candidate state;
+- relevant diagnostics show no unresolved blocker;
+- all required real-device validation for that candidate state has passed;
+- no affected change remains `awaiting device validation`;
+- changelog/release metadata is consistent with the intended baseline where applicable.
+
+The promotion pull request MUST identify the exact candidate `dev` revision. Newer unrelated `dev` commits do not silently join an already validated promotion candidate.
+
+After a successful promotion, delete the `promote/*` branch.
+
+#### 12.1.7 Hotfix path
+
+A `hotfix/*` branch is reserved for an urgent defect in the current `main` baseline where waiting for the normal `dev` cycle would unnecessarily leave the stable baseline broken.
+
+A hotfix MUST:
+
+- branch from the affected `main` baseline;
+- contain the smallest correction needed;
+- avoid unrelated cleanup, feature work, dependency adoption, or architecture migration;
+- pass the validation appropriate to the defect before merging to `main`;
+- be propagated back to `dev` through a bounded reviewed change before the next normal promotion.
+
+If `dev` already contains an equivalent correction, verify and record that equivalence instead of duplicating the fix.
+
+A hotfix MUST NOT become a parallel long-lived development line.
+
+#### 12.1.8 Merge strategy
+
+Use merge strategy to preserve meaningful repository history:
+
+- `feat/* -> dev` and `fix/* -> dev`: **squash merge**. Internal branch commits may remain granular for development/review, while `dev` receives one semantic change unit.
+- `promote/* -> main`: **merge commit** so the stable-baseline promotion remains an explicit history boundary.
+- `hotfix/* -> main`: **squash merge** unless preserving a multi-commit hotfix is explicitly necessary and documented.
+
+Do not use a different merge method merely for convenience.
 
 Pull-request CI MUST remain safe for untrusted forks:
 
