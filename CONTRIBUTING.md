@@ -261,7 +261,7 @@ Use `hotfix/* -> main` only when the current `main` baseline has an urgent defec
 - `feat/*` — one bounded capability, intentional behavior change, architecture/ownership migration, dependency adoption, or engineering-governance change.
 - `fix/*` — one bounded correction for intended behavior that is already defined.
 - `dev` — integration branch for completed work and integrated validation.
-- `validation/dev` — state marker for the exact `dev` SHA whose required integrated device scenarios passed; it is not a development branch and must contain no unique commits.
+- `validation/dev` — state marker for the most recent `dev` runtime baseline whose required integrated device scenarios passed; it is not a development branch and must contain no unique commits.
 - `promote/*` — exact validated `dev` candidate for `main`; no new feature/fix/cleanup belongs here.
 - `hotfix/*` — urgent isolated correction created from `main`.
 - `main` — current stable, installable, accepted baseline.
@@ -313,19 +313,21 @@ Known reproducible crashes, ownership conflicts, invalid fallbacks, or failed re
 
 Promotion is a stability decision, not ordinary development.
 
-After all required integrated device scenarios pass for one exact `dev` commit and no known runtime blocker remains, `validation/dev` may move to that exact SHA.
+After all required integrated device scenarios pass for one `dev` runtime baseline and no known runtime blocker remains, `validation/dev` may move to that SHA.
 
-If `dev` advances, the marker becomes stale automatically. Never move the marker merely to satisfy a gate.
+A later `dev` commit does not automatically invalidate device validation. Readiness may carry the validation forward only when automation can prove that every change since `validation/dev` is outside APK/runtime-affecting paths. Any runtime/build/compatibility delta that can change the installed behavior makes the marker stale for promotion purposes and requires applicable re-validation.
 
-Promotion readiness is READY only when the exact candidate:
+Never move `validation/dev` merely to satisfy a gate.
+
+Promotion readiness is READY only when the candidate:
 
 - is ahead of `main`;
 - has a successful trusted `dev` Build;
-- exactly matches `validation/dev`;
+- is device-validated directly or inherits validation only across a proven non-runtime delta;
 - has the required changelog boundary;
 - has no unresolved blocker or affected `awaiting device validation` state.
 
-Create `promote/*` from that exact validated `dev` SHA. The promotion branch contains no new functional/engineering work. Any required fix returns through `feat/*` or `fix/*` and `dev` first.
+Create `promote/*` from the exact READY `dev` SHA. The promotion branch contains no new functional/engineering work. Any required fix returns through `feat/*` or `fix/*` and `dev` first.
 
 Use a merge commit for `promote/* -> main` so the stable-baseline boundary remains explicit.
 
