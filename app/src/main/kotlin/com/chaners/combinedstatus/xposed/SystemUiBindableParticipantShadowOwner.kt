@@ -644,9 +644,8 @@ internal object SystemUiBindableParticipantShadowOwner {
     }
 
     private fun listContainsSlot(candidate: Any?): Boolean =
-        (candidate as? Collection<*>)
-            ?.any { slot -> slot != null && readField(slot, "mName") == SLOT }
-            == true
+        ((candidate as? Collection<*>)
+            ?.any { slot -> slot != null && readField(slot, "mName") == SLOT }) == true
 
     private fun readField(
         target: Any,
