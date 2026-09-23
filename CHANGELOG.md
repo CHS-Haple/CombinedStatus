@@ -25,7 +25,7 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Changed
 
-- Top app bars now use MIUIX progressive backdrop blur while scrolling content beneath them on supported devices, with the standard solid surface retained as fallback.
+- Top-level app bars now use MIUIX progressive backdrop blur while scrolling content beneath them on supported devices; secondary pages keep the standard MIUIX SmallTopAppBar surface for clear content separation.
 - Companion-app transient feedback now uses MIUIX Snackbar, and icon-only SystemUI reload exposes a native MIUIX long-press tooltip without changing the action layout.
 - Top-level page navigation now uses MIUIX Cross-Axis pager gesture ownership so horizontal page switching remains available while vertical child content is settling, without adding a second app-owned gesture recognizer.
 - Companion-app MIUIX dependencies now track the validated published main-canary snapshot `0.9.4-2afdbb39-SNAPSHOT` from upstream revision `2afdbb39f1aac5747165cc354cafd4b918fa55a5`, with one shared dependency identity used across all MIUIX modules.
