@@ -121,80 +121,27 @@ class CombinedStatusModule : XposedModule() {
     }
 
     override fun onHotReloading(param: HotReloadingParam): Boolean {
-        if (!SystemUiHostRuntimeOwner.isReady) {
-            logDiagnostic(
-                level = Log.WARN,
-                event = "hotReload.prepare",
-                component = "hotReload",
-                state = "unavailable",
-                "reason" to "status-host-hook-not-ready",
-            )
-            log(Log.WARN, TAG, "Hot reload declined reason=status-host-hook-not-ready")
-            return false
-        }
-
-        val host = SystemUiHostRegistry.currentStatusHost()
-        val snapshot = CombinedStatusStateStore.snapshot()
-        val bindingCounts = SystemUiNetworkStateSource.hotReloadBindingCounts()
-        val bindingStateReady =
-            (snapshot.wifi is CombinedStatusStateStore.WifiState.Unknown || bindingCounts.first > 0) &&
-                (snapshot.mobile.isEmpty() || bindingCounts.second > 0)
-        if (host == null || !bindingStateReady) {
-            logDiagnostic(
-                level = Log.WARN,
-                event = "hotReload.prepare",
-                component = "hotReload",
-                state = "unavailable",
-                "reason" to if (host == null) "status-host-not-captured" else "network-bindings-not-ready",
-                "wifiRoots" to bindingCounts.first,
-                "mobileRoots" to bindingCounts.second,
-                "restartScope" to true,
-            )
-            log(
-                Log.WARN,
-                TAG,
-                "Hot reload declined reason=" +
-                    if (host == null) "status-host-not-captured" else "network-bindings-not-ready",
-            )
-            return false
-        }
-
-        val transfer =
-            CombinedStatusHotReloadTransfer.capture(
-                host = host,
-                state = CombinedStatusStateStore.exportHotReloadState(),
-                bindings = SystemUiNetworkStateSource.exportHotReloadBindings(),
+        val prepared =
+            SystemUiHotReloadRuntimeOwner.prepare(
+                param = param,
                 visual = CombinedStatusHomeRenderSession.visualHandoffView(),
             )
-        if (transfer == null) {
+        if (prepared is SystemUiHotReloadRuntimeOwner.PrepareResult.Unavailable) {
             logDiagnostic(
-                level = Log.ERROR,
+                level = Log.WARN,
                 event = "hotReload.prepare",
                 component = "hotReload",
-                state = "error",
-                "reason" to "state-transfer-capture-failed",
+                state = "unavailable",
+                "reason" to prepared.reason,
+                "wifiRoots" to prepared.wifiRoots,
+                "mobileRoots" to prepared.mobileRoots,
                 "restartScope" to true,
             )
+            log(Log.WARN, TAG, "Hot reload declined reason=" + prepared.reason)
             return false
         }
 
-        val saved = runCatching {
-            param.setSavedInstanceState(transfer)
-        }
-        if (saved.isFailure) {
-            val error = saved.exceptionOrNull()
-            logDiagnostic(
-                level = Log.ERROR,
-                event = "hotReload.prepare",
-                component = "hotReload",
-                state = "error",
-                "reason" to (error?.message ?: error?.javaClass?.simpleName ?: "saved-state-rejected"),
-                "restartScope" to true,
-            )
-            log(Log.ERROR, TAG, "Hot reload saved-state transfer rejected", error)
-            return false
-        }
-
+        prepared as SystemUiHotReloadRuntimeOwner.PrepareResult.Ready
         val hookCount =
             1 +
                 SystemUiNetworkRuntimeOwner.installedHookCount +
@@ -212,9 +159,9 @@ class CombinedStatusModule : XposedModule() {
             "hooks" to hookCount,
             "build" to BuildConfig.BUILD_ID,
             "transfer" to "saved-instance-state",
-            "hostIdentity" to System.identityHashCode(host),
-            "wifiRoots" to bindingCounts.first,
-            "mobileRoots" to bindingCounts.second,
+            "hostIdentity" to System.identityHashCode(prepared.host),
+            "wifiRoots" to prepared.wifiRoots,
+            "mobileRoots" to prepared.mobileRoots,
         )
         log(
             Log.INFO,
@@ -230,11 +177,13 @@ class CombinedStatusModule : XposedModule() {
 
     override fun onHotReloaded(param: HotReloadedParam) {
         rotateDiagnosticSession()
-        val oldHandles = param.oldHookHandles
-        val statusHostHandle = SystemUiHostRuntimeOwner.findOwnedHandle(oldHandles)
+        val takeover =
+            SystemUiHotReloadRuntimeOwner.takeOverHooks(
+                param = param,
+                onCaptured = ::onStatusHostCaptured,
+            )
 
-        if (statusHostHandle == null) {
-            oldHandles.forEach { handle -> runCatching { handle.unhook() } }
+        if (takeover == null) {
             bindRuntimeDiagnostics()
             logDiagnostic(
                 level = Log.ERROR,
@@ -253,18 +202,7 @@ class CombinedStatusModule : XposedModule() {
         }
 
         runCatching {
-            SystemUiHostRuntimeOwner.replace(
-                handle = statusHostHandle,
-                onCaptured = ::onStatusHostCaptured,
-            )
-
-            var removed = 0
-            oldHandles.forEach { handle ->
-                if (handle !== statusHostHandle) {
-                    handle.unhook()
-                    removed += 1
-                }
-            }
+            val removed = takeover.removedHooks
 
             SystemUiNetworkRuntimeOwner.resetRuntimeState()
             islandMotionSourceInstalled = false
@@ -296,8 +234,7 @@ class CombinedStatusModule : XposedModule() {
             )
             logCurrentDiagnosticsHealth()
 
-            val classLoader = statusHostHandle.executable.declaringClass.classLoader
-                ?: error("SystemUI class loader unavailable after hot reload")
+            val classLoader = takeover.classLoader
             installNetworkStateSource(
                 classLoader = classLoader,
                 source = "hotReload",
@@ -313,7 +250,7 @@ class CombinedStatusModule : XposedModule() {
                 )
             }
 
-            val restored = CombinedStatusHotReloadTransfer.restore(param.savedInstanceState)
+            val restored = SystemUiHotReloadRuntimeOwner.restoreTransfer(param)
             val restoreReady =
                 if (restored != null) {
                     val capture = SystemUiHostRegistry.restoreStatusHost(restored.host)
