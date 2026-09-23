@@ -4,6 +4,12 @@ import android.graphics.drawable.Drawable
 import io.github.libxposed.api.XposedModule
 
 internal object SystemUiPresentationRuntimeOwner {
+    private var current: AttachResult? = null
+
+    val installedHookCount: Int
+        @Synchronized get() =
+            current?.let { it.tintHooks + it.sceneHooks + it.mobileTypeHooks } ?: 0
+
     internal data class AttachResult(
         val tintHooks: Int,
         val sceneHooks: Int,
@@ -52,11 +58,12 @@ internal object SystemUiPresentationRuntimeOwner {
             tintHooks = tintHooks,
             sceneHooks = sceneHooks,
             mobileTypeHooks = mobileTypeHooks,
-        )
+        ).also { current = it }
     }
 
     @Synchronized
     fun resetRuntimeState() {
+        current = null
         SystemUiTintStateSource.resetRuntimeState()
         SystemUiSceneStateSource.resetRuntimeState()
     }
