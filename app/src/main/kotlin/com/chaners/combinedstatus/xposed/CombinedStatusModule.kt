@@ -360,32 +360,32 @@ class CombinedStatusModule : XposedModule() {
                     },
                     onSlotOrderResult = { slotOrder ->
                         when (slotOrder) {
-                            is SystemUiNativeSlotOrderRuntimeOwner.ReorderResult.Ready -> {
+                            is NativeStatusBarSlotPredeclaration.Result.Ready -> {
                                 logDiagnostic(
                                     level = Log.INFO,
-                                    event = "slot.order",
+                                    event = "slot.predeclare",
                                     component = "nativeSlotOrder",
                                     state = "ready",
                                     "source" to source,
-                                    "mode" to "controller-post-init",
+                                    "mode" to "controller-pre-init",
+                                    "created" to slotOrder.created,
                                     "fromIndex" to slotOrder.fromIndex,
                                     "toIndex" to slotOrder.toIndex,
                                     "slotCount" to slotOrder.slotCount,
-                                    "iconGroups" to slotOrder.iconGroups,
                                     "viewOnlySynced" to slotOrder.viewOnlySynced,
                                     "visible" to false,
                                     "nativeGeometryWrites" to 0,
                                 )
                             }
 
-                            is SystemUiNativeSlotOrderRuntimeOwner.ReorderResult.Failure -> {
+                            is NativeStatusBarSlotPredeclaration.Result.Failure -> {
                                 logDiagnostic(
                                     level = Log.WARN,
-                                    event = "slot.order",
+                                    event = "slot.predeclare",
                                     component = "nativeSlotOrder",
                                     state = "unavailable",
                                     "source" to source,
-                                    "mode" to "controller-post-init",
+                                    "mode" to "controller-pre-init",
                                     "reason" to slotOrder.reason,
                                     "visible" to false,
                                     "nativeGeometryWrites" to 0,

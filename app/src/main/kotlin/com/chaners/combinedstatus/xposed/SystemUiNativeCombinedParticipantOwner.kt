@@ -62,7 +62,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
         module: XposedModule,
         classLoader: ClassLoader,
         onEvent: ((String) -> Unit)? = null,
-        onSlotOrderResult: ((SystemUiNativeSlotOrderRuntimeOwner.ReorderResult) -> Unit)? = null,
+        onSlotOrderResult: ((NativeStatusBarSlotPredeclaration.Result) -> Unit)? = null,
     ): InstallResult {
         if (constructorHook != null) return InstallResult.AlreadyInstalled
         eventSink = onEvent
@@ -102,6 +102,13 @@ internal object SystemUiNativeCombinedParticipantOwner {
             controllerClass.declaredConstructors
                 .firstOrNull { it.parameterTypes.lastOrNull() == registryClass }
                 ?: return InstallResult.Failure("controller-registry-constructor-missing")
+        val iconListParameterIndex =
+            constructor.parameterTypes.indexOfFirst { type ->
+                type.name == NativeStatusBarSlotPredeclaration.STATUS_BAR_ICON_LIST
+            }
+        if (iconListParameterIndex < 0) {
+            return InstallResult.Failure("controller-icon-list-parameter-missing")
+        }
         val registryField =
             registryClass.declaredFields
                 .firstOrNull { it.name == "bindableIcons" }
@@ -137,9 +144,11 @@ internal object SystemUiNativeCombinedParticipantOwner {
                         Hooker { chain ->
                             val registry =
                                 chain.getArg(constructor.parameterCount - 1)
+                            val iconList = chain.getArg(iconListParameterIndex)
                             val context = chain.getArg(0) as? Context
                             if (
                                 registry == null ||
+                                iconList == null ||
                                 context == null ||
                                 !registryClass.isInstance(registry)
                             ) {
@@ -214,6 +223,28 @@ internal object SystemUiNativeCombinedParticipantOwner {
                                     )
                                     return@Hooker chain.proceed()
                                 }
+                            val slotReservation =
+                                when (
+                                    val result =
+                                        NativeStatusBarSlotPredeclaration.reserveTail(
+                                            iconList = iconList,
+                                            slot = SLOT,
+                                        )
+                                ) {
+                                    is NativeStatusBarSlotPredeclaration.ReservationResult.Ready -> {
+                                        onSlotOrderResult?.invoke(result.result)
+                                        onEvent?.invoke(result.result.logLine)
+                                        result.reservation
+                                    }
+
+                                    is NativeStatusBarSlotPredeclaration.ReservationResult.Failure -> {
+                                        onSlotOrderResult?.invoke(result.result)
+                                        onEvent?.invoke(result.result.logLine)
+                                        recordFailure("slot-predeclare-" + result.result.reason)
+                                        return@Hooker chain.proceed()
+                                    }
+                                }
+
                             val extended =
                                 ArrayList<Any?>(original.size + 1).apply {
                                     addAll(original)
@@ -226,23 +257,19 @@ internal object SystemUiNativeCombinedParticipantOwner {
                                     registryField.get(registry) === extended
                                 }.getOrDefault(false)
                             if (!replaced) {
+                                slotReservation.rollback()
                                 recordFailure("registry-replacement-failed")
                                 return@Hooker chain.proceed()
                             }
 
                             injected = true
                             failureReason = null
+                            var controllerCreated = false
                             try {
                                 val result = chain.proceed()
+                                controllerCreated = true
                                 chain.thisObject?.let { controller ->
                                     controllerRef = WeakReference(controller)
-                                    val slotOrder =
-                                        SystemUiNativeSlotOrderRuntimeOwner.moveSlotToTail(
-                                            controller = controller,
-                                            slot = SLOT,
-                                        )
-                                    onSlotOrderResult?.invoke(slotOrder)
-                                    onEvent?.invoke(slotOrder.logLine)
                                 }
                                 onEvent?.invoke(
                                     "nativeCombinedParticipant injected slot=" + SLOT +
@@ -257,12 +284,16 @@ internal object SystemUiNativeCombinedParticipantOwner {
                                         registryField.set(registry, original)
                                         registryField.get(registry) === original
                                     }.getOrDefault(false)
+                                if (!controllerCreated) {
+                                    slotReservation.rollback()
+                                }
                                 if (!registryRestored) {
                                     failureReason = "registry-restore-failed"
                                 }
                                 onEvent?.invoke(
                                     "nativeCombinedParticipant constructorComplete slot=" + SLOT +
                                         " registryRestored=" + registryRestored +
+                                        " slotReserved=" + controllerCreated +
                                         " nativeGeometryWrites=0",
                                 )
                             }
