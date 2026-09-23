@@ -64,103 +64,74 @@ A newer mechanism is not automatically a better one. Adoption still MUST satisfy
 
 ### 3.1 Evaluate before editing
 
-Before changing code or behavior, verify that the problem or requirement is sufficiently understood and that the proposed change addresses the likely cause rather than only the symptom.
+Before changing code or behavior, confirm the problem or requirement, the available evidence, and the likely cause.
 
-Consider:
+Prefer the simplest safe solution that:
 
-- whether the change is necessary now;
-- whether a simpler, more native, or lower-risk solution exists;
-- whether lifecycle and ownership remain explicit;
-- whether runtime cost is justified;
-- whether the change creates duplicated state, special cases, or compatibility debt;
-- whether the available evidence is sufficient.
+- addresses the cause rather than only the symptom;
+- respects lifecycle and ownership;
+- uses native or maintained APIs where practical;
+- avoids duplicate state, special cases, and unnecessary runtime cost;
+- does not create avoidable compatibility debt.
 
-Do not implement speculative behavior merely because it is easy to patch.
+Do not patch speculative behavior merely because it is easy to change.
 
 ### 3.2 Investigate in root-cause order
 
-When a defect, regression, incompatibility, or unexpected behavior is reported or observed, contributors MUST investigate solution options in this order before choosing an implementation:
+For defects, regressions, incompatibilities, or unexpected behavior, investigate in this order:
 
-1. **Identify the root cause.** Determine which owner, state source, lifecycle transition, API contract, layout rule, or integration point actually produces the behavior. A patch that only hides the visible symptom is not evidence that the cause is understood.
-2. **Ask whether the root cause can be removed or corrected directly.** Prefer fixing the responsible source, ownership boundary, lifecycle, or contract violation when that can be done safely and within scope.
-3. **Check existing rules and authoritative documentation.** Before inventing a mechanism, review the project's own engineering rules and architecture constraints, the documented contract of the libraries and APIs actually used by the project, and relevant official Android, HyperOS, Modern Xposed, MIUIX, or other upstream documentation and maintainer guidance.
-4. **Review established practice for the same class of problem.** If the authoritative sources do not fully determine the solution, examine common, well-understood implementation patterns for equivalent lifecycle, UI, compatibility, performance, or integration problems. Use them to compare solution families and trade-offs rather than copying an implementation mechanically.
-5. **Use a workaround or patch only as the last resort.** A workaround is acceptable only when the root cause cannot currently be corrected safely, the authoritative guidance does not provide a viable path, and the chosen workaround is narrower and lower-risk than the alternatives.
+1. **Find the root cause.** Identify the owner, state source, lifecycle transition, API contract, layout rule, or integration point that produces the behavior.
+2. **Fix the source when practical.** Prefer correcting the responsible lifecycle, ownership boundary, state source, or contract violation when it can be done safely.
+3. **Check existing rules and authoritative guidance.** Review this project's rules and architecture, the documented contracts of libraries and APIs actually in use, and relevant official Android, HyperOS, Modern Xposed, MIUIX, or other upstream documentation and maintainer guidance.
+4. **Compare established practice.** If authoritative sources do not determine the solution, review well-understood patterns for the same class of lifecycle, UI, compatibility, performance, or integration problem and compare their trade-offs.
+5. **Patch last.** Use a workaround only when the root cause cannot currently be corrected safely and no better authoritative or established solution is viable.
 
-A workaround or compatibility patch MUST state why a root-cause fix is not currently viable, what exact condition activates it, its rollback or removal condition, and the validation needed to ensure that it does not become permanent accidental architecture.
+A workaround MUST be narrow, conditionally activated, and removable. Record why a direct fix is not currently viable, when the workaround applies, when it can be removed, and how it is validated.
 
 ### 3.3 Define the change boundary proportionally
 
-Every change MUST have a clear boundary, but the amount of planning should match its risk.
+Every change MUST have a clear boundary; planning depth should match risk.
 
-For documentation-only, metadata-only, or mechanical changes, it is normally sufficient to identify the affected files and applicable validation.
+For documentation-only, metadata-only, or mechanical changes, identifying the affected files and applicable validation is normally sufficient.
 
-For runtime-sensitive, architectural, compatibility, build/release, or user-visible behavior changes, the plan SHOULD identify:
+For runtime-sensitive, architectural, compatibility, build/release, or user-visible behavior changes, identify as applicable:
 
-- the verified runtime owner and relevant call chain where applicable;
-- the subsystem/layer expected to change;
-- the subsystem/layer explicitly expected not to change;
-- lifecycle and state dependencies;
-- compatibility assumptions;
+- the relevant owner/call chain and affected layer;
+- what is intentionally left unchanged;
+- lifecycle, state, and compatibility assumptions;
 - build-channel impact;
-- diagnostics required to validate uncertain runtime behavior;
-- rollback or fallback boundary;
-- CI checks;
-- real-device scenarios required after implementation.
+- diagnostics and rollback/fallback boundary;
+- CI and real-device validation.
 
 Use the smallest change that can solve the verified problem.
 
 ### 3.4 Validate assumptions
 
-Before implementation, confirm that:
+Before implementation, confirm that critical steps do not depend on unverified assumptions, unrelated cleanup is excluded, diagnostics are bounded, rollback/fallback is defined, and runtime-sensitive claims have a real-device validation path.
 
-- no critical step depends on an unverified assumption;
-- the order respects dependency and lifecycle boundaries;
-- unrelated cleanup is not mixed into the change;
-- diagnostics are bounded and event-driven;
-- rollback or fallback leaves the last validated baseline intact;
-- runtime-sensitive claims have a real-device verification path.
+### 3.5 Stay inside the boundary
 
-### 3.5 Stay inside the confirmed boundary
+Implementation MUST NOT silently expand into unrelated cleanup, speculative fixes, or additional feature work.
 
-Implementation MUST NOT silently broaden into unrelated cleanup, speculative fixes, or additional feature work.
+Read-only investigation such as code inspection, logs, CI status, APK/source analysis, and runtime evidence review may proceed without redefining the mutation boundary.
 
-Read-only investigation such as code inspection, logs, CI status, APK/source analysis, and runtime evidence review may proceed without a new mutation plan.
+### 3.6 Stop when evidence changes the problem
 
-### 3.6 Stop when evidence invalidates the plan
+If new evidence invalidates the assumed owner, call chain, scope, or platform behavior, stop at that boundary. Record the new evidence, identify what remains untouched, and revise the plan before continuing.
 
-If implementation reveals that the real owner, call chain, required scope, or platform behavior differs materially from the confirmed plan, stop at that boundary rather than layering another workaround over an invalid assumption.
+Do not stack another workaround on top of an invalid assumption.
 
-Record the invalidated assumption and new evidence, identify what remains untouched, and revise the bounded plan before resuming mutation.
+### 3.7 Reassess after meaningful diagnostics
 
-### 3.7 Reassess the solution space after meaningful diagnostics
-
-Logs, recordings, crash traces, geometry snapshots, and other diagnostics are not only used to decide whether the current patch worked.
-
-After meaningful new evidence, contributors MUST reconsider:
-
-- native/platform mechanisms;
-- a fix within the current architecture;
-- an alternative integration point;
-- compatibility or fallback handling;
-- a bounded workaround;
-- a justified redesign.
+New logs, recordings, crash traces, geometry snapshots, or other evidence MUST reopen the solution choice. Re-run the root-cause order in §3.2 instead of merely tuning the current implementation.
 
 Previous engineering effort is not evidence that the current path remains correct.
-
-Choose the best solution supported by current evidence, not the next patch on the existing path.
 
 ### 3.8 Preserve diagnostic isolation
 
 When several hypotheses remain plausible, prefer single-variable A/B builds.
 
-Multiple independently understood fixes MAY share one test build only when each retains:
-
-- an explicit owner and affected layer;
-- independent diagnostics where needed;
-- separate acceptance criteria;
-- a result that remains interpretable if another fix fails;
-- an independent rollback path.
+Several fixes MAY share one test build only when their owners, diagnostics, acceptance criteria, and rollback paths remain independently interpretable.
 
 A test build MUST NOT recreate the question: "which change caused this result?"
 
