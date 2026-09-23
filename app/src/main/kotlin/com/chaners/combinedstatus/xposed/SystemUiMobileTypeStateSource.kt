@@ -1,5 +1,6 @@
 package com.chaners.combinedstatus.xposed
 
+import android.graphics.drawable.Drawable
 import io.github.libxposed.api.XposedInterface.HookHandle
 import io.github.libxposed.api.XposedInterface.Hooker
 import io.github.libxposed.api.XposedModule
@@ -13,7 +14,7 @@ internal object SystemUiMobileTypeStateSource {
     fun install(
         module: XposedModule,
         classLoader: ClassLoader,
-        onChanged: () -> Unit,
+        onChanged: (Drawable) -> Unit,
     ): List<HookHandle> {
         val clazz = Class.forName(CLASS_NAME, false, classLoader)
         val method =
@@ -26,9 +27,8 @@ internal object SystemUiMobileTypeStateSource {
                 .setId(HOOK_ID)
                 .intercept(
                     Hooker { chain ->
-                        val result = chain.proceed()
-                        onChanged()
-                        result
+                        (chain.thisObject as? Drawable)?.let(onChanged)
+                        chain.proceed()
                     },
                 )
         return listOf(handle)

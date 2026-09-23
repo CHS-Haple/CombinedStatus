@@ -84,6 +84,45 @@ class NativePresentationResolverTest {
     }
 
     @Test
+    fun preMeasureDoublePlusMatchesNativeNormalization() {
+        val networkType =
+            NativePresentationResolver.normalizeDrawableNetworkType(
+                rawLabel = "5G++",
+                enhanced = false,
+                beforeMeasure = true,
+            )
+
+        assertEquals("5G", networkType?.label)
+        assertEquals(true, networkType?.enhanced)
+    }
+
+    @Test
+    fun preMeasureRegularTypeDoesNotReuseStaleDoublePlusFlag() {
+        val networkType =
+            NativePresentationResolver.normalizeDrawableNetworkType(
+                rawLabel = "4G",
+                enhanced = true,
+                beforeMeasure = true,
+            )
+
+        assertEquals("4G", networkType?.label)
+        assertEquals(false, networkType?.enhanced)
+    }
+
+    @Test
+    fun postMeasureKeepsNativeDoublePlusFlag() {
+        val networkType =
+            NativePresentationResolver.normalizeDrawableNetworkType(
+                rawLabel = "5G",
+                enhanced = true,
+                beforeMeasure = false,
+            )
+
+        assertEquals("5G", networkType?.label)
+        assertEquals(true, networkType?.enhanced)
+    }
+
+    @Test
     fun oneActiveSubscriptionDoesNotPretendToBeAggregatedDual() {
         assertEquals(
             NativePresentationResolver.Mode.SINGLE,

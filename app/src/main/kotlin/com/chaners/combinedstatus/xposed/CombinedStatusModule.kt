@@ -1,6 +1,7 @@
 package com.chaners.combinedstatus.xposed
 
 import android.content.SharedPreferences
+import android.graphics.drawable.Drawable
 import android.os.Process
 import android.os.SystemClock
 import android.util.Log
@@ -827,8 +828,11 @@ class CombinedStatusModule : XposedModule() {
             SystemUiMobileTypeStateSource.install(
                 module = this,
                 classLoader = classLoader,
-                onChanged = {
-                    refreshMobilePresentation(beginRenderTrace("mobileType"))
+                onChanged = { drawable ->
+                    refreshMobilePresentation(
+                        trace = beginRenderTrace("mobileType"),
+                        pendingMobileTypeDrawable = drawable,
+                    )
                 },
             )
         }.onSuccess { handles ->
@@ -858,10 +862,14 @@ class CombinedStatusModule : XposedModule() {
         }
     }
 
-    private fun refreshMobilePresentation(trace: RuntimeRenderTrace? = null) {
+    private fun refreshMobilePresentation(
+        trace: RuntimeRenderTrace? = null,
+        pendingMobileTypeDrawable: Drawable? = null,
+    ) {
         val presentation =
             NativePresentationResolver.resolve(
                 state = CombinedStatusStateStore.snapshot(),
+                pendingMobileTypeDrawable = pendingMobileTypeDrawable,
             )
         val changed =
             CombinedStatusPresentationStateStore.updateMobilePresentation(presentation)
