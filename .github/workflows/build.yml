@@ -300,6 +300,8 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TRIGGER_REF: ${{ github.ref }}
+          CURRENT_BUILD_RESULT: ${{ needs.build.result }}
         run: |
           git fetch origin main --no-tags
           git fetch origin validation/dev --no-tags || true
@@ -310,17 +312,23 @@ jobs:
           AHEAD_BY="$(git rev-list --count origin/main..HEAD)"
 
           CI_OK=false
-          SUCCESSFUL_DEV_RUN="$(
-            gh api -X GET "repos/$GITHUB_REPOSITORY/actions/workflows/build.yml/runs" \
-              -f branch=dev \
-              -f event=push \
-              -f status=success \
-              -f per_page=20 \
-              --jq ".workflow_runs[] | select(.head_sha == \"$DEV_SHA\") | .id" |
-              head -n 1
-          )"
-          if [[ -n "$SUCCESSFUL_DEV_RUN" ]]; then
-            CI_OK=true
+          if [[ "$TRIGGER_REF" == "refs/heads/dev" ]]; then
+            if [[ "$CURRENT_BUILD_RESULT" == "success" ]]; then
+              CI_OK=true
+            fi
+          else
+            SUCCESSFUL_DEV_RUN="$(
+              gh api -X GET "repos/$GITHUB_REPOSITORY/actions/workflows/build.yml/runs" \
+                -f branch=dev \
+                -f event=push \
+                -f status=success \
+                -f per_page=20 \
+                --jq ".workflow_runs[] | select(.head_sha == \"$DEV_SHA\") | .id" |
+                head -n 1
+            )"
+            if [[ -n "$SUCCESSFUL_DEV_RUN" ]]; then
+              CI_OK=true
+            fi
           fi
 
           DEVICE_OK=false
