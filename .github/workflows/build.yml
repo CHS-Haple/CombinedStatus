@@ -459,7 +459,22 @@ jobs:
 
             for path in "${VALIDATION_DELTA[@]}"; do
               case "$path" in
-                app/*|compat/*|gradle/*|tools/*|build.gradle.kts|settings.gradle.kts|gradle.properties|gradlew|gradlew.bat)
+                gradle.properties)
+                  NON_ROUTINE_PROPERTIES="$(
+                    git diff --unified=0 "$VALIDATED_SHA" "$DEV_SHA" -- gradle.properties |
+                      awk '/^[+-][^+-]/ {
+                        line = substr($0, 2)
+                        if (line !~ /^combinedStatus\.(versionCode|buildId)=/) {
+                          print line
+                        }
+                      }'
+                  )"
+                  if [[ -n "$NON_ROUTINE_PROPERTIES" ]]; then
+                    DEVICE_IMPACT=true
+                    break
+                  fi
+                  ;;
+                app/*|compat/*|gradle/*|tools/*|build.gradle.kts|settings.gradle.kts|gradlew|gradlew.bat)
                   DEVICE_IMPACT=true
                   break
                   ;;
