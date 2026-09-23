@@ -16,6 +16,12 @@ When an exception to a MUST-level architectural rule is genuinely required, the 
 
 Package identity is always `com.chaners.combinedstatus`.
 
+### 1.1 Contribution licensing
+
+CombinedStatus is licensed under the [Apache License 2.0](LICENSE). Unless explicitly stated otherwise, any contribution intentionally submitted for inclusion in CombinedStatus is provided under the same license, without additional terms or conditions.
+
+Contributors MUST only submit material they have the right to license to the project. Third-party code, assets, or derived material MUST retain any attribution, notice, and license obligations required by their upstream source.
+
 ## 2. Project principles
 
 Every change MUST preserve three project qualities.
