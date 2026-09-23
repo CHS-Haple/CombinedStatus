@@ -128,6 +128,9 @@ internal object NativeBindableParticipantContractProbe {
                             "index=" + index +
                                 ",class=" + child.javaClass.name +
                                 ",slot=" + (slotOf(child) ?: "unknown") +
+                                ",bounds=" +
+                                child.left + "," + child.top + "-" +
+                                child.right + "," + child.bottom +
                                 ",size=" + child.width + "x" + child.height +
                                 ",measured=" +
                                 child.measuredWidth + "x" + child.measuredHeight +
@@ -142,6 +145,10 @@ internal object NativeBindableParticipantContractProbe {
                     }
                 }
             }
+
+        val dynamicRegistrationObserved =
+            managerEntries.any { entry -> entry.startsWith("combined_status_") } ||
+                viewOnlySlots.any { slot -> slot.contains("combined_status_") }
 
         val staticContractReady =
             bindableInterfaceReady &&
@@ -168,8 +175,11 @@ internal object NativeBindableParticipantContractProbe {
             viewOnlySlotsReady = viewOnlySlotsCollection != null,
             viewOnlySlots = viewOnlySlots,
             runtimeBindableViews = runtimeBindableViews,
+            groupClipChildren = handles.group.clipChildren,
+            groupClipToPadding = handles.group.clipToPadding,
+            groupHeight = handles.group.height,
             staticContractReady = staticContractReady,
-            dynamicRegistrationProven = false,
+            dynamicRegistrationObserved = dynamicRegistrationObserved,
         )
     }
 
@@ -257,8 +267,11 @@ internal object NativeBindableParticipantContractProbe {
         val viewOnlySlotsReady: Boolean,
         val viewOnlySlots: List<String>,
         val runtimeBindableViews: List<String>,
+        val groupClipChildren: Boolean,
+        val groupClipToPadding: Boolean,
+        val groupHeight: Int,
         val staticContractReady: Boolean,
-        val dynamicRegistrationProven: Boolean,
+        val dynamicRegistrationObserved: Boolean,
     ) {
         val logLine: String
             get() =
@@ -278,8 +291,11 @@ internal object NativeBindableParticipantContractProbe {
                     " viewOnlySlotsReady=" + viewOnlySlotsReady +
                     " viewOnlySlots=" + viewOnlySlots.joinToString("|") +
                     " runtimeViews=" + runtimeBindableViews.joinToString("|") +
+                    " groupClipChildren=" + groupClipChildren +
+                    " groupClipToPadding=" + groupClipToPadding +
+                    " groupHeight=" + groupHeight +
                     " staticContractReady=" + staticContractReady +
-                    " dynamicRegistrationProven=" + dynamicRegistrationProven +
+                    " dynamicRegistrationObserved=" + dynamicRegistrationObserved +
                     " geometryWrites=0"
 
         companion object {
@@ -301,8 +317,11 @@ internal object NativeBindableParticipantContractProbe {
                     viewOnlySlotsReady = false,
                     viewOnlySlots = emptyList(),
                     runtimeBindableViews = emptyList(),
+                    groupClipChildren = true,
+                    groupClipToPadding = true,
+                    groupHeight = -1,
                     staticContractReady = false,
-                    dynamicRegistrationProven = false,
+                    dynamicRegistrationObserved = false,
                 )
         }
     }
