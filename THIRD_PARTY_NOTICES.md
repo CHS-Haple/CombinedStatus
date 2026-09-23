@@ -46,4 +46,4 @@ Before a formal public release, maintainers should verify the resolved dependenc
 
 ## Project license
 
-The license for CombinedStatus itself is intentionally documented separately from third-party dependency licenses. Third-party licenses do not determine the project's own license.
+CombinedStatus itself is licensed under the [Apache License 2.0](LICENSE). Third-party components remain governed by their respective upstream licenses and notice requirements.
