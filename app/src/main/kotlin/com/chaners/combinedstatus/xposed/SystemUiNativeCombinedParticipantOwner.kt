@@ -43,6 +43,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
     private var renderViewRef: WeakReference<CombinedStatusRenderView>? = null
     private var renderController: CombinedStatusRenderController? = null
     private var controllerRef: WeakReference<Any>? = null
+    private var handlesRef: WeakReference<NativeParticipantRuntimeAccess.Handles>? = null
     private var registryRestored = false
     private var injected = false
     private var failureReason: String? = null
@@ -265,30 +266,43 @@ internal object SystemUiNativeCombinedParticipantOwner {
             if (existing != null && existing.parent === root) {
                 existing
             } else {
-                root.removeAllViews()
-                CombinedStatusRenderView(root.context).also { child ->
-                    root.addView(
-                        child,
-                        FrameLayout.LayoutParams(
-                            battery.width,
-                            battery.height,
-                            Gravity.CENTER,
-                        ),
-                    )
-                    renderViewRef = WeakReference(child)
-                    renderController = CombinedStatusRenderController(child)
-                }
+                val attached =
+                    (0 until root.childCount)
+                        .asSequence()
+                        .map { index -> root.getChildAt(index) }
+                        .filterIsInstance<CombinedStatusRenderView>()
+                        .firstOrNull()
+                attached
+                    ?: CombinedStatusRenderView(root.context).also { child ->
+                        root.addView(
+                            child,
+                            FrameLayout.LayoutParams(
+                                battery.width,
+                                battery.height,
+                                Gravity.CENTER,
+                            ),
+                        )
+                    }
             }
+        renderViewRef = WeakReference(render)
+        renderController =
+            renderController ?: CombinedStatusRenderController(render)
 
         render.measure(
             View.MeasureSpec.makeMeasureSpec(battery.width, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(battery.height, View.MeasureSpec.EXACTLY),
         )
+        val shellHeight =
+            root.layoutParams
+                ?.height
+                ?.takeIf { height -> height > 0 }
+                ?: battery.height
+        val renderTop = (shellHeight - battery.height) / 2
         render.layout(
             0,
-            -(battery.height - 75) / 2,
+            renderTop,
             battery.width,
-            -(battery.height - 75) / 2 + battery.height,
+            renderTop + battery.height,
         )
         renderController?.update(CombinedStatusStateStore.snapshot())
         SystemUiTintStateSource.currentState(battery)?.let {
@@ -296,6 +310,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
         }
 
         rootRef = WeakReference(root)
+        handlesRef = WeakReference(handles)
 
         return AttachResult.Ready(
             registryRestored = registryRestored,
@@ -337,23 +352,20 @@ internal object SystemUiNativeCombinedParticipantOwner {
 
     @Synchronized
     fun detach(): DetachResult {
-        val controller = controllerRef?.get()
-            ?: return reset(DetachResult.NotAttached)
+        val handles =
+            handlesRef?.get()
+                ?: return reset(DetachResult.NotAttached)
         val removal =
-            NativeParticipantRuntimeAccess.removal(controller.javaClass)
+            NativeParticipantRuntimeAccess.removal(handles.controller.javaClass)
                 ?: return reset(DetachResult.Failure("removal-contract-missing"))
 
         val result =
             runCatching {
-                val handles =
-                    rootRef?.get()?.let { root ->
-                        val manager = root.parent as? ViewGroup
-                        if (manager == null) null else null
-                    }
+                renderViewRef?.get()?.let { render ->
+                    (render.parent as? ViewGroup)?.removeView(render)
+                }
                 NativeParticipantRuntimeAccess.invokeRemoval(
-                    handles =
-                        NativeParticipantRuntimeAccess.resolveControllerHandles(controller)
-                            ?: error("controller-handles-unavailable"),
+                    handles = handles,
                     removal = removal,
                     slot = SLOT,
                 )
@@ -378,6 +390,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
         renderViewRef = null
         renderController = null
         controllerRef = null
+        handlesRef = null
         injected = false
         registryRestored = false
         failureReason = null
