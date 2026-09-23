@@ -60,6 +60,7 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Engineering
 
+- Dependabot version updates now target `dev`; minor/patch updates are grouped per ecosystem to reduce PR noise, major updates remain individually reviewable, and generated dependency PRs are not auto-merged by default.
 - Contribution governance now uses risk-based routing: deterministic mechanical maintenance may be mirrored directly across `main`/`dev`, normal work reuses bounded active `feat/*`/`fix/*` branches instead of creating one branch per sub-task, CI/device validation is checkpoint-based, validated runtime baselines may carry across proven non-runtime deltas, hotfixes return to `dev`, and merged short-lived branches are cleaned up automatically.
 - Upstream dependency adoption now uses relevance classes, explicit maturity levels, exact-revision CI/artifact gates, isolated Canary validation, and short-lived feature branches before promotion to `dev`.
 - Project source and contributions are licensed under Apache License 2.0, with third-party components retaining their upstream license obligations.
