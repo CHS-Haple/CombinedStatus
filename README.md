@@ -3,6 +3,7 @@
 [![Build](https://github.com/CHS-Haple/CombinedStatus/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/CHS-Haple/CombinedStatus/actions/workflows/build.yml)
 ![Android 13+](https://img.shields.io/badge/Android-13%2B-3DDC84?logo=android&logoColor=white)
 ![Modern Xposed API 102](https://img.shields.io/badge/Modern%20Xposed%20API-102-3F51B5)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 ![Status: pre-release](https://img.shields.io/badge/status-pre--release-orange)
 
 [English](#english) | [简体中文](#简体中文)
@@ -67,6 +68,7 @@ CombinedStatus is still pre-release software.
 - [SECURITY.md](SECURITY.md) — private security-reporting policy.
 - [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) — direct third-party dependencies and license notices.
 - [docs/architecture](docs/architecture) — architecture notes for developers and contributors.
+- [LICENSE](LICENSE) — Apache License 2.0.
 
 ---
 
@@ -128,6 +130,7 @@ CombinedStatus 目前仍处于预发布阶段。
 - [SECURITY.md](SECURITY.md) — 安全问题私密报告规则。
 - [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) — 直接第三方依赖与许可证说明。
 - [docs/architecture](docs/architecture) — 面向开发者与贡献者的架构说明。
+- [LICENSE](LICENSE) — Apache License 2.0。
 
 ---
 

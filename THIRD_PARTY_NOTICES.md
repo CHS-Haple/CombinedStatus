@@ -13,7 +13,7 @@ The exact resolved dependency graph is defined by Gradle and may include additio
 | AndroidX Activity Compose | 1.13.0 | Android/Compose activity integration | Apache License 2.0 |
 | AndroidX Navigation Event Compose | 1.1.2 | Predictive/navigation event integration | Apache License 2.0 |
 | AndroidX DataStore Preferences | 1.2.1 | Local application preferences | Apache License 2.0 |
-| MIUIX UI / Preference / Icons / Nav / Blur | 0.9.4 | Xiaomi HyperOS-style companion-app UI | Apache License 2.0 |
+| MIUIX UI / Preference / Icons / Nav / Blur | 0.9.4-2afdbb39-SNAPSHOT (`2afdbb39f1aac5747165cc354cafd4b918fa55a5`) | Xiaomi HyperOS-style companion-app UI; published main-canary snapshot | Apache License 2.0 |
 | kotlinx.serialization core | 1.11.0 | Kotlin serialization support | Apache License 2.0 |
 
 ## Test dependencies
@@ -46,4 +46,4 @@ Before a formal public release, maintainers should verify the resolved dependenc
 
 ## Project license
 
-The license for CombinedStatus itself is intentionally documented separately from third-party dependency licenses. Third-party licenses do not determine the project's own license.
+CombinedStatus itself is licensed under the [Apache License 2.0](LICENSE). Third-party components remain governed by their respective upstream licenses and notice requirements.
