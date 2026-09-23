@@ -109,6 +109,10 @@ internal object CombinedStatusHomeRenderSession {
         private val batteryView = WeakReference(batteryView)
         private val probeView =
             ProbeView(host.context) { latencyMs, committedOnMainThread, sample ->
+                previousVisual?.let { oldView ->
+                    this.host.get()?.overlay?.remove(oldView)
+                    previousVisual = null
+                }
                 if (sample != null && onLatencySample != null) {
                     onLatencySample.invoke(sample)
                 } else {
@@ -514,10 +518,6 @@ internal object CombinedStatusHomeRenderSession {
                     } else {
                         null
                     }
-                previousVisual?.let { oldView ->
-                    host.get()?.overlay?.remove(oldView)
-                    previousVisual = null
-                }
                 onStateRendered(
                     (SystemClock.uptimeMillis() - committedAt).coerceAtLeast(0L),
                     pendingStateCommittedOnMainThread,
