@@ -225,28 +225,33 @@ Choose the lightest path that preserves correctness.
 
 ### 6.1 Route the change first
 
-#### A. Mechanical maintenance
+#### A. Repository text and governance
 
-A deterministic maintenance edit may go directly to `main` without a work branch or PR when **all** of the following are true:
+Text-only repository maintenance does not participate in runtime stability promotion when it cannot affect the installed application, SystemUI integration, build output, dependency resolution, compatibility, signing, CI/release execution, or published release facts.
 
-- no APK/runtime behavior changes;
-- no user-visible behavior or meaning changes;
-- no build output, dependency resolution, CI/release behavior, signing, compatibility profile, or target changes;
-- no normative engineering/governance rule changes;
-- no release fact/version meaning changes;
-- the edit is obvious enough that an isolated review branch adds no meaningful safety.
+Such changes may go directly to `main` with lightweight review/checking and be mirrored promptly to `dev`. They do not require a work branch, Canary, device validation, `validation/dev`, or a `dev -> main` promotion checkpoint.
 
-Typical examples: typo/grammar correction, formatting, dead-link repair, non-normative wording cleanup, comment cleanup, or equivalent metadata maintenance.
+This route includes, when their effect is purely textual:
 
-Because `dev` continues toward the next stable baseline, apply the same mechanical correction to `dev` promptly. The two branches do not need identical commit SHAs, but their effective maintenance result must remain equivalent.
+- README/docs corrections and clarification;
+- developer/contributor documentation and normative engineering guidance;
+- typo/grammar/formatting/dead-link fixes;
+- comments and non-executable metadata;
+- documentation restructuring that preserves accurate current project state.
 
-If the patch does not apply cleanly to both branches, the branches disagree materially, or the change stops being obviously mechanical, use the normal `dev` workflow instead.
+Normative contributor rules are judged for **semantic consistency**, not runtime stability. They may use this route as long as the edit itself does not change executable automation, dependency/build behavior, compatibility contracts, release artifacts, or runtime behavior.
 
-A text/YAML/Gradle diff is not automatically mechanical. Meaning and effect determine the route, not file type.
+Documentation that describes a runtime feature not yet present on `main` must not present that feature as current stable behavior. Either keep that user-facing documentation with the feature promotion or clearly scope it to development state.
+
+Because `dev` continues toward the next stable baseline, keep equivalent repository-policy/documentation changes synchronized across `main` and `dev`. The commits need not share a SHA; the effective text must remain consistent where the branches are intended to share policy.
+
+If a supposedly textual change requires executable workflow/configuration changes to become true, it is not text-only and must use the applicable engineering path.
+
+File extension does not determine the route. YAML, Gradle, scripts, release metadata, and compatibility data remain engineering inputs even though they are text files.
 
 #### B. Normal product/engineering work
 
-Behavioral, architectural, compatibility, dependency, build/CI, release, or governance changes use:
+Behavioral, architectural, compatibility, dependency, build/CI, release-automation, or runtime-affecting changes use:
 
 `feat/* or fix/* -> dev -> validated promotion -> main`
 
