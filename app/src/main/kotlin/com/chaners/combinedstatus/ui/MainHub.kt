@@ -12,6 +12,8 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -54,6 +56,7 @@ internal fun MainHub(
     darkMode: Boolean,
     appLanguage: AppLanguage,
     launcherIconHidden: Boolean,
+    onHotReload: (() -> Unit) -> Boolean,
     onAppLanguageChange: (AppLanguage) -> Unit,
     onLauncherIconHiddenChange: (Boolean) -> Unit,
     onSwipeBackEnabledChange: (Boolean) -> Unit,
@@ -61,6 +64,7 @@ internal fun MainHub(
 ) {
     val pagerState = rememberPagerState(pageCount = { TopLevelPageCount })
     val scope = rememberCoroutineScope()
+    var hotReloadInProgress by remember { mutableStateOf(false) }
     val floatingMaterialActive =
         settings.floatingNavigationBarEnabled &&
             settings.floatingNavigationStyle.requiresTextureBackdrop &&
@@ -159,6 +163,18 @@ internal fun MainHub(
                 appLanguage = appLanguage,
                 launcherIconHidden = launcherIconHidden,
                 swipeBackEnabled = settings.swipeBackEnabled,
+                hotReloadInProgress = hotReloadInProgress,
+                onHotReload = {
+                    if (!hotReloadInProgress) {
+                        hotReloadInProgress = true
+                        val accepted = onHotReload {
+                            hotReloadInProgress = false
+                        }
+                        if (!accepted) {
+                            hotReloadInProgress = false
+                        }
+                    }
+                },
                 onAppLanguageChange = onAppLanguageChange,
                 onLauncherIconHiddenChange = onLauncherIconHiddenChange,
                 onSwipeBackEnabledChange = onSwipeBackEnabledChange,
@@ -192,6 +208,8 @@ private fun TopLevelPager(
     appLanguage: AppLanguage,
     launcherIconHidden: Boolean,
     swipeBackEnabled: Boolean,
+    hotReloadInProgress: Boolean,
+    onHotReload: () -> Unit,
     onAppLanguageChange: (AppLanguage) -> Unit,
     onLauncherIconHiddenChange: (Boolean) -> Unit,
     onSwipeBackEnabledChange: (Boolean) -> Unit,
@@ -210,13 +228,21 @@ private fun TopLevelPager(
     ) { page ->
         val bottom = bottomPadding.calculateBottomPadding()
         when (page) {
-            0 -> HomeScreen(bottomContentPadding = bottom)
+            0 -> HomeScreen(
+                bottomContentPadding = bottom,
+                hotReloadInProgress = hotReloadInProgress,
+                onHotReload = onHotReload,
+            )
             1 -> FeaturesScreen(
                 bottomContentPadding = bottom,
+                hotReloadInProgress = hotReloadInProgress,
+                onHotReload = onHotReload,
                 onNavigate = onNavigate,
             )
             2 -> SettingsHubScreen(
                 bottomContentPadding = bottom,
+                hotReloadInProgress = hotReloadInProgress,
+                onHotReload = onHotReload,
                 appLanguage = appLanguage,
                 launcherIconHidden = launcherIconHidden,
                 swipeBackEnabled = swipeBackEnabled,

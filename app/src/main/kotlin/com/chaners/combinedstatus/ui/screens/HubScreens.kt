@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import com.chaners.combinedstatus.R
 import com.chaners.combinedstatus.settings.AppLanguage
 import com.chaners.combinedstatus.system.SystemUiScopeController
+import com.chaners.combinedstatus.ui.components.HotReloadAction
 import com.chaners.combinedstatus.ui.layout.pageContentPadding
 import com.chaners.combinedstatus.ui.navigation.AppRoute
 import kotlinx.coroutines.launch
@@ -42,12 +43,16 @@ import top.yukonga.miuix.kmp.preference.SwitchPreference
 @Composable
 internal fun FeaturesScreen(
     bottomContentPadding: Dp,
+    hotReloadInProgress: Boolean,
+    onHotReload: () -> Unit,
     onNavigate: (AppRoute) -> Unit,
 ) {
     HubPage(
         title = stringResource(R.string.features_title),
         sectionTitle = stringResource(R.string.section_hyperos_display),
         bottomContentPadding = bottomContentPadding,
+        hotReloadInProgress = hotReloadInProgress,
+        onHotReload = onHotReload,
     ) {
         ArrowPreference(
             title = stringResource(R.string.status_bar_title),
@@ -70,6 +75,8 @@ internal fun FeaturesScreen(
 @Composable
 internal fun SettingsHubScreen(
     bottomContentPadding: Dp,
+    hotReloadInProgress: Boolean,
+    onHotReload: () -> Unit,
     appLanguage: AppLanguage,
     launcherIconHidden: Boolean,
     swipeBackEnabled: Boolean,
@@ -92,6 +99,8 @@ internal fun SettingsHubScreen(
         title = stringResource(R.string.settings_title),
         sectionTitle = stringResource(R.string.section_appearance_interaction),
         bottomContentPadding = bottomContentPadding,
+        hotReloadInProgress = hotReloadInProgress,
+        onHotReload = onHotReload,
         secondarySectionTitle = stringResource(R.string.section_app),
         secondaryContent = {
             OverlayDropdownPreference(
@@ -195,6 +204,8 @@ private fun HubPage(
     title: String,
     sectionTitle: String,
     bottomContentPadding: Dp,
+    hotReloadInProgress: Boolean,
+    onHotReload: () -> Unit,
     secondarySectionTitle: String? = null,
     secondaryContent: (@Composable ColumnScope.() -> Unit)? = null,
     tertiarySectionTitle: String? = null,
@@ -208,6 +219,12 @@ private fun HubPage(
         topBar = {
             TopAppBar(
                 title = title,
+                actions = {
+                    HotReloadAction(
+                        inProgress = hotReloadInProgress,
+                        onClick = onHotReload,
+                    )
+                },
                 scrollBehavior = scrollBehavior,
             )
         },
