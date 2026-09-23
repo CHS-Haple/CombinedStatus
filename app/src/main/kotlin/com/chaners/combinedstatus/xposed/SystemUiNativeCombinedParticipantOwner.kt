@@ -285,9 +285,15 @@ internal object SystemUiNativeCombinedParticipantOwner {
                                         registryField.get(registry) === original
                                     }.getOrDefault(false)
                                 if (!controllerCreated) {
-                                    slotReservation.rollback()
-                                }
-                                if (!registryRestored) {
+                                    val slotRolledBack = slotReservation.rollback()
+                                    injected = false
+                                    failureReason =
+                                        if (slotRolledBack) {
+                                            "controller-construction-failed"
+                                        } else {
+                                            "controller-construction-failed-slot-rollback-failed"
+                                        }
+                                } else if (!registryRestored) {
                                     failureReason = "registry-restore-failed"
                                 }
                                 onEvent?.invoke(
