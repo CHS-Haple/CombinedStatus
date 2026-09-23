@@ -17,6 +17,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -27,7 +28,6 @@ import com.chaners.combinedstatus.ui.components.MiuixBlurredTopBar
 import com.chaners.combinedstatus.ui.components.rememberTopBarBackdrop
 import com.chaners.combinedstatus.ui.components.topBarBackdropSource
 import com.chaners.combinedstatus.ui.layout.pageContentPadding
-import com.chaners.combinedstatus.ui.layout.pageVerticalOverscroll
 import com.chaners.combinedstatus.ui.navigation.AppRoute
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.BasicComponent
@@ -222,8 +222,7 @@ private fun HubPage(
                 modifier =
                     Modifier
                         .fillMaxSize()
-                        .pageVerticalOverscroll(scrollBehavior),
-                overscrollEffect = null,
+                        .nestedScroll(scrollBehavior.nestedScrollConnection),
                 contentPadding = pageContentPadding(
                     innerPadding = paddingValues,
                     outerBottomPadding = bottomContentPadding,
