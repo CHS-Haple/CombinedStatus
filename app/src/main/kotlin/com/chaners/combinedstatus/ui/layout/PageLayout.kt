@@ -5,8 +5,12 @@ import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Dp
+import top.yukonga.miuix.kmp.basic.ScrollBehavior
+import top.yukonga.miuix.kmp.utils.overScrollVertical
 
 @Composable
 internal fun pageContentPadding(
@@ -29,3 +33,9 @@ internal fun pageContentPadding(
         )
     }
 }
+
+internal fun Modifier.pageVerticalOverscroll(
+    scrollBehavior: ScrollBehavior,
+): Modifier =
+    overScrollVertical()
+        .nestedScroll(scrollBehavior.nestedScrollConnection)
