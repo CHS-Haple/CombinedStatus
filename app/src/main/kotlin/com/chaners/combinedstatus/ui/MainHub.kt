@@ -45,7 +45,9 @@ import top.yukonga.miuix.kmp.icon.extended.Home
 import top.yukonga.miuix.kmp.icon.extended.Settings
 import top.yukonga.miuix.kmp.icon.extended.Tune
 import top.yukonga.miuix.kmp.theme.MiuixTheme
+import top.yukonga.miuix.kmp.utils.PagerGestureNestedScrollConnection
 import top.yukonga.miuix.kmp.utils.PagerNavigationSpringSpec
+import top.yukonga.miuix.kmp.utils.pagerGestureOverride
 import top.yukonga.miuix.kmp.utils.springAnimateToPage
 
 private const val TopLevelPageCount = 3
@@ -222,9 +224,17 @@ private fun TopLevelPager(
 
     HorizontalPager(
         state = pagerState,
-        modifier = Modifier.fillMaxSize(),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .pagerGestureOverride(
+                    pagerState = pagerState,
+                    flingBehavior = flingBehavior,
+                ),
         verticalAlignment = Alignment.Top,
+        userScrollEnabled = false,
         flingBehavior = flingBehavior,
+        pageNestedScrollConnection = PagerGestureNestedScrollConnection,
     ) { page ->
         val bottom = bottomPadding.calculateBottomPadding()
         when (page) {
