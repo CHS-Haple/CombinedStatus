@@ -304,10 +304,12 @@ internal object SystemUiNativeCombinedParticipantOwner {
             battery.width,
             renderTop + battery.height,
         )
-        renderController?.update(CombinedStatusStateStore.snapshot())
-        SystemUiTintStateSource.currentState(battery)?.let {
-            renderController?.updateTint(it)
-        }
+        val modelUpdate =
+            renderController?.update(CombinedStatusStateStore.snapshot())
+        val tintUpdate =
+            SystemUiTintStateSource.currentState(battery)?.let {
+                renderController?.updateTint(it)
+            }
 
         rootRef = WeakReference(root)
         handlesRef = WeakReference(handles)
@@ -326,6 +328,8 @@ internal object SystemUiNativeCombinedParticipantOwner {
             managerEntry =
                 (readField(handles.manager, "mBindableIcons") as? Map<*, *>)
                     ?.containsKey(SLOT) == true,
+            modelReady = modelUpdate?.model != null,
+            tintReady = tintUpdate?.resolved != null,
         )
     }
 
@@ -385,7 +389,9 @@ internal object SystemUiNativeCombinedParticipantOwner {
     }
 
     private fun <T> reset(result: T): T {
-        rootRef?.get()?.removeAllViews()
+        renderViewRef?.get()?.let { render ->
+            (render.parent as? ViewGroup)?.removeView(render)
+        }
         rootRef = null
         renderViewRef = null
         renderController = null
@@ -587,6 +593,8 @@ internal object SystemUiNativeCombinedParticipantOwner {
             val renderTop: Int,
             val renderBottom: Int,
             val managerEntry: Boolean,
+            val modelReady: Boolean,
+            val tintReady: Boolean,
         ) : AttachResult
         data class Failure(val reason: String) : AttachResult
     }
