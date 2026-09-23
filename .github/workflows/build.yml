@@ -396,12 +396,17 @@ jobs:
           fi
 
       - name: Evaluate promotion readiness
-        if: success() && github.event_name == 'push' && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/validation/dev')
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TRIGGER_REF: ${{ github.ref }}
         run: |
+          if [[ "$GITHUB_EVENT_NAME" != "push" ]] ||
+             [[ "$GITHUB_REF" != "refs/heads/dev" && "$GITHUB_REF" != "refs/heads/validation/dev" ]]; then
+            exit 0
+          fi
+
+          TRIGGER_REF="$GITHUB_REF"
+
           git fetch origin main dev --no-tags
           git fetch origin validation/dev --no-tags || true
 
