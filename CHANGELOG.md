@@ -61,6 +61,7 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Engineering
 
+- Work branches now use explicit admission criteria: a new feature does not automatically create a new `feat/*`; coherent sub-steps, diagnostics, validation fixes, and acceptance-driven adjustments stay in the same active branch until its bounded objective is merged or abandoned.
 - Merged short-lived `feat/*`, `fix/*`, `promote/*`, and `hotfix/*` branches are now cleaned up automatically when their expected merge target is confirmed.
 - Contribution workflow now defines bounded `feat/*`/`fix/*` branch roles, explicit `dev` integration gates, direct-to-`dev` limits, checkpoint/risk-based CI and device validation, SHA-bound `validation/dev` readiness tracking, exact-state `dev -> main` promotion, hotfix back-propagation, branch cleanup, and merge strategy.
 - Upstream dependency adoption now uses relevance classes, explicit maturity levels, exact-revision CI/artifact gates, isolated Canary validation, and short-lived feature branches before promotion to `dev`.
