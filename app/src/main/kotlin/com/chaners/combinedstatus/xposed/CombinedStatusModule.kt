@@ -78,16 +78,14 @@ class CombinedStatusModule : XposedModule() {
             return
         }
 
-        if (BuildConfig.RUNTIME_DIAGNOSTICS) {
-            installNativeCombinedParticipant(
-                classLoader = param.classLoader,
-                source = "coldStart",
-            )
-            installNativeParticipantControllerObserver(
-                classLoader = param.classLoader,
-                source = "coldStart",
-            )
-        }
+        installNativeCombinedParticipant(
+            classLoader = param.classLoader,
+            source = "coldStart",
+        )
+        installNativeParticipantControllerObserver(
+            classLoader = param.classLoader,
+            source = "coldStart",
+        )
 
         runCatching {
             SystemUiHostRuntimeOwner.install(
@@ -132,10 +130,32 @@ class CombinedStatusModule : XposedModule() {
     }
 
     override fun onHotReloading(param: HotReloadingParam): Boolean {
+        val nativeTransfer =
+            when (
+                val capture =
+                    SystemUiNativeCombinedParticipantOwner.captureHotReloadHolder()
+            ) {
+                is SystemUiNativeCombinedParticipantOwner.HotReloadCaptureResult.Ready ->
+                    capture
+                SystemUiNativeCombinedParticipantOwner.HotReloadCaptureResult.NotActive ->
+                    null
+                is SystemUiNativeCombinedParticipantOwner.HotReloadCaptureResult.Failure -> {
+                    logDiagnostic(
+                        level = Log.WARN,
+                        event = "hotReload.prepare",
+                        component = "nativeCombinedParticipant",
+                        state = "unavailable",
+                        "reason" to capture.reason,
+                        "restartScope" to true,
+                    )
+                    return false
+                }
+            }
         val prepared =
             SystemUiHotReloadRuntimeOwner.prepare(
                 param = param,
                 visual = CombinedStatusHomeRenderSession.visualHandoffView(),
+                nativeHolder = nativeTransfer?.holder,
             )
         if (prepared is SystemUiHotReloadRuntimeOwner.PrepareResult.Unavailable) {
             logDiagnostic(
@@ -183,7 +203,47 @@ class CombinedStatusModule : XposedModule() {
                 " hooks=" + hookCount +
                 " transfer=saved-instance-state",
         )
-        teardownRuntimeResources("hotReload.prepare", preserveRendererVisual = true)
+        val nativeDetached =
+            if (nativeTransfer != null) {
+                when (
+                    val result =
+                        SystemUiNativeCombinedParticipantOwner.detachForHotReload(
+                            nativeTransfer.holder,
+                        )
+                ) {
+                    is SystemUiNativeCombinedParticipantOwner.HotReloadDetachResult.Ready -> {
+                        logDiagnostic(
+                            level = Log.INFO,
+                            event = "hotReload.transfer",
+                            component = "nativeCombinedParticipant",
+                            state = "ready",
+                            "managerEntriesCleared" to result.clearedManagerEntries,
+                            "holderTransferred" to true,
+                        )
+                        true
+                    }
+
+                    is SystemUiNativeCombinedParticipantOwner.HotReloadDetachResult.Failure -> {
+                        logDiagnostic(
+                            level = Log.ERROR,
+                            event = "hotReload.transfer",
+                            component = "nativeCombinedParticipant",
+                            state = "error",
+                            "reason" to result.reason,
+                            "restartScope" to true,
+                        )
+                        return false
+                    }
+                }
+            } else {
+                false
+            }
+
+        teardownRuntimeResources(
+            source = "hotReload.prepare",
+            preserveRendererVisual = true,
+            nativeCombinedAlreadyDetached = nativeDetached,
+        )
         unbindRuntimeDiagnostics()
         return true
     }
@@ -257,11 +317,15 @@ class CombinedStatusModule : XposedModule() {
                 classLoader = classLoader,
                 source = "hotReload",
             )
+            installNativeCombinedParticipant(
+                classLoader = classLoader,
+                source = "hotReload",
+            )
+            installNativeParticipantControllerObserver(
+                classLoader = classLoader,
+                source = "hotReload",
+            )
             if (BuildConfig.RUNTIME_DIAGNOSTICS) {
-                installNativeParticipantControllerObserver(
-                    classLoader = classLoader,
-                    source = "hotReload",
-                )
                 installIslandMotionSource(
                     classLoader = classLoader,
                     source = "hotReload",
@@ -285,22 +349,55 @@ class CombinedStatusModule : XposedModule() {
                         CombinedStatusStateStore.restoreHotReloadState(restored.state)
                     val bindings =
                         SystemUiNetworkStateSource.restoreHotReloadBindings(restored.bindings)
+                    val nativeRebind =
+                        SystemUiNativeCombinedParticipantOwner.rebindAfterHotReload(
+                            host = capture.host,
+                            transferredHolder = restored.nativeHolder,
+                        )
+                    val nativeAccepted =
+                        nativeRebind !is
+                            SystemUiNativeCombinedParticipantOwner.HotReloadRebindResult.Failure
+                    val nativeState =
+                        when (nativeRebind) {
+                            SystemUiNativeCombinedParticipantOwner.HotReloadRebindResult.Ready ->
+                                "ready"
+                            SystemUiNativeCombinedParticipantOwner.HotReloadRebindResult.NotTransferred ->
+                                "fallback"
+                            is SystemUiNativeCombinedParticipantOwner.HotReloadRebindResult.Failure ->
+                                "fallback"
+                        }
+                    logDiagnostic(
+                        level = if (nativeAccepted) Log.INFO else Log.WARN,
+                        event = "hotReload.rebind",
+                        component = "nativeCombinedParticipant",
+                        state = nativeState,
+                        "result" to nativeRebind.javaClass.simpleName,
+                        "reason" to
+                            (
+                                nativeRebind as?
+                                    SystemUiNativeCombinedParticipantOwner
+                                        .HotReloadRebindResult
+                                        .Failure
+                            )?.reason,
+                        "nativeGeometryWrites" to 0,
+                    )
                     attachHostRuntime(
                         host = capture.host,
                         source = "hotReloadRestore",
                         previousVisual = restored.visual,
                     )
                     logDiagnostic(
-                        level = Log.INFO,
+                        level = if (nativeAccepted) Log.INFO else Log.WARN,
                         event = "hotReload.restore",
                         component = "hotReload",
-                        state = "ready",
+                        state = if (nativeAccepted) "ready" else "partial",
                         "hostIdentity" to capture.identity,
                         "wifiRoots" to bindings.wifiRoots,
                         "mobileRoots" to bindings.mobileRoots,
                         "state" to restoredSnapshot.logLine,
+                        "nativeRebind" to nativeRebind.javaClass.simpleName,
                     )
-                    true
+                    nativeAccepted
                 } else {
                     CombinedStatusStateStore.restoreHotReloadState(null)
                     logDiagnostic(
@@ -356,6 +453,44 @@ class CombinedStatusModule : XposedModule() {
                     onEvent = { event ->
                         if (detailedDiagnosticsEnabled) {
                             log(Log.INFO, TAG, event)
+                        }
+                    },
+                    onSlotOrderResult = { slotOrder ->
+                        when (slotOrder) {
+                            is NativeStatusBarSlotReservation.Result.Ready -> {
+                                logDiagnostic(
+                                    level = Log.INFO,
+                                    event = "slot.reserve",
+                                    component = "nativeSlotOrder",
+                                    state = "ready",
+                                    "source" to source,
+                                    "mode" to "controller-pre-init",
+                                    "created" to slotOrder.created,
+                                    "nativeIndex" to slotOrder.nativeIndex,
+                                    "fromIndex" to slotOrder.fromIndex,
+                                    "toIndex" to slotOrder.toIndex,
+                                    "slotCount" to slotOrder.slotCount,
+                                    "viewOnlySynced" to slotOrder.viewOnlySynced,
+                                    "originalOrderPreserved" to
+                                        slotOrder.originalOrderPreserved,
+                                    "visible" to false,
+                                    "nativeGeometryWrites" to 0,
+                                )
+                            }
+
+                            is NativeStatusBarSlotReservation.Result.Failure -> {
+                                logDiagnostic(
+                                    level = Log.WARN,
+                                    event = "slot.reserve",
+                                    component = "nativeSlotOrder",
+                                    state = "unavailable",
+                                    "source" to source,
+                                    "mode" to "controller-pre-init",
+                                    "reason" to slotOrder.reason,
+                                    "visible" to false,
+                                    "nativeGeometryWrites" to 0,
+                                )
+                            }
                         }
                     },
                 )
@@ -751,11 +886,16 @@ class CombinedStatusModule : XposedModule() {
     private fun teardownRuntimeResources(
         source: String,
         preserveRendererVisual: Boolean = false,
+        nativeCombinedAlreadyDetached: Boolean = false,
     ) {
         val nativeParticipantPendingCancelled =
             SystemUiNativeParticipantRuntimeOwner.cancelPending()
         val nativeCombinedDetach =
-            SystemUiNativeCombinedParticipantOwner.detach()
+            if (nativeCombinedAlreadyDetached) {
+                "HotReloadTransferred"
+            } else {
+                SystemUiNativeCombinedParticipantOwner.detach().javaClass.simpleName
+            }
         CombinedStatusHomeRenderSession.detach(preserveVisual = preserveRendererVisual)
         StatusBarStableSession.detach()
         SystemUiCoreRuntimeOwner.detach()
@@ -775,8 +915,7 @@ class CombinedStatusModule : XposedModule() {
             "airplaneObserverDetached" to true,
             "defaultDataSubscriptionObserverDetached" to true,
             "nativeParticipantPendingCancelled" to nativeParticipantPendingCancelled,
-            "nativeCombinedParticipantDetached" to
-                nativeCombinedDetach.javaClass.simpleName,
+            "nativeCombinedParticipantDetached" to nativeCombinedDetach,
         )
     }
 
@@ -900,13 +1039,6 @@ class CombinedStatusModule : XposedModule() {
             }
         }
 
-        if (BuildConfig.RUNTIME_DIAGNOSTICS) {
-            scheduleNativeParticipantDiagnostics(
-                host = host,
-                source = source,
-            )
-        }
-
         when (
             val renderSession = CombinedStatusHomeRenderSession.attach(
                 host = host,
@@ -942,6 +1074,11 @@ class CombinedStatusModule : XposedModule() {
             }
         }
 
+        scheduleNativeParticipantRuntime(
+            host = host,
+            source = source,
+        )
+
         scheduleNativeSlotProbe(host = host, source = source)
 
         logDiagnostic(
@@ -953,7 +1090,7 @@ class CombinedStatusModule : XposedModule() {
         )
     }
 
-    private fun scheduleNativeParticipantDiagnostics(
+    private fun scheduleNativeParticipantRuntime(
         host: Any,
         source: String,
     ) {
@@ -962,10 +1099,16 @@ class CombinedStatusModule : XposedModule() {
                 SystemUiNativeParticipantRuntimeOwner.schedule(
                     host = host,
                     onReady = { readyHost ->
-                        runNativeParticipantDiagnostics(
+                        attachNativeCombinedParticipant(
                             host = readyHost,
                             source = source,
                         )
+                        if (BuildConfig.RUNTIME_DIAGNOSTICS) {
+                            runNativeParticipantDiagnostics(
+                                host = readyHost,
+                                source = source,
+                            )
+                        }
                     },
                     onFailure = { reason ->
                         logDiagnostic(
@@ -1094,6 +1237,8 @@ class CombinedStatusModule : XposedModule() {
                     bindableParticipant.viewOnlySlots.joinToString("|"),
                 "runtimeViews" to
                     bindableParticipant.runtimeBindableViews.joinToString("|"),
+                "slotOrder" to
+                    bindableParticipant.runtimeSlotOrder.joinToString("|"),
                 "groupClipChildren" to bindableParticipant.groupClipChildren,
                 "groupClipToPadding" to bindableParticipant.groupClipToPadding,
                 "groupHeight" to bindableParticipant.groupHeight,
@@ -1135,50 +1280,72 @@ class CombinedStatusModule : XposedModule() {
                 "nativeGeometryWrites" to 0,
             )
 
-            when (
-                val nativeCombined =
-                    SystemUiNativeCombinedParticipantOwner.attachHidden(host)
-            ) {
-                is SystemUiNativeCombinedParticipantOwner.AttachResult.Ready -> {
-                    logDiagnostic(
-                        level = Log.INFO,
-                        event = "participant.attach",
-                        component = "nativeCombinedParticipant",
-                        state = "ready",
-                        "source" to source,
-                        "slot" to SystemUiNativeCombinedParticipantOwner.SLOT,
-                        "visible" to false,
-                        "registryRestored" to nativeCombined.registryRestored,
-                        "root" to nativeCombined.rootClass,
-                        "rootVisibility" to nativeCombined.rootVisibility,
-                        "iconVisible" to nativeCombined.iconVisible,
-                        "layoutWidth" to nativeCombined.layoutWidth,
-                        "layoutHeight" to nativeCombined.layoutHeight,
-                        "renderWidth" to nativeCombined.renderWidth,
-                        "renderHeight" to nativeCombined.renderHeight,
-                        "renderTop" to nativeCombined.renderTop,
-                        "renderBottom" to nativeCombined.renderBottom,
-                        "managerEntry" to nativeCombined.managerEntry,
-                        "modelReady" to nativeCombined.modelReady,
-                        "tintReady" to nativeCombined.tintReady,
-                        "nativeGeometryWrites" to 0,
-                    )
-                }
+        }
+    }
 
-                is SystemUiNativeCombinedParticipantOwner.AttachResult.Failure -> {
-                    logDiagnostic(
-                        level = Log.WARN,
-                        event = "participant.attach",
-                        component = "nativeCombinedParticipant",
-                        state = "unavailable",
-                        "source" to source,
-                        "reason" to nativeCombined.reason,
-                        "visible" to false,
-                        "nativeGeometryWrites" to 0,
-                    )
-                }
+    private fun attachNativeCombinedParticipant(
+        host: Any,
+        source: String,
+    ) {
+        when (
+            val nativeCombined =
+                SystemUiNativeCombinedParticipantOwner.attachHidden(
+                    host = host,
+                    onHandoffStateChanged = { active ->
+                        CombinedStatusHomeRenderSession.setNativeHandoffActive(active)
+                        logDiagnostic(
+                            level = Log.INFO,
+                            event = "visibility.handoff",
+                            component = "nativeCombinedParticipant",
+                            state = if (active) "active" else "fallback",
+                            "source" to source,
+                            "nativeActive" to active,
+                            "overlayActive" to !active,
+                            "nativeGeometryWrites" to 0,
+                        )
+                    },
+                )
+        ) {
+            is SystemUiNativeCombinedParticipantOwner.AttachResult.Ready -> {
+                logDiagnostic(
+                    level = Log.INFO,
+                    event = "participant.attach",
+                    component = "nativeCombinedParticipant",
+                    state = "ready",
+                    "source" to source,
+                    "slot" to SystemUiNativeCombinedParticipantOwner.SLOT,
+                    "visible" to false,
+                    "registryRestored" to nativeCombined.registryRestored,
+                    "root" to nativeCombined.rootClass,
+                    "rootVisibility" to nativeCombined.rootVisibility,
+                    "iconVisible" to nativeCombined.iconVisible,
+                    "layoutWidth" to nativeCombined.layoutWidth,
+                    "layoutHeight" to nativeCombined.layoutHeight,
+                    "renderWidth" to nativeCombined.renderWidth,
+                    "renderHeight" to nativeCombined.renderHeight,
+                    "renderTop" to nativeCombined.renderTop,
+                    "renderBottom" to nativeCombined.renderBottom,
+                    "managerEntry" to nativeCombined.managerEntry,
+                    "modelReady" to nativeCombined.modelReady,
+                    "tintReady" to nativeCombined.tintReady,
+                    "nativeGeometryWrites" to 0,
+                )
+            }
+
+            is SystemUiNativeCombinedParticipantOwner.AttachResult.Failure -> {
+                logDiagnostic(
+                    level = Log.WARN,
+                    event = "participant.attach",
+                    component = "nativeCombinedParticipant",
+                    state = "unavailable",
+                    "source" to source,
+                    "reason" to nativeCombined.reason,
+                    "visible" to false,
+                    "nativeGeometryWrites" to 0,
+                )
             }
         }
+
     }
 
     private fun scheduleNativeSlotProbe(
