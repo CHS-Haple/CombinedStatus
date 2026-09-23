@@ -92,13 +92,16 @@ internal object NativeStatusBarSlotOrderingProbe {
                     method.name == "getViewIndex" &&
                         method.parameterTypes.contentEquals(
                             arrayOf<Class<*>>(
-                                String::class.java,
                                 Integer.TYPE,
+                                String::class.java,
                             ),
                         ) &&
                         method.returnType == Integer.TYPE
                 }
                 ?.apply { isAccessible = true }
+
+        val rawSlotIndices =
+            slots.associate { entry -> entry.name to entry.index }
 
         val indexResults =
             candidates.map { slot ->
@@ -109,16 +112,31 @@ internal object NativeStatusBarSlotOrderingProbe {
                                 (method.invoke(iconList, slot) as Number).toInt()
                             }.getOrNull()
                         }
-                val viewIndex =
+                val rawSlotIndex = rawSlotIndices[slot]
+                val viewIndexTagZero =
                     viewIndexMethod
                         ?.let { method ->
                             runCatching {
-                                (method.invoke(iconList, slot, 0) as Number).toInt()
+                                (method.invoke(iconList, 0, slot) as Number).toInt()
                             }.getOrNull()
                         }
+                val viewIndexRawSlot =
+                    rawSlotIndex
+                        ?.let { index ->
+                            viewIndexMethod
+                                ?.let { method ->
+                                    runCatching {
+                                        (method.invoke(iconList, index, slot) as Number).toInt()
+                                    }.getOrNull()
+                                }
+                        }
                 slot +
-                    ":slotIndex=" + (slotIndex?.toString() ?: "na") +
-                    ",viewIndex=" + (viewIndex?.toString() ?: "na")
+                    ":rawSlotIndex=" + (rawSlotIndex?.toString() ?: "na") +
+                    ",slotIndex=" + (slotIndex?.toString() ?: "na") +
+                    ",viewIndexTag0=" +
+                    (viewIndexTagZero?.toString() ?: "na") +
+                    ",viewIndexRawSlot=" +
+                    (viewIndexRawSlot?.toString() ?: "na")
             }
 
         val groupOrder = inspectGroup(handles.group)
@@ -149,6 +167,8 @@ internal object NativeStatusBarSlotOrderingProbe {
             for (index in 0 until group.childCount) {
                 val child = group.getChildAt(index)
                 val slot = slotOf(child) ?: continue
+                val screen = IntArray(2)
+                runCatching { child.getLocationOnScreen(screen) }
                 add(
                     "index=" + index +
                         ",slot=" + slot +
@@ -161,7 +181,9 @@ internal object NativeStatusBarSlotOrderingProbe {
                         child.right + "," + child.bottom +
                         ",size=" + child.width + "x" + child.height +
                         ",measured=" +
-                        child.measuredWidth + "x" + child.measuredHeight,
+                        child.measuredWidth + "x" + child.measuredHeight +
+                        ",translationX=" + child.translationX +
+                        ",screenX=" + screen[0],
                 )
                 if (size >= MAX_SLOTS) {
                     break
