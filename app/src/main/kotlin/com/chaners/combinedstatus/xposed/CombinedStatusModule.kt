@@ -1030,13 +1030,6 @@ class CombinedStatusModule : XposedModule() {
             }
         }
 
-        if (BuildConfig.RUNTIME_DIAGNOSTICS) {
-            scheduleNativeParticipantDiagnostics(
-                host = host,
-                source = source,
-            )
-        }
-
         when (
             val renderSession = CombinedStatusHomeRenderSession.attach(
                 host = host,
@@ -1072,6 +1065,11 @@ class CombinedStatusModule : XposedModule() {
             }
         }
 
+        scheduleNativeParticipantRuntime(
+            host = host,
+            source = source,
+        )
+
         scheduleNativeSlotProbe(host = host, source = source)
 
         logDiagnostic(
@@ -1083,7 +1081,7 @@ class CombinedStatusModule : XposedModule() {
         )
     }
 
-    private fun scheduleNativeParticipantDiagnostics(
+    private fun scheduleNativeParticipantRuntime(
         host: Any,
         source: String,
     ) {
@@ -1092,10 +1090,16 @@ class CombinedStatusModule : XposedModule() {
                 SystemUiNativeParticipantRuntimeOwner.schedule(
                     host = host,
                     onReady = { readyHost ->
-                        runNativeParticipantDiagnostics(
+                        attachNativeCombinedParticipant(
                             host = readyHost,
                             source = source,
                         )
+                        if (BuildConfig.RUNTIME_DIAGNOSTICS) {
+                            runNativeParticipantDiagnostics(
+                                host = readyHost,
+                                source = source,
+                            )
+                        }
                     },
                     onFailure = { reason ->
                         logDiagnostic(
@@ -1267,65 +1271,72 @@ class CombinedStatusModule : XposedModule() {
                 "nativeGeometryWrites" to 0,
             )
 
-            when (
-                val nativeCombined =
-                    SystemUiNativeCombinedParticipantOwner.attachHidden(
-                        host = host,
-                        onHandoffStateChanged = { active ->
-                            CombinedStatusHomeRenderSession.setNativeHandoffActive(active)
-                            logDiagnostic(
-                                level = Log.INFO,
-                                event = "visibility.handoff",
-                                component = "nativeCombinedParticipant",
-                                state = if (active) "active" else "fallback",
-                                "source" to source,
-                                "nativeActive" to active,
-                                "overlayActive" to !active,
-                                "nativeGeometryWrites" to 0,
-                            )
-                        },
-                    )
-            ) {
-                is SystemUiNativeCombinedParticipantOwner.AttachResult.Ready -> {
-                    logDiagnostic(
-                        level = Log.INFO,
-                        event = "participant.attach",
-                        component = "nativeCombinedParticipant",
-                        state = "ready",
-                        "source" to source,
-                        "slot" to SystemUiNativeCombinedParticipantOwner.SLOT,
-                        "visible" to false,
-                        "registryRestored" to nativeCombined.registryRestored,
-                        "root" to nativeCombined.rootClass,
-                        "rootVisibility" to nativeCombined.rootVisibility,
-                        "iconVisible" to nativeCombined.iconVisible,
-                        "layoutWidth" to nativeCombined.layoutWidth,
-                        "layoutHeight" to nativeCombined.layoutHeight,
-                        "renderWidth" to nativeCombined.renderWidth,
-                        "renderHeight" to nativeCombined.renderHeight,
-                        "renderTop" to nativeCombined.renderTop,
-                        "renderBottom" to nativeCombined.renderBottom,
-                        "managerEntry" to nativeCombined.managerEntry,
-                        "modelReady" to nativeCombined.modelReady,
-                        "tintReady" to nativeCombined.tintReady,
-                        "nativeGeometryWrites" to 0,
-                    )
-                }
+        }
+    }
 
-                is SystemUiNativeCombinedParticipantOwner.AttachResult.Failure -> {
-                    logDiagnostic(
-                        level = Log.WARN,
-                        event = "participant.attach",
-                        component = "nativeCombinedParticipant",
-                        state = "unavailable",
-                        "source" to source,
-                        "reason" to nativeCombined.reason,
-                        "visible" to false,
-                        "nativeGeometryWrites" to 0,
-                    )
-                }
+    private fun attachNativeCombinedParticipant(
+        host: Any,
+        source: String,
+    ) {
+        when (
+            val nativeCombined =
+                SystemUiNativeCombinedParticipantOwner.attachHidden(
+                    host = host,
+                    onHandoffStateChanged = { active ->
+                        CombinedStatusHomeRenderSession.setNativeHandoffActive(active)
+                        logDiagnostic(
+                            level = Log.INFO,
+                            event = "visibility.handoff",
+                            component = "nativeCombinedParticipant",
+                            state = if (active) "active" else "fallback",
+                            "source" to source,
+                            "nativeActive" to active,
+                            "overlayActive" to !active,
+                            "nativeGeometryWrites" to 0,
+                        )
+                    },
+                )
+        ) {
+            is SystemUiNativeCombinedParticipantOwner.AttachResult.Ready -> {
+                logDiagnostic(
+                    level = Log.INFO,
+                    event = "participant.attach",
+                    component = "nativeCombinedParticipant",
+                    state = "ready",
+                    "source" to source,
+                    "slot" to SystemUiNativeCombinedParticipantOwner.SLOT,
+                    "visible" to false,
+                    "registryRestored" to nativeCombined.registryRestored,
+                    "root" to nativeCombined.rootClass,
+                    "rootVisibility" to nativeCombined.rootVisibility,
+                    "iconVisible" to nativeCombined.iconVisible,
+                    "layoutWidth" to nativeCombined.layoutWidth,
+                    "layoutHeight" to nativeCombined.layoutHeight,
+                    "renderWidth" to nativeCombined.renderWidth,
+                    "renderHeight" to nativeCombined.renderHeight,
+                    "renderTop" to nativeCombined.renderTop,
+                    "renderBottom" to nativeCombined.renderBottom,
+                    "managerEntry" to nativeCombined.managerEntry,
+                    "modelReady" to nativeCombined.modelReady,
+                    "tintReady" to nativeCombined.tintReady,
+                    "nativeGeometryWrites" to 0,
+                )
+            }
+
+            is SystemUiNativeCombinedParticipantOwner.AttachResult.Failure -> {
+                logDiagnostic(
+                    level = Log.WARN,
+                    event = "participant.attach",
+                    component = "nativeCombinedParticipant",
+                    state = "unavailable",
+                    "source" to source,
+                    "reason" to nativeCombined.reason,
+                    "visible" to false,
+                    "nativeGeometryWrites" to 0,
+                )
             }
         }
+
     }
 
     private fun scheduleNativeSlotProbe(
