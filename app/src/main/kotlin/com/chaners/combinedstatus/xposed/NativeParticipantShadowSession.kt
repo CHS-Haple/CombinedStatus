@@ -114,17 +114,36 @@ internal object NativeParticipantShadowSession {
                     when (val result = verifyOnMain(requireLayoutHidden = true)) {
                         is AttachResult.Ready -> {
                             val verified = result.snapshot
-                            onEvent(
-                                "nativeParticipantShadow postLayout " +
-                                    "slot=" + SLOT +
-                                    " state=ready" +
-                                    " visibility=" + verified.rootVisibility +
-                                    " iconVisible=" + verified.iconVisible +
-                                    " measured=" + verified.measuredWidth +
-                                    "x" + verified.measuredHeight +
-                                    " layoutHidden=" + verified.layoutHidden +
-                                    " nativeGeometryWrites=0",
-                            )
+                            cleanupOnMain()
+                            val remaining =
+                                NativeParticipantRuntimeAccess.findSlotView(
+                                    handles.group,
+                                    SLOT,
+                                )
+                            if (remaining == null) {
+                                stopped = true
+                                invalidate(this)
+                                root = null
+                                onEvent(
+                                    "nativeParticipantShadow postLayout " +
+                                        "slot=" + SLOT +
+                                        " state=ready" +
+                                        " visibility=" + verified.rootVisibility +
+                                        " iconVisible=" + verified.iconVisible +
+                                        " measured=" + verified.measuredWidth +
+                                        "x" + verified.measuredHeight +
+                                        " layoutHidden=" + verified.layoutHidden +
+                                        " cleanup=verified" +
+                                        " children=" + verified.childrenBefore +
+                                        "->" + handles.group.childCount +
+                                        " nativeGeometryWrites=0",
+                                )
+                            } else {
+                                cleanupAfterValidationFailure(
+                                    "shadow-cleanup-remains index=" +
+                                        handles.group.indexOfChild(remaining),
+                                )
+                            }
                         }
 
                         is AttachResult.Failure -> {
