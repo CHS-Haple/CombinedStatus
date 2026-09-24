@@ -7,6 +7,7 @@ import com.chaners.combinedstatus.settings.DiagnosticsLevel
 internal object RuntimeDiagnosticsPreferencesOwner {
     private var preferences: SharedPreferences? = null
     private var listener: SharedPreferences.OnSharedPreferenceChangeListener? = null
+    private var bindingToken: Any? = null
 
     val isBound: Boolean
         @Synchronized get() = preferences != null
@@ -28,9 +29,16 @@ internal object RuntimeDiagnosticsPreferencesOwner {
                 preferences = preferences,
                 forceDetailed = forceDetailed,
             )
+        val token = Any()
         val listener =
             SharedPreferences.OnSharedPreferenceChangeListener { changed, key ->
-                if (key == DIAGNOSTICS_LEVEL_KEY) {
+                if (
+                    key == DIAGNOSTICS_LEVEL_KEY &&
+                    isCurrentBinding(
+                        preferences = changed,
+                        token = token,
+                    )
+                ) {
                     onDetailedChanged(
                         resolveDetailed(
                             preferences = changed,
@@ -43,6 +51,7 @@ internal object RuntimeDiagnosticsPreferencesOwner {
         preferences.registerOnSharedPreferenceChangeListener(listener)
         this.preferences = preferences
         this.listener = listener
+        bindingToken = token
 
         runCatching {
             onDetailedChanged(detailedEnabled)
@@ -66,10 +75,19 @@ internal object RuntimeDiagnosticsPreferencesOwner {
         val currentListener = listener
         preferences = null
         listener = null
+        bindingToken = null
         if (currentPreferences != null && currentListener != null) {
             currentPreferences.unregisterOnSharedPreferenceChangeListener(currentListener)
         }
     }
+
+    @Synchronized
+    private fun isCurrentBinding(
+        preferences: SharedPreferences,
+        token: Any,
+    ): Boolean =
+        this.preferences === preferences &&
+            bindingToken === token
 
     private fun resolveDetailed(
         preferences: SharedPreferences,
