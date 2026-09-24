@@ -240,6 +240,16 @@ internal object CombinedStatusStateStore {
     )
 
     internal sealed interface WifiState {
+        val replacementReady: Boolean
+            get() =
+                when (this) {
+                    Unknown -> false
+                    Hidden -> true
+                    is Visible ->
+                        signal is SignalStrength.Level &&
+                            internet != InternetState.UNKNOWN
+                }
+
         data object Unknown : WifiState
         data object Hidden : WifiState
 
