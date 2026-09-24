@@ -116,6 +116,10 @@ class CombinedStatusModule : XposedModule() {
         }
 
         if (SystemUiHostRuntimeOwner.isReady) {
+            probeBatteryContract(
+                classLoader = param.classLoader,
+                source = "coldStart",
+            )
             installNetworkStateSource(
                 classLoader = param.classLoader,
                 source = "coldStart",
@@ -286,6 +290,10 @@ class CombinedStatusModule : XposedModule() {
             logCurrentDiagnosticsHealth()
 
             val classLoader = takeover.classLoader
+            probeBatteryContract(
+                classLoader = classLoader,
+                source = "hotReload",
+            )
             installNetworkStateSource(
                 classLoader = classLoader,
                 source = "hotReload",
@@ -831,6 +839,44 @@ class CombinedStatusModule : XposedModule() {
     private fun onIslandMotionEvent(event: String) {
         if (detailedDiagnosticsEnabled) {
             log(Log.INFO, TAG, event)
+        }
+    }
+
+    private fun probeBatteryContract(
+        classLoader: ClassLoader,
+        source: String,
+    ) {
+        if (!detailedDiagnosticsEnabled) {
+            return
+        }
+
+        runCatching {
+            SystemUiBatteryContractProbe.inspect(classLoader)
+        }.onSuccess { result ->
+            val ready =
+                result.hasBatteryCallbackInterface &&
+                    result.hasLevelCallback
+            log(Log.INFO, TAG, result.logLine)
+            logDiagnostic(
+                level = if (ready) Log.INFO else Log.WARN,
+                event = "contract.probe",
+                component = "batteryState",
+                state = if (ready) "ready" else "partial",
+                "source" to source,
+                "callbackInterface" to result.hasBatteryCallbackInterface,
+                "levelCallback" to result.hasLevelCallback,
+                "methods" to result.methods.joinToString("|"),
+                "fields" to result.fields.joinToString("|"),
+            )
+        }.onFailure { error ->
+            logDiagnostic(
+                level = Log.WARN,
+                event = "contract.probe",
+                component = "batteryState",
+                state = "unavailable",
+                "source" to source,
+                "reason" to (error.message ?: error.javaClass.simpleName),
+            )
         }
     }
 
