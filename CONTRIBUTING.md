@@ -47,6 +47,10 @@ Every change should preserve four qualities.
 
 Follow Android, HyperOS, MIUIX, and Modern Xposed contracts before inventing project-specific behavior. Keep lifecycle, ownership, state flow, compatibility boundaries, and platform responsibilities explicit.
 
+Where HyperOS already provides an applicable feature design, state model, behavior, or resource, contributors SHOULD consume that verified native source before creating a project-local equivalent. This includes authoritative state sources, state/transition semantics, interaction and layout rules, platform APIs/contracts, and native icons/drawables/resources. Combined Status SHOULD own only its Combined Status-specific composition/presentation or a narrowly scoped fallback for behavior HyperOS does not expose. Do not maintain a parallel parser, state machine, icon set, or behavior model when a verified HyperOS source can be safely reused.
+
+Prefer runtime/resource-reference reuse over copying proprietary HyperOS assets into the repository. Any copied third-party asset still requires a valid license basis and applicable attribution/notice.
+
 ### 2.2 Lightweight
 
 "Lightweight" means reducing unnecessary runtime work and architectural redundancy, not merely APK size.
