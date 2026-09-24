@@ -127,8 +127,7 @@ jobs:
               SCOPE=light
               REASON="draft pull request"
             elif [[ "$PR_BASE_REF" == "main" ]]; then
-              SCOPE=full
-              REASON="ready pull request targeting main"
+              classify_paths "$PR_BASE_SHA" "$PR_HEAD_SHA" full
             else
               classify_paths "$PR_BASE_SHA" "$PR_HEAD_SHA" fast
             fi

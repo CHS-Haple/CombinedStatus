@@ -65,6 +65,9 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Engineering
 
+- Pull-request CI now classifies ready `main` changes by affected paths, keeping documentation-only maintenance on Light validation while preserving Full validation for build, CI, dependency, tooling, and runtime-affecting stable-boundary changes.
+- Stable GitHub Release notes now omit the changelog's Engineering section while retaining the complete engineering record in `CHANGELOG.md`; the dev-to-main readiness workflow is labeled explicitly in Actions.
+- Contributor rules define MUST/SHOULD/MAY boundaries, fail-native fallback, staged ownership migration, changelog discipline, the normal `dev` contribution target, and private security-reporting expectations.
 - Pull requests are explicitly treated as proposals: automated checks provide validation evidence, while final acceptance and any required maintainer-side device validation remain maintainer decisions.
 - Merged PR branches now rely on GitHub's repository-level automatic head-branch deletion instead of a duplicate project-maintained cleanup workflow.
 - Release automation now restricts signed test releases to `dev` or `main` and stable releases to `main`, keeping experiment/work branches in CI artifacts rather than GitHub Releases.
