@@ -807,6 +807,7 @@ class CombinedStatusModule : XposedModule() {
                 module = this,
                 classLoader = classLoader,
                 onEvent = ::onIslandMotionEvent,
+                isDetailedDiagnosticsEnabled = { detailedDiagnosticsEnabled },
             )
         }.onSuccess { handles ->
             islandMotionSourceInstalled =

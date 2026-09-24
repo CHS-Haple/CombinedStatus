@@ -33,6 +33,7 @@ internal object SystemUiIslandMotionSource {
         module: XposedModule,
         classLoader: ClassLoader,
         onEvent: ((String) -> Unit)? = null,
+        isDetailedDiagnosticsEnabled: () -> Boolean = { true },
     ): List<HookHandle> {
         val injectorClass = Class.forName(INJECTOR_CLASS_NAME, false, classLoader)
         val listenerClass = Class.forName(LISTENER_CLASS_NAME, false, classLoader)
@@ -68,26 +69,33 @@ internal object SystemUiIslandMotionSource {
                         val secondary = chain.getArg(1) as? Boolean ?: false
                         val animate = chain.getArg(2) as? Boolean ?: false
                         val result = chain.proceed()
-                        val injector =
-                            outerField?.let { field ->
-                                runCatching { field.get(chain.thisObject) }.getOrNull()
-                            }
 
-                        if (onEvent != null && injector != null) {
-                            val views =
-                                diagnosticFields.mapNotNull { (name, field) ->
-                                    (runCatching { field.get(injector) as? View }.getOrNull())
-                                        ?.let { name to it }
-                                }.toMap()
-                            onEvent(
-                                "islandOwner event showing=" + showing +
-                                    " secondary=" + secondary +
-                                    " animate=" + animate +
-                                    " fields=" + views.keys.joinToString(",") +
-                                    " geometryWrites=0",
-                            )
-                            if (views.isNotEmpty()) {
-                                DiagnosticProbe.start(views, onEvent)
+                        if (onEvent != null && isDetailedDiagnosticsEnabled()) {
+                            val injector =
+                                outerField?.let { field ->
+                                    runCatching { field.get(chain.thisObject) }.getOrNull()
+                                }
+                            if (injector != null) {
+                                val views =
+                                    diagnosticFields.mapNotNull { (name, field) ->
+                                        (runCatching { field.get(injector) as? View }.getOrNull())
+                                            ?.let { name to it }
+                                    }.toMap()
+                                onEvent(
+                                    "islandOwner event showing=" + showing +
+                                        " secondary=" + secondary +
+                                        " animate=" + animate +
+                                        " fields=" + views.keys.joinToString(",") +
+                                        " geometryWrites=0",
+                                )
+                                if (views.isNotEmpty()) {
+                                    DiagnosticProbe.start(
+                                        views = views,
+                                        onEvent = onEvent,
+                                        isDetailedDiagnosticsEnabled =
+                                            isDetailedDiagnosticsEnabled,
+                                    )
+                                }
                             }
                         }
                         result
@@ -110,6 +118,7 @@ internal object SystemUiIslandMotionSource {
         fun start(
             views: Map<String, View>,
             onEvent: (String) -> Unit,
+            isDetailedDiagnosticsEnabled: () -> Boolean,
         ) {
             stop()
             generation += 1
@@ -124,27 +133,31 @@ internal object SystemUiIslandMotionSource {
 
             val nextListener =
                 ViewTreeObserver.OnPreDrawListener {
-                    frame += 1
-                    val snapshot =
-                        views.entries.joinToString(" ") { (name, view) ->
-                            name + "=" + motion(view)
-                        }
-                    if (snapshot != previous && samples < MAX_SAMPLES) {
-                        previous = snapshot
-                        samples += 1
-                        onEvent(
-                            "islandOwner sample frame=" + frame +
-                                " elapsedMs=" + (SystemClock.uptimeMillis() - startedAt) +
-                                " " + snapshot +
-                                " sample=" + samples + "/" + MAX_SAMPLES +
-                                " geometryWrites=0",
-                        )
-                    }
-                    if (
-                        currentGeneration == generation &&
-                        SystemClock.uptimeMillis() - startedAt >= FOLLOW_DURATION_MS
-                    ) {
+                    if (!isDetailedDiagnosticsEnabled()) {
                         stop()
+                    } else {
+                        frame += 1
+                        val snapshot =
+                            views.entries.joinToString(" ") { (name, view) ->
+                                name + "=" + motion(view)
+                            }
+                        if (snapshot != previous && samples < MAX_SAMPLES) {
+                            previous = snapshot
+                            samples += 1
+                            onEvent(
+                                "islandOwner sample frame=" + frame +
+                                    " elapsedMs=" + (SystemClock.uptimeMillis() - startedAt) +
+                                    " " + snapshot +
+                                    " sample=" + samples + "/" + MAX_SAMPLES +
+                                    " geometryWrites=0",
+                            )
+                        }
+                        if (
+                            currentGeneration == generation &&
+                            SystemClock.uptimeMillis() - startedAt >= FOLLOW_DURATION_MS
+                        ) {
+                            stop()
+                        }
                     }
                     true
                 }
