@@ -9,21 +9,17 @@ internal object CombinedStatusConnectivityPolicy {
     ): CenterIndicator? {
         val wifiVisible =
             wifi as? CombinedStatusStateStore.WifiState.Visible
-        val wifiSegments =
-            when (val signal = wifiVisible?.signal) {
-                null -> null
-                SignalStrength.Unknown -> null
-                SignalStrength.Unavailable -> null
-                is SignalStrength.Level -> wifiSegments(signal.value)
-            }
+        val wifiReady =
+            wifiVisible?.iconResId != null &&
+                wifiVisible.signal is SignalStrength.Level
 
-        if (wifiVisible != null && wifiSegments != null) {
+        if (wifiVisible != null && wifiReady) {
             resolvedWifiInternet(
                 wifi = wifiVisible,
                 connectivity = connectivity,
             )?.let { internet ->
                 return CenterIndicator.Wifi(
-                    segments = wifiSegments,
+                    iconResId = wifiVisible.iconResId,
                     internet = internet,
                 )
             }
@@ -87,7 +83,8 @@ internal object CombinedStatusConnectivityPolicy {
             CombinedStatusStateStore.WifiState.Unknown -> false
             CombinedStatusStateStore.WifiState.Hidden -> true
             is CombinedStatusStateStore.WifiState.Visible ->
-                wifi.signal is SignalStrength.Level &&
+                wifi.iconResId != null &&
+                    wifi.signal is SignalStrength.Level &&
                     resolvedWifiInternet(
                         wifi = wifi,
                         connectivity = connectivity,
@@ -119,9 +116,6 @@ internal object CombinedStatusConnectivityPolicy {
         } else {
             InternetState.NO_INTERNET
         }
-
-    private fun wifiSegments(level: Int): Int =
-        level.coerceIn(0, 3)
 }
 
 internal enum class InternetState {
@@ -132,7 +126,7 @@ internal enum class InternetState {
 
 internal sealed interface CenterIndicator {
     data class Wifi(
-        val segments: Int,
+        val iconResId: Int,
         val internet: InternetState,
     ) : CenterIndicator
 

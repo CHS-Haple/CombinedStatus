@@ -12,7 +12,7 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 - Event-driven Combined Status state pipeline for battery, Wi-Fi, mobile network, airplane mode, default-data subscription, connectivity, and native SystemUI tint.
 - Home status-bar Combined Status rendering based on verified SystemUI hosts and native state sources while preserving conservative SystemUI geometry ownership.
 - Shared scene-capability and layout-policy models for Home, notification-shade transitions, Control Center, keyguard, and AOD, with charging represented as render state rather than scene identity.
-- Deterministic HyperOS Wi-Fi and mobile signal parsing into semantic levels, with unit coverage for the core mappings.
+- HyperOS-native Wi-Fi presentation semantics and mobile signal parsing with unit coverage for the compatibility mappings.
 - Bounded structured runtime diagnostics for compatibility, lifecycle, state propagation, rendering, host topology, geometry ownership, and hot reload.
 - Built-in diagnostic report export/share using LSPosed module logs with logcat fallback, without a resident collection service.
 - Debug, Canary, and Release build channels with diagnostics depth separated from core feature behavior; Canary is non-debuggable and release-optimized while retaining bounded runtime diagnostics.
@@ -50,7 +50,7 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 ### Fixed
 
 - Wi-Fi fallback rendering now uses the same semantic-readiness gate as native Wi-Fi suppression, so unknown OEM/VPN Wi-Fi variants remain fully native instead of being duplicated by an uncertain Combined Status Wi-Fi projection.
-- Wi-Fi strength presentation now preserves all four SystemUI signal levels (0–3) as four distinct visual states using the existing three-path renderer, instead of collapsing native levels 2 and 3 into the same fully lit icon.
+- Wi-Fi center rendering now uses the exact HyperOS drawable selected by SystemUI, preserving the OEM signal-strength and unavailable/no-Internet artwork instead of reconstructing Wi-Fi geometry in the module.
 - Wi-Fi rendering now consumes the authoritative SystemUI `WifiIcon` resource emitted by the modern Wi-Fi pipeline instead of re-reading the bound `ImageView` tag; signal-level changes and SystemUI no-internet variants therefore update immediately even when Android selects cellular as the default network.
 - Hot Reload restore now seeds the Home fallback renderer with the already-known native handoff ownership state, preventing the battery-anchored overlay from becoming visible for a frame before native CombinedStatus handoff is reasserted.
 - Hot Reload now keeps SystemUI View and bindable-participant mutation on the SystemUI main thread: cross-generation transfer carries only stable runtime state and live SystemUI references, while the new generation re-adopts the existing native participant instead of synchronously detaching and transferring module-owned View/holder state from the framework callback thread.

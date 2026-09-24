@@ -35,7 +35,7 @@ class CombinedStatusConnectivityPolicyTest {
 
         assertEquals(
             CenterIndicator.Wifi(
-                segments = 2,
+                iconResId = 1,
                 internet = InternetState.NO_INTERNET,
             ),
             result,
@@ -66,7 +66,7 @@ class CombinedStatusConnectivityPolicyTest {
 
         assertEquals(
             CenterIndicator.Wifi(
-                segments = 0,
+                iconResId = 1,
                 internet = InternetState.VALIDATED,
             ),
             result,
@@ -97,7 +97,7 @@ class CombinedStatusConnectivityPolicyTest {
 
         assertEquals(
             CenterIndicator.Wifi(
-                segments = 1,
+                iconResId = 1,
                 internet = InternetState.NO_INTERNET,
             ),
             result,
@@ -178,7 +178,7 @@ class CombinedStatusConnectivityPolicyTest {
     }
 
     @Test
-    fun systemUiWifiLevelsRemainFourDistinctVisualStates() {
+    fun systemUiWifiResourceIdentityRemainsAuthoritativeAcrossSignalLevels() {
         val connectivity =
             SystemUiConnectivityStateSource.State(
                 known = true,
@@ -188,13 +188,13 @@ class CombinedStatusConnectivityPolicyTest {
                 mobileDataEnabled = true,
             )
 
-        val segments =
+        val resourceIds =
             (0..3).map { level ->
                 val result =
                     CombinedStatusConnectivityPolicy.resolve(
                         wifi =
                             CombinedStatusStateStore.WifiState.Visible(
-                                iconResId = level + 1,
+                                iconResId = 100 + level,
                                 signal = SignalStrength.Level(level),
                                 internetValidated = true,
                             ),
@@ -202,10 +202,44 @@ class CombinedStatusConnectivityPolicyTest {
                         connectivity = connectivity,
                         mobileType = null,
                     )
-                (result as CenterIndicator.Wifi).segments
+                (result as CenterIndicator.Wifi).iconResId
             }
 
-        assertEquals(listOf(0, 1, 2, 3), segments)
+        assertEquals(listOf(100, 101, 102, 103), resourceIds)
+    }
+
+    @Test
+    fun missingWifiResourceNeverClaimsNativeReplacement() {
+        val wifi =
+            CombinedStatusStateStore.WifiState.Visible(
+                iconResId = null,
+                signal = SignalStrength.Level(2),
+                internetValidated = true,
+            )
+        val connectivity =
+            SystemUiConnectivityStateSource.State(
+                known = true,
+                transport = SystemUiConnectivityStateSource.Transport.WIFI,
+                validated = true,
+                hasInternetCapability = true,
+                mobileDataEnabled = true,
+            )
+
+        assertNull(
+            CombinedStatusConnectivityPolicy.resolve(
+                wifi = wifi,
+                airplaneMode = false,
+                connectivity = connectivity,
+                mobileType = null,
+            ),
+        )
+        assertEquals(
+            false,
+            CombinedStatusConnectivityPolicy.wifiReplacementReady(
+                wifi = wifi,
+                connectivity = connectivity,
+            ),
+        )
     }
 
     @Test

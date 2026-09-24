@@ -37,7 +37,7 @@ class CombinedStatusRenderModelTest {
             )
 
         val center = model?.centerIndicator as? CenterIndicator.Wifi
-        assertEquals(3, center?.segments)
+        assertEquals(1, center?.iconResId)
         assertEquals(InternetState.VALIDATED, center?.internet)
     }
 
