@@ -59,10 +59,13 @@ internal object SystemUiNetworkStateSource {
         MOBILE_SIGNAL_HOOK_ID,
     )
 
-    private val wifiRoots = WeakHashMap<ViewGroup, Unit>()
+    private val wifiRoots = WeakHashMap<ViewGroup, Any?>()
     private val mobileRoots = WeakHashMap<ViewGroup, Int>()
     private val lastWifiEvents = WeakHashMap<ImageView, String>()
     private val lastMobileEvents = WeakHashMap<ImageView, String>()
+
+    @Volatile
+    private var wifiSeedContract: WifiSeedContract? = null
 
     internal data class InstallFailure(
         val component: String,
@@ -92,6 +95,38 @@ internal object SystemUiNetworkStateSource {
         val handles: List<HookHandle>,
         val ready: Boolean,
         val failure: InstallFailure?,
+    )
+
+    private data class WifiSeedContract(
+        val wifiIconGetter: Method?,
+        val wifiVisibleIconField: Field,
+        val iconResourceIdAccessor: IconResourceIdAccessor,
+    )
+
+    private data class IconResourceIdAccessor(
+        val method: Method? = null,
+        val field: Field? = null,
+        val description: String,
+    ) {
+        fun read(target: Any): Int? =
+            when {
+                method != null ->
+                    (method.invoke(target) as? Number)
+                        ?.toInt()
+                        ?.takeIf { it != 0 }
+                field != null ->
+                    (field.get(target) as? Number)
+                        ?.toInt()
+                        ?.takeIf { it != 0 }
+                else -> null
+            }
+    }
+
+    private data class WifiSemanticValue(
+        val state: CombinedStatusStateStore.WifiState?,
+        val resourceId: Int?,
+        val resourceName: String?,
+        val valueType: String,
     )
 
     private class InstallStageException(
@@ -170,11 +205,9 @@ internal object SystemUiNetworkStateSource {
                         .getDeclaredField("icon")
                         .apply { isAccessible = true }
                 }
-            val iconResourceResField =
-                atStage("wifi.resolve.iconResourceResField") {
-                    iconResourceClass
-                        .getDeclaredField("res")
-                        .apply { isAccessible = true }
+            val iconResourceIdAccessor =
+                atStage("wifi.resolve.iconResourceIdAccessor") {
+                    resolveIconResourceIdAccessor(iconResourceClass)
                 }
             val wifiIconEmitterClass =
                 atStage("wifi.resolve.iconEmitterClass") {
@@ -199,13 +232,33 @@ internal object SystemUiNetworkStateSource {
                         .getDeclaredField("\$r8\$classId")
                         .apply { isAccessible = true }
                 }
+            val wifiIconGetter =
+                wifiLocationVmClass.methods
+                    .firstOrNull { method ->
+                        method.name == "getWifiIcon" &&
+                            method.parameterCount == 0
+                    }
+                    ?.apply { isAccessible = true }
+            val seedContract =
+                WifiSeedContract(
+                    wifiIconGetter = wifiIconGetter,
+                    wifiVisibleIconField = wifiVisibleIconField,
+                    iconResourceIdAccessor = iconResourceIdAccessor,
+                )
+            wifiSeedContract = seedContract
 
             created +=
                 atStage("wifi.hook.bind") {
                     module
                         .hook(wifiBindMethod)
                         .setId(WIFI_BIND_HOOK_ID)
-                        .intercept(wifiBindHooker(onEvent))
+                        .intercept(
+                            wifiBindHooker(
+                                seedContract = seedContract,
+                                onWifiState = onWifiState,
+                                onEvent = onEvent,
+                            ),
+                        )
                 }
             created +=
                 atStage("wifi.hook.iconEmit") {
@@ -217,7 +270,7 @@ internal object SystemUiNetworkStateSource {
                                 wifiImageField = wifiIconImageField,
                                 wifiClassIdField = wifiIconClassIdField,
                                 wifiVisibleIconField = wifiVisibleIconField,
-                                iconResourceResField = iconResourceResField,
+                                iconResourceIdAccessor = iconResourceIdAccessor,
                                 onWifiState = onWifiState,
                                 onEvent = onEvent,
                             ),
@@ -231,6 +284,7 @@ internal object SystemUiNetworkStateSource {
             )
         } catch (error: InstallStageException) {
             created.forEach { handle -> runCatching { handle.unhook() } }
+            wifiSeedContract = null
             BranchInstallResult(
                 handles = emptyList(),
                 ready = false,
@@ -379,13 +433,14 @@ internal object SystemUiNetworkStateSource {
     fun resetEventState() {
         lastWifiEvents.clear()
         lastMobileEvents.clear()
+        wifiSeedContract = null
     }
 
     @Synchronized
     fun exportHotReloadBindings(): Array<Any?> {
         val wifi = ArrayList<Any>(wifiRoots.size)
-        wifiRoots.keys.forEach { root ->
-            wifi += root
+        wifiRoots.forEach { (root, viewModel) ->
+            wifi.add(arrayOf(root, viewModel))
         }
 
         val mobile = ArrayList<Any>(mobileRoots.size)
@@ -408,9 +463,19 @@ internal object SystemUiNetworkStateSource {
 
         val wifi = payload.getOrNull(0) as? List<*>
         wifi.orEmpty().forEach { value ->
-            val root = value as? ViewGroup ?: return@forEach
+            val pair = value as? Array<*>
+            val root =
+                (pair?.getOrNull(0) as? ViewGroup)
+                    ?: (value as? ViewGroup)
+                    ?: return@forEach
+            val viewModel =
+                pair
+                    ?.getOrNull(1)
+                    ?.takeIf { candidate ->
+                        candidate.javaClass.name == HOME_WIFI_VIEW_MODEL_CLASS_NAME
+                    }
             if (root.isAttachedToWindow) {
-                wifiRoots[root] = Unit
+                wifiRoots[root] = viewModel
             }
         }
 
@@ -494,6 +559,8 @@ internal object SystemUiNetworkStateSource {
     fun matches(handle: HookHandle): Boolean = handle.id in hookIds
 
     private fun wifiBindHooker(
+        seedContract: WifiSeedContract,
+        onWifiState: (CombinedStatusStateStore.WifiState) -> Unit,
         onEvent: ((String) -> Unit)?,
     ): Hooker = Hooker { chain ->
         val root = chain.getArg(0) as? ViewGroup
@@ -503,10 +570,11 @@ internal object SystemUiNetworkStateSource {
             root != null &&
             viewModel?.javaClass?.name == HOME_WIFI_VIEW_MODEL_CLASS_NAME
         ) {
-            val firstBinding = synchronized(this) {
-                wifiRoots.put(root, Unit) == null
+            val previous = synchronized(this) {
+                wifiRoots.put(root, viewModel)
             }
-            if (firstBinding) {
+            val bindingChanged = previous !== viewModel
+            if (bindingChanged) {
                 onEvent?.invoke(
                     "networkPipeline wifi bound " +
                         "stage=beforeProceed " +
@@ -518,17 +586,243 @@ internal object SystemUiNetworkStateSource {
                         " layout=" + layoutToken(root) +
                         " geometryWrites=0",
                 )
+                readWifiSeed(
+                    root = root,
+                    viewModel = viewModel,
+                    contract = seedContract,
+                    source = "bind",
+                    onEvent = onEvent,
+                )?.let(onWifiState)
             }
         }
 
         chain.proceed()
     }
 
+    @Synchronized
+    fun seedRestoredWifiState(
+        onEvent: ((String) -> Unit)?,
+    ): CombinedStatusStateStore.WifiState? {
+        val contract = wifiSeedContract ?: return null
+        val binding =
+            wifiRoots.entries.firstOrNull { (root, viewModel) ->
+                root.isAttachedToWindow &&
+                    viewModel?.javaClass?.name == HOME_WIFI_VIEW_MODEL_CLASS_NAME
+            } ?: run {
+                onEvent?.invoke(
+                    "networkPipeline wifi seed source=hotReloadRestore " +
+                        "state=unavailable reason=view-model-not-transferred",
+                )
+                return null
+            }
+
+        val viewModel = binding.value ?: return null
+        return readWifiSeed(
+            root = binding.key,
+            viewModel = viewModel,
+            contract = contract,
+            source = "hotReloadRestore",
+            onEvent = onEvent,
+        )
+    }
+
+    private fun readWifiSeed(
+        root: View,
+        viewModel: Any,
+        contract: WifiSeedContract,
+        source: String,
+        onEvent: ((String) -> Unit)?,
+    ): CombinedStatusStateStore.WifiState? {
+        val getter =
+            contract.wifiIconGetter
+                ?: run {
+                    onEvent?.invoke(
+                        "networkPipeline wifi seed source=" + source +
+                            " state=unavailable reason=getWifiIcon-missing",
+                    )
+                    return null
+                }
+
+        val flow =
+            runCatching {
+                getter.invoke(viewModel)
+            }.getOrElse { error ->
+                onEvent?.invoke(
+                    "networkPipeline wifi seed source=" + source +
+                        " state=unavailable reason=wifiIcon-read-" +
+                        error.javaClass.simpleName,
+                )
+                return null
+            } ?: run {
+                onEvent?.invoke(
+                    "networkPipeline wifi seed source=" + source +
+                        " state=unavailable reason=wifiIcon-null",
+                )
+                return null
+            }
+
+        val valueGetter =
+            flow.javaClass.methods
+                .firstOrNull { method ->
+                    method.name == "getValue" &&
+                        method.parameterCount == 0
+                }
+                ?.apply { isAccessible = true }
+                ?: run {
+                    onEvent?.invoke(
+                        "networkPipeline wifi seed source=" + source +
+                            " state=unavailable reason=stateFlow-value-missing " +
+                            "flow=" + flow.javaClass.name,
+                    )
+                    return null
+                }
+
+        val value =
+            runCatching {
+                valueGetter.invoke(flow)
+            }.getOrElse { error ->
+                onEvent?.invoke(
+                    "networkPipeline wifi seed source=" + source +
+                        " state=unavailable reason=stateFlow-value-" +
+                        error.javaClass.simpleName,
+                )
+                return null
+            }
+
+        val semantic =
+            decodeWifiSemantic(
+                value = value,
+                sourceView = root,
+                wifiVisibleIconField = contract.wifiVisibleIconField,
+                iconResourceIdAccessor = contract.iconResourceIdAccessor,
+            )
+
+        onEvent?.invoke(
+            "networkPipeline wifi seed source=" + source +
+                " state=" + if (semantic.state != null) "ready" else "unavailable" +
+                " getter=" + getter.name +
+                " flow=" + flow.javaClass.simpleName +
+                " valueType=" + semantic.valueType +
+                " modelResId=" + (semantic.resourceId ?: 0) +
+                " modelResource=" + (semantic.resourceName ?: "n/a") +
+                " resourceAccessor=" + contract.iconResourceIdAccessor.description,
+        )
+        return semantic.state
+    }
+
+    private fun resolveIconResourceIdAccessor(
+        iconResourceClass: Class<*>,
+    ): IconResourceIdAccessor {
+        listOf("getResId", "getRes").forEach { name ->
+            val method =
+                iconResourceClass.methods
+                    .firstOrNull { candidate ->
+                        candidate.name == name &&
+                            candidate.parameterCount == 0 &&
+                            (
+                                candidate.returnType == Int::class.javaPrimitiveType ||
+                                    Number::class.java.isAssignableFrom(candidate.returnType)
+                            )
+                    }
+            if (method != null) {
+                method.isAccessible = true
+                return IconResourceIdAccessor(
+                    method = method,
+                    description = "method:" + method.name,
+                )
+            }
+        }
+
+        listOf("resId", "res").forEach { name ->
+            val field =
+                runCatching {
+                    iconResourceClass.getDeclaredField(name)
+                }.getOrNull()
+            if (
+                field != null &&
+                (
+                    field.type == Int::class.javaPrimitiveType ||
+                        Number::class.java.isAssignableFrom(field.type)
+                )
+            ) {
+                field.isAccessible = true
+                return IconResourceIdAccessor(
+                    field = field,
+                    description = "field:" + field.name,
+                )
+            }
+        }
+
+        throw NoSuchFieldException(
+            "No supported resource-id accessor in " + iconResourceClass.name +
+                " methods=" +
+                iconResourceClass.methods
+                    .filter { it.parameterCount == 0 }
+                    .joinToString(",") { it.name + ":" + it.returnType.simpleName } +
+                " fields=" +
+                iconResourceClass.declaredFields
+                    .joinToString(",") { it.name + ":" + it.type.simpleName },
+        )
+    }
+
+    private fun decodeWifiSemantic(
+        value: Any?,
+        sourceView: View,
+        wifiVisibleIconField: Field,
+        iconResourceIdAccessor: IconResourceIdAccessor,
+    ): WifiSemanticValue {
+        val valueType = value?.javaClass?.name
+        if (valueType == WIFI_ICON_HIDDEN_CLASS_NAME) {
+            return WifiSemanticValue(
+                state = CombinedStatusStateStore.WifiState.Hidden,
+                resourceId = null,
+                resourceName = null,
+                valueType = value?.javaClass?.simpleName ?: "null",
+            )
+        }
+
+        if (valueType != WIFI_ICON_VISIBLE_CLASS_NAME) {
+            return WifiSemanticValue(
+                state = null,
+                resourceId = null,
+                resourceName = null,
+                valueType = value?.javaClass?.simpleName ?: "null",
+            )
+        }
+
+        val modelResId =
+            runCatching {
+                val icon = wifiVisibleIconField.get(value)
+                if (icon?.javaClass?.name == ICON_RESOURCE_CLASS_NAME) {
+                    iconResourceIdAccessor.read(icon)
+                } else {
+                    null
+                }
+            }.getOrNull()
+        val modelResourceName =
+            modelResId?.let { id -> resourceName(sourceView, id) }
+
+        return WifiSemanticValue(
+            state =
+                CombinedStatusStateStore.WifiState.Visible(
+                    iconResId = modelResId,
+                    signal = SystemUiSignalParser.wifi(modelResourceName),
+                    internetValidated =
+                        SystemUiSignalParser.wifiInternetValidated(
+                            modelResourceName,
+                        ),
+                ),
+            resourceId = modelResId,
+            resourceName = modelResourceName,
+            valueType = value.javaClass.simpleName,
+        )
+    }
+
     private fun wifiIconHooker(
         wifiImageField: Field,
         wifiClassIdField: Field,
         wifiVisibleIconField: Field,
-        iconResourceResField: Field,
+        iconResourceIdAccessor: IconResourceIdAccessor,
         onWifiState: (CombinedStatusStateStore.WifiState) -> Unit,
         onEvent: ((String) -> Unit)?,
     ): Hooker = Hooker { chain ->
@@ -547,53 +841,26 @@ internal object SystemUiNetworkStateSource {
             runCatching {
                 wifiImageField.get(emitter) as? ImageView
             }.getOrNull()
-        val modelResId =
-            if (value?.javaClass?.name == WIFI_ICON_VISIBLE_CLASS_NAME) {
-                runCatching {
-                    val icon = wifiVisibleIconField.get(value)
-                    if (icon?.javaClass?.name == ICON_RESOURCE_CLASS_NAME) {
-                        iconResourceResField.getInt(icon).takeIf { it != 0 }
-                    } else {
-                        null
-                    }
-                }.getOrNull()
-            } else {
-                null
-            }
-
         var changed = false
-        var modelResourceName: String? = null
+        var semantic: WifiSemanticValue? = null
         if (image != null && findWifiBinding(image)) {
-            val valueType = value?.javaClass?.name
+            semantic =
+                decodeWifiSemantic(
+                    value = value,
+                    sourceView = image,
+                    wifiVisibleIconField = wifiVisibleIconField,
+                    iconResourceIdAccessor = iconResourceIdAccessor,
+                )
             val eventKey =
-                (valueType ?: "null") + ":" +
-                    (modelResId?.toString() ?: "none")
+                semantic.valueType + ":" +
+                    (semantic.resourceId?.toString() ?: "none")
             changed =
                 synchronized(this) {
                     lastWifiEvents.put(image, eventKey) != eventKey
                 }
 
             if (changed) {
-                modelResourceName =
-                    modelResId?.let { id -> resourceName(image, id) }
-                when (valueType) {
-                    WIFI_ICON_VISIBLE_CLASS_NAME -> {
-                        onWifiState(
-                            CombinedStatusStateStore.WifiState.Visible(
-                                iconResId = modelResId,
-                                signal = SystemUiSignalParser.wifi(modelResourceName),
-                                internetValidated =
-                                    SystemUiSignalParser.wifiInternetValidated(
-                                        modelResourceName,
-                                    ),
-                            ),
-                        )
-                    }
-
-                    WIFI_ICON_HIDDEN_CLASS_NAME -> {
-                        onWifiState(CombinedStatusStateStore.WifiState.Hidden)
-                    }
-                }
+                semantic.state?.let(onWifiState)
             }
         }
 
@@ -609,9 +876,9 @@ internal object SystemUiNetworkStateSource {
                     "phase=semanticBeforeProceed/viewAfterProceed " +
                     "viewId=" + resourceId(image) +
                     " classId=" + classId +
-                    " valueType=" + (value?.javaClass?.simpleName ?: "null") +
-                    " modelResId=" + (modelResId ?: 0) +
-                    " modelResource=" + (modelResourceName ?: "n/a") +
+                    " valueType=" + (semantic?.valueType ?: "null") +
+                    " modelResId=" + (semantic?.resourceId ?: 0) +
+                    " modelResource=" + (semantic?.resourceName ?: "n/a") +
                     " taggedResId=" + (taggedResId ?: 0) +
                     " taggedResource=" +
                     (

@@ -4,6 +4,9 @@ internal object SystemUiBatteryContractProbe {
     const val BATTERY_VIEW_CLASS_NAME =
         "com.android.systemui.statusbar.views.MiuiBatteryMeterView"
 
+    private const val BATTERY_CALLBACK_SUFFIX =
+        "BatteryController\$BatteryStateChangeCallback"
+
     private val targetMethodNames =
         setOf(
             "onBatteryLevelChanged",
@@ -33,16 +36,23 @@ internal object SystemUiBatteryContractProbe {
                 .map { type -> type.name }
                 .sorted()
 
+        val callbackInterface =
+            batteryClass.interfaces
+                .firstOrNull { type ->
+                    type.name.endsWith(BATTERY_CALLBACK_SUFFIX)
+                }
+
+        val callbackMethods =
+            callbackInterface
+                ?.methods
+                ?.map(::methodSignature)
+                ?.sorted()
+                .orEmpty()
+
         val methods =
             batteryClass.declaredMethods
                 .filter { method -> method.name in targetMethodNames }
-                .map { method ->
-                    method.name +
-                        "(" +
-                        method.parameterTypes.joinToString(",") { type -> type.typeName } +
-                        "):" +
-                        method.returnType.typeName
-                }
+                .map(::methodSignature)
                 .sorted()
 
         val fields =
@@ -53,37 +63,62 @@ internal object SystemUiBatteryContractProbe {
 
         return Result(
             interfaces = interfaces,
+            callbackInterfaceName = callbackInterface?.name,
+            callbackMethods = callbackMethods,
             methods = methods,
             fields = fields,
         )
     }
 
+    private fun methodSignature(method: java.lang.reflect.Method): String =
+        method.name +
+            "(" +
+            method.parameterTypes.joinToString(",") { type -> type.typeName } +
+            "):" +
+            method.returnType.typeName
+
     internal data class Result(
         val interfaces: List<String>,
+        val callbackInterfaceName: String?,
+        val callbackMethods: List<String>,
         val methods: List<String>,
         val fields: List<String>,
     ) {
         val hasBatteryCallbackInterface: Boolean
-            get() =
-                interfaces.any { name ->
-                    name.endsWith("BatteryController\$BatteryStateChangeCallback")
-                }
+            get() = callbackInterfaceName != null
 
         val hasLevelCallback: Boolean
             get() =
-                methods.any { method ->
+                callbackMethods.any { method ->
                     method.startsWith(
                         "onBatteryLevelChanged(int,boolean,boolean):",
+                    )
+                } ||
+                    methods.any { method ->
+                        method.startsWith(
+                            "onBatteryLevelChanged(int,boolean,boolean):",
+                        )
+                    }
+
+        val hasChargeStateCallback: Boolean
+            get() =
+                methods.any { method ->
+                    method.startsWith(
+                        "onChargeStateChanged(boolean,boolean):",
                     )
                 }
 
         val logLine: String
             get() =
                 "batteryContract " +
-                    "callbackInterface=" + hasBatteryCallbackInterface +
+                    "callbackInterface=" + (callbackInterfaceName ?: "none") +
                     " levelCallback=" + hasLevelCallback +
-                    " interfaces=" + interfaces.joinToString(",", prefix = "[", postfix = "]") +
-                    " methods=" + methods.joinToString(",", prefix = "[", postfix = "]") +
-                    " fields=" + fields.joinToString(",", prefix = "[", postfix = "]")
+                    " chargeStateCallback=" + hasChargeStateCallback +
+                    " callbackMethods=" +
+                    callbackMethods.joinToString(",", prefix = "[", postfix = "]") +
+                    " methods=" +
+                    methods.joinToString(",", prefix = "[", postfix = "]") +
+                    " fields=" +
+                    fields.joinToString(",", prefix = "[", postfix = "]")
     }
 }

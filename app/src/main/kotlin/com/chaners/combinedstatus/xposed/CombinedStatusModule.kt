@@ -406,10 +406,22 @@ class CombinedStatusModule : XposedModule() {
         removedHooks: Int,
     ) {
         runCatching {
-            val restoredSnapshot =
+            var restoredSnapshot =
                 CombinedStatusStateStore.restoreHotReloadState(restored.state)
             val bindings =
                 SystemUiNetworkStateSource.restoreHotReloadBindings(restored.bindings)
+            SystemUiNetworkStateSource.seedRestoredWifiState(
+                onEvent =
+                    if (BuildConfig.RUNTIME_DIAGNOSTICS) {
+                        ::onNetworkPipelineEvent
+                    } else {
+                        null
+                    },
+            )?.let { wifi ->
+                CombinedStatusStateStore.updateWifi(wifi)?.let { snapshot ->
+                    restoredSnapshot = snapshot
+                }
+            }
             val controllerRestored =
                 SystemUiNativeParticipantRuntimeOwner.restoreExistingController(
                     capture.host,
@@ -863,8 +875,10 @@ class CombinedStatusModule : XposedModule() {
                 component = "batteryState",
                 state = if (ready) "ready" else "partial",
                 "source" to source,
-                "callbackInterface" to result.hasBatteryCallbackInterface,
+                "callbackInterface" to result.callbackInterfaceName,
                 "levelCallback" to result.hasLevelCallback,
+                "chargeStateCallback" to result.hasChargeStateCallback,
+                "callbackMethods" to result.callbackMethods.joinToString("|"),
                 "methods" to result.methods.joinToString("|"),
                 "fields" to result.fields.joinToString("|"),
             )
@@ -1030,6 +1044,14 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun onSceneStateUpdate(update: SystemUiSceneStateSource.SceneUpdate) {
+        SystemUiTintStateSource.currentState(update.sourceView)?.let { state ->
+            onTintStateUpdate(
+                SystemUiTintStateSource.TintUpdate(
+                    sourceView = update.sourceView,
+                    state = state,
+                ),
+            )
+        }
         CombinedStatusHomeRenderSession.onSceneUpdate(update)
         SystemUiNativeCombinedParticipantOwner.onSceneUpdate(update)
     }
