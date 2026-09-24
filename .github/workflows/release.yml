@@ -24,6 +24,28 @@ jobs:
       contents: write
 
     steps:
+      - name: Validate release source
+        shell: bash
+        run: |
+          case "${{ inputs.channel }}" in
+            stable)
+              if [[ "$GITHUB_REF_NAME" != "main" ]]; then
+                echo "Stable releases must be published from main, not $GITHUB_REF_NAME."
+                exit 1
+              fi
+              ;;
+            test)
+              if [[ "$GITHUB_REF_NAME" != "main" && "$GITHUB_REF_NAME" != "dev" ]]; then
+                echo "Test releases must be published from dev or main, not $GITHUB_REF_NAME."
+                exit 1
+              fi
+              ;;
+            *)
+              echo "Unsupported release channel: ${{ inputs.channel }}"
+              exit 1
+              ;;
+          esac
+
       - name: Checkout
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
@@ -183,11 +205,6 @@ jobs:
         if: inputs.channel == 'stable'
         shell: bash
         run: |
-          if [[ "$GITHUB_REF_NAME" != "main" ]]; then
-            echo "Stable releases must be published from main, not $GITHUB_REF_NAME."
-            exit 1
-          fi
-
           python3 - <<'PY'
           import os
           import pathlib
