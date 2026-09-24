@@ -281,7 +281,7 @@ internal object SystemUiNativeNetworkSuppressionOwner {
 
     private fun bindingOf(view: View): Any? {
         val getter =
-            generateSequence(view.javaClass) { clazz -> clazz.superclass }
+            generateSequence<Class<*>>(view.javaClass) { clazz -> clazz.superclass }
                 .flatMap { clazz -> clazz.declaredMethods.asSequence() }
                 .firstOrNull { method ->
                     method.parameterCount == 0 &&
