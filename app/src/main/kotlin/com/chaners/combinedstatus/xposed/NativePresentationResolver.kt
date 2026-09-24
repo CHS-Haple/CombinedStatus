@@ -250,6 +250,11 @@ internal object NativePresentationResolver {
         val networkTypeSubscriptionId: Int?,
         val networkType: NetworkType?,
     ) {
+        val representsSingleActiveSubscription: Boolean
+            get() =
+                mode == Mode.SINGLE &&
+                    activeSubscriptionIds.size == 1
+
         val logLine: String
             get() =
                 "mobilePresentation mode=" + mode.name +

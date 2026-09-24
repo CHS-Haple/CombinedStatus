@@ -25,7 +25,7 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Changed
 
-- Home native CombinedStatus suppresses the Home Wi-Fi and mobile network participants through the modern SystemUI binding visibility contract after handoff, while preserving SystemUI layout/animation ownership and fail-native fallback.
+- Home native CombinedStatus suppresses Home Wi-Fi and single-subscription mobile participants through the modern SystemUI binding visibility contract after handoff; multi-subscription mobile presentation remains SystemUI-owned until CombinedStatus can represent every active SIM, preserving native or externally extended dual-SIM layouts without geometry writes.
 - Bottom navigation now differentiates selected and unselected items with MIUIX icon weights while preserving the existing navigation colors, layout, and interaction behavior.
 - Top app bars now use MIUIX progressive backdrop blur while scrolling content beneath them on supported devices, with the standard solid surface retained as fallback.
 - Companion-app transient feedback now uses MIUIX Snackbar, and icon-only SystemUI reload exposes a native MIUIX long-press tooltip without changing the action layout.
