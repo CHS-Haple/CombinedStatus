@@ -77,6 +77,14 @@ internal object CombinedStatusStateStore {
                     putInt(KEY_WIFI_KIND, WIFI_KIND_VISIBLE)
                     putInt(KEY_WIFI_RES_ID, wifi.iconResId ?: 0)
                     putInt(KEY_WIFI_SIGNAL, encodeSignal(wifi.signal))
+                    putInt(
+                        KEY_WIFI_INTERNET,
+                        when (wifi.internetValidated) {
+                            null -> WIFI_INTERNET_UNKNOWN
+                            false -> WIFI_INTERNET_NO
+                            true -> WIFI_INTERNET_YES
+                        },
+                    )
                 }
             }
             putInt(
@@ -125,6 +133,17 @@ internal object CombinedStatusStateStore {
                     WifiState.Visible(
                         iconResId = bundle.getInt(KEY_WIFI_RES_ID).takeIf { it != 0 },
                         signal = decodeSignal(bundle.getInt(KEY_WIFI_SIGNAL, SIGNAL_UNKNOWN)),
+                        internetValidated =
+                            when (
+                                bundle.getInt(
+                                    KEY_WIFI_INTERNET,
+                                    WIFI_INTERNET_UNKNOWN,
+                                )
+                            ) {
+                                WIFI_INTERNET_NO -> false
+                                WIFI_INTERNET_YES -> true
+                                else -> null
+                            },
                     )
                 else -> WifiState.Unknown
             }
@@ -193,7 +212,16 @@ internal object CombinedStatusStateStore {
                     WifiState.Unknown -> "unknown"
                     WifiState.Hidden -> "hidden"
                     is WifiState.Visible ->
-                        "visible:" + state.signal.logToken + ":res=" + (state.iconResId ?: 0)
+                        "visible:" + state.signal.logToken +
+                            ":internet=" +
+                            (
+                                state.internetValidated
+                                    ?.let { validated ->
+                                        if (validated) "validated" else "no-internet"
+                                    }
+                                    ?: "unknown"
+                            ) +
+                            ":res=" + (state.iconResId ?: 0)
                 }
 
                 val mobileText = mobile.entries.joinToString(
@@ -225,6 +253,7 @@ internal object CombinedStatusStateStore {
         data class Visible(
             val iconResId: Int?,
             val signal: SignalStrength,
+            val internetValidated: Boolean? = null,
         ) : WifiState
     }
 
@@ -255,12 +284,16 @@ internal object CombinedStatusStateStore {
     private const val KEY_WIFI_KIND = "wifiKind"
     private const val KEY_WIFI_RES_ID = "wifiResId"
     private const val KEY_WIFI_SIGNAL = "wifiSignal"
+    private const val KEY_WIFI_INTERNET = "wifiInternet"
     private const val KEY_AIRPLANE = "airplane"
     private const val KEY_MOBILE = "mobile"
 
     private const val WIFI_KIND_UNKNOWN = 0
     private const val WIFI_KIND_HIDDEN = 1
     private const val WIFI_KIND_VISIBLE = 2
+    private const val WIFI_INTERNET_UNKNOWN = -1
+    private const val WIFI_INTERNET_NO = 0
+    private const val WIFI_INTERNET_YES = 1
 
     private const val AIRPLANE_UNKNOWN = -1
     private const val AIRPLANE_OFF = 0

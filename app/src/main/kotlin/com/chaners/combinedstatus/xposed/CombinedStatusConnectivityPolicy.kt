@@ -8,32 +8,40 @@ internal object CombinedStatusConnectivityPolicy {
         mobileType: NativePresentationResolver.NetworkType?,
         connectivityFreshForWifi: Boolean,
     ): CenterIndicator? {
+        val wifiVisible =
+            wifi as? CombinedStatusStateStore.WifiState.Visible
         val wifiSegments =
-            when (wifi) {
-                CombinedStatusStateStore.WifiState.Unknown -> null
-                CombinedStatusStateStore.WifiState.Hidden -> null
-                is CombinedStatusStateStore.WifiState.Visible ->
-                    when (val signal = wifi.signal) {
-                        SignalStrength.Unknown -> null
-                        SignalStrength.Unavailable -> 0
-                        is SignalStrength.Level -> wifiSegments(signal.value)
-                    }
+            when (val signal = wifiVisible?.signal) {
+                null -> null
+                SignalStrength.Unknown -> null
+                SignalStrength.Unavailable -> 0
+                is SignalStrength.Level -> wifiSegments(signal.value)
             }
 
-        if (wifiSegments != null && wifiSegments > 0 && !connectivityFreshForWifi) {
+        if (wifiVisible != null && wifiSegments != null && wifiSegments > 0) {
+            val internet =
+                when (wifiVisible.internetValidated) {
+                    true -> InternetState.VALIDATED
+                    false -> InternetState.NO_INTERNET
+                    null ->
+                        if (
+                            connectivityFreshForWifi &&
+                            connectivity.known &&
+                            connectivity.transport ==
+                                SystemUiConnectivityStateSource.Transport.WIFI
+                        ) {
+                            connectivity.internetState()
+                        } else {
+                            InternetState.UNKNOWN
+                        }
+                }
             return CenterIndicator.Wifi(
                 segments = wifiSegments,
-                internet = InternetState.UNKNOWN,
+                internet = internet,
             )
         }
 
         if (!connectivity.known) {
-            if (wifiSegments != null && wifiSegments > 0) {
-                return CenterIndicator.Wifi(
-                    segments = wifiSegments,
-                    internet = InternetState.UNKNOWN,
-                )
-            }
             if (airplaneMode) {
                 return CenterIndicator.Empty
             }
@@ -44,16 +52,6 @@ internal object CombinedStatusConnectivityPolicy {
                     internet = InternetState.UNKNOWN,
                 )
             }
-        }
-
-        if (connectivity.transport == SystemUiConnectivityStateSource.Transport.WIFI) {
-            if (wifiSegments == null || wifiSegments <= 0) {
-                return null
-            }
-            return CenterIndicator.Wifi(
-                segments = wifiSegments,
-                internet = connectivity.internetState(),
-            )
         }
 
         if (airplaneMode) {
@@ -75,28 +73,21 @@ internal object CombinedStatusConnectivityPolicy {
                 }
 
             SystemUiConnectivityStateSource.Transport.OTHER ->
-                when {
-                    wifiSegments != null && wifiSegments > 0 ->
-                        CenterIndicator.Wifi(
-                            segments = wifiSegments,
-                            internet = connectivity.internetState(),
-                        )
-
-                    connectivity.mobileDataEnabled == true && mobileType != null ->
-                        CenterIndicator.MobileType(
-                            label = mobileType.label,
-                            enhanced = mobileType.enhanced,
-                            internet = connectivity.internetState(),
-                        )
-
-                    else -> CenterIndicator.Empty
+                if (connectivity.mobileDataEnabled == true && mobileType != null) {
+                    CenterIndicator.MobileType(
+                        label = mobileType.label,
+                        enhanced = mobileType.enhanced,
+                        internet = connectivity.internetState(),
+                    )
+                } else {
+                    CenterIndicator.Empty
                 }
 
             SystemUiConnectivityStateSource.Transport.NONE ->
                 CenterIndicator.Empty
 
             SystemUiConnectivityStateSource.Transport.WIFI ->
-                error("Wi-Fi transport handled above")
+                null
         }
     }
 
