@@ -22,6 +22,8 @@ internal object SystemUiNetworkStateSource {
         "com.android.systemui.statusbar.pipeline.wifi.ui.viewmodel.LocationBasedWifiViewModel"
     private const val WIFI_ICON_VISIBLE_CLASS_NAME =
         "com.android.systemui.statusbar.pipeline.wifi.ui.model.WifiIcon\$Visible"
+    private const val ICON_RESOURCE_CLASS_NAME =
+        "com.android.systemui.common.shared.model.Icon\$Resource"
     private const val WIFI_ICON_HIDDEN_CLASS_NAME =
         "com.android.systemui.statusbar.pipeline.wifi.ui.model.WifiIcon\$Hidden"
     const val HOME_WIFI_VIEW_MODEL_CLASS_NAME =
@@ -157,6 +159,26 @@ internal object SystemUiNetworkStateSource {
                         wifiLocationVmClass,
                     )
                 }
+            val wifiVisibleClass =
+                atStage("wifi.resolve.visibleClass") {
+                    Class.forName(WIFI_ICON_VISIBLE_CLASS_NAME, false, classLoader)
+                }
+            val iconResourceClass =
+                atStage("wifi.resolve.iconResourceClass") {
+                    Class.forName(ICON_RESOURCE_CLASS_NAME, false, classLoader)
+                }
+            val wifiVisibleIconField =
+                atStage("wifi.resolve.visibleIconField") {
+                    wifiVisibleClass
+                        .getDeclaredField("icon")
+                        .apply { isAccessible = true }
+                }
+            val iconResourceResField =
+                atStage("wifi.resolve.iconResourceResField") {
+                    iconResourceClass
+                        .getDeclaredField("res")
+                        .apply { isAccessible = true }
+                }
             val wifiIconEmitterClass =
                 atStage("wifi.resolve.iconEmitterClass") {
                     Class.forName(WIFI_ICON_EMITTER_CLASS_NAME, false, classLoader)
@@ -197,6 +219,8 @@ internal object SystemUiNetworkStateSource {
                             wifiIconHooker(
                                 wifiImageField = wifiIconImageField,
                                 wifiClassIdField = wifiIconClassIdField,
+                                wifiVisibleIconField = wifiVisibleIconField,
+                                iconResourceResField = iconResourceResField,
                                 onWifiState = onWifiState,
                                 onEvent = onEvent,
                             ),
@@ -508,9 +532,26 @@ internal object SystemUiNetworkStateSource {
     private fun wifiIconHooker(
         wifiImageField: Field,
         wifiClassIdField: Field,
+        wifiVisibleIconField: Field,
+        iconResourceResField: Field,
         onWifiState: (CombinedStatusStateStore.WifiState) -> Unit,
         onEvent: ((String) -> Unit)?,
     ): Hooker = Hooker { chain ->
+        val value = chain.getArg(0)
+        val modelResId =
+            if (value?.javaClass?.name == WIFI_ICON_VISIBLE_CLASS_NAME) {
+                runCatching {
+                    val icon = wifiVisibleIconField.get(value)
+                    if (icon?.javaClass?.name == ICON_RESOURCE_CLASS_NAME) {
+                        iconResourceResField.getInt(icon).takeIf { it != 0 }
+                    } else {
+                        null
+                    }
+                }.getOrNull()
+            } else {
+                null
+            }
+
         val result = chain.proceed()
         val emitter = chain.thisObject
         val classId =
@@ -528,25 +569,28 @@ internal object SystemUiNetworkStateSource {
             }.getOrNull()
 
         if (image != null && findWifiBinding(image)) {
-            val value = chain.getArg(0)
-            val taggedResId = (image.tag as? Number)?.toInt()?.takeIf { it != 0 }
+            val valueType = value?.javaClass?.name
             val eventKey =
-                (taggedResId?.toString() ?: "none") + ":" +
-                    image.visibility + ":" +
-                    (value?.javaClass?.name ?: "null")
+                (valueType ?: "null") + ":" +
+                    (modelResId?.toString() ?: "none")
             val changed =
                 synchronized(this) {
                     lastWifiEvents.put(image, eventKey) != eventKey
                 }
 
             if (changed) {
-                val wifiResourceName = taggedResId?.let { id -> resourceName(image, id) }
-                when (value?.javaClass?.name) {
+                val modelResourceName =
+                    modelResId?.let { id -> resourceName(image, id) }
+                when (valueType) {
                     WIFI_ICON_VISIBLE_CLASS_NAME -> {
                         onWifiState(
                             CombinedStatusStateStore.WifiState.Visible(
-                                iconResId = taggedResId,
-                                signal = SystemUiSignalParser.wifi(wifiResourceName),
+                                iconResId = modelResId,
+                                signal = SystemUiSignalParser.wifi(modelResourceName),
+                                internetValidated =
+                                    SystemUiSignalParser.wifiInternetValidated(
+                                        modelResourceName,
+                                    ),
                             ),
                         )
                     }
@@ -556,15 +600,26 @@ internal object SystemUiNetworkStateSource {
                     }
                 }
 
+                val taggedResId =
+                    (image.tag as? Number)
+                        ?.toInt()
+                        ?.takeIf { it != 0 }
                 onEvent?.invoke(
                     "networkPipeline wifi iconEvent " +
                         "phase=afterProceed " +
                         "viewId=" + resourceId(image) +
                         " classId=" + classId +
                         " valueType=" + (value?.javaClass?.simpleName ?: "null") +
-                        " visibility=" + visibilityName(image.visibility) +
+                        " modelResId=" + (modelResId ?: 0) +
+                        " modelResource=" + (modelResourceName ?: "n/a") +
                         " taggedResId=" + (taggedResId ?: 0) +
-                        " resource=" + (wifiResourceName ?: "n/a"),
+                        " taggedResource=" +
+                        (
+                            taggedResId
+                                ?.let { id -> resourceName(image, id) }
+                                ?: "n/a"
+                        ) +
+                        " visibility=" + visibilityName(image.visibility),
                 )
             }
         }
