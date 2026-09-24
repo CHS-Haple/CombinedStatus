@@ -24,10 +24,10 @@ internal object SystemUiConnectivityStateSource {
                 ?: return false
         val handler = Handler(Looper.getMainLooper())
 
-        fun publish(source: String) {
-            val network = connectivityManager.activeNetwork
-            val capabilities =
-                network?.let(connectivityManager::getNetworkCapabilities)
+        fun publish(
+            source: String,
+            capabilities: NetworkCapabilities?,
+        ) {
             val state =
                 State(
                     known = true,
@@ -52,21 +52,35 @@ internal object SystemUiConnectivityStateSource {
             )
         }
 
+        var currentDefaultNetwork: Network? = null
         val networkCallback =
             object : ConnectivityManager.NetworkCallback() {
                 override fun onAvailable(network: Network) {
-                    handler.post { publish("available") }
+                    currentDefaultNetwork = network
                 }
 
                 override fun onCapabilitiesChanged(
                     network: Network,
                     networkCapabilities: NetworkCapabilities,
                 ) {
-                    handler.post { publish("capabilities") }
+                    if (network != currentDefaultNetwork) {
+                        return
+                    }
+                    publish(
+                        source = "capabilities",
+                        capabilities = networkCapabilities,
+                    )
                 }
 
                 override fun onLost(network: Network) {
-                    handler.post { publish("lost") }
+                    if (network != currentDefaultNetwork) {
+                        return
+                    }
+                    currentDefaultNetwork = null
+                    publish(
+                        source = "lost",
+                        capabilities = null,
+                    )
                 }
             }
 
@@ -74,7 +88,12 @@ internal object SystemUiConnectivityStateSource {
             connectivityManager.registerDefaultNetworkCallback(networkCallback, handler)
             manager = connectivityManager
             callback = networkCallback
-            publish("seed")
+            if (connectivityManager.activeNetwork == null) {
+                publish(
+                    source = "initial-none",
+                    capabilities = null,
+                )
+            }
             true
         }.getOrElse {
             false
