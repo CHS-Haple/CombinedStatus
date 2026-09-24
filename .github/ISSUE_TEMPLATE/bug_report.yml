@@ -1,19 +1,19 @@
 name: Bug report
-description: Report a reproducible CombinedStatus problem
+description: Report a reproducible Combined Status problem
 title: "[Bug] "
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for reporting a problem. CombinedStatus is pre-release software and currently has a narrow verified SystemUI baseline. Please provide enough runtime context to reproduce the issue.
+        Thanks for reporting a problem. Combined Status is pre-release software and currently has a narrow verified SystemUI baseline. Please provide enough runtime context to reproduce the issue.
 
         Before attaching diagnostics or logs, review them and remove unrelated personal or sensitive information.
   - type: input
     id: build
     attributes:
-      label: CombinedStatus version and build
+      label: Combined Status version and build
       description: Include versionName, internal build ID, and channel (Debug/Canary/Release) when known.
-      placeholder: "0.0.1 / 20260923-173 / Canary"
+      placeholder: "0.0.1 / YYYYMMDD-NNN / Canary"
     validations:
       required: true
   - type: input
