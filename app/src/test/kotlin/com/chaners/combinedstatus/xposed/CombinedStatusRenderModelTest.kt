@@ -210,7 +210,7 @@ class CombinedStatusRenderModelTest {
     }
 
     @Test
-    fun otherTransportKeepsWifiIdentityWithoutInventingInternetSemantics() {
+    fun otherTransportWithUnknownWifiInternetFallsBackToMobileType() {
         val model =
             CombinedStatusRenderModel.from(
                 snapshot =
@@ -240,9 +240,9 @@ class CombinedStatusRenderModelTest {
                 defaultDataSubscriptionId = 1,
             )
 
-        val center = model?.centerIndicator as? CenterIndicator.Wifi
-        assertEquals(3, center?.segments)
-        assertEquals(InternetState.UNKNOWN, center?.internet)
+        val center = model?.centerIndicator as? CenterIndicator.MobileType
+        assertEquals("5G", center?.label)
+        assertEquals(InternetState.VALIDATED, center?.internet)
     }
 
     @Test
