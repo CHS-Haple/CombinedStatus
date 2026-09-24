@@ -143,22 +143,30 @@ internal class CombinedStatusPainter {
         paint.color = tint
         paint.alpha = effectiveAlpha(tint, 255, opacity)
         val typography = indicator.typography
-        val mainTypeface =
+        val nativeMainTypeface =
             typography?.mainTypeface
                 ?: Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        val mainTypeface =
+            nativeMainTypeface.withMinimumWeight(MOBILE_TYPE_MIN_WEIGHT)
         val mainTextSize =
-            typography?.mainTextSizePx
-                ?.takeIf { it > 0f && scale > 0f }
-                ?.div(scale)
-                ?: MOBILE_TYPE_TEXT_SIZE
-        val suffixTypeface =
+            (
+                typography?.mainTextSizePx
+                    ?.takeIf { it > 0f && scale > 0f }
+                    ?.div(scale)
+                    ?: MOBILE_TYPE_TEXT_SIZE
+            ).coerceAtLeast(MOBILE_TYPE_TEXT_SIZE)
+        val nativeSuffixTypeface =
             typography?.suffixTypeface
-                ?: mainTypeface
+                ?: nativeMainTypeface
+        val suffixTypeface =
+            nativeSuffixTypeface.withMinimumWeight(MOBILE_TYPE_MIN_WEIGHT)
         val suffixTextSize =
-            typography?.suffixTextSizePx
-                ?.takeIf { it > 0f && scale > 0f }
-                ?.div(scale)
-                ?: MOBILE_TYPE_SUFFIX_SIZE
+            (
+                typography?.suffixTextSizePx
+                    ?.takeIf { it > 0f && scale > 0f }
+                    ?.div(scale)
+                    ?: MOBILE_TYPE_SUFFIX_SIZE
+            ).coerceAtLeast(MOBILE_TYPE_SUFFIX_SIZE)
         paint.typeface = mainTypeface
         paint.textAlign = Paint.Align.LEFT
         paint.textSize = mainTextSize
@@ -274,6 +282,15 @@ internal class CombinedStatusPainter {
         paint.alpha = effectiveAlpha(color, alpha, opacity)
     }
 
+    private fun Typeface.withMinimumWeight(minWeight: Int): Typeface =
+        runCatching {
+            Typeface.create(
+                this,
+                weight.coerceAtLeast(minWeight),
+                isItalic,
+            )
+        }.getOrDefault(this)
+
     private fun effectiveAlpha(
         color: Int,
         alpha: Int,
@@ -369,5 +386,6 @@ internal class CombinedStatusPainter {
         const val MOBILE_TYPE_TEXT_SIZE = 28f
         const val MOBILE_TYPE_SUFFIX_SIZE = 17f
         const val MOBILE_TYPE_SUFFIX_GAP = 2f
+        const val MOBILE_TYPE_MIN_WEIGHT = 600
     }
 }
