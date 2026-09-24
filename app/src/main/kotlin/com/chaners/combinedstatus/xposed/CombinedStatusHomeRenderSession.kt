@@ -1,10 +1,6 @@
 package com.chaners.combinedstatus.xposed
 
-import android.content.Context
-import android.graphics.Canvas
 import android.graphics.Rect
-import android.os.Looper
-import android.os.SystemClock
 import android.view.View
 import android.view.ViewGroup
 import java.lang.ref.WeakReference
@@ -23,7 +19,7 @@ internal object CombinedStatusHomeRenderSession {
         onEvent: (String) -> Unit,
         onLatencySample: ((RuntimeRenderLatencySample) -> Unit)? = null,
         isDetailedDiagnosticsEnabled: () -> Boolean = { true },
-        previousVisual: View? = null,
+        initialNativeHandoffActive: Boolean = false,
     ): AttachResult {
         val hostView = host as? ViewGroup
             ?: return AttachResult.Failure("host-not-view-group")
@@ -46,9 +42,9 @@ internal object CombinedStatusHomeRenderSession {
             onEvent = onEvent,
             onLatencySample = onLatencySample,
             isDetailedDiagnosticsEnabled = isDetailedDiagnosticsEnabled,
+            initialNativeHandoffActive = initialNativeHandoffActive,
         )
         current = session
-        session.acceptPreviousVisual(previousVisual)
         session.start()
         session.update(CombinedStatusStateStore.snapshot())
         return AttachResult.Ready
@@ -78,7 +74,9 @@ internal object CombinedStatusHomeRenderSession {
     }
 
     @Synchronized
-    fun visualHandoffView(): View? = current?.visualHandoffView()
+    fun setNativeHandoffActive(active: Boolean) {
+        current?.setNativeHandoffActive(active)
+    }
 
     @Synchronized
     fun detach(preserveVisual: Boolean = false) {
@@ -103,16 +101,13 @@ internal object CombinedStatusHomeRenderSession {
         private val onEvent: (String) -> Unit,
         private val onLatencySample: ((RuntimeRenderLatencySample) -> Unit)?,
         private val isDetailedDiagnosticsEnabled: () -> Boolean,
+        initialNativeHandoffActive: Boolean,
     ) : View.OnAttachStateChangeListener {
         private val host = WeakReference(host)
         private val batteryContainer = WeakReference(batteryContainer)
         private val batteryView = WeakReference(batteryView)
         private val probeView =
-            ProbeView(host.context) { latencyMs, committedOnMainThread, sample ->
-                previousVisual?.let { oldView ->
-                    this.host.get()?.overlay?.remove(oldView)
-                    previousVisual = null
-                }
+            CombinedStatusRenderView(host.context) { latencyMs, committedOnMainThread, sample ->
                 if (sample != null && onLatencySample != null) {
                     onLatencySample.invoke(sample)
                 } else {
@@ -123,16 +118,15 @@ internal object CombinedStatusHomeRenderSession {
                     }
                 }
             }
+        private val renderController = CombinedStatusRenderController(probeView)
         private var readyLogged = false
         private var layoutLogged = false
         private var tintLogged = false
         private var deferredStateLogged = false
         private var rejectedTintLogged = false
-        private var stableModel: CombinedStatusRenderModel? = null
-        private var stableTint: CombinedStatusTintState? = null
         private var sceneSurface = SystemUiSceneStateSource.Surface.UNKNOWN
+        private var nativeHandoffActive = initialNativeHandoffActive
         private val anchorRect = Rect()
-        private var previousVisual: View? = null
 
         private val batteryLayoutListener =
             View.OnLayoutChangeListener {
@@ -176,20 +170,12 @@ internal object CombinedStatusHomeRenderSession {
             layoutProbe()
         }
 
-        fun visualHandoffView(): View = probeView
-
-        fun acceptPreviousVisual(view: View?) {
-            if (view == null || view === probeView) return
-            previousVisual = view
-        }
-
         fun stop(removeVisual: Boolean = true) {
             host.get()?.removeOnAttachStateChangeListener(this)
             batteryView.get()?.removeOnLayoutChangeListener(batteryLayoutListener)
             if (removeVisual) {
                 host.get()?.overlay?.remove(probeView)
             }
-            previousVisual = null
         }
 
         fun updateScene(update: SystemUiSceneStateSource.SceneUpdate) {
@@ -209,7 +195,9 @@ internal object CombinedStatusHomeRenderSession {
             }
 
             sceneSurface = update.surface
-            val visible = SystemUiSceneStateSource.allowsHomeOverlay(update.surface)
+            val visible =
+                SystemUiSceneStateSource.allowsHomeOverlay(update.surface) &&
+                    !nativeHandoffActive
             probeView.visibility = if (visible) View.VISIBLE else View.GONE
             if (visible) {
                 probeView.invalidate()
@@ -227,6 +215,28 @@ internal object CombinedStatusHomeRenderSession {
             }
         }
 
+        fun setNativeHandoffActive(active: Boolean) {
+            if (nativeHandoffActive == active) {
+                return
+            }
+            nativeHandoffActive = active
+            val visible =
+                SystemUiSceneStateSource.allowsHomeOverlay(sceneSurface) &&
+                    !nativeHandoffActive
+            probeView.visibility = if (visible) View.VISIBLE else View.GONE
+            if (visible) {
+                probeView.invalidate()
+            } else {
+                probeView.clearPendingLatency()
+            }
+            emitEvent {
+                "homeRenderHandoff nativeActive=" + nativeHandoffActive +
+                    " overlayVisible=" + visible +
+                    " scene=" + sceneSurface.name +
+                    " nativeGeometryWrites=0"
+            }
+        }
+
         fun updateTint(update: SystemUiTintStateSource.TintUpdate) {
             val battery = batteryView.get() ?: return
             if (update.sourceView !== battery) {
@@ -239,31 +249,20 @@ internal object CombinedStatusHomeRenderSession {
             state: CombinedStatusTintState,
             source: String,
         ) {
-            val resolved =
-                CombinedStatusPresentationPolicy.resolveTint(
-                    previous = stableTint,
-                    candidate = state,
-                )
+            val update = renderController.updateTint(state)
 
-            if (resolved == null || resolved == stableTint) {
-                if (
-                    !CombinedStatusPresentationPolicy.isValidTint(state) &&
-                    !rejectedTintLogged
-                ) {
-                    rejectedTintLogged = true
-                    emitEvent {
-                        "homeRenderTint deferred source=" + source +
-                            " applied=#" +
-                            state.appliedTint.toUInt().toString(16).padStart(8, '0') +
-                            " reason=transparent retainStable=true"
-                    }
+            if (update.rejectedInvalidCandidate && !rejectedTintLogged) {
+                rejectedTintLogged = true
+                emitEvent {
+                    "homeRenderTint deferred source=" + source +
+                        " applied=#" +
+                        state.appliedTint.toUInt().toString(16).padStart(8, '0') +
+                        " reason=transparent retainStable=true"
                 }
-                return
             }
 
-            stableTint = resolved
-            probeView.setTintState(resolved)
-            if (!tintLogged) {
+            if (update.changed && !tintLogged) {
+                val resolved = update.resolved ?: return
                 tintLogged = true
                 emitEvent {
                     "homeRenderTint source=" + source +
@@ -278,22 +277,19 @@ internal object CombinedStatusHomeRenderSession {
             snapshot: CombinedStatusStateStore.Snapshot,
             trace: RuntimeRenderTrace? = null,
         ) {
-            val defaultDataSubscriptionId =
-                SystemUiDefaultDataSubscriptionSource.currentSubscriptionId()
-            val candidate =
-                CombinedStatusRenderModel.from(
+            val visibleTrace =
+                trace?.takeIf {
+                    layoutLogged &&
+                        SystemUiSceneStateSource.allowsHomeOverlay(sceneSurface)
+                }
+            val update =
+                renderController.update(
                     snapshot = snapshot,
-                    presentation = CombinedStatusPresentationStateStore.snapshot(),
-                    defaultDataSubscriptionId = defaultDataSubscriptionId,
-                )
-            val model =
-                CombinedStatusPresentationPolicy.resolveModel(
-                    previous = stableModel,
-                    candidate = candidate,
+                    trace = visibleTrace,
                 )
 
-            if (candidate == null) {
-                if (stableModel != null && !deferredStateLogged) {
+            if (!update.candidateComplete) {
+                if (update.retainedStable && !deferredStateLogged) {
                     deferredStateLogged = true
                     emitEvent {
                         "homeRenderState deferred incomplete=true " +
@@ -303,16 +299,7 @@ internal object CombinedStatusHomeRenderSession {
                 return
             }
 
-            if (model != stableModel) {
-                stableModel = model
-                val visibleTrace =
-                    trace?.takeIf {
-                        layoutLogged &&
-                            SystemUiSceneStateSource.allowsHomeOverlay(sceneSurface)
-                    }
-                probeView.setModel(model, visibleTrace)
-            }
-
+            val model = update.model
             if (model != null && !readyLogged) {
                 readyLogged = true
                 emitEvent {
@@ -322,7 +309,7 @@ internal object CombinedStatusHomeRenderSession {
                         " center=" + model.centerIndicator.javaClass.simpleName +
                         " mobileLevel=" + (model.mobileLevel ?: -1) +
                         " effectiveDataSubId=" + model.effectiveDataSubscriptionId +
-                        " defaultDataSubId=" + defaultDataSubscriptionId
+                        " defaultDataSubId=" + update.defaultDataSubscriptionId
                 }
             }
         }
@@ -352,7 +339,7 @@ internal object CombinedStatusHomeRenderSession {
                         "bounds=" + anchorRect.left + "," + anchorRect.top + "-" +
                         anchorRect.right + "," + anchorRect.bottom +
                         " size=" + anchorRect.width() + "x" + anchorRect.height() +
-                        " opacity=" + PROBE_OPACITY +
+                        " opacity=" + RENDER_OPACITY +
                         " ancestorVisibilityIndependent=true " +
                         "originalsHidden=false nativeGeometryWrites=0"
                 }
@@ -409,124 +396,6 @@ internal object CombinedStatusHomeRenderSession {
         }
     }
 
-    private class ProbeView(
-        context: Context,
-        private val onStateRendered: (
-            latencyMs: Long,
-            committedOnMainThread: Boolean,
-            sample: RuntimeRenderLatencySample?,
-        ) -> Unit,
-    ) : View(context) {
-        private val painter = CombinedStatusPainter()
-
-        @Volatile
-        private var model: CombinedStatusRenderModel? = null
-
-        @Volatile
-        private var tintState: CombinedStatusTintState? = null
-
-        init {
-            isClickable = false
-            isFocusable = false
-            importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
-            setWillNotDraw(false)
-        }
-
-        @Volatile
-        private var pendingStateUptimeMs: Long = 0
-
-        @Volatile
-        private var pendingStateCommittedOnMainThread: Boolean = false
-
-        @Volatile
-        private var pendingTrace: RuntimeRenderTrace? = null
-
-        @Volatile
-        private var pendingModelCommittedNanos: Long = 0L
-
-        fun setModel(
-            model: CombinedStatusRenderModel?,
-            trace: RuntimeRenderTrace? = null,
-        ) {
-            if (this.model == model) {
-                return
-            }
-            this.model = model
-            pendingStateUptimeMs = SystemClock.uptimeMillis()
-            pendingStateCommittedOnMainThread =
-                Looper.myLooper() === Looper.getMainLooper()
-            pendingTrace = trace
-            pendingModelCommittedNanos =
-                if (trace == null) {
-                    0L
-                } else {
-                    SystemClock.elapsedRealtimeNanos()
-                }
-            requestRedraw()
-        }
-
-        fun setTintState(state: CombinedStatusTintState) {
-            if (tintState == state) {
-                return
-            }
-            tintState = state
-            requestRedraw()
-        }
-
-        fun clearPendingLatency() {
-            pendingStateUptimeMs = 0L
-            pendingTrace = null
-            pendingModelCommittedNanos = 0L
-        }
-
-        private fun requestRedraw() {
-            if (Looper.myLooper() === Looper.getMainLooper()) {
-                invalidate()
-            } else {
-                postInvalidateOnAnimation()
-            }
-        }
-
-        override fun onDraw(canvas: Canvas) {
-            super.onDraw(canvas)
-            val current = model ?: return
-            val tint = tintState ?: return
-            painter.draw(
-                canvas = canvas,
-                width = width,
-                height = height,
-                model = current,
-                colors = CombinedStatusColorPolicy.resolve(current, tint),
-                opacity = PROBE_OPACITY,
-            )
-
-            val committedAt = pendingStateUptimeMs
-            if (committedAt != 0L) {
-                pendingStateUptimeMs = 0L
-                val trace = pendingTrace
-                val modelCommittedNanos = pendingModelCommittedNanos
-                pendingTrace = null
-                pendingModelCommittedNanos = 0L
-                val sample =
-                    if (trace != null && modelCommittedNanos != 0L) {
-                        RuntimeRenderLatencySample.from(
-                            trace = trace,
-                            modelCommittedNanos = modelCommittedNanos,
-                            drawNanos = SystemClock.elapsedRealtimeNanos(),
-                            committedOnMainThread = pendingStateCommittedOnMainThread,
-                        )
-                    } else {
-                        null
-                    }
-                onStateRendered(
-                    (SystemClock.uptimeMillis() - committedAt).coerceAtLeast(0L),
-                    pendingStateCommittedOnMainThread,
-                    sample,
-                )
-            }
-        }
-    }
-
     internal sealed interface AttachResult {
         data object Ready : AttachResult
 
@@ -535,5 +404,5 @@ internal object CombinedStatusHomeRenderSession {
         ) : AttachResult
     }
 
-    private const val PROBE_OPACITY = 1f
+    private const val RENDER_OPACITY = 1f
 }

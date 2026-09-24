@@ -89,7 +89,7 @@
 
     <string name="section_current_build">Version information</string>
     <string name="section_diagnostics_app">App</string>
-    <string name="product_name">CombinedStatus</string>
+    <string name="product_name">Combined Status</string>
     <string name="target_platform_value">HyperOS SystemUI module</string>
     <string name="version_value">Version: %1$s</string>
     <string name="build_value">Build: %1$s</string>

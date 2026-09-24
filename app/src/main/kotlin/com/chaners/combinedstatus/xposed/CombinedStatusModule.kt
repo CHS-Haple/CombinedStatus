@@ -78,12 +78,18 @@ class CombinedStatusModule : XposedModule() {
             return
         }
 
-        if (BuildConfig.RUNTIME_DIAGNOSTICS) {
-            installNativeParticipantControllerObserver(
-                classLoader = param.classLoader,
-                source = "coldStart",
-            )
-        }
+        installNativeCombinedParticipant(
+            classLoader = param.classLoader,
+            source = "coldStart",
+        )
+        installNativeNetworkSuppression(
+            classLoader = param.classLoader,
+            source = "coldStart",
+        )
+        installNativeParticipantControllerObserver(
+            classLoader = param.classLoader,
+            source = "coldStart",
+        )
 
         runCatching {
             SystemUiHostRuntimeOwner.install(
@@ -131,7 +137,6 @@ class CombinedStatusModule : XposedModule() {
         val prepared =
             SystemUiHotReloadRuntimeOwner.prepare(
                 param = param,
-                visual = CombinedStatusHomeRenderSession.visualHandoffView(),
             )
         if (prepared is SystemUiHotReloadRuntimeOwner.PrepareResult.Unavailable) {
             logDiagnostic(
@@ -154,6 +159,8 @@ class CombinedStatusModule : XposedModule() {
                 SystemUiNetworkRuntimeOwner.installedHookCount +
                 SystemUiPresentationRuntimeOwner.installedHookCount +
                 SystemUiNativeParticipantRuntimeOwner.installedHookCount +
+                SystemUiNativeCombinedParticipantOwner.installedHookCount +
+                SystemUiNativeNetworkSuppressionOwner.installedHookCount +
                 if (islandMotionSourceInstalled) {
                     SystemUiIslandMotionSource.HOOK_COUNT
                 } else {
@@ -166,7 +173,7 @@ class CombinedStatusModule : XposedModule() {
             state = "preparing",
             "hooks" to hookCount,
             "build" to BuildConfig.BUILD_ID,
-            "transfer" to "saved-instance-state",
+            "transfer" to "classloader-neutral",
             "hostIdentity" to System.identityHashCode(prepared.host),
             "wifiRoots" to prepared.wifiRoots,
             "mobileRoots" to prepared.mobileRoots,
@@ -176,10 +183,45 @@ class CombinedStatusModule : XposedModule() {
             TAG,
             "Hot reload preparing build=" + BuildConfig.BUILD_ID +
                 " hooks=" + hookCount +
-                " transfer=saved-instance-state",
+                " transfer=classloader-neutral",
         )
-        teardownRuntimeResources("hotReload.prepare", preserveRendererVisual = true)
-        unbindRuntimeDiagnostics()
+
+        val hostView =
+            prepared.host as? android.view.View
+                ?: return false
+        val cleanupScheduled =
+            hostView.post {
+                runCatching {
+                    teardownOldGenerationForHotReload()
+                }.onFailure { error ->
+                    log(
+                        Log.ERROR,
+                        TAG,
+                        "Old-generation Hot Reload cleanup failed",
+                        error,
+                    )
+                }
+            }
+        if (!cleanupScheduled) {
+            logDiagnostic(
+                level = Log.WARN,
+                event = "hotReload.prepare",
+                component = "hotReload",
+                state = "unavailable",
+                "reason" to "main-thread-cleanup-scheduling-failed",
+                "restartScope" to true,
+            )
+            return false
+        }
+
+        logDiagnostic(
+            level = Log.INFO,
+            event = "hotReload.cleanup",
+            component = "hotReload",
+            state = "scheduled",
+            "uiMutation" to "main-thread-only",
+            "nativeParticipant" to "preserved-for-adoption",
+        )
         return true
     }
 
@@ -217,6 +259,7 @@ class CombinedStatusModule : XposedModule() {
             SystemUiPresentationRuntimeOwner.resetRuntimeState()
             SystemUiIslandMotionSource.resetRuntimeState()
             SystemUiNativeParticipantRuntimeOwner.resetControllerRuntimeState()
+            SystemUiNativeNetworkSuppressionOwner.resetRuntimeState("hotReload")
             bindRuntimeDiagnostics()
             logDiagnostic(
                 level = Log.INFO,
@@ -252,11 +295,19 @@ class CombinedStatusModule : XposedModule() {
                 classLoader = classLoader,
                 source = "hotReload",
             )
+            installNativeCombinedParticipant(
+                classLoader = classLoader,
+                source = "hotReload",
+            )
+            installNativeNetworkSuppression(
+                classLoader = classLoader,
+                source = "hotReload",
+            )
+            installNativeParticipantControllerObserver(
+                classLoader = classLoader,
+                source = "hotReload",
+            )
             if (BuildConfig.RUNTIME_DIAGNOSTICS) {
-                installNativeParticipantControllerObserver(
-                    classLoader = classLoader,
-                    source = "hotReload",
-                )
                 installIslandMotionSource(
                     classLoader = classLoader,
                     source = "hotReload",
@@ -264,67 +315,70 @@ class CombinedStatusModule : XposedModule() {
             }
 
             val restored = SystemUiHotReloadRuntimeOwner.restoreTransfer(param)
-            val restoreReady =
-                if (restored != null) {
-                    val capture = SystemUiHostRegistry.restoreStatusHost(restored.host)
-                    logDiagnostic(
-                        level = Log.INFO,
-                        event = "host.restore",
-                        component = "statusHost",
-                        state = "ready",
-                        "identity" to capture.identity,
-                        "replacement" to capture.replacement,
-                        "source" to "hotReloadTransfer",
+            if (restored == null) {
+                CombinedStatusStateStore.restoreHotReloadState(null)
+                logDiagnostic(
+                    level = Log.WARN,
+                    event = "hotReload.restore",
+                    component = "hotReload",
+                    state = "unavailable",
+                    "reason" to "saved-state-missing-or-unsupported-generation",
+                    "restartScope" to true,
+                )
+                logDiagnostic(
+                    level = Log.WARN,
+                    event = "hotReload.complete",
+                    component = "hotReload",
+                    state = "partial",
+                    "build" to BuildConfig.BUILD_ID,
+                    "statusHostHook" to "replaced",
+                    "staleHooks" to removed,
+                    "restartScope" to true,
+                )
+                return@runCatching
+            }
+
+            val capture = SystemUiHostRegistry.restoreStatusHost(restored.host)
+            logDiagnostic(
+                level = Log.INFO,
+                event = "host.restore",
+                component = "statusHost",
+                state = "ready",
+                "identity" to capture.identity,
+                "replacement" to capture.replacement,
+                "source" to "hotReloadTransfer",
+            )
+
+            val hostView = capture.host as? android.view.View
+                ?: error("restored-host-not-view")
+            val restoreScheduled =
+                hostView.post {
+                    restoreHotReloadRuntimeOnMain(
+                        capture = capture,
+                        restored = restored,
+                        removedHooks = removed,
                     )
-                    val restoredSnapshot =
-                        CombinedStatusStateStore.restoreHotReloadState(restored.state)
-                    val bindings =
-                        SystemUiNetworkStateSource.restoreHotReloadBindings(restored.bindings)
-                    attachHostRuntime(
-                        host = capture.host,
-                        source = "hotReloadRestore",
-                        previousVisual = restored.visual,
-                    )
-                    logDiagnostic(
-                        level = Log.INFO,
-                        event = "hotReload.restore",
-                        component = "hotReload",
-                        state = "ready",
-                        "hostIdentity" to capture.identity,
-                        "wifiRoots" to bindings.wifiRoots,
-                        "mobileRoots" to bindings.mobileRoots,
-                        "state" to restoredSnapshot.logLine,
-                    )
-                    true
-                } else {
-                    CombinedStatusStateStore.restoreHotReloadState(null)
-                    logDiagnostic(
-                        level = Log.WARN,
-                        event = "hotReload.restore",
-                        component = "hotReload",
-                        state = "unavailable",
-                        "reason" to "saved-state-missing-or-legacy-generation",
-                        "restartScope" to true,
-                    )
-                    false
                 }
+            if (!restoreScheduled) {
+                logDiagnostic(
+                    level = Log.ERROR,
+                    event = "hotReload.complete",
+                    component = "hotReload",
+                    state = "error",
+                    "reason" to "main-thread-restore-scheduling-failed",
+                    "restartScope" to true,
+                )
+                return@runCatching
+            }
 
             logDiagnostic(
-                level = if (restoreReady) Log.INFO else Log.WARN,
-                event = "hotReload.complete",
+                level = Log.INFO,
+                event = "hotReload.restore",
                 component = "hotReload",
-                state = if (restoreReady) "ready" else "partial",
-                "build" to BuildConfig.BUILD_ID,
-                "statusHostHook" to "replaced",
-                "staleHooks" to removed,
-                "restartScope" to !restoreReady,
-            )
-            log(
-                if (restoreReady) Log.INFO else Log.WARN,
-                TAG,
-                "Hot reload completed build=" + BuildConfig.BUILD_ID +
-                    " statusHostHook=replaced staleHooks=" + removed +
-                    " restored=" + restoreReady,
+                state = "scheduled",
+                "hostIdentity" to capture.identity,
+                "uiMutation" to "main-thread-only",
+                "restartScope" to false,
             )
         }.onFailure { error ->
             logDiagnostic(
@@ -336,6 +390,235 @@ class CombinedStatusModule : XposedModule() {
                 "restartScope" to true,
             )
             log(Log.ERROR, TAG, "Hot reload failed restartScope=true", error)
+        }
+    }
+
+    private fun restoreHotReloadRuntimeOnMain(
+        capture: SystemUiHostRegistry.Capture,
+        restored: CombinedStatusHotReloadTransfer.Restored,
+        removedHooks: Int,
+    ) {
+        runCatching {
+            val restoredSnapshot =
+                CombinedStatusStateStore.restoreHotReloadState(restored.state)
+            val bindings =
+                SystemUiNetworkStateSource.restoreHotReloadBindings(restored.bindings)
+            val controllerRestored =
+                SystemUiNativeParticipantRuntimeOwner.restoreExistingController(
+                    capture.host,
+                )
+            val nativeAdoption =
+                SystemUiNativeCombinedParticipantOwner.adoptAfterHotReload(
+                    host = capture.host,
+                )
+            val nativeFailure =
+                nativeAdoption as?
+                    SystemUiNativeCombinedParticipantOwner.HotReloadAdoptResult.Failure
+            val nativeReady =
+                nativeAdoption is
+                    SystemUiNativeCombinedParticipantOwner.HotReloadAdoptResult.Ready &&
+                    controllerRestored
+            val nativeState =
+                if (nativeReady) {
+                    "ready"
+                } else {
+                    "fallback"
+                }
+            val nativeReason =
+                when {
+                    nativeFailure != null ->
+                        nativeFailure.reason
+                    nativeAdoption is
+                        SystemUiNativeCombinedParticipantOwner.HotReloadAdoptResult.NotPresent ->
+                        "native-participant-not-present"
+                    !controllerRestored ->
+                        "controller-registration-restore-failed"
+                    else ->
+                        null
+                }
+
+            logDiagnostic(
+                level = if (nativeReady) Log.INFO else Log.WARN,
+                event = "hotReload.rebind",
+                component = "nativeCombinedParticipant",
+                state = nativeState,
+                "result" to nativeAdoption.javaClass.simpleName,
+                "reason" to nativeReason,
+                "controllerRestored" to controllerRestored,
+                "mainThread" to true,
+                "nativeGeometryWrites" to 0,
+            )
+
+            attachHostRuntime(
+                host = capture.host,
+                source = "hotReloadRestore",
+                initialNativeHandoffActive = nativeReady,
+            )
+
+            logDiagnostic(
+                level = if (nativeReady) Log.INFO else Log.WARN,
+                event = "hotReload.restore",
+                component = "hotReload",
+                state = if (nativeReady) "ready" else "partial",
+                "hostIdentity" to capture.identity,
+                "wifiRoots" to bindings.wifiRoots,
+                "mobileRoots" to bindings.mobileRoots,
+                "state" to restoredSnapshot.logLine,
+                "nativeAdoption" to nativeAdoption.javaClass.simpleName,
+                "mainThread" to true,
+            )
+            logDiagnostic(
+                level = if (nativeReady) Log.INFO else Log.WARN,
+                event = "hotReload.complete",
+                component = "hotReload",
+                state = if (nativeReady) "ready" else "partial",
+                "build" to BuildConfig.BUILD_ID,
+                "statusHostHook" to "replaced",
+                "staleHooks" to removedHooks,
+                "restartScope" to !nativeReady,
+            )
+            log(
+                if (nativeReady) Log.INFO else Log.WARN,
+                TAG,
+                "Hot reload completed build=" + BuildConfig.BUILD_ID +
+                    " statusHostHook=replaced staleHooks=" + removedHooks +
+                    " restored=" + nativeReady,
+            )
+        }.onFailure { error ->
+            logDiagnostic(
+                level = Log.ERROR,
+                event = "hotReload.complete",
+                component = "hotReload",
+                state = "error",
+                "reason" to (error.message ?: error.javaClass.simpleName),
+                "restartScope" to true,
+            )
+            log(Log.ERROR, TAG, "Hot reload main-thread restore failed", error)
+        }
+    }
+
+    private fun installNativeCombinedParticipant(
+        classLoader: ClassLoader,
+        source: String,
+    ) {
+        when (
+            val result =
+                SystemUiNativeCombinedParticipantOwner.install(
+                    module = this,
+                    classLoader = classLoader,
+                    onEvent = { event ->
+                        if (detailedDiagnosticsEnabled) {
+                            log(Log.INFO, TAG, event)
+                        }
+                    },
+                    onSlotOrderResult = { slotOrder ->
+                        when (slotOrder) {
+                            is NativeStatusBarSlotReservation.Result.Ready -> {
+                                logDiagnostic(
+                                    level = Log.INFO,
+                                    event = "slot.reserve",
+                                    component = "nativeSlotOrder",
+                                    state = "ready",
+                                    "source" to source,
+                                    "mode" to "controller-pre-init",
+                                    "created" to slotOrder.created,
+                                    "nativeIndex" to slotOrder.nativeIndex,
+                                    "fromIndex" to slotOrder.fromIndex,
+                                    "toIndex" to slotOrder.toIndex,
+                                    "slotCount" to slotOrder.slotCount,
+                                    "viewOnlySynced" to slotOrder.viewOnlySynced,
+                                    "originalOrderPreserved" to
+                                        slotOrder.originalOrderPreserved,
+                                    "visible" to false,
+                                    "nativeGeometryWrites" to 0,
+                                )
+                            }
+
+                            is NativeStatusBarSlotReservation.Result.Failure -> {
+                                logDiagnostic(
+                                    level = Log.WARN,
+                                    event = "slot.reserve",
+                                    component = "nativeSlotOrder",
+                                    state = "unavailable",
+                                    "source" to source,
+                                    "mode" to "controller-pre-init",
+                                    "reason" to slotOrder.reason,
+                                    "visible" to false,
+                                    "nativeGeometryWrites" to 0,
+                                )
+                            }
+                        }
+                    },
+                )
+        ) {
+            SystemUiNativeCombinedParticipantOwner.InstallResult.Installed,
+            SystemUiNativeCombinedParticipantOwner.InstallResult.AlreadyInstalled -> {
+                logDiagnostic(
+                    level = Log.INFO,
+                    event = "hook.install",
+                    component = "nativeCombinedParticipant",
+                    state = "ready",
+                    "source" to source,
+                    "hooks" to SystemUiNativeCombinedParticipantOwner.installedHookCount,
+                    "visible" to false,
+                    "nativeGeometryWrites" to 0,
+                )
+            }
+
+            is SystemUiNativeCombinedParticipantOwner.InstallResult.Failure -> {
+                logDiagnostic(
+                    level = Log.WARN,
+                    event = "hook.install",
+                    component = "nativeCombinedParticipant",
+                    state = "unavailable",
+                    "source" to source,
+                    "reason" to result.reason,
+                    "nativeGeometryWrites" to 0,
+                )
+            }
+        }
+    }
+
+    private fun installNativeNetworkSuppression(
+        classLoader: ClassLoader,
+        source: String,
+    ) {
+        when (
+            val result =
+                SystemUiNativeNetworkSuppressionOwner.install(
+                    module = this,
+                    classLoader = classLoader,
+                    onEvent = { event ->
+                        if (detailedDiagnosticsEnabled) {
+                            log(Log.INFO, TAG, event)
+                        }
+                    },
+                )
+        ) {
+            SystemUiNativeNetworkSuppressionOwner.InstallResult.Installed,
+            SystemUiNativeNetworkSuppressionOwner.InstallResult.AlreadyInstalled -> {
+                logDiagnostic(
+                    level = Log.INFO,
+                    event = "hook.install",
+                    component = "nativeNetworkSuppression",
+                    state = "ready",
+                    "source" to source,
+                    "hooks" to SystemUiNativeNetworkSuppressionOwner.installedHookCount,
+                    "nativeGeometryWrites" to 0,
+                )
+            }
+
+            is SystemUiNativeNetworkSuppressionOwner.InstallResult.Failure -> {
+                logDiagnostic(
+                    level = Log.WARN,
+                    event = "hook.install",
+                    component = "nativeNetworkSuppression",
+                    state = "unavailable",
+                    "source" to source,
+                    "reason" to result.reason,
+                    "nativeGeometryWrites" to 0,
+                )
+            }
         }
     }
 
@@ -573,8 +856,8 @@ class CombinedStatusModule : XposedModule() {
             SystemUiPresentationRuntimeOwner.attach(
                 module = this,
                 classLoader = classLoader,
-                onTintState = CombinedStatusHomeRenderSession::onTintUpdate,
-                onSceneState = CombinedStatusHomeRenderSession::onSceneUpdate,
+                onTintState = ::onTintStateUpdate,
+                onSceneState = ::onSceneStateUpdate,
                 onMobileTypeChanged = { drawable ->
                     refreshMobilePresentation(
                         trace = beginRenderTrace("mobileType"),
@@ -652,7 +935,7 @@ class CombinedStatusModule : XposedModule() {
                     "geometryWrites" to 0,
                 )
             }
-            CombinedStatusHomeRenderSession.onPresentationStateChanged(
+            onPresentationStateChanged(
                 presentationTrace,
             )
         }
@@ -681,40 +964,67 @@ class CombinedStatusModule : XposedModule() {
         trace: RuntimeRenderTrace? = null,
     ) {
         CombinedStatusHomeRenderSession.onState(snapshot, trace)
+        SystemUiNativeCombinedParticipantOwner.onState(snapshot, trace)
     }
 
-    private fun teardownRuntimeResources(
-        source: String,
-        preserveRendererVisual: Boolean = false,
-    ) {
+    private fun onPresentationStateChanged(trace: RuntimeRenderTrace? = null) {
+        CombinedStatusHomeRenderSession.onPresentationStateChanged(trace)
+        SystemUiNativeCombinedParticipantOwner.onPresentationStateChanged(trace)
+        val presentation =
+            CombinedStatusPresentationStateStore
+                .snapshot()
+                .mobilePresentation
+        SystemUiNativeNetworkSuppressionOwner.updateMobilePolicy(
+            suppressMobile =
+                presentation?.representsSingleActiveSubscription == true,
+            source = "mobile-presentation",
+        )
+    }
+
+    private fun onTintStateUpdate(update: SystemUiTintStateSource.TintUpdate) {
+        CombinedStatusHomeRenderSession.onTintUpdate(update)
+        SystemUiNativeCombinedParticipantOwner.onTintUpdate(update)
+    }
+
+    private fun onSceneStateUpdate(update: SystemUiSceneStateSource.SceneUpdate) {
+        CombinedStatusHomeRenderSession.onSceneUpdate(update)
+        SystemUiNativeCombinedParticipantOwner.onSceneUpdate(update)
+    }
+
+    private fun teardownOldGenerationForHotReload() {
         val nativeParticipantPendingCancelled =
             SystemUiNativeParticipantRuntimeOwner.cancelPending()
-        CombinedStatusHomeRenderSession.detach(preserveVisual = preserveRendererVisual)
+        CombinedStatusHomeRenderSession.detach()
         StatusBarStableSession.detach()
         SystemUiCoreRuntimeOwner.detach()
         SystemUiPresentationRuntimeOwner.resetRuntimeState()
         CombinedStatusPresentationStateStore.reset()
         SystemUiIslandMotionSource.resetRuntimeState()
+        val nativeRuntimeReleased =
+            SystemUiNativeCombinedParticipantOwner.releaseGenerationForHotReload()
 
         logDiagnostic(
-            level = Log.INFO,
+            level = if (nativeRuntimeReleased) Log.INFO else Log.WARN,
             event = "runtime.teardown",
             component = "runtimeSession",
-            state = "ready",
-            "source" to source,
-            "rendererDetached" to !preserveRendererVisual,
-            "rendererVisualPreserved" to preserveRendererVisual,
+            state = if (nativeRuntimeReleased) "ready" else "partial",
+            "source" to "hotReload.oldGeneration",
+            "rendererDetached" to true,
             "stableStatusDetached" to true,
             "airplaneObserverDetached" to true,
             "defaultDataSubscriptionObserverDetached" to true,
             "nativeParticipantPendingCancelled" to nativeParticipantPendingCancelled,
+            "nativeCombinedParticipant" to "preserved-for-main-thread-adoption",
+            "nativeRuntimeReferencesReleased" to nativeRuntimeReleased,
+            "mainThread" to true,
         )
+        unbindRuntimeDiagnostics()
     }
 
     private fun attachHostRuntime(
         host: Any,
         source: String,
-        previousVisual: android.view.View? = null,
+        initialNativeHandoffActive: Boolean = false,
     ) {
         val hostContext = (host as? android.view.View)?.context
         val coreRuntime =
@@ -747,7 +1057,7 @@ class CombinedStatusModule : XposedModule() {
                             }
                         refreshMobilePresentation(presentationTrace)
                         changed?.let {
-                            CombinedStatusHomeRenderSession.onPresentationStateChanged(
+                            onPresentationStateChanged(
                                 presentationTrace,
                             )
                         }
@@ -831,13 +1141,6 @@ class CombinedStatusModule : XposedModule() {
             }
         }
 
-        if (BuildConfig.RUNTIME_DIAGNOSTICS) {
-            scheduleNativeParticipantDiagnostics(
-                host = host,
-                source = source,
-            )
-        }
-
         when (
             val renderSession = CombinedStatusHomeRenderSession.attach(
                 host = host,
@@ -848,7 +1151,7 @@ class CombinedStatusModule : XposedModule() {
                 },
                 onLatencySample = ::onRenderLatencySample,
                 isDetailedDiagnosticsEnabled = { detailedDiagnosticsEnabled },
-                previousVisual = previousVisual,
+                initialNativeHandoffActive = initialNativeHandoffActive,
             )
         ) {
             CombinedStatusHomeRenderSession.AttachResult.Ready -> {
@@ -873,6 +1176,11 @@ class CombinedStatusModule : XposedModule() {
             }
         }
 
+        scheduleNativeParticipantRuntime(
+            host = host,
+            source = source,
+        )
+
         scheduleNativeSlotProbe(host = host, source = source)
 
         logDiagnostic(
@@ -884,7 +1192,7 @@ class CombinedStatusModule : XposedModule() {
         )
     }
 
-    private fun scheduleNativeParticipantDiagnostics(
+    private fun scheduleNativeParticipantRuntime(
         host: Any,
         source: String,
     ) {
@@ -893,10 +1201,16 @@ class CombinedStatusModule : XposedModule() {
                 SystemUiNativeParticipantRuntimeOwner.schedule(
                     host = host,
                     onReady = { readyHost ->
-                        runNativeParticipantDiagnostics(
+                        attachNativeCombinedParticipant(
                             host = readyHost,
                             source = source,
                         )
+                        if (BuildConfig.RUNTIME_DIAGNOSTICS) {
+                            runNativeParticipantDiagnostics(
+                                host = readyHost,
+                                source = source,
+                            )
+                        }
                     },
                     onFailure = { reason ->
                         logDiagnostic(
@@ -989,6 +1303,177 @@ class CombinedStatusModule : XposedModule() {
                 nativeParticipant.holderFactorySignatures.joinToString("|"),
             "nativeGeometryWrites" to 0,
         )
+
+        if (nativeParticipant.registrationContractReady) {
+            val bindableParticipant =
+                NativeBindableParticipantContractProbe.inspect(host)
+            log(Log.INFO, TAG, bindableParticipant.logLine)
+            val bindableProbeReady =
+                bindableParticipant.staticContractReady &&
+                    bindableParticipant.managerBindableMapReady &&
+                    bindableParticipant.viewOnlySlotsReady
+            logDiagnostic(
+                level = if (bindableProbeReady) Log.INFO else Log.WARN,
+                event = "contract.probe",
+                component = "nativeBindableParticipant",
+                state = if (bindableProbeReady) "ready" else "observed",
+                "source" to source,
+                "available" to bindableParticipant.available,
+                "reason" to bindableParticipant.reason,
+                "interfaceReady" to bindableParticipant.bindableInterfaceReady,
+                "creatorReady" to bindableParticipant.creatorReady,
+                "registry" to bindableParticipant.registryClass,
+                "registryConstructors" to
+                    bindableParticipant.registryConstructors.joinToString("|"),
+                "holder" to bindableParticipant.holderClass,
+                "holderConstructors" to
+                    bindableParticipant.holderConstructors.joinToString("|"),
+                "modernView" to bindableParticipant.modernViewClass,
+                "singleView" to bindableParticipant.singleBindableViewClass,
+                "managerMapReady" to bindableParticipant.managerBindableMapReady,
+                "managerMapCount" to bindableParticipant.managerBindableCount,
+                "managerEntries" to
+                    bindableParticipant.managerBindableEntries.joinToString("|"),
+                "viewOnlySlotsReady" to bindableParticipant.viewOnlySlotsReady,
+                "viewOnlySlots" to
+                    bindableParticipant.viewOnlySlots.joinToString("|"),
+                "runtimeViews" to
+                    bindableParticipant.runtimeBindableViews.joinToString("|"),
+                "slotOrder" to
+                    bindableParticipant.runtimeSlotOrder.joinToString("|"),
+                "groupClipChildren" to bindableParticipant.groupClipChildren,
+                "groupClipToPadding" to bindableParticipant.groupClipToPadding,
+                "groupHeight" to bindableParticipant.groupHeight,
+                "staticContractReady" to bindableParticipant.staticContractReady,
+                "dynamicRegistrationObserved" to
+                    bindableParticipant.dynamicRegistrationObserved,
+                "nativeGeometryWrites" to 0,
+            )
+
+            val visualGeometry =
+                NativeBindableVisualGeometryProbe.inspect(host)
+            log(Log.INFO, TAG, visualGeometry.logLine)
+            logDiagnostic(
+                level = if (visualGeometry.ready) Log.INFO else Log.WARN,
+                event = "contract.probe",
+                component = "nativeBindableVisualGeometry",
+                state = if (visualGeometry.ready) "ready" else "observed",
+                "source" to source,
+                "available" to visualGeometry.available,
+                "reason" to visualGeometry.reason,
+                "reference" to visualGeometry.referenceClass,
+                "referenceBounds" to visualGeometry.referenceBounds,
+                "referenceLayoutWidth" to visualGeometry.referenceLayoutWidth,
+                "referenceLayoutHeight" to visualGeometry.referenceLayoutHeight,
+                "groupHeight" to visualGeometry.groupHeight,
+                "groupClipChildren" to visualGeometry.groupClipChildren,
+                "groupClipToPadding" to visualGeometry.groupClipToPadding,
+                "visualWidth" to visualGeometry.visualWidth,
+                "visualHeight" to visualGeometry.visualHeight,
+                "shellMeasuredWidth" to visualGeometry.shellMeasuredWidth,
+                "shellMeasuredHeight" to visualGeometry.shellMeasuredHeight,
+                "shellClipChildren" to visualGeometry.shellClipChildren,
+                "renderMeasuredWidth" to visualGeometry.renderMeasuredWidth,
+                "renderMeasuredHeight" to visualGeometry.renderMeasuredHeight,
+                "renderBounds" to visualGeometry.renderBounds,
+                "projectedTop" to visualGeometry.projectedTop,
+                "projectedBottom" to visualGeometry.projectedBottom,
+                "projectedFitsGroup" to visualGeometry.projectedFitsGroup,
+                "nativeGeometryWrites" to 0,
+            )
+
+        }
+    }
+
+    private fun attachNativeCombinedParticipant(
+        host: Any,
+        source: String,
+    ) {
+        when (
+            val nativeCombined =
+                SystemUiNativeCombinedParticipantOwner.attachHidden(
+                    host = host,
+                    onHandoffStateChanged = { active ->
+                        val suppression =
+                            if (active) {
+                                val presentation =
+                                    CombinedStatusPresentationStateStore
+                                        .snapshot()
+                                        .mobilePresentation
+                                SystemUiNativeNetworkSuppressionOwner.activate(
+                                    host = host,
+                                    suppressMobile =
+                                        presentation?.representsSingleActiveSubscription == true,
+                                )
+                            } else {
+                                SystemUiNativeNetworkSuppressionOwner.deactivate(
+                                    "native-handoff-fallback",
+                                )
+                            }
+                        CombinedStatusHomeRenderSession.setNativeHandoffActive(active)
+                        logDiagnostic(
+                            level =
+                                if (
+                                    active &&
+                                    suppression is
+                                        SystemUiNativeNetworkSuppressionOwner.StateResult.Failure
+                                ) {
+                                    Log.WARN
+                                } else {
+                                    Log.INFO
+                                },
+                            event = "visibility.handoff",
+                            component = "nativeCombinedParticipant",
+                            state = if (active) "active" else "fallback",
+                            "source" to source,
+                            "nativeActive" to active,
+                            "overlayActive" to !active,
+                            "networkSuppression" to suppression.summary,
+                            "nativeGeometryWrites" to 0,
+                        )
+                    },
+                )
+        ) {
+            is SystemUiNativeCombinedParticipantOwner.AttachResult.Ready -> {
+                logDiagnostic(
+                    level = Log.INFO,
+                    event = "participant.attach",
+                    component = "nativeCombinedParticipant",
+                    state = "ready",
+                    "source" to source,
+                    "slot" to SystemUiNativeCombinedParticipantOwner.SLOT,
+                    "visible" to false,
+                    "registryRestored" to nativeCombined.registryRestored,
+                    "root" to nativeCombined.rootClass,
+                    "rootVisibility" to nativeCombined.rootVisibility,
+                    "iconVisible" to nativeCombined.iconVisible,
+                    "layoutWidth" to nativeCombined.layoutWidth,
+                    "layoutHeight" to nativeCombined.layoutHeight,
+                    "renderWidth" to nativeCombined.renderWidth,
+                    "renderHeight" to nativeCombined.renderHeight,
+                    "renderTop" to nativeCombined.renderTop,
+                    "renderBottom" to nativeCombined.renderBottom,
+                    "managerEntry" to nativeCombined.managerEntry,
+                    "modelReady" to nativeCombined.modelReady,
+                    "tintReady" to nativeCombined.tintReady,
+                    "nativeGeometryWrites" to 0,
+                )
+            }
+
+            is SystemUiNativeCombinedParticipantOwner.AttachResult.Failure -> {
+                logDiagnostic(
+                    level = Log.WARN,
+                    event = "participant.attach",
+                    component = "nativeCombinedParticipant",
+                    state = "unavailable",
+                    "source" to source,
+                    "reason" to nativeCombined.reason,
+                    "visible" to false,
+                    "nativeGeometryWrites" to 0,
+                )
+            }
+        }
+
     }
 
     private fun scheduleNativeSlotProbe(

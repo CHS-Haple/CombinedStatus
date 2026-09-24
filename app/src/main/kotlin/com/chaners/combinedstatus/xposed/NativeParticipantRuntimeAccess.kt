@@ -95,6 +95,73 @@ internal object NativeParticipantRuntimeAccess {
                 ),
         )
 
+    fun iconHolder(
+        handles: Handles,
+        slot: String,
+        tag: Int = 0,
+    ): Any? {
+        val iconList =
+            handles.controller.readField("mStatusBarIconList")
+                ?: return null
+        val getter =
+            iconList.javaClass
+                .allMethods()
+                .firstOrNull { method ->
+                    method.name == "getIconHolder" &&
+                        method.parameterTypes.map { type -> type.name } ==
+                            listOf("int", "java.lang.String")
+                }
+                ?: return null
+        return runCatching {
+            getter.isAccessible = true
+            getter.invoke(iconList, tag, slot)
+        }.getOrNull()
+    }
+
+    fun invokeSetIconHolder(
+        handles: Handles,
+        slot: String,
+        holder: Any,
+    ) {
+        val holderClass =
+            handles.holderClass
+                ?: error("status-icon-holder-class-missing")
+        check(holderClass.isInstance(holder)) {
+            "status-icon-holder-type-mismatch"
+        }
+        val setter =
+            handles.controller.javaClass.findMethod(
+                name = "setIcon",
+                parameterTypes = listOf("java.lang.String", ICON_HOLDER),
+            ) ?: error("set-icon-holder-method-missing")
+        setter.isAccessible = true
+        setter.invoke(handles.controller, slot, holder)
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    fun clearBindableEntries(
+        handles: Handles,
+        slot: String,
+        expectedHolder: Any? = null,
+    ): Int {
+        val managers =
+            handles.controller.readField("mIconGroups") as? Iterable<*>
+                ?: return 0
+        var removed = 0
+        managers.forEach { manager ->
+            manager ?: return@forEach
+            val map =
+                manager.readField("mBindableIcons") as? MutableMap<Any?, Any?>
+                    ?: return@forEach
+            val current = map[slot]
+            if (current != null && (expectedHolder == null || current === expectedHolder)) {
+                map.remove(slot)
+                removed += 1
+            }
+        }
+        return removed
+    }
+
     fun visibilityMethod(controllerClass: Class<*>): Method? =
         controllerClass.findMethod(
             name = "setIconVisibility",

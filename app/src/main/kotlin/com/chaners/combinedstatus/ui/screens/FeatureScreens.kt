@@ -2,7 +2,6 @@ package com.chaners.combinedstatus.ui.screens
 
 import android.content.ClipData
 import android.content.Intent
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
@@ -35,6 +34,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.TransformOrigin
@@ -54,7 +54,10 @@ import com.chaners.combinedstatus.settings.DiagnosticsSettingsRepository
 import com.chaners.combinedstatus.system.DiagnosticsReportBuilder
 import com.chaners.combinedstatus.system.DiagnosticsReportFiles
 import com.chaners.combinedstatus.system.RuntimeEnvironmentInfo
+import com.chaners.combinedstatus.ui.components.MiuixBlurredTopBar
 import com.chaners.combinedstatus.ui.components.floatingNavigationMaterial
+import com.chaners.combinedstatus.ui.components.rememberTopBarBackdrop
+import com.chaners.combinedstatus.ui.components.topBarBackdropSource
 import com.chaners.combinedstatus.ui.components.requiresTextureBackdrop
 import com.chaners.combinedstatus.ui.layout.pageContentPadding
 import kotlinx.coroutines.launch
@@ -65,9 +68,12 @@ import top.yukonga.miuix.kmp.basic.FloatingNavigationBar
 import top.yukonga.miuix.kmp.basic.FloatingNavigationBarItem
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.NavigationBar
 import top.yukonga.miuix.kmp.basic.NavigationBarDefaults
 import top.yukonga.miuix.kmp.basic.Scaffold
+import top.yukonga.miuix.kmp.basic.SnackbarHost
+import top.yukonga.miuix.kmp.basic.SnackbarHostState
 import top.yukonga.miuix.kmp.basic.Slider
 import top.yukonga.miuix.kmp.basic.SliderDefaults
 import top.yukonga.miuix.kmp.basic.SmallTitle
@@ -507,19 +513,19 @@ private fun MiniNavigationPreview(
                     FloatingNavigationBarItem(
                         selected = false,
                         onClick = {},
-                        icon = MiuixIcons.Home,
+                        icon = MiuixIcons.Normal.Home,
                         label = stringResource(R.string.nav_home),
                     )
                     FloatingNavigationBarItem(
                         selected = false,
                         onClick = {},
-                        icon = MiuixIcons.Tune,
+                        icon = MiuixIcons.Normal.Tune,
                         label = stringResource(R.string.nav_features),
                     )
                     FloatingNavigationBarItem(
                         selected = true,
                         onClick = {},
-                        icon = MiuixIcons.Settings,
+                        icon = MiuixIcons.Medium.Settings,
                         label = stringResource(R.string.nav_settings),
                     )
                 }
@@ -531,9 +537,9 @@ private fun MiniNavigationPreview(
                     showDivider = true,
                     defaultWindowInsetsPadding = false,
                 ) {
-                    MiniStandardNavigationItem(selected = false, icon = MiuixIcons.Home)
-                    MiniStandardNavigationItem(selected = false, icon = MiuixIcons.Tune)
-                    MiniStandardNavigationItem(selected = true, icon = MiuixIcons.Settings)
+                    MiniStandardNavigationItem(selected = false, icon = MiuixIcons.Normal.Home)
+                    MiniStandardNavigationItem(selected = false, icon = MiuixIcons.Normal.Tune)
+                    MiniStandardNavigationItem(selected = true, icon = MiuixIcons.Medium.Settings)
                 }
             }
         }
@@ -600,6 +606,7 @@ private fun RowScope.MiniStandardNavigationItem(
 internal fun DiagnosticsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
     val environment by
         produceState(
             initialValue = RuntimeEnvironmentInfo.basic(),
@@ -653,16 +660,18 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
                             uri = uri,
                             report = report,
                         )
-                    Toast.makeText(
-                        context,
+                    snackbarHostState.showSnackbar(
                         if (success) exportSucceededMessage else exportFailedMessage,
-                        Toast.LENGTH_SHORT,
-                    ).show()
+                    )
                 }
             }
         }
 
-    SettingsPage(title = stringResource(R.string.diagnostics_title), onBack = onBack) {
+    SettingsPage(
+        title = stringResource(R.string.diagnostics_title),
+        onBack = onBack,
+        snackbarHost = { SnackbarHost(state = snackbarHostState) },
+    ) {
         Section(R.string.section_diagnostics_app) {
             DiagnosticsCardHeader(
                 title = stringResource(R.string.product_name),
@@ -761,11 +770,7 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
                                 report = report,
                             )
                         if (prepared == null) {
-                            Toast.makeText(
-                                context,
-                                shareFailedMessage,
-                                Toast.LENGTH_SHORT,
-                            ).show()
+                            snackbarHostState.showSnackbar(shareFailedMessage)
                             return@buildReport
                         }
 
@@ -802,11 +807,7 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
                         }.onFailure { error ->
                             DiagnosticsReportFiles.logChooserLaunch(context, error)
                             DiagnosticsReportFiles.discardShare(context, prepared)
-                            Toast.makeText(
-                                context,
-                                shareFailedMessage,
-                                Toast.LENGTH_SHORT,
-                            ).show()
+                            snackbarHostState.showSnackbar(shareFailedMessage)
                         }
                     }
                 },
@@ -900,31 +901,53 @@ private fun DiagnosticsActionRow(
 private fun SettingsPage(
     title: String,
     onBack: () -> Unit,
+    snackbarHost: @Composable () -> Unit = {},
     content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit,
 ) {
+    val scrollBehavior = MiuixScrollBehavior()
+    val topBarBackdrop = rememberTopBarBackdrop()
+
     Scaffold(
+        snackbarHost = snackbarHost,
         topBar = {
-            SmallTopAppBar(
-                title = title,
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            MiuixIcons.Back,
-                            contentDescription = stringResource(R.string.back),
-                        )
-                    }
-                },
-            )
+            MiuixBlurredTopBar(
+                backdrop = topBarBackdrop,
+                scrollBehavior = scrollBehavior,
+            ) { barColor ->
+                SmallTopAppBar(
+                    title = title,
+                    color = barColor,
+                    scrollBehavior = scrollBehavior,
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                MiuixIcons.Back,
+                                contentDescription = stringResource(R.string.back),
+                            )
+                        }
+                    },
+                )
+            }
         },
     ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = pageContentPadding(
-                innerPadding = paddingValues,
-                extraBottom = 12.dp,
-            ),
-            content = content,
-        )
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .topBarBackdropSource(topBarBackdrop),
+        ) {
+            LazyColumn(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .nestedScroll(scrollBehavior.nestedScrollConnection),
+                contentPadding = pageContentPadding(
+                    innerPadding = paddingValues,
+                    extraBottom = 12.dp,
+                ),
+                content = content,
+            )
+        }
     }
 }
 

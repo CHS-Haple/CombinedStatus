@@ -25,8 +25,13 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Changed
 
+- English user-facing product naming now consistently uses **Combined Status** in the companion app and diagnostic reports while established technical identifiers remain unchanged.
+- Home native Combined Status suppresses Home Wi-Fi and single-subscription mobile participants through the modern SystemUI binding visibility contract after handoff; multi-subscription mobile presentation remains SystemUI-owned until Combined Status can represent every active SIM, preserving native or externally extended dual-SIM layouts without geometry writes.
+- Bottom navigation now differentiates selected and unselected items with MIUIX icon weights while preserving the existing navigation colors, layout, and interaction behavior.
+- Top app bars now use MIUIX progressive backdrop blur while scrolling content beneath them on supported devices, with the standard solid surface retained as fallback.
+- Companion-app transient feedback now uses MIUIX Snackbar, and icon-only SystemUI reload exposes a native MIUIX long-press tooltip without changing the action layout.
 - Top-level page navigation now uses MIUIX Cross-Axis pager gesture ownership so horizontal page switching remains available while vertical child content is settling, without adding a second app-owned gesture recognizer.
-- Companion-app MIUIX dependencies now track the published main-canary snapshot `0.9.4-2afdbb39-SNAPSHOT` from upstream revision `2afdbb39f1aac5747165cc354cafd4b918fa55a5`, with one shared dependency identity exposed to BuildConfig for later version reporting.
+- Companion-app MIUIX dependencies now track the validated published main-canary snapshot `0.9.4-2afdbb39-SNAPSHOT` from upstream revision `2afdbb39f1aac5747165cc354cafd4b918fa55a5`, with one shared dependency identity used across all MIUIX modules.
 - Diagnostic reports now limit log collection to Combined Status-related runtime/share diagnostics and no longer collect broad third-party application/system share logs.
 - Runtime state acquisition now favors authoritative event-driven platform/SystemUI sources and cached process-scoped state instead of repeated querying or polling.
 - Wi-Fi and mobile semantic updates are committed before their verified SystemUI emitters proceed so Combined Status can enter the same UI frame as native icon changes.
@@ -41,6 +46,11 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Fixed
 
+- Hot Reload restore now seeds the Home fallback renderer with the already-known native handoff ownership state, preventing the battery-anchored overlay from becoming visible for a frame before native CombinedStatus handoff is reasserted.
+- Hot Reload now keeps SystemUI View and bindable-participant mutation on the SystemUI main thread: cross-generation transfer carries only stable runtime state and live SystemUI references, while the new generation re-adopts the existing native participant instead of synchronously detaching and transferring module-owned View/holder state from the framework callback thread.
+- Native Combined Status Hot Reload now re-resolves participant handles from the current weakly held SystemUI host instead of weakly retaining a temporary resolver wrapper, preventing GC-driven `native-handles-missing` failures during prepare/detach.
+- Runtime health now evaluates presentation-source readiness through the owning `presentationRuntime` subsystem, so tint/scene states that are legitimately not yet observed no longer mark an otherwise healthy runtime as degraded.
+- Native Home Combined Status now uses a full-height custom participant shell matching its 108 px visual extent, preventing unlock appearance clipping while preserving SystemUI-owned status-icon and charging-island animation behavior.
 - Network hook installation is fail-soft per source so failure in Wi-Fi or mobile resolution no longer tears down the other source.
 - Verified network emitter resolution no longer depends on resolving Kotlin `Continuation` by name through the SystemUI ClassLoader, preventing optimized/Canary builds from losing network hooks.
 - Wi-Fi state tracking follows the verified HyperOS Wi-Fi collector and registers the relevant root before the native binder proceeds.
@@ -61,10 +71,12 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 - Public documentation and contribution surfaces use **Combined Status** as the English display name while established technical identifiers such as `CombinedStatus` remain unchanged; contributor setup and pull-request guidance are documented at the appropriate public entry points.
 - Pull-request CI now classifies ready `main` changes by affected paths, keeping documentation-only maintenance on Light validation while preserving Full validation for build, CI, dependency, tooling, and runtime-affecting stable-boundary changes.
 - Stable GitHub Release notes now omit the changelog's Engineering section while retaining the complete engineering record in `CHANGELOG.md`; the dev-to-main readiness workflow is labeled explicitly in Actions.
+- Contributor rules define MUST/SHOULD/MAY boundaries, fail-native fallback, staged ownership migration, changelog discipline, the normal `dev` contribution target, and private security-reporting expectations.
 - Pull requests are explicitly treated as proposals: automated checks provide validation evidence, while final acceptance and any required maintainer-side device validation remain maintainer decisions.
 - Merged PR branches now rely on GitHub's repository-level automatic head-branch deletion instead of a duplicate project-maintained cleanup workflow.
 - Release automation now restricts signed test releases to `dev` or `main` and stable releases to `main`, keeping experiment/work branches in CI artifacts rather than GitHub Releases.
 - Promotion readiness now runs as a lightweight post-Build workflow, so readiness infrastructure failures cannot turn an otherwise successful APK Build red; readiness still gates `dev -> main` through the same CI/device/changelog conditions.
+- Home Combined Status rendering now hands off from the overlay fallback to a SystemUI-managed native status-bar participant only after model, tint, scene, attachment, and layout readiness are verified, while preserving fail-native fallback, native charging-island ownership, and lifecycle-safe Hot Reload replacement.
 - CI validation now separates Light, Fast, Integration, and Full scopes: ordinary work branches prove changes with Debug, trusted `dev` runtime integration builds signed Canary only, and full Debug+Canary validation is reserved for build-system or stable-boundary risk.
 - Dependabot version updates now target `dev`; minor/patch updates are grouped per ecosystem to reduce PR noise, major updates remain individually reviewable, and generated dependency PRs are not auto-merged by default.
 - Contribution governance uses risk-based routing: repository text/governance and repository automation may move independently of runtime promotion when their own validation passes, shared `main` changes are history-preserving back-synced into `dev`, normal work reuses bounded active `feat/*`/`fix/*` branches instead of creating one branch per sub-task, device validation is checkpoint-based, hotfixes return to `dev`, and merged short-lived branches are cleaned up automatically.
@@ -75,4 +87,3 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 - Runtime architecture is moving toward explicit `Host -> HostSession -> owned resources` boundaries with required cleanup across host replacement, SystemUI recreation, and hot reload.
 - Live SystemUI properties follow a single-writer rule; native layout geometry, Combined Status visual geometry, transition geometry, and optical adjustment remain separate responsibilities, and observation does not itself grant write ownership.
 - Compatibility-sensitive hooks are tied to verified members from the pinned HyperOS SystemUI `17.03.260226.r` target profile and are validated against the live runtime when ownership matters.
-- Contributor rules define MUST/SHOULD/MAY boundaries, fail-native fallback, staged ownership migration, changelog discipline, the normal `dev` contribution target, and private security-reporting expectations.

@@ -1,6 +1,5 @@
 package com.chaners.combinedstatus.xposed
 
-import android.view.View
 import io.github.libxposed.api.XposedInterface.HookHandle
 import io.github.libxposed.api.XposedModuleInterface.HotReloadedParam
 import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
@@ -28,7 +27,6 @@ internal object SystemUiHotReloadRuntimeOwner {
 
     fun prepare(
         param: HotReloadingParam,
-        visual: View?,
     ): PrepareResult {
         if (!SystemUiHostRuntimeOwner.isReady) {
             return PrepareResult.Unavailable("status-host-hook-not-ready")
@@ -55,7 +53,6 @@ internal object SystemUiHotReloadRuntimeOwner {
                 host = host,
                 state = CombinedStatusStateStore.exportHotReloadState(),
                 bindings = SystemUiNetworkStateSource.exportHotReloadBindings(),
-                visual = visual,
             ) ?: return PrepareResult.Unavailable(
                 reason = "state-transfer-capture-failed",
                 wifiRoots = bindingCounts.first,

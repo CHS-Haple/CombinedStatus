@@ -1,5 +1,6 @@
 package com.chaners.combinedstatus.ui.screens
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,6 +14,9 @@ import com.chaners.combinedstatus.BuildConfig
 import com.chaners.combinedstatus.R
 import com.chaners.combinedstatus.ui.components.CombinedStatusPreview
 import com.chaners.combinedstatus.ui.components.HotReloadAction
+import com.chaners.combinedstatus.ui.components.MiuixBlurredTopBar
+import com.chaners.combinedstatus.ui.components.rememberTopBarBackdrop
+import com.chaners.combinedstatus.ui.components.topBarBackdropSource
 import com.chaners.combinedstatus.ui.layout.pageContentPadding
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
@@ -28,6 +32,7 @@ internal fun HomeScreen(
     onHotReload: () -> Unit,
 ) {
     val scrollBehavior = MiuixScrollBehavior()
+    val topBarBackdrop = rememberTopBarBackdrop()
     val buildSummary = listOf(
         stringResource(R.string.target_platform_value),
         stringResource(R.string.version_value, BuildConfig.VERSION_NAME),
@@ -36,46 +41,60 @@ internal fun HomeScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = stringResource(R.string.home_title),
-                actions = {
-                    HotReloadAction(
-                        inProgress = hotReloadInProgress,
-                        onClick = onHotReload,
-                    )
-                },
+            MiuixBlurredTopBar(
+                backdrop = topBarBackdrop,
                 scrollBehavior = scrollBehavior,
-            )
-        },
-    ) { paddingValues ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .nestedScroll(scrollBehavior.nestedScrollConnection),
-            contentPadding = pageContentPadding(
-                innerPadding = paddingValues,
-                outerBottomPadding = bottomContentPadding,
-                extraBottom = 12.dp,
-            ),
-        ) {
-            item {
-                CombinedStatusPreview(
-                    modifier = Modifier
-                        .padding(horizontal = 12.dp)
-                        .padding(top = 8.dp, bottom = 12.dp),
+            ) { barColor ->
+                TopAppBar(
+                    title = stringResource(R.string.home_title),
+                    color = barColor,
+                    actions = {
+                        HotReloadAction(
+                            inProgress = hotReloadInProgress,
+                            onClick = onHotReload,
+                        )
+                    },
+                    scrollBehavior = scrollBehavior,
                 )
             }
-            item {
-                SmallTitle(stringResource(R.string.section_current_build))
-                Card(
-                    modifier = Modifier
-                        .padding(horizontal = 12.dp)
-                        .padding(bottom = 12.dp),
-                ) {
-                    BasicComponent(
-                        title = stringResource(R.string.product_name),
-                        summary = buildSummary,
+        },
+    ) { paddingValues ->
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .topBarBackdropSource(topBarBackdrop),
+        ) {
+            LazyColumn(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .nestedScroll(scrollBehavior.nestedScrollConnection),
+                contentPadding = pageContentPadding(
+                    innerPadding = paddingValues,
+                    outerBottomPadding = bottomContentPadding,
+                    extraBottom = 12.dp,
+                ),
+            ) {
+                item {
+                    CombinedStatusPreview(
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp)
+                            .padding(top = 8.dp, bottom = 12.dp),
                     )
+                }
+                item {
+                    SmallTitle(stringResource(R.string.section_current_build))
+                    Card(
+                        modifier = Modifier
+                            .padding(horizontal = 12.dp)
+                            .padding(bottom = 12.dp),
+                    ) {
+                        BasicComponent(
+                            title = stringResource(R.string.product_name),
+                            summary = buildSummary,
+                        )
+                    }
                 }
             }
         }
