@@ -151,6 +151,106 @@ class CombinedStatusConnectivityPolicyTest {
     }
 
     @Test
+    fun vpnDefaultNetworkDoesNotSuppressAuthoritativeMobileTypeAtBootstrap() {
+        val result =
+            CombinedStatusConnectivityPolicy.resolve(
+                wifi = CombinedStatusStateStore.WifiState.Hidden,
+                airplaneMode = false,
+                connectivity =
+                    SystemUiConnectivityStateSource.State(
+                        known = true,
+                        transport = SystemUiConnectivityStateSource.Transport.VPN,
+                        validated = true,
+                        hasInternetCapability = true,
+                        mobileDataEnabled = false,
+                    ),
+                mobileType =
+                    NativePresentationResolver.NetworkType(
+                        label = "5G",
+                        enhanced = false,
+                        source =
+                            NativePresentationResolver.NetworkTypeSource.MOBILE_TYPE_DRAWABLE,
+                    ),
+            )
+
+        assertEquals(
+            CenterIndicator.MobileType(
+                label = "5G",
+                enhanced = false,
+                internet = InternetState.VALIDATED,
+            ),
+            result,
+        )
+    }
+
+    @Test
+    fun vpnOnlyTransportWaitsForAuthoritativeWifiAbsence() {
+        val mobileType =
+            NativePresentationResolver.NetworkType(
+                label = "5G",
+                enhanced = false,
+                source =
+                    NativePresentationResolver.NetworkTypeSource.MOBILE_TYPE_DRAWABLE,
+            )
+        val connectivity =
+            SystemUiConnectivityStateSource.State(
+                known = true,
+                transport = SystemUiConnectivityStateSource.Transport.VPN,
+                validated = true,
+                hasInternetCapability = true,
+                mobileDataEnabled = false,
+            )
+
+        assertNull(
+            CombinedStatusConnectivityPolicy.resolve(
+                wifi = CombinedStatusStateStore.WifiState.Unknown,
+                airplaneMode = false,
+                connectivity = connectivity,
+                mobileType = mobileType,
+            ),
+        )
+        assertNull(
+            CombinedStatusConnectivityPolicy.resolve(
+                wifi =
+                    CombinedStatusStateStore.WifiState.Visible(
+                        iconResId = 1,
+                        signal = SignalStrength.Unknown,
+                        internetValidated = null,
+                    ),
+                airplaneMode = false,
+                connectivity = connectivity,
+                mobileType = mobileType,
+            ),
+        )
+    }
+
+    @Test
+    fun genericOtherTransportKeepsExistingMobileDataGate() {
+        val result =
+            CombinedStatusConnectivityPolicy.resolve(
+                wifi = CombinedStatusStateStore.WifiState.Hidden,
+                airplaneMode = false,
+                connectivity =
+                    SystemUiConnectivityStateSource.State(
+                        known = true,
+                        transport = SystemUiConnectivityStateSource.Transport.OTHER,
+                        validated = true,
+                        hasInternetCapability = true,
+                        mobileDataEnabled = false,
+                    ),
+                mobileType =
+                    NativePresentationResolver.NetworkType(
+                        label = "5G",
+                        enhanced = false,
+                        source =
+                            NativePresentationResolver.NetworkTypeSource.MOBILE_TYPE_DRAWABLE,
+                    ),
+            )
+
+        assertEquals(CenterIndicator.Empty, result)
+    }
+
+    @Test
     fun unknownConnectivityDoesNotRenderWifiWhenSystemUiInternetSemanticsAreUnknown() {
         val wifi =
             CombinedStatusStateStore.WifiState.Visible(
