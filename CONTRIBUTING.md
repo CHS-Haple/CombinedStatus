@@ -6,6 +6,8 @@ This document is the engineering source of truth for CombinedStatus contributors
 
 These rules apply to application code, SystemUI integration, runtime state, compatibility logic, diagnostics, UI/resources, dependencies, build/release logic, CI, engineering-governance documentation, and migration work.
 
+English is the canonical language for source code, engineering documentation, contribution governance, pull requests, and repository templates. User-facing documentation may provide Simplified Chinese alongside English; issues and discussions may be submitted in English or Simplified Chinese.
+
 Normative terms are deliberate:
 
 - **MUST / MUST NOT** — required.
