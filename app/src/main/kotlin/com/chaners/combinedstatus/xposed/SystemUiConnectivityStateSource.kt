@@ -132,12 +132,14 @@ internal object SystemUiConnectivityStateSource {
             capabilities == null -> Transport.NONE
             capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> Transport.WIFI
             capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> Transport.CELLULAR
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN) -> Transport.VPN
             else -> Transport.OTHER
         }
 
     internal enum class Transport {
         WIFI,
         CELLULAR,
+        VPN,
         OTHER,
         NONE,
     }

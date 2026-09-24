@@ -50,6 +50,7 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Fixed
 
+- VPN-backed default networks no longer suppress an authoritative HyperOS mobile-type label at startup: Wi-Fi/cellular transports retain precedence, while VPN-only fallback waits for authoritative Wi-Fi absence before showing the mobile type.
 - Native Combined Status tint updates now accept only the currently bound HyperOS status-bar battery view, preventing transient tint states from other `MiuiBatteryMeterView` instances from flashing through during light/dark inversion changes.
 - Wi-Fi fallback rendering now uses the same semantic-readiness gate as native Wi-Fi suppression, so unknown OEM/VPN Wi-Fi variants remain fully native instead of being duplicated by an uncertain Combined Status Wi-Fi projection.
 - Wi-Fi strength presentation now preserves all four SystemUI signal levels (0–3) as four distinct visual states using the existing three-path renderer, instead of collapsing native levels 2 and 3 into the same fully lit icon.
