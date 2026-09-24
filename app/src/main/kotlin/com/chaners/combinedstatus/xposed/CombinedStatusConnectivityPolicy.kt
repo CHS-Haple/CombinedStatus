@@ -6,7 +6,6 @@ internal object CombinedStatusConnectivityPolicy {
         airplaneMode: Boolean,
         connectivity: SystemUiConnectivityStateSource.State,
         mobileType: NativePresentationResolver.NetworkType?,
-        connectivityFreshForWifi: Boolean,
     ): CenterIndicator? {
         val wifiVisible =
             wifi as? CombinedStatusStateStore.WifiState.Visible
@@ -19,49 +18,15 @@ internal object CombinedStatusConnectivityPolicy {
             }
 
         if (wifiVisible != null && wifiSegments != null && wifiSegments > 0) {
-            when (wifiVisible.internetValidated) {
-                true ->
-                    return CenterIndicator.Wifi(
-                        segments = wifiSegments,
-                        internet = InternetState.VALIDATED,
-                    )
-
-                false ->
-                    return CenterIndicator.Wifi(
-                        segments = wifiSegments,
-                        internet = InternetState.NO_INTERNET,
-                    )
-
-                null -> Unit
-            }
-
-            if (!connectivityFreshForWifi) {
-                return CenterIndicator.Wifi(
-                    segments = wifiSegments,
-                    internet = InternetState.UNKNOWN,
-                )
-            }
-
-            if (!connectivity.known) {
-                return CenterIndicator.Wifi(
-                    segments = wifiSegments,
-                    internet = InternetState.UNKNOWN,
-                )
-            }
-
-            when (connectivity.transport) {
-                SystemUiConnectivityStateSource.Transport.WIFI,
-                SystemUiConnectivityStateSource.Transport.OTHER,
-                ->
-                    return CenterIndicator.Wifi(
-                        segments = wifiSegments,
-                        internet = connectivity.internetState(),
-                    )
-
-                SystemUiConnectivityStateSource.Transport.CELLULAR,
-                SystemUiConnectivityStateSource.Transport.NONE,
-                -> Unit
-            }
+            return CenterIndicator.Wifi(
+                segments = wifiSegments,
+                internet =
+                    when (wifiVisible.internetValidated) {
+                        true -> InternetState.VALIDATED
+                        false -> InternetState.NO_INTERNET
+                        null -> InternetState.UNKNOWN
+                    },
+            )
         }
 
         if (!connectivity.known) {
