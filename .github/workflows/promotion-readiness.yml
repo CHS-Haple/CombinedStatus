@@ -1,4 +1,4 @@
-name: Promotion readiness
+name: Dev promotion readiness
 
 on:
   workflow_run:
