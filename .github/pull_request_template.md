@@ -2,6 +2,8 @@
 
 Describe the problem or engineering need and the final bounded change.
 
+> CI success is validation evidence, not merge approval. Final acceptance is a maintainer decision, and runtime-sensitive changes may require maintainer-side device validation.
+
 ## Route and boundary
 
 - Route: repository text/governance / repository automation / feat / fix / promote / hotfix
