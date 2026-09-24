@@ -13,11 +13,11 @@ internal object CombinedStatusConnectivityPolicy {
             when (val signal = wifiVisible?.signal) {
                 null -> null
                 SignalStrength.Unknown -> null
-                SignalStrength.Unavailable -> 0
+                SignalStrength.Unavailable -> null
                 is SignalStrength.Level -> wifiSegments(signal.value)
             }
 
-        if (wifiVisible != null && wifiSegments != null && wifiSegments > 0) {
+        if (wifiVisible != null && wifiSegments != null) {
             when (wifiVisible.internetValidated) {
                 true ->
                     return CenterIndicator.Wifi(
@@ -138,11 +138,7 @@ internal object CombinedStatusConnectivityPolicy {
         }
 
     private fun wifiSegments(level: Int): Int =
-        when {
-            level <= 0 -> 1
-            level == 1 -> 2
-            else -> 3
-        }
+        level.coerceIn(0, 3)
 }
 
 internal enum class InternetState {

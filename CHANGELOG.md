@@ -48,6 +48,7 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Fixed
 
+- Wi-Fi strength presentation now preserves all four SystemUI signal levels (0–3) as four distinct visual states using the existing three-path renderer, instead of collapsing native levels 2 and 3 into the same fully lit icon.
 - Wi-Fi rendering now consumes the authoritative SystemUI `WifiIcon` resource emitted by the modern Wi-Fi pipeline instead of re-reading the bound `ImageView` tag; signal-level changes and SystemUI no-internet variants therefore update immediately even when Android selects cellular as the default network.
 - Hot Reload restore now seeds the Home fallback renderer with the already-known native handoff ownership state, preventing the battery-anchored overlay from becoming visible for a frame before native CombinedStatus handoff is reasserted.
 - Hot Reload now keeps SystemUI View and bindable-participant mutation on the SystemUI main thread: cross-generation transfer carries only stable runtime state and live SystemUI references, while the new generation re-adopts the existing native participant instead of synchronously detaching and transferring module-owned View/holder state from the framework callback thread.

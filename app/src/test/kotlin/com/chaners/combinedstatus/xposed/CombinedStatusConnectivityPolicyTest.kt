@@ -34,7 +34,7 @@ class CombinedStatusConnectivityPolicyTest {
 
         assertEquals(
             CenterIndicator.Wifi(
-                segments = 3,
+                segments = 2,
                 internet = InternetState.NO_INTERNET,
             ),
             result,
@@ -65,7 +65,7 @@ class CombinedStatusConnectivityPolicyTest {
 
         assertEquals(
             CenterIndicator.Wifi(
-                segments = 1,
+                segments = 0,
                 internet = InternetState.VALIDATED,
             ),
             result,
@@ -96,10 +96,81 @@ class CombinedStatusConnectivityPolicyTest {
 
         assertEquals(
             CenterIndicator.Wifi(
-                segments = 2,
+                segments = 1,
                 internet = InternetState.NO_INTERNET,
             ),
             result,
+        )
+    }
+
+    @Test
+    fun systemUiWifiLevelsRemainFourDistinctVisualStates() {
+        val connectivity =
+            SystemUiConnectivityStateSource.State(
+                known = true,
+                transport = SystemUiConnectivityStateSource.Transport.WIFI,
+                validated = true,
+                hasInternetCapability = true,
+                mobileDataEnabled = true,
+            )
+
+        val segments =
+            (0..3).map { level ->
+                val result =
+                    CombinedStatusConnectivityPolicy.resolve(
+                        wifi =
+                            CombinedStatusStateStore.WifiState.Visible(
+                                iconResId = level + 1,
+                                signal = SignalStrength.Level(level),
+                                internetValidated = true,
+                            ),
+                        airplaneMode = false,
+                        connectivity = connectivity,
+                        mobileType = null,
+                    )
+                (result as CenterIndicator.Wifi).segments
+            }
+
+        assertEquals(listOf(0, 1, 2, 3), segments)
+    }
+
+    @Test
+    fun unavailableWifiSignalDoesNotMasqueradeAsLevelZero() {
+        val wifi =
+            CombinedStatusStateStore.WifiState.Visible(
+                iconResId = 1,
+                signal = SignalStrength.Unavailable,
+                internetValidated = true,
+            )
+        val result =
+            CombinedStatusConnectivityPolicy.resolve(
+                wifi = wifi,
+                airplaneMode = false,
+                connectivity =
+                    SystemUiConnectivityStateSource.State(
+                        known = true,
+                        transport = SystemUiConnectivityStateSource.Transport.CELLULAR,
+                        validated = true,
+                        hasInternetCapability = true,
+                        mobileDataEnabled = true,
+                    ),
+                mobileType = null,
+            )
+
+        assertEquals(CenterIndicator.Empty, result)
+        assertEquals(
+            false,
+            CombinedStatusConnectivityPolicy.wifiReplacementReady(
+                wifi = wifi,
+                connectivity =
+                    SystemUiConnectivityStateSource.State(
+                        known = true,
+                        transport = SystemUiConnectivityStateSource.Transport.WIFI,
+                        validated = true,
+                        hasInternetCapability = true,
+                        mobileDataEnabled = true,
+                    ),
+            ),
         )
     }
 
