@@ -95,6 +95,25 @@ internal object SystemUiNativeParticipantRuntimeOwner {
         controllersByManager[manager]?.get()
 
     @Synchronized
+    fun restoreExistingController(host: Any): Boolean {
+        val manager =
+            NativeParticipantRuntimeAccess.managerFor(host)
+                ?: return false
+        val handles =
+            when (val resolution = NativeParticipantRuntimeAccess.resolve(host)) {
+                is NativeParticipantRuntimeAccess.ResolveResult.Ready ->
+                    resolution.handles
+                is NativeParticipantRuntimeAccess.ResolveResult.Failure ->
+                    return false
+            }
+        if (handles.manager !== manager) {
+            return false
+        }
+        controllersByManager[manager] = WeakReference(handles.controller)
+        return true
+    }
+
+    @Synchronized
     private fun recordController(
         manager: Any,
         controller: Any,
