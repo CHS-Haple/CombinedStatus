@@ -66,7 +66,7 @@ internal object SystemUiBatteryContractProbe {
         val hasBatteryCallbackInterface: Boolean
             get() =
                 interfaces.any { name ->
-                    name.endsWith("BatteryController$BatteryStateChangeCallback")
+                    name.endsWith("BatteryController\$BatteryStateChangeCallback")
                 }
 
         val hasLevelCallback: Boolean
