@@ -138,11 +138,7 @@ internal object CombinedStatusConnectivityPolicy {
         }
 
     private fun wifiSegments(level: Int): Int =
-        when {
-            level <= 0 -> 1
-            level == 1 -> 2
-            else -> 3
-        }
+        level.coerceIn(0, 3)
 }
 
 internal enum class InternetState {

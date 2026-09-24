@@ -104,6 +104,37 @@ class CombinedStatusConnectivityPolicyTest {
     }
 
     @Test
+    fun systemUiWifiLevelsRemainFourDistinctVisualStates() {
+        val connectivity =
+            SystemUiConnectivityStateSource.State(
+                known = true,
+                transport = SystemUiConnectivityStateSource.Transport.WIFI,
+                validated = true,
+                hasInternetCapability = true,
+                mobileDataEnabled = true,
+            )
+
+        val segments =
+            (0..3).map { level ->
+                val result =
+                    CombinedStatusConnectivityPolicy.resolve(
+                        wifi =
+                            CombinedStatusStateStore.WifiState.Visible(
+                                iconResId = level + 1,
+                                signal = SignalStrength.Level(level),
+                                internetValidated = true,
+                            ),
+                        airplaneMode = false,
+                        connectivity = connectivity,
+                        mobileType = null,
+                    )
+                (result as CenterIndicator.Wifi).segments
+            }
+
+        assertEquals(listOf(0, 1, 2, 3), segments)
+    }
+
+    @Test
     fun nativeWifiReplacementIsReadyWhenSystemUiProvidesInternetSemantics() {
         val wifi =
             CombinedStatusStateStore.WifiState.Visible(
