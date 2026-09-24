@@ -177,8 +177,7 @@ class RuntimeDiagnosticsProtocolTest {
                 "statusHost",
                 "network",
                 "airplane",
-                "tint",
-                "scene",
+                "presentationRuntime",
                 "stableStatus",
                 "renderer",
                 "runtimeSession",
@@ -201,6 +200,40 @@ class RuntimeDiagnosticsProtocolTest {
 
         assertEquals("healthy", snapshot.overall)
         assertEquals("hot", snapshot.sessionId)
+    }
+
+    @Test
+    fun unobservedTintAndSceneDoNotDegradeReadyPresentationOwner() {
+        val coreComponents =
+            listOf(
+                "module",
+                "diagnostics",
+                "compatibility",
+                "statusHostHook",
+                "statusHost",
+                "network",
+                "airplane",
+                "presentationRuntime",
+                "stableStatus",
+                "renderer",
+                "runtimeSession",
+            )
+        val lines =
+            coreComponents.mapIndexed { index, component ->
+                RuntimeDiagnosticsProtocol.format(
+                    event = "source.ready",
+                    component = component,
+                    state = "ready",
+                    fields = mapOf("sequence" to (index + 1).toString()),
+                )
+            }
+
+        val snapshot = RuntimeHealthSnapshot.fromLines(lines)
+
+        assertEquals("healthy", snapshot.overall)
+        assertEquals("ready", requireNotNull(snapshot.component("presentationRuntime")).state)
+        assertEquals("unknown", requireNotNull(snapshot.component("tint")).state)
+        assertEquals("unknown", requireNotNull(snapshot.component("scene")).state)
     }
 
     @Test
