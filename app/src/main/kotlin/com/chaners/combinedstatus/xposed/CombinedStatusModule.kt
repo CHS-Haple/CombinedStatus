@@ -257,7 +257,6 @@ class CombinedStatusModule : XposedModule() {
             SystemUiNetworkRuntimeOwner.resetRuntimeState()
             islandMotionSourceInstalled = false
             SystemUiPresentationRuntimeOwner.resetRuntimeState()
-            SystemUiIslandMotionSource.resetRuntimeState()
             SystemUiNativeParticipantRuntimeOwner.resetControllerRuntimeState()
             SystemUiNativeNetworkSuppressionOwner.resetRuntimeState("hotReload")
             bindRuntimeDiagnostics()
@@ -791,6 +790,9 @@ class CombinedStatusModule : XposedModule() {
                 module = this,
                 classLoader = classLoader,
                 onEvent = ::onIslandMotionEvent,
+                isProbeEnabled = {
+                    BuildConfig.DEVELOPMENT_PROBES || detailedDiagnosticsEnabled
+                },
             )
         }.onSuccess { handles ->
             islandMotionSourceInstalled =
