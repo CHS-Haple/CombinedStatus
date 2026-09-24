@@ -12,7 +12,7 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 - Event-driven Combined Status state pipeline for battery, Wi-Fi, mobile network, airplane mode, default-data subscription, connectivity, and native SystemUI tint.
 - Home status-bar Combined Status rendering based on verified SystemUI hosts and native state sources while preserving conservative SystemUI geometry ownership.
 - Shared scene-capability and layout-policy models for Home, notification-shade transitions, Control Center, keyguard, and AOD, with charging represented as render state rather than scene identity.
-- Deterministic HyperOS Wi-Fi and mobile signal parsing into semantic levels, with unit coverage for the core mappings.
+- Native SystemUI Wi-Fi presentation decoding plus deterministic mobile-signal parsing into semantic levels, with unit coverage for the core mappings.
 - Bounded structured runtime diagnostics for compatibility, lifecycle, state propagation, rendering, host topology, geometry ownership, and hot reload.
 - Built-in diagnostic report export/share using LSPosed module logs with logcat fallback, without a resident collection service.
 - Debug, Canary, and Release build channels with diagnostics depth separated from core feature behavior; Canary is non-debuggable and release-optimized while retaining bounded runtime diagnostics.
@@ -25,6 +25,7 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Changed
 
+- Wi-Fi strength, visibility, and validated/no-internet state now follow the SystemUI Home `WifiIcon` presentation directly; native Wi-Fi suppression is enabled only while that semantic contract is complete, and the five native signal levels are projected deterministically onto the three-segment Combined Status glyph.
 - Connectivity state now consumes authoritative default-network capability callbacks directly on the registered main-thread Handler and ignores stale loss events, avoiding redundant callback reposting and synchronous capability re-query during network transitions.
 - English user-facing product naming now consistently uses **Combined Status** in the companion app and diagnostic reports while established technical identifiers remain unchanged.
 - Home native Combined Status suppresses Home Wi-Fi and single-subscription mobile participants through the modern SystemUI binding visibility contract after handoff; multi-subscription mobile presentation remains SystemUI-owned until Combined Status can represent every active SIM, preserving native or externally extended dual-SIM layouts without geometry writes.
@@ -35,7 +36,7 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 - Companion-app MIUIX dependencies now track the validated published main-canary snapshot `0.9.4-2afdbb39-SNAPSHOT` from upstream revision `2afdbb39f1aac5747165cc354cafd4b918fa55a5`, with one shared dependency identity used across all MIUIX modules.
 - Diagnostic reports now limit log collection to Combined Status-related runtime/share diagnostics and no longer collect broad third-party application/system share logs.
 - Runtime state acquisition now favors authoritative event-driven platform/SystemUI sources and cached process-scoped state instead of repeated querying or polling.
-- Wi-Fi and mobile semantic updates are committed before their verified SystemUI emitters proceed so Combined Status can enter the same UI frame as native icon changes.
+- Wi-Fi follows the final SystemUI `WifiIcon` presentation emitted by the Home pipeline, while mobile signal updates commit at their verified emitter boundary so Combined Status can track native state without a parallel radio-polling path.
 - Render-state commits are atomic: incomplete candidates retain the last stable frame, while explicit Hidden/Unavailable states update immediately.
 - Home rendering is independent of `BuildConfig.DEBUG`; build channels control diagnostics capability rather than core rendering behavior.
 - SystemUI integration preserves native layout, translation, visibility, and animation ownership wherever practical; Combined Status-specific appearance remains in its own presentation/rendering layer.
