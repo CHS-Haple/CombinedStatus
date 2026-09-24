@@ -19,26 +19,49 @@ internal object CombinedStatusConnectivityPolicy {
             }
 
         if (wifiVisible != null && wifiSegments != null && wifiSegments > 0) {
-            val internet =
-                when (wifiVisible.internetValidated) {
-                    true -> InternetState.VALIDATED
-                    false -> InternetState.NO_INTERNET
-                    null ->
-                        if (
-                            connectivityFreshForWifi &&
-                            connectivity.known &&
-                            connectivity.transport ==
-                                SystemUiConnectivityStateSource.Transport.WIFI
-                        ) {
-                            connectivity.internetState()
-                        } else {
-                            InternetState.UNKNOWN
-                        }
-                }
-            return CenterIndicator.Wifi(
-                segments = wifiSegments,
-                internet = internet,
-            )
+            when (wifiVisible.internetValidated) {
+                true ->
+                    return CenterIndicator.Wifi(
+                        segments = wifiSegments,
+                        internet = InternetState.VALIDATED,
+                    )
+
+                false ->
+                    return CenterIndicator.Wifi(
+                        segments = wifiSegments,
+                        internet = InternetState.NO_INTERNET,
+                    )
+
+                null -> Unit
+            }
+
+            if (!connectivityFreshForWifi) {
+                return CenterIndicator.Wifi(
+                    segments = wifiSegments,
+                    internet = InternetState.UNKNOWN,
+                )
+            }
+
+            if (!connectivity.known) {
+                return CenterIndicator.Wifi(
+                    segments = wifiSegments,
+                    internet = InternetState.UNKNOWN,
+                )
+            }
+
+            when (connectivity.transport) {
+                SystemUiConnectivityStateSource.Transport.WIFI,
+                SystemUiConnectivityStateSource.Transport.OTHER,
+                ->
+                    return CenterIndicator.Wifi(
+                        segments = wifiSegments,
+                        internet = connectivity.internetState(),
+                    )
+
+                SystemUiConnectivityStateSource.Transport.CELLULAR,
+                SystemUiConnectivityStateSource.Transport.NONE,
+                -> Unit
+            }
         }
 
         if (!connectivity.known) {
