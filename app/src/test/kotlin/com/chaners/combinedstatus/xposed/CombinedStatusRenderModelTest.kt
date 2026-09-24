@@ -38,7 +38,7 @@ class CombinedStatusRenderModelTest {
 
         val center = model?.centerIndicator as? CenterIndicator.Wifi
         assertEquals(3, center?.segments)
-        assertEquals(InternetState.UNKNOWN, center?.internet)
+        assertEquals(InternetState.VALIDATED, center?.internet)
     }
 
     @Test
@@ -242,7 +242,7 @@ class CombinedStatusRenderModelTest {
 
         val center = model?.centerIndicator as? CenterIndicator.Wifi
         assertEquals(3, center?.segments)
-        assertEquals(InternetState.VALIDATED, center?.internet)
+        assertEquals(InternetState.UNKNOWN, center?.internet)
     }
 
     @Test
