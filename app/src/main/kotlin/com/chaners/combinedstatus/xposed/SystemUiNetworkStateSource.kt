@@ -181,6 +181,11 @@ internal object SystemUiNetworkStateSource {
                         .apply { isAccessible = true }
                 }
 
+            val wifiSemanticDecoder =
+                atStage("wifi.resolve.semanticDecoder") {
+                    SystemUiWifiSemanticDecoder.resolve(classLoader)
+                }
+
             created +=
                 atStage("wifi.hook.bind") {
                     module
@@ -197,6 +202,7 @@ internal object SystemUiNetworkStateSource {
                             wifiIconHooker(
                                 wifiImageField = wifiIconImageField,
                                 wifiClassIdField = wifiIconClassIdField,
+                                semanticDecoder = wifiSemanticDecoder,
                                 onWifiState = onWifiState,
                                 onEvent = onEvent,
                             ),
@@ -508,6 +514,7 @@ internal object SystemUiNetworkStateSource {
     private fun wifiIconHooker(
         wifiImageField: Field,
         wifiClassIdField: Field,
+        semanticDecoder: SystemUiWifiSemanticDecoder,
         onWifiState: (CombinedStatusStateStore.WifiState) -> Unit,
         onEvent: ((String) -> Unit)?,
     ): Hooker = Hooker { chain ->
@@ -529,33 +536,50 @@ internal object SystemUiNetworkStateSource {
 
         if (image != null && findWifiBinding(image)) {
             val value = chain.getArg(0)
-            val taggedResId = (image.tag as? Number)?.toInt()?.takeIf { it != 0 }
+            val decoded =
+                if (
+                    value?.javaClass?.name ==
+                        SystemUiWifiSemanticDecoder.WIFI_ICON_VISIBLE_CLASS_NAME
+                ) {
+                    semanticDecoder.decode(value) { resId ->
+                        resourceName(image, resId)
+                    }
+                } else {
+                    null
+                }
+
+            val nextState =
+                when (value?.javaClass?.name) {
+                    SystemUiWifiSemanticDecoder.WIFI_ICON_VISIBLE_CLASS_NAME ->
+                        CombinedStatusStateStore.WifiState.Visible(
+                            iconResId = decoded?.resId,
+                            signal = decoded?.signal ?: SignalStrength.Unknown,
+                            internet = decoded?.internet ?: InternetState.UNKNOWN,
+                        )
+
+                    WIFI_ICON_HIDDEN_CLASS_NAME ->
+                        CombinedStatusStateStore.WifiState.Hidden
+
+                    else -> null
+                }
+
             val eventKey =
-                (taggedResId?.toString() ?: "none") + ":" +
-                    image.visibility + ":" +
-                    (value?.javaClass?.name ?: "null")
+                (value?.javaClass?.name ?: "null") + ":" +
+                    (decoded?.resId ?: 0) + ":" +
+                    (decoded?.signal?.logToken ?: "n/a") + ":" +
+                    (decoded?.internet?.name ?: "n/a")
             val changed =
                 synchronized(this) {
                     lastWifiEvents.put(image, eventKey) != eventKey
                 }
 
-            if (changed) {
-                val wifiResourceName = taggedResId?.let { id -> resourceName(image, id) }
-                when (value?.javaClass?.name) {
-                    WIFI_ICON_VISIBLE_CLASS_NAME -> {
-                        onWifiState(
-                            CombinedStatusStateStore.WifiState.Visible(
-                                iconResId = taggedResId,
-                                signal = SystemUiSignalParser.wifi(wifiResourceName),
-                            ),
-                        )
-                    }
+            if (changed && nextState != null) {
+                onWifiState(nextState)
 
-                    WIFI_ICON_HIDDEN_CLASS_NAME -> {
-                        onWifiState(CombinedStatusStateStore.WifiState.Hidden)
+                val wifiResourceName =
+                    decoded?.resId?.let { resId ->
+                        resourceName(image, resId)
                     }
-                }
-
                 onEvent?.invoke(
                     "networkPipeline wifi iconEvent " +
                         "phase=afterProceed " +
@@ -563,8 +587,12 @@ internal object SystemUiNetworkStateSource {
                         " classId=" + classId +
                         " valueType=" + (value?.javaClass?.simpleName ?: "null") +
                         " visibility=" + visibilityName(image.visibility) +
-                        " taggedResId=" + (taggedResId ?: 0) +
-                        " resource=" + (wifiResourceName ?: "n/a"),
+                        " nativeResId=" + (decoded?.resId ?: 0) +
+                        " resource=" + (wifiResourceName ?: "n/a") +
+                        " signal=" + (decoded?.signal?.logToken ?: "n/a") +
+                        " internet=" + (decoded?.internet?.name ?: "n/a") +
+                        " semanticSource=" + (decoded?.source ?: "hidden") +
+                        " decoder=" + semanticDecoder.contractMode,
                 )
             }
         }
