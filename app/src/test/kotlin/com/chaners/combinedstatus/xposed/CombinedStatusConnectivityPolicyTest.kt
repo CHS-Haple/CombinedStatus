@@ -27,6 +27,8 @@ class CombinedStatusConnectivityPolicyTest {
                     NativePresentationResolver.NetworkType(
                         label = "5G",
                         enhanced = false,
+                        source =
+                            NativePresentationResolver.NetworkTypeSource.MOBILE_TYPE_DRAWABLE,
                     ),
                 connectivityFreshForWifi = true,
             )
