@@ -5,9 +5,7 @@ import android.os.Process
 import android.os.SystemClock
 import android.util.Log
 import com.chaners.combinedstatus.BuildConfig
-import com.chaners.combinedstatus.settings.DIAGNOSTICS_LEVEL_KEY
 import com.chaners.combinedstatus.settings.DIAGNOSTICS_REMOTE_PREFS_NAME
-import com.chaners.combinedstatus.settings.DiagnosticsLevel
 import com.chaners.combinedstatus.system.RuntimeDiagnosticsProtocol
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.HotReloadedParam
