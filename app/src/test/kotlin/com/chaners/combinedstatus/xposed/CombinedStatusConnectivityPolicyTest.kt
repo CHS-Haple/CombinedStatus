@@ -135,6 +135,46 @@ class CombinedStatusConnectivityPolicyTest {
     }
 
     @Test
+    fun unavailableWifiSignalDoesNotMasqueradeAsLevelZero() {
+        val wifi =
+            CombinedStatusStateStore.WifiState.Visible(
+                iconResId = 1,
+                signal = SignalStrength.Unavailable,
+                internetValidated = true,
+            )
+        val result =
+            CombinedStatusConnectivityPolicy.resolve(
+                wifi = wifi,
+                airplaneMode = false,
+                connectivity =
+                    SystemUiConnectivityStateSource.State(
+                        known = true,
+                        transport = SystemUiConnectivityStateSource.Transport.CELLULAR,
+                        validated = true,
+                        hasInternetCapability = true,
+                        mobileDataEnabled = true,
+                    ),
+                mobileType = null,
+            )
+
+        assertEquals(null, result)
+        assertEquals(
+            false,
+            CombinedStatusConnectivityPolicy.wifiReplacementReady(
+                wifi = wifi,
+                connectivity =
+                    SystemUiConnectivityStateSource.State(
+                        known = true,
+                        transport = SystemUiConnectivityStateSource.Transport.WIFI,
+                        validated = true,
+                        hasInternetCapability = true,
+                        mobileDataEnabled = true,
+                    ),
+            ),
+        )
+    }
+
+    @Test
     fun nativeWifiReplacementIsReadyWhenSystemUiProvidesInternetSemantics() {
         val wifi =
             CombinedStatusStateStore.WifiState.Visible(
