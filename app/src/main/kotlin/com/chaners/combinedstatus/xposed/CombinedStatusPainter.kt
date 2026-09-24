@@ -43,7 +43,7 @@ internal class CombinedStatusPainter {
         canvas.scale(scale, scale)
 
         drawBattery(canvas, model, colors.batteryTint, opacity)
-        drawCenter(canvas, model, colors.primaryTint, opacity)
+        drawCenter(canvas, model, colors.primaryTint, opacity, scale)
         drawMobile(canvas, model, colors.primaryTint, opacity)
         canvas.restoreToCount(save)
     }
@@ -69,6 +69,7 @@ internal class CombinedStatusPainter {
         model: CombinedStatusRenderModel,
         tint: Int,
         opacity: Float,
+        scale: Float,
     ) {
         when (val indicator = model.centerIndicator) {
             is CenterIndicator.Wifi -> {
@@ -79,7 +80,7 @@ internal class CombinedStatusPainter {
             }
 
             is CenterIndicator.MobileType -> {
-                drawMobileType(canvas, indicator, tint, opacity)
+                drawMobileType(canvas, indicator, tint, opacity, scale)
                 if (indicator.internet == InternetState.NO_INTERNET) {
                     drawSmallNoInternetMark(canvas, tint, opacity)
                 }
@@ -115,6 +116,7 @@ internal class CombinedStatusPainter {
         indicator: CenterIndicator.MobileType,
         tint: Int,
         opacity: Float,
+        scale: Float,
     ) {
         val normalized = indicator.label.trim().uppercase()
         val split =
@@ -140,9 +142,26 @@ internal class CombinedStatusPainter {
         paint.style = Paint.Style.FILL
         paint.color = tint
         paint.alpha = effectiveAlpha(tint, 255, opacity)
-        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        val typography = indicator.typography
+        val mainTypeface =
+            typography?.mainTypeface
+                ?: Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        val mainTextSize =
+            typography?.mainTextSizePx
+                ?.takeIf { it > 0f && scale > 0f }
+                ?.div(scale)
+                ?: MOBILE_TYPE_TEXT_SIZE
+        val suffixTypeface =
+            typography?.suffixTypeface
+                ?: mainTypeface
+        val suffixTextSize =
+            typography?.suffixTextSizePx
+                ?.takeIf { it > 0f && scale > 0f }
+                ?.div(scale)
+                ?: MOBILE_TYPE_SUFFIX_SIZE
+        paint.typeface = mainTypeface
         paint.textAlign = Paint.Align.LEFT
-        paint.textSize = MOBILE_TYPE_TEXT_SIZE
+        paint.textSize = mainTextSize
 
         val mainWidth = paint.measureText(split.first)
         if (split.second.isEmpty()) {
@@ -155,14 +174,17 @@ internal class CombinedStatusPainter {
             return
         }
 
-        paint.textSize = MOBILE_TYPE_SUFFIX_SIZE
+        paint.typeface = suffixTypeface
+        paint.textSize = suffixTextSize
         val suffixWidth = paint.measureText(split.second)
         val totalWidth = mainWidth + MOBILE_TYPE_SUFFIX_GAP + suffixWidth
         val startX = MOBILE_TYPE_CENTER_X - totalWidth / 2f
 
-        paint.textSize = MOBILE_TYPE_TEXT_SIZE
+        paint.typeface = mainTypeface
+        paint.textSize = mainTextSize
         canvas.drawText(split.first, startX, MOBILE_TYPE_BASELINE_Y, paint)
-        paint.textSize = MOBILE_TYPE_SUFFIX_SIZE
+        paint.typeface = suffixTypeface
+        paint.textSize = suffixTextSize
         canvas.drawText(
             split.second,
             startX + mainWidth + MOBILE_TYPE_SUFFIX_GAP,

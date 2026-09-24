@@ -38,6 +38,7 @@ internal object CombinedStatusConnectivityPolicy {
                     label = it.label,
                     enhanced = it.enhanced,
                     internet = InternetState.UNKNOWN,
+                    typography = it.typography,
                 )
             }
         }
@@ -56,6 +57,7 @@ internal object CombinedStatusConnectivityPolicy {
                             label = it.label,
                             enhanced = it.enhanced,
                             internet = connectivity.internetState(),
+                            typography = it.typography,
                         )
                     } ?: CenterIndicator.Empty
                 }
@@ -66,6 +68,7 @@ internal object CombinedStatusConnectivityPolicy {
                         label = mobileType.label,
                         enhanced = mobileType.enhanced,
                         internet = connectivity.internetState(),
+                        typography = mobileType.typography,
                     )
                 } else {
                     CenterIndicator.Empty
@@ -140,6 +143,7 @@ internal sealed interface CenterIndicator {
         val label: String,
         val enhanced: Boolean,
         val internet: InternetState,
+        val typography: NativePresentationResolver.MobileTypeTypography? = null,
     ) : CenterIndicator
 
     data object Empty : CenterIndicator

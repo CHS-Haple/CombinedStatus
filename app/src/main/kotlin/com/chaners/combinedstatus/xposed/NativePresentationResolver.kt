@@ -1,5 +1,7 @@
 package com.chaners.combinedstatus.xposed
 
+import android.graphics.Paint
+import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import android.view.View
 import android.view.ViewGroup
@@ -118,6 +120,9 @@ internal object NativePresentationResolver {
         pendingMobileTypeDrawable: Drawable?,
     ): NetworkType? {
         val root = binding.root
+        val singleTextView =
+            findViewByResourceEntry(root, MOBILE_TYPE_SINGLE_RESOURCE_ENTRY) as? TextView
+        val textTypography = singleTextView?.readMobileTypeTypography()
 
         findViewByResourceEntry(root, MOBILE_TYPE_RESOURCE_ENTRY)
             ?.let { view ->
@@ -129,20 +134,24 @@ internal object NativePresentationResolver {
                         enhanced =
                             drawable?.readBooleanField(MOBILE_TYPE_ENHANCED_FIELD) == true,
                         beforeMeasure = drawable != null && drawable === pendingMobileTypeDrawable,
+                        typography =
+                            drawable?.readMobileTypeTypography()
+                                ?: textTypography,
                     )
                 if (networkType != null) {
                     return networkType
                 }
             }
 
-        findViewByResourceEntry(root, MOBILE_TYPE_SINGLE_RESOURCE_ENTRY)
+        singleTextView
             ?.let { view ->
-                val text = (view as? TextView)?.text?.toString()?.trim().orEmpty()
+                val text = view.text?.toString()?.trim().orEmpty()
                 if (text.isNotEmpty()) {
                     return NetworkType(
                         label = text,
                         enhanced = false,
                         source = NetworkTypeSource.MOBILE_TYPE_SINGLE,
+                        typography = textTypography,
                     )
                 }
             }
@@ -154,6 +163,7 @@ internal object NativePresentationResolver {
         rawLabel: String,
         enhanced: Boolean,
         beforeMeasure: Boolean,
+        typography: MobileTypeTypography? = null,
     ): NetworkType? {
         val label = rawLabel.trim()
         if (label.isEmpty()) {
@@ -166,12 +176,14 @@ internal object NativePresentationResolver {
                     label = MOBILE_TYPE_DOUBLE_PLUS_BASE_LABEL,
                     enhanced = true,
                     source = NetworkTypeSource.MOBILE_TYPE_DRAWABLE,
+                    typography = typography,
                 )
             } else {
                 NetworkType(
                     label = label,
                     enhanced = false,
                     source = NetworkTypeSource.MOBILE_TYPE_DRAWABLE,
+                    typography = typography,
                 )
             }
         }
@@ -180,6 +192,7 @@ internal object NativePresentationResolver {
             label = label,
             enhanced = enhanced,
             source = NetworkTypeSource.MOBILE_TYPE_DRAWABLE,
+            typography = typography,
         )
     }
 
@@ -208,6 +221,35 @@ internal object NativePresentationResolver {
         }.getOrNull()
     }
 
+    private fun Drawable.readMobileTypeTypography(): MobileTypeTypography? {
+        val mainPaint = readPaintField(MOBILE_TYPE_TEXT_PAINT_FIELD)
+        val suffixPaint = readPaintField(MOBILE_TYPE_PLUS_PAINT_FIELD)
+        if (mainPaint == null && suffixPaint == null) {
+            return null
+        }
+        return MobileTypeTypography(
+            mainTextSizePx = mainPaint?.textSize?.takeIf { it > 0f },
+            mainTypeface = mainPaint?.typeface,
+            suffixTextSizePx = suffixPaint?.textSize?.takeIf { it > 0f },
+            suffixTypeface = suffixPaint?.typeface,
+        )
+    }
+
+    private fun TextView.readMobileTypeTypography(): MobileTypeTypography =
+        MobileTypeTypography(
+            mainTextSizePx = textSize.takeIf { it > 0f },
+            mainTypeface = typeface,
+            suffixTextSizePx = null,
+            suffixTypeface = null,
+        )
+
+    private fun Drawable.readPaintField(name: String): Paint? =
+        runCatching {
+            javaClass.getDeclaredField(name)
+                .apply { isAccessible = true }
+                .get(this) as? Paint
+        }.getOrNull()
+
     private fun Drawable.readStringField(name: String): String? =
         runCatching {
             javaClass.getDeclaredField(name)
@@ -234,10 +276,18 @@ internal object NativePresentationResolver {
         MOBILE_TYPE_SINGLE,
     }
 
+    internal data class MobileTypeTypography(
+        val mainTextSizePx: Float?,
+        val mainTypeface: Typeface?,
+        val suffixTextSizePx: Float?,
+        val suffixTypeface: Typeface?,
+    )
+
     internal data class NetworkType(
         val label: String,
         val enhanced: Boolean,
         val source: NetworkTypeSource,
+        val typography: MobileTypeTypography? = null,
     )
 
     internal data class Snapshot(
@@ -274,6 +324,8 @@ internal object NativePresentationResolver {
     private const val MOBILE_TYPE_SINGLE_RESOURCE_ENTRY = "mobile_type_single"
     private const val MOBILE_TYPE_FIELD = "mMobileType"
     private const val MOBILE_TYPE_ENHANCED_FIELD = "mShowMobileTypeDoublePlus"
+    private const val MOBILE_TYPE_TEXT_PAINT_FIELD = "mMobileTypeTextPaint"
+    private const val MOBILE_TYPE_PLUS_PAINT_FIELD = "mMobileTypePlusPaint"
     private const val MOBILE_TYPE_DOUBLE_PLUS_LABEL = "5G++"
     private const val MOBILE_TYPE_DOUBLE_PLUS_BASE_LABEL = "5G"
 }
