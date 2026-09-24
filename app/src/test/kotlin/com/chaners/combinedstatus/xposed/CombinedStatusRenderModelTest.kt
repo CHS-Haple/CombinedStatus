@@ -42,7 +42,7 @@ class CombinedStatusRenderModelTest {
     }
 
     @Test
-    fun staleConnectivityLetsNativeWifiVisibilityLead() {
+    fun nativeWifiVisibilityLeadsEvenWhenConnectivityReportsCellular() {
         val model =
             CombinedStatusRenderModel.from(
                 snapshot =
@@ -67,8 +67,6 @@ class CombinedStatusRenderModelTest {
                                 validated = true,
                             ),
                         networkType = mobileType("5G"),
-                        wifiSemanticChangedAtNanos = 200L,
-                        connectivityObservedAtNanos = 100L,
                     ),
                 defaultDataSubscriptionId = 1,
             )
@@ -79,7 +77,7 @@ class CombinedStatusRenderModelTest {
     }
 
     @Test
-    fun freshCellularObservationDoesNotRenderWifiNoInternetFrame() {
+    fun nativeWifiNoInternetStateWinsOverConnectivityValidation() {
         val model =
             CombinedStatusRenderModel.from(
                 snapshot =
@@ -88,6 +86,7 @@ class CombinedStatusRenderModelTest {
                             CombinedStatusStateStore.WifiState.Visible(
                                 iconResId = 1,
                                 signal = SignalStrength.Level(3),
+                                internet = InternetState.NO_INTERNET,
                             ),
                         mobile =
                             mapOf(
@@ -100,19 +99,26 @@ class CombinedStatusRenderModelTest {
                     presentation(
                         connectivity =
                             connectivity(
-                                transport = SystemUiConnectivityStateSource.Transport.CELLULAR,
+                                transport = SystemUiConnectivityStateSource.Transport.WIFI,
                                 validated = true,
                             ),
                         networkType = mobileType("5G"),
-                        wifiSemanticChangedAtNanos = 100L,
-                        connectivityObservedAtNanos = 200L,
                     ),
                 defaultDataSubscriptionId = 1,
             )
 
-        val center = model?.centerIndicator as? CenterIndicator.MobileType
-        assertEquals("5G", center?.label)
-        assertEquals(InternetState.VALIDATED, center?.internet)
+        val center = model?.centerIndicator as? CenterIndicator.Wifi
+        assertEquals(2, center?.segments)
+        assertEquals(InternetState.NO_INTERNET, center?.internet)
+    }
+
+    @Test
+    fun nativeWifiLevelsProjectMonotonicallyToThreeSegments() {
+        assertEquals(1, CombinedStatusConnectivityPolicy.wifiSegments(0))
+        assertEquals(1, CombinedStatusConnectivityPolicy.wifiSegments(1))
+        assertEquals(2, CombinedStatusConnectivityPolicy.wifiSegments(2))
+        assertEquals(2, CombinedStatusConnectivityPolicy.wifiSegments(3))
+        assertEquals(3, CombinedStatusConnectivityPolicy.wifiSegments(4))
     }
 
     @Test
@@ -495,13 +501,9 @@ class CombinedStatusRenderModelTest {
     private fun presentation(
         connectivity: SystemUiConnectivityStateSource.State,
         networkType: NativePresentationResolver.NetworkType?,
-        wifiSemanticChangedAtNanos: Long = 0L,
-        connectivityObservedAtNanos: Long = 0L,
     ) =
         CombinedStatusPresentationStateStore.Snapshot(
             connectivity = connectivity,
-            wifiSemanticChangedAtNanos = wifiSemanticChangedAtNanos,
-            connectivityObservedAtNanos = connectivityObservedAtNanos,
             mobilePresentation =
                 NativePresentationResolver.Snapshot(
                     mode = NativePresentationResolver.Mode.SINGLE,
