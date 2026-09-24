@@ -1,6 +1,5 @@
 package com.chaners.combinedstatus.xposed
 
-import android.content.SharedPreferences
 import android.graphics.drawable.Drawable
 import android.os.Process
 import android.os.SystemClock
@@ -19,20 +18,12 @@ import java.util.concurrent.atomic.AtomicLong
 
 class CombinedStatusModule : XposedModule() {
     private var islandMotionSourceInstalled = false
-    private var diagnosticsPreferences: SharedPreferences? = null
     private var runtimeSessionId = newRuntimeSessionId()
     private val diagnosticSequence = AtomicLong(0L)
     private val renderTraceSequence = AtomicLong(0L)
 
     @Volatile
     private var detailedDiagnosticsEnabled = BuildConfig.DEVELOPMENT_PROBES
-
-    private val diagnosticsPreferenceListener =
-        SharedPreferences.OnSharedPreferenceChangeListener { preferences, key ->
-            if (key == DIAGNOSTICS_LEVEL_KEY) {
-                updateDetailedDiagnostics(preferences)
-            }
-        }
 
     override fun onModuleLoaded(param: ModuleLoadedParam) {
         bindRuntimeDiagnostics()
@@ -1625,6 +1616,7 @@ class CombinedStatusModule : XposedModule() {
 
     private fun bindRuntimeDiagnostics() {
         if (!BuildConfig.RUNTIME_DIAGNOSTICS) {
+            RuntimeDiagnosticsPreferencesOwner.unbind()
             detailedDiagnosticsEnabled = BuildConfig.DEVELOPMENT_PROBES
             logDiagnostic(
                 level = Log.INFO,
@@ -1637,21 +1629,22 @@ class CombinedStatusModule : XposedModule() {
         }
 
         runCatching {
-            getRemotePreferences(DIAGNOSTICS_REMOTE_PREFS_NAME)
-        }.onSuccess { preferences ->
-            diagnosticsPreferences = preferences
-            updateDetailedDiagnostics(preferences)
-            preferences.registerOnSharedPreferenceChangeListener(diagnosticsPreferenceListener)
+            RuntimeDiagnosticsPreferencesOwner.bind(
+                preferences = getRemotePreferences(DIAGNOSTICS_REMOTE_PREFS_NAME),
+                forceDetailed = BuildConfig.DEVELOPMENT_PROBES,
+                onDetailedChanged = ::setDetailedDiagnosticsEnabled,
+            )
+        }.onSuccess { result ->
             logDiagnostic(
                 level = Log.INFO,
                 event = "diagnostics.bind",
                 component = "diagnostics",
                 state = "ready",
-                "level" to if (detailedDiagnosticsEnabled) "detailed" else "general",
+                "level" to if (result.detailedEnabled) "detailed" else "general",
                 "transport" to "remote-preferences",
             )
         }.onFailure { error ->
-            diagnosticsPreferences = null
+            RuntimeDiagnosticsPreferencesOwner.unbind()
             detailedDiagnosticsEnabled = BuildConfig.DEVELOPMENT_PROBES
             logDiagnostic(
                 level = Log.WARN,
@@ -1668,7 +1661,7 @@ class CombinedStatusModule : XposedModule() {
         val state =
             when {
                 !BuildConfig.RUNTIME_DIAGNOSTICS -> "disabled"
-                diagnosticsPreferences != null -> "ready"
+                RuntimeDiagnosticsPreferencesOwner.isBound -> "ready"
                 else -> "unavailable"
             }
         logDiagnostic(
@@ -1682,19 +1675,12 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun unbindRuntimeDiagnostics() {
-        diagnosticsPreferences
-            ?.unregisterOnSharedPreferenceChangeListener(diagnosticsPreferenceListener)
-        diagnosticsPreferences = null
+        RuntimeDiagnosticsPreferencesOwner.unbind()
     }
 
-    private fun updateDetailedDiagnostics(preferences: SharedPreferences) {
+    private fun setDetailedDiagnosticsEnabled(enabled: Boolean) {
         val previous = detailedDiagnosticsEnabled
-        detailedDiagnosticsEnabled =
-            BuildConfig.DEVELOPMENT_PROBES ||
-                preferences.getString(
-                    DIAGNOSTICS_LEVEL_KEY,
-                    DiagnosticsLevel.General.name,
-                ) == DiagnosticsLevel.Detailed.name
+        detailedDiagnosticsEnabled = enabled
         if (previous != detailedDiagnosticsEnabled) {
             logDiagnostic(
                 level = Log.INFO,
