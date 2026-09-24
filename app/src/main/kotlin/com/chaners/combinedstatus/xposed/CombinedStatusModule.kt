@@ -675,21 +675,17 @@ class CombinedStatusModule : XposedModule() {
                 classLoader = classLoader,
                 onWifiState = { state ->
                     val trace = beginRenderTrace("wifi")
-                    val previous = CombinedStatusStateStore.snapshot().wifi
                     val changed = CombinedStatusStateStore.updateWifi(state)
-                    if (changed != null) {
-                        var stateTrace = markStateCommitted(trace)
-                        val wasVisible =
-                            previous is CombinedStatusStateStore.WifiState.Visible
-                        val isVisible =
-                            state is CombinedStatusStateStore.WifiState.Visible
-                        if (wasVisible != isVisible) {
-                            CombinedStatusPresentationStateStore.markWifiSemanticChanged()
-                            stateTrace = markPresentationCommitted(stateTrace)
-                        }
+                    SystemUiNativeNetworkSuppressionOwner.updateWifiPolicy(
+                        suppressWifi =
+                            SystemUiNetworkRuntimeOwner.wifiReady &&
+                                state.replacementReady,
+                        source = "wifi-semantic",
+                    )
+                    changed?.let { snapshot ->
                         onCombinedStateChanged(
-                            snapshot = changed,
-                            trace = stateTrace,
+                            snapshot = snapshot,
+                            trace = markStateCommitted(trace),
                         )
                     }
                 },
@@ -725,6 +721,15 @@ class CombinedStatusModule : XposedModule() {
                 onEvent = if (BuildConfig.RUNTIME_DIAGNOSTICS) ::onNetworkPipelineEvent else null,
             )
         }.onSuccess { result ->
+            SystemUiNativeNetworkSuppressionOwner.updateWifiPolicy(
+                suppressWifi =
+                    result.wifiReady &&
+                        CombinedStatusStateStore
+                            .snapshot()
+                            .wifi
+                            .replacementReady,
+                source = "network-source:" + source,
+            )
             val fullyReady =
                 result.wifiReady &&
                     result.mobileReady &&
@@ -1402,6 +1407,12 @@ class CombinedStatusModule : XposedModule() {
                                         .mobilePresentation
                                 SystemUiNativeNetworkSuppressionOwner.activate(
                                     host = host,
+                                    suppressWifi =
+                                        SystemUiNetworkRuntimeOwner.wifiReady &&
+                                            CombinedStatusStateStore
+                                                .snapshot()
+                                                .wifi
+                                                .replacementReady,
                                     suppressMobile =
                                         presentation?.representsSingleActiveSubscription == true,
                                 )
