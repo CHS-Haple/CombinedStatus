@@ -75,6 +75,9 @@ internal object SystemUiNativeCombinedParticipantOwner {
     val installedHookCount: Int
         @Synchronized get() = if (constructorHook != null) 1 else 0
 
+    val isHandoffCommitted: Boolean
+        @Synchronized get() = handoffCommitted
+
     @Synchronized
     fun install(
         module: XposedModule,

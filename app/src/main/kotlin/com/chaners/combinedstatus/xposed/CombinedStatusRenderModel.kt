@@ -53,6 +53,7 @@ internal data class CombinedStatusRenderModel(
                     airplaneMode = snapshot.airplaneMode == true,
                     connectivity = presentation.connectivity,
                     mobileType = presentation.mobilePresentation?.networkType,
+                    hotspot = snapshot.hotspot,
                 ) ?: return null
 
             return CombinedStatusRenderModel(

@@ -78,6 +78,10 @@ class CombinedStatusModule : XposedModule() {
             return
         }
 
+        installHotspotSlotSource(
+            classLoader = param.classLoader,
+            source = "coldStart",
+        )
         installNativeCombinedParticipant(
             classLoader = param.classLoader,
             source = "coldStart",
@@ -156,6 +160,7 @@ class CombinedStatusModule : XposedModule() {
         prepared as SystemUiHotReloadRuntimeOwner.PrepareResult.Ready
         val hookCount =
             1 +
+                SystemUiHotspotSlotOwner.installedHookCount +
                 SystemUiNetworkRuntimeOwner.installedHookCount +
                 SystemUiPresentationRuntimeOwner.installedHookCount +
                 SystemUiNativeParticipantRuntimeOwner.installedHookCount +
@@ -254,6 +259,7 @@ class CombinedStatusModule : XposedModule() {
         runCatching {
             val removed = takeover.removedHooks
 
+            SystemUiHotspotSlotOwner.resetRuntimeState("hotReload.newGeneration")
             SystemUiNetworkRuntimeOwner.resetRuntimeState()
             islandMotionSourceInstalled = false
             SystemUiPresentationRuntimeOwner.resetRuntimeState()
@@ -286,6 +292,10 @@ class CombinedStatusModule : XposedModule() {
             logCurrentDiagnosticsHealth()
 
             val classLoader = takeover.classLoader
+            installHotspotSlotSource(
+                classLoader = classLoader,
+                source = "hotReload",
+            )
             installNetworkStateSource(
                 classLoader = classLoader,
                 source = "hotReload",
@@ -464,6 +474,10 @@ class CombinedStatusModule : XposedModule() {
                 host = capture.host,
                 source = "hotReloadRestore",
                 initialNativeHandoffActive = nativeReady,
+            )
+            updateNativeHotspotSuppressionPolicy(
+                snapshot = restoredSnapshot,
+                source = "hotReloadRestore",
             )
 
             logDiagnostic(
@@ -667,6 +681,60 @@ class CombinedStatusModule : XposedModule() {
                     level = Log.WARN,
                     event = "hook.install",
                     component = "nativeParticipantControllerObserver",
+                    state = "unavailable",
+                    "source" to source,
+                    "reason" to result.reason,
+                    "nativeGeometryWrites" to 0,
+                )
+            }
+        }
+    }
+
+    private fun installHotspotSlotSource(
+        classLoader: ClassLoader,
+        source: String,
+    ) {
+        when (
+            val result =
+                SystemUiHotspotSlotOwner.install(
+                    module = this,
+                    classLoader = classLoader,
+                    onState = { state ->
+                        val trace = beginRenderTrace("hotspot")
+                        CombinedStatusStateStore.updateHotspot(state)?.let { snapshot ->
+                            onCombinedStateChanged(
+                                snapshot = snapshot,
+                                trace = markStateCommitted(trace),
+                            )
+                        }
+                    },
+                    onEvent = { event ->
+                        if (detailedDiagnosticsEnabled) {
+                            log(Log.INFO, TAG, event)
+                        }
+                    },
+                )
+        ) {
+            SystemUiHotspotSlotOwner.InstallResult.Installed,
+            SystemUiHotspotSlotOwner.InstallResult.AlreadyInstalled -> {
+                logDiagnostic(
+                    level = Log.INFO,
+                    event = "source.install",
+                    component = "hotspot",
+                    state = "ready",
+                    "source" to source,
+                    "hooks" to SystemUiHotspotSlotOwner.installedHookCount,
+                    "expectedHooks" to SystemUiHotspotSlotOwner.HOOK_COUNT,
+                    "authority" to "StatusBarIconControllerImpl:hotspot",
+                    "nativeGeometryWrites" to 0,
+                )
+            }
+
+            is SystemUiHotspotSlotOwner.InstallResult.Failure -> {
+                logDiagnostic(
+                    level = Log.WARN,
+                    event = "source.install",
+                    component = "hotspot",
                     state = "unavailable",
                     "source" to source,
                     "reason" to result.reason,
@@ -963,6 +1031,10 @@ class CombinedStatusModule : XposedModule() {
     ) {
         CombinedStatusHomeRenderSession.onState(snapshot, trace)
         SystemUiNativeCombinedParticipantOwner.onState(snapshot, trace)
+        updateNativeHotspotSuppressionPolicy(
+            snapshot = snapshot,
+            source = "state",
+        )
     }
 
     private fun onPresentationStateChanged(trace: RuntimeRenderTrace? = null) {
@@ -974,13 +1046,18 @@ class CombinedStatusModule : XposedModule() {
     private fun updateNativeNetworkSuppressionPolicy(source: String) {
         val presentation =
             CombinedStatusPresentationStateStore.snapshot()
-        val wifi =
-            CombinedStatusStateStore.snapshot().wifi
+        val snapshot =
+            CombinedStatusStateStore.snapshot()
+        val hotspotReady =
+            CombinedStatusConnectivityPolicy.hotspotReplacementReady(
+                snapshot.hotspot,
+            )
         SystemUiNativeNetworkSuppressionOwner.updatePolicy(
             suppressWifi =
-                SystemUiNetworkRuntimeOwner.wifiReady &&
+                !hotspotReady &&
+                    SystemUiNetworkRuntimeOwner.wifiReady &&
                     CombinedStatusConnectivityPolicy.wifiReplacementReady(
-                        wifi = wifi,
+                        wifi = snapshot.wifi,
                         connectivity = presentation.connectivity,
                     ),
             suppressMobile =
@@ -989,6 +1066,22 @@ class CombinedStatusModule : XposedModule() {
             source = source,
         )
     }
+
+    private fun updateNativeHotspotSuppressionPolicy(
+        snapshot: CombinedStatusStateStore.Snapshot =
+            CombinedStatusStateStore.snapshot(),
+        source: String,
+    ): String =
+        SystemUiHotspotSlotOwner.setReplacementActive(
+            host = SystemUiHostRegistry.currentStatusHost(),
+            state = snapshot.hotspot,
+            active =
+                SystemUiNativeCombinedParticipantOwner.isHandoffCommitted &&
+                    CombinedStatusConnectivityPolicy.hotspotReplacementReady(
+                        snapshot.hotspot,
+                    ),
+            source = source,
+        )
 
     private fun onTintStateUpdate(update: SystemUiTintStateSource.TintUpdate) {
         CombinedStatusHomeRenderSession.onTintUpdate(update)
@@ -1014,6 +1107,7 @@ class CombinedStatusModule : XposedModule() {
         CombinedStatusHomeRenderSession.detach()
         StatusBarStableSession.detach()
         SystemUiCoreRuntimeOwner.detach()
+        SystemUiHotspotSlotOwner.resetRuntimeState("hotReload.oldGeneration")
         SystemUiPresentationRuntimeOwner.resetRuntimeState()
         CombinedStatusPresentationStateStore.reset()
         SystemUiIslandMotionSource.resetRuntimeState()
@@ -1199,6 +1293,9 @@ class CombinedStatusModule : XposedModule() {
         )
 
         scheduleNativeSlotProbe(host = host, source = source)
+        updateNativeHotspotSuppressionPolicy(
+            source = "hostAttach:" + source,
+        )
 
         logDiagnostic(
             level = Log.INFO,
@@ -1435,6 +1532,23 @@ class CombinedStatusModule : XposedModule() {
                                     "native-handoff-fallback",
                                 )
                             }
+                        val hotspotSuppression =
+                            SystemUiHotspotSlotOwner.setReplacementActive(
+                                host = host,
+                                state = CombinedStatusStateStore.snapshot().hotspot,
+                                active =
+                                    active &&
+                                        CombinedStatusConnectivityPolicy
+                                            .hotspotReplacementReady(
+                                                CombinedStatusStateStore.snapshot().hotspot,
+                                            ),
+                                source =
+                                    if (active) {
+                                        "native-handoff"
+                                    } else {
+                                        "native-handoff-fallback"
+                                    },
+                            )
                         CombinedStatusHomeRenderSession.setNativeHandoffActive(active)
                         logDiagnostic(
                             level =
@@ -1454,6 +1568,7 @@ class CombinedStatusModule : XposedModule() {
                             "nativeActive" to active,
                             "overlayActive" to !active,
                             "networkSuppression" to suppression.summary,
+                            "hotspotSuppression" to hotspotSuppression,
                             "nativeGeometryWrites" to 0,
                         )
                     },

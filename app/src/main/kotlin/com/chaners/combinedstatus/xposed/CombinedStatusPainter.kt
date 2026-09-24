@@ -1,5 +1,6 @@
 package com.chaners.combinedstatus.xposed
 
+import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -11,7 +12,9 @@ import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
 
-internal class CombinedStatusPainter {
+internal class CombinedStatusPainter(
+    private val context: Context,
+) {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val batteryRing = RectF(10f, 8f, 110f, 108f)
     private val wifiPaths = arrayOf(
@@ -71,6 +74,15 @@ internal class CombinedStatusPainter {
         opacity: Float,
     ) {
         when (val indicator = model.centerIndicator) {
+            is CenterIndicator.Hotspot -> {
+                drawHotspot(
+                    canvas = canvas,
+                    resourceId = indicator.resourceId,
+                    tint = tint,
+                    opacity = opacity,
+                )
+            }
+
             is CenterIndicator.Wifi -> {
                 drawWifi(canvas, indicator.segments, tint, opacity)
                 if (indicator.internet == InternetState.NO_INTERNET) {
@@ -87,6 +99,44 @@ internal class CombinedStatusPainter {
 
             CenterIndicator.Empty -> Unit
         }
+    }
+
+    private fun drawHotspot(
+        canvas: Canvas,
+        resourceId: Int,
+        tint: Int,
+        opacity: Float,
+    ) {
+        val drawable =
+            runCatching {
+                context.getDrawable(resourceId)
+                    ?.constantState
+                    ?.newDrawable(context.resources)
+                    ?.mutate()
+                    ?: context.getDrawable(resourceId)?.mutate()
+            }.getOrNull() ?: return
+
+        drawable.setTint(tint)
+        drawable.alpha = effectiveAlpha(tint, 255, opacity)
+
+        val intrinsicWidth = drawable.intrinsicWidth.takeIf { it > 0 } ?: 1
+        val intrinsicHeight = drawable.intrinsicHeight.takeIf { it > 0 } ?: 1
+        val intrinsicScale =
+            min(
+                HOTSPOT_ICON_MAX_SIZE / intrinsicWidth,
+                HOTSPOT_ICON_MAX_SIZE / intrinsicHeight,
+            )
+        val drawWidth = intrinsicWidth * intrinsicScale
+        val drawHeight = intrinsicHeight * intrinsicScale
+        val left = (HOTSPOT_CENTER_X - drawWidth / 2f).toInt()
+        val top = (HOTSPOT_CENTER_Y - drawHeight / 2f).toInt()
+        drawable.setBounds(
+            left,
+            top,
+            (left + drawWidth).toInt(),
+            (top + drawHeight).toInt(),
+        )
+        drawable.draw(canvas)
     }
 
     private fun drawWifi(
@@ -341,6 +391,9 @@ internal class CombinedStatusPainter {
         const val MOBILE_CENTER_Y = 58f
         const val MOBILE_ORBIT_RADIUS = 51f
         const val MOBILE_DOT_RADIUS = 4.9f
+        const val HOTSPOT_CENTER_X = 60f
+        const val HOTSPOT_CENTER_Y = 56f
+        const val HOTSPOT_ICON_MAX_SIZE = 36f
         const val MOBILE_TYPE_CENTER_X = 60f
         const val MOBILE_TYPE_BASELINE_Y = 66f
         const val MOBILE_TYPE_SUFFIX_BASELINE_Y = 58f

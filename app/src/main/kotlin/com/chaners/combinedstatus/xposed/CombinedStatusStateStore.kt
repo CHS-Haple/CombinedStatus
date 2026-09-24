@@ -19,6 +19,16 @@ internal object CombinedStatusStateStore {
     }
 
     @Synchronized
+    fun updateHotspot(state: HotspotState): Snapshot? {
+        if (current.hotspot == state) {
+            return null
+        }
+
+        current = current.copy(hotspot = state)
+        return current
+    }
+
+    @Synchronized
     fun updateWifi(state: WifiState): Snapshot? {
         if (current.wifi == state) {
             return null
@@ -70,6 +80,16 @@ internal object CombinedStatusStateStore {
                 putBoolean(KEY_BATTERY_CHARGING, battery.charging)
                 putInt(KEY_BATTERY_PLUGGED, battery.plugged)
             }
+            putInt(
+                KEY_HOTSPOT_VISIBLE,
+                when (current.hotspot.visible) {
+                    null -> HOTSPOT_UNKNOWN
+                    false -> HOTSPOT_HIDDEN
+                    true -> HOTSPOT_VISIBLE
+                },
+            )
+            putInt(KEY_HOTSPOT_RES_ID, current.hotspot.iconResId ?: 0)
+
             when (val wifi = current.wifi) {
                 WifiState.Unknown -> putInt(KEY_WIFI_KIND, WIFI_KIND_UNKNOWN)
                 WifiState.Hidden -> putInt(KEY_WIFI_KIND, WIFI_KIND_HIDDEN)
@@ -126,6 +146,17 @@ internal object CombinedStatusStateStore {
                 null
             }
 
+        val hotspot =
+            HotspotState(
+                visible =
+                    when (bundle.getInt(KEY_HOTSPOT_VISIBLE, HOTSPOT_UNKNOWN)) {
+                        HOTSPOT_HIDDEN -> false
+                        HOTSPOT_VISIBLE -> true
+                        else -> null
+                    },
+                iconResId = bundle.getInt(KEY_HOTSPOT_RES_ID).takeIf { it != 0 },
+            )
+
         val wifi =
             when (bundle.getInt(KEY_WIFI_KIND, WIFI_KIND_UNKNOWN)) {
                 WIFI_KIND_HIDDEN -> WifiState.Hidden
@@ -173,6 +204,7 @@ internal object CombinedStatusStateStore {
         current =
             Snapshot(
                 battery = battery,
+                hotspot = hotspot,
                 wifi = wifi,
                 mobile = mobile,
                 airplaneMode = airplane,
@@ -196,6 +228,7 @@ internal object CombinedStatusStateStore {
 
     internal data class Snapshot(
         val battery: BatteryState? = null,
+        val hotspot: HotspotState = HotspotState(),
         val wifi: WifiState = WifiState.Unknown,
         val mobile: Map<Int, MobileState> = emptyMap(),
         val airplaneMode: Boolean? = null,
@@ -207,6 +240,10 @@ internal object CombinedStatusStateStore {
                         (if (state.charging) "charging" else "discharging") +
                         ":plugged=" + state.plugged
                 } ?: "unknown"
+
+                val hotspotText =
+                    (hotspot.visible?.toString() ?: "unknown") +
+                        ":res=" + (hotspot.iconResId ?: 0)
 
                 val wifiText = when (val state = wifi) {
                     WifiState.Unknown -> "unknown"
@@ -235,7 +272,7 @@ internal object CombinedStatusStateStore {
                         ",vowifi=" + (state.vowifiResId ?: 0)
                 }
 
-                return "battery=$batteryText wifi=$wifiText mobile=$mobileText " +
+                return "battery=$batteryText hotspot=$hotspotText wifi=$wifiText mobile=$mobileText " +
                     "airplane=" + (airplaneMode?.toString() ?: "unknown")
             }
     }
@@ -244,6 +281,11 @@ internal object CombinedStatusStateStore {
         val percent: Int,
         val charging: Boolean,
         val plugged: Int,
+    )
+
+    internal data class HotspotState(
+        val visible: Boolean? = null,
+        val iconResId: Int? = null,
     )
 
     internal sealed interface WifiState {
@@ -281,12 +323,18 @@ internal object CombinedStatusStateStore {
     private const val KEY_BATTERY_PERCENT = "batteryPercent"
     private const val KEY_BATTERY_CHARGING = "batteryCharging"
     private const val KEY_BATTERY_PLUGGED = "batteryPlugged"
+    private const val KEY_HOTSPOT_VISIBLE = "hotspotVisible"
+    private const val KEY_HOTSPOT_RES_ID = "hotspotResId"
     private const val KEY_WIFI_KIND = "wifiKind"
     private const val KEY_WIFI_RES_ID = "wifiResId"
     private const val KEY_WIFI_SIGNAL = "wifiSignal"
     private const val KEY_WIFI_INTERNET = "wifiInternet"
     private const val KEY_AIRPLANE = "airplane"
     private const val KEY_MOBILE = "mobile"
+
+    private const val HOTSPOT_UNKNOWN = -1
+    private const val HOTSPOT_HIDDEN = 0
+    private const val HOTSPOT_VISIBLE = 1
 
     private const val WIFI_KIND_UNKNOWN = 0
     private const val WIFI_KIND_HIDDEN = 1

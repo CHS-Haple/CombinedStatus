@@ -6,7 +6,15 @@ internal object CombinedStatusConnectivityPolicy {
         airplaneMode: Boolean,
         connectivity: SystemUiConnectivityStateSource.State,
         mobileType: NativePresentationResolver.NetworkType?,
+        hotspot: CombinedStatusStateStore.HotspotState =
+            CombinedStatusStateStore.HotspotState(),
     ): CenterIndicator? {
+        hotspot.iconResId
+            ?.takeIf { hotspot.visible == true }
+            ?.let { resourceId ->
+                return CenterIndicator.Hotspot(resourceId)
+            }
+
         val wifiVisible =
             wifi as? CombinedStatusStateStore.WifiState.Visible
         val wifiSegments =
@@ -79,6 +87,12 @@ internal object CombinedStatusConnectivityPolicy {
         }
     }
 
+    fun hotspotReplacementReady(
+        hotspot: CombinedStatusStateStore.HotspotState,
+    ): Boolean =
+        hotspot.visible == true &&
+            hotspot.iconResId != null
+
     fun wifiReplacementReady(
         wifi: CombinedStatusStateStore.WifiState,
         connectivity: SystemUiConnectivityStateSource.State,
@@ -131,6 +145,10 @@ internal enum class InternetState {
 }
 
 internal sealed interface CenterIndicator {
+    data class Hotspot(
+        val resourceId: Int,
+    ) : CenterIndicator
+
     data class Wifi(
         val segments: Int,
         val internet: InternetState,

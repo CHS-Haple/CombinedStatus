@@ -332,4 +332,62 @@ class CombinedStatusConnectivityPolicyTest {
 
         assertEquals(false, ready)
     }
+
+    @Test
+    fun visibleNativeHotspotWinsTheCenterIndicator() {
+        val hotspot =
+            CombinedStatusStateStore.HotspotState(
+                visible = true,
+                iconResId = 123,
+            )
+        val result =
+            CombinedStatusConnectivityPolicy.resolve(
+                wifi =
+                    CombinedStatusStateStore.WifiState.Visible(
+                        iconResId = 1,
+                        signal = SignalStrength.Level(3),
+                        internetValidated = true,
+                    ),
+                airplaneMode = false,
+                connectivity =
+                    SystemUiConnectivityStateSource.State(
+                        known = true,
+                        transport = SystemUiConnectivityStateSource.Transport.WIFI,
+                        validated = true,
+                        hasInternetCapability = true,
+                        mobileDataEnabled = true,
+                    ),
+                mobileType = null,
+                hotspot = hotspot,
+            )
+
+        assertEquals(CenterIndicator.Hotspot(123), result)
+        assertEquals(
+            true,
+            CombinedStatusConnectivityPolicy.hotspotReplacementReady(hotspot),
+        )
+    }
+
+    @Test
+    fun incompleteHotspotNeverClaimsNativeReplacement() {
+        assertEquals(
+            false,
+            CombinedStatusConnectivityPolicy.hotspotReplacementReady(
+                CombinedStatusStateStore.HotspotState(
+                    visible = true,
+                    iconResId = null,
+                ),
+            ),
+        )
+        assertEquals(
+            false,
+            CombinedStatusConnectivityPolicy.hotspotReplacementReady(
+                CombinedStatusStateStore.HotspotState(
+                    visible = false,
+                    iconResId = 123,
+                ),
+            ),
+        )
+    }
+
 }
