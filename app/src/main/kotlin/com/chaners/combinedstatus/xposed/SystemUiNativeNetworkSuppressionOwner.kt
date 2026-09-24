@@ -13,9 +13,6 @@ internal object SystemUiNativeNetworkSuppressionOwner {
         "com.android.systemui.statusbar.pipeline.wifi.ui.binder.MiuiWifiViewBinder\$bind\$2"
     private const val MOBILE_BINDING_CLASS =
         "com.android.systemui.statusbar.pipeline.mobile.ui.binder.MiuiMobileIconBinder\$bind\$2"
-    private const val STACKED_BINDING_CLASS =
-        "com.android.systemui.statusbar.pipeline.shared.ui.view." +
-            "SingleBindableStatusBarComposeIconView\$Companion\$withDefaultBinding\$2"
     private const val HOME_MANAGER_CLASS =
         "com.android.systemui.statusbar.phone.ui.DarkIconManager"
     private const val MODERN_BINDING_INTERFACE =
@@ -25,17 +22,12 @@ internal object SystemUiNativeNetworkSuppressionOwner {
         "combinedstatus.nativeNetworkSuppression.wifiVisibility"
     private const val MOBILE_VISIBILITY_HOOK_ID =
         "combinedstatus.nativeNetworkSuppression.mobileVisibility"
-    private const val STACKED_VISIBILITY_HOOK_ID =
-        "combinedstatus.nativeNetworkSuppression.stackedVisibility"
     private const val HOME_ICON_ADDED_HOOK_ID =
         "combinedstatus.nativeNetworkSuppression.homeIconAdded"
 
-    private val targetSlots =
-        setOf(
-            "wifi",
-            "mobile",
-            "stacked_mobile",
-        )
+    private val wifiOnlyTargetSlots = setOf("wifi")
+    private val wifiAndMobileTargetSlots = setOf("wifi", "mobile")
+    private val observableTargetSlots = wifiAndMobileTargetSlots
 
     private val installedHandles = mutableListOf<HookHandle>()
     private var activeManager: Any? = null
@@ -44,6 +36,9 @@ internal object SystemUiNativeNetworkSuppressionOwner {
 
     @Volatile
     private var suppressedBindings: Array<WeakReference<Any>> = emptyArray()
+
+    @Volatile
+    private var mobileSuppressionEnabled = false
 
     val installedHookCount: Int
         @Synchronized get() = installedHandles.size
@@ -70,11 +65,6 @@ internal object SystemUiNativeNetworkSuppressionOwner {
                 resolveVisibilityMethod(
                     classLoader = classLoader,
                     className = MOBILE_BINDING_CLASS,
-                )
-            val stackedVisibility =
-                resolveVisibilityMethod(
-                    classLoader = classLoader,
-                    className = STACKED_BINDING_CLASS,
                 )
             val darkIconManager =
                 Class.forName(
@@ -106,11 +96,6 @@ internal object SystemUiNativeNetworkSuppressionOwner {
                     .intercept(visibilityHooker())
             created +=
                 module
-                    .hook(stackedVisibility)
-                    .setId(STACKED_VISIBILITY_HOOK_ID)
-                    .intercept(visibilityHooker())
-            created +=
-                module
                     .hook(onIconAdded)
                     .setId(HOME_ICON_ADDED_HOOK_ID)
                     .intercept(homeIconAddedHooker())
@@ -135,7 +120,10 @@ internal object SystemUiNativeNetworkSuppressionOwner {
     }
 
     @Synchronized
-    fun activate(host: Any): StateResult {
+    fun activate(
+        host: Any,
+        suppressMobile: Boolean,
+    ): StateResult {
         if (installedHandles.size != EXPECTED_HOOK_COUNT) {
             return StateResult.Failure("hooks-not-ready")
         }
@@ -154,6 +142,7 @@ internal object SystemUiNativeNetworkSuppressionOwner {
 
         activeManager = handles.manager
         activeGroup = WeakReference(handles.group)
+        mobileSuppressionEnabled = suppressMobile
 
         val snapshot = refreshBindingsLocked("handoff")
         if (snapshot.failureReason != null) {
@@ -165,6 +154,34 @@ internal object SystemUiNativeNetworkSuppressionOwner {
         return StateResult.Active(
             bindings = snapshot.bindingCount,
             slots = snapshot.slots,
+            mobileSuppressed = snapshot.mobileSuppressed,
+        )
+    }
+
+    @Synchronized
+    fun updateMobilePolicy(
+        suppressMobile: Boolean,
+        source: String,
+    ): StateResult? {
+        if (mobileSuppressionEnabled == suppressMobile) {
+            return null
+        }
+        mobileSuppressionEnabled = suppressMobile
+        if (activeManager == null || activeGroup?.get() == null) {
+            return null
+        }
+
+        val snapshot = refreshBindingsLocked(source)
+        if (snapshot.failureReason != null) {
+            clearSessionLocked(requestLayout = true)
+            return StateResult.Failure(snapshot.failureReason)
+        }
+
+        eventSink?.invoke(snapshot.logLine)
+        return StateResult.Active(
+            bindings = snapshot.bindingCount,
+            slots = snapshot.slots,
+            mobileSuppressed = snapshot.mobileSuppressed,
         )
     }
 
@@ -209,7 +226,7 @@ internal object SystemUiNativeNetworkSuppressionOwner {
             if (
                 manager === activeManager &&
                 slot != null &&
-                slot in targetSlots
+                slot in observableTargetSlots
             ) {
                 synchronized(this) {
                     if (manager === activeManager) {
@@ -234,6 +251,12 @@ internal object SystemUiNativeNetworkSuppressionOwner {
                     reason = "home-status-icon-group-missing",
                 )
 
+        val targetSlots =
+            if (mobileSuppressionEnabled) {
+                wifiAndMobileTargetSlots
+            } else {
+                wifiOnlyTargetSlots
+            }
         val targetViews = mutableListOf<Pair<String, View>>()
         for (index in 0 until group.childCount) {
             val child = group.getChildAt(index)
@@ -276,6 +299,7 @@ internal object SystemUiNativeNetworkSuppressionOwner {
             targetViews = targetViews.size,
             bindings = bindings.size,
             slots = resolvedSlots,
+            mobileSuppressed = mobileSuppressionEnabled,
         )
     }
 
@@ -320,6 +344,7 @@ internal object SystemUiNativeNetworkSuppressionOwner {
         activeManager = null
         activeGroup = null
         suppressedBindings = emptyArray()
+        mobileSuppressionEnabled = false
         if (requestLayout) {
             group?.requestLayout()
         }
@@ -340,11 +365,13 @@ internal object SystemUiNativeNetworkSuppressionOwner {
         data class Active(
             val bindings: Int,
             val slots: List<String>,
+            val mobileSuppressed: Boolean,
         ) : StateResult {
             override val summary: String
                 get() =
                     "active:bindings=" + bindings +
-                        ",slots=" + slots.joinToString(",")
+                        ",slots=" + slots.joinToString(",") +
+                        ",mobileSuppressed=" + mobileSuppressed
         }
 
         data class Inactive(
@@ -367,6 +394,7 @@ internal object SystemUiNativeNetworkSuppressionOwner {
         val targetViewCount: Int,
         val bindingCount: Int,
         val slots: List<String>,
+        val mobileSuppressed: Boolean,
         val failureReason: String?,
     ) {
         val logLine: String
@@ -381,6 +409,7 @@ internal object SystemUiNativeNetworkSuppressionOwner {
                     " targetViews=" + targetViewCount +
                     " bindings=" + bindingCount +
                     " slots=" + slots.joinToString(",") +
+                    " mobileSuppressed=" + mobileSuppressed +
                     " reason=" + (failureReason ?: "none") +
                     " nativeGeometryWrites=0"
 
@@ -390,12 +419,14 @@ internal object SystemUiNativeNetworkSuppressionOwner {
                 targetViews: Int,
                 bindings: Int,
                 slots: List<String>,
+                mobileSuppressed: Boolean,
             ): BindingSnapshot =
                 BindingSnapshot(
                     source = source,
                     targetViewCount = targetViews,
                     bindingCount = bindings,
                     slots = slots.distinct(),
+                    mobileSuppressed = mobileSuppressed,
                     failureReason = null,
                 )
 
@@ -411,10 +442,11 @@ internal object SystemUiNativeNetworkSuppressionOwner {
                     targetViewCount = targetViews,
                     bindingCount = bindings,
                     slots = slots.distinct(),
+                    mobileSuppressed = false,
                     failureReason = reason,
                 )
         }
     }
 
-    private const val EXPECTED_HOOK_COUNT = 4
+    private const val EXPECTED_HOOK_COUNT = 3
 }

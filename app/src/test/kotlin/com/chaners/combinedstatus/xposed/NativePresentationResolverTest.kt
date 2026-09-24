@@ -84,6 +84,74 @@ class NativePresentationResolverTest {
     }
 
     @Test
+    fun singleActiveSubscriptionCanOwnNativeMobileReplacement() {
+        val snapshot =
+            NativePresentationResolver.Snapshot(
+                mode = NativePresentationResolver.Mode.SINGLE,
+                boundRoots = 1,
+                visibleRoots = 1,
+                activeSubscriptionIds = listOf(4),
+                presentationRootSubscriptionId = 4,
+                effectiveDataSubscriptionId = 4,
+                networkTypeSubscriptionId = 4,
+                networkType = null,
+            )
+
+        assertEquals(true, snapshot.representsSingleActiveSubscription)
+    }
+
+    @Test
+    fun aggregatedDualPresentationMustPreserveNativeMobileParticipant() {
+        val snapshot =
+            NativePresentationResolver.Snapshot(
+                mode = NativePresentationResolver.Mode.DUAL_AGGREGATED,
+                boundRoots = 2,
+                visibleRoots = 1,
+                activeSubscriptionIds = listOf(1, 4),
+                presentationRootSubscriptionId = 1,
+                effectiveDataSubscriptionId = 4,
+                networkTypeSubscriptionId = 4,
+                networkType = null,
+            )
+
+        assertEquals(false, snapshot.representsSingleActiveSubscription)
+    }
+
+    @Test
+    fun separateDualPresentationMustPreserveNativeMobileParticipant() {
+        val snapshot =
+            NativePresentationResolver.Snapshot(
+                mode = NativePresentationResolver.Mode.DUAL_SEPARATE,
+                boundRoots = 2,
+                visibleRoots = 2,
+                activeSubscriptionIds = listOf(1, 4),
+                presentationRootSubscriptionId = 4,
+                effectiveDataSubscriptionId = 4,
+                networkTypeSubscriptionId = 4,
+                networkType = null,
+            )
+
+        assertEquals(false, snapshot.representsSingleActiveSubscription)
+    }
+
+    @Test
+    fun unknownMobilePresentationFailsNative() {
+        val snapshot =
+            NativePresentationResolver.Snapshot(
+                mode = NativePresentationResolver.Mode.UNKNOWN,
+                boundRoots = 0,
+                visibleRoots = 0,
+                activeSubscriptionIds = emptyList(),
+                presentationRootSubscriptionId = null,
+                effectiveDataSubscriptionId = null,
+                networkTypeSubscriptionId = null,
+                networkType = null,
+            )
+
+        assertEquals(false, snapshot.representsSingleActiveSubscription)
+    }
+
+    @Test
     fun preMeasureDoublePlusMatchesNativeNormalization() {
         val networkType =
             NativePresentationResolver.normalizeDrawableNetworkType(

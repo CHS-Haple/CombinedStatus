@@ -924,6 +924,15 @@ class CombinedStatusModule : XposedModule() {
     private fun onPresentationStateChanged(trace: RuntimeRenderTrace? = null) {
         CombinedStatusHomeRenderSession.onPresentationStateChanged(trace)
         SystemUiNativeCombinedParticipantOwner.onPresentationStateChanged(trace)
+        val presentation =
+            CombinedStatusPresentationStateStore
+                .snapshot()
+                .mobilePresentation
+        SystemUiNativeNetworkSuppressionOwner.updateMobilePolicy(
+            suppressMobile =
+                presentation?.representsSingleActiveSubscription == true,
+            source = "mobile-presentation",
+        )
     }
 
     private fun onTintStateUpdate(update: SystemUiTintStateSource.TintUpdate) {
@@ -1348,7 +1357,15 @@ class CombinedStatusModule : XposedModule() {
                     onHandoffStateChanged = { active ->
                         val suppression =
                             if (active) {
-                                SystemUiNativeNetworkSuppressionOwner.activate(host)
+                                val presentation =
+                                    CombinedStatusPresentationStateStore
+                                        .snapshot()
+                                        .mobilePresentation
+                                SystemUiNativeNetworkSuppressionOwner.activate(
+                                    host = host,
+                                    suppressMobile =
+                                        presentation?.representsSingleActiveSubscription == true,
+                                )
                             } else {
                                 SystemUiNativeNetworkSuppressionOwner.deactivate(
                                     "native-handoff-fallback",
