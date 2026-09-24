@@ -229,7 +229,17 @@ jobs:
           if not notes:
               raise SystemExit(f"The CHANGELOG release section for {version} has no release notes.")
 
-          pathlib.Path("release-notes.md").write_text(notes + "\\n", encoding="utf-8")
+          engineering = re.compile(
+              r"^### Engineering\\s*\\n.*?(?=^### |\\Z)",
+              re.MULTILINE | re.DOTALL,
+          )
+          release_notes = engineering.sub("", notes).strip()
+          if not release_notes:
+              raise SystemExit(
+                  f"The CHANGELOG release section for {version} has no user-facing release notes."
+              )
+
+          pathlib.Path("release-notes.md").write_text(release_notes + "\\n", encoding="utf-8")
           PY
 
       - name: Check stable tag
