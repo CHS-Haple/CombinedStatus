@@ -38,7 +38,7 @@ class CombinedStatusRenderModelTest {
 
         val center = model?.centerIndicator as? CenterIndicator.Wifi
         assertEquals(3, center?.segments)
-        assertEquals(InternetState.VALIDATED, center?.internet)
+        assertEquals(InternetState.UNKNOWN, center?.internet)
     }
 
     @Test
@@ -210,7 +210,7 @@ class CombinedStatusRenderModelTest {
     }
 
     @Test
-    fun otherTransportKeepsWifiWhenVpnMasksUnderlyingWifi() {
+    fun otherTransportKeepsWifiIdentityWithoutInventingInternetSemantics() {
         val model =
             CombinedStatusRenderModel.from(
                 snapshot =

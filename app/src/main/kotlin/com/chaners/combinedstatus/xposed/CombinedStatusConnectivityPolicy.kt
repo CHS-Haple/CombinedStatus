@@ -34,13 +34,28 @@ internal object CombinedStatusConnectivityPolicy {
                 null -> Unit
             }
 
-            if (
-                connectivity.known &&
-                connectivity.transport == SystemUiConnectivityStateSource.Transport.WIFI
-            ) {
+            if (connectivity.known) {
+                when (connectivity.transport) {
+                    SystemUiConnectivityStateSource.Transport.WIFI ->
+                        return CenterIndicator.Wifi(
+                            segments = wifiSegments,
+                            internet = connectivity.internetState(),
+                        )
+
+                    SystemUiConnectivityStateSource.Transport.OTHER ->
+                        return CenterIndicator.Wifi(
+                            segments = wifiSegments,
+                            internet = InternetState.UNKNOWN,
+                        )
+
+                    SystemUiConnectivityStateSource.Transport.CELLULAR,
+                    SystemUiConnectivityStateSource.Transport.NONE,
+                    -> Unit
+                }
+            } else {
                 return CenterIndicator.Wifi(
                     segments = wifiSegments,
-                    internet = connectivity.internetState(),
+                    internet = InternetState.UNKNOWN,
                 )
             }
         }
