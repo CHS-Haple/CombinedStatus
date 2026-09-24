@@ -415,31 +415,27 @@ class CombinedStatusModule : XposedModule() {
                 nativeAdoption as?
                     SystemUiNativeCombinedParticipantOwner.HotReloadAdoptResult.Failure
             val nativeReady =
-                nativeFailure == null &&
-                    (
-                        nativeAdoption !is
-                            SystemUiNativeCombinedParticipantOwner.HotReloadAdoptResult.Ready ||
-                            controllerRestored
-                    )
+                nativeAdoption is
+                    SystemUiNativeCombinedParticipantOwner.HotReloadAdoptResult.Ready &&
+                    controllerRestored
             val nativeState =
-                when {
-                    nativeFailure != null -> "fallback"
-                    nativeAdoption is
-                        SystemUiNativeCombinedParticipantOwner.HotReloadAdoptResult.Ready &&
-                        controllerRestored -> "ready"
-                    else -> "fallback"
+                if (nativeReady) {
+                    "ready"
+                } else {
+                    "fallback"
                 }
             val nativeReason =
-                nativeFailure?.reason
-                    ?: if (
-                        nativeAdoption is
-                            SystemUiNativeCombinedParticipantOwner.HotReloadAdoptResult.Ready &&
-                        !controllerRestored
-                    ) {
+                when {
+                    nativeFailure != null ->
+                        nativeFailure.reason
+                    nativeAdoption is
+                        SystemUiNativeCombinedParticipantOwner.HotReloadAdoptResult.NotPresent ->
+                        "native-participant-not-present"
+                    !controllerRestored ->
                         "controller-registration-restore-failed"
-                    } else {
+                    else ->
                         null
-                    }
+                }
 
             logDiagnostic(
                 level = if (nativeReady) Log.INFO else Log.WARN,
