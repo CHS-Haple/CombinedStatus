@@ -92,7 +92,7 @@ internal object DiagnosticsReportBuilder {
             }
 
         return buildString {
-            appendLine("CombinedStatus Diagnostic Report")
+            appendLine("Combined Status Diagnostic Report")
             appendLine()
             appendLine("[App]")
             appendLine("version=" + BuildConfig.VERSION_NAME)
@@ -140,7 +140,7 @@ internal object DiagnosticsReportBuilder {
             appendLine("collection=" + collectionState(selected.result))
             appendLine("lines=" + moduleLines.size)
             if (moduleLines.isEmpty()) {
-                appendLine("No CombinedStatus runtime log entries were available.")
+                appendLine("No Combined Status runtime log entries were available.")
             } else {
                 moduleLines.forEach(::appendLine)
             }
