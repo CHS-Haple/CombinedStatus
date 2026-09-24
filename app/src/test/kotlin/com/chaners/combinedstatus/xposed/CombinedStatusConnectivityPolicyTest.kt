@@ -34,7 +34,7 @@ class CombinedStatusConnectivityPolicyTest {
 
         assertEquals(
             CenterIndicator.Wifi(
-                segments = 3,
+                segments = 2,
                 internet = InternetState.NO_INTERNET,
             ),
             result,
@@ -65,7 +65,7 @@ class CombinedStatusConnectivityPolicyTest {
 
         assertEquals(
             CenterIndicator.Wifi(
-                segments = 1,
+                segments = 0,
                 internet = InternetState.VALIDATED,
             ),
             result,
@@ -96,7 +96,7 @@ class CombinedStatusConnectivityPolicyTest {
 
         assertEquals(
             CenterIndicator.Wifi(
-                segments = 2,
+                segments = 1,
                 internet = InternetState.NO_INTERNET,
             ),
             result,
