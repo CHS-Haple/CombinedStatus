@@ -74,6 +74,7 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Engineering
 
+- Island motion diagnostic hook readiness and cleanup are owned by a dedicated runtime owner instead of `CombinedStatusModule`, keeping the module as the bootstrap/integration boundary without changing HyperOS island behavior or geometry ownership.
 - Public documentation and contribution surfaces use **Combined Status** as the English display name while established technical identifiers such as `CombinedStatus` remain unchanged; contributor setup and pull-request guidance are documented at the appropriate public entry points.
 - Pull-request CI now classifies ready `main` changes by affected paths, keeping documentation-only maintenance on Light validation while preserving Full validation for build, CI, dependency, tooling, and runtime-affecting stable-boundary changes.
 - Stable GitHub Release notes now omit the changelog's Engineering section while retaining the complete engineering record in `CHANGELOG.md`; the dev-to-main readiness workflow is labeled explicitly in Actions.
