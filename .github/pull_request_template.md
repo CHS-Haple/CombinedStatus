@@ -4,13 +4,15 @@ Describe the problem or engineering need and the final bounded change.
 
 > CI success is validation evidence, not merge approval. Final acceptance is a maintainer decision, and runtime-sensitive changes may require maintainer-side device validation.
 
-## Route and boundary
+## Change type and boundary
 
-- Route: repository text/governance / repository automation / feat / fix / promote / hotfix
-- Target: main + back-sync dev / dev / main
+- Type: docs / feature / fix / repository automation / other
+- Intended target: dev / main
 - Objective:
 - Explicitly unchanged:
 - Why this is one change boundary:
+
+> Normal product/runtime contributions target `dev`. Promotion and hotfix pull requests are maintainer-managed.
 
 ## Runtime impact
 
@@ -28,9 +30,11 @@ Complete only when runtime-sensitive:
 - Device scenario(s) and tested build/SHA when applicable:
 - Changelog: updated / not required
 
-## Promotion or hotfix only
+## Maintainer-only release boundary
 
-For promote:
+Complete only for promotion or hotfix pull requests.
+
+For promotion:
 - Candidate dev SHA:
 - [ ] Candidate matches the validated dev state.
 - [ ] No affected item remains awaiting device validation.
