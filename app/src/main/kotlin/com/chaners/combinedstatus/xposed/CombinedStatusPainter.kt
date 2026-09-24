@@ -4,6 +4,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
+import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Typeface
 import kotlin.math.asin
@@ -13,6 +14,10 @@ import kotlin.math.sin
 
 internal class CombinedStatusPainter {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val mobileTypeTypeface =
+        Typeface.create(Typeface.DEFAULT, MOBILE_TYPE_WEIGHT, false)
+    private val mobileTypeMainBounds = Rect()
+    private val mobileTypeSuffixBounds = Rect()
     private val batteryRing = RectF(10f, 8f, 110f, 108f)
     private val wifiPaths = arrayOf(
         wifiPathLow(),
@@ -43,7 +48,7 @@ internal class CombinedStatusPainter {
         canvas.scale(scale, scale)
 
         drawBattery(canvas, model, colors.batteryTint, opacity)
-        drawCenter(canvas, model, colors.primaryTint, opacity)
+        drawCenter(canvas, model, colors.primaryTint, opacity, scale)
         drawMobile(canvas, model, colors.primaryTint, opacity)
         canvas.restoreToCount(save)
     }
@@ -69,6 +74,7 @@ internal class CombinedStatusPainter {
         model: CombinedStatusRenderModel,
         tint: Int,
         opacity: Float,
+        scale: Float,
     ) {
         when (val indicator = model.centerIndicator) {
             is CenterIndicator.Wifi -> {
@@ -79,7 +85,7 @@ internal class CombinedStatusPainter {
             }
 
             is CenterIndicator.MobileType -> {
-                drawMobileType(canvas, indicator, tint, opacity)
+                drawMobileType(canvas, indicator, tint, opacity, scale)
                 if (indicator.internet == InternetState.NO_INTERNET) {
                     drawSmallNoInternetMark(canvas, tint, opacity)
                 }
@@ -115,6 +121,7 @@ internal class CombinedStatusPainter {
         indicator: CenterIndicator.MobileType,
         tint: Int,
         opacity: Float,
+        scale: Float,
     ) {
         val normalized = indicator.label.trim().uppercase()
         val split =
@@ -140,33 +147,80 @@ internal class CombinedStatusPainter {
         paint.style = Paint.Style.FILL
         paint.color = tint
         paint.alpha = effectiveAlpha(tint, 255, opacity)
-        paint.typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        paint.typeface = mobileTypeTypeface
         paint.textAlign = Paint.Align.LEFT
-        paint.textSize = MOBILE_TYPE_TEXT_SIZE
+        val mainTextSize =
+            if (scale > 0f) {
+                MOBILE_TYPE_TEXT_SIZE_PX / scale
+            } else {
+                MOBILE_TYPE_TEXT_SIZE_PX
+            }
+        val suffixTextSize =
+            if (scale > 0f) {
+                MOBILE_TYPE_SUFFIX_SIZE_PX / scale
+            } else {
+                MOBILE_TYPE_SUFFIX_SIZE_PX
+            }
+        paint.textSize = mainTextSize
+        paint.getTextBounds(
+            split.first,
+            0,
+            split.first.length,
+            mobileTypeMainBounds,
+        )
 
-        val mainWidth = paint.measureText(split.first)
+        val mainBaselineY =
+            MOBILE_TYPE_CENTER_Y -
+                (mobileTypeMainBounds.top + mobileTypeMainBounds.bottom) / 2f
         if (split.second.isEmpty()) {
+            val mainX =
+                MOBILE_TYPE_CENTER_X -
+                    (mobileTypeMainBounds.left + mobileTypeMainBounds.right) / 2f
             canvas.drawText(
                 split.first,
-                MOBILE_TYPE_CENTER_X - mainWidth / 2f,
-                MOBILE_TYPE_BASELINE_Y,
+                mainX,
+                mainBaselineY,
                 paint,
             )
             return
         }
 
-        paint.textSize = MOBILE_TYPE_SUFFIX_SIZE
-        val suffixWidth = paint.measureText(split.second)
-        val totalWidth = mainWidth + MOBILE_TYPE_SUFFIX_GAP + suffixWidth
-        val startX = MOBILE_TYPE_CENTER_X - totalWidth / 2f
+        paint.textSize = suffixTextSize
+        paint.getTextBounds(
+            split.second,
+            0,
+            split.second.length,
+            mobileTypeSuffixBounds,
+        )
+        val totalInkWidth =
+            mobileTypeMainBounds.width() +
+                MOBILE_TYPE_SUFFIX_GAP +
+                mobileTypeSuffixBounds.width()
+        val groupLeft = MOBILE_TYPE_CENTER_X - totalInkWidth / 2f
+        val mainX = groupLeft - mobileTypeMainBounds.left
+        val suffixX =
+            groupLeft +
+                mobileTypeMainBounds.width() +
+                MOBILE_TYPE_SUFFIX_GAP -
+                mobileTypeSuffixBounds.left
+        val suffixCenterY =
+            MOBILE_TYPE_CENTER_Y -
+                if (scale > 0f) {
+                    MOBILE_TYPE_SUFFIX_RISE_PX / scale
+                } else {
+                    MOBILE_TYPE_SUFFIX_RISE_PX
+                }
+        val suffixBaselineY =
+            suffixCenterY -
+                (mobileTypeSuffixBounds.top + mobileTypeSuffixBounds.bottom) / 2f
 
-        paint.textSize = MOBILE_TYPE_TEXT_SIZE
-        canvas.drawText(split.first, startX, MOBILE_TYPE_BASELINE_Y, paint)
-        paint.textSize = MOBILE_TYPE_SUFFIX_SIZE
+        paint.textSize = mainTextSize
+        canvas.drawText(split.first, mainX, mainBaselineY, paint)
+        paint.textSize = suffixTextSize
         canvas.drawText(
             split.second,
-            startX + mainWidth + MOBILE_TYPE_SUFFIX_GAP,
-            MOBILE_TYPE_SUFFIX_BASELINE_Y,
+            suffixX,
+            suffixBaselineY,
             paint,
         )
     }
@@ -342,10 +396,11 @@ internal class CombinedStatusPainter {
         const val MOBILE_ORBIT_RADIUS = 51f
         const val MOBILE_DOT_RADIUS = 4.9f
         const val MOBILE_TYPE_CENTER_X = 60f
-        const val MOBILE_TYPE_BASELINE_Y = 66f
-        const val MOBILE_TYPE_SUFFIX_BASELINE_Y = 58f
-        const val MOBILE_TYPE_TEXT_SIZE = 28f
-        const val MOBILE_TYPE_SUFFIX_SIZE = 17f
+        const val MOBILE_TYPE_CENTER_Y = 60f
+        const val MOBILE_TYPE_TEXT_SIZE_PX = 38f
+        const val MOBILE_TYPE_SUFFIX_SIZE_PX = 22f
+        const val MOBILE_TYPE_SUFFIX_RISE_PX = 8f
         const val MOBILE_TYPE_SUFFIX_GAP = 2f
+        const val MOBILE_TYPE_WEIGHT = 800
     }
 }
