@@ -383,8 +383,8 @@ internal class CombinedStatusPainter {
         const val MOBILE_TYPE_CENTER_X = 60f
         const val MOBILE_TYPE_BASELINE_Y = 66f
         const val MOBILE_TYPE_SUFFIX_BASELINE_Y = 58f
-        const val MOBILE_TYPE_TEXT_SIZE = 28f
-        const val MOBILE_TYPE_SUFFIX_SIZE = 17f
+        const val MOBILE_TYPE_TEXT_SIZE = 34f
+        const val MOBILE_TYPE_SUFFIX_SIZE = 20f
         const val MOBILE_TYPE_SUFFIX_GAP = 2f
         const val MOBILE_TYPE_MIN_WEIGHT = 600
     }
