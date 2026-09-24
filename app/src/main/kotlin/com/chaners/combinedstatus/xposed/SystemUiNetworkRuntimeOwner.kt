@@ -8,6 +8,9 @@ internal object SystemUiNetworkRuntimeOwner {
     val installedHookCount: Int
         @Synchronized get() = current?.handles?.size ?: 0
 
+    val wifiReady: Boolean
+        @Synchronized get() = current?.wifiReady == true
+
     @Synchronized
     fun attach(
         module: XposedModule,

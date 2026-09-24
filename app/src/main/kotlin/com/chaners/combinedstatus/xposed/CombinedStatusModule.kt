@@ -675,18 +675,10 @@ class CombinedStatusModule : XposedModule() {
                 classLoader = classLoader,
                 onWifiState = { state ->
                     val trace = beginRenderTrace("wifi")
-                    val previous = CombinedStatusStateStore.snapshot().wifi
                     val changed = CombinedStatusStateStore.updateWifi(state)
                     if (changed != null) {
-                        var stateTrace = markStateCommitted(trace)
-                        val wasVisible =
-                            previous is CombinedStatusStateStore.WifiState.Visible
-                        val isVisible =
-                            state is CombinedStatusStateStore.WifiState.Visible
-                        if (wasVisible != isVisible) {
-                            CombinedStatusPresentationStateStore.markWifiSemanticChanged()
-                            stateTrace = markPresentationCommitted(stateTrace)
-                        }
+                        val stateTrace = markStateCommitted(trace)
+                        updateNativeNetworkSuppressionPolicy("wifi-semantic")
                         onCombinedStateChanged(
                             snapshot = changed,
                             trace = stateTrace,
@@ -725,6 +717,7 @@ class CombinedStatusModule : XposedModule() {
                 onEvent = if (BuildConfig.RUNTIME_DIAGNOSTICS) ::onNetworkPipelineEvent else null,
             )
         }.onSuccess { result ->
+            updateNativeNetworkSuppressionPolicy("network-source:" + source)
             val fullyReady =
                 result.wifiReady &&
                     result.mobileReady &&
@@ -970,14 +963,25 @@ class CombinedStatusModule : XposedModule() {
     private fun onPresentationStateChanged(trace: RuntimeRenderTrace? = null) {
         CombinedStatusHomeRenderSession.onPresentationStateChanged(trace)
         SystemUiNativeCombinedParticipantOwner.onPresentationStateChanged(trace)
+        updateNativeNetworkSuppressionPolicy("presentation")
+    }
+
+    private fun updateNativeNetworkSuppressionPolicy(source: String) {
         val presentation =
-            CombinedStatusPresentationStateStore
-                .snapshot()
-                .mobilePresentation
-        SystemUiNativeNetworkSuppressionOwner.updateMobilePolicy(
+            CombinedStatusPresentationStateStore.snapshot()
+        val wifi =
+            CombinedStatusStateStore.snapshot().wifi
+        SystemUiNativeNetworkSuppressionOwner.updatePolicy(
+            suppressWifi =
+                SystemUiNetworkRuntimeOwner.wifiReady &&
+                    CombinedStatusConnectivityPolicy.wifiReplacementReady(
+                        wifi = wifi,
+                        connectivity = presentation.connectivity,
+                    ),
             suppressMobile =
-                presentation?.representsSingleActiveSubscription == true,
-            source = "mobile-presentation",
+                presentation.mobilePresentation
+                    ?.representsSingleActiveSubscription == true,
+            source = source,
         )
     }
 
@@ -1397,13 +1401,21 @@ class CombinedStatusModule : XposedModule() {
                         val suppression =
                             if (active) {
                                 val presentation =
-                                    CombinedStatusPresentationStateStore
-                                        .snapshot()
-                                        .mobilePresentation
+                                    CombinedStatusPresentationStateStore.snapshot()
+                                val wifi =
+                                    CombinedStatusStateStore.snapshot().wifi
                                 SystemUiNativeNetworkSuppressionOwner.activate(
                                     host = host,
+                                    suppressWifi =
+                                        SystemUiNetworkRuntimeOwner.wifiReady &&
+                                            CombinedStatusConnectivityPolicy
+                                                .wifiReplacementReady(
+                                                    wifi = wifi,
+                                                    connectivity = presentation.connectivity,
+                                                ),
                                     suppressMobile =
-                                        presentation?.representsSingleActiveSubscription == true,
+                                        presentation.mobilePresentation
+                                            ?.representsSingleActiveSubscription == true,
                                 )
                             } else {
                                 SystemUiNativeNetworkSuppressionOwner.deactivate(
