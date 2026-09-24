@@ -106,10 +106,14 @@ internal object SystemUiTintStateSource {
 
     @Synchronized
     fun currentState(sourceView: View): CombinedStatusTintState? {
-        lastStates[sourceView]?.let { return it }
+        lastStates[sourceView]
+            ?.takeIf(CombinedStatusPresentationPolicy::isValidTint)
+            ?.let { return it }
         val field = batteryPercentViewField ?: return null
-        return readAppliedState(sourceView, field)?.also {
-            lastStates[sourceView] = it
+        return readAppliedState(sourceView, field)?.also { state ->
+            if (CombinedStatusPresentationPolicy.isValidTint(state)) {
+                lastStates[sourceView] = state
+            }
         }
     }
 
