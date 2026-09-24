@@ -64,6 +64,7 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Engineering
 
+- Merged PR branches now rely on GitHub's repository-level automatic head-branch deletion instead of a duplicate project-maintained cleanup workflow.
 - Release automation now restricts signed test releases to `dev` or `main` and stable releases to `main`, keeping experiment/work branches in CI artifacts rather than GitHub Releases.
 - Promotion readiness now runs as a lightweight post-Build workflow, so readiness infrastructure failures cannot turn an otherwise successful APK Build red; readiness still gates `dev -> main` through the same CI/device/changelog conditions.
 - Home CombinedStatus rendering now hands off from the overlay fallback to a SystemUI-managed native status-bar participant only after model, tint, scene, attachment, and layout readiness are verified, while preserving fail-native fallback, native charging-island ownership, and lifecycle-safe Hot Reload replacement.
