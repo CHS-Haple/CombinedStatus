@@ -100,8 +100,27 @@ internal object SystemUiNetworkStateSource {
     private data class WifiSeedContract(
         val wifiIconGetter: Method?,
         val wifiVisibleIconField: Field,
-        val iconResourceResField: Field,
+        val iconResourceIdAccessor: IconResourceIdAccessor,
     )
+
+    private data class IconResourceIdAccessor(
+        val method: Method? = null,
+        val field: Field? = null,
+        val description: String,
+    ) {
+        fun read(target: Any): Int? =
+            when {
+                method != null ->
+                    (method.invoke(target) as? Number)
+                        ?.toInt()
+                        ?.takeIf { it != 0 }
+                field != null ->
+                    (field.get(target) as? Number)
+                        ?.toInt()
+                        ?.takeIf { it != 0 }
+                else -> null
+            }
+    }
 
     private data class WifiSemanticValue(
         val state: CombinedStatusStateStore.WifiState?,
@@ -186,11 +205,9 @@ internal object SystemUiNetworkStateSource {
                         .getDeclaredField("icon")
                         .apply { isAccessible = true }
                 }
-            val iconResourceResField =
-                atStage("wifi.resolve.iconResourceResField") {
-                    iconResourceClass
-                        .getDeclaredField("res")
-                        .apply { isAccessible = true }
+            val iconResourceIdAccessor =
+                atStage("wifi.resolve.iconResourceIdAccessor") {
+                    resolveIconResourceIdAccessor(iconResourceClass)
                 }
             val wifiIconEmitterClass =
                 atStage("wifi.resolve.iconEmitterClass") {
@@ -226,7 +243,7 @@ internal object SystemUiNetworkStateSource {
                 WifiSeedContract(
                     wifiIconGetter = wifiIconGetter,
                     wifiVisibleIconField = wifiVisibleIconField,
-                    iconResourceResField = iconResourceResField,
+                    iconResourceIdAccessor = iconResourceIdAccessor,
                 )
             wifiSeedContract = seedContract
 
@@ -253,7 +270,7 @@ internal object SystemUiNetworkStateSource {
                                 wifiImageField = wifiIconImageField,
                                 wifiClassIdField = wifiIconClassIdField,
                                 wifiVisibleIconField = wifiVisibleIconField,
-                                iconResourceResField = iconResourceResField,
+                                iconResourceIdAccessor = iconResourceIdAccessor,
                                 onWifiState = onWifiState,
                                 onEvent = onEvent,
                             ),
@@ -677,7 +694,7 @@ internal object SystemUiNetworkStateSource {
                 value = value,
                 sourceView = root,
                 wifiVisibleIconField = contract.wifiVisibleIconField,
-                iconResourceResField = contract.iconResourceResField,
+                iconResourceIdAccessor = contract.iconResourceIdAccessor,
             )
 
         onEvent?.invoke(
@@ -687,16 +704,72 @@ internal object SystemUiNetworkStateSource {
                 " flow=" + flow.javaClass.simpleName +
                 " valueType=" + semantic.valueType +
                 " modelResId=" + (semantic.resourceId ?: 0) +
-                " modelResource=" + (semantic.resourceName ?: "n/a"),
+                " modelResource=" + (semantic.resourceName ?: "n/a") +
+                " resourceAccessor=" + contract.iconResourceIdAccessor.description,
         )
         return semantic.state
+    }
+
+    private fun resolveIconResourceIdAccessor(
+        iconResourceClass: Class<*>,
+    ): IconResourceIdAccessor {
+        listOf("getResId", "getRes").forEach { name ->
+            val method =
+                iconResourceClass.methods
+                    .firstOrNull { candidate ->
+                        candidate.name == name &&
+                            candidate.parameterCount == 0 &&
+                            (
+                                candidate.returnType == Int::class.javaPrimitiveType ||
+                                    Number::class.java.isAssignableFrom(candidate.returnType)
+                            )
+                    }
+            if (method != null) {
+                method.isAccessible = true
+                return IconResourceIdAccessor(
+                    method = method,
+                    description = "method:" + method.name,
+                )
+            }
+        }
+
+        listOf("resId", "res").forEach { name ->
+            val field =
+                runCatching {
+                    iconResourceClass.getDeclaredField(name)
+                }.getOrNull()
+            if (
+                field != null &&
+                (
+                    field.type == Int::class.javaPrimitiveType ||
+                        Number::class.java.isAssignableFrom(field.type)
+                )
+            ) {
+                field.isAccessible = true
+                return IconResourceIdAccessor(
+                    field = field,
+                    description = "field:" + field.name,
+                )
+            }
+        }
+
+        throw NoSuchFieldException(
+            "No supported resource-id accessor in " + iconResourceClass.name +
+                " methods=" +
+                iconResourceClass.methods
+                    .filter { it.parameterCount == 0 }
+                    .joinToString(",") { it.name + ":" + it.returnType.simpleName } +
+                " fields=" +
+                iconResourceClass.declaredFields
+                    .joinToString(",") { it.name + ":" + it.type.simpleName },
+        )
     }
 
     private fun decodeWifiSemantic(
         value: Any?,
         sourceView: View,
         wifiVisibleIconField: Field,
-        iconResourceResField: Field,
+        iconResourceIdAccessor: IconResourceIdAccessor,
     ): WifiSemanticValue {
         val valueType = value?.javaClass?.name
         if (valueType == WIFI_ICON_HIDDEN_CLASS_NAME) {
@@ -721,7 +794,7 @@ internal object SystemUiNetworkStateSource {
             runCatching {
                 val icon = wifiVisibleIconField.get(value)
                 if (icon?.javaClass?.name == ICON_RESOURCE_CLASS_NAME) {
-                    iconResourceResField.getInt(icon).takeIf { it != 0 }
+                    iconResourceIdAccessor.read(icon)
                 } else {
                     null
                 }
@@ -749,7 +822,7 @@ internal object SystemUiNetworkStateSource {
         wifiImageField: Field,
         wifiClassIdField: Field,
         wifiVisibleIconField: Field,
-        iconResourceResField: Field,
+        iconResourceIdAccessor: IconResourceIdAccessor,
         onWifiState: (CombinedStatusStateStore.WifiState) -> Unit,
         onEvent: ((String) -> Unit)?,
     ): Hooker = Hooker { chain ->
@@ -776,7 +849,7 @@ internal object SystemUiNetworkStateSource {
                     value = value,
                     sourceView = image,
                     wifiVisibleIconField = wifiVisibleIconField,
-                    iconResourceResField = iconResourceResField,
+                    iconResourceIdAccessor = iconResourceIdAccessor,
                 )
             val eventKey =
                 semantic.valueType + ":" +
