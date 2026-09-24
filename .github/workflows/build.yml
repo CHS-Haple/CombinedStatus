@@ -127,9 +127,11 @@ jobs:
               SCOPE=integration
               REASON="trusted owner work-branch Canary checkpoint"
               ALLOW_SIGNING=true
-              if [[ -n "$PUSH_BEFORE_SHA" && "$PUSH_BEFORE_SHA" != "0000000000000000000000000000000000000000" ]]; then
-                classify_paths "$PUSH_BEFORE_SHA" "$PUSH_HEAD_SHA" integration
+              WORK_BASE_SHA="$PUSH_BEFORE_SHA"
+              if [[ -z "$WORK_BASE_SHA" || "$WORK_BASE_SHA" == "0000000000000000000000000000000000000000" ]]; then
+                WORK_BASE_SHA="$(git merge-base "$PUSH_HEAD_SHA" origin/dev)"
               fi
+              classify_paths "$WORK_BASE_SHA" "$PUSH_HEAD_SHA" integration
             else
               SCOPE=fast
               REASON="non-owner work-branch push; signing disabled"
