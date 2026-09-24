@@ -6,7 +6,6 @@ internal object CombinedStatusConnectivityPolicy {
         airplaneMode: Boolean,
         connectivity: SystemUiConnectivityStateSource.State,
         mobileType: NativePresentationResolver.NetworkType?,
-        connectivityFreshForWifi: Boolean,
     ): CenterIndicator? {
         val wifiVisible =
             wifi as? CombinedStatusStateStore.WifiState.Visible
@@ -35,32 +34,14 @@ internal object CombinedStatusConnectivityPolicy {
                 null -> Unit
             }
 
-            if (!connectivityFreshForWifi) {
+            if (
+                connectivity.known &&
+                connectivity.transport == SystemUiConnectivityStateSource.Transport.WIFI
+            ) {
                 return CenterIndicator.Wifi(
                     segments = wifiSegments,
-                    internet = InternetState.UNKNOWN,
+                    internet = connectivity.internetState(),
                 )
-            }
-
-            if (!connectivity.known) {
-                return CenterIndicator.Wifi(
-                    segments = wifiSegments,
-                    internet = InternetState.UNKNOWN,
-                )
-            }
-
-            when (connectivity.transport) {
-                SystemUiConnectivityStateSource.Transport.WIFI,
-                SystemUiConnectivityStateSource.Transport.OTHER,
-                ->
-                    return CenterIndicator.Wifi(
-                        segments = wifiSegments,
-                        internet = connectivity.internetState(),
-                    )
-
-                SystemUiConnectivityStateSource.Transport.CELLULAR,
-                SystemUiConnectivityStateSource.Transport.NONE,
-                -> Unit
             }
         }
 
@@ -113,6 +94,26 @@ internal object CombinedStatusConnectivityPolicy {
                 null
         }
     }
+
+    fun wifiReplacementReady(
+        wifi: CombinedStatusStateStore.WifiState,
+        connectivity: SystemUiConnectivityStateSource.State,
+    ): Boolean =
+        when (wifi) {
+            CombinedStatusStateStore.WifiState.Unknown -> false
+            CombinedStatusStateStore.WifiState.Hidden -> true
+            is CombinedStatusStateStore.WifiState.Visible -> {
+                val signalReady = wifi.signal is SignalStrength.Level
+                val internetReady =
+                    wifi.internetValidated != null ||
+                        (
+                            connectivity.known &&
+                                connectivity.transport ==
+                                    SystemUiConnectivityStateSource.Transport.WIFI
+                        )
+                signalReady && internetReady
+            }
+        }
 
     private fun SystemUiConnectivityStateSource.State.internetState(): InternetState =
         if (validated && hasInternetCapability) {

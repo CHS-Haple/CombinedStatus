@@ -25,6 +25,7 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Changed
 
+- Native Wi-Fi replacement now uses one semantic-readiness policy across rendering and suppression: SystemUI Wi-Fi semantics lead, Connectivity only fills an unknown Internet state when Wi-Fi is the current default network, obsolete freshness timestamps are removed, and native Wi-Fi remains visible whenever Combined Status cannot safely reproduce the current Wi-Fi presentation.
 - Connectivity state now consumes authoritative default-network capability callbacks directly on the registered main-thread Handler and ignores stale loss events, avoiding redundant callback reposting and synchronous capability re-query during network transitions.
 - English user-facing product naming now consistently uses **Combined Status** in the companion app and diagnostic reports while established technical identifiers remain unchanged.
 - Home native Combined Status suppresses Home Wi-Fi and single-subscription mobile participants through the modern SystemUI binding visibility contract after handoff; multi-subscription mobile presentation remains SystemUI-owned until Combined Status can represent every active SIM, preserving native or externally extended dual-SIM layouts without geometry writes.
