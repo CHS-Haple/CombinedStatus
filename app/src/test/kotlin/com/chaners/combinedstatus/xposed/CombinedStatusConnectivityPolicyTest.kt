@@ -30,7 +30,6 @@ class CombinedStatusConnectivityPolicyTest {
                         source =
                             NativePresentationResolver.NetworkTypeSource.MOBILE_TYPE_DRAWABLE,
                     ),
-                connectivityFreshForWifi = true,
             )
 
         assertEquals(
@@ -62,7 +61,6 @@ class CombinedStatusConnectivityPolicyTest {
                         mobileDataEnabled = true,
                     ),
                 mobileType = null,
-                connectivityFreshForWifi = true,
             )
 
         assertEquals(
@@ -94,7 +92,6 @@ class CombinedStatusConnectivityPolicyTest {
                         mobileDataEnabled = true,
                     ),
                 mobileType = null,
-                connectivityFreshForWifi = true,
             )
 
         assertEquals(
@@ -104,5 +101,90 @@ class CombinedStatusConnectivityPolicyTest {
             ),
             result,
         )
+    }
+
+    @Test
+    fun nativeWifiReplacementIsReadyWhenSystemUiProvidesInternetSemantics() {
+        val wifi =
+            CombinedStatusStateStore.WifiState.Visible(
+                iconResId = 1,
+                signal = SignalStrength.Level(2),
+                internetValidated = false,
+            )
+
+        val ready =
+            CombinedStatusConnectivityPolicy.wifiReplacementReady(
+                wifi = wifi,
+                connectivity =
+                    SystemUiConnectivityStateSource.State(
+                        known = true,
+                        transport = SystemUiConnectivityStateSource.Transport.CELLULAR,
+                        validated = true,
+                        hasInternetCapability = true,
+                        mobileDataEnabled = true,
+                    ),
+            )
+
+        assertEquals(true, ready)
+    }
+
+    @Test
+    fun nativeWifiReplacementUsesConnectivityOnlyWhenWifiIsDefault() {
+        val wifi =
+            CombinedStatusStateStore.WifiState.Visible(
+                iconResId = 1,
+                signal = SignalStrength.Level(1),
+                internetValidated = null,
+            )
+        val wifiDefault =
+            SystemUiConnectivityStateSource.State(
+                known = true,
+                transport = SystemUiConnectivityStateSource.Transport.WIFI,
+                validated = true,
+                hasInternetCapability = true,
+                mobileDataEnabled = true,
+            )
+        val cellularDefault =
+            wifiDefault.copy(
+                transport = SystemUiConnectivityStateSource.Transport.CELLULAR,
+            )
+
+        assertEquals(
+            true,
+            CombinedStatusConnectivityPolicy.wifiReplacementReady(
+                wifi = wifi,
+                connectivity = wifiDefault,
+            ),
+        )
+        assertEquals(
+            false,
+            CombinedStatusConnectivityPolicy.wifiReplacementReady(
+                wifi = wifi,
+                connectivity = cellularDefault,
+            ),
+        )
+    }
+
+    @Test
+    fun unknownWifiSignalNeverClaimsNativeReplacement() {
+        val ready =
+            CombinedStatusConnectivityPolicy.wifiReplacementReady(
+                wifi =
+                    CombinedStatusStateStore.WifiState.Visible(
+                        iconResId = 1,
+                        signal = SignalStrength.Unknown,
+                        internetValidated = true,
+                    ),
+                connectivity =
+                    SystemUiConnectivityStateSource.State(
+                        known = true,
+                        transport = SystemUiConnectivityStateSource.Transport.WIFI,
+                        validated = true,
+                        hasInternetCapability = true,
+                        mobileDataEnabled = true,
+                    ),
+            )
+
+        assertEquals(false, ready)
     }
 }
