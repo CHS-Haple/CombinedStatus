@@ -116,6 +116,10 @@ class CombinedStatusModule : XposedModule() {
         }
 
         if (SystemUiHostRuntimeOwner.isReady) {
+            installBatteryStateSource(
+                classLoader = param.classLoader,
+                source = "coldStart",
+            )
             installNetworkStateSource(
                 classLoader = param.classLoader,
                 source = "coldStart",
@@ -156,6 +160,7 @@ class CombinedStatusModule : XposedModule() {
         prepared as SystemUiHotReloadRuntimeOwner.PrepareResult.Ready
         val hookCount =
             1 +
+                SystemUiBatteryRuntimeOwner.installedHookCount +
                 SystemUiNetworkRuntimeOwner.installedHookCount +
                 SystemUiPresentationRuntimeOwner.installedHookCount +
                 SystemUiNativeParticipantRuntimeOwner.installedHookCount +
@@ -254,10 +259,10 @@ class CombinedStatusModule : XposedModule() {
         runCatching {
             val removed = takeover.removedHooks
 
+            SystemUiBatteryRuntimeOwner.resetRuntimeState()
             SystemUiNetworkRuntimeOwner.resetRuntimeState()
             islandMotionSourceInstalled = false
             SystemUiPresentationRuntimeOwner.resetRuntimeState()
-            SystemUiIslandMotionSource.resetRuntimeState()
             SystemUiNativeParticipantRuntimeOwner.resetControllerRuntimeState()
             SystemUiNativeNetworkSuppressionOwner.resetRuntimeState("hotReload")
             bindRuntimeDiagnostics()
@@ -287,6 +292,10 @@ class CombinedStatusModule : XposedModule() {
             logCurrentDiagnosticsHealth()
 
             val classLoader = takeover.classLoader
+            installBatteryStateSource(
+                classLoader = classLoader,
+                source = "hotReload",
+            )
             installNetworkStateSource(
                 classLoader = classLoader,
                 source = "hotReload",
@@ -399,10 +408,22 @@ class CombinedStatusModule : XposedModule() {
         removedHooks: Int,
     ) {
         runCatching {
-            val restoredSnapshot =
+            var restoredSnapshot =
                 CombinedStatusStateStore.restoreHotReloadState(restored.state)
             val bindings =
                 SystemUiNetworkStateSource.restoreHotReloadBindings(restored.bindings)
+            SystemUiNetworkStateSource.seedRestoredWifiState(
+                onEvent =
+                    if (BuildConfig.RUNTIME_DIAGNOSTICS) {
+                        ::onNetworkPipelineEvent
+                    } else {
+                        null
+                    },
+            )?.let { wifi ->
+                CombinedStatusStateStore.updateWifi(wifi)?.let { snapshot ->
+                    restoredSnapshot = snapshot
+                }
+            }
             val controllerRestored =
                 SystemUiNativeParticipantRuntimeOwner.restoreExistingController(
                     capture.host,
@@ -675,18 +696,10 @@ class CombinedStatusModule : XposedModule() {
                 classLoader = classLoader,
                 onWifiState = { state ->
                     val trace = beginRenderTrace("wifi")
-                    val previous = CombinedStatusStateStore.snapshot().wifi
                     val changed = CombinedStatusStateStore.updateWifi(state)
                     if (changed != null) {
-                        var stateTrace = markStateCommitted(trace)
-                        val wasVisible =
-                            previous is CombinedStatusStateStore.WifiState.Visible
-                        val isVisible =
-                            state is CombinedStatusStateStore.WifiState.Visible
-                        if (wasVisible != isVisible) {
-                            CombinedStatusPresentationStateStore.markWifiSemanticChanged()
-                            stateTrace = markPresentationCommitted(stateTrace)
-                        }
+                        val stateTrace = markStateCommitted(trace)
+                        updateNativeNetworkSuppressionPolicy("wifi-semantic")
                         onCombinedStateChanged(
                             snapshot = changed,
                             trace = stateTrace,
@@ -710,21 +723,13 @@ class CombinedStatusModule : XposedModule() {
                         )
                     }
                 },
-                onAirplaneMode = { enabled ->
-                    val trace = beginRenderTrace("airplaneSignal")
-                    CombinedStatusStateStore.updateAirplaneMode(enabled)?.let { snapshot ->
-                        onCombinedStateChanged(
-                            snapshot = snapshot,
-                            trace = markStateCommitted(trace),
-                        )
-                    }
-                },
                 onPresentationChanged = {
                     refreshMobilePresentation(beginRenderTrace("networkPresentation"))
                 },
                 onEvent = if (BuildConfig.RUNTIME_DIAGNOSTICS) ::onNetworkPipelineEvent else null,
             )
         }.onSuccess { result ->
+            updateNativeNetworkSuppressionPolicy("network-source:" + source)
             val fullyReady =
                 result.wifiReady &&
                     result.mobileReady &&
@@ -807,6 +812,9 @@ class CombinedStatusModule : XposedModule() {
                 module = this,
                 classLoader = classLoader,
                 onEvent = ::onIslandMotionEvent,
+                isProbeEnabled = {
+                    BuildConfig.DEVELOPMENT_PROBES || detailedDiagnosticsEnabled
+                },
             )
         }.onSuccess { handles ->
             islandMotionSourceInstalled =
@@ -845,6 +853,61 @@ class CombinedStatusModule : XposedModule() {
     private fun onIslandMotionEvent(event: String) {
         if (detailedDiagnosticsEnabled) {
             log(Log.INFO, TAG, event)
+        }
+    }
+
+    private fun installBatteryStateSource(
+        classLoader: ClassLoader,
+        source: String,
+    ) {
+        runCatching {
+            SystemUiBatteryRuntimeOwner.attach(
+                module = this,
+                classLoader = classLoader,
+                onBatteryState = { state ->
+                    val trace = beginRenderTrace("battery")
+                    CombinedStatusStateStore.updateBattery(state)?.let { snapshot ->
+                        onCombinedStateChanged(
+                            snapshot = snapshot,
+                            trace = markStateCommitted(trace),
+                        )
+                    }
+                },
+                onEvent =
+                    if (BuildConfig.RUNTIME_DIAGNOSTICS) {
+                        { event ->
+                            if (detailedDiagnosticsEnabled) {
+                                log(Log.INFO, TAG, event)
+                            }
+                        }
+                    } else {
+                        null
+                    },
+            )
+        }.onSuccess { result ->
+            logDiagnostic(
+                level = if (result.ready) Log.INFO else Log.WARN,
+                event = "source.install",
+                component = "batteryState",
+                state = if (result.ready) "ready" else "partial",
+                "hooks" to result.hooks,
+                "expectedHooks" to SystemUiBatteryStateSource.HOOK_COUNT,
+                "source" to source,
+                "authority" to
+                    "MiuiBatteryMeterView.onBatteryLevelChanged(int,boolean,boolean)",
+                "eventDriven" to true,
+            )
+        }.onFailure { error ->
+            SystemUiBatteryRuntimeOwner.resetRuntimeState()
+            logDiagnostic(
+                level = Log.ERROR,
+                event = "source.install",
+                component = "batteryState",
+                state = "error",
+                "reason" to (error.message ?: error.javaClass.simpleName),
+                "source" to source,
+            )
+            log(Log.ERROR, TAG, "Battery state source installation failed", error)
         }
     }
 
@@ -970,14 +1033,25 @@ class CombinedStatusModule : XposedModule() {
     private fun onPresentationStateChanged(trace: RuntimeRenderTrace? = null) {
         CombinedStatusHomeRenderSession.onPresentationStateChanged(trace)
         SystemUiNativeCombinedParticipantOwner.onPresentationStateChanged(trace)
+        updateNativeNetworkSuppressionPolicy("presentation")
+    }
+
+    private fun updateNativeNetworkSuppressionPolicy(source: String) {
         val presentation =
-            CombinedStatusPresentationStateStore
-                .snapshot()
-                .mobilePresentation
-        SystemUiNativeNetworkSuppressionOwner.updateMobilePolicy(
+            CombinedStatusPresentationStateStore.snapshot()
+        val wifi =
+            CombinedStatusStateStore.snapshot().wifi
+        SystemUiNativeNetworkSuppressionOwner.updatePolicy(
+            suppressWifi =
+                SystemUiNetworkRuntimeOwner.wifiReady &&
+                    CombinedStatusConnectivityPolicy.wifiReplacementReady(
+                        wifi = wifi,
+                        connectivity = presentation.connectivity,
+                    ),
             suppressMobile =
-                presentation?.representsSingleActiveSubscription == true,
-            source = "mobile-presentation",
+                presentation.mobilePresentation
+                    ?.representsSingleActiveSubscription == true,
+            source = source,
         )
     }
 
@@ -987,6 +1061,14 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun onSceneStateUpdate(update: SystemUiSceneStateSource.SceneUpdate) {
+        SystemUiTintStateSource.currentState(update.sourceView)?.let { state ->
+            onTintStateUpdate(
+                SystemUiTintStateSource.TintUpdate(
+                    sourceView = update.sourceView,
+                    state = state,
+                ),
+            )
+        }
         CombinedStatusHomeRenderSession.onSceneUpdate(update)
         SystemUiNativeCombinedParticipantOwner.onSceneUpdate(update)
     }
@@ -1103,15 +1185,6 @@ class CombinedStatusModule : XposedModule() {
         when (
             val stableSession = StatusBarStableSession.attach(
                 host = host,
-                onBatteryState = { state ->
-                    val trace = beginRenderTrace("battery")
-                    CombinedStatusStateStore.updateBattery(state)?.let { snapshot ->
-                        onCombinedStateChanged(
-                            snapshot = snapshot,
-                            trace = markStateCommitted(trace),
-                        )
-                    }
-                },
                 onEvent = { event ->
                     if (detailedDiagnosticsEnabled) {
                         log(Log.INFO, TAG, event)
@@ -1397,13 +1470,21 @@ class CombinedStatusModule : XposedModule() {
                         val suppression =
                             if (active) {
                                 val presentation =
-                                    CombinedStatusPresentationStateStore
-                                        .snapshot()
-                                        .mobilePresentation
+                                    CombinedStatusPresentationStateStore.snapshot()
+                                val wifi =
+                                    CombinedStatusStateStore.snapshot().wifi
                                 SystemUiNativeNetworkSuppressionOwner.activate(
                                     host = host,
+                                    suppressWifi =
+                                        SystemUiNetworkRuntimeOwner.wifiReady &&
+                                            CombinedStatusConnectivityPolicy
+                                                .wifiReplacementReady(
+                                                    wifi = wifi,
+                                                    connectivity = presentation.connectivity,
+                                                ),
                                     suppressMobile =
-                                        presentation?.representsSingleActiveSubscription == true,
+                                        presentation.mobilePresentation
+                                            ?.representsSingleActiveSubscription == true,
                                 )
                             } else {
                                 SystemUiNativeNetworkSuppressionOwner.deactivate(

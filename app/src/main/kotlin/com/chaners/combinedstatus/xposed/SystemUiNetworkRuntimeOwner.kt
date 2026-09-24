@@ -8,13 +8,15 @@ internal object SystemUiNetworkRuntimeOwner {
     val installedHookCount: Int
         @Synchronized get() = current?.handles?.size ?: 0
 
+    val wifiReady: Boolean
+        @Synchronized get() = current?.wifiReady == true
+
     @Synchronized
     fun attach(
         module: XposedModule,
         classLoader: ClassLoader,
         onWifiState: (CombinedStatusStateStore.WifiState) -> Unit,
         onMobileIcon: (CombinedStatusStateStore.MobileIconUpdate) -> Unit,
-        onAirplaneMode: (Boolean) -> Unit,
         onPresentationChanged: (() -> Unit)?,
         onEvent: ((String) -> Unit)?,
     ): SystemUiNetworkStateSource.InstallResult =
@@ -23,7 +25,6 @@ internal object SystemUiNetworkRuntimeOwner {
             classLoader = classLoader,
             onWifiState = onWifiState,
             onMobileIcon = onMobileIcon,
-            onAirplaneMode = onAirplaneMode,
             onPresentationChanged = onPresentationChanged,
             onEvent = onEvent,
         ).also { current = it }

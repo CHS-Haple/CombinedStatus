@@ -39,6 +39,50 @@ class SystemUiSignalParserTest {
     }
 
     @Test
+    fun wifiVariantResourcesPreserveSignalLevel() {
+        assertEquals(
+            SignalStrength.Level(2),
+            SystemUiSignalParser.wifi(
+                "com.android.systemui:drawable/stat_sys_wifi_signal_2_unavailable",
+            ),
+        )
+        assertEquals(
+            SignalStrength.Level(1),
+            SystemUiSignalParser.wifi(
+                "com.android.systemui:drawable/stat_sys_wifi_signal_unavailable_1",
+            ),
+        )
+    }
+
+    @Test
+    fun wifiInternetHintComesFromSystemUiResourceVariant() {
+        assertEquals(
+            true,
+            SystemUiSignalParser.wifiInternetValidated(
+                "com.android.systemui:drawable/stat_sys_wifi_signal_3",
+            ),
+        )
+        assertEquals(
+            false,
+            SystemUiSignalParser.wifiInternetValidated(
+                "com.android.systemui:drawable/stat_sys_wifi_signal_2_unavailable",
+            ),
+        )
+        assertEquals(
+            false,
+            SystemUiSignalParser.wifiInternetValidated(
+                "com.android.systemui:drawable/stat_sys_wifi_signal_no_internet_1",
+            ),
+        )
+        assertEquals(
+            null,
+            SystemUiSignalParser.wifiInternetValidated(
+                "com.android.systemui:drawable/stat_sys_wifi_signal_2_dark",
+            ),
+        )
+    }
+
+    @Test
     fun unknownResourcesStayUnknown() {
         assertEquals(
             SignalStrength.Unknown,

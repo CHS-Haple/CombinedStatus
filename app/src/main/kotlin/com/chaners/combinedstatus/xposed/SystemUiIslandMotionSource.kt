@@ -33,6 +33,7 @@ internal object SystemUiIslandMotionSource {
         module: XposedModule,
         classLoader: ClassLoader,
         onEvent: ((String) -> Unit)? = null,
+        isProbeEnabled: () -> Boolean = { true },
     ): List<HookHandle> {
         val injectorClass = Class.forName(INJECTOR_CLASS_NAME, false, classLoader)
         val listenerClass = Class.forName(LISTENER_CLASS_NAME, false, classLoader)
@@ -68,12 +69,15 @@ internal object SystemUiIslandMotionSource {
                         val secondary = chain.getArg(1) as? Boolean ?: false
                         val animate = chain.getArg(2) as? Boolean ?: false
                         val result = chain.proceed()
+                        if (onEvent == null || !isProbeEnabled()) {
+                            return@Hooker result
+                        }
+
                         val injector =
                             outerField?.let { field ->
                                 runCatching { field.get(chain.thisObject) }.getOrNull()
                             }
-
-                        if (onEvent != null && injector != null) {
+                        if (injector != null) {
                             val views =
                                 diagnosticFields.mapNotNull { (name, field) ->
                                     (runCatching { field.get(injector) as? View }.getOrNull())
@@ -87,7 +91,11 @@ internal object SystemUiIslandMotionSource {
                                     " geometryWrites=0",
                             )
                             if (views.isNotEmpty()) {
-                                DiagnosticProbe.start(views, onEvent)
+                                DiagnosticProbe.start(
+                                    views = views,
+                                    onEvent = onEvent,
+                                    isProbeEnabled = isProbeEnabled,
+                                )
                             }
                         }
                         result
@@ -106,10 +114,12 @@ internal object SystemUiIslandMotionSource {
         private var generation = 0
         private var activeRoot = WeakReference<View>(null)
         private var listener: ViewTreeObserver.OnPreDrawListener? = null
+        private var timeout: Runnable? = null
 
         fun start(
             views: Map<String, View>,
             onEvent: (String) -> Unit,
+            isProbeEnabled: () -> Boolean,
         ) {
             stop()
             generation += 1
@@ -124,6 +134,10 @@ internal object SystemUiIslandMotionSource {
 
             val nextListener =
                 ViewTreeObserver.OnPreDrawListener {
+                    if (!isProbeEnabled()) {
+                        stop()
+                        return@OnPreDrawListener true
+                    }
                     frame += 1
                     val snapshot =
                         views.entries.joinToString(" ") { (name, view) ->
@@ -148,13 +162,17 @@ internal object SystemUiIslandMotionSource {
                     }
                     true
                 }
+            val nextTimeout =
+                Runnable {
+                    if (currentGeneration == generation) {
+                        stop()
+                    }
+                }
             listener = nextListener
+            timeout = nextTimeout
             activeRoot = WeakReference(root)
             observer.addOnPreDrawListener(nextListener)
-            root.postDelayed(
-                { if (currentGeneration == generation) stop() },
-                FOLLOW_DURATION_MS,
-            )
+            root.postDelayed(nextTimeout, FOLLOW_DURATION_MS)
         }
 
         fun reset() = stop()
@@ -162,11 +180,18 @@ internal object SystemUiIslandMotionSource {
         private fun stop() {
             val root = activeRoot.get()
             val currentListener = listener
-            if (root != null && currentListener != null) {
-                val observer = root.viewTreeObserver
-                if (observer.isAlive) observer.removeOnPreDrawListener(currentListener)
+            val currentTimeout = timeout
+            if (root != null) {
+                if (currentListener != null) {
+                    val observer = root.viewTreeObserver
+                    if (observer.isAlive) observer.removeOnPreDrawListener(currentListener)
+                }
+                if (currentTimeout != null) {
+                    root.removeCallbacks(currentTimeout)
+                }
             }
             listener = null
+            timeout = null
             activeRoot = WeakReference(null)
         }
 

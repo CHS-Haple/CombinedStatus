@@ -25,6 +25,10 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Changed
 
+- Center mobile-network type labels keep their accepted physical size while using heavier typography and glyph-ink centering for a more balanced `5G` / enhanced-type presentation inside the Combined Status composition.
+- Island motion diagnostics now start bounded frame sampling only when development/Detailed diagnostics are active, stop on the UI thread when Detailed is disabled, and cancel their timeout callback during cleanup; General Canary diagnostics no longer pay the per-frame probe cost.
+- Native Wi-Fi replacement now uses one semantic-readiness policy across rendering and suppression: SystemUI Wi-Fi semantics lead, Connectivity only fills an unknown Internet state when Wi-Fi is the current default network, obsolete freshness timestamps are removed, and native Wi-Fi remains visible whenever Combined Status cannot safely reproduce the current Wi-Fi presentation.
+- Connectivity state now consumes authoritative default-network capability callbacks directly on the registered main-thread Handler and ignores stale loss events, avoiding redundant callback reposting and synchronous capability re-query during network transitions.
 - English user-facing product naming now consistently uses **Combined Status** in the companion app and diagnostic reports while established technical identifiers remain unchanged.
 - Home native Combined Status suppresses Home Wi-Fi and single-subscription mobile participants through the modern SystemUI binding visibility contract after handoff; multi-subscription mobile presentation remains SystemUI-owned until Combined Status can represent every active SIM, preserving native or externally extended dual-SIM layouts without geometry writes.
 - Bottom navigation now differentiates selected and unselected items with MIUIX icon weights while preserving the existing navigation colors, layout, and interaction behavior.
@@ -46,6 +50,11 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Fixed
 
+- VPN-backed default networks no longer suppress an authoritative HyperOS mobile-type label at startup: Wi-Fi/cellular transports retain precedence, while VPN-only fallback waits for authoritative Wi-Fi absence before showing the mobile type.
+- Native Combined Status tint updates now accept only the currently bound HyperOS status-bar battery view, preventing transient tint states from other `MiuiBatteryMeterView` instances from flashing through during light/dark inversion changes.
+- Wi-Fi fallback rendering now uses the same semantic-readiness gate as native Wi-Fi suppression, so unknown OEM/VPN Wi-Fi variants remain fully native instead of being duplicated by an uncertain Combined Status Wi-Fi projection.
+- Wi-Fi strength presentation now preserves all four SystemUI signal levels (0–3) as four distinct visual states using the existing three-path renderer, instead of collapsing native levels 2 and 3 into the same fully lit icon.
+- Wi-Fi rendering now consumes the authoritative SystemUI `WifiIcon` resource emitted by the modern Wi-Fi pipeline instead of re-reading the bound `ImageView` tag; signal-level changes and SystemUI no-internet variants therefore update immediately even when Android selects cellular as the default network.
 - Hot Reload restore now seeds the Home fallback renderer with the already-known native handoff ownership state, preventing the battery-anchored overlay from becoming visible for a frame before native CombinedStatus handoff is reasserted.
 - Hot Reload now keeps SystemUI View and bindable-participant mutation on the SystemUI main thread: cross-generation transfer carries only stable runtime state and live SystemUI references, while the new generation re-adopts the existing native participant instead of synchronously detaching and transferring module-owned View/holder state from the framework callback thread.
 - Native Combined Status Hot Reload now re-resolves participant handles from the current weakly held SystemUI host instead of weakly retaining a temporary resolver wrapper, preventing GC-driven `native-handles-missing` failures during prepare/detach.
@@ -55,7 +64,7 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 - Verified network emitter resolution no longer depends on resolving Kotlin `Continuation` by name through the SystemUI ClassLoader, preventing optimized/Canary builds from losing network hooks.
 - Wi-Fi state tracking follows the verified HyperOS Wi-Fi collector and registers the relevant root before the native binder proceeds.
 - Combined Status remains visible when HyperOS temporarily hides the native battery container during Wi-Fi/mobile status transitions.
-- Airplane-mode presentation follows the authoritative global setting used by the target device, with mobile-signal sampling retained only as fallback evidence.
+- Airplane-mode presentation follows the authoritative global setting through one event-driven ContentObserver owner; the mobile signal path no longer re-reads or writes airplane state.
 - Center presentation now represents the active data connection only: Wi-Fi or mobile type when active, otherwise an explicit empty center, while cellular service state remains in the signal-dot area; transport-first handoff logic avoids transient Wi-Fi/mobile mismatch frames.
 - Transparent or uninitialized tint samples no longer blank the Combined Status renderer.
 - Per-app language selection preserves an explicit language choice even when it currently matches the system locale.
@@ -68,6 +77,7 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Engineering
 
+- Battery state acquisition moves from an app-owned `ACTION_BATTERY_CHANGED` receiver to the verified HyperOS `MiuiBatteryMeterView.onBatteryLevelChanged` callback with a dedicated runtime owner, leaving `StatusBarStableSession` responsible only for host/anchor diagnostics.
 - Public documentation and contribution surfaces use **Combined Status** as the English display name while established technical identifiers such as `CombinedStatus` remain unchanged; contributor setup and pull-request guidance are documented at the appropriate public entry points.
 - Pull-request CI now classifies ready `main` changes by affected paths, keeping documentation-only maintenance on Light validation while preserving Full validation for build, CI, dependency, tooling, and runtime-affecting stable-boundary changes.
 - Stable GitHub Release notes now omit the changelog's Engineering section while retaining the complete engineering record in `CHANGELOG.md`; the dev-to-main readiness workflow is labeled explicitly in Actions.

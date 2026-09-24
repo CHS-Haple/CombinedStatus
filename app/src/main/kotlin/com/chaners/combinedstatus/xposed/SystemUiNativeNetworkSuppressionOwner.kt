@@ -25,7 +25,9 @@ internal object SystemUiNativeNetworkSuppressionOwner {
     private const val HOME_ICON_ADDED_HOOK_ID =
         "combinedstatus.nativeNetworkSuppression.homeIconAdded"
 
+    private val noTargetSlots = emptySet<String>()
     private val wifiOnlyTargetSlots = setOf("wifi")
+    private val mobileOnlyTargetSlots = setOf("mobile")
     private val wifiAndMobileTargetSlots = setOf("wifi", "mobile")
     private val observableTargetSlots = wifiAndMobileTargetSlots
 
@@ -36,6 +38,9 @@ internal object SystemUiNativeNetworkSuppressionOwner {
 
     @Volatile
     private var suppressedBindings: Array<WeakReference<Any>> = emptyArray()
+
+    @Volatile
+    private var wifiSuppressionEnabled = false
 
     @Volatile
     private var mobileSuppressionEnabled = false
@@ -122,6 +127,7 @@ internal object SystemUiNativeNetworkSuppressionOwner {
     @Synchronized
     fun activate(
         host: Any,
+        suppressWifi: Boolean,
         suppressMobile: Boolean,
     ): StateResult {
         if (installedHandles.size != EXPECTED_HOOK_COUNT) {
@@ -142,6 +148,7 @@ internal object SystemUiNativeNetworkSuppressionOwner {
 
         activeManager = handles.manager
         activeGroup = WeakReference(handles.group)
+        wifiSuppressionEnabled = suppressWifi
         mobileSuppressionEnabled = suppressMobile
 
         val snapshot = refreshBindingsLocked("handoff")
@@ -154,18 +161,24 @@ internal object SystemUiNativeNetworkSuppressionOwner {
         return StateResult.Active(
             bindings = snapshot.bindingCount,
             slots = snapshot.slots,
+            wifiSuppressed = snapshot.wifiSuppressed,
             mobileSuppressed = snapshot.mobileSuppressed,
         )
     }
 
     @Synchronized
-    fun updateMobilePolicy(
+    fun updatePolicy(
+        suppressWifi: Boolean,
         suppressMobile: Boolean,
         source: String,
     ): StateResult? {
-        if (mobileSuppressionEnabled == suppressMobile) {
+        if (
+            wifiSuppressionEnabled == suppressWifi &&
+            mobileSuppressionEnabled == suppressMobile
+        ) {
             return null
         }
+        wifiSuppressionEnabled = suppressWifi
         mobileSuppressionEnabled = suppressMobile
         if (activeManager == null || activeGroup?.get() == null) {
             return null
@@ -181,6 +194,7 @@ internal object SystemUiNativeNetworkSuppressionOwner {
         return StateResult.Active(
             bindings = snapshot.bindingCount,
             slots = snapshot.slots,
+            wifiSuppressed = snapshot.wifiSuppressed,
             mobileSuppressed = snapshot.mobileSuppressed,
         )
     }
@@ -252,10 +266,15 @@ internal object SystemUiNativeNetworkSuppressionOwner {
                 )
 
         val targetSlots =
-            if (mobileSuppressionEnabled) {
-                wifiAndMobileTargetSlots
-            } else {
-                wifiOnlyTargetSlots
+            when {
+                wifiSuppressionEnabled && mobileSuppressionEnabled ->
+                    wifiAndMobileTargetSlots
+                wifiSuppressionEnabled ->
+                    wifiOnlyTargetSlots
+                mobileSuppressionEnabled ->
+                    mobileOnlyTargetSlots
+                else ->
+                    noTargetSlots
             }
         val targetViews = mutableListOf<Pair<String, View>>()
         for (index in 0 until group.childCount) {
@@ -299,6 +318,7 @@ internal object SystemUiNativeNetworkSuppressionOwner {
             targetViews = targetViews.size,
             bindings = bindings.size,
             slots = resolvedSlots,
+            wifiSuppressed = wifiSuppressionEnabled,
             mobileSuppressed = mobileSuppressionEnabled,
         )
     }
@@ -344,6 +364,7 @@ internal object SystemUiNativeNetworkSuppressionOwner {
         activeManager = null
         activeGroup = null
         suppressedBindings = emptyArray()
+        wifiSuppressionEnabled = false
         mobileSuppressionEnabled = false
         if (requestLayout) {
             group?.requestLayout()
@@ -365,12 +386,14 @@ internal object SystemUiNativeNetworkSuppressionOwner {
         data class Active(
             val bindings: Int,
             val slots: List<String>,
+            val wifiSuppressed: Boolean,
             val mobileSuppressed: Boolean,
         ) : StateResult {
             override val summary: String
                 get() =
                     "active:bindings=" + bindings +
                         ",slots=" + slots.joinToString(",") +
+                        ",wifiSuppressed=" + wifiSuppressed +
                         ",mobileSuppressed=" + mobileSuppressed
         }
 
@@ -394,6 +417,7 @@ internal object SystemUiNativeNetworkSuppressionOwner {
         val targetViewCount: Int,
         val bindingCount: Int,
         val slots: List<String>,
+        val wifiSuppressed: Boolean,
         val mobileSuppressed: Boolean,
         val failureReason: String?,
     ) {
@@ -409,6 +433,7 @@ internal object SystemUiNativeNetworkSuppressionOwner {
                     " targetViews=" + targetViewCount +
                     " bindings=" + bindingCount +
                     " slots=" + slots.joinToString(",") +
+                    " wifiSuppressed=" + wifiSuppressed +
                     " mobileSuppressed=" + mobileSuppressed +
                     " reason=" + (failureReason ?: "none") +
                     " nativeGeometryWrites=0"
@@ -419,6 +444,7 @@ internal object SystemUiNativeNetworkSuppressionOwner {
                 targetViews: Int,
                 bindings: Int,
                 slots: List<String>,
+                wifiSuppressed: Boolean,
                 mobileSuppressed: Boolean,
             ): BindingSnapshot =
                 BindingSnapshot(
@@ -426,6 +452,7 @@ internal object SystemUiNativeNetworkSuppressionOwner {
                     targetViewCount = targetViews,
                     bindingCount = bindings,
                     slots = slots.distinct(),
+                    wifiSuppressed = wifiSuppressed,
                     mobileSuppressed = mobileSuppressed,
                     failureReason = null,
                 )
@@ -442,6 +469,7 @@ internal object SystemUiNativeNetworkSuppressionOwner {
                     targetViewCount = targetViews,
                     bindingCount = bindings,
                     slots = slots.distinct(),
+                    wifiSuppressed = false,
                     mobileSuppressed = false,
                     failureReason = reason,
                 )
