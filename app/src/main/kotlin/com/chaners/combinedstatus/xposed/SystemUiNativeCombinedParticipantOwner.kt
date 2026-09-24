@@ -606,6 +606,32 @@ internal object SystemUiNativeCombinedParticipantOwner {
             return AttachResult.Failure("battery-geometry-not-ready")
         }
 
+        val rootLayoutParams =
+            root.layoutParams
+                ?: return AttachResult.Failure("native-root-layout-params-missing")
+        val originalShellHeight = rootLayoutParams.height
+        val shellHeightAdjusted =
+            if (originalShellHeight != battery.height) {
+                runCatching {
+                    rootLayoutParams.height = battery.height
+                    root.layoutParams = rootLayoutParams
+                    root.layoutParams?.height == battery.height
+                }.getOrDefault(false)
+            } else {
+                true
+            }
+        if (!shellHeightAdjusted) {
+            return AttachResult.Failure("native-root-height-adjustment-failed")
+        }
+        eventSink?.invoke(
+            "nativeCombinedParticipant shellGeometry " +
+                "width=" + rootLayoutParams.width +
+                " originalHeight=" + originalShellHeight +
+                " targetHeight=" + battery.height +
+                " customShellHeightWrite=" + (originalShellHeight != battery.height) +
+                " peerNativeGeometryWrites=0",
+        )
+
         root.clipChildren = false
         root.clipToPadding = false
         bindingState.visible = false
