@@ -19,6 +19,7 @@ internal object CombinedStatusHomeRenderSession {
         onEvent: (String) -> Unit,
         onLatencySample: ((RuntimeRenderLatencySample) -> Unit)? = null,
         isDetailedDiagnosticsEnabled: () -> Boolean = { true },
+        initialNativeHandoffActive: Boolean = false,
     ): AttachResult {
         val hostView = host as? ViewGroup
             ?: return AttachResult.Failure("host-not-view-group")
@@ -41,6 +42,7 @@ internal object CombinedStatusHomeRenderSession {
             onEvent = onEvent,
             onLatencySample = onLatencySample,
             isDetailedDiagnosticsEnabled = isDetailedDiagnosticsEnabled,
+            initialNativeHandoffActive = initialNativeHandoffActive,
         )
         current = session
         session.start()
@@ -99,6 +101,7 @@ internal object CombinedStatusHomeRenderSession {
         private val onEvent: (String) -> Unit,
         private val onLatencySample: ((RuntimeRenderLatencySample) -> Unit)?,
         private val isDetailedDiagnosticsEnabled: () -> Boolean,
+        initialNativeHandoffActive: Boolean,
     ) : View.OnAttachStateChangeListener {
         private val host = WeakReference(host)
         private val batteryContainer = WeakReference(batteryContainer)
@@ -122,7 +125,7 @@ internal object CombinedStatusHomeRenderSession {
         private var deferredStateLogged = false
         private var rejectedTintLogged = false
         private var sceneSurface = SystemUiSceneStateSource.Surface.UNKNOWN
-        private var nativeHandoffActive = false
+        private var nativeHandoffActive = initialNativeHandoffActive
         private val anchorRect = Rect()
 
         private val batteryLayoutListener =

@@ -46,6 +46,7 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Fixed
 
+- Hot Reload restore now seeds the Home fallback renderer with the already-known native handoff ownership state, preventing the battery-anchored overlay from becoming visible for a frame before native CombinedStatus handoff is reasserted.
 - Hot Reload now keeps SystemUI View and bindable-participant mutation on the SystemUI main thread: cross-generation transfer carries only stable runtime state and live SystemUI references, while the new generation re-adopts the existing native participant instead of synchronously detaching and transferring module-owned View/holder state from the framework callback thread.
 - Native Combined Status Hot Reload now re-resolves participant handles from the current weakly held SystemUI host instead of weakly retaining a temporary resolver wrapper, preventing GC-driven `native-handles-missing` failures during prepare/detach.
 - Runtime health now evaluates presentation-source readiness through the owning `presentationRuntime` subsystem, so tint/scene states that are legitimately not yet observed no longer mark an otherwise healthy runtime as degraded.
