@@ -329,6 +329,8 @@ A work branch may merge to `dev` when:
 
 Known reproducible crashes, ownership conflicts, invalid fallbacks, or failed required device scenarios must not be merged merely to obtain another build.
 
+Pull requests are proposals, not acceptance. Passing CI shows that the configured automated checks succeeded; it does not by itself authorize a merge. The maintainer reviews scope, correctness, ownership/lifecycle impact, compatibility, security, performance, documentation/licensing obligations, and the applicable validation evidence before acceptance. Runtime-sensitive contributions may require maintainer-side device validation even when contributor testing is provided. Final merge requires an explicit maintainer decision; no automated check, bot, or successful workflow run constitutes acceptance on its own.
+
 ### 6.5 Promotion and device-validation marker
 
 Promotion is a stability decision, not ordinary development.
