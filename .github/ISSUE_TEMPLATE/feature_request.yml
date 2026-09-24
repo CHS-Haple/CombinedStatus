@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Feature requests are evaluated against CombinedStatus's standardized, lightweight, modern, and fail-native design principles. A requested mechanism may be adjusted or rejected if a safer native integration exists.
+        Feature requests are evaluated against Combined Status's standardized, lightweight, modern, and fail-native design principles. A requested mechanism may be adjusted or rejected if a safer native integration exists.
   - type: textarea
     id: problem
     attributes:
