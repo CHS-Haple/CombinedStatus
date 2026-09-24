@@ -1,14 +1,8 @@
 package com.chaners.combinedstatus.xposed
 
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
-import android.os.BatteryManager
 import android.view.View
 import android.view.ViewGroup
 import java.lang.ref.WeakReference
-import kotlin.math.roundToInt
 
 internal object StatusBarStableSession {
     private const val BATTERY_CONTAINER_CLASS_NAME =
@@ -23,7 +17,6 @@ internal object StatusBarStableSession {
     @Synchronized
     fun attach(
         host: Any,
-        onBatteryState: (CombinedStatusStateStore.BatteryState) -> Unit,
         onEvent: (String) -> Unit,
     ): AttachResult {
         val hostView = host as? ViewGroup
@@ -45,7 +38,6 @@ internal object StatusBarStableSession {
             host = hostView,
             batteryContainer = batteryContainer,
             batteryView = batteryView,
-            onBatteryState = onBatteryState,
             onEvent = onEvent,
         )
         current = session
@@ -74,7 +66,6 @@ internal object StatusBarStableSession {
         host: ViewGroup,
         batteryContainer: ViewGroup,
         batteryView: ViewGroup,
-        private val onBatteryState: (CombinedStatusStateStore.BatteryState) -> Unit,
         private val onEvent: (String) -> Unit,
     ) : View.OnAttachStateChangeListener {
         private val host = WeakReference(host)
@@ -82,20 +73,6 @@ internal object StatusBarStableSession {
         private val batteryView = WeakReference(batteryView)
         private var anchorCaptured = false
         private var anchorLayoutListener: View.OnLayoutChangeListener? = null
-        private var receiverContext: Context? = null
-        private var receiverRegistered = false
-        private var lastBatteryState: CombinedStatusStateStore.BatteryState? = null
-
-        private val batteryReceiver =
-            object : BroadcastReceiver() {
-                override fun onReceive(
-                    context: Context?,
-                    intent: Intent?,
-                ) {
-                    intent?.let(::acceptBatteryIntent)
-                }
-            }
-
         fun matches(
             host: ViewGroup,
             batteryContainer: ViewGroup,
@@ -109,25 +86,19 @@ internal object StatusBarStableSession {
             val view = host.get() ?: return
             view.addOnAttachStateChangeListener(this)
             scheduleAnchorCapture()
-            if (view.isAttachedToWindow) {
-                registerBatteryReceiver(view.context)
-            }
         }
 
         fun stop() {
             host.get()?.removeOnAttachStateChangeListener(this)
             clearAnchorLayoutListener()
-            unregisterBatteryReceiver()
         }
 
         override fun onViewAttachedToWindow(view: View) {
             scheduleAnchorCapture()
-            registerBatteryReceiver(view.context)
         }
 
         override fun onViewDetachedFromWindow(view: View) {
             clearAnchorLayoutListener()
-            unregisterBatteryReceiver()
         }
 
         private fun scheduleAnchorCapture() {
@@ -234,82 +205,6 @@ internal object StatusBarStableSession {
             anchorLayoutListener = null
         }
 
-        private fun registerBatteryReceiver(context: Context) {
-            if (receiverRegistered) {
-                return
-            }
-
-            val targetContext = context.applicationContext ?: context
-            val stickyIntent =
-                try {
-                    targetContext.registerReceiver(
-                        batteryReceiver,
-                        IntentFilter(Intent.ACTION_BATTERY_CHANGED),
-                        Context.RECEIVER_NOT_EXPORTED,
-                    ).also {
-                        receiverContext = targetContext
-                        receiverRegistered = true
-                    }
-                } catch (error: RuntimeException) {
-                    onEvent(
-                        "stableStatus batteryListener=failed reason=" +
-                            error.javaClass.simpleName,
-                    )
-                    null
-                }
-
-            stickyIntent?.let(::acceptBatteryIntent)
-        }
-
-        private fun unregisterBatteryReceiver() {
-            val context = receiverContext
-            if (!receiverRegistered || context == null) {
-                receiverContext = null
-                receiverRegistered = false
-                return
-            }
-
-            runCatching {
-                context.unregisterReceiver(batteryReceiver)
-            }
-            receiverContext = null
-            receiverRegistered = false
-        }
-
-        private fun acceptBatteryIntent(intent: Intent) {
-            if (intent.action != Intent.ACTION_BATTERY_CHANGED) {
-                return
-            }
-
-            val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
-            val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
-            val percent =
-                if (level >= 0 && scale > 0) {
-                    ((level * 100f) / scale).roundToInt().coerceIn(0, 100)
-                } else {
-                    -1
-                }
-            val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
-            val plugged = intent.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0)
-            val state = CombinedStatusStateStore.BatteryState(
-                percent = percent,
-                charging =
-                    status == BatteryManager.BATTERY_STATUS_CHARGING ||
-                        status == BatteryManager.BATTERY_STATUS_FULL,
-                plugged = plugged,
-            )
-
-            if (state == lastBatteryState) {
-                return
-            }
-
-            lastBatteryState = state
-            onBatteryState(state)
-            onEvent(
-                "stableStatus battery=" +
-                    "percent=${state.percent} charging=${state.charging} plugged=${state.plugged}",
-            )
-        }
     }
 
     internal sealed interface AttachResult {

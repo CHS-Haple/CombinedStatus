@@ -116,7 +116,7 @@ class CombinedStatusModule : XposedModule() {
         }
 
         if (SystemUiHostRuntimeOwner.isReady) {
-            probeBatteryContract(
+            installBatteryStateSource(
                 classLoader = param.classLoader,
                 source = "coldStart",
             )
@@ -160,6 +160,7 @@ class CombinedStatusModule : XposedModule() {
         prepared as SystemUiHotReloadRuntimeOwner.PrepareResult.Ready
         val hookCount =
             1 +
+                SystemUiBatteryRuntimeOwner.installedHookCount +
                 SystemUiNetworkRuntimeOwner.installedHookCount +
                 SystemUiPresentationRuntimeOwner.installedHookCount +
                 SystemUiNativeParticipantRuntimeOwner.installedHookCount +
@@ -258,6 +259,7 @@ class CombinedStatusModule : XposedModule() {
         runCatching {
             val removed = takeover.removedHooks
 
+            SystemUiBatteryRuntimeOwner.resetRuntimeState()
             SystemUiNetworkRuntimeOwner.resetRuntimeState()
             islandMotionSourceInstalled = false
             SystemUiPresentationRuntimeOwner.resetRuntimeState()
@@ -290,7 +292,7 @@ class CombinedStatusModule : XposedModule() {
             logCurrentDiagnosticsHealth()
 
             val classLoader = takeover.classLoader
-            probeBatteryContract(
+            installBatteryStateSource(
                 classLoader = classLoader,
                 source = "hotReload",
             )
@@ -854,43 +856,58 @@ class CombinedStatusModule : XposedModule() {
         }
     }
 
-    private fun probeBatteryContract(
+    private fun installBatteryStateSource(
         classLoader: ClassLoader,
         source: String,
     ) {
-        if (!detailedDiagnosticsEnabled) {
-            return
-        }
-
         runCatching {
-            SystemUiBatteryContractProbe.inspect(classLoader)
+            SystemUiBatteryRuntimeOwner.attach(
+                module = this,
+                classLoader = classLoader,
+                onBatteryState = { state ->
+                    val trace = beginRenderTrace("battery")
+                    CombinedStatusStateStore.updateBattery(state)?.let { snapshot ->
+                        onCombinedStateChanged(
+                            snapshot = snapshot,
+                            trace = markStateCommitted(trace),
+                        )
+                    }
+                },
+                onEvent =
+                    if (BuildConfig.RUNTIME_DIAGNOSTICS) {
+                        { event ->
+                            if (detailedDiagnosticsEnabled) {
+                                log(Log.INFO, TAG, event)
+                            }
+                        }
+                    } else {
+                        null
+                    },
+            )
         }.onSuccess { result ->
-            val ready =
-                result.hasBatteryCallbackInterface &&
-                    result.hasLevelCallback
-            log(Log.INFO, TAG, result.logLine)
             logDiagnostic(
-                level = if (ready) Log.INFO else Log.WARN,
-                event = "contract.probe",
+                level = if (result.ready) Log.INFO else Log.WARN,
+                event = "source.install",
                 component = "batteryState",
-                state = if (ready) "ready" else "partial",
+                state = if (result.ready) "ready" else "partial",
+                "hooks" to result.hooks,
+                "expectedHooks" to SystemUiBatteryStateSource.HOOK_COUNT,
                 "source" to source,
-                "callbackInterface" to result.callbackInterfaceName,
-                "levelCallback" to result.hasLevelCallback,
-                "chargeStateCallback" to result.hasChargeStateCallback,
-                "callbackMethods" to result.callbackMethods.joinToString("|"),
-                "methods" to result.methods.joinToString("|"),
-                "fields" to result.fields.joinToString("|"),
+                "authority" to
+                    "MiuiBatteryMeterView.onBatteryLevelChanged(int,boolean,boolean)",
+                "eventDriven" to true,
             )
         }.onFailure { error ->
+            SystemUiBatteryRuntimeOwner.resetRuntimeState()
             logDiagnostic(
-                level = Log.WARN,
-                event = "contract.probe",
+                level = Log.ERROR,
+                event = "source.install",
                 component = "batteryState",
-                state = "unavailable",
-                "source" to source,
+                state = "error",
                 "reason" to (error.message ?: error.javaClass.simpleName),
+                "source" to source,
             )
+            log(Log.ERROR, TAG, "Battery state source installation failed", error)
         }
     }
 
@@ -1168,15 +1185,6 @@ class CombinedStatusModule : XposedModule() {
         when (
             val stableSession = StatusBarStableSession.attach(
                 host = host,
-                onBatteryState = { state ->
-                    val trace = beginRenderTrace("battery")
-                    CombinedStatusStateStore.updateBattery(state)?.let { snapshot ->
-                        onCombinedStateChanged(
-                            snapshot = snapshot,
-                            trace = markStateCommitted(trace),
-                        )
-                    }
-                },
                 onEvent = { event ->
                     if (detailedDiagnosticsEnabled) {
                         log(Log.INFO, TAG, event)

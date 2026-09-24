@@ -68,7 +68,6 @@ internal object CombinedStatusStateStore {
                 putBoolean(KEY_BATTERY_PRESENT, true)
                 putInt(KEY_BATTERY_PERCENT, battery.percent)
                 putBoolean(KEY_BATTERY_CHARGING, battery.charging)
-                putInt(KEY_BATTERY_PLUGGED, battery.plugged)
             }
             when (val wifi = current.wifi) {
                 WifiState.Unknown -> putInt(KEY_WIFI_KIND, WIFI_KIND_UNKNOWN)
@@ -120,7 +119,6 @@ internal object CombinedStatusStateStore {
                 BatteryState(
                     percent = bundle.getInt(KEY_BATTERY_PERCENT),
                     charging = bundle.getBoolean(KEY_BATTERY_CHARGING),
-                    plugged = bundle.getInt(KEY_BATTERY_PLUGGED),
                 )
             } else {
                 null
@@ -204,8 +202,7 @@ internal object CombinedStatusStateStore {
             get() {
                 val batteryText = battery?.let { state ->
                     state.percent.toString() + ":" +
-                        (if (state.charging) "charging" else "discharging") +
-                        ":plugged=" + state.plugged
+                        (if (state.charging) "charging" else "discharging")
                 } ?: "unknown"
 
                 val wifiText = when (val state = wifi) {
@@ -243,7 +240,6 @@ internal object CombinedStatusStateStore {
     internal data class BatteryState(
         val percent: Int,
         val charging: Boolean,
-        val plugged: Int,
     )
 
     internal sealed interface WifiState {
@@ -280,7 +276,6 @@ internal object CombinedStatusStateStore {
     private const val KEY_BATTERY_PRESENT = "batteryPresent"
     private const val KEY_BATTERY_PERCENT = "batteryPercent"
     private const val KEY_BATTERY_CHARGING = "batteryCharging"
-    private const val KEY_BATTERY_PLUGGED = "batteryPlugged"
     private const val KEY_WIFI_KIND = "wifiKind"
     private const val KEY_WIFI_RES_ID = "wifiResId"
     private const val KEY_WIFI_SIGNAL = "wifiSignal"
