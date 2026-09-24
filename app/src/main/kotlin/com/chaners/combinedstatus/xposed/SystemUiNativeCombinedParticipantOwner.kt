@@ -49,8 +49,6 @@ internal object SystemUiNativeCombinedParticipantOwner {
     private var rootRef: WeakReference<FrameLayout>? = null
     private var renderViewRef: WeakReference<CombinedStatusRenderView>? = null
     private var renderController: CombinedStatusRenderController? = null
-    private var controllerRef: WeakReference<Any>? = null
-    private var handlesRef: WeakReference<NativeParticipantRuntimeAccess.Handles>? = null
     private var hostRef: WeakReference<ViewGroup>? = null
     private var eventSink: ((String) -> Unit)? = null
     private val bindingStates =
@@ -295,9 +293,6 @@ internal object SystemUiNativeCombinedParticipantOwner {
                             try {
                                 val result = chain.proceed()
                                 controllerCreated = true
-                                chain.thisObject?.let { controller ->
-                                    controllerRef = WeakReference(controller)
-                                }
                                 onSlotOrderResult?.invoke(slotPreparation.result)
                                 onEvent?.invoke(slotPreparation.result.logLine)
                                 onEvent?.invoke(
@@ -360,7 +355,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
             return HotReloadCaptureResult.NotActive
         }
         val handles =
-            handlesRef?.get()
+            resolveCurrentHandles()
                 ?: return HotReloadCaptureResult.Failure("native-handles-missing")
         val holder =
             NativeParticipantRuntimeAccess.iconHolder(
@@ -376,7 +371,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
     @Synchronized
     fun detachForHotReload(holder: Any): HotReloadDetachResult {
         val handles =
-            handlesRef?.get()
+            resolveCurrentHandles()
                 ?: return HotReloadDetachResult.Failure("native-handles-missing")
         val current =
             NativeParticipantRuntimeAccess.iconHolder(
@@ -562,7 +557,6 @@ internal object SystemUiNativeCombinedParticipantOwner {
         injected = true
         registryRestored = true
         failureReason = null
-        controllerRef = WeakReference(handles.controller)
         eventSink?.invoke(
             "nativeCombinedParticipant hotReloadRebind slot=" + SLOT +
                 " viewReady=true managerEntriesRefreshed=true nativeGeometryWrites=0",
@@ -688,7 +682,6 @@ internal object SystemUiNativeCombinedParticipantOwner {
             }
 
         rootRef = WeakReference(root)
-        handlesRef = WeakReference(handles)
         hostRef = WeakReference(hostView)
         batteryRef = WeakReference(battery)
         targetBindingState = bindingState
@@ -924,6 +917,16 @@ internal object SystemUiNativeCombinedParticipantOwner {
         (root.parent as? View)?.requestLayout()
     }
 
+    private fun resolveCurrentHandles(): NativeParticipantRuntimeAccess.Handles? {
+        val host = hostRef?.get() ?: return null
+        return when (val resolution = NativeParticipantRuntimeAccess.resolve(host)) {
+            is NativeParticipantRuntimeAccess.ResolveResult.Ready ->
+                resolution.handles
+            is NativeParticipantRuntimeAccess.ResolveResult.Failure ->
+                null
+        }
+    }
+
     private fun removePendingPreDraw() {
         val root = pendingPreDrawRoot?.get()
         val listener = pendingPreDrawListener
@@ -940,7 +943,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
     @Synchronized
     fun detach(): DetachResult {
         val handles =
-            handlesRef?.get()
+            resolveCurrentHandles()
                 ?: return reset(DetachResult.NotAttached)
         val removal =
             NativeParticipantRuntimeAccess.removal(handles.controller.javaClass)
@@ -1000,8 +1003,6 @@ internal object SystemUiNativeCombinedParticipantOwner {
         modelReadyLogged = false
         unlockedGeometryLogged = false
         renderController = null
-        controllerRef = null
-        handlesRef = null
         injected = false
         registryRestored = false
         failureReason = null
