@@ -505,7 +505,6 @@ Use four purpose-specific validation scopes:
 Routing:
 
 - Draft PR -> Light unless deeper validation is specifically required.
-- Ready ordinary product/runtime PR to `dev` -> Fast.
 - Ready ordinary product/runtime PR to `dev` -> Fast. When that Fast Build succeeds for a same-repository `feat/**` or `fix/**` branch updated by the repository owner, the trusted default-branch Canary follow-up may automatically build and publish one signed Canary for focused device testing.
 - Non-owner and fork pull requests never receive project signing credentials and do not trigger the signed Canary follow-up.
 - Trusted ordinary runtime push to `dev` -> Integration.
