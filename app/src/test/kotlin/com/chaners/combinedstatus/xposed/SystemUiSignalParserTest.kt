@@ -58,6 +58,56 @@ class SystemUiSignalParserTest {
     }
 
     @Test
+    fun nativeWifiIconArraysDecodeLevelAndInternetState() {
+        val full = intArrayOf(10, 11, 12, 13, 14)
+        val noInternet = intArrayOf(20, 21, 22, 23, 24)
+
+        for (level in 0..4) {
+            val validated =
+                SystemUiWifiSemanticDecoder.decodeResource(
+                    resId = full[level],
+                    fullIcons = full,
+                    noInternetIcons = noInternet,
+                    noNetworkIcon = 30,
+                )
+            assertEquals(SignalStrength.Level(level), validated?.signal)
+            assertEquals(InternetState.VALIDATED, validated?.internet)
+
+            val offline =
+                SystemUiWifiSemanticDecoder.decodeResource(
+                    resId = noInternet[level],
+                    fullIcons = full,
+                    noInternetIcons = noInternet,
+                    noNetworkIcon = 30,
+                )
+            assertEquals(SignalStrength.Level(level), offline?.signal)
+            assertEquals(InternetState.NO_INTERNET, offline?.internet)
+        }
+    }
+
+    @Test
+    fun nativeWifiNoNetworkAndUnknownResourcesRemainExplicit() {
+        val noNetwork =
+            SystemUiWifiSemanticDecoder.decodeResource(
+                resId = 30,
+                fullIcons = intArrayOf(10, 11, 12, 13, 14),
+                noInternetIcons = intArrayOf(20, 21, 22, 23, 24),
+                noNetworkIcon = 30,
+            )
+        assertEquals(SignalStrength.Unavailable, noNetwork?.signal)
+        assertEquals(InternetState.NO_INTERNET, noNetwork?.internet)
+
+        val unknown =
+            SystemUiWifiSemanticDecoder.decodeResource(
+                resId = 99,
+                fullIcons = intArrayOf(10, 11, 12, 13, 14),
+                noInternetIcons = intArrayOf(20, 21, 22, 23, 24),
+                noNetworkIcon = 30,
+            )
+        assertEquals(null, unknown)
+    }
+
+    @Test
     fun unknownResourcesStayUnknown() {
         assertEquals(
             SignalStrength.Unknown,
