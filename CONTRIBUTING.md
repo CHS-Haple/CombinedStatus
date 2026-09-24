@@ -156,6 +156,35 @@ State acquisition reports facts; presentation policy decides how/where to show t
 
 Prefer authoritative native state. If a fallback/duplicate source exists, define when it is active, which source wins, how disagreement is resolved, and when fallback state is discarded.
 
+#### State-source hierarchy and local derivation
+
+For runtime facts already modeled by Android or HyperOS, choose the highest verified source that exposes the required semantics. Prefer, in order:
+
+1. an authoritative native semantic state/model already used by the target SystemUI behavior;
+2. the native callback, event, or hook payload that carries that state transition;
+3. a bounded one-shot platform query when no suitable event payload exists and the query is valid for that lifecycle point;
+4. narrowly scoped project-local derivation from authoritative inputs;
+5. parsing rendered resources, View state, names, geometry, or other presentation artifacts only when no stronger source is available;
+6. a workaround only under the normal last-resort rule.
+
+Do not reconstruct a native state from a lower-level signal merely because it is easy to observe. If SystemUI already decides signal level, connectivity validity, network type, charging class, scene, tint, visibility, animation state, or a comparable semantic result, reuse that verified decision when Combined Status needs the same meaning.
+
+Project-local logic is appropriate only when the native source does not expose a required Combined Status-specific fact or when several authoritative facts must be composed into a project-specific presentation decision. Such logic must remain a derivation layer rather than a parallel platform state machine.
+
+When adding or keeping project-local derivation, document in code/PR evidence as applicable:
+
+- which native facts are authoritative inputs;
+- which required semantic is not directly exposed upstream;
+- the exact derived output Combined Status owns;
+- when the derivation is valid and when it becomes unknown/stale;
+- conflict precedence if another source reports the same fact;
+- fallback behavior when an input is unavailable;
+- why the additional observer/hook/query is necessary.
+
+Do not maintain both a native semantic source and a project-local parser/state machine for the same fact unless a verified compatibility boundary requires both. Prefer deleting superseded inference once the authoritative source is available.
+
+State-source selection must also satisfy the lightweight rule: prefer event-driven payloads over polling, avoid re-querying state already delivered by a callback, avoid duplicate dispatch to the same execution context, and do not add caching whose invalidation/lifecycle cost exceeds the work it saves.
+
 Observation does not grant ownership. A hook, reflection lookup, topology probe, or geometry sample may explain SystemUI behavior without giving Combined Status permission to write that property.
 
 One live property should have one runtime writer. Treat measured/layout width, position, translation, alpha, visibility, tint, animation state, and parent/child attachment as ownership-sensitive. Do not add a second writer merely to counteract the first.
