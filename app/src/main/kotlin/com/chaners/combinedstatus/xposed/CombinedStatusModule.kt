@@ -398,10 +398,22 @@ class CombinedStatusModule : XposedModule() {
         removedHooks: Int,
     ) {
         runCatching {
-            val restoredSnapshot =
+            var restoredSnapshot =
                 CombinedStatusStateStore.restoreHotReloadState(restored.state)
             val bindings =
                 SystemUiNetworkStateSource.restoreHotReloadBindings(restored.bindings)
+            SystemUiNetworkStateSource.seedRestoredWifiState(
+                onEvent =
+                    if (BuildConfig.RUNTIME_DIAGNOSTICS) {
+                        ::onNetworkPipelineEvent
+                    } else {
+                        null
+                    },
+            )?.let { wifi ->
+                CombinedStatusStateStore.updateWifi(wifi)?.let { snapshot ->
+                    restoredSnapshot = snapshot
+                }
+            }
             val controllerRestored =
                 SystemUiNativeParticipantRuntimeOwner.restoreExistingController(
                     capture.host,
@@ -984,6 +996,14 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun onSceneStateUpdate(update: SystemUiSceneStateSource.SceneUpdate) {
+        SystemUiTintStateSource.currentState(update.sourceView)?.let { state ->
+            onTintStateUpdate(
+                SystemUiTintStateSource.TintUpdate(
+                    sourceView = update.sourceView,
+                    state = state,
+                ),
+            )
+        }
         CombinedStatusHomeRenderSession.onSceneUpdate(update)
         SystemUiNativeCombinedParticipantOwner.onSceneUpdate(update)
     }
