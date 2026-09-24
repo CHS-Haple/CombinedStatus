@@ -18,7 +18,12 @@ internal sealed interface SignalStrength {
 
 internal object SystemUiSignalParser {
     private val mobileLevelPattern = Regex("^stat_sys_signal_([0-4])$")
-    private val wifiLevelPattern = Regex("^stat_sys_wifi_signal_([0-3])$")
+    private val wifiLevelPatterns =
+        listOf(
+            Regex("^stat_sys_wifi_signal_([0-4])(?:_fully)?$"),
+            Regex("^ic_wifi_([0-4])(?:_error)?$"),
+            Regex("^ic_no_internet_wifi_signal_([0-4])$"),
+        )
 
     fun mobile(resourceName: String?): SignalStrength {
         val entry = resourceEntry(resourceName) ?: return SignalStrength.Unknown
@@ -36,11 +41,16 @@ internal object SystemUiSignalParser {
 
     fun wifi(resourceName: String?): SignalStrength {
         val entry = resourceEntry(resourceName) ?: return SignalStrength.Unknown
-        val level = wifiLevelPattern.matchEntire(entry)
-            ?.groupValues
-            ?.getOrNull(1)
-            ?.toIntOrNull()
-            ?: return SignalStrength.Unknown
+        val level =
+            wifiLevelPatterns
+                .firstNotNullOfOrNull { pattern ->
+                    pattern
+                        .matchEntire(entry)
+                        ?.groupValues
+                        ?.getOrNull(1)
+                        ?.toIntOrNull()
+                }
+                ?: return SignalStrength.Unknown
         return SignalStrength.Level(level)
     }
 
