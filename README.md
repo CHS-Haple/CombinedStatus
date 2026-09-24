@@ -1,7 +1,7 @@
-# CombinedStatus
+# Combined Status
 
 [![Build](https://github.com/CHS-Haple/CombinedStatus/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/CHS-Haple/CombinedStatus/actions/workflows/build.yml)
-![Android 13+](https://img.shields.io/badge/Android-13%2B-3DDC84?logo=android&logoColor=white)
+![Companion app: Android 13+](https://img.shields.io/badge/Companion%20app-Android%2013%2B-3DDC84?logo=android&logoColor=white)
 ![Modern Xposed API 102](https://img.shields.io/badge/Modern%20Xposed%20API-102-3F51B5)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 ![Status: pre-release](https://img.shields.io/badge/status-pre--release-orange)
@@ -12,9 +12,9 @@
 
 ## English
 
-**CombinedStatus** is an LSPosed module for Xiaomi HyperOS that combines battery, mobile network, and Wi-Fi status into a single status-bar indicator.
+**Combined Status** is an LSPosed module for Xiaomi HyperOS that combines battery, mobile network, and Wi-Fi status into a single status-bar indicator.
 
-> **Status:** pre-release development. The planned initial display version is **0.0.1** and has not yet been formally released.
+> **Status:** pre-release development. The first planned release is **0.0.1** and has not yet been published.
 
 ### Compatibility
 
@@ -53,9 +53,9 @@ Compatibility is verified against the actual target SystemUI. Other HyperOS vers
 
 ### Current limitations
 
-CombinedStatus is still pre-release software.
+Combined Status is still pre-release software.
 
-- The Home status-bar stable scene is the current runtime-verified CombinedStatus rendering baseline.
+- The Home status bar in its stable state is the current runtime-verified Combined Status rendering baseline.
 - Notification-shade transitions, Control Center, keyguard, and AOD remain native-only unless separately validated.
 - Compatibility is currently verified only against the SystemUI baseline listed above.
 - Wider device, system-version, and scene support requires separate real-device validation.
@@ -74,9 +74,9 @@ CombinedStatus is still pre-release software.
 
 ## 简体中文
 
-**CombinedStatus** 是一个面向 Xiaomi HyperOS 的 LSPosed 模块，用于将电池、移动网络和 Wi-Fi 状态整合为一个状态栏图标。
+**Combined Status** 是一个面向 Xiaomi HyperOS 的 LSPosed 模块，用于将电池、移动网络和 Wi-Fi 状态整合为一个状态栏图标。
 
-> **当前状态：** 尚处于预发布开发阶段。计划中的首个外显版本为 **0.0.1**，目前尚未正式发布。
+> **当前状态：** 尚处于预发布开发阶段。计划首个发布版本为 **0.0.1**，目前尚未正式发布。
 
 ### 兼容性
 
@@ -115,9 +115,9 @@ CombinedStatus is still pre-release software.
 
 ### 当前限制
 
-CombinedStatus 目前仍处于预发布阶段。
+Combined Status 目前仍处于预发布阶段。
 
-- 主状态栏稳态是当前已完成运行时验证的 CombinedStatus 渲染基线。
+- 主状态栏稳态是当前已完成运行时验证的 Combined Status 渲染基线。
 - 通知栏过渡、控制中心、锁屏和 AOD 在未单独完成验证前保持原生行为。
 - 当前兼容性仅针对上方列出的 SystemUI 基线完成验证。
 - 更多机型、系统版本与场景支持需要分别进行实机验证。
@@ -136,6 +136,6 @@ CombinedStatus 目前仍处于预发布阶段。
 
 ## Disclaimer / 免责声明
 
-CombinedStatus is an independent community project and is not affiliated with, endorsed by, or maintained by Xiaomi, HyperOS, LSPosed, or the MIUIX project.
+Combined Status is an independent community project and is not affiliated with, endorsed by, or maintained by Xiaomi, HyperOS, LSPosed, or the MIUIX project.
 
-CombinedStatus 是独立的社区项目，与 Xiaomi、HyperOS、LSPosed 或 MIUIX 项目不存在官方隶属、背书或维护关系。
+Combined Status 是独立的社区项目，与 Xiaomi、HyperOS、LSPosed 或 MIUIX 项目不存在官方隶属、背书或维护关系。
