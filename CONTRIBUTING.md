@@ -499,15 +499,15 @@ Use four purpose-specific validation scopes:
 
 - **Light** — repository/diff checks only. Use for Draft PRs and proven mechanical/documentation-only changes.
 - **Fast** — the normal `feat/*` / `fix/* -> dev` PR gate for ordinary app/runtime changes: target-profile checks, unit tests, Debug APK build, and Debug Xposed-metadata validation.
-- **Integration** — trusted signed-Canary validation for repository-owner work-branch checkpoints and ordinary runtime pushes to `dev`: target-profile checks, unit tests, signed Canary build, metadata/signature validation, non-debuggable verification, and Canary artifact publication. Do not rebuild Debug when the bounded change already has an applicable Fast result unless another risk requires it.
+- **Integration** — trusted ordinary runtime pushes to `dev`: target-profile checks, unit tests, signed Canary build, metadata/signature validation, non-debuggable verification, and Canary artifact publication. Do not rebuild Debug after the work branch already passed Fast unless another risk requires it.
 - **Full** — build/dependency/CI/tooling changes and stable boundaries: Debug + Canary with all applicable metadata, signing, artifact, and compatibility checks.
 
 Routing:
 
 - Draft PR -> Light unless deeper validation is specifically required.
 - Ready ordinary product/runtime PR to `dev` -> Fast.
-- Repository-owner push to an in-repository `feat/**` or `fix/**` work branch -> classify by changed paths: mechanical-only changes may remain Light, ordinary runtime changes use Integration and publish a signed Canary checkpoint, and build/dependency/CI/tooling changes use Full.
-- Non-owner work-branch pushes must not receive project signing credentials; their pull-request validation remains the authoritative automated gate.
+- Ready ordinary product/runtime PR to `dev` -> Fast. When that Fast Build succeeds for a same-repository `feat/**` or `fix/**` branch updated by the repository owner, the trusted default-branch Canary follow-up may automatically build and publish one signed Canary for focused device testing.
+- Non-owner and fork pull requests never receive project signing credentials and do not trigger the signed Canary follow-up.
 - Trusted ordinary runtime push to `dev` -> Integration.
 - Routine internal `versionCode` / `buildId` changes may remain in Fast/Integration with the runtime change they identify.
 - Dependency/build/CI/tooling changes, including `app/build.gradle.kts` and ProGuard configuration -> Full.
@@ -515,7 +515,9 @@ Routing:
 - Runtime-affecting push or promotion/hotfix boundary on `main` -> Full.
 - Release workflow -> deliberate publication validation.
 
-This keeps validation proportional to the lifecycle stage: pull requests prove bounded source/build correctness without signing secrets; trusted repository-owner work branches may automatically publish a signed Canary when a real-device checkpoint is useful; `dev` still produces the integrated Canary baseline; Full is reserved for changes that can alter the build system or stable artifact contract.
+This keeps validation proportional to the lifecycle stage: pull requests prove bounded source/build correctness without signing secrets; an owner-maintained work branch can receive an automatic signed Canary only after that unprivileged Build succeeds; `dev` still produces the integrated Canary baseline; Full is reserved for changes that can alter the build system or stable artifact contract.
+
+The automatic work-branch Canary is a privileged follow-up workflow defined on the default branch. It checks out the exact successful Build SHA, reruns the applicable tests/profile checks, produces only the signed non-debuggable Canary, and publishes that APK for focused device validation. It must remain gated to same-repository `feat/**` / `fix/**` work owned by the repository owner. The work branch itself does not gain a privileged push-triggered workflow.
 
 A work-branch Canary is a test artifact, not merge approval, not a `dev` integration baseline, and not a release. It exists to remove unnecessary manual workflow dispatch before focused device testing.
 
@@ -523,7 +525,7 @@ A CI-workflow change is itself CI-affecting and requires Full validation.
 
 Superseded runs for the same PR/branch should be cancelled when a newer source state makes them irrelevant.
 
-Pull-request CI must remain safe for untrusted forks: never require or expose repository signing secrets. Secret-independent tests/build/compatibility/metadata checks are allowed. Project-signed artifacts remain a trusted-maintainer responsibility; automatic work-branch signing is restricted to repository-owner pushes in the canonical repository and must fail closed for other actors.
+Pull-request CI must remain safe for untrusted forks: never require or expose repository signing secrets. Secret-independent tests/build/compatibility/metadata checks are allowed. Project-signed artifacts remain a trusted-maintainer responsibility. Any automatic signed work-branch artifact must be produced by a trusted default-branch follow-up workflow after the unprivileged Build completes; do not expose signing secrets to a workflow definition controlled by the work branch itself.
 
 ### 8.3 Device validation
 
