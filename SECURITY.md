@@ -1,6 +1,6 @@
 # Security Policy
 
-CombinedStatus is currently in pre-release development. Security reports are accepted for the current `main` baseline and active `dev` development line.
+Combined Status is currently in pre-release development. Security reports are accepted for the current `main` baseline and active `dev` development line.
 
 ## Reporting a vulnerability
 
@@ -12,7 +12,7 @@ Do not publish credentials, signing material, exploit details, private diagnosti
 
 Useful reports include:
 
-- affected CombinedStatus version/build/channel;
+- affected Combined Status version/build/channel;
 - Android, HyperOS, and SystemUI version;
 - affected component or workflow;
 - reproducible steps;
