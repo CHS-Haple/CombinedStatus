@@ -434,7 +434,6 @@ class CombinedStatusRenderModelTest {
                 CombinedStatusStateStore.BatteryState(
                     percent = 80,
                     charging = false,
-                    plugged = 0,
                 ),
             wifi = wifi,
             mobile = mobile,
