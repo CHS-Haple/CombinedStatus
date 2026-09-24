@@ -60,6 +60,15 @@ internal object CombinedStatusConnectivityPolicy {
                     } ?: CenterIndicator.Empty
                 }
 
+            SystemUiConnectivityStateSource.Transport.VPN ->
+                mobileType?.let {
+                    CenterIndicator.MobileType(
+                        label = it.label,
+                        enhanced = it.enhanced,
+                        internet = connectivity.internetState(),
+                    )
+                } ?: CenterIndicator.Empty
+
             SystemUiConnectivityStateSource.Transport.OTHER ->
                 if (connectivity.mobileDataEnabled == true && mobileType != null) {
                     CenterIndicator.MobileType(

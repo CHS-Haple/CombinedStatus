@@ -130,6 +130,7 @@ internal object SystemUiConnectivityStateSource {
     private fun transport(capabilities: NetworkCapabilities?): Transport =
         when {
             capabilities == null -> Transport.NONE
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN) -> Transport.VPN
             capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> Transport.WIFI
             capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> Transport.CELLULAR
             else -> Transport.OTHER
@@ -138,6 +139,7 @@ internal object SystemUiConnectivityStateSource {
     internal enum class Transport {
         WIFI,
         CELLULAR,
+        VPN,
         OTHER,
         NONE,
     }

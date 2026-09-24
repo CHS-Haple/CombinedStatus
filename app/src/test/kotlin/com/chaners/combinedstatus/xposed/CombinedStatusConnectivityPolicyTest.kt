@@ -105,6 +105,38 @@ class CombinedStatusConnectivityPolicyTest {
     }
 
     @Test
+    fun vpnUsesNativeMobileTypeEvenWhenMobileDataQueryIsFalse() {
+        val mobileType =
+            NativePresentationResolver.NetworkType(
+                label = "5G",
+                enhanced = false,
+                source =
+                    NativePresentationResolver.NetworkTypeSource.MOBILE_TYPE_DRAWABLE,
+            )
+
+        assertEquals(
+            CenterIndicator.MobileType(
+                label = "5G",
+                enhanced = false,
+                internet = InternetState.VALIDATED,
+            ),
+            CombinedStatusConnectivityPolicy.resolve(
+                wifi = CombinedStatusStateStore.WifiState.Hidden,
+                airplaneMode = false,
+                connectivity =
+                    SystemUiConnectivityStateSource.State(
+                        known = true,
+                        transport = SystemUiConnectivityStateSource.Transport.VPN,
+                        validated = true,
+                        hasInternetCapability = true,
+                        mobileDataEnabled = false,
+                    ),
+                mobileType = mobileType,
+            ),
+        )
+    }
+
+    @Test
     fun otherTransportDoesNotRenderWifiWhenSystemUiInternetSemanticsAreUnknown() {
         val wifi =
             CombinedStatusStateStore.WifiState.Visible(
