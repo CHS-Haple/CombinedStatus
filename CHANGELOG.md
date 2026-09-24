@@ -58,7 +58,7 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 - Verified network emitter resolution no longer depends on resolving Kotlin `Continuation` by name through the SystemUI ClassLoader, preventing optimized/Canary builds from losing network hooks.
 - Wi-Fi state tracking follows the verified HyperOS Wi-Fi collector and registers the relevant root before the native binder proceeds.
 - Combined Status remains visible when HyperOS temporarily hides the native battery container during Wi-Fi/mobile status transitions.
-- Airplane-mode presentation follows the authoritative global setting used by the target device, with mobile-signal sampling retained only as fallback evidence.
+- Airplane-mode presentation follows the authoritative global setting through one event-driven ContentObserver owner; the mobile signal path no longer re-reads or writes airplane state.
 - Center presentation now represents the active data connection only: Wi-Fi or mobile type when active, otherwise an explicit empty center, while cellular service state remains in the signal-dot area; transport-first handoff logic avoids transient Wi-Fi/mobile mismatch frames.
 - Transparent or uninitialized tint samples no longer blank the Combined Status renderer.
 - Per-app language selection preserves an explicit language choice even when it currently matches the system locale.

@@ -1,6 +1,5 @@
 package com.chaners.combinedstatus.xposed
 
-import android.provider.Settings
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
@@ -105,7 +104,6 @@ internal object SystemUiNetworkStateSource {
         classLoader: ClassLoader,
         onWifiState: (CombinedStatusStateStore.WifiState) -> Unit,
         onMobileIcon: (CombinedStatusStateStore.MobileIconUpdate) -> Unit,
-        onAirplaneMode: (Boolean) -> Unit,
         onPresentationChanged: (() -> Unit)?,
         onEvent: ((String) -> Unit)?,
     ): InstallResult {
@@ -121,7 +119,6 @@ internal object SystemUiNetworkStateSource {
                 module = module,
                 classLoader = classLoader,
                 onMobileIcon = onMobileIcon,
-                onAirplaneMode = onAirplaneMode,
                 onPresentationChanged = onPresentationChanged,
                 onEvent = onEvent,
             )
@@ -246,7 +243,6 @@ internal object SystemUiNetworkStateSource {
         module: XposedModule,
         classLoader: ClassLoader,
         onMobileIcon: (CombinedStatusStateStore.MobileIconUpdate) -> Unit,
-        onAirplaneMode: (Boolean) -> Unit,
         onPresentationChanged: (() -> Unit)?,
         onEvent: ((String) -> Unit)?,
     ): BranchInstallResult {
@@ -332,7 +328,6 @@ internal object SystemUiNetworkStateSource {
                                 mobileImageField = mobileImageField,
                                 mobileClassIdField = mobileClassIdField,
                                 onMobileIcon = onMobileIcon,
-                                onAirplaneMode = onAirplaneMode,
                                 onEvent = onEvent,
                             ),
                         )
@@ -676,7 +671,6 @@ internal object SystemUiNetworkStateSource {
         mobileImageField: Field,
         mobileClassIdField: Field,
         onMobileIcon: (CombinedStatusStateStore.MobileIconUpdate) -> Unit,
-        onAirplaneMode: (Boolean) -> Unit,
         onEvent: ((String) -> Unit)?,
     ): Hooker = Hooker { chain ->
         val emitter = chain.thisObject
@@ -712,15 +706,6 @@ internal object SystemUiNetworkStateSource {
                         1 -> CombinedStatusStateStore.MobileIconKind.VOLTE
                         2 -> CombinedStatusStateStore.MobileIconKind.VOWIFI
                         else -> null
-                    }
-                    if (kind == CombinedStatusStateStore.MobileIconKind.SIGNAL) {
-                        val airplaneMode =
-                            Settings.Global.getInt(
-                                image.context.contentResolver,
-                                Settings.Global.AIRPLANE_MODE_ON,
-                                0,
-                            ) != 0
-                        onAirplaneMode(airplaneMode)
                     }
                     if (kind != null) {
                         onMobileIcon(

@@ -702,15 +702,6 @@ class CombinedStatusModule : XposedModule() {
                         )
                     }
                 },
-                onAirplaneMode = { enabled ->
-                    val trace = beginRenderTrace("airplaneSignal")
-                    CombinedStatusStateStore.updateAirplaneMode(enabled)?.let { snapshot ->
-                        onCombinedStateChanged(
-                            snapshot = snapshot,
-                            trace = markStateCommitted(trace),
-                        )
-                    }
-                },
                 onPresentationChanged = {
                     refreshMobilePresentation(beginRenderTrace("networkPresentation"))
                 },
