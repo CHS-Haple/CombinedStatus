@@ -1,12 +1,12 @@
 package com.chaners.combinedstatus.xposed
 
-import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertTrue
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Test
 
 class CombinedStatusPresentationStateStoreTest {
     @Test
-    fun repeatedConnectivityObservationAfterWifiSemanticChangeRefreshesFreshness() {
+    fun repeatedConnectivityObservationIsDeduplicatedByValue() {
         CombinedStatusPresentationStateStore.reset()
         val state =
             SystemUiConnectivityStateSource.State(
@@ -17,13 +17,12 @@ class CombinedStatusPresentationStateStoreTest {
                 mobileDataEnabled = true,
             )
 
-        CombinedStatusPresentationStateStore.updateConnectivity(state)
-        CombinedStatusPresentationStateStore.markWifiSemanticChanged()
-
-        val refreshed =
+        val first =
+            CombinedStatusPresentationStateStore.updateConnectivity(state)
+        val repeated =
             CombinedStatusPresentationStateStore.updateConnectivity(state)
 
-        assertNotNull(refreshed)
-        assertTrue(CombinedStatusPresentationStateStore.snapshot().connectivityFreshForWifi)
+        assertSame(state, first?.connectivity)
+        assertNull(repeated)
     }
 }
