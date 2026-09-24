@@ -1031,6 +1031,7 @@ class CombinedStatusModule : XposedModule() {
     ) {
         CombinedStatusHomeRenderSession.onState(snapshot, trace)
         SystemUiNativeCombinedParticipantOwner.onState(snapshot, trace)
+        updateNativeNetworkSuppressionPolicy("state")
         updateNativeHotspotSuppressionPolicy(
             snapshot = snapshot,
             source = "state",
