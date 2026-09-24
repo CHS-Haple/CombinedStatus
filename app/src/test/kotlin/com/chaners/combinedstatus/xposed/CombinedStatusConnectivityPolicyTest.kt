@@ -1,6 +1,7 @@
 package com.chaners.combinedstatus.xposed
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 
 class CombinedStatusConnectivityPolicyTest {
@@ -100,6 +101,79 @@ class CombinedStatusConnectivityPolicyTest {
                 internet = InternetState.NO_INTERNET,
             ),
             result,
+        )
+    }
+
+    @Test
+    fun otherTransportDoesNotRenderWifiWhenSystemUiInternetSemanticsAreUnknown() {
+        val wifi =
+            CombinedStatusStateStore.WifiState.Visible(
+                iconResId = 1,
+                signal = SignalStrength.Level(2),
+                internetValidated = null,
+            )
+        val connectivity =
+            SystemUiConnectivityStateSource.State(
+                known = true,
+                transport = SystemUiConnectivityStateSource.Transport.OTHER,
+                validated = true,
+                hasInternetCapability = true,
+                mobileDataEnabled = true,
+            )
+        val mobileType =
+            NativePresentationResolver.NetworkType(
+                label = "5G",
+                enhanced = false,
+                source =
+                    NativePresentationResolver.NetworkTypeSource.MOBILE_TYPE_DRAWABLE,
+            )
+
+        assertEquals(
+            CenterIndicator.MobileType(
+                label = "5G",
+                enhanced = false,
+                internet = InternetState.VALIDATED,
+            ),
+            CombinedStatusConnectivityPolicy.resolve(
+                wifi = wifi,
+                airplaneMode = false,
+                connectivity = connectivity,
+                mobileType = mobileType,
+            ),
+        )
+        assertEquals(
+            false,
+            CombinedStatusConnectivityPolicy.wifiReplacementReady(
+                wifi = wifi,
+                connectivity = connectivity,
+            ),
+        )
+    }
+
+    @Test
+    fun unknownConnectivityDoesNotRenderWifiWhenSystemUiInternetSemanticsAreUnknown() {
+        val wifi =
+            CombinedStatusStateStore.WifiState.Visible(
+                iconResId = 1,
+                signal = SignalStrength.Level(2),
+                internetValidated = null,
+            )
+        val connectivity = SystemUiConnectivityStateSource.State.Unknown
+
+        assertNull(
+            CombinedStatusConnectivityPolicy.resolve(
+                wifi = wifi,
+                airplaneMode = false,
+                connectivity = connectivity,
+                mobileType = null,
+            ),
+        )
+        assertEquals(
+            false,
+            CombinedStatusConnectivityPolicy.wifiReplacementReady(
+                wifi = wifi,
+                connectivity = connectivity,
+            ),
         )
     }
 

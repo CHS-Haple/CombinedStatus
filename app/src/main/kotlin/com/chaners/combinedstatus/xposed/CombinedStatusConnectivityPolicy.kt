@@ -18,44 +18,13 @@ internal object CombinedStatusConnectivityPolicy {
             }
 
         if (wifiVisible != null && wifiSegments != null) {
-            when (wifiVisible.internetValidated) {
-                true ->
-                    return CenterIndicator.Wifi(
-                        segments = wifiSegments,
-                        internet = InternetState.VALIDATED,
-                    )
-
-                false ->
-                    return CenterIndicator.Wifi(
-                        segments = wifiSegments,
-                        internet = InternetState.NO_INTERNET,
-                    )
-
-                null -> Unit
-            }
-
-            if (connectivity.known) {
-                when (connectivity.transport) {
-                    SystemUiConnectivityStateSource.Transport.WIFI ->
-                        return CenterIndicator.Wifi(
-                            segments = wifiSegments,
-                            internet = connectivity.internetState(),
-                        )
-
-                    SystemUiConnectivityStateSource.Transport.OTHER ->
-                        return CenterIndicator.Wifi(
-                            segments = wifiSegments,
-                            internet = InternetState.UNKNOWN,
-                        )
-
-                    SystemUiConnectivityStateSource.Transport.CELLULAR,
-                    SystemUiConnectivityStateSource.Transport.NONE,
-                    -> Unit
-                }
-            } else {
+            resolvedWifiInternet(
+                wifi = wifiVisible,
+                connectivity = connectivity,
+            )?.let { internet ->
                 return CenterIndicator.Wifi(
                     segments = wifiSegments,
-                    internet = InternetState.UNKNOWN,
+                    internet = internet,
                 )
             }
         }
@@ -117,17 +86,31 @@ internal object CombinedStatusConnectivityPolicy {
         when (wifi) {
             CombinedStatusStateStore.WifiState.Unknown -> false
             CombinedStatusStateStore.WifiState.Hidden -> true
-            is CombinedStatusStateStore.WifiState.Visible -> {
-                val signalReady = wifi.signal is SignalStrength.Level
-                val internetReady =
-                    wifi.internetValidated != null ||
-                        (
-                            connectivity.known &&
-                                connectivity.transport ==
-                                    SystemUiConnectivityStateSource.Transport.WIFI
-                        )
-                signalReady && internetReady
-            }
+            is CombinedStatusStateStore.WifiState.Visible ->
+                wifi.signal is SignalStrength.Level &&
+                    resolvedWifiInternet(
+                        wifi = wifi,
+                        connectivity = connectivity,
+                    ) != null
+        }
+
+    private fun resolvedWifiInternet(
+        wifi: CombinedStatusStateStore.WifiState.Visible,
+        connectivity: SystemUiConnectivityStateSource.State,
+    ): InternetState? =
+        when (wifi.internetValidated) {
+            true -> InternetState.VALIDATED
+            false -> InternetState.NO_INTERNET
+            null ->
+                if (
+                    connectivity.known &&
+                    connectivity.transport ==
+                        SystemUiConnectivityStateSource.Transport.WIFI
+                ) {
+                    connectivity.internetState()
+                } else {
+                    null
+                }
         }
 
     private fun SystemUiConnectivityStateSource.State.internetState(): InternetState =
