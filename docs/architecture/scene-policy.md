@@ -2,13 +2,13 @@
 
 This document complements [layout-policy.md](layout-policy.md).
 
-The layout policy owns shared CombinedStatus visual calculations. The scene policy owns only scene capability classification and motion ownership.
+The layout policy owns shared Combined Status visual calculations. The scene policy owns only scene capability classification and motion ownership.
 
 ## Rule
 
 A scene capability may define:
 
-- whether CombinedStatus renders on the surface;
+- whether Combined Status renders on the surface;
 - whether rendering is projected against native geometry;
 - who owns motion;
 - the current evidence maturity.
@@ -27,13 +27,13 @@ Classification is not permission to mutate SystemUI. Runtime integration still r
 | Keyguard | NATIVE_ONLY | SYSTEM_UI | Static ownership verified |
 | AOD | NATIVE_ONLY | SYSTEM_UI | Static ownership verified |
 
-The map intentionally fails closed outside the verified Home path. Unsupported or not-yet-verified scenes remain native rather than receiving a partial CombinedStatus implementation.
+The map intentionally fails closed outside the verified Home path. Unsupported or not-yet-verified scenes remain native rather than receiving a partial Combined Status implementation.
 
 ## Home stable
 
-Home stable is currently the only runtime-verified CombinedStatus rendering scene.
+Home stable is currently the only runtime-verified Combined Status rendering scene.
 
-Its PROJECTED mode means the CombinedStatus visual is anchored from verified native geometry while the native slot, native motion, and surrounding layout remain SystemUI-owned.
+Its PROJECTED mode means the Combined Status visual is anchored from verified native geometry while the native slot, native motion, and surrounding layout remain SystemUI-owned.
 
 ## Notification shade and Control Center
 
@@ -45,7 +45,7 @@ A future combined representation must first prove a stable host/lifecycle contra
 
 Keyguard and AOD currently remain NATIVE_ONLY.
 
-Historical behavior or static knowledge of their hosts is not sufficient to enable CombinedStatus rendering. Promotion requires runtime verification of host identity, lifecycle, state, tint, geometry, transition ownership, cleanup, and fallback.
+Historical behavior or static knowledge of their hosts is not sufficient to enable Combined Status rendering. Promotion requires runtime verification of host identity, lifecycle, state, tint, geometry, transition ownership, cleanup, and fallback.
 
 ## Charging
 
@@ -55,11 +55,11 @@ They must not create a second scene geometry policy or a separate slot-width rul
 
 ## Motion ownership
 
-Home stable currently uses `NONE`: CombinedStatus has no independent motion requirement there.
+Home stable currently uses `NONE`: Combined Status has no independent motion requirement there.
 
 SystemUI-owned transition scenes use `SYSTEM_UI`.
 
-`COMBINED_STATUS` remains reserved for a future transition that is demonstrated to be genuinely owned by CombinedStatus from start state through cleanup.
+`COMBINED_STATUS` remains reserved for a future transition that is demonstrated to be genuinely owned by Combined Status from start state through cleanup.
 
 ## Promotion rule
 

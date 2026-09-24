@@ -1,6 +1,6 @@
-# Contributing to CombinedStatus
+# Contributing to Combined Status
 
-This document is the engineering source of truth for CombinedStatus contributors. Apply its rules in proportion to risk: runtime-sensitive SystemUI work needs deeper ownership and device validation, while deterministic mechanical maintenance should remain lightweight.
+This document is the engineering source of truth for Combined Status contributors. Apply its rules in proportion to risk: runtime-sensitive SystemUI work needs deeper ownership and device validation, while deterministic mechanical maintenance should remain lightweight.
 
 ## 1. Scope, language, and licensing
 
@@ -18,7 +18,26 @@ A justified exception to a MUST-level architectural rule must record the evidenc
 
 The application ID and package namespace are `com.chaners.combinedstatus`. Changing that identity requires an explicit compatibility and migration plan.
 
-CombinedStatus is licensed under the [Apache License 2.0](LICENSE). Contributions submitted for inclusion are provided under the same license unless explicitly stated otherwise. Contributors must have the right to submit their material and must preserve required third-party attribution, notices, and license obligations.
+Combined Status is licensed under the [Apache License 2.0](LICENSE). Contributions submitted for inclusion are provided under the same license unless explicitly stated otherwise. Contributors must have the right to submit their material and must preserve required third-party attribution, notices, and license obligations.
+
+### Development setup
+
+Use the checked-in Gradle Wrapper. The current local development baseline is:
+
+- JDK 21;
+- Android SDK 37 with Build Tools 37.0.0;
+- Git;
+- GitHub Packages credentials for the pinned MIUIX snapshot.
+
+For local MIUIX package access, provide `MIUIX_GITHUB_ACTOR` and `MIUIX_GITHUB_TOKEN` with package-read access, or the equivalent local Gradle properties `gpr.user` and `gpr.key`. Keep credentials outside the repository.
+
+For an ordinary code checkpoint, start with:
+
+~~~bash
+./gradlew :app:testDebugUnitTest :app:assembleDebug
+~~~
+
+Project signing credentials are not required for normal contributor builds or pull requests. Signed Canary/Release artifacts remain a trusted-maintainer responsibility.
 
 ## 2. Project principles
 
@@ -42,7 +61,7 @@ A newer API or dependency is not automatically better. Adoption still needs life
 
 ### 2.4 Fail native
 
-When CombinedStatus cannot safely establish the required contract, degrade toward native HyperOS behavior rather than leaving a partially active replacement.
+When Combined Status cannot safely establish the required contract, degrade toward native HyperOS behavior rather than leaving a partially active replacement.
 
 Do not hide a native representation until the replacement is valid for the current session. Compatibility failure should disable the smallest affected feature, not destabilize SystemUI.
 
@@ -133,7 +152,7 @@ State acquisition reports facts; presentation policy decides how/where to show t
 
 Prefer authoritative native state. If a fallback/duplicate source exists, define when it is active, which source wins, how disagreement is resolved, and when fallback state is discarded.
 
-Observation does not grant ownership. A hook, reflection lookup, topology probe, or geometry sample may explain SystemUI behavior without giving CombinedStatus permission to write that property.
+Observation does not grant ownership. A hook, reflection lookup, topology probe, or geometry sample may explain SystemUI behavior without giving Combined Status permission to write that property.
 
 One live property should have one runtime writer. Treat measured/layout width, position, translation, alpha, visibility, tint, animation state, and parent/child attachment as ownership-sensitive. Do not add a second writer merely to counteract the first.
 
@@ -148,13 +167,13 @@ When ownership moves, move one bounded responsibility at a time, keep one active
 Keep these responsibilities conceptually separate:
 
 1. native SystemUI layout slot;
-2. CombinedStatus visual/drawing geometry;
+2. Combined Status visual/drawing geometry;
 3. transition/animation geometry;
 4. optical adjustment.
 
 A visual-width requirement does not automatically justify native layout-width mutation. An animation correction does not automatically change stable geometry. An optical offset must not silently become layout ownership.
 
-Prefer solving CombinedStatus-specific appearance inside its own presentation/rendering layer. Native measured width, layout width, translation, or visibility writes are exceptional and require verified runtime evidence, a single owner, narrow scope, reversibility, and focused device validation.
+Prefer solving Combined Status-specific appearance inside its own presentation/rendering layer. Native measured width, layout width, translation, or visibility writes are exceptional and require verified runtime evidence, a single owner, narrow scope, reversibility, and focused device validation.
 
 Pixel correctness in one scene is not enough. For runtime-sensitive geometry or animation work, verify the expected writer, absence of competing writers, stable/transition separation, host replacement, and the relevant Home, keyguard, AOD, shade/Control Center, charging/island, and recreation paths.
 
@@ -211,6 +230,9 @@ Any user-facing text change needs copy review.
 
 Fixed terminology:
 
+- Public English product name: **Combined Status**
+- Chinese product name: **三合一状态图标**
+- Established technical identifier when required by repository/source/artifact identity: `CombinedStatus`
 - Chinese: **移动网络**
 - English: **mobile network**
 - Internal domain naming: `mobileNetwork` / `mobileSignal`
@@ -505,7 +527,7 @@ Classify meaningful upstream changes:
 
 - **A — priority**: fixes a current/likely project issue, removes a workaround, addresses lifecycle/state/crash risk, or contains important maintainer guidance for an API/component in use.
 - **B — canary candidate**: clear interaction/stability/performance/compatibility/maintainability benefit worth isolated validation.
-- **C — normally ignore**: unrelated churn, docs/examples only, or components not used by CombinedStatus.
+- **C — normally ignore**: unrelated churn, docs/examples only, or components not used by Combined Status.
 
 Treat maturity separately:
 

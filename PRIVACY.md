@@ -4,7 +4,7 @@
 
 ## English
 
-CombinedStatus is designed to operate locally on the device.
+Combined Status is designed to operate locally on the device.
 
 ### Network and telemetry
 
@@ -19,7 +19,7 @@ Application preferences such as appearance, language-related state, launcher vis
 Root access is requested only for explicit maintenance/diagnostic actions that require it, currently including:
 
 - restarting SystemUI after user confirmation;
-- reading CombinedStatus-related LSPosed/runtime logs when the user generates a diagnostic report.
+- reading Combined Status-related LSPosed/runtime logs when the user generates a diagnostic report.
 
 There is no resident Root service.
 
@@ -29,12 +29,12 @@ Diagnostic reports are generated locally and only when requested by the user.
 
 A report may contain:
 
-- CombinedStatus version, build, package, build channel, and diagnostics state;
+- Combined Status version, build, package, build channel, and diagnostics state;
 - device model/codename, Android version, HyperOS information, and SystemUI version;
-- CombinedStatus runtime health and module log entries;
-- CombinedStatus's own bounded share-diagnostics entries.
+- Combined Status runtime health and module log entries;
+- Combined Status's own bounded share-diagnostics entries.
 
-CombinedStatus does not intentionally collect unrelated third-party application logs for diagnostic reports.
+Combined Status does not intentionally collect unrelated third-party application logs for diagnostic reports.
 
 Users should still review a diagnostic report before posting it publicly because device and runtime information may be identifying in some contexts.
 
@@ -42,9 +42,9 @@ Users should still review a diagnostic report before posting it publicly because
 
 Export uses the Android system document flow selected by the user.
 
-When preparing a share attachment, CombinedStatus creates a managed text report under `Download/CombinedStatus`. Managed share reports are bounded and older entries are pruned by the app.
+When preparing a share attachment, Combined Status creates a managed text report under `Download/CombinedStatus`. Managed share reports are bounded and older entries are pruned by the app.
 
-CombinedStatus does not upload diagnostic reports to a project server. Sharing occurs only through the Android destination/application selected by the user.
+Combined Status does not upload diagnostic reports to a project server. Sharing occurs only through the Android destination/application selected by the user.
 
 ### Security reports
 
@@ -54,7 +54,7 @@ Do not post credentials, signing material, private logs, or exploit details in p
 
 ## 简体中文
 
-CombinedStatus 以本地运行和最小化数据处理为设计原则。
+Combined Status 以本地运行和最小化数据处理为设计原则。
 
 ### 网络与遥测
 
@@ -69,7 +69,7 @@ CombinedStatus 以本地运行和最小化数据处理为设计原则。
 只有用户明确触发且确实需要时才使用 Root，目前主要用于：
 
 - 经用户确认后重启 SystemUI；
-- 用户主动生成诊断报告时读取与 CombinedStatus 相关的 LSPosed / 运行日志。
+- 用户主动生成诊断报告时读取与 Combined Status 相关的 LSPosed / 运行日志。
 
 项目不使用常驻 Root 服务。
 
@@ -79,12 +79,12 @@ CombinedStatus 以本地运行和最小化数据处理为设计原则。
 
 报告可能包含：
 
-- CombinedStatus 版本、构建、包名、构建通道与诊断状态；
+- Combined Status 版本、构建、包名、构建通道与诊断状态；
 - 设备型号/代号、Android 版本、HyperOS 信息与 SystemUI 版本；
-- CombinedStatus 运行健康状态与模块日志；
-- CombinedStatus 自身有边界的分享诊断记录。
+- Combined Status 运行健康状态与模块日志；
+- Combined Status 自身有边界的分享诊断记录。
 
-CombinedStatus 不会为了生成诊断报告而主动收集无关第三方应用的日志。
+Combined Status 不会为了生成诊断报告而主动收集无关第三方应用的日志。
 
 由于设备和运行环境信息在某些场景下可能具有识别性，公开提交报告前仍建议用户先自行检查内容。
 
@@ -92,9 +92,9 @@ CombinedStatus 不会为了生成诊断报告而主动收集无关第三方应�
 
 导出使用用户选择的 Android 系统文档流程。
 
-准备分享附件时，CombinedStatus 会在 `Download/CombinedStatus` 下创建受管理的文本报告；这类临时分享报告数量和保存时间均有边界，并由应用清理旧条目。
+准备分享附件时，Combined Status 会在 `Download/CombinedStatus` 下创建受管理的文本报告；这类临时分享报告数量和保存时间均有边界，并由应用清理旧条目。
 
-CombinedStatus 不会将诊断报告上传至项目服务器。只有用户通过 Android 系统选择目标应用或位置后，报告才会被导出或分享。
+Combined Status 不会将诊断报告上传至项目服务器。只有用户通过 Android 系统选择目标应用或位置后，报告才会被导出或分享。
 
 ### 安全问题
 
