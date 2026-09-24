@@ -25,6 +25,7 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Changed
 
+- English user-facing product naming now consistently uses **Combined Status** in the companion app and diagnostic reports while established technical identifiers remain unchanged.
 - Home native Combined Status suppresses Home Wi-Fi and single-subscription mobile participants through the modern SystemUI binding visibility contract after handoff; multi-subscription mobile presentation remains SystemUI-owned until Combined Status can represent every active SIM, preserving native or externally extended dual-SIM layouts without geometry writes.
 - Bottom navigation now differentiates selected and unselected items with MIUIX icon weights while preserving the existing navigation colors, layout, and interaction behavior.
 - Top app bars now use MIUIX progressive backdrop blur while scrolling content beneath them on supported devices, with the standard solid surface retained as fallback.
