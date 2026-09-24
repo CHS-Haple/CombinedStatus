@@ -452,6 +452,7 @@ class CombinedStatusModule : XposedModule() {
             attachHostRuntime(
                 host = capture.host,
                 source = "hotReloadRestore",
+                initialNativeHandoffActive = nativeReady,
             )
 
             logDiagnostic(
@@ -1023,6 +1024,7 @@ class CombinedStatusModule : XposedModule() {
     private fun attachHostRuntime(
         host: Any,
         source: String,
+        initialNativeHandoffActive: Boolean = false,
     ) {
         val hostContext = (host as? android.view.View)?.context
         val coreRuntime =
@@ -1149,6 +1151,7 @@ class CombinedStatusModule : XposedModule() {
                 },
                 onLatencySample = ::onRenderLatencySample,
                 isDetailedDiagnosticsEnabled = { detailedDiagnosticsEnabled },
+                initialNativeHandoffActive = initialNativeHandoffActive,
             )
         ) {
             CombinedStatusHomeRenderSession.AttachResult.Ready -> {
