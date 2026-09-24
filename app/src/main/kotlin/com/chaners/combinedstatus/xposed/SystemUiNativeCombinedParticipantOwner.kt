@@ -759,6 +759,11 @@ internal object SystemUiNativeCombinedParticipantOwner {
 
     @Synchronized
     fun onTintUpdate(update: SystemUiTintStateSource.TintUpdate) {
+        val battery = batteryRef?.get() ?: return
+        if (update.sourceView !== battery) {
+            return
+        }
+
         val tintUpdate = renderController?.updateTint(update.state)
         if (tintUpdate?.resolved != null) {
             tintReady = true
