@@ -984,6 +984,7 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun onSceneStateUpdate(update: SystemUiSceneStateSource.SceneUpdate) {
+        SystemUiTintStateSource.currentState(update.sourceView)?.let(::onTintStateUpdate)
         CombinedStatusHomeRenderSession.onSceneUpdate(update)
         SystemUiNativeCombinedParticipantOwner.onSceneUpdate(update)
     }
