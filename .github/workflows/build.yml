@@ -2,12 +2,7 @@ name: Build
 
 on:
   push:
-    branches:
-      - main
-      - dev
-      - validation/dev
-      - 'feat/**'
-      - 'fix/**'
+    branches: [ main, dev, validation/dev ]
   pull_request:
     branches: [ main, dev ]
     types: [ opened, synchronize, reopened, ready_for_review, converted_to_draft ]
@@ -44,8 +39,6 @@ jobs:
         shell: bash
         env:
           EVENT_NAME: ${{ github.event_name }}
-          ACTOR: ${{ github.actor }}
-          REPOSITORY_OWNER: ${{ github.repository_owner }}
           PR_DRAFT: ${{ github.event.pull_request.draft || false }}
           PR_BASE_REF: ${{ github.event.pull_request.base.ref || '' }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
@@ -55,7 +48,6 @@ jobs:
         run: |
           SCOPE=full
           REASON="trusted main/manual validation"
-          ALLOW_SIGNING=false
 
           apply_runtime_scope() {
             local mode="$1"
@@ -122,35 +114,14 @@ jobs:
           if [[ "$EVENT_NAME" == "push" && "$GITHUB_REF" == "refs/heads/validation/dev" ]]; then
             SCOPE=light
             REASON="device-validation marker update"
-          elif [[ "$EVENT_NAME" == "push" && ( "$GITHUB_REF" == refs/heads/feat/* || "$GITHUB_REF" == refs/heads/fix/* ) ]]; then
-            if [[ "$ACTOR" == "$REPOSITORY_OWNER" ]]; then
-              SCOPE=integration
-              REASON="trusted owner work-branch Canary checkpoint"
-              ALLOW_SIGNING=true
-              WORK_BASE_SHA="$PUSH_BEFORE_SHA"
-              if [[ -z "$WORK_BASE_SHA" || "$WORK_BASE_SHA" == "0000000000000000000000000000000000000000" ]]; then
-                WORK_BASE_SHA="$(git merge-base "$PUSH_HEAD_SHA" origin/dev)"
-              fi
-              classify_paths "$WORK_BASE_SHA" "$PUSH_HEAD_SHA" integration
-            else
-              SCOPE=fast
-              REASON="non-owner work-branch push; signing disabled"
-              ALLOW_SIGNING=false
-            fi
           elif [[ "$EVENT_NAME" == "push" && "$GITHUB_REF" == "refs/heads/dev" ]]; then
-            ALLOW_SIGNING=true
             if [[ -n "$PUSH_BEFORE_SHA" && "$PUSH_BEFORE_SHA" != "0000000000000000000000000000000000000000" ]]; then
               classify_paths "$PUSH_BEFORE_SHA" "$PUSH_HEAD_SHA" integration
             fi
           elif [[ "$EVENT_NAME" == "push" && "$GITHUB_REF" == "refs/heads/main" ]]; then
-            ALLOW_SIGNING=true
             if [[ -n "$PUSH_BEFORE_SHA" && "$PUSH_BEFORE_SHA" != "0000000000000000000000000000000000000000" ]]; then
               classify_paths "$PUSH_BEFORE_SHA" "$PUSH_HEAD_SHA" full
             fi
-          elif [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
-            SCOPE=full
-            REASON="trusted manual full validation"
-            ALLOW_SIGNING=true
           elif [[ "$EVENT_NAME" == "pull_request" ]]; then
             if [[ "$PR_DRAFT" == "true" ]]; then
               SCOPE=light
@@ -180,8 +151,7 @@ jobs:
           echo "run_android=$RUN_ANDROID" >> "$GITHUB_OUTPUT"
           echo "run_debug=$RUN_DEBUG" >> "$GITHUB_OUTPUT"
           echo "run_canary=$RUN_CANARY" >> "$GITHUB_OUTPUT"
-          echo "allow_signing=$ALLOW_SIGNING" >> "$GITHUB_OUTPUT"
-          echo "Validation scope: $SCOPE ($REASON; signing=$ALLOW_SIGNING)"
+          echo "Validation scope: $SCOPE ($REASON)"
 
       - name: Lightweight repository checks
         if: steps.scope.outputs.scope == 'light' && github.ref != 'refs/heads/validation/dev'
@@ -219,7 +189,7 @@ jobs:
         uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.3
 
       - name: Restore and verify Haple signing
-        if: steps.scope.outputs.run_android == 'true' && steps.scope.outputs.allow_signing == 'true'
+        if: steps.scope.outputs.run_android == 'true' && github.event_name != 'pull_request'
         shell: bash
         env:
           HAPLE_KEYSTORE_BASE64: ${{ secrets.HAPLE_KEYSTORE_BASE64 }}
@@ -235,8 +205,8 @@ jobs:
       - name: Test and build required APK variants
         if: steps.scope.outputs.run_android == 'true'
         env:
-          HAPLE_KEYSTORE_PASSWORD: ${{ steps.scope.outputs.allow_signing == 'true' && secrets.HAPLE_KEYSTORE_PASSWORD || '' }}
-          HAPLE_KEY_ALIAS: ${{ steps.scope.outputs.allow_signing == 'true' && secrets.HAPLE_KEY_ALIAS || '' }}
+          HAPLE_KEYSTORE_PASSWORD: ${{ github.event_name != 'pull_request' && secrets.HAPLE_KEYSTORE_PASSWORD || '' }}
+          HAPLE_KEY_ALIAS: ${{ github.event_name != 'pull_request' && secrets.HAPLE_KEY_ALIAS || '' }}
         shell: bash
         run: |
           TASKS=(":app:testDebugUnitTest")
@@ -333,7 +303,7 @@ jobs:
           done
 
       - name: Verify Haple APK signatures
-        if: steps.scope.outputs.run_android == 'true' && steps.scope.outputs.allow_signing == 'true'
+        if: steps.scope.outputs.run_android == 'true' && github.event_name != 'pull_request'
         shell: bash
         env:
           HAPLE_CERT_SHA256: 7a64fc85325afe79439afb63369d832d7ddc20fd5b3935b4c28d7bcb85e92fc7
@@ -379,7 +349,7 @@ jobs:
           fi
 
       - name: Prepare APKs
-        if: steps.scope.outputs.run_android == 'true' && steps.scope.outputs.allow_signing == 'true'
+        if: steps.scope.outputs.run_android == 'true' && github.event_name != 'pull_request'
         shell: bash
         run: |
           VERSION_NAME="$(sed -n 's/^combinedStatus.versionName=//p' gradle.properties)"
@@ -399,7 +369,7 @@ jobs:
           fi
 
       - name: Upload debug APK
-        if: steps.scope.outputs.run_debug == 'true' && steps.scope.outputs.allow_signing == 'true'
+        if: steps.scope.outputs.run_debug == 'true' && github.event_name != 'pull_request'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ${{ env.DEBUG_APK_NAME }}
@@ -407,7 +377,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload canary APK
-        if: steps.scope.outputs.run_canary == 'true' && steps.scope.outputs.allow_signing == 'true'
+        if: steps.scope.outputs.run_canary == 'true' && github.event_name != 'pull_request'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ${{ env.CANARY_APK_NAME }}
