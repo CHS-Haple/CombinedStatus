@@ -157,7 +157,7 @@ class CombinedStatusConnectivityPolicyTest {
                 mobileType = null,
             )
 
-        assertEquals(null, result)
+        assertEquals(CenterIndicator.Empty, result)
         assertEquals(
             false,
             CombinedStatusConnectivityPolicy.wifiReplacementReady(
