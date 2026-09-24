@@ -27,12 +27,31 @@ class SystemUiSignalParserTest {
     }
 
     @Test
-    fun wifiSignalLevelsCoverZeroThroughThree() {
-        for (level in 0..3) {
+    fun wifiFallbackCoversNativeAndModernLevelsZeroThroughFour() {
+        for (level in 0..4) {
             assertEquals(
                 SignalStrength.Level(level),
                 SystemUiSignalParser.wifi(
                     "com.android.systemui:drawable/stat_sys_wifi_signal_" + level,
+                ),
+            )
+            assertEquals(
+                SignalStrength.Level(level),
+                SystemUiSignalParser.wifi(
+                    "com.android.systemui:drawable/stat_sys_wifi_signal_" +
+                        level + "_fully",
+                ),
+            )
+            assertEquals(
+                SignalStrength.Level(level),
+                SystemUiSignalParser.wifi(
+                    "com.android.systemui:drawable/ic_wifi_" + level,
+                ),
+            )
+            assertEquals(
+                SignalStrength.Level(level),
+                SystemUiSignalParser.wifi(
+                    "com.android.systemui:drawable/ic_no_internet_wifi_signal_" + level,
                 ),
             )
         }
