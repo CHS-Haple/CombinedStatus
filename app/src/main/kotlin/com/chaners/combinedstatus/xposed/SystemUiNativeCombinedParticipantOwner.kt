@@ -1,6 +1,7 @@
 package com.chaners.combinedstatus.xposed
 
 import android.content.Context
+import android.os.Looper
 import android.util.AttributeSet
 import android.view.Gravity
 import android.view.View
@@ -350,55 +351,78 @@ internal object SystemUiNativeCombinedParticipantOwner {
     }
 
     @Synchronized
-    fun captureHotReloadHolder(): HotReloadCaptureResult {
-        if (!injected) {
-            return HotReloadCaptureResult.NotActive
+    fun releaseGenerationForHotReload(): Boolean {
+        if (Looper.myLooper() !== Looper.getMainLooper()) {
+            return false
         }
+
+        removePendingPreDraw()
+        rootRef = null
+        renderViewRef = null
+        renderController = null
+        hostRef = null
+        batteryRef = null
+        targetBindingState = null
+        handoffSink = null
+        bindingStates.clear()
+        modelReady = false
+        tintReady = false
+        currentSurface = SystemUiSceneStateSource.Surface.UNKNOWN
+        handoffPending = false
+        handoffCommitted = false
+        modelReadyLogged = false
+        unlockedGeometryLogged = false
+        eventSink = null
+        return true
+    }
+
+    @Synchronized
+    fun adoptAfterHotReload(
+        host: Any,
+    ): HotReloadAdoptResult {
+        if (Looper.myLooper() !== Looper.getMainLooper()) {
+            return HotReloadAdoptResult.Failure("main-thread-required")
+        }
+
         val handles =
-            resolveCurrentHandles()
-                ?: return HotReloadCaptureResult.Failure("native-handles-missing")
+            when (val resolution = NativeParticipantRuntimeAccess.resolve(host)) {
+                is NativeParticipantRuntimeAccess.ResolveResult.Ready ->
+                    resolution.handles
+                is NativeParticipantRuntimeAccess.ResolveResult.Failure ->
+                    return HotReloadAdoptResult.Failure(resolution.reason)
+            }
         val holder =
             NativeParticipantRuntimeAccess.iconHolder(
                 handles = handles,
                 slot = SLOT,
-            ) ?: return HotReloadCaptureResult.Failure("native-holder-missing")
+            ) ?: return HotReloadAdoptResult.NotPresent
         if (holder.javaClass.name != BINDABLE_HOLDER) {
-            return HotReloadCaptureResult.Failure("native-holder-type-mismatch")
+            return HotReloadAdoptResult.Failure("native-holder-type-mismatch")
         }
-        return HotReloadCaptureResult.Ready(holder)
-    }
 
-    @Synchronized
-    fun detachForHotReload(holder: Any): HotReloadDetachResult {
-        val handles =
-            resolveCurrentHandles()
-                ?: return HotReloadDetachResult.Failure("native-handles-missing")
-        val current =
-            NativeParticipantRuntimeAccess.iconHolder(
-                handles = handles,
-                slot = SLOT,
-            )
-        if (current !== holder || holder.javaClass.name != BINDABLE_HOLDER) {
-            return HotReloadDetachResult.Failure("native-holder-identity-mismatch")
-        }
         val initializerField =
             fieldOrNull(holder, "initializer")
-                ?: return HotReloadDetachResult.Failure("native-initializer-field-missing")
-        val originalInitializer =
-            runCatching { initializerField.get(holder) }.getOrNull()
-                ?: return HotReloadDetachResult.Failure("native-initializer-missing")
+                ?: return HotReloadAdoptResult.Failure("native-initializer-field-missing")
+        val slotField =
+            fieldOrNull(holder, "slot")
+                ?: return HotReloadAdoptResult.Failure("native-slot-field-missing")
+        val visibleField =
+            fieldOrNull(holder, "isVisible")
+                ?: return HotReloadAdoptResult.Failure("native-visible-field-missing")
         val removal =
             NativeParticipantRuntimeAccess.removal(handles.controller.javaClass)
-                ?: return HotReloadDetachResult.Failure("removal-contract-missing")
-
-        removePendingPreDraw()
-        handoffPending = false
-        if (handoffCommitted) {
-            handoffCommitted = false
-            handoffSink?.invoke(false)
-        }
-        targetBindingState?.visible = false
-        rootRef?.get()?.let(::requestNativeLayout)
+                ?: return HotReloadAdoptResult.Failure("removal-contract-missing")
+        val iconList =
+            readField(handles.controller, "mStatusBarIconList")
+                ?: return HotReloadAdoptResult.Failure("status-bar-icon-list-missing")
+        val creator =
+            runCatching {
+                createRuntimeCreator(handles.classLoader)
+            }.getOrElse { error ->
+                return HotReloadAdoptResult.Failure(
+                    error.message ?: error.javaClass.simpleName,
+                )
+            }
 
         val removed =
             runCatching {
@@ -410,13 +434,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
                 true
             }.getOrDefault(false)
         if (!removed) {
-            restoreHotReloadParticipant(
-                handles = handles,
-                holder = holder,
-                initializerField = initializerField,
-                initializer = originalInitializer,
-            )
-            return HotReloadDetachResult.Failure("native-removal-failed")
+            return HotReloadAdoptResult.Failure("native-removal-failed")
         }
 
         val cleared =
@@ -425,84 +443,22 @@ internal object SystemUiNativeCombinedParticipantOwner {
                 slot = SLOT,
                 expectedHolder = holder,
             )
+        if (
+            NativeParticipantRuntimeAccess.findSlotView(handles.group, SLOT) != null ||
+            NativeParticipantRuntimeAccess.iconHolder(handles, SLOT) != null
+        ) {
+            return HotReloadAdoptResult.Failure("native-removal-verification-failed")
+        }
+
         val sanitized =
             runCatching {
                 initializerField.set(holder, null)
                 initializerField.get(holder) == null
             }.getOrDefault(false)
         if (!sanitized) {
-            restoreHotReloadParticipant(
-                handles = handles,
-                holder = holder,
-                initializerField = initializerField,
-                initializer = originalInitializer,
-            )
-            return HotReloadDetachResult.Failure("native-holder-sanitize-failed")
+            return HotReloadAdoptResult.Failure("native-holder-sanitize-failed")
         }
 
-        if (
-            NativeParticipantRuntimeAccess.findSlotView(handles.group, SLOT) != null ||
-            NativeParticipantRuntimeAccess.iconHolder(handles, SLOT) != null
-        ) {
-            restoreHotReloadParticipant(
-                handles = handles,
-                holder = holder,
-                initializerField = initializerField,
-                initializer = originalInitializer,
-            )
-            return HotReloadDetachResult.Failure("native-removal-verification-failed")
-        }
-
-        reset(Unit)
-        return HotReloadDetachResult.Ready(
-            clearedManagerEntries = cleared,
-        )
-    }
-
-    @Synchronized
-    fun rebindAfterHotReload(
-        host: Any,
-        transferredHolder: Any?,
-    ): HotReloadRebindResult {
-        val holder =
-            transferredHolder
-                ?: return HotReloadRebindResult.NotTransferred
-        if (holder.javaClass.name != BINDABLE_HOLDER) {
-            return HotReloadRebindResult.Failure("transferred-holder-type-mismatch")
-        }
-
-        val resolution = NativeParticipantRuntimeAccess.resolve(host)
-        val handles =
-            when (resolution) {
-                is NativeParticipantRuntimeAccess.ResolveResult.Ready ->
-                    resolution.handles
-                is NativeParticipantRuntimeAccess.ResolveResult.Failure ->
-                    return HotReloadRebindResult.Failure(resolution.reason)
-            }
-        if (NativeParticipantRuntimeAccess.iconHolder(handles, SLOT) != null) {
-            return HotReloadRebindResult.Failure("native-holder-still-registered")
-        }
-
-        val initializerField =
-            fieldOrNull(holder, "initializer")
-                ?: return HotReloadRebindResult.Failure("native-initializer-field-missing")
-        val slotField =
-            fieldOrNull(holder, "slot")
-                ?: return HotReloadRebindResult.Failure("native-slot-field-missing")
-        val visibleField =
-            fieldOrNull(holder, "isVisible")
-                ?: return HotReloadRebindResult.Failure("native-visible-field-missing")
-        val creator =
-            runCatching {
-                createRuntimeCreator(handles.classLoader)
-            }.getOrElse { error ->
-                return HotReloadRebindResult.Failure(
-                    error.message ?: error.javaClass.simpleName,
-                )
-            }
-        val iconList =
-            readField(handles.controller, "mStatusBarIconList")
-                ?: return HotReloadRebindResult.Failure("status-bar-icon-list-missing")
         val slotPreparation =
             when (
                 val result =
@@ -514,7 +470,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
                 is NativeStatusBarSlotReservation.ReservationResult.Ready ->
                     result
                 is NativeStatusBarSlotReservation.ReservationResult.Failure ->
-                    return HotReloadRebindResult.Failure(
+                    return HotReloadAdoptResult.Failure(
                         "slot-reservation-" + result.result.reason,
                     )
             }
@@ -534,14 +490,11 @@ internal object SystemUiNativeCombinedParticipantOwner {
             }.getOrDefault(false)
         if (!rebound) {
             runCatching {
-                NativeParticipantRuntimeAccess.removal(handles.controller.javaClass)
-                    ?.let { removal ->
-                        NativeParticipantRuntimeAccess.invokeRemoval(
-                            handles = handles,
-                            removal = removal,
-                            slot = SLOT,
-                        )
-                    }
+                NativeParticipantRuntimeAccess.invokeRemoval(
+                    handles = handles,
+                    removal = removal,
+                    slot = SLOT,
+                )
             }
             NativeParticipantRuntimeAccess.clearBindableEntries(
                 handles = handles,
@@ -550,18 +503,22 @@ internal object SystemUiNativeCombinedParticipantOwner {
             )
             runCatching { initializerField.set(holder, null) }
             slotPreparation.reservation.rollback()
-            recordFailure("hot-reload-rebind-failed")
-            return HotReloadRebindResult.Failure("native-rebind-failed")
+            recordFailure("hot-reload-adoption-failed")
+            return HotReloadAdoptResult.Failure("native-rebind-failed")
         }
 
         injected = true
         registryRestored = true
         failureReason = null
         eventSink?.invoke(
-            "nativeCombinedParticipant hotReloadRebind slot=" + SLOT +
-                " viewReady=true managerEntriesRefreshed=true nativeGeometryWrites=0",
+            "nativeCombinedParticipant hotReloadAdopt slot=" + SLOT +
+                " viewReady=true managerEntriesRefreshed=true " +
+                "clearedManagerEntries=" + cleared +
+                " mainThread=true nativeGeometryWrites=0",
         )
-        return HotReloadRebindResult.Ready
+        return HotReloadAdoptResult.Ready(
+            clearedManagerEntries = cleared,
+        )
     }
 
     @Synchronized
@@ -1055,22 +1012,6 @@ internal object SystemUiNativeCombinedParticipantOwner {
         )
     }
 
-    private fun restoreHotReloadParticipant(
-        handles: NativeParticipantRuntimeAccess.Handles,
-        holder: Any,
-        initializerField: Field,
-        initializer: Any,
-    ) {
-        runCatching {
-            initializerField.set(holder, initializer)
-            NativeParticipantRuntimeAccess.invokeSetIconHolder(
-                handles = handles,
-                slot = SLOT,
-                holder = holder,
-            )
-        }
-    }
-
     private fun createBindableIconProxy(
         classLoader: ClassLoader,
         bindableIconClass: Class<*>,
@@ -1252,21 +1193,14 @@ internal object SystemUiNativeCombinedParticipantOwner {
             else -> visibility.toString()
         }
 
-    internal sealed interface HotReloadCaptureResult {
-        data class Ready(val holder: Any) : HotReloadCaptureResult
-        data object NotActive : HotReloadCaptureResult
-        data class Failure(val reason: String) : HotReloadCaptureResult
-    }
-
-    internal sealed interface HotReloadDetachResult {
-        data class Ready(val clearedManagerEntries: Int) : HotReloadDetachResult
-        data class Failure(val reason: String) : HotReloadDetachResult
-    }
-
-    internal sealed interface HotReloadRebindResult {
-        data object Ready : HotReloadRebindResult
-        data object NotTransferred : HotReloadRebindResult
-        data class Failure(val reason: String) : HotReloadRebindResult
+    internal sealed interface HotReloadAdoptResult {
+        data class Ready(
+            val clearedManagerEntries: Int,
+        ) : HotReloadAdoptResult
+        data object NotPresent : HotReloadAdoptResult
+        data class Failure(
+            val reason: String,
+        ) : HotReloadAdoptResult
     }
 
     internal sealed interface InstallResult {

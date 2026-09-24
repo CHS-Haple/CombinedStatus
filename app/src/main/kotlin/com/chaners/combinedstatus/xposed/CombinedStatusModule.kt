@@ -134,32 +134,9 @@ class CombinedStatusModule : XposedModule() {
     }
 
     override fun onHotReloading(param: HotReloadingParam): Boolean {
-        val nativeTransfer =
-            when (
-                val capture =
-                    SystemUiNativeCombinedParticipantOwner.captureHotReloadHolder()
-            ) {
-                is SystemUiNativeCombinedParticipantOwner.HotReloadCaptureResult.Ready ->
-                    capture
-                SystemUiNativeCombinedParticipantOwner.HotReloadCaptureResult.NotActive ->
-                    null
-                is SystemUiNativeCombinedParticipantOwner.HotReloadCaptureResult.Failure -> {
-                    logDiagnostic(
-                        level = Log.WARN,
-                        event = "hotReload.prepare",
-                        component = "nativeCombinedParticipant",
-                        state = "unavailable",
-                        "reason" to capture.reason,
-                        "restartScope" to true,
-                    )
-                    return false
-                }
-            }
         val prepared =
             SystemUiHotReloadRuntimeOwner.prepare(
                 param = param,
-                visual = CombinedStatusHomeRenderSession.visualHandoffView(),
-                nativeHolder = nativeTransfer?.holder,
             )
         if (prepared is SystemUiHotReloadRuntimeOwner.PrepareResult.Unavailable) {
             logDiagnostic(
@@ -196,7 +173,7 @@ class CombinedStatusModule : XposedModule() {
             state = "preparing",
             "hooks" to hookCount,
             "build" to BuildConfig.BUILD_ID,
-            "transfer" to "saved-instance-state",
+            "transfer" to "classloader-neutral",
             "hostIdentity" to System.identityHashCode(prepared.host),
             "wifiRoots" to prepared.wifiRoots,
             "mobileRoots" to prepared.mobileRoots,
@@ -206,50 +183,45 @@ class CombinedStatusModule : XposedModule() {
             TAG,
             "Hot reload preparing build=" + BuildConfig.BUILD_ID +
                 " hooks=" + hookCount +
-                " transfer=saved-instance-state",
+                " transfer=classloader-neutral",
         )
-        val nativeDetached =
-            if (nativeTransfer != null) {
-                when (
-                    val result =
-                        SystemUiNativeCombinedParticipantOwner.detachForHotReload(
-                            nativeTransfer.holder,
-                        )
-                ) {
-                    is SystemUiNativeCombinedParticipantOwner.HotReloadDetachResult.Ready -> {
-                        logDiagnostic(
-                            level = Log.INFO,
-                            event = "hotReload.transfer",
-                            component = "nativeCombinedParticipant",
-                            state = "ready",
-                            "managerEntriesCleared" to result.clearedManagerEntries,
-                            "holderTransferred" to true,
-                        )
-                        true
-                    }
 
-                    is SystemUiNativeCombinedParticipantOwner.HotReloadDetachResult.Failure -> {
-                        logDiagnostic(
-                            level = Log.ERROR,
-                            event = "hotReload.transfer",
-                            component = "nativeCombinedParticipant",
-                            state = "error",
-                            "reason" to result.reason,
-                            "restartScope" to true,
-                        )
-                        return false
-                    }
+        val hostView =
+            prepared.host as? android.view.View
+                ?: return false
+        val cleanupScheduled =
+            hostView.post {
+                runCatching {
+                    teardownOldGenerationForHotReload()
+                }.onFailure { error ->
+                    log(
+                        Log.ERROR,
+                        TAG,
+                        "Old-generation Hot Reload cleanup failed",
+                        error,
+                    )
                 }
-            } else {
-                false
             }
+        if (!cleanupScheduled) {
+            logDiagnostic(
+                level = Log.WARN,
+                event = "hotReload.prepare",
+                component = "hotReload",
+                state = "unavailable",
+                "reason" to "main-thread-cleanup-scheduling-failed",
+                "restartScope" to true,
+            )
+            return false
+        }
 
-        teardownRuntimeResources(
-            source = "hotReload.prepare",
-            preserveRendererVisual = true,
-            nativeCombinedAlreadyDetached = nativeDetached,
+        logDiagnostic(
+            level = Log.INFO,
+            event = "hotReload.cleanup",
+            component = "hotReload",
+            state = "scheduled",
+            "uiMutation" to "main-thread-only",
+            "nativeParticipant" to "preserved-for-adoption",
         )
-        unbindRuntimeDiagnostics()
         return true
     }
 
@@ -343,100 +315,70 @@ class CombinedStatusModule : XposedModule() {
             }
 
             val restored = SystemUiHotReloadRuntimeOwner.restoreTransfer(param)
-            val restoreReady =
-                if (restored != null) {
-                    val capture = SystemUiHostRegistry.restoreStatusHost(restored.host)
-                    logDiagnostic(
-                        level = Log.INFO,
-                        event = "host.restore",
-                        component = "statusHost",
-                        state = "ready",
-                        "identity" to capture.identity,
-                        "replacement" to capture.replacement,
-                        "source" to "hotReloadTransfer",
+            if (restored == null) {
+                CombinedStatusStateStore.restoreHotReloadState(null)
+                logDiagnostic(
+                    level = Log.WARN,
+                    event = "hotReload.restore",
+                    component = "hotReload",
+                    state = "unavailable",
+                    "reason" to "saved-state-missing-or-unsupported-generation",
+                    "restartScope" to true,
+                )
+                logDiagnostic(
+                    level = Log.WARN,
+                    event = "hotReload.complete",
+                    component = "hotReload",
+                    state = "partial",
+                    "build" to BuildConfig.BUILD_ID,
+                    "statusHostHook" to "replaced",
+                    "staleHooks" to removed,
+                    "restartScope" to true,
+                )
+                return@runCatching
+            }
+
+            val capture = SystemUiHostRegistry.restoreStatusHost(restored.host)
+            logDiagnostic(
+                level = Log.INFO,
+                event = "host.restore",
+                component = "statusHost",
+                state = "ready",
+                "identity" to capture.identity,
+                "replacement" to capture.replacement,
+                "source" to "hotReloadTransfer",
+            )
+
+            val hostView = capture.host as? android.view.View
+                ?: error("restored-host-not-view")
+            val restoreScheduled =
+                hostView.post {
+                    restoreHotReloadRuntimeOnMain(
+                        capture = capture,
+                        restored = restored,
+                        removedHooks = removed,
                     )
-                    val restoredSnapshot =
-                        CombinedStatusStateStore.restoreHotReloadState(restored.state)
-                    val bindings =
-                        SystemUiNetworkStateSource.restoreHotReloadBindings(restored.bindings)
-                    val nativeRebind =
-                        SystemUiNativeCombinedParticipantOwner.rebindAfterHotReload(
-                            host = capture.host,
-                            transferredHolder = restored.nativeHolder,
-                        )
-                    val nativeAccepted =
-                        nativeRebind !is
-                            SystemUiNativeCombinedParticipantOwner.HotReloadRebindResult.Failure
-                    val nativeState =
-                        when (nativeRebind) {
-                            SystemUiNativeCombinedParticipantOwner.HotReloadRebindResult.Ready ->
-                                "ready"
-                            SystemUiNativeCombinedParticipantOwner.HotReloadRebindResult.NotTransferred ->
-                                "fallback"
-                            is SystemUiNativeCombinedParticipantOwner.HotReloadRebindResult.Failure ->
-                                "fallback"
-                        }
-                    logDiagnostic(
-                        level = if (nativeAccepted) Log.INFO else Log.WARN,
-                        event = "hotReload.rebind",
-                        component = "nativeCombinedParticipant",
-                        state = nativeState,
-                        "result" to nativeRebind.javaClass.simpleName,
-                        "reason" to
-                            (
-                                nativeRebind as?
-                                    SystemUiNativeCombinedParticipantOwner
-                                        .HotReloadRebindResult
-                                        .Failure
-                            )?.reason,
-                        "nativeGeometryWrites" to 0,
-                    )
-                    attachHostRuntime(
-                        host = capture.host,
-                        source = "hotReloadRestore",
-                        previousVisual = restored.visual,
-                    )
-                    logDiagnostic(
-                        level = if (nativeAccepted) Log.INFO else Log.WARN,
-                        event = "hotReload.restore",
-                        component = "hotReload",
-                        state = if (nativeAccepted) "ready" else "partial",
-                        "hostIdentity" to capture.identity,
-                        "wifiRoots" to bindings.wifiRoots,
-                        "mobileRoots" to bindings.mobileRoots,
-                        "state" to restoredSnapshot.logLine,
-                        "nativeRebind" to nativeRebind.javaClass.simpleName,
-                    )
-                    nativeAccepted
-                } else {
-                    CombinedStatusStateStore.restoreHotReloadState(null)
-                    logDiagnostic(
-                        level = Log.WARN,
-                        event = "hotReload.restore",
-                        component = "hotReload",
-                        state = "unavailable",
-                        "reason" to "saved-state-missing-or-legacy-generation",
-                        "restartScope" to true,
-                    )
-                    false
                 }
+            if (!restoreScheduled) {
+                logDiagnostic(
+                    level = Log.ERROR,
+                    event = "hotReload.complete",
+                    component = "hotReload",
+                    state = "error",
+                    "reason" to "main-thread-restore-scheduling-failed",
+                    "restartScope" to true,
+                )
+                return@runCatching
+            }
 
             logDiagnostic(
-                level = if (restoreReady) Log.INFO else Log.WARN,
-                event = "hotReload.complete",
+                level = Log.INFO,
+                event = "hotReload.restore",
                 component = "hotReload",
-                state = if (restoreReady) "ready" else "partial",
-                "build" to BuildConfig.BUILD_ID,
-                "statusHostHook" to "replaced",
-                "staleHooks" to removed,
-                "restartScope" to !restoreReady,
-            )
-            log(
-                if (restoreReady) Log.INFO else Log.WARN,
-                TAG,
-                "Hot reload completed build=" + BuildConfig.BUILD_ID +
-                    " statusHostHook=replaced staleHooks=" + removed +
-                    " restored=" + restoreReady,
+                state = "scheduled",
+                "hostIdentity" to capture.identity,
+                "uiMutation" to "main-thread-only",
+                "restartScope" to false,
             )
         }.onFailure { error ->
             logDiagnostic(
@@ -448,6 +390,113 @@ class CombinedStatusModule : XposedModule() {
                 "restartScope" to true,
             )
             log(Log.ERROR, TAG, "Hot reload failed restartScope=true", error)
+        }
+    }
+
+    private fun restoreHotReloadRuntimeOnMain(
+        capture: SystemUiHostRegistry.Capture,
+        restored: CombinedStatusHotReloadTransfer.Restored,
+        removedHooks: Int,
+    ) {
+        runCatching {
+            val restoredSnapshot =
+                CombinedStatusStateStore.restoreHotReloadState(restored.state)
+            val bindings =
+                SystemUiNetworkStateSource.restoreHotReloadBindings(restored.bindings)
+            val controllerRestored =
+                SystemUiNativeParticipantRuntimeOwner.restoreExistingController(
+                    capture.host,
+                )
+            val nativeAdoption =
+                SystemUiNativeCombinedParticipantOwner.adoptAfterHotReload(
+                    host = capture.host,
+                )
+            val nativeFailure =
+                nativeAdoption as?
+                    SystemUiNativeCombinedParticipantOwner.HotReloadAdoptResult.Failure
+            val nativeReady =
+                nativeFailure == null &&
+                    (
+                        nativeAdoption !is
+                            SystemUiNativeCombinedParticipantOwner.HotReloadAdoptResult.Ready ||
+                            controllerRestored
+                    )
+            val nativeState =
+                when {
+                    nativeFailure != null -> "fallback"
+                    nativeAdoption is
+                        SystemUiNativeCombinedParticipantOwner.HotReloadAdoptResult.Ready &&
+                        controllerRestored -> "ready"
+                    else -> "fallback"
+                }
+            val nativeReason =
+                nativeFailure?.reason
+                    ?: if (
+                        nativeAdoption is
+                            SystemUiNativeCombinedParticipantOwner.HotReloadAdoptResult.Ready &&
+                        !controllerRestored
+                    ) {
+                        "controller-registration-restore-failed"
+                    } else {
+                        null
+                    }
+
+            logDiagnostic(
+                level = if (nativeReady) Log.INFO else Log.WARN,
+                event = "hotReload.rebind",
+                component = "nativeCombinedParticipant",
+                state = nativeState,
+                "result" to nativeAdoption.javaClass.simpleName,
+                "reason" to nativeReason,
+                "controllerRestored" to controllerRestored,
+                "mainThread" to true,
+                "nativeGeometryWrites" to 0,
+            )
+
+            attachHostRuntime(
+                host = capture.host,
+                source = "hotReloadRestore",
+            )
+
+            logDiagnostic(
+                level = if (nativeReady) Log.INFO else Log.WARN,
+                event = "hotReload.restore",
+                component = "hotReload",
+                state = if (nativeReady) "ready" else "partial",
+                "hostIdentity" to capture.identity,
+                "wifiRoots" to bindings.wifiRoots,
+                "mobileRoots" to bindings.mobileRoots,
+                "state" to restoredSnapshot.logLine,
+                "nativeAdoption" to nativeAdoption.javaClass.simpleName,
+                "mainThread" to true,
+            )
+            logDiagnostic(
+                level = if (nativeReady) Log.INFO else Log.WARN,
+                event = "hotReload.complete",
+                component = "hotReload",
+                state = if (nativeReady) "ready" else "partial",
+                "build" to BuildConfig.BUILD_ID,
+                "statusHostHook" to "replaced",
+                "staleHooks" to removedHooks,
+                "restartScope" to !nativeReady,
+            )
+            log(
+                if (nativeReady) Log.INFO else Log.WARN,
+                TAG,
+                "Hot reload completed build=" + BuildConfig.BUILD_ID +
+                    " statusHostHook=replaced staleHooks=" + removedHooks +
+                    " restored=" + nativeReady,
+            )
+        }.onFailure { error ->
+            logDiagnostic(
+                level = Log.ERROR,
+                event = "hotReload.complete",
+                component = "hotReload",
+                state = "error",
+                "reason" to (error.message ?: error.javaClass.simpleName),
+                "restartScope" to true,
+            )
+            log(Log.ERROR, TAG, "Hot reload main-thread restore failed", error)
         }
     }
 
@@ -945,47 +994,39 @@ class CombinedStatusModule : XposedModule() {
         SystemUiNativeCombinedParticipantOwner.onSceneUpdate(update)
     }
 
-    private fun teardownRuntimeResources(
-        source: String,
-        preserveRendererVisual: Boolean = false,
-        nativeCombinedAlreadyDetached: Boolean = false,
-    ) {
+    private fun teardownOldGenerationForHotReload() {
         val nativeParticipantPendingCancelled =
             SystemUiNativeParticipantRuntimeOwner.cancelPending()
-        val nativeCombinedDetach =
-            if (nativeCombinedAlreadyDetached) {
-                "HotReloadTransferred"
-            } else {
-                SystemUiNativeCombinedParticipantOwner.detach().javaClass.simpleName
-            }
-        SystemUiNativeNetworkSuppressionOwner.deactivate("runtime-teardown")
-        CombinedStatusHomeRenderSession.detach(preserveVisual = preserveRendererVisual)
+        CombinedStatusHomeRenderSession.detach()
         StatusBarStableSession.detach()
         SystemUiCoreRuntimeOwner.detach()
         SystemUiPresentationRuntimeOwner.resetRuntimeState()
         CombinedStatusPresentationStateStore.reset()
         SystemUiIslandMotionSource.resetRuntimeState()
+        val nativeRuntimeReleased =
+            SystemUiNativeCombinedParticipantOwner.releaseGenerationForHotReload()
 
         logDiagnostic(
-            level = Log.INFO,
+            level = if (nativeRuntimeReleased) Log.INFO else Log.WARN,
             event = "runtime.teardown",
             component = "runtimeSession",
-            state = "ready",
-            "source" to source,
-            "rendererDetached" to !preserveRendererVisual,
-            "rendererVisualPreserved" to preserveRendererVisual,
+            state = if (nativeRuntimeReleased) "ready" else "partial",
+            "source" to "hotReload.oldGeneration",
+            "rendererDetached" to true,
             "stableStatusDetached" to true,
             "airplaneObserverDetached" to true,
             "defaultDataSubscriptionObserverDetached" to true,
             "nativeParticipantPendingCancelled" to nativeParticipantPendingCancelled,
-            "nativeCombinedParticipantDetached" to nativeCombinedDetach,
+            "nativeCombinedParticipant" to "preserved-for-main-thread-adoption",
+            "nativeRuntimeReferencesReleased" to nativeRuntimeReleased,
+            "mainThread" to true,
         )
+        unbindRuntimeDiagnostics()
     }
 
     private fun attachHostRuntime(
         host: Any,
         source: String,
-        previousVisual: android.view.View? = null,
     ) {
         val hostContext = (host as? android.view.View)?.context
         val coreRuntime =
@@ -1112,7 +1153,6 @@ class CombinedStatusModule : XposedModule() {
                 },
                 onLatencySample = ::onRenderLatencySample,
                 isDetailedDiagnosticsEnabled = { detailedDiagnosticsEnabled },
-                previousVisual = previousVisual,
             )
         ) {
             CombinedStatusHomeRenderSession.AttachResult.Ready -> {

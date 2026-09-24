@@ -19,7 +19,6 @@ internal object CombinedStatusHomeRenderSession {
         onEvent: (String) -> Unit,
         onLatencySample: ((RuntimeRenderLatencySample) -> Unit)? = null,
         isDetailedDiagnosticsEnabled: () -> Boolean = { true },
-        previousVisual: View? = null,
     ): AttachResult {
         val hostView = host as? ViewGroup
             ?: return AttachResult.Failure("host-not-view-group")
@@ -44,7 +43,6 @@ internal object CombinedStatusHomeRenderSession {
             isDetailedDiagnosticsEnabled = isDetailedDiagnosticsEnabled,
         )
         current = session
-        session.acceptPreviousVisual(previousVisual)
         session.start()
         session.update(CombinedStatusStateStore.snapshot())
         return AttachResult.Ready
@@ -79,9 +77,6 @@ internal object CombinedStatusHomeRenderSession {
     }
 
     @Synchronized
-    fun visualHandoffView(): View? = current?.visualHandoffView()
-
-    @Synchronized
     fun detach(preserveVisual: Boolean = false) {
         current?.stop(removeVisual = !preserveVisual)
         current = null
@@ -110,10 +105,6 @@ internal object CombinedStatusHomeRenderSession {
         private val batteryView = WeakReference(batteryView)
         private val probeView =
             CombinedStatusRenderView(host.context) { latencyMs, committedOnMainThread, sample ->
-                previousVisual?.let { oldView ->
-                    this.host.get()?.overlay?.remove(oldView)
-                    previousVisual = null
-                }
                 if (sample != null && onLatencySample != null) {
                     onLatencySample.invoke(sample)
                 } else {
@@ -133,7 +124,6 @@ internal object CombinedStatusHomeRenderSession {
         private var sceneSurface = SystemUiSceneStateSource.Surface.UNKNOWN
         private var nativeHandoffActive = false
         private val anchorRect = Rect()
-        private var previousVisual: View? = null
 
         private val batteryLayoutListener =
             View.OnLayoutChangeListener {
@@ -177,20 +167,12 @@ internal object CombinedStatusHomeRenderSession {
             layoutProbe()
         }
 
-        fun visualHandoffView(): View = probeView
-
-        fun acceptPreviousVisual(view: View?) {
-            if (view == null || view === probeView) return
-            previousVisual = view
-        }
-
         fun stop(removeVisual: Boolean = true) {
             host.get()?.removeOnAttachStateChangeListener(this)
             batteryView.get()?.removeOnLayoutChangeListener(batteryLayoutListener)
             if (removeVisual) {
                 host.get()?.overlay?.remove(probeView)
             }
-            previousVisual = null
         }
 
         fun updateScene(update: SystemUiSceneStateSource.SceneUpdate) {
