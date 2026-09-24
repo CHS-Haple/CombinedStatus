@@ -45,6 +45,7 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Fixed
 
+- Runtime health now evaluates presentation-source readiness through the owning `presentationRuntime` subsystem, so tint/scene states that are legitimately not yet observed no longer mark an otherwise healthy runtime as degraded.
 - Native Home CombinedStatus now uses a full-height custom participant shell matching its 108 px visual extent, preventing unlock appearance clipping while preserving SystemUI-owned status-icon and charging-island animation behavior.
 - Network hook installation is fail-soft per source so failure in Wi-Fi or mobile resolution no longer tears down the other source.
 - Verified network emitter resolution no longer depends on resolving Kotlin `Continuation` by name through the SystemUI ClassLoader, preventing optimized/Canary builds from losing network hooks.
