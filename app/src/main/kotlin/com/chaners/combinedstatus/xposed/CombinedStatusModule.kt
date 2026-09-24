@@ -82,6 +82,10 @@ class CombinedStatusModule : XposedModule() {
             classLoader = param.classLoader,
             source = "coldStart",
         )
+        installNativeNetworkSuppression(
+            classLoader = param.classLoader,
+            source = "coldStart",
+        )
         installNativeParticipantControllerObserver(
             classLoader = param.classLoader,
             source = "coldStart",
@@ -179,6 +183,7 @@ class CombinedStatusModule : XposedModule() {
                 SystemUiPresentationRuntimeOwner.installedHookCount +
                 SystemUiNativeParticipantRuntimeOwner.installedHookCount +
                 SystemUiNativeCombinedParticipantOwner.installedHookCount +
+                SystemUiNativeNetworkSuppressionOwner.installedHookCount +
                 if (islandMotionSourceInstalled) {
                     SystemUiIslandMotionSource.HOOK_COUNT
                 } else {
@@ -282,6 +287,7 @@ class CombinedStatusModule : XposedModule() {
             SystemUiPresentationRuntimeOwner.resetRuntimeState()
             SystemUiIslandMotionSource.resetRuntimeState()
             SystemUiNativeParticipantRuntimeOwner.resetControllerRuntimeState()
+            SystemUiNativeNetworkSuppressionOwner.resetRuntimeState("hotReload")
             bindRuntimeDiagnostics()
             logDiagnostic(
                 level = Log.INFO,
@@ -318,6 +324,10 @@ class CombinedStatusModule : XposedModule() {
                 source = "hotReload",
             )
             installNativeCombinedParticipant(
+                classLoader = classLoader,
+                source = "hotReload",
+            )
+            installNativeNetworkSuppression(
                 classLoader = classLoader,
                 source = "hotReload",
             )
@@ -514,6 +524,49 @@ class CombinedStatusModule : XposedModule() {
                     level = Log.WARN,
                     event = "hook.install",
                     component = "nativeCombinedParticipant",
+                    state = "unavailable",
+                    "source" to source,
+                    "reason" to result.reason,
+                    "nativeGeometryWrites" to 0,
+                )
+            }
+        }
+    }
+
+    private fun installNativeNetworkSuppression(
+        classLoader: ClassLoader,
+        source: String,
+    ) {
+        when (
+            val result =
+                SystemUiNativeNetworkSuppressionOwner.install(
+                    module = this,
+                    classLoader = classLoader,
+                    onEvent = { event ->
+                        if (detailedDiagnosticsEnabled) {
+                            log(Log.INFO, TAG, event)
+                        }
+                    },
+                )
+        ) {
+            SystemUiNativeNetworkSuppressionOwner.InstallResult.Installed,
+            SystemUiNativeNetworkSuppressionOwner.InstallResult.AlreadyInstalled -> {
+                logDiagnostic(
+                    level = Log.INFO,
+                    event = "hook.install",
+                    component = "nativeNetworkSuppression",
+                    state = "ready",
+                    "source" to source,
+                    "hooks" to SystemUiNativeNetworkSuppressionOwner.installedHookCount,
+                    "nativeGeometryWrites" to 0,
+                )
+            }
+
+            is SystemUiNativeNetworkSuppressionOwner.InstallResult.Failure -> {
+                logDiagnostic(
+                    level = Log.WARN,
+                    event = "hook.install",
+                    component = "nativeNetworkSuppression",
                     state = "unavailable",
                     "source" to source,
                     "reason" to result.reason,
@@ -896,6 +949,7 @@ class CombinedStatusModule : XposedModule() {
             } else {
                 SystemUiNativeCombinedParticipantOwner.detach().javaClass.simpleName
             }
+        SystemUiNativeNetworkSuppressionOwner.deactivate("runtime-teardown")
         CombinedStatusHomeRenderSession.detach(preserveVisual = preserveRendererVisual)
         StatusBarStableSession.detach()
         SystemUiCoreRuntimeOwner.detach()
@@ -1292,15 +1346,33 @@ class CombinedStatusModule : XposedModule() {
                 SystemUiNativeCombinedParticipantOwner.attachHidden(
                     host = host,
                     onHandoffStateChanged = { active ->
+                        val suppression =
+                            if (active) {
+                                SystemUiNativeNetworkSuppressionOwner.activate(host)
+                            } else {
+                                SystemUiNativeNetworkSuppressionOwner.deactivate(
+                                    "native-handoff-fallback",
+                                )
+                            }
                         CombinedStatusHomeRenderSession.setNativeHandoffActive(active)
                         logDiagnostic(
-                            level = Log.INFO,
+                            level =
+                                if (
+                                    active &&
+                                    suppression is
+                                        SystemUiNativeNetworkSuppressionOwner.StateResult.Failure
+                                ) {
+                                    Log.WARN
+                                } else {
+                                    Log.INFO
+                                },
                             event = "visibility.handoff",
                             component = "nativeCombinedParticipant",
                             state = if (active) "active" else "fallback",
                             "source" to source,
                             "nativeActive" to active,
                             "overlayActive" to !active,
+                            "networkSuppression" to suppression.summary,
                             "nativeGeometryWrites" to 0,
                         )
                     },
