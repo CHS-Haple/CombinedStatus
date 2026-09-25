@@ -2,6 +2,8 @@ package com.chaners.combinedstatus.xposed
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BlendMode
+import android.graphics.BlendModeColorFilter
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -21,6 +23,7 @@ internal class CombinedStatusPainter(
     private val context: Context,
 ) {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val nativeBitmapPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private var airplaneDrawableResolved = false
     private var cachedAirplaneResourceId: Int = 0
     private val nativeCenterAssets = LinkedHashMap<String, NativeCenterAsset>(NATIVE_CENTER_CACHE_SIZE, 0.75f, true)
@@ -333,10 +336,8 @@ internal class CombinedStatusPainter(
                         drawable = drawable,
                         resources = drawableContext.resources,
                     ) ?: return@runCatching null
-                val constantState = drawable.constantState ?: return@runCatching null
                 NativeCenterAsset(
-                    constantState = constantState,
-                    resources = drawableContext.resources,
+                    bitmap = visualProbe.normalizedBitmap,
                     intrinsicWidth = drawable.intrinsicWidth,
                     intrinsicHeight = drawable.intrinsicHeight,
                     opticalBounds = visualProbe.opticalBounds,
@@ -346,8 +347,9 @@ internal class CombinedStatusPainter(
 
         nativeCenterAssets[key] = asset
         if (nativeCenterAssets.size > NATIVE_CENTER_CACHE_SIZE) {
-            val eldestKey = nativeCenterAssets.entries.iterator().next().key
-            nativeCenterAssets.remove(eldestKey)
+            val eldest = nativeCenterAssets.entries.iterator().next()
+            nativeCenterAssets.remove(eldest.key)
+            eldest.value.bitmap.recycle()
         }
         return asset
     }
@@ -390,10 +392,10 @@ internal class CombinedStatusPainter(
         var minY = probeHeight
         var maxX = -1
         var maxY = -1
-        var maxAlpha = 0
+        val sourceAlphas = IntArray(pixels.size)
         pixels.forEachIndexed { index, color ->
             val alpha = Color.alpha(color)
-            if (alpha > maxAlpha) maxAlpha = alpha
+            sourceAlphas[index] = alpha
             if (alpha > NATIVE_OPTICAL_ALPHA_THRESHOLD) {
                 val x = index % probeWidth
                 val y = index / probeWidth
@@ -404,12 +406,35 @@ internal class CombinedStatusPainter(
             }
         }
 
-        if (maxAlpha <= 0 || maxX < minX || maxY < minY) {
+        val plateauAlpha =
+            CombinedStatusVisualIntensity.resolveSourcePlateauAlpha(
+                sourceAlphas = sourceAlphas,
+                minVisibleAlpha = NATIVE_OPTICAL_ALPHA_THRESHOLD,
+            )
+        if (plateauAlpha <= 0 || maxX < minX || maxY < minY) {
             bitmap.recycle()
             return null
         }
 
-        bitmap.recycle()
+        for (index in pixels.indices) {
+            val normalizedAlpha =
+                CombinedStatusVisualIntensity.normalizeSourceAlpha(
+                    sourceAlpha = sourceAlphas[index],
+                    sourcePlateauAlpha = plateauAlpha,
+                )
+            pixels[index] =
+                (normalizedAlpha shl 24) or
+                    0x00ffffff
+        }
+        bitmap.setPixels(
+            pixels,
+            0,
+            probeWidth,
+            0,
+            0,
+            probeWidth,
+            probeHeight,
+        )
 
         return NativeVisualProbe(
             opticalBounds =
@@ -419,6 +444,7 @@ internal class CombinedStatusPainter(
                     right = (maxX + 1) / probeWidth.toFloat(),
                     bottom = (maxY + 1) / probeHeight.toFloat(),
                 ),
+            normalizedBitmap = bitmap,
         )
     }
 
@@ -456,9 +482,13 @@ internal class CombinedStatusPainter(
         val drawWidth = intrinsicWidth * drawableScale
         val drawHeight = intrinsicHeight * drawableScale
 
-        val drawable = asset.constantState.newDrawable(asset.resources).mutate()
-        drawable.setTint(tint)
-        drawable.alpha = CombinedStatusVisualIntensity.resolveDrawableAlpha(opacity)
+        nativeBitmapPaint.colorFilter =
+            BlendModeColorFilter(
+                tint,
+                BlendMode.SRC_IN,
+            )
+        nativeBitmapPaint.alpha =
+            CombinedStatusVisualIntensity.resolveDrawableAlpha(opacity)
 
         if (pixelAligned && nativeTransform.scale > 0f) {
             val bounds =
@@ -470,22 +500,42 @@ internal class CombinedStatusPainter(
                     transform = nativeTransform,
                 )
             val save = canvas.save()
-            canvas.scale(1f / nativeTransform.scale, 1f / nativeTransform.scale)
-            canvas.translate(-nativeTransform.offsetX, -nativeTransform.offsetY)
-            drawable.setBounds(bounds.left, bounds.top, bounds.right, bounds.bottom)
-            drawable.draw(canvas)
+            canvas.scale(
+                1f / nativeTransform.scale,
+                1f / nativeTransform.scale,
+            )
+            canvas.translate(
+                -nativeTransform.offsetX,
+                -nativeTransform.offsetY,
+            )
+            canvas.drawBitmap(
+                asset.bitmap,
+                null,
+                Rect(
+                    bounds.left,
+                    bounds.top,
+                    bounds.right,
+                    bounds.bottom,
+                ),
+                nativeBitmapPaint,
+            )
             canvas.restoreToCount(save)
         } else {
             val left = centerX - drawWidth / 2f
             val top = centerY - drawHeight / 2f
-            drawable.setBounds(
-                left.roundToInt(),
-                top.roundToInt(),
-                (left + drawWidth).roundToInt(),
-                (top + drawHeight).roundToInt(),
+            canvas.drawBitmap(
+                asset.bitmap,
+                null,
+                RectF(
+                    left,
+                    top,
+                    left + drawWidth,
+                    top + drawHeight,
+                ),
+                nativeBitmapPaint,
             )
-            drawable.draw(canvas)
         }
+        nativeBitmapPaint.colorFilter = null
         return true
     }
 
@@ -840,8 +890,7 @@ internal class CombinedStatusPainter(
     }
 
     private data class NativeCenterAsset(
-        val constantState: Drawable.ConstantState,
-        val resources: android.content.res.Resources,
+        val bitmap: Bitmap,
         val intrinsicWidth: Int,
         val intrinsicHeight: Int,
         val opticalBounds: OpticalBounds,
@@ -849,6 +898,7 @@ internal class CombinedStatusPainter(
 
     private data class NativeVisualProbe(
         val opticalBounds: OpticalBounds,
+        val normalizedBitmap: Bitmap,
     )
 
     private data class OpticalBounds(
@@ -1122,12 +1172,37 @@ internal object CombinedStatusVisualIntensity {
             .roundToInt()
             .coerceIn(0, 255)
 
+    fun resolveSourcePlateauAlpha(
+        sourceAlphas: IntArray,
+        minVisibleAlpha: Int,
+    ): Int {
+        val threshold = minVisibleAlpha.coerceIn(0, 254)
+        val histogram = IntArray(256)
+        sourceAlphas.forEach { sourceAlpha ->
+            val alpha = sourceAlpha.coerceIn(0, 255)
+            if (alpha > threshold) {
+                histogram[alpha]++
+            }
+        }
+
+        var plateauAlpha = 0
+        var plateauCount = 0
+        for (alpha in (threshold + 1)..255) {
+            val count = histogram[alpha]
+            if (count >= plateauCount && count > 0) {
+                plateauAlpha = alpha
+                plateauCount = count
+            }
+        }
+        return plateauAlpha
+    }
+
     fun normalizeSourceAlpha(
         sourceAlpha: Int,
-        sourceMaxAlpha: Int,
+        sourcePlateauAlpha: Int,
     ): Int {
-        val maxAlpha = sourceMaxAlpha.coerceIn(1, 255)
-        return (sourceAlpha.coerceIn(0, maxAlpha) * 255f / maxAlpha)
+        val plateauAlpha = sourcePlateauAlpha.coerceIn(1, 255)
+        return (sourceAlpha.coerceIn(0, 255) * 255f / plateauAlpha)
             .roundToInt()
             .coerceIn(0, 255)
     }
