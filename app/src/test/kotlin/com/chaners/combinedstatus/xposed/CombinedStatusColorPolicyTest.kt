@@ -104,7 +104,7 @@ class CombinedStatusColorPolicyTest {
     }
 
     @Test
-    fun HyperOsPowerSaveUsesFingerprintScopedSaverTint() {
+    fun HyperOsPowerSaveUsesSystemUiResolvedTint() {
         val colors =
             CombinedStatusColorPolicy.resolve(
                 model =
@@ -126,7 +126,7 @@ class CombinedStatusColorPolicyTest {
     }
 
     @Test
-    fun HyperOsPerformanceUsesFingerprintScopedPerformanceTint() {
+    fun HyperOsPerformanceUsesSystemUiResolvedTint() {
         val colors =
             CombinedStatusColorPolicy.resolve(
                 model =
