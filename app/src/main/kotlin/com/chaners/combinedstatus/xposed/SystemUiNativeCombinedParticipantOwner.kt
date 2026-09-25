@@ -672,10 +672,10 @@ internal object SystemUiNativeCombinedParticipantOwner {
                 "nativeCombinedParticipant tintSeed " +
                     "authority=" +
                     when {
-                        batteryTintState?.statusIconTint != null ->
-                            "dark-dispatcher-visual-slot"
                         bindingState.iconTint != null ->
-                            "native-binding-fallback"
+                            "native-binding"
+                        batteryTintState?.statusIconTint != null ->
+                            "dark-dispatcher-visual-slot-fallback"
                         else ->
                             "battery-fallback"
                     } +
@@ -940,9 +940,9 @@ internal object SystemUiNativeCombinedParticipantOwner {
     ): CombinedStatusTintState =
         batteryTint.copy(
             statusIconTint =
-                batteryTint.statusIconTint
+                nativeTint
                     ?.takeIf { color -> (color ushr 24) != 0 }
-                    ?: nativeTint
+                    ?: batteryTint.statusIconTint
                         ?.takeIf { color -> (color ushr 24) != 0 },
         )
 
