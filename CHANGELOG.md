@@ -51,6 +51,8 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Fixed
 
+- Charging-island battery hiding now hands the disappearing native battery slot's occupancy to the module-owned `combined_status` root for the duration of the native hide request, then returns the custom slot to zero width when HyperOS restores the battery. This keeps right-side occupancy stable without writing peer icon/battery geometry or adding translation compensation.
+
 - Unlock handoff now supports a verified keyguard pre-arm path: when the Home `combined_status` participant is attached, model/tint/geometry-ready, and still not actually shown behind keyguard, its native binding can be prepared before Home becomes visible. Once committed, the participant stays logically resident in the Home host so HyperOS owns the actual keyguard-to-Home reveal instead of starting a second per-icon APPEAR cycle at unlock. Visible keyguard participants still fail closed; no delay, translation, or custom unlock animation is added.
 
 - Native mobile suppression now also treats one-root dual-aggregated presentations as replaceable, preventing duplicate dual-row mobile visuals from remaining beside Combined Status while preserving separate dual-root presentations.
