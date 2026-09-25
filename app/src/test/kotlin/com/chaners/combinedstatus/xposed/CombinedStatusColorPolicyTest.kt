@@ -23,10 +23,14 @@ class CombinedStatusColorPolicyTest {
     }
 
     @Test
-    fun chargingOnlyOverridesBatteryTintByDefault() {
+    fun chargingUsesResolvedHyperOsTintWhenAvailable() {
         val colors =
             CombinedStatusColorPolicy.resolve(
-                model = model(charging = true),
+                model =
+                    model(
+                        charging = true,
+                        batteryModeTint = 0xff22aa55.toInt(),
+                    ),
                 tintState =
                     CombinedStatusTintState(
                         appliedTint = 0xffddeeff.toInt(),
@@ -36,14 +40,18 @@ class CombinedStatusColorPolicyTest {
 
         assertEquals(0xff556677.toInt(), colors.centerTint)
         assertEquals(0xff556677.toInt(), colors.mobileTint)
-        assertEquals(CombinedStatusColorPolicy.CHARGING_TINT, colors.batteryTint)
+        assertEquals(0xff22aa55.toInt(), colors.batteryTint)
     }
 
     @Test
     fun mobileLinkUsesFinalBatteryTintForDotsAndUnavailableMarkLayer() {
         val colors =
             CombinedStatusColorPolicy.resolve(
-                model = model(charging = true),
+                model =
+                    model(
+                        charging = true,
+                        batteryModeTint = 0xff22aa55.toInt(),
+                    ),
                 tintState =
                     CombinedStatusTintState(
                         appliedTint = 0xff112233.toInt(),
@@ -56,8 +64,8 @@ class CombinedStatusColorPolicyTest {
             )
 
         assertEquals(0xff445566.toInt(), colors.centerTint)
-        assertEquals(CombinedStatusColorPolicy.CHARGING_TINT, colors.mobileTint)
-        assertEquals(CombinedStatusColorPolicy.CHARGING_TINT, colors.batteryTint)
+        assertEquals(0xff22aa55.toInt(), colors.mobileTint)
+        assertEquals(0xff22aa55.toInt(), colors.batteryTint)
     }
 
     @Test
@@ -76,9 +84,9 @@ class CombinedStatusColorPolicyTest {
                     ),
             )
 
-        assertEquals(CombinedStatusColorPolicy.CHARGING_TINT, colors.centerTint)
+        assertEquals(0xff22aa55.toInt(), colors.centerTint)
         assertEquals(0xff445566.toInt(), colors.mobileTint)
-        assertEquals(CombinedStatusColorPolicy.CHARGING_TINT, colors.batteryTint)
+        assertEquals(0xff22aa55.toInt(), colors.batteryTint)
     }
 
     @Test
@@ -104,6 +112,47 @@ class CombinedStatusColorPolicyTest {
     }
 
     @Test
+    fun powerSaveUsesRuntimeResolvedHyperOsTint() {
+        val colors =
+            CombinedStatusColorPolicy.resolve(
+                model =
+                    model(
+                        charging = false,
+                        batteryModeTint = 0xffaa7700.toInt(),
+                    ),
+                tintState =
+                    CombinedStatusTintState(
+                        appliedTint = 0xff112233.toInt(),
+                        statusIconTint = 0xff445566.toInt(),
+                    ),
+            )
+
+        assertEquals(0xffaa7700.toInt(), colors.batteryTint)
+        assertEquals(0xff445566.toInt(), colors.centerTint)
+        assertEquals(0xff445566.toInt(), colors.mobileTint)
+    }
+
+    @Test
+    fun missingNonChargingModeTintFailsNative() {
+        val nativeTint = 0xff445566.toInt()
+        val colors =
+            CombinedStatusColorPolicy.resolve(
+                model =
+                    model(
+                        charging = false,
+                        batteryModeTint = null,
+                    ),
+                tintState =
+                    CombinedStatusTintState(
+                        appliedTint = 0xff112233.toInt(),
+                        statusIconTint = nativeTint,
+                    ),
+            )
+
+        assertEquals(nativeTint, colors.batteryTint)
+    }
+
+    @Test
     fun invalidResolvedNetworkTintFallsBackToBatteryAnchor() {
         val colors =
             CombinedStatusColorPolicy.resolve(
@@ -120,10 +169,14 @@ class CombinedStatusColorPolicyTest {
         assertEquals(0xff112233.toInt(), colors.batteryTint)
     }
 
-    private fun model(charging: Boolean) =
+    private fun model(
+        charging: Boolean,
+        batteryModeTint: Int? = null,
+    ) =
         CombinedStatusRenderModel(
             batteryPercent = 80,
             charging = charging,
+            batteryModeTint = batteryModeTint,
             centerIndicator =
                 CenterIndicator.Wifi(
                     segments = 3,
