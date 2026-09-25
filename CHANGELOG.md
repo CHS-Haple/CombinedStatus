@@ -53,6 +53,7 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Fixed
 
+- Native battery presentation suppression now explicitly tracks HyperOS `mBatteryChargingView`, keeps a visible charging glyph `INVISIBLE` while Combined Status replacement is active so its native layout footprint is preserved, and revalidates that presentation after `MiuiBatteryMeterView.updateChargeAndText()`; teardown restores the latest native visibility without taking ownership of battery-slot geometry.
 - Center network presentation keeps the validated 100 ms SystemUI-style icon-appearance transition only when the presentation family changes between Wi-Fi, mobile type, airplane mode, and empty/search state. Changes within one family—such as Wi-Fi level/Internet markers or 4G/5G/5GA mobile-type updates—redraw in place without replaying the whole center animation.
 
 - Airplane-mode exit now enters an event-driven mobile reacquisition state: the center airplane/cross clears immediately, four signal dots remain unavailable while HyperOS reports no fresh signal, and cached pre-airplane mobile type/strength is not reused.
