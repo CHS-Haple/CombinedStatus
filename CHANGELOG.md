@@ -51,6 +51,8 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Fixed
 
+- After the native `combined_status` participant has completed its Home handoff, keyguard scene changes no longer toggle its bindable icon visibility off/on. The participant remains logically present inside the Home status-icon host while SystemUI owns Home-vs-keyguard host visibility, avoiding a fresh `MiuiStatusIconContainer` APPEAR cycle on unlock. Initial handoff still requires unlocked Home, and overlay fallback remains scene-gated.
+
 - Native mobile suppression now also treats one-root dual-aggregated presentations as replaceable, preventing duplicate dual-row mobile visuals from remaining beside Combined Status while preserving separate dual-root presentations.
 - Airplane-mode center presentation now reuses the left-facing HyperOS `stat_sys_signal_flightmode` shape family for parity with the live Home status bar, while retaining the existing unavailable mobile dots/cross and Wi-Fi precedence when Wi-Fi remains active.
 - VPN-backed default networks no longer suppress an authoritative HyperOS mobile-type label at startup: Wi-Fi/cellular transports retain precedence, while VPN-only fallback waits for authoritative Wi-Fi absence before showing the mobile type.
