@@ -37,6 +37,7 @@ class CombinedStatusConnectivityPolicyTest {
             CenterIndicator.Wifi(
                 segments = 2,
                 internet = InternetState.NO_INTERNET,
+                nativeResourceId = 1,
             ),
             result,
         )
@@ -68,6 +69,7 @@ class CombinedStatusConnectivityPolicyTest {
             CenterIndicator.Wifi(
                 segments = 0,
                 internet = InternetState.VALIDATED,
+                nativeResourceId = 1,
             ),
             result,
         )
@@ -99,6 +101,7 @@ class CombinedStatusConnectivityPolicyTest {
             CenterIndicator.Wifi(
                 segments = 1,
                 internet = InternetState.NO_INTERNET,
+                nativeResourceId = 1,
             ),
             result,
         )
@@ -209,9 +212,64 @@ class CombinedStatusConnectivityPolicyTest {
             CenterIndicator.Wifi(
                 segments = 2,
                 internet = InternetState.VALIDATED,
+                nativeResourceId = 1,
             ),
             result,
         )
+    }
+
+    @Test
+    fun noSimUsesNativeCenterWhenWifiIsAbsent() {
+        val nativeNoSim =
+            CombinedStatusPresentationStateStore.NativeIconResource(
+                packageName = "com.android.systemui",
+                resourceId = 42,
+            )
+
+        val result =
+            CombinedStatusConnectivityPolicy.resolve(
+                wifi = CombinedStatusStateStore.WifiState.Hidden,
+                airplaneMode = false,
+                connectivity =
+                    SystemUiConnectivityStateSource.State(
+                        known = true,
+                        transport = SystemUiConnectivityStateSource.Transport.NONE,
+                        validated = false,
+                        hasInternetCapability = false,
+                        mobileDataEnabled = false,
+                    ),
+                mobileType = null,
+                noSimIcon = nativeNoSim,
+            )
+
+        assertEquals(CenterIndicator.NoSim(nativeNoSim), result)
+    }
+
+    @Test
+    fun airplaneRemainsHigherPriorityThanNoSim() {
+        val nativeNoSim =
+            CombinedStatusPresentationStateStore.NativeIconResource(
+                packageName = "com.android.systemui",
+                resourceId = 42,
+            )
+
+        val result =
+            CombinedStatusConnectivityPolicy.resolve(
+                wifi = CombinedStatusStateStore.WifiState.Hidden,
+                airplaneMode = true,
+                connectivity =
+                    SystemUiConnectivityStateSource.State(
+                        known = true,
+                        transport = SystemUiConnectivityStateSource.Transport.NONE,
+                        validated = false,
+                        hasInternetCapability = false,
+                        mobileDataEnabled = false,
+                    ),
+                mobileType = null,
+                noSimIcon = nativeNoSim,
+            )
+
+        assertEquals(CenterIndicator.Airplane, result)
     }
 
     @Test
