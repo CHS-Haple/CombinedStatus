@@ -218,4 +218,38 @@ class NativePresentationResolverTest {
             ),
         )
     }
+    @Test
+    fun authoritativeActiveSubscriptionDropsDisabledStaleRoot() {
+        val resolved =
+            NativePresentationResolver.resolveActiveBindingSubscriptionIds(
+                boundSubscriptionIds = listOf(1, 4),
+                semanticActiveSubscriptionIds = setOf(1, 4),
+                authoritativeActiveSubscriptionIds = setOf(4),
+            )
+
+        assertEquals(setOf(4), resolved.subscriptionIds)
+        assertEquals(true, resolved.authoritative)
+        assertEquals(
+            NativePresentationResolver.Mode.SINGLE,
+            NativePresentationResolver.classify(
+                boundRoots = 1,
+                visibleRoots = 1,
+                activeSubscriptions = resolved.subscriptionIds.size,
+            ),
+        )
+    }
+
+    @Test
+    fun semanticActiveSubscriptionsRemainFallbackWhenPlatformAuthorityUnavailable() {
+        val resolved =
+            NativePresentationResolver.resolveActiveBindingSubscriptionIds(
+                boundSubscriptionIds = listOf(1, 4),
+                semanticActiveSubscriptionIds = setOf(4),
+                authoritativeActiveSubscriptionIds = null,
+            )
+
+        assertEquals(setOf(4), resolved.subscriptionIds)
+        assertEquals(false, resolved.authoritative)
+    }
+
 }
