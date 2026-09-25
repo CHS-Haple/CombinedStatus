@@ -43,7 +43,7 @@ class CombinedStatusColorPolicyTest {
     fun mobileLinkUsesFinalBatteryTintForDotsAndUnavailableMarkLayer() {
         val colors =
             CombinedStatusColorPolicy.resolve(
-                model = model(charging = true),
+                model = model(charging = true, batteryModeTint = 0xff1cb753.toInt()),
                 tintState =
                     CombinedStatusTintState(
                         appliedTint = 0xff112233.toInt(),
@@ -64,7 +64,7 @@ class CombinedStatusColorPolicyTest {
     fun centerLinkUsesFinalBatteryTintForEveryCenterFamily() {
         val colors =
             CombinedStatusColorPolicy.resolve(
-                model = model(charging = true),
+                model = model(charging = true, batteryModeTint = 0xff1cb753.toInt()),
                 tintState =
                     CombinedStatusTintState(
                         appliedTint = 0xff112233.toInt(),
