@@ -25,6 +25,9 @@ internal object SystemUiTintStateSource {
     private val firstEventLogged = WeakHashMap<View, Unit>()
     private val batteryIconStructureLogged = WeakHashMap<View, Unit>()
     private val lastSemanticBatteryTints = WeakHashMap<View, List<Int>>()
+    private val batteryIconClipFields = HashMap<Class<*>, List<Field>>()
+    private val colorFilterColorGetters = HashMap<Class<*>, java.lang.reflect.Method>()
+    private val colorFilterWithoutColorGetter = HashSet<Class<*>>()
 
     @Volatile
     private var batteryPercentViewField: Field? = null
@@ -258,16 +261,31 @@ internal object SystemUiTintStateSource {
         if (filter == null) {
             return null
         }
+        val filterClass = filter.javaClass
         val getter =
-            filter.javaClass.methods
-                .firstOrNull { method ->
-                    method.name == "getColor" &&
-                        method.parameterCount == 0 &&
-                        (
-                            method.returnType == Int::class.javaPrimitiveType ||
-                                method.returnType == Int::class.javaObjectType
-                        )
-                }
+            synchronized(this) {
+                colorFilterColorGetters[filterClass]
+                    ?: if (filterClass in colorFilterWithoutColorGetter) {
+                        null
+                    } else {
+                        filterClass.methods
+                            .firstOrNull { method ->
+                                method.name == "getColor" &&
+                                    method.parameterCount == 0 &&
+                                    (
+                                        method.returnType == Int::class.javaPrimitiveType ||
+                                            method.returnType == Int::class.javaObjectType
+                                    )
+                            }
+                            ?.also { method ->
+                                colorFilterColorGetters[filterClass] = method
+                            }
+                            ?: run {
+                                colorFilterWithoutColorGetter += filterClass
+                                null
+                            }
+                    }
+            }
                 ?: return null
         return runCatching {
             (getter.invoke(filter) as? Number)?.toInt()
@@ -276,8 +294,13 @@ internal object SystemUiTintStateSource {
 
 
     private fun collectClipDrawableFields(iconView: View): List<Field> {
+        val iconClass = iconView.javaClass
+        synchronized(this) {
+            batteryIconClipFields[iconClass]?.let { return it }
+        }
+
         val fields = mutableListOf<Field>()
-        var current: Class<*>? = iconView.javaClass
+        var current: Class<*>? = iconClass
         while (
             current != null &&
             View::class.java.isAssignableFrom(current)
@@ -292,9 +315,14 @@ internal object SystemUiTintStateSource {
                 }
             current = current.superclass
         }
-        return fields.distinctBy { field ->
-            field.declaringClass.name + "#" + field.name
+        val resolved =
+            fields.distinctBy { field ->
+                field.declaringClass.name + "#" + field.name
+            }
+        synchronized(this) {
+            batteryIconClipFields[iconClass] = resolved
         }
+        return resolved
     }
 
     private fun isChromaticTint(color: Int): Boolean {
@@ -313,6 +341,9 @@ internal object SystemUiTintStateSource {
         firstEventLogged.clear()
         batteryIconStructureLogged.clear()
         lastSemanticBatteryTints.clear()
+        batteryIconClipFields.clear()
+        colorFilterColorGetters.clear()
+        colorFilterWithoutColorGetter.clear()
         batteryPercentViewField = null
         batteryIconViewField = null
         lastSourceView = null
