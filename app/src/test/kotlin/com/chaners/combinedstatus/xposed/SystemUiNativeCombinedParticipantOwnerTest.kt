@@ -90,6 +90,8 @@ class SystemUiNativeCombinedParticipantOwnerTest {
                 parentClipsChildren = false,
                 rootScreenX = 1238,
                 batteryScreenX = 1242,
+                renderLeft = 0,
+                renderRight = 105,
             ),
         )
     }
