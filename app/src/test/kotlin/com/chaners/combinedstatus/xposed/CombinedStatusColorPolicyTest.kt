@@ -6,7 +6,7 @@ import org.junit.Test
 
 class CombinedStatusColorPolicyTest {
     @Test
-    fun defaultUsesResolvedNetworkTintForCenterAndMobile() {
+    fun defaultUsesResolvedStatusIconTintAcrossNonChargingLayers() {
         val colors =
             CombinedStatusColorPolicy.resolve(
                 model = model(charging = false),
@@ -19,7 +19,7 @@ class CombinedStatusColorPolicyTest {
 
         assertEquals(0xff445566.toInt(), colors.centerTint)
         assertEquals(0xff445566.toInt(), colors.mobileTint)
-        assertEquals(0xff112233.toInt(), colors.batteryTint)
+        assertEquals(0xff445566.toInt(), colors.batteryTint)
     }
 
     @Test
@@ -98,9 +98,9 @@ class CombinedStatusColorPolicyTest {
                     ),
             )
 
-        assertEquals(0xff102030.toInt(), colors.centerTint)
-        assertEquals(0xff102030.toInt(), colors.mobileTint)
-        assertEquals(0xff102030.toInt(), colors.batteryTint)
+        assertEquals(0xff405060.toInt(), colors.centerTint)
+        assertEquals(0xff405060.toInt(), colors.mobileTint)
+        assertEquals(0xff405060.toInt(), colors.batteryTint)
     }
 
     @Test
@@ -117,6 +117,7 @@ class CombinedStatusColorPolicyTest {
 
         assertEquals(0xff112233.toInt(), colors.centerTint)
         assertEquals(0xff112233.toInt(), colors.mobileTint)
+        assertEquals(0xff112233.toInt(), colors.batteryTint)
     }
 
     private fun model(charging: Boolean) =

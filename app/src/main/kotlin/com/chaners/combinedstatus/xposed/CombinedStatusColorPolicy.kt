@@ -22,7 +22,7 @@ internal object CombinedStatusColorPolicy {
             if (model.charging) {
                 CHARGING_TINT
             } else {
-                tintState.appliedTint
+                nativeParticipantTint
             }
 
         return CombinedStatusColors(
