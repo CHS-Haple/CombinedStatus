@@ -11,7 +11,8 @@ internal enum class BatteryVisualMode {
 internal data class CombinedStatusRenderModel(
     val batteryPercent: Int,
     val charging: Boolean,
-    val batteryVisualMode: BatteryVisualMode = BatteryVisualMode.NORMAL,
+    val batteryVisualMode: BatteryVisualMode =
+        if (charging) BatteryVisualMode.CHARGING else BatteryVisualMode.NORMAL,
     val centerIndicator: CenterIndicator,
     val mobileLevel: Int?,
     val mobileUnavailableMark: Boolean = false,
