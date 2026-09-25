@@ -241,7 +241,7 @@ internal object SystemUiNativeBatterySuppressionOwner {
         Hooker { chain ->
             val container = chain.thisObject
             val requested = chain.getArg(0) as? Boolean
-            val shouldReassert =
+            val overrideWithHidden =
                 synchronized(this) {
                     if (
                         applyingOverride ||
@@ -256,34 +256,23 @@ internal object SystemUiNativeBatterySuppressionOwner {
                     }
                 }
 
-            val result = chain.proceed()
-
-            if (shouldReassert) {
-                val reasserted =
-                    synchronized(this) {
-                        if (
-                            suppressionActive &&
-                            activeContainer?.get() === container
-                        ) {
-                            applyHideLocked(
-                                container = container,
-                                hidden = true,
-                            )
-                        } else {
-                            false
-                        }
-                    }
-                if (reasserted) {
-                    eventSink?.invoke(
-                        "nativeBatterySuppression reasserted " +
-                            "nativeRequestedHide=" + requested +
-                            " effectiveHide=true " +
-                            "contract=MiuiStatusBatteryContainer.setIsHideBattery " +
-                            "nativeGeometryWrites=1",
-                    )
-                }
+            if (!overrideWithHidden) {
+                return@Hooker chain.proceed()
             }
 
+            val result =
+                chain.proceed(
+                    arrayOf(
+                        java.lang.Boolean.TRUE,
+                    ),
+                )
+            eventSink?.invoke(
+                "nativeBatterySuppression override " +
+                    "nativeRequestedHide=false " +
+                    "effectiveHide=true " +
+                    "contract=MiuiStatusBatteryContainer.setIsHideBattery " +
+                    "nativeGeometryWrites=1",
+            )
             result
         }
 
@@ -373,7 +362,7 @@ internal object SystemUiNativeBatterySuppressionOwner {
                         " effectiveHide=" + effectiveHide +
                         " changed=" + changed +
                         " contract=MiuiStatusBatteryContainer.setIsHideBattery" +
-                        " nativeGeometryWrites=1"
+                        " nativeGeometryWrites=" + if (changed) 1 else 0
         }
 
         data class Inactive(
@@ -392,7 +381,7 @@ internal object SystemUiNativeBatterySuppressionOwner {
                         " restoredNativeHide=" + restoredNativeHide +
                         " changed=" + changed +
                         " contract=MiuiStatusBatteryContainer.setIsHideBattery" +
-                        " nativeGeometryWrites=1"
+                        " nativeGeometryWrites=" + if (changed) 1 else 0
         }
 
         data class Failure(
