@@ -381,9 +381,10 @@ internal object SystemUiNativeNetworkSuppressionOwner {
 
     @Synchronized
     fun currentAppliedStatusIconTint(): Int? =
-        activeGroup
-            ?.get()
-            ?.let(::resolveAppliedStatusIconTint)
+        resolveManagerAppliedTint(activeManager)
+            ?: activeGroup
+                ?.get()
+                ?.let(::resolveAppliedStatusIconTint)
             ?: lastStatusPresentation.appliedTint
 
     private fun refreshStatusPresentationLocked(source: String) {
@@ -402,9 +403,12 @@ internal object SystemUiNativeNetworkSuppressionOwner {
             } else {
                 null
             }
+        val managerTint = resolveManagerAppliedTint(activeManager)
         val presentation =
             CombinedStatusPresentationStateStore.StatusIconPresentation(
-                appliedTint = resolveAppliedStatusIconTint(group),
+                appliedTint =
+                    managerTint
+                        ?: resolveAppliedStatusIconTint(group),
                 noSimVisible = noSimVisible,
                 noSimIcon = noSimIcon,
             )
@@ -424,6 +428,12 @@ internal object SystemUiNativeNetworkSuppressionOwner {
                         ?.toString(16)
                         ?.padStart(8, '0')
                         ?: "none") +
+                    " tintAuthority=" +
+                    if (managerTint != null) {
+                        "manager-mColor"
+                    } else {
+                        "view-tint-fallback"
+                    } +
                     " noSimVisible=" + presentation.noSimVisible +
                     " noSimResource=" +
                     (
@@ -475,6 +485,28 @@ internal object SystemUiNativeNetworkSuppressionOwner {
             packageName = packageName,
             resourceId = resourceId,
         )
+    }
+
+    private fun resolveManagerAppliedTint(manager: Any?): Int? {
+        manager ?: return null
+        val field =
+            generateSequence(manager.javaClass) { clazz -> clazz.superclass }
+                .mapNotNull { clazz ->
+                    clazz.declaredFields.firstOrNull { candidate ->
+                        candidate.name == "mColor" &&
+                            (
+                                candidate.type == Int::class.javaPrimitiveType ||
+                                    candidate.type == Int::class.java
+                            )
+                    }
+                }
+                .firstOrNull()
+                ?: return null
+        return runCatching {
+            field.isAccessible = true
+            field.getInt(manager)
+        }.getOrNull()
+            ?.takeIf { color -> (color ushr 24) != 0 }
     }
 
     private fun resolveAppliedStatusIconTint(group: ViewGroup): Int? {
