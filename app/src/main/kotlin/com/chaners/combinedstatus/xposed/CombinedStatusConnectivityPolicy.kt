@@ -18,13 +18,16 @@ internal object CombinedStatusConnectivityPolicy {
                 is SignalStrength.Level -> wifiSegments(signal.value)
             }
 
-        if (wifiVisible != null && wifiSegments != null) {
+        if (
+            wifiVisible != null &&
+            (wifiVisible.iconResId != null || wifiSegments != null)
+        ) {
             resolvedWifiInternet(
                 wifi = wifiVisible,
                 connectivity = connectivity,
             )?.let { internet ->
                 return CenterIndicator.Wifi(
-                    segments = wifiSegments,
+                    segments = wifiSegments ?: 0,
                     internet = internet,
                     nativeResourceId = wifiVisible.iconResId,
                 )
@@ -108,7 +111,10 @@ internal object CombinedStatusConnectivityPolicy {
             CombinedStatusStateStore.WifiState.Unknown -> false
             CombinedStatusStateStore.WifiState.Hidden -> true
             is CombinedStatusStateStore.WifiState.Visible ->
-                wifi.signal is SignalStrength.Level &&
+                (
+                    wifi.iconResId != null ||
+                        wifi.signal is SignalStrength.Level
+                ) &&
                     resolvedWifiInternet(
                         wifi = wifi,
                         connectivity = connectivity,
