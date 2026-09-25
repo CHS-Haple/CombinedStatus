@@ -344,15 +344,24 @@ internal object SystemUiNativeNetworkSuppressionOwner {
 
     private fun airplaneVisibilityHooker(): Hooker =
         Hooker { chain ->
+            val view = chain.thisObject as? View
             val slot =
                 runCatching {
                     airplaneSlotAccessor?.invoke(chain.thisObject) as? String
                 }.getOrNull()
+            val homeGroup = activeGroup?.get()
             val suppress =
                 shouldSuppressStaticSlot(
                     slot = slot,
                     airplaneSuppressionActive = airplaneSuppressionEnabled,
                     noSimSuppressionActive = noSimSuppressionEnabled,
+                    belongsToActiveHomeGroup =
+                        view != null &&
+                            homeGroup != null &&
+                            isDescendantOf(
+                                view = view,
+                                ancestor = homeGroup,
+                            ),
                 )
             if (suppress) {
                 false
@@ -1037,12 +1046,17 @@ internal object SystemUiNativeNetworkSuppressionOwner {
         slot: String?,
         airplaneSuppressionActive: Boolean,
         noSimSuppressionActive: Boolean,
-    ): Boolean =
-        when (slot) {
+        belongsToActiveHomeGroup: Boolean,
+    ): Boolean {
+        if (!belongsToActiveHomeGroup) {
+            return false
+        }
+        return when (slot) {
             AIRPLANE_SLOT -> airplaneSuppressionActive
             NO_SIM_SLOT -> noSimSuppressionActive
             else -> false
         }
+    }
 
     private fun bindingOf(view: View): Any? {
         val getter =
