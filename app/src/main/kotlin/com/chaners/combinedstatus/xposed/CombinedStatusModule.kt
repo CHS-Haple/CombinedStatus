@@ -75,6 +75,10 @@ class CombinedStatusModule : XposedModule() {
             classLoader = param.classLoader,
             source = "coldStart",
         )
+        installNativeBatterySuppression(
+            classLoader = param.classLoader,
+            source = "coldStart",
+        )
         installNativeParticipantControllerObserver(
             classLoader = param.classLoader,
             source = "coldStart",
@@ -155,6 +159,7 @@ class CombinedStatusModule : XposedModule() {
                 SystemUiNativeParticipantRuntimeOwner.installedHookCount +
                 SystemUiNativeCombinedParticipantOwner.installedHookCount +
                 SystemUiNativeNetworkSuppressionOwner.installedHookCount +
+                SystemUiNativeBatterySuppressionOwner.installedHookCount +
                 if (islandMotionSourceInstalled) {
                     SystemUiIslandMotionSource.HOOK_COUNT
                 } else {
@@ -254,6 +259,7 @@ class CombinedStatusModule : XposedModule() {
             SystemUiPresentationRuntimeOwner.resetRuntimeState()
             SystemUiNativeParticipantRuntimeOwner.resetControllerRuntimeState()
             SystemUiNativeNetworkSuppressionOwner.resetRuntimeState("hotReload")
+            SystemUiNativeBatterySuppressionOwner.resetRuntimeState("hotReload")
             bindRuntimeDiagnostics()
             logDiagnostic(
                 level = Log.INFO,
@@ -298,6 +304,10 @@ class CombinedStatusModule : XposedModule() {
                 source = "hotReload",
             )
             installNativeNetworkSuppression(
+                classLoader = classLoader,
+                source = "hotReload",
+            )
+            installNativeBatterySuppression(
                 classLoader = classLoader,
                 source = "hotReload",
             )
@@ -623,6 +633,51 @@ class CombinedStatusModule : XposedModule() {
                     level = Log.WARN,
                     event = "hook.install",
                     component = "nativeNetworkSuppression",
+                    state = "unavailable",
+                    "source" to source,
+                    "reason" to result.reason,
+                    "nativeGeometryWrites" to 0,
+                )
+            }
+        }
+    }
+
+    private fun installNativeBatterySuppression(
+        classLoader: ClassLoader,
+        source: String,
+    ) {
+        when (
+            val result =
+                SystemUiNativeBatterySuppressionOwner.install(
+                    module = this,
+                    classLoader = classLoader,
+                    onEvent = { event ->
+                        if (detailedDiagnosticsEnabled) {
+                            log(Log.INFO, TAG, event)
+                        }
+                    },
+                )
+        ) {
+            SystemUiNativeBatterySuppressionOwner.InstallResult.Installed,
+            SystemUiNativeBatterySuppressionOwner.InstallResult.AlreadyInstalled -> {
+                logDiagnostic(
+                    level = Log.INFO,
+                    event = "hook.install",
+                    component = "nativeBatterySuppression",
+                    state = "ready",
+                    "source" to source,
+                    "hooks" to SystemUiNativeBatterySuppressionOwner.installedHookCount,
+                    "contract" to
+                        "MiuiStatusBatteryContainer.setIsHideBattery(Boolean)",
+                    "nativeGeometryWrites" to 0,
+                )
+            }
+
+            is SystemUiNativeBatterySuppressionOwner.InstallResult.Failure -> {
+                logDiagnostic(
+                    level = Log.WARN,
+                    event = "hook.install",
+                    component = "nativeBatterySuppression",
                     state = "unavailable",
                     "source" to source,
                     "reason" to result.reason,
@@ -1456,7 +1511,7 @@ class CombinedStatusModule : XposedModule() {
                 SystemUiNativeCombinedParticipantOwner.attachHidden(
                     host = host,
                     onHandoffStateChanged = { active ->
-                        val suppression =
+                        val networkSuppression =
                             if (active) {
                                 val presentation =
                                     CombinedStatusPresentationStateStore.snapshot()
@@ -1480,26 +1535,46 @@ class CombinedStatusModule : XposedModule() {
                                     "native-handoff-fallback",
                                 )
                             }
+                        val batterySuppression =
+                            if (active) {
+                                SystemUiNativeBatterySuppressionOwner.activate(
+                                    host = host,
+                                    source = "native-handoff:" + source,
+                                )
+                            } else {
+                                SystemUiNativeBatterySuppressionOwner.deactivate(
+                                    "native-handoff-fallback",
+                                )
+                            }
                         CombinedStatusHomeRenderSession.setNativeHandoffActive(active)
+                        val suppressionFailure =
+                            active &&
+                                (
+                                    networkSuppression is
+                                        SystemUiNativeNetworkSuppressionOwner.StateResult.Failure ||
+                                        batterySuppression is
+                                            SystemUiNativeBatterySuppressionOwner.StateResult.Failure
+                                )
+                        val batteryGeometryWrite =
+                            when (batterySuppression) {
+                                is SystemUiNativeBatterySuppressionOwner.StateResult.Active ->
+                                    batterySuppression.changed
+                                is SystemUiNativeBatterySuppressionOwner.StateResult.Inactive ->
+                                    batterySuppression.changed
+                                is SystemUiNativeBatterySuppressionOwner.StateResult.Failure ->
+                                    false
+                            }
                         logDiagnostic(
-                            level =
-                                if (
-                                    active &&
-                                    suppression is
-                                        SystemUiNativeNetworkSuppressionOwner.StateResult.Failure
-                                ) {
-                                    Log.WARN
-                                } else {
-                                    Log.INFO
-                                },
+                            level = if (suppressionFailure) Log.WARN else Log.INFO,
                             event = "visibility.handoff",
                             component = "nativeCombinedParticipant",
                             state = if (active) "active" else "fallback",
                             "source" to source,
                             "nativeActive" to active,
                             "overlayActive" to !active,
-                            "networkSuppression" to suppression.summary,
-                            "nativeGeometryWrites" to 0,
+                            "networkSuppression" to networkSuppression.summary,
+                            "batterySuppression" to batterySuppression.summary,
+                            "nativeGeometryWrites" to if (batteryGeometryWrite) 1 else 0,
                         )
                     },
                 )
