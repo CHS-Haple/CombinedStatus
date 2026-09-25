@@ -8,6 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.widget.FrameLayout
+import com.chaners.combinedstatus.settings.CombinedStatusFeatureSettings
 import com.chaners.combinedstatus.settings.CombinedStatusVisualSettings
 import io.github.libxposed.api.XposedInterface.HookHandle
 import io.github.libxposed.api.XposedInterface.Hooker
@@ -70,6 +71,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
     private var handoffCommitted = false
     private var modelReadyLogged = false
     private var unlockedGeometryLogged = false
+    private var featureEnabled = false
     private var registryRestored = false
     private var injected = false
     private var failureReason: String? = null
@@ -374,6 +376,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
         handoffCommitted = false
         modelReadyLogged = false
         unlockedGeometryLogged = false
+        featureEnabled = false
         eventSink = null
         return true
     }
@@ -481,7 +484,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
             runCatching {
                 initializerField.set(holder, creator)
                 slotField.set(holder, SLOT)
-                visibleField.setBoolean(holder, true)
+                visibleField.setBoolean(holder, featureEnabled)
                 NativeParticipantRuntimeAccess.invokeSetIconHolder(
                     handles = handles,
                     slot = SLOT,
@@ -637,6 +640,8 @@ internal object SystemUiNativeCombinedParticipantOwner {
         renderController?.updateVisualSettings(
             RuntimeVisualPreferencesOwner.currentSettings(),
         )
+        featureEnabled =
+            RuntimeFeaturePreferencesOwner.currentSettings().enabled
 
         render.measure(
             View.MeasureSpec.makeMeasureSpec(battery.width, View.MeasureSpec.EXACTLY),
@@ -851,6 +856,19 @@ internal object SystemUiNativeCombinedParticipantOwner {
     }
 
     @Synchronized
+    fun onFeatureSettingsChanged(settings: CombinedStatusFeatureSettings) {
+        if (featureEnabled == settings.enabled) {
+            return
+        }
+        featureEnabled = settings.enabled
+        if (featureEnabled) {
+            reconcileVisibleHandoff("feature-enabled")
+        } else {
+            suspendVisibleHandoff("feature-disabled")
+        }
+    }
+
+    @Synchronized
     fun onVisualSettingsChanged(settings: CombinedStatusVisualSettings) {
         renderController?.updateVisualSettings(settings)
     }
@@ -920,6 +938,53 @@ internal object SystemUiNativeCombinedParticipantOwner {
         reconcileVisibleHandoff("native-tint")
     }
 
+    private fun suspendVisibleHandoff(source: String) {
+        removePendingPreDraw()
+        handoffPending = false
+
+        val root = rootRef?.get()
+        val bindingState = targetBindingState
+        val wasCommitted = handoffCommitted
+        handoffCommitted = false
+
+        if (bindingState?.visible == true) {
+            bindingState.visible = false
+        }
+
+        var rootChanged = false
+        var shellWidthReset = false
+        if (root != null) {
+            if (root.visibility != View.GONE) {
+                root.visibility = View.GONE
+                rootChanged = true
+            }
+            val layoutParams = root.layoutParams
+            if (layoutParams != null && layoutParams.width != ZERO_SLOT_WIDTH) {
+                layoutParams.width = ZERO_SLOT_WIDTH
+                root.layoutParams = layoutParams
+                shellWidthReset = true
+            }
+            if (rootChanged || shellWidthReset) {
+                requestNativeLayout(root)
+            }
+        }
+
+        if (wasCommitted) {
+            handoffSink?.invoke(false)
+        }
+
+        if (wasCommitted || rootChanged || shellWidthReset) {
+            eventSink?.invoke(
+                "nativeCombinedParticipant featureGate source=" + source +
+                    " enabled=false" +
+                    " previousHandoff=" + wasCommitted +
+                    " shellWidthReset=" + shellWidthReset +
+                    " nativeGeometryWrites=" + if (shellWidthReset) 1 else 0 +
+                    " peerNativeGeometryWrites=0",
+            )
+        }
+    }
+
     private fun detailedTintReady(
         nativeTint: Int?,
         batteryTint: CombinedStatusTintState?,
@@ -953,6 +1018,11 @@ internal object SystemUiNativeCombinedParticipantOwner {
     }
 
     private fun reconcileVisibleHandoff(source: String) {
+        if (!featureEnabled) {
+            suspendVisibleHandoff(source)
+            return
+        }
+
         val root = rootRef?.get() ?: return
         val bindingState = targetBindingState ?: return
         if (handoffCommitted) {
