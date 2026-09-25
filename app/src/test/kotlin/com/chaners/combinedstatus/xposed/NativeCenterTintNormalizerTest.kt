@@ -74,7 +74,7 @@ class NativeCenterTintNormalizerTest {
     }
 
     @Test
-    fun normalizationClampsUnexpectedSourceAlphaToObservedMaximum() {
+    fun normalizationClampsUnexpectedSourceAlphaAboveObservedPlateau() {
         assertEquals(
             255,
             CombinedStatusVisualIntensity.normalizeSourceAlpha(
