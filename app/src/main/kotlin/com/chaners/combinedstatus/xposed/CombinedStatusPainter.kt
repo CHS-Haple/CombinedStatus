@@ -333,14 +333,15 @@ internal class CombinedStatusPainter(
                         ?.mutate()
                         ?: drawableContext.getDrawable(resource.resourceId)?.mutate()
                         ?: return@runCatching null
-                val opticalBounds =
-                    resolveOpticalBounds(
+                val visualProbe =
+                    resolveNativeVisualProbe(
                         drawable = drawable,
                         resources = drawableContext.resources,
                     )
                 NativeCenterAsset(
                     drawable = drawable,
-                    opticalBounds = opticalBounds,
+                    opticalBounds = visualProbe.opticalBounds,
+                    intrinsicMaxAlpha = visualProbe.maxAlpha,
                 )
             }.getOrNull()
                 ?: return null
@@ -349,14 +350,14 @@ internal class CombinedStatusPainter(
         return asset
     }
 
-    private fun resolveOpticalBounds(
+    private fun resolveNativeVisualProbe(
         drawable: Drawable,
         resources: android.content.res.Resources,
-    ): OpticalBounds {
+    ): NativeVisualProbe {
         val intrinsicWidth = drawable.intrinsicWidth
         val intrinsicHeight = drawable.intrinsicHeight
         if (intrinsicWidth <= 0 || intrinsicHeight <= 0) {
-            return OpticalBounds.FULL
+            return NativeVisualProbe.FULL
         }
 
         val probeScale =
@@ -370,7 +371,7 @@ internal class CombinedStatusPainter(
             drawable.constantState
                 ?.newDrawable(resources)
                 ?.mutate()
-                ?: return OpticalBounds.FULL
+                ?: return NativeVisualProbe.FULL
         val bitmap =
             Bitmap.createBitmap(
                 probeWidth,
@@ -399,8 +400,11 @@ internal class CombinedStatusPainter(
             var minY = probeHeight
             var maxX = -1
             var maxY = -1
+            var maxAlpha = 0
             pixels.forEachIndexed { index, color ->
-                if (Color.alpha(color) > NATIVE_OPTICAL_ALPHA_THRESHOLD) {
+                val alpha = Color.alpha(color)
+                if (alpha > maxAlpha) maxAlpha = alpha
+                if (alpha > NATIVE_OPTICAL_ALPHA_THRESHOLD) {
                     val x = index % probeWidth
                     val y = index / probeWidth
                     if (x < minX) minX = x
@@ -411,13 +415,17 @@ internal class CombinedStatusPainter(
             }
 
             if (maxX < minX || maxY < minY) {
-                OpticalBounds.FULL
+                NativeVisualProbe.FULL
             } else {
-                OpticalBounds(
-                    left = minX / probeWidth.toFloat(),
-                    top = minY / probeHeight.toFloat(),
-                    right = (maxX + 1) / probeWidth.toFloat(),
-                    bottom = (maxY + 1) / probeHeight.toFloat(),
+                NativeVisualProbe(
+                    opticalBounds =
+                        OpticalBounds(
+                            left = minX / probeWidth.toFloat(),
+                            top = minY / probeHeight.toFloat(),
+                            right = (maxX + 1) / probeWidth.toFloat(),
+                            bottom = (maxY + 1) / probeHeight.toFloat(),
+                        ),
+                    maxAlpha = maxAlpha,
                 )
             }
         } finally {
@@ -460,7 +468,12 @@ internal class CombinedStatusPainter(
         val drawWidth = intrinsicWidth * drawableScale
         val drawHeight = intrinsicHeight * drawableScale
 
-        drawable.setTint(tint)
+        drawable.setTint(
+            NativeCenterTintNormalizer.normalizeForIntrinsicAlpha(
+                tint = tint,
+                intrinsicMaxAlpha = asset.intrinsicMaxAlpha,
+            ),
+        )
         drawable.alpha =
             (255f * opacity.coerceIn(0f, 1f))
                 .roundToInt()
@@ -856,7 +869,21 @@ internal class CombinedStatusPainter(
     private data class NativeCenterAsset(
         val drawable: Drawable,
         val opticalBounds: OpticalBounds,
+        val intrinsicMaxAlpha: Int,
     )
+
+    private data class NativeVisualProbe(
+        val opticalBounds: OpticalBounds,
+        val maxAlpha: Int,
+    ) {
+        companion object {
+            val FULL =
+                NativeVisualProbe(
+                    opticalBounds = OpticalBounds.FULL,
+                    maxAlpha = 255,
+                )
+        }
+    }
 
     private data class OpticalBounds(
         val left: Float,
@@ -1108,5 +1135,29 @@ internal object CombinedStatusOuterGeometry {
                 MOBILE_ORBIT_RADIUS *
                 sin(stepRadians / 2.0).toFloat()
         return centerDistance - 2f * dotRadius
+    }
+}
+
+
+internal object NativeCenterTintNormalizer {
+    fun normalizeForIntrinsicAlpha(
+        tint: Int,
+        intrinsicMaxAlpha: Int,
+    ): Int {
+        val sourceAlpha = intrinsicMaxAlpha.coerceIn(1, 255)
+        if (sourceAlpha == 255) {
+            return tint
+        }
+        val targetAlpha = Color.alpha(tint)
+        val normalizedAlpha =
+            (targetAlpha * 255f / sourceAlpha)
+                .roundToInt()
+                .coerceIn(0, 255)
+        return Color.argb(
+            normalizedAlpha,
+            Color.red(tint),
+            Color.green(tint),
+            Color.blue(tint),
+        )
     }
 }
