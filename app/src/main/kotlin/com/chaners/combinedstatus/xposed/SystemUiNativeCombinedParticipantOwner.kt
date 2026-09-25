@@ -1129,7 +1129,23 @@ internal object SystemUiNativeCombinedParticipantOwner {
 
                         if (ready) {
                             handoffCommitted = true
-                            handoffSink?.invoke(true)
+                            root.postOnAnimation {
+                                synchronized(this@SystemUiNativeCombinedParticipantOwner) {
+                                    if (
+                                        featureEnabled &&
+                                        handoffCommitted &&
+                                        rootRef?.get() === root &&
+                                        targetBindingState === bindingState
+                                    ) {
+                                        handoffSink?.invoke(true)
+                                        eventSink?.invoke(
+                                            "nativeCombinedParticipant fallbackRelease " +
+                                                "phase=after-first-visible-frame " +
+                                                "nativeGeometryWrites=0"
+                                        )
+                                    }
+                                }
+                            }
                             eventSink?.invoke(
                                 "nativeCombinedParticipant handoffCommit " +
                                     "mode=" + resolvedMode.name +
