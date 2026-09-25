@@ -393,6 +393,83 @@ class CombinedStatusRenderModelTest {
     }
 
     @Test
+    fun noSimWithoutWifiUsesNativeNoSimCenterWithoutDuplicateCross() {
+        val noSimIcon =
+            CombinedStatusPresentationStateStore.NativeIconResource(
+                packageName = "com.android.systemui",
+                resourceId = 42,
+            )
+        val model =
+            CombinedStatusRenderModel.from(
+                snapshot =
+                    snapshot(
+                        wifi = CombinedStatusStateStore.WifiState.Hidden,
+                        mobile = emptyMap(),
+                    ),
+                presentation =
+                    CombinedStatusPresentationStateStore.Snapshot(
+                        connectivity =
+                            connectivity(
+                                transport = SystemUiConnectivityStateSource.Transport.NONE,
+                                validated = false,
+                                mobileDataEnabled = false,
+                            ),
+                        statusIcons =
+                            CombinedStatusPresentationStateStore.StatusIconPresentation(
+                                noSimVisible = true,
+                                noSimIcon = noSimIcon,
+                            ),
+                    ),
+                defaultDataSubscriptionId = -1,
+            )
+
+        assertTrue(model?.centerIndicator is CenterIndicator.NoSim)
+        assertNull(model?.mobileLevel)
+        assertTrue(model?.mobileUnavailableMark == false)
+    }
+
+    @Test
+    fun noSimWithWifiUsesOneOuterUnavailableMarkBecauseCenterIsOccupied() {
+        val noSimIcon =
+            CombinedStatusPresentationStateStore.NativeIconResource(
+                packageName = "com.android.systemui",
+                resourceId = 42,
+            )
+        val model =
+            CombinedStatusRenderModel.from(
+                snapshot =
+                    snapshot(
+                        wifi =
+                            CombinedStatusStateStore.WifiState.Visible(
+                                iconResId = 10,
+                                signal = SignalStrength.Level(3),
+                                internetValidated = true,
+                            ),
+                        mobile = emptyMap(),
+                    ),
+                presentation =
+                    CombinedStatusPresentationStateStore.Snapshot(
+                        connectivity =
+                            connectivity(
+                                transport = SystemUiConnectivityStateSource.Transport.WIFI,
+                                validated = true,
+                                mobileDataEnabled = false,
+                            ),
+                        statusIcons =
+                            CombinedStatusPresentationStateStore.StatusIconPresentation(
+                                noSimVisible = true,
+                                noSimIcon = noSimIcon,
+                            ),
+                    ),
+                defaultDataSubscriptionId = -1,
+            )
+
+        assertTrue(model?.centerIndicator is CenterIndicator.Wifi)
+        assertNull(model?.mobileLevel)
+        assertTrue(model?.mobileUnavailableMark == true)
+    }
+
+    @Test
     fun airplaneModeUsesAirplaneCenterAndUnavailableMobileSignal() {
         val model =
             CombinedStatusRenderModel.from(
