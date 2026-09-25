@@ -95,26 +95,45 @@ class SystemUiNativeNetworkSuppressionOwnerTest {
 
 
     @Test
-    fun airplaneSlotIsSuppressedOnlyDuringActiveReplacement() {
+    fun staticSystemSlotsAreSuppressedOnlyWhenTheirReplacementIsReady() {
         assertEquals(
             true,
-            SystemUiNativeNetworkSuppressionOwner.shouldSuppressAirplaneSlot(
+            SystemUiNativeNetworkSuppressionOwner.shouldSuppressStaticSlot(
                 slot = "airplane",
-                suppressionActive = true,
+                airplaneSuppressionActive = true,
+                noSimSuppressionActive = false,
             ),
         )
         assertEquals(
             false,
-            SystemUiNativeNetworkSuppressionOwner.shouldSuppressAirplaneSlot(
+            SystemUiNativeNetworkSuppressionOwner.shouldSuppressStaticSlot(
                 slot = "airplane",
-                suppressionActive = false,
+                airplaneSuppressionActive = false,
+                noSimSuppressionActive = false,
+            ),
+        )
+        assertEquals(
+            true,
+            SystemUiNativeNetworkSuppressionOwner.shouldSuppressStaticSlot(
+                slot = "no_sim",
+                airplaneSuppressionActive = false,
+                noSimSuppressionActive = true,
             ),
         )
         assertEquals(
             false,
-            SystemUiNativeNetworkSuppressionOwner.shouldSuppressAirplaneSlot(
+            SystemUiNativeNetworkSuppressionOwner.shouldSuppressStaticSlot(
+                slot = "no_sim",
+                airplaneSuppressionActive = false,
+                noSimSuppressionActive = false,
+            ),
+        )
+        assertEquals(
+            false,
+            SystemUiNativeNetworkSuppressionOwner.shouldSuppressStaticSlot(
                 slot = "alarm_clock",
-                suppressionActive = true,
+                airplaneSuppressionActive = true,
+                noSimSuppressionActive = true,
             ),
         )
     }
