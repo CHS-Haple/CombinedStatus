@@ -732,6 +732,24 @@ internal object SystemUiNativeCombinedParticipantOwner {
         }
         currentSurface = update.surface
         reconcileVisibleHandoff("scene-" + update.surface.name)
+        if (handoffCommitted) {
+            val root = rootRef?.get()
+            val group = root?.parent as? View
+            val host = hostRef?.get()
+            eventSink?.invoke(
+                "nativeCombinedParticipant sceneOwnership " +
+                    "scene=" + update.surface.name +
+                    " policy=homeHostOwnsCommittedVisibility " +
+                    "bindingVisible=" + (targetBindingState?.visible ?: false) +
+                    " rootVisibility=" + (root?.let { visibilityName(it.visibility) } ?: "none") +
+                    " groupVisibility=" + (group?.let { visibilityName(it.visibility) } ?: "none") +
+                    " hostVisibility=" + (host?.let { visibilityName(it.visibility) } ?: "none") +
+                    " rootAlpha=" + (root?.alpha ?: -1f) +
+                    " groupAlpha=" + (group?.alpha ?: -1f) +
+                    " hostAlpha=" + (host?.alpha ?: -1f) +
+                    " nativeGeometryWrites=0",
+            )
+        }
         if (
             update.surface != SystemUiSceneStateSource.Surface.UNLOCKED_STATUS_BAR ||
             unlockedGeometryLogged
@@ -797,15 +815,14 @@ internal object SystemUiNativeCombinedParticipantOwner {
             currentSurface == SystemUiSceneStateSource.Surface.UNLOCKED_STATUS_BAR
 
         if (handoffCommitted) {
-            if (bindingState.visible != sceneVisible) {
-                bindingState.visible = sceneVisible
-                requestNativeLayout(root)
-                eventSink?.invoke(
-                    "nativeCombinedParticipant visibilityState source=" + source +
-                        " scene=" + currentSurface.name +
-                        " bindingVisible=" + sceneVisible +
-                        " handoffCommitted=true nativeGeometryWrites=0",
+            val committedBindingVisible =
+                resolveSceneBindingVisibility(
+                    handoffCommitted = true,
+                    surface = currentSurface,
                 )
+            if (bindingState.visible != committedBindingVisible) {
+                bindingState.visible = committedBindingVisible
+                requestNativeLayout(root)
             }
             return
         }
@@ -962,6 +979,16 @@ internal object SystemUiNativeCombinedParticipantOwner {
             rootScreenX == batteryScreenX &&
             renderLeft == 0 &&
             renderRight == expectedVisualWidth
+
+    internal fun resolveSceneBindingVisibility(
+        handoffCommitted: Boolean,
+        surface: SystemUiSceneStateSource.Surface,
+    ): Boolean =
+        if (handoffCommitted) {
+            true
+        } else {
+            surface == SystemUiSceneStateSource.Surface.UNLOCKED_STATUS_BAR
+        }
 
     private fun requestNativeLayout(root: View) {
         root.requestLayout()
