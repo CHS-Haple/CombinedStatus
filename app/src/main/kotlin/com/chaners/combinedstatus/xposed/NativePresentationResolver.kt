@@ -250,10 +250,21 @@ internal object NativePresentationResolver {
         val networkTypeSubscriptionId: Int?,
         val networkType: NetworkType?,
     ) {
-        val representsSingleActiveSubscription: Boolean
+        val nativeMobileReplacementReady: Boolean
             get() =
-                mode == Mode.SINGLE &&
-                    activeSubscriptionIds.size == 1
+                when (mode) {
+                    Mode.SINGLE ->
+                        activeSubscriptionIds.size == 1 &&
+                            visibleRoots == 1
+
+                    Mode.DUAL_AGGREGATED ->
+                        activeSubscriptionIds.size >= 2 &&
+                            visibleRoots == 1
+
+                    Mode.DUAL_SEPARATE,
+                    Mode.UNKNOWN,
+                    -> false
+                }
 
         val logLine: String
             get() =
@@ -267,6 +278,7 @@ internal object NativePresentationResolver {
                     " networkType=" + (networkType?.label ?: "unknown") +
                     " enhanced=" + (networkType?.enhanced ?: false) +
                     " typeSource=" + (networkType?.source?.name ?: "none") +
+                    " nativeMobileReplacementReady=" + nativeMobileReplacementReady +
                     " geometryWrites=0"
     }
 

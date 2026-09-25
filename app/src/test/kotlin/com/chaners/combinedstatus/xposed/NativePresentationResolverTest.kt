@@ -97,11 +97,11 @@ class NativePresentationResolverTest {
                 networkType = null,
             )
 
-        assertEquals(true, snapshot.representsSingleActiveSubscription)
+        assertEquals(true, snapshot.nativeMobileReplacementReady)
     }
 
     @Test
-    fun aggregatedDualPresentationMustPreserveNativeMobileParticipant() {
+    fun aggregatedDualPresentationCanOwnSingleVisibleMobileRootReplacement() {
         val snapshot =
             NativePresentationResolver.Snapshot(
                 mode = NativePresentationResolver.Mode.DUAL_AGGREGATED,
@@ -114,7 +114,7 @@ class NativePresentationResolverTest {
                 networkType = null,
             )
 
-        assertEquals(false, snapshot.representsSingleActiveSubscription)
+        assertEquals(true, snapshot.nativeMobileReplacementReady)
     }
 
     @Test
@@ -131,7 +131,7 @@ class NativePresentationResolverTest {
                 networkType = null,
             )
 
-        assertEquals(false, snapshot.representsSingleActiveSubscription)
+        assertEquals(false, snapshot.nativeMobileReplacementReady)
     }
 
     @Test
@@ -148,7 +148,24 @@ class NativePresentationResolverTest {
                 networkType = null,
             )
 
-        assertEquals(false, snapshot.representsSingleActiveSubscription)
+        assertEquals(false, snapshot.nativeMobileReplacementReady)
+    }
+
+    @Test
+    fun singleModeWithoutActiveSubscriptionFailsNativeReplacementReadiness() {
+        val snapshot =
+            NativePresentationResolver.Snapshot(
+                mode = NativePresentationResolver.Mode.SINGLE,
+                boundRoots = 1,
+                visibleRoots = 1,
+                activeSubscriptionIds = emptyList(),
+                presentationRootSubscriptionId = 4,
+                effectiveDataSubscriptionId = 4,
+                networkTypeSubscriptionId = 4,
+                networkType = null,
+            )
+
+        assertEquals(false, snapshot.nativeMobileReplacementReady)
     }
 
     @Test
