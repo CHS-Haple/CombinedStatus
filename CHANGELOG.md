@@ -25,6 +25,7 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Changed
 
+- Build 303 keeps the Build 301 zero-width `combined_status` slot bridge but removes the inherited centered-child gravity that shifted the 105px render surface about half a slot left. The renderer now starts at local x=0 and overflows right into the preserved native battery slot; handoff additionally verifies render bounds `0..batteryWidth` before commit, with no peer battery/status-icon geometry writes.
 - Center mobile-network type labels keep their accepted physical size while using heavier typography and glyph-ink centering for a more balanced `5G` / enhanced-type presentation inside the Combined Status composition.
 - Island motion diagnostics now start bounded frame sampling only when development/Detailed diagnostics are active, stop on the UI thread when Detailed is disabled, and cancel their timeout callback during cleanup; General Canary diagnostics no longer pay the per-frame probe cost.
 - Native Wi-Fi replacement now uses one semantic-readiness policy across rendering and suppression: SystemUI Wi-Fi semantics lead, Connectivity only fills an unknown Internet state when Wi-Fi is the current default network, obsolete freshness timestamps are removed, and native Wi-Fi remains visible whenever Combined Status cannot safely reproduce the current Wi-Fi presentation.

@@ -21,6 +21,7 @@ import java.util.WeakHashMap
 
 internal object SystemUiNativeCombinedParticipantOwner {
     const val SLOT = "combined_status"
+    private const val ZERO_SLOT_WIDTH = 0
 
     private const val CONTROLLER_IMPL =
         "com.android.systemui.statusbar.phone.ui.StatusBarIconControllerImpl"
@@ -560,25 +561,33 @@ internal object SystemUiNativeCombinedParticipantOwner {
         val rootLayoutParams =
             root.layoutParams
                 ?: return AttachResult.Failure("native-root-layout-params-missing")
+        val originalShellWidth = rootLayoutParams.width
         val originalShellHeight = rootLayoutParams.height
-        val shellHeightAdjusted =
-            if (originalShellHeight != battery.height) {
+        val shellGeometryAdjusted =
+            if (
+                originalShellWidth != ZERO_SLOT_WIDTH ||
+                originalShellHeight != battery.height
+            ) {
                 runCatching {
+                    rootLayoutParams.width = ZERO_SLOT_WIDTH
                     rootLayoutParams.height = battery.height
                     root.layoutParams = rootLayoutParams
-                    root.layoutParams?.height == battery.height
+                    root.layoutParams?.width == ZERO_SLOT_WIDTH &&
+                        root.layoutParams?.height == battery.height
                 }.getOrDefault(false)
             } else {
                 true
             }
-        if (!shellHeightAdjusted) {
-            return AttachResult.Failure("native-root-height-adjustment-failed")
+        if (!shellGeometryAdjusted) {
+            return AttachResult.Failure("native-root-geometry-adjustment-failed")
         }
         eventSink?.invoke(
             "nativeCombinedParticipant shellGeometry " +
-                "width=" + rootLayoutParams.width +
+                "originalWidth=" + originalShellWidth +
+                " targetWidth=" + ZERO_SLOT_WIDTH +
                 " originalHeight=" + originalShellHeight +
                 " targetHeight=" + battery.height +
+                " moduleOwnedSlotWidthWrite=" + (originalShellWidth != ZERO_SLOT_WIDTH) +
                 " customShellHeightWrite=" + (originalShellHeight != battery.height) +
                 " peerNativeGeometryWrites=0",
         )
@@ -606,11 +615,21 @@ internal object SystemUiNativeCombinedParticipantOwner {
                             FrameLayout.LayoutParams(
                                 battery.width,
                                 battery.height,
-                                Gravity.CENTER,
                             ),
                         )
                     }
             }
+        val renderLayoutParams =
+            (render.layoutParams as? FrameLayout.LayoutParams)
+                ?: FrameLayout.LayoutParams(
+                    battery.width,
+                    battery.height,
+                )
+        renderLayoutParams.width = battery.width
+        renderLayoutParams.height = battery.height
+        renderLayoutParams.gravity = Gravity.NO_GRAVITY
+        render.layoutParams = renderLayoutParams
+
         renderViewRef = WeakReference(render)
         renderController =
             renderController ?: CombinedStatusRenderController(render)
@@ -829,6 +848,31 @@ internal object SystemUiNativeCombinedParticipantOwner {
 
                         val iconVisible =
                             NativeParticipantRuntimeAccess.iconVisible(root) == true
+                        val render = renderViewRef?.get()
+                        val battery = batteryRef?.get()
+                        val parent = root.parent as? ViewGroup
+                        val rootLocation = IntArray(2)
+                        val batteryLocation = IntArray(2)
+                        if (root.isAttachedToWindow) {
+                            root.getLocationOnScreen(rootLocation)
+                        }
+                        if (battery?.isAttachedToWindow == true) {
+                            battery.getLocationOnScreen(batteryLocation)
+                        }
+                        val bridgeReady =
+                            isZeroSlotHandoffReady(
+                                rootMeasuredWidth = root.measuredWidth,
+                                rootMeasuredHeight = root.measuredHeight,
+                                renderMeasuredWidth = render?.measuredWidth ?: -1,
+                                renderMeasuredHeight = render?.measuredHeight ?: -1,
+                                expectedVisualWidth = battery?.width ?: -1,
+                                expectedVisualHeight = battery?.height ?: -1,
+                                parentClipsChildren = parent?.clipChildren ?: true,
+                                rootScreenX = rootLocation[0],
+                                batteryScreenX = batteryLocation[0],
+                                renderLeft = render?.left ?: Int.MIN_VALUE,
+                                renderRight = render?.right ?: Int.MIN_VALUE,
+                            )
                         val ready =
                             modelReady &&
                                 tintReady &&
@@ -837,8 +881,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
                                 bindingState.visible &&
                                 iconVisible &&
                                 root.isAttachedToWindow &&
-                                root.measuredWidth > 0 &&
-                                root.measuredHeight > 0
+                                bridgeReady
 
                         if (ready) {
                             handoffCommitted = true
@@ -847,8 +890,19 @@ internal object SystemUiNativeCombinedParticipantOwner {
                                 "nativeCombinedParticipant handoffCommit " +
                                     "measured=" + root.measuredWidth + "x" +
                                     root.measuredHeight +
-                                    " iconVisible=true overlayActive=false " +
-                                    "nativeGeometryWrites=0",
+                                    " renderMeasured=" +
+                                    (render?.measuredWidth ?: -1) + "x" +
+                                    (render?.measuredHeight ?: -1) +
+                                    " rootScreenX=" + rootLocation[0] +
+                                    " batteryScreenX=" + batteryLocation[0] +
+                                    " renderBounds=" +
+                                    (render?.left ?: Int.MIN_VALUE) + "-" +
+                                    (render?.right ?: Int.MIN_VALUE) +
+                                    " parentClipChildren=" +
+                                    (parent?.clipChildren ?: true) +
+                                    " bridge=zero-slot-to-native-battery " +
+                                    "iconVisible=true overlayActive=false " +
+                                    "peerNativeGeometryWrites=0",
                             )
                         } else {
                             bindingState.visible = false
@@ -862,6 +916,17 @@ internal object SystemUiNativeCombinedParticipantOwner {
                                     " iconVisible=" + iconVisible +
                                     " measured=" + root.measuredWidth + "x" +
                                     root.measuredHeight +
+                                    " renderMeasured=" +
+                                    (render?.measuredWidth ?: -1) + "x" +
+                                    (render?.measuredHeight ?: -1) +
+                                    " rootScreenX=" + rootLocation[0] +
+                                    " batteryScreenX=" + batteryLocation[0] +
+                                    " renderBounds=" +
+                                    (render?.left ?: Int.MIN_VALUE) + "-" +
+                                    (render?.right ?: Int.MIN_VALUE) +
+                                    " parentClipChildren=" +
+                                    (parent?.clipChildren ?: true) +
+                                    " bridgeReady=" + bridgeReady +
                                     " overlayActive=true nativeGeometryWrites=0",
                             )
                         }
@@ -873,6 +938,30 @@ internal object SystemUiNativeCombinedParticipantOwner {
         pendingPreDrawListener = listener
         root.viewTreeObserver.addOnPreDrawListener(listener)
     }
+
+    internal fun isZeroSlotHandoffReady(
+        rootMeasuredWidth: Int,
+        rootMeasuredHeight: Int,
+        renderMeasuredWidth: Int,
+        renderMeasuredHeight: Int,
+        expectedVisualWidth: Int,
+        expectedVisualHeight: Int,
+        parentClipsChildren: Boolean,
+        rootScreenX: Int,
+        batteryScreenX: Int,
+        renderLeft: Int,
+        renderRight: Int,
+    ): Boolean =
+        rootMeasuredWidth == ZERO_SLOT_WIDTH &&
+            rootMeasuredHeight > 0 &&
+            renderMeasuredWidth == expectedVisualWidth &&
+            renderMeasuredHeight == expectedVisualHeight &&
+            expectedVisualWidth > 0 &&
+            expectedVisualHeight > 0 &&
+            !parentClipsChildren &&
+            rootScreenX == batteryScreenX &&
+            renderLeft == 0 &&
+            renderRight == expectedVisualWidth
 
     private fun requestNativeLayout(root: View) {
         root.requestLayout()
