@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
 import com.chaners.combinedstatus.settings.CENTER_FOLLOWS_BATTERY_COLOR_KEY
+import com.chaners.combinedstatus.settings.COMBINED_STATUS_ENABLED_KEY
+import com.chaners.combinedstatus.settings.COMBINED_STATUS_FEATURE_PREFS_NAME
 import com.chaners.combinedstatus.settings.COMBINED_STATUS_VISUAL_PREFS_NAME
 import com.chaners.combinedstatus.settings.DIAGNOSTICS_LEVEL_KEY
 import com.chaners.combinedstatus.settings.DIAGNOSTICS_PREFS_NAME
@@ -22,6 +24,10 @@ class CombinedStatusApplication :
         getSharedPreferences(DIAGNOSTICS_PREFS_NAME, Context.MODE_PRIVATE)
     }
 
+    private val featurePreferences: SharedPreferences by lazy {
+        getSharedPreferences(COMBINED_STATUS_FEATURE_PREFS_NAME, Context.MODE_PRIVATE)
+    }
+
     private val visualPreferences: SharedPreferences by lazy {
         getSharedPreferences(COMBINED_STATUS_VISUAL_PREFS_NAME, Context.MODE_PRIVATE)
     }
@@ -32,6 +38,13 @@ class CombinedStatusApplication :
     private val diagnosticsListener =
         SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             if (key == DIAGNOSTICS_LEVEL_KEY) {
+                xposedService?.let(::syncRuntimeConfig)
+            }
+        }
+
+    private val featureListener =
+        SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == COMBINED_STATUS_ENABLED_KEY) {
                 xposedService?.let(::syncRuntimeConfig)
             }
         }
@@ -49,6 +62,7 @@ class CombinedStatusApplication :
     override fun onCreate() {
         super.onCreate()
         diagnosticsPreferences.registerOnSharedPreferenceChangeListener(diagnosticsListener)
+        featurePreferences.registerOnSharedPreferenceChangeListener(featureListener)
         visualPreferences.registerOnSharedPreferenceChangeListener(visualListener)
         XposedServiceHelper.registerListener(this)
     }
@@ -66,6 +80,7 @@ class CombinedStatusApplication :
 
     override fun onTerminate() {
         diagnosticsPreferences.unregisterOnSharedPreferenceChangeListener(diagnosticsListener)
+        featurePreferences.unregisterOnSharedPreferenceChangeListener(featureListener)
         visualPreferences.unregisterOnSharedPreferenceChangeListener(visualListener)
         xposedService = null
         super.onTerminate()
@@ -104,6 +119,11 @@ class CombinedStatusApplication :
                 DIAGNOSTICS_LEVEL_KEY,
                 DiagnosticsLevel.General.name,
             ) ?: DiagnosticsLevel.General.name
+        val combinedStatusEnabled =
+            featurePreferences.getBoolean(
+                COMBINED_STATUS_ENABLED_KEY,
+                true,
+            )
         val mobileFollowsBattery =
             visualPreferences.getBoolean(
                 MOBILE_FOLLOWS_BATTERY_COLOR_KEY,
@@ -120,6 +140,10 @@ class CombinedStatusApplication :
             val editor = remote.edit() ?: error("remote preference editor unavailable")
             editor
                 .putString(DIAGNOSTICS_LEVEL_KEY, level)
+                .putBoolean(
+                    COMBINED_STATUS_ENABLED_KEY,
+                    combinedStatusEnabled,
+                )
                 .putBoolean(
                     MOBILE_FOLLOWS_BATTERY_COLOR_KEY,
                     mobileFollowsBattery,
