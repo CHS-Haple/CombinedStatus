@@ -24,9 +24,6 @@ internal class CombinedStatusPainter(
     private var airplaneDrawableResolved = false
     private var cachedAirplaneResourceId: Int = 0
     private val nativeCenterAssets = LinkedHashMap<String, NativeCenterAsset>(NATIVE_CENTER_CACHE_SIZE, 0.75f, true)
-                return shouldRemove
-            }
-        }
     private var cachedMobileTypeWeight: Int = Int.MIN_VALUE
     private var cachedMobileTypeTypeface: Typeface = Typeface.DEFAULT
     private val mobileTypeMainBounds = Rect()
@@ -339,6 +336,7 @@ internal class CombinedStatusPainter(
                 val constantState = drawable.constantState ?: return@runCatching null
                 NativeCenterAsset(
                     constantState = constantState,
+                    resources = drawableContext.resources,
                     intrinsicWidth = drawable.intrinsicWidth,
                     intrinsicHeight = drawable.intrinsicHeight,
                     opticalBounds = visualProbe.opticalBounds,
@@ -347,6 +345,10 @@ internal class CombinedStatusPainter(
                 ?: return null
 
         nativeCenterAssets[key] = asset
+        if (nativeCenterAssets.size > NATIVE_CENTER_CACHE_SIZE) {
+            val eldestKey = nativeCenterAssets.entries.iterator().next().key
+            nativeCenterAssets.remove(eldestKey)
+        }
         return asset
     }
 
@@ -416,7 +418,7 @@ internal class CombinedStatusPainter(
                     top = minY / probeHeight.toFloat(),
                     right = (maxX + 1) / probeWidth.toFloat(),
                     bottom = (maxY + 1) / probeHeight.toFloat(),
-                )
+                ),
         )
     }
 
@@ -454,7 +456,7 @@ internal class CombinedStatusPainter(
         val drawWidth = intrinsicWidth * drawableScale
         val drawHeight = intrinsicHeight * drawableScale
 
-        val drawable = asset.constantState.newDrawable(context.resources).mutate()
+        val drawable = asset.constantState.newDrawable(asset.resources).mutate()
         drawable.setTint(tint)
         drawable.alpha = CombinedStatusVisualIntensity.resolveDrawableAlpha(opacity)
 
@@ -839,6 +841,7 @@ internal class CombinedStatusPainter(
 
     private data class NativeCenterAsset(
         val constantState: Drawable.ConstantState,
+        val resources: android.content.res.Resources,
         val intrinsicWidth: Int,
         val intrinsicHeight: Int,
         val opticalBounds: OpticalBounds,
