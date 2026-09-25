@@ -671,16 +671,11 @@ internal object SystemUiNativeCombinedParticipantOwner {
             eventSink?.invoke(
                 "nativeCombinedParticipant tintSeed " +
                     "authority=" +
-                    when {
-                        bindingState.iconTint != null ->
-                            "native-binding"
-                        batteryTintState?.statusIconTint != null ->
-                            "dark-dispatcher-visual-slot-fallback"
-                        else ->
-                            "battery-fallback"
+                    if (bindingState.iconTint != null) {
+                        "native-binding"
+                    } else {
+                        "battery-fallback"
                     } +
-                    " visualSlotTint=" +
-                    colorHex(batteryTintState?.statusIconTint) +
                     " nativeTint=" + colorHex(bindingState.iconTint) +
                     " batteryFallback=" +
                     colorHex(batteryTintState?.appliedTint) +
@@ -866,18 +861,24 @@ internal object SystemUiNativeCombinedParticipantOwner {
         if (update.sourceView !== battery) {
             return
         }
+        val nativeTint =
+            targetBindingState?.iconTint
+                ?.takeIf { color -> (color ushr 24) != 0 }
+        if (nativeTint != null) {
+            return
+        }
 
         val tintUpdate =
             renderController?.updateTint(
                 mergeNativeParticipantTint(
                     batteryTint = update.state,
-                    nativeTint = targetBindingState?.iconTint,
+                    nativeTint = null,
                 ),
             )
         if (tintUpdate?.resolved != null) {
             tintReady = true
         }
-        reconcileVisibleHandoff("tint")
+        reconcileVisibleHandoff("tint-fallback")
     }
 
     @Synchronized
@@ -906,13 +907,11 @@ internal object SystemUiNativeCombinedParticipantOwner {
             return
         }
 
-        val battery = batteryRef?.get() ?: return
-        val batteryTint = SystemUiTintStateSource.currentState(battery) ?: return
         val update =
             renderController?.updateTint(
-                mergeNativeParticipantTint(
-                    batteryTint = batteryTint,
-                    nativeTint = tint,
+                CombinedStatusTintState(
+                    appliedTint = tint,
+                    statusIconTint = tint,
                 ),
             )
         if (update?.resolved != null) {
@@ -937,14 +936,21 @@ internal object SystemUiNativeCombinedParticipantOwner {
     internal fun mergeNativeParticipantTint(
         batteryTint: CombinedStatusTintState,
         nativeTint: Int?,
-    ): CombinedStatusTintState =
-        batteryTint.copy(
-            statusIconTint =
-                nativeTint
-                    ?.takeIf { color -> (color ushr 24) != 0 }
-                    ?: batteryTint.statusIconTint
-                        ?.takeIf { color -> (color ushr 24) != 0 },
-        )
+    ): CombinedStatusTintState {
+        val resolvedNativeTint =
+            nativeTint
+                ?.takeIf { color -> (color ushr 24) != 0 }
+        return if (resolvedNativeTint != null) {
+            CombinedStatusTintState(
+                appliedTint = resolvedNativeTint,
+                statusIconTint = resolvedNativeTint,
+            )
+        } else {
+            CombinedStatusTintState(
+                appliedTint = batteryTint.appliedTint,
+            )
+        }
+    }
 
     private fun reconcileVisibleHandoff(source: String) {
         val root = rootRef?.get() ?: return

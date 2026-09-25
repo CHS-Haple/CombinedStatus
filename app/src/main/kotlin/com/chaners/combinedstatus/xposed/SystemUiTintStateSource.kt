@@ -7,8 +7,6 @@ import io.github.libxposed.api.XposedInterface.Hooker
 import io.github.libxposed.api.XposedModule
 import java.lang.ref.WeakReference
 import java.lang.reflect.Field
-import java.lang.reflect.Method
-import java.lang.reflect.Modifier
 import java.util.ArrayList
 import java.util.WeakHashMap
 
@@ -17,10 +15,6 @@ internal object SystemUiTintStateSource {
         "com.android.systemui.statusbar.views.MiuiBatteryMeterView"
     const val UPDATE_TINT_METHOD_NAME = "updateLightDarkTint"
     const val HOOK_COUNT = 1
-
-    private const val DARK_ICON_DISPATCHER_CLASS_NAME =
-        "com.android.systemui.plugins.DarkIconDispatcher"
-    private const val DARK_ICON_GET_TINT_METHOD_NAME = "getTint"
 
     private const val HOOK_ID = "combinedstatus.tint.battery.update"
     private val lastStates = WeakHashMap<View, CombinedStatusTintState>()
@@ -31,9 +25,6 @@ internal object SystemUiTintStateSource {
 
     @Volatile
     private var lastSourceView: WeakReference<View>? = null
-
-    @Volatile
-    private var darkIconGetTintMethod: Method? = null
 
     fun install(
         module: XposedModule,
@@ -58,24 +49,6 @@ internal object SystemUiTintStateSource {
             ).apply { isAccessible = true }
 
         batteryPercentViewField = percentField
-        darkIconGetTintMethod =
-            Class.forName(
-                DARK_ICON_DISPATCHER_CLASS_NAME,
-                false,
-                classLoader,
-            ).methods
-                .firstOrNull { method ->
-                    method.name == DARK_ICON_GET_TINT_METHOD_NAME &&
-                        Modifier.isStatic(method.modifiers) &&
-                        method.parameterCount == 3 &&
-                        View::class.java.isAssignableFrom(method.parameterTypes[1]) &&
-                        (
-                            method.returnType == Int::class.javaPrimitiveType ||
-                                method.returnType == Int::class.java
-                        )
-                }
-                ?.apply { isAccessible = true }
-
         val handle =
             module
                 .hook(updateMethod)
@@ -85,20 +58,10 @@ internal object SystemUiTintStateSource {
                         val result = chain.proceed()
                         val sourceView = chain.thisObject as? View
                             ?: return@Hooker result
-                        val areas = chain.getArg(0)
-                        val dispatcherTint =
-                            (chain.getArg(2) as? Number)?.toInt()
-                        val visualSlotTint =
-                            resolveVisualSlotTint(
-                                sourceView = sourceView,
-                                areas = areas,
-                                dispatcherTint = dispatcherTint,
-                            )
                         val state =
                             readAppliedState(
                                 sourceView = sourceView,
                                 percentField = percentField,
-                                networkTint = visualSlotTint,
                             ) ?: return@Hooker result
 
                         synchronized(this) {
@@ -125,14 +88,7 @@ internal object SystemUiTintStateSource {
                                 "tintSource receiver=" +
                                     sourceView.javaClass.simpleName +
                                     " batteryApplied=" + colorHex(state.appliedTint) +
-                                    " networkVisual=" +
-                                    (state.statusIconTint?.let(::colorHex) ?: "none") +
-                                    " primaryAuthority=" +
-                                    if (state.statusIconTint != null) {
-                                        "dark-dispatcher-battery-slot"
-                                    } else {
-                                        "battery-anchor-fallback"
-                                    } +
+                                    " authority=battery-anchor-fallback" +
                                     " intensity=" + darkIntensity +
                                     " light=" + colorHex(lightColor) +
                                     " dark=" + colorHex(darkColor) +
@@ -155,7 +111,6 @@ internal object SystemUiTintStateSource {
         firstEventLogged.clear()
         batteryPercentViewField = null
         lastSourceView = null
-        darkIconGetTintMethod = null
     }
 
     @Synchronized
@@ -172,7 +127,6 @@ internal object SystemUiTintStateSource {
                 readAppliedState(
                     sourceView = sourceView,
                     percentField = percentField,
-                    networkTint = cached?.statusIconTint,
                 )
             }
         if (
@@ -188,7 +142,6 @@ internal object SystemUiTintStateSource {
     private fun readAppliedState(
         sourceView: View,
         percentField: Field,
-        networkTint: Int?,
     ): CombinedStatusTintState? {
         val percentView =
             runCatching {
@@ -196,23 +149,7 @@ internal object SystemUiTintStateSource {
             }.getOrNull() ?: return null
         return CombinedStatusTintState(
             appliedTint = percentView.currentTextColor,
-            statusIconTint =
-                networkTint
-                    ?.takeIf { color -> (color ushr 24) != 0 },
         )
-    }
-
-    private fun resolveVisualSlotTint(
-        sourceView: View,
-        areas: Any?,
-        dispatcherTint: Int?,
-    ): Int? {
-        val method = darkIconGetTintMethod ?: return null
-        val tint = dispatcherTint ?: return null
-        return runCatching {
-            (method.invoke(null, areas, sourceView, tint) as? Number)?.toInt()
-        }.getOrNull()
-            ?.takeIf { color -> (color ushr 24) != 0 }
     }
 
     private fun colorHex(color: Int): String =

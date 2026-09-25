@@ -176,7 +176,7 @@ class SystemUiNativeCombinedParticipantOwnerTest {
     }
 
     @Test
-    fun nativeBindingTintWinsOverLegacyVisualSlotTint() {
+    fun nativeBindingTintBecomesSingleResolvedTintAuthority() {
         val merged =
             SystemUiNativeCombinedParticipantOwner.mergeNativeParticipantTint(
                 batteryTint =
@@ -187,12 +187,12 @@ class SystemUiNativeCombinedParticipantOwnerTest {
                 nativeTint = 0xff303030.toInt(),
             )
 
-        assertEquals(0xbf000000.toInt(), merged.appliedTint)
+        assertEquals(0xff303030.toInt(), merged.appliedTint)
         assertEquals(0xff303030.toInt(), merged.statusIconTint)
     }
 
     @Test
-    fun nativeBindingTintRemainsAuthorityWhenVisualSlotTintIsUnavailable() {
+    fun nativeBindingTintDoesNotDependOnBatteryAnchor() {
         val merged =
             SystemUiNativeCombinedParticipantOwner.mergeNativeParticipantTint(
                 batteryTint =
@@ -202,8 +202,24 @@ class SystemUiNativeCombinedParticipantOwnerTest {
                 nativeTint = 0xff303030.toInt(),
             )
 
-        assertEquals(0xbf000000.toInt(), merged.appliedTint)
+        assertEquals(0xff303030.toInt(), merged.appliedTint)
         assertEquals(0xff303030.toInt(), merged.statusIconTint)
+    }
+
+    @Test
+    fun missingNativeTintDropsLegacyStatusIconFallbackAndUsesBatteryAnchor() {
+        val merged =
+            SystemUiNativeCombinedParticipantOwner.mergeNativeParticipantTint(
+                batteryTint =
+                    CombinedStatusTintState(
+                        appliedTint = 0xbf101010.toInt(),
+                        statusIconTint = 0xff202020.toInt(),
+                    ),
+                nativeTint = null,
+            )
+
+        assertEquals(0xbf101010.toInt(), merged.appliedTint)
+        assertEquals(null, merged.statusIconTint)
     }
 
     @Test
