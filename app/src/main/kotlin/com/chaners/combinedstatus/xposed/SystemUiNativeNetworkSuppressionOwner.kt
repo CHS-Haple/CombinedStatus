@@ -873,9 +873,19 @@ internal object SystemUiNativeNetworkSuppressionOwner {
 
     @Synchronized
     fun preMaskMobileSignal(image: ImageView): Boolean {
+        val homeGroup = activeGroup?.get()
         if (
-            activeManager == null ||
-            !mobileSuppressionEnabled
+            !shouldPreMaskMobileSignal(
+                suppressionActive =
+                    activeManager != null &&
+                        mobileSuppressionEnabled,
+                belongsToActiveHomeGroup =
+                    homeGroup != null &&
+                        isDescendantOf(
+                            view = image,
+                            ancestor = homeGroup,
+                        ),
+            )
         ) {
             return false
         }
@@ -927,6 +937,26 @@ internal object SystemUiNativeNetworkSuppressionOwner {
             )
         }
         return container.alpha == 0f
+    }
+
+    internal fun shouldPreMaskMobileSignal(
+        suppressionActive: Boolean,
+        belongsToActiveHomeGroup: Boolean,
+    ): Boolean =
+        suppressionActive && belongsToActiveHomeGroup
+
+    private fun isDescendantOf(
+        view: View,
+        ancestor: ViewGroup,
+    ): Boolean {
+        var current: View? = view
+        while (current != null) {
+            if (current === ancestor) {
+                return true
+            }
+            current = current.parent as? View
+        }
+        return false
     }
 
     private fun findAncestorByResourceEntry(
