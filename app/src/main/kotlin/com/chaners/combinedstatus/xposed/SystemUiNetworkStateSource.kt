@@ -62,6 +62,7 @@ internal object SystemUiNetworkStateSource {
     private val wifiRoots = WeakHashMap<ViewGroup, Any?>()
     private val mobileRoots = WeakHashMap<ViewGroup, Int>()
     private val lastWifiEvents = WeakHashMap<ImageView, String>()
+    private val lastWifiTaggedResources = WeakHashMap<ImageView, Int?>()
     private val lastMobileEvents = WeakHashMap<ImageView, String>()
 
     @Volatile
@@ -432,6 +433,7 @@ internal object SystemUiNetworkStateSource {
     @Synchronized
     fun resetEventState() {
         lastWifiEvents.clear()
+        lastWifiTaggedResources.clear()
         lastMobileEvents.clear()
         wifiSeedContract = null
     }
@@ -456,6 +458,7 @@ internal object SystemUiNetworkStateSource {
         wifiRoots.clear()
         mobileRoots.clear()
         lastWifiEvents.clear()
+        lastWifiTaggedResources.clear()
         lastMobileEvents.clear()
 
         val payload = raw as? Array<*>
@@ -841,53 +844,86 @@ internal object SystemUiNetworkStateSource {
             runCatching {
                 wifiImageField.get(emitter) as? ImageView
             }.getOrNull()
-        var changed = false
-        var semantic: WifiSemanticValue? = null
-        if (image != null && findWifiBinding(image)) {
-            semantic =
+        val bound = image != null && findWifiBinding(image)
+        val semantic =
+            if (bound && image != null) {
                 decodeWifiSemantic(
                     value = value,
                     sourceView = image,
                     wifiVisibleIconField = wifiVisibleIconField,
                     iconResourceIdAccessor = iconResourceIdAccessor,
                 )
+            } else {
+                null
+            }
+
+        val result = chain.proceed()
+
+        if (image != null && bound && semantic != null) {
+            val taggedResId =
+                (image.tag as? Number)
+                    ?.toInt()
+                    ?.takeIf { it != 0 }
+            val taggedResource =
+                taggedResId?.let { id -> resourceName(image, id) }
+            val previousTaggedResId =
+                synchronized(this) {
+                    lastWifiTaggedResources.put(image, taggedResId)
+                }
+            val hotspotAppliedFallback =
+                semantic.state == CombinedStatusStateStore.WifiState.Hidden &&
+                    taggedResId != null &&
+                    taggedResId != previousTaggedResId &&
+                    SystemUiSignalParser.isHotspotWifiResource(taggedResource)
+            val effective =
+                if (hotspotAppliedFallback) {
+                    WifiSemanticValue(
+                        state =
+                            CombinedStatusStateStore.WifiState.Visible(
+                                iconResId = taggedResId,
+                                signal = SystemUiSignalParser.wifi(taggedResource),
+                                internetValidated =
+                                    SystemUiSignalParser.wifiInternetValidated(
+                                        taggedResource,
+                                    ),
+                            ),
+                        resourceId = taggedResId,
+                        resourceName = taggedResource,
+                        valueType = semantic.valueType + "+AppliedHotspot",
+                    )
+                } else {
+                    semantic
+                }
             val eventKey =
-                semantic.valueType + ":" +
-                    (semantic.resourceId?.toString() ?: "none")
-            changed =
+                effective.valueType + ":" +
+                    (effective.resourceId?.toString() ?: "none")
+            val changed =
                 synchronized(this) {
                     lastWifiEvents.put(image, eventKey) != eventKey
                 }
 
             if (changed) {
-                semantic.state?.let(onWifiState)
+                effective.state?.let(onWifiState)
+                onEvent?.invoke(
+                    "networkPipeline wifi iconEvent " +
+                        "phase=semanticBeforeProceed/viewAfterProceed " +
+                        "viewId=" + resourceId(image) +
+                        " classId=" + classId +
+                        " valueType=" + semantic.valueType +
+                        " effectiveType=" + effective.valueType +
+                        " modelResId=" + (semantic.resourceId ?: 0) +
+                        " modelResource=" + (semantic.resourceName ?: "n/a") +
+                        " taggedResId=" + (taggedResId ?: 0) +
+                        " taggedResource=" + (taggedResource ?: "n/a") +
+                        " appliedFallback=" +
+                        if (hotspotAppliedFallback) {
+                            "hotspot-tag-change"
+                        } else {
+                            "none"
+                        } +
+                        " visibility=" + visibilityName(image.visibility),
+                )
             }
-        }
-
-        val result = chain.proceed()
-
-        if (changed && image != null) {
-            val taggedResId =
-                (image.tag as? Number)
-                    ?.toInt()
-                    ?.takeIf { it != 0 }
-            onEvent?.invoke(
-                "networkPipeline wifi iconEvent " +
-                    "phase=semanticBeforeProceed/viewAfterProceed " +
-                    "viewId=" + resourceId(image) +
-                    " classId=" + classId +
-                    " valueType=" + (semantic?.valueType ?: "null") +
-                    " modelResId=" + (semantic?.resourceId ?: 0) +
-                    " modelResource=" + (semantic?.resourceName ?: "n/a") +
-                    " taggedResId=" + (taggedResId ?: 0) +
-                    " taggedResource=" +
-                    (
-                        taggedResId
-                            ?.let { id -> resourceName(image, id) }
-                            ?: "n/a"
-                    ) +
-                    " visibility=" + visibilityName(image.visibility),
-            )
         }
 
         result
