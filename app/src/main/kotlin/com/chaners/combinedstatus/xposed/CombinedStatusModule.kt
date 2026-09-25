@@ -1039,7 +1039,7 @@ class CombinedStatusModule : XposedModule() {
                     ),
             suppressMobile =
                 presentation.mobilePresentation
-                    ?.representsSingleActiveSubscription == true,
+                    ?.nativeMobileReplacementReady == true,
             source = source,
         )
     }
@@ -1473,7 +1473,7 @@ class CombinedStatusModule : XposedModule() {
                                                 ),
                                     suppressMobile =
                                         presentation.mobilePresentation
-                                            ?.representsSingleActiveSubscription == true,
+                                            ?.nativeMobileReplacementReady == true,
                                 )
                             } else {
                                 SystemUiNativeNetworkSuppressionOwner.deactivate(
