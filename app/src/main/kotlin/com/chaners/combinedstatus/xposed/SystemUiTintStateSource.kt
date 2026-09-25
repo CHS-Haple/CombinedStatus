@@ -86,8 +86,8 @@ internal object SystemUiTintStateSource {
                                 "tintSource receiver=" +
                                     sourceView.javaClass.simpleName +
                                     " batteryApplied=" + colorHex(state.appliedTint) +
-                                    " networkApplied=" + colorHex(state.appliedTint) +
-                                    " primaryAuthority=battery-anchor-dark-receiver" +
+                                    " networkFallback=" + colorHex(state.appliedTint) +
+                                    " primaryAuthority=battery-anchor-fallback" +
                                     " intensity=" + darkIntensity +
                                     " light=" + colorHex(lightColor) +
                                     " dark=" + colorHex(darkColor) +
