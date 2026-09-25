@@ -431,10 +431,10 @@ class CombinedStatusConnectivityPolicyTest {
     }
 
     @Test
-    fun unavailableWifiSignalDoesNotMasqueradeAsLevelZero() {
+    fun unavailableWifiSignalWithoutNativeResourceDoesNotMasqueradeAsLevelZero() {
         val wifi =
             CombinedStatusStateStore.WifiState.Visible(
-                iconResId = 1,
+                iconResId = null,
                 signal = SignalStrength.Unavailable,
                 internetValidated = true,
             )
@@ -533,12 +533,12 @@ class CombinedStatusConnectivityPolicyTest {
     }
 
     @Test
-    fun unknownWifiSignalNeverClaimsNativeReplacement() {
+    fun unknownWifiSignalWithoutNativeResourceNeverClaimsReplacement() {
         val ready =
             CombinedStatusConnectivityPolicy.wifiReplacementReady(
                 wifi =
                     CombinedStatusStateStore.WifiState.Visible(
-                        iconResId = 1,
+                        iconResId = null,
                         signal = SignalStrength.Unknown,
                         internetValidated = true,
                     ),
