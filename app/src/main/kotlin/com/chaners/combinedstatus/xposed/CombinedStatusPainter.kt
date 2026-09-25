@@ -467,7 +467,7 @@ internal class CombinedStatusPainter(
         const val MOBILE_ORBIT_RADIUS = 51f
         const val MOBILE_DOT_RADIUS = 4.9f
         const val SYSTEM_UI_PACKAGE = "com.android.systemui"
-        const val AIRPLANE_RESOURCE_NAME = "stat_sys_airplane_mode"
+        const val AIRPLANE_RESOURCE_NAME = "stat_sys_signal_flightmode"
         const val AIRPLANE_CENTER_X = 60f
         const val AIRPLANE_CENTER_Y = 56f
         const val AIRPLANE_MAX_WIDTH = 54f
