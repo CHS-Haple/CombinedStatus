@@ -151,4 +151,40 @@ class SystemUiSignalParserTest {
         assertEquals(false, SystemUiSignalParser.wifiInternetValidated(resource))
     }
 
+    @Test
+    fun appliedHotspotFallbackRequiresANewHotspotTag() {
+        val hidden = CombinedStatusStateStore.WifiState.Hidden
+
+        assertEquals(
+            true,
+            SystemUiNetworkStateSource.shouldUseAppliedHotspotFallback(
+                semanticState = hidden,
+                taggedResId = 100,
+                previousTaggedResId = 99,
+                taggedResource =
+                    "com.android.systemui:drawable/stat_sys_hotspot_signal_3",
+            ),
+        )
+        assertEquals(
+            false,
+            SystemUiNetworkStateSource.shouldUseAppliedHotspotFallback(
+                semanticState = hidden,
+                taggedResId = 100,
+                previousTaggedResId = 100,
+                taggedResource =
+                    "com.android.systemui:drawable/stat_sys_hotspot_signal_3",
+            ),
+        )
+        assertEquals(
+            false,
+            SystemUiNetworkStateSource.shouldUseAppliedHotspotFallback(
+                semanticState = hidden,
+                taggedResId = 101,
+                previousTaggedResId = 100,
+                taggedResource =
+                    "com.android.systemui:drawable/stat_sys_wifi_signal_3",
+            ),
+        )
+    }
+
 }
