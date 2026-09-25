@@ -5,6 +5,7 @@ internal data class CombinedStatusRenderModel(
     val charging: Boolean,
     val centerIndicator: CenterIndicator,
     val mobileLevel: Int?,
+    val mobileUnavailableMark: Boolean = false,
     val effectiveDataSubscriptionId: Int,
 ) {
     companion object {
@@ -35,31 +36,53 @@ internal data class CombinedStatusRenderModel(
                     ?: snapshot.mobile.keys.firstOrNull()
                     ?: -1
 
+            val airplaneMode = snapshot.airplaneMode == true
+            val mobileRecoveryPending = snapshot.mobileRecoveryPending
+            val selectedSignal = selectedMobile?.second?.signal
+
             val mobileLevel =
-                if (snapshot.airplaneMode == true) {
+                if (airplaneMode || mobileRecoveryPending) {
                     null
                 } else {
-                    when (val signal = selectedMobile?.second?.signal) {
+                    when (selectedSignal) {
                         null -> null
                         SignalStrength.Unknown -> null
                         SignalStrength.Unavailable -> null
-                        is SignalStrength.Level -> signal.value.coerceIn(0, 4)
+                        is SignalStrength.Level -> selectedSignal.value.coerceIn(0, 4)
                     }
+                }
+            val mobileUnavailableMark =
+                when {
+                    airplaneMode -> true
+                    mobileRecoveryPending -> false
+                    selectedSignal is SignalStrength.Unavailable -> true
+                    else -> false
                 }
 
             val centerIndicator =
                 CombinedStatusConnectivityPolicy.resolve(
                     wifi = snapshot.wifi,
-                    airplaneMode = snapshot.airplaneMode == true,
+                    airplaneMode = airplaneMode,
                     connectivity = presentation.connectivity,
-                    mobileType = presentation.mobilePresentation?.networkType,
-                ) ?: return null
+                    mobileType =
+                        if (mobileRecoveryPending) {
+                            null
+                        } else {
+                            presentation.mobilePresentation?.networkType
+                        },
+                )
+                    ?: if (mobileRecoveryPending) {
+                        CenterIndicator.Empty
+                    } else {
+                        return null
+                    }
 
             return CombinedStatusRenderModel(
                 batteryPercent = battery.percent.coerceIn(0, 100),
                 charging = battery.charging,
                 centerIndicator = centerIndicator,
                 mobileLevel = mobileLevel,
+                mobileUnavailableMark = mobileUnavailableMark,
                 effectiveDataSubscriptionId = selectedSubscriptionId,
             )
         }
