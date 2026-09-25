@@ -123,6 +123,18 @@ internal object CombinedStatusStateStore {
                 putBoolean(KEY_BATTERY_PRESENT, true)
                 putInt(KEY_BATTERY_PERCENT, battery.percent)
                 putBoolean(KEY_BATTERY_CHARGING, battery.charging)
+                battery.powerSave?.let {
+                    putBoolean(KEY_BATTERY_POWER_SAVE_PRESENT, true)
+                    putBoolean(KEY_BATTERY_POWER_SAVE, it)
+                }
+                battery.extremePowerSave?.let {
+                    putBoolean(KEY_BATTERY_EXTREME_POWER_SAVE_PRESENT, true)
+                    putBoolean(KEY_BATTERY_EXTREME_POWER_SAVE, it)
+                }
+                battery.performanceMode?.let {
+                    putBoolean(KEY_BATTERY_PERFORMANCE_PRESENT, true)
+                    putBoolean(KEY_BATTERY_PERFORMANCE, it)
+                }
             }
             when (val wifi = current.wifi) {
                 WifiState.Unknown -> putInt(KEY_WIFI_KIND, WIFI_KIND_UNKNOWN)
@@ -175,6 +187,24 @@ internal object CombinedStatusStateStore {
                 BatteryState(
                     percent = bundle.getInt(KEY_BATTERY_PERCENT),
                     charging = bundle.getBoolean(KEY_BATTERY_CHARGING),
+                    powerSave =
+                        if (bundle.getBoolean(KEY_BATTERY_POWER_SAVE_PRESENT, false)) {
+                            bundle.getBoolean(KEY_BATTERY_POWER_SAVE)
+                        } else {
+                            null
+                        },
+                    extremePowerSave =
+                        if (bundle.getBoolean(KEY_BATTERY_EXTREME_POWER_SAVE_PRESENT, false)) {
+                            bundle.getBoolean(KEY_BATTERY_EXTREME_POWER_SAVE)
+                        } else {
+                            null
+                        },
+                    performanceMode =
+                        if (bundle.getBoolean(KEY_BATTERY_PERFORMANCE_PRESENT, false)) {
+                            bundle.getBoolean(KEY_BATTERY_PERFORMANCE)
+                        } else {
+                            null
+                        },
                 )
             } else {
                 null
@@ -261,7 +291,12 @@ internal object CombinedStatusStateStore {
             get() {
                 val batteryText = battery?.let { state ->
                     state.percent.toString() + ":" +
-                        (if (state.charging) "charging" else "discharging")
+                        (if (state.charging) "charging" else "discharging") +
+                        ":powerSave=" + (state.powerSave?.toString() ?: "unknown") +
+                        ":extremePowerSave=" +
+                        (state.extremePowerSave?.toString() ?: "unknown") +
+                        ":performance=" +
+                        (state.performanceMode?.toString() ?: "unknown")
                 } ?: "unknown"
 
                 val wifiText = when (val state = wifi) {
@@ -301,6 +336,9 @@ internal object CombinedStatusStateStore {
     internal data class BatteryState(
         val percent: Int,
         val charging: Boolean,
+        val powerSave: Boolean? = null,
+        val extremePowerSave: Boolean? = null,
+        val performanceMode: Boolean? = null,
     )
 
     internal sealed interface WifiState {
@@ -337,6 +375,13 @@ internal object CombinedStatusStateStore {
     private const val KEY_BATTERY_PRESENT = "batteryPresent"
     private const val KEY_BATTERY_PERCENT = "batteryPercent"
     private const val KEY_BATTERY_CHARGING = "batteryCharging"
+    private const val KEY_BATTERY_POWER_SAVE_PRESENT = "batteryPowerSavePresent"
+    private const val KEY_BATTERY_POWER_SAVE = "batteryPowerSave"
+    private const val KEY_BATTERY_EXTREME_POWER_SAVE_PRESENT =
+        "batteryExtremePowerSavePresent"
+    private const val KEY_BATTERY_EXTREME_POWER_SAVE = "batteryExtremePowerSave"
+    private const val KEY_BATTERY_PERFORMANCE_PRESENT = "batteryPerformancePresent"
+    private const val KEY_BATTERY_PERFORMANCE = "batteryPerformance"
     private const val KEY_WIFI_KIND = "wifiKind"
     private const val KEY_WIFI_RES_ID = "wifiResId"
     private const val KEY_WIFI_SIGNAL = "wifiSignal"
