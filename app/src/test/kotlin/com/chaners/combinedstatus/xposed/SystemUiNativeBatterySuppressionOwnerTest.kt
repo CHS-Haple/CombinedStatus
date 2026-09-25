@@ -1,26 +1,49 @@
 package com.chaners.combinedstatus.xposed
 
+import android.view.View
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class SystemUiNativeBatterySuppressionOwnerTest {
     @Test
-    fun activePresentationMaskMakesChildTransparent() {
+    fun activeSuppressionKeepsChargingSlotButRemovesGlyph() {
         assertEquals(
-            0f,
-            SystemUiNativeBatterySuppressionOwner.resolvePresentationChildAlpha(
-                nativeAlpha = 1f,
+            View.INVISIBLE,
+            SystemUiNativeBatterySuppressionOwner.resolveChargingPresentationVisibility(
+                nativeVisibility = View.VISIBLE,
                 suppressionActive = true,
             ),
         )
     }
 
     @Test
-    fun inactivePresentationMaskPreservesNativeAlpha() {
+    fun activeSuppressionPreservesNativeGoneState() {
         assertEquals(
-            0.7f,
-            SystemUiNativeBatterySuppressionOwner.resolvePresentationChildAlpha(
-                nativeAlpha = 0.7f,
+            View.GONE,
+            SystemUiNativeBatterySuppressionOwner.resolveChargingPresentationVisibility(
+                nativeVisibility = View.GONE,
+                suppressionActive = true,
+            ),
+        )
+    }
+
+    @Test
+    fun activeSuppressionPreservesNativeInvisibleState() {
+        assertEquals(
+            View.INVISIBLE,
+            SystemUiNativeBatterySuppressionOwner.resolveChargingPresentationVisibility(
+                nativeVisibility = View.INVISIBLE,
+                suppressionActive = true,
+            ),
+        )
+    }
+
+    @Test
+    fun inactiveSuppressionPreservesNativeVisibility() {
+        assertEquals(
+            View.VISIBLE,
+            SystemUiNativeBatterySuppressionOwner.resolveChargingPresentationVisibility(
+                nativeVisibility = View.VISIBLE,
                 suppressionActive = false,
             ),
         )
