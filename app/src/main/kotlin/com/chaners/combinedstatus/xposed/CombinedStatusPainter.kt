@@ -860,8 +860,8 @@ internal object CombinedStatusCenterGeometry {
     const val MIN_TEXT_WEIGHT_SCALE = 0.70f
     const val MAX_TEXT_WEIGHT_SCALE = 1.20f
 
-    private const val BASE_WIFI_MAX_WIDTH = 52f
-    private const val BASE_WIFI_MAX_HEIGHT = 40f
+    private const val BASE_WIFI_MAX_WIDTH = 58f
+    private const val BASE_WIFI_MAX_HEIGHT = 45f
     private const val BASE_AIRPLANE_MAX_SIZE = 75f
     private const val BASE_NO_SIM_MAX_SIZE = 54f
     private const val BASE_MOBILE_TYPE_TEXT_SIZE = 39f
