@@ -1,5 +1,6 @@
 package com.chaners.combinedstatus.xposed
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -32,6 +33,28 @@ class SystemUiNativeBatterySuppressionOwnerTest {
         assertTrue(
             SystemUiNativeBatterySuppressionOwner.resolveEffectiveHide(
                 nativeRequestedHide = true,
+                suppressionActive = false,
+            ),
+        )
+    }
+
+    @Test
+    fun activeSuppressionUsesInvisibleVisualMask() {
+        assertEquals(
+            4,
+            SystemUiNativeBatterySuppressionOwner.resolveEffectiveVisibility(
+                nativeVisibility = 0,
+                suppressionActive = true,
+            ),
+        )
+    }
+
+    @Test
+    fun inactiveSuppressionPreservesNativeVisibility() {
+        assertEquals(
+            8,
+            SystemUiNativeBatterySuppressionOwner.resolveEffectiveVisibility(
+                nativeVisibility = 8,
                 suppressionActive = false,
             ),
         )
