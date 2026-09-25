@@ -8,10 +8,10 @@ import android.graphics.Path
 import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Typeface
-import kotlin.math.asin
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
+import kotlin.math.sqrt
 
 internal class CombinedStatusPainter(
     private val context: Context,
@@ -24,6 +24,11 @@ internal class CombinedStatusPainter(
     private val mobileTypeMainBounds = Rect()
     private val mobileTypeSuffixBounds = Rect()
     private val batteryRing = RectF(10f, 8f, 110f, 108f)
+    private var cachedOuterWeightScale = Float.NaN
+    private var cachedOuterGeometry =
+        CombinedStatusOuterGeometry.resolve(
+            CombinedStatusOuterGeometry.DEFAULT_WEIGHT_SCALE,
+        )
     private val wifiPaths = arrayOf(
         wifiPathLow(),
         wifiPathMid(),
@@ -40,6 +45,7 @@ internal class CombinedStatusPainter(
         previousCenterIndicator: CenterIndicator? = null,
         centerExitAmount: Float = 0f,
         centerEnterAmount: Float = 1f,
+        outerWeightScale: Float = CombinedStatusOuterGeometry.DEFAULT_WEIGHT_SCALE,
     ) {
         if (width <= 0 || height <= 0) {
             return
@@ -55,7 +61,14 @@ internal class CombinedStatusPainter(
         )
         canvas.scale(scale, scale)
 
-        drawBattery(canvas, model, colors.batteryTint, opacity)
+        val outerGeometry = resolveOuterGeometry(outerWeightScale)
+        drawBattery(
+            canvas = canvas,
+            model = model,
+            batteryTint = colors.batteryTint,
+            opacity = opacity,
+            geometry = outerGeometry,
+        )
         drawCenterTransition(
             canvas = canvas,
             current = model.centerIndicator,
@@ -66,8 +79,24 @@ internal class CombinedStatusPainter(
             exitAmount = centerExitAmount,
             enterAmount = centerEnterAmount,
         )
-        drawMobile(canvas, model, colors.primaryTint, opacity)
+        drawMobile(
+            canvas = canvas,
+            model = model,
+            tint = colors.primaryTint,
+            opacity = opacity,
+            geometry = outerGeometry,
+        )
         canvas.restoreToCount(save)
+    }
+
+    private fun resolveOuterGeometry(weightScale: Float): CombinedStatusOuterGeometry.Resolved {
+        val normalized =
+            CombinedStatusOuterGeometry.normalizeWeightScale(weightScale)
+        if (cachedOuterWeightScale != normalized) {
+            cachedOuterWeightScale = normalized
+            cachedOuterGeometry = CombinedStatusOuterGeometry.resolve(normalized)
+        }
+        return cachedOuterGeometry
     }
 
     private fun drawBattery(
@@ -75,13 +104,14 @@ internal class CombinedStatusPainter(
         model: CombinedStatusRenderModel,
         batteryTint: Int,
         opacity: Float,
+        geometry: CombinedStatusOuterGeometry.Resolved,
     ) {
-        stroke(batteryTint, 48, RING_STROKE, opacity)
+        stroke(batteryTint, 48, geometry.ringStroke, opacity)
         canvas.drawArc(batteryRing, BATTERY_START_DEGREES, BATTERY_MAX_SWEEP, false, paint)
 
         val sweep = model.batteryPercent * BATTERY_DEGREES_PER_PERCENT
         if (sweep > 0f) {
-            stroke(batteryTint, 255, RING_STROKE, opacity)
+            stroke(batteryTint, 255, geometry.ringStroke, opacity)
             canvas.drawArc(batteryRing, BATTERY_START_DEGREES, sweep, false, paint)
         }
     }
@@ -386,6 +416,7 @@ internal class CombinedStatusPainter(
         model: CombinedStatusRenderModel,
         tint: Int,
         opacity: Float,
+        geometry: CombinedStatusOuterGeometry.Resolved,
     ) {
         val level = model.mobileLevel
 
@@ -395,11 +426,13 @@ internal class CombinedStatusPainter(
                 alpha = if (level != null && level > index) 255 else 48,
                 opacity = opacity,
             )
-            val angle = bottomDotAngle(index)
+            val angle = geometry.bottomDotAngle(index)
             canvas.drawCircle(
-                MOBILE_CENTER_X + cos(angle).toFloat() * MOBILE_ORBIT_RADIUS,
-                MOBILE_CENTER_Y + sin(angle).toFloat() * MOBILE_ORBIT_RADIUS,
-                MOBILE_DOT_RADIUS,
+                MOBILE_CENTER_X +
+                    cos(angle).toFloat() * CombinedStatusOuterGeometry.MOBILE_ORBIT_RADIUS,
+                MOBILE_CENTER_Y +
+                    sin(angle).toFloat() * CombinedStatusOuterGeometry.MOBILE_ORBIT_RADIUS,
+                geometry.mobileDotRadius,
                 paint,
             )
         }
@@ -409,23 +442,6 @@ internal class CombinedStatusPainter(
             canvas.drawLine(56f, 90f, 64f, 98f, paint)
             canvas.drawLine(64f, 90f, 56f, 98f, paint)
         }
-    }
-
-    private fun bottomDotAngle(index: Int): Double {
-        val dotHalfAngle = asin((MOBILE_DOT_RADIUS / MOBILE_ORBIT_RADIUS).toDouble())
-        val ringGapHalfAngle = asin((3.75f / MOBILE_ORBIT_RADIUS).toDouble())
-        val step =
-            (
-                Math.PI * 2.0 / 3.0 -
-                    8.0 * dotHalfAngle -
-                    2.0 * ringGapHalfAngle
-            ) / 5.3
-        val start =
-            Math.PI / 6.0 +
-                ringGapHalfAngle +
-                1.15 * step +
-                dotHalfAngle
-        return start + (3 - index) * (2.0 * dotHalfAngle + step)
     }
 
     private fun fill(
@@ -535,12 +551,9 @@ internal class CombinedStatusPainter(
         const val BATTERY_START_DEGREES = 150f
         const val BATTERY_MAX_SWEEP = 240f
         const val BATTERY_DEGREES_PER_PERCENT = 2.4f
-        const val RING_STROKE = 7.5f
         const val MOBILE_DOT_COUNT = 4
         const val MOBILE_CENTER_X = 60f
         const val MOBILE_CENTER_Y = 58f
-        const val MOBILE_ORBIT_RADIUS = 51f
-        const val MOBILE_DOT_RADIUS = 4.9f
         const val SYSTEM_UI_PACKAGE = "com.android.systemui"
         const val AIRPLANE_RESOURCE_NAME = "stat_sys_signal_flightmode"
         const val AIRPLANE_CENTER_X = 60f
@@ -556,5 +569,128 @@ internal class CombinedStatusPainter(
         const val MOBILE_TYPE_SUFFIX_RISE_PX = 8f
         const val MOBILE_TYPE_SUFFIX_GAP = 2f
         const val MOBILE_TYPE_WEIGHT = 800
+    }
+}
+
+
+internal object CombinedStatusOuterGeometry {
+    const val RING_RADIUS = 50f
+    const val BASE_RING_STROKE = 7.5f
+    const val MOBILE_ORBIT_RADIUS = 51f
+    const val BASE_MOBILE_DOT_RADIUS = 4.9f
+    const val DEFAULT_WEIGHT_SCALE = 1.10f
+    const val MIN_WEIGHT_SCALE = 0.60f
+    const val MAX_WEIGHT_SCALE = 2.00f
+
+    private const val LOWER_OPENING_LEFT_DEGREES = 30.0
+    private const val LOWER_OPENING_CENTER_DEGREES = 90.0
+    private const val LOWER_OPENING_RIGHT_DEGREES = 150.0
+    private const val DOT_COUNT = 4
+    private const val SOLVER_ITERATIONS = 32
+
+    data class Resolved(
+        val weightScale: Float,
+        val ringStroke: Float,
+        val mobileDotRadius: Float,
+        val firstDotCenterDegrees: Float,
+        val dotCenterStepDegrees: Float,
+        val balancedEdgeGap: Float,
+    ) {
+        fun bottomDotAngle(index: Int): Double {
+            require(index in 0 until DOT_COUNT)
+            val ascendingIndex = DOT_COUNT - 1 - index
+            return Math.toRadians(
+                (
+                    firstDotCenterDegrees +
+                        ascendingIndex * dotCenterStepDegrees
+                ).toDouble(),
+            )
+        }
+    }
+
+    fun normalizeWeightScale(value: Float): Float =
+        value
+            .takeIf(Float::isFinite)
+            ?.coerceIn(MIN_WEIGHT_SCALE, MAX_WEIGHT_SCALE)
+            ?: DEFAULT_WEIGHT_SCALE
+
+    fun resolve(weightScale: Float): Resolved {
+        val normalized = normalizeWeightScale(weightScale)
+        val ringStroke = BASE_RING_STROKE * normalized
+        val dotRadius = BASE_MOBILE_DOT_RADIUS * normalized
+
+        var lowerStep = 1f
+        var upperStep = 39.5f
+        repeat(SOLVER_ITERATIONS) {
+            val candidate = (lowerStep + upperStep) / 2f
+            val difference =
+                ringToDotEdgeGap(
+                    stepDegrees = candidate,
+                    ringStroke = ringStroke,
+                    dotRadius = dotRadius,
+                ) -
+                    dotToDotEdgeGap(
+                        stepDegrees = candidate,
+                        dotRadius = dotRadius,
+                    )
+            if (difference > 0f) {
+                lowerStep = candidate
+            } else {
+                upperStep = candidate
+            }
+        }
+
+        val step = (lowerStep + upperStep) / 2f
+        val firstCenter =
+            LOWER_OPENING_CENTER_DEGREES.toFloat() -
+                1.5f * step
+        val gap =
+            dotToDotEdgeGap(
+                stepDegrees = step,
+                dotRadius = dotRadius,
+            )
+
+        return Resolved(
+            weightScale = normalized,
+            ringStroke = ringStroke,
+            mobileDotRadius = dotRadius,
+            firstDotCenterDegrees = firstCenter,
+            dotCenterStepDegrees = step,
+            balancedEdgeGap = gap,
+        )
+    }
+
+    private fun ringToDotEdgeGap(
+        stepDegrees: Float,
+        ringStroke: Float,
+        dotRadius: Float,
+    ): Float {
+        val dotAngle =
+            Math.toRadians(
+                LOWER_OPENING_CENTER_DEGREES -
+                    1.5 * stepDegrees,
+            )
+        val ringAngle = Math.toRadians(LOWER_OPENING_LEFT_DEGREES)
+        val ringX = cos(ringAngle).toFloat() * RING_RADIUS
+        val ringY = sin(ringAngle).toFloat() * RING_RADIUS
+        val dotX = cos(dotAngle).toFloat() * MOBILE_ORBIT_RADIUS
+        val dotY = sin(dotAngle).toFloat() * MOBILE_ORBIT_RADIUS
+        val dx = dotX - ringX
+        val dy = dotY - ringY
+        return sqrt(dx * dx + dy * dy) -
+            ringStroke / 2f -
+            dotRadius
+    }
+
+    private fun dotToDotEdgeGap(
+        stepDegrees: Float,
+        dotRadius: Float,
+    ): Float {
+        val stepRadians = Math.toRadians(stepDegrees.toDouble())
+        val centerDistance =
+            2f *
+                MOBILE_ORBIT_RADIUS *
+                sin(stepRadians / 2.0).toFloat()
+        return centerDistance - 2f * dotRadius
     }
 }
