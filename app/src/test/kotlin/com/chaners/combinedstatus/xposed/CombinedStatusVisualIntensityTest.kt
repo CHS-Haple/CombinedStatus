@@ -13,7 +13,7 @@ class CombinedStatusVisualIntensityTest {
     }
 
     @Test
-    fun intrinsicAlphaCeilingIsNormalizedToFullStrength() {
+    fun intrinsicAlphaPlateauIsNormalizedToFullStrength() {
         assertEquals(255, CombinedStatusVisualIntensity.normalizeSourceAlpha(128, 128))
         assertEquals(128, CombinedStatusVisualIntensity.normalizeSourceAlpha(64, 128))
         assertEquals(0, CombinedStatusVisualIntensity.normalizeSourceAlpha(0, 128))
@@ -28,7 +28,47 @@ class CombinedStatusVisualIntensityTest {
     }
 
     @Test
-    fun sourceAlphaIsBoundedByObservedMaximum() {
+    fun sourceAlphaIsBoundedByObservedPlateau() {
         assertEquals(255, CombinedStatusVisualIntensity.normalizeSourceAlpha(200, 128))
+    }
+
+    @Test
+    fun dominantOpaquePlateauWinsOverSparseHigherAlphaPixels() {
+        val alphas =
+            intArrayOf(
+                0, 0, 4, 8,
+                64, 128, 191, 191, 191, 191, 191, 191,
+                255,
+            )
+        assertEquals(
+            191,
+            CombinedStatusVisualIntensity.resolveSourcePlateauAlpha(
+                sourceAlphas = alphas,
+                minVisibleAlpha = 8,
+            ),
+        )
+    }
+
+    @Test
+    fun equalFrequencyPlateausPreferHigherAlpha() {
+        val alphas = intArrayOf(96, 96, 192, 192)
+        assertEquals(
+            192,
+            CombinedStatusVisualIntensity.resolveSourcePlateauAlpha(
+                sourceAlphas = alphas,
+                minVisibleAlpha = 8,
+            ),
+        )
+    }
+
+    @Test
+    fun noVisiblePixelsHasNoPlateau() {
+        assertEquals(
+            0,
+            CombinedStatusVisualIntensity.resolveSourcePlateauAlpha(
+                sourceAlphas = intArrayOf(0, 1, 4, 8),
+                minVisibleAlpha = 8,
+            ),
+        )
     }
 }
