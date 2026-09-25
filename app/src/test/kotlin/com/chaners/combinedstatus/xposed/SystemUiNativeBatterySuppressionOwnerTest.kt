@@ -7,7 +7,7 @@ import org.junit.Test
 
 class SystemUiNativeBatterySuppressionOwnerTest {
     @Test
-    fun activeSuppressionHidesBatteryRegardlessOfNativeRequest() {
+    fun activeSuppressionHidesBatteryLayoutRegardlessOfNativeRequest() {
         assertTrue(
             SystemUiNativeBatterySuppressionOwner.resolveEffectiveHide(
                 nativeRequestedHide = false,
@@ -23,7 +23,7 @@ class SystemUiNativeBatterySuppressionOwnerTest {
     }
 
     @Test
-    fun inactiveSuppressionPreservesNativeRequest() {
+    fun inactiveSuppressionPreservesNativeHideRequest() {
         assertFalse(
             SystemUiNativeBatterySuppressionOwner.resolveEffectiveHide(
                 nativeRequestedHide = false,
@@ -39,22 +39,22 @@ class SystemUiNativeBatterySuppressionOwnerTest {
     }
 
     @Test
-    fun activeSuppressionUsesInvisibleVisualMask() {
+    fun activePresentationMaskMakesChildTransparent() {
         assertEquals(
-            4,
-            SystemUiNativeBatterySuppressionOwner.resolveEffectiveVisibility(
-                nativeVisibility = 0,
+            0f,
+            SystemUiNativeBatterySuppressionOwner.resolvePresentationChildAlpha(
+                nativeAlpha = 1f,
                 suppressionActive = true,
             ),
         )
     }
 
     @Test
-    fun inactiveSuppressionPreservesNativeVisibility() {
+    fun inactivePresentationMaskPreservesNativeAlpha() {
         assertEquals(
-            8,
-            SystemUiNativeBatterySuppressionOwner.resolveEffectiveVisibility(
-                nativeVisibility = 8,
+            0.7f,
+            SystemUiNativeBatterySuppressionOwner.resolvePresentationChildAlpha(
+                nativeAlpha = 0.7f,
                 suppressionActive = false,
             ),
         )
