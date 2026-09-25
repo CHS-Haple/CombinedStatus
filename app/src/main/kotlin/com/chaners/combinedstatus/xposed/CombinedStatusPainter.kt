@@ -1148,16 +1148,11 @@ internal object NativeCenterTintNormalizer {
         if (sourceAlpha == 255) {
             return tint
         }
-        val targetAlpha = Color.alpha(tint)
+        val targetAlpha = tint ushr 24
         val normalizedAlpha =
             (targetAlpha * 255f / sourceAlpha)
                 .roundToInt()
                 .coerceIn(0, 255)
-        return Color.argb(
-            normalizedAlpha,
-            Color.red(tint),
-            Color.green(tint),
-            Color.blue(tint),
-        )
+        return (normalizedAlpha shl 24) or (tint and 0x00ffffff)
     }
 }
