@@ -19,11 +19,13 @@ internal object CombinedStatusColorPolicy {
                 ?.takeIf { color -> (color ushr 24) != 0 }
                 ?: tintState.appliedTint
         val batteryTint =
-            if (model.charging) {
-                CHARGING_TINT
-            } else {
-                nativeParticipantTint
-            }
+            model.batteryModeTint
+                ?.takeIf { color -> (color ushr 24) != 0 }
+                ?: if (model.charging) {
+                    CHARGING_TINT
+                } else {
+                    nativeParticipantTint
+                }
 
         return CombinedStatusColors(
             centerTint =
