@@ -436,10 +436,11 @@ internal class CombinedStatusPainter(
             )
         val drawWidth = intrinsicWidth * drawableScale
         val drawHeight = intrinsicHeight * drawableScale
-        val opticalCenterX = (optical.left + optical.right) / 2f
-        val opticalCenterY = (optical.top + optical.bottom) / 2f
-        val left = centerX - drawWidth * opticalCenterX
-        val top = centerY - drawHeight * opticalCenterY
+        // HyperOS resources are authored around their own viewport center.
+        // Optical bounds define visual size only; using the alpha-bounds center
+        // as the anchor shifts asymmetric Wi-Fi/hotspot resources off-axis.
+        val left = centerX - drawWidth / 2f
+        val top = centerY - drawHeight / 2f
 
         drawable.setTint(
             Color.rgb(
@@ -808,7 +809,7 @@ internal class CombinedStatusPainter(
         const val MOBILE_UNAVAILABLE_CENTER_X = 60f
         const val MOBILE_UNAVAILABLE_CENTER_Y = 94f
         const val WIFI_CENTER_X = 60f
-        const val WIFI_CENTER_Y = 54f
+        const val WIFI_CENTER_Y = 58f
         const val WIFI_FALLBACK_CENTER_X = 10f
         const val WIFI_FALLBACK_CENTER_Y = 10f
         const val SYSTEM_UI_PACKAGE = "com.android.systemui"
