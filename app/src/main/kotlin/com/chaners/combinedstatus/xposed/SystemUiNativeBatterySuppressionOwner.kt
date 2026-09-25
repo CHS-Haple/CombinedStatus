@@ -248,44 +248,6 @@ internal object SystemUiNativeBatterySuppressionOwner {
     }
 
     @Synchronized
-    fun revalidate(source: String): StateResult? {
-        if (!suppressionActive) {
-            return null
-        }
-        val batteryView =
-            activeBatteryView?.get()
-                ?: return StateResult.Failure("active-battery-view-missing")
-        val snapshot =
-            applyPresentationMaskLocked(
-                batteryView = batteryView,
-                preserveExistingNativeAlpha = true,
-            )
-        if (snapshot.failureReason != null) {
-            return StateResult.Failure(snapshot.failureReason)
-        }
-        if (snapshot.alphaWrites > 0 || snapshot.visibilityWrites > 0) {
-            eventSink?.invoke(
-                "nativeBatterySuppression revalidate " +
-                    "source=" + source +
-                    " maskedChildren=" + snapshot.maskedChildren +
-                    " alphaWrites=" + snapshot.alphaWrites +
-                    " visibilityWrites=" + snapshot.visibilityWrites +
-                    " visualChanged=true moduleLayoutWrites=0 nativeGeometryWrites=0",
-            )
-        }
-        return StateResult.Active(
-            source = source,
-            nativeRequestedHide = latestNativeHideRequest ?: false,
-            effectiveHide = latestNativeHideRequest ?: false,
-            maskedChildren = snapshot.maskedChildren,
-            layoutChanged = false,
-            visualChanged =
-                snapshot.alphaWrites > 0 ||
-                    snapshot.visibilityWrites > 0,
-        )
-    }
-
-    @Synchronized
     fun resetRuntimeState(source: String) {
         deactivate(source)
         runCatching { hideHookHandle?.unhook() }
