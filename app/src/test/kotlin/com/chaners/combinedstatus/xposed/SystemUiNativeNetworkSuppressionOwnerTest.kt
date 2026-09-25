@@ -102,6 +102,7 @@ class SystemUiNativeNetworkSuppressionOwnerTest {
                 slot = "airplane",
                 airplaneSuppressionActive = true,
                 noSimSuppressionActive = false,
+                belongsToActiveHomeGroup = true,
             ),
         )
         assertEquals(
@@ -110,6 +111,7 @@ class SystemUiNativeNetworkSuppressionOwnerTest {
                 slot = "airplane",
                 airplaneSuppressionActive = false,
                 noSimSuppressionActive = false,
+                belongsToActiveHomeGroup = true,
             ),
         )
         assertEquals(
@@ -118,6 +120,7 @@ class SystemUiNativeNetworkSuppressionOwnerTest {
                 slot = "no_sim",
                 airplaneSuppressionActive = false,
                 noSimSuppressionActive = true,
+                belongsToActiveHomeGroup = true,
             ),
         )
         assertEquals(
@@ -126,6 +129,7 @@ class SystemUiNativeNetworkSuppressionOwnerTest {
                 slot = "no_sim",
                 airplaneSuppressionActive = false,
                 noSimSuppressionActive = false,
+                belongsToActiveHomeGroup = true,
             ),
         )
         assertEquals(
@@ -134,6 +138,25 @@ class SystemUiNativeNetworkSuppressionOwnerTest {
                 slot = "alarm_clock",
                 airplaneSuppressionActive = true,
                 noSimSuppressionActive = true,
+                belongsToActiveHomeGroup = true,
+            ),
+        )
+        assertEquals(
+            false,
+            SystemUiNativeNetworkSuppressionOwner.shouldSuppressStaticSlot(
+                slot = "airplane",
+                airplaneSuppressionActive = true,
+                noSimSuppressionActive = true,
+                belongsToActiveHomeGroup = false,
+            ),
+        )
+        assertEquals(
+            false,
+            SystemUiNativeNetworkSuppressionOwner.shouldSuppressStaticSlot(
+                slot = "no_sim",
+                airplaneSuppressionActive = true,
+                noSimSuppressionActive = true,
+                belongsToActiveHomeGroup = false,
             ),
         )
     }
