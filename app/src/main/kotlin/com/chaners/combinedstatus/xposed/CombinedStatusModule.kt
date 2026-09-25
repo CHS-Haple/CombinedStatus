@@ -1137,19 +1137,16 @@ class CombinedStatusModule : XposedModule() {
         val changed =
             CombinedStatusPresentationStateStore.updateStatusIcons(state)
 
-        val appliedTint = state.appliedTint
         val tintSourceView = SystemUiTintStateSource.currentSourceView()
-        if (
-            appliedTint != null &&
-            (appliedTint ushr 24) != 0 &&
-            tintSourceView != null
-        ) {
-            onTintStateUpdate(
-                SystemUiTintStateSource.TintUpdate(
-                    sourceView = tintSourceView,
-                    state = CombinedStatusTintState(appliedTint),
-                ),
-            )
+        if (tintSourceView != null) {
+            SystemUiTintStateSource.currentState(tintSourceView)?.let { tintState ->
+                onTintStateUpdate(
+                    SystemUiTintStateSource.TintUpdate(
+                        sourceView = tintSourceView,
+                        state = tintState,
+                    ),
+                )
+            }
         }
 
         if (changed != null) {
