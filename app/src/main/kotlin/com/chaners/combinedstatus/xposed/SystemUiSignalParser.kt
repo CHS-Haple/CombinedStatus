@@ -19,8 +19,15 @@ internal sealed interface SignalStrength {
 internal object SystemUiSignalParser {
     private val mobileLevelPattern = Regex("^stat_sys_signal_([0-4])$")
     private val wifiLevelPattern = Regex("^stat_sys_wifi_signal_([0-3])$")
+    private val hotspotWifiLevelPattern =
+        Regex("^stat_sys_hotspot_signal_([0-3])$")
     private val wifiFamilyLevelPattern =
         Regex("(?:^|_)([0-3])(?:$|_)")
+    private val wifiResourcePrefixes =
+        listOf(
+            "stat_sys_wifi_signal_",
+            "stat_sys_hotspot_signal_",
+        )
 
     fun mobile(resourceName: String?): SignalStrength {
         val entry = resourceEntry(resourceName) ?: return SignalStrength.Unknown
@@ -38,18 +45,21 @@ internal object SystemUiSignalParser {
 
     fun wifi(resourceName: String?): SignalStrength {
         val entry = resourceEntry(resourceName) ?: return SignalStrength.Unknown
-        if (!entry.startsWith("stat_sys_wifi_signal_")) {
-            return SignalStrength.Unknown
-        }
+        val prefix =
+            wifiResourcePrefixes.firstOrNull(entry::startsWith)
+                ?: return SignalStrength.Unknown
 
         val exactLevel =
-            wifiLevelPattern.matchEntire(entry)
+            (
+                wifiLevelPattern.matchEntire(entry)
+                    ?: hotspotWifiLevelPattern.matchEntire(entry)
+            )
                 ?.groupValues
                 ?.getOrNull(1)
                 ?.toIntOrNull()
         val variantLevel =
             wifiFamilyLevelPattern
-                .find(entry.removePrefix("stat_sys_wifi_signal_"))
+                .find(entry.removePrefix(prefix))
                 ?.groupValues
                 ?.getOrNull(1)
                 ?.toIntOrNull()
@@ -59,10 +69,13 @@ internal object SystemUiSignalParser {
 
     fun wifiInternetValidated(resourceName: String?): Boolean? {
         val entry = resourceEntry(resourceName) ?: return null
-        if (wifiLevelPattern.matches(entry)) {
+        if (
+            wifiLevelPattern.matches(entry) ||
+            hotspotWifiLevelPattern.matches(entry)
+        ) {
             return true
         }
-        if (!entry.startsWith("stat_sys_wifi_signal_")) {
+        if (wifiResourcePrefixes.none(entry::startsWith)) {
             return null
         }
 
