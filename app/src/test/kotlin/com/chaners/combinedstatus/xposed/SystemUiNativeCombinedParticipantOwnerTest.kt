@@ -95,4 +95,36 @@ class SystemUiNativeCombinedParticipantOwnerTest {
             ),
         )
     }
+    @Test
+    fun committedParticipantStaysLogicallyVisibleAcrossKeyguard() {
+        assertTrue(
+            SystemUiNativeCombinedParticipantOwner.resolveSceneBindingVisibility(
+                handoffCommitted = true,
+                surface = SystemUiSceneStateSource.Surface.KEYGUARD,
+            ),
+        )
+        assertTrue(
+            SystemUiNativeCombinedParticipantOwner.resolveSceneBindingVisibility(
+                handoffCommitted = true,
+                surface = SystemUiSceneStateSource.Surface.UNLOCKED_STATUS_BAR,
+            ),
+        )
+    }
+
+    @Test
+    fun uncommittedParticipantStillRequiresUnlockedHome() {
+        assertFalse(
+            SystemUiNativeCombinedParticipantOwner.resolveSceneBindingVisibility(
+                handoffCommitted = false,
+                surface = SystemUiSceneStateSource.Surface.KEYGUARD,
+            ),
+        )
+        assertTrue(
+            SystemUiNativeCombinedParticipantOwner.resolveSceneBindingVisibility(
+                handoffCommitted = false,
+                surface = SystemUiSceneStateSource.Surface.UNLOCKED_STATUS_BAR,
+            ),
+        )
+    }
+
 }
