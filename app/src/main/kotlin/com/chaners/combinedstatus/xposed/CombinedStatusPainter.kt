@@ -469,15 +469,13 @@ internal class CombinedStatusPainter(
         val drawHeight = intrinsicHeight * drawableScale
 
         drawable.setTint(
-            NativeCenterTintNormalizer.normalizeForIntrinsicAlpha(
+            CombinedStatusVisualIntensity.resolveNativeFullStrengthTint(
                 tint = tint,
                 intrinsicMaxAlpha = asset.intrinsicMaxAlpha,
             ),
         )
         drawable.alpha =
-            (255f * opacity.coerceIn(0f, 1f))
-                .roundToInt()
-                .coerceIn(0, 255)
+            CombinedStatusVisualIntensity.resolveDrawableAlpha(opacity)
 
         if (pixelAligned && nativeTransform.scale > 0f) {
             val bounds =
@@ -595,7 +593,12 @@ internal class CombinedStatusPainter(
 
         paint.style = Paint.Style.FILL
         paint.color = tint
-        paint.alpha = effectiveAlpha(tint, 255, opacity)
+        paint.alpha =
+            CombinedStatusVisualIntensity.resolveCanvasAlpha(
+                color = tint,
+                semanticAlpha = 255,
+                opacity = opacity,
+            )
         paint.typeface = mobileTypeTypeface(geometry.mobileTypeWeight)
         paint.textAlign = Paint.Align.LEFT
         val mainTextSize =
@@ -741,7 +744,12 @@ internal class CombinedStatusPainter(
     ) {
         paint.style = Paint.Style.FILL
         paint.color = color
-        paint.alpha = effectiveAlpha(color, alpha, opacity)
+        paint.alpha =
+            CombinedStatusVisualIntensity.resolveCanvasAlpha(
+                color = color,
+                semanticAlpha = alpha,
+                opacity = opacity,
+            )
     }
 
     private fun stroke(
@@ -755,19 +763,13 @@ internal class CombinedStatusPainter(
         paint.strokeJoin = Paint.Join.ROUND
         paint.strokeWidth = width
         paint.color = color
-        paint.alpha = effectiveAlpha(color, alpha, opacity)
+        paint.alpha =
+            CombinedStatusVisualIntensity.resolveCanvasAlpha(
+                color = color,
+                semanticAlpha = alpha,
+                opacity = opacity,
+            )
     }
-
-    private fun effectiveAlpha(
-        color: Int,
-        alpha: Int,
-        opacity: Float,
-    ): Int =
-        (
-            Color.alpha(color) *
-                (alpha.coerceIn(0, 255) / 255f) *
-                opacity.coerceIn(0f, 1f)
-        ).toInt().coerceIn(0, 255)
 
     private fun wifiPathLow(): Path =
         Path().apply {
@@ -1139,8 +1141,24 @@ internal object CombinedStatusOuterGeometry {
 }
 
 
-internal object NativeCenterTintNormalizer {
-    fun normalizeForIntrinsicAlpha(
+internal object CombinedStatusVisualIntensity {
+    fun resolveCanvasAlpha(
+        color: Int,
+        semanticAlpha: Int,
+        opacity: Float,
+    ): Int =
+        (
+            (color ushr 24) *
+                (semanticAlpha.coerceIn(0, 255) / 255f) *
+                opacity.coerceIn(0f, 1f)
+        ).toInt().coerceIn(0, 255)
+
+    fun resolveDrawableAlpha(opacity: Float): Int =
+        (255f * opacity.coerceIn(0f, 1f))
+            .roundToInt()
+            .coerceIn(0, 255)
+
+    fun resolveNativeFullStrengthTint(
         tint: Int,
         intrinsicMaxAlpha: Int,
     ): Int {
