@@ -69,6 +69,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
     private var currentSurface = SystemUiSceneStateSource.Surface.UNKNOWN
     private var handoffPending = false
     private var handoffCommitted = false
+    private var handoffValidated = false
     private var modelReadyLogged = false
     private var unlockedGeometryLogged = false
     private var featureEnabled = false
@@ -872,10 +873,64 @@ internal object SystemUiNativeCombinedParticipantOwner {
         }
         featureEnabled = settings.enabled
         if (featureEnabled) {
-            reconcileVisibleHandoff("feature-enabled")
+            if (!resumeValidatedHandoff()) {
+                reconcileVisibleHandoff("feature-enabled")
+            }
         } else {
             suspendVisibleHandoff("feature-disabled")
         }
+    }
+
+    private fun resumeValidatedHandoff(): Boolean {
+        if (!handoffValidated || !modelReady || !tintReady) {
+            return false
+        }
+        val root = rootRef?.get() ?: return false
+        val bindingState = targetBindingState ?: return false
+        val render = renderViewRef?.get() ?: return false
+        val battery = batteryRef?.get() ?: return false
+        val parent = root.parent as? ViewGroup ?: return false
+        if (!root.isAttachedToWindow || render.measuredWidth <= 0 || render.measuredHeight <= 0) {
+            return false
+        }
+
+        val rootLocation = IntArray(2)
+        val batteryLocation = IntArray(2)
+        root.getLocationOnScreen(rootLocation)
+        if (battery.isAttachedToWindow) {
+            battery.getLocationOnScreen(batteryLocation)
+        }
+        if (
+            !isZeroSlotHandoffReady(
+                rootMeasuredWidth = root.measuredWidth,
+                rootMeasuredHeight = root.measuredHeight,
+                renderMeasuredWidth = render.measuredWidth,
+                renderMeasuredHeight = render.measuredHeight,
+                expectedVisualWidth = battery.width,
+                expectedVisualHeight = battery.height,
+                parentClipsChildren = parent.clipChildren,
+                rootScreenX = rootLocation[0],
+                batteryScreenX = batteryLocation[0],
+                renderLeft = render.left,
+                renderRight = render.right,
+            )
+        ) {
+            return false
+        }
+
+        removePendingPreDraw()
+        handoffPending = false
+        bindingState.visible = true
+        root.visibility = View.VISIBLE
+        handoffCommitted = true
+        handoffSink?.invoke(true)
+        eventSink?.invoke(
+            "nativeCombinedParticipant handoffResume " +
+                "source=feature-enabled validated=true " +
+                "mode=warm-standby rootShown=" + root.isShown +
+                " nativeGeometryWrites=0",
+        )
+        return true
     }
 
     @Synchronized
@@ -1129,23 +1184,8 @@ internal object SystemUiNativeCombinedParticipantOwner {
 
                         if (ready) {
                             handoffCommitted = true
-                            root.postOnAnimation {
-                                synchronized(this@SystemUiNativeCombinedParticipantOwner) {
-                                    if (
-                                        featureEnabled &&
-                                        handoffCommitted &&
-                                        rootRef?.get() === root &&
-                                        targetBindingState === bindingState
-                                    ) {
-                                        handoffSink?.invoke(true)
-                                        eventSink?.invoke(
-                                            "nativeCombinedParticipant fallbackRelease " +
-                                                "phase=after-first-visible-frame " +
-                                                "nativeGeometryWrites=0"
-                                        )
-                                    }
-                                }
-                            }
+                            handoffValidated = true
+                            handoffSink?.invoke(true)
                             eventSink?.invoke(
                                 "nativeCombinedParticipant handoffCommit " +
                                     "mode=" + resolvedMode.name +
