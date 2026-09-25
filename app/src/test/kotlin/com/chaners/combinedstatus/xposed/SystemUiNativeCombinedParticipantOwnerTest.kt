@@ -1,5 +1,6 @@
 package com.chaners.combinedstatus.xposed
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -95,4 +96,53 @@ class SystemUiNativeCombinedParticipantOwnerTest {
             ),
         )
     }
+    @Test
+    fun handoffModeAllowsVisibleHome() {
+        assertEquals(
+            SystemUiNativeCombinedParticipantOwner.HandoffMode.VISIBLE_HOME,
+            SystemUiNativeCombinedParticipantOwner.resolveHandoffMode(
+                surface = SystemUiSceneStateSource.Surface.UNLOCKED_STATUS_BAR,
+                rootShown = true,
+            ),
+        )
+    }
+
+    @Test
+    fun handoffModePrearmsHiddenHomeParticipantOnKeyguard() {
+        assertEquals(
+            SystemUiNativeCombinedParticipantOwner.HandoffMode.PREARMED_KEYGUARD,
+            SystemUiNativeCombinedParticipantOwner.resolveHandoffMode(
+                surface = SystemUiSceneStateSource.Surface.KEYGUARD,
+                rootShown = false,
+            ),
+        )
+    }
+
+    @Test
+    fun handoffModeDoesNotPrearmVisibleParticipantOnKeyguard() {
+        assertEquals(
+            SystemUiNativeCombinedParticipantOwner.HandoffMode.BLOCKED,
+            SystemUiNativeCombinedParticipantOwner.resolveHandoffMode(
+                surface = SystemUiSceneStateSource.Surface.KEYGUARD,
+                rootShown = true,
+            ),
+        )
+    }
+
+    @Test
+    fun handoffModeFailsClosedForUnknownAndShadeLocked() {
+        listOf(
+            SystemUiSceneStateSource.Surface.UNKNOWN,
+            SystemUiSceneStateSource.Surface.SHADE_LOCKED,
+        ).forEach { surface ->
+            assertEquals(
+                SystemUiNativeCombinedParticipantOwner.HandoffMode.BLOCKED,
+                SystemUiNativeCombinedParticipantOwner.resolveHandoffMode(
+                    surface = surface,
+                    rootShown = false,
+                ),
+            )
+        }
+    }
+
 }
