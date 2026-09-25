@@ -15,7 +15,6 @@ import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
 import java.util.concurrent.atomic.AtomicLong
 
 class CombinedStatusModule : XposedModule() {
-    private var islandMotionSourceInstalled = false
     private var runtimeSessionId = newRuntimeSessionId()
     private val diagnosticSequence = AtomicLong(0L)
     private val renderTraceSequence = AtomicLong(0L)
@@ -255,7 +254,7 @@ class CombinedStatusModule : XposedModule() {
 
             SystemUiBatteryRuntimeOwner.resetRuntimeState()
             SystemUiNetworkRuntimeOwner.resetRuntimeState()
-            islandMotionSourceInstalled = false
+            SystemUiIslandMotionRuntimeOwner.resetRuntimeState()
             SystemUiPresentationRuntimeOwner.resetRuntimeState()
             SystemUiNativeParticipantRuntimeOwner.resetControllerRuntimeState()
             SystemUiNativeNetworkSuppressionOwner.resetRuntimeState("hotReload")
@@ -854,7 +853,7 @@ class CombinedStatusModule : XposedModule() {
         source: String,
     ) {
         runCatching {
-            SystemUiIslandMotionSource.install(
+            SystemUiIslandMotionRuntimeOwner.attach(
                 module = this,
                 classLoader = classLoader,
                 onEvent = ::onIslandMotionEvent,
@@ -862,15 +861,13 @@ class CombinedStatusModule : XposedModule() {
                     BuildConfig.DEVELOPMENT_PROBES || detailedDiagnosticsEnabled
                 },
             )
-        }.onSuccess { handles ->
-            islandMotionSourceInstalled =
-                handles.size == SystemUiIslandMotionSource.HOOK_COUNT
+        }.onSuccess { result ->
             logDiagnostic(
-                level = if (islandMotionSourceInstalled) Log.INFO else Log.WARN,
+                level = if (result.ready) Log.INFO else Log.WARN,
                 event = "source.install",
                 component = "islandMotion",
-                state = if (islandMotionSourceInstalled) "ready" else "partial",
-                "hooks" to handles.size,
+                state = if (result.ready) "ready" else "partial",
+                "hooks" to result.hookCount,
                 "expectedHooks" to SystemUiIslandMotionSource.HOOK_COUNT,
                 "source" to source,
                 "nativeGeometryWrites" to 0,
@@ -878,7 +875,9 @@ class CombinedStatusModule : XposedModule() {
             log(
                 Log.INFO,
                 TAG,
-                "islandMotionSource hooks=ready count=" + handles.size +
+                "islandMotionSource hooks=" +
+                    (if (result.ready) "ready" else "partial") +
+                    " count=" + result.hookCount +
                     " source=" + source +
                     " motion=ownerProbe nativeGeometryWrites=0",
             )
@@ -1161,7 +1160,7 @@ class CombinedStatusModule : XposedModule() {
         SystemUiCoreRuntimeOwner.detach()
         SystemUiPresentationRuntimeOwner.resetRuntimeState()
         CombinedStatusPresentationStateStore.reset()
-        SystemUiIslandMotionSource.resetRuntimeState()
+        SystemUiIslandMotionRuntimeOwner.resetRuntimeState()
         val nativeRuntimeReleased =
             SystemUiNativeCombinedParticipantOwner.releaseGenerationForHotReload()
 
