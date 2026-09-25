@@ -1179,22 +1179,31 @@ internal object CombinedStatusVisualIntensity {
         minVisibleAlpha: Int,
     ): Int {
         val threshold = minVisibleAlpha.coerceIn(0, 254)
-        val visible =
-            sourceAlphas
-                .asSequence()
-                .map { alpha -> alpha.coerceIn(0, 255) }
-                .filter { alpha -> alpha > threshold }
-                .sorted()
-                .toList()
-        if (visible.isEmpty()) {
+        val histogram = IntArray(256)
+        var visibleCount = 0
+        sourceAlphas.forEach { sourceAlpha ->
+            val alpha = sourceAlpha.coerceIn(0, 255)
+            if (alpha > threshold) {
+                histogram[alpha]++
+                visibleCount++
+            }
+        }
+        if (visibleCount == 0) {
             return 0
         }
 
-        val index =
-            ((visible.lastIndex) * SOURCE_ALPHA_CEILING_QUANTILE)
+        val targetIndex =
+            ((visibleCount - 1) * SOURCE_ALPHA_CEILING_QUANTILE)
                 .toInt()
-                .coerceIn(0, visible.lastIndex)
-        return visible[index]
+                .coerceIn(0, visibleCount - 1)
+        var cumulative = 0
+        for (alpha in (threshold + 1)..255) {
+            cumulative += histogram[alpha]
+            if (cumulative > targetIndex) {
+                return alpha
+            }
+        }
+        return 255
     }
 
     fun normalizeSourceAlpha(
