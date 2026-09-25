@@ -30,7 +30,13 @@ internal class CombinedStatusPainter(
         object : LinkedHashMap<String, NativeCenterAsset>(NATIVE_CENTER_CACHE_SIZE, 0.75f, true) {
             override fun removeEldestEntry(
                 eldest: MutableMap.MutableEntry<String, NativeCenterAsset>?,
-            ): Boolean = size > NATIVE_CENTER_CACHE_SIZE
+            ): Boolean {
+                val shouldRemove = size > NATIVE_CENTER_CACHE_SIZE
+                if (shouldRemove) {
+                    eldest?.value?.bitmap?.recycle()
+                }
+                return shouldRemove
+            }
         }
     private var cachedMobileTypeWeight: Int = Int.MIN_VALUE
     private var cachedMobileTypeTypeface: Typeface = Typeface.DEFAULT
@@ -361,22 +367,19 @@ internal class CombinedStatusPainter(
         val intrinsicWidth = drawable.intrinsicWidth
         val intrinsicHeight = drawable.intrinsicHeight
         if (intrinsicWidth <= 0 || intrinsicHeight <= 0) {
-            return NativeVisualProbe.FULL
+            return NativeVisualProbe.full()
         }
 
         val probeScale =
-            min(
-                1f,
-                NATIVE_OPTICAL_PROBE_MAX /
-                    max(intrinsicWidth, intrinsicHeight).toFloat(),
-            )
+            NATIVE_OPTICAL_PROBE_MAX /
+                max(intrinsicWidth, intrinsicHeight).toFloat()
         val probeWidth = max(1, (intrinsicWidth * probeScale).roundToInt())
         val probeHeight = max(1, (intrinsicHeight * probeScale).roundToInt())
         val probeDrawable =
             drawable.constantState
                 ?.newDrawable(resources)
                 ?.mutate()
-                ?: return NativeVisualProbe.FULL
+                ?: return NativeVisualProbe.full()
         val bitmap =
             Bitmap.createBitmap(
                 probeWidth,
@@ -411,7 +414,7 @@ internal class CombinedStatusPainter(
 
         if (maxAlpha <= 0 || maxX < minX || maxY < minY) {
             bitmap.recycle()
-            return NativeVisualProbe.FULL
+            return NativeVisualProbe.full()
         }
 
         for (index in pixels.indices) {
@@ -876,7 +879,7 @@ internal class CombinedStatusPainter(
         val normalizedBitmap: Bitmap,
     ) {
         companion object {
-            val FULL =
+            fun full(): NativeVisualProbe =
                 NativeVisualProbe(
                     opticalBounds = OpticalBounds.FULL,
                     normalizedBitmap =
