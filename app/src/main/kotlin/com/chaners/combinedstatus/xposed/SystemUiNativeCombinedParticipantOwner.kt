@@ -656,8 +656,10 @@ internal object SystemUiNativeCombinedParticipantOwner {
         )
         val modelUpdate =
             renderController?.update(CombinedStatusStateStore.snapshot())
+        val batteryTintState =
+            SystemUiTintStateSource.currentState(battery)
         val tintUpdate =
-            SystemUiTintStateSource.currentState(battery)?.let { batteryTint ->
+            batteryTintState?.let { batteryTint ->
                 renderController?.updateTint(
                     mergeNativeParticipantTint(
                         batteryTint = batteryTint,
@@ -665,6 +667,21 @@ internal object SystemUiNativeCombinedParticipantOwner {
                     ),
                 )
             }
+        if (detailedTintReady(bindingState.iconTint, batteryTintState)) {
+            eventSink?.invoke(
+                "nativeCombinedParticipant tintSeed " +
+                    "authority=" +
+                    if (bindingState.iconTint != null) {
+                        "native-binding"
+                    } else {
+                        "battery-fallback"
+                    } +
+                    " nativeTint=" + colorHex(bindingState.iconTint) +
+                    " batteryFallback=" +
+                    colorHex(batteryTintState?.appliedTint) +
+                    " nativeGeometryWrites=0",
+            )
+        }
 
         rootRef = WeakReference(root)
         hostRef = WeakReference(hostView)
@@ -869,9 +886,10 @@ internal object SystemUiNativeCombinedParticipantOwner {
         }
         val previous = bindingState.iconTint
         bindingState.iconTint = tint
-        if (!bindingState.tintEventLogged) {
+        val sink = eventSink
+        if (!bindingState.tintEventLogged && sink != null) {
             bindingState.tintEventLogged = true
-            eventSink?.invoke(
+            sink.invoke(
                 "nativeCombinedParticipant tint " +
                     "authority=ModernStatusBarViewBinding.onIconTintChanged " +
                     "tint=#" + tint.toUInt().toString(16).padStart(8, '0') +
@@ -897,6 +915,19 @@ internal object SystemUiNativeCombinedParticipantOwner {
         }
         reconcileVisibleHandoff("native-tint")
     }
+
+    private fun detailedTintReady(
+        nativeTint: Int?,
+        batteryTint: CombinedStatusTintState?,
+    ): Boolean =
+        nativeTint != null || batteryTint != null
+
+    private fun colorHex(color: Int?): String =
+        color
+            ?.let { value ->
+                "#" + value.toUInt().toString(16).padStart(8, '0')
+            }
+            ?: "none"
 
     internal fun mergeNativeParticipantTint(
         batteryTint: CombinedStatusTintState,
