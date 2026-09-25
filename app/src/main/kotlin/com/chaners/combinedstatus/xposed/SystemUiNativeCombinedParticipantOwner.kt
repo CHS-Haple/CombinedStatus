@@ -793,9 +793,6 @@ internal object SystemUiNativeCombinedParticipantOwner {
     private fun reconcileVisibleHandoff(source: String) {
         val root = rootRef?.get() ?: return
         val bindingState = targetBindingState ?: return
-        val sceneVisible =
-            currentSurface == SystemUiSceneStateSource.Surface.UNLOCKED_STATUS_BAR
-
         if (handoffCommitted) {
             if (!bindingState.visible) {
                 bindingState.visible = true
@@ -994,7 +991,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
         }
 
     private fun firstHiddenAncestor(view: View): String {
-        var current: View? = view
+        var current = view.parent as? View
         while (current != null) {
             if (current.visibility != View.VISIBLE || !current.isShown) {
                 return current.javaClass.simpleName +
