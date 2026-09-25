@@ -176,7 +176,7 @@ class SystemUiNativeCombinedParticipantOwnerTest {
     }
 
     @Test
-    fun visualSlotTintWinsOverZeroWidthNativeBindingTint() {
+    fun nativeBindingTintWinsOverLegacyVisualSlotTint() {
         val merged =
             SystemUiNativeCombinedParticipantOwner.mergeNativeParticipantTint(
                 batteryTint =
@@ -188,11 +188,11 @@ class SystemUiNativeCombinedParticipantOwnerTest {
             )
 
         assertEquals(0xbf000000.toInt(), merged.appliedTint)
-        assertEquals(0xff202020.toInt(), merged.statusIconTint)
+        assertEquals(0xff303030.toInt(), merged.statusIconTint)
     }
 
     @Test
-    fun nativeBindingTintIsFallbackWhenVisualSlotTintIsUnavailable() {
+    fun nativeBindingTintRemainsAuthorityWhenVisualSlotTintIsUnavailable() {
         val merged =
             SystemUiNativeCombinedParticipantOwner.mergeNativeParticipantTint(
                 batteryTint =
