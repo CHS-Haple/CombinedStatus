@@ -3,6 +3,7 @@ package com.chaners.combinedstatus.xposed
 import android.graphics.Rect
 import android.view.View
 import android.view.ViewGroup
+import com.chaners.combinedstatus.settings.CombinedStatusFeatureSettings
 import com.chaners.combinedstatus.settings.CombinedStatusVisualSettings
 import java.lang.ref.WeakReference
 
@@ -44,6 +45,8 @@ internal object CombinedStatusHomeRenderSession {
             onLatencySample = onLatencySample,
             isDetailedDiagnosticsEnabled = isDetailedDiagnosticsEnabled,
             initialNativeHandoffActive = initialNativeHandoffActive,
+            initialFeatureEnabled =
+                RuntimeFeaturePreferencesOwner.currentSettings().enabled,
         )
         current = session
         session.start()
@@ -70,6 +73,11 @@ internal object CombinedStatusHomeRenderSession {
     }
 
     @Synchronized
+    fun onFeatureSettingsChanged(settings: CombinedStatusFeatureSettings) {
+        current?.setFeatureEnabled(settings.enabled)
+    }
+
+    @Synchronized
     fun onVisualSettingsChanged(settings: CombinedStatusVisualSettings) {
         current?.updateVisualSettings(settings)
     }
@@ -90,6 +98,15 @@ internal object CombinedStatusHomeRenderSession {
         current = null
     }
 
+    internal fun resolveOverlayVisible(
+        featureEnabled: Boolean,
+        sceneAllowsOverlay: Boolean,
+        nativeHandoffActive: Boolean,
+    ): Boolean =
+        featureEnabled &&
+            sceneAllowsOverlay &&
+            !nativeHandoffActive
+
     private fun ViewGroup.directChild(className: String): ViewGroup? {
         for (index in 0 until childCount) {
             val child = getChildAt(index)
@@ -108,6 +125,7 @@ internal object CombinedStatusHomeRenderSession {
         private val onLatencySample: ((RuntimeRenderLatencySample) -> Unit)?,
         private val isDetailedDiagnosticsEnabled: () -> Boolean,
         initialNativeHandoffActive: Boolean,
+        initialFeatureEnabled: Boolean,
     ) : View.OnAttachStateChangeListener {
         private val host = WeakReference(host)
         private val batteryContainer = WeakReference(batteryContainer)
@@ -132,6 +150,7 @@ internal object CombinedStatusHomeRenderSession {
         private var rejectedTintLogged = false
         private var sceneSurface = SystemUiSceneStateSource.Surface.UNKNOWN
         private var nativeHandoffActive = initialNativeHandoffActive
+        private var featureEnabled = initialFeatureEnabled
         private val anchorRect = Rect()
 
         private val batteryLayoutListener =
@@ -205,8 +224,12 @@ internal object CombinedStatusHomeRenderSession {
 
             sceneSurface = update.surface
             val visible =
-                SystemUiSceneStateSource.allowsHomeOverlay(update.surface) &&
-                    !nativeHandoffActive
+                resolveOverlayVisible(
+                    featureEnabled = featureEnabled,
+                    sceneAllowsOverlay =
+                        SystemUiSceneStateSource.allowsHomeOverlay(update.surface),
+                    nativeHandoffActive = nativeHandoffActive,
+                )
             probeView.visibility = if (visible) View.VISIBLE else View.GONE
             if (visible) {
                 probeView.invalidate()
@@ -224,14 +247,45 @@ internal object CombinedStatusHomeRenderSession {
             }
         }
 
+        fun setFeatureEnabled(enabled: Boolean) {
+            if (featureEnabled == enabled) {
+                return
+            }
+            featureEnabled = enabled
+            val visible =
+                resolveOverlayVisible(
+                    featureEnabled = featureEnabled,
+                    sceneAllowsOverlay =
+                        SystemUiSceneStateSource.allowsHomeOverlay(sceneSurface),
+                    nativeHandoffActive = nativeHandoffActive,
+                )
+            probeView.visibility = if (visible) View.VISIBLE else View.GONE
+            if (visible) {
+                probeView.invalidate()
+            } else {
+                probeView.clearPendingLatency()
+            }
+            emitEvent {
+                "homeRenderFeature enabled=" + featureEnabled +
+                    " overlayVisible=" + visible +
+                    " scene=" + sceneSurface.name +
+                    " nativeHandoffActive=" + nativeHandoffActive +
+                    " nativeGeometryWrites=0"
+            }
+        }
+
         fun setNativeHandoffActive(active: Boolean) {
             if (nativeHandoffActive == active) {
                 return
             }
             nativeHandoffActive = active
             val visible =
-                SystemUiSceneStateSource.allowsHomeOverlay(sceneSurface) &&
-                    !nativeHandoffActive
+                resolveOverlayVisible(
+                    featureEnabled = featureEnabled,
+                    sceneAllowsOverlay =
+                        SystemUiSceneStateSource.allowsHomeOverlay(sceneSurface),
+                    nativeHandoffActive = nativeHandoffActive,
+                )
             probeView.visibility = if (visible) View.VISIBLE else View.GONE
             if (visible) {
                 probeView.invalidate()
