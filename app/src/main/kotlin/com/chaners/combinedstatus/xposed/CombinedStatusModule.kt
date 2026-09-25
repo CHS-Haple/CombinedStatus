@@ -1869,13 +1869,8 @@ class CombinedStatusModule : XposedModule() {
     private fun onRuntimeFeatureSettingsChanged(
         settings: CombinedStatusFeatureSettings,
     ) {
-        if (settings.enabled) {
-            SystemUiNativeCombinedParticipantOwner.onFeatureSettingsChanged(settings)
-            CombinedStatusHomeRenderSession.onFeatureSettingsChanged(settings)
-        } else {
-            SystemUiNativeCombinedParticipantOwner.onFeatureSettingsChanged(settings)
-            CombinedStatusHomeRenderSession.onFeatureSettingsChanged(settings)
-        }
+        SystemUiNativeCombinedParticipantOwner.onFeatureSettingsChanged(settings)
+        CombinedStatusHomeRenderSession.onFeatureSettingsChanged(settings)
         logDiagnostic(
             level = Log.INFO,
             event = "featureSettings.changed",
