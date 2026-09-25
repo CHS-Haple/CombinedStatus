@@ -10,11 +10,20 @@ internal object CombinedStatusStateStore {
 
     @Synchronized
     fun updateBattery(state: BatteryState): Snapshot? {
-        if (current.battery == state) {
+        val previous = current.battery
+        val merged =
+            state.copy(
+                powerSave = state.powerSave ?: previous?.powerSave,
+                extremePowerSave =
+                    state.extremePowerSave ?: previous?.extremePowerSave,
+                performanceMode =
+                    state.performanceMode ?: previous?.performanceMode,
+            )
+        if (previous == merged) {
             return null
         }
 
-        current = current.copy(battery = state)
+        current = current.copy(battery = merged)
         return current
     }
 
