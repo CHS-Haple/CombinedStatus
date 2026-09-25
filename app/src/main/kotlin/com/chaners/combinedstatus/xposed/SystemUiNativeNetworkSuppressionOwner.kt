@@ -24,12 +24,14 @@ internal object SystemUiNativeNetworkSuppressionOwner {
         "combinedstatus.nativeNetworkSuppression.mobileVisibility"
     private const val HOME_ICON_ADDED_HOOK_ID =
         "combinedstatus.nativeNetworkSuppression.homeIconAdded"
+    private const val AIRPLANE_VISIBILITY_HOOK_ID =
+        "combinedstatus.nativeNetworkSuppression.airplaneVisibility"
 
     private val noTargetSlots = emptySet<String>()
     private val wifiOnlyTargetSlots = setOf("wifi")
     private val mobileOnlyTargetSlots = setOf("mobile")
     private val wifiAndMobileTargetSlots = setOf("wifi", "mobile")
-    private val observableTargetSlots = wifiAndMobileTargetSlots
+    private val observableTargetSlots = wifiAndMobileTargetSlots + AIRPLANE_SLOT
 
     private val installedHandles = mutableListOf<HookHandle>()
     private var activeManager: Any? = null
@@ -43,6 +45,9 @@ internal object SystemUiNativeNetworkSuppressionOwner {
     private var mobileVisualMasks: Array<MobileVisualMaskState> = emptyArray()
 
     @Volatile
+    private var suppressedAirplaneViews: Array<WeakReference<View>> = emptyArray()
+
+    @Volatile
     private var wifiSuppressionEnabled = false
 
     @Volatile
@@ -50,6 +55,9 @@ internal object SystemUiNativeNetworkSuppressionOwner {
 
     val installedHookCount: Int
         @Synchronized get() = installedHandles.size
+
+    val mobileSuppressionActive: Boolean
+        @Synchronized get() = activeManager != null && mobileSuppressionEnabled
 
     @Synchronized
     fun install(
@@ -80,6 +88,8 @@ internal object SystemUiNativeNetworkSuppressionOwner {
                     false,
                     classLoader,
                 )
+            val statusBarIconVisibility =
+                resolveStatusBarIconVisibilityMethod(classLoader)
             val onIconAdded =
                 darkIconManager.declaredMethods
                     .firstOrNull { method ->
@@ -107,6 +117,11 @@ internal object SystemUiNativeNetworkSuppressionOwner {
                     .hook(onIconAdded)
                     .setId(HOME_ICON_ADDED_HOOK_ID)
                     .intercept(homeIconAddedHooker())
+            created +=
+                module
+                    .hook(statusBarIconVisibility)
+                    .setId(AIRPLANE_VISIBILITY_HOOK_ID)
+                    .intercept(airplaneVisibilityHooker())
 
             installedHandles.clear()
             installedHandles.addAll(created)
@@ -119,6 +134,7 @@ internal object SystemUiNativeNetworkSuppressionOwner {
             installedHandles.clear()
             suppressedBindings = emptyArray()
             mobileVisualMasks = emptyArray()
+            suppressedAirplaneViews = emptyArray()
             activeManager = null
             activeGroup = null
             eventSink = onEvent
@@ -168,6 +184,8 @@ internal object SystemUiNativeNetworkSuppressionOwner {
             wifiSuppressed = snapshot.wifiSuppressed,
             mobileSuppressed = snapshot.mobileSuppressed,
             mobileVisualMasks = snapshot.mobileVisualMaskCount,
+            airplaneTargets = snapshot.airplaneTargetCount,
+            airplaneSuppressed = snapshot.airplaneSuppressed,
         )
     }
 
@@ -202,6 +220,8 @@ internal object SystemUiNativeNetworkSuppressionOwner {
             wifiSuppressed = snapshot.wifiSuppressed,
             mobileSuppressed = snapshot.mobileSuppressed,
             mobileVisualMasks = snapshot.mobileVisualMaskCount,
+            airplaneTargets = snapshot.airplaneTargetCount,
+            airplaneSuppressed = snapshot.airplaneSuppressed,
         )
     }
 
@@ -209,6 +229,8 @@ internal object SystemUiNativeNetworkSuppressionOwner {
     fun deactivate(source: String): StateResult {
         val group = activeGroup?.get()
         val previousCount = suppressedBindings.count { reference -> reference.get() != null }
+        val previousAirplaneTargets =
+            suppressedAirplaneViews.count { reference -> reference.get() != null }
         val restoredVisualMasks = restoreMobileVisualMasksLocked()
         clearSessionLocked(
             requestLayout = false,
@@ -220,6 +242,7 @@ internal object SystemUiNativeNetworkSuppressionOwner {
                 "nativeNetworkSuppression inactive source=" + source +
                     " restoredBindings=" + previousCount +
                     " restoredMobileVisualMasks=" + restoredVisualMasks +
+                    " releasedAirplaneTargets=" + previousAirplaneTargets +
                     " nativeGeometryWrites=0",
             )
         }
@@ -237,6 +260,16 @@ internal object SystemUiNativeNetworkSuppressionOwner {
         Hooker { chain ->
             val binding = chain.thisObject
             if (isSuppressed(binding)) {
+                false
+            } else {
+                chain.proceed()
+            }
+        }
+
+    private fun airplaneVisibilityHooker(): Hooker =
+        Hooker { chain ->
+            val view = chain.thisObject as? View
+            if (view != null && isAirplaneSuppressed(view)) {
                 false
             } else {
                 chain.proceed()
@@ -268,6 +301,11 @@ internal object SystemUiNativeNetworkSuppressionOwner {
             reference.get() === binding
         }
 
+    private fun isAirplaneSuppressed(view: View): Boolean =
+        suppressedAirplaneViews.any { reference ->
+            reference.get() === view
+        }
+
     private fun refreshBindingsLocked(source: String): BindingSnapshot {
         val group =
             activeGroup?.get()
@@ -288,13 +326,23 @@ internal object SystemUiNativeNetworkSuppressionOwner {
                     noTargetSlots
             }
         val targetViews = mutableListOf<Pair<String, View>>()
+        val airplaneViews = mutableListOf<View>()
         for (index in 0 until group.childCount) {
             val child = group.getChildAt(index)
             val slot = NativeParticipantRuntimeAccess.slotOf(child) ?: continue
             if (slot in targetSlots) {
                 targetViews += slot to child
             }
+            if (slot == AIRPLANE_SLOT) {
+                airplaneViews += child
+            }
         }
+
+        suppressedAirplaneViews =
+            airplaneViews
+                .distinctBy(System::identityHashCode)
+                .map(::WeakReference)
+                .toTypedArray()
 
         val bindings = mutableListOf<Any>()
         val resolvedSlots = mutableListOf<String>()
@@ -347,6 +395,8 @@ internal object SystemUiNativeNetworkSuppressionOwner {
             wifiSuppressed = wifiSuppressionEnabled,
             mobileSuppressed = mobileSuppressionEnabled,
             mobileVisualMasks = visualMaskResult.maskCount,
+            airplaneTargets = suppressedAirplaneViews.size,
+            airplaneSuppressed = true,
         )
     }
 
@@ -496,6 +546,26 @@ internal object SystemUiNativeNetworkSuppressionOwner {
         }.getOrNull()
     }
 
+    private fun resolveStatusBarIconVisibilityMethod(
+        classLoader: ClassLoader,
+    ): Method {
+        val clazz =
+            Class.forName(
+                NativeParticipantRuntimeAccess.STATUS_BAR_ICON_VIEW,
+                false,
+                classLoader,
+            )
+        return generateSequence(clazz) { current -> current.superclass }
+            .flatMap { current -> current.declaredMethods.asSequence() }
+            .firstOrNull { method ->
+                method.name == "isIconVisible" &&
+                    method.parameterCount == 0 &&
+                    method.returnType == java.lang.Boolean.TYPE
+            }
+            ?.apply { isAccessible = true }
+            ?: error("status-bar-icon-visible-method-missing")
+    }
+
     private fun resolveVisibilityMethod(
         classLoader: ClassLoader,
         className: String,
@@ -527,6 +597,7 @@ internal object SystemUiNativeNetworkSuppressionOwner {
         activeManager = null
         activeGroup = null
         suppressedBindings = emptyArray()
+        suppressedAirplaneViews = emptyArray()
         wifiSuppressionEnabled = false
         mobileSuppressionEnabled = false
         if (requestLayout) {
@@ -552,6 +623,8 @@ internal object SystemUiNativeNetworkSuppressionOwner {
             val wifiSuppressed: Boolean,
             val mobileSuppressed: Boolean,
             val mobileVisualMasks: Int,
+            val airplaneTargets: Int,
+            val airplaneSuppressed: Boolean,
         ) : StateResult {
             override val summary: String
                 get() =
@@ -559,7 +632,9 @@ internal object SystemUiNativeNetworkSuppressionOwner {
                         ",slots=" + slots.joinToString(",") +
                         ",wifiSuppressed=" + wifiSuppressed +
                         ",mobileSuppressed=" + mobileSuppressed +
-                        ",mobileVisualMasks=" + mobileVisualMasks
+                        ",mobileVisualMasks=" + mobileVisualMasks +
+                        ",airplaneTargets=" + airplaneTargets +
+                        ",airplaneSuppressed=" + airplaneSuppressed
         }
 
         data class Inactive(
@@ -585,6 +660,8 @@ internal object SystemUiNativeNetworkSuppressionOwner {
         val wifiSuppressed: Boolean,
         val mobileSuppressed: Boolean,
         val mobileVisualMaskCount: Int,
+        val airplaneTargetCount: Int,
+        val airplaneSuppressed: Boolean,
         val failureReason: String?,
     ) {
         val logLine: String
@@ -603,6 +680,9 @@ internal object SystemUiNativeNetworkSuppressionOwner {
                     " mobileSuppressed=" + mobileSuppressed +
                     " mobileVisualMasks=" + mobileVisualMaskCount +
                     " visualMask=mobile_signal_container.alpha " +
+                    " airplaneTargets=" + airplaneTargetCount +
+                    " airplaneSuppressed=" + airplaneSuppressed +
+                    " airplaneContract=StatusBarIconView.isIconVisible " +
                     " reason=" + (failureReason ?: "none") +
                     " nativeGeometryWrites=0"
 
@@ -615,6 +695,8 @@ internal object SystemUiNativeNetworkSuppressionOwner {
                 wifiSuppressed: Boolean,
                 mobileSuppressed: Boolean,
                 mobileVisualMasks: Int,
+                airplaneTargets: Int,
+                airplaneSuppressed: Boolean,
             ): BindingSnapshot =
                 BindingSnapshot(
                     source = source,
@@ -624,6 +706,8 @@ internal object SystemUiNativeNetworkSuppressionOwner {
                     wifiSuppressed = wifiSuppressed,
                     mobileSuppressed = mobileSuppressed,
                     mobileVisualMaskCount = mobileVisualMasks,
+                    airplaneTargetCount = airplaneTargets,
+                    airplaneSuppressed = airplaneSuppressed,
                     failureReason = null,
                 )
 
@@ -642,6 +726,8 @@ internal object SystemUiNativeNetworkSuppressionOwner {
                     wifiSuppressed = false,
                     mobileSuppressed = false,
                     mobileVisualMaskCount = 0,
+                    airplaneTargetCount = 0,
+                    airplaneSuppressed = false,
                     failureReason = reason,
                 )
         }
@@ -681,5 +767,6 @@ internal object SystemUiNativeNetworkSuppressionOwner {
     }
 
     private const val MOBILE_SIGNAL_CONTAINER_RESOURCE_ENTRY = "mobile_signal_container"
-    private const val EXPECTED_HOOK_COUNT = 3
+    private const val AIRPLANE_SLOT = "airplane"
+    private const val EXPECTED_HOOK_COUNT = 4
 }
