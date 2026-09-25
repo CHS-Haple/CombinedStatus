@@ -82,15 +82,14 @@ internal object SystemUiTintStateSource {
                                 (chain.getArg(4) as? Number)?.toInt() ?: 0
                             val useTint =
                                 chain.getArg(5) as? Boolean ?: false
-                            val statusIconTint =
-                                SystemUiNativeNetworkSuppressionOwner
-                                    .currentAppliedStatusIconTint()
                             onEvent?.invoke(
                                 "tintSource receiver=" +
                                     sourceView.javaClass.simpleName +
-                                    " applied=" + colorHex(state.appliedTint) +
-                                    " authority=" +
-                                    if (statusIconTint == state.appliedTint) {
+                                    " batteryApplied=" + colorHex(state.appliedTint) +
+                                    " statusIconApplied=" +
+                                    (state.statusIconTint?.let(::colorHex) ?: "none") +
+                                    " primaryAuthority=" +
+                                    if (state.statusIconTint != null) {
                                         "status-icon-applied"
                                     } else {
                                         "battery-percent-fallback"
@@ -148,7 +147,8 @@ internal object SystemUiTintStateSource {
                 .currentAppliedStatusIconTint()
                 ?.takeIf { color -> (color ushr 24) != 0 }
         return CombinedStatusTintState(
-            appliedTint = statusIconTint ?: percentView.currentTextColor,
+            appliedTint = percentView.currentTextColor,
+            statusIconTint = statusIconTint,
         )
     }
 
