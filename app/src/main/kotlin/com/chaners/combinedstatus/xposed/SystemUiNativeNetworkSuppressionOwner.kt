@@ -2,6 +2,8 @@ package com.chaners.combinedstatus.xposed
 
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
+import android.graphics.drawable.Icon
 import io.github.libxposed.api.XposedInterface.HookHandle
 import io.github.libxposed.api.XposedInterface.Hooker
 import io.github.libxposed.api.XposedModule
@@ -33,13 +35,21 @@ internal object SystemUiNativeNetworkSuppressionOwner {
     private val wifiOnlyTargetSlots = setOf("wifi")
     private val mobileOnlyTargetSlots = setOf("mobile")
     private val wifiAndMobileTargetSlots = setOf("wifi", "mobile")
-    private val observableTargetSlots = wifiAndMobileTargetSlots
+    private val observableTargetSlots = setOf("wifi", "mobile", NO_SIM_SLOT)
+    private val preferredTintSlots =
+        listOf("wifi", "mobile", NO_SIM_SLOT, AIRPLANE_SLOT)
 
     private val installedHandles = mutableListOf<HookHandle>()
     private var activeManager: Any? = null
     private var activeGroup: WeakReference<ViewGroup>? = null
     private var eventSink: ((String) -> Unit)? = null
+    private var statusPresentationSink:
+        ((CombinedStatusPresentationStateStore.StatusIconPresentation) -> Unit)? = null
     private var airplaneSlotAccessor: Method? = null
+    private var statusIconVisibleAccessor: Method? = null
+    private var statusIconSourceAccessor: Method? = null
+    private var lastStatusPresentation =
+        CombinedStatusPresentationStateStore.StatusIconPresentation()
 
     @Volatile
     private var suppressedBindings: Array<WeakReference<Any>> = emptyArray()
@@ -56,6 +66,9 @@ internal object SystemUiNativeNetworkSuppressionOwner {
     @Volatile
     private var airplaneSuppressionEnabled = false
 
+    @Volatile
+    private var noSimSuppressionEnabled = false
+
     val installedHookCount: Int
         @Synchronized get() = installedHandles.size
 
@@ -67,9 +80,12 @@ internal object SystemUiNativeNetworkSuppressionOwner {
         module: XposedModule,
         classLoader: ClassLoader,
         onEvent: ((String) -> Unit)? = null,
+        onStatusPresentationChanged:
+            ((CombinedStatusPresentationStateStore.StatusIconPresentation) -> Unit)? = null,
     ): InstallResult {
         if (installedHandles.isNotEmpty()) {
             eventSink = onEvent
+            statusPresentationSink = onStatusPresentationChanged
             return InstallResult.AlreadyInstalled
         }
 
@@ -100,6 +116,15 @@ internal object SystemUiNativeNetworkSuppressionOwner {
                         }
                         isAccessible = true
                     }
+            statusIconVisibleAccessor = airplaneVisibility
+            statusIconSourceAccessor =
+                statusBarIconView.methods
+                    .firstOrNull { method ->
+                        method.name == "getSourceIcon" &&
+                            method.parameterCount == 0 &&
+                            method.returnType == Icon::class.java
+                    }
+                    ?.apply { isAccessible = true }
             airplaneSlotAccessor =
                 generateSequence(statusBarIconView) { clazz -> clazz.superclass }
                     .flatMap { clazz -> clazz.declaredMethods.asSequence() }
@@ -153,6 +178,7 @@ internal object SystemUiNativeNetworkSuppressionOwner {
             installedHandles.clear()
             installedHandles.addAll(created)
             eventSink = onEvent
+            statusPresentationSink = onStatusPresentationChanged
             InstallResult.Installed
         }.getOrElse { error ->
             created.forEach { handle ->
@@ -160,11 +186,14 @@ internal object SystemUiNativeNetworkSuppressionOwner {
             }
             installedHandles.clear()
             airplaneSlotAccessor = null
+            statusIconVisibleAccessor = null
+            statusIconSourceAccessor = null
             suppressedBindings = emptyArray()
             mobileVisualMasks = emptyArray()
             activeManager = null
             activeGroup = null
             eventSink = onEvent
+            statusPresentationSink = onStatusPresentationChanged
             InstallResult.Failure(
                 error.message ?: error.javaClass.simpleName,
             )
@@ -198,6 +227,7 @@ internal object SystemUiNativeNetworkSuppressionOwner {
         wifiSuppressionEnabled = suppressWifi
         mobileSuppressionEnabled = suppressMobile
         airplaneSuppressionEnabled = true
+        refreshStatusPresentationLocked("handoff")
 
         val snapshot = refreshBindingsLocked("handoff")
         if (snapshot.failureReason != null) {
@@ -225,6 +255,9 @@ internal object SystemUiNativeNetworkSuppressionOwner {
         val policyChanged =
             wifiSuppressionEnabled != suppressWifi ||
                 mobileSuppressionEnabled != suppressMobile
+        if (activeManager != null && activeGroup?.get() != null) {
+            refreshStatusPresentationLocked(source)
+        }
         if (!policyChanged && !forceRevalidate) {
             return null
         }
@@ -276,6 +309,11 @@ internal object SystemUiNativeNetworkSuppressionOwner {
         deactivate(source)
         installedHandles.clear()
         eventSink = null
+        statusPresentationSink = null
+        statusIconVisibleAccessor = null
+        statusIconSourceAccessor = null
+        lastStatusPresentation =
+            CombinedStatusPresentationStateStore.StatusIconPresentation()
     }
 
     private fun visibilityHooker(): Hooker =
@@ -290,15 +328,16 @@ internal object SystemUiNativeNetworkSuppressionOwner {
 
     private fun airplaneVisibilityHooker(): Hooker =
         Hooker { chain ->
+            val slot =
+                runCatching {
+                    airplaneSlotAccessor?.invoke(chain.thisObject) as? String
+                }.getOrNull()
             val suppress =
-                airplaneSuppressionEnabled &&
-                    shouldSuppressAirplaneSlot(
-                        slot =
-                            runCatching {
-                                airplaneSlotAccessor?.invoke(chain.thisObject) as? String
-                            }.getOrNull(),
-                        suppressionActive = true,
-                    )
+                shouldSuppressStaticSlot(
+                    slot = slot,
+                    airplaneSuppressionActive = airplaneSuppressionEnabled,
+                    noSimSuppressionActive = noSimSuppressionEnabled,
+                )
             if (suppress) {
                 false
             } else {
@@ -318,6 +357,7 @@ internal object SystemUiNativeNetworkSuppressionOwner {
             ) {
                 synchronized(this) {
                     if (manager === activeManager) {
+                        refreshStatusPresentationLocked("iconAdded:" + slot)
                         val snapshot = refreshBindingsLocked("iconAdded:" + slot)
                         eventSink?.invoke(snapshot.logLine)
                         if (snapshot.failureReason != null) {
@@ -338,6 +378,145 @@ internal object SystemUiNativeNetworkSuppressionOwner {
         suppressedBindings.any { reference ->
             reference.get() === binding
         }
+
+    @Synchronized
+    fun currentAppliedStatusIconTint(): Int? =
+        activeGroup
+            ?.get()
+            ?.let(::resolveAppliedStatusIconTint)
+            ?: lastStatusPresentation.appliedTint
+
+    private fun refreshStatusPresentationLocked(source: String) {
+        val group = activeGroup?.get() ?: return
+        val noSimView =
+            (0 until group.childCount)
+                .map(group::getChildAt)
+                .firstOrNull { child ->
+                    NativeParticipantRuntimeAccess.slotOf(child) == NO_SIM_SLOT
+                }
+        val noSimVisible =
+            noSimView?.let(::isNativeStatusIconVisible) == true
+        val noSimIcon =
+            if (noSimVisible) {
+                noSimView?.let(::resolveNativeIconResource)
+            } else {
+                null
+            }
+        val presentation =
+            CombinedStatusPresentationStateStore.StatusIconPresentation(
+                appliedTint = resolveAppliedStatusIconTint(group),
+                noSimVisible = noSimVisible,
+                noSimIcon = noSimIcon,
+            )
+        val previousNoSimSuppression = noSimSuppressionEnabled
+        noSimSuppressionEnabled =
+            presentation.noSimVisible &&
+                presentation.noSimIcon != null
+
+        if (presentation != lastStatusPresentation) {
+            lastStatusPresentation = presentation
+            statusPresentationSink?.invoke(presentation)
+            eventSink?.invoke(
+                "statusIconPresentation source=" + source +
+                    " tint=" +
+                    (presentation.appliedTint
+                        ?.toUInt()
+                        ?.toString(16)
+                        ?.padStart(8, '0')
+                        ?: "none") +
+                    " noSimVisible=" + presentation.noSimVisible +
+                    " noSimResource=" +
+                    (
+                        presentation.noSimIcon?.packageName +
+                            ":" +
+                            presentation.noSimIcon?.resourceId
+                    ) +
+                    " noSimSuppressed=" + noSimSuppressionEnabled +
+                    " nativeGeometryWrites=0",
+            )
+        }
+
+        if (previousNoSimSuppression != noSimSuppressionEnabled) {
+            noSimView?.invalidate()
+            group.requestLayout()
+        }
+    }
+
+    private fun isNativeStatusIconVisible(view: View): Boolean {
+        if (view.visibility != View.VISIBLE) {
+            return false
+        }
+        val accessor = statusIconVisibleAccessor ?: return true
+        return runCatching {
+            accessor.invoke(view) as? Boolean
+        }.getOrNull() ?: true
+    }
+
+    private fun resolveNativeIconResource(
+        view: View,
+    ): CombinedStatusPresentationStateStore.NativeIconResource? {
+        val accessor = statusIconSourceAccessor ?: return null
+        val icon =
+            runCatching {
+                accessor.invoke(view) as? Icon
+            }.getOrNull() ?: return null
+        if (icon.type != Icon.TYPE_RESOURCE) {
+            return null
+        }
+        val packageName =
+            icon.resPackage
+                ?.takeIf(String::isNotBlank)
+                ?: view.context.packageName
+        val resourceId = icon.resId
+        if (resourceId == 0) {
+            return null
+        }
+        return CombinedStatusPresentationStateStore.NativeIconResource(
+            packageName = packageName,
+            resourceId = resourceId,
+        )
+    }
+
+    private fun resolveAppliedStatusIconTint(group: ViewGroup): Int? {
+        val childrenBySlot =
+            (0 until group.childCount)
+                .map(group::getChildAt)
+                .mapNotNull { child ->
+                    NativeParticipantRuntimeAccess.slotOf(child)
+                        ?.let { slot -> slot to child }
+                }
+                .filterNot { (slot, _) -> slot == "combined_status" }
+                .toMap()
+
+        preferredTintSlots.forEach { slot ->
+            childrenBySlot[slot]
+                ?.let(::findAppliedTint)
+                ?.let { return it }
+        }
+
+        for (index in 0 until group.childCount) {
+            val child = group.getChildAt(index)
+            if (NativeParticipantRuntimeAccess.slotOf(child) == "combined_status") {
+                continue
+            }
+            findAppliedTint(child)?.let { return it }
+        }
+        return null
+    }
+
+    private fun findAppliedTint(view: View): Int? {
+        if (view is ImageView) {
+            view.imageTintList
+                ?.defaultColor
+                ?.takeIf { color -> (color ushr 24) != 0 }
+                ?.let { return it }
+        }
+        val group = view as? ViewGroup ?: return null
+        for (index in 0 until group.childCount) {
+            findAppliedTint(group.getChildAt(index))?.let { return it }
+        }
+        return null
+    }
 
     private fun refreshBindingsLocked(source: String): BindingSnapshot {
         val group =
@@ -551,11 +730,16 @@ internal object SystemUiNativeNetworkSuppressionOwner {
             nativeAlpha
         }
 
-    internal fun shouldSuppressAirplaneSlot(
+    internal fun shouldSuppressStaticSlot(
         slot: String?,
-        suppressionActive: Boolean,
+        airplaneSuppressionActive: Boolean,
+        noSimSuppressionActive: Boolean,
     ): Boolean =
-        suppressionActive && slot == AIRPLANE_SLOT
+        when (slot) {
+            AIRPLANE_SLOT -> airplaneSuppressionActive
+            NO_SIM_SLOT -> noSimSuppressionActive
+            else -> false
+        }
 
     private fun bindingOf(view: View): Any? {
         val getter =
@@ -607,6 +791,9 @@ internal object SystemUiNativeNetworkSuppressionOwner {
         wifiSuppressionEnabled = false
         mobileSuppressionEnabled = false
         airplaneSuppressionEnabled = false
+        noSimSuppressionEnabled = false
+        lastStatusPresentation =
+            CombinedStatusPresentationStateStore.StatusIconPresentation()
         if (requestLayout) {
             group?.requestLayout()
         }
@@ -760,5 +947,6 @@ internal object SystemUiNativeNetworkSuppressionOwner {
 
     private const val MOBILE_SIGNAL_CONTAINER_RESOURCE_ENTRY = "mobile_signal_container"
     private const val AIRPLANE_SLOT = "airplane"
+    private const val NO_SIM_SLOT = "no_sim"
     private const val EXPECTED_HOOK_COUNT = 4
 }
