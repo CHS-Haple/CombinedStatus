@@ -871,6 +871,79 @@ internal object SystemUiNativeNetworkSuppressionOwner {
         )
     }
 
+    @Synchronized
+    fun preMaskMobileSignal(image: ImageView): Boolean {
+        if (
+            activeManager == null ||
+            !mobileSuppressionEnabled
+        ) {
+            return false
+        }
+
+        val container =
+            findAncestorByResourceEntry(
+                view = image,
+                entryName = MOBILE_SIGNAL_CONTAINER_RESOURCE_ENTRY,
+            ) ?: return false
+
+        val existing =
+            mobileVisualMasks.firstOrNull { state ->
+                state.view.get() === container
+            }
+        val state =
+            existing
+                ?: MobileVisualMaskState(
+                    view = WeakReference(container),
+                    nativeAlpha = container.alpha,
+                )
+                    .also { created ->
+                        mobileVisualMasks =
+                            (
+                                mobileVisualMasks.asList() +
+                                    created
+                            )
+                                .distinctBy { mask ->
+                                    mask.view.get()?.let(System::identityHashCode)
+                                }
+                                .toTypedArray()
+                    }
+
+        val changed = container.alpha != 0f
+        if (changed) {
+            container.alpha = 0f
+        }
+        if (changed || existing == null) {
+            eventSink?.invoke(
+                "nativeNetworkSuppression preMaskMobileSignal " +
+                    "view=" + image.javaClass.simpleName +
+                    " nativeAlpha=" + state.nativeAlpha +
+                    " appliedAlpha=" + container.alpha +
+                    " source=mobile-signal-beforeProceed " +
+                    "nativeGeometryWrites=0",
+            )
+        }
+        return container.alpha == 0f
+    }
+
+    private fun findAncestorByResourceEntry(
+        view: View,
+        entryName: String,
+    ): View? {
+        var current: View? = view
+        while (current != null) {
+            if (
+                current.id != View.NO_ID &&
+                runCatching {
+                    current.resources.getResourceEntryName(current.id)
+                }.getOrNull() == entryName
+            ) {
+                return current
+            }
+            current = current.parent as? View
+        }
+        return null
+    }
+
     private fun restoreMobileVisualMasksLocked(): Int {
         val states = mobileVisualMasks
         mobileVisualMasks = emptyArray()
