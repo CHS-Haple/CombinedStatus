@@ -857,6 +857,16 @@ internal object SystemUiNativeCombinedParticipantOwner {
 
     @Synchronized
     fun onFeatureSettingsChanged(settings: CombinedStatusFeatureSettings) {
+        val root = rootRef?.get()
+        if (
+            root != null &&
+            Looper.myLooper() !== Looper.getMainLooper()
+        ) {
+            root.post {
+                onFeatureSettingsChanged(settings)
+            }
+            return
+        }
         if (featureEnabled == settings.enabled) {
             return
         }
@@ -979,8 +989,8 @@ internal object SystemUiNativeCombinedParticipantOwner {
                     " enabled=false" +
                     " previousHandoff=" + wasCommitted +
                     " shellWidthReset=" + shellWidthReset +
-                    " nativeGeometryWrites=" + if (shellWidthReset) 1 else 0 +
-                    " peerNativeGeometryWrites=0",
+                    " customRootWidthWrite=" + shellWidthReset +
+                    " nativeGeometryWrites=0 peerNativeGeometryWrites=0",
             )
         }
     }
