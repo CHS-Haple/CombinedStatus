@@ -773,6 +773,9 @@ class CombinedStatusModule : XposedModule() {
                         )
                     }
                 },
+                onMobileSignalWillApply = { image ->
+                    SystemUiNativeNetworkSuppressionOwner.preMaskMobileSignal(image)
+                },
                 onPresentationChanged = {
                     refreshMobilePresentation(beginRenderTrace("networkPresentation"))
                 },
