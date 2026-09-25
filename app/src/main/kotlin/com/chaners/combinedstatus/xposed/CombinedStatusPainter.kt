@@ -8,8 +8,10 @@ import android.graphics.Path
 import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Typeface
+import android.graphics.drawable.Drawable
 import kotlin.math.cos
 import kotlin.math.min
+import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sqrt
 
@@ -18,9 +20,11 @@ internal class CombinedStatusPainter(
 ) {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private var airplaneDrawableResolved = false
-    private var cachedAirplaneDrawable: android.graphics.drawable.Drawable? = null
-    private val mobileTypeTypeface =
-        Typeface.create(Typeface.DEFAULT, MOBILE_TYPE_WEIGHT, false)
+    private var cachedAirplaneDrawable: Drawable? = null
+    private var cachedNativeCenterKey: String? = null
+    private var cachedNativeCenterDrawable: Drawable? = null
+    private var cachedMobileTypeWeight: Int = Int.MIN_VALUE
+    private var cachedMobileTypeTypeface: Typeface = Typeface.DEFAULT
     private val mobileTypeMainBounds = Rect()
     private val mobileTypeSuffixBounds = Rect()
     private val batteryRing = RectF(10f, 8f, 110f, 108f)
@@ -46,6 +50,8 @@ internal class CombinedStatusPainter(
         centerExitAmount: Float = 0f,
         centerEnterAmount: Float = 1f,
         outerWeightScale: Float = CombinedStatusOuterGeometry.DEFAULT_WEIGHT_SCALE,
+        centerSizeScale: Float = CombinedStatusCenterGeometry.DEFAULT_SIZE_SCALE,
+        centerTextWeightScale: Float = CombinedStatusCenterGeometry.DEFAULT_TEXT_WEIGHT_SCALE,
     ) {
         if (width <= 0 || height <= 0) {
             return
@@ -62,6 +68,11 @@ internal class CombinedStatusPainter(
         canvas.scale(scale, scale)
 
         val outerGeometry = resolveOuterGeometry(outerWeightScale)
+        val centerGeometry =
+            CombinedStatusCenterGeometry.resolve(
+                sizeScale = centerSizeScale,
+                textWeightScale = centerTextWeightScale,
+            )
         drawBattery(
             canvas = canvas,
             model = model,
@@ -78,6 +89,7 @@ internal class CombinedStatusPainter(
             scale = scale,
             exitAmount = centerExitAmount,
             enterAmount = centerEnterAmount,
+            geometry = centerGeometry,
         )
         drawMobile(
             canvas = canvas,
@@ -125,6 +137,7 @@ internal class CombinedStatusPainter(
         scale: Float,
         exitAmount: Float,
         enterAmount: Float,
+        geometry: CombinedStatusCenterGeometry.Resolved,
     ) {
         if (previous == null || previous == current) {
             drawCenterIndicator(
@@ -134,6 +147,7 @@ internal class CombinedStatusPainter(
                 opacity = opacity,
                 scale = scale,
                 appearAmount = 1f,
+                geometry = geometry,
             )
             return
         }
@@ -145,6 +159,7 @@ internal class CombinedStatusPainter(
             opacity = opacity,
             scale = scale,
             appearAmount = exitAmount.coerceIn(0f, 1f),
+            geometry = geometry,
         )
         drawCenterIndicator(
             canvas = canvas,
@@ -153,6 +168,7 @@ internal class CombinedStatusPainter(
             opacity = opacity,
             scale = scale,
             appearAmount = enterAmount.coerceIn(0f, 1f),
+            geometry = geometry,
         )
     }
 
@@ -163,6 +179,7 @@ internal class CombinedStatusPainter(
         opacity: Float,
         scale: Float,
         appearAmount: Float,
+        geometry: CombinedStatusCenterGeometry.Resolved,
     ) {
         if (appearAmount <= 0f) {
             return
@@ -180,25 +197,43 @@ internal class CombinedStatusPainter(
         val animatedOpacity = opacity
 
         when (indicator) {
-            is CenterIndicator.Wifi -> {
-                drawWifi(canvas, indicator.segments, tint, opacity)
-                if (indicator.internet == InternetState.NO_INTERNET) {
-                    drawSmallNoInternetMark(canvas, tint, opacity)
-                }
-            }
+            is CenterIndicator.Wifi ->
+                drawWifi(
+                    canvas = canvas,
+                    indicator = indicator,
+                    tint = tint,
+                    opacity = opacity,
+                    geometry = geometry,
+                )
 
-            is CenterIndicator.MobileType -> {
-                drawMobileType(canvas, indicator, tint, opacity, scale)
-                if (indicator.internet == InternetState.NO_INTERNET) {
-                    drawSmallNoInternetMark(canvas, tint, opacity)
-                }
-            }
+            is CenterIndicator.MobileType ->
+                drawMobileType(
+                    canvas = canvas,
+                    indicator = indicator,
+                    tint = tint,
+                    opacity = opacity,
+                    scale = scale,
+                    geometry = geometry,
+                )
 
             CenterIndicator.Airplane ->
                 drawNativeAirplane(
                     canvas = canvas,
                     tint = tint,
                     opacity = animatedOpacity,
+                    geometry = geometry,
+                )
+
+            is CenterIndicator.NoSim ->
+                drawNativeCenterResource(
+                    canvas = canvas,
+                    resource = indicator.nativeResource,
+                    tint = tint,
+                    opacity = animatedOpacity,
+                    centerX = CENTER_TRANSITION_PIVOT_X,
+                    centerY = CENTER_TRANSITION_PIVOT_Y,
+                    maxWidth = geometry.noSimMaxSize,
+                    maxHeight = geometry.noSimMaxSize,
                 )
 
             CenterIndicator.Empty -> Unit
@@ -208,23 +243,116 @@ internal class CombinedStatusPainter(
 
     private fun drawWifi(
         canvas: Canvas,
-        segments: Int,
+        indicator: CenterIndicator.Wifi,
         tint: Int,
         opacity: Float,
+        geometry: CombinedStatusCenterGeometry.Resolved,
     ) {
+        val nativeResourceId = indicator.nativeResourceId
+        if (
+            nativeResourceId != null &&
+            drawNativeCenterResource(
+                canvas = canvas,
+                resource =
+                    CombinedStatusPresentationStateStore.NativeIconResource(
+                        packageName = SYSTEM_UI_PACKAGE,
+                        resourceId = nativeResourceId,
+                    ),
+                tint = tint,
+                opacity = opacity,
+                centerX = WIFI_CENTER_X,
+                centerY = WIFI_CENTER_Y,
+                maxWidth = geometry.wifiMaxWidth,
+                maxHeight = geometry.wifiMaxHeight,
+            )
+        ) {
+            return
+        }
+
         val save = canvas.save()
         canvas.translate(30f, 27f)
-        canvas.scale(3f, 3f)
+        canvas.scale(3f * geometry.sizeScale, 3f * geometry.sizeScale)
 
         wifiPaths.forEachIndexed { index, path ->
             fill(
                 color = tint,
-                alpha = if (index < segments) 255 else 102,
+                alpha = if (index < indicator.segments) 255 else 102,
                 opacity = opacity,
             )
             canvas.drawPath(path, paint)
         }
         canvas.restoreToCount(save)
+    }
+
+    private fun nativeCenterDrawable(
+        resource: CombinedStatusPresentationStateStore.NativeIconResource,
+    ): Drawable? {
+        val key = resource.packageName + ":" + resource.resourceId
+        if (cachedNativeCenterKey == key) {
+            return cachedNativeCenterDrawable
+        }
+
+        cachedNativeCenterKey = key
+        cachedNativeCenterDrawable =
+            runCatching {
+                val drawableContext =
+                    if (resource.packageName == context.packageName) {
+                        context
+                    } else {
+                        context.createPackageContext(resource.packageName, 0)
+                    }
+                drawableContext.getDrawable(resource.resourceId)
+                    ?.constantState
+                    ?.newDrawable(drawableContext.resources)
+                    ?.mutate()
+                    ?: drawableContext.getDrawable(resource.resourceId)?.mutate()
+            }.getOrNull()
+        return cachedNativeCenterDrawable
+    }
+
+    private fun drawNativeCenterResource(
+        canvas: Canvas,
+        resource: CombinedStatusPresentationStateStore.NativeIconResource,
+        tint: Int,
+        opacity: Float,
+        centerX: Float,
+        centerY: Float,
+        maxWidth: Float,
+        maxHeight: Float,
+    ): Boolean {
+        val drawable = nativeCenterDrawable(resource) ?: return false
+        val intrinsicWidth = drawable.intrinsicWidth
+        val intrinsicHeight = drawable.intrinsicHeight
+        if (intrinsicWidth <= 0 || intrinsicHeight <= 0) {
+            return false
+        }
+
+        val drawableScale =
+            min(
+                maxWidth / intrinsicWidth,
+                maxHeight / intrinsicHeight,
+            )
+        val drawWidth = intrinsicWidth * drawableScale
+        val drawHeight = intrinsicHeight * drawableScale
+        val left = (centerX - drawWidth / 2f).toInt()
+        val top = (centerY - drawHeight / 2f).toInt()
+
+        drawable.setTint(
+            Color.rgb(
+                Color.red(tint),
+                Color.green(tint),
+                Color.blue(tint),
+            ),
+        )
+        drawable.alpha = effectiveAlpha(tint, 255, opacity)
+        drawable.setBounds(
+            left,
+            top,
+            (left + drawWidth).toInt(),
+            (top + drawHeight).toInt(),
+        )
+        drawable.draw(canvas)
+        return true
     }
 
     private fun airplaneDrawable(): android.graphics.drawable.Drawable? {
@@ -257,6 +385,7 @@ internal class CombinedStatusPainter(
         canvas: Canvas,
         tint: Int,
         opacity: Float,
+        geometry: CombinedStatusCenterGeometry.Resolved,
     ) {
         val drawable = airplaneDrawable() ?: return
         val intrinsicWidth = drawable.intrinsicWidth
@@ -267,8 +396,8 @@ internal class CombinedStatusPainter(
 
         val drawableScale =
             min(
-                AIRPLANE_MAX_WIDTH / intrinsicWidth,
-                AIRPLANE_MAX_HEIGHT / intrinsicHeight,
+                geometry.airplaneMaxSize / intrinsicWidth,
+                geometry.airplaneMaxSize / intrinsicHeight,
             )
         val drawWidth = intrinsicWidth * drawableScale
         val drawHeight = intrinsicHeight * drawableScale
@@ -298,6 +427,7 @@ internal class CombinedStatusPainter(
         tint: Int,
         opacity: Float,
         scale: Float,
+        geometry: CombinedStatusCenterGeometry.Resolved,
     ) {
         val normalized = indicator.label.trim().uppercase()
         val split =
@@ -323,19 +453,19 @@ internal class CombinedStatusPainter(
         paint.style = Paint.Style.FILL
         paint.color = tint
         paint.alpha = effectiveAlpha(tint, 255, opacity)
-        paint.typeface = mobileTypeTypeface
+        paint.typeface = mobileTypeTypeface(geometry.mobileTypeWeight)
         paint.textAlign = Paint.Align.LEFT
         val mainTextSize =
             if (scale > 0f) {
-                MOBILE_TYPE_TEXT_SIZE_PX / scale
+                geometry.mobileTypeTextSize / scale
             } else {
-                MOBILE_TYPE_TEXT_SIZE_PX
+                geometry.mobileTypeTextSize
             }
         val suffixTextSize =
             if (scale > 0f) {
-                MOBILE_TYPE_SUFFIX_SIZE_PX / scale
+                geometry.mobileTypeSuffixSize / scale
             } else {
-                MOBILE_TYPE_SUFFIX_SIZE_PX
+                geometry.mobileTypeSuffixSize
             }
         paint.textSize = mainTextSize
         paint.getTextBounds(
@@ -382,9 +512,9 @@ internal class CombinedStatusPainter(
         val suffixCenterY =
             MOBILE_TYPE_CENTER_Y -
                 if (scale > 0f) {
-                    MOBILE_TYPE_SUFFIX_RISE_PX / scale
+                    geometry.mobileTypeSuffixRise / scale
                 } else {
-                    MOBILE_TYPE_SUFFIX_RISE_PX
+                    geometry.mobileTypeSuffixRise
                 }
         val suffixBaselineY =
             suffixCenterY -
@@ -401,14 +531,13 @@ internal class CombinedStatusPainter(
         )
     }
 
-    private fun drawSmallNoInternetMark(
-        canvas: Canvas,
-        tint: Int,
-        opacity: Float,
-    ) {
-        stroke(tint, 220, 3f, opacity)
-        canvas.drawLine(76f, 66f, 84f, 74f, paint)
-        canvas.drawLine(84f, 66f, 76f, 74f, paint)
+    private fun mobileTypeTypeface(weight: Int): Typeface {
+        if (cachedMobileTypeWeight != weight) {
+            cachedMobileTypeWeight = weight
+            cachedMobileTypeTypeface =
+                Typeface.create(Typeface.DEFAULT, weight, false)
+        }
+        return cachedMobileTypeTypeface
     }
 
     private fun drawMobile(
@@ -438,9 +567,27 @@ internal class CombinedStatusPainter(
         }
 
         if (model.mobileUnavailableMark) {
-            stroke(tint, 210, 4f, opacity)
-            canvas.drawLine(56f, 90f, 64f, 98f, paint)
-            canvas.drawLine(64f, 90f, 56f, 98f, paint)
+            val half = geometry.unavailableMarkHalfExtent
+            stroke(
+                color = tint,
+                alpha = 255,
+                width = geometry.unavailableMarkStroke,
+                opacity = opacity,
+            )
+            canvas.drawLine(
+                MOBILE_UNAVAILABLE_CENTER_X - half,
+                MOBILE_UNAVAILABLE_CENTER_Y - half,
+                MOBILE_UNAVAILABLE_CENTER_X + half,
+                MOBILE_UNAVAILABLE_CENTER_Y + half,
+                paint,
+            )
+            canvas.drawLine(
+                MOBILE_UNAVAILABLE_CENTER_X + half,
+                MOBILE_UNAVAILABLE_CENTER_Y - half,
+                MOBILE_UNAVAILABLE_CENTER_X - half,
+                MOBILE_UNAVAILABLE_CENTER_Y + half,
+                paint,
+            )
         }
     }
 
@@ -554,30 +701,93 @@ internal class CombinedStatusPainter(
         const val MOBILE_DOT_COUNT = 4
         const val MOBILE_CENTER_X = 60f
         const val MOBILE_CENTER_Y = 58f
+        const val MOBILE_UNAVAILABLE_CENTER_X = 60f
+        const val MOBILE_UNAVAILABLE_CENTER_Y = 94f
+        const val WIFI_CENTER_X = 60f
+        const val WIFI_CENTER_Y = 54f
         const val SYSTEM_UI_PACKAGE = "com.android.systemui"
         const val AIRPLANE_RESOURCE_NAME = "stat_sys_signal_flightmode"
         const val AIRPLANE_CENTER_X = 60f
         const val AIRPLANE_CENTER_Y = 56f
         const val CENTER_TRANSITION_PIVOT_X = 60f
         const val CENTER_TRANSITION_PIVOT_Y = 60f
-        const val AIRPLANE_MAX_WIDTH = 75f
-        const val AIRPLANE_MAX_HEIGHT = 75f
         const val MOBILE_TYPE_CENTER_X = 60f
         const val MOBILE_TYPE_CENTER_Y = 60f
-        const val MOBILE_TYPE_TEXT_SIZE_PX = 38f
-        const val MOBILE_TYPE_SUFFIX_SIZE_PX = 22f
-        const val MOBILE_TYPE_SUFFIX_RISE_PX = 8f
         const val MOBILE_TYPE_SUFFIX_GAP = 2f
-        const val MOBILE_TYPE_WEIGHT = 800
     }
 }
 
+
+
+internal object CombinedStatusCenterGeometry {
+    const val DEFAULT_SIZE_SCALE = 1.00f
+    const val DEFAULT_TEXT_WEIGHT_SCALE = 1.00f
+    const val MIN_SIZE_SCALE = 0.70f
+    const val MAX_SIZE_SCALE = 1.40f
+    const val MIN_TEXT_WEIGHT_SCALE = 0.70f
+    const val MAX_TEXT_WEIGHT_SCALE = 1.20f
+
+    private const val BASE_WIFI_MAX_WIDTH = 54f
+    private const val BASE_WIFI_MAX_HEIGHT = 48f
+    private const val BASE_AIRPLANE_MAX_SIZE = 75f
+    private const val BASE_NO_SIM_MAX_SIZE = 54f
+    private const val BASE_MOBILE_TYPE_TEXT_SIZE = 39f
+    private const val BASE_MOBILE_TYPE_SUFFIX_SIZE = 23f
+    private const val BASE_MOBILE_TYPE_SUFFIX_RISE = 8f
+    private const val BASE_MOBILE_TYPE_WEIGHT = 800
+
+    data class Resolved(
+        val sizeScale: Float,
+        val textWeightScale: Float,
+        val wifiMaxWidth: Float,
+        val wifiMaxHeight: Float,
+        val airplaneMaxSize: Float,
+        val noSimMaxSize: Float,
+        val mobileTypeTextSize: Float,
+        val mobileTypeSuffixSize: Float,
+        val mobileTypeSuffixRise: Float,
+        val mobileTypeWeight: Int,
+    )
+
+    fun resolve(
+        sizeScale: Float,
+        textWeightScale: Float,
+    ): Resolved {
+        val normalizedSize =
+            sizeScale
+                .takeIf(Float::isFinite)
+                ?.coerceIn(MIN_SIZE_SCALE, MAX_SIZE_SCALE)
+                ?: DEFAULT_SIZE_SCALE
+        val normalizedWeight =
+            textWeightScale
+                .takeIf(Float::isFinite)
+                ?.coerceIn(MIN_TEXT_WEIGHT_SCALE, MAX_TEXT_WEIGHT_SCALE)
+                ?: DEFAULT_TEXT_WEIGHT_SCALE
+        return Resolved(
+            sizeScale = normalizedSize,
+            textWeightScale = normalizedWeight,
+            wifiMaxWidth = BASE_WIFI_MAX_WIDTH * normalizedSize,
+            wifiMaxHeight = BASE_WIFI_MAX_HEIGHT * normalizedSize,
+            airplaneMaxSize = BASE_AIRPLANE_MAX_SIZE * normalizedSize,
+            noSimMaxSize = BASE_NO_SIM_MAX_SIZE * normalizedSize,
+            mobileTypeTextSize = BASE_MOBILE_TYPE_TEXT_SIZE * normalizedSize,
+            mobileTypeSuffixSize = BASE_MOBILE_TYPE_SUFFIX_SIZE * normalizedSize,
+            mobileTypeSuffixRise = BASE_MOBILE_TYPE_SUFFIX_RISE * normalizedSize,
+            mobileTypeWeight =
+                (BASE_MOBILE_TYPE_WEIGHT * normalizedWeight)
+                    .roundToInt()
+                    .coerceIn(500, 950),
+        )
+    }
+}
 
 internal object CombinedStatusOuterGeometry {
     const val RING_RADIUS = 50f
     const val BASE_RING_STROKE = 7.5f
     const val MOBILE_ORBIT_RADIUS = 51f
     const val BASE_MOBILE_DOT_RADIUS = 4.9f
+    const val BASE_UNAVAILABLE_MARK_STROKE = 3.2f
+    const val BASE_UNAVAILABLE_MARK_HALF_EXTENT = 3.7f
     const val DEFAULT_WEIGHT_SCALE = 1.10f
     const val MIN_WEIGHT_SCALE = 0.60f
     const val MAX_WEIGHT_SCALE = 2.00f
@@ -592,6 +802,8 @@ internal object CombinedStatusOuterGeometry {
         val weightScale: Float,
         val ringStroke: Float,
         val mobileDotRadius: Float,
+        val unavailableMarkStroke: Float,
+        val unavailableMarkHalfExtent: Float,
         val firstDotCenterDegrees: Float,
         val dotCenterStepDegrees: Float,
         val balancedEdgeGap: Float,
@@ -618,6 +830,8 @@ internal object CombinedStatusOuterGeometry {
         val normalized = normalizeWeightScale(weightScale)
         val ringStroke = BASE_RING_STROKE * normalized
         val dotRadius = BASE_MOBILE_DOT_RADIUS * normalized
+        val unavailableMarkStroke = BASE_UNAVAILABLE_MARK_STROKE * normalized
+        val unavailableMarkHalfExtent = BASE_UNAVAILABLE_MARK_HALF_EXTENT * normalized
 
         var lowerStep = 1f
         var upperStep = 39.5f
@@ -654,6 +868,8 @@ internal object CombinedStatusOuterGeometry {
             weightScale = normalized,
             ringStroke = ringStroke,
             mobileDotRadius = dotRadius,
+            unavailableMarkStroke = unavailableMarkStroke,
+            unavailableMarkHalfExtent = unavailableMarkHalfExtent,
             firstDotCenterDegrees = firstCenter,
             dotCenterStepDegrees = step,
             balancedEdgeGap = gap,
