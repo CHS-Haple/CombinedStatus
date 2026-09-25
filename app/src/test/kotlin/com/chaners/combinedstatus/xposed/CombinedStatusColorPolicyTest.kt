@@ -6,7 +6,7 @@ import org.junit.Test
 
 class CombinedStatusColorPolicyTest {
     @Test
-    fun defaultUsesAnchoredHyperOsTintEvenWhenPeerObservationDiffers() {
+    fun defaultUsesNativeParticipantTintForCenterAndMobile() {
         val colors =
             CombinedStatusColorPolicy.resolve(
                 model = model(charging = false),
@@ -17,8 +17,8 @@ class CombinedStatusColorPolicyTest {
                     ),
             )
 
-        assertEquals(0xff112233.toInt(), colors.centerTint)
-        assertEquals(0xff112233.toInt(), colors.mobileTint)
+        assertEquals(0xff445566.toInt(), colors.centerTint)
+        assertEquals(0xff445566.toInt(), colors.mobileTint)
         assertEquals(0xff112233.toInt(), colors.batteryTint)
     }
 
@@ -34,8 +34,8 @@ class CombinedStatusColorPolicyTest {
                     ),
             )
 
-        assertEquals(0xffddeeff.toInt(), colors.centerTint)
-        assertEquals(0xffddeeff.toInt(), colors.mobileTint)
+        assertEquals(0xff556677.toInt(), colors.centerTint)
+        assertEquals(0xff556677.toInt(), colors.mobileTint)
         assertEquals(CombinedStatusColorPolicy.CHARGING_TINT, colors.batteryTint)
     }
 
@@ -55,7 +55,7 @@ class CombinedStatusColorPolicyTest {
                     ),
             )
 
-        assertEquals(0xff112233.toInt(), colors.centerTint)
+        assertEquals(0xff445566.toInt(), colors.centerTint)
         assertEquals(CombinedStatusColorPolicy.CHARGING_TINT, colors.mobileTint)
         assertEquals(CombinedStatusColorPolicy.CHARGING_TINT, colors.batteryTint)
     }
@@ -77,7 +77,7 @@ class CombinedStatusColorPolicyTest {
             )
 
         assertEquals(CombinedStatusColorPolicy.CHARGING_TINT, colors.centerTint)
-        assertEquals(0xff112233.toInt(), colors.mobileTint)
+        assertEquals(0xff445566.toInt(), colors.mobileTint)
         assertEquals(CombinedStatusColorPolicy.CHARGING_TINT, colors.batteryTint)
     }
 
@@ -104,7 +104,7 @@ class CombinedStatusColorPolicyTest {
     }
 
     @Test
-    fun peerObservationNeverOverridesAnchoredAppliedTint() {
+    fun invalidNativeParticipantTintFallsBackToBatteryAnchor() {
         val colors =
             CombinedStatusColorPolicy.resolve(
                 model = model(charging = false),
