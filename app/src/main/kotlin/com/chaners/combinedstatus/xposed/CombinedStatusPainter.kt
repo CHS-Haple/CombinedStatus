@@ -84,7 +84,7 @@ internal class CombinedStatusPainter(
             canvas = canvas,
             current = model.centerIndicator,
             previous = previousCenterIndicator,
-            tint = colors.primaryTint,
+            tint = colors.centerTint,
             opacity = opacity,
             scale = scale,
             exitAmount = centerExitAmount,
@@ -94,7 +94,7 @@ internal class CombinedStatusPainter(
         drawMobile(
             canvas = canvas,
             model = model,
-            tint = colors.primaryTint,
+            tint = colors.mobileTint,
             opacity = opacity,
             geometry = outerGeometry,
         )
