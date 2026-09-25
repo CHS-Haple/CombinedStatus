@@ -346,7 +346,7 @@ internal class CombinedStatusPainter(
                     resolveNativeVisualProbe(
                         drawable = drawable,
                         resources = drawableContext.resources,
-                    )
+                    ) ?: return@runCatching null
                 NativeCenterAsset(
                     bitmap = visualProbe.normalizedBitmap,
                     intrinsicWidth = drawable.intrinsicWidth,
@@ -363,11 +363,11 @@ internal class CombinedStatusPainter(
     private fun resolveNativeVisualProbe(
         drawable: Drawable,
         resources: android.content.res.Resources,
-    ): NativeVisualProbe {
+    ): NativeVisualProbe? {
         val intrinsicWidth = drawable.intrinsicWidth
         val intrinsicHeight = drawable.intrinsicHeight
         if (intrinsicWidth <= 0 || intrinsicHeight <= 0) {
-            return NativeVisualProbe.full()
+            return null
         }
 
         val probeScale =
@@ -379,7 +379,7 @@ internal class CombinedStatusPainter(
             drawable.constantState
                 ?.newDrawable(resources)
                 ?.mutate()
-                ?: return NativeVisualProbe.full()
+                ?: drawable
         val bitmap =
             Bitmap.createBitmap(
                 probeWidth,
@@ -414,7 +414,7 @@ internal class CombinedStatusPainter(
 
         if (maxAlpha <= 0 || maxX < minX || maxY < minY) {
             bitmap.recycle()
-            return NativeVisualProbe.full()
+            return null
         }
 
         for (index in pixels.indices) {
@@ -877,18 +877,7 @@ internal class CombinedStatusPainter(
     private data class NativeVisualProbe(
         val opticalBounds: OpticalBounds,
         val normalizedBitmap: Bitmap,
-    ) {
-        companion object {
-            fun full(): NativeVisualProbe =
-                NativeVisualProbe(
-                    opticalBounds = OpticalBounds.FULL,
-                    normalizedBitmap =
-                        Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888).apply {
-                            eraseColor(Color.WHITE)
-                        },
-                )
-        }
-    }
+    )
 
     private data class OpticalBounds(
         val left: Float,
