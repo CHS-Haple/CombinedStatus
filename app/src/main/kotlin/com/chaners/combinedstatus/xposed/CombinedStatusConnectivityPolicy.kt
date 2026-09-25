@@ -31,7 +31,7 @@ internal object CombinedStatusConnectivityPolicy {
 
         if (!connectivity.known) {
             if (airplaneMode) {
-                return CenterIndicator.Empty
+                return CenterIndicator.Airplane
             }
             return mobileType?.let {
                 CenterIndicator.MobileType(
@@ -43,7 +43,7 @@ internal object CombinedStatusConnectivityPolicy {
         }
 
         if (airplaneMode) {
-            return CenterIndicator.Empty
+            return CenterIndicator.Airplane
         }
 
         return when (connectivity.transport) {
@@ -154,6 +154,8 @@ internal sealed interface CenterIndicator {
         val enhanced: Boolean,
         val internet: InternetState,
     ) : CenterIndicator
+
+    data object Airplane : CenterIndicator
 
     data object Empty : CenterIndicator
 }

@@ -25,6 +25,9 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Changed
 
+- Home network replacement now keeps native mobile suppression continuous through airplane-mode transitions and event-driven Home re-entry/rebinds, with a reversible `mobile_signal_container` visual mask so externally injected dual-row signal descendants cannot remain visible beside Combined Status; if a dynamic rebind no longer satisfies the verified binding/visual-mask contract, the suppression session now fails native instead of leaving a partially active replacement.
+
+- Build 303 keeps the Build 301 zero-width `combined_status` slot bridge but removes the inherited centered-child gravity that shifted the 105px render surface about half a slot left. The renderer now starts at local x=0 and overflows right into the preserved native battery slot; handoff additionally verifies render bounds `0..batteryWidth` before commit, with no peer battery/status-icon geometry writes.
 - Center mobile-network type labels keep their accepted physical size while using heavier typography and glyph-ink centering for a more balanced `5G` / enhanced-type presentation inside the Combined Status composition.
 - Island motion diagnostics now start bounded frame sampling only when development/Detailed diagnostics are active, stop on the UI thread when Detailed is disabled, and cancel their timeout callback during cleanup; General Canary diagnostics no longer pay the per-frame probe cost.
 - Native Wi-Fi replacement now uses one semantic-readiness policy across rendering and suppression: SystemUI Wi-Fi semantics lead, Connectivity only fills an unknown Internet state when Wi-Fi is the current default network, obsolete freshness timestamps are removed, and native Wi-Fi remains visible whenever Combined Status cannot safely reproduce the current Wi-Fi presentation.
@@ -50,6 +53,17 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Fixed
 
+- Native battery presentation suppression now explicitly tracks HyperOS `mBatteryChargingView`, keeps a visible charging glyph `INVISIBLE` while Combined Status replacement is active so its native layout footprint is preserved, and revalidates that presentation after `MiuiBatteryMeterView.updateChargeAndText()`; teardown restores the latest native visibility without taking ownership of battery-slot geometry.
+- Center network presentation keeps the validated 100 ms SystemUI-style icon-appearance transition only when the presentation family changes between Wi-Fi, mobile type, airplane mode, and empty/search state. Changes within one family—such as Wi-Fi level/Internet markers or 4G/5G/5GA mobile-type updates—redraw in place without replaying the whole center animation.
+
+- Airplane-mode exit now enters an event-driven mobile reacquisition state: the center airplane/cross clears immediately, four signal dots remain unavailable while HyperOS reports no fresh signal, and cached pre-airplane mobile type/strength is not reused.
+
+- Charging-island battery hiding now hands the disappearing native battery slot's occupancy to the module-owned `combined_status` root for the duration of the native hide request, then returns the custom slot to zero width when HyperOS restores the battery. This keeps right-side occupancy stable without writing peer icon/battery geometry or adding translation compensation.
+
+- Unlock handoff now supports a verified keyguard pre-arm path: when the Home `combined_status` participant is attached, model/tint/geometry-ready, and still not actually shown behind keyguard, its native binding can be prepared before Home becomes visible. Once committed, the participant stays logically resident in the Home host so HyperOS owns the actual keyguard-to-Home reveal instead of starting a second per-icon APPEAR cycle at unlock. Visible keyguard participants still fail closed; no delay, translation, or custom unlock animation is added.
+
+- Native mobile suppression now also treats one-root dual-aggregated presentations as replaceable, preventing duplicate dual-row mobile visuals from remaining beside Combined Status while preserving separate dual-root presentations.
+- Airplane-mode center presentation now reuses the left-facing HyperOS `stat_sys_signal_flightmode` shape family for parity with the live Home status bar, while retaining the existing unavailable mobile dots/cross and Wi-Fi precedence when Wi-Fi remains active.
 - VPN-backed default networks no longer suppress an authoritative HyperOS mobile-type label at startup: Wi-Fi/cellular transports retain precedence, while VPN-only fallback waits for authoritative Wi-Fi absence before showing the mobile type.
 - Native Combined Status tint updates now accept only the currently bound HyperOS status-bar battery view, preventing transient tint states from other `MiuiBatteryMeterView` instances from flashing through during light/dark inversion changes.
 - Wi-Fi fallback rendering now uses the same semantic-readiness gate as native Wi-Fi suppression, so unknown OEM/VPN Wi-Fi variants remain fully native instead of being duplicated by an uncertain Combined Status Wi-Fi projection.
@@ -77,6 +91,7 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Engineering
 
+- Runtime diagnostics preference listening now has explicit lifecycle ownership outside `CombinedStatusModule`, keeping remote-preference registration and cleanup bounded across Hot Reload generations.
 - Battery state acquisition moves from an app-owned `ACTION_BATTERY_CHANGED` receiver to the verified HyperOS `MiuiBatteryMeterView.onBatteryLevelChanged` callback with a dedicated runtime owner, leaving `StatusBarStableSession` responsible only for host/anchor diagnostics.
 - Public documentation and contribution surfaces use **Combined Status** as the English display name while established technical identifiers such as `CombinedStatus` remain unchanged; contributor setup and pull-request guidance are documented at the appropriate public entry points.
 - Pull-request CI now classifies ready `main` changes by affected paths, keeping documentation-only maintenance on Light validation while preserving Full validation for build, CI, dependency, tooling, and runtime-affecting stable-boundary changes.

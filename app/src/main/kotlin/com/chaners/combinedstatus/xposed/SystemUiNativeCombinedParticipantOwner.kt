@@ -21,6 +21,7 @@ import java.util.WeakHashMap
 
 internal object SystemUiNativeCombinedParticipantOwner {
     const val SLOT = "combined_status"
+    private const val ZERO_SLOT_WIDTH = 0
 
     private const val CONTROLLER_IMPL =
         "com.android.systemui.statusbar.phone.ui.StatusBarIconControllerImpl"
@@ -560,25 +561,33 @@ internal object SystemUiNativeCombinedParticipantOwner {
         val rootLayoutParams =
             root.layoutParams
                 ?: return AttachResult.Failure("native-root-layout-params-missing")
+        val originalShellWidth = rootLayoutParams.width
         val originalShellHeight = rootLayoutParams.height
-        val shellHeightAdjusted =
-            if (originalShellHeight != battery.height) {
+        val shellGeometryAdjusted =
+            if (
+                originalShellWidth != ZERO_SLOT_WIDTH ||
+                originalShellHeight != battery.height
+            ) {
                 runCatching {
+                    rootLayoutParams.width = ZERO_SLOT_WIDTH
                     rootLayoutParams.height = battery.height
                     root.layoutParams = rootLayoutParams
-                    root.layoutParams?.height == battery.height
+                    root.layoutParams?.width == ZERO_SLOT_WIDTH &&
+                        root.layoutParams?.height == battery.height
                 }.getOrDefault(false)
             } else {
                 true
             }
-        if (!shellHeightAdjusted) {
-            return AttachResult.Failure("native-root-height-adjustment-failed")
+        if (!shellGeometryAdjusted) {
+            return AttachResult.Failure("native-root-geometry-adjustment-failed")
         }
         eventSink?.invoke(
             "nativeCombinedParticipant shellGeometry " +
-                "width=" + rootLayoutParams.width +
+                "originalWidth=" + originalShellWidth +
+                " targetWidth=" + ZERO_SLOT_WIDTH +
                 " originalHeight=" + originalShellHeight +
                 " targetHeight=" + battery.height +
+                " moduleOwnedSlotWidthWrite=" + (originalShellWidth != ZERO_SLOT_WIDTH) +
                 " customShellHeightWrite=" + (originalShellHeight != battery.height) +
                 " peerNativeGeometryWrites=0",
         )
@@ -606,11 +615,21 @@ internal object SystemUiNativeCombinedParticipantOwner {
                             FrameLayout.LayoutParams(
                                 battery.width,
                                 battery.height,
-                                Gravity.CENTER,
                             ),
                         )
                     }
             }
+        val renderLayoutParams =
+            (render.layoutParams as? FrameLayout.LayoutParams)
+                ?: FrameLayout.LayoutParams(
+                    battery.width,
+                    battery.height,
+                )
+        renderLayoutParams.width = battery.width
+        renderLayoutParams.height = battery.height
+        renderLayoutParams.gravity = Gravity.NO_GRAVITY
+        render.layoutParams = renderLayoutParams
+
         renderViewRef = WeakReference(render)
         renderController =
             renderController ?: CombinedStatusRenderController(render)
@@ -744,6 +763,54 @@ internal object SystemUiNativeCombinedParticipantOwner {
         )
     }
 
+    fun onNativeBatteryHideChanged(hidden: Boolean) {
+        val root = synchronized(this) { rootRef?.get() } ?: return
+        if (Looper.myLooper() !== Looper.getMainLooper()) {
+            root.post {
+                onNativeBatteryHideChanged(hidden)
+            }
+            return
+        }
+
+        synchronized(this) {
+            if (!handoffCommitted || rootRef?.get() !== root) {
+                return
+            }
+            val render = renderViewRef?.get() ?: return
+            val targetWidth =
+                resolveIslandSlotWidth(
+                    nativeBatteryHidden = hidden,
+                    visualWidth = render.measuredWidth,
+                )
+            val layoutParams = root.layoutParams ?: return
+            val previousWidth = layoutParams.width
+            if (previousWidth == targetWidth) {
+                return
+            }
+            layoutParams.width = targetWidth
+            root.layoutParams = layoutParams
+            requestNativeLayout(root)
+            eventSink?.invoke(
+                "nativeCombinedParticipant islandSlotOccupancy " +
+                    "nativeBatteryHidden=" + hidden +
+                    " previousWidth=" + previousWidth +
+                    " targetWidth=" + targetWidth +
+                    " visualWidth=" + render.measuredWidth +
+                    " customRootWidthWrite=true peerNativeGeometryWrites=0",
+            )
+        }
+    }
+
+    internal fun resolveIslandSlotWidth(
+        nativeBatteryHidden: Boolean,
+        visualWidth: Int,
+    ): Int =
+        if (nativeBatteryHidden && visualWidth > 0) {
+            visualWidth
+        } else {
+            ZERO_SLOT_WIDTH
+        }
+
     @Synchronized
     fun onPresentationStateChanged(trace: RuntimeRenderTrace? = null) {
         val update =
@@ -774,28 +841,24 @@ internal object SystemUiNativeCombinedParticipantOwner {
     private fun reconcileVisibleHandoff(source: String) {
         val root = rootRef?.get() ?: return
         val bindingState = targetBindingState ?: return
-        val sceneVisible =
-            currentSurface == SystemUiSceneStateSource.Surface.UNLOCKED_STATUS_BAR
-
         if (handoffCommitted) {
-            if (bindingState.visible != sceneVisible) {
-                bindingState.visible = sceneVisible
+            if (!bindingState.visible) {
+                bindingState.visible = true
                 requestNativeLayout(root)
-                eventSink?.invoke(
-                    "nativeCombinedParticipant visibilityState source=" + source +
-                        " scene=" + currentSurface.name +
-                        " bindingVisible=" + sceneVisible +
-                        " handoffCommitted=true nativeGeometryWrites=0",
-                )
             }
             return
         }
 
+        val handoffMode =
+            resolveHandoffMode(
+                surface = currentSurface,
+                rootShown = root.isShown,
+            )
         if (
             handoffPending ||
             !modelReady ||
             !tintReady ||
-            !sceneVisible ||
+            handoffMode == HandoffMode.BLOCKED ||
             !root.isAttachedToWindow ||
             root.parent == null
         ) {
@@ -811,6 +874,8 @@ internal object SystemUiNativeCombinedParticipantOwner {
                 " modelReady=" + modelReady +
                 " tintReady=" + tintReady +
                 " scene=" + currentSurface.name +
+                " mode=" + handoffMode.name +
+                " rootShownBefore=" + root.isShown +
                 " bootstrapVisibilityRelease=true nativeGeometryWrites=0",
         )
 
@@ -829,26 +894,68 @@ internal object SystemUiNativeCombinedParticipantOwner {
 
                         val iconVisible =
                             NativeParticipantRuntimeAccess.iconVisible(root) == true
+                        val render = renderViewRef?.get()
+                        val battery = batteryRef?.get()
+                        val parent = root.parent as? ViewGroup
+                        val rootLocation = IntArray(2)
+                        val batteryLocation = IntArray(2)
+                        if (root.isAttachedToWindow) {
+                            root.getLocationOnScreen(rootLocation)
+                        }
+                        if (battery?.isAttachedToWindow == true) {
+                            battery.getLocationOnScreen(batteryLocation)
+                        }
+                        val bridgeReady =
+                            isZeroSlotHandoffReady(
+                                rootMeasuredWidth = root.measuredWidth,
+                                rootMeasuredHeight = root.measuredHeight,
+                                renderMeasuredWidth = render?.measuredWidth ?: -1,
+                                renderMeasuredHeight = render?.measuredHeight ?: -1,
+                                expectedVisualWidth = battery?.width ?: -1,
+                                expectedVisualHeight = battery?.height ?: -1,
+                                parentClipsChildren = parent?.clipChildren ?: true,
+                                rootScreenX = rootLocation[0],
+                                batteryScreenX = batteryLocation[0],
+                                renderLeft = render?.left ?: Int.MIN_VALUE,
+                                renderRight = render?.right ?: Int.MIN_VALUE,
+                            )
+                        val resolvedMode =
+                            resolveHandoffMode(
+                                surface = currentSurface,
+                                rootShown = root.isShown,
+                            )
                         val ready =
                             modelReady &&
                                 tintReady &&
-                                currentSurface ==
-                                    SystemUiSceneStateSource.Surface.UNLOCKED_STATUS_BAR &&
+                                resolvedMode != HandoffMode.BLOCKED &&
                                 bindingState.visible &&
                                 iconVisible &&
                                 root.isAttachedToWindow &&
-                                root.measuredWidth > 0 &&
-                                root.measuredHeight > 0
+                                bridgeReady
 
                         if (ready) {
                             handoffCommitted = true
                             handoffSink?.invoke(true)
                             eventSink?.invoke(
                                 "nativeCombinedParticipant handoffCommit " +
-                                    "measured=" + root.measuredWidth + "x" +
+                                    "mode=" + resolvedMode.name +
+                                    " rootShown=" + root.isShown +
+                                    " hiddenAncestor=" + firstHiddenAncestor(root) +
+                                    " measured=" + root.measuredWidth + "x" +
                                     root.measuredHeight +
-                                    " iconVisible=true overlayActive=false " +
-                                    "nativeGeometryWrites=0",
+                                    " renderMeasured=" +
+                                    (render?.measuredWidth ?: -1) + "x" +
+                                    (render?.measuredHeight ?: -1) +
+                                    " rootScreenX=" + rootLocation[0] +
+                                    " batteryScreenX=" + batteryLocation[0] +
+                                    " renderBounds=" +
+                                    (render?.left ?: Int.MIN_VALUE) + "-" +
+                                    (render?.right ?: Int.MIN_VALUE) +
+                                    " parentClipChildren=" +
+                                    (parent?.clipChildren ?: true) +
+                                    " bridge=zero-slot-to-native-battery " +
+                                    "iconVisible=true overlayActive=false " +
+                                    "peerNativeGeometryWrites=0",
                             )
                         } else {
                             bindingState.visible = false
@@ -859,9 +966,23 @@ internal object SystemUiNativeCombinedParticipantOwner {
                                     "modelReady=" + modelReady +
                                     " tintReady=" + tintReady +
                                     " scene=" + currentSurface.name +
+                                    " mode=" + resolvedMode.name +
+                                    " rootShown=" + root.isShown +
+                                    " hiddenAncestor=" + firstHiddenAncestor(root) +
                                     " iconVisible=" + iconVisible +
                                     " measured=" + root.measuredWidth + "x" +
                                     root.measuredHeight +
+                                    " renderMeasured=" +
+                                    (render?.measuredWidth ?: -1) + "x" +
+                                    (render?.measuredHeight ?: -1) +
+                                    " rootScreenX=" + rootLocation[0] +
+                                    " batteryScreenX=" + batteryLocation[0] +
+                                    " renderBounds=" +
+                                    (render?.left ?: Int.MIN_VALUE) + "-" +
+                                    (render?.right ?: Int.MIN_VALUE) +
+                                    " parentClipChildren=" +
+                                    (parent?.clipChildren ?: true) +
+                                    " bridgeReady=" + bridgeReady +
                                     " overlayActive=true nativeGeometryWrites=0",
                             )
                         }
@@ -872,6 +993,63 @@ internal object SystemUiNativeCombinedParticipantOwner {
         pendingPreDrawRoot = WeakReference(root)
         pendingPreDrawListener = listener
         root.viewTreeObserver.addOnPreDrawListener(listener)
+    }
+
+    internal fun isZeroSlotHandoffReady(
+        rootMeasuredWidth: Int,
+        rootMeasuredHeight: Int,
+        renderMeasuredWidth: Int,
+        renderMeasuredHeight: Int,
+        expectedVisualWidth: Int,
+        expectedVisualHeight: Int,
+        parentClipsChildren: Boolean,
+        rootScreenX: Int,
+        batteryScreenX: Int,
+        renderLeft: Int,
+        renderRight: Int,
+    ): Boolean =
+        rootMeasuredWidth == ZERO_SLOT_WIDTH &&
+            rootMeasuredHeight > 0 &&
+            renderMeasuredWidth == expectedVisualWidth &&
+            renderMeasuredHeight == expectedVisualHeight &&
+            expectedVisualWidth > 0 &&
+            expectedVisualHeight > 0 &&
+            !parentClipsChildren &&
+            rootScreenX == batteryScreenX &&
+            renderLeft == 0 &&
+            renderRight == expectedVisualWidth
+
+    internal enum class HandoffMode {
+        BLOCKED,
+        VISIBLE_HOME,
+        PREARMED_KEYGUARD,
+    }
+
+    internal fun resolveHandoffMode(
+        surface: SystemUiSceneStateSource.Surface,
+        rootShown: Boolean,
+    ): HandoffMode =
+        when {
+            surface == SystemUiSceneStateSource.Surface.UNLOCKED_STATUS_BAR ->
+                HandoffMode.VISIBLE_HOME
+            surface == SystemUiSceneStateSource.Surface.KEYGUARD && !rootShown ->
+                HandoffMode.PREARMED_KEYGUARD
+            else ->
+                HandoffMode.BLOCKED
+        }
+
+    private fun firstHiddenAncestor(view: View): String {
+        var current = view.parent as? View
+        while (current != null) {
+            if (current.visibility != View.VISIBLE || !current.isShown) {
+                return current.javaClass.simpleName +
+                    "{visibility=" + visibilityName(current.visibility) +
+                    ",shown=" + current.isShown +
+                    ",alpha=" + current.alpha + "}"
+            }
+            current = current.parent as? View
+        }
+        return "none"
     }
 
     private fun requestNativeLayout(root: View) {

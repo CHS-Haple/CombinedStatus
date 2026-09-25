@@ -151,6 +151,70 @@ class CombinedStatusConnectivityPolicyTest {
     }
 
     @Test
+    fun airplaneModeUsesNativeAirplaneCenterWhenWifiIsAbsent() {
+        val result =
+            CombinedStatusConnectivityPolicy.resolve(
+                wifi = CombinedStatusStateStore.WifiState.Hidden,
+                airplaneMode = true,
+                connectivity =
+                    SystemUiConnectivityStateSource.State(
+                        known = true,
+                        transport = SystemUiConnectivityStateSource.Transport.NONE,
+                        validated = false,
+                        hasInternetCapability = false,
+                        mobileDataEnabled = false,
+                    ),
+                mobileType = null,
+            )
+
+        assertEquals(CenterIndicator.Airplane, result)
+    }
+
+    @Test
+    fun airplaneModeUsesAirplaneCenterBeforeConnectivityIsKnown() {
+        val result =
+            CombinedStatusConnectivityPolicy.resolve(
+                wifi = CombinedStatusStateStore.WifiState.Hidden,
+                airplaneMode = true,
+                connectivity = SystemUiConnectivityStateSource.State.Unknown,
+                mobileType = null,
+            )
+
+        assertEquals(CenterIndicator.Airplane, result)
+    }
+
+    @Test
+    fun visibleWifiRemainsCenterPriorityDuringAirplaneMode() {
+        val result =
+            CombinedStatusConnectivityPolicy.resolve(
+                wifi =
+                    CombinedStatusStateStore.WifiState.Visible(
+                        iconResId = 1,
+                        signal = SignalStrength.Level(2),
+                        internetValidated = true,
+                    ),
+                airplaneMode = true,
+                connectivity =
+                    SystemUiConnectivityStateSource.State(
+                        known = true,
+                        transport = SystemUiConnectivityStateSource.Transport.WIFI,
+                        validated = true,
+                        hasInternetCapability = true,
+                        mobileDataEnabled = false,
+                    ),
+                mobileType = null,
+            )
+
+        assertEquals(
+            CenterIndicator.Wifi(
+                segments = 2,
+                internet = InternetState.VALIDATED,
+            ),
+            result,
+        )
+    }
+
+    @Test
     fun vpnDefaultNetworkDoesNotSuppressAuthoritativeMobileTypeAtBootstrap() {
         val result =
             CombinedStatusConnectivityPolicy.resolve(

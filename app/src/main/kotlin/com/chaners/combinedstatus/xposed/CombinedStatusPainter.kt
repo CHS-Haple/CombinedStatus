@@ -1,5 +1,6 @@
 package com.chaners.combinedstatus.xposed
 
+import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -12,8 +13,12 @@ import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
 
-internal class CombinedStatusPainter {
+internal class CombinedStatusPainter(
+    private val context: Context,
+) {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private var airplaneDrawableResolved = false
+    private var cachedAirplaneDrawable: android.graphics.drawable.Drawable? = null
     private val mobileTypeTypeface =
         Typeface.create(Typeface.DEFAULT, MOBILE_TYPE_WEIGHT, false)
     private val mobileTypeMainBounds = Rect()
@@ -32,6 +37,9 @@ internal class CombinedStatusPainter {
         model: CombinedStatusRenderModel,
         colors: CombinedStatusColors,
         opacity: Float,
+        previousCenterIndicator: CenterIndicator? = null,
+        centerExitAmount: Float = 0f,
+        centerEnterAmount: Float = 1f,
     ) {
         if (width <= 0 || height <= 0) {
             return
@@ -48,7 +56,16 @@ internal class CombinedStatusPainter {
         canvas.scale(scale, scale)
 
         drawBattery(canvas, model, colors.batteryTint, opacity)
-        drawCenter(canvas, model, colors.primaryTint, opacity, scale)
+        drawCenterTransition(
+            canvas = canvas,
+            current = model.centerIndicator,
+            previous = previousCenterIndicator,
+            tint = colors.primaryTint,
+            opacity = opacity,
+            scale = scale,
+            exitAmount = centerExitAmount,
+            enterAmount = centerEnterAmount,
+        )
         drawMobile(canvas, model, colors.primaryTint, opacity)
         canvas.restoreToCount(save)
     }
@@ -69,14 +86,70 @@ internal class CombinedStatusPainter {
         }
     }
 
-    private fun drawCenter(
+    private fun drawCenterTransition(
         canvas: Canvas,
-        model: CombinedStatusRenderModel,
+        current: CenterIndicator,
+        previous: CenterIndicator?,
         tint: Int,
         opacity: Float,
         scale: Float,
+        exitAmount: Float,
+        enterAmount: Float,
     ) {
-        when (val indicator = model.centerIndicator) {
+        if (previous == null || previous == current) {
+            drawCenterIndicator(
+                canvas = canvas,
+                indicator = current,
+                tint = tint,
+                opacity = opacity,
+                scale = scale,
+                appearAmount = 1f,
+            )
+            return
+        }
+
+        drawCenterIndicator(
+            canvas = canvas,
+            indicator = previous,
+            tint = tint,
+            opacity = opacity,
+            scale = scale,
+            appearAmount = exitAmount.coerceIn(0f, 1f),
+        )
+        drawCenterIndicator(
+            canvas = canvas,
+            indicator = current,
+            tint = tint,
+            opacity = opacity,
+            scale = scale,
+            appearAmount = enterAmount.coerceIn(0f, 1f),
+        )
+    }
+
+    private fun drawCenterIndicator(
+        canvas: Canvas,
+        indicator: CenterIndicator,
+        tint: Int,
+        opacity: Float,
+        scale: Float,
+        appearAmount: Float,
+    ) {
+        if (appearAmount <= 0f) {
+            return
+        }
+
+        val save = canvas.save()
+        canvas.scale(
+            appearAmount,
+            appearAmount,
+            CENTER_TRANSITION_PIVOT_X,
+            CENTER_TRANSITION_PIVOT_Y,
+        )
+        // Match StatusBarIconView's iconAppearAmount contract:
+        // center content scales with appearance progress while tint alpha remains native.
+        val animatedOpacity = opacity
+
+        when (indicator) {
             is CenterIndicator.Wifi -> {
                 drawWifi(canvas, indicator.segments, tint, opacity)
                 if (indicator.internet == InternetState.NO_INTERNET) {
@@ -91,8 +164,16 @@ internal class CombinedStatusPainter {
                 }
             }
 
+            CenterIndicator.Airplane ->
+                drawNativeAirplane(
+                    canvas = canvas,
+                    tint = tint,
+                    opacity = animatedOpacity,
+                )
+
             CenterIndicator.Empty -> Unit
         }
+        canvas.restoreToCount(save)
     }
 
     private fun drawWifi(
@@ -114,6 +195,71 @@ internal class CombinedStatusPainter {
             canvas.drawPath(path, paint)
         }
         canvas.restoreToCount(save)
+    }
+
+    private fun airplaneDrawable(): android.graphics.drawable.Drawable? {
+        if (airplaneDrawableResolved) {
+            return cachedAirplaneDrawable
+        }
+
+        airplaneDrawableResolved = true
+        cachedAirplaneDrawable =
+            runCatching {
+                val resourceId =
+                    context.resources.getIdentifier(
+                        AIRPLANE_RESOURCE_NAME,
+                        "drawable",
+                        SYSTEM_UI_PACKAGE,
+                    )
+                if (resourceId == 0) {
+                    return@runCatching null
+                }
+                context.getDrawable(resourceId)
+                    ?.constantState
+                    ?.newDrawable(context.resources)
+                    ?.mutate()
+                    ?: context.getDrawable(resourceId)?.mutate()
+            }.getOrNull()
+        return cachedAirplaneDrawable
+    }
+
+    private fun drawNativeAirplane(
+        canvas: Canvas,
+        tint: Int,
+        opacity: Float,
+    ) {
+        val drawable = airplaneDrawable() ?: return
+        val intrinsicWidth = drawable.intrinsicWidth
+        val intrinsicHeight = drawable.intrinsicHeight
+        if (intrinsicWidth <= 0 || intrinsicHeight <= 0) {
+            return
+        }
+
+        val drawableScale =
+            min(
+                AIRPLANE_MAX_WIDTH / intrinsicWidth,
+                AIRPLANE_MAX_HEIGHT / intrinsicHeight,
+            )
+        val drawWidth = intrinsicWidth * drawableScale
+        val drawHeight = intrinsicHeight * drawableScale
+        val left = (AIRPLANE_CENTER_X - drawWidth / 2f).toInt()
+        val top = (AIRPLANE_CENTER_Y - drawHeight / 2f).toInt()
+
+        drawable.setTint(
+            Color.rgb(
+                Color.red(tint),
+                Color.green(tint),
+                Color.blue(tint),
+            ),
+        )
+        drawable.alpha = effectiveAlpha(tint, 255, opacity)
+        drawable.setBounds(
+            left,
+            top,
+            (left + drawWidth).toInt(),
+            (top + drawHeight).toInt(),
+        )
+        drawable.draw(canvas)
     }
 
     private fun drawMobileType(
@@ -258,7 +404,7 @@ internal class CombinedStatusPainter {
             )
         }
 
-        if (level == null) {
+        if (model.mobileUnavailableMark) {
             stroke(tint, 210, 4f, opacity)
             canvas.drawLine(56f, 90f, 64f, 98f, paint)
             canvas.drawLine(64f, 90f, 56f, 98f, paint)
@@ -395,6 +541,14 @@ internal class CombinedStatusPainter {
         const val MOBILE_CENTER_Y = 58f
         const val MOBILE_ORBIT_RADIUS = 51f
         const val MOBILE_DOT_RADIUS = 4.9f
+        const val SYSTEM_UI_PACKAGE = "com.android.systemui"
+        const val AIRPLANE_RESOURCE_NAME = "stat_sys_signal_flightmode"
+        const val AIRPLANE_CENTER_X = 60f
+        const val AIRPLANE_CENTER_Y = 56f
+        const val CENTER_TRANSITION_PIVOT_X = 60f
+        const val CENTER_TRANSITION_PIVOT_Y = 60f
+        const val AIRPLANE_MAX_WIDTH = 75f
+        const val AIRPLANE_MAX_HEIGHT = 75f
         const val MOBILE_TYPE_CENTER_X = 60f
         const val MOBILE_TYPE_CENTER_Y = 60f
         const val MOBILE_TYPE_TEXT_SIZE_PX = 38f

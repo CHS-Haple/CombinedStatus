@@ -393,7 +393,7 @@ class CombinedStatusRenderModelTest {
     }
 
     @Test
-    fun airplaneModeNeverUsesMobileTypeWithoutWifi() {
+    fun airplaneModeUsesAirplaneCenterAndUnavailableMobileSignal() {
         val model =
             CombinedStatusRenderModel.from(
                 snapshot =
@@ -420,8 +420,43 @@ class CombinedStatusRenderModelTest {
                 defaultDataSubscriptionId = 1,
             )
 
+        assertTrue(model?.centerIndicator is CenterIndicator.Airplane)
+        assertNull(model?.mobileLevel)
+        assertTrue(model?.mobileUnavailableMark == true)
+    }
+
+    @Test
+    fun airplaneExitRecoveryShowsEmptyCenterAndDimDotsWithoutCross() {
+        val model =
+            CombinedStatusRenderModel.from(
+                snapshot =
+                    snapshot(
+                        wifi = CombinedStatusStateStore.WifiState.Hidden,
+                        mobile =
+                            mapOf(
+                                4 to CombinedStatusStateStore.MobileState(
+                                    signal = SignalStrength.Level(4),
+                                ),
+                            ),
+                        airplaneMode = false,
+                    ).copy(
+                        mobileRecoveryPending = true,
+                    ),
+                presentation =
+                    presentation(
+                        connectivity =
+                            connectivity(
+                                transport = SystemUiConnectivityStateSource.Transport.VPN,
+                                validated = true,
+                            ),
+                        networkType = mobileType("5G"),
+                    ),
+                defaultDataSubscriptionId = 4,
+            )
+
         assertTrue(model?.centerIndicator is CenterIndicator.Empty)
         assertNull(model?.mobileLevel)
+        assertTrue(model?.mobileUnavailableMark == false)
     }
 
     private fun snapshot(

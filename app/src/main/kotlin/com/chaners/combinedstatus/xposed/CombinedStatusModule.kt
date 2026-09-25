@@ -1,14 +1,11 @@
 package com.chaners.combinedstatus.xposed
 
-import android.content.SharedPreferences
 import android.graphics.drawable.Drawable
 import android.os.Process
 import android.os.SystemClock
 import android.util.Log
 import com.chaners.combinedstatus.BuildConfig
-import com.chaners.combinedstatus.settings.DIAGNOSTICS_LEVEL_KEY
 import com.chaners.combinedstatus.settings.DIAGNOSTICS_REMOTE_PREFS_NAME
-import com.chaners.combinedstatus.settings.DiagnosticsLevel
 import com.chaners.combinedstatus.system.RuntimeDiagnosticsProtocol
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.HotReloadedParam
@@ -19,20 +16,12 @@ import java.util.concurrent.atomic.AtomicLong
 
 class CombinedStatusModule : XposedModule() {
     private var islandMotionSourceInstalled = false
-    private var diagnosticsPreferences: SharedPreferences? = null
     private var runtimeSessionId = newRuntimeSessionId()
     private val diagnosticSequence = AtomicLong(0L)
     private val renderTraceSequence = AtomicLong(0L)
 
     @Volatile
     private var detailedDiagnosticsEnabled = BuildConfig.DEVELOPMENT_PROBES
-
-    private val diagnosticsPreferenceListener =
-        SharedPreferences.OnSharedPreferenceChangeListener { preferences, key ->
-            if (key == DIAGNOSTICS_LEVEL_KEY) {
-                updateDetailedDiagnostics(preferences)
-            }
-        }
 
     override fun onModuleLoaded(param: ModuleLoadedParam) {
         bindRuntimeDiagnostics()
@@ -83,6 +72,10 @@ class CombinedStatusModule : XposedModule() {
             source = "coldStart",
         )
         installNativeNetworkSuppression(
+            classLoader = param.classLoader,
+            source = "coldStart",
+        )
+        installNativeBatterySuppression(
             classLoader = param.classLoader,
             source = "coldStart",
         )
@@ -166,6 +159,7 @@ class CombinedStatusModule : XposedModule() {
                 SystemUiNativeParticipantRuntimeOwner.installedHookCount +
                 SystemUiNativeCombinedParticipantOwner.installedHookCount +
                 SystemUiNativeNetworkSuppressionOwner.installedHookCount +
+                SystemUiNativeBatterySuppressionOwner.installedHookCount +
                 if (islandMotionSourceInstalled) {
                     SystemUiIslandMotionSource.HOOK_COUNT
                 } else {
@@ -265,6 +259,7 @@ class CombinedStatusModule : XposedModule() {
             SystemUiPresentationRuntimeOwner.resetRuntimeState()
             SystemUiNativeParticipantRuntimeOwner.resetControllerRuntimeState()
             SystemUiNativeNetworkSuppressionOwner.resetRuntimeState("hotReload")
+            SystemUiNativeBatterySuppressionOwner.resetRuntimeState("hotReload")
             bindRuntimeDiagnostics()
             logDiagnostic(
                 level = Log.INFO,
@@ -309,6 +304,10 @@ class CombinedStatusModule : XposedModule() {
                 source = "hotReload",
             )
             installNativeNetworkSuppression(
+                classLoader = classLoader,
+                source = "hotReload",
+            )
+            installNativeBatterySuppression(
                 classLoader = classLoader,
                 source = "hotReload",
             )
@@ -643,6 +642,53 @@ class CombinedStatusModule : XposedModule() {
         }
     }
 
+    private fun installNativeBatterySuppression(
+        classLoader: ClassLoader,
+        source: String,
+    ) {
+        when (
+            val result =
+                SystemUiNativeBatterySuppressionOwner.install(
+                    module = this,
+                    classLoader = classLoader,
+                    onEvent = { event ->
+                        if (detailedDiagnosticsEnabled) {
+                            log(Log.INFO, TAG, event)
+                        }
+                    },
+                    onNativeHideChanged =
+                        SystemUiNativeCombinedParticipantOwner::onNativeBatteryHideChanged,
+                )
+        ) {
+            SystemUiNativeBatterySuppressionOwner.InstallResult.Installed,
+            SystemUiNativeBatterySuppressionOwner.InstallResult.AlreadyInstalled -> {
+                logDiagnostic(
+                    level = Log.INFO,
+                    event = "hook.install",
+                    component = "nativeBatterySuppression",
+                    state = "ready",
+                    "source" to source,
+                    "hooks" to SystemUiNativeBatterySuppressionOwner.installedHookCount,
+                    "contract" to
+                        "MiuiStatusBatteryContainer.setIsHideBattery(Boolean)",
+                    "nativeGeometryWrites" to 0,
+                )
+            }
+
+            is SystemUiNativeBatterySuppressionOwner.InstallResult.Failure -> {
+                logDiagnostic(
+                    level = Log.WARN,
+                    event = "hook.install",
+                    component = "nativeBatterySuppression",
+                    state = "unavailable",
+                    "source" to source,
+                    "reason" to result.reason,
+                    "nativeGeometryWrites" to 0,
+                )
+            }
+        }
+    }
+
     private fun installNativeParticipantControllerObserver(
         classLoader: ClassLoader,
         source: String,
@@ -716,9 +762,9 @@ class CombinedStatusModule : XposedModule() {
                             trace
                         }
                     refreshMobilePresentation(stateTrace)
-                    changed?.let { snapshot ->
+                    if (changed != null) {
                         onCombinedStateChanged(
-                            snapshot = snapshot,
+                            snapshot = CombinedStatusStateStore.snapshot(),
                             trace = stateTrace,
                         )
                     }
@@ -977,9 +1023,19 @@ class CombinedStatusModule : XposedModule() {
             )
         val changed =
             CombinedStatusPresentationStateStore.updateMobilePresentation(presentation)
-        if (changed != null) {
+        val recoveryCompleted =
+            CombinedStatusStateStore.completeMobileRecoveryIfReady(
+                preferredSubscriptionId = presentation.effectiveDataSubscriptionId ?: -1,
+                mobileTypeReady = presentation.networkType != null,
+                mobileDataEnabled =
+                    CombinedStatusPresentationStateStore
+                        .snapshot()
+                        .connectivity
+                        .mobileDataEnabled,
+            )
+        if (changed != null || recoveryCompleted != null) {
             val presentationTrace = markPresentationCommitted(trace)
-            if (detailedDiagnosticsEnabled) {
+            if (detailedDiagnosticsEnabled && changed != null) {
                 log(Log.INFO, TAG, presentation.logLine)
                 logDiagnostic(
                     level = Log.INFO,
@@ -996,6 +1052,17 @@ class CombinedStatusModule : XposedModule() {
                     "networkType" to presentation.networkType?.label,
                     "enhanced" to presentation.networkType?.enhanced,
                     "geometryWrites" to 0,
+                )
+            }
+            if (detailedDiagnosticsEnabled && recoveryCompleted != null) {
+                logDiagnostic(
+                    level = Log.INFO,
+                    event = "mobile.recovery",
+                    component = "network",
+                    state = "ready",
+                    "effectiveDataSubId" to presentation.effectiveDataSubscriptionId,
+                    "networkType" to presentation.networkType?.label,
+                    "eventDriven" to true,
                 )
             }
             onPresentationStateChanged(
@@ -1039,8 +1106,8 @@ class CombinedStatusModule : XposedModule() {
     private fun updateNativeNetworkSuppressionPolicy(source: String) {
         val presentation =
             CombinedStatusPresentationStateStore.snapshot()
-        val wifi =
-            CombinedStatusStateStore.snapshot().wifi
+        val state = CombinedStatusStateStore.snapshot()
+        val wifi = state.wifi
         SystemUiNativeNetworkSuppressionOwner.updatePolicy(
             suppressWifi =
                 SystemUiNetworkRuntimeOwner.wifiReady &&
@@ -1049,9 +1116,16 @@ class CombinedStatusModule : XposedModule() {
                         connectivity = presentation.connectivity,
                     ),
             suppressMobile =
-                presentation.mobilePresentation
-                    ?.representsSingleActiveSubscription == true,
+                NativeNetworkSuppressionPolicy.suppressMobile(
+                    airplaneMode = state.airplaneMode,
+                    presentation = presentation.mobilePresentation,
+                    wasSuppressed =
+                        SystemUiNativeNetworkSuppressionOwner.mobileSuppressionActive,
+                ),
             source = source,
+            forceRevalidate =
+                source == "airplane" ||
+                    source == "scene-unlocked",
         )
     }
 
@@ -1071,6 +1145,12 @@ class CombinedStatusModule : XposedModule() {
         }
         CombinedStatusHomeRenderSession.onSceneUpdate(update)
         SystemUiNativeCombinedParticipantOwner.onSceneUpdate(update)
+        if (
+            update.surface ==
+                SystemUiSceneStateSource.Surface.UNLOCKED_STATUS_BAR
+        ) {
+            updateNativeNetworkSuppressionPolicy("scene-unlocked")
+        }
     }
 
     private fun teardownOldGenerationForHotReload() {
@@ -1121,6 +1201,7 @@ class CombinedStatusModule : XposedModule() {
                                 trace = markStateCommitted(trace),
                             )
                         }
+                        updateNativeNetworkSuppressionPolicy("airplane")
                     },
                     onDefaultDataSubscriptionChanged = {
                         refreshMobilePresentation(
@@ -1467,12 +1548,13 @@ class CombinedStatusModule : XposedModule() {
                 SystemUiNativeCombinedParticipantOwner.attachHidden(
                     host = host,
                     onHandoffStateChanged = { active ->
-                        val suppression =
+                        val networkSuppression =
                             if (active) {
                                 val presentation =
                                     CombinedStatusPresentationStateStore.snapshot()
-                                val wifi =
-                                    CombinedStatusStateStore.snapshot().wifi
+                                val state =
+                                    CombinedStatusStateStore.snapshot()
+                                val wifi = state.wifi
                                 SystemUiNativeNetworkSuppressionOwner.activate(
                                     host = host,
                                     suppressWifi =
@@ -1483,34 +1565,57 @@ class CombinedStatusModule : XposedModule() {
                                                     connectivity = presentation.connectivity,
                                                 ),
                                     suppressMobile =
-                                        presentation.mobilePresentation
-                                            ?.representsSingleActiveSubscription == true,
+                                        NativeNetworkSuppressionPolicy.suppressMobile(
+                                            airplaneMode = state.airplaneMode,
+                                            presentation = presentation.mobilePresentation,
+                                            wasSuppressed = false,
+                                        ),
                                 )
                             } else {
                                 SystemUiNativeNetworkSuppressionOwner.deactivate(
                                     "native-handoff-fallback",
                                 )
                             }
+                        val batterySuppression =
+                            if (active) {
+                                SystemUiNativeBatterySuppressionOwner.activate(
+                                    host = host,
+                                    source = "native-handoff:" + source,
+                                )
+                            } else {
+                                SystemUiNativeBatterySuppressionOwner.deactivate(
+                                    "native-handoff-fallback",
+                                )
+                            }
                         CombinedStatusHomeRenderSession.setNativeHandoffActive(active)
+                        val suppressionFailure =
+                            active &&
+                                (
+                                    networkSuppression is
+                                        SystemUiNativeNetworkSuppressionOwner.StateResult.Failure ||
+                                        batterySuppression is
+                                            SystemUiNativeBatterySuppressionOwner.StateResult.Failure
+                                )
+                        val batteryGeometryWrite =
+                            when (batterySuppression) {
+                                is SystemUiNativeBatterySuppressionOwner.StateResult.Active ->
+                                    batterySuppression.changed
+                                is SystemUiNativeBatterySuppressionOwner.StateResult.Inactive ->
+                                    batterySuppression.changed
+                                is SystemUiNativeBatterySuppressionOwner.StateResult.Failure ->
+                                    false
+                            }
                         logDiagnostic(
-                            level =
-                                if (
-                                    active &&
-                                    suppression is
-                                        SystemUiNativeNetworkSuppressionOwner.StateResult.Failure
-                                ) {
-                                    Log.WARN
-                                } else {
-                                    Log.INFO
-                                },
+                            level = if (suppressionFailure) Log.WARN else Log.INFO,
                             event = "visibility.handoff",
                             component = "nativeCombinedParticipant",
                             state = if (active) "active" else "fallback",
                             "source" to source,
                             "nativeActive" to active,
                             "overlayActive" to !active,
-                            "networkSuppression" to suppression.summary,
-                            "nativeGeometryWrites" to 0,
+                            "networkSuppression" to networkSuppression.summary,
+                            "batterySuppression" to batterySuppression.summary,
+                            "nativeGeometryWrites" to if (batteryGeometryWrite) 1 else 0,
                         )
                     },
                 )
@@ -1625,6 +1730,7 @@ class CombinedStatusModule : XposedModule() {
 
     private fun bindRuntimeDiagnostics() {
         if (!BuildConfig.RUNTIME_DIAGNOSTICS) {
+            RuntimeDiagnosticsPreferencesOwner.unbind()
             detailedDiagnosticsEnabled = BuildConfig.DEVELOPMENT_PROBES
             logDiagnostic(
                 level = Log.INFO,
@@ -1637,21 +1743,22 @@ class CombinedStatusModule : XposedModule() {
         }
 
         runCatching {
-            getRemotePreferences(DIAGNOSTICS_REMOTE_PREFS_NAME)
-        }.onSuccess { preferences ->
-            diagnosticsPreferences = preferences
-            updateDetailedDiagnostics(preferences)
-            preferences.registerOnSharedPreferenceChangeListener(diagnosticsPreferenceListener)
+            RuntimeDiagnosticsPreferencesOwner.bind(
+                preferences = getRemotePreferences(DIAGNOSTICS_REMOTE_PREFS_NAME),
+                forceDetailed = BuildConfig.DEVELOPMENT_PROBES,
+                onDetailedChanged = ::setDetailedDiagnosticsEnabled,
+            )
+        }.onSuccess { result ->
             logDiagnostic(
                 level = Log.INFO,
                 event = "diagnostics.bind",
                 component = "diagnostics",
                 state = "ready",
-                "level" to if (detailedDiagnosticsEnabled) "detailed" else "general",
+                "level" to if (result.detailedEnabled) "detailed" else "general",
                 "transport" to "remote-preferences",
             )
         }.onFailure { error ->
-            diagnosticsPreferences = null
+            RuntimeDiagnosticsPreferencesOwner.unbind()
             detailedDiagnosticsEnabled = BuildConfig.DEVELOPMENT_PROBES
             logDiagnostic(
                 level = Log.WARN,
@@ -1668,7 +1775,7 @@ class CombinedStatusModule : XposedModule() {
         val state =
             when {
                 !BuildConfig.RUNTIME_DIAGNOSTICS -> "disabled"
-                diagnosticsPreferences != null -> "ready"
+                RuntimeDiagnosticsPreferencesOwner.isBound -> "ready"
                 else -> "unavailable"
             }
         logDiagnostic(
@@ -1682,19 +1789,12 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun unbindRuntimeDiagnostics() {
-        diagnosticsPreferences
-            ?.unregisterOnSharedPreferenceChangeListener(diagnosticsPreferenceListener)
-        diagnosticsPreferences = null
+        RuntimeDiagnosticsPreferencesOwner.unbind()
     }
 
-    private fun updateDetailedDiagnostics(preferences: SharedPreferences) {
+    private fun setDetailedDiagnosticsEnabled(enabled: Boolean) {
         val previous = detailedDiagnosticsEnabled
-        detailedDiagnosticsEnabled =
-            BuildConfig.DEVELOPMENT_PROBES ||
-                preferences.getString(
-                    DIAGNOSTICS_LEVEL_KEY,
-                    DiagnosticsLevel.General.name,
-                ) == DiagnosticsLevel.Detailed.name
+        detailedDiagnosticsEnabled = enabled
         if (previous != detailedDiagnosticsEnabled) {
             logDiagnostic(
                 level = Log.INFO,

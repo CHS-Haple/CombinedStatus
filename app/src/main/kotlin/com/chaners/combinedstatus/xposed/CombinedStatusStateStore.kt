@@ -34,7 +34,62 @@ internal object CombinedStatusStateStore {
             return null
         }
 
-        current = current.copy(airplaneMode = enabled)
+        val recoveryPending =
+            current.airplaneMode == true &&
+                !enabled
+        val mobile =
+            if (recoveryPending) {
+                current.mobile
+                    .mapValues { (_, state) ->
+                        state.copy(
+                            signalResId = null,
+                            signal = SignalStrength.Unknown,
+                        )
+                    }
+                    .toSortedMap()
+            } else {
+                current.mobile
+            }
+
+        current =
+            current.copy(
+                mobile = mobile,
+                airplaneMode = enabled,
+                mobileRecoveryPending = recoveryPending,
+            )
+        return current
+    }
+
+    @Synchronized
+    fun completeMobileRecoveryIfReady(
+        preferredSubscriptionId: Int,
+        mobileTypeReady: Boolean,
+        mobileDataEnabled: Boolean?,
+    ): Snapshot? {
+        if (!current.mobileRecoveryPending) {
+            return null
+        }
+
+        val preferredReady =
+            preferredSubscriptionId >= 0 &&
+                current.mobile[preferredSubscriptionId]?.signal is SignalStrength.Level
+        val signalReady =
+            preferredReady ||
+                (
+                    preferredSubscriptionId < 0 &&
+                        current.mobile.values.any { state ->
+                            state.signal is SignalStrength.Level
+                        }
+                )
+        val presentationReady =
+            mobileTypeReady ||
+                mobileDataEnabled == false
+
+        if (!signalReady || !presentationReady) {
+            return null
+        }
+
+        current = current.copy(mobileRecoveryPending = false)
         return current
     }
 
@@ -86,6 +141,7 @@ internal object CombinedStatusStateStore {
                     )
                 }
             }
+            putBoolean(KEY_MOBILE_RECOVERY_PENDING, current.mobileRecoveryPending)
             putInt(
                 KEY_AIRPLANE,
                 when (current.airplaneMode) {
@@ -174,6 +230,8 @@ internal object CombinedStatusStateStore {
                 wifi = wifi,
                 mobile = mobile,
                 airplaneMode = airplane,
+                mobileRecoveryPending =
+                    bundle.getBoolean(KEY_MOBILE_RECOVERY_PENDING, false),
             )
         return current
     }
@@ -197,6 +255,7 @@ internal object CombinedStatusStateStore {
         val wifi: WifiState = WifiState.Unknown,
         val mobile: Map<Int, MobileState> = emptyMap(),
         val airplaneMode: Boolean? = null,
+        val mobileRecoveryPending: Boolean = false,
     ) {
         val logLine: String
             get() {
@@ -233,7 +292,9 @@ internal object CombinedStatusStateStore {
                 }
 
                 return "battery=$batteryText wifi=$wifiText mobile=$mobileText " +
-                    "airplane=" + (airplaneMode?.toString() ?: "unknown")
+                    "airplane=" + (airplaneMode?.toString() ?: "unknown") +
+                    " mobileRecovery=" +
+                    (if (mobileRecoveryPending) "searching" else "ready")
             }
     }
 
@@ -281,6 +342,7 @@ internal object CombinedStatusStateStore {
     private const val KEY_WIFI_SIGNAL = "wifiSignal"
     private const val KEY_WIFI_INTERNET = "wifiInternet"
     private const val KEY_AIRPLANE = "airplane"
+    private const val KEY_MOBILE_RECOVERY_PENDING = "mobileRecoveryPending"
     private const val KEY_MOBILE = "mobile"
 
     private const val WIFI_KIND_UNKNOWN = 0
