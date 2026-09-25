@@ -26,7 +26,7 @@ class CombinedStatusColorPolicyTest {
     fun chargingOnlyOverridesBatteryTintByDefault() {
         val colors =
             CombinedStatusColorPolicy.resolve(
-                model = model(charging = true),
+                model = model(charging = true, batteryModeTint = 0xff1cb753.toInt()),
                 tintState =
                     CombinedStatusTintState(
                         appliedTint = 0xffddeeff.toInt(),
@@ -36,7 +36,7 @@ class CombinedStatusColorPolicyTest {
 
         assertEquals(0xff556677.toInt(), colors.centerTint)
         assertEquals(0xff556677.toInt(), colors.mobileTint)
-        assertEquals(CombinedStatusColorPolicy.CHARGING_TINT, colors.batteryTint)
+        assertEquals(0xff1cb753.toInt(), colors.batteryTint)
     }
 
     @Test
@@ -56,8 +56,8 @@ class CombinedStatusColorPolicyTest {
             )
 
         assertEquals(0xff445566.toInt(), colors.centerTint)
-        assertEquals(CombinedStatusColorPolicy.CHARGING_TINT, colors.mobileTint)
-        assertEquals(CombinedStatusColorPolicy.CHARGING_TINT, colors.batteryTint)
+        assertEquals(0xff1cb753.toInt(), colors.mobileTint)
+        assertEquals(0xff1cb753.toInt(), colors.batteryTint)
     }
 
     @Test
@@ -76,9 +76,9 @@ class CombinedStatusColorPolicyTest {
                     ),
             )
 
-        assertEquals(CombinedStatusColorPolicy.CHARGING_TINT, colors.centerTint)
+        assertEquals(0xff1cb753.toInt(), colors.centerTint)
         assertEquals(0xff445566.toInt(), colors.mobileTint)
-        assertEquals(CombinedStatusColorPolicy.CHARGING_TINT, colors.batteryTint)
+        assertEquals(0xff1cb753.toInt(), colors.batteryTint)
     }
 
     @Test
@@ -111,6 +111,7 @@ class CombinedStatusColorPolicyTest {
                     model(
                         charging = false,
                         batteryVisualMode = BatteryVisualMode.POWER_SAVE,
+                        batteryModeTint = 0xffffb300.toInt(),
                     ),
                 tintState =
                     CombinedStatusTintState(
@@ -119,7 +120,7 @@ class CombinedStatusColorPolicyTest {
                     ),
             )
 
-        assertEquals(CombinedStatusColorPolicy.POWER_SAVE_TINT, colors.batteryTint)
+        assertEquals(0xffffb300.toInt(), colors.batteryTint)
         assertEquals(0xff445566.toInt(), colors.centerTint)
         assertEquals(0xff445566.toInt(), colors.mobileTint)
     }
@@ -132,6 +133,7 @@ class CombinedStatusColorPolicyTest {
                     model(
                         charging = false,
                         batteryVisualMode = BatteryVisualMode.PERFORMANCE,
+                        batteryModeTint = 0xff2f80ed.toInt(),
                     ),
                 tintState =
                     CombinedStatusTintState(
@@ -140,11 +142,11 @@ class CombinedStatusColorPolicyTest {
                     ),
             )
 
-        assertEquals(CombinedStatusColorPolicy.PERFORMANCE_TINT, colors.batteryTint)
+        assertEquals(0xff2f80ed.toInt(), colors.batteryTint)
     }
 
     @Test
-    fun unverifiedExtremePowerSaveColorFailsNative() {
+    fun missingResolvedExtremePowerSaveTintFailsNative() {
         val nativeTint = 0xff445566.toInt()
         val colors =
             CombinedStatusColorPolicy.resolve(
@@ -184,11 +186,13 @@ class CombinedStatusColorPolicyTest {
         charging: Boolean,
         batteryVisualMode: BatteryVisualMode =
             if (charging) BatteryVisualMode.CHARGING else BatteryVisualMode.NORMAL,
+        batteryModeTint: Int? = null,
     ) =
         CombinedStatusRenderModel(
             batteryPercent = 80,
             charging = charging,
             batteryVisualMode = batteryVisualMode,
+            batteryModeTint = batteryModeTint,
             centerIndicator =
                 CenterIndicator.Wifi(
                     segments = 3,
