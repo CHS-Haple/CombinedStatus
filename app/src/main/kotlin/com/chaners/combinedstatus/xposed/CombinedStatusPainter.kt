@@ -270,8 +270,9 @@ internal class CombinedStatusPainter(
         }
 
         val save = canvas.save()
-        canvas.translate(30f, 27f)
+        canvas.translate(WIFI_CENTER_X, WIFI_CENTER_Y)
         canvas.scale(3f * geometry.sizeScale, 3f * geometry.sizeScale)
+        canvas.translate(-WIFI_FALLBACK_CENTER_X, -WIFI_FALLBACK_CENTER_Y)
 
         wifiPaths.forEachIndexed { index, path ->
             fill(
@@ -705,6 +706,8 @@ internal class CombinedStatusPainter(
         const val MOBILE_UNAVAILABLE_CENTER_Y = 94f
         const val WIFI_CENTER_X = 60f
         const val WIFI_CENTER_Y = 54f
+        const val WIFI_FALLBACK_CENTER_X = 10f
+        const val WIFI_FALLBACK_CENTER_Y = 10f
         const val SYSTEM_UI_PACKAGE = "com.android.systemui"
         const val AIRPLANE_RESOURCE_NAME = "stat_sys_signal_flightmode"
         const val AIRPLANE_CENTER_X = 60f
