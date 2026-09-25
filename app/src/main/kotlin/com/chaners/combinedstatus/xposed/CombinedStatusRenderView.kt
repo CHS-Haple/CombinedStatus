@@ -18,6 +18,9 @@ internal class CombinedStatusRenderView(
     private val painter = CombinedStatusPainter(context)
 
     @Volatile
+    private var model: CombinedStatusRenderModel? = null
+
+    @Volatile
     private var tintState: CombinedStatusTintState? = null
 
     @Volatile
