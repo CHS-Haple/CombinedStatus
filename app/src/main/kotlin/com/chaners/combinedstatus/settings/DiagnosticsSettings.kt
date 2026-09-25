@@ -65,4 +65,3 @@ internal class DiagnosticsSettingsRepository(context: Context) {
 
 internal const val DIAGNOSTICS_PREFS_NAME = "diagnostics"
 internal const val DIAGNOSTICS_LEVEL_KEY = "diagnostics_level"
-internal const val DIAGNOSTICS_REMOTE_PREFS_NAME = "CombinedStatusRuntimeConfig"

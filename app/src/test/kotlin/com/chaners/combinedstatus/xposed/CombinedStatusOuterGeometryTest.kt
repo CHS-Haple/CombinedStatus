@@ -27,6 +27,24 @@ class CombinedStatusOuterGeometryTest {
     }
 
     @Test
+    fun unavailableMarkScalesWithOuterWeightWithoutChangingItsIndependentProportions() {
+        for (scale in TEST_SCALES) {
+            val geometry = CombinedStatusOuterGeometry.resolve(scale)
+
+            assertEquals(
+                CombinedStatusOuterGeometry.BASE_UNAVAILABLE_MARK_STROKE * scale,
+                geometry.unavailableMarkStroke,
+                0.0001f,
+            )
+            assertEquals(
+                CombinedStatusOuterGeometry.BASE_UNAVAILABLE_MARK_HALF_EXTENT * scale,
+                geometry.unavailableMarkHalfExtent,
+                0.0001f,
+            )
+        }
+    }
+
+    @Test
     fun fourDotsRemainMirrorSymmetricAcrossSupportedScales() {
         for (scale in TEST_SCALES) {
             val geometry = CombinedStatusOuterGeometry.resolve(scale)

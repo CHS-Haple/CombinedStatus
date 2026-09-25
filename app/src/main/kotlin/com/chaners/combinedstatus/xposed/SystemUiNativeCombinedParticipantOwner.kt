@@ -8,6 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.widget.FrameLayout
+import com.chaners.combinedstatus.settings.CombinedStatusVisualSettings
 import io.github.libxposed.api.XposedInterface.HookHandle
 import io.github.libxposed.api.XposedInterface.Hooker
 import io.github.libxposed.api.XposedModule
@@ -633,6 +634,9 @@ internal object SystemUiNativeCombinedParticipantOwner {
         renderViewRef = WeakReference(render)
         renderController =
             renderController ?: CombinedStatusRenderController(render)
+        renderController?.updateVisualSettings(
+            RuntimeVisualPreferencesOwner.currentSettings(),
+        )
 
         render.measure(
             View.MeasureSpec.makeMeasureSpec(battery.width, View.MeasureSpec.EXACTLY),
@@ -652,10 +656,32 @@ internal object SystemUiNativeCombinedParticipantOwner {
         )
         val modelUpdate =
             renderController?.update(CombinedStatusStateStore.snapshot())
+        val batteryTintState =
+            SystemUiTintStateSource.currentState(battery)
         val tintUpdate =
-            SystemUiTintStateSource.currentState(battery)?.let {
-                renderController?.updateTint(it)
+            batteryTintState?.let { batteryTint ->
+                renderController?.updateTint(
+                    mergeNativeParticipantTint(
+                        batteryTint = batteryTint,
+                        nativeTint = bindingState.iconTint,
+                    ),
+                )
             }
+        if (detailedTintReady(bindingState.iconTint, batteryTintState)) {
+            eventSink?.invoke(
+                "nativeCombinedParticipant tintSeed " +
+                    "authority=" +
+                    if (bindingState.iconTint != null) {
+                        "native-binding"
+                    } else {
+                        "battery-fallback"
+                    } +
+                    " nativeTint=" + colorHex(bindingState.iconTint) +
+                    " batteryFallback=" +
+                    colorHex(batteryTintState?.appliedTint) +
+                    " nativeGeometryWrites=0",
+            )
+        }
 
         rootRef = WeakReference(root)
         hostRef = WeakReference(hostView)
@@ -825,17 +851,105 @@ internal object SystemUiNativeCombinedParticipantOwner {
     }
 
     @Synchronized
+    fun onVisualSettingsChanged(settings: CombinedStatusVisualSettings) {
+        renderController?.updateVisualSettings(settings)
+    }
+
+    @Synchronized
     fun onTintUpdate(update: SystemUiTintStateSource.TintUpdate) {
         val battery = batteryRef?.get() ?: return
         if (update.sourceView !== battery) {
             return
         }
+        val nativeTint =
+            targetBindingState?.iconTint
+                ?.takeIf { color -> (color ushr 24) != 0 }
+        if (nativeTint != null) {
+            return
+        }
 
-        val tintUpdate = renderController?.updateTint(update.state)
+        val tintUpdate =
+            renderController?.updateTint(
+                mergeNativeParticipantTint(
+                    batteryTint = update.state,
+                    nativeTint = null,
+                ),
+            )
         if (tintUpdate?.resolved != null) {
             tintReady = true
         }
-        reconcileVisibleHandoff("tint")
+        reconcileVisibleHandoff("tint-fallback")
+    }
+
+    @Synchronized
+    private fun onNativeBindingTintChanged(
+        bindingState: BindingState,
+        tint: Int,
+        parameterCount: Int,
+    ) {
+        if ((tint ushr 24) == 0) {
+            return
+        }
+        val previous = bindingState.iconTint
+        bindingState.iconTint = tint
+        val sink = eventSink
+        if (!bindingState.tintEventLogged && sink != null) {
+            bindingState.tintEventLogged = true
+            sink.invoke(
+                "nativeCombinedParticipant tint " +
+                    "authority=ModernStatusBarViewBinding.onIconTintChanged " +
+                    "tint=#" + tint.toUInt().toString(16).padStart(8, '0') +
+                    " parameterCount=" + parameterCount +
+                    " nativeGeometryWrites=0",
+            )
+        }
+        if (previous == tint || targetBindingState !== bindingState) {
+            return
+        }
+
+        val update =
+            renderController?.updateTint(
+                CombinedStatusTintState(
+                    appliedTint = tint,
+                    statusIconTint = tint,
+                ),
+            )
+        if (update?.resolved != null) {
+            tintReady = true
+        }
+        reconcileVisibleHandoff("native-tint")
+    }
+
+    private fun detailedTintReady(
+        nativeTint: Int?,
+        batteryTint: CombinedStatusTintState?,
+    ): Boolean =
+        nativeTint != null || batteryTint != null
+
+    private fun colorHex(color: Int?): String =
+        color
+            ?.let { value ->
+                "#" + value.toUInt().toString(16).padStart(8, '0')
+            }
+            ?: "none"
+
+    internal fun mergeNativeParticipantTint(
+        batteryTint: CombinedStatusTintState,
+        nativeTint: Int?,
+    ): CombinedStatusTintState {
+        val resolvedNativeTint =
+            nativeTint
+                ?.takeIf { color -> (color ushr 24) != 0 }
+        return if (resolvedNativeTint != null) {
+            CombinedStatusTintState(
+                appliedTint = resolvedNativeTint,
+                statusIconTint = resolvedNativeTint,
+            )
+        } else {
+            CombinedStatusTintState(
+                appliedTint = batteryTint.appliedTint,
+            )
+        }
     }
 
     private fun reconcileVisibleHandoff(source: String) {
@@ -1268,6 +1382,18 @@ internal object SystemUiNativeCombinedParticipantOwner {
                 when (method.name) {
                     "getShouldIconBeVisible" -> bindingState.visible
                     "isCollecting" -> true
+                    "onIconTintChanged" -> {
+                        (args?.firstOrNull() as? Number)
+                            ?.toInt()
+                            ?.let { tint ->
+                                onNativeBindingTintChanged(
+                                    bindingState = bindingState,
+                                    tint = tint,
+                                    parameterCount = method.parameterCount,
+                                )
+                            }
+                        null
+                    }
                     "toString" -> "CombinedStatusNativeParticipantBinding"
                     "hashCode" -> System.identityHashCode(proxy)
                     "equals" -> proxy === args?.firstOrNull()
@@ -1394,6 +1520,8 @@ internal object SystemUiNativeCombinedParticipantOwner {
 
     private class BindingState(
         @Volatile var visible: Boolean = false,
+        @Volatile var iconTint: Int? = null,
+        @Volatile var tintEventLogged: Boolean = false,
     )
 
     internal sealed interface AttachResult {

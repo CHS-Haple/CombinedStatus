@@ -175,4 +175,66 @@ class SystemUiNativeCombinedParticipantOwnerTest {
         )
     }
 
+    @Test
+    fun nativeBindingTintBecomesSingleResolvedTintAuthority() {
+        val merged =
+            SystemUiNativeCombinedParticipantOwner.mergeNativeParticipantTint(
+                batteryTint =
+                    CombinedStatusTintState(
+                        appliedTint = 0xbf000000.toInt(),
+                        statusIconTint = 0xff202020.toInt(),
+                    ),
+                nativeTint = 0xff303030.toInt(),
+            )
+
+        assertEquals(0xff303030.toInt(), merged.appliedTint)
+        assertEquals(0xff303030.toInt(), merged.statusIconTint)
+    }
+
+    @Test
+    fun nativeBindingTintDoesNotDependOnBatteryAnchor() {
+        val merged =
+            SystemUiNativeCombinedParticipantOwner.mergeNativeParticipantTint(
+                batteryTint =
+                    CombinedStatusTintState(
+                        appliedTint = 0xbf000000.toInt(),
+                    ),
+                nativeTint = 0xff303030.toInt(),
+            )
+
+        assertEquals(0xff303030.toInt(), merged.appliedTint)
+        assertEquals(0xff303030.toInt(), merged.statusIconTint)
+    }
+
+    @Test
+    fun missingNativeTintDropsLegacyStatusIconFallbackAndUsesBatteryAnchor() {
+        val merged =
+            SystemUiNativeCombinedParticipantOwner.mergeNativeParticipantTint(
+                batteryTint =
+                    CombinedStatusTintState(
+                        appliedTint = 0xbf101010.toInt(),
+                        statusIconTint = 0xff202020.toInt(),
+                    ),
+                nativeTint = null,
+            )
+
+        assertEquals(0xbf101010.toInt(), merged.appliedTint)
+        assertEquals(null, merged.statusIconTint)
+    }
+
+    @Test
+    fun transparentNativeBindingTintFallsBackWithoutOverwritingAnchor() {
+        val merged =
+            SystemUiNativeCombinedParticipantOwner.mergeNativeParticipantTint(
+                batteryTint =
+                    CombinedStatusTintState(
+                        appliedTint = 0xbf000000.toInt(),
+                    ),
+                nativeTint = 0x00303030,
+            )
+
+        assertEquals(0xbf000000.toInt(), merged.appliedTint)
+        assertEquals(null, merged.statusIconTint)
+    }
+
 }

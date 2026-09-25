@@ -5,6 +5,7 @@ import android.widget.TextView
 import io.github.libxposed.api.XposedInterface.HookHandle
 import io.github.libxposed.api.XposedInterface.Hooker
 import io.github.libxposed.api.XposedModule
+import java.lang.ref.WeakReference
 import java.lang.reflect.Field
 import java.util.ArrayList
 import java.util.WeakHashMap
@@ -21,6 +22,9 @@ internal object SystemUiTintStateSource {
 
     @Volatile
     private var batteryPercentViewField: Field? = null
+
+    @Volatile
+    private var lastSourceView: WeakReference<View>? = null
 
     fun install(
         module: XposedModule,
@@ -45,7 +49,6 @@ internal object SystemUiTintStateSource {
             ).apply { isAccessible = true }
 
         batteryPercentViewField = percentField
-
         val handle =
             module
                 .hook(updateMethod)
@@ -55,11 +58,15 @@ internal object SystemUiTintStateSource {
                         val result = chain.proceed()
                         val sourceView = chain.thisObject as? View
                             ?: return@Hooker result
-                        val state = readAppliedState(sourceView, percentField)
-                            ?: return@Hooker result
+                        val state =
+                            readAppliedState(
+                                sourceView = sourceView,
+                                percentField = percentField,
+                            ) ?: return@Hooker result
 
                         synchronized(this) {
                             lastStates[sourceView] = state
+                            lastSourceView = WeakReference(sourceView)
                         }
                         onTintState(TintUpdate(sourceView, state))
 
@@ -80,7 +87,8 @@ internal object SystemUiTintStateSource {
                             onEvent?.invoke(
                                 "tintSource receiver=" +
                                     sourceView.javaClass.simpleName +
-                                    " applied=" + colorHex(state.appliedTint) +
+                                    " batteryApplied=" + colorHex(state.appliedTint) +
+                                    " authority=battery-anchor-fallback" +
                                     " intensity=" + darkIntensity +
                                     " light=" + colorHex(lightColor) +
                                     " dark=" + colorHex(darkColor) +
@@ -102,19 +110,33 @@ internal object SystemUiTintStateSource {
         lastStates.clear()
         firstEventLogged.clear()
         batteryPercentViewField = null
+        lastSourceView = null
     }
 
     @Synchronized
+    fun currentSourceView(): View? = lastSourceView?.get()
+
+    @Synchronized
     fun currentState(sourceView: View): CombinedStatusTintState? {
-        lastStates[sourceView]
-            ?.takeIf(CombinedStatusPresentationPolicy::isValidTint)
-            ?.let { return it }
-        val field = batteryPercentViewField ?: return null
-        return readAppliedState(sourceView, field)?.also { state ->
-            if (CombinedStatusPresentationPolicy.isValidTint(state)) {
-                lastStates[sourceView] = state
+        val cached =
+            lastStates[sourceView]
+                ?.takeIf(CombinedStatusPresentationPolicy::isValidTint)
+        val field = batteryPercentViewField
+        val refreshed =
+            field?.let { percentField ->
+                readAppliedState(
+                    sourceView = sourceView,
+                    percentField = percentField,
+                )
             }
+        if (
+            refreshed != null &&
+            CombinedStatusPresentationPolicy.isValidTint(refreshed)
+        ) {
+            lastStates[sourceView] = refreshed
+            return refreshed
         }
+        return cached
     }
 
     private fun readAppliedState(

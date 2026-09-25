@@ -3,6 +3,7 @@ package com.chaners.combinedstatus.xposed
 import android.graphics.Rect
 import android.view.View
 import android.view.ViewGroup
+import com.chaners.combinedstatus.settings.CombinedStatusVisualSettings
 import java.lang.ref.WeakReference
 
 internal object CombinedStatusHomeRenderSession {
@@ -66,6 +67,11 @@ internal object CombinedStatusHomeRenderSession {
     @Synchronized
     fun onTintUpdate(update: SystemUiTintStateSource.TintUpdate) {
         current?.updateTint(update)
+    }
+
+    @Synchronized
+    fun onVisualSettingsChanged(settings: CombinedStatusVisualSettings) {
+        current?.updateVisualSettings(settings)
     }
 
     @Synchronized
@@ -161,6 +167,9 @@ internal object CombinedStatusHomeRenderSession {
             battery.addOnLayoutChangeListener(batteryLayoutListener)
             probeView.visibility = View.GONE
             hostView.overlay.add(probeView)
+            renderController.updateVisualSettings(
+                RuntimeVisualPreferencesOwner.currentSettings(),
+            )
             SystemUiSceneStateSource.currentState(battery)?.let {
                 applySceneState(it, "seed")
             }
@@ -235,6 +244,10 @@ internal object CombinedStatusHomeRenderSession {
                     " scene=" + sceneSurface.name +
                     " nativeGeometryWrites=0"
             }
+        }
+
+        fun updateVisualSettings(settings: CombinedStatusVisualSettings) {
+            renderController.updateVisualSettings(settings)
         }
 
         fun updateTint(update: SystemUiTintStateSource.TintUpdate) {

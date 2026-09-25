@@ -145,4 +145,26 @@ class CenterTransitionPolicyTest {
             ),
         )
     }
+    @Test
+    fun noSimIsItsOwnNativeCenterFamily() {
+        val noSim =
+            CenterIndicator.NoSim(
+                CombinedStatusPresentationStateStore.NativeIconResource(
+                    packageName = "com.android.systemui",
+                    resourceId = 42,
+                ),
+            )
+
+        assertEquals(
+            CenterTransitionPolicy.Family.NO_SIM,
+            CenterTransitionPolicy.family(noSim),
+        )
+        assertTrue(
+            CenterTransitionPolicy.shouldAnimate(
+                CenterIndicator.Airplane,
+                noSim,
+            ),
+        )
+    }
+
 }

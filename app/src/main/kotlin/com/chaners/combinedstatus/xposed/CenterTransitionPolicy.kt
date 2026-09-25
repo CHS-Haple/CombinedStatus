@@ -5,6 +5,7 @@ internal object CenterTransitionPolicy {
         WIFI,
         MOBILE_TYPE,
         AIRPLANE,
+        NO_SIM,
         EMPTY,
     }
 
@@ -20,6 +21,7 @@ internal object CenterTransitionPolicy {
             is CenterIndicator.Wifi -> Family.WIFI
             is CenterIndicator.MobileType -> Family.MOBILE_TYPE
             CenterIndicator.Airplane -> Family.AIRPLANE
+            is CenterIndicator.NoSim -> Family.NO_SIM
             CenterIndicator.Empty -> Family.EMPTY
         }
 
