@@ -45,38 +45,42 @@ class NativeCenterTintNormalizerTest {
     }
 
     @Test
-    fun opaqueNativeAssetKeepsSystemTintUnchanged() {
-        val tint = 0xbf000000.toInt()
+    fun opaqueNativeMaskKeepsSourceAlphaUnchanged() {
         assertEquals(
-            tint,
-            CombinedStatusVisualIntensity.resolveNativeFullStrengthTint(
-                tint = tint,
-                intrinsicMaxAlpha = 255,
+            191,
+            CombinedStatusVisualIntensity.normalizeSourceAlpha(
+                sourceAlpha = 191,
+                sourceMaxAlpha = 255,
             ),
         )
     }
 
     @Test
-    fun intrinsicDrawableAlphaIsCompensatedWithoutChangingRgb() {
-        val tint = 0xbf123456.toInt()
-        val normalized =
-            CombinedStatusVisualIntensity.resolveNativeFullStrengthTint(
-                tint = tint,
-                intrinsicMaxAlpha = 230,
-            )
-        assertEquals(212, normalized ushr 24)
-        assertEquals(tint and 0x00ffffff, normalized and 0x00ffffff)
+    fun intrinsicDrawableCeilingIsNormalizedAtMaskLayer() {
+        assertEquals(
+            255,
+            CombinedStatusVisualIntensity.normalizeSourceAlpha(
+                sourceAlpha = 230,
+                sourceMaxAlpha = 230,
+            ),
+        )
+        assertEquals(
+            128,
+            CombinedStatusVisualIntensity.normalizeSourceAlpha(
+                sourceAlpha = 115,
+                sourceMaxAlpha = 230,
+            ),
+        )
     }
 
     @Test
-    fun compensationClampsInsteadOfOverflowing() {
-        val tint = 0xe6ffffff.toInt()
-        val normalized =
-            CombinedStatusVisualIntensity.resolveNativeFullStrengthTint(
-                tint = tint,
-                intrinsicMaxAlpha = 204,
-            )
-        assertEquals(255, normalized ushr 24)
-        assertEquals(0x00ffffff, normalized and 0x00ffffff)
+    fun normalizationClampsUnexpectedSourceAlphaToObservedMaximum() {
+        assertEquals(
+            255,
+            CombinedStatusVisualIntensity.normalizeSourceAlpha(
+                sourceAlpha = 230,
+                sourceMaxAlpha = 204,
+            ),
+        )
     }
 }
