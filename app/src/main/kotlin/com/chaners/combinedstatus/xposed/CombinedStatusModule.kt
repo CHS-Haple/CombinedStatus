@@ -948,10 +948,10 @@ class CombinedStatusModule : XposedModule() {
                 component = "batteryState",
                 state = if (result.ready) "ready" else "partial",
                 "hooks" to result.hooks,
-                "expectedHooks" to SystemUiBatteryStateSource.HOOK_COUNT,
+                "expectedHooks" to SystemUiBatteryStateSource.REQUIRED_HOOK_COUNT,
                 "source" to source,
                 "authority" to
-                    "MiuiBatteryMeterView.onBatteryLevelChanged(int,boolean,boolean)",
+                    "MiuiBatteryMeterView.BatteryStateChangeCallback",
                 "eventDriven" to true,
             )
         }.onFailure { error ->
