@@ -86,14 +86,8 @@ internal object SystemUiTintStateSource {
                                 "tintSource receiver=" +
                                     sourceView.javaClass.simpleName +
                                     " batteryApplied=" + colorHex(state.appliedTint) +
-                                    " statusIconApplied=" +
-                                    (state.statusIconTint?.let(::colorHex) ?: "none") +
-                                    " primaryAuthority=" +
-                                    if (state.statusIconTint != null) {
-                                        "status-icon-applied"
-                                    } else {
-                                        "battery-percent-fallback"
-                                    } +
+                                    " networkApplied=" + colorHex(state.appliedTint) +
+                                    " primaryAuthority=battery-anchor-dark-receiver" +
                                     " intensity=" + darkIntensity +
                                     " light=" + colorHex(lightColor) +
                                     " dark=" + colorHex(darkColor) +
@@ -149,13 +143,8 @@ internal object SystemUiTintStateSource {
             runCatching {
                 percentField.get(sourceView) as? TextView
             }.getOrNull() ?: return null
-        val statusIconTint =
-            SystemUiNativeNetworkSuppressionOwner
-                .currentAppliedStatusIconTint(sourceView)
-                ?.takeIf { color -> (color ushr 24) != 0 }
         return CombinedStatusTintState(
             appliedTint = percentView.currentTextColor,
-            statusIconTint = statusIconTint,
         )
     }
 
