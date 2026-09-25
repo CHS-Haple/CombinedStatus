@@ -1,6 +1,7 @@
 package com.chaners.combinedstatus.xposed
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -10,6 +11,7 @@ import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import kotlin.math.cos
+import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sin
@@ -21,8 +23,12 @@ internal class CombinedStatusPainter(
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private var airplaneDrawableResolved = false
     private var cachedAirplaneDrawable: Drawable? = null
-    private var cachedNativeCenterKey: String? = null
-    private var cachedNativeCenterDrawable: Drawable? = null
+    private val nativeCenterAssets =
+        object : LinkedHashMap<String, NativeCenterAsset>(NATIVE_CENTER_CACHE_SIZE, 0.75f, true) {
+            override fun removeEldestEntry(
+                eldest: MutableMap.MutableEntry<String, NativeCenterAsset>?,
+            ): Boolean = size > NATIVE_CENTER_CACHE_SIZE
+        }
     private var cachedMobileTypeWeight: Int = Int.MIN_VALUE
     private var cachedMobileTypeTypeface: Typeface = Typeface.DEFAULT
     private val mobileTypeMainBounds = Rect()
@@ -285,16 +291,13 @@ internal class CombinedStatusPainter(
         canvas.restoreToCount(save)
     }
 
-    private fun nativeCenterDrawable(
+    private fun nativeCenterAsset(
         resource: CombinedStatusPresentationStateStore.NativeIconResource,
-    ): Drawable? {
+    ): NativeCenterAsset? {
         val key = resource.packageName + ":" + resource.resourceId
-        if (cachedNativeCenterKey == key) {
-            return cachedNativeCenterDrawable
-        }
+        nativeCenterAssets[key]?.let { return it }
 
-        cachedNativeCenterKey = key
-        cachedNativeCenterDrawable =
+        val asset =
             runCatching {
                 val drawableContext =
                     if (resource.packageName == context.packageName) {
@@ -302,13 +305,103 @@ internal class CombinedStatusPainter(
                     } else {
                         context.createPackageContext(resource.packageName, 0)
                     }
-                drawableContext.getDrawable(resource.resourceId)
-                    ?.constantState
-                    ?.newDrawable(drawableContext.resources)
-                    ?.mutate()
-                    ?: drawableContext.getDrawable(resource.resourceId)?.mutate()
+                val drawable =
+                    drawableContext.getDrawable(resource.resourceId)
+                        ?.constantState
+                        ?.newDrawable(drawableContext.resources)
+                        ?.mutate()
+                        ?: drawableContext.getDrawable(resource.resourceId)?.mutate()
+                        ?: return@runCatching null
+                val opticalBounds =
+                    resolveOpticalBounds(
+                        drawable = drawable,
+                        resources = drawableContext.resources,
+                    )
+                NativeCenterAsset(
+                    drawable = drawable,
+                    opticalBounds = opticalBounds,
+                )
             }.getOrNull()
-        return cachedNativeCenterDrawable
+                ?: return null
+
+        nativeCenterAssets[key] = asset
+        return asset
+    }
+
+    private fun resolveOpticalBounds(
+        drawable: Drawable,
+        resources: android.content.res.Resources,
+    ): OpticalBounds {
+        val intrinsicWidth = drawable.intrinsicWidth
+        val intrinsicHeight = drawable.intrinsicHeight
+        if (intrinsicWidth <= 0 || intrinsicHeight <= 0) {
+            return OpticalBounds.FULL
+        }
+
+        val probeScale =
+            NATIVE_OPTICAL_PROBE_MAX /
+                max(intrinsicWidth, intrinsicHeight).toFloat()
+        val probeWidth =
+            max(1, (intrinsicWidth * probeScale).roundToInt())
+        val probeHeight =
+            max(1, (intrinsicHeight * probeScale).roundToInt())
+        val probeDrawable =
+            drawable.constantState
+                ?.newDrawable(resources)
+                ?.mutate()
+                ?: return OpticalBounds.FULL
+        val bitmap =
+            Bitmap.createBitmap(
+                probeWidth,
+                probeHeight,
+                Bitmap.Config.ARGB_8888,
+            )
+
+        return try {
+            probeDrawable.setTint(Color.WHITE)
+            probeDrawable.alpha = 255
+            probeDrawable.setBounds(0, 0, probeWidth, probeHeight)
+            probeDrawable.draw(Canvas(bitmap))
+
+            val pixels = IntArray(probeWidth * probeHeight)
+            bitmap.getPixels(
+                pixels,
+                0,
+                probeWidth,
+                0,
+                0,
+                probeWidth,
+                probeHeight,
+            )
+
+            var minX = probeWidth
+            var minY = probeHeight
+            var maxX = -1
+            var maxY = -1
+            pixels.forEachIndexed { index, color ->
+                if (Color.alpha(color) > NATIVE_OPTICAL_ALPHA_THRESHOLD) {
+                    val x = index % probeWidth
+                    val y = index / probeWidth
+                    if (x < minX) minX = x
+                    if (x > maxX) maxX = x
+                    if (y < minY) minY = y
+                    if (y > maxY) maxY = y
+                }
+            }
+
+            if (maxX < minX || maxY < minY) {
+                OpticalBounds.FULL
+            } else {
+                OpticalBounds(
+                    left = minX / probeWidth.toFloat(),
+                    top = minY / probeHeight.toFloat(),
+                    right = (maxX + 1) / probeWidth.toFloat(),
+                    bottom = (maxY + 1) / probeHeight.toFloat(),
+                )
+            }
+        } finally {
+            bitmap.recycle()
+        }
     }
 
     private fun drawNativeCenterResource(
@@ -321,22 +414,32 @@ internal class CombinedStatusPainter(
         maxWidth: Float,
         maxHeight: Float,
     ): Boolean {
-        val drawable = nativeCenterDrawable(resource) ?: return false
+        val asset = nativeCenterAsset(resource) ?: return false
+        val drawable = asset.drawable
         val intrinsicWidth = drawable.intrinsicWidth
         val intrinsicHeight = drawable.intrinsicHeight
         if (intrinsicWidth <= 0 || intrinsicHeight <= 0) {
             return false
         }
 
+        val optical = asset.opticalBounds
+        val opticalWidthRatio =
+            (optical.right - optical.left).coerceAtLeast(MIN_OPTICAL_RATIO)
+        val opticalHeightRatio =
+            (optical.bottom - optical.top).coerceAtLeast(MIN_OPTICAL_RATIO)
+        val opticalIntrinsicWidth = intrinsicWidth * opticalWidthRatio
+        val opticalIntrinsicHeight = intrinsicHeight * opticalHeightRatio
         val drawableScale =
             min(
-                maxWidth / intrinsicWidth,
-                maxHeight / intrinsicHeight,
+                maxWidth / opticalIntrinsicWidth,
+                maxHeight / opticalIntrinsicHeight,
             )
         val drawWidth = intrinsicWidth * drawableScale
         val drawHeight = intrinsicHeight * drawableScale
-        val left = (centerX - drawWidth / 2f).toInt()
-        val top = (centerY - drawHeight / 2f).toInt()
+        val opticalCenterX = (optical.left + optical.right) / 2f
+        val opticalCenterY = (optical.top + optical.bottom) / 2f
+        val left = centerX - drawWidth * opticalCenterX
+        val top = centerY - drawHeight * opticalCenterY
 
         drawable.setTint(
             Color.rgb(
@@ -347,10 +450,10 @@ internal class CombinedStatusPainter(
         )
         drawable.alpha = effectiveAlpha(tint, 255, opacity)
         drawable.setBounds(
-            left,
-            top,
-            (left + drawWidth).toInt(),
-            (top + drawHeight).toInt(),
+            left.roundToInt(),
+            top.roundToInt(),
+            (left + drawWidth).roundToInt(),
+            (top + drawHeight).roundToInt(),
         )
         drawable.draw(canvas)
         return true
@@ -717,6 +820,32 @@ internal class CombinedStatusPainter(
         const val MOBILE_TYPE_CENTER_X = 60f
         const val MOBILE_TYPE_CENTER_Y = 60f
         const val MOBILE_TYPE_SUFFIX_GAP = 2f
+        const val NATIVE_CENTER_CACHE_SIZE = 8
+        const val NATIVE_OPTICAL_PROBE_MAX = 96f
+        const val NATIVE_OPTICAL_ALPHA_THRESHOLD = 8
+        const val MIN_OPTICAL_RATIO = 0.08f
+    }
+
+    private data class NativeCenterAsset(
+        val drawable: Drawable,
+        val opticalBounds: OpticalBounds,
+    )
+
+    private data class OpticalBounds(
+        val left: Float,
+        val top: Float,
+        val right: Float,
+        val bottom: Float,
+    ) {
+        companion object {
+            val FULL =
+                OpticalBounds(
+                    left = 0f,
+                    top = 0f,
+                    right = 1f,
+                    bottom = 1f,
+                )
+        }
     }
 }
 
@@ -730,8 +859,8 @@ internal object CombinedStatusCenterGeometry {
     const val MIN_TEXT_WEIGHT_SCALE = 0.70f
     const val MAX_TEXT_WEIGHT_SCALE = 1.20f
 
-    private const val BASE_WIFI_MAX_WIDTH = 54f
-    private const val BASE_WIFI_MAX_HEIGHT = 48f
+    private const val BASE_WIFI_MAX_WIDTH = 52f
+    private const val BASE_WIFI_MAX_HEIGHT = 40f
     private const val BASE_AIRPLANE_MAX_SIZE = 75f
     private const val BASE_NO_SIM_MAX_SIZE = 54f
     private const val BASE_MOBILE_TYPE_TEXT_SIZE = 39f
