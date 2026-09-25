@@ -1,6 +1,5 @@
 package com.chaners.combinedstatus.xposed
 
-import android.graphics.Color
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -25,10 +24,8 @@ class NativeCenterTintNormalizerTest {
                 tint = tint,
                 intrinsicMaxAlpha = 230,
             )
-        assertEquals(212, Color.alpha(normalized))
-        assertEquals(Color.red(tint), Color.red(normalized))
-        assertEquals(Color.green(tint), Color.green(normalized))
-        assertEquals(Color.blue(tint), Color.blue(normalized))
+        assertEquals(212, normalized ushr 24)
+        assertEquals(tint and 0x00ffffff, normalized and 0x00ffffff)
     }
 
     @Test
@@ -39,7 +36,7 @@ class NativeCenterTintNormalizerTest {
                 tint = tint,
                 intrinsicMaxAlpha = 204,
             )
-        assertEquals(255, Color.alpha(normalized))
+        assertEquals(255, normalized ushr 24)
         assertEquals(0x00ffffff, normalized and 0x00ffffff)
     }
 }
