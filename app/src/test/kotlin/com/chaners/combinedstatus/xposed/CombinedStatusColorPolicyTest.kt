@@ -6,7 +6,7 @@ import org.junit.Test
 
 class CombinedStatusColorPolicyTest {
     @Test
-    fun defaultUsesNativeParticipantTintForCenterAndMobile() {
+    fun defaultUsesResolvedNetworkTintForCenterAndMobile() {
         val colors =
             CombinedStatusColorPolicy.resolve(
                 model = model(charging = false),
@@ -104,7 +104,7 @@ class CombinedStatusColorPolicyTest {
     }
 
     @Test
-    fun invalidNativeParticipantTintFallsBackToBatteryAnchor() {
+    fun invalidResolvedNetworkTintFallsBackToBatteryAnchor() {
         val colors =
             CombinedStatusColorPolicy.resolve(
                 model = model(charging = false),
