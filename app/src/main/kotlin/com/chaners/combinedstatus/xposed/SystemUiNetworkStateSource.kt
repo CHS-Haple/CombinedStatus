@@ -140,6 +140,7 @@ internal object SystemUiNetworkStateSource {
         classLoader: ClassLoader,
         onWifiState: (CombinedStatusStateStore.WifiState) -> Unit,
         onMobileIcon: (CombinedStatusStateStore.MobileIconUpdate) -> Unit,
+        onMobileSignalWillApply: ((ImageView) -> Unit)?,
         onPresentationChanged: (() -> Unit)?,
         onEvent: ((String) -> Unit)?,
     ): InstallResult {
@@ -155,6 +156,7 @@ internal object SystemUiNetworkStateSource {
                 module = module,
                 classLoader = classLoader,
                 onMobileIcon = onMobileIcon,
+                onMobileSignalWillApply = onMobileSignalWillApply,
                 onPresentationChanged = onPresentationChanged,
                 onEvent = onEvent,
             )
@@ -298,6 +300,7 @@ internal object SystemUiNetworkStateSource {
         module: XposedModule,
         classLoader: ClassLoader,
         onMobileIcon: (CombinedStatusStateStore.MobileIconUpdate) -> Unit,
+        onMobileSignalWillApply: ((ImageView) -> Unit)?,
         onPresentationChanged: (() -> Unit)?,
         onEvent: ((String) -> Unit)?,
     ): BranchInstallResult {
@@ -383,6 +386,7 @@ internal object SystemUiNetworkStateSource {
                                 mobileImageField = mobileImageField,
                                 mobileClassIdField = mobileClassIdField,
                                 onMobileIcon = onMobileIcon,
+                                onMobileSignalWillApply = onMobileSignalWillApply,
                                 onEvent = onEvent,
                             ),
                         )
@@ -991,6 +995,7 @@ internal object SystemUiNetworkStateSource {
         mobileImageField: Field,
         mobileClassIdField: Field,
         onMobileIcon: (CombinedStatusStateStore.MobileIconUpdate) -> Unit,
+        onMobileSignalWillApply: ((ImageView) -> Unit)?,
         onEvent: ((String) -> Unit)?,
     ): Hooker = Hooker { chain ->
         val emitter = chain.thisObject
@@ -1001,6 +1006,10 @@ internal object SystemUiNetworkStateSource {
             mobileClassIdField.getInt(emitter)
         }.getOrDefault(-1)
         val value = chain.getArg(0)
+
+        if (image != null && classId == 0) {
+            onMobileSignalWillApply?.invoke(image)
+        }
 
         var eventLog: String? = null
         if (image != null) {
