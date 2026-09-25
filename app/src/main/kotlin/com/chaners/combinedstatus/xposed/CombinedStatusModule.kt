@@ -5,6 +5,7 @@ import android.os.Process
 import android.os.SystemClock
 import android.util.Log
 import com.chaners.combinedstatus.BuildConfig
+import com.chaners.combinedstatus.settings.CombinedStatusFeatureSettings
 import com.chaners.combinedstatus.settings.RUNTIME_REMOTE_PREFS_NAME
 import com.chaners.combinedstatus.system.RuntimeDiagnosticsProtocol
 import io.github.libxposed.api.XposedModule
@@ -25,6 +26,7 @@ class CombinedStatusModule : XposedModule() {
 
     override fun onModuleLoaded(param: ModuleLoadedParam) {
         bindRuntimeDiagnostics()
+        bindRuntimeFeatureSettings()
         bindRuntimeVisualSettings()
         log(
             Log.INFO,
@@ -235,6 +237,7 @@ class CombinedStatusModule : XposedModule() {
 
         if (takeover == null) {
             bindRuntimeDiagnostics()
+            bindRuntimeFeatureSettings()
             bindRuntimeVisualSettings()
             logDiagnostic(
                 level = Log.ERROR,
@@ -263,6 +266,7 @@ class CombinedStatusModule : XposedModule() {
             SystemUiNativeNetworkSuppressionOwner.resetRuntimeState("hotReload")
             SystemUiNativeBatterySuppressionOwner.resetRuntimeState("hotReload")
             bindRuntimeDiagnostics()
+            bindRuntimeFeatureSettings()
             bindRuntimeVisualSettings()
             logDiagnostic(
                 level = Log.INFO,
@@ -1238,6 +1242,7 @@ class CombinedStatusModule : XposedModule() {
             "mainThread" to true,
         )
         unbindRuntimeDiagnostics()
+        RuntimeFeaturePreferencesOwner.unbind()
         RuntimeVisualPreferencesOwner.unbind()
     }
 
@@ -1827,6 +1832,54 @@ class CombinedStatusModule : XposedModule() {
             )
             log(Log.WARN, TAG, "Runtime diagnostics preference unavailable", error)
         }
+    }
+
+    private fun bindRuntimeFeatureSettings() {
+        runCatching {
+            RuntimeFeaturePreferencesOwner.bind(
+                preferences = getRemotePreferences(RUNTIME_REMOTE_PREFS_NAME),
+                onChanged = ::onRuntimeFeatureSettingsChanged,
+            )
+        }.onSuccess { settings ->
+            logDiagnostic(
+                level = Log.INFO,
+                event = "runtimePreferences.bind",
+                component = "featureSettings",
+                state = "ready",
+                "combinedStatusEnabled" to settings.enabled,
+                "transport" to "remote-preferences",
+            )
+        }.onFailure { error ->
+            RuntimeFeaturePreferencesOwner.unbind()
+            onRuntimeFeatureSettingsChanged(
+                RuntimeFeaturePreferencesOwner.currentSettings(),
+            )
+            logDiagnostic(
+                level = Log.WARN,
+                event = "runtimePreferences.bind",
+                component = "featureSettings",
+                state = "unavailable",
+                "combinedStatusEnabled" to false,
+                "reason" to (error.message ?: error.javaClass.simpleName),
+                "fallback" to "native-systemui",
+            )
+        }
+    }
+
+    private fun onRuntimeFeatureSettingsChanged(
+        settings: CombinedStatusFeatureSettings,
+    ) {
+        CombinedStatusHomeRenderSession.onFeatureSettingsChanged(settings)
+        SystemUiNativeCombinedParticipantOwner.onFeatureSettingsChanged(settings)
+        logDiagnostic(
+            level = Log.INFO,
+            event = "featureSettings.changed",
+            component = "combinedStatus",
+            state = if (settings.enabled) "enabled" else "disabled",
+            "combinedStatusEnabled" to settings.enabled,
+            "eventDriven" to true,
+            "fallback" to if (settings.enabled) "combined-status" else "native-systemui",
+        )
     }
 
     private fun bindRuntimeVisualSettings() {
