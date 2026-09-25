@@ -51,10 +51,14 @@ internal data class CombinedStatusRenderModel(
                         is SignalStrength.Level -> selectedSignal.value.coerceIn(0, 4)
                     }
                 }
+            val noSimIcon =
+                presentation.statusIcons.noSimIcon
+                    ?.takeIf { presentation.statusIcons.noSimVisible }
             val mobileUnavailableMark =
                 when {
                     airplaneMode -> true
                     mobileRecoveryPending -> false
+                    noSimIcon != null -> false
                     selectedSignal is SignalStrength.Unavailable -> true
                     else -> false
                 }
@@ -70,6 +74,7 @@ internal data class CombinedStatusRenderModel(
                         } else {
                             presentation.mobilePresentation?.networkType
                         },
+                    noSimIcon = noSimIcon,
                 )
                     ?: if (mobileRecoveryPending) {
                         CenterIndicator.Empty
