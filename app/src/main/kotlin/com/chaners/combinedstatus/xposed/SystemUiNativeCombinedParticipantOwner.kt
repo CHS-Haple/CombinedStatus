@@ -2,6 +2,7 @@ package com.chaners.combinedstatus.xposed
 
 import android.content.Context
 import android.os.Looper
+import android.os.SystemClock
 import android.util.AttributeSet
 import android.view.Gravity
 import android.view.View
@@ -63,6 +64,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
     private var nativeStateHidden: Int? = null
     private var nativeSetRemoveMethod: Method? = null
     private var nativeGetRemoveFlagMethod: Method? = null
+    private var transitionProbeEnabled: (() -> Boolean)? = null
     private val bindingStates =
         Collections.synchronizedMap(
             WeakHashMap<FrameLayout, BindingState>(),
@@ -94,9 +96,15 @@ internal object SystemUiNativeCombinedParticipantOwner {
         classLoader: ClassLoader,
         onEvent: ((String) -> Unit)? = null,
         onSlotOrderResult: ((NativeStatusBarSlotReservation.Result) -> Unit)? = null,
+        isTransitionProbeEnabled: () -> Boolean = { false },
     ): InstallResult {
-        if (constructorHook != null) return InstallResult.AlreadyInstalled
+        if (constructorHook != null) {
+            eventSink = onEvent
+            transitionProbeEnabled = isTransitionProbeEnabled
+            return InstallResult.AlreadyInstalled
+        }
         eventSink = onEvent
+        transitionProbeEnabled = isTransitionProbeEnabled
 
         val controllerClass =
             classOrNull(CONTROLLER_IMPL, classLoader)
@@ -1018,6 +1026,10 @@ internal object SystemUiNativeCombinedParticipantOwner {
         bindingState.visible = true
         handoffCommitted = true
         requestNativeLayout(root)
+        startMasterSwitchTransitionProbe(
+            direction = "enable",
+            root = root,
+        )
         eventSink?.invoke(
             "nativeCombinedParticipant handoffResume " +
                 "source=feature-enabled validated=true " +
@@ -1260,6 +1272,35 @@ internal object SystemUiNativeCombinedParticipantOwner {
         reconcileVisibleHandoff("native-tint")
     }
 
+    private fun startMasterSwitchTransitionProbe(
+        direction: String,
+        root: View,
+    ) {
+        val sink = eventSink ?: return
+        val enabled = transitionProbeEnabled ?: return
+        if (!enabled()) {
+            return
+        }
+        val group = root.parent as? ViewGroup ?: return
+        val tracked = mutableListOf(TransitionDiagnosticProbe.TrackedView.create(SLOT, root))
+        for (index in 0 until group.childCount) {
+            val child = group.getChildAt(index)
+            if (child === root) {
+                continue
+            }
+            val slot = NativeParticipantRuntimeAccess.slotOf(child) ?: continue
+            if (slot == "wifi" || slot == "mobile" || slot == "stacked_mobile") {
+                tracked += TransitionDiagnosticProbe.TrackedView.create(slot, child)
+            }
+        }
+        TransitionDiagnosticProbe.start(
+            direction = direction,
+            tracked = tracked,
+            onEvent = sink,
+            isProbeEnabled = enabled,
+        )
+    }
+
     private fun suspendVisibleHandoff(source: String) {
         removePendingPreDraw()
         handoffPending = false
@@ -1326,6 +1367,12 @@ internal object SystemUiNativeCombinedParticipantOwner {
             )
         ) {
             requestNativeLayout(root)
+        }
+        if (root != null && source == "feature-disabled") {
+            startMasterSwitchTransitionProbe(
+                direction = "disable",
+                root = root,
+            )
         }
 
         if (
@@ -1716,6 +1763,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
 
     private fun <T> reset(result: T): T {
         removePendingPreDraw()
+        TransitionDiagnosticProbe.stop()
         if (handoffCommitted) {
             handoffSink?.invoke(false)
         }
@@ -1741,6 +1789,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
         nativeStateHidden = null
         nativeSetRemoveMethod = null
         nativeGetRemoveFlagMethod = null
+        transitionProbeEnabled = null
         modelReadyLogged = false
         unlockedGeometryLogged = false
         renderController = null
@@ -2015,6 +2064,193 @@ internal object SystemUiNativeCombinedParticipantOwner {
         data object Installed : InstallResult
         data object AlreadyInstalled : InstallResult
         data class Failure(val reason: String) : InstallResult
+    }
+
+    private object TransitionDiagnosticProbe {
+        private var generation = 0
+        private var activeRoot = WeakReference<View>(null)
+        private var listener: ViewTreeObserver.OnPreDrawListener? = null
+        private var timeout: Runnable? = null
+
+        fun start(
+            direction: String,
+            tracked: List<TrackedView>,
+            onEvent: (String) -> Unit,
+            isProbeEnabled: () -> Boolean,
+        ) {
+            stop()
+            if (!isProbeEnabled() || tracked.isEmpty()) {
+                return
+            }
+            generation += 1
+            val currentGeneration = generation
+            val root = tracked.first().view.get()?.rootView ?: return
+            val observer = root.viewTreeObserver
+            if (!observer.isAlive) {
+                return
+            }
+            val startedAt = SystemClock.uptimeMillis()
+            var frame = 0
+            var samples = 0
+            var previous = ""
+
+            val nextListener =
+                ViewTreeObserver.OnPreDrawListener {
+                    if (!isProbeEnabled()) {
+                        stop()
+                        return@OnPreDrawListener true
+                    }
+                    frame += 1
+                    val snapshot =
+                        tracked.joinToString(" ") { item ->
+                            item.snapshot()
+                        }
+                    if (snapshot != previous && samples < MAX_SAMPLES) {
+                        previous = snapshot
+                        samples += 1
+                        onEvent(
+                            "nativeCombinedParticipant transitionSample " +
+                                "direction=" + direction +
+                                " frame=" + frame +
+                                " elapsedMs=" +
+                                (SystemClock.uptimeMillis() - startedAt) +
+                                " " + snapshot +
+                                " sample=" + samples + "/" + MAX_SAMPLES +
+                                " geometryWrites=0",
+                        )
+                    }
+                    if (
+                        currentGeneration == generation &&
+                        SystemClock.uptimeMillis() - startedAt >= FOLLOW_DURATION_MS
+                    ) {
+                        stop()
+                    }
+                    true
+                }
+            val nextTimeout =
+                Runnable {
+                    if (currentGeneration == generation) {
+                        stop()
+                    }
+                }
+
+            listener = nextListener
+            timeout = nextTimeout
+            activeRoot = WeakReference(root)
+            observer.addOnPreDrawListener(nextListener)
+            root.postDelayed(nextTimeout, FOLLOW_DURATION_MS)
+        }
+
+        fun stop() {
+            val root = activeRoot.get()
+            val currentListener = listener
+            val currentTimeout = timeout
+            if (root != null) {
+                if (currentListener != null) {
+                    val observer = root.viewTreeObserver
+                    if (observer.isAlive) {
+                        observer.removeOnPreDrawListener(currentListener)
+                    }
+                }
+                if (currentTimeout != null) {
+                    root.removeCallbacks(currentTimeout)
+                }
+            }
+            listener = null
+            timeout = null
+            activeRoot = WeakReference(null)
+        }
+
+        class TrackedView private constructor(
+            val slot: String,
+            val view: WeakReference<View>,
+            private val visibleStateGetter: Method?,
+            private val removeFlagGetter: Method?,
+        ) {
+            fun snapshot(): String {
+                val target = view.get() ?: return slot + "={released}"
+                val visibleState =
+                    visibleStateGetter
+                        ?.let { method ->
+                            runCatching { method.invoke(target) as? Number }
+                                .getOrNull()
+                                ?.toInt()
+                        }
+                val removeFlag =
+                    removeFlagGetter
+                        ?.let { method ->
+                            runCatching { method.invoke(target) as? Boolean }
+                                .getOrNull()
+                        }
+                return slot + "={" +
+                    "w=" + target.width +
+                    ",h=" + target.height +
+                    ",a=" + target.alpha +
+                    ",sx=" + target.scaleX +
+                    ",sy=" + target.scaleY +
+                    ",px=" + target.pivotX +
+                    ",py=" + target.pivotY +
+                    ",tx=" + target.translationX +
+                    ",ty=" + target.translationY +
+                    ",v=" + target.visibility +
+                    ",state=" + (visibleState ?: "none") +
+                    ",remove=" + (removeFlag ?: "none") +
+                    "}"
+            }
+
+            companion object {
+                fun create(
+                    slot: String,
+                    view: View,
+                ): TrackedView {
+                    val methods =
+                        generateSequence<Class<*>>(view.javaClass) { clazz ->
+                            clazz.superclass
+                        }
+                            .flatMap { clazz -> clazz.declaredMethods.asSequence() }
+                            .toList()
+                    val visibleStateGetter =
+                        methods
+                            .firstOrNull { method ->
+                                method.name == "getVisibleState" &&
+                                    method.parameterCount == 0 &&
+                                    Number::class.java.isAssignableFrom(
+                                        method.returnType.boxed(),
+                                    )
+                            }
+                            ?.apply { isAccessible = true }
+                    val removeFlagGetter =
+                        methods
+                            .firstOrNull { method ->
+                                method.name == "getRemoveFlag" &&
+                                    method.parameterCount == 0 &&
+                                    (
+                                        method.returnType == Boolean::class.javaPrimitiveType ||
+                                            method.returnType == Boolean::class.javaObjectType
+                                    )
+                            }
+                            ?.apply { isAccessible = true }
+                    return TrackedView(
+                        slot = slot,
+                        view = WeakReference(view),
+                        visibleStateGetter = visibleStateGetter,
+                        removeFlagGetter = removeFlagGetter,
+                    )
+                }
+
+                private fun Class<*>.boxed(): Class<*> =
+                    when (this) {
+                        Integer.TYPE -> Integer::class.java
+                        java.lang.Long.TYPE -> java.lang.Long::class.java
+                        java.lang.Short.TYPE -> java.lang.Short::class.java
+                        java.lang.Byte.TYPE -> java.lang.Byte::class.java
+                        else -> this
+                    }
+            }
+        }
+
+        private const val MAX_SAMPLES = 16
+        private const val FOLLOW_DURATION_MS = 900L
     }
 
     private class BindingState(

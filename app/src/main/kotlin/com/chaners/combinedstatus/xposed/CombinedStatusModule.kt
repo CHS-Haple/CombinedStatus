@@ -538,6 +538,7 @@ class CombinedStatusModule : XposedModule() {
                             log(Log.INFO, TAG, event)
                         }
                     },
+                    isTransitionProbeEnabled = { detailedDiagnosticsEnabled },
                     onSlotOrderResult = { slotOrder ->
                         when (slotOrder) {
                             is NativeStatusBarSlotReservation.Result.Ready -> {
