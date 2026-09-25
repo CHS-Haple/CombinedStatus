@@ -55,6 +55,22 @@ class SystemUiSignalParserTest {
     }
 
     @Test
+    fun hotspotWifiFamilyPreservesNativeSignalLevelAndInternetVariant() {
+        assertEquals(
+            SignalStrength.Level(2),
+            SystemUiSignalParser.wifi(
+                "com.android.systemui:drawable/stat_sys_hotspot_signal_2",
+            ),
+        )
+        assertEquals(
+            false,
+            SystemUiSignalParser.wifiInternetValidated(
+                "com.android.systemui:drawable/stat_sys_hotspot_signal_2_unavailable",
+            ),
+        )
+    }
+
+    @Test
     fun wifiInternetHintComesFromSystemUiResourceVariant() {
         assertEquals(
             true,
