@@ -12,7 +12,7 @@ internal object SystemUiBatteryRuntimeOwner {
         val hooks: Int,
     ) {
         val ready: Boolean
-            get() = hooks >= SystemUiBatteryStateSource.REQUIRED_HOOK_COUNT
+            get() = hooks == SystemUiBatteryStateSource.HOOK_COUNT
     }
 
     @Synchronized
