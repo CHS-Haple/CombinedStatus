@@ -486,8 +486,8 @@ internal object SystemUiNativeBatterySuppressionOwner {
                         " layoutChanged=" + layoutChanged +
                         " visualChanged=" + visualChanged +
                         " contract=MiuiStatusBatteryContainer.setIsHideBattery+MiuiBatteryMeterView.INVISIBLE" +
-                        " nativeGeometryWrites=" + if (layoutChanged) 1 else 0 +
-                        " nativeVisibilityWrites=" + if (visualChanged) 1 else 0
+                        " nativeGeometryWrites=" + (if (layoutChanged) 1 else 0) +
+                        " nativeVisibilityWrites=" + (if (visualChanged) 1 else 0)
         }
 
         data class Failure(
