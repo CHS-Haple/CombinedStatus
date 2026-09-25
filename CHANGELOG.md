@@ -51,6 +51,8 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Fixed
 
+- Unlock handoff now supports a verified keyguard pre-arm path: when the Home `combined_status` participant is attached, model/tint/geometry-ready, and still not actually shown behind keyguard, its native binding can be prepared before Home becomes visible. Once committed, the participant stays logically resident in the Home host so HyperOS owns the actual keyguard-to-Home reveal instead of starting a second per-icon APPEAR cycle at unlock. Visible keyguard participants still fail closed; no delay, translation, or custom unlock animation is added.
+
 - Native mobile suppression now also treats one-root dual-aggregated presentations as replaceable, preventing duplicate dual-row mobile visuals from remaining beside Combined Status while preserving separate dual-root presentations.
 - Airplane-mode center presentation now reuses the left-facing HyperOS `stat_sys_signal_flightmode` shape family for parity with the live Home status bar, while retaining the existing unavailable mobile dots/cross and Wi-Fi precedence when Wi-Fi remains active.
 - VPN-backed default networks no longer suppress an authoritative HyperOS mobile-type label at startup: Wi-Fi/cellular transports retain precedence, while VPN-only fallback waits for authoritative Wi-Fi absence before showing the mobile type.
