@@ -6,6 +6,7 @@ internal object CombinedStatusConnectivityPolicy {
         airplaneMode: Boolean,
         connectivity: SystemUiConnectivityStateSource.State,
         mobileType: NativePresentationResolver.NetworkType?,
+        noSimIcon: CombinedStatusPresentationStateStore.NativeIconResource? = null,
     ): CenterIndicator? {
         val wifiVisible =
             wifi as? CombinedStatusStateStore.WifiState.Visible
@@ -34,6 +35,9 @@ internal object CombinedStatusConnectivityPolicy {
             if (airplaneMode) {
                 return CenterIndicator.Airplane
             }
+            if (noSimIcon != null) {
+                return CenterIndicator.NoSim(noSimIcon)
+            }
             return mobileType?.let {
                 CenterIndicator.MobileType(
                     label = it.label,
@@ -45,6 +49,9 @@ internal object CombinedStatusConnectivityPolicy {
 
         if (airplaneMode) {
             return CenterIndicator.Airplane
+        }
+        if (noSimIcon != null) {
+            return CenterIndicator.NoSim(noSimIcon)
         }
 
         return when (connectivity.transport) {
@@ -158,6 +165,10 @@ internal sealed interface CenterIndicator {
     ) : CenterIndicator
 
     data object Airplane : CenterIndicator
+
+    data class NoSim(
+        val nativeResource: CombinedStatusPresentationStateStore.NativeIconResource,
+    ) : CenterIndicator
 
     data object Empty : CenterIndicator
 }
