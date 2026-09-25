@@ -5,22 +5,22 @@ import org.junit.Test
 
 class SystemUiNativeNetworkSuppressionOwnerTest {
     @Test
-    fun activeSuppressionForcesHiddenVisibilityState() {
+    fun activeMobileVisualMaskMakesNativeSignalContainerTransparent() {
         assertEquals(
-            2,
-            SystemUiNativeNetworkSuppressionOwner.resolveEffectiveVisibilityState(
-                nativeVisibilityState = 0,
+            0f,
+            SystemUiNativeNetworkSuppressionOwner.resolveMobileVisualMaskAlpha(
+                nativeAlpha = 1f,
                 suppressionActive = true,
             ),
         )
     }
 
     @Test
-    fun inactiveSuppressionPreservesNativeVisibilityState() {
+    fun inactiveMobileVisualMaskPreservesNativeAlpha() {
         assertEquals(
-            1,
-            SystemUiNativeNetworkSuppressionOwner.resolveEffectiveVisibilityState(
-                nativeVisibilityState = 1,
+            0.65f,
+            SystemUiNativeNetworkSuppressionOwner.resolveMobileVisualMaskAlpha(
+                nativeAlpha = 0.65f,
                 suppressionActive = false,
             ),
         )
