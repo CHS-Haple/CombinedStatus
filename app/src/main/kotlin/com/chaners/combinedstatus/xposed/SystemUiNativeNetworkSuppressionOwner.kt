@@ -660,17 +660,20 @@ internal object SystemUiNativeNetworkSuppressionOwner {
     }
 
     private fun resolveAppliedStatusIconTint(group: ViewGroup): Int? {
-        for (index in group.childCount - 1 downTo 0) {
-            val child = group.getChildAt(index)
-            val slot = NativeParticipantRuntimeAccess.slotOf(child)
-            if (
-                slot == "combined_status" ||
-                child.visibility != View.VISIBLE ||
-                child.width <= 0 ||
-                child.height <= 0
-            ) {
-                continue
-            }
+        val visiblePeers =
+            (group.childCount - 1 downTo 0)
+                .map(group::getChildAt)
+                .filter { child ->
+                    NativeParticipantRuntimeAccess.slotOf(child) != "combined_status" &&
+                        child.visibility == View.VISIBLE &&
+                        child.width > 0 &&
+                        child.height > 0
+                }
+
+        visiblePeers.forEach { child ->
+            findAppliedTint(child)?.let { return it }
+        }
+        visiblePeers.forEach { child ->
             resolveStaticDrawableColor(child)?.let { return it }
         }
 
@@ -689,13 +692,10 @@ internal object SystemUiNativeNetworkSuppressionOwner {
                 ?.let(::findAppliedTint)
                 ?.let { return it }
         }
-
-        for (index in group.childCount - 1 downTo 0) {
-            val child = group.getChildAt(index)
-            if (NativeParticipantRuntimeAccess.slotOf(child) == "combined_status") {
-                continue
-            }
-            findAppliedTint(child)?.let { return it }
+        preferredTintSlots.forEach { slot ->
+            childrenBySlot[slot]
+                ?.let(::resolveStaticDrawableColor)
+                ?.let { return it }
         }
         return null
     }
@@ -890,6 +890,10 @@ internal object SystemUiNativeNetworkSuppressionOwner {
             mobileVisualMasks.firstOrNull { state ->
                 state.view.get() === container
             }
+        if (existing == null && container.alpha == 0f) {
+            return true
+        }
+
         val state =
             existing
                 ?: MobileVisualMaskState(
