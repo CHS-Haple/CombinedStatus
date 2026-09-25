@@ -11,7 +11,10 @@ internal object CombinedStatusColorPolicy {
         tintState: CombinedStatusTintState,
     ): CombinedStatusColors =
         CombinedStatusColors(
-            primaryTint = tintState.appliedTint,
+            primaryTint =
+                tintState.statusIconTint
+                    ?.takeIf { color -> (color ushr 24) != 0 }
+                    ?: tintState.appliedTint,
             batteryTint =
                 if (model.charging) {
                     CHARGING_TINT
