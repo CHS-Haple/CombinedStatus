@@ -67,6 +67,16 @@ internal object SystemUiSignalParser {
         return SignalStrength.Level(level)
     }
 
+    fun isWifiFamilyResource(resourceName: String?): Boolean {
+        val entry = resourceEntry(resourceName) ?: return false
+        return wifiResourcePrefixes.any(entry::startsWith)
+    }
+
+    fun isHotspotWifiResource(resourceName: String?): Boolean {
+        val entry = resourceEntry(resourceName) ?: return false
+        return entry.startsWith("stat_sys_hotspot_signal_")
+    }
+
     fun wifiInternetValidated(resourceName: String?): Boolean? {
         val entry = resourceEntry(resourceName) ?: return null
         if (
