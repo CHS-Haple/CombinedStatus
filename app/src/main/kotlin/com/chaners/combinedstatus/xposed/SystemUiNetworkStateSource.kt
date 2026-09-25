@@ -927,7 +927,7 @@ internal object SystemUiNetworkStateSource {
                         } else {
                             "none"
                         } +
-                        " visibility=" + visibilityName(image.visibility),
+                        " visibility=" + visibilityName(image.visibility) +\n                        " presentation=" + wifiPresentationToken(image),
                 )
             }
         }
@@ -1125,6 +1125,68 @@ internal object SystemUiNetworkStateSource {
             params.width.toString() + "x" + params.height +
                 ":measured=" + view.measuredWidth + "x" + view.measuredHeight
         }
+    }
+
+    private fun wifiPresentationToken(image: ImageView): String {
+        val drawable = image.drawable
+        val bounds = drawable?.bounds
+        val tint = image.imageTintList
+        return buildString {
+            append("drawable=")
+            append(drawable?.javaClass?.simpleName ?: "none")
+            append(" intrinsic=")
+            append(drawable?.intrinsicWidth ?: 0)
+            append('x')
+            append(drawable?.intrinsicHeight ?: 0)
+            append(" bounds=")
+            if (bounds == null) {
+                append("none")
+            } else {
+                append(bounds.left)
+                append(',')
+                append(bounds.top)
+                append(',')
+                append(bounds.right)
+                append(',')
+                append(bounds.bottom)
+            }
+            append(" drawableAlpha=")
+            append(drawable?.alpha ?: -1)
+            append(" imageAlpha=")
+            append(image.imageAlpha)
+            append(" tint=")
+            append(colorStateListToken(tint, image.drawableState))
+            append(" tintMode=")
+            append(image.imageTintMode?.name ?: "none")
+            append(" colorFilter=")
+            append(image.colorFilter?.javaClass?.simpleName ?: "none")
+            append(" scaleType=")
+            append(image.scaleType?.name ?: "none")
+            append(" matrix=")
+            append(image.imageMatrix?.toShortString() ?: "none")
+            append(" padding=")
+            append(image.paddingLeft)
+            append(',')
+            append(image.paddingTop)
+            append(',')
+            append(image.paddingRight)
+            append(',')
+            append(image.paddingBottom)
+            append(" measured=")
+            append(image.measuredWidth)
+            append('x')
+            append(image.measuredHeight)
+        }
+    }
+
+    private fun colorStateListToken(
+        tint: ColorStateList?,
+        state: IntArray,
+    ): String {
+        if (tint == null) return "none"
+        val resolved = tint.getColorForState(state, tint.defaultColor)
+        return "0x" + resolved.toUInt().toString(16).padStart(8, '0') +
+            "/default=0x" + tint.defaultColor.toUInt().toString(16).padStart(8, '0')
     }
 
     private fun visibilityName(visibility: Int): String = when (visibility) {
