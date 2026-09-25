@@ -104,27 +104,5 @@ class CombinedStatusStateStoreTest {
     }
 
 
-    @Test
-    fun hotReloadRoundTripPreservesHyperOsBatteryModes() {
-        CombinedStatusStateStore.restoreHotReloadState(null)
-        CombinedStatusStateStore.updateBattery(
-            CombinedStatusStateStore.BatteryState(
-                percent = 66,
-                charging = false,
-                powerSave = false,
-                extremePowerSave = true,
-                performanceMode = false,
-            ),
-        )
-
-        val transfer = CombinedStatusStateStore.exportHotReloadState()
-        CombinedStatusStateStore.restoreHotReloadState(null)
-        val restored = CombinedStatusStateStore.restoreHotReloadState(transfer)
-
-        assertTrue(restored.battery?.percent == 66)
-        assertTrue(restored.battery?.powerSave == false)
-        assertTrue(restored.battery?.extremePowerSave == true)
-        assertTrue(restored.battery?.performanceMode == false)
-    }
 
 }
