@@ -14,10 +14,7 @@ internal object CombinedStatusColorPolicy {
         tintState: CombinedStatusTintState,
         visualSettings: CombinedStatusVisualSettings = CombinedStatusVisualSettings(),
     ): CombinedStatusColors {
-        val statusIconTint =
-            tintState.statusIconTint
-                ?.takeIf { color -> (color ushr 24) != 0 }
-                ?: tintState.appliedTint
+        val anchorTint = tintState.appliedTint
         val batteryTint =
             if (model.charging) {
                 CHARGING_TINT
@@ -30,13 +27,13 @@ internal object CombinedStatusColorPolicy {
                 if (visualSettings.centerFollowsBatteryColor) {
                     batteryTint
                 } else {
-                    statusIconTint
+                    anchorTint
                 },
             mobileTint =
                 if (visualSettings.mobileFollowsBatteryColor) {
                     batteryTint
                 } else {
-                    statusIconTint
+                    anchorTint
                 },
             batteryTint = batteryTint,
         )
