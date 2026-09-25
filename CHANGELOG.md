@@ -8,7 +8,7 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Added
 
-- Global Combined Status master switch now controls presentation across every supported SystemUI scene from one runtime authority; disabling it immediately withdraws native handoff/overlay presentation and restores suppressed native Wi-Fi, mobile-network, and battery content. Re-enabling keeps native fallback presentation until the Combined Status participant has reached its first visible frame, avoiding a blank contraction window.
+- Global Combined Status master switch now controls presentation across every supported SystemUI scene from one runtime authority; disabling it immediately withdraws native handoff/overlay presentation and restores suppressed native Wi-Fi, mobile-network, and battery content. After the native participant has been validated for the current host, re-enabling resumes that warm participant and native suppression in one UI transaction; cold or invalidated hosts still use the fail-native readiness handoff.
 - Modern Xposed API 102 module baseline scoped to `com.android.systemui`, with a single Java entry point, verified SystemUI compatibility profile, host lifecycle capture, and hot-reload support.
 - Event-driven Combined Status state pipeline for battery, Wi-Fi, mobile network, airplane mode, default-data subscription, connectivity, and native SystemUI tint.
 - Home status-bar Combined Status rendering based on verified SystemUI hosts and native state sources while preserving conservative SystemUI geometry ownership.
