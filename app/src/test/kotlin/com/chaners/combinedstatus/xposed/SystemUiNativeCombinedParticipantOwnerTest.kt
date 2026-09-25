@@ -336,4 +336,35 @@ class SystemUiNativeCombinedParticipantOwnerTest {
         )
     }
 
+
+    @Test
+    fun nativeVisibleStateNamesResolveWithoutAssumingNumericOrder() {
+        val states =
+            SystemUiNativeCombinedParticipantOwner.resolveNativeVisibilityStates { candidate ->
+                when (candidate) {
+                    2 -> "ICON"
+                    4 -> "DOT"
+                    7 -> "HIDDEN"
+                    else -> "UNKNOWN"
+                }
+            }
+
+        assertEquals(2, states?.icon)
+        assertEquals(4, states?.dot)
+        assertEquals(7, states?.hidden)
+    }
+
+    @Test
+    fun missingNativeVisibleStateFailsClosed() {
+        assertEquals(
+            null,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeVisibilityStates { candidate ->
+                when (candidate) {
+                    0 -> "ICON"
+                    1 -> "DOT"
+                    else -> "UNKNOWN"
+                }
+            },
+        )
+    }
 }

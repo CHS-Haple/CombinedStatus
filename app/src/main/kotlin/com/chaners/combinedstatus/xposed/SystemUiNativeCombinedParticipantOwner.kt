@@ -24,6 +24,7 @@ import java.util.WeakHashMap
 internal object SystemUiNativeCombinedParticipantOwner {
     const val SLOT = "combined_status"
     private const val ZERO_SLOT_WIDTH = 0
+    private const val MAX_NATIVE_VISIBLE_STATE_PROBE = 8
 
     private const val CONTROLLER_IMPL =
         "com.android.systemui.statusbar.phone.ui.StatusBarIconControllerImpl"
@@ -140,15 +141,14 @@ internal object SystemUiNativeCombinedParticipantOwner {
                 ?: return InstallResult.Failure(
                     "binding-visibility-state-contract-missing",
                 )
-        val resolvedStateIcon =
-            staticIntField(statusBarIconViewClass, "STATE_ICON")
-                ?: return InstallResult.Failure("status-bar-state-icon-missing")
-        val resolvedStateDot =
-            staticIntField(statusBarIconViewClass, "STATE_DOT")
-                ?: return InstallResult.Failure("status-bar-state-dot-missing")
-        val resolvedStateHidden =
-            staticIntField(statusBarIconViewClass, "STATE_HIDDEN")
-                ?: return InstallResult.Failure("status-bar-state-hidden-missing")
+        val resolvedVisibilityStates =
+            resolveNativeVisibilityStates(statusBarIconViewClass)
+                ?: return InstallResult.Failure(
+                    "status-bar-visible-state-contract-missing",
+                )
+        val resolvedStateIcon = resolvedVisibilityStates.icon
+        val resolvedStateDot = resolvedVisibilityStates.dot
+        val resolvedStateHidden = resolvedVisibilityStates.hidden
         nativeStateIcon = resolvedStateIcon
         nativeStateDot = resolvedStateDot
         nativeStateHidden = resolvedStateHidden
@@ -1117,18 +1117,58 @@ internal object SystemUiNativeCombinedParticipantOwner {
         return null
     }
 
-    private fun staticIntField(
-        clazz: Class<*>,
-        name: String,
-    ): Int? =
-        runCatching {
-            clazz.getField(name).getInt(null)
-        }.recoverCatching {
-            clazz
-                .getDeclaredField(name)
-                .apply { isAccessible = true }
-                .getInt(null)
-        }.getOrNull()
+    private fun resolveNativeVisibilityStates(
+        statusBarIconViewClass: Class<*>,
+    ): NativeVisibilityStates? {
+        val stateNameMethod =
+            statusBarIconViewClass.methods
+                .firstOrNull { method ->
+                    method.name == "getVisibleStateString" &&
+                        method.parameterTypes.contentEquals(
+                            arrayOf(Int::class.javaPrimitiveType),
+                        ) &&
+                        method.returnType == String::class.java &&
+                        java.lang.reflect.Modifier.isStatic(method.modifiers)
+                }
+                ?: return null
+        stateNameMethod.isAccessible = true
+        return resolveNativeVisibilityStates { candidate ->
+            runCatching {
+                stateNameMethod.invoke(null, candidate) as? String
+            }.getOrNull()
+        }
+    }
+
+    internal fun resolveNativeVisibilityStates(
+        stateName: (Int) -> String?,
+    ): NativeVisibilityStates? {
+        var icon: Int? = null
+        var dot: Int? = null
+        var hidden: Int? = null
+
+        for (candidate in 0..MAX_NATIVE_VISIBLE_STATE_PROBE) {
+            when (stateName(candidate)?.trim()?.uppercase()) {
+                "ICON" -> icon = candidate
+                "DOT" -> dot = candidate
+                "HIDDEN" -> hidden = candidate
+            }
+            if (icon != null && dot != null && hidden != null) {
+                break
+            }
+        }
+
+        val resolvedIcon = icon ?: return null
+        val resolvedDot = dot ?: return null
+        val resolvedHidden = hidden ?: return null
+        if (setOf(resolvedIcon, resolvedDot, resolvedHidden).size != 3) {
+            return null
+        }
+        return NativeVisibilityStates(
+            icon = resolvedIcon,
+            dot = resolvedDot,
+            hidden = resolvedHidden,
+        )
+    }
 
     @Synchronized
     private fun onNativeBindingTintChanged(
@@ -1870,6 +1910,12 @@ internal object SystemUiNativeCombinedParticipantOwner {
     internal data class NativeContentVisibility(
         val renderVisibility: Int,
         val dotVisibility: Int,
+    )
+
+    internal data class NativeVisibilityStates(
+        val icon: Int,
+        val dot: Int,
+        val hidden: Int,
     )
 
     internal sealed interface AttachResult {
