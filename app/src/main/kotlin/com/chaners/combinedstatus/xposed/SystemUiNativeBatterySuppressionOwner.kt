@@ -28,6 +28,7 @@ internal object SystemUiNativeBatterySuppressionOwner {
     private var latestNativeHideRequest: Boolean? = null
     private var suppressionActive = false
     private var eventSink: ((String) -> Unit)? = null
+    private var nativeHideSink: ((Boolean) -> Unit)? = null
 
     val installedHookCount: Int
         @Synchronized get() = if (hookHandle != null) 1 else 0
@@ -37,9 +38,11 @@ internal object SystemUiNativeBatterySuppressionOwner {
         module: XposedModule,
         classLoader: ClassLoader,
         onEvent: ((String) -> Unit)? = null,
+        onNativeHideChanged: ((Boolean) -> Unit)? = null,
     ): InstallResult {
         if (hookHandle != null) {
             eventSink = onEvent
+            nativeHideSink = onNativeHideChanged
             return InstallResult.AlreadyInstalled
         }
 
@@ -82,12 +85,14 @@ internal object SystemUiNativeBatterySuppressionOwner {
             hideField = field
             hookHandle = handle
             eventSink = onEvent
+            nativeHideSink = onNativeHideChanged
             InstallResult.Installed
         }.getOrElse { error ->
             hookHandle = null
             hideField = null
             clearOwnedStateLocked()
             eventSink = onEvent
+            nativeHideSink = onNativeHideChanged
             InstallResult.Failure(
                 error.message ?: error.javaClass.simpleName,
             )
@@ -161,6 +166,7 @@ internal object SystemUiNativeBatterySuppressionOwner {
                 visualChanged = mask.alphaWrites > 0,
             )
         eventSink?.invoke(result.logLine)
+        nativeHideSink?.invoke(effectiveHide)
         return result
     }
 
@@ -195,6 +201,7 @@ internal object SystemUiNativeBatterySuppressionOwner {
         hideField = null
         clearOwnedStateLocked()
         eventSink = null
+        nativeHideSink = null
     }
 
     private fun hideRequestHooker(): Hooker =
@@ -215,7 +222,8 @@ internal object SystemUiNativeBatterySuppressionOwner {
                     }
                 }
             val result = chain.proceed()
-            if (observed) {
+            if (observed && requested != null) {
+                nativeHideSink?.invoke(requested)
                 eventSink?.invoke(
                     "nativeBatterySuppression observe " +
                         "nativeRequestedHide=" + requested +
