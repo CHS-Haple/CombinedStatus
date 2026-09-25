@@ -613,6 +613,7 @@ class CombinedStatusModule : XposedModule() {
                             log(Log.INFO, TAG, event)
                         }
                     },
+                    onStatusPresentationChanged = ::onStatusIconPresentationChanged,
                 )
         ) {
             SystemUiNativeNetworkSuppressionOwner.InstallResult.Installed,
@@ -1127,6 +1128,59 @@ class CombinedStatusModule : XposedModule() {
                 source == "airplane" ||
                     source == "scene-unlocked",
         )
+    }
+
+    private fun onStatusIconPresentationChanged(
+        state: CombinedStatusPresentationStateStore.StatusIconPresentation,
+    ) {
+        val trace = beginRenderTrace("statusIcons")
+        val changed =
+            CombinedStatusPresentationStateStore.updateStatusIcons(state)
+
+        val appliedTint = state.appliedTint
+        val tintSourceView = SystemUiTintStateSource.currentSourceView()
+        if (
+            appliedTint != null &&
+            (appliedTint ushr 24) != 0 &&
+            tintSourceView != null
+        ) {
+            onTintStateUpdate(
+                SystemUiTintStateSource.TintUpdate(
+                    sourceView = tintSourceView,
+                    state = CombinedStatusTintState(appliedTint),
+                ),
+            )
+        }
+
+        if (changed != null) {
+            val presentationTrace = markPresentationCommitted(trace)
+            CombinedStatusHomeRenderSession.onPresentationStateChanged(
+                presentationTrace,
+            )
+            SystemUiNativeCombinedParticipantOwner.onPresentationStateChanged(
+                presentationTrace,
+            )
+            if (detailedDiagnosticsEnabled) {
+                logDiagnostic(
+                    level = Log.INFO,
+                    event = "presentation.resolve",
+                    component = "statusIcons",
+                    state = "ready",
+                    "tint" to
+                        (
+                            state.appliedTint
+                                ?.toUInt()
+                                ?.toString(16)
+                                ?.padStart(8, '0')
+                                ?: "none"
+                        ),
+                    "noSimVisible" to state.noSimVisible,
+                    "noSimPackage" to state.noSimIcon?.packageName,
+                    "noSimResId" to state.noSimIcon?.resourceId,
+                    "nativeGeometryWrites" to 0,
+                )
+            }
+        }
     }
 
     private fun onTintStateUpdate(update: SystemUiTintStateSource.TintUpdate) {
