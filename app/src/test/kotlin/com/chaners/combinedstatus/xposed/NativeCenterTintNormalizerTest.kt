@@ -50,7 +50,7 @@ class NativeCenterTintNormalizerTest {
             191,
             CombinedStatusVisualIntensity.normalizeSourceAlpha(
                 sourceAlpha = 191,
-                sourceMaxAlpha = 255,
+                sourcePlateauAlpha = 255,
             ),
         )
     }
@@ -61,14 +61,14 @@ class NativeCenterTintNormalizerTest {
             255,
             CombinedStatusVisualIntensity.normalizeSourceAlpha(
                 sourceAlpha = 230,
-                sourceMaxAlpha = 230,
+                sourcePlateauAlpha = 230,
             ),
         )
         assertEquals(
             128,
             CombinedStatusVisualIntensity.normalizeSourceAlpha(
                 sourceAlpha = 115,
-                sourceMaxAlpha = 230,
+                sourcePlateauAlpha = 230,
             ),
         )
     }
@@ -79,7 +79,7 @@ class NativeCenterTintNormalizerTest {
             255,
             CombinedStatusVisualIntensity.normalizeSourceAlpha(
                 sourceAlpha = 230,
-                sourceMaxAlpha = 204,
+                sourcePlateauAlpha = 204,
             ),
         )
     }
