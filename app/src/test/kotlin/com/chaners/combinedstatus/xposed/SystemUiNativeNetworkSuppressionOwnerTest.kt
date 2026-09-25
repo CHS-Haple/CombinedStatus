@@ -95,6 +95,19 @@ class SystemUiNativeNetworkSuppressionOwnerTest {
 
 
     @Test
+    fun observedNoSimCanBecomeSuppressedInTheSameVisibilityEvent() {
+        assertEquals(
+            true,
+            SystemUiNativeNetworkSuppressionOwner.shouldSuppressStaticSlot(
+                slot = "no_sim",
+                airplaneSuppressionActive = false,
+                noSimSuppressionActive = true,
+                belongsToActiveHomeGroup = true,
+            ),
+        )
+    }
+
+    @Test
     fun staticSystemSlotsAreSuppressedOnlyWhenTheirReplacementIsReady() {
         assertEquals(
             true,

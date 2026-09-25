@@ -350,23 +350,47 @@ internal object SystemUiNativeNetworkSuppressionOwner {
                     airplaneSlotAccessor?.invoke(chain.thisObject) as? String
                 }.getOrNull()
             val homeGroup = activeGroup?.get()
-            val suppress =
-                shouldSuppressStaticSlot(
-                    slot = slot,
-                    airplaneSuppressionActive = airplaneSuppressionEnabled,
-                    noSimSuppressionActive = noSimSuppressionEnabled,
-                    belongsToActiveHomeGroup =
-                        view != null &&
-                            homeGroup != null &&
-                            isDescendantOf(
-                                view = view,
-                                ancestor = homeGroup,
-                            ),
-                )
-            if (suppress) {
-                false
+            val belongsToActiveHomeGroup =
+                view != null &&
+                    homeGroup != null &&
+                    isDescendantOf(
+                        view = view,
+                        ancestor = homeGroup,
+                    )
+
+            if (
+                slot == NO_SIM_SLOT &&
+                view != null &&
+                belongsToActiveHomeGroup
+            ) {
+                val nativeVisible = chain.proceed() as? Boolean ?: false
+                synchronized(this) {
+                    if (homeGroup === activeGroup?.get()) {
+                        refreshStatusPresentationLocked(
+                            source = "visibility:no_sim",
+                            observedNoSimView = view,
+                            observedNoSimVisible = nativeVisible,
+                        )
+                    }
+                }
+                if (noSimSuppressionEnabled) {
+                    false
+                } else {
+                    nativeVisible
+                }
             } else {
-                chain.proceed()
+                val suppress =
+                    shouldSuppressStaticSlot(
+                        slot = slot,
+                        airplaneSuppressionActive = airplaneSuppressionEnabled,
+                        noSimSuppressionActive = noSimSuppressionEnabled,
+                        belongsToActiveHomeGroup = belongsToActiveHomeGroup,
+                    )
+                if (suppress) {
+                    false
+                } else {
+                    chain.proceed()
+                }
             }
         }
 
@@ -422,16 +446,22 @@ internal object SystemUiNativeNetworkSuppressionOwner {
         )
     }
 
-    private fun refreshStatusPresentationLocked(source: String) {
+    private fun refreshStatusPresentationLocked(
+        source: String,
+        observedNoSimView: View? = null,
+        observedNoSimVisible: Boolean? = null,
+    ) {
         val group = activeGroup?.get() ?: return
         val noSimView =
-            (0 until group.childCount)
-                .map(group::getChildAt)
-                .firstOrNull { child ->
-                    NativeParticipantRuntimeAccess.slotOf(child) == NO_SIM_SLOT
-                }
+            observedNoSimView
+                ?: (0 until group.childCount)
+                    .map(group::getChildAt)
+                    .firstOrNull { child ->
+                        NativeParticipantRuntimeAccess.slotOf(child) == NO_SIM_SLOT
+                    }
         val noSimVisible =
-            noSimView?.let(::isNativeStatusIconVisible) == true
+            observedNoSimVisible
+                ?: (noSimView?.let(::isNativeStatusIconVisible) == true)
         val noSimIcon =
             if (noSimVisible) {
                 noSimView?.let(::resolveNativeIconResource)
