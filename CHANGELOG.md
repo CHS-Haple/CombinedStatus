@@ -22,9 +22,11 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 - Android 13+ per-app language selection for system default, English, and Simplified Chinese.
 - Optional launcher-icon hiding while retaining a non-launcher app entry point.
 - Runtime diagnostics UI for app/build, device/system, module compatibility, diagnostics level, and report actions.
+- Combined Status visual color-link controls can independently make the four mobile-signal dots/unavailable mark and the center network icon follow the battery ring’s final resolved color; both links default off and synchronize to SystemUI through event-driven Modern Xposed remote preferences.
 
 ### Changed
 
+- Center network presentation now prefers authoritative HyperOS drawable resources for Wi-Fi/hotspot, airplane, and no-SIM states, keeps native drawable stroke design intact while applying Combined Status-owned size scaling, separates the final status-icon tint from the battery-ring tint, and reserves proportional center size/text-weight parameters for later user customization. The mobile unavailable mark remains a project-owned rounded accessory for explicit unavailable states, while center no-Internet cross rendering is removed in favor of HyperOS Wi-Fi resource variants.
 - Outer Combined Status visual weight is rebalanced with one shared proportional weight scale: the battery ring and four mobile-signal dots grow together, while the lower-opening geometry is recomputed so ring-to-dot and dot-to-dot edge spacing stays visually balanced across the supported scale range. The current default is 1.10×; no user-facing thickness setting is exposed yet.
 
 - Home network replacement now keeps native mobile suppression continuous through airplane-mode transitions and event-driven Home re-entry/rebinds, with a reversible `mobile_signal_container` visual mask so externally injected dual-row signal descendants cannot remain visible beside Combined Status; if a dynamic rebind no longer satisfies the verified binding/visual-mask contract, the suppression session now fails native instead of leaving a partially active replacement.
