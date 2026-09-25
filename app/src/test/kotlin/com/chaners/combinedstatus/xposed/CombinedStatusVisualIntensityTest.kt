@@ -33,7 +33,7 @@ class CombinedStatusVisualIntensityTest {
     }
 
     @Test
-    fun dominantOpaquePlateauWinsOverSparseHigherAlphaPixels() {
+    fun robustCeilingIgnoresSparseHigherAlphaPixels() {
         val alphas =
             intArrayOf(
                 0, 0, 4, 8,
@@ -42,7 +42,7 @@ class CombinedStatusVisualIntensityTest {
             )
         assertEquals(
             191,
-            CombinedStatusVisualIntensity.resolveSourcePlateauAlpha(
+            CombinedStatusVisualIntensity.resolveSourceCeilingAlpha(
                 sourceAlphas = alphas,
                 minVisibleAlpha = 8,
             ),
@@ -50,11 +50,11 @@ class CombinedStatusVisualIntensityTest {
     }
 
     @Test
-    fun equalFrequencyPlateausPreferHigherAlpha() {
+    fun upperVisibleDistributionDefinesCeiling() {
         val alphas = intArrayOf(96, 96, 192, 192)
         assertEquals(
             192,
-            CombinedStatusVisualIntensity.resolveSourcePlateauAlpha(
+            CombinedStatusVisualIntensity.resolveSourceCeilingAlpha(
                 sourceAlphas = alphas,
                 minVisibleAlpha = 8,
             ),
@@ -62,13 +62,30 @@ class CombinedStatusVisualIntensityTest {
     }
 
     @Test
-    fun noVisiblePixelsHasNoPlateau() {
+    fun noVisiblePixelsHasNoCeiling() {
         assertEquals(
             0,
-            CombinedStatusVisualIntensity.resolveSourcePlateauAlpha(
+            CombinedStatusVisualIntensity.resolveSourceCeilingAlpha(
                 sourceAlphas = intArrayOf(0, 1, 4, 8),
                 minVisibleAlpha = 8,
             ),
         )
     }
+    @Test
+    fun thinAntialiasGradientDoesNotNormalizeFromLowAlphaMode() {
+        val alphas =
+            intArrayOf(
+                0, 4, 8,
+                32, 32, 32,
+                64, 96, 128, 160, 192, 224, 255,
+            )
+        assertEquals(
+            192,
+            CombinedStatusVisualIntensity.resolveSourceCeilingAlpha(
+                sourceAlphas = alphas,
+                minVisibleAlpha = 8,
+            ),
+        )
+    }
+
 }
