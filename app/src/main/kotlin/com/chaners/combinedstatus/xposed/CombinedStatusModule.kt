@@ -613,6 +613,8 @@ class CombinedStatusModule : XposedModule() {
                             log(Log.INFO, TAG, event)
                         }
                     },
+                    onNativeHideChanged =
+                        SystemUiNativeCombinedParticipantOwner::onNativeBatteryHideChanged,
                 )
         ) {
             SystemUiNativeNetworkSuppressionOwner.InstallResult.Installed,
