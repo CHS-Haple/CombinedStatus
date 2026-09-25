@@ -13,7 +13,7 @@ class CombinedStatusVisualIntensityTest {
     }
 
     @Test
-    fun intrinsicAlphaPlateauIsNormalizedToFullStrength() {
+    fun intrinsicAlphaCeilingIsNormalizedToFullStrength() {
         assertEquals(255, CombinedStatusVisualIntensity.normalizeSourceAlpha(128, 128))
         assertEquals(128, CombinedStatusVisualIntensity.normalizeSourceAlpha(64, 128))
         assertEquals(0, CombinedStatusVisualIntensity.normalizeSourceAlpha(0, 128))
@@ -28,7 +28,7 @@ class CombinedStatusVisualIntensityTest {
     }
 
     @Test
-    fun sourceAlphaIsBoundedByObservedPlateau() {
+    fun sourceAlphaIsBoundedByObservedCeiling() {
         assertEquals(255, CombinedStatusVisualIntensity.normalizeSourceAlpha(200, 128))
     }
 
@@ -71,6 +71,7 @@ class CombinedStatusVisualIntensityTest {
             ),
         )
     }
+
     @Test
     fun thinAntialiasGradientDoesNotNormalizeFromLowAlphaMode() {
         val alphas =
@@ -87,5 +88,4 @@ class CombinedStatusVisualIntensityTest {
             ),
         )
     }
-
 }
