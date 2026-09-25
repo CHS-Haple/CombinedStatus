@@ -25,6 +25,7 @@ internal object CombinedStatusConnectivityPolicy {
                 return CenterIndicator.Wifi(
                     segments = wifiSegments,
                     internet = internet,
+                    nativeResourceId = wifiVisible.iconResId,
                 )
             }
         }
@@ -147,6 +148,7 @@ internal sealed interface CenterIndicator {
     data class Wifi(
         val segments: Int,
         val internet: InternetState,
+        val nativeResourceId: Int? = null,
     ) : CenterIndicator
 
     data class MobileType(
