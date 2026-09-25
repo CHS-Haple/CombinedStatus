@@ -72,7 +72,11 @@ class CombinedStatusColorPolicyTest {
     fun centerLinkUsesFinalBatteryTintForEveryCenterFamily() {
         val colors =
             CombinedStatusColorPolicy.resolve(
-                model = model(charging = true),
+                model =
+                    model(
+                        charging = true,
+                        batteryModeTint = 0xff22aa55.toInt(),
+                    ),
                 tintState =
                     CombinedStatusTintState(
                         appliedTint = 0xff112233.toInt(),
@@ -109,6 +113,21 @@ class CombinedStatusColorPolicyTest {
         assertEquals(0xff405060.toInt(), colors.centerTint)
         assertEquals(0xff405060.toInt(), colors.mobileTint)
         assertEquals(0xff405060.toInt(), colors.batteryTint)
+    }
+
+    @Test
+    fun missingResolvedChargingTintUsesVerifiedChargingFallback() {
+        val colors =
+            CombinedStatusColorPolicy.resolve(
+                model = model(charging = true),
+                tintState =
+                    CombinedStatusTintState(
+                        appliedTint = 0xff112233.toInt(),
+                        statusIconTint = 0xff445566.toInt(),
+                    ),
+            )
+
+        assertEquals(CombinedStatusColorPolicy.CHARGING_TINT, colors.batteryTint)
     }
 
     @Test
