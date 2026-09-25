@@ -25,7 +25,7 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Changed
 
-- Outer Combined Status visual weight is rebalanced: the battery ring and four mobile-signal dots are slightly thicker while the lower opening keeps mirror symmetry and equalized ring-to-dot / dot-to-dot edge spacing.
+- Outer Combined Status visual weight is rebalanced with one shared proportional weight scale: the battery ring and four mobile-signal dots grow together, while the lower-opening geometry is recomputed so ring-to-dot and dot-to-dot edge spacing stays visually balanced across the supported scale range. The current default is 1.10×; no user-facing thickness setting is exposed yet.
 
 - Home network replacement now keeps native mobile suppression continuous through airplane-mode transitions and event-driven Home re-entry/rebinds, with a reversible `mobile_signal_container` visual mask so externally injected dual-row signal descendants cannot remain visible beside Combined Status; if a dynamic rebind no longer satisfies the verified binding/visual-mask contract, the suppression session now fails native instead of leaving a partially active replacement.
 
