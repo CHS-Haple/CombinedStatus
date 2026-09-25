@@ -221,6 +221,8 @@ internal class CombinedStatusPainter(
                     tint = tint,
                     opacity = opacity,
                     geometry = geometry,
+                    nativeTransform = nativeTransform,
+                    pixelAligned = appearAmount >= NATIVE_STEADY_APPEAR_THRESHOLD,
                 )
 
             is CenterIndicator.MobileType ->
