@@ -66,6 +66,17 @@ internal object SystemUiBatteryStateSource {
             Class.forName(BATTERY_VIEW_CLASS_NAME, false, classLoader)
         val handles = mutableListOf<HookHandle>()
 
+        CombinedStatusStateStore.snapshot().battery?.let { seed ->
+            synchronized(this) {
+                percent = seed.percent
+                charging = seed.charging
+                powerSave = seed.powerSave
+                extremePowerSave = seed.extremePowerSave
+                performanceMode = seed.performanceMode
+                lastState = seed
+            }
+        }
+
         val levelMethod =
             batteryClass.getDeclaredMethod(
                 BATTERY_LEVEL_METHOD_NAME,
