@@ -8,7 +8,6 @@ import android.graphics.Path
 import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Typeface
-import kotlin.math.asin
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
@@ -76,12 +75,12 @@ internal class CombinedStatusPainter(
         batteryTint: Int,
         opacity: Float,
     ) {
-        stroke(batteryTint, 48, RING_STROKE, opacity)
+        stroke(batteryTint, 48, CombinedStatusOuterGeometry.RING_STROKE, opacity)
         canvas.drawArc(batteryRing, BATTERY_START_DEGREES, BATTERY_MAX_SWEEP, false, paint)
 
         val sweep = model.batteryPercent * BATTERY_DEGREES_PER_PERCENT
         if (sweep > 0f) {
-            stroke(batteryTint, 255, RING_STROKE, opacity)
+            stroke(batteryTint, 255, CombinedStatusOuterGeometry.RING_STROKE, opacity)
             canvas.drawArc(batteryRing, BATTERY_START_DEGREES, sweep, false, paint)
         }
     }
@@ -397,9 +396,11 @@ internal class CombinedStatusPainter(
             )
             val angle = bottomDotAngle(index)
             canvas.drawCircle(
-                MOBILE_CENTER_X + cos(angle).toFloat() * MOBILE_ORBIT_RADIUS,
-                MOBILE_CENTER_Y + sin(angle).toFloat() * MOBILE_ORBIT_RADIUS,
-                MOBILE_DOT_RADIUS,
+                MOBILE_CENTER_X +
+                    cos(angle).toFloat() * CombinedStatusOuterGeometry.MOBILE_ORBIT_RADIUS,
+                MOBILE_CENTER_Y +
+                    sin(angle).toFloat() * CombinedStatusOuterGeometry.MOBILE_ORBIT_RADIUS,
+                CombinedStatusOuterGeometry.MOBILE_DOT_RADIUS,
                 paint,
             )
         }
@@ -411,22 +412,8 @@ internal class CombinedStatusPainter(
         }
     }
 
-    private fun bottomDotAngle(index: Int): Double {
-        val dotHalfAngle = asin((MOBILE_DOT_RADIUS / MOBILE_ORBIT_RADIUS).toDouble())
-        val ringGapHalfAngle = asin((3.75f / MOBILE_ORBIT_RADIUS).toDouble())
-        val step =
-            (
-                Math.PI * 2.0 / 3.0 -
-                    8.0 * dotHalfAngle -
-                    2.0 * ringGapHalfAngle
-            ) / 5.3
-        val start =
-            Math.PI / 6.0 +
-                ringGapHalfAngle +
-                1.15 * step +
-                dotHalfAngle
-        return start + (3 - index) * (2.0 * dotHalfAngle + step)
-    }
+    private fun bottomDotAngle(index: Int): Double =
+        CombinedStatusOuterGeometry.bottomDotAngle(index)
 
     private fun fill(
         color: Int,
@@ -535,12 +522,9 @@ internal class CombinedStatusPainter(
         const val BATTERY_START_DEGREES = 150f
         const val BATTERY_MAX_SWEEP = 240f
         const val BATTERY_DEGREES_PER_PERCENT = 2.4f
-        const val RING_STROKE = 7.5f
         const val MOBILE_DOT_COUNT = 4
         const val MOBILE_CENTER_X = 60f
         const val MOBILE_CENTER_Y = 58f
-        const val MOBILE_ORBIT_RADIUS = 51f
-        const val MOBILE_DOT_RADIUS = 4.9f
         const val SYSTEM_UI_PACKAGE = "com.android.systemui"
         const val AIRPLANE_RESOURCE_NAME = "stat_sys_signal_flightmode"
         const val AIRPLANE_CENTER_X = 60f
@@ -556,5 +540,26 @@ internal class CombinedStatusPainter(
         const val MOBILE_TYPE_SUFFIX_RISE_PX = 8f
         const val MOBILE_TYPE_SUFFIX_GAP = 2f
         const val MOBILE_TYPE_WEIGHT = 800
+    }
+}
+
+
+internal object CombinedStatusOuterGeometry {
+    const val RING_RADIUS = 50f
+    const val RING_STROKE = 8.25f
+    const val MOBILE_ORBIT_RADIUS = 51f
+    const val MOBILE_DOT_RADIUS = 5.4f
+
+    // Derived from the current 120-degree lower opening and ROUND ring caps so
+    // ring-to-dot and dot-to-dot edge gaps remain visually balanced.
+    const val FIRST_DOT_CENTER_DEGREES = 53.244125f
+    const val DOT_CENTER_STEP_DEGREES = 24.503916f
+
+    fun bottomDotAngle(index: Int): Double {
+        require(index in 0..3)
+        val degrees =
+            FIRST_DOT_CENTER_DEGREES +
+                (3 - index) * DOT_CENTER_STEP_DEGREES
+        return Math.toRadians(degrees.toDouble())
     }
 }
