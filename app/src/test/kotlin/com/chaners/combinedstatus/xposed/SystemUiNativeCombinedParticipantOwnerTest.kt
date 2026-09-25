@@ -237,4 +237,47 @@ class SystemUiNativeCombinedParticipantOwnerTest {
         assertEquals(null, merged.statusIconTint)
     }
 
+    @Test
+    fun masterSwitchBlocksHomeOverlayRegardlessOfSceneOrHandoffState() {
+        assertFalse(
+            CombinedStatusHomeRenderSession.resolveOverlayVisible(
+                featureEnabled = false,
+                sceneAllowsOverlay = true,
+                nativeHandoffActive = false,
+            ),
+        )
+        assertFalse(
+            CombinedStatusHomeRenderSession.resolveOverlayVisible(
+                featureEnabled = false,
+                sceneAllowsOverlay = true,
+                nativeHandoffActive = true,
+            ),
+        )
+    }
+
+    @Test
+    fun enabledMasterSwitchStillDefersToSceneAndNativeHandoff() {
+        assertTrue(
+            CombinedStatusHomeRenderSession.resolveOverlayVisible(
+                featureEnabled = true,
+                sceneAllowsOverlay = true,
+                nativeHandoffActive = false,
+            ),
+        )
+        assertFalse(
+            CombinedStatusHomeRenderSession.resolveOverlayVisible(
+                featureEnabled = true,
+                sceneAllowsOverlay = false,
+                nativeHandoffActive = false,
+            ),
+        )
+        assertFalse(
+            CombinedStatusHomeRenderSession.resolveOverlayVisible(
+                featureEnabled = true,
+                sceneAllowsOverlay = true,
+                nativeHandoffActive = true,
+            ),
+        )
+    }
+
 }
