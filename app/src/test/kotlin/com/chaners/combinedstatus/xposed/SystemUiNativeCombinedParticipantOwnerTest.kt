@@ -338,6 +338,35 @@ class SystemUiNativeCombinedParticipantOwnerTest {
 
 
     @Test
+    fun validatedMasterSwitchUsesNativeRemoveLifecycle() {
+        assertEquals(
+            false,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeFeatureRemoveFlag(
+                featureEnabled = true,
+                handoffValidated = true,
+            ),
+        )
+        assertEquals(
+            true,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeFeatureRemoveFlag(
+                featureEnabled = false,
+                handoffValidated = true,
+            ),
+        )
+    }
+
+    @Test
+    fun unvalidatedMasterSwitchStaysOnBootstrapFallback() {
+        assertEquals(
+            null,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeFeatureRemoveFlag(
+                featureEnabled = false,
+                handoffValidated = false,
+            ),
+        )
+    }
+
+    @Test
     fun nativeVisibleStateNamesResolveWithoutAssumingNumericOrder() {
         val states =
             SystemUiNativeCombinedParticipantOwner.resolveNativeVisibilityStates { candidate ->

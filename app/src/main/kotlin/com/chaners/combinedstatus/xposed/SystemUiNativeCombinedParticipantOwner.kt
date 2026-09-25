@@ -61,6 +61,8 @@ internal object SystemUiNativeCombinedParticipantOwner {
     private var nativeStateIcon: Int? = null
     private var nativeStateDot: Int? = null
     private var nativeStateHidden: Int? = null
+    private var nativeSetRemoveMethod: Method? = null
+    private var nativeGetRemoveFlagMethod: Method? = null
     private val bindingStates =
         Collections.synchronizedMap(
             WeakHashMap<FrameLayout, BindingState>(),
@@ -146,6 +148,33 @@ internal object SystemUiNativeCombinedParticipantOwner {
                 ?: return InstallResult.Failure(
                     "status-bar-visible-state-contract-missing",
                 )
+        val setRemoveMethod =
+            modernViewClass.methods
+                .firstOrNull { method ->
+                    method.name == "setRemove" &&
+                        method.parameterTypes.contentEquals(
+                            arrayOf(Boolean::class.javaPrimitiveType),
+                        ) &&
+                        method.returnType == Void.TYPE
+                }
+                ?.apply { isAccessible = true }
+                ?: return InstallResult.Failure(
+                    "modern-view-set-remove-contract-missing",
+                )
+        val getRemoveFlagMethod =
+            modernViewClass.methods
+                .firstOrNull { method ->
+                    method.name == "getRemoveFlag" &&
+                        method.parameterTypes.isEmpty() &&
+                        method.returnType == Boolean::class.javaPrimitiveType
+                }
+                ?.apply { isAccessible = true }
+                ?: return InstallResult.Failure(
+                    "modern-view-get-remove-flag-contract-missing",
+                )
+        nativeSetRemoveMethod = setRemoveMethod
+        nativeGetRemoveFlagMethod = getRemoveFlagMethod
+
         val resolvedStateIcon = resolvedVisibilityStates.icon
         val resolvedStateDot = resolvedVisibilityStates.dot
         val resolvedStateHidden = resolvedVisibilityStates.hidden
@@ -159,7 +188,8 @@ internal object SystemUiNativeCombinedParticipantOwner {
                 " iconState=" + resolvedStateIcon +
                 " dotState=" + resolvedStateDot +
                 " hiddenState=" + resolvedStateHidden +
-                " nativeGeometryWrites=0",
+                " removeLifecycle=setRemove(boolean)+getRemoveFlag() " +
+                "nativeGeometryWrites=0",
         )
 
         val constructor =
@@ -961,19 +991,40 @@ internal object SystemUiNativeCombinedParticipantOwner {
 
         removePendingPreDraw()
         handoffPending = false
-        // Commit native suppression while the replacement is still non-drawing.
-        // The participant is released only after native presentation owners have
-        // synchronously reached their replacement state on this UI-thread turn.
+
+        val removeFlag =
+            resolveNativeFeatureRemoveFlag(
+                featureEnabled = true,
+                handoffValidated = handoffValidated,
+            ) ?: return false
+
+        // HyperOS native mobile participants pair their semantic visibility with
+        // ModernStatusBarView.setRemove(...). Reuse the same contract so the
+        // container owns APPEAR/MOVE instead of treating this as measurement-only.
         handoffSink?.invoke(true)
+        root.visibility = View.VISIBLE
+        if (!setNativeRemoveFlag(root, removeFlag)) {
+            bindingState.visible = false
+            root.visibility = View.GONE
+            handoffSink?.invoke(false)
+            requestNativeLayout(root)
+            eventSink?.invoke(
+                "nativeCombinedParticipant handoffResumeFail " +
+                    "source=feature-enabled reason=set-remove-failed " +
+                    "failNative=true nativeGeometryWrites=0",
+            )
+            return false
+        }
         bindingState.visible = true
         handoffCommitted = true
         requestNativeLayout(root)
         eventSink?.invoke(
             "nativeCombinedParticipant handoffResume " +
                 "source=feature-enabled validated=true " +
-                "mode=warm-standby rootShown=" + root.isShown +
-                " visibilityAuthority=binding systemUiMotion=APPEAR " +
-                "nativeGeometryWrites=0",
+                "mode=native-remove-lifecycle rootShown=" + root.isShown +
+                " visibilityAuthority=binding+removeFlag" +
+                " nativeRemoveFlag=" + readNativeRemoveFlag(root) +
+                " nativeGeometryWrites=0",
         )
         return true
     }
@@ -1223,15 +1274,33 @@ internal object SystemUiNativeCombinedParticipantOwner {
             bindingState?.visible = false
         }
 
-        // Once this host has completed a valid native handoff, binding
-        // visibility is the steady-state authority. MiuiStatusIconContainer
-        // then owns DISAPPEAR/MOVE instead of a module-authored root hide.
+        val nativeRemoveFlag =
+            resolveNativeFeatureRemoveFlag(
+                featureEnabled = false,
+                handoffValidated = handoffValidated,
+            )
+        val nativeRemoveApplied =
+            if (
+                root != null &&
+                bindingState != null &&
+                nativeRemoveFlag != null
+            ) {
+                setNativeRemoveFlag(root, nativeRemoveFlag)
+            } else {
+                false
+            }
+
         var bootstrapRootChanged = false
         var shellWidthReset = false
         if (root != null) {
-            if (!handoffValidated && root.visibility != View.GONE) {
-                root.visibility = View.GONE
-                bootstrapRootChanged = true
+            if (
+                nativeRemoveFlag == null ||
+                !nativeRemoveApplied
+            ) {
+                if (root.visibility != View.GONE) {
+                    root.visibility = View.GONE
+                    bootstrapRootChanged = true
+                }
             }
             val layoutParams = root.layoutParams
             if (layoutParams != null && layoutParams.width != ZERO_SLOT_WIDTH) {
@@ -1241,15 +1310,20 @@ internal object SystemUiNativeCombinedParticipantOwner {
             }
         }
 
-        // Release native suppression in the same UI turn after the binding fact
-        // has been withdrawn. The next native layout sees both sides of the
-        // transition together and retains SystemUI animation ownership.
+        // Keep peer restore and Combined Status removal in one main-thread turn.
+        // HyperOS can then animate the custom participant and native peers as one
+        // status-icon layout transaction.
         if (wasCommitted) {
             handoffSink?.invoke(false)
         }
         if (
             root != null &&
-            (bindingVisibilityChanged || bootstrapRootChanged || shellWidthReset)
+            (
+                bindingVisibilityChanged ||
+                    nativeRemoveApplied ||
+                    bootstrapRootChanged ||
+                    shellWidthReset
+            )
         ) {
             requestNativeLayout(root)
         }
@@ -1257,6 +1331,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
         if (
             wasCommitted ||
             bindingVisibilityChanged ||
+            nativeRemoveApplied ||
             bootstrapRootChanged ||
             shellWidthReset
         ) {
@@ -1265,9 +1340,15 @@ internal object SystemUiNativeCombinedParticipantOwner {
                     " enabled=false" +
                     " previousHandoff=" + wasCommitted +
                     " visibilityAuthority=" +
-                    (if (handoffValidated) "binding" else "bootstrap-root") +
-                    " systemUiMotion=" +
-                    (if (handoffValidated) "DISAPPEAR" else "bootstrap") +
+                    (
+                        if (nativeRemoveApplied) {
+                            "binding+removeFlag"
+                        } else {
+                            "bootstrap-root"
+                        }
+                    ) +
+                    " nativeRemoveFlag=" +
+                    (root?.let(::readNativeRemoveFlag) ?: "none") +
                     " shellWidthReset=" + shellWidthReset +
                     " customRootWidthWrite=" + shellWidthReset +
                     " nativeGeometryWrites=0 peerNativeGeometryWrites=0",
@@ -1538,6 +1619,40 @@ internal object SystemUiNativeCombinedParticipantOwner {
         (root.parent as? View)?.requestLayout()
     }
 
+    private fun setNativeRemoveFlag(
+        root: View,
+        remove: Boolean,
+    ): Boolean {
+        val method = nativeSetRemoveMethod ?: return false
+        if (!method.declaringClass.isInstance(root)) {
+            return false
+        }
+        return runCatching {
+            method.invoke(root, remove)
+            readNativeRemoveFlag(root) == remove
+        }.getOrDefault(false)
+    }
+
+    private fun readNativeRemoveFlag(root: View): Boolean? {
+        val method = nativeGetRemoveFlagMethod ?: return null
+        if (!method.declaringClass.isInstance(root)) {
+            return null
+        }
+        return runCatching {
+            method.invoke(root) as? Boolean
+        }.getOrNull()
+    }
+
+    internal fun resolveNativeFeatureRemoveFlag(
+        featureEnabled: Boolean,
+        handoffValidated: Boolean,
+    ): Boolean? =
+        if (handoffValidated) {
+            !featureEnabled
+        } else {
+            null
+        }
+
     private fun resolveCurrentHandles(): NativeParticipantRuntimeAccess.Handles? {
         val host = hostRef?.get() ?: return null
         return when (val resolution = NativeParticipantRuntimeAccess.resolve(host)) {
@@ -1624,6 +1739,8 @@ internal object SystemUiNativeCombinedParticipantOwner {
         nativeStateIcon = null
         nativeStateDot = null
         nativeStateHidden = null
+        nativeSetRemoveMethod = null
+        nativeGetRemoveFlagMethod = null
         modelReadyLogged = false
         unlockedGeometryLogged = false
         renderController = null
