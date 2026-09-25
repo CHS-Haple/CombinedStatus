@@ -114,4 +114,41 @@ class SystemUiSignalParserTest {
         )
         assertEquals(SignalStrength.Unknown, SystemUiSignalParser.wifi(null))
     }
+    @Test
+    fun hotspotResourceFamilyIsDistinguishedFromRegularWifi() {
+        assertEquals(
+            true,
+            SystemUiSignalParser.isHotspotWifiResource(
+                "com.android.systemui:drawable/stat_sys_hotspot_signal_3",
+            ),
+        )
+        assertEquals(
+            false,
+            SystemUiSignalParser.isHotspotWifiResource(
+                "com.android.systemui:drawable/stat_sys_wifi_signal_3",
+            ),
+        )
+    }
+
+    @Test
+    fun noInternetWifiVariantRemainsInsideNativeWifiFamily() {
+        val resource =
+            "com.android.systemui:drawable/stat_sys_wifi_signal_2_no_internet"
+
+        assertEquals(true, SystemUiSignalParser.isWifiFamilyResource(resource))
+        assertEquals(SignalStrength.Level(2), SystemUiSignalParser.wifi(resource))
+        assertEquals(false, SystemUiSignalParser.wifiInternetValidated(resource))
+    }
+
+    @Test
+    fun hotspotNoInternetVariantRetainsSignalAndInternetSemantics() {
+        val resource =
+            "com.android.systemui:drawable/stat_sys_hotspot_signal_3_unavailable"
+
+        assertEquals(true, SystemUiSignalParser.isWifiFamilyResource(resource))
+        assertEquals(true, SystemUiSignalParser.isHotspotWifiResource(resource))
+        assertEquals(SignalStrength.Level(3), SystemUiSignalParser.wifi(resource))
+        assertEquals(false, SystemUiSignalParser.wifiInternetValidated(resource))
+    }
+
 }
