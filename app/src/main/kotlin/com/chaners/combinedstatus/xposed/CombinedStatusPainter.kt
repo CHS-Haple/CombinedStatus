@@ -406,12 +406,12 @@ internal class CombinedStatusPainter(
             }
         }
 
-        val plateauAlpha =
-            CombinedStatusVisualIntensity.resolveSourcePlateauAlpha(
+        val ceilingAlpha =
+            CombinedStatusVisualIntensity.resolveSourceCeilingAlpha(
                 sourceAlphas = sourceAlphas,
                 minVisibleAlpha = NATIVE_OPTICAL_ALPHA_THRESHOLD,
             )
-        if (plateauAlpha <= 0 || maxX < minX || maxY < minY) {
+        if (ceilingAlpha <= 0 || maxX < minX || maxY < minY) {
             bitmap.recycle()
             return null
         }
@@ -420,7 +420,7 @@ internal class CombinedStatusPainter(
             val normalizedAlpha =
                 CombinedStatusVisualIntensity.normalizeSourceAlpha(
                     sourceAlpha = sourceAlphas[index],
-                    sourcePlateauAlpha = plateauAlpha,
+                    sourceCeilingAlpha = ceilingAlpha,
                 )
             pixels[index] =
                 (normalizedAlpha shl 24) or
@@ -1156,6 +1156,8 @@ internal object CombinedStatusOuterGeometry {
 
 
 internal object CombinedStatusVisualIntensity {
+    private const val SOURCE_ALPHA_CEILING_QUANTILE = 0.85f
+
     fun resolveCanvasAlpha(
         color: Int,
         semanticAlpha: Int,
@@ -1172,37 +1174,35 @@ internal object CombinedStatusVisualIntensity {
             .roundToInt()
             .coerceIn(0, 255)
 
-    fun resolveSourcePlateauAlpha(
+    fun resolveSourceCeilingAlpha(
         sourceAlphas: IntArray,
         minVisibleAlpha: Int,
     ): Int {
         val threshold = minVisibleAlpha.coerceIn(0, 254)
-        val histogram = IntArray(256)
-        sourceAlphas.forEach { sourceAlpha ->
-            val alpha = sourceAlpha.coerceIn(0, 255)
-            if (alpha > threshold) {
-                histogram[alpha]++
-            }
+        val visible =
+            sourceAlphas
+                .asSequence()
+                .map { alpha -> alpha.coerceIn(0, 255) }
+                .filter { alpha -> alpha > threshold }
+                .sorted()
+                .toList()
+        if (visible.isEmpty()) {
+            return 0
         }
 
-        var plateauAlpha = 0
-        var plateauCount = 0
-        for (alpha in (threshold + 1)..255) {
-            val count = histogram[alpha]
-            if (count >= plateauCount && count > 0) {
-                plateauAlpha = alpha
-                plateauCount = count
-            }
-        }
-        return plateauAlpha
+        val index =
+            ((visible.lastIndex) * SOURCE_ALPHA_CEILING_QUANTILE)
+                .toInt()
+                .coerceIn(0, visible.lastIndex)
+        return visible[index]
     }
 
     fun normalizeSourceAlpha(
         sourceAlpha: Int,
-        sourcePlateauAlpha: Int,
+        sourceCeilingAlpha: Int,
     ): Int {
-        val plateauAlpha = sourcePlateauAlpha.coerceIn(1, 255)
-        return (sourceAlpha.coerceIn(0, 255) * 255f / plateauAlpha)
+        val ceilingAlpha = sourceCeilingAlpha.coerceIn(1, 255)
+        return (sourceAlpha.coerceIn(0, 255) * 255f / ceilingAlpha)
             .roundToInt()
             .coerceIn(0, 255)
     }
