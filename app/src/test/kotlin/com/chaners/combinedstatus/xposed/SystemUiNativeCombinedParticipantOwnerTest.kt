@@ -175,4 +175,34 @@ class SystemUiNativeCombinedParticipantOwnerTest {
         )
     }
 
+    @Test
+    fun nativeBindingTintIsMergedWithoutChangingBatteryAnchorTint() {
+        val merged =
+            SystemUiNativeCombinedParticipantOwner.mergeNativeParticipantTint(
+                batteryTint =
+                    CombinedStatusTintState(
+                        appliedTint = 0xbf000000.toInt(),
+                    ),
+                nativeTint = 0xff303030.toInt(),
+            )
+
+        assertEquals(0xbf000000.toInt(), merged.appliedTint)
+        assertEquals(0xff303030.toInt(), merged.statusIconTint)
+    }
+
+    @Test
+    fun transparentNativeBindingTintFallsBackWithoutOverwritingAnchor() {
+        val merged =
+            SystemUiNativeCombinedParticipantOwner.mergeNativeParticipantTint(
+                batteryTint =
+                    CombinedStatusTintState(
+                        appliedTint = 0xbf000000.toInt(),
+                    ),
+                nativeTint = 0x00303030,
+            )
+
+        assertEquals(0xbf000000.toInt(), merged.appliedTint)
+        assertEquals(null, merged.statusIconTint)
+    }
+
 }
