@@ -14,7 +14,7 @@ internal class CombinedStatusRenderView(
         sample: RuntimeRenderLatencySample?,
     ) -> Unit = { _, _, _ -> },
 ) : View(context) {
-    private val painter = CombinedStatusPainter()
+    private val painter = CombinedStatusPainter(context)
 
     @Volatile
     private var model: CombinedStatusRenderModel? = null

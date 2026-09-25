@@ -393,7 +393,7 @@ class CombinedStatusRenderModelTest {
     }
 
     @Test
-    fun airplaneModeNeverUsesMobileTypeWithoutWifi() {
+    fun airplaneModeUsesAirplaneCenterAndUnavailableMobileSignal() {
         val model =
             CombinedStatusRenderModel.from(
                 snapshot =
@@ -420,7 +420,7 @@ class CombinedStatusRenderModelTest {
                 defaultDataSubscriptionId = 1,
             )
 
-        assertTrue(model?.centerIndicator is CenterIndicator.Empty)
+        assertTrue(model?.centerIndicator is CenterIndicator.Airplane)
         assertNull(model?.mobileLevel)
     }
 

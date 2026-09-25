@@ -1,5 +1,6 @@
 package com.chaners.combinedstatus.xposed
 
+import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -12,8 +13,12 @@ import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
 
-internal class CombinedStatusPainter {
+internal class CombinedStatusPainter(
+    private val context: Context,
+) {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private var airplaneDrawableResolved = false
+    private var cachedAirplaneDrawable: android.graphics.drawable.Drawable? = null
     private val mobileTypeTypeface =
         Typeface.create(Typeface.DEFAULT, MOBILE_TYPE_WEIGHT, false)
     private val mobileTypeMainBounds = Rect()
@@ -91,6 +96,13 @@ internal class CombinedStatusPainter {
                 }
             }
 
+            CenterIndicator.Airplane ->
+                drawNativeAirplane(
+                    canvas = canvas,
+                    tint = tint,
+                    opacity = opacity,
+                )
+
             CenterIndicator.Empty -> Unit
         }
     }
@@ -114,6 +126,65 @@ internal class CombinedStatusPainter {
             canvas.drawPath(path, paint)
         }
         canvas.restoreToCount(save)
+    }
+
+    private fun airplaneDrawable(): android.graphics.drawable.Drawable? {
+        if (airplaneDrawableResolved) {
+            return cachedAirplaneDrawable
+        }
+
+        airplaneDrawableResolved = true
+        cachedAirplaneDrawable =
+            runCatching {
+                val resourceId =
+                    context.resources.getIdentifier(
+                        AIRPLANE_RESOURCE_NAME,
+                        "drawable",
+                        SYSTEM_UI_PACKAGE,
+                    )
+                if (resourceId == 0) {
+                    return@runCatching null
+                }
+                context.getDrawable(resourceId)
+                    ?.constantState
+                    ?.newDrawable(context.resources)
+                    ?.mutate()
+                    ?: context.getDrawable(resourceId)?.mutate()
+            }.getOrNull()
+        return cachedAirplaneDrawable
+    }
+
+    private fun drawNativeAirplane(
+        canvas: Canvas,
+        tint: Int,
+        opacity: Float,
+    ) {
+        val drawable = airplaneDrawable() ?: return
+        val intrinsicWidth = drawable.intrinsicWidth
+        val intrinsicHeight = drawable.intrinsicHeight
+        if (intrinsicWidth <= 0 || intrinsicHeight <= 0) {
+            return
+        }
+
+        val drawableScale =
+            min(
+                AIRPLANE_MAX_WIDTH / intrinsicWidth,
+                AIRPLANE_MAX_HEIGHT / intrinsicHeight,
+            )
+        val drawWidth = intrinsicWidth * drawableScale
+        val drawHeight = intrinsicHeight * drawableScale
+        val left = (AIRPLANE_CENTER_X - drawWidth / 2f).toInt()
+        val top = (AIRPLANE_CENTER_Y - drawHeight / 2f).toInt()
+
+        drawable.setTint(tint)
+        drawable.alpha = effectiveAlpha(tint, 255, opacity)
+        drawable.setBounds(
+            left,
+            top,
+            (left + drawWidth).toInt(),
+            (top + drawHeight).toInt(),
+        )
+        drawable.draw(canvas)
     }
 
     private fun drawMobileType(
@@ -395,6 +466,12 @@ internal class CombinedStatusPainter {
         const val MOBILE_CENTER_Y = 58f
         const val MOBILE_ORBIT_RADIUS = 51f
         const val MOBILE_DOT_RADIUS = 4.9f
+        const val SYSTEM_UI_PACKAGE = "com.android.systemui"
+        const val AIRPLANE_RESOURCE_NAME = "stat_sys_airplane_mode"
+        const val AIRPLANE_CENTER_X = 60f
+        const val AIRPLANE_CENTER_Y = 56f
+        const val AIRPLANE_MAX_WIDTH = 54f
+        const val AIRPLANE_MAX_HEIGHT = 48f
         const val MOBILE_TYPE_CENTER_X = 60f
         const val MOBILE_TYPE_CENTER_Y = 60f
         const val MOBILE_TYPE_TEXT_SIZE_PX = 38f
