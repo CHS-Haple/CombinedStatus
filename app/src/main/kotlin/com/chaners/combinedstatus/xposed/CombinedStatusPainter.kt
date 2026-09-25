@@ -22,7 +22,7 @@ internal class CombinedStatusPainter(
 ) {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private var airplaneDrawableResolved = false
-    private var cachedAirplaneDrawable: Drawable? = null
+    private var cachedAirplaneResourceId: Int = 0
     private val nativeCenterAssets =
         object : LinkedHashMap<String, NativeCenterAsset>(NATIVE_CENTER_CACHE_SIZE, 0.75f, true) {
             override fun removeEldestEntry(
@@ -66,11 +66,16 @@ internal class CombinedStatusPainter(
         val scale = min(width / CANONICAL_SIZE, height / CANONICAL_SIZE)
         val visualWidth = CANONICAL_SIZE * scale
         val visualHeight = CANONICAL_SIZE * scale
+        val offsetX = (width - visualWidth) / 2f
+        val offsetY = (height - visualHeight) / 2f
+        val nativeTransform =
+            NativeRenderTransform(
+                scale = scale,
+                offsetX = offsetX,
+                offsetY = offsetY,
+            )
         val save = canvas.save()
-        canvas.translate(
-            (width - visualWidth) / 2f,
-            (height - visualHeight) / 2f,
-        )
+        canvas.translate(offsetX, offsetY)
         canvas.scale(scale, scale)
 
         val outerGeometry = resolveOuterGeometry(outerWeightScale)
@@ -96,6 +101,7 @@ internal class CombinedStatusPainter(
             exitAmount = centerExitAmount,
             enterAmount = centerEnterAmount,
             geometry = centerGeometry,
+            nativeTransform = nativeTransform,
         )
         drawMobile(
             canvas = canvas,
@@ -144,6 +150,7 @@ internal class CombinedStatusPainter(
         exitAmount: Float,
         enterAmount: Float,
         geometry: CombinedStatusCenterGeometry.Resolved,
+        nativeTransform: NativeRenderTransform,
     ) {
         if (previous == null || previous == current) {
             drawCenterIndicator(
@@ -154,6 +161,7 @@ internal class CombinedStatusPainter(
                 scale = scale,
                 appearAmount = 1f,
                 geometry = geometry,
+                nativeTransform = nativeTransform,
             )
             return
         }
@@ -166,6 +174,7 @@ internal class CombinedStatusPainter(
             scale = scale,
             appearAmount = exitAmount.coerceIn(0f, 1f),
             geometry = geometry,
+            nativeTransform = nativeTransform,
         )
         drawCenterIndicator(
             canvas = canvas,
@@ -175,6 +184,7 @@ internal class CombinedStatusPainter(
             scale = scale,
             appearAmount = enterAmount.coerceIn(0f, 1f),
             geometry = geometry,
+            nativeTransform = nativeTransform,
         )
     }
 
@@ -186,6 +196,7 @@ internal class CombinedStatusPainter(
         scale: Float,
         appearAmount: Float,
         geometry: CombinedStatusCenterGeometry.Resolved,
+        nativeTransform: NativeRenderTransform,
     ) {
         if (appearAmount <= 0f) {
             return
@@ -228,6 +239,8 @@ internal class CombinedStatusPainter(
                     tint = tint,
                     opacity = animatedOpacity,
                     geometry = geometry,
+                    nativeTransform = nativeTransform,
+                    pixelAligned = appearAmount >= NATIVE_STEADY_APPEAR_THRESHOLD,
                 )
 
             is CenterIndicator.NoSim ->
@@ -240,6 +253,8 @@ internal class CombinedStatusPainter(
                     centerY = CENTER_TRANSITION_PIVOT_Y,
                     maxWidth = geometry.noSimMaxSize,
                     maxHeight = geometry.noSimMaxSize,
+                    nativeTransform = nativeTransform,
+                    pixelAligned = appearAmount >= NATIVE_STEADY_APPEAR_THRESHOLD,
                 )
 
             CenterIndicator.Empty -> Unit
@@ -253,6 +268,8 @@ internal class CombinedStatusPainter(
         tint: Int,
         opacity: Float,
         geometry: CombinedStatusCenterGeometry.Resolved,
+        nativeTransform: NativeRenderTransform,
+        pixelAligned: Boolean,
     ) {
         val nativeResourceId = indicator.nativeResourceId
         if (
@@ -270,6 +287,8 @@ internal class CombinedStatusPainter(
                 centerY = WIFI_CENTER_Y,
                 maxWidth = geometry.wifiMaxWidth,
                 maxHeight = geometry.wifiMaxHeight,
+                nativeTransform = nativeTransform,
+                pixelAligned = pixelAligned,
             )
         ) {
             return
@@ -413,6 +432,8 @@ internal class CombinedStatusPainter(
         centerY: Float,
         maxWidth: Float,
         maxHeight: Float,
+        nativeTransform: NativeRenderTransform,
+        pixelAligned: Boolean,
     ): Boolean {
         val asset = nativeCenterAsset(resource) ?: return false
         val drawable = asset.drawable
@@ -436,54 +457,69 @@ internal class CombinedStatusPainter(
             )
         val drawWidth = intrinsicWidth * drawableScale
         val drawHeight = intrinsicHeight * drawableScale
-        // HyperOS resources are authored around their own viewport center.
-        // Optical bounds define visual size only; using the alpha-bounds center
-        // as the anchor shifts asymmetric Wi-Fi/hotspot resources off-axis.
-        val left = centerX - drawWidth / 2f
-        val top = centerY - drawHeight / 2f
 
-        drawable.setTint(
-            Color.rgb(
-                Color.red(tint),
-                Color.green(tint),
-                Color.blue(tint),
-            ),
-        )
-        drawable.alpha = effectiveAlpha(tint, 255, opacity)
-        drawable.setBounds(
-            left.roundToInt(),
-            top.roundToInt(),
-            (left + drawWidth).roundToInt(),
-            (top + drawHeight).roundToInt(),
-        )
-        drawable.draw(canvas)
+        drawable.setTint(tint)
+        drawable.alpha =
+            (255f * opacity.coerceIn(0f, 1f))
+                .roundToInt()
+                .coerceIn(0, 255)
+
+        if (pixelAligned && nativeTransform.scale > 0f) {
+            val bounds =
+                CombinedStatusNativeRenderGeometry.resolvePixelBounds(
+                    centerX = centerX,
+                    centerY = centerY,
+                    drawWidth = drawWidth,
+                    drawHeight = drawHeight,
+                    transform = nativeTransform,
+                )
+            val save = canvas.save()
+            canvas.scale(
+                1f / nativeTransform.scale,
+                1f / nativeTransform.scale,
+            )
+            canvas.translate(
+                -nativeTransform.offsetX,
+                -nativeTransform.offsetY,
+            )
+            drawable.setBounds(
+                bounds.left,
+                bounds.top,
+                bounds.right,
+                bounds.bottom,
+            )
+            drawable.draw(canvas)
+            canvas.restoreToCount(save)
+        } else {
+            // Transition frames keep the existing canonical-space scale contract.
+            val left = centerX - drawWidth / 2f
+            val top = centerY - drawHeight / 2f
+            drawable.setBounds(
+                left.roundToInt(),
+                top.roundToInt(),
+                (left + drawWidth).roundToInt(),
+                (top + drawHeight).roundToInt(),
+            )
+            drawable.draw(canvas)
+        }
         return true
     }
 
-    private fun airplaneDrawable(): android.graphics.drawable.Drawable? {
+    private fun airplaneResourceId(): Int? {
         if (airplaneDrawableResolved) {
-            return cachedAirplaneDrawable
+            return cachedAirplaneResourceId.takeIf { it != 0 }
         }
 
         airplaneDrawableResolved = true
-        cachedAirplaneDrawable =
+        cachedAirplaneResourceId =
             runCatching {
-                val resourceId =
-                    context.resources.getIdentifier(
-                        AIRPLANE_RESOURCE_NAME,
-                        "drawable",
-                        SYSTEM_UI_PACKAGE,
-                    )
-                if (resourceId == 0) {
-                    return@runCatching null
-                }
-                context.getDrawable(resourceId)
-                    ?.constantState
-                    ?.newDrawable(context.resources)
-                    ?.mutate()
-                    ?: context.getDrawable(resourceId)?.mutate()
-            }.getOrNull()
-        return cachedAirplaneDrawable
+                context.resources.getIdentifier(
+                    AIRPLANE_RESOURCE_NAME,
+                    "drawable",
+                    SYSTEM_UI_PACKAGE,
+                )
+            }.getOrDefault(0)
+        return cachedAirplaneResourceId.takeIf { it != 0 }
     }
 
     private fun drawNativeAirplane(
@@ -491,39 +527,26 @@ internal class CombinedStatusPainter(
         tint: Int,
         opacity: Float,
         geometry: CombinedStatusCenterGeometry.Resolved,
+        nativeTransform: NativeRenderTransform,
+        pixelAligned: Boolean,
     ) {
-        val drawable = airplaneDrawable() ?: return
-        val intrinsicWidth = drawable.intrinsicWidth
-        val intrinsicHeight = drawable.intrinsicHeight
-        if (intrinsicWidth <= 0 || intrinsicHeight <= 0) {
-            return
-        }
-
-        val drawableScale =
-            min(
-                geometry.airplaneMaxSize / intrinsicWidth,
-                geometry.airplaneMaxSize / intrinsicHeight,
-            )
-        val drawWidth = intrinsicWidth * drawableScale
-        val drawHeight = intrinsicHeight * drawableScale
-        val left = (AIRPLANE_CENTER_X - drawWidth / 2f).toInt()
-        val top = (AIRPLANE_CENTER_Y - drawHeight / 2f).toInt()
-
-        drawable.setTint(
-            Color.rgb(
-                Color.red(tint),
-                Color.green(tint),
-                Color.blue(tint),
-            ),
+        val resourceId = airplaneResourceId() ?: return
+        drawNativeCenterResource(
+            canvas = canvas,
+            resource =
+                CombinedStatusPresentationStateStore.NativeIconResource(
+                    packageName = SYSTEM_UI_PACKAGE,
+                    resourceId = resourceId,
+                ),
+            tint = tint,
+            opacity = opacity,
+            centerX = AIRPLANE_CENTER_X,
+            centerY = AIRPLANE_CENTER_Y,
+            maxWidth = geometry.airplaneMaxSize,
+            maxHeight = geometry.airplaneMaxSize,
+            nativeTransform = nativeTransform,
+            pixelAligned = pixelAligned,
         )
-        drawable.alpha = effectiveAlpha(tint, 255, opacity)
-        drawable.setBounds(
-            left,
-            top,
-            (left + drawWidth).toInt(),
-            (top + drawHeight).toInt(),
-        )
-        drawable.draw(canvas)
     }
 
     private fun drawMobileType(
@@ -825,6 +848,7 @@ internal class CombinedStatusPainter(
         const val NATIVE_OPTICAL_PROBE_MAX = 96f
         const val NATIVE_OPTICAL_ALPHA_THRESHOLD = 8
         const val MIN_OPTICAL_RATIO = 0.08f
+        const val NATIVE_STEADY_APPEAR_THRESHOLD = 0.999f
     }
 
     private data class NativeCenterAsset(
@@ -850,6 +874,47 @@ internal class CombinedStatusPainter(
     }
 }
 
+
+
+internal data class NativeRenderTransform(
+    val scale: Float,
+    val offsetX: Float,
+    val offsetY: Float,
+)
+
+internal object CombinedStatusNativeRenderGeometry {
+    internal data class PixelBounds(
+        val left: Int,
+        val top: Int,
+        val right: Int,
+        val bottom: Int,
+    )
+
+    fun resolvePixelBounds(
+        centerX: Float,
+        centerY: Float,
+        drawWidth: Float,
+        drawHeight: Float,
+        transform: NativeRenderTransform,
+    ): PixelBounds {
+        val physicalCenterX =
+            transform.offsetX + centerX * transform.scale
+        val physicalCenterY =
+            transform.offsetY + centerY * transform.scale
+        val width =
+            max(1, (drawWidth * transform.scale).roundToInt())
+        val height =
+            max(1, (drawHeight * transform.scale).roundToInt())
+        val left = (physicalCenterX - width / 2f).roundToInt()
+        val top = (physicalCenterY - height / 2f).roundToInt()
+        return PixelBounds(
+            left = left,
+            top = top,
+            right = left + width,
+            bottom = top + height,
+        )
+    }
+}
 
 
 internal object CombinedStatusCenterGeometry {
