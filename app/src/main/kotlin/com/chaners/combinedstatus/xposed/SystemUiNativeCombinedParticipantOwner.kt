@@ -615,11 +615,21 @@ internal object SystemUiNativeCombinedParticipantOwner {
                             FrameLayout.LayoutParams(
                                 battery.width,
                                 battery.height,
-                                Gravity.CENTER,
                             ),
                         )
                     }
             }
+        val renderLayoutParams =
+            (render.layoutParams as? FrameLayout.LayoutParams)
+                ?: FrameLayout.LayoutParams(
+                    battery.width,
+                    battery.height,
+                )
+        renderLayoutParams.width = battery.width
+        renderLayoutParams.height = battery.height
+        renderLayoutParams.gravity = Gravity.NO_GRAVITY
+        render.layoutParams = renderLayoutParams
+
         renderViewRef = WeakReference(render)
         renderController =
             renderController ?: CombinedStatusRenderController(render)
@@ -860,6 +870,8 @@ internal object SystemUiNativeCombinedParticipantOwner {
                                 parentClipsChildren = parent?.clipChildren ?: true,
                                 rootScreenX = rootLocation[0],
                                 batteryScreenX = batteryLocation[0],
+                                renderLeft = render?.left ?: Int.MIN_VALUE,
+                                renderRight = render?.right ?: Int.MIN_VALUE,
                             )
                         val ready =
                             modelReady &&
@@ -883,6 +895,9 @@ internal object SystemUiNativeCombinedParticipantOwner {
                                     (render?.measuredHeight ?: -1) +
                                     " rootScreenX=" + rootLocation[0] +
                                     " batteryScreenX=" + batteryLocation[0] +
+                                    " renderBounds=" +
+                                    (render?.left ?: Int.MIN_VALUE) + "-" +
+                                    (render?.right ?: Int.MIN_VALUE) +
                                     " parentClipChildren=" +
                                     (parent?.clipChildren ?: true) +
                                     " bridge=zero-slot-to-native-battery " +
@@ -906,6 +921,9 @@ internal object SystemUiNativeCombinedParticipantOwner {
                                     (render?.measuredHeight ?: -1) +
                                     " rootScreenX=" + rootLocation[0] +
                                     " batteryScreenX=" + batteryLocation[0] +
+                                    " renderBounds=" +
+                                    (render?.left ?: Int.MIN_VALUE) + "-" +
+                                    (render?.right ?: Int.MIN_VALUE) +
                                     " parentClipChildren=" +
                                     (parent?.clipChildren ?: true) +
                                     " bridgeReady=" + bridgeReady +
@@ -931,6 +949,8 @@ internal object SystemUiNativeCombinedParticipantOwner {
         parentClipsChildren: Boolean,
         rootScreenX: Int,
         batteryScreenX: Int,
+        renderLeft: Int,
+        renderRight: Int,
     ): Boolean =
         rootMeasuredWidth == ZERO_SLOT_WIDTH &&
             rootMeasuredHeight > 0 &&
@@ -939,7 +959,9 @@ internal object SystemUiNativeCombinedParticipantOwner {
             expectedVisualWidth > 0 &&
             expectedVisualHeight > 0 &&
             !parentClipsChildren &&
-            rootScreenX == batteryScreenX
+            rootScreenX == batteryScreenX &&
+            renderLeft == 0 &&
+            renderRight == expectedVisualWidth
 
     private fun requestNativeLayout(root: View) {
         root.requestLayout()
