@@ -5,7 +5,7 @@ import android.os.Process
 import android.os.SystemClock
 import android.util.Log
 import com.chaners.combinedstatus.BuildConfig
-import com.chaners.combinedstatus.settings.DIAGNOSTICS_REMOTE_PREFS_NAME
+import com.chaners.combinedstatus.settings.RUNTIME_REMOTE_PREFS_NAME
 import com.chaners.combinedstatus.system.RuntimeDiagnosticsProtocol
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.HotReloadedParam
@@ -25,6 +25,7 @@ class CombinedStatusModule : XposedModule() {
 
     override fun onModuleLoaded(param: ModuleLoadedParam) {
         bindRuntimeDiagnostics()
+        bindRuntimeVisualSettings()
         log(
             Log.INFO,
             TAG,
@@ -234,6 +235,7 @@ class CombinedStatusModule : XposedModule() {
 
         if (takeover == null) {
             bindRuntimeDiagnostics()
+            bindRuntimeVisualSettings()
             logDiagnostic(
                 level = Log.ERROR,
                 event = "hotReload.complete",
@@ -261,6 +263,7 @@ class CombinedStatusModule : XposedModule() {
             SystemUiNativeNetworkSuppressionOwner.resetRuntimeState("hotReload")
             SystemUiNativeBatterySuppressionOwner.resetRuntimeState("hotReload")
             bindRuntimeDiagnostics()
+            bindRuntimeVisualSettings()
             logDiagnostic(
                 level = Log.INFO,
                 event = "module.reloaded",
@@ -1232,6 +1235,7 @@ class CombinedStatusModule : XposedModule() {
             "mainThread" to true,
         )
         unbindRuntimeDiagnostics()
+        RuntimeVisualPreferencesOwner.unbind()
     }
 
     private fun attachHostRuntime(
@@ -1795,7 +1799,7 @@ class CombinedStatusModule : XposedModule() {
 
         runCatching {
             RuntimeDiagnosticsPreferencesOwner.bind(
-                preferences = getRemotePreferences(DIAGNOSTICS_REMOTE_PREFS_NAME),
+                preferences = getRemotePreferences(RUNTIME_REMOTE_PREFS_NAME),
                 forceDetailed = BuildConfig.DEVELOPMENT_PROBES,
                 onDetailedChanged = ::setDetailedDiagnosticsEnabled,
             )
@@ -1819,6 +1823,52 @@ class CombinedStatusModule : XposedModule() {
                 "reason" to (error.message ?: error.javaClass.simpleName),
             )
             log(Log.WARN, TAG, "Runtime diagnostics preference unavailable", error)
+        }
+    }
+
+    private fun bindRuntimeVisualSettings() {
+        runCatching {
+            RuntimeVisualPreferencesOwner.bind(
+                preferences = getRemotePreferences(RUNTIME_REMOTE_PREFS_NAME),
+                onChanged = ::onRuntimeVisualSettingsChanged,
+            )
+        }.onSuccess { settings ->
+            logDiagnostic(
+                level = Log.INFO,
+                event = "runtimePreferences.bind",
+                component = "visualSettings",
+                state = "ready",
+                "mobileFollowsBattery" to settings.mobileFollowsBatteryColor,
+                "centerFollowsBattery" to settings.centerFollowsBatteryColor,
+                "transport" to "remote-preferences",
+            )
+        }.onFailure { error ->
+            RuntimeVisualPreferencesOwner.unbind()
+            logDiagnostic(
+                level = Log.WARN,
+                event = "runtimePreferences.bind",
+                component = "visualSettings",
+                state = "unavailable",
+                "reason" to (error.message ?: error.javaClass.simpleName),
+            )
+        }
+    }
+
+    private fun onRuntimeVisualSettingsChanged(
+        settings: com.chaners.combinedstatus.settings.CombinedStatusVisualSettings,
+    ) {
+        CombinedStatusHomeRenderSession.onVisualSettingsChanged(settings)
+        SystemUiNativeCombinedParticipantOwner.onVisualSettingsChanged(settings)
+        if (detailedDiagnosticsEnabled) {
+            logDiagnostic(
+                level = Log.INFO,
+                event = "visualSettings.changed",
+                component = "renderer",
+                state = "ready",
+                "mobileFollowsBattery" to settings.mobileFollowsBatteryColor,
+                "centerFollowsBattery" to settings.centerFollowsBatteryColor,
+                "eventDriven" to true,
+            )
         }
     }
 
