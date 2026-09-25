@@ -920,10 +920,13 @@ internal object SystemUiNativeCombinedParticipantOwner {
 
         removePendingPreDraw()
         handoffPending = false
+        // Commit native suppression while the replacement is still non-drawing.
+        // The participant is released only after native presentation owners have
+        // synchronously reached their replacement state on this UI-thread turn.
+        handoffSink?.invoke(true)
         bindingState.visible = true
         root.visibility = View.VISIBLE
         handoffCommitted = true
-        handoffSink?.invoke(true)
         eventSink?.invoke(
             "nativeCombinedParticipant handoffResume " +
                 "source=feature-enabled validated=true " +
@@ -1012,6 +1015,12 @@ internal object SystemUiNativeCombinedParticipantOwner {
         val wasCommitted = handoffCommitted
         handoffCommitted = false
 
+        // Restore native presentation before withdrawing the replacement so
+        // there is no frame with neither presentation available.
+        if (wasCommitted) {
+            handoffSink?.invoke(false)
+        }
+
         if (bindingState?.visible == true) {
             bindingState.visible = false
         }
@@ -1032,10 +1041,6 @@ internal object SystemUiNativeCombinedParticipantOwner {
             if (rootChanged || shellWidthReset) {
                 requestNativeLayout(root)
             }
-        }
-
-        if (wasCommitted) {
-            handoffSink?.invoke(false)
         }
 
         if (wasCommitted || rootChanged || shellWidthReset) {
@@ -1183,9 +1188,15 @@ internal object SystemUiNativeCombinedParticipantOwner {
                                 bridgeReady
 
                         if (ready) {
+                            // Keep the replacement gated until native suppression
+                            // is synchronously committed on this UI-thread turn.
+                            bindingState.visible = false
+                            root.visibility = View.GONE
+                            handoffSink?.invoke(true)
+                            bindingState.visible = true
+                            root.visibility = View.VISIBLE
                             handoffCommitted = true
                             handoffValidated = true
-                            handoffSink?.invoke(true)
                             eventSink?.invoke(
                                 "nativeCombinedParticipant handoffCommit " +
                                     "mode=" + resolvedMode.name +
