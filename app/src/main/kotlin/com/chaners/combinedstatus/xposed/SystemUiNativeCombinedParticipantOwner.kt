@@ -484,7 +484,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
             runCatching {
                 initializerField.set(holder, creator)
                 slotField.set(holder, SLOT)
-                visibleField.setBoolean(holder, featureEnabled)
+                visibleField.setBoolean(holder, true)
                 NativeParticipantRuntimeAccess.invokeSetIconHolder(
                     handles = handles,
                     slot = SLOT,
