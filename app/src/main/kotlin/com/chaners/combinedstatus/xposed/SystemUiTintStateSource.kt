@@ -144,7 +144,7 @@ internal object SystemUiTintStateSource {
             }.getOrNull() ?: return null
         val statusIconTint =
             SystemUiNativeNetworkSuppressionOwner
-                .currentAppliedStatusIconTint()
+                .currentAppliedStatusIconTint(sourceView)
                 ?.takeIf { color -> (color ushr 24) != 0 }
         return CombinedStatusTintState(
             appliedTint = percentView.currentTextColor,
