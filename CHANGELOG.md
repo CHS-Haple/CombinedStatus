@@ -26,6 +26,9 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Changed
 
+- Native HyperOS center drawables now normalize their intrinsic alpha mask at render time before the resolved SystemUI tint strength is applied, so full-strength Wi-Fi, airplane, and no-SIM assets share the same visual-intensity contract as project-drawn Combined Status elements without per-resource compensation.
+
+
 - Center network presentation now prefers authoritative HyperOS drawable resources for Wi-Fi/hotspot, airplane, and no-SIM states, keeps native drawable stroke design intact while applying Combined Status-owned size scaling, normalizes resource-intrinsic drawable alpha against the resolved native status-icon tint so native center assets preserve the same final visual tint as the Combined Status composition, and uses that resolved tint across the non-charging battery ring, center network icon, and mobile layer. Charging green remains battery-state-owned, while the optional center/mobile color links can intentionally follow that final battery-ring color. Proportional center size/text-weight parameters remain reserved for later user customization. The mobile unavailable mark remains a project-owned rounded accessory for explicit unavailable states, while center no-Internet cross rendering is removed in favor of HyperOS Wi-Fi resource variants.
 - Outer Combined Status visual weight is rebalanced with one shared proportional weight scale: the battery ring and four mobile-signal dots grow together, while the lower-opening geometry is recomputed so ring-to-dot and dot-to-dot edge spacing stays visually balanced across the supported scale range. The current default is 1.10×; no user-facing thickness setting is exposed yet.
 
