@@ -5,11 +5,51 @@ import org.junit.Test
 
 class NativeCenterTintNormalizerTest {
     @Test
+    fun fullStrengthCanvasUsesSystemTintAlpha() {
+        assertEquals(
+            191,
+            CombinedStatusVisualIntensity.resolveCanvasAlpha(
+                color = 0xbf123456.toInt(),
+                semanticAlpha = 255,
+                opacity = 1f,
+            ),
+        )
+    }
+
+    @Test
+    fun semanticDimmingMultipliesSystemTintInsteadOfReplacingIt() {
+        assertEquals(
+            35,
+            CombinedStatusVisualIntensity.resolveCanvasAlpha(
+                color = 0xbf123456.toInt(),
+                semanticAlpha = 48,
+                opacity = 1f,
+            ),
+        )
+    }
+
+    @Test
+    fun transitionOpacityIsIndependentFromSemanticIntensity() {
+        assertEquals(
+            95,
+            CombinedStatusVisualIntensity.resolveCanvasAlpha(
+                color = 0xbf123456.toInt(),
+                semanticAlpha = 255,
+                opacity = 0.5f,
+            ),
+        )
+        assertEquals(
+            128,
+            CombinedStatusVisualIntensity.resolveDrawableAlpha(0.5f),
+        )
+    }
+
+    @Test
     fun opaqueNativeAssetKeepsSystemTintUnchanged() {
         val tint = 0xbf000000.toInt()
         assertEquals(
             tint,
-            NativeCenterTintNormalizer.normalizeForIntrinsicAlpha(
+            CombinedStatusVisualIntensity.resolveNativeFullStrengthTint(
                 tint = tint,
                 intrinsicMaxAlpha = 255,
             ),
@@ -20,7 +60,7 @@ class NativeCenterTintNormalizerTest {
     fun intrinsicDrawableAlphaIsCompensatedWithoutChangingRgb() {
         val tint = 0xbf123456.toInt()
         val normalized =
-            NativeCenterTintNormalizer.normalizeForIntrinsicAlpha(
+            CombinedStatusVisualIntensity.resolveNativeFullStrengthTint(
                 tint = tint,
                 intrinsicMaxAlpha = 230,
             )
@@ -32,7 +72,7 @@ class NativeCenterTintNormalizerTest {
     fun compensationClampsInsteadOfOverflowing() {
         val tint = 0xe6ffffff.toInt()
         val normalized =
-            NativeCenterTintNormalizer.normalizeForIntrinsicAlpha(
+            CombinedStatusVisualIntensity.resolveNativeFullStrengthTint(
                 tint = tint,
                 intrinsicMaxAlpha = 204,
             )
