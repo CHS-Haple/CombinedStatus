@@ -1,5 +1,7 @@
 package com.chaners.combinedstatus.xposed
 
+import com.chaners.combinedstatus.settings.CombinedStatusVisualSettings
+
 internal class CombinedStatusRenderController(
     private val view: CombinedStatusRenderView,
 ) {
@@ -37,6 +39,10 @@ internal class CombinedStatusRenderController(
             changed = model != previous,
             defaultDataSubscriptionId = defaultDataSubscriptionId,
         )
+    }
+
+    fun updateVisualSettings(state: CombinedStatusVisualSettings) {
+        view.setVisualSettings(state)
     }
 
     fun updateTint(state: CombinedStatusTintState): TintUpdate {

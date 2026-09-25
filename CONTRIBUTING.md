@@ -51,6 +51,16 @@ Where HyperOS already provides an applicable feature design, state model, behavi
 
 Prefer runtime/resource-reference reuse over copying proprietary HyperOS assets into the repository. Any copied third-party asset still requires a valid license basis and applicable attribution/notice.
 
+#### Native visual resource integration
+
+When a verified HyperOS/SystemUI drawable or icon is reused inside Combined Status, preserve the authoritative resource identity and its authored internal visual relationships. Prefer consuming the runtime resource as-is rather than editing, recoloring, or preprocessing the source asset.
+
+Full-strength native drawables rendered by Combined Status MUST use the shared visual-intensity normalization path so resource-intrinsic alpha does not unintentionally change the final SystemUI tint strength. Project-drawn full-strength elements MUST resolve from the same SystemUI tint authority. Semantic dimming that communicates state, such as inactive signal dots or an unfilled battery track, SHOULD remain distinguishable and must not be flattened merely to make every pixel share one alpha.
+
+Contributors MUST NOT introduce per-resource grayscale multipliers, hard-coded replacement grays, source-asset alpha edits, or other magic-number compensation solely to visually match a native status icon. A resource-specific exception is allowed only when the shared normalization contract is demonstrably insufficient; the root cause, platform/reference evidence, affected resource family, fallback boundary, and focused device validation MUST then be documented.
+
+For a newly reused native visual resource, review at minimum its resource identity, intrinsic alpha behavior, tint ownership, state variants, and fallback behavior. Where practical, validate at least one full-strength state against neighboring native SystemUI status icons and keep deterministic normalization behavior covered by unit tests.
+
 ### 2.2 Lightweight
 
 "Lightweight" means reducing unnecessary runtime work and architectural redundancy, not merely APK size.

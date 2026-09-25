@@ -10,6 +10,7 @@ import android.os.SystemClock
 import android.view.View
 import android.view.animation.AnimationUtils
 import android.view.animation.Interpolator
+import com.chaners.combinedstatus.settings.CombinedStatusVisualSettings
 
 internal class CombinedStatusRenderView(
     context: Context,
@@ -40,6 +41,9 @@ internal class CombinedStatusRenderView(
 
     @Volatile
     private var tintState: CombinedStatusTintState? = null
+
+    @Volatile
+    private var visualSettings = CombinedStatusVisualSettings()
 
     @Volatile
     private var pendingStateUptimeMs: Long = 0
@@ -107,6 +111,14 @@ internal class CombinedStatusRenderView(
             return
         }
         tintState = state
+        requestRedraw()
+    }
+
+    fun setVisualSettings(state: CombinedStatusVisualSettings) {
+        if (visualSettings == state) {
+            return
+        }
+        visualSettings = state
         requestRedraw()
     }
 
@@ -208,7 +220,12 @@ internal class CombinedStatusRenderView(
             width = width,
             height = height,
             model = current,
-            colors = CombinedStatusColorPolicy.resolve(current, tint),
+            colors =
+                CombinedStatusColorPolicy.resolve(
+                    model = current,
+                    tintState = tint,
+                    visualSettings = visualSettings,
+                ),
             opacity = 1f,
             previousCenterIndicator = previousCenterIndicator,
             centerExitAmount =

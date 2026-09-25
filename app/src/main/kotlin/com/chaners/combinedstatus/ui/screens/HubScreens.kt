@@ -11,18 +11,22 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.chaners.combinedstatus.R
 import com.chaners.combinedstatus.settings.AppLanguage
+import com.chaners.combinedstatus.settings.CombinedStatusVisualSettingsRepository
 import com.chaners.combinedstatus.system.SystemUiScopeController
 import com.chaners.combinedstatus.ui.components.MiuixBlurredTopBar
 import com.chaners.combinedstatus.ui.components.rememberTopBarBackdrop
@@ -48,6 +52,16 @@ internal fun FeaturesScreen(
     bottomContentPadding: Dp,
     onNavigate: (AppRoute) -> Unit,
 ) {
+    val context = LocalContext.current
+    val visualRepository =
+        remember(context.applicationContext) {
+            CombinedStatusVisualSettingsRepository(context.applicationContext)
+        }
+    val visualSettings by
+        visualRepository.settings.collectAsState(
+            initial = visualRepository.current(),
+        )
+
     HubPage(
         title = stringResource(R.string.features_title),
         sectionTitle = stringResource(R.string.section_hyperos_display),
@@ -56,6 +70,18 @@ internal fun FeaturesScreen(
         BasicComponent(
             title = stringResource(R.string.combined_status_feature_title),
             summary = stringResource(R.string.combined_status_feature_summary),
+        )
+        SwitchPreference(
+            title = stringResource(R.string.mobile_follow_battery_color),
+            summary = stringResource(R.string.mobile_follow_battery_color_summary),
+            checked = visualSettings.mobileFollowsBatteryColor,
+            onCheckedChange = visualRepository::setMobileFollowsBatteryColor,
+        )
+        SwitchPreference(
+            title = stringResource(R.string.center_follow_battery_color),
+            summary = stringResource(R.string.center_follow_battery_color_summary),
+            checked = visualSettings.centerFollowsBatteryColor,
+            onCheckedChange = visualRepository::setCenterFollowsBatteryColor,
         )
     }
 }

@@ -6,6 +6,7 @@ internal object CombinedStatusConnectivityPolicy {
         airplaneMode: Boolean,
         connectivity: SystemUiConnectivityStateSource.State,
         mobileType: NativePresentationResolver.NetworkType?,
+        noSimIcon: CombinedStatusPresentationStateStore.NativeIconResource? = null,
     ): CenterIndicator? {
         val wifiVisible =
             wifi as? CombinedStatusStateStore.WifiState.Visible
@@ -17,14 +18,18 @@ internal object CombinedStatusConnectivityPolicy {
                 is SignalStrength.Level -> wifiSegments(signal.value)
             }
 
-        if (wifiVisible != null && wifiSegments != null) {
+        if (
+            wifiVisible != null &&
+            (wifiVisible.iconResId != null || wifiSegments != null)
+        ) {
             resolvedWifiInternet(
                 wifi = wifiVisible,
                 connectivity = connectivity,
             )?.let { internet ->
                 return CenterIndicator.Wifi(
-                    segments = wifiSegments,
+                    segments = wifiSegments ?: 0,
                     internet = internet,
+                    nativeResourceId = wifiVisible.iconResId,
                 )
             }
         }
@@ -32,6 +37,9 @@ internal object CombinedStatusConnectivityPolicy {
         if (!connectivity.known) {
             if (airplaneMode) {
                 return CenterIndicator.Airplane
+            }
+            if (noSimIcon != null) {
+                return CenterIndicator.NoSim(noSimIcon)
             }
             return mobileType?.let {
                 CenterIndicator.MobileType(
@@ -44,6 +52,9 @@ internal object CombinedStatusConnectivityPolicy {
 
         if (airplaneMode) {
             return CenterIndicator.Airplane
+        }
+        if (noSimIcon != null) {
+            return CenterIndicator.NoSim(noSimIcon)
         }
 
         return when (connectivity.transport) {
@@ -100,7 +111,10 @@ internal object CombinedStatusConnectivityPolicy {
             CombinedStatusStateStore.WifiState.Unknown -> false
             CombinedStatusStateStore.WifiState.Hidden -> true
             is CombinedStatusStateStore.WifiState.Visible ->
-                wifi.signal is SignalStrength.Level &&
+                (
+                    wifi.iconResId != null ||
+                        wifi.signal is SignalStrength.Level
+                ) &&
                     resolvedWifiInternet(
                         wifi = wifi,
                         connectivity = connectivity,
@@ -147,6 +161,7 @@ internal sealed interface CenterIndicator {
     data class Wifi(
         val segments: Int,
         val internet: InternetState,
+        val nativeResourceId: Int? = null,
     ) : CenterIndicator
 
     data class MobileType(
@@ -156,6 +171,10 @@ internal sealed interface CenterIndicator {
     ) : CenterIndicator
 
     data object Airplane : CenterIndicator
+
+    data class NoSim(
+        val nativeResource: CombinedStatusPresentationStateStore.NativeIconResource,
+    ) : CenterIndicator
 
     data object Empty : CenterIndicator
 }

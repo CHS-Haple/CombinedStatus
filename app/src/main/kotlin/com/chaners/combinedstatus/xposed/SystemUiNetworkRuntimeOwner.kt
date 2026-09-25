@@ -17,6 +17,7 @@ internal object SystemUiNetworkRuntimeOwner {
         classLoader: ClassLoader,
         onWifiState: (CombinedStatusStateStore.WifiState) -> Unit,
         onMobileIcon: (CombinedStatusStateStore.MobileIconUpdate) -> Unit,
+        onMobileSignalWillApply: ((android.widget.ImageView) -> Unit)?,
         onPresentationChanged: (() -> Unit)?,
         onEvent: ((String) -> Unit)?,
     ): SystemUiNetworkStateSource.InstallResult =
@@ -25,6 +26,7 @@ internal object SystemUiNetworkRuntimeOwner {
             classLoader = classLoader,
             onWifiState = onWifiState,
             onMobileIcon = onMobileIcon,
+            onMobileSignalWillApply = onMobileSignalWillApply,
             onPresentationChanged = onPresentationChanged,
             onEvent = onEvent,
         ).also { current = it }

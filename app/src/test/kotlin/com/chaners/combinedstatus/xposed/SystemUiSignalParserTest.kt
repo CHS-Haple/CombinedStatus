@@ -55,6 +55,22 @@ class SystemUiSignalParserTest {
     }
 
     @Test
+    fun hotspotWifiFamilyPreservesNativeSignalLevelAndInternetVariant() {
+        assertEquals(
+            SignalStrength.Level(2),
+            SystemUiSignalParser.wifi(
+                "com.android.systemui:drawable/stat_sys_hotspot_signal_2",
+            ),
+        )
+        assertEquals(
+            false,
+            SystemUiSignalParser.wifiInternetValidated(
+                "com.android.systemui:drawable/stat_sys_hotspot_signal_2_unavailable",
+            ),
+        )
+    }
+
+    @Test
     fun wifiInternetHintComesFromSystemUiResourceVariant() {
         assertEquals(
             true,
@@ -98,4 +114,77 @@ class SystemUiSignalParserTest {
         )
         assertEquals(SignalStrength.Unknown, SystemUiSignalParser.wifi(null))
     }
+    @Test
+    fun hotspotResourceFamilyIsDistinguishedFromRegularWifi() {
+        assertEquals(
+            true,
+            SystemUiSignalParser.isHotspotWifiResource(
+                "com.android.systemui:drawable/stat_sys_hotspot_signal_3",
+            ),
+        )
+        assertEquals(
+            false,
+            SystemUiSignalParser.isHotspotWifiResource(
+                "com.android.systemui:drawable/stat_sys_wifi_signal_3",
+            ),
+        )
+    }
+
+    @Test
+    fun noInternetWifiVariantRemainsInsideNativeWifiFamily() {
+        val resource =
+            "com.android.systemui:drawable/stat_sys_wifi_signal_2_no_internet"
+
+        assertEquals(true, SystemUiSignalParser.isWifiFamilyResource(resource))
+        assertEquals(SignalStrength.Level(2), SystemUiSignalParser.wifi(resource))
+        assertEquals(false, SystemUiSignalParser.wifiInternetValidated(resource))
+    }
+
+    @Test
+    fun hotspotNoInternetVariantRetainsSignalAndInternetSemantics() {
+        val resource =
+            "com.android.systemui:drawable/stat_sys_hotspot_signal_3_unavailable"
+
+        assertEquals(true, SystemUiSignalParser.isWifiFamilyResource(resource))
+        assertEquals(true, SystemUiSignalParser.isHotspotWifiResource(resource))
+        assertEquals(SignalStrength.Level(3), SystemUiSignalParser.wifi(resource))
+        assertEquals(false, SystemUiSignalParser.wifiInternetValidated(resource))
+    }
+
+    @Test
+    fun appliedHotspotFallbackRequiresANewHotspotTag() {
+        val hidden = CombinedStatusStateStore.WifiState.Hidden
+
+        assertEquals(
+            true,
+            SystemUiNetworkStateSource.shouldUseAppliedHotspotFallback(
+                semanticState = hidden,
+                taggedResId = 100,
+                previousTaggedResId = 99,
+                taggedResource =
+                    "com.android.systemui:drawable/stat_sys_hotspot_signal_3",
+            ),
+        )
+        assertEquals(
+            false,
+            SystemUiNetworkStateSource.shouldUseAppliedHotspotFallback(
+                semanticState = hidden,
+                taggedResId = 100,
+                previousTaggedResId = 100,
+                taggedResource =
+                    "com.android.systemui:drawable/stat_sys_hotspot_signal_3",
+            ),
+        )
+        assertEquals(
+            false,
+            SystemUiNetworkStateSource.shouldUseAppliedHotspotFallback(
+                semanticState = hidden,
+                taggedResId = 101,
+                previousTaggedResId = 100,
+                taggedResource =
+                    "com.android.systemui:drawable/stat_sys_wifi_signal_3",
+            ),
+        )
+    }
+
 }

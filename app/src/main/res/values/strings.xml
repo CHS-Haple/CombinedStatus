@@ -27,6 +27,10 @@
     <string name="section_hyperos_display">System UI</string>
     <string name="combined_status_feature_title">Combined status indicator</string>
     <string name="combined_status_feature_summary">Combines battery, active data network, and Wi-Fi status while following SystemUI state and transitions</string>
+    <string name="mobile_follow_battery_color">Match mobile status color to battery ring</string>
+    <string name="mobile_follow_battery_color_summary">Use the battery ring’s resolved color for the four mobile-signal dots and unavailable mark</string>
+    <string name="center_follow_battery_color">Match center icon color to battery ring</string>
+    <string name="center_follow_battery_color_summary">Use the battery ring’s resolved color for Wi-Fi, hotspot, mobile type, airplane mode, and no-SIM center icons</string>
     <string name="appearance_title">Appearance</string>
     <string name="appearance_summary">Theme and interface effects</string>
     <string name="status_bar_title">Status bar</string>

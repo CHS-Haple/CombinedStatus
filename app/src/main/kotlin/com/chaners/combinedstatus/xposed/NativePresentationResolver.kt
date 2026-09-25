@@ -16,7 +16,7 @@ internal object NativePresentationResolver {
         val bindings =
             SystemUiNetworkStateSource.mobilePresentationBindings()
                 .filter { binding -> binding.root.isAttachedToWindow }
-        val activeBindingSubIds =
+        val semanticActiveSubIds =
             bindings
                 .map { binding -> binding.subscriptionId }
                 .distinct()
@@ -26,14 +26,34 @@ internal object NativePresentationResolver {
                         ?.let { signal -> signal !is SignalStrength.Unknown }
                         ?: false
                 }
-        val visible =
+                .toSet()
+        val platformActive =
+            bindings
+                .firstOrNull()
+                ?.root
+                ?.context
+                ?.let(SystemActiveSubscriptionSource::current)
+        val resolvedActive =
+            resolveActiveBindingSubscriptionIds(
+                boundSubscriptionIds =
+                    bindings.map { binding -> binding.subscriptionId },
+                semanticActiveSubscriptionIds = semanticActiveSubIds,
+                authoritativeActiveSubscriptionIds =
+                    platformActive?.subscriptionIds,
+            )
+        val activeBindingSubIds = resolvedActive.subscriptionIds
+        val activeBindings =
             bindings.filter { binding ->
+                binding.subscriptionId in activeBindingSubIds
+            }
+        val visible =
+            activeBindings.filter { binding ->
                 binding.root.visibility == View.VISIBLE
             }
 
         val mode =
             classify(
-                boundRoots = bindings.size,
+                boundRoots = activeBindings.size,
                 visibleRoots = visible.size,
                 activeSubscriptions = activeBindingSubIds.size,
             )
@@ -61,11 +81,12 @@ internal object NativePresentationResolver {
             selectNetworkTypeSubscriptionId(
                 effectiveDataSubscriptionId = effectiveDataSubscriptionId,
                 presentationRootSubscriptionId = target?.subscriptionId,
-                boundSubscriptionIds = bindings.map { binding -> binding.subscriptionId },
+                boundSubscriptionIds =
+                    activeBindings.map { binding -> binding.subscriptionId },
             )
         val networkTypeTarget =
             networkTypeSubscriptionId?.let { subscriptionId ->
-                bindings.firstOrNull { binding ->
+                activeBindings.firstOrNull { binding ->
                     binding.subscriptionId == subscriptionId
                 }
             }
@@ -80,8 +101,15 @@ internal object NativePresentationResolver {
         return Snapshot(
             mode = mode,
             boundRoots = bindings.size,
+            activeBoundRoots = activeBindings.size,
             visibleRoots = visible.size,
             activeSubscriptionIds = activeBindingSubIds.sorted(),
+            activeSubscriptionAuthority =
+                if (resolvedActive.authoritative) {
+                    "subscription-manager"
+                } else {
+                    "pipeline-semantic-fallback"
+                },
             presentationRootSubscriptionId = target?.subscriptionId,
             effectiveDataSubscriptionId = effectiveDataSubscriptionId,
             networkTypeSubscriptionId = networkTypeSubscriptionId,
@@ -99,6 +127,22 @@ internal object NativePresentationResolver {
             ?: presentationRootSubscriptionId
                 ?.takeIf { subscriptionId -> subscriptionId in boundSubscriptionIds }
             ?: boundSubscriptionIds.firstOrNull()
+
+    internal fun resolveActiveBindingSubscriptionIds(
+        boundSubscriptionIds: List<Int>,
+        semanticActiveSubscriptionIds: Set<Int>,
+        authoritativeActiveSubscriptionIds: Set<Int>?,
+    ): ActiveBindingResolution {
+        val bound = boundSubscriptionIds.filter { it >= 0 }.toSet()
+        val authoritative = authoritativeActiveSubscriptionIds != null
+        val source =
+            authoritativeActiveSubscriptionIds
+                ?: semanticActiveSubscriptionIds
+        return ActiveBindingResolution(
+            subscriptionIds = bound.intersect(source),
+            authoritative = authoritative,
+        )
+    }
 
     internal fun classify(
         boundRoots: Int,
@@ -222,6 +266,11 @@ internal object NativePresentationResolver {
                 .getBoolean(this)
         }.getOrNull()
 
+    internal data class ActiveBindingResolution(
+        val subscriptionIds: Set<Int>,
+        val authoritative: Boolean,
+    )
+
     internal enum class Mode {
         SINGLE,
         DUAL_SEPARATE,
@@ -243,8 +292,10 @@ internal object NativePresentationResolver {
     internal data class Snapshot(
         val mode: Mode,
         val boundRoots: Int,
+        val activeBoundRoots: Int = boundRoots,
         val visibleRoots: Int,
         val activeSubscriptionIds: List<Int>,
+        val activeSubscriptionAuthority: String = "pipeline-semantic-fallback",
         val presentationRootSubscriptionId: Int?,
         val effectiveDataSubscriptionId: Int?,
         val networkTypeSubscriptionId: Int?,
@@ -270,7 +321,9 @@ internal object NativePresentationResolver {
             get() =
                 "mobilePresentation mode=" + mode.name +
                     " boundRoots=" + boundRoots +
+                    " activeBoundRoots=" + activeBoundRoots +
                     " visibleRoots=" + visibleRoots +
+                    " activeSubAuthority=" + activeSubscriptionAuthority +
                     " activeSubIds=" + activeSubscriptionIds.joinToString(",", prefix = "[", postfix = "]") +
                     " presentationRootSubId=" + (presentationRootSubscriptionId ?: -1) +
                     " effectiveDataSubId=" + (effectiveDataSubscriptionId ?: -1) +
