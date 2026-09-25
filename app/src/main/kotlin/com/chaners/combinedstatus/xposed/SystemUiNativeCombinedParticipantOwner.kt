@@ -763,6 +763,54 @@ internal object SystemUiNativeCombinedParticipantOwner {
         )
     }
 
+    fun onNativeBatteryHideChanged(hidden: Boolean) {
+        val root = synchronized(this) { rootRef?.get() } ?: return
+        if (Looper.myLooper() !== Looper.getMainLooper()) {
+            root.post {
+                onNativeBatteryHideChanged(hidden)
+            }
+            return
+        }
+
+        synchronized(this) {
+            if (!handoffCommitted || rootRef?.get() !== root) {
+                return
+            }
+            val render = renderViewRef?.get() ?: return
+            val targetWidth =
+                resolveIslandSlotWidth(
+                    nativeBatteryHidden = hidden,
+                    visualWidth = render.measuredWidth,
+                )
+            val layoutParams = root.layoutParams ?: return
+            val previousWidth = layoutParams.width
+            if (previousWidth == targetWidth) {
+                return
+            }
+            layoutParams.width = targetWidth
+            root.layoutParams = layoutParams
+            requestNativeLayout(root)
+            eventSink?.invoke(
+                "nativeCombinedParticipant islandSlotOccupancy " +
+                    "nativeBatteryHidden=" + hidden +
+                    " previousWidth=" + previousWidth +
+                    " targetWidth=" + targetWidth +
+                    " visualWidth=" + render.measuredWidth +
+                    " customRootWidthWrite=true peerNativeGeometryWrites=0",
+            )
+        }
+    }
+
+    internal fun resolveIslandSlotWidth(
+        nativeBatteryHidden: Boolean,
+        visualWidth: Int,
+    ): Int =
+        if (nativeBatteryHidden && visualWidth > 0) {
+            visualWidth
+        } else {
+            ZERO_SLOT_WIDTH
+        }
+
     @Synchronized
     fun onPresentationStateChanged(trace: RuntimeRenderTrace? = null) {
         val update =

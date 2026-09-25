@@ -145,4 +145,34 @@ class SystemUiNativeCombinedParticipantOwnerTest {
         }
     }
 
+
+    @Test
+    fun islandSlotTakesOverBatteryOccupancyOnlyWhileNativeBatteryIsHidden() {
+        assertEquals(
+            105,
+            SystemUiNativeCombinedParticipantOwner.resolveIslandSlotWidth(
+                nativeBatteryHidden = true,
+                visualWidth = 105,
+            ),
+        )
+        assertEquals(
+            0,
+            SystemUiNativeCombinedParticipantOwner.resolveIslandSlotWidth(
+                nativeBatteryHidden = false,
+                visualWidth = 105,
+            ),
+        )
+    }
+
+    @Test
+    fun islandSlotFailsClosedWhenVisualWidthIsUnavailable() {
+        assertEquals(
+            0,
+            SystemUiNativeCombinedParticipantOwner.resolveIslandSlotWidth(
+                nativeBatteryHidden = true,
+                visualWidth = 0,
+            ),
+        )
+    }
+
 }
