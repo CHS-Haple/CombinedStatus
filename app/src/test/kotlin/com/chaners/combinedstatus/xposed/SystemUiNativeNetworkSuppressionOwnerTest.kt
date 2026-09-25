@@ -137,4 +137,24 @@ class SystemUiNativeNetworkSuppressionOwnerTest {
             ),
         )
     }
+    @Test
+    fun peerAppliedTintWinsOverManagerAndCachedFallback() {
+        assertEquals(
+            0xfff2f2f2.toInt(),
+            SystemUiNativeNetworkSuppressionOwner.selectStatusIconTint(
+                peerAppliedTint = 0xfff2f2f2.toInt(),
+                managerTint = 0xdee5e5e5.toInt(),
+                fallbackTint = 0xe6ffffff.toInt(),
+            ),
+        )
+        assertEquals(
+            0xdee5e5e5.toInt(),
+            SystemUiNativeNetworkSuppressionOwner.selectStatusIconTint(
+                peerAppliedTint = 0x00ffffff,
+                managerTint = 0xdee5e5e5.toInt(),
+                fallbackTint = 0xe6ffffff.toInt(),
+            ),
+        )
+    }
+
 }
