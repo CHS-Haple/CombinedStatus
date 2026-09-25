@@ -5,6 +5,7 @@ import android.widget.TextView
 import io.github.libxposed.api.XposedInterface.HookHandle
 import io.github.libxposed.api.XposedInterface.Hooker
 import io.github.libxposed.api.XposedModule
+import java.lang.ref.WeakReference
 import java.lang.reflect.Field
 import java.util.ArrayList
 import java.util.WeakHashMap
@@ -21,6 +22,9 @@ internal object SystemUiTintStateSource {
 
     @Volatile
     private var batteryPercentViewField: Field? = null
+
+    @Volatile
+    private var lastSourceView: WeakReference<View>? = null
 
     fun install(
         module: XposedModule,
@@ -60,6 +64,7 @@ internal object SystemUiTintStateSource {
 
                         synchronized(this) {
                             lastStates[sourceView] = state
+                            lastSourceView = WeakReference(sourceView)
                         }
                         onTintState(TintUpdate(sourceView, state))
 
@@ -77,10 +82,19 @@ internal object SystemUiTintStateSource {
                                 (chain.getArg(4) as? Number)?.toInt() ?: 0
                             val useTint =
                                 chain.getArg(5) as? Boolean ?: false
+                            val statusIconTint =
+                                SystemUiNativeNetworkSuppressionOwner
+                                    .currentAppliedStatusIconTint()
                             onEvent?.invoke(
                                 "tintSource receiver=" +
                                     sourceView.javaClass.simpleName +
                                     " applied=" + colorHex(state.appliedTint) +
+                                    " authority=" +
+                                    if (statusIconTint == state.appliedTint) {
+                                        "status-icon-applied"
+                                    } else {
+                                        "battery-percent-fallback"
+                                    } +
                                     " intensity=" + darkIntensity +
                                     " light=" + colorHex(lightColor) +
                                     " dark=" + colorHex(darkColor) +
@@ -102,7 +116,11 @@ internal object SystemUiTintStateSource {
         lastStates.clear()
         firstEventLogged.clear()
         batteryPercentViewField = null
+        lastSourceView = null
     }
+
+    @Synchronized
+    fun currentSourceView(): View? = lastSourceView?.get()
 
     @Synchronized
     fun currentState(sourceView: View): CombinedStatusTintState? {
@@ -125,8 +143,12 @@ internal object SystemUiTintStateSource {
             runCatching {
                 percentField.get(sourceView) as? TextView
             }.getOrNull() ?: return null
+        val statusIconTint =
+            SystemUiNativeNetworkSuppressionOwner
+                .currentAppliedStatusIconTint()
+                ?.takeIf { color -> (color ushr 24) != 0 }
         return CombinedStatusTintState(
-            appliedTint = percentView.currentTextColor,
+            appliedTint = statusIconTint ?: percentView.currentTextColor,
         )
     }
 
