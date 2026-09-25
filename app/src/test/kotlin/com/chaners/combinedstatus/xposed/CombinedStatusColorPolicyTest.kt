@@ -104,6 +104,66 @@ class CombinedStatusColorPolicyTest {
     }
 
     @Test
+    fun HyperOsPowerSaveUsesFingerprintScopedSaverTint() {
+        val colors =
+            CombinedStatusColorPolicy.resolve(
+                model =
+                    model(
+                        charging = false,
+                        batteryVisualMode = BatteryVisualMode.POWER_SAVE,
+                    ),
+                tintState =
+                    CombinedStatusTintState(
+                        appliedTint = 0xff112233.toInt(),
+                        statusIconTint = 0xff445566.toInt(),
+                    ),
+            )
+
+        assertEquals(CombinedStatusColorPolicy.POWER_SAVE_TINT, colors.batteryTint)
+        assertEquals(0xff445566.toInt(), colors.centerTint)
+        assertEquals(0xff445566.toInt(), colors.mobileTint)
+    }
+
+    @Test
+    fun HyperOsPerformanceUsesFingerprintScopedPerformanceTint() {
+        val colors =
+            CombinedStatusColorPolicy.resolve(
+                model =
+                    model(
+                        charging = false,
+                        batteryVisualMode = BatteryVisualMode.PERFORMANCE,
+                    ),
+                tintState =
+                    CombinedStatusTintState(
+                        appliedTint = 0xff112233.toInt(),
+                        statusIconTint = 0xff445566.toInt(),
+                    ),
+            )
+
+        assertEquals(CombinedStatusColorPolicy.PERFORMANCE_TINT, colors.batteryTint)
+    }
+
+    @Test
+    fun unverifiedExtremePowerSaveColorFailsNative() {
+        val nativeTint = 0xff445566.toInt()
+        val colors =
+            CombinedStatusColorPolicy.resolve(
+                model =
+                    model(
+                        charging = false,
+                        batteryVisualMode = BatteryVisualMode.EXTREME_POWER_SAVE,
+                    ),
+                tintState =
+                    CombinedStatusTintState(
+                        appliedTint = 0xff112233.toInt(),
+                        statusIconTint = nativeTint,
+                    ),
+            )
+
+        assertEquals(nativeTint, colors.batteryTint)
+    }
+
+    @Test
     fun invalidResolvedNetworkTintFallsBackToBatteryAnchor() {
         val colors =
             CombinedStatusColorPolicy.resolve(
@@ -120,10 +180,15 @@ class CombinedStatusColorPolicyTest {
         assertEquals(0xff112233.toInt(), colors.batteryTint)
     }
 
-    private fun model(charging: Boolean) =
+    private fun model(
+        charging: Boolean,
+        batteryVisualMode: BatteryVisualMode =
+            if (charging) BatteryVisualMode.CHARGING else BatteryVisualMode.NORMAL,
+    ) =
         CombinedStatusRenderModel(
             batteryPercent = 80,
             charging = charging,
+            batteryVisualMode = batteryVisualMode,
             centerIndicator =
                 CenterIndicator.Wifi(
                     segments = 3,
