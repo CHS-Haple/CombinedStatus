@@ -8,6 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.widget.FrameLayout
+import com.chaners.combinedstatus.settings.CombinedStatusVisualSettings
 import io.github.libxposed.api.XposedInterface.HookHandle
 import io.github.libxposed.api.XposedInterface.Hooker
 import io.github.libxposed.api.XposedModule
@@ -633,6 +634,9 @@ internal object SystemUiNativeCombinedParticipantOwner {
         renderViewRef = WeakReference(render)
         renderController =
             renderController ?: CombinedStatusRenderController(render)
+        renderController?.updateVisualSettings(
+            RuntimeVisualPreferencesOwner.currentSettings(),
+        )
 
         render.measure(
             View.MeasureSpec.makeMeasureSpec(battery.width, View.MeasureSpec.EXACTLY),
@@ -822,6 +826,11 @@ internal object SystemUiNativeCombinedParticipantOwner {
             modelReady = true
         }
         reconcileVisibleHandoff("presentation")
+    }
+
+    @Synchronized
+    fun onVisualSettingsChanged(settings: CombinedStatusVisualSettings) {
+        renderController?.updateVisualSettings(settings)
     }
 
     @Synchronized
