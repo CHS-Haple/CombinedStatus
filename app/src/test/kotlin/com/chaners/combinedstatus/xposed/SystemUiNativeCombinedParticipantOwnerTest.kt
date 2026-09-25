@@ -18,6 +18,8 @@ class SystemUiNativeCombinedParticipantOwnerTest {
                 parentClipsChildren = false,
                 rootScreenX = 1242,
                 batteryScreenX = 1242,
+                renderLeft = 0,
+                renderRight = 105,
             ),
         )
     }
@@ -35,6 +37,27 @@ class SystemUiNativeCombinedParticipantOwnerTest {
                 parentClipsChildren = false,
                 rootScreenX = 1242,
                 batteryScreenX = 1242,
+                renderLeft = 0,
+                renderRight = 105,
+            ),
+        )
+    }
+
+    @Test
+    fun zeroSlotBridgeRejectsCenteredChildOverflow() {
+        assertFalse(
+            SystemUiNativeCombinedParticipantOwner.isZeroSlotHandoffReady(
+                rootMeasuredWidth = 0,
+                rootMeasuredHeight = 108,
+                renderMeasuredWidth = 105,
+                renderMeasuredHeight = 108,
+                expectedVisualWidth = 105,
+                expectedVisualHeight = 108,
+                parentClipsChildren = false,
+                rootScreenX = 1242,
+                batteryScreenX = 1242,
+                renderLeft = -52,
+                renderRight = 53,
             ),
         )
     }
@@ -52,6 +75,8 @@ class SystemUiNativeCombinedParticipantOwnerTest {
                 parentClipsChildren = true,
                 rootScreenX = 1242,
                 batteryScreenX = 1242,
+                renderLeft = 0,
+                renderRight = 105,
             ),
         )
         assertFalse(
