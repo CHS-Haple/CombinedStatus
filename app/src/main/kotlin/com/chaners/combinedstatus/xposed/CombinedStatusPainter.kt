@@ -929,7 +929,7 @@ internal object CombinedStatusCenterGeometry {
 
     private const val BASE_WIFI_MAX_WIDTH = 58f
     private const val BASE_WIFI_MAX_HEIGHT = 45f
-    private const val BASE_AIRPLANE_MAX_SIZE = 75f
+    private const val BASE_AIRPLANE_MAX_SIZE = 58f
     private const val BASE_NO_SIM_MAX_SIZE = 54f
     private const val BASE_MOBILE_TYPE_TEXT_SIZE = 39f
     private const val BASE_MOBILE_TYPE_SUFFIX_SIZE = 23f
