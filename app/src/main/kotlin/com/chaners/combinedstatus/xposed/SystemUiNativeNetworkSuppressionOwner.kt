@@ -21,6 +21,8 @@ internal object SystemUiNativeNetworkSuppressionOwner {
         "com.android.systemui.statusbar.StatusBarIconView"
     private const val MODERN_BINDING_INTERFACE =
         "com.android.systemui.statusbar.pipeline.shared.ui.binder.ModernStatusBarViewBinding"
+    private const val DARK_ICON_DISPATCHER_CLASS =
+        "com.android.systemui.plugins.DarkIconDispatcher"
 
     private const val WIFI_VISIBILITY_HOOK_ID =
         "combinedstatus.nativeNetworkSuppression.wifiVisibility"
@@ -380,12 +382,17 @@ internal object SystemUiNativeNetworkSuppressionOwner {
         }
 
     @Synchronized
-    fun currentAppliedStatusIconTint(): Int? =
-        resolveManagerAppliedTint(activeManager)
-            ?: activeGroup
-                ?.get()
-                ?.let(::resolveAppliedStatusIconTint)
+    fun currentAppliedStatusIconTint(anchorView: View? = null): Int? {
+        val group = activeGroup?.get()
+        return resolveManagerAppliedTint(
+            manager = activeManager,
+            anchorView =
+                anchorView
+                    ?: group?.let(::resolveTintAnchorView),
+        )
+            ?: group?.let(::resolveAppliedStatusIconTint)
             ?: lastStatusPresentation.appliedTint
+    }
 
     private fun refreshStatusPresentationLocked(source: String) {
         val group = activeGroup?.get() ?: return
@@ -403,7 +410,11 @@ internal object SystemUiNativeNetworkSuppressionOwner {
             } else {
                 null
             }
-        val managerTint = resolveManagerAppliedTint(activeManager)
+        val managerTint =
+            resolveManagerAppliedTint(
+                manager = activeManager,
+                anchorView = resolveTintAnchorView(group),
+            )
         val presentation =
             CombinedStatusPresentationStateStore.StatusIconPresentation(
                 appliedTint =
@@ -430,7 +441,7 @@ internal object SystemUiNativeNetworkSuppressionOwner {
                         ?: "none") +
                     " tintAuthority=" +
                     if (managerTint != null) {
-                        "manager-mColor"
+                        "manager-dark-dispatcher"
                     } else {
                         "view-tint-fallback"
                     } +
@@ -487,13 +498,94 @@ internal object SystemUiNativeNetworkSuppressionOwner {
         )
     }
 
-    private fun resolveManagerAppliedTint(manager: Any?): Int? {
+    private fun resolveManagerAppliedTint(
+        manager: Any?,
+        anchorView: View?,
+    ): Int? {
         manager ?: return null
+
+        readIntField(manager, "mColor")
+            ?.takeIf { color -> (color ushr 24) != 0 }
+            ?.let { return it }
+
+        val dispatcher =
+            readObjectField(manager, "mDarkIconDispatcher")
+                ?: return null
+        val iconTint =
+            readIntField(dispatcher, "mIconTint")
+                ?.takeIf { color -> (color ushr 24) != 0 }
+                ?: return null
+        val tintAreas =
+            readObjectField(dispatcher, "mTintAreas")
+        if (anchorView == null || tintAreas !is Collection<*>) {
+            return iconTint
+        }
+
+        return runCatching {
+            val dispatcherType =
+                Class.forName(
+                    DARK_ICON_DISPATCHER_CLASS,
+                    false,
+                    manager.javaClass.classLoader,
+                )
+            val getTint =
+                dispatcherType.methods.firstOrNull { method ->
+                    method.name == "getTint" &&
+                        method.parameterCount == 3 &&
+                        View::class.java.isAssignableFrom(
+                            method.parameterTypes.getOrNull(1),
+                        ) &&
+                        method.parameterTypes.getOrNull(2) ==
+                            Int::class.javaPrimitiveType
+                } ?: return@runCatching iconTint
+            (getTint.invoke(null, tintAreas, anchorView, iconTint) as? Number)
+                ?.toInt()
+                ?: iconTint
+        }.getOrDefault(iconTint)
+    }
+
+    private fun resolveTintAnchorView(group: ViewGroup): View? {
+        for (index in group.childCount - 1 downTo 0) {
+            val child = group.getChildAt(index)
+            if (
+                NativeParticipantRuntimeAccess.slotOf(child) != "combined_status" &&
+                child.width > 0 &&
+                child.height > 0
+            ) {
+                return child
+            }
+        }
+        return null
+    }
+
+    private fun readObjectField(
+        target: Any,
+        name: String,
+    ): Any? {
         val field =
-            generateSequence(manager.javaClass) { clazz -> clazz.superclass }
+            generateSequence(target.javaClass) { clazz -> clazz.superclass }
                 .mapNotNull { clazz ->
                     clazz.declaredFields.firstOrNull { candidate ->
-                        candidate.name == "mColor" &&
+                        candidate.name == name
+                    }
+                }
+                .firstOrNull()
+                ?: return null
+        return runCatching {
+            field.isAccessible = true
+            field.get(target)
+        }.getOrNull()
+    }
+
+    private fun readIntField(
+        target: Any,
+        name: String,
+    ): Int? {
+        val field =
+            generateSequence(target.javaClass) { clazz -> clazz.superclass }
+                .mapNotNull { clazz ->
+                    clazz.declaredFields.firstOrNull { candidate ->
+                        candidate.name == name &&
                             (
                                 candidate.type == Int::class.javaPrimitiveType ||
                                     candidate.type == Int::class.java
@@ -504,9 +596,8 @@ internal object SystemUiNativeNetworkSuppressionOwner {
                 ?: return null
         return runCatching {
             field.isAccessible = true
-            field.getInt(manager)
+            field.getInt(target)
         }.getOrNull()
-            ?.takeIf { color -> (color ushr 24) != 0 }
     }
 
     private fun resolveAppliedStatusIconTint(group: ViewGroup): Int? {
