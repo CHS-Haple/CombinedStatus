@@ -948,7 +948,7 @@ class CombinedStatusModule : XposedModule() {
                 component = "batteryState",
                 state = if (result.ready) "ready" else "partial",
                 "hooks" to result.hooks,
-                "expectedHooks" to SystemUiBatteryStateSource.REQUIRED_HOOK_COUNT,
+                "requiredHooks" to SystemUiBatteryStateSource.REQUIRED_HOOK_COUNT,
                 "source" to source,
                 "authority" to
                     "MiuiBatteryMeterView.BatteryStateChangeCallback",
