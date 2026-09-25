@@ -3,7 +3,6 @@ package com.chaners.combinedstatus.xposed
 internal data class CombinedStatusRenderModel(
     val batteryPercent: Int,
     val charging: Boolean,
-    val batteryModeTint: Int? = null,
     val centerIndicator: CenterIndicator,
     val mobileLevel: Int?,
     val mobileUnavailableMark: Boolean = false,
@@ -87,7 +86,6 @@ internal data class CombinedStatusRenderModel(
             return CombinedStatusRenderModel(
                 batteryPercent = battery.percent.coerceIn(0, 100),
                 charging = battery.charging,
-                batteryModeTint = battery.resolvedModeTint,
                 centerIndicator = centerIndicator,
                 mobileLevel = mobileLevel,
                 mobileUnavailableMark = mobileUnavailableMark,
