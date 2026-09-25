@@ -871,10 +871,12 @@ internal object SystemUiNetworkStateSource {
                     lastWifiTaggedResources.put(image, taggedResId)
                 }
             val hotspotAppliedFallback =
-                semantic.state == CombinedStatusStateStore.WifiState.Hidden &&
-                    taggedResId != null &&
-                    taggedResId != previousTaggedResId &&
-                    SystemUiSignalParser.isHotspotWifiResource(taggedResource)
+                shouldUseAppliedHotspotFallback(
+                    semanticState = semantic.state,
+                    taggedResId = taggedResId,
+                    previousTaggedResId = previousTaggedResId,
+                    taggedResource = taggedResource,
+                )
             val effective =
                 if (hotspotAppliedFallback) {
                     WifiSemanticValue(
@@ -928,6 +930,17 @@ internal object SystemUiNetworkStateSource {
 
         result
     }
+
+    internal fun shouldUseAppliedHotspotFallback(
+        semanticState: CombinedStatusStateStore.WifiState?,
+        taggedResId: Int?,
+        previousTaggedResId: Int?,
+        taggedResource: String?,
+    ): Boolean =
+        semanticState == CombinedStatusStateStore.WifiState.Hidden &&
+            taggedResId != null &&
+            taggedResId != previousTaggedResId &&
+            SystemUiSignalParser.isHotspotWifiResource(taggedResource)
 
     private fun mobileBindHooker(
         subscriptionIdMethod: Method,
