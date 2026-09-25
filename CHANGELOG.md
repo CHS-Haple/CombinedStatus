@@ -25,6 +25,8 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Changed
 
+- Home network replacement now keeps native mobile suppression continuous through airplane-mode transitions and event-driven Home re-entry/rebinds, with a reversible `mobile_signal_container` visual mask so externally injected dual-row signal descendants cannot remain visible beside Combined Status; if a dynamic rebind no longer satisfies the verified binding/visual-mask contract, the suppression session now fails native instead of leaving a partially active replacement.
+
 - Build 303 keeps the Build 301 zero-width `combined_status` slot bridge but removes the inherited centered-child gravity that shifted the 105px render surface about half a slot left. The renderer now starts at local x=0 and overflows right into the preserved native battery slot; handoff additionally verifies render bounds `0..batteryWidth` before commit, with no peer battery/status-icon geometry writes.
 - Center mobile-network type labels keep their accepted physical size while using heavier typography and glyph-ink centering for a more balanced `5G` / enhanced-type presentation inside the Combined Status composition.
 - Island motion diagnostics now start bounded frame sampling only when development/Detailed diagnostics are active, stop on the UI thread when Detailed is disabled, and cancel their timeout callback during cleanup; General Canary diagnostics no longer pay the per-frame probe cost.
@@ -50,6 +52,10 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 - Build and release tooling separates Debug, Canary, and formal Release signing/CI responsibilities; distributable APK filenames use application version/build identity rather than GitHub Actions run numbers, while test-release tags may retain the run number as CI execution metadata.
 
 ### Fixed
+
+- Center network presentation keeps the validated 100 ms SystemUI-style icon-appearance transition only when the presentation family changes between Wi-Fi, mobile type, airplane mode, and empty/search state. Changes within one family—such as Wi-Fi level/Internet markers or 4G/5G/5GA mobile-type updates—redraw in place without replaying the whole center animation.
+
+- Airplane-mode exit now enters an event-driven mobile reacquisition state: the center airplane/cross clears immediately, four signal dots remain unavailable while HyperOS reports no fresh signal, and cached pre-airplane mobile type/strength is not reused.
 
 - Charging-island battery hiding now hands the disappearing native battery slot's occupancy to the module-owned `combined_status` root for the duration of the native hide request, then returns the custom slot to zero width when HyperOS restores the battery. This keeps right-side occupancy stable without writing peer icon/battery geometry or adding translation compensation.
 
