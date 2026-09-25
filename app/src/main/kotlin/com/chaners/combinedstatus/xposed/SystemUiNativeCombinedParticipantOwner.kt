@@ -671,11 +671,16 @@ internal object SystemUiNativeCombinedParticipantOwner {
             eventSink?.invoke(
                 "nativeCombinedParticipant tintSeed " +
                     "authority=" +
-                    if (bindingState.iconTint != null) {
-                        "native-binding"
-                    } else {
-                        "battery-fallback"
+                    when {
+                        batteryTintState?.statusIconTint != null ->
+                            "dark-dispatcher-visual-slot"
+                        bindingState.iconTint != null ->
+                            "native-binding-fallback"
+                        else ->
+                            "battery-fallback"
                     } +
+                    " visualSlotTint=" +
+                    colorHex(batteryTintState?.statusIconTint) +
                     " nativeTint=" + colorHex(bindingState.iconTint) +
                     " batteryFallback=" +
                     colorHex(batteryTintState?.appliedTint) +
@@ -935,8 +940,10 @@ internal object SystemUiNativeCombinedParticipantOwner {
     ): CombinedStatusTintState =
         batteryTint.copy(
             statusIconTint =
-                nativeTint
-                    ?.takeIf { color -> (color ushr 24) != 0 },
+                batteryTint.statusIconTint
+                    ?.takeIf { color -> (color ushr 24) != 0 }
+                    ?: nativeTint
+                        ?.takeIf { color -> (color ushr 24) != 0 },
         )
 
     private fun reconcileVisibleHandoff(source: String) {
