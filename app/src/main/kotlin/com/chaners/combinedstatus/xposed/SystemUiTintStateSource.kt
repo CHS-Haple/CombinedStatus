@@ -186,19 +186,22 @@ internal object SystemUiTintStateSource {
             }.getOrNull() ?: return
 
         val clipFields = collectClipDrawableFields(iconView)
-        val clipTints =
+        val clipStates: List<BatteryClipTintState> =
             clipFields.map { field ->
-                val tint =
+                val clip =
                     runCatching {
-                        (field.get(iconView) as? ClipDrawable)
-                            ?.tintList
-                            ?.defaultColor
+                        field.get(iconView) as? ClipDrawable
                     }.getOrNull()
-                field.name to tint
+                val filter = clip?.colorFilter
+                BatteryClipTintState(
+                    fieldName = field.name,
+                    filterClass = filter?.javaClass?.name,
+                    color = readColorFilterColor(filter),
+                )
             }
         val semanticTints =
-            clipTints
-                .mapNotNull { (_, tint) -> tint }
+            clipStates
+                .mapNotNull { state -> state.color }
                 .filter(::isChromaticTint)
                 .distinct()
                 .sorted()
@@ -228,11 +231,13 @@ internal object SystemUiTintStateSource {
                 " imageView=" + (iconView is ImageView) +
                 " clipFields=" +
                 (
-                    if (clipTints.isEmpty()) {
+                    if (clipStates.isEmpty()) {
                         "none"
                     } else {
-                        clipTints.joinToString(",") { (name, tint) ->
-                            name + ":" + (tint?.let(::colorHex) ?: "none")
+                        clipStates.joinToString(",") { state ->
+                            state.fieldName + ":" +
+                                (state.filterClass ?: "no-filter") + ":" +
+                                (state.color?.let(::colorHex) ?: "color-unavailable")
                         }
                     }
                 ) +
@@ -248,6 +253,27 @@ internal object SystemUiTintStateSource {
                 " readOnly=true eventDriven=true",
         )
     }
+
+    private fun readColorFilterColor(filter: android.graphics.ColorFilter?): Int? {
+        if (filter == null) {
+            return null
+        }
+        val getter =
+            filter.javaClass.methods
+                .firstOrNull { method ->
+                    method.name == "getColor" &&
+                        method.parameterCount == 0 &&
+                        (
+                            method.returnType == Int::class.javaPrimitiveType ||
+                                method.returnType == Int::class.javaObjectType
+                        )
+                }
+                ?: return null
+        return runCatching {
+            (getter.invoke(filter) as? Number)?.toInt()
+        }.getOrNull()
+    }
+
 
     private fun collectClipDrawableFields(iconView: View): List<Field> {
         val fields = mutableListOf<Field>()
@@ -333,6 +359,12 @@ internal object SystemUiTintStateSource {
 
     private fun colorHex(color: Int): String =
         "#" + color.toUInt().toString(16).padStart(8, '0')
+
+    private data class BatteryClipTintState(
+        val fieldName: String,
+        val filterClass: String?,
+        val color: Int?,
+    )
 
     internal data class TintUpdate(
         val sourceView: View,
