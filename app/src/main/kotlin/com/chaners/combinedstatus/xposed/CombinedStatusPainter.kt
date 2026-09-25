@@ -4,6 +4,8 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.Rect
@@ -468,12 +470,7 @@ internal class CombinedStatusPainter(
         val drawWidth = intrinsicWidth * drawableScale
         val drawHeight = intrinsicHeight * drawableScale
 
-        drawable.setTint(
-            CombinedStatusVisualIntensity.resolveNativeFullStrengthTint(
-                tint = tint,
-                intrinsicMaxAlpha = asset.intrinsicMaxAlpha,
-            ),
-        )
+        drawable.colorFilter = asset.colorFilterFor(tint)
         drawable.alpha =
             CombinedStatusVisualIntensity.resolveDrawableAlpha(opacity)
 
@@ -868,11 +865,26 @@ internal class CombinedStatusPainter(
         const val NATIVE_STEADY_APPEAR_THRESHOLD = 0.999f
     }
 
-    private data class NativeCenterAsset(
+    private class NativeCenterAsset(
         val drawable: Drawable,
         val opticalBounds: OpticalBounds,
         val intrinsicMaxAlpha: Int,
-    )
+    ) {
+        private var cachedTint: Int? = null
+        private var cachedColorFilter: ColorMatrixColorFilter? = null
+
+        fun colorFilterFor(tint: Int): ColorMatrixColorFilter {
+            if (cachedTint != tint || cachedColorFilter == null) {
+                cachedTint = tint
+                cachedColorFilter =
+                    CombinedStatusVisualIntensity.createNativeFullStrengthColorFilter(
+                        tint = tint,
+                        intrinsicMaxAlpha = intrinsicMaxAlpha,
+                    )
+            }
+            return checkNotNull(cachedColorFilter)
+        }
+    }
 
     private data class NativeVisualProbe(
         val opticalBounds: OpticalBounds,
@@ -1158,19 +1170,33 @@ internal object CombinedStatusVisualIntensity {
             .roundToInt()
             .coerceIn(0, 255)
 
-    fun resolveNativeFullStrengthTint(
+    fun resolveNativeAlphaScale(
         tint: Int,
         intrinsicMaxAlpha: Int,
-    ): Int {
+    ): Float {
         val sourceAlpha = intrinsicMaxAlpha.coerceIn(1, 255)
-        if (sourceAlpha == 255) {
-            return tint
-        }
-        val targetAlpha = tint ushr 24
-        val normalizedAlpha =
-            (targetAlpha * 255f / sourceAlpha)
-                .roundToInt()
-                .coerceIn(0, 255)
-        return (normalizedAlpha shl 24) or (tint and 0x00ffffff)
+        val targetAlpha = (tint ushr 24).coerceIn(0, 255)
+        return targetAlpha.toFloat() / sourceAlpha
+    }
+
+    fun createNativeFullStrengthColorFilter(
+        tint: Int,
+        intrinsicMaxAlpha: Int,
+    ): ColorMatrixColorFilter {
+        val alphaScale =
+            resolveNativeAlphaScale(
+                tint = tint,
+                intrinsicMaxAlpha = intrinsicMaxAlpha,
+            )
+        val matrix =
+            ColorMatrix(
+                floatArrayOf(
+                    0f, 0f, 0f, 0f, Color.red(tint).toFloat(),
+                    0f, 0f, 0f, 0f, Color.green(tint).toFloat(),
+                    0f, 0f, 0f, 0f, Color.blue(tint).toFloat(),
+                    0f, 0f, 0f, alphaScale, 0f,
+                ),
+            )
+        return ColorMatrixColorFilter(matrix)
     }
 }
