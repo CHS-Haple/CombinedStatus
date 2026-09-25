@@ -76,33 +76,4 @@ class CombinedStatusStateStoreTest {
 
         assertFalse(completed.mobileRecoveryPending)
     }
-
-    @Test
-    fun partialBatteryUpdateKeepsKnownHyperOsModeState() {
-        CombinedStatusStateStore.restoreHotReloadState(null)
-        CombinedStatusStateStore.updateBattery(
-            CombinedStatusStateStore.BatteryState(
-                percent = 80,
-                charging = false,
-                powerSave = true,
-                extremePowerSave = false,
-                performanceMode = false,
-            ),
-        )
-
-        val updated =
-            CombinedStatusStateStore.updateBattery(
-                CombinedStatusStateStore.BatteryState(
-                    percent = 79,
-                    charging = false,
-                ),
-            ) ?: error("expected battery level update")
-
-        assertTrue(updated.battery?.powerSave == true)
-        assertTrue(updated.battery?.extremePowerSave == false)
-        assertTrue(updated.battery?.performanceMode == false)
-    }
-
-
-
 }

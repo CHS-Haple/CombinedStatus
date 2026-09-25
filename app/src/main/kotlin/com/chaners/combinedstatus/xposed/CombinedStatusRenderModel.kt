@@ -1,19 +1,8 @@
 package com.chaners.combinedstatus.xposed
 
-internal enum class BatteryVisualMode {
-    NORMAL,
-    CHARGING,
-    POWER_SAVE,
-    EXTREME_POWER_SAVE,
-    PERFORMANCE,
-}
-
 internal data class CombinedStatusRenderModel(
     val batteryPercent: Int,
     val charging: Boolean,
-    val batteryVisualMode: BatteryVisualMode =
-        if (charging) BatteryVisualMode.CHARGING else BatteryVisualMode.NORMAL,
-    val batteryModeTint: Int? = null,
     val centerIndicator: CenterIndicator,
     val mobileLevel: Int?,
     val mobileUnavailableMark: Boolean = false,
@@ -97,24 +86,11 @@ internal data class CombinedStatusRenderModel(
             return CombinedStatusRenderModel(
                 batteryPercent = battery.percent.coerceIn(0, 100),
                 charging = battery.charging,
-                batteryVisualMode = resolveBatteryVisualMode(battery),
-                batteryModeTint = battery.resolvedModeTint,
                 centerIndicator = centerIndicator,
                 mobileLevel = mobileLevel,
                 mobileUnavailableMark = mobileUnavailableMark,
                 effectiveDataSubscriptionId = selectedSubscriptionId,
             )
         }
-
-        internal fun resolveBatteryVisualMode(
-            battery: CombinedStatusStateStore.BatteryState,
-        ): BatteryVisualMode =
-            when {
-                battery.charging -> BatteryVisualMode.CHARGING
-                battery.extremePowerSave == true -> BatteryVisualMode.EXTREME_POWER_SAVE
-                battery.powerSave == true -> BatteryVisualMode.POWER_SAVE
-                battery.performanceMode == true -> BatteryVisualMode.PERFORMANCE
-                else -> BatteryVisualMode.NORMAL
-            }
     }
 }

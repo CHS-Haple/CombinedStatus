@@ -19,15 +19,10 @@ internal object CombinedStatusColorPolicy {
                 ?.takeIf { color -> (color ushr 24) != 0 }
                 ?: tintState.appliedTint
         val batteryTint =
-            when (model.batteryVisualMode) {
-                BatteryVisualMode.CHARGING,
-                BatteryVisualMode.POWER_SAVE,
-                BatteryVisualMode.PERFORMANCE,
-                BatteryVisualMode.EXTREME_POWER_SAVE ->
-                    model.batteryModeTint
-                        ?.takeIf { color -> (color ushr 24) != 0 }
-                        ?: nativeParticipantTint
-                BatteryVisualMode.NORMAL -> nativeParticipantTint
+            if (model.charging) {
+                CHARGING_TINT
+            } else {
+                nativeParticipantTint
             }
 
         return CombinedStatusColors(
@@ -46,4 +41,6 @@ internal object CombinedStatusColorPolicy {
             batteryTint = batteryTint,
         )
     }
+
+    internal const val CHARGING_TINT = 0xff1cb753.toInt()
 }
