@@ -554,4 +554,46 @@ class CombinedStatusConnectivityPolicyTest {
 
         assertEquals(false, ready)
     }
+    @Test
+    fun nativeWifiVariantCanRenderWithoutParsedSignalLevel() {
+        val wifi =
+            CombinedStatusStateStore.WifiState.Visible(
+                iconResId = 99,
+                signal = SignalStrength.Unknown,
+                internetValidated = false,
+            )
+        val connectivity =
+            SystemUiConnectivityStateSource.State(
+                known = true,
+                transport = SystemUiConnectivityStateSource.Transport.WIFI,
+                validated = false,
+                hasInternetCapability = true,
+                mobileDataEnabled = true,
+            )
+
+        val result =
+            CombinedStatusConnectivityPolicy.resolve(
+                wifi = wifi,
+                airplaneMode = false,
+                connectivity = connectivity,
+                mobileType = null,
+            )
+
+        assertEquals(
+            CenterIndicator.Wifi(
+                segments = 0,
+                internet = InternetState.NO_INTERNET,
+                nativeResourceId = 99,
+            ),
+            result,
+        )
+        assertEquals(
+            true,
+            CombinedStatusConnectivityPolicy.wifiReplacementReady(
+                wifi = wifi,
+                connectivity = connectivity,
+            ),
+        )
+    }
+
 }
