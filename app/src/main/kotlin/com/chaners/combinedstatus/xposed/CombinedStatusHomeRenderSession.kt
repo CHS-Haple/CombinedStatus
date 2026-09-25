@@ -380,6 +380,7 @@ internal object CombinedStatusHomeRenderSession {
                     "homeRenderProbe ready " +
                         "battery=" + model.batteryPercent +
                         " charging=" + model.charging +
+                        " batteryMode=" + model.batteryVisualMode.name +
                         " center=" + model.centerIndicator.javaClass.simpleName +
                         " mobileLevel=" + (model.mobileLevel ?: -1) +
                         " effectiveDataSubId=" + model.effectiveDataSubscriptionId +
