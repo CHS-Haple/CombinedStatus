@@ -8,18 +8,10 @@ internal object SystemUiBatteryStateSource {
     const val BATTERY_VIEW_CLASS_NAME =
         "com.android.systemui.statusbar.views.MiuiBatteryMeterView"
     const val BATTERY_LEVEL_METHOD_NAME = "onBatteryLevelChanged"
-    const val POWER_SAVE_METHOD_NAME = "onPowerSaveChanged"
-    const val PERFORMANCE_MODE_METHOD_NAME = "onPerformanceModeChanged"
-    const val EXTREME_POWER_SAVE_METHOD_NAME = "onExtremePowerSaveChanged"
-
     /** Required core contract. Mode callbacks are optional, fingerprint-scoped extensions. */
     const val REQUIRED_HOOK_COUNT = 1
 
     private const val LEVEL_HOOK_ID = "combinedstatus.battery.level"
-    private const val POWER_SAVE_HOOK_ID = "combinedstatus.battery.power-save"
-    private const val PERFORMANCE_MODE_HOOK_ID = "combinedstatus.battery.performance"
-    private const val EXTREME_POWER_SAVE_HOOK_ID = "combinedstatus.battery.extreme-power-save"
-
     @Volatile
     private var lastState: CombinedStatusStateStore.BatteryState? = null
 
@@ -98,98 +90,14 @@ internal object SystemUiBatteryStateSource {
                     },
                 )
 
-        installOptionalBooleanCallback(
-            module = module,
-            batteryClass = batteryClass,
-            methodName = POWER_SAVE_METHOD_NAME,
-            hookId = POWER_SAVE_HOOK_ID,
-            onValue = { value -> powerSave = value },
-            onBatteryState = onBatteryState,
-            onEvent = onEvent,
-        )?.let(handles::add)
-
-        installOptionalBooleanCallback(
-            module = module,
-            batteryClass = batteryClass,
-            methodName = PERFORMANCE_MODE_METHOD_NAME,
-            hookId = PERFORMANCE_MODE_HOOK_ID,
-            onValue = { value -> performanceMode = value },
-            onBatteryState = onBatteryState,
-            onEvent = onEvent,
-        )?.let(handles::add)
-
-        installOptionalBooleanCallback(
-            module = module,
-            batteryClass = batteryClass,
-            methodName = EXTREME_POWER_SAVE_METHOD_NAME,
-            hookId = EXTREME_POWER_SAVE_HOOK_ID,
-            onValue = { value -> extremePowerSave = value },
-            onBatteryState = onBatteryState,
-            onEvent = onEvent,
-        )?.let(handles::add)
-
         onEvent?.invoke(
             "batteryModeContracts source=MiuiBatteryMeterView " +
-                "powerSave=" + (handles.any { it.id == POWER_SAVE_HOOK_ID }) +
-                " performanceMode=" +
-                (handles.any { it.id == PERFORMANCE_MODE_HOOK_ID }) +
-                " extremePowerSave=" +
-                (handles.any { it.id == EXTREME_POWER_SAVE_HOOK_ID }) +
-                " requiredLevel=true eventDriven=true",
+                "powerSave=unverified performanceMode=unverified " +
+                "extremePowerSave=unverified requiredLevel=true " +
+                "fallback=native-tint eventDriven=true",
         )
 
         return handles
-    }
-
-    private fun installOptionalBooleanCallback(
-        module: XposedModule,
-        batteryClass: Class<*>,
-        methodName: String,
-        hookId: String,
-        onValue: (Boolean) -> Unit,
-        onBatteryState: (CombinedStatusStateStore.BatteryState) -> Unit,
-        onEvent: ((String) -> Unit)?,
-    ): HookHandle? {
-        val method =
-            runCatching {
-                batteryClass
-                    .getDeclaredMethod(
-                        methodName,
-                        Boolean::class.javaPrimitiveType,
-                    )
-                    .apply { isAccessible = true }
-            }.getOrNull()
-                ?: run {
-                    onEvent?.invoke(
-                        "batteryModeContract source=MiuiBatteryMeterView." +
-                            methodName +
-                            " available=false fallback=unknown",
-                    )
-                    return null
-                }
-
-        return module
-            .hook(method)
-            .setId(hookId)
-            .intercept(
-                Hooker { chain ->
-                    val result = chain.proceed()
-                    val value =
-                        chain.getArg(0) as? Boolean
-                            ?: return@Hooker result
-                    synchronized(this) {
-                        onValue(value)
-                    }
-                    emitCurrentState(onBatteryState)
-                    onEvent?.invoke(
-                        "batteryModeState source=MiuiBatteryMeterView." +
-                            methodName +
-                            " value=" + value +
-                            " eventDriven=true",
-                    )
-                    result
-                },
-            )
     }
 
     private fun emitCurrentState(
@@ -222,14 +130,7 @@ internal object SystemUiBatteryStateSource {
         }
     }
 
-    fun matches(handle: HookHandle): Boolean =
-        handle.id in
-            setOf(
-                LEVEL_HOOK_ID,
-                POWER_SAVE_HOOK_ID,
-                PERFORMANCE_MODE_HOOK_ID,
-                EXTREME_POWER_SAVE_HOOK_ID,
-            )
+    fun matches(handle: HookHandle): Boolean = handle.id == LEVEL_HOOK_ID
 
     @Synchronized
     fun resetRuntimeState() {
