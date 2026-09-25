@@ -797,24 +797,23 @@ internal object SystemUiNativeCombinedParticipantOwner {
             currentSurface == SystemUiSceneStateSource.Surface.UNLOCKED_STATUS_BAR
 
         if (handoffCommitted) {
-            if (bindingState.visible != sceneVisible) {
-                bindingState.visible = sceneVisible
+            if (!bindingState.visible) {
+                bindingState.visible = true
                 requestNativeLayout(root)
-                eventSink?.invoke(
-                    "nativeCombinedParticipant visibilityState source=" + source +
-                        " scene=" + currentSurface.name +
-                        " bindingVisible=" + sceneVisible +
-                        " handoffCommitted=true nativeGeometryWrites=0",
-                )
             }
             return
         }
 
+        val handoffMode =
+            resolveHandoffMode(
+                surface = currentSurface,
+                rootShown = root.isShown,
+            )
         if (
             handoffPending ||
             !modelReady ||
             !tintReady ||
-            !sceneVisible ||
+            handoffMode == HandoffMode.BLOCKED ||
             !root.isAttachedToWindow ||
             root.parent == null
         ) {
@@ -830,6 +829,8 @@ internal object SystemUiNativeCombinedParticipantOwner {
                 " modelReady=" + modelReady +
                 " tintReady=" + tintReady +
                 " scene=" + currentSurface.name +
+                " mode=" + handoffMode.name +
+                " rootShownBefore=" + root.isShown +
                 " bootstrapVisibilityRelease=true nativeGeometryWrites=0",
         )
 
@@ -873,11 +874,15 @@ internal object SystemUiNativeCombinedParticipantOwner {
                                 renderLeft = render?.left ?: Int.MIN_VALUE,
                                 renderRight = render?.right ?: Int.MIN_VALUE,
                             )
+                        val resolvedMode =
+                            resolveHandoffMode(
+                                surface = currentSurface,
+                                rootShown = root.isShown,
+                            )
                         val ready =
                             modelReady &&
                                 tintReady &&
-                                currentSurface ==
-                                    SystemUiSceneStateSource.Surface.UNLOCKED_STATUS_BAR &&
+                                resolvedMode != HandoffMode.BLOCKED &&
                                 bindingState.visible &&
                                 iconVisible &&
                                 root.isAttachedToWindow &&
@@ -888,7 +893,10 @@ internal object SystemUiNativeCombinedParticipantOwner {
                             handoffSink?.invoke(true)
                             eventSink?.invoke(
                                 "nativeCombinedParticipant handoffCommit " +
-                                    "measured=" + root.measuredWidth + "x" +
+                                    "mode=" + resolvedMode.name +
+                                    " rootShown=" + root.isShown +
+                                    " hiddenAncestor=" + firstHiddenAncestor(root) +
+                                    " measured=" + root.measuredWidth + "x" +
                                     root.measuredHeight +
                                     " renderMeasured=" +
                                     (render?.measuredWidth ?: -1) + "x" +
@@ -913,6 +921,9 @@ internal object SystemUiNativeCombinedParticipantOwner {
                                     "modelReady=" + modelReady +
                                     " tintReady=" + tintReady +
                                     " scene=" + currentSurface.name +
+                                    " mode=" + resolvedMode.name +
+                                    " rootShown=" + root.isShown +
+                                    " hiddenAncestor=" + firstHiddenAncestor(root) +
                                     " iconVisible=" + iconVisible +
                                     " measured=" + root.measuredWidth + "x" +
                                     root.measuredHeight +
@@ -962,6 +973,39 @@ internal object SystemUiNativeCombinedParticipantOwner {
             rootScreenX == batteryScreenX &&
             renderLeft == 0 &&
             renderRight == expectedVisualWidth
+
+    internal enum class HandoffMode {
+        BLOCKED,
+        VISIBLE_HOME,
+        PREARMED_KEYGUARD,
+    }
+
+    internal fun resolveHandoffMode(
+        surface: SystemUiSceneStateSource.Surface,
+        rootShown: Boolean,
+    ): HandoffMode =
+        when {
+            surface == SystemUiSceneStateSource.Surface.UNLOCKED_STATUS_BAR ->
+                HandoffMode.VISIBLE_HOME
+            surface == SystemUiSceneStateSource.Surface.KEYGUARD && !rootShown ->
+                HandoffMode.PREARMED_KEYGUARD
+            else ->
+                HandoffMode.BLOCKED
+        }
+
+    private fun firstHiddenAncestor(view: View): String {
+        var current: View? = view
+        while (current != null) {
+            if (current.visibility != View.VISIBLE || !current.isShown) {
+                return current.javaClass.simpleName +
+                    "{visibility=" + visibilityName(current.visibility) +
+                    ",shown=" + current.isShown +
+                    ",alpha=" + current.alpha + "}"
+            }
+            current = current.parent as? View
+        }
+        return "none"
+    }
 
     private fun requestNativeLayout(root: View) {
         root.requestLayout()
