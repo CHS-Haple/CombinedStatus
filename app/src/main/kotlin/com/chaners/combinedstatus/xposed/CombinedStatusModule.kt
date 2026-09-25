@@ -762,9 +762,9 @@ class CombinedStatusModule : XposedModule() {
                             trace
                         }
                     refreshMobilePresentation(stateTrace)
-                    changed?.let { snapshot ->
+                    if (changed != null) {
                         onCombinedStateChanged(
-                            snapshot = snapshot,
+                            snapshot = CombinedStatusStateStore.snapshot(),
                             trace = stateTrace,
                         )
                     }
@@ -1023,9 +1023,19 @@ class CombinedStatusModule : XposedModule() {
             )
         val changed =
             CombinedStatusPresentationStateStore.updateMobilePresentation(presentation)
-        if (changed != null) {
+        val recoveryCompleted =
+            CombinedStatusStateStore.completeMobileRecoveryIfReady(
+                preferredSubscriptionId = presentation.effectiveDataSubscriptionId ?: -1,
+                mobileTypeReady = presentation.networkType != null,
+                mobileDataEnabled =
+                    CombinedStatusPresentationStateStore
+                        .snapshot()
+                        .connectivity
+                        .mobileDataEnabled,
+            )
+        if (changed != null || recoveryCompleted != null) {
             val presentationTrace = markPresentationCommitted(trace)
-            if (detailedDiagnosticsEnabled) {
+            if (detailedDiagnosticsEnabled && changed != null) {
                 log(Log.INFO, TAG, presentation.logLine)
                 logDiagnostic(
                     level = Log.INFO,
@@ -1042,6 +1052,17 @@ class CombinedStatusModule : XposedModule() {
                     "networkType" to presentation.networkType?.label,
                     "enhanced" to presentation.networkType?.enhanced,
                     "geometryWrites" to 0,
+                )
+            }
+            if (detailedDiagnosticsEnabled && recoveryCompleted != null) {
+                logDiagnostic(
+                    level = Log.INFO,
+                    event = "mobile.recovery",
+                    component = "network",
+                    state = "ready",
+                    "effectiveDataSubId" to presentation.effectiveDataSubscriptionId,
+                    "networkType" to presentation.networkType?.label,
+                    "eventDriven" to true,
                 )
             }
             onPresentationStateChanged(
@@ -1085,8 +1106,8 @@ class CombinedStatusModule : XposedModule() {
     private fun updateNativeNetworkSuppressionPolicy(source: String) {
         val presentation =
             CombinedStatusPresentationStateStore.snapshot()
-        val wifi =
-            CombinedStatusStateStore.snapshot().wifi
+        val state = CombinedStatusStateStore.snapshot()
+        val wifi = state.wifi
         SystemUiNativeNetworkSuppressionOwner.updatePolicy(
             suppressWifi =
                 SystemUiNetworkRuntimeOwner.wifiReady &&
@@ -1095,9 +1116,16 @@ class CombinedStatusModule : XposedModule() {
                         connectivity = presentation.connectivity,
                     ),
             suppressMobile =
-                presentation.mobilePresentation
-                    ?.nativeMobileReplacementReady == true,
+                NativeNetworkSuppressionPolicy.suppressMobile(
+                    airplaneMode = state.airplaneMode,
+                    presentation = presentation.mobilePresentation,
+                    wasSuppressed =
+                        SystemUiNativeNetworkSuppressionOwner.mobileSuppressionActive,
+                ),
             source = source,
+            forceRevalidate =
+                source == "airplane" ||
+                    source == "scene-unlocked",
         )
     }
 
@@ -1117,6 +1145,12 @@ class CombinedStatusModule : XposedModule() {
         }
         CombinedStatusHomeRenderSession.onSceneUpdate(update)
         SystemUiNativeCombinedParticipantOwner.onSceneUpdate(update)
+        if (
+            update.surface ==
+                SystemUiSceneStateSource.Surface.UNLOCKED_STATUS_BAR
+        ) {
+            updateNativeNetworkSuppressionPolicy("scene-unlocked")
+        }
     }
 
     private fun teardownOldGenerationForHotReload() {
@@ -1167,6 +1201,7 @@ class CombinedStatusModule : XposedModule() {
                                 trace = markStateCommitted(trace),
                             )
                         }
+                        updateNativeNetworkSuppressionPolicy("airplane")
                     },
                     onDefaultDataSubscriptionChanged = {
                         refreshMobilePresentation(
@@ -1517,8 +1552,9 @@ class CombinedStatusModule : XposedModule() {
                             if (active) {
                                 val presentation =
                                     CombinedStatusPresentationStateStore.snapshot()
-                                val wifi =
-                                    CombinedStatusStateStore.snapshot().wifi
+                                val state =
+                                    CombinedStatusStateStore.snapshot()
+                                val wifi = state.wifi
                                 SystemUiNativeNetworkSuppressionOwner.activate(
                                     host = host,
                                     suppressWifi =
@@ -1529,8 +1565,11 @@ class CombinedStatusModule : XposedModule() {
                                                     connectivity = presentation.connectivity,
                                                 ),
                                     suppressMobile =
-                                        presentation.mobilePresentation
-                                            ?.nativeMobileReplacementReady == true,
+                                        NativeNetworkSuppressionPolicy.suppressMobile(
+                                            airplaneMode = state.airplaneMode,
+                                            presentation = presentation.mobilePresentation,
+                                            wasSuppressed = false,
+                                        ),
                                 )
                             } else {
                                 SystemUiNativeNetworkSuppressionOwner.deactivate(
