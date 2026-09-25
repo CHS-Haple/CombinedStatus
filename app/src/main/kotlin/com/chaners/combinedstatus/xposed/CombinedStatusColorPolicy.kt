@@ -19,10 +19,14 @@ internal object CombinedStatusColorPolicy {
                 ?.takeIf { color -> (color ushr 24) != 0 }
                 ?: tintState.appliedTint
         val batteryTint =
-            if (model.charging) {
-                CHARGING_TINT
-            } else {
-                nativeParticipantTint
+            when (model.batteryVisualMode) {
+                BatteryVisualMode.CHARGING -> CHARGING_TINT
+                BatteryVisualMode.POWER_SAVE -> POWER_SAVE_TINT
+                BatteryVisualMode.PERFORMANCE -> PERFORMANCE_TINT
+                BatteryVisualMode.EXTREME_POWER_SAVE ->
+                    // Exact target color semantics are not yet runtime-verified.
+                    nativeParticipantTint
+                BatteryVisualMode.NORMAL -> nativeParticipantTint
             }
 
         return CombinedStatusColors(
@@ -42,5 +46,9 @@ internal object CombinedStatusColorPolicy {
         )
     }
 
+    // Values are fingerprint-scoped to the verified HyperOS SystemUI target,
+    // not generic MIUI theme constants.
     internal const val CHARGING_TINT = 0xff1cb753.toInt()
+    internal const val POWER_SAVE_TINT = 0xffffb300.toInt()
+    internal const val PERFORMANCE_TINT = 0xff2f80ed.toInt()
 }
