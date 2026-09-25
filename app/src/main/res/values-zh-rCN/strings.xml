@@ -27,6 +27,10 @@
     <string name="section_hyperos_display">系统界面</string>
     <string name="combined_status_feature_title">三合一状态图标</string>
     <string name="combined_status_feature_summary">整合电量、当前数据网络与 Wi-Fi 状态，并跟随 SystemUI 状态与过渡显示</string>
+    <string name="mobile_follow_battery_color">移动状态跟随电量环颜色</string>
+    <string name="mobile_follow_battery_color_summary">四个移动信号点和不可用叉号使用电量环最终颜色</string>
+    <string name="center_follow_battery_color">中心图标跟随电量环颜色</string>
+    <string name="center_follow_battery_color_summary">Wi-Fi、热点、移动网络制式、飞行模式和无 SIM 中心图标使用电量环最终颜色</string>
     <string name="appearance_title">外观</string>
     <string name="appearance_summary">主题与界面效果</string>
     <string name="status_bar_title">状态栏</string>
