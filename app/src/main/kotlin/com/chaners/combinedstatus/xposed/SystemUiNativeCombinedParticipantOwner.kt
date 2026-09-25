@@ -744,6 +744,8 @@ internal object SystemUiNativeCombinedParticipantOwner {
                     " rootVisibility=" + (root?.let { visibilityName(it.visibility) } ?: "none") +
                     " groupVisibility=" + (group?.let { visibilityName(it.visibility) } ?: "none") +
                     " hostVisibility=" + (host?.let { visibilityName(it.visibility) } ?: "none") +
+                    " rootShown=" + (root?.isShown ?: false) +
+                    " hostShown=" + (host?.isShown ?: false) +
                     " rootAlpha=" + (root?.alpha ?: -1f) +
                     " groupAlpha=" + (group?.alpha ?: -1f) +
                     " hostAlpha=" + (host?.alpha ?: -1f) +
