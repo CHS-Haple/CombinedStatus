@@ -157,4 +157,29 @@ class SystemUiNativeNetworkSuppressionOwnerTest {
         )
     }
 
+    @Test
+    fun mobilePreMaskRequiresActiveHomeOwnership() {
+        assertEquals(
+            true,
+            SystemUiNativeNetworkSuppressionOwner.shouldPreMaskMobileSignal(
+                suppressionActive = true,
+                belongsToActiveHomeGroup = true,
+            ),
+        )
+        assertEquals(
+            false,
+            SystemUiNativeNetworkSuppressionOwner.shouldPreMaskMobileSignal(
+                suppressionActive = true,
+                belongsToActiveHomeGroup = false,
+            ),
+        )
+        assertEquals(
+            false,
+            SystemUiNativeNetworkSuppressionOwner.shouldPreMaskMobileSignal(
+                suppressionActive = false,
+                belongsToActiveHomeGroup = true,
+            ),
+        )
+    }
+
 }
