@@ -50,7 +50,7 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 
 ### Fixed
 
-- Airplane-mode center presentation now reuses HyperOS `stat_sys_airplane_mode` instead of leaving the center empty, while retaining the existing unavailable mobile dots/cross and Wi-Fi precedence when Wi-Fi remains active.
+- Airplane-mode center presentation now reuses the left-facing HyperOS `stat_sys_signal_flightmode` shape family for parity with the live Home status bar, while retaining the existing unavailable mobile dots/cross and Wi-Fi precedence when Wi-Fi remains active.
 - VPN-backed default networks no longer suppress an authoritative HyperOS mobile-type label at startup: Wi-Fi/cellular transports retain precedence, while VPN-only fallback waits for authoritative Wi-Fi absence before showing the mobile type.
 - Native Combined Status tint updates now accept only the currently bound HyperOS status-bar battery view, preventing transient tint states from other `MiuiBatteryMeterView` instances from flashing through during light/dark inversion changes.
 - Wi-Fi fallback rendering now uses the same semantic-readiness gate as native Wi-Fi suppression, so unknown OEM/VPN Wi-Fi variants remain fully native instead of being duplicated by an uncertain Combined Status Wi-Fi projection.
