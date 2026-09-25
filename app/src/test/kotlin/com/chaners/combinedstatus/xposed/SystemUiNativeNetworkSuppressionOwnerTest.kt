@@ -25,4 +25,71 @@ class SystemUiNativeNetworkSuppressionOwnerTest {
             ),
         )
     }
+    @Test
+    fun airplaneModeKeepsNativeMobileSuppressedWhileRootsDisappear() {
+        assertEquals(
+            true,
+            NativeNetworkSuppressionPolicy.suppressMobile(
+                airplaneMode = true,
+                presentation = null,
+                wasSuppressed = false,
+            ),
+        )
+    }
+
+    @Test
+    fun airplaneExitKeepsPreviousSuppressionThroughUnknownPresentationGap() {
+        val unknown =
+            NativePresentationResolver.Snapshot(
+                mode = NativePresentationResolver.Mode.UNKNOWN,
+                boundRoots = 2,
+                visibleRoots = 0,
+                activeSubscriptionIds = listOf(1, 4),
+                presentationRootSubscriptionId = null,
+                effectiveDataSubscriptionId = 4,
+                networkTypeSubscriptionId = 4,
+                networkType = null,
+            )
+
+        assertEquals(
+            true,
+            NativeNetworkSuppressionPolicy.suppressMobile(
+                airplaneMode = false,
+                presentation = unknown,
+                wasSuppressed = true,
+            ),
+        )
+        assertEquals(
+            false,
+            NativeNetworkSuppressionPolicy.suppressMobile(
+                airplaneMode = false,
+                presentation = unknown,
+                wasSuppressed = false,
+            ),
+        )
+    }
+
+    @Test
+    fun knownNonReplaceableMobilePresentationReleasesStickySuppression() {
+        val dualSeparate =
+            NativePresentationResolver.Snapshot(
+                mode = NativePresentationResolver.Mode.DUAL_SEPARATE,
+                boundRoots = 2,
+                visibleRoots = 2,
+                activeSubscriptionIds = listOf(1, 4),
+                presentationRootSubscriptionId = 4,
+                effectiveDataSubscriptionId = 4,
+                networkTypeSubscriptionId = 4,
+                networkType = null,
+            )
+
+        assertEquals(
+            false,
+            NativeNetworkSuppressionPolicy.suppressMobile(
+                airplaneMode = false,
+                presentation = dualSeparate,
+                wasSuppressed = true,
+            ),
+        )
+    }
 }
