@@ -367,6 +367,39 @@ class SystemUiNativeCombinedParticipantOwnerTest {
     }
 
     @Test
+    fun zeroSlotAppearUsesVisualCenterPivot() {
+        assertEquals(
+            52.5f,
+            SystemUiNativeCombinedParticipantOwner.resolveZeroSlotAppearPivotX(
+                rootWidth = 0,
+                visualWidth = 105,
+            ),
+        )
+    }
+
+    @Test
+    fun nonZeroNativeSlotKeepsSystemUiPivotOwnership() {
+        assertEquals(
+            null,
+            SystemUiNativeCombinedParticipantOwner.resolveZeroSlotAppearPivotX(
+                rootWidth = 105,
+                visualWidth = 105,
+            ),
+        )
+    }
+
+    @Test
+    fun zeroSlotWithoutVisualWidthDoesNotWritePivot() {
+        assertEquals(
+            null,
+            SystemUiNativeCombinedParticipantOwner.resolveZeroSlotAppearPivotX(
+                rootWidth = 0,
+                visualWidth = 0,
+            ),
+        )
+    }
+
+    @Test
     fun nativeVisibleStateNamesResolveWithoutAssumingNumericOrder() {
         val states =
             SystemUiNativeCombinedParticipantOwner.resolveNativeVisibilityStates { candidate ->

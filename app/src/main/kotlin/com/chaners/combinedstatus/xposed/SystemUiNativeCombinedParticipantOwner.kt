@@ -1009,6 +1009,35 @@ internal object SystemUiNativeCombinedParticipantOwner {
         // HyperOS native mobile participants pair their semantic visibility with
         // ModernStatusBarView.setRemove(...). Reuse the same contract so the
         // container owns APPEAR/MOVE instead of treating this as measurement-only.
+        //
+        // Narrow verified exception for the zero-slot bridge:
+        // exact HyperOS 17.03.260226.r APPEAR initializes alpha/scale but does
+        // not rewrite pivotX, while DISAPPEAR derives pivotX from View.width/2.
+        // Our stable shell width is intentionally 0 and the 105px renderer
+        // overflows into the preserved battery slot, so a native APPEAR would
+        // otherwise scale that visual surface around x=0. Prepare only this
+        // module-owned custom shell pivot before APPEAR; HyperOS still owns
+        // alpha/scale/duration/state transitions, and peer geometry is untouched.
+        val appearPivotX =
+            resolveZeroSlotAppearPivotX(
+                rootWidth = root.width,
+                visualWidth = render.measuredWidth,
+            )
+        if (appearPivotX != null && root.pivotX != appearPivotX) {
+            val previousPivotX = root.pivotX
+            root.pivotX = appearPivotX
+            if (transitionProbeEnabled?.invoke() == true) {
+                eventSink?.invoke(
+                    "nativeCombinedParticipant appearPivot " +
+                        "source=feature-enabled rootWidth=" + root.width +
+                        " visualWidth=" + render.measuredWidth +
+                        " previousPivotX=" + previousPivotX +
+                        " targetPivotX=" + appearPivotX +
+                        " moduleOwnedTransitionGeometry=true " +
+                        "peerNativeGeometryWrites=0",
+                )
+            }
+        }
         handoffSink?.invoke(true)
         root.visibility = View.VISIBLE
         if (!setNativeRemoveFlag(root, removeFlag)) {
@@ -1699,6 +1728,17 @@ internal object SystemUiNativeCombinedParticipantOwner {
         } else {
             null
         }
+
+    internal fun resolveZeroSlotAppearPivotX(
+        rootWidth: Int,
+        visualWidth: Int,
+    ): Float? =
+        if (rootWidth == ZERO_SLOT_WIDTH && visualWidth > 0) {
+            visualWidth / 2f
+        } else {
+            null
+        }
+
 
     private fun resolveCurrentHandles(): NativeParticipantRuntimeAccess.Handles? {
         val host = hostRef?.get() ?: return null
