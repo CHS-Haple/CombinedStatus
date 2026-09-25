@@ -19,6 +19,7 @@ internal object SystemUiBatteryStateSource {
         module: XposedModule,
         classLoader: ClassLoader,
         onBatteryState: (CombinedStatusStateStore.BatteryState) -> Unit,
+        onBatteryPresentationApplied: (() -> Unit)?,
         onEvent: ((String) -> Unit)?,
     ): List<HookHandle> {
         val batteryClass =
@@ -38,6 +39,7 @@ internal object SystemUiBatteryStateSource {
                 .intercept(
                     Hooker { chain ->
                         val result = chain.proceed()
+                        onBatteryPresentationApplied?.invoke()
                         val level =
                             (chain.getArg(0) as? Number)
                                 ?.toInt()

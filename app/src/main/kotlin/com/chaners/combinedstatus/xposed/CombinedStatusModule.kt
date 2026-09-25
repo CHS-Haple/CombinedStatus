@@ -930,6 +930,11 @@ class CombinedStatusModule : XposedModule() {
                         )
                     }
                 },
+                onBatteryPresentationApplied = {
+                    SystemUiNativeBatterySuppressionOwner.revalidate(
+                        "battery-level-afterProceed",
+                    )
+                },
                 onEvent =
                     if (BuildConfig.RUNTIME_DIAGNOSTICS) {
                         { event ->

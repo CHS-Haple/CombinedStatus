@@ -280,4 +280,60 @@ class SystemUiNativeCombinedParticipantOwnerTest {
         )
     }
 
+
+    @Test
+    fun nativeIconStateShowsCombinedRendererAndHidesDot() {
+        val visibility =
+            SystemUiNativeCombinedParticipantOwner.resolveNativeContentVisibility(
+                state = 7,
+                iconState = 7,
+                dotState = 8,
+                hiddenState = 9,
+            )
+
+        assertEquals(android.view.View.VISIBLE, visibility?.renderVisibility)
+        assertEquals(android.view.View.GONE, visibility?.dotVisibility)
+    }
+
+    @Test
+    fun nativeDotStateUsesSystemDotWithoutCombinedRenderer() {
+        val visibility =
+            SystemUiNativeCombinedParticipantOwner.resolveNativeContentVisibility(
+                state = 8,
+                iconState = 7,
+                dotState = 8,
+                hiddenState = 9,
+            )
+
+        assertEquals(android.view.View.INVISIBLE, visibility?.renderVisibility)
+        assertEquals(android.view.View.VISIBLE, visibility?.dotVisibility)
+    }
+
+    @Test
+    fun nativeHiddenStateKeepsShellButDrawsNoCombinedContent() {
+        val visibility =
+            SystemUiNativeCombinedParticipantOwner.resolveNativeContentVisibility(
+                state = 9,
+                iconState = 7,
+                dotState = 8,
+                hiddenState = 9,
+            )
+
+        assertEquals(android.view.View.INVISIBLE, visibility?.renderVisibility)
+        assertEquals(android.view.View.INVISIBLE, visibility?.dotVisibility)
+    }
+
+    @Test
+    fun unknownNativeVisibleStateFailsClosed() {
+        assertEquals(
+            null,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeContentVisibility(
+                state = 99,
+                iconState = 7,
+                dotState = 8,
+                hiddenState = 9,
+            ),
+        )
+    }
+
 }

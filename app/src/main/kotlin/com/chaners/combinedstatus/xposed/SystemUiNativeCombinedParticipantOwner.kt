@@ -35,6 +35,8 @@ internal object SystemUiNativeCombinedParticipantOwner {
         "com.android.systemui.statusbar.pipeline.icons.shared.model.ModernStatusBarViewCreator"
     private const val MODERN_VIEW =
         "com.android.systemui.statusbar.pipeline.shared.ui.view.ModernStatusBarView"
+    private const val STATUS_BAR_ICON_VIEW =
+        "com.android.systemui.statusbar.StatusBarIconView"
     private const val BINDING =
         "com.android.systemui.statusbar.pipeline.shared.ui.binder.ModernStatusBarViewBinding"
     private const val BINDABLE_HOLDER =
@@ -55,6 +57,9 @@ internal object SystemUiNativeCombinedParticipantOwner {
     private var renderController: CombinedStatusRenderController? = null
     private var hostRef: WeakReference<ViewGroup>? = null
     private var eventSink: ((String) -> Unit)? = null
+    private var nativeStateIcon: Int? = null
+    private var nativeStateDot: Int? = null
+    private var nativeStateHidden: Int? = null
     private val bindingStates =
         Collections.synchronizedMap(
             WeakHashMap<FrameLayout, BindingState>(),
@@ -108,6 +113,9 @@ internal object SystemUiNativeCombinedParticipantOwner {
         val bindingClass =
             classOrNull(BINDING, classLoader)
                 ?: return InstallResult.Failure("binding-class-missing")
+        val statusBarIconViewClass =
+            classOrNull(STATUS_BAR_ICON_VIEW, classLoader)
+                ?: return InstallResult.Failure("status-bar-icon-view-class-missing")
         val function0Class =
             classOrNull(FUNCTION0, classLoader)
                 ?: return InstallResult.Failure("function0-class-missing")
@@ -120,6 +128,39 @@ internal object SystemUiNativeCombinedParticipantOwner {
         ) {
             return InstallResult.Failure("proxy-contract-mismatch")
         }
+
+        val visibilityStateMethod =
+            bindingClass.methods
+                .firstOrNull { method ->
+                    method.name == "onVisibilityStateChanged" &&
+                        method.parameterTypes.size == 1 &&
+                        method.parameterTypes[0] == Int::class.javaPrimitiveType &&
+                        method.returnType == Void.TYPE
+                }
+                ?: return InstallResult.Failure(
+                    "binding-visibility-state-contract-missing",
+                )
+        val resolvedStateIcon =
+            staticIntField(statusBarIconViewClass, "STATE_ICON")
+                ?: return InstallResult.Failure("status-bar-state-icon-missing")
+        val resolvedStateDot =
+            staticIntField(statusBarIconViewClass, "STATE_DOT")
+                ?: return InstallResult.Failure("status-bar-state-dot-missing")
+        val resolvedStateHidden =
+            staticIntField(statusBarIconViewClass, "STATE_HIDDEN")
+                ?: return InstallResult.Failure("status-bar-state-hidden-missing")
+        nativeStateIcon = resolvedStateIcon
+        nativeStateDot = resolvedStateDot
+        nativeStateHidden = resolvedStateHidden
+        eventSink?.invoke(
+            "nativeCombinedParticipant bindingContract " +
+                "visibilityMethod=" + visibilityStateMethod.name +
+                "(int):void" +
+                " iconState=" + resolvedStateIcon +
+                " dotState=" + resolvedStateDot +
+                " hiddenState=" + resolvedStateHidden +
+                " nativeGeometryWrites=0",
+        )
 
         val constructor =
             controllerClass.declaredConstructors
@@ -969,6 +1010,127 @@ internal object SystemUiNativeCombinedParticipantOwner {
     }
 
     @Synchronized
+    private fun onNativeBindingVisibilityStateChanged(
+        bindingState: BindingState,
+        state: Int,
+        parameterCount: Int,
+    ) {
+        val previous = bindingState.visibleState
+        bindingState.visibleState = state
+
+        val root =
+            bindingStates.entries
+                .firstOrNull { (_, candidate) -> candidate === bindingState }
+                ?.key
+        val render =
+            root?.let { candidateRoot ->
+                renderViewRef
+                    ?.get()
+                    ?.takeIf { candidate -> candidate.parent === candidateRoot }
+                    ?: (0 until candidateRoot.childCount)
+                        .asSequence()
+                        .map(candidateRoot::getChildAt)
+                        .filterIsInstance<CombinedStatusRenderView>()
+                        .firstOrNull()
+            }
+        val dot =
+            root?.let { candidateRoot ->
+                (0 until candidateRoot.childCount)
+                    .asSequence()
+                    .map(candidateRoot::getChildAt)
+                    .firstOrNull { child ->
+                        child.javaClass.name == STATUS_BAR_ICON_VIEW
+                    }
+            }
+
+        val resolved =
+            resolveNativeContentVisibility(
+                state = state,
+                iconState = nativeStateIcon,
+                dotState = nativeStateDot,
+                hiddenState = nativeStateHidden,
+            )
+        if (resolved != null) {
+            render?.visibility = resolved.renderVisibility
+            dot?.visibility = resolved.dotVisibility
+        } else {
+            render?.visibility = View.INVISIBLE
+            dot?.visibility = View.INVISIBLE
+        }
+
+        if (previous != state) {
+            eventSink?.invoke(
+                "nativeCombinedParticipant visibilityState " +
+                    "state=" + state +
+                    " previous=" + (previous ?: "none") +
+                    " parameterCount=" + parameterCount +
+                    " rootAlpha=" + (root?.alpha ?: -1f) +
+                    " rootScale=" +
+                    (root?.scaleX ?: -1f) + "x" + (root?.scaleY ?: -1f) +
+                    " rootTranslation=" +
+                    (root?.translationX ?: Float.NaN) + "," +
+                    (root?.translationY ?: Float.NaN) +
+                    " renderVisibility=" +
+                    (render?.let { visibilityName(it.visibility) } ?: "none") +
+                    " dotVisibility=" +
+                    (dot?.let { visibilityName(it.visibility) } ?: "none") +
+                    " nativeGeometryWrites=0",
+            )
+            root?.postOnAnimation {
+                eventSink?.invoke(
+                    "nativeCombinedParticipant visibilityStateFrame " +
+                        "state=" + state +
+                        " rootAlpha=" + root.alpha +
+                        " rootScale=" + root.scaleX + "x" + root.scaleY +
+                        " rootTranslation=" +
+                        root.translationX + "," + root.translationY +
+                        " nativeGeometryWrites=0",
+                )
+            }
+        }
+    }
+
+    internal fun resolveNativeContentVisibility(
+        state: Int,
+        iconState: Int?,
+        dotState: Int?,
+        hiddenState: Int?,
+    ): NativeContentVisibility? {
+        if (iconState != null && state == iconState) {
+            return NativeContentVisibility(
+                renderVisibility = View.VISIBLE,
+                dotVisibility = View.GONE,
+            )
+        }
+        if (dotState != null && state == dotState) {
+            return NativeContentVisibility(
+                renderVisibility = View.INVISIBLE,
+                dotVisibility = View.VISIBLE,
+            )
+        }
+        if (hiddenState != null && state == hiddenState) {
+            return NativeContentVisibility(
+                renderVisibility = View.INVISIBLE,
+                dotVisibility = View.INVISIBLE,
+            )
+        }
+        return null
+    }
+
+    private fun staticIntField(
+        clazz: Class<*>,
+        name: String,
+    ): Int? =
+        runCatching {
+            clazz.getField(name).getInt(null)
+        }.recoverCatching {
+            clazz
+                .getDeclaredField(name)
+                .apply { isAccessible = true }
+                .getInt(null)
+        }.getOrNull()
+
+    @Synchronized
     private fun onNativeBindingTintChanged(
         bindingState: BindingState,
         tint: Int,
@@ -1419,6 +1581,9 @@ internal object SystemUiNativeCombinedParticipantOwner {
         handoffPending = false
         handoffCommitted = false
         eventSink = null
+        nativeStateIcon = null
+        nativeStateDot = null
+        nativeStateHidden = null
         modelReadyLogged = false
         unlockedGeometryLogged = false
         renderController = null
@@ -1547,6 +1712,18 @@ internal object SystemUiNativeCombinedParticipantOwner {
                 when (method.name) {
                     "getShouldIconBeVisible" -> bindingState.visible
                     "isCollecting" -> true
+                    "onVisibilityStateChanged" -> {
+                        (args?.firstOrNull() as? Number)
+                            ?.toInt()
+                            ?.let { state ->
+                                onNativeBindingVisibilityStateChanged(
+                                    bindingState = bindingState,
+                                    state = state,
+                                    parameterCount = method.parameterCount,
+                                )
+                            }
+                        null
+                    }
                     "onIconTintChanged" -> {
                         (args?.firstOrNull() as? Number)
                             ?.toInt()
@@ -1686,7 +1863,13 @@ internal object SystemUiNativeCombinedParticipantOwner {
     private class BindingState(
         @Volatile var visible: Boolean = false,
         @Volatile var iconTint: Int? = null,
+        @Volatile var visibleState: Int? = null,
         @Volatile var tintEventLogged: Boolean = false,
+    )
+
+    internal data class NativeContentVisibility(
+        val renderVisibility: Int,
+        val dotVisibility: Int,
     )
 
     internal sealed interface AttachResult {
