@@ -50,6 +50,7 @@ internal object SystemUiNativeNetworkSuppressionOwner {
     private var airplaneSlotAccessor: Method? = null
     private var statusIconVisibleAccessor: Method? = null
     private var statusIconSourceAccessor: Method? = null
+    private var statusIconStaticColorAccessor: Method? = null
     private var lastStatusPresentation =
         CombinedStatusPresentationStateStore.StatusIconPresentation()
 
@@ -127,6 +128,17 @@ internal object SystemUiNativeNetworkSuppressionOwner {
                             method.returnType == Icon::class.java
                     }
                     ?.apply { isAccessible = true }
+            statusIconStaticColorAccessor =
+                statusBarIconView.methods
+                    .firstOrNull { method ->
+                        method.name == "getStaticDrawableColor" &&
+                            method.parameterCount == 0 &&
+                            (
+                                method.returnType == Int::class.javaPrimitiveType ||
+                                    method.returnType == Int::class.java
+                            )
+                    }
+                    ?.apply { isAccessible = true }
             airplaneSlotAccessor =
                 generateSequence(statusBarIconView) { clazz -> clazz.superclass }
                     .flatMap { clazz -> clazz.declaredMethods.asSequence() }
@@ -190,6 +202,7 @@ internal object SystemUiNativeNetworkSuppressionOwner {
             airplaneSlotAccessor = null
             statusIconVisibleAccessor = null
             statusIconSourceAccessor = null
+            statusIconStaticColorAccessor = null
             suppressedBindings = emptyArray()
             mobileVisualMasks = emptyArray()
             activeManager = null
@@ -314,6 +327,7 @@ internal object SystemUiNativeNetworkSuppressionOwner {
         statusPresentationSink = null
         statusIconVisibleAccessor = null
         statusIconSourceAccessor = null
+        statusIconStaticColorAccessor = null
         lastStatusPresentation =
             CombinedStatusPresentationStateStore.StatusIconPresentation()
     }
@@ -384,14 +398,19 @@ internal object SystemUiNativeNetworkSuppressionOwner {
     @Synchronized
     fun currentAppliedStatusIconTint(anchorView: View? = null): Int? {
         val group = activeGroup?.get()
-        return resolveManagerAppliedTint(
-            manager = activeManager,
-            anchorView =
-                anchorView
-                    ?: group?.let(::resolveTintAnchorView),
+        val peerTint = group?.let(::resolveAppliedStatusIconTint)
+        val managerTint =
+            resolveManagerAppliedTint(
+                manager = activeManager,
+                anchorView =
+                    anchorView
+                        ?: group?.let(::resolveTintAnchorView),
+            )
+        return selectStatusIconTint(
+            peerAppliedTint = peerTint,
+            managerTint = managerTint,
+            fallbackTint = lastStatusPresentation.appliedTint,
         )
-            ?: group?.let(::resolveAppliedStatusIconTint)
-            ?: lastStatusPresentation.appliedTint
     }
 
     private fun refreshStatusPresentationLocked(source: String) {
@@ -410,16 +429,21 @@ internal object SystemUiNativeNetworkSuppressionOwner {
             } else {
                 null
             }
+        val peerTint = resolveAppliedStatusIconTint(group)
         val managerTint =
             resolveManagerAppliedTint(
                 manager = activeManager,
                 anchorView = resolveTintAnchorView(group),
             )
+        val appliedTint =
+            selectStatusIconTint(
+                peerAppliedTint = peerTint,
+                managerTint = managerTint,
+                fallbackTint = lastStatusPresentation.appliedTint,
+            )
         val presentation =
             CombinedStatusPresentationStateStore.StatusIconPresentation(
-                appliedTint =
-                    managerTint
-                        ?: resolveAppliedStatusIconTint(group),
+                appliedTint = appliedTint,
                 noSimVisible = noSimVisible,
                 noSimIcon = noSimIcon,
             )
@@ -440,11 +464,23 @@ internal object SystemUiNativeNetworkSuppressionOwner {
                         ?.padStart(8, '0')
                         ?: "none") +
                     " tintAuthority=" +
-                    if (managerTint != null) {
-                        "manager-dark-dispatcher"
-                    } else {
-                        "view-tint-fallback"
+                    when {
+                        peerTint != null -> "peer-static-applied"
+                        managerTint != null -> "manager-dark-dispatcher"
+                        else -> "cached-fallback"
                     } +
+                    " peerTint=" +
+                    (peerTint
+                        ?.toUInt()
+                        ?.toString(16)
+                        ?.padStart(8, '0')
+                        ?: "none") +
+                    " managerTint=" +
+                    (managerTint
+                        ?.toUInt()
+                        ?.toString(16)
+                        ?.padStart(8, '0')
+                        ?: "none") +
                     " noSimVisible=" + presentation.noSimVisible +
                     " noSimResource=" +
                     (
@@ -600,7 +636,44 @@ internal object SystemUiNativeNetworkSuppressionOwner {
         }.getOrNull()
     }
 
+    internal fun selectStatusIconTint(
+        peerAppliedTint: Int?,
+        managerTint: Int?,
+        fallbackTint: Int?,
+    ): Int? =
+        peerAppliedTint
+            ?.takeIf { color -> (color ushr 24) != 0 }
+            ?: managerTint
+                ?.takeIf { color -> (color ushr 24) != 0 }
+            ?: fallbackTint
+                ?.takeIf { color -> (color ushr 24) != 0 }
+
+    private fun resolveStaticDrawableColor(view: View): Int? {
+        val accessor = statusIconStaticColorAccessor ?: return null
+        if (!accessor.declaringClass.isInstance(view)) {
+            return null
+        }
+        return runCatching {
+            (accessor.invoke(view) as? Number)?.toInt()
+        }.getOrNull()
+            ?.takeIf { color -> (color ushr 24) != 0 }
+    }
+
     private fun resolveAppliedStatusIconTint(group: ViewGroup): Int? {
+        for (index in group.childCount - 1 downTo 0) {
+            val child = group.getChildAt(index)
+            val slot = NativeParticipantRuntimeAccess.slotOf(child)
+            if (
+                slot == "combined_status" ||
+                child.visibility != View.VISIBLE ||
+                child.width <= 0 ||
+                child.height <= 0
+            ) {
+                continue
+            }
+            resolveStaticDrawableColor(child)?.let { return it }
+        }
+
         val childrenBySlot =
             (0 until group.childCount)
                 .map(group::getChildAt)
@@ -617,7 +690,7 @@ internal object SystemUiNativeNetworkSuppressionOwner {
                 ?.let { return it }
         }
 
-        for (index in 0 until group.childCount) {
+        for (index in group.childCount - 1 downTo 0) {
             val child = group.getChildAt(index)
             if (NativeParticipantRuntimeAccess.slotOf(child) == "combined_status") {
                 continue
