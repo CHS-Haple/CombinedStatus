@@ -437,6 +437,9 @@ internal object SystemUiNativeBatterySuppressionOwner {
             val layoutChanged: Boolean,
             val visualChanged: Boolean,
         ) : StateResult {
+            val changed: Boolean
+                get() = layoutChanged
+
             override val summary: String
                 get() =
                     "active:nativeRequestedHide=" + nativeRequestedHide +
@@ -454,8 +457,8 @@ internal object SystemUiNativeBatterySuppressionOwner {
                         " layoutChanged=" + layoutChanged +
                         " visualChanged=" + visualChanged +
                         " contract=MiuiStatusBatteryContainer.setIsHideBattery+MiuiBatteryMeterView.INVISIBLE" +
-                        " nativeGeometryWrites=" + if (layoutChanged) 1 else 0 +
-                        " nativeVisibilityWrites=" + if (visualChanged) 1 else 0
+                        " nativeGeometryWrites=" + (if (layoutChanged) 1 else 0) +
+                        " nativeVisibilityWrites=" + (if (visualChanged) 1 else 0)
         }
 
         data class Inactive(
@@ -465,6 +468,9 @@ internal object SystemUiNativeBatterySuppressionOwner {
             val layoutChanged: Boolean,
             val visualChanged: Boolean,
         ) : StateResult {
+            val changed: Boolean
+                get() = layoutChanged
+
             override val summary: String
                 get() =
                     "inactive:restoredNativeHide=" + restoredNativeHide +
