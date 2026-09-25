@@ -6,6 +6,7 @@ import android.content.SharedPreferences
 import android.util.Log
 import com.chaners.combinedstatus.settings.CENTER_FOLLOWS_BATTERY_COLOR_KEY
 import com.chaners.combinedstatus.settings.COMBINED_STATUS_ENABLED_KEY
+import com.chaners.combinedstatus.settings.COMBINED_STATUS_FEATURE_CHANGE_ELAPSED_REALTIME_NANOS_KEY
 import com.chaners.combinedstatus.settings.COMBINED_STATUS_FEATURE_PREFS_NAME
 import com.chaners.combinedstatus.settings.COMBINED_STATUS_VISUAL_PREFS_NAME
 import com.chaners.combinedstatus.settings.DIAGNOSTICS_LEVEL_KEY
@@ -124,6 +125,11 @@ class CombinedStatusApplication :
                 COMBINED_STATUS_ENABLED_KEY,
                 true,
             )
+        val featureChangeElapsedRealtimeNanos =
+            featurePreferences.getLong(
+                COMBINED_STATUS_FEATURE_CHANGE_ELAPSED_REALTIME_NANOS_KEY,
+                0L,
+            )
         val mobileFollowsBattery =
             visualPreferences.getBoolean(
                 MOBILE_FOLLOWS_BATTERY_COLOR_KEY,
@@ -143,6 +149,10 @@ class CombinedStatusApplication :
                 .putBoolean(
                     COMBINED_STATUS_ENABLED_KEY,
                     combinedStatusEnabled,
+                )
+                .putLong(
+                    COMBINED_STATUS_FEATURE_CHANGE_ELAPSED_REALTIME_NANOS_KEY,
+                    featureChangeElapsedRealtimeNanos,
                 )
                 .putBoolean(
                     MOBILE_FOLLOWS_BATTERY_COLOR_KEY,

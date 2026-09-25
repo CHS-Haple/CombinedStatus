@@ -1,7 +1,9 @@
 package com.chaners.combinedstatus.xposed
 
 import android.content.SharedPreferences
+import android.os.SystemClock
 import com.chaners.combinedstatus.settings.COMBINED_STATUS_ENABLED_KEY
+import com.chaners.combinedstatus.settings.COMBINED_STATUS_FEATURE_CHANGE_ELAPSED_REALTIME_NANOS_KEY
 import com.chaners.combinedstatus.settings.CombinedStatusFeatureSettings
 
 internal object RuntimeFeaturePreferencesOwner {
@@ -17,7 +19,7 @@ internal object RuntimeFeaturePreferencesOwner {
     @Synchronized
     fun bind(
         preferences: SharedPreferences,
-        onChanged: (CombinedStatusFeatureSettings) -> Unit,
+        onChanged: (CombinedStatusFeatureSettings, Long?) -> Unit,
     ): CombinedStatusFeatureSettings {
         unbindLocked()
 
@@ -33,8 +35,20 @@ internal object RuntimeFeaturePreferencesOwner {
                 ) {
                     val next = resolve(changed)
                     if (next != current) {
+                        val receivedAtElapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos()
+                        val changedAtElapsedRealtimeNanos =
+                            changed.getLong(
+                                COMBINED_STATUS_FEATURE_CHANGE_ELAPSED_REALTIME_NANOS_KEY,
+                                0L,
+                            )
                         current = next
-                        onChanged(next)
+                        onChanged(
+                            next,
+                            resolveTransportLatencyNanos(
+                                changedAtElapsedRealtimeNanos,
+                                receivedAtElapsedRealtimeNanos,
+                            ),
+                        )
                     }
                 }
             }
@@ -43,7 +57,7 @@ internal object RuntimeFeaturePreferencesOwner {
         this.preferences = preferences
         this.listener = listener
         bindingToken = token
-        onChanged(initial)
+        onChanged(initial, null)
         return initial
     }
 
@@ -71,6 +85,19 @@ internal object RuntimeFeaturePreferencesOwner {
     ): Boolean =
         this.preferences === preferences &&
             bindingToken === token
+
+    internal fun resolveTransportLatencyNanos(
+        changedAtElapsedRealtimeNanos: Long,
+        receivedAtElapsedRealtimeNanos: Long,
+    ): Long? =
+        if (
+            changedAtElapsedRealtimeNanos > 0L &&
+            receivedAtElapsedRealtimeNanos >= changedAtElapsedRealtimeNanos
+        ) {
+            receivedAtElapsedRealtimeNanos - changedAtElapsedRealtimeNanos
+        } else {
+            null
+        }
 
     private fun resolve(preferences: SharedPreferences): CombinedStatusFeatureSettings =
         CombinedStatusFeatureSettings(

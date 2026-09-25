@@ -1853,6 +1853,7 @@ class CombinedStatusModule : XposedModule() {
             RuntimeFeaturePreferencesOwner.unbind()
             onRuntimeFeatureSettingsChanged(
                 RuntimeFeaturePreferencesOwner.currentSettings(),
+                null,
             )
             logDiagnostic(
                 level = Log.WARN,
@@ -1868,15 +1869,29 @@ class CombinedStatusModule : XposedModule() {
 
     private fun onRuntimeFeatureSettingsChanged(
         settings: CombinedStatusFeatureSettings,
+        preferenceTransportLatencyNanos: Long?,
     ) {
-        SystemUiNativeCombinedParticipantOwner.onFeatureSettingsChanged(settings)
-        CombinedStatusHomeRenderSession.onFeatureSettingsChanged(settings)
+        if (settings.enabled) {
+            SystemUiNativeCombinedParticipantOwner.onFeatureSettingsChanged(settings)
+            CombinedStatusHomeRenderSession.onFeatureSettingsChanged(settings)
+        } else {
+            // Close the overlay gate before releasing native suppression so a
+            // fallback overlay cannot become visible during the same UI turn.
+            CombinedStatusHomeRenderSession.onFeatureSettingsChanged(settings)
+            SystemUiNativeCombinedParticipantOwner.onFeatureSettingsChanged(settings)
+        }
         logDiagnostic(
             level = Log.INFO,
             event = "featureSettings.changed",
             component = "combinedStatus",
             state = if (settings.enabled) "enabled" else "disabled",
             "combinedStatusEnabled" to settings.enabled,
+            "preferenceTransportMs" to
+                (
+                    preferenceTransportLatencyNanos
+                        ?.let { nanos -> nanos / 1_000_000.0 }
+                        ?: "initial-bind"
+                ),
             "eventDriven" to true,
             "fallback" to if (settings.enabled) "combined-status" else "native-systemui",
         )

@@ -925,13 +925,14 @@ internal object SystemUiNativeCombinedParticipantOwner {
         // synchronously reached their replacement state on this UI-thread turn.
         handoffSink?.invoke(true)
         bindingState.visible = true
-        root.visibility = View.VISIBLE
         handoffCommitted = true
+        requestNativeLayout(root)
         eventSink?.invoke(
             "nativeCombinedParticipant handoffResume " +
                 "source=feature-enabled validated=true " +
                 "mode=warm-standby rootShown=" + root.isShown +
-                " nativeGeometryWrites=0",
+                " visibilityAuthority=binding systemUiMotion=APPEAR " +
+                "nativeGeometryWrites=0",
         )
         return true
     }
@@ -1015,22 +1016,20 @@ internal object SystemUiNativeCombinedParticipantOwner {
         val wasCommitted = handoffCommitted
         handoffCommitted = false
 
-        // Restore native presentation before withdrawing the replacement so
-        // there is no frame with neither presentation available.
-        if (wasCommitted) {
-            handoffSink?.invoke(false)
+        val bindingVisibilityChanged = bindingState?.visible == true
+        if (bindingVisibilityChanged) {
+            bindingState?.visible = false
         }
 
-        if (bindingState?.visible == true) {
-            bindingState.visible = false
-        }
-
-        var rootChanged = false
+        // Once this host has completed a valid native handoff, binding
+        // visibility is the steady-state authority. MiuiStatusIconContainer
+        // then owns DISAPPEAR/MOVE instead of a module-authored root hide.
+        var bootstrapRootChanged = false
         var shellWidthReset = false
         if (root != null) {
-            if (root.visibility != View.GONE) {
+            if (!handoffValidated && root.visibility != View.GONE) {
                 root.visibility = View.GONE
-                rootChanged = true
+                bootstrapRootChanged = true
             }
             val layoutParams = root.layoutParams
             if (layoutParams != null && layoutParams.width != ZERO_SLOT_WIDTH) {
@@ -1038,16 +1037,35 @@ internal object SystemUiNativeCombinedParticipantOwner {
                 root.layoutParams = layoutParams
                 shellWidthReset = true
             }
-            if (rootChanged || shellWidthReset) {
-                requestNativeLayout(root)
-            }
         }
 
-        if (wasCommitted || rootChanged || shellWidthReset) {
+        // Release native suppression in the same UI turn after the binding fact
+        // has been withdrawn. The next native layout sees both sides of the
+        // transition together and retains SystemUI animation ownership.
+        if (wasCommitted) {
+            handoffSink?.invoke(false)
+        }
+        if (
+            root != null &&
+            (bindingVisibilityChanged || bootstrapRootChanged || shellWidthReset)
+        ) {
+            requestNativeLayout(root)
+        }
+
+        if (
+            wasCommitted ||
+            bindingVisibilityChanged ||
+            bootstrapRootChanged ||
+            shellWidthReset
+        ) {
             eventSink?.invoke(
                 "nativeCombinedParticipant featureGate source=" + source +
                     " enabled=false" +
                     " previousHandoff=" + wasCommitted +
+                    " visibilityAuthority=" +
+                    (if (handoffValidated) "binding" else "bootstrap-root") +
+                    " systemUiMotion=" +
+                    (if (handoffValidated) "DISAPPEAR" else "bootstrap") +
                     " shellWidthReset=" + shellWidthReset +
                     " customRootWidthWrite=" + shellWidthReset +
                     " nativeGeometryWrites=0 peerNativeGeometryWrites=0",

@@ -2,6 +2,7 @@ package com.chaners.combinedstatus.settings
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.os.SystemClock
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -48,8 +49,13 @@ internal class CombinedStatusFeatureSettingsRepository(context: Context) {
         )
 
     fun setEnabled(enabled: Boolean) {
+        val changedAtElapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos()
         preferences
             .edit()
+            .putLong(
+                COMBINED_STATUS_FEATURE_CHANGE_ELAPSED_REALTIME_NANOS_KEY,
+                changedAtElapsedRealtimeNanos,
+            )
             .putBoolean(COMBINED_STATUS_ENABLED_KEY, enabled)
             .apply()
     }
@@ -57,3 +63,5 @@ internal class CombinedStatusFeatureSettingsRepository(context: Context) {
 
 internal const val COMBINED_STATUS_FEATURE_PREFS_NAME = "combined_status_feature"
 internal const val COMBINED_STATUS_ENABLED_KEY = "combined_status_enabled"
+internal const val COMBINED_STATUS_FEATURE_CHANGE_ELAPSED_REALTIME_NANOS_KEY =
+    "combined_status_feature_change_elapsed_realtime_nanos"
