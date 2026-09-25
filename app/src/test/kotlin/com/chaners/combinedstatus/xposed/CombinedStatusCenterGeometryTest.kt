@@ -78,4 +78,15 @@ class CombinedStatusCenterGeometryTest {
             0f,
         )
     }
+    @Test
+    fun airplaneDefaultVisualSizeMatchesAcceptedWifiFamilyWidth() {
+        val geometry =
+            CombinedStatusCenterGeometry.resolve(
+                sizeScale = 1f,
+                textWeightScale = 1f,
+            )
+
+        assertEquals(geometry.wifiMaxWidth, geometry.airplaneMaxSize, 0f)
+    }
+
 }
