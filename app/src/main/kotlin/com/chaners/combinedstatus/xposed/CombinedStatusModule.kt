@@ -1028,8 +1028,8 @@ class CombinedStatusModule : XposedModule() {
     private fun updateNativeNetworkSuppressionPolicy(source: String) {
         val presentation =
             CombinedStatusPresentationStateStore.snapshot()
-        val wifi =
-            CombinedStatusStateStore.snapshot().wifi
+        val state = CombinedStatusStateStore.snapshot()
+        val wifi = state.wifi
         SystemUiNativeNetworkSuppressionOwner.updatePolicy(
             suppressWifi =
                 SystemUiNetworkRuntimeOwner.wifiReady &&
@@ -1038,8 +1038,12 @@ class CombinedStatusModule : XposedModule() {
                         connectivity = presentation.connectivity,
                     ),
             suppressMobile =
-                presentation.mobilePresentation
-                    ?.nativeMobileReplacementReady == true,
+                NativeNetworkSuppressionPolicy.suppressMobile(
+                    airplaneMode = state.airplaneMode,
+                    presentation = presentation.mobilePresentation,
+                    wasSuppressed =
+                        SystemUiNativeNetworkSuppressionOwner.mobileSuppressionActive,
+                ),
             source = source,
         )
     }
@@ -1110,6 +1114,7 @@ class CombinedStatusModule : XposedModule() {
                                 trace = markStateCommitted(trace),
                             )
                         }
+                        updateNativeNetworkSuppressionPolicy("airplane")
                     },
                     onDefaultDataSubscriptionChanged = {
                         refreshMobilePresentation(
@@ -1460,8 +1465,9 @@ class CombinedStatusModule : XposedModule() {
                             if (active) {
                                 val presentation =
                                     CombinedStatusPresentationStateStore.snapshot()
-                                val wifi =
-                                    CombinedStatusStateStore.snapshot().wifi
+                                val state =
+                                    CombinedStatusStateStore.snapshot()
+                                val wifi = state.wifi
                                 SystemUiNativeNetworkSuppressionOwner.activate(
                                     host = host,
                                     suppressWifi =
@@ -1472,8 +1478,11 @@ class CombinedStatusModule : XposedModule() {
                                                     connectivity = presentation.connectivity,
                                                 ),
                                     suppressMobile =
-                                        presentation.mobilePresentation
-                                            ?.nativeMobileReplacementReady == true,
+                                        NativeNetworkSuppressionPolicy.suppressMobile(
+                                            airplaneMode = state.airplaneMode,
+                                            presentation = presentation.mobilePresentation,
+                                            wasSuppressed = false,
+                                        ),
                                 )
                             } else {
                                 SystemUiNativeNetworkSuppressionOwner.deactivate(
