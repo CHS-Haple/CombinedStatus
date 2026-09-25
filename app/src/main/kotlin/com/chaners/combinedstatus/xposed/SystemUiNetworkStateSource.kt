@@ -1008,7 +1008,15 @@ internal object SystemUiNetworkStateSource {
         val value = chain.getArg(0)
 
         if (image != null && classId == 0) {
-            onMobileSignalWillApply?.invoke(image)
+            runCatching {
+                onMobileSignalWillApply?.invoke(image)
+            }.onFailure { error ->
+                onEvent?.invoke(
+                    "networkPipeline mobile preMask failed " +
+                        "error=" + error.javaClass.simpleName +
+                        " failNative=true geometryWrites=0",
+                )
+            }
         }
 
         var eventLog: String? = null
