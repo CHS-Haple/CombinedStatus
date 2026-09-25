@@ -393,7 +393,7 @@ class CombinedStatusRenderModelTest {
     }
 
     @Test
-    fun noSimWithoutWifiUsesNativeNoSimCenterWithoutDuplicateCross() {
+    fun noSimWithoutWifiKeepsUnavailableMarkAlongsideNativeNoSimCenter() {
         val noSimIcon =
             CombinedStatusPresentationStateStore.NativeIconResource(
                 packageName = "com.android.systemui",
@@ -425,11 +425,11 @@ class CombinedStatusRenderModelTest {
 
         assertTrue(model?.centerIndicator is CenterIndicator.NoSim)
         assertNull(model?.mobileLevel)
-        assertTrue(model?.mobileUnavailableMark == false)
+        assertTrue(model?.mobileUnavailableMark == true)
     }
 
     @Test
-    fun noSimWithWifiUsesOneOuterUnavailableMarkBecauseCenterIsOccupied() {
+    fun noSimWithWifiKeepsUnavailableMarkWhileWifiOwnsCenter() {
         val noSimIcon =
             CombinedStatusPresentationStateStore.NativeIconResource(
                 packageName = "com.android.systemui",

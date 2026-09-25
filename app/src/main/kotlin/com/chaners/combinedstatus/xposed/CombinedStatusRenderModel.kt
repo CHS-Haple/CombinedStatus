@@ -78,8 +78,7 @@ internal data class CombinedStatusRenderModel(
                 when {
                     airplaneMode -> true
                     mobileRecoveryPending -> false
-                    noSimIcon != null ->
-                        centerIndicator !is CenterIndicator.NoSim
+                    noSimIcon != null -> true
                     selectedSignal is SignalStrength.Unavailable -> true
                     else -> false
                 }
