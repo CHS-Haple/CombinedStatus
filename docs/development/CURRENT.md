@@ -225,12 +225,21 @@ Build 391:
 - buildId: `20260927-391`
 - runtime scope: normalize attach-time participant slot identity against laid-out native end-side geometry
 - expected charging-attached evidence: `statusIconsLayoutWidth=478`, `statusIconsMeasuredWidth=448`, `resolvedStatusIconsWidth=478`, `resolvedSlot=105x108`
-- Fast Build: pending
-- Work Branch Canary: pending
+- exact tested work-branch SHA: `b4d8bb7f6aee567dc131a983c9e9323af7bdd1af`
+- Fast Build #1041: **success**
+- Work Branch Canary #300: **success**
+- pinned target-profile verification: success
+- Modern Xposed metadata verification: success
+- Haple APK signature verification: success
+- Canary non-debuggable verification: success
+- Artifact ID: `10910308834`
+- Artifact archive digest: `sha256:3d7bac217ca55909e8a5f7b3ea4de0c61ee1487d8015144f9cd0e32262a8f86e`
+- Extracted APK SHA-256: `63ac90e44d50c54220723ce518c53eacac81e19edebfd3db6eed019233de1a06`
+- Extracted APK size: `3375134` bytes
 - Device validation: pending
 
 No merge to `dev` until Build 391 passes both uncharged-attach and charging-attach regressions.
 
 ## Immediate next step
 
-Run Build 391 Fast CI and signed Canary. Then validate both attach orders: A) reload while uncharged -> charge; B) reload while already charging -> unplug/replug. The two cases must converge to the same 105px stable slot identity and preserve peer spacing, right-edge containment, native APPEAR, and panel first/last-frame alignment.
+Device-test the signed Build 391 Canary in both attach orders: A) reload while uncharged -> charge; B) reload while already charging -> unplug/replug. The two cases must converge to the same 105px stable slot identity and preserve peer spacing, right-edge containment, native APPEAR, and panel first/last-frame alignment.
