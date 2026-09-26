@@ -696,7 +696,7 @@ class CombinedStatusModule : XposedModule() {
                     "source" to source,
                     "hooks" to SystemUiNativeBatterySuppressionOwner.installedHookCount,
                     "contract" to
-                        "MiuiStatusBatteryContainer.setIsHideBattery(Boolean):composed-owner",
+                        "MiuiStatusBatteryContainer.setIsHideBattery(Boolean):native-layout-authority+visual-mask",
                     "nativeGeometryWrites" to 0,
                 )
             }

@@ -8,37 +8,19 @@ import org.junit.Test
 
 class SystemUiNativeBatterySuppressionOwnerTest {
     @Test
-    fun replacementOwnsEffectiveHideWhileNativeWantsBatteryVisible() {
-        assertTrue(
-            SystemUiNativeBatterySuppressionOwner.resolveEffectiveBatteryHide(
-                nativeRequestedHide = false,
-                replacementActive = true,
-            ),
-        )
-    }
-
-    @Test
-    fun nativeHideRemainsAuthoritativeWhenReplacementIsInactive() {
-        assertTrue(
-            SystemUiNativeBatterySuppressionOwner.resolveEffectiveBatteryHide(
-                nativeRequestedHide = true,
-                replacementActive = false,
-            ),
-        )
+    fun replacementDoesNotOverrideNativeVisibleLayout() {
         assertFalse(
-            SystemUiNativeBatterySuppressionOwner.resolveEffectiveBatteryHide(
+            SystemUiNativeBatterySuppressionOwner.resolveNativeLayoutHide(
                 nativeRequestedHide = false,
-                replacementActive = false,
             ),
         )
     }
 
     @Test
-    fun nativeHideAndReplacementComposeWithoutClearingEitherRequest() {
+    fun nativeHideRemainsAuthoritativeWhileReplacementIsActive() {
         assertTrue(
-            SystemUiNativeBatterySuppressionOwner.resolveEffectiveBatteryHide(
+            SystemUiNativeBatterySuppressionOwner.resolveNativeLayoutHide(
                 nativeRequestedHide = true,
-                replacementActive = true,
             ),
         )
     }
