@@ -2567,3 +2567,15 @@ Build 397 must first prove normal Home vs plugged-in cold-start steady spacing w
 
 After Fast CI and signed Canary pass, device validation must begin with charger-connected SystemUI cold start and **no interaction**. Normal neighbor spacing must match non-charging Home before testing island enter/steady/exit, post-island charging steady state, feature disable/enable and same-build Hot Reload.
 
+### Build 397 CI / Canary result
+
+- Source commit: `90c7337443af771435fe2ec0b56837402b44517f`.
+- Fast PR Build workflow #1048 (`36273364006`): **success**.
+- Signed Work Branch Canary #307 (`36273538705`): core validation and artifact upload **success**.
+- Unit tests and Canary assembly passed.
+- pinned HyperOS target-profile verification passed.
+- Modern Xposed metadata/API/scope/Hot Reload metadata verification passed.
+- Haple signing certificate verification passed.
+- Canary non-debuggable verification passed.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260927-397-canary.apk`.
+- Device validation remains pending; Build 397 is not promoted to `dev`.
