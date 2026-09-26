@@ -2403,3 +2403,50 @@ Exact target JADX confirms `MiuiBatteryMeterView.updateIslandChanged(...)` drive
 - **Performance:** event/layout-driven only; no permanent pre-draw follower.
 - **Compatibility:** exact target only until the new reservation contract is re-proven elsewhere.
 - **Future extension:** width/gap inputs must flow through resolved layout rather than scene-specific offsets.
+
+---
+
+## 2026-09-27 — Build 395 pre-CI rejection; Build 396 end reservation
+
+**Type:** architecture review / source correction  
+**Display version:** 0.0.2  
+**Rejected source checkpoint:** Build 395  
+**Next checkpoint:** Build 396 / 20260927-396  
+**Source commit:** `f4c20db514d6767eb027d38cc5b1a800f58a130c`  
+**Validation:** CI pending; device validation pending
+
+### Review finding
+
+Build 395 temporarily changed `MiuiStatusBatteryContainer.mIsHideBattery` to false only while native `onLayout(...)` executed, restoring it in `finally`. Although this preserved carrier width without writing translation/alpha/visibility, it still changed a HyperOS scene/layout input and matched an approach already rejected by the ROADMAP.
+
+### Exact-target alternative
+
+- `system_icons.xml` authors no padding on `MiuiStatusIconContainer`;
+- exact `onMeasure(...)` includes horizontal padding in content width;
+- exact `onLayout(...)` uses `getPaddingEnd()` as the end-side placement boundary;
+- directed writer audit of the decompiled `com.android.systemui.statusbar` source set found no competing status-icon padding writer.
+
+### Build 396 implementation
+
+- native `mIsHideBattery` remains unchanged and read-only;
+- the native battery-hide setter is observed only as a low-frequency event source;
+- while native battery layout has released its region, `resolved.requestedSlotWidthPx` is reserved through `statusIcons.paddingEnd`;
+- existing relative padding is snapshotted per Home HostSession and restored only if the live value still equals the module-applied value;
+- unexpected padding-writer conflict fails native;
+- renderer slot bounds and reservation width share `CombinedStatusHomeLayoutResolver`;
+- the 395 host-end anchor correction is retained, so Battery descendant translation/visibility no longer defines Combined Status local position.
+
+### Review
+
+- **Ownership:** HyperOS retains battery hide, peer layout behavior and island motion; Combined Status owns only its explicit replacement-space reservation.
+- **Lifecycle:** reservation is Home HostSession-scoped and event-driven from native hide-state changes.
+- **Single writer:** exact-target audit finds no competing status-icon padding writer; runtime conflict detection remains.
+- **Cleanup:** restore only the exact module-applied relative padding state.
+- **Fail native:** missing hide/layout/host contracts or writer conflicts restore native presentation.
+- **Performance:** one low-frequency native hide-state hook; no polling or frame follower.
+- **Compatibility:** exact target fingerprint only.
+- **Future extension:** requested width continues through shared resolved-layout input rather than scene offsets.
+
+### Acceptance gate
+
+Build 396 must validate normal Home spacing, charging-island enter/steady/exit, cold SystemUI start while already charging, feature disable/enable and same-architecture Hot Reload. Partial shade-held visibility remains Phase 2B.

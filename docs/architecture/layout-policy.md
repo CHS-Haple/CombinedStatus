@@ -179,3 +179,13 @@ Generalized external implementation evidence that may inform the next target-spe
 - `docs/reference/statusbar-composition-patterns.md`.
 
 Those notes are evidence, not ownership permission. Any pattern adopted from them must still satisfy this document's native-geometry requirements, exact target verification, fail-native behavior, and device validation.
+
+## Build 396 Home end-reservation runtime contract
+
+Build 394 device feedback invalidated Battery-descendant bounds as the steady Home local anchor. Build 396 uses the stable Home host end plus the shared resolved slot width.
+
+When HyperOS keeps the native battery region, no extra reservation is applied. When native `mIsHideBattery` releases that region, Combined Status adds its requested slot width to `MiuiStatusIconContainer.paddingEnd`. This uses the container's exact native measure/layout boundary while leaving battery hide, visibility, alpha and translation SystemUI-owned.
+
+The reservation is HostSession-scoped, snapshots existing relative padding, reacts only to native hide-state changes/activation, detects unexpected competing writers, and restores only its own applied state.
+
+The temporary Build-395 experiment that changed `mIsHideBattery` during `onLayout` is rejected and must not be restored.

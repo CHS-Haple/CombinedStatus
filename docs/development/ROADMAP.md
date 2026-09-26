@@ -227,20 +227,22 @@ Completing an earlier architecture or feature phase does not by itself advance t
 
 ## Active phase technical route
 
-### Phase 2A / 0.0.2 — Build 394 Home carrier cutover — active
+### Phase 2A / 0.0.2 — Build 396 Home carrier stabilization — active
 
 The pre-runtime architecture gate is open for the pinned target. Exact-target review has closed the Home overlay host/lifecycle, represented-slot exclusion, reversible clip-mask candidate, shared `ResolvedLayout` boundary, carrier cutover requirement, and inherited native island-motion contract.
 
-Build 394 is the first bounded runtime checkpoint for this architecture. Its scope is limited to:
+Build 394 established the overlay/ignored-slot/clip-mask carrier but failed charging geometry on device. Build 395 was rejected before CI because it temporarily overrode native battery-hide state for layout. Build 396 is the active bounded correction. Its scope is limited to:
 - make the verified Home overlay host the single active Home carrier;
 - introduce the shared `ResolvedLayout` runtime contract;
 - use host-scoped represented-slot exclusion through the exact target ignored-slot contract;
 - use reversible clip-only masking for represented native Wi-Fi/mobile/battery visuals;
 - inherit native island motion through the animated Home host without copying battery translation/fade semantics;
+- anchor Combined Status locally from the stable Home host end rather than the island-animated Battery child;
+- reserve replacement occupancy through a reversible `MiuiStatusIconContainer.paddingEnd` contract when HyperOS releases the native battery region, without changing native battery-hide state;
 - keep the superseded permanent participant/suppression path inactive for the same Home session;
 - restore exact slot/mask state on feature disable, host replacement, Hot Reload, partial activation failure, or session reset.
 
-Build 394 device/runtime validation must prove:
+Build 396 device/runtime validation must prove:
 - one Home HostSession owner and no duplicate carrier;
 - no duplicate slot occupancy;
 - no platform hide override or peer geometry writer;

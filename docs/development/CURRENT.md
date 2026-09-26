@@ -14,7 +14,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Active development line: **0.0.2**
 - First planned formal release target: **1.0.0** (current 0.0.x lines remain pre-release development)
 - Last device-tested runtime checkpoint: Build 394 (`0.0.2`) — rejected for island occupancy/anchor behavior
-- Current work-branch runtime checkpoint: Build 395 (`0.0.2`) — **source defined; CI and focused device validation pending**
+- Current work-branch runtime checkpoint: Build 396 (`0.0.2`) — **source defined; CI and focused device validation pending**
 - Target profile: HyperOS SystemUI `17.03.260226.r`
 - Exact SystemUI SHA-256: `a0e738e41fe599b97950cbf52a9e2ddc6ae2ceff986efbacb1c9840bea78768d`
 - Modern Xposed API: 102
@@ -277,6 +277,23 @@ Build 395 keeps the 394 carrier architecture and changes only the invalidated ow
 5. no custom participant, animation follower, timing compensation, width-difference formula, or Phase-2B behavior is added.
 
 Build 395 must re-test normal Home, charging-island enter/steady/exit, cold start while already charging, feature disable/enable, and same-architecture Hot Reload. The partial shade-held behavior remains intentionally deferred to Phase 2B.
+
+## Build 395 pre-CI review rejection
+
+Build 395 is retained as source-history evidence but is not sent to CI/device validation. Its temporary `mIsHideBattery=false` value inside `MiuiStatusBatteryContainer.onLayout(...)` is narrow but still overrides a native scene/layout decision and conflicts with the ROADMAP's rejected battery-hide-override route.
+
+Exact-target review identifies a cleaner reservation seam: `MiuiStatusIconContainer` has no authored padding in `system_icons.xml`, consumes `paddingEnd` as a native measure/layout boundary, and the directed status-bar writer audit found no competing runtime padding writer.
+
+## Build 396 bounded correction
+
+Build 396 keeps the host-end anchor correction but replaces the rejected hide-state override with a HostSession-owned `statusIcons.paddingEnd` reservation:
+- native `mIsHideBattery` is read-only;
+- when native battery space remains present, added reservation is zero;
+- when HyperOS releases the battery region, reservation equals the shared resolved layout's requested slot width;
+- pre-session relative padding is snapshotted and restored exactly;
+- conflicting padding writers fail native;
+- Home renderer and reservation use the same `CombinedStatusHomeLayoutResolver`;
+- island translation remains inherited from `system_icon_area`.
 
 ## Reference priority for the next session
 
