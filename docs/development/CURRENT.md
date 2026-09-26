@@ -10,7 +10,9 @@ This file is the concise recovery point for active Combined Status development. 
 - Integration branch: `dev`
 - Integration runtime baseline: Build 377, commit `f64fe0e3992eab4dd62ff479c3765d834ec7dfa4`
 - Active work branch: `feat/native-panel-transition`
-- Active runtime checkpoint: Build 393 (stable slot boundary correction)
+- Active development line: `0.0.2`
+- Last device-tested runtime checkpoint: Build 393 (`0.0.1`)
+- Next runtime checkpoint: Build 394 (`0.0.2`, unified geometry architecture; not yet built)
 - Build 385 trusted validation head: `d3533828e82a335eab0b3e661cfadd4e70ebee27` (history-synced tree; runtime-equivalent to Build 385)
 - Active PR: #100, `feat/native-panel-transition -> dev`
 - Target profile: HyperOS SystemUI `17.03.260226.r`
@@ -45,10 +47,18 @@ The macro sequence is:
    - Reuse the stabilized state, ownership, and transition contracts instead of growing a second scene-specific patch stack.
 4. **App Home + Preview Sandbox implementation — planned, design already confirmed.**
    - The page structure is not an open design question; see `ROADMAP.md` for the retained design snapshot.
-5. **Adaptive sizing / spacing and broader visual controls — planned after the geometry contract is stable.**
+5. **Adaptive sizing / spacing and broader visual controls — UI exposure remains later, but the shared dynamic geometry contract is now being pulled forward into the 0.0.2 runtime architecture so later sizing/spacing does not require another SystemUI rewrite.**
 6. **Full-scene compatibility regression and 0.0.1 release closure — final pre-release phase.**
 
 Do not reclassify already completed dual-SIM/network support or native island participation as future macro phases.
+
+## 0.0.2 architecture decision
+
+The maintainer has explicitly advanced the display version to **0.0.2** because the active work is no longer a narrow Build-393 charging patch. The 0.0.2 line will establish one shared geometry contract for native slot semantics, Combined Status visual geometry, optical spacing, and transition geometry.
+
+The future user-facing size/spacing controls remain deferred, but their underlying runtime contract is no longer deferred. Default parameters must preserve the currently accepted visual size while removing the 105/135 and 448/478 scene-specific patch chain.
+
+Any incomplete Build-394 experiment made before this decision is provisional and must be reviewed against the unified contract before retention.
 
 ## Active objective
 
