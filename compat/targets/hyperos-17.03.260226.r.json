@@ -103,6 +103,12 @@
       "className": "com.android.systemui.statusbar.views.MiuiBatteryMeterIconView",
       "methodName": "onPerformanceModeChanged",
       "descriptor": "(Z)V"
+    },
+    "batteryIconMiuiOptimizationChanged": {
+      "sourceArtifact": "systemUi",
+      "className": "com.android.systemui.statusbar.views.MiuiBatteryMeterIconView",
+      "methodName": "setMiuiOptimizationEnabled",
+      "descriptor": "(Z)V"
     }
   },
   "verifiedSystemUiMethods": {
@@ -131,7 +137,8 @@
       "onChargeStateChanged(ZZ)V",
       "onPowerSaveChanged(Z)V",
       "onPerformanceModeChanged(Z)V",
-      "getProgressStatus()Lcom/android/systemui/statusbar/views/MiuiBatteryUtils$BatteryStatus;"
+      "getProgressStatus()Lcom/android/systemui/statusbar/views/MiuiBatteryUtils$BatteryStatus;",
+      "setMiuiOptimizationEnabled(Z)V"
     ]
   },
   "nativeStatusViews": {
@@ -154,7 +161,8 @@
       "mBatteryChargingColor",
       "mBatteryPowerSaveColor",
       "mBatteryPerformanceModeColor",
-      "mBatteryLowColor"
+      "mBatteryLowColor",
+      "mMiuiOptimizationEnabled"
     ]
   },
   "batterySemanticContract": {
@@ -169,7 +177,8 @@
       "mBatteryChargingColor",
       "mBatteryPowerSaveColor",
       "mBatteryPerformanceModeColor",
-      "mBatteryLowColor"
+      "mBatteryLowColor",
+      "mMiuiOptimizationEnabled"
     ]
   }
 }
