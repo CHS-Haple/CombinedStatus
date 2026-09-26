@@ -689,6 +689,8 @@ Do not treat this startup read as ceremonial. The active task must be checked ag
 
 ### 11.2 Development log requirement
 
+The normative trigger/ownership rules are defined here. File-level structure, evidence wording, templates, duplication boundaries, and cross-file writing conventions are defined in `docs/development/RECORDING.md` and MUST be followed when maintaining engineering records.
+
 Every APK-affecting CI/build checkpoint created for engineering work MUST have a corresponding development-log record. A record should capture, in proportion to the change:
 
 - problem or objective and observed context;
