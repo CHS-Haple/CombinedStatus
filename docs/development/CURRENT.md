@@ -21,14 +21,14 @@ Documentation-only branch heads do not change their associated runtime baselines
 
 ## Current integration state
 
-Build 377 remains the accepted `dev` runtime baseline. Builds 378-387 belong to the active work branch. Build 387 has now passed the focused work-branch device gate, so PR #100 is eligible for final merge review and `dev` integration validation.
+Build 377 remains the accepted `dev` runtime baseline. Builds 378-388 belong to the active work branch. Build 387 is rejected for charging-island peer overlap; Build 388 is the current unvalidated runtime checkpoint. PR #100 remains blocked from `dev` until Build 388 clears CI and focused device validation.
 
 PR #99 (`fix/native-visual-intensity-normalization`) remains open and unmerged; its head is not an accepted integration baseline. Shared native visual-intensity normalization is already present in the merged Build 377 line through PR #98, so any future use of PR #99 must be reconciled against current `dev`.
 
 
 ## Macro roadmap position
 
-The project is currently in the **Home -> shade / Control Center native transition stage**. Build 387 is the validated work-branch checkpoint inside this stage; the remaining work is integration into `dev` and the resulting trusted integration validation.
+The project is currently in the **Home -> shade / Control Center native transition stage**. Build 388 is the active checkpoint inside this stage; the charging-island overlap boundary must be closed before integration into `dev`.
 
 The macro sequence is:
 
