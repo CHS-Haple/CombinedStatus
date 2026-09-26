@@ -82,10 +82,11 @@ Build 386 established the real-bounds / zero-steady-occupancy architecture. Buil
 
 ## Ownership / compatibility boundary
 
-- Native battery slot: HyperOS is the only layout occupancy owner.
+- Native battery slot while present: HyperOS is the only owner of that native battery occupancy.
+- When HyperOS authoritatively releases the battery slot through `MiuiStatusBatteryContainer.setIsHideBattery(true)`, Combined Status may own only its own participant occupancy width, equal to the currently resolved visual/native-slot width; it returns to 0px when the native battery slot returns.
 - Combined Status renderer: owns its drawing geometry.
 - HyperOS: continues to own visible state, remove lifecycle, alpha/scale Folme curve, panel/island transitions, and all peer geometry.
-- Combined Status: owns only its custom root's post-layout visual bounds and the custom `NewStatusIconState` translation target adaptation needed to map zero layout occupancy onto the native battery-slot coordinate.
+- Combined Status additionally owns only its custom root's post-layout visual bounds and the custom `NewStatusIconState` translation target adaptation needed to map its participant onto the native battery-slot coordinate.
 - Required compatibility contracts are the exact `MiuiStatusIconContainer.onLayout(boolean,int,int,int,int)` boundary plus `MiuiStatusBarFolmeViewState.applyToView(View, boolean)` / `NewStatusIconState.layoutTranslationX`. Missing contracts fail the native Combined Status participant closed.
 - No polling, repeated pre-draw correction, per-frame writer, live View translation write, hard-coded slot offset, margin compensation, or peer geometry write is permitted.
 
@@ -139,8 +140,18 @@ Build 387:
 Build 388:
 - versionName: `0.0.1`
 - buildId: `20260926-388`
-- Fast Build: pending
-- Work Branch Canary: pending
+- runtime commit: `bb840c96a9d7ea2376dfb6b02048e91a9976e1fa`
+- trusted tested work-branch SHA: `d57f35664e435722025809d3acba456f44ee3883` (runtime-equivalent; later delta is development documentation)
+- Fast Build #1038: **success**
+- Work Branch Canary #297: **success**
+- pinned target-profile verification: success
+- Modern Xposed metadata verification: success
+- Haple signature verification: success
+- Canary non-debuggable verification: success
+- Artifact ID: `10910080114`
+- Artifact archive digest: `sha256:a18273b7f35646174db9181079b40ad0bd4027bd68238b38c2942006b894baaa`
+- Extracted APK SHA-256: `d737521d285fdc35433c1e5b852db2063ef637362c45e0ff2ebfc9a0fece57f8`
+- Extracted APK size: `3375134` bytes
 - Device validation: pending
 
 Required Build 388 focused device scenarios:
@@ -155,4 +166,4 @@ No merge to `dev` until these pass.
 
 ## Immediate next step
 
-Run Build 388 Fast CI and signed Work Branch Canary. If they pass, device-test charging Super Island enter/steady/exit for both right-edge containment and peer-icon separation, then repeat the Build 386 regression checks. Do not add peer translations, fixed offsets, or a charging-specific animation path if this occupancy correction fails.
+Device-test the signed Build 388 Canary. First verify charging Super Island enter/steady/exit for both right-edge containment and peer-icon separation, then repeat the Build 386 regression checks for non-charging steady placement, OFF -> ON native entry animation, and shade / Control Center first/last-frame alignment. Do not merge PR #100 until this focused gate passes.
