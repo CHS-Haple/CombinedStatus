@@ -7,6 +7,43 @@ import org.junit.Test
 
 class NativeStatusBarSlotGeometryTest {
     @Test
+    fun capturedStableWidthWinsWhenChargingLayoutHasAlreadyCollapsed() {
+        val resolvedWidth =
+            NativeStatusBarSlotGeometry.resolveCapturedOrLiveChildWidth(
+                capturedWidth = 478,
+                layoutWidth = 448,
+                measuredWidth = 448,
+            )
+
+        assertEquals(478, resolvedWidth)
+
+        val resolved =
+            NativeStatusBarSlotGeometry.resolve(
+                containerWidth = 587,
+                containerPaddingStart = 4,
+                containerPaddingEnd = 0,
+                statusIconsMeasuredWidth = resolvedWidth ?: -1,
+                privacyMeasuredWidth = 0,
+                containerHeight = 108,
+            )
+
+        assertNotNull(resolved)
+        assertEquals(105, resolved?.slotWidth)
+    }
+
+    @Test
+    fun liveWidthRemainsFallbackWhenNoStableCaptureExists() {
+        assertEquals(
+            448,
+            NativeStatusBarSlotGeometry.resolveCapturedOrLiveChildWidth(
+                capturedWidth = null,
+                layoutWidth = 448,
+                measuredWidth = 448,
+            ),
+        )
+    }
+
+    @Test
     fun laidOutStatusIconWidthWinsOverTransientChargingMeasurement() {
         val stableWidth =
             NativeStatusBarSlotGeometry.resolveStableChildWidth(
