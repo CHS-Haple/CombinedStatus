@@ -15,6 +15,17 @@ class SystemUiPanelTransitionSourceTest {
     }
 
     @Test
+    fun controlAnchorProbeOnlyUsesTransitionBoundaryBuckets() {
+        assertEquals(true, SystemUiPanelTransitionSource.isBoundaryDiagnosticBucket(0))
+        assertEquals(true, SystemUiPanelTransitionSource.isBoundaryDiagnosticBucket(1))
+        assertEquals(false, SystemUiPanelTransitionSource.isBoundaryDiagnosticBucket(2))
+        assertEquals(false, SystemUiPanelTransitionSource.isBoundaryDiagnosticBucket(6))
+        assertEquals(true, SystemUiPanelTransitionSource.isBoundaryDiagnosticBucket(7))
+        assertEquals(true, SystemUiPanelTransitionSource.isBoundaryDiagnosticBucket(8))
+        assertEquals(false, SystemUiPanelTransitionSource.isBoundaryDiagnosticBucket(null))
+    }
+
+    @Test
     fun diagnosticsUseBoundedExpansionBuckets() {
         assertEquals(0, SystemUiPanelTransitionSource.diagnosticBucket(0f))
         assertEquals(1, SystemUiPanelTransitionSource.diagnosticBucket(0.125f))
