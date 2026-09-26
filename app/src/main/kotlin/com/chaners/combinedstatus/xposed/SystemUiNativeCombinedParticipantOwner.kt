@@ -833,24 +833,35 @@ internal object SystemUiNativeCombinedParticipantOwner {
                 ?: return AttachResult.Failure("status-icons-missing")
         val privacy =
             readField(batteryContainer, "mHomePrivacyContainer") as? View
+        val stableStatusIconsWidth =
+            NativeStatusBarSlotGeometry.resolveStableChildWidth(
+                layoutWidth = statusIcons.width,
+                measuredWidth = statusIcons.measuredWidth,
+            ) ?: return AttachResult.Failure("status-icons-width-not-ready")
+        val stablePrivacyWidth =
+            privacy
+                ?.takeIf { view -> view.visibility == View.VISIBLE }
+                ?.let { view ->
+                    NativeStatusBarSlotGeometry.resolveStableChildWidth(
+                        layoutWidth = view.width,
+                        measuredWidth = view.measuredWidth,
+                    )
+                }
+                ?: 0
         val slotGeometry =
             NativeStatusBarSlotGeometry.resolve(
                 containerWidth =
-                    batteryContainer.measuredWidth
+                    batteryContainer.width
                         .takeIf { width -> width > 0 }
-                        ?: batteryContainer.width,
+                        ?: batteryContainer.measuredWidth,
                 containerPaddingStart = batteryContainer.paddingStart,
                 containerPaddingEnd = batteryContainer.paddingEnd,
-                statusIconsMeasuredWidth = statusIcons.measuredWidth,
-                privacyMeasuredWidth =
-                    privacy
-                        ?.takeIf { view -> view.visibility == View.VISIBLE }
-                        ?.measuredWidth
-                        ?: 0,
+                statusIconsMeasuredWidth = stableStatusIconsWidth,
+                privacyMeasuredWidth = stablePrivacyWidth,
                 containerHeight =
-                    batteryContainer.measuredHeight
+                    batteryContainer.height
                         .takeIf { height -> height > 0 }
-                        ?: batteryContainer.height,
+                        ?: batteryContainer.measuredHeight,
             ) ?: return AttachResult.Failure("native-slot-geometry-not-ready")
         if (battery.width <= 0 || battery.height <= 0) {
             return AttachResult.Failure("battery-geometry-not-ready")
@@ -867,10 +878,14 @@ internal object SystemUiNativeCombinedParticipantOwner {
             ) ?: return AttachResult.Failure("native-slot-translation-anchor-not-ready")
         eventSink?.invoke(
             "nativeCombinedParticipant slotGeometry " +
-                "authority=MiuiStatusBatteryContainer.measurement " +
+                "authority=MiuiStatusBatteryContainer.layout-boundary " +
                 "container=" + slotGeometry.containerWidth + "x" + slotGeometry.slotHeight +
-                " statusIconsMeasuredWidth=" + slotGeometry.statusIconsMeasuredWidth +
-                " privacyMeasuredWidth=" + slotGeometry.privacyMeasuredWidth +
+                " statusIconsLayoutWidth=" + statusIcons.width +
+                " statusIconsMeasuredWidth=" + statusIcons.measuredWidth +
+                " resolvedStatusIconsWidth=" + slotGeometry.statusIconsMeasuredWidth +
+                " privacyLayoutWidth=" + (privacy?.width ?: 0) +
+                " privacyMeasuredWidth=" + (privacy?.measuredWidth ?: 0) +
+                " resolvedPrivacyWidth=" + slotGeometry.privacyMeasuredWidth +
                 " batteryView=" + battery.width + "x" + battery.height +
                 " resolvedSlot=" + slotGeometry.slotWidth + "x" + slotGeometry.slotHeight +
                 " slotTranslationX=" + activeSlotTranslationX +
