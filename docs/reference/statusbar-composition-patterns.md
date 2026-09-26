@@ -41,7 +41,7 @@ This avoids creating two independent layout identities that must later exchange 
 
 **Candidate for Combined Status.**
 
-The earlier work-branch history, now being reevaluated in the 0.0.2 development line, shows repeated failure modes when a custom participant alternates between zero and non-zero occupancy around native battery-slot release. An existing-host composition path should therefore be evaluated before extending that participant model further.
+The earlier work-branch history shows repeated failure modes when a custom participant alternates between zero and non-zero occupancy around native battery-slot release. The 0.0.2 exact-target review has now selected an existing-host composition direction for the first runtime checkpoint instead of extending that participant model further.
 
 This does **not** prove that the exact native battery host is sufficient for every Combined Status scene. Combined Status carries network state and may need a different presentation carrier when that host is temporarily removed by platform scene policy.
 
