@@ -4,7 +4,7 @@ This directory contains architecture policy and scene/layout capability descript
 
 ## Current status
 
-The 0.0.2 development line is re-evaluating the Home/end-side presentation carrier. Therefore older runtime architecture descriptions are retained as verified historical/current-code evidence but must not be mistaken for the selected 0.0.2 target architecture.
+The 0.0.2 development line has selected a pre-runtime Home/end-side carrier direction for the pinned target, and Build 394 is the first runtime proof of that direction. Older runtime architecture descriptions are retained as verified historical/current-code evidence but must not be mistaken for the selected 0.0.2 target architecture.
 
 ### Documents
 
@@ -30,7 +30,7 @@ The following route is preserved only as engineering evidence and must not be us
 
 Builds 386-393 demonstrated useful facts about native APPEAR, battery-slot release, peer occupancy, charging geometry, and panel anchors, but later evidence showed that the overall carrier model creates conflicting layout identities across scene transitions.
 
-New 0.0.2 work must begin from the current decision in `docs/development/CURRENT.md` and validate the target host/presentation/projection contract before adopting any historical mechanism.
+New 0.0.2 work must begin from the current decision in `docs/development/CURRENT.md`. The pre-runtime Home carrier contract is now closed for the pinned target; Build 394 must validate that contract at runtime before any historical mechanism is reconsidered.
 
 ## History policy
 
