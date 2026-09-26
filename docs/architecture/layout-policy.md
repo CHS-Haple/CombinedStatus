@@ -108,3 +108,14 @@ Before Combined Status may write native slot geometry, contributors must verify:
 8. that the change is safer than remaining PROJECTED.
 
 Until those requirements are met, native SystemUI geometry remains authoritative.
+
+
+## Reference patterns under evaluation
+
+The current production policy above describes verified project behavior; it is not a requirement to preserve the same carrier implementation in 0.0.2.
+
+Generalized external implementation evidence that may inform the next target-specific architecture is stored in:
+- `docs/reference/README.md`;
+- `docs/reference/statusbar-composition-patterns.md`.
+
+Those notes are evidence, not ownership permission. Any pattern adopted from them must still satisfy this document's native-geometry requirements, exact target verification, fail-native behavior, and device validation.
