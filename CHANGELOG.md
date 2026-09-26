@@ -8,6 +8,8 @@ The project follows a Keep a Changelog-style structure. During pre-release devel
 
 ### Added
 
+- Battery-ring color now follows HyperOS battery semantic states: charging, power-save, performance, and low-battery use the colors already loaded by SystemUI, while normal state keeps the native status-icon tint. The color policy is structured so every state can later choose System default, status-icon tint, or a custom color without changing the native state-source path.
+
 - Global Combined Status master switch controls replacement presentation through one runtime authority. Enable/disable preserves SystemUI-owned layout/motion semantics, updates native suppression only when the replacement is ready, and restores native status presentation on cold, invalidated, or unsupported hosts.
 - Modern Xposed API 102 module baseline scoped to `com.android.systemui`, with a single Java entry point, verified SystemUI compatibility profile, host lifecycle capture, and hot-reload support.
 - Event-driven Combined Status state pipeline for battery, Wi-Fi, mobile network, airplane mode, default-data subscription, connectivity, and native SystemUI tint.

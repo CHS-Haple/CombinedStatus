@@ -9,12 +9,12 @@ This file is the concise recovery point for active Combined Status development. 
 - Stable runtime baseline: Build 351, commit `2477867278483b76b80ed0884de3a07c7ede668a`
 - Integration branch: `dev`
 - Integration runtime baseline: Build 377, commit `f64fe0e3992eab4dd62ff479c3765d834ec7dfa4`
-- Active work branch: `feat/native-panel-transition`
+- Active work branch: `feat/battery-semantic-colors` (stacked on the current Phase-2A source checkpoint)
 - Active PR: #100, `feat/native-panel-transition -> dev`
 - Active development line: **0.0.2**
 - First planned formal release target: **1.0.0** (current 0.0.x lines remain pre-release development)
 - Last device-tested runtime checkpoint: Build 397 (`0.0.2`) — **accepted for the tested Phase-2A charging carrier scenarios**
-- Current work-branch runtime checkpoint: Build 399 (`0.0.2`) — **source defined; CI and focused visual validation pending**
+- Current work-branch runtime checkpoint: Build 400 (`0.0.2`) — **source + tests defined; Fast CI and focused device validation pending**
 - Target profile: HyperOS SystemUI `17.03.260226.r`
 - Exact SystemUI SHA-256: `a0e738e41fe599b97950cbf52a9e2ddc6ae2ceff986efbacb1c9840bea78768d`
 - Modern Xposed API: 102
@@ -361,3 +361,27 @@ Build 399 is intentionally single-purpose:
 - do not introduce per-glyph gray multipliers or screenshot-derived correction constants.
 
 The brief native-battery flash during Hot Reload predates Build 397 and is tracked as a separate handoff-polish item, not a Build-397 regression.
+
+
+## Build 400 HyperOS battery semantic colors
+
+This stacked feature branch adds battery-ring semantic color state without reopening Home carrier ownership.
+
+Exact-target evidence:
+- `MiuiBatteryMeterIconView.getProgressStatus()` is the native final semantic authority.
+- Native progress-color priority is charging / quick charging (including performance + charging) -> power save -> performance -> low battery -> normal.
+- `MiuiBatteryMeterIconView` already holds the SystemUI-resolved semantic colors in `mBatteryChargingColor`, `mBatteryPowerSaveColor`, `mBatteryPerformanceModeColor`, and `mBatteryLowColor`.
+- Normal state remains the normal status-icon tint. The exact status-bar battery path exposes no separate super-power-save progress color.
+
+Build 400:
+- observes the existing battery callback family for level, charge, power-save and performance;
+- reads the post-native `getProgressStatus()` result instead of reconstructing the primary semantic state;
+- reads the semantic color already loaded by SystemUI rather than copying RGB constants;
+- stores semantic state + optional native semantic color in the existing battery domain snapshot and preserves them across Hot Reload;
+- removes the project hard-coded charging green from the color policy;
+- uses HyperOS System default only for the battery ring by default; existing optional center/mobile color links still consume the final battery color when enabled;
+- defines a future per-state color-source policy for all five states: **System default**, **Follow status icon tint**, or **Custom color**. No user-facing color picker/preferences are exposed yet.
+
+Fallback: if a native semantic color cannot be read, the ring falls back to current native status-icon tint rather than inventing a replacement color.
+
+Build 399's battery-layer intensity correction is inherited by this branch. Fast Build #1050 and signed Work Branch Canary #309 passed for the Build-399 parent checkpoint; Build 400 requires its own Fast CI / Canary and device validation.

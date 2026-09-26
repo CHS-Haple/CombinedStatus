@@ -2645,3 +2645,50 @@ The screenshots therefore support a battery-ring intensity mismatch rather than 
 - **Compatibility:** no new target member/resource dependency.
 - **Future extension:** visual-weight/user-size work can remain separate from color/intensity semantics.
 
+---
+
+## 2026-09-27 — Build 400 HyperOS battery semantic color source
+
+**Type:** bounded feature / native semantic-state reuse  
+**Branch:** `feat/battery-semantic-colors`  
+**Display version:** 0.0.2  
+**Build:** 400 / 20260927-400  
+**Parent source:** Build 399 checkpoint `00e819f6d2c3ad518982016a8bf22d1524fece57`  
+**Validation:** Fast CI pending; device validation pending
+
+### Requirement
+
+Extend the battery ring beyond charging-only color: follow HyperOS built-in battery semantic modes (power save, performance, low battery, charging) while normal state follows the same status-icon inversion tint as neighboring icons. Keep an architecture seam so every semantic state can later choose either HyperOS System default, the black/white/gray status-icon tint, or a user-selected custom color.
+
+### Exact-target evidence
+
+JADX 1.5.6 inspection of the pinned SystemUI target confirms:
+- `MiuiBatteryMeterIconView.getProgressStatus()` owns final progress-color semantics.
+- priority: quick/normal charging (including performance + charging) -> power save -> performance -> low -> normal.
+- low state threshold is <= 19.
+- SystemUI loads `status_bar_battery_charging`, `status_bar_battery_power_save`, `status_bar_battery_performance`, and `status_bar_battery_low` into icon-view fields.
+- decoded exact resources currently resolve to #1DCD3A, #FF9F05, #3482FF, and #FA382E respectively; runtime code does not copy these values and instead reads the colors already loaded by SystemUI.
+- this exact status-bar battery path has no separate super-power-save progress color.
+
+### Implementation
+
+- Expanded the existing battery source from the level callback to the exact level / charge / power-save / performance callback family.
+- After native callback completion, read the native icon's private `getProgressStatus()` semantic result; a field-based priority mirror exists only as a fallback.
+- Read the corresponding already-loaded native semantic color field; normal stores no semantic color and resolves against status-icon tint.
+- Extend `BatteryState` and `CombinedStatusRenderModel` with semantic state and optional SystemUI semantic color.
+- Preserve both across Hot Reload.
+- Replace the hard-coded charging green in `CombinedStatusColorPolicy` with `CombinedStatusBatteryColorPolicy`.
+- Define per-state future color sources: `SystemDefault`, `FollowStatusIcon`, or `Custom(color)`; current runtime uses `SystemDefault` only.
+- Add tests for native semantic mapping/priority, all-state future source support, fallback behavior, color-link behavior, and Hot Reload preservation.
+
+### Review
+
+- **Ownership:** SystemUI remains the only battery-mode/state/color owner; Combined Status is read-only.
+- **Lifecycle:** no polling/background service; callbacks stay in the existing battery runtime owner.
+- **Single writer:** no native tint/mode/state field is written.
+- **Cleanup / Hot Reload:** semantic state/color transfer uses the existing battery snapshot.
+- **Fail-native:** unavailable semantic color falls back to current status-icon tint.
+- **Performance:** four low-frequency native battery callbacks; no repeated View-tree traversal or per-frame reflection.
+- **Compatibility:** reflected method/field contract is exact-target scoped and target-profile CI remains mandatory.
+- **Future extension:** settings only need to supply per-state color-source preferences; state acquisition and painter ownership do not change.
+

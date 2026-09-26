@@ -189,6 +189,7 @@ Phase 5 exposes those already-stable inputs to the user rather than redesigning 
 - expose adaptive/optional user-adjustable neighbor spacing through the shared optical-gap model;
 - keep slot intent, renderer visual width, transition geometry, and optical adjustment independently resolved;
 - expose appropriate visual controls through the **Features** product structure;
+- expose a per-state battery-ring color source for NORMAL / CHARGING / POWER_SAVE / PERFORMANCE / LOW: **System default** (HyperOS semantic color where one exists), **Follow status icons** (native black/white/gray inversion tint), or **Custom color**; keep this as a presentation-policy input rather than a new SystemUI state machine;
 - make changes inspectable in the Preview Sandbox without confusing preview-only state with real runtime state;
 - require setting changes to alter resolved-layout inputs only, not introduce scene-specific hooks or offsets.
 
