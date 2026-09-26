@@ -1099,3 +1099,75 @@ This correction is intentionally appended rather than rewriting the earlier note
 ### Remaining device gate
 
 CI proves source/build/signing/metadata correctness, not SystemUI runtime behavior. Device validation is still required for charging Super Island peer separation, right-edge containment, motion continuity, non-charging steady placement, OFF -> ON APPEAR, and shade / Control Center first/last-frame alignment. PR #100 remains unmerged until this gate passes.
+
+
+---
+
+## 2026-09-26 — Build 389: keep Combined Status on the stable end-side slot anchor
+
+**Type:** runtime island/motion-anchor correction  
+**APK build:** 20260926-389  
+**CI:** pending at commit creation  
+**Device validation:** pending
+
+### Build 388 device result
+
+Build 388 fixes the Build 387 overlap boundary by claiming module-owned participant occupancy while HyperOS releases the native battery region. The supplied Build 388 screen recording nevertheless shows a remaining visual mismatch: the native peer icons do not move with the Combined Status visual during charging Super Island entry/exit.
+
+The matching detailed diagnostic confirms this is not a missing peer-translation writer. In the captured charging baseline, `MiuiBatteryMeterView` is 135px wide and starts at layout x=452 with a 30px battery motion translation, while the stable status-icon/battery boundary remains at x=482. The existing state-target adapter resolves Combined Status from the battery view's `left`, producing an initial target of 448. Later native charging/island layout returns the custom target to 478 while Wi-Fi/mobile peer targets remain 373/281. The recording shows the corresponding roughly 30px relative-motion split.
+
+### Root cause
+
+`MiuiBatteryMeterView.left` is not the native battery-slot boundary under charging. It is presentation/motion geometry and can change with the 105/135 battery presentation path. Build 387 therefore reused the wrong geometry authority even though it correctly left live `View.translationX` to HyperOS.
+
+This directly reaffirms the repository's earlier confirmed rule: native slot geometry, Combined Status visual geometry, and battery/transition motion geometry must remain separate.
+
+### References consulted
+
+- latest `CONTRIBUTING.md` sections 3.1-3.4, 4.1-4.4, 5.1, 10 and 11;
+- current `CURRENT.md`, `ROADMAP.md`, and recent `DEVLOG.md`;
+- Build 388 maintainer screen recording and detailed diagnostic;
+- `SystemUI-Reference/findings/statusbar.md`: `MiuiStatusIconContainer` owns native participant measurement/state transitions and slot geometry must remain distinct from motion geometry;
+- `SystemUI-Reference/findings/charging.md`: native battery hide remains `MiuiStatusBatteryContainer.setIsHideBattery(Boolean)`; no project charging/island state machine is needed.
+
+### Alternatives reviewed
+
+1. Move native peer icons explicitly — rejected; peer geometry and live motion remain SystemUI-owned.
+2. Copy the battery view's 30px charging delta to peers — rejected; this is a transient presentation artifact and would create a second motion writer.
+3. Animate the Build 388 occupancy width per frame — rejected; it introduces a project-owned animation path and is unnecessary if the custom target uses the correct stable boundary.
+4. **Selected:** keep Build 388 occupancy logic unchanged, but source the custom `NewStatusIconState` translation target from the stable laid-out end-side status-icon boundary captured while the native battery slot is present. Preserve that anchor while native battery layout is hidden.
+
+### Implementation
+
+- Add one generation-scoped cached slot translation anchor owned by the native Combined Status participant.
+- Seed it from the laid-out `MiuiStatusIconContainer` width/boundary at attach.
+- Refresh it only after native `MiuiStatusIconContainer.onLayout(...)` while the native battery slot is present.
+- Freeze the last verified anchor while `setIsHideBattery(true)` releases the battery region.
+- Use the same anchor for custom `NewStatusIconState.translationX/layoutTranslationX` adaptation and handoff-readiness screen coordinates.
+- Battery `left`, width and translation remain diagnostic evidence only; they no longer define the Combined Status target.
+- Build 388 occupancy handoff remains unchanged.
+- No new hook, observer, polling loop, frame listener, peer geometry write or live `View.translationX` write is added.
+- Internal build advances to `20260926-389`; display version remains `0.0.1`.
+
+### Review
+
+- **Authority review:** stable end-side layout boundary replaces battery presentation geometry as the translation target source.
+- **One-writer review:** HyperOS remains the sole live translation/Folme writer for Combined Status and all peers.
+- **Lifecycle review:** the cached anchor is generation-scoped and cleared on Hot Reload/runtime reset.
+- **Performance review:** one constant-time boundary refresh inside the already-owned post-layout hook; no new high-frequency source.
+- **Fallback review:** missing/invalid positive layout boundary fails the native participant path instead of guessing an offset.
+- **Regression boundary:** occupancy behavior from Build 388, visual-bounds behavior from Build 386, and native state application remain otherwise unchanged.
+
+### CI / device gate
+
+Fast Build and signed Work Branch Canary are pending.
+
+Focused device acceptance:
+1. charging-island entry/exit no longer shows a CombinedStatus-only ~30px shift relative to native peers;
+2. Build 388 peer separation remains;
+3. Build 387 right-edge containment remains;
+4. non-charging steady placement and native OFF -> ON APPEAR remain;
+5. shade / Control Center first/last-frame alignment remains;
+6. diagnostic uses `authority=native-end-side-slot-boundary` and continues to report `moduleViewTranslationWrites=0`.
+
+If this still fails, reopen the native `NewStatusIconState` / island-state ordering boundary rather than moving peers or adding per-frame compensation.
