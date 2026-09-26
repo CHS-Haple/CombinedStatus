@@ -2143,3 +2143,61 @@ The objective was to restore one current repository narrative without rewriting 
 ### Outcome
 
 Repository current-state surfaces are aligned for the Build-394 implementation stage. Future meaningful checkpoints must synchronize repository memory before the checkpoint is treated as complete, using the new `CONTRIBUTING.md` mapping.
+
+
+---
+
+## 2026-09-27 — Repository consistency review and stepwise documentation synchronization
+
+**Type:** documentation / governance consistency review  
+**Runtime build:** none  
+**Display line:** 0.0.2  
+**Runtime impact:** none
+
+### Problem / objective
+
+The Phase-2A architecture evidence advanced faster than several current-facing repository surfaces. Some files still described Build 394 as blocked, the permanent participant/occupancy-handoff route as an active candidate, or PR #100 as a Build-378 native-slot/panel-geometry change.
+
+A second process gap was identified: the contribution rules required CURRENT/DEVLOG/ROADMAP maintenance, but did not state clearly enough that repository memory must be synchronized **after each meaningful engineering step that changes the next action**, rather than only at the end of a long task.
+
+### Problem execution flow
+
+1. Re-read the latest `CONTRIBUTING.md`, `CURRENT.md`, `ROADMAP.md`, relevant recent `DEVLOG.md`, architecture/reference documents, README/CHANGELOG, Issue template, build/version metadata and PR #100.
+2. Separate true historical Build/CI records from current/future/net-state descriptions.
+3. Cross-check the current Phase-2A decision against the Build-394 gate, 0.0.2 development line and 1.0.0 first-release target.
+4. Correct only current-facing surfaces; preserve historical DEVLOG/Build facts.
+5. Update contribution governance so each meaningful step explicitly maps to the repository documents that must be synchronized before continuing.
+6. Update PR #100 metadata to the branch's current objective.
+7. Re-run an architecture/documentation **review** for ownership, lifecycle, single-writer, cleanup, fail-native, compatibility, future-phase boundaries and historical integrity.
+
+### Repository updates
+
+- `CONTRIBUTING.md` now requires stepwise repository-memory synchronization and explicitly maps:
+  - investigation/evidence -> CURRENT and, when durable, DEVLOG;
+  - architecture/ownership changes -> architecture docs + CURRENT/ROADMAP + DEVLOG;
+  - reusable evidence -> reference library;
+  - runtime checkpoint -> CURRENT + DEVLOG;
+  - CI/device result -> immediate CURRENT + DEVLOG correction;
+  - phase/version/release changes -> ROADMAP/VERSIONING plus affected public/net-state docs;
+  - durable net behavior -> CHANGELOG;
+  - changed PR objective/acceptance boundary -> PR title/body.
+- Mechanical sub-steps that do not change engineering meaning do not require their own log entry.
+- Current architecture/reference/layout documents now describe the Build-394 pre-runtime gate as open for the pinned target and keep the old participant route as superseded historical evidence.
+- `CHANGELOG.md` no longer presents superseded participant/occupancy-handoff mechanics as the intended current net state; durable capabilities are phrased independently of that rejected carrier.
+- the bug-report version example follows the current 0.0.2 development line.
+- PR #100 is now titled `refactor: establish 0.0.2 Home carrier architecture` and its body describes the Phase-2A carrier cutover, Build-394 validation boundary, historical evidence, and explicit Phase-2B/Keyguard/AOD/UI exclusions.
+
+### Review
+
+- **Historical-integrity review:** previous DEVLOG Build records remain unchanged. Later conclusions are appended rather than retroactively rewriting what was actually implemented or believed.
+- **Ownership review:** documentation consistently leaves native peer layout/island motion with SystemUI and gives Combined Status only the selected overlay composition plus scoped restoration state.
+- **Lifecycle/cleanup review:** the current path remains HostSession-scoped and requires exact slot/mask restoration on disable, replacement, Hot Reload and partial activation failure.
+- **Single-writer review:** current-facing documentation no longer recommends concurrent permanent-participant and existing-host carriers.
+- **Fail-native review:** unmatched/incomplete contracts continue to restore or retain native presentation.
+- **Phase-boundary review:** Build 394 is Phase 2A only; Home -> shade / Control Center remains Phase 2B, followed by Keyguard/AOD and later user-facing sizing controls.
+- **Version review:** current development line remains 0.0.2; the first formal release target remains 1.0.0; historical 0.0.1 Build records remain historical facts.
+- **Validation review:** documentation/governance only; no APK/runtime change, Build ID change, Canary or device validation is required.
+
+### Outcome / next step
+
+Repository-facing development state is aligned around the open Build-394 gate. The next engineering step is the first bounded 0.0.2 runtime implementation of the Phase-2A Home carrier cutover. After that implementation step, CURRENT and DEVLOG must be synchronized immediately before CI/device validation proceeds.
