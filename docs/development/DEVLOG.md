@@ -618,3 +618,73 @@ Required focused device test after CI:
 
 Pending CI and device evidence. If Build 385 still fails, do not add timing retries or repeated writes; reopen native end-side ownership.
 
+
+
+---
+
+## 2026-09-26 — Roadmap and App-home design intent restored
+
+**Type:** documentation / product-development continuity correction  
+**APK build:** none  
+**Runtime impact:** none
+
+### Problem / objective
+
+The repository development memory had become too focused on the active three-symptom transition investigation. A future session could therefore misread completed capabilities as future work or reopen an App Home design that had already been agreed.
+
+The objective is to restore the macro development sequence and preserve the confirmed Home-page information architecture without confusing design completion with implementation completion.
+
+### Evidence / references consulted
+
+- Latest `CONTRIBUTING.md`, especially development continuity, native ownership, and App/MIUIX rules.
+- Current repository and PR history through Build 377 and active PR #100 / Build 385.
+- Existing runtime evidence for multi-SIM presentation and native island/end-side motion participation.
+- Existing app source, including `FeaturesScreen`, the master-switch preference, and the real Modern Xposed Hot Reload entry point.
+- Confirmed project-design decisions recovered from prior development discussions and reconfirmed by the maintainer:
+  - current macro stage is Home -> shade / Control Center transition;
+  - the following macro order is Keyguard/lockscreen/AOD -> App Home/Preview Sandbox -> adaptive sizing/spacing and broader visual controls -> full regression -> 0.0.1 closure;
+  - Home is top real Runtime Status + bottom Preview Sandbox;
+  - primary tabs are `Home | Features | Settings`; the second tab is **Features**, not Customization.
+
+### Corrections
+
+- **Corrected:** dual-SIM and network presentation are not future roadmap phases. They are part of the completed core capability baseline. Later work may regression-test or extend compatibility, but should not plan them again as unimplemented milestones.
+- **Corrected:** island support is not a separate future feature stage. Native participant/slot/motion integration already gives Combined Status the SystemUI-owned island/end-side movement path that later work must preserve.
+- **Corrected:** the App Home page is a future implementation phase, but its high-level layout is already decided. Implementation should reproduce the retained design intent instead of reopening the information architecture.
+- **Corrected terminology:** the primary navigation is `Home | Features | Settings`; the second tab must not be described as `Customization`.
+
+### Confirmed App Home design snapshot
+
+**Top: Runtime Status**
+
+- Represents real module/SystemUI runtime state, not simulated state.
+- Shows the current Combined Status connection/takeover/health condition in a concise status-focused presentation.
+- Contains the global Combined Status master switch.
+- Retains a direct Hot Reload action backed by the real Modern Xposed Hot Reload path.
+- Detailed diagnostics remain secondary; Home must not become a diagnostic dump.
+
+**Bottom: Preview Sandbox**
+
+- A dedicated simulated Combined Status preview area below the real runtime section.
+- Can model Wi-Fi, mobile network, no-SIM, airplane mode, charging, battery and later visual-parameter combinations.
+- Preview state is local UI state only and must never mutate real SystemUI/network/battery state.
+- Future size/spacing/color controls should be observable here while reusing the real rendering semantics rather than creating a separate lookalike renderer.
+
+**Primary navigation**
+
+- `Home | Features | Settings`.
+- **Features** is the canonical second-tab name. Customization is a capability inside the product, not the top-level tab identity.
+
+### Review
+
+This is documentation/product-intent work only and adds no executable behavior.
+
+The review separates four categories that future sessions must not conflate:
+- **implemented capability** — supported by repository/runtime evidence;
+- **confirmed design intent** — already decided, implementation still future;
+- **active engineering checkpoint** — Build 385 inside the current transition phase;
+- **future macro phase** — work that genuinely follows the current stage.
+
+### Outcome
+
+The macro roadmap is restored above the Build-level route, and the Home page now has enough durable design intent to be reconstructed later without relying on chat memory.

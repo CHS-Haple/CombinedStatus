@@ -24,6 +24,31 @@ Build 377 remains the accepted `dev` runtime baseline. Builds 378-385 belong to 
 
 PR #99 (`fix/native-visual-intensity-normalization`) remains open and unmerged; its head is not an accepted integration baseline. Shared native visual-intensity normalization is already present in the merged Build 377 line through PR #98, so any future use of PR #99 must be reconciled against current `dev`.
 
+
+## Macro roadmap position
+
+The project is currently in the **Home -> shade / Control Center native transition stage**. Build 385 is an implementation checkpoint inside this stage, not a new product phase.
+
+The macro sequence is:
+
+1. **Core Home / native participant foundation — completed.**
+   - Home Combined Status rendering and native participant integration;
+   - authoritative network state/presentation, including single-SIM and dual-SIM paths;
+   - Wi-Fi / hotspot / no-SIM / airplane / mobile-type presentation;
+   - native resource/tint integration, network/battery suppression, fail-native restoration;
+   - master switch and Hot Reload;
+   - charging/island compatibility obtained through the native participant / slot / SystemUI ownership path rather than a separate project-owned island animation system.
+2. **Home -> shade / Control Center native transition — active.**
+   - Current three-symptom geometry/transition work belongs here.
+3. **Keyguard / lockscreen / AOD scene completion — next macro phase.**
+   - Reuse the stabilized state, ownership, and transition contracts instead of growing a second scene-specific patch stack.
+4. **App Home + Preview Sandbox implementation — planned, design already confirmed.**
+   - The page structure is not an open design question; see `ROADMAP.md` for the retained design snapshot.
+5. **Adaptive sizing / spacing and broader visual controls — planned after the geometry contract is stable.**
+6. **Full-scene compatibility regression and 0.0.1 release closure — final pre-release phase.**
+
+Do not reclassify already completed dual-SIM/network support or native island participation as future macro phases.
+
 ## Active objective
 
 Close the three-symptom repair cycle with one coherent separation of:
