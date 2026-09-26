@@ -1591,3 +1591,161 @@ Internal implementation may change substantially, but the installed SystemUI res
 The existing 0.0.1 Build 386-393 experiments remain evidence, not architecture. The unfinished pre-0.0.2 Build-394 battery-slot experiment is provisional and must be either reconciled with the unified resolved-layout model or reverted before the first real 0.0.2 runtime checkpoint.
 
 The display-version change itself does not claim a validated runtime build and intentionally does not advance the Build ID.
+
+
+---
+
+## 2026-09-27 — 0.0.2 architecture reference review and reference-library baseline
+
+**Type:** architecture investigation / reference-library preparation  
+**Runtime build:** none  
+**Display line:** 0.0.2  
+**Runtime behavior changed:** no; the earlier provisional battery-slot override experiment was removed before this record was finalized.
+
+### Problem / objective
+
+Builds 386-393 repeatedly solved one geometry boundary while exposing another around steady occupancy, native APPEAR, charging presentation width, battery-slot release, peer motion, and panel handoff.
+
+The objective was to stop extending the existing participant model by assumption and inspect a mature implementation of the same class of compact status composition before defining Build 394.
+
+The review was intentionally performed before another runtime change.
+
+### Problem execution flow
+
+1. Build 393 device feedback showed that both tested attach orders still have a charging-state visual-spacing defect.
+2. The current participant route was classified as an architecture question rather than another offset defect.
+3. The 0.0.2 display line was opened.
+4. A mature Android/SystemUI implementation was inspected at bytecode/runtime-contract level.
+5. Host ownership, measure/layout participation, native-view masking, scene progress, projection, sizing, and cleanup were traced.
+6. The findings were generalized and stripped of source-specific product/internal naming before being stored in the repository.
+7. The provisional experiment that overrode native battery-hide layout behavior was reverted because the completed review did not support taking that platform-owned scene responsibility.
+8. No Build 394 was created; exact target-SystemUI proof remains required.
+
+### Observed reusable patterns
+
+#### Existing native host as the compact carrier
+
+The compact representation reuses an existing native end-side host rather than registering a second permanent status-icon participant.
+
+This avoids the need for two independent layout identities to exchange occupancy during scene changes.
+
+#### Scoped represented-slot suppression
+
+Represented native slots are temporarily added to the platform's existing ignored-slot collection only around native measure/layout.
+
+Only entries newly added by the replacement path are recorded. A restoration token removes exactly those entries after the native call and on exceptional exit.
+
+The platform collection is not globally cleared or replaced.
+
+#### Reversible native-view visual masking
+
+Native Views remain attached and state-capable while their drawing is suppressed through a reversible clip boundary.
+
+The pre-existing clip state is saved once and restored exactly when the compact presentation is no longer active.
+
+This separates visual replacement from layout/lifecycle removal.
+
+#### Host-scoped state and cleanup
+
+Runtime composition state is owned per native host. Host state includes native references, resolved sizing, represented slots, overlay presentation, scene state, and cleanup.
+
+Detached hosts are cleaned and removed rather than leaving geometry or references globally reusable.
+
+#### Independent sizing dimensions
+
+Layout slot size, visible glyph size, per-glyph scale, and optical adjustment are modeled independently.
+
+User scaling resolves a sizing/layout object; it does not rewrite integration hooks.
+
+#### Native scene/hide semantics as input
+
+Platform scene/hide state is read as an authoritative fact for presentation eligibility. No evidence was found that the implementation preserves its compact host by overriding the platform's battery-hide request.
+
+This is important negative evidence against the provisional forced-slot experiment.
+
+#### Native progress and real endpoints for projection
+
+Cross-surface transition progress is consumed from a native expansion callback.
+
+Source and target endpoints are derived from real screen geometry. The projection itself is drawn with canvas translation, scale, and alpha rather than taking ownership of native target View translation or introducing an independent timing curve.
+
+#### Layered restoration
+
+The implementation separates:
+- temporary layout mutation lifetime;
+- steady compact visual-mask lifetime;
+- transition projection lifetime.
+
+Each layer restores only its owned state. Global cleanup removes overlays/listeners, restores tracked visual state, cleans host sessions, and returns to native behavior.
+
+### Architecture review
+
+**Review conclusion:** the existing extra-participant architecture is no longer assumed to be the required final 0.0.2 integration.
+
+This does not invalidate the evidence collected by Builds 386-393. Those builds remain valuable proof about the target's APPEAR geometry, battery-slot release, peer occupancy, charging geometry and panel anchors.
+
+The new evidence changes the preferred question from:
+
+`How should the custom participant take over a disappearing native slot?`
+
+to:
+
+`Can Combined Status compose inside an existing native host for steady state, then hand off presentation through target-proven scene projection when that host is no longer available?`
+
+### Product-specific difference that prevents mechanical copying
+
+Combined Status carries network information in addition to battery state.
+
+A platform scene may legitimately remove a battery-oriented host, but Combined Status must not automatically disappear with it if that would discard required network information.
+
+Therefore the reference scene policy is not copied. The 0.0.2 target must prove either:
+- a valid island-time carrier; or
+- a draw-only island projection/handoff.
+
+Native peer layout/motion should remain SystemUI-owned in either case.
+
+### Repository reference library
+
+Created:
+- `docs/reference/README.md`
+- `docs/reference/statusbar-composition-patterns.md`
+
+The reference library intentionally contains:
+- generalized architecture patterns;
+- evidence/confidence boundaries;
+- target-validation requirements.
+
+It intentionally excludes:
+- third-party product/package/internal names;
+- copied source;
+- proprietary assets;
+- source-specific constants as architecture;
+- claims that Home evidence proves keyguard/AOD behavior.
+
+### Provisional experiment rollback
+
+The pre-0.0.2 experiment that forced native battery layout hide to remain false was removed before Build 394.
+
+Rollback commit:
+`ccfbb2d0f3efa0c6646afa7ff80b4d592c9de74e`.
+
+Reason:
+- it takes ownership of a platform scene decision;
+- it can alter island/end-side layout semantics;
+- the completed reference review shows a mature alternative pattern that consumes native hide/scene state rather than rewriting it;
+- keeping an unvalidated runtime experiment would contaminate the new architecture baseline.
+
+### 0.0.2 next gate
+
+No runtime Build 394 exists yet.
+
+Before coding it:
+1. verify an exact-target existing Home carrier;
+2. verify the target ignored-slot / native measure-layout scope;
+3. verify reversible masking;
+4. map the island-time carrier or projection needed to retain network information;
+5. map Home -> shade / Control Center native progress and real endpoints;
+6. define the shared `ResolvedLayout` / sizing contract;
+7. complete an ownership, lifecycle, cleanup, performance, compatibility and fail-native review.
+
+PR #100 remains unmerged.
