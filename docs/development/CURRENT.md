@@ -10,7 +10,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Integration branch: `dev`
 - Integration runtime baseline: Build 377, commit `f64fe0e3992eab4dd62ff479c3765d834ec7dfa4`
 - Active work branch: `feat/native-panel-transition`
-- Active runtime checkpoint: Build 388 (current work-branch source checkpoint)
+- Active runtime checkpoint: Build 389 (current work-branch source checkpoint)
 - Build 385 trusted validation head: `d3533828e82a335eab0b3e661cfadd4e70ebee27` (history-synced tree; runtime-equivalent to Build 385)
 - Active PR: #100, `feat/native-panel-transition -> dev`
 - Target profile: HyperOS SystemUI `17.03.260226.r`
@@ -58,7 +58,7 @@ Close the three-symptom repair cycle with one coherent separation of:
 - native APPEAR/DISAPPEAR transition geometry;
 - Home -> shade / Control Center handoff geometry.
 
-Build 386 established the real-bounds / zero-steady-occupancy architecture. Build 387 kept the custom visual inside the battery-slot coordinate but device video proved that this is insufficient while HyperOS hides the battery: native peer status icons expand into the released battery region and overlap the zero-width Combined Status visual. Build 388 keeps zero occupancy while the native battery is present and claims exactly the resolved visual/native-slot width only while the authoritative `setIsHideBattery(true)` state is active.
+Build 386 established the real-bounds / zero-steady-occupancy architecture. Build 387 corrected the charging-island right-edge target. Build 388 prevents peer overlap by reserving the released battery region, but device video shows a remaining motion mismatch: Combined Status moves about one charging-width delta while peer icons do not follow the same target. Build 389 keeps Build 388 occupancy behavior and changes only the custom translation anchor from `MiuiBatteryMeterView.left` to the stable end-side status-icon boundary captured while the native battery slot is present.
 
 ## Confirmed conclusions
 
@@ -78,7 +78,9 @@ Build 386 established the real-bounds / zero-steady-occupancy architecture. Buil
 - **Confirmed Build 387 root cause:** charging Super Island replaces native battery presentation, so HyperOS translates/fades `MiuiBatteryMeterView` out while Combined Status must remain visible because it still carries network state. The zero-width custom participant's native `layoutTranslationX` was derived from the expanded status-icon extent instead of the battery slot layout coordinate.
 - **Build 387 device result:** rejected for charging-island coexistence. Right-edge containment is improved, but the supplied video shows native peer icons moving into and overlapping the Combined Status visual during charging Super Island.
 - **Confirmed Build 388 root cause:** native battery hide releases the battery region into `MiuiStatusIconContainer`; the log changes from the normal 478px status-icon region to 583px while the 105px Combined Status visual still has 0px measured occupancy. Native peers can therefore legally occupy the same region.
-- **Selected Build 388 correction:** keep the participant at 0px occupancy while the battery slot exists; when the existing authoritative `MiuiStatusBatteryContainer.setIsHideBattery(true)` source reports that HyperOS released the battery slot, change only the module-owned participant width to the resolved visual/native-slot width. Restore it to 0px when the native battery returns. Build 387's state-target adapter remains; peer geometry and live Folme translations remain SystemUI-owned.
+- **Build 388 device result:** peer overlap is prevented, but charging-island motion is still not coherent. In the captured session the charging battery view is 135px wide and laid out from x=452 while the stable status-icon boundary remains x=482; the Build 387 adapter therefore initially resolves Combined Status to 448 and later to 478 as battery presentation changes, while native peer targets remain at 373/281. The video matches this ~30px relative-motion split.
+- **Confirmed Build 389 root cause:** `MiuiBatteryMeterView.left` is battery presentation/motion geometry, not the stable end-side slot boundary. Reusing it as the custom participant translation authority violates the already-confirmed separation between battery motion geometry and native slot geometry.
+- **Selected Build 389 correction:** cache/refresh the native end-side slot translation from the laid-out `MiuiStatusIconContainer` boundary only while the native battery slot is present, preserve that anchor while `setIsHideBattery(true)` releases the battery, and keep HyperOS as the sole live translation/Folme writer. Build 388 occupancy behavior remains unchanged.
 
 ## Ownership / compatibility boundary
 
@@ -164,6 +166,24 @@ Required Build 388 focused device scenarios:
 
 No merge to `dev` until these pass.
 
+Build 389:
+- versionName: `0.0.1`
+- buildId: `20260926-389`
+- runtime source: pending final checkpoint commit
+- Fast Build: pending
+- Work Branch Canary: pending
+- Device validation: pending
+
+Required Build 389 focused device scenarios:
+1. Charging Super Island enter/steady/exit keeps the relative spacing between native peer icons and Combined Status coherent; no ~30px custom-only shift.
+2. Peer overlap remains fixed from Build 388.
+3. Right-edge containment remains fixed from Build 387.
+4. Non-charging steady placement and OFF -> ON APPEAR remain unchanged.
+5. Shade / Control Center first/last-frame alignment remains unchanged.
+6. Diagnostic reports `authority=native-end-side-slot-boundary`, with no live module translation writes.
+
+No merge to `dev` until these pass.
+
 ## Immediate next step
 
-Device-test the signed Build 388 Canary. First verify charging Super Island enter/steady/exit for both right-edge containment and peer-icon separation, then repeat the Build 386 regression checks for non-charging steady placement, OFF -> ON native entry animation, and shade / Control Center first/last-frame alignment. Do not merge PR #100 until this focused gate passes.
+Run Build 389 Fast CI and signed Work Branch Canary. If both pass, device-test the same short charging Super Island sequence from Build 388, focusing on whether native peers and Combined Status now share one stable end-side motion anchor. Then repeat the Build 386 regression checks. Do not merge PR #100 until this gate passes.
