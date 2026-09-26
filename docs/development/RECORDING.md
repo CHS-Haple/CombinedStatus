@@ -38,9 +38,7 @@ When applicable, record:
 
 Avoid durable phrases such as “latest build”, “current APK”, or “the previous version” without the concrete identity they refer to.
 
-For an active runtime checkpoint, prefer the concrete **runtime Build/source identity** over the mutable head SHA of a PR or work branch. Documentation-only commits may legitimately advance a branch head without creating a new runtime checkpoint; do not make `CURRENT.md` stale merely by pinning that documentation head unless the head itself materially defines the executable state.
-
-For active work branches, prefer the **effective runtime checkpoint / runtime source SHA** over a volatile documentation-only branch HEAD. A later docs-only commit does not create a new runtime Build and normally should not force CURRENT to track a new exact branch-head SHA unless that head itself matters to the next engineering decision.
+For active work branches, prefer the concrete **runtime Build/source identity** over a mutable documentation-only branch HEAD. A docs-only commit may advance the branch without creating a new runtime checkpoint; do not make `CURRENT.md` stale by pinning that head unless the head itself materially defines the executable state.
 
 ### 1.4 Keep one logical boundary
 

@@ -59,6 +59,7 @@ Current boundary:
 - native drawable alpha normalization remains shared rather than per-resource;
 - do **not** add per-glyph gray multipliers, replacement gray constants, screenshot-derived magic numbers, or source-asset recoloring merely to force a visual match;
 - the next review should compare final stroke coverage/compositing and antialiasing behavior before changing tint policy.
+- the green screenshot is a semantic-color state and is not evidence of a monochrome tint mismatch.
 
 ### Battery semantic colors — implemented, device acceptance still open
 
