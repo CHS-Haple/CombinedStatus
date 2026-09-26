@@ -2782,3 +2782,56 @@ Review of Build 402 identified one remaining native gate: HyperOS conditionally 
 ### Next
 
 After focused device color validation, investigate the supplied shallow panel-pull video. The Home overlay must leave the Home presentation boundary as the shade begins taking ownership; future shade/Control Center Combined Status must move with its own target surface rather than rely on the stationary Home overlay.
+
+---
+
+## 2026-09-27 — Build 403 device visual feedback: grayscale parity remains open
+
+**Type:** device visual-validation feedback / acceptance correction  
+**Display version:** 0.0.2  
+**Build:** 403 / 20260927-403  
+**Runtime source:** `97ef67e648906a4b9bb2ce4d7dd390e955831189`  
+**Validation:** Fast CI passed; signed Canary passed; visual-intensity acceptance remains open
+
+### Device feedback
+
+Latest target-device screenshots on the active Build-403 color/intensity line still show an apparent grayscale / visual-weight difference between Combined Status and neighboring native status icons.
+
+This feedback changes the acceptance state: the visual-intensity work must not be treated as closed merely because Build 399 removed overlapping battery-arc compositing and Build 403 completed native semantic-color integration.
+
+### Current interpretation
+
+- Build 399's active/inactive battery-arc partition remains valid and stays in force.
+- Build 403's semantic-state/color authority remains HyperOS-owned and is not rejected by this grayscale observation.
+- Native status-icon tint remains the intended monochrome authority.
+- Native drawable alpha normalization remains shared rather than resource-specific.
+- The remaining difference has not yet been attributed to one confirmed final compositing/tint/alpha cause.
+
+### Rejected shortcuts
+
+Do not add:
+- per-glyph gray multipliers;
+- replacement gray constants;
+- screenshot-derived magic values;
+- source-asset recoloring/preprocessing solely to force a visual match.
+
+Those would hide the remaining cause instead of fixing the shared final-rendering boundary.
+
+### Review
+
+- **Ownership:** unchanged; HyperOS remains tint/semantic-color authority and Combined Status owns only its compact rendering.
+- **Lifecycle:** unchanged; no new hook/listener/polling path is justified by this feedback.
+- **Single writer:** unchanged; no native tint/Drawable state is written.
+- **Cleanup:** unchanged.
+- **Fail native:** unchanged.
+- **Performance:** no new per-frame or repeated correction is authorized.
+- **Compatibility:** any next correction must remain target-profile compatible and avoid resource-specific hard-coded visual policy.
+- **Future extension:** user color-source controls remain a later presentation-policy feature and must not be used to mask baseline parity defects.
+
+### Next
+
+1. Quantify and attribute the final rendered difference across battery ring, native center drawable, mobile layer, and neighboring SystemUI icons.
+2. Re-open only the demonstrated compositing/tint/alpha cause.
+3. Keep Build 403 semantic-color device validation open until the relevant native states and grayscale baseline are both acceptable.
+4. After color/intensity closure, continue with the already-identified shallow shade-pull Home-overlay scene-boundary issue in Phase 2B.
+
