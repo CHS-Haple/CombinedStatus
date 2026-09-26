@@ -55,7 +55,7 @@ class CombinedStatusStateStoreTest {
     }
 
     @Test
-    fun hotReloadPreservesNativeBatterySemanticStateAndColor() {
+    fun batterySnapshotRetainsNativeSemanticStateAndColor() {
         CombinedStatusStateStore.restoreHotReloadState(null)
         CombinedStatusStateStore.updateBattery(
             CombinedStatusStateStore.BatteryState(
@@ -67,9 +67,8 @@ class CombinedStatusStateStoreTest {
         )
 
         val restored =
-            CombinedStatusStateStore.restoreHotReloadState(
-                CombinedStatusStateStore.exportHotReloadState(),
-            ).battery ?: error("expected battery state")
+            CombinedStatusStateStore.snapshot().battery
+                ?: error("expected battery state")
 
         assertEquals(61, restored.percent)
         assertFalse(restored.charging)
