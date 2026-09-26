@@ -1469,3 +1469,66 @@ PR #100 remains unmerged.
 The runtime change remains limited to consuming an already-owned host-scoped stable geometry snapshot at participant attach. No new SystemUI hook, listener, poller, animation/state machine, peer write, or live translation writer was added. Build 390's bounded same-frame diagnostics remain available to verify the resulting child motion.
 
 Device evidence remains the acceptance authority. PR #100 stays unmerged.
+
+
+---
+
+## 2026-09-27 — Build 393: pin width and translation to one stable slot boundary
+
+**Type:** root-cause geometry-authority correction  
+**APK build:** 20260927-393  
+**Predecessor result:** Build 392 rejected for charging-state left shift in both A/B attach orders
+
+### New device evidence
+
+Build 392 successfully proves and consumes the stable host slot snapshot for **width**:
+`stableCaptureStatusIconsWidth=478`, live charging width `448`, `resolvedStatusIconsWidth=478`, `resolvedSlot=105x108`.
+
+However the same line records `slotTranslationX=448.0`, and the later state adapter also corrects the custom participant to the 448px live boundary. The video shows the resulting charging-state left shift.
+
+The geometry is therefore internally inconsistent:
+- visual/slot width = 105px from stable boundary;
+- position = 448px from transient charging boundary;
+- expected stable end-side slot = 478..583;
+- actual custom visual = 448..553;
+- error = 30px left.
+
+The island trace independently supports this: when the native status-icon container expands during battery-slot release, Combined Status reaches a 478px target while several peer targets remain native-owned, producing the previously observed relative movement.
+
+### Root cause
+
+Build 392 corrected only one half of slot identity. `activeSlotWidth` consumes the host-scoped stable snapshot, but `activeSlotTranslationX` and its post-layout refresh still consume live `MiuiStatusIconContainer.width`. Charging presentation shrinks that live width from 478 to 448, so the same conceptual slot has two authorities.
+
+### Selected correction
+
+- introduce a generation-scoped `activeSlotBoundaryWidth`;
+- seed it from the same resolved stable status-icon width that feeds slot-width resolution;
+- derive `activeSlotTranslationX` from that stable boundary;
+- post-layout refresh keeps using the stable boundary, recomputing only against current root-local `left`;
+- live status-icon width remains fallback only if no stable boundary exists;
+- clear the boundary on normal teardown and Hot Reload reset.
+
+### Review
+
+- **Geometry review:** native slot width and custom slot position now share one authority.
+- **Animation review:** no animation curve/progress change.
+- **Writer review:** HyperOS remains sole live `View.translationX` / Folme writer; the module still adapts only its custom state target.
+- **Peer review:** no peer geometry write.
+- **Lifecycle review:** stable boundary is generation-scoped and cleared with the participant.
+- **Performance review:** no new hook/listener/poller or per-frame work.
+- **Fallback review:** live width is used only when the stable boundary is unavailable; invalid geometry still fails closed.
+- **Regression boundary:** Build 392 stable slot width, Build 388 released-slot occupancy, Build 390 diagnostics, network/battery suppression, and panel integration remain otherwise unchanged.
+
+### Device gate
+
+Charging steady state must first show:
+`stableSlotBoundaryWidth=478 ... statusIconsLayoutWidth=448 ... resolvedSlot=105x108 slotTranslationX=478.0`.
+
+Then verify:
+1. no 30px left shift in either A or B attach order;
+2. island enter/exit preserves peer-relative spacing;
+3. no peer overlap / right-edge escape;
+4. OFF -> ON APPEAR remains;
+5. shade / Control Center first and last frames remain aligned.
+
+PR #100 remains unmerged.
