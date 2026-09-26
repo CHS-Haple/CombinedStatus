@@ -147,14 +147,18 @@ class SystemUiNativeCombinedParticipantOwnerTest {
 
 
     @Test
-    fun activeNativeSlotAcceptsFullVisualWidthAfterBatteryRelease() {
+    fun activeNativeSlotKeepsZeroWidthShellAlignedToBatterySlot() {
         assertTrue(
             SystemUiNativeCombinedParticipantOwner.isActiveSlotHandoffReady(
-                rootLayoutWidth = 105,
+                rootLayoutWidth = 0,
                 rootLayoutHeight = 108,
                 renderMeasuredWidth = 105,
                 renderMeasuredHeight = 108,
+                expectedVisualWidth = 105,
+                expectedVisualHeight = 108,
                 parentClipsChildren = false,
+                rootScreenX = 1242,
+                batteryScreenX = 1242,
                 renderLeft = 0,
                 renderRight = 105,
             ),
@@ -162,29 +166,52 @@ class SystemUiNativeCombinedParticipantOwnerTest {
     }
 
     @Test
-    fun activeNativeSlotRejectsLegacyZeroWidthShell() {
+    fun activeNativeSlotRejectsDuplicateShellOccupancy() {
+        assertFalse(
+            SystemUiNativeCombinedParticipantOwner.isActiveSlotHandoffReady(
+                rootLayoutWidth = 105,
+                rootLayoutHeight = 108,
+                renderMeasuredWidth = 105,
+                renderMeasuredHeight = 108,
+                expectedVisualWidth = 105,
+                expectedVisualHeight = 108,
+                parentClipsChildren = false,
+                rootScreenX = 1137,
+                batteryScreenX = 1242,
+                renderLeft = 0,
+                renderRight = 105,
+            ),
+        )
+    }
+
+    @Test
+    fun activeNativeSlotRejectsAnchorOrVisualMismatch() {
         assertFalse(
             SystemUiNativeCombinedParticipantOwner.isActiveSlotHandoffReady(
                 rootLayoutWidth = 0,
                 rootLayoutHeight = 108,
                 renderMeasuredWidth = 105,
                 renderMeasuredHeight = 108,
+                expectedVisualWidth = 105,
+                expectedVisualHeight = 108,
                 parentClipsChildren = false,
+                rootScreenX = 1238,
+                batteryScreenX = 1242,
                 renderLeft = 0,
                 renderRight = 105,
             ),
         )
-    }
-
-    @Test
-    fun activeNativeSlotRejectsRenderGeometryMismatch() {
         assertFalse(
             SystemUiNativeCombinedParticipantOwner.isActiveSlotHandoffReady(
-                rootLayoutWidth = 105,
+                rootLayoutWidth = 0,
                 rootLayoutHeight = 108,
                 renderMeasuredWidth = 135,
                 renderMeasuredHeight = 108,
+                expectedVisualWidth = 105,
+                expectedVisualHeight = 108,
                 parentClipsChildren = false,
+                rootScreenX = 1242,
+                batteryScreenX = 1242,
                 renderLeft = 0,
                 renderRight = 135,
             ),

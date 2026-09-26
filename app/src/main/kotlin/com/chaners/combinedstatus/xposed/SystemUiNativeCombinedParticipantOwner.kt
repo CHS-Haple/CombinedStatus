@@ -964,13 +964,25 @@ internal object SystemUiNativeCombinedParticipantOwner {
             return false
         }
 
+        val battery = batteryRef?.get() ?: return false
+        if (!battery.isAttachedToWindow) {
+            return false
+        }
+        val rootLocation = IntArray(2)
+        val batteryLocation = IntArray(2)
+        root.getLocationOnScreen(rootLocation)
+        battery.getLocationOnScreen(batteryLocation)
         if (
             !isActiveSlotHandoffReady(
                 rootLayoutWidth = root.layoutParams?.width ?: Int.MIN_VALUE,
                 rootLayoutHeight = root.layoutParams?.height ?: Int.MIN_VALUE,
                 renderMeasuredWidth = render.measuredWidth,
                 renderMeasuredHeight = render.measuredHeight,
+                expectedVisualWidth = activeSlotWidth,
+                expectedVisualHeight = activeSlotHeight,
                 parentClipsChildren = parent.clipChildren,
+                rootScreenX = rootLocation[0],
+                batteryScreenX = batteryLocation[0],
                 renderLeft = render.left,
                 renderRight = render.right,
             )
@@ -1534,34 +1546,21 @@ internal object SystemUiNativeCombinedParticipantOwner {
                                 bridgeReady
 
                         if (ready) {
-                            // The zero-slot bridge is bootstrap-only. Once the native
-                            // battery slot is synchronously released by HyperOS, promote
-                            // this module-owned shell to the resolved native slot width so
-                            // SystemUI owns normal APPEAR/DISAPPEAR transform geometry.
+                            // The native battery slot remains the single end-side occupancy
+                            // owner. Keep the Combined Status shell zero-width and render the
+                            // verified visual geometry into that preserved native slot.
                             bindingState.visible = false
                             root.visibility = View.GONE
                             val suppressionCommitted = handoffSink?.invoke(true) == true
-                            val shellPromoted =
-                                suppressionCommitted &&
-                                    promoteActiveShellGeometry(
-                                        root = root,
-                                        visualWidth = render?.measuredWidth ?: -1,
-                                        visualHeight = render?.measuredHeight ?: -1,
-                                    )
-                            if (!suppressionCommitted || !shellPromoted) {
+                            if (!suppressionCommitted) {
                                 handoffSink?.invoke(false)
                                 bindingState.visible = false
                                 root.visibility = View.GONE
                                 requestNativeLayout(root)
                                 eventSink?.invoke(
                                     "nativeCombinedParticipant handoffRollback " +
-                                        "reason=" +
-                                        if (!suppressionCommitted) {
-                                            "suppression-transaction-failed"
-                                        } else {
-                                            "active-shell-promotion-failed"
-                                        } +
-                                        " failNative=true nativeGeometryWrites=0",
+                                        "reason=suppression-transaction-failed " +
+                                        "failNative=true nativeGeometryWrites=0",
                                 )
                                 return@synchronized
                             }
@@ -1587,7 +1586,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
                                     (render?.right ?: Int.MIN_VALUE) +
                                     " parentClipChildren=" +
                                     (parent?.clipChildren ?: true) +
-                                    " bridge=zero-slot-bootstrap-to-native-slot " +
+                                    " bridge=preserved-native-battery-slot " +
                                     "shellLayoutWidth=" +
                                     (root.layoutParams?.width ?: Int.MIN_VALUE) + " " +
                                     "iconVisible=true overlayActive=false " +
@@ -1663,42 +1662,24 @@ internal object SystemUiNativeCombinedParticipantOwner {
         rootLayoutHeight: Int,
         renderMeasuredWidth: Int,
         renderMeasuredHeight: Int,
+        expectedVisualWidth: Int,
+        expectedVisualHeight: Int,
         parentClipsChildren: Boolean,
+        rootScreenX: Int,
+        batteryScreenX: Int,
         renderLeft: Int,
         renderRight: Int,
     ): Boolean =
-        rootLayoutWidth > 0 &&
-            rootLayoutHeight > 0 &&
-            rootLayoutWidth == renderMeasuredWidth &&
-            rootLayoutHeight == renderMeasuredHeight &&
+        rootLayoutWidth == ZERO_SLOT_WIDTH &&
+            rootLayoutHeight == expectedVisualHeight &&
+            renderMeasuredWidth == expectedVisualWidth &&
+            renderMeasuredHeight == expectedVisualHeight &&
+            expectedVisualWidth > 0 &&
+            expectedVisualHeight > 0 &&
             !parentClipsChildren &&
+            rootScreenX == batteryScreenX &&
             renderLeft == 0 &&
-            renderRight == rootLayoutWidth
-
-    private fun promoteActiveShellGeometry(
-        root: View,
-        visualWidth: Int,
-        visualHeight: Int,
-    ): Boolean {
-        if (visualWidth <= 0 || visualHeight <= 0) {
-            return false
-        }
-        val layoutParams = root.layoutParams ?: return false
-        var changed = false
-        if (layoutParams.width != visualWidth) {
-            layoutParams.width = visualWidth
-            changed = true
-        }
-        if (layoutParams.height != visualHeight) {
-            layoutParams.height = visualHeight
-            changed = true
-        }
-        if (changed) {
-            root.layoutParams = layoutParams
-        }
-        return root.layoutParams?.width == visualWidth &&
-            root.layoutParams?.height == visualHeight
-    }
+            renderRight == expectedVisualWidth
 
     internal enum class HandoffMode {
         BLOCKED,
