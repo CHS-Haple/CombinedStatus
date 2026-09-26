@@ -1,118 +1,74 @@
 # Current Development State
 
-This file is the concise recovery point for active Combined Status development. Read it after `CONTRIBUTING.md` and before changing code. Keep detailed history in `DEVLOG.md` and future/deferred work in `ROADMAP.md`.
+This file is the concise recovery point for active Combined Status development. Read it after `CONTRIBUTING.md`. Keep chronological investigation/build history in `DEVLOG.md`, future direction in `ROADMAP.md`, version semantics in `VERSIONING.md`, and record-writing rules in `RECORDING.md`.
 
 ## Repository baseline
 
-- Last refreshed: 2026-09-26
+- Last refreshed: 2026-09-27
 - Stable branch: `main`
 - Stable runtime baseline: Build 351, commit `2477867278483b76b80ed0884de3a07c7ede668a`
 - Integration branch: `dev`
 - Integration runtime baseline: Build 377, commit `f64fe0e3992eab4dd62ff479c3765d834ec7dfa4`
-- Active work branch: `feat/native-panel-transition`
-- Active runtime checkpoint: Build 385 (current work-branch source checkpoint)
-- Active PR: #100, `feat/native-panel-transition -> dev`
+- Active architecture work: PR #100, `feat/native-panel-transition -> dev`
+- Active stacked feature work: PR #104, `feat/battery-semantic-colors`, based on the current Phase-2A source line
+- Active development display line: **0.0.2**
+- First planned formal release: **1.0.0**
 - Target profile: HyperOS SystemUI `17.03.260226.r`
 - Modern Xposed API: 102
 - Application ID: `com.chaners.combinedstatus`
 
-Documentation-only branch heads do not change their associated runtime baselines.
+`main` and `dev` runtime baselines remain unchanged by documentation-only commits. Work-branch checkpoints are not accepted integration baselines until their required validation and maintainer acceptance are complete.
 
-## Current integration state
+## Current phase
 
-Build 377 remains the accepted `dev` runtime baseline. Builds 378-385 belong to the active work branch and are not accepted for integration until the active three-symptom geometry/transition boundary is device-validated.
+The project is in **Phase 2A — 0.0.2 Home carrier / presentation architecture**.
 
-PR #99 (`fix/native-visual-intensity-normalization`) remains open and unmerged; its head is not an accepted integration baseline. Shared native visual-intensity normalization is already present in the merged Build 377 line through PR #98, so any future use of PR #99 must be reconciled against current `dev`.
+The current direction replaces the superseded permanent extra-participant / occupancy-handoff approach with an existing-host Home composition model. Home -> shade / Control Center projection is Phase 2B and must not reopen the steady Home carrier once Phase 2A closes.
 
+Current Home direction on the active work line:
 
-## Macro roadmap position
+`MiuiNotificationStatusContainer / system_icon_area -> host-scoped overlay -> resolved Home layout -> Combined Status renderer`
 
-The project is currently in the **Home -> shade / Control Center native transition stage**. Build 385 is an implementation checkpoint inside this stage, not a new product phase.
+SystemUI remains authoritative for native peer layout, Battery scene/hide behavior, tint authority, and island motion. Combined Status owns only its compact composition plus narrowly scoped, reversible Home presentation state that has been explicitly verified.
 
-The macro sequence is:
+## Current evidence / checkpoints
 
-1. **Core Home / native participant foundation — completed.**
-   - Home Combined Status rendering and native participant integration;
-   - authoritative network state/presentation, including single-SIM and dual-SIM paths;
-   - Wi-Fi / hotspot / no-SIM / airplane / mobile-type presentation;
-   - native resource/tint integration, network/battery suppression, fail-native restoration;
-   - master switch and Hot Reload;
-   - charging/island compatibility obtained through the native participant / slot / SystemUI ownership path rather than a separate project-owned island animation system.
-2. **Home -> shade / Control Center native transition — active.**
-   - Current three-symptom geometry/transition work belongs here.
-3. **Keyguard / lockscreen / AOD scene completion — next macro phase.**
-   - Reuse the stabilized state, ownership, and transition contracts instead of growing a second scene-specific patch stack.
-4. **App Home + Preview Sandbox implementation — planned, design already confirmed.**
-   - The page structure is not an open design question; see `ROADMAP.md` for the retained design snapshot.
-5. **Adaptive sizing / spacing and broader visual controls — planned after the geometry contract is stable.**
-6. **Full-scene compatibility regression and 0.0.1 release closure — final pre-release phase.**
+- Builds 386-393 are retained as historical evidence for the superseded permanent extra-participant route; they are not the current architecture premise.
+- Build 397 is the first device-accepted checkpoint for the tested charging-carrier scenarios on the current Home direction.
+- Build 398 strengthens stable width authority by using the live native `battery_icon_container` rather than the charging-expanded Battery root.
+- Build 399 separates active and inactive battery-ring arc compositing without reopening Home carrier ownership.
+- The active battery-semantic-color branch has advanced to Build 403 (`20260927-403`) on display version `0.0.2`.
+- Fast Build #1063 for the current PR #104 head succeeded. Signed-Canary/device acceptance for the latest semantic-color checkpoint is not established here and remains a runtime gate.
 
-Do not reclassify already completed dual-SIM/network support or native island participation as future macro phases.
+## Active boundaries
 
-## Active objective
+- Home is the only Combined Status rendering surface currently treated as runtime-verified.
+- Notification shade / Control Center, keyguard, and AOD remain native until separately implemented and validated.
+- Native HyperOS/SystemUI state and resources should be reused when a verified source exists; project-local state machines or visual substitutions require a real compatibility boundary.
+- Native peer geometry, Battery translation/alpha/visibility, and island animation remain SystemUI-owned.
+- No per-frame follower, timing retry, magic translation/margin correction, or duplicate layout-occupancy owner should be introduced to repair a scene handoff.
+- Unsupported or incomplete integration must fail toward native SystemUI presentation.
 
-Close the three-symptom repair cycle with one coherent separation of:
-- native end-side layout occupancy;
-- Combined Status drawing geometry;
-- native APPEAR/DISAPPEAR transition geometry;
-- Home -> shade / Control Center handoff geometry.
+## Current blockers / validation
 
-Build 385 preserves the native battery 105px slot as the single layout occupancy owner and keeps the Combined Status status-icon shell at zero width. It changes only how the module-owned custom root receives its APPEAR pivot at the exact native callback boundary.
-
-## Confirmed conclusions
-
-- **Confirmed:** stable native battery-slot geometry and `MiuiBatteryMeterView` motion geometry are distinct.
-- **Confirmed:** Build 380 observed invalid Control Center anchor semantics when status-icons expanded into the battery area while battery width was still counted separately.
-- **Confirmed by device feedback:** preserving native battery layout removed the non-steady first/last-frame right shift.
-- **Confirmed by device feedback:** preserving native battery layout plus a full-width Combined Status participant caused steady left shift by one participant width.
-- **Confirmed by device feedback:** preserving native battery layout plus a zero-width participant restored steady placement but brought back the enable flash/no-clean-entry symptom.
-- **Confirmed by Build 384 runtime evidence:** native APPEAR is delivered; the one-shot pre-draw pivot bridge is overwritten when APPEAR actually starts.
-- **Confirmed by exact SystemUI DEX + Build 384 runtime:** `MiuiStatusBarIconAnimatorController$FolmeHandler$appearAnimation$appear$1.onStart()` computes `pivotY` from View height and `pivotX` from View width. The intentional zero-width Combined Status shell therefore receives native `pivotX=0`.
-- **Confirmed:** the three-symptom loop is structural if shell width alone is used for both layout occupancy and transition pivot.
-- **Confirmed correction:** `HomeStatusBarViewBinderInjector.mBatteryContainer` is the internal battery-icon `FrameLayout` from `battery_digital_view.xml`, not an outer battery-slot wrapper. Runtime battery-specific alpha changes make it unsuitable as the Combined Status renderer host.
-- **Selected Build 385 boundary:** replace the exact native APPEAR pivot callback only for the current Combined Status root, using renderer visual width and root/visual height. All native peer callbacks proceed unchanged.
-
-## Ownership / compatibility boundary
-
-- Native battery slot: HyperOS is the only layout occupancy owner.
-- Combined Status renderer: owns its drawing geometry.
-- HyperOS: continues to own visible state, remove lifecycle, alpha/scale Folme curve, panel/island transitions, and all peer geometry.
-- Combined Status: owns only the custom root's APPEAR pivot geometry because its visual width is intentionally decoupled from its zero layout width.
-- The exact APPEAR callback class, zero-argument `onStart()`, and captured `$view` field are required compatibility contracts. Missing contract fails the native Combined Status participant closed.
-- No polling, repeated pre-draw correction, per-frame writer, translation offset, margin compensation, or peer geometry write is permitted.
-
-## Relevant authoritative references
-
-- Latest repository `CONTRIBUTING.md`, especially sections 3.1-3.4, 4.1-4.4, 5.1, 8, 10, and 11.
-- Exact SystemUI artifact SHA-256 `a0e738e41fe599b97950cbf52a9e2ddc6ae2ceff986efbacb1c9840bea78768d`.
-- `SystemUI-Reference/findings/statusbar.md`, `findings/control-center.md`, and `findings/charging.md`.
-- Build 384 detailed device diagnostic.
-
-## Validation / blockers
-
-Build 385:
-- versionName: `0.0.1`
-- buildId: `20260926-385`
-- Fast Build: pending
-- Work Branch Canary: pending
-- Device validation: pending
-
-Build 384 remains the immediate evidence baseline:
-- Fast Build #1020: success
-- Work Branch Canary #287: success
-- documentation-sync Fast Build #1023: success
-- documentation-sync Work Branch Canary #288: success
-- diagnostic evidence: received and analyzed
-
-Required Build 385 focused device scenarios:
-1. OFF -> ON: centered APPEAR with no flash/reappearance.
-2. ON -> OFF: centered DISAPPEAR.
-3. Steady Home placement remains aligned to the native battery slot.
-4. Pull down once and fully close: no first-frame / last-frame horizontal shift.
-5. Detailed diagnostic: `appearPivotAdapter state=applied`; APPEAR pivot remains visual-centered after animation start; Control Center anchor remains `statusIconsWidth=478` + `batteryWidth=105`.
-
-No merge to `dev` until these pass.
+- PR #100 remains an active architecture branch rather than an accepted `dev` baseline.
+- PR #104 is stacked on the active Phase-2A source line and must not overwrite newer documentation-governance files when it is synchronized.
+- PR #99 (`fix/native-visual-intensity-normalization`) remains separate historical/open work and is not an accepted baseline; any reuse must be reconciled with the current line.
+- The latest battery-semantic-color checkpoint still requires the applicable signed-Canary and focused device scenarios before it can be treated as accepted runtime behavior.
 
 ## Immediate next step
 
-Run Build 385 Fast CI and signed Work Branch Canary. If they pass, perform the focused device validation. If any corner of the three-symptom cycle returns, stop and reopen ownership rather than adding another timing or offset patch.
+1. Keep the documentation-governance baseline independent of runtime PRs and synchronize active branches to it without duplicating equivalent commits.
+2. Validate the latest PR #104 battery-semantic-color checkpoint against the pinned target, including normal, charging/quick-charging, power-save, performance, low-battery, tint inversion, Hot Reload, and fail-native fallback behavior as applicable.
+3. Preserve the accepted Phase-2A Home carrier/spacing behavior while validating the color-only work.
+4. After the Phase-2A Home carrier is explicitly closed, begin Phase 2B Home -> shade / Control Center projection without reopening steady Home ownership.
+
+## Reference priority
+
+1. `CONTRIBUTING.md`
+2. this `CURRENT.md`
+3. `ROADMAP.md`
+4. recent/relevant `DEVLOG.md` entries
+5. applicable `docs/architecture/` policy
+6. applicable `docs/reference/` evidence
+7. `VERSIONING.md` for display/release semantics and `RECORDING.md` for documentation maintenance
