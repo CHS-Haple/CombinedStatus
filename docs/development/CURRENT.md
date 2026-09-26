@@ -14,7 +14,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Active development line: **0.0.2**
 - First planned formal release target: **1.0.0** (current 0.0.x lines remain pre-release development)
 - Last device-tested runtime checkpoint: Build 393 (`0.0.1`)
-- Current work-branch runtime checkpoint: Build 394 (`0.0.2`) — **source defined; Fast CI and device validation pending**
+- Current work-branch runtime checkpoint: Build 394 (`0.0.2`) — **Fast CI + signed Work Branch Canary passed; focused device validation pending**
 - Target profile: HyperOS SystemUI `17.03.260226.r`
 - Exact SystemUI SHA-256: `a0e738e41fe599b97950cbf52a9e2ddc6ae2ceff986efbacb1c9840bea78768d`
 - Modern Xposed API: 102
@@ -209,7 +209,7 @@ Build 394 now defines the bounded Home carrier cutover described by the open arc
 
 Direct Hot Reload migration from a pre-0.0.2 participant build is fail-closed: if a legacy participant is found, it is removed and a one-time SystemUI restart is required because old-generation alpha/visibility mask provenance cannot be safely reconstructed. Clean-start Build 394 does not use the legacy carrier.
 
-Fast CI and focused device validation are pending. Do not promote this checkpoint before both the build gate and the Phase-2A device scenarios pass.
+Fast CI workflow #1044 and signed Work Branch Canary #303 passed for source commit `96fbb97e5d08280fee3c93e8091a61538b3bffcd`. The Canary passed unit/build, pinned-target, Modern Xposed metadata, Haple certificate and non-debuggable checks. Focused device validation is now the only Build-394 promotion gate.
 
 ## Build 394 gate decision
 

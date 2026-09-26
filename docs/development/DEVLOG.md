@@ -2286,3 +2286,15 @@ Exact-target evidence now proves the Home overlay host, ignored-slot measure/lay
 
 Local Gradle execution is unavailable in the current execution environment because external Git/DNS access is blocked. The existing Fast work-branch CI is therefore the compile/unit/Debug-APK gate. A successful CI run will not count as runtime proof; normal Home, feature disable/enable, charging/Super-Island enter/steady/exit, cold start while charging, cleanup/fail-native and subsequent same-architecture Hot Reload still require focused device validation.
 
+### CI / Canary result
+
+- Source commit: `96fbb97e5d08280fee3c93e8091a61538b3bffcd`.
+- Fast PR Build workflow #1044 (`36270093725`): **success**.
+- Signed Work Branch Canary #303 (`36270307814`): **success**.
+- Unit tests and Canary assembly passed.
+- pinned HyperOS target-profile verification passed.
+- Modern Xposed metadata/API/scope/Hot Reload metadata verification passed.
+- Haple signing certificate verification passed.
+- Canary non-debuggable verification passed.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260927-394-canary.apk`.
+- Device validation remains pending; Build 394 is not promoted to `dev`.
