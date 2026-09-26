@@ -23,6 +23,7 @@ internal object CombinedStatusHomeRenderSession {
         onLatencySample: ((RuntimeRenderLatencySample) -> Unit)? = null,
         isDetailedDiagnosticsEnabled: () -> Boolean = { true },
         initialNativeHandoffActive: Boolean = false,
+        onPresentationReadinessChanged: ((Boolean) -> Unit)? = null,
     ): AttachResult {
         val hostView = host as? ViewGroup
             ?: return AttachResult.Failure("host-not-view-group")
@@ -48,6 +49,7 @@ internal object CombinedStatusHomeRenderSession {
             initialNativeHandoffActive = initialNativeHandoffActive,
             initialFeatureEnabled =
                 RuntimeFeaturePreferencesOwner.currentSettings().enabled,
+            onPresentationReadinessChanged = onPresentationReadinessChanged,
         )
         current = session
         session.start()
@@ -127,6 +129,7 @@ internal object CombinedStatusHomeRenderSession {
         private val isDetailedDiagnosticsEnabled: () -> Boolean,
         initialNativeHandoffActive: Boolean,
         initialFeatureEnabled: Boolean,
+        private val onPresentationReadinessChanged: ((Boolean) -> Unit)?,
     ) : View.OnAttachStateChangeListener {
         private val host = WeakReference(host)
         private val batteryContainer = WeakReference(batteryContainer)
@@ -152,6 +155,10 @@ internal object CombinedStatusHomeRenderSession {
         private var sceneSurface = SystemUiSceneStateSource.Surface.UNKNOWN
         private var nativeHandoffActive = initialNativeHandoffActive
         private var featureEnabled = initialFeatureEnabled
+        private var modelReady = false
+        private var tintReady = false
+        private var layoutReady = false
+        private var lastPresentationReady = false
         private val anchorRect = Rect()
 
         private val batteryLayoutListener =
@@ -200,6 +207,8 @@ internal object CombinedStatusHomeRenderSession {
         }
 
         fun stop(removeVisual: Boolean = true) {
+            layoutReady = false
+            dispatchPresentationReadiness("stop")
             host.get()?.removeOnAttachStateChangeListener(this)
             batteryView.get()?.removeOnLayoutChangeListener(batteryLayoutListener)
             if (removeVisual) {
@@ -246,6 +255,7 @@ internal object CombinedStatusHomeRenderSession {
                     " policy=failClosedOutsideUnlockedStatusBar " +
                     " nativeGeometryWrites=0"
             }
+            dispatchPresentationReadiness("scene:" + source)
         }
 
         fun setFeatureEnabled(enabled: Boolean) {
@@ -279,6 +289,7 @@ internal object CombinedStatusHomeRenderSession {
                     " nativeHandoffActive=" + nativeHandoffActive +
                     " nativeGeometryWrites=0"
             }
+            dispatchPresentationReadiness("feature")
         }
 
         fun setNativeHandoffActive(active: Boolean) {
@@ -324,6 +335,9 @@ internal object CombinedStatusHomeRenderSession {
             source: String,
         ) {
             val update = renderController.updateTint(state)
+            if (update.resolved != null) {
+                tintReady = true
+            }
 
             if (update.rejectedInvalidCandidate && !rejectedTintLogged) {
                 rejectedTintLogged = true
@@ -336,15 +350,18 @@ internal object CombinedStatusHomeRenderSession {
             }
 
             if (update.changed && !tintLogged) {
-                val resolved = update.resolved ?: return
-                tintLogged = true
-                emitEvent {
-                    "homeRenderTint source=" + source +
-                        " applied=#" +
-                        resolved.appliedTint.toUInt().toString(16).padStart(8, '0') +
-                        " eventDriven=true stable=true"
+                val resolved = update.resolved
+                if (resolved != null) {
+                    tintLogged = true
+                    emitEvent {
+                        "homeRenderTint source=" + source +
+                            " applied=#" +
+                            resolved.appliedTint.toUInt().toString(16).padStart(8, '0') +
+                            " eventDriven=true stable=true"
+                    }
                 }
             }
+            dispatchPresentationReadiness("tint:" + source)
         }
 
         fun update(
@@ -374,6 +391,9 @@ internal object CombinedStatusHomeRenderSession {
             }
 
             val model = update.model
+            if (update.candidateComplete && model != null) {
+                modelReady = true
+            }
             if (model != null && !readyLogged) {
                 readyLogged = true
                 emitEvent {
@@ -386,6 +406,7 @@ internal object CombinedStatusHomeRenderSession {
                         " defaultDataSubId=" + update.defaultDataSubscriptionId
                 }
             }
+            dispatchPresentationReadiness("model")
         }
 
         override fun onViewAttachedToWindow(view: View) {
@@ -397,13 +418,23 @@ internal object CombinedStatusHomeRenderSession {
             layoutProbe()
         }
 
-        override fun onViewDetachedFromWindow(view: View) = Unit
+        override fun onViewDetachedFromWindow(view: View) {
+            if (layoutReady) {
+                layoutReady = false
+                dispatchPresentationReadiness("host-detached")
+            }
+        }
 
         private fun layoutProbe() {
             if (!resolveNativeAnchor(anchorRect)) {
+                if (layoutReady) {
+                    layoutReady = false
+                    dispatchPresentationReadiness("layout-unavailable")
+                }
                 return
             }
             applyAnchorBounds(anchorRect)
+            layoutReady = true
 
             if (!layoutLogged) {
                 layoutLogged = true
@@ -418,6 +449,32 @@ internal object CombinedStatusHomeRenderSession {
                         "originalsHidden=false nativeGeometryWrites=0"
                 }
             }
+            dispatchPresentationReadiness("layout")
+        }
+
+        private fun dispatchPresentationReadiness(source: String) {
+            val ready =
+                featureEnabled &&
+                    SystemUiSceneStateSource.allowsHomeOverlay(sceneSurface) &&
+                    modelReady &&
+                    tintReady &&
+                    layoutReady &&
+                    host.get()?.isAttachedToWindow == true
+            if (ready == lastPresentationReady) {
+                return
+            }
+            lastPresentationReady = ready
+            emitEvent {
+                "homeRenderReadiness source=" + source +
+                    " ready=" + ready +
+                    " modelReady=" + modelReady +
+                    " tintReady=" + tintReady +
+                    " layoutReady=" + layoutReady +
+                    " scene=" + sceneSurface.name +
+                    " featureEnabled=" + featureEnabled +
+                    " nativeGeometryWrites=0"
+            }
+            onPresentationReadinessChanged?.invoke(ready)
         }
 
         private inline fun emitEvent(message: () -> String) {

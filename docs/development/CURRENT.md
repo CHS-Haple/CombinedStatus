@@ -14,7 +14,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Active development line: **0.0.2**
 - First planned formal release target: **1.0.0** (current 0.0.x lines remain pre-release development)
 - Last device-tested runtime checkpoint: Build 393 (`0.0.1`)
-- Next runtime checkpoint: Build 394 (`0.0.2`) — **architecture gate open, scope defined, not yet built**
+- Current work-branch runtime checkpoint: Build 394 (`0.0.2`) — **source defined; Fast CI and device validation pending**
 - Target profile: HyperOS SystemUI `17.03.260226.r`
 - Exact SystemUI SHA-256: `a0e738e41fe599b97950cbf52a9e2ddc6ae2ceff986efbacb1c9840bea78768d`
 - Modern Xposed API: 102
@@ -196,6 +196,20 @@ Build 394 may now implement the first bounded 0.0.2 Home carrier checkpoint with
 6. explicitly cut over ownership so the superseded native-participant/suppression path cannot be active in the same Home session;
 7. keep Home -> shade / Control Center projection, Keyguard and AOD out of Build 394;
 8. validate cleanup, fail-native restoration, Hot Reload, normal Home, charging/island entry/exit and cold start while charging on device.
+
+## Build 394 implementation checkpoint
+
+Build 394 now defines the bounded Home carrier cutover described by the open architecture gate:
+- the Home overlay is readiness-gated and is the only active Combined Status Home carrier;
+- represented status slots are temporarily added to the exact target ignoredSlots list only while native measure/layout executes, with owned-entry restoration in finally;
+- represented status roots and the battery root use reversible clipBounds masks; native alpha, visibility, translation and measured/layout geometry remain SystemUI-owned;
+- the legacy combined_status participant and battery suppression owner are not installed or activated on the 0.0.2 Home path;
+- the former network suppression owner is retained temporarily only in observation-only mode for status-icon/no-SIM presentation evidence; all suppression flags stay off;
+- island motion is inherited from the animated system_icon_area / MiuiNotificationStatusContainer parent.
+
+Direct Hot Reload migration from a pre-0.0.2 participant build is fail-closed: if a legacy participant is found, it is removed and a one-time SystemUI restart is required because old-generation alpha/visibility mask provenance cannot be safely reconstructed. Clean-start Build 394 does not use the legacy carrier.
+
+Fast CI and focused device validation are pending. Do not promote this checkpoint before both the build gate and the Phase-2A device scenarios pass.
 
 ## Build 394 gate decision
 

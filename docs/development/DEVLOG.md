@@ -2239,3 +2239,50 @@ The overlay can inherit `system_icon_area` motion while remaining independent fr
 ### Decision
 
 The pre-Build-394 static architecture gate is satisfied. Build 394 is authorized as the first 0.0.2 runtime checkpoint, scoped only to Home carrier ownership cutover + ResolvedLayout + represented-slot exclusion + reversible clip masking. Phase 2B, Keyguard/AOD and user-facing sizing controls remain out of scope.
+---
+
+## 2026-09-27 — Build 394 source checkpoint: Home carrier ownership cutover
+
+**Type:** runtime architecture checkpoint  
+**Display version:** 0.0.2  
+**Build:** 394 / 20260927-394  
+**Validation:** Fast CI pending; device validation pending
+
+### Problem / objective
+
+Exact-target evidence now proves the Home overlay host, ignored-slot measure/layout contract, reversible clip-mask candidate and native island-motion inheritance. Build 394 implements that architecture without reviving the permanent custom participant used by Builds 386-393.
+
+### Problem execution flow
+
+1. Re-read the latest CONTRIBUTING, CURRENT, ROADMAP and relevant DEVLOG/architecture/reference evidence.
+2. Re-verify the retained exact SystemUI APK with the maintainer-provided JADX 1.5.6.
+3. Confirm translationFlow is a target offset rather than frame progress and that IslandStretchAnimation animates system_icon_area / MiuiNotificationStatusContainer.
+4. Review current module wiring for ownership, lifecycle, single-writer, cleanup, fail-native, performance, compatibility and future extension.
+5. Cut over only the Home presentation carrier; leave Phase 2B, Keyguard/AOD and user-facing sizing controls unchanged.
+
+### Implementation
+
+- Added SystemUiHomePresentationOwner with target-verified MiuiStatusIconContainer onMeasure/onLayout hooks.
+- represented slots are temporary owned ignoredSlots entries scoped to the native call and restored in finally;
+- Wi-Fi/mobile/stacked-mobile/airplane/no-SIM roots plus MiuiBatteryMeterView are masked with reversible clipBounds state;
+- CombinedStatusHomeRenderSession now publishes model+tint+layout+scene+feature readiness before native replacement may activate;
+- CombinedStatusModule no longer installs/activates the legacy native Combined Status participant or battery suppression path for Home;
+- the old network suppression owner runs in observation-only mode so its suppression writers remain disabled while no-SIM/status-icon presentation evidence is retained;
+- pre-0.0.2 Hot Reload migration removes any legacy participant then requests one SystemUI restart instead of guessing restoration of old mask state;
+- deterministic unit coverage verifies owned ignored-slot restoration and exceptional cleanup.
+
+### Review
+
+- **Ownership:** HyperOS owns peer layout, scene state and island animation; Combined Status owns overlay drawing, temporary ignored-slot tokens and clip masks.
+- **Lifecycle:** presentation state is Home-host scoped and restored on readiness loss, host detach/replacement, feature disable and Hot Reload teardown.
+- **Single writer:** native translation/alpha/visibility/geometry writers are not replaced; the superseded participant/suppression carrier is inactive.
+- **Cleanup:** ignored entries restore in finally; clip state restores only while the current value still equals the module-applied empty clip; relayout is requested after deactivation.
+- **Fail native:** native visuals remain authoritative until renderer model, tint and layout are ready and the exact target owner can activate.
+- **Performance:** no polling, frame follower or duplicate animation was added; the two layout hooks do bounded list work and clip refresh occurs after native layout.
+- **Compatibility:** missing target class/method/field/group contracts leave native SystemUI active.
+- **Future extension:** Phase 2B can use stable Home source bounds without reopening Home carrier ownership.
+
+### Validation boundary
+
+Local Gradle execution is unavailable in the current execution environment because external Git/DNS access is blocked. The existing Fast work-branch CI is therefore the compile/unit/Debug-APK gate. A successful CI run will not count as runtime proof; normal Home, feature disable/enable, charging/Super-Island enter/steady/exit, cold start while charging, cleanup/fail-native and subsequent same-architecture Hot Reload still require focused device validation.
+
