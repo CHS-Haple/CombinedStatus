@@ -207,7 +207,10 @@ Build 390:
 - Device validation: pending
 
 Build 389 device result:
-- the reported relative-motion mismatch is still present;
+- the reported relative-motion mismatch is real in the earlier recording, but Build 390's diagnostic-only recording does not reproduce it;
+- Build 390 changes no geometry/motion behavior relative to Build 389, so the difference is now treated as state-dependent rather than a Build 390 fix;
+- the earlier Build 389 session attached while already charging: battery geometry was 135px and the participant resolved a 135px slot/visual width at attach; the new good recording starts from an uncharged steady state and then enters charging;
+- current leading hypothesis: participant width/slot identity is seeded from the battery measurement at attach and therefore differs between 'attach while already charging' (135px path) and 'attach uncharged, then charge' (normal-width path).
 - Build 389's anchor adapter is active, but the diagnostic shows the native `MiuiStatusIconContainer` itself moves only about 10px during island entry while the native battery presentation travels more than 100px;
 - the current log does not yet expose the actual live screen position of `combined_status` and the visible peer children during that same island callback, so changing behavior again would be speculative.
 
@@ -217,4 +220,4 @@ No merge to `dev` until this diagnostic gate resolves the motion owner.
 
 ## Immediate next step
 
-Device-test the signed Build 390 Canary with detailed diagnostics enabled. Capture one charging Super Island enter/steady/exit sequence. Use the new bounded `statusChildren=[...]` samples to compare Combined Status and native peers in the same frames before selecting the next runtime correction. Do not merge PR #100 until the motion owner is resolved.
+Use the same signed Build 390 Canary for a single-variable A/B: A) attach/reload while uncharged, then charge; B) attach/reload while already charging, then repeat the charge/island cycle. Export a fresh detailed diagnostic after each case. Confirm whether attach-time resolved slot/visual width is 105-like vs 135-like and whether only the charging-attached path reproduces the relative-motion split. Do not merge PR #100 until this state dependency is resolved.
