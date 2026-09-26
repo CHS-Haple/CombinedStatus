@@ -13,8 +13,8 @@ This file is the concise recovery point for active Combined Status development. 
 - Active PR: #100, `feat/native-panel-transition -> dev`
 - Active development line: **0.0.2**
 - First planned formal release target: **1.0.0** (current 0.0.x lines remain pre-release development)
-- Last device-tested runtime checkpoint: Build 394 (`0.0.2`) — rejected for island occupancy/anchor behavior
-- Current work-branch runtime checkpoint: Build 397 (`0.0.2`) — **source defined; CI and focused device validation pending**
+- Last device-tested runtime checkpoint: Build 395 (`0.0.2`) — rejected; charging steady-state still expands the replacement boundary and island entry still twitches
+- Current work-branch runtime checkpoint: Build 398 (`0.0.2`) — **source defined; CI and focused device validation pending**
 - Target profile: HyperOS SystemUI `17.03.260226.r`
 - Exact SystemUI SHA-256: `a0e738e41fe599b97950cbf52a9e2ddc6ae2ceff986efbacb1c9840bea78768d`
 - Modern Xposed API: 102
@@ -327,3 +327,21 @@ Build 397 corrects that ownership boundary:
 - existing padding-writer conflict detection and exact restoration remain in force.
 
 Focused device acceptance must include a cold SystemUI start while already charging followed by no interaction. That steady frame must match non-charging Home neighbor spacing before island enter/exit is evaluated.
+
+## Build 397 pre-CI review rejection; Build 398 live carrier correction
+
+Build 397 is superseded before device validation. It correctly separated the live 105/135 Battery presentation width from a stable replacement width, but it sourced that stable width from the `battery_meter_width` resource.
+
+Exact target layout inspection provides a stronger authority: `battery_icon_container` is the real `wrap_content` battery-body carrier inside `MiuiBatteryMeterView`, while `battery_charge_out_image` is a sibling charging-only presentation View. The Build-395 runtime diagnostic already shows the corresponding split: the Battery root reaches 135 px while the battery-body container remains 105 px.
+
+Build 398 therefore:
+- resolves the concrete `battery_icon_container` View from the active Home Battery instance;
+- uses that same live carrier width for both overlay geometry and end-reservation intent;
+- treats the full Battery root width only as native presentation occupancy;
+- derives the status-icon padding delta from `stable carrier width - native currently reserved width`;
+- observes Battery-root and carrier layout changes only as low-frequency synchronization triggers;
+- keeps Battery hide/translation/alpha/visibility and island motion fully SystemUI-owned;
+- fails native if the core carrier is missing, invalid, narrower/greater than expected relative to the presentation, or if another padding writer appears.
+
+Build 396 and 397 are not device-test candidates. Build 398 is the next focused checkpoint.
+

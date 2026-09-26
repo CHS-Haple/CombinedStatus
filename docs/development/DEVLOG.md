@@ -2521,3 +2521,49 @@ On the current device these map to the already observed ~105px stable base Batte
 ### Device gate
 
 Build 397 must first prove normal Home vs plugged-in cold-start steady spacing with no user interaction. Only after that passes should island enter/steady/exit, feature disable/enable and same-architecture Hot Reload be evaluated.
+
+---
+
+## 2026-09-27 — Build 397 statically superseded; Build 398 binds the live battery-body carrier
+
+**Type:** root-cause refinement / higher-authority native contract / runtime checkpoint  
+**Display version:** 0.0.2  
+**Last device-rejected build:** 395 / 20260927-395  
+**Superseded without device validation:** 396, 397  
+**Next build:** 398 / 20260927-398  
+**Validation:** CI pending; device validation pending
+
+### Problem execution flow
+
+1. Accept the device clarification that plugged-in cold start has excessive spacing without user interaction.
+2. Use the Build-395 geometry samples to separate the 135 px Battery presentation from the stable 105 px battery body.
+3. Inspect exact `battery_digital_view.xml`: `battery_icon_container` is the battery-body container; `battery_charge_out_image` is a sibling charging-only View.
+4. Reject Build 396 before device testing because it still used live Battery root width as replacement width.
+5. Review Build 397 before CI: its signed reservation math is correct, but `battery_meter_width` is still a resource proxy for a fact exposed by a stronger live native View.
+6. Move both renderer geometry and reservation intent to the real `battery_icon_container` instance.
+
+### Build 398 implementation
+
+- `SystemUiHomeCarrierMetrics` now resolves the concrete `battery_icon_container` under the active native Battery View and reads its live layout/measured width.
+- Home renderer bounds use that carrier directly; charging-only Battery root expansion cannot resize/center-shift the overlay.
+- Home presentation reservation stores the same carrier identity and re-resolves its live width.
+- Full Battery root width remains observation-only native occupancy input.
+- Reservation policy stays signed and native-derived: requested stable carrier minus native already-reserved presentation width, or the full stable carrier when HyperOS releases Battery layout.
+- Battery-root width changes and carrier-width changes are event-driven synchronization points only.
+- Diagnostics identify `battery_icon_container` as carrier authority and declare the owned status-icon layout reservation separately from native motion/alpha/visibility ownership.
+
+### Review
+
+- **Ownership:** SystemUI owns Battery composition and island animation. Combined Status owns overlay drawing and one reversible statusIcons end-boundary reservation.
+- **Lifecycle:** Battery root, core carrier, padding token, clips and listeners are scoped to one Home HostSession.
+- **Single writer:** Combined Status writes only its statusIcons relative padding reservation; target source has no competing runtime padding writer and runtime conflict detection remains active.
+- **Cleanup:** exact padding/clip state is restored and both Battery/core layout listeners are removed.
+- **Fail native:** missing `battery_icon_container`, invalid live widths, stale carrier identity, or writer conflict falls back to native.
+- **Performance:** layout-event driven; no polling, no production pre-draw follower, no custom island animator.
+- **Compatibility:** the carrier ID/layout relationship is exact-target evidence and remains fingerprint-gated.
+- **Future extension:** later size/gap settings may alter requested replacement width without confusing charging-only Battery presentation with carrier capacity.
+
+### Acceptance gate
+
+After Fast CI and signed Canary pass, device validation must begin with charger-connected SystemUI cold start and **no interaction**. Normal neighbor spacing must match non-charging Home before testing island enter/steady/exit, post-island charging steady state, feature disable/enable and same-build Hot Reload.
+

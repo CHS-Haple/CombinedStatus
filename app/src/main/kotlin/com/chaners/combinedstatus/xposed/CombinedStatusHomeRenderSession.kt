@@ -31,9 +31,12 @@ internal object CombinedStatusHomeRenderSession {
             ?: return AttachResult.Failure("battery-container-missing")
         val batteryView = batteryContainer.directChild(BATTERY_VIEW_CLASS_NAME)
             ?: return AttachResult.Failure("battery-view-missing")
+        val batteryCarrier =
+            SystemUiHomeCarrierMetrics.resolveCarrierView(batteryView)
+                ?: return AttachResult.Failure("battery-core-carrier-missing")
 
         val existing = current
-        if (existing?.matches(hostView, batteryContainer, batteryView) == true) {
+        if (existing?.matches(hostView, batteryContainer, batteryView, batteryCarrier) == true) {
             existing.update(CombinedStatusStateStore.snapshot())
             return AttachResult.Ready
         }
@@ -43,6 +46,7 @@ internal object CombinedStatusHomeRenderSession {
             host = hostView,
             batteryContainer = batteryContainer,
             batteryView = batteryView,
+            batteryCarrier = batteryCarrier,
             onEvent = onEvent,
             onLatencySample = onLatencySample,
             isDetailedDiagnosticsEnabled = isDetailedDiagnosticsEnabled,
@@ -124,6 +128,7 @@ internal object CombinedStatusHomeRenderSession {
         host: ViewGroup,
         batteryContainer: ViewGroup,
         batteryView: ViewGroup,
+        batteryCarrier: View,
         private val onEvent: (String) -> Unit,
         private val onLatencySample: ((RuntimeRenderLatencySample) -> Unit)?,
         private val isDetailedDiagnosticsEnabled: () -> Boolean,
@@ -134,6 +139,7 @@ internal object CombinedStatusHomeRenderSession {
         private val host = WeakReference(host)
         private val batteryContainer = WeakReference(batteryContainer)
         private val batteryView = WeakReference(batteryView)
+        private val batteryCarrier = WeakReference(batteryCarrier)
         private val probeView =
             CombinedStatusRenderView(host.context) { latencyMs, committedOnMainThread, sample ->
                 if (sample != null && onLatencySample != null) {
@@ -176,7 +182,7 @@ internal object CombinedStatusHomeRenderSession {
                 layoutProbe()
             }
 
-        private val batteryLayoutListener =
+        private val carrierLayoutListener =
             View.OnLayoutChangeListener {
                     _,
                     _,
@@ -195,19 +201,22 @@ internal object CombinedStatusHomeRenderSession {
             host: ViewGroup,
             batteryContainer: ViewGroup,
             batteryView: ViewGroup,
+            batteryCarrier: View,
         ): Boolean =
             this.host.get() === host &&
                 this.batteryContainer.get() === batteryContainer &&
-                this.batteryView.get() === batteryView
+                this.batteryView.get() === batteryView &&
+                this.batteryCarrier.get() === batteryCarrier
 
         fun start() {
             val hostView = host.get() ?: return
             batteryContainer.get() ?: return
             val battery = batteryView.get() ?: return
+            val carrier = batteryCarrier.get() ?: return
 
             hostView.addOnAttachStateChangeListener(this)
             hostView.addOnLayoutChangeListener(hostLayoutListener)
-            battery.addOnLayoutChangeListener(batteryLayoutListener)
+            carrier.addOnLayoutChangeListener(carrierLayoutListener)
             probeView.visibility = View.GONE
             hostView.overlay.add(probeView)
             renderController.updateVisualSettings(
@@ -227,7 +236,7 @@ internal object CombinedStatusHomeRenderSession {
             dispatchPresentationReadiness("stop")
             host.get()?.removeOnAttachStateChangeListener(this)
             host.get()?.removeOnLayoutChangeListener(hostLayoutListener)
-            batteryView.get()?.removeOnLayoutChangeListener(batteryLayoutListener)
+            batteryCarrier.get()?.removeOnLayoutChangeListener(carrierLayoutListener)
             if (removeVisual) {
                 host.get()?.overlay?.remove(probeView)
             }
@@ -458,6 +467,7 @@ internal object CombinedStatusHomeRenderSession {
                 emitEvent {
                     "homeRenderProbe attached " +
                         "slot=homeHostOverlay anchor=hostEnd " +
+                        "carrierAuthority=battery_icon_container " +
                         "bounds=" + anchorRect.left + "," + anchorRect.top + "-" +
                         anchorRect.right + "," + anchorRect.bottom +
                         " size=" + anchorRect.width() + "x" + anchorRect.height() +
@@ -502,12 +512,12 @@ internal object CombinedStatusHomeRenderSession {
 
         private fun resolveNativeAnchor(out: Rect): Boolean {
             val hostView = host.get() ?: return false
-            val battery = batteryView.get() ?: return false
+            val carrier = batteryCarrier.get() ?: return false
             val hostWidth = hostView.width
             val hostHeight = hostView.height
             val baseCarrierWidth =
                 SystemUiHomeCarrierMetrics
-                    .resolveBaseSlotWidthPx(battery)
+                    .resolveCarrierWidthPx(carrier)
                     ?.coerceAtMost(hostWidth)
                     ?: return false
             if (
