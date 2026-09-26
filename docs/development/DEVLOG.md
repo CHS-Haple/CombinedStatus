@@ -688,3 +688,41 @@ The review separates four categories that future sessions must not conflate:
 ### Outcome
 
 The macro roadmap is restored above the Build-level route, and the Home page now has enough durable design intent to be reconstructed later without relying on chat memory.
+---
+
+## 2026-09-26 — Build 385 validation history synchronization
+
+**Type:** repository history / CI gate recovery
+**APK build:** unchanged (`20260926-385`)
+**Runtime impact:** none
+
+### Problem
+
+After the Build 385 runtime checkpoint was committed, PR #100 stopped producing `pull_request` validation runs. Repeated PR state events (`ready_for_review`, `reopened`) were recorded by GitHub but no Build workflow was created.
+
+### Root cause
+
+Repository review confirmed PR #100 was `mergeable=false` with `mergeable_state=dirty`. The work branch and `dev` had independently received equivalent development-memory / roadmap updates, so Git history diverged even though the relevant documentation content had already been synchronized semantically. GitHub therefore could not create the PR test-merge ref required for `pull_request` validation.
+
+### Evidence / review
+
+- Latest `CONTRIBUTING.md` and current `CURRENT.md`, `DEVLOG.md`, and `ROADMAP.md` were re-read before changing history.
+- The latest `dev` delta from the prior common base was reviewed and contained repository-development documentation/history updates rather than APK/runtime code.
+- Previously compared development-document blobs were byte-identical where the same sync had landed on both lines; later macro-roadmap/Home-design restoration was also retrieved from the latest repository state before proceeding.
+- PR #100 reported `mergeable=false`, `mergeable_state=dirty`, while its current head remained the Build 385 runtime line.
+
+### Resolution
+
+Create a history-preserving merge commit on `feat/native-panel-transition` with:
+- first parent = the current work-branch head;
+- second parent = the latest `dev` head;
+- current Build 385 work tree retained as the content basis, plus this CI-history note.
+
+This is intentionally **not** a runtime change and does not increment the external version, internal versionCode, or buildId. The merge commit is also intentionally not marked `[skip ci]`, because the purpose is to restore a valid PR merge base and allow trusted Build 385 validation to run against the exact current runtime tree.
+
+### Review boundary
+
+- No app/SystemUI source, Gradle runtime property, dependency, signing, or workflow logic changes are introduced by this history synchronization.
+- Build 385 runtime ownership and acceptance criteria remain unchanged.
+- CI success after the merge is validation of Build 385; it is not a new Build 386 checkpoint.
+
