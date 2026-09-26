@@ -730,3 +730,20 @@ A rerun of the same source SHA for a transient CI failure may be appended to the
 When device evidence contradicts the current entry, update `CURRENT.md` immediately if the active conclusion changed, then append the contradiction and revised conclusion to `DEVLOG.md`. Never leave an invalidated hypothesis presented as the current source of truth.
 
 Development-log maintenance is repository text/governance work under section 6.1A when it has no executable effect. If a log update travels with runtime work because it records that same checkpoint, it may be committed with the owning work branch rather than creating unrelated CI solely for documentation.
+
+### 11.5 Documentation synchronization after meaningful checkpoints
+
+Repository memory must move with the engineering state. After each **meaningful checkpoint**—a step that changes the active problem, evidence, root-cause conclusion, implementation boundary, validation state, roadmap direction, or durable project behavior—synchronize the applicable documents before treating that checkpoint as complete.
+
+Use this mapping:
+
+- **Active problem / confirmed conclusion / blocker / validation state / immediate next step changed** -> update `docs/development/CURRENT.md`.
+- **Architecture route, future phase, prerequisite, trigger, or reserved design seam changed** -> update `docs/development/ROADMAP.md` and the relevant `docs/architecture/` policy/status document.
+- **Reusable implementation evidence or generalized reference conclusion changed** -> update the relevant `docs/reference/` entry without importing third-party-specific naming or code.
+- **Major investigation or architecture conclusion completed, with or without code** -> append a `DEVLOG.md` entry; do not rewrite the historical entry it supersedes.
+- **APK/runtime checkpoint created** -> record the Build/CI identity, review, required device gate, and resulting feedback in `DEVLOG.md`, and update `CURRENT.md` to the new validation state.
+- **Durable user-visible/project-state behavior changed** -> update `CHANGELOG.md` in present-state wording; remove or neutralize superseded implementation details from `[Unreleased]` rather than turning it into a historical diary.
+- **Display-version or formal-release target/boundary changed** -> update `docs/development/VERSIONING.md` and any public README/release wording that depends on it.
+- **Open PR purpose or acceptance boundary materially changed** -> update the PR title/body so it describes the current work rather than an earlier checkpoint.
+
+Mechanical sub-steps that do not change engineering state do not require separate records. The goal is continuous, accurate recovery context, not logging every file read or line edit.
