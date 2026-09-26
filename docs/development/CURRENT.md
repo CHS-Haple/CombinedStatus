@@ -38,7 +38,7 @@ Home -> shade / Control Center projection is **Phase 2B**. Keyguard / lockscreen
 - **Build 398** strengthens stable width authority by using the live native `battery_icon_container`; it is carried forward but was not separately device-promoted before the next checkpoints.
 - **Build 399** separates active/inactive battery-ring arc compositing without reopening Home carrier ownership.
 - **Build 403 / `20260927-403`** is the current battery semantic-color runtime candidate. Runtime source: `97ef67e648906a4b9bb2ce4d7dd390e955831189`.
-- PR #105 currently points at `efededa4b63bf9adde509883a38fcf43c70e69c9`; the two commits after the Build-403 runtime source are documentation-only and do not create a new runtime Build.
+- PR #105 may advance through documentation-only commits without creating a new runtime Build; until APK-affecting source changes, Build 403 remains identified by runtime source `97ef67e648906a4b9bb2ce4d7dd390e955831189`.
 
 Build 403 validation already established:
 - Fast Build #1063: **success**;

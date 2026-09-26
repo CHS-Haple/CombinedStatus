@@ -101,7 +101,7 @@ After the carrier/scene contracts are stable:
 - expose user-adjustable Combined Status visual size;
 - derive neighboring spacing from resolved geometry rather than a permanent fixed-width assumption;
 - keep native occupancy, visual width, transition geometry, and optical spacing independently resolved;
-- expose appropriate color/source choices while preserving native state authority;
+- expose per-state battery-ring color sources for NORMAL / CHARGING / POWER_SAVE / PERFORMANCE / LOW: **System default** (HyperOS semantic color where available), **Follow status icons** (native monochrome/tint authority), or **Custom color**, without creating a second battery-mode state machine;
 - make future controls previewable in the Preview Sandbox.
 
 ## Phase 6 — 1.0.0 release qualification — final pre-release phase
