@@ -2963,3 +2963,7 @@ Unchanged:
 
 Run Fast CI and signed Work Branch Canary for Build 404. If both pass, runtime changes stop until target-device A/B evidence answers whether authored-alpha preservation improves optical parity while preserving all Build-403 semantic-color states.
 
+### CI request
+
+The established `dev`-based validation carrier PR #104 was reopened for Build 404 and its body was updated to mark it validation-only / do-not-merge. Stacked PR #105 remains the product PR. This preserves the repository's existing Fast Build -> signed Work Branch Canary path without changing CI workflow logic or retargeting PR #105.
+

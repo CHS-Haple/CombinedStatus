@@ -48,7 +48,7 @@ Build 403 validation already established:
 
 Build 404 validation:
 - source review: **passed**;
-- Fast Build / signed Work Branch Canary: **pending**;
+- Fast Build / signed Work Branch Canary: **requested through reopened validation carrier PR #104; run creation pending**;
 - device optical-parity and semantic-color acceptance: **pending**.
 
 ## Active runtime issues / validation
