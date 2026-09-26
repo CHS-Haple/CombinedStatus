@@ -2967,3 +2967,7 @@ Run Fast CI and signed Work Branch Canary for Build 404. If both pass, runtime c
 
 The established `dev`-based validation carrier PR #104 was reopened for Build 404 and its body was updated to mark it validation-only / do-not-merge. Stacked PR #105 remains the product PR. This preserves the repository's existing Fast Build -> signed Work Branch Canary path without changing CI workflow logic or retargeting PR #105.
 
+### CI trigger-path note
+
+Reopen and Draft -> Ready mutations on validation carrier PR #104 were recorded by GitHub but did not create an Actions run for the current head. No runtime or workflow change was made in response. A documentation-only Contents-API commit is used as the next minimal trigger attempt so the open `dev`-based carrier receives a normal synchronize event while Build 404 executable source remains `614c6ae96f1753088e21ce3568d969b900852081`.
+
