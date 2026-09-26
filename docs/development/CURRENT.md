@@ -47,16 +47,19 @@ Build 403 validation already established:
 
 ## Active runtime issues / validation
 
-### Visual intensity / grayscale parity — open
+### Visual parity / optical weight — open
 
-Latest maintainer screenshots on the active color/intensity line still show an apparent grayscale/visual-weight difference between Combined Status elements and neighboring native status icons. This means visual parity is **not accepted yet**.
+Latest target-device screenshots still show a visible optical-weight difference between Combined Status and neighboring native status icons, so visual parity is **not accepted yet**.
+
+Follow-up pixel sampling shows that the core dark grayscale levels are already closely aligned with adjacent native status icons. The remaining mismatch is therefore better described as **optical coverage / geometry / antialiasing / final compositing**, not as a demonstrated base monochrome-tint mismatch. Treat that as a strong current finding, not yet a final root-cause proof.
 
 Current boundary:
 - Build 399's non-overlapping battery-arc compositing remains the active correction;
-- native status-icon tint remains the intended monochrome authority;
+- native status-icon tint remains the intended monochrome authority and should not be replaced with a project gray;
 - native drawable alpha normalization remains shared rather than per-resource;
-- do **not** add per-glyph gray multipliers, replacement gray constants, screenshot-derived magic numbers, or source-asset edits merely to force a visual match;
-- the remaining mismatch must be attributed to the actual final compositing/tint/alpha path before another visual correction is accepted.
+- do **not** add per-glyph gray multipliers, replacement gray constants, screenshot-derived magic numbers, or source-asset recoloring merely to force a visual match;
+- compare final stroke coverage/compositing, geometry and antialiasing across the battery ring, center glyph and mobile dots before changing tint policy;
+- the green screenshot represents a semantic-color state and is not evidence of a monochrome tint mismatch.
 
 ### Battery semantic colors — implemented, device acceptance still open
 
@@ -86,7 +89,7 @@ A shallow notification-shade pull / final held-return frame can still leave the 
 
 ## Immediate next step
 
-1. Treat the latest screenshots as active evidence that grayscale/visual-intensity parity is still unresolved; quantify/attribute the final rendered difference before changing color/alpha policy.
+1. Treat the latest screenshots as evidence that **optical parity**, not base gray/tint, remains unresolved; quantify final coverage/geometry/antialiasing before changing tint policy.
 2. Validate Build 403 semantic colors across the applicable native states while preserving the accepted Phase-2A Home carrier/spacing behavior.
 3. Update `CURRENT.md` and append `DEVLOG.md` immediately when that device result changes acceptance.
 4. After color/intensity closure, move to the already-identified Phase-2B shallow-shade scene-boundary leak without reopening steady Home carrier ownership.
