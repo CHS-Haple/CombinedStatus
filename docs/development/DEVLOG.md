@@ -837,4 +837,10 @@ Focused device acceptance after CI:
 ### Outcome / residual risk
 
 Pending CI and device validation. If real post-layout bounds still do not restore visible APPEAR, stop and reopen the animation-target architecture rather than adding another offset or timing layer.
+### CI update — Build 386
+
+- Fast Build #1032: **success**.
+- Work Branch Canary #291: **success**.
+- Canary verified tested work-branch SHA checkout, unit/Canary build, pinned HyperOS target profile, Modern Xposed metadata, Haple APK signature, non-debuggable status, and artifact upload.
+- This CI update does not create a new runtime build. Device validation remains the acceptance gate.
 
