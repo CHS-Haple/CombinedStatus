@@ -252,10 +252,19 @@ Build 392:
 - versionName: `0.0.1`
 - buildId: `20260927-392`
 - expected failing-path evidence: `stableCaptureStatusIconsWidth=478`, live `statusIconsLayoutWidth=448`, `resolvedStatusIconsWidth=478`, `resolvedSlot=105x108`
-- Fast Build: pending
-- Work Branch Canary: pending
+- exact tested work-branch SHA: `18c563b318cf53f68f51f95a079ff6edd0b4186e`
+- Fast Build #1042: **success**
+- Work Branch Canary #301: **success**
+- pinned target-profile verification: success
+- Modern Xposed metadata verification: success
+- Haple APK signature verification: success
+- Canary non-debuggable verification: success
+- Artifact ID: `10911296876`
+- Artifact archive digest: `sha256:99674450d14cf206255e06b7d599705d6c87a470bb2d6556172b865564f4867b`
+- Extracted APK SHA-256: `777fc688ad8290197ee176d795b5842e8a754d248f85069a5cfb1154d9e24285`
+- Extracted APK size: `3375134` bytes
 - Device validation: pending
 
 ## Immediate next step
 
-Run Build 392 Fast CI and signed Canary. Then retest the charging-attached reproducer first. The diagnostic must show the stable 478px host snapshot winning over the later 448px charging layout and resolving a 105px participant. If that passes, repeat the uncharged-attach path and the existing APPEAR/panel regression checks.
+Device-test the signed Build 392 Canary on the charging-attached reproducer first. The diagnostic must show the stable 478px host snapshot winning over the later 448px charging layout and resolving a 105px participant. If that passes, repeat the uncharged-attach path and the existing APPEAR/panel regression checks.
