@@ -126,6 +126,17 @@ The target-specific design must prove one of:
 
 This is the main unresolved architecture question before Build 394.
 
+## Exact-target evidence added before Build 394
+
+Build 393 diagnostics and the pinned SystemUI reference now narrow the Phase-2A carrier problem further:
+
+- `MiuiNotificationStatusContainer`'s host overlay has already accepted the real Combined Status renderer anchored to the live battery descendant bounds with no native geometry writes and without inheriting the battery ancestor's visibility. This verifies a **Home attachment/lifecycle candidate**, not yet the final production carrier contract.
+- Charging-island entry is confirmed to involve two distinct native responsibilities: `MiuiStatusIconContainer` changes its available/occupied width while the real `MiuiBatteryMeterView` independently translates and fades. The old permanent participant attempted to bridge both responsibilities with one custom slot identity, which is the ownership conflict 0.0.2 must remove.
+- The generalized ignored-slot pattern remains only reference evidence. The exact pinned SystemUI artifact has **not yet** established the concrete ignored-slot field/method, mutation scope, or restoration contract needed by Combined Status.
+- `CombinedStatusHomeRenderSession` already demonstrates the desired host-scoped overlay lifetime and exact overlay removal boundary. Promoting that mechanism from probe/candidate to production still depends on exact slot-suppression, reversible visual masking, island placement, and fail-native proof.
+
+The shared `ResolvedLayout` semantics are now defined at design level in `docs/architecture/layout-policy.md`. Source/runtime implementation is intentionally deferred so this documentation checkpoint does not create Build 394.
+
 ## Ownership / non-negotiable boundaries
 
 - HyperOS remains authoritative for native peer layout, native scene state, native transition progress, and native live View motion.
@@ -142,12 +153,12 @@ This is the main unresolved architecture question before Build 394.
 
 Before the first 0.0.2 runtime checkpoint:
 
-1. verify on the exact target SystemUI which existing Home host can safely carry the compact visual;
+1. finish production-safety proof for the exact-target Home overlay candidate; its attachment/lifecycle boundary is verified, but duplicate-slot suppression and island placement are not;
 2. verify the native ignored-slot/measurement boundary and whether it is safe in the target host lifecycle;
-3. map the charging-island moment when that host becomes unavailable and identify the authoritative island progress/geometry needed for a non-disappearing network presentation;
+3. finish the charging-island carrier/projection proof using the now-confirmed split between status-container occupancy and battery presentation motion;
 4. map Home -> shade / Control Center source and target endpoints to the existing native expansion authority;
-5. define one shared `ResolvedLayout` input/output contract that already supports future scale and optical gap without scene-specific formulas;
-6. perform an ownership/review pass before writing the first 0.0.2 runtime implementation.
+5. keep the design-level shared `ResolvedLayout` contract as the single sizing/optical source and implement it only with the first justified 0.0.2 runtime checkpoint;
+6. repeat the ownership/lifecycle/single-writer/cleanup/fail-native/performance/compatibility review before writing the first 0.0.2 runtime implementation.
 
 Only after those are proven should Build 394 be created.
 

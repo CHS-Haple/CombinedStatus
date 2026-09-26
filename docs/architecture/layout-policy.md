@@ -60,6 +60,58 @@ The policy intentionally distinguishes:
 
 A value from one responsibility must not silently become the control value for another.
 
+## 0.0.2 target `ResolvedLayout` contract — design level
+
+The first 0.0.2 runtime implementation must not extend the historical participant-specific width/translation model. Before source code is changed, the shared layout contract is defined conceptually as follows.
+
+### Inputs owned by Combined Status
+
+The shared resolver may consume only Combined Status presentation intent:
+
+- canonical composite visual size;
+- user visual scale;
+- desired neighbor/leading optical gap;
+- relative per-glyph scales for mobile, center, and battery content;
+- a bounded optical adjustment that moves only Combined Status drawing inside its resolved presentation space.
+
+These are independent inputs. A visual scale must not silently become a native slot width, and an optical adjustment must not become a native translation correction.
+
+### Inputs supplied by a scene/host adapter
+
+A scene adapter may report only verified environment/capability facts:
+
+- host height and the real end anchor;
+- authoritative native/available occupancy or capacity, when such a contract actually exists;
+- whether the scene permits the compact presentation;
+- which component owns live motion/transition progress;
+- source geometry needed for a later draw-only projection.
+
+The adapter must not invent a scene-specific scale, width difference, timing curve, or translation compensation.
+
+### Resolved outputs
+
+The shared resolver should expose, as separate results:
+
+- whether Combined Status may render on the current surface;
+- resolved composite visual size and bounds;
+- requested neighbor gap and requested occupancy/slot width;
+- host-applied/native occupancy reported independently from the requested value;
+- the resulting visual-to-slot relationship, including insufficient-capacity/overflow information rather than hiding it with a correction;
+- resolved per-glyph relative scales;
+- the resolved optical adjustment;
+- stable source visual bounds that a later projection layer may consume.
+
+Native transition progress, animation duration/interpolators, and target-View translation remain outside the layout resolver. Phase 2B may combine the resolver's source bounds with verified native progress and real target geometry, but it must not add scene-specific geometry formulas back into the shared policy.
+
+### Invariants
+
+- Requested occupancy and applied native occupancy are never treated as synonyms.
+- Per-glyph scale changes renderer composition only; they do not create a new SystemUI hook or native slot writer.
+- Optical adjustment changes Combined Status drawing only; it does not rewrite native measured width, layout width, translation, visibility, or scene state.
+- A missing host capability remains explicit and must fail native; the resolver must not fabricate a usable slot.
+- Home, future Keyguard/AOD adapters, and later user size/spacing controls consume the same contract rather than defining parallel formulas.
+- The first source implementation of this contract is part of the first justified 0.0.2 runtime checkpoint and therefore must not be committed before the Build-394 architecture gate is otherwise satisfied.
+
 ## Native slot preservation
 
 `CombinedStatusLayoutPolicy.resolve()` currently preserves `host.nativeSlotWidthPx` as the applied slot width.

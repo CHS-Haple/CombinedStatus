@@ -1809,3 +1809,104 @@ The route may be reconsidered only if later exact-target evidence invalidates th
 The final pre-release macro phase is now **1.0.0 release qualification**, including full supported-scene/device-state regression, cleanup/fail-native behavior, adaptive sizing/spacing, performance/energy boundaries, Release/signing/metadata checks, and public-document consistency.
 
 Completing an earlier architecture phase does not itself advance the display version to `1.0.0`.
+
+---
+
+## 2026-09-27 — Phase 2A exact-target carrier review before Build 394
+
+**Type:** architecture / exact-target evidence review  
+**Runtime build:** none  
+**Display line:** 0.0.2  
+**Runtime impact:** none
+
+### Problem / objective
+
+The 0.0.2 line must select a Home carrier and island handoff without reviving the permanent extra-participant / occupancy-handoff architecture rejected after Build 393.
+
+The immediate objective was to determine what the pinned target and existing runtime evidence already prove, what remains only generalized reference evidence, and what can be specified safely before any APK-affecting source change creates Build 394.
+
+### Problem execution flow
+
+1. Re-read the latest `CONTRIBUTING.md`, `CURRENT.md`, `ROADMAP.md`, recent `DEVLOG.md`, architecture policy and reference library on the active work branch.
+2. Re-read the exact-fingerprint SystemUI Reference for Home status-bar ownership, battery/charging, scene/island motion and Control Center.
+3. Re-inspect the Build-393 diagnostic instead of extending the prior slot correction.
+4. Compare the exact-target evidence with the generalized existing-host / ignored-slot / reversible-mask pattern.
+5. Separate facts already proven on the target from contracts that remain unverified.
+6. Define the design-level shared `ResolvedLayout` input/output boundary without changing Kotlin/runtime code.
+7. Keep Build 394 blocked until the missing target contracts are closed.
+
+### Evidence / references actually consulted
+
+Project sources:
+- latest `CONTRIBUTING.md`;
+- `docs/development/CURRENT.md`;
+- `docs/development/ROADMAP.md`;
+- recent Build-386–393 and 0.0.2 entries in this `DEVLOG.md`;
+- `docs/architecture/README.md`, `layout-policy.md`, and `scene-policy.md`;
+- `docs/reference/README.md` and `statusbar-composition-patterns.md`;
+- current `CombinedStatusHomeRenderSession` and layout-policy source/tests.
+
+Exact target reference:
+- SystemUI `17.03.260226.r`, SHA-256 `a0e738e41fe599b97950cbf52a9e2ddc6ae2ceff986efbacb1c9840bea78768d`;
+- SystemUI-Reference `findings/statusbar.md`, `findings/charging.md`, `findings/scene-host-motion.md`, and `findings/control-center.md`;
+- `CombinedStatus-Diagnostic-20260927-393-20260927-012041.txt`.
+
+Established-pattern comparison:
+- the repository's generalized mature composition reference;
+- AOSP `StatusIconContainer` ignored-slot behavior and older public Xiaomi/MIUI examples were checked only as non-target implementation evidence. They do not establish the contract on the pinned HyperOS artifact.
+
+### Exact-target findings
+
+**Confirmed — Home attachment/lifecycle candidate.**  
+The existing Home render session attaches the real Combined Status renderer through the `MiuiNotificationStatusContainer` overlay and resolves its bounds from the live `MiuiBatteryMeterView`. Build-393 diagnostics record that candidate with `ancestorVisibilityIndependent=true` and `nativeGeometryWrites=0`. This proves a viable module-owned drawing lifetime on the real Home host, but not yet production acceptance across slot suppression and island transitions.
+
+**Confirmed — island has separate occupancy and battery-presentation owners.**  
+During charging-island entry, the diagnostic shows `MiuiStatusIconContainer` expanding to 583 px while `MiuiBatteryMeterView` independently translates and fades. The custom `combined_status` participant simultaneously retains its own 105 px occupancy/translation identity. One custom participant was therefore being asked to reconcile platform status-icon occupancy with a different battery presentation trajectory.
+
+**Root-cause conclusion — high confidence.**  
+The remaining Build-393 charging defect is architectural: the permanent custom participant couples responsibilities that the target SystemUI owns separately. Another fixed boundary, width difference, or translation correction would continue the same ownership error rather than fix it.
+
+**Not established — exact ignored-slot contract.**  
+The mature reference and AOSP/older MIUI implementations demonstrate an ignored-slot pattern, but the pinned target reference does not yet verify the concrete field/method, mutation boundary, restoration semantics, or interaction with the active HyperOS icon pipeline. No 0.0.2 runtime implementation may assume that contract yet.
+
+### Design-level `ResolvedLayout` decision
+
+The target contract is now specified in `docs/architecture/layout-policy.md` without changing runtime source.
+
+It keeps independent:
+- composite visual size and user scale;
+- requested neighbor gap;
+- requested occupancy;
+- host-applied/native occupancy;
+- per-glyph relative scales;
+- optical adjustment;
+- source visual bounds for future projection.
+
+Scene adapters provide verified host/capability facts only. Native progress/timing/target-View motion remain outside the layout resolver.
+
+### Review
+
+- **Ownership review:** HyperOS remains owner of peer layout, status-container occupancy, battery scene state and live motion. Combined Status owns only its composition/drawing and, later, explicitly proven draw-only projection.
+- **Lifecycle review:** the Home overlay candidate is host-scoped and removable through the existing render session. A future island projection must have its own shorter lifetime and must not become global state.
+- **Single-writer review:** no new native width, layout, translation, alpha, visibility or scene-state writer is introduced by this checkpoint. The old custom-participant correction chain remains superseded.
+- **Cleanup review:** no runtime resource is added here. The target architecture still requires exact restoration tokens for any future layout suppression, reversible visual masks, and separate transition cleanup.
+- **Fail-native review:** native Wi-Fi/mobile/battery presentation must remain available until replacement readiness and exact-target suppression contracts are proven for the current session.
+- **Performance review:** this checkpoint adds no hook, listener, pre-draw loop, polling, reflection hot path, wakeup or per-frame diagnostic.
+- **Compatibility review:** conclusions that claim target behavior are scoped to the exact SystemUI SHA-256. Generalized/AOSP/older-MIUI ignored-slot evidence is explicitly not promoted to an exact-target contract.
+- **Future-extension review:** size, gap, per-glyph scale and optical adjustment are centralized as shared layout intent so later Home, Keyguard/AOD and user controls do not require scene-specific offsets or new geometry writers.
+
+### Validation / CI
+
+Documentation and architecture-contract update only. No APK-affecting source changed, no Build ID advanced, and no Build 394 was created. Per repository rules, device validation is not required for this checkpoint.
+
+### Outcome / next gate
+
+The Home overlay is now a verified attachment/lifecycle **candidate**, not yet a fully selected production carrier.
+
+Build 394 remains blocked on:
+1. exact-target ignored-slot / native measure-layout proof;
+2. reversible native-view masking proof;
+3. island-time placement/carrier or draw-only handoff that preserves network information without peer overlap;
+4. final ownership/lifecycle/single-writer/cleanup/fail-native/performance/compatibility review.
+
+The next investigation must close those contracts rather than modify runtime behavior speculatively.
