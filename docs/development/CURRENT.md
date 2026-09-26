@@ -37,13 +37,19 @@ Home -> shade / Control Center projection is **Phase 2B**. Keyguard / lockscreen
 - **Build 397** is the first device-accepted checkpoint for the tested Phase-2A charging-carrier scenarios.
 - **Build 398** strengthens stable width authority by using the live native `battery_icon_container`; it is carried forward but was not separately device-promoted before the next checkpoints.
 - **Build 399** separates active/inactive battery-ring arc compositing without reopening Home carrier ownership.
-- **Build 403 / `20260927-403`** is the current battery semantic-color runtime candidate. Runtime source: `97ef67e648906a4b9bb2ce4d7dd390e955831189`.
-- Documentation-only commits may advance PR #105 beyond the Build-403 runtime source without creating a new runtime Build; runtime identity remains the Build/source pair above until executable source changes.
+- **Build 403 / `20260927-403`** established the current HyperOS battery semantic-color implementation. Runtime source: `97ef67e648906a4b9bb2ce4d7dd390e955831189`.
+- **Build 404 / `20260927-404`** is the current optical-parity A/B runtime candidate. Runtime source: `614c6ae96f1753088e21ce3568d969b900852081`. Its only intended visual delta from Build 403 is preserving the HyperOS center resource's authored alpha mask instead of percentile-rescaling that mask before tinting.
+- Documentation-only commits may advance PR #105 beyond the Build-404 runtime source without creating a new runtime Build; runtime identity remains the Build/source pair above until executable source changes.
 
 Build 403 validation already established:
 - Fast Build #1063: **success**;
 - signed Work Branch Canary #322: **success**;
 - target-profile, unit/build, Modern Xposed metadata, signing, non-debuggable and artifact checks: **passed**.
+
+Build 404 validation:
+- source review: **passed**;
+- Fast Build / signed Work Branch Canary: **pending**;
+- device optical-parity and semantic-color acceptance: **pending**.
 
 ## Active runtime issues / validation
 
@@ -58,7 +64,7 @@ Current boundary:
 - native status-icon tint remains the intended monochrome authority and should not be replaced with a project gray;
 - the earlier shared native alpha-mask normalization assumption is now **reopened**: current source review shows that Combined Status rescales the HyperOS-authored per-pixel alpha mask to an 85th-percentile ceiling before tinting, while the native ImageView/SRC_IN path uses the drawable's authored alpha as the tint mask;
 - Build 356 already showed that the normalization path did not close the device visual-intensity mismatch, so it must not be treated as final parity evidence merely because it is shared;
-- the next runtime checkpoint will perform one bounded A/B correction: preserve the native drawable's authored alpha mask while keeping resource identity, optical bounds, final-pixel alignment, resolved native tint, center size, outer geometry, and Battery arc policy unchanged;
+- Build 404 implements one bounded A/B correction: preserve the native drawable's authored alpha mask while keeping resource identity, optical bounds, final-pixel alignment, resolved native tint, center size, outer geometry, and Battery arc policy unchanged;
 - do **not** add per-glyph gray multipliers, replacement gray constants, screenshot-derived magic numbers, or source-asset recoloring merely to force a visual match;
 - the green screenshot is a semantic-color state and is not evidence of a monochrome tint mismatch.
 
@@ -90,9 +96,9 @@ A shallow notification-shade pull / final held-return frame can still leave the 
 
 ## Immediate next step
 
-1. Produce the next single-variable runtime checkpoint by removing project-side alpha-ceiling rescaling from native center resources while preserving native tint, optical sizing, final-pixel alignment, center size, outer geometry, and Build-399 Battery arc partition.
-2. Run required Fast CI and signed Work Branch Canary for that executable checkpoint.
-3. Stop runtime changes at the resulting Canary and validate both monochrome optical parity and the Build-403 semantic battery-color states on device.
+1. Run required Fast CI and signed Work Branch Canary for Build 404.
+2. Stop runtime changes at the resulting Canary and validate both monochrome optical parity and the Build-403 semantic battery-color states on device.
+3. Do not change center geometry, outer weight, tint, Battery arc policy, or Home carrier while this A/B checkpoint is awaiting device evidence.
 4. Update `CURRENT.md` and append `DEVLOG.md` immediately when that device result changes acceptance.
 5. After color/intensity closure, move to the already-identified Phase-2B shallow-shade scene-boundary leak without reopening steady Home carrier ownership.
 

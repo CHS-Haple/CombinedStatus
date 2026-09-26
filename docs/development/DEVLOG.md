@@ -2917,3 +2917,49 @@ No gray multiplier, replacement tint, per-resource exception, source-asset prepr
 
 Create the next executable checkpoint with this one rendering-boundary change, run Fast CI plus signed Work Branch Canary, then stop runtime changes for focused device A/B validation of monochrome optical parity and Build-403 semantic battery colors.
 
+---
+
+## 2026-09-27 — Build 404: preserve authored native center alpha mask
+
+**Type:** single-variable runtime rendering correction  
+**Display version:** 0.0.2  
+**APK build:** 20260927-404  
+**Runtime source:** `614c6ae96f1753088e21ce3568d969b900852081`  
+**CI:** pending at documentation checkpoint  
+**Device validation:** pending
+
+### Change
+
+Removed the project-side 85th-percentile source-alpha ceiling and per-pixel alpha rescaling from native center resources. The resource is still rendered once for cached optical measurement/composition, but its authored alpha mask is retained and the resolved status-icon tint is applied later through the existing SRC_IN path.
+
+The obsolete normalization helpers and normalization-specific tests were removed. Existing canvas tint-alpha / semantic dimming / transition-opacity tests remain.
+
+### Single-variable boundary
+
+Unchanged:
+- HyperOS native resource identity;
+- center optical-bound measurement;
+- steady final-pixel alignment;
+- center size;
+- native status-icon tint authority;
+- mobile-dot geometry / outer visual weight;
+- Build-399 active/inactive Battery arc partition;
+- Build-403 battery semantic state/color authority;
+- Home carrier, suppression, lifecycle, cleanup, and fail-native behavior.
+
+### Review
+
+- **Ownership:** resource and tint authority stay with HyperOS/SystemUI; Combined Status now owns only placement/scale/composition rather than rewriting asset coverage.
+- **Lifecycle:** no change.
+- **Single writer:** no additional writer; one visual transformation was deleted.
+- **Cleanup:** cached bitmaps continue to be recycled on eviction; no new retained object.
+- **Fail native:** unchanged.
+- **Performance:** first-use center preparation is cheaper because alpha histogram/quantile/remap work is gone.
+- **Compatibility:** no new target-profile dependency.
+- **Exception recovery:** unchanged.
+- **Future extension:** no coupling added to future per-state colors or user size/spacing controls.
+
+### Validation gate
+
+Run Fast CI and signed Work Branch Canary for Build 404. If both pass, runtime changes stop until target-device A/B evidence answers whether authored-alpha preservation improves optical parity while preserving all Build-403 semantic-color states.
+
