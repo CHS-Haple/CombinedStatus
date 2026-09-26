@@ -9,7 +9,9 @@ internal enum class CombinedStatusBatterySemanticState {
 }
 
 internal object SystemUiBatterySemanticPolicy {
-    fun fromNativeProgressStatus(statusName: String?): CombinedStatusBatterySemanticState? {
+    fun fromNativeProgressStatus(
+        statusName: String?,
+    ): CombinedStatusBatterySemanticState? {
         val normalized = statusName?.removeSuffix("_DARK") ?: return null
         return when (normalized) {
             "CHARGING",
@@ -24,18 +26,4 @@ internal object SystemUiBatterySemanticPolicy {
             else -> null
         }
     }
-
-    fun fallback(
-        level: Int,
-        charging: Boolean,
-        powerSave: Boolean,
-        performanceMode: Boolean,
-    ): CombinedStatusBatterySemanticState =
-        when {
-            charging -> CombinedStatusBatterySemanticState.CHARGING
-            powerSave -> CombinedStatusBatterySemanticState.POWER_SAVE
-            performanceMode -> CombinedStatusBatterySemanticState.PERFORMANCE
-            level <= 19 -> CombinedStatusBatterySemanticState.LOW
-            else -> CombinedStatusBatterySemanticState.NORMAL
-        }
 }
