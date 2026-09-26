@@ -152,6 +152,26 @@ JADX 1.5.6 method-body and decoded-resource inspection of the pinned target esta
 
 Consequently the selected Home overlay naturally rides the native island transform. Combined Status must not subscribe to either flow as a custom animation clock.
 
+## Exact-target island carrier contract closed
+
+Directed JADX inspection of the retained exact target APK now closes the remaining Phase-2A Home island ownership question:
+
+- `StatusBarIslandControllerImpl.translationFlow` is a configuration-dependent translation endpoint sourced from `status_bar_island_translation`; it is not realtime animation progress.
+- `statusContainerSpace` is native status-container avoidance/layout-space information computed by `IslandMonitor`; it is not realtime animation progress.
+- `HomeStatusBarViewBinderImpl` binds `IslandStretchAnimation.rightContainer` to `R.id.system_icon_area`.
+- exact `status_bar.xml` identifies `R.id.system_icon_area` as the same `MiuiNotificationStatusContainer` already used by the Home overlay candidate.
+- native island show/hide animates that host's `translationX` through SystemUI's own MIUIX/Folme `ISLAND_SHOW/HIDE` configuration.
+- because the Combined Status renderer is attached through that host's `ViewGroupOverlay`, it inherits the native host transform without a duplicate animator or production pre-draw follower.
+- the native battery's independent fade/hide remains child-local, so the Combined Status overlay can preserve network information while following the correct native island trajectory.
+
+### Build-394 architecture gate
+
+The static architecture gate is now satisfied for the first 0.0.2 runtime checkpoint. Build 394 may implement the smallest coherent Home carrier cutover:
+
+`system_icon_area HostSession -> shared ResolvedLayout -> overlay renderer + scoped represented-slot exclusion + reversible clip-only native visual masking`.
+
+Build 394 must not implement Phase-2B Home -> shade / Control Center projection, Keyguard/AOD, or user-facing size/spacing controls. Its device validation exists to prove the new Home carrier, restoration, island inheritance, and fail-native boundary before the superseded participant path is retired.
+
 ## Ownership / non-negotiable boundaries
 
 - HyperOS remains authoritative for native peer layout, native scene state, native transition progress, and native live View motion.

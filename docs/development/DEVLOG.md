@@ -2201,3 +2201,41 @@ A second process gap was identified: the contribution rules required CURRENT/DEV
 ### Outcome / next step
 
 Repository-facing development state is aligned around the open Build-394 gate. The next engineering step is the first bounded 0.0.2 runtime implementation of the Phase-2A Home carrier cutover. After that implementation step, CURRENT and DEVLOG must be synchronized immediately before CI/device validation proceeds.
+
+---
+
+## 2026-09-27 — Exact Home island carrier contract closed; Build 394 authorized
+
+**Type:** exact-target architecture closure / runtime gate  
+**Runtime build:** none yet  
+**Display line:** 0.0.2  
+**Runtime impact:** none
+
+### Exact method-body findings
+
+- `StatusBarIslandControllerImpl.translationFlow` stores the signed `status_bar_island_translation` resource endpoint and is refreshed by configuration/layout-direction/max-bounds changes; it is not per-frame animation progress.
+- `IslandMonitor.RealContainerIslandMonitor.updateContainerSize(...)` writes `statusContainerSpace` from island rectangle + live container location + padding + layout direction + supported native endpoint; fake containers consume it as `islandWidth` and request native layout. It is a layout-space/avoidance contract, not motion progress.
+- `HomeStatusBarViewBinderImpl` passes `R.id.system_icon_area` as `IslandStretchAnimation.rightContainer`.
+- `IslandStretchAnimation` uses SystemUI's `MiuiStatusBarIconAnimatorController` ISLAND_SHOW/HIDE `AnimConfig` to animate the right container to the controller endpoint; direct `setTranslationX(...)` is the non-animated path.
+- exact `status_bar.xml` defines `R.id.system_icon_area` as `MiuiNotificationStatusContainer`; its `system_icons` child is `MiuiStatusBatteryContainer`.
+
+### Root-cause / architecture consequence
+
+The already-proven Home overlay candidate is attached to the exact View that SystemUI itself translates for island avoidance. Therefore native carrier transformation, not a duplicate Combined Status motion source, is the correct Phase-2A contract.
+
+The overlay can inherit `system_icon_area` motion while remaining independent from the battery child's separate `alpha`/hide behavior. This directly satisfies the product requirement to retain network information during charging-island presentation.
+
+### Final review before runtime implementation
+
+- **Ownership:** SystemUI owns `system_icon_area.translationX` and animation configuration; Combined Status owns only overlay content, ResolvedLayout and reversible suppression tokens.
+- **Lifecycle:** the overlay, ignored-slot token and clip snapshots belong to one `MiuiNotificationStatusContainer` HostSession.
+- **Single writer:** no Combined Status island translation writer is needed. Existing custom-participant motion/occupancy ownership must be inactive under the new carrier.
+- **Cleanup:** session teardown restores owned ignored-slot entries and exact clip states, removes overlay content and drops host references.
+- **Fail native:** native visual suppression starts only after the complete new Home session is ready; partial activation rolls back to native.
+- **Performance:** the design eliminates production pre-draw island following and duplicate animation; native View transform carries the overlay for free.
+- **Compatibility:** this closure is scoped to the pinned exact SystemUI fingerprint and must fail native when the host/class/member contract is unavailable.
+- **Future extension:** Phase 2B can project from the stable Home source bounds without changing Home carrier ownership.
+
+### Decision
+
+The pre-Build-394 static architecture gate is satisfied. Build 394 is authorized as the first 0.0.2 runtime checkpoint, scoped only to Home carrier ownership cutover + ResolvedLayout + represented-slot exclusion + reversible clip masking. Phase 2B, Keyguard/AOD and user-facing sizing controls remain out of scope.
