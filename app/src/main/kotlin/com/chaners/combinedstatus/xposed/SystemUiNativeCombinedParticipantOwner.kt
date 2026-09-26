@@ -71,6 +71,8 @@ internal object SystemUiNativeCombinedParticipantOwner {
         )
     private var targetBindingState: BindingState? = null
     private var batteryRef: WeakReference<View>? = null
+    private var activeSlotWidth = 0
+    private var activeSlotHeight = 0
     private var handoffSink: ((Boolean) -> Boolean)? = null
     private var pendingPreDrawRoot: WeakReference<View>? = null
     private var pendingPreDrawListener: ViewTreeObserver.OnPreDrawListener? = null
@@ -446,6 +448,8 @@ internal object SystemUiNativeCombinedParticipantOwner {
         renderController = null
         hostRef = null
         batteryRef = null
+        activeSlotWidth = 0
+        activeSlotHeight = 0
         targetBindingState = null
         handoffSink = null
         bindingStates.clear()
@@ -638,9 +642,45 @@ internal object SystemUiNativeCombinedParticipantOwner {
         val battery =
             batteryContainer.directChild(BATTERY_VIEW)
                 ?: return AttachResult.Failure("battery-view-missing")
+        val statusIcons =
+            batteryContainer.directChild(STATUS_ICON_CONTAINER)
+                ?: return AttachResult.Failure("status-icons-missing")
+        val privacy =
+            readField(batteryContainer, "mHomePrivacyContainer") as? View
+        val slotGeometry =
+            NativeStatusBarSlotGeometry.resolve(
+                containerWidth =
+                    batteryContainer.measuredWidth
+                        .takeIf { width -> width > 0 }
+                        ?: batteryContainer.width,
+                containerPaddingStart = batteryContainer.paddingStart,
+                containerPaddingEnd = batteryContainer.paddingEnd,
+                statusIconsMeasuredWidth = statusIcons.measuredWidth,
+                privacyMeasuredWidth =
+                    privacy
+                        ?.takeIf { view -> view.visibility == View.VISIBLE }
+                        ?.measuredWidth
+                        ?: 0,
+                containerHeight =
+                    batteryContainer.measuredHeight
+                        .takeIf { height -> height > 0 }
+                        ?: batteryContainer.height,
+            ) ?: return AttachResult.Failure("native-slot-geometry-not-ready")
         if (battery.width <= 0 || battery.height <= 0) {
             return AttachResult.Failure("battery-geometry-not-ready")
         }
+        activeSlotWidth = slotGeometry.slotWidth
+        activeSlotHeight = slotGeometry.slotHeight
+        eventSink?.invoke(
+            "nativeCombinedParticipant slotGeometry " +
+                "authority=MiuiStatusBatteryContainer.measurement " +
+                "container=" + slotGeometry.containerWidth + "x" + slotGeometry.slotHeight +
+                " statusIconsMeasuredWidth=" + slotGeometry.statusIconsMeasuredWidth +
+                " privacyMeasuredWidth=" + slotGeometry.privacyMeasuredWidth +
+                " batteryView=" + battery.width + "x" + battery.height +
+                " resolvedSlot=" + slotGeometry.slotWidth + "x" + slotGeometry.slotHeight +
+                " readOnly=true nativeGeometryWrites=0",
+        )
 
         val rootLayoutParams =
             root.layoutParams
@@ -650,14 +690,14 @@ internal object SystemUiNativeCombinedParticipantOwner {
         val shellGeometryAdjusted =
             if (
                 originalShellWidth != ZERO_SLOT_WIDTH ||
-                originalShellHeight != battery.height
+                originalShellHeight != activeSlotHeight
             ) {
                 runCatching {
                     rootLayoutParams.width = ZERO_SLOT_WIDTH
-                    rootLayoutParams.height = battery.height
+                    rootLayoutParams.height = activeSlotHeight
                     root.layoutParams = rootLayoutParams
                     root.layoutParams?.width == ZERO_SLOT_WIDTH &&
-                        root.layoutParams?.height == battery.height
+                        root.layoutParams?.height == activeSlotHeight
                 }.getOrDefault(false)
             } else {
                 true
@@ -670,9 +710,9 @@ internal object SystemUiNativeCombinedParticipantOwner {
                 "originalWidth=" + originalShellWidth +
                 " targetWidth=" + ZERO_SLOT_WIDTH +
                 " originalHeight=" + originalShellHeight +
-                " targetHeight=" + battery.height +
+                " targetHeight=" + activeSlotHeight +
                 " moduleOwnedSlotWidthWrite=" + (originalShellWidth != ZERO_SLOT_WIDTH) +
-                " customShellHeightWrite=" + (originalShellHeight != battery.height) +
+                " customShellHeightWrite=" + (originalShellHeight != activeSlotHeight) +
                 " peerNativeGeometryWrites=0",
         )
 
@@ -697,8 +737,8 @@ internal object SystemUiNativeCombinedParticipantOwner {
                         root.addView(
                             child,
                             FrameLayout.LayoutParams(
-                                battery.width,
-                                battery.height,
+                                activeSlotWidth,
+                                activeSlotHeight,
                             ),
                         )
                     }
@@ -706,11 +746,11 @@ internal object SystemUiNativeCombinedParticipantOwner {
         val renderLayoutParams =
             (render.layoutParams as? FrameLayout.LayoutParams)
                 ?: FrameLayout.LayoutParams(
-                    battery.width,
-                    battery.height,
+                    activeSlotWidth,
+                    activeSlotHeight,
                 )
-        renderLayoutParams.width = battery.width
-        renderLayoutParams.height = battery.height
+        renderLayoutParams.width = activeSlotWidth
+        renderLayoutParams.height = activeSlotHeight
         renderLayoutParams.gravity = Gravity.NO_GRAVITY
         render.layoutParams = renderLayoutParams
 
@@ -724,20 +764,20 @@ internal object SystemUiNativeCombinedParticipantOwner {
             RuntimeFeaturePreferencesOwner.currentSettings().enabled
 
         render.measure(
-            View.MeasureSpec.makeMeasureSpec(battery.width, View.MeasureSpec.EXACTLY),
-            View.MeasureSpec.makeMeasureSpec(battery.height, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(activeSlotWidth, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(activeSlotHeight, View.MeasureSpec.EXACTLY),
         )
         val shellHeight =
             root.layoutParams
                 ?.height
                 ?.takeIf { height -> height > 0 }
-                ?: battery.height
-        val renderTop = (shellHeight - battery.height) / 2
+                ?: activeSlotHeight
+        val renderTop = (shellHeight - activeSlotHeight) / 2
         render.layout(
             0,
             renderTop,
-            battery.width,
-            renderTop + battery.height,
+            activeSlotWidth,
+            renderTop + activeSlotHeight,
         )
         val modelUpdate =
             renderController?.update(CombinedStatusStateStore.snapshot())
@@ -1471,8 +1511,8 @@ internal object SystemUiNativeCombinedParticipantOwner {
                                 rootMeasuredHeight = root.measuredHeight,
                                 renderMeasuredWidth = render?.measuredWidth ?: -1,
                                 renderMeasuredHeight = render?.measuredHeight ?: -1,
-                                expectedVisualWidth = battery?.width ?: -1,
-                                expectedVisualHeight = battery?.height ?: -1,
+                                expectedVisualWidth = activeSlotWidth,
+                                expectedVisualHeight = activeSlotHeight,
                                 parentClipsChildren = parent?.clipChildren ?: true,
                                 rootScreenX = rootLocation[0],
                                 batteryScreenX = batteryLocation[0],
@@ -1496,7 +1536,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
                         if (ready) {
                             // The zero-slot bridge is bootstrap-only. Once the native
                             // battery slot is synchronously released by HyperOS, promote
-                            // this module-owned shell to the native 105px visual width so
+                            // this module-owned shell to the resolved native slot width so
                             // SystemUI owns normal APPEAR/DISAPPEAR transform geometry.
                             bindingState.visible = false
                             root.visibility = View.GONE
@@ -1808,6 +1848,8 @@ internal object SystemUiNativeCombinedParticipantOwner {
         renderViewRef = null
         hostRef = null
         batteryRef = null
+        activeSlotWidth = 0
+        activeSlotHeight = 0
         handoffSink = null
         targetBindingState = null
         modelReady = false
