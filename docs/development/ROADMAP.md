@@ -243,6 +243,6 @@ Keep diagnostics event-driven and bounded. Maintain fail-native behavior and use
 Update this file when:
 - the project moves to a new macro phase;
 - an already-confirmed product design changes;
-- Build 385 accepts or invalidates the active transition route;
+- the 0.0.2 carrier/presentation architecture is selected or materially invalidated;
 - adaptive sizing gains a validated dynamic geometry contract;
 - a cross-cutting ownership/compatibility boundary changes.
