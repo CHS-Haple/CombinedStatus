@@ -1532,3 +1532,24 @@ Then verify:
 5. shade / Control Center first and last frames remain aligned.
 
 PR #100 remains unmerged.
+
+
+### CI validation update — Build 393
+
+- Exact tested work-branch SHA: `ee76d8d5319fff4efcc640314318881fecd716ba`.
+- Fast Build #1043: **success**.
+- Work Branch Canary #302: **success**.
+- Pinned HyperOS target profile: success.
+- Modern Xposed metadata verification: success.
+- Haple APK signature verification: success.
+- Canary non-debuggable verification: success.
+- Artifact ID: `10911242961`.
+- Artifact archive digest: `sha256:cb8d1e8bd2c5b7e4f580553b4331b296db6afa4598c420ea7506c3f9751a4818`.
+- Extracted APK SHA-256: `da6e55434dceb81cdaf746a9d725011795105bc346e2242e9c508e8cda674623`.
+- Extracted APK size: `3375134` bytes.
+
+### Post-CI review
+
+The runtime delta is restricted to pinning the module-owned slot translation target to the same stable host boundary already used for the normalized slot width. No island animation curve, peer geometry, live View translation, occupancy lifecycle, network/battery suppression, or panel transition owner changed. Build 390's bounded child-motion diagnostics remain enabled for device confirmation.
+
+PR #100 remains unmerged pending device evidence.
