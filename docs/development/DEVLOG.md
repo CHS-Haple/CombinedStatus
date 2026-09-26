@@ -1360,3 +1360,24 @@ Acceptance requires:
 - shade / Control Center first/last-frame alignment preserved.
 
 PR #100 remains unmerged.
+
+
+### CI validation update — Build 391
+
+- Exact tested work-branch SHA: `b4d8bb7f6aee567dc131a983c9e9323af7bdd1af`.
+- Fast Build #1041: **success**.
+- Work Branch Canary #300: **success**.
+- Pinned HyperOS target profile: success.
+- Modern Xposed metadata verification: success.
+- Haple APK signature verification: success.
+- Canary non-debuggable verification: success.
+- Artifact ID: `10910308834`.
+- Artifact archive digest: `sha256:3d7bac217ca55909e8a5f7b3ea4de0c61ee1487d8015144f9cd0e32262a8f86e`.
+- Extracted APK SHA-256: `63ac90e44d50c54220723ce518c53eacac81e19edebfd3db6eed019233de1a06`.
+- Extracted APK size: `3375134` bytes.
+
+### Post-CI review
+
+The runtime delta is restricted to attach-time sibling-width authority selection plus its regression tests. No island callback behavior, animation curve, live translation writer, peer geometry write, or occupancy lifecycle has changed. Device validation remains the authority for confirming that charging-attached and uncharged-attached sessions now converge to the same stable 105px participant identity.
+
+PR #100 remains unmerged.
