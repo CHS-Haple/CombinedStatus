@@ -76,6 +76,8 @@ internal object SystemUiNativeCombinedParticipantOwner {
     private var handoffSink: ((Boolean) -> Boolean)? = null
     private var pendingPreDrawRoot: WeakReference<View>? = null
     private var pendingPreDrawListener: ViewTreeObserver.OnPreDrawListener? = null
+    private var pendingTransitionPivotRoot: WeakReference<View>? = null
+    private var pendingTransitionPivotListener: ViewTreeObserver.OnPreDrawListener? = null
     private var modelReady = false
     private var tintReady = false
     private var currentSurface = SystemUiSceneStateSource.Surface.UNKNOWN
@@ -443,6 +445,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
         }
 
         removePendingPreDraw()
+        removePendingTransitionPivot()
         rootRef = null
         renderViewRef = null
         renderController = null
@@ -1030,6 +1033,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
             }
             bindingState.visible = true
             handoffCommitted = true
+            scheduleTransitionPivotNormalization(root)
             requestNativeLayout(root)
             startMasterSwitchTransitionProbe(
                 direction = "enable",
@@ -1311,6 +1315,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
 
     private fun suspendVisibleHandoff(source: String) {
         removePendingPreDraw()
+        removePendingTransitionPivot()
         if (handoffPending) {
             return
         }
@@ -1366,6 +1371,9 @@ internal object SystemUiNativeCombinedParticipantOwner {
             }
 
             handoffCommitted = false
+            if (root != null && nativeRemoveApplied) {
+                scheduleTransitionPivotNormalization(root)
+            }
             if (
                 root != null &&
                 (
@@ -1568,6 +1576,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
                             root.visibility = View.VISIBLE
                             handoffCommitted = true
                             handoffValidated = true
+                            scheduleTransitionPivotNormalization(root)
                             requestNativeLayout(root)
                             eventSink?.invoke(
                                 "nativeCombinedParticipant handoffCommit " +
@@ -1719,6 +1728,63 @@ internal object SystemUiNativeCombinedParticipantOwner {
         (root.parent as? View)?.requestLayout()
     }
 
+    internal fun resolveTransitionPivotX(visualWidth: Int): Float? =
+        visualWidth
+            .takeIf { width -> width > 0 }
+            ?.div(2f)
+
+    private fun applyTransitionPivot(root: View): Boolean {
+        val visualWidth =
+            renderViewRef
+                ?.get()
+                ?.measuredWidth
+                ?.takeIf { width -> width > 0 }
+                ?: activeSlotWidth
+        val pivotX = resolveTransitionPivotX(visualWidth) ?: return false
+        root.pivotX = pivotX
+        return root.pivotX == pivotX
+    }
+
+    private fun scheduleTransitionPivotNormalization(root: View) {
+        removePendingTransitionPivot()
+
+        // Combined Status deliberately keeps a zero-width layout shell so the native
+        // battery slot remains the single occupancy owner. HyperOS status-icon Folme
+        // derives pivotX from View.width during DISAPPEAR, which would collapse to 0.
+        // Keep HyperOS alpha/scale/curve ownership and bridge only the animation pivot
+        // to the verified Combined Status visual width.
+        applyTransitionPivot(root)
+
+        val observer = root.viewTreeObserver
+        if (!observer.isAlive) {
+            return
+        }
+        val listener =
+            object : ViewTreeObserver.OnPreDrawListener {
+                override fun onPreDraw(): Boolean {
+                    removePendingTransitionPivot()
+                    applyTransitionPivot(root)
+                    return true
+                }
+            }
+        pendingTransitionPivotRoot = WeakReference(root)
+        pendingTransitionPivotListener = listener
+        observer.addOnPreDrawListener(listener)
+    }
+
+    private fun removePendingTransitionPivot() {
+        val root = pendingTransitionPivotRoot?.get()
+        val listener = pendingTransitionPivotListener
+        if (root != null && listener != null) {
+            val observer = root.viewTreeObserver
+            if (observer.isAlive) {
+                observer.removeOnPreDrawListener(listener)
+            }
+        }
+        pendingTransitionPivotRoot = null
+        pendingTransitionPivotListener = null
+    }
+
     private fun setNativeRemoveFlag(
         root: View,
         remove: Boolean,
@@ -1816,6 +1882,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
 
     private fun <T> reset(result: T): T {
         removePendingPreDraw()
+        removePendingTransitionPivot()
         TransitionDiagnosticProbe.stop()
         if (handoffCommitted) {
             handoffSink?.invoke(false)

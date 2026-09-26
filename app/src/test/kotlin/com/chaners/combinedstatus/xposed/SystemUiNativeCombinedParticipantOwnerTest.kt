@@ -219,6 +219,28 @@ class SystemUiNativeCombinedParticipantOwnerTest {
     }
 
     @Test
+    fun zeroWidthShellUsesVisualCenterAsTransitionPivot() {
+        assertEquals(
+            52.5f,
+            SystemUiNativeCombinedParticipantOwner.resolveTransitionPivotX(105) ?: -1f,
+            0f,
+        )
+        assertEquals(
+            67.5f,
+            SystemUiNativeCombinedParticipantOwner.resolveTransitionPivotX(135) ?: -1f,
+            0f,
+        )
+    }
+
+    @Test
+    fun unavailableVisualWidthHasNoTransitionPivot() {
+        assertEquals(
+            null,
+            SystemUiNativeCombinedParticipantOwner.resolveTransitionPivotX(0),
+        )
+    }
+
+    @Test
     fun nativeBindingTintBecomesSingleResolvedTintAuthority() {
         val merged =
             SystemUiNativeCombinedParticipantOwner.mergeNativeParticipantTint(
