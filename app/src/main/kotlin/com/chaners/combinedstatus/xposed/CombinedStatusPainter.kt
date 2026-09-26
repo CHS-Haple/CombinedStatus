@@ -2,6 +2,8 @@ package com.chaners.combinedstatus.xposed
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BlendMode
+import android.graphics.BlendModeColorFilter
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -21,14 +23,10 @@ internal class CombinedStatusPainter(
     private val context: Context,
 ) {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val nativeBitmapPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private var airplaneDrawableResolved = false
     private var cachedAirplaneResourceId: Int = 0
-    private val nativeCenterAssets =
-        object : LinkedHashMap<String, NativeCenterAsset>(NATIVE_CENTER_CACHE_SIZE, 0.75f, true) {
-            override fun removeEldestEntry(
-                eldest: MutableMap.MutableEntry<String, NativeCenterAsset>?,
-            ): Boolean = size > NATIVE_CENTER_CACHE_SIZE
-        }
+    private val nativeCenterAssets = LinkedHashMap<String, NativeCenterAsset>(NATIVE_CENTER_CACHE_SIZE, 0.75f, true)
     private var cachedMobileTypeWeight: Int = Int.MIN_VALUE
     private var cachedMobileTypeTypeface: Typeface = Typeface.DEFAULT
     private val mobileTypeMainBounds = Rect()
@@ -337,100 +335,117 @@ internal class CombinedStatusPainter(
                     resolveNativeVisualProbe(
                         drawable = drawable,
                         resources = drawableContext.resources,
-                    )
+                    ) ?: return@runCatching null
                 NativeCenterAsset(
-                    drawable = drawable,
+                    bitmap = visualProbe.normalizedBitmap,
+                    intrinsicWidth = drawable.intrinsicWidth,
+                    intrinsicHeight = drawable.intrinsicHeight,
                     opticalBounds = visualProbe.opticalBounds,
-                    intrinsicMaxAlpha = visualProbe.maxAlpha,
                 )
             }.getOrNull()
                 ?: return null
 
         nativeCenterAssets[key] = asset
+        if (nativeCenterAssets.size > NATIVE_CENTER_CACHE_SIZE) {
+            val eldest = nativeCenterAssets.entries.iterator().next()
+            nativeCenterAssets.remove(eldest.key)
+            eldest.value.bitmap.recycle()
+        }
         return asset
     }
 
     private fun resolveNativeVisualProbe(
         drawable: Drawable,
         resources: android.content.res.Resources,
-    ): NativeVisualProbe {
+    ): NativeVisualProbe? {
         val intrinsicWidth = drawable.intrinsicWidth
         val intrinsicHeight = drawable.intrinsicHeight
         if (intrinsicWidth <= 0 || intrinsicHeight <= 0) {
-            return NativeVisualProbe.FULL
+            return null
         }
 
         val probeScale =
             NATIVE_OPTICAL_PROBE_MAX /
                 max(intrinsicWidth, intrinsicHeight).toFloat()
-        val probeWidth =
-            max(1, (intrinsicWidth * probeScale).roundToInt())
-        val probeHeight =
-            max(1, (intrinsicHeight * probeScale).roundToInt())
+        val probeWidth = max(1, (intrinsicWidth * probeScale).roundToInt())
+        val probeHeight = max(1, (intrinsicHeight * probeScale).roundToInt())
         val probeDrawable =
             drawable.constantState
                 ?.newDrawable(resources)
                 ?.mutate()
-                ?: return NativeVisualProbe.FULL
+                ?: drawable
         val bitmap =
             Bitmap.createBitmap(
                 probeWidth,
                 probeHeight,
                 Bitmap.Config.ARGB_8888,
             )
+        probeDrawable.setTint(Color.WHITE)
+        probeDrawable.alpha = 255
+        probeDrawable.setBounds(0, 0, probeWidth, probeHeight)
+        probeDrawable.draw(Canvas(bitmap))
 
-        return try {
-            probeDrawable.setTint(Color.WHITE)
-            probeDrawable.alpha = 255
-            probeDrawable.setBounds(0, 0, probeWidth, probeHeight)
-            probeDrawable.draw(Canvas(bitmap))
+        val pixels = IntArray(probeWidth * probeHeight)
+        bitmap.getPixels(pixels, 0, probeWidth, 0, 0, probeWidth, probeHeight)
 
-            val pixels = IntArray(probeWidth * probeHeight)
-            bitmap.getPixels(
-                pixels,
-                0,
-                probeWidth,
-                0,
-                0,
-                probeWidth,
-                probeHeight,
-            )
-
-            var minX = probeWidth
-            var minY = probeHeight
-            var maxX = -1
-            var maxY = -1
-            var maxAlpha = 0
-            pixels.forEachIndexed { index, color ->
-                val alpha = Color.alpha(color)
-                if (alpha > maxAlpha) maxAlpha = alpha
-                if (alpha > NATIVE_OPTICAL_ALPHA_THRESHOLD) {
-                    val x = index % probeWidth
-                    val y = index / probeWidth
-                    if (x < minX) minX = x
-                    if (x > maxX) maxX = x
-                    if (y < minY) minY = y
-                    if (y > maxY) maxY = y
-                }
+        var minX = probeWidth
+        var minY = probeHeight
+        var maxX = -1
+        var maxY = -1
+        val sourceAlphas = IntArray(pixels.size)
+        pixels.forEachIndexed { index, color ->
+            val alpha = Color.alpha(color)
+            sourceAlphas[index] = alpha
+            if (alpha > NATIVE_OPTICAL_ALPHA_THRESHOLD) {
+                val x = index % probeWidth
+                val y = index / probeWidth
+                if (x < minX) minX = x
+                if (x > maxX) maxX = x
+                if (y < minY) minY = y
+                if (y > maxY) maxY = y
             }
-
-            if (maxX < minX || maxY < minY) {
-                NativeVisualProbe.FULL
-            } else {
-                NativeVisualProbe(
-                    opticalBounds =
-                        OpticalBounds(
-                            left = minX / probeWidth.toFloat(),
-                            top = minY / probeHeight.toFloat(),
-                            right = (maxX + 1) / probeWidth.toFloat(),
-                            bottom = (maxY + 1) / probeHeight.toFloat(),
-                        ),
-                    maxAlpha = maxAlpha,
-                )
-            }
-        } finally {
-            bitmap.recycle()
         }
+
+        val ceilingAlpha =
+            CombinedStatusVisualIntensity.resolveSourceCeilingAlpha(
+                sourceAlphas = sourceAlphas,
+                minVisibleAlpha = NATIVE_OPTICAL_ALPHA_THRESHOLD,
+            )
+        if (ceilingAlpha <= 0 || maxX < minX || maxY < minY) {
+            bitmap.recycle()
+            return null
+        }
+
+        for (index in pixels.indices) {
+            val normalizedAlpha =
+                CombinedStatusVisualIntensity.normalizeSourceAlpha(
+                    sourceAlpha = sourceAlphas[index],
+                    sourceCeilingAlpha = ceilingAlpha,
+                )
+            pixels[index] =
+                (normalizedAlpha shl 24) or
+                    0x00ffffff
+        }
+        bitmap.setPixels(
+            pixels,
+            0,
+            probeWidth,
+            0,
+            0,
+            probeWidth,
+            probeHeight,
+        )
+
+        return NativeVisualProbe(
+            opticalBounds =
+                OpticalBounds(
+                    left = minX / probeWidth.toFloat(),
+                    top = minY / probeHeight.toFloat(),
+                    right = (maxX + 1) / probeWidth.toFloat(),
+                    bottom = (maxY + 1) / probeHeight.toFloat(),
+                ),
+            normalizedBitmap = bitmap,
+        )
     }
 
     private fun drawNativeCenterResource(
@@ -446,9 +461,8 @@ internal class CombinedStatusPainter(
         pixelAligned: Boolean,
     ): Boolean {
         val asset = nativeCenterAsset(resource) ?: return false
-        val drawable = asset.drawable
-        val intrinsicWidth = drawable.intrinsicWidth
-        val intrinsicHeight = drawable.intrinsicHeight
+        val intrinsicWidth = asset.intrinsicWidth
+        val intrinsicHeight = asset.intrinsicHeight
         if (intrinsicWidth <= 0 || intrinsicHeight <= 0) {
             return false
         }
@@ -468,13 +482,12 @@ internal class CombinedStatusPainter(
         val drawWidth = intrinsicWidth * drawableScale
         val drawHeight = intrinsicHeight * drawableScale
 
-        drawable.setTint(
-            CombinedStatusVisualIntensity.resolveNativeFullStrengthTint(
-                tint = tint,
-                intrinsicMaxAlpha = asset.intrinsicMaxAlpha,
-            ),
-        )
-        drawable.alpha =
+        nativeBitmapPaint.colorFilter =
+            BlendModeColorFilter(
+                tint,
+                BlendMode.SRC_IN,
+            )
+        nativeBitmapPaint.alpha =
             CombinedStatusVisualIntensity.resolveDrawableAlpha(opacity)
 
         if (pixelAligned && nativeTransform.scale > 0f) {
@@ -495,26 +508,34 @@ internal class CombinedStatusPainter(
                 -nativeTransform.offsetX,
                 -nativeTransform.offsetY,
             )
-            drawable.setBounds(
-                bounds.left,
-                bounds.top,
-                bounds.right,
-                bounds.bottom,
+            canvas.drawBitmap(
+                asset.bitmap,
+                null,
+                Rect(
+                    bounds.left,
+                    bounds.top,
+                    bounds.right,
+                    bounds.bottom,
+                ),
+                nativeBitmapPaint,
             )
-            drawable.draw(canvas)
             canvas.restoreToCount(save)
         } else {
-            // Transition frames keep the existing canonical-space scale contract.
             val left = centerX - drawWidth / 2f
             val top = centerY - drawHeight / 2f
-            drawable.setBounds(
-                left.roundToInt(),
-                top.roundToInt(),
-                (left + drawWidth).roundToInt(),
-                (top + drawHeight).roundToInt(),
+            canvas.drawBitmap(
+                asset.bitmap,
+                null,
+                RectF(
+                    left,
+                    top,
+                    left + drawWidth,
+                    top + drawHeight,
+                ),
+                nativeBitmapPaint,
             )
-            drawable.draw(canvas)
         }
+        nativeBitmapPaint.colorFilter = null
         return true
     }
 
@@ -869,23 +890,16 @@ internal class CombinedStatusPainter(
     }
 
     private data class NativeCenterAsset(
-        val drawable: Drawable,
+        val bitmap: Bitmap,
+        val intrinsicWidth: Int,
+        val intrinsicHeight: Int,
         val opticalBounds: OpticalBounds,
-        val intrinsicMaxAlpha: Int,
     )
 
     private data class NativeVisualProbe(
         val opticalBounds: OpticalBounds,
-        val maxAlpha: Int,
-    ) {
-        companion object {
-            val FULL =
-                NativeVisualProbe(
-                    opticalBounds = OpticalBounds.FULL,
-                    maxAlpha = 255,
-                )
-        }
-    }
+        val normalizedBitmap: Bitmap,
+    )
 
     private data class OpticalBounds(
         val left: Float,
@@ -1142,6 +1156,8 @@ internal object CombinedStatusOuterGeometry {
 
 
 internal object CombinedStatusVisualIntensity {
+    private const val SOURCE_ALPHA_CEILING_QUANTILE = 0.85f
+
     fun resolveCanvasAlpha(
         color: Int,
         semanticAlpha: Int,
@@ -1158,19 +1174,45 @@ internal object CombinedStatusVisualIntensity {
             .roundToInt()
             .coerceIn(0, 255)
 
-    fun resolveNativeFullStrengthTint(
-        tint: Int,
-        intrinsicMaxAlpha: Int,
+    fun resolveSourceCeilingAlpha(
+        sourceAlphas: IntArray,
+        minVisibleAlpha: Int,
     ): Int {
-        val sourceAlpha = intrinsicMaxAlpha.coerceIn(1, 255)
-        if (sourceAlpha == 255) {
-            return tint
+        val threshold = minVisibleAlpha.coerceIn(0, 254)
+        val histogram = IntArray(256)
+        var visibleCount = 0
+        sourceAlphas.forEach { sourceAlpha ->
+            val alpha = sourceAlpha.coerceIn(0, 255)
+            if (alpha > threshold) {
+                histogram[alpha]++
+                visibleCount++
+            }
         }
-        val targetAlpha = tint ushr 24
-        val normalizedAlpha =
-            (targetAlpha * 255f / sourceAlpha)
-                .roundToInt()
-                .coerceIn(0, 255)
-        return (normalizedAlpha shl 24) or (tint and 0x00ffffff)
+        if (visibleCount == 0) {
+            return 0
+        }
+
+        val targetIndex =
+            ((visibleCount - 1) * SOURCE_ALPHA_CEILING_QUANTILE)
+                .toInt()
+                .coerceIn(0, visibleCount - 1)
+        var cumulative = 0
+        for (alpha in (threshold + 1)..255) {
+            cumulative += histogram[alpha]
+            if (cumulative > targetIndex) {
+                return alpha
+            }
+        }
+        return 255
+    }
+
+    fun normalizeSourceAlpha(
+        sourceAlpha: Int,
+        sourceCeilingAlpha: Int,
+    ): Int {
+        val ceilingAlpha = sourceCeilingAlpha.coerceIn(1, 255)
+        return (sourceAlpha.coerceIn(0, 255) * 255f / ceilingAlpha)
+            .roundToInt()
+            .coerceIn(0, 255)
     }
 }

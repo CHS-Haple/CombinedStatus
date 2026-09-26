@@ -147,30 +147,46 @@ class SystemUiNativeCombinedParticipantOwnerTest {
 
 
     @Test
-    fun islandSlotTakesOverBatteryOccupancyOnlyWhileNativeBatteryIsHidden() {
-        assertEquals(
-            105,
-            SystemUiNativeCombinedParticipantOwner.resolveIslandSlotWidth(
-                nativeBatteryHidden = true,
-                visualWidth = 105,
-            ),
-        )
-        assertEquals(
-            0,
-            SystemUiNativeCombinedParticipantOwner.resolveIslandSlotWidth(
-                nativeBatteryHidden = false,
-                visualWidth = 105,
+    fun activeNativeSlotAcceptsFullVisualWidthAfterBatteryRelease() {
+        assertTrue(
+            SystemUiNativeCombinedParticipantOwner.isActiveSlotHandoffReady(
+                rootLayoutWidth = 105,
+                rootLayoutHeight = 108,
+                renderMeasuredWidth = 105,
+                renderMeasuredHeight = 108,
+                parentClipsChildren = false,
+                renderLeft = 0,
+                renderRight = 105,
             ),
         )
     }
 
     @Test
-    fun islandSlotFailsClosedWhenVisualWidthIsUnavailable() {
-        assertEquals(
-            0,
-            SystemUiNativeCombinedParticipantOwner.resolveIslandSlotWidth(
-                nativeBatteryHidden = true,
-                visualWidth = 0,
+    fun activeNativeSlotRejectsLegacyZeroWidthShell() {
+        assertFalse(
+            SystemUiNativeCombinedParticipantOwner.isActiveSlotHandoffReady(
+                rootLayoutWidth = 0,
+                rootLayoutHeight = 108,
+                renderMeasuredWidth = 105,
+                renderMeasuredHeight = 108,
+                parentClipsChildren = false,
+                renderLeft = 0,
+                renderRight = 105,
+            ),
+        )
+    }
+
+    @Test
+    fun activeNativeSlotRejectsRenderGeometryMismatch() {
+        assertFalse(
+            SystemUiNativeCombinedParticipantOwner.isActiveSlotHandoffReady(
+                rootLayoutWidth = 105,
+                rootLayoutHeight = 108,
+                renderMeasuredWidth = 135,
+                renderMeasuredHeight = 108,
+                parentClipsChildren = false,
+                renderLeft = 0,
+                renderRight = 135,
             ),
         )
     }
@@ -237,4 +253,163 @@ class SystemUiNativeCombinedParticipantOwnerTest {
         assertEquals(null, merged.statusIconTint)
     }
 
+    @Test
+    fun masterSwitchBlocksHomeOverlayRegardlessOfSceneOrHandoffState() {
+        assertFalse(
+            CombinedStatusHomeRenderSession.resolveOverlayVisible(
+                featureEnabled = false,
+                sceneAllowsOverlay = true,
+                nativeHandoffActive = false,
+            ),
+        )
+        assertFalse(
+            CombinedStatusHomeRenderSession.resolveOverlayVisible(
+                featureEnabled = false,
+                sceneAllowsOverlay = true,
+                nativeHandoffActive = true,
+            ),
+        )
+    }
+
+    @Test
+    fun enabledMasterSwitchStillDefersToSceneAndNativeHandoff() {
+        assertTrue(
+            CombinedStatusHomeRenderSession.resolveOverlayVisible(
+                featureEnabled = true,
+                sceneAllowsOverlay = true,
+                nativeHandoffActive = false,
+            ),
+        )
+        assertFalse(
+            CombinedStatusHomeRenderSession.resolveOverlayVisible(
+                featureEnabled = true,
+                sceneAllowsOverlay = false,
+                nativeHandoffActive = false,
+            ),
+        )
+        assertFalse(
+            CombinedStatusHomeRenderSession.resolveOverlayVisible(
+                featureEnabled = true,
+                sceneAllowsOverlay = true,
+                nativeHandoffActive = true,
+            ),
+        )
+    }
+
+
+    @Test
+    fun nativeIconStateShowsCombinedRendererAndHidesDot() {
+        val visibility =
+            SystemUiNativeCombinedParticipantOwner.resolveNativeContentVisibility(
+                state = 7,
+                iconState = 7,
+                dotState = 8,
+                hiddenState = 9,
+            )
+
+        assertEquals(android.view.View.VISIBLE, visibility?.renderVisibility)
+        assertEquals(android.view.View.GONE, visibility?.dotVisibility)
+    }
+
+    @Test
+    fun nativeDotStateUsesSystemDotWithoutCombinedRenderer() {
+        val visibility =
+            SystemUiNativeCombinedParticipantOwner.resolveNativeContentVisibility(
+                state = 8,
+                iconState = 7,
+                dotState = 8,
+                hiddenState = 9,
+            )
+
+        assertEquals(android.view.View.INVISIBLE, visibility?.renderVisibility)
+        assertEquals(android.view.View.VISIBLE, visibility?.dotVisibility)
+    }
+
+    @Test
+    fun nativeHiddenStateKeepsShellButDrawsNoCombinedContent() {
+        val visibility =
+            SystemUiNativeCombinedParticipantOwner.resolveNativeContentVisibility(
+                state = 9,
+                iconState = 7,
+                dotState = 8,
+                hiddenState = 9,
+            )
+
+        assertEquals(android.view.View.INVISIBLE, visibility?.renderVisibility)
+        assertEquals(android.view.View.INVISIBLE, visibility?.dotVisibility)
+    }
+
+    @Test
+    fun unknownNativeVisibleStateFailsClosed() {
+        assertEquals(
+            null,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeContentVisibility(
+                state = 99,
+                iconState = 7,
+                dotState = 8,
+                hiddenState = 9,
+            ),
+        )
+    }
+
+
+    @Test
+    fun validatedMasterSwitchUsesNativeRemoveLifecycle() {
+        assertEquals(
+            false,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeFeatureRemoveFlag(
+                featureEnabled = true,
+                handoffValidated = true,
+            ),
+        )
+        assertEquals(
+            true,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeFeatureRemoveFlag(
+                featureEnabled = false,
+                handoffValidated = true,
+            ),
+        )
+    }
+
+    @Test
+    fun unvalidatedMasterSwitchStaysOnBootstrapFallback() {
+        assertEquals(
+            null,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeFeatureRemoveFlag(
+                featureEnabled = false,
+                handoffValidated = false,
+            ),
+        )
+    }
+
+    @Test
+    fun nativeVisibleStateNamesResolveWithoutAssumingNumericOrder() {
+        val states =
+            SystemUiNativeCombinedParticipantOwner.resolveNativeVisibilityStates { candidate ->
+                when (candidate) {
+                    2 -> "ICON"
+                    4 -> "DOT"
+                    7 -> "HIDDEN"
+                    else -> "UNKNOWN"
+                }
+            }
+
+        assertEquals(2, states?.icon)
+        assertEquals(4, states?.dot)
+        assertEquals(7, states?.hidden)
+    }
+
+    @Test
+    fun missingNativeVisibleStateFailsClosed() {
+        assertEquals(
+            null,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeVisibilityStates { candidate ->
+                when (candidate) {
+                    0 -> "ICON"
+                    1 -> "DOT"
+                    else -> "UNKNOWN"
+                }
+            },
+        )
+    }
 }

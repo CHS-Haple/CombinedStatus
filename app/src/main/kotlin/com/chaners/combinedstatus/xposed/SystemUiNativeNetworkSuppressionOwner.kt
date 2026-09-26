@@ -429,6 +429,121 @@ internal object SystemUiNativeNetworkSuppressionOwner {
         }
 
     @Synchronized
+    fun currentTransitionTargetGeometry(): TransitionTargetGeometry? {
+        val group = activeGroup?.get() ?: return null
+        val children =
+            (0 until group.childCount)
+                .map(group::getChildAt)
+        val mobile =
+            selectTransitionTarget(
+                children.filter { child ->
+                    NativeParticipantRuntimeAccess.slotOf(child) == "mobile"
+                },
+            )
+        val wifi =
+            selectTransitionTarget(
+                children.filter { child ->
+                    NativeParticipantRuntimeAccess.slotOf(child) == "wifi"
+                },
+            )
+        val combined =
+            selectTransitionTarget(
+                children.filter { child ->
+                    NativeParticipantRuntimeAccess.slotOf(child) == "combined_status"
+                },
+            )
+        val battery =
+            (group.parent as? ViewGroup)
+                ?.let { parent ->
+                    (0 until parent.childCount)
+                        .map(parent::getChildAt)
+                        .firstOrNull { child ->
+                            child.javaClass.name ==
+                                "com.android.systemui.statusbar.views.MiuiBatteryMeterView"
+                        }
+                }
+
+        return TransitionTargetGeometry(
+            group = transitionViewGeometry(group),
+            mobile = mobile?.let(::transitionViewGeometry),
+            wifi = wifi?.let(::transitionViewGeometry),
+            battery = battery?.let(::transitionViewGeometry),
+            combined = combined?.let(::transitionViewGeometry),
+        )
+    }
+
+    private fun selectTransitionTarget(candidates: List<View>): View? =
+        candidates.firstOrNull { view ->
+            view.visibility == View.VISIBLE &&
+                view.width > 0 &&
+                view.height > 0
+        }
+            ?: candidates.firstOrNull { view ->
+                view.measuredWidth > 0 &&
+                    view.measuredHeight > 0
+            }
+            ?: candidates.firstOrNull()
+
+    private fun transitionViewGeometry(view: View): TransitionViewGeometry {
+        val location = IntArray(2)
+        val located =
+            runCatching {
+                view.getLocationOnScreen(location)
+                true
+            }.getOrDefault(false)
+        return TransitionViewGeometry(
+            className = view.javaClass.simpleName,
+            screenX = if (located) location[0] else Int.MIN_VALUE,
+            screenY = if (located) location[1] else Int.MIN_VALUE,
+            width = view.width,
+            height = view.height,
+            measuredWidth = view.measuredWidth,
+            measuredHeight = view.measuredHeight,
+            visibility = view.visibility,
+            alpha = view.alpha,
+        )
+    }
+
+    internal data class TransitionTargetGeometry(
+        val group: TransitionViewGeometry,
+        val mobile: TransitionViewGeometry?,
+        val wifi: TransitionViewGeometry?,
+        val battery: TransitionViewGeometry?,
+        val combined: TransitionViewGeometry?,
+    ) {
+        val summary: String
+            get() =
+                "group=" + group.summary +
+                    " mobile=" + (mobile?.summary ?: "missing") +
+                    " wifi=" + (wifi?.summary ?: "missing") +
+                    " battery=" + (battery?.summary ?: "missing") +
+                    " combined=" + (combined?.summary ?: "missing")
+    }
+
+    internal data class TransitionViewGeometry(
+        val className: String,
+        val screenX: Int,
+        val screenY: Int,
+        val width: Int,
+        val height: Int,
+        val measuredWidth: Int,
+        val measuredHeight: Int,
+        val visibility: Int,
+        val alpha: Float,
+    ) {
+        val summary: String
+            get() =
+                className +
+                    "{x=" + screenX +
+                    ",y=" + screenY +
+                    ",size=" + width + "x" + height +
+                    ",measured=" + measuredWidth + "x" + measuredHeight +
+                    ",visibility=" + visibility +
+                    ",alpha=" + alpha +
+                    "}"
+    }
+
+    @Synchronized
     fun currentAppliedStatusIconTint(anchorView: View? = null): Int? {
         val group = activeGroup?.get()
         val peerTint = group?.let(::resolveAppliedStatusIconTint)

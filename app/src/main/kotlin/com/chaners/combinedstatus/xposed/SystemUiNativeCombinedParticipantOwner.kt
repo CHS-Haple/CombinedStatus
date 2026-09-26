@@ -2,12 +2,14 @@ package com.chaners.combinedstatus.xposed
 
 import android.content.Context
 import android.os.Looper
+import android.os.SystemClock
 import android.util.AttributeSet
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.widget.FrameLayout
+import com.chaners.combinedstatus.settings.CombinedStatusFeatureSettings
 import com.chaners.combinedstatus.settings.CombinedStatusVisualSettings
 import io.github.libxposed.api.XposedInterface.HookHandle
 import io.github.libxposed.api.XposedInterface.Hooker
@@ -23,6 +25,7 @@ import java.util.WeakHashMap
 internal object SystemUiNativeCombinedParticipantOwner {
     const val SLOT = "combined_status"
     private const val ZERO_SLOT_WIDTH = 0
+    private const val MAX_NATIVE_VISIBLE_STATE_PROBE = 8
 
     private const val CONTROLLER_IMPL =
         "com.android.systemui.statusbar.phone.ui.StatusBarIconControllerImpl"
@@ -34,6 +37,8 @@ internal object SystemUiNativeCombinedParticipantOwner {
         "com.android.systemui.statusbar.pipeline.icons.shared.model.ModernStatusBarViewCreator"
     private const val MODERN_VIEW =
         "com.android.systemui.statusbar.pipeline.shared.ui.view.ModernStatusBarView"
+    private const val STATUS_BAR_ICON_VIEW =
+        "com.android.systemui.statusbar.StatusBarIconView"
     private const val BINDING =
         "com.android.systemui.statusbar.pipeline.shared.ui.binder.ModernStatusBarViewBinding"
     private const val BINDABLE_HOLDER =
@@ -54,13 +59,19 @@ internal object SystemUiNativeCombinedParticipantOwner {
     private var renderController: CombinedStatusRenderController? = null
     private var hostRef: WeakReference<ViewGroup>? = null
     private var eventSink: ((String) -> Unit)? = null
+    private var nativeStateIcon: Int? = null
+    private var nativeStateDot: Int? = null
+    private var nativeStateHidden: Int? = null
+    private var nativeSetRemoveMethod: Method? = null
+    private var nativeGetRemoveFlagMethod: Method? = null
+    private var transitionProbeEnabled: (() -> Boolean)? = null
     private val bindingStates =
         Collections.synchronizedMap(
             WeakHashMap<FrameLayout, BindingState>(),
         )
     private var targetBindingState: BindingState? = null
     private var batteryRef: WeakReference<View>? = null
-    private var handoffSink: ((Boolean) -> Unit)? = null
+    private var handoffSink: ((Boolean) -> Boolean)? = null
     private var pendingPreDrawRoot: WeakReference<View>? = null
     private var pendingPreDrawListener: ViewTreeObserver.OnPreDrawListener? = null
     private var modelReady = false
@@ -68,8 +79,10 @@ internal object SystemUiNativeCombinedParticipantOwner {
     private var currentSurface = SystemUiSceneStateSource.Surface.UNKNOWN
     private var handoffPending = false
     private var handoffCommitted = false
+    private var handoffValidated = false
     private var modelReadyLogged = false
     private var unlockedGeometryLogged = false
+    private var featureEnabled = false
     private var registryRestored = false
     private var injected = false
     private var failureReason: String? = null
@@ -83,9 +96,15 @@ internal object SystemUiNativeCombinedParticipantOwner {
         classLoader: ClassLoader,
         onEvent: ((String) -> Unit)? = null,
         onSlotOrderResult: ((NativeStatusBarSlotReservation.Result) -> Unit)? = null,
+        isTransitionProbeEnabled: () -> Boolean = { false },
     ): InstallResult {
-        if (constructorHook != null) return InstallResult.AlreadyInstalled
+        if (constructorHook != null) {
+            eventSink = onEvent
+            transitionProbeEnabled = isTransitionProbeEnabled
+            return InstallResult.AlreadyInstalled
+        }
         eventSink = onEvent
+        transitionProbeEnabled = isTransitionProbeEnabled
 
         val controllerClass =
             classOrNull(CONTROLLER_IMPL, classLoader)
@@ -105,6 +124,9 @@ internal object SystemUiNativeCombinedParticipantOwner {
         val bindingClass =
             classOrNull(BINDING, classLoader)
                 ?: return InstallResult.Failure("binding-class-missing")
+        val statusBarIconViewClass =
+            classOrNull(STATUS_BAR_ICON_VIEW, classLoader)
+                ?: return InstallResult.Failure("status-bar-icon-view-class-missing")
         val function0Class =
             classOrNull(FUNCTION0, classLoader)
                 ?: return InstallResult.Failure("function0-class-missing")
@@ -117,6 +139,66 @@ internal object SystemUiNativeCombinedParticipantOwner {
         ) {
             return InstallResult.Failure("proxy-contract-mismatch")
         }
+
+        val visibilityStateMethod =
+            bindingClass.methods
+                .firstOrNull { method ->
+                    method.name == "onVisibilityStateChanged" &&
+                        method.parameterTypes.size == 1 &&
+                        method.parameterTypes[0] == Int::class.javaPrimitiveType &&
+                        method.returnType == Void.TYPE
+                }
+                ?: return InstallResult.Failure(
+                    "binding-visibility-state-contract-missing",
+                )
+        val resolvedVisibilityStates =
+            resolveNativeVisibilityStates(statusBarIconViewClass)
+                ?: return InstallResult.Failure(
+                    "status-bar-visible-state-contract-missing",
+                )
+        val setRemoveMethod =
+            modernViewClass.methods
+                .firstOrNull { method ->
+                    method.name == "setRemove" &&
+                        method.parameterTypes.contentEquals(
+                            arrayOf(Boolean::class.javaPrimitiveType),
+                        ) &&
+                        method.returnType == Void.TYPE
+                }
+                ?.apply { isAccessible = true }
+                ?: return InstallResult.Failure(
+                    "modern-view-set-remove-contract-missing",
+                )
+        val getRemoveFlagMethod =
+            modernViewClass.methods
+                .firstOrNull { method ->
+                    method.name == "getRemoveFlag" &&
+                        method.parameterTypes.isEmpty() &&
+                        method.returnType == Boolean::class.javaPrimitiveType
+                }
+                ?.apply { isAccessible = true }
+                ?: return InstallResult.Failure(
+                    "modern-view-get-remove-flag-contract-missing",
+                )
+        nativeSetRemoveMethod = setRemoveMethod
+        nativeGetRemoveFlagMethod = getRemoveFlagMethod
+
+        val resolvedStateIcon = resolvedVisibilityStates.icon
+        val resolvedStateDot = resolvedVisibilityStates.dot
+        val resolvedStateHidden = resolvedVisibilityStates.hidden
+        nativeStateIcon = resolvedStateIcon
+        nativeStateDot = resolvedStateDot
+        nativeStateHidden = resolvedStateHidden
+        eventSink?.invoke(
+            "nativeCombinedParticipant bindingContract " +
+                "visibilityMethod=" + visibilityStateMethod.name +
+                "(int):void" +
+                " iconState=" + resolvedStateIcon +
+                " dotState=" + resolvedStateDot +
+                " hiddenState=" + resolvedStateHidden +
+                " removeLifecycle=setRemove(boolean)+getRemoveFlag() " +
+                "nativeGeometryWrites=0",
+        )
 
         val constructor =
             controllerClass.declaredConstructors
@@ -374,6 +456,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
         handoffCommitted = false
         modelReadyLogged = false
         unlockedGeometryLogged = false
+        featureEnabled = false
         eventSink = null
         return true
     }
@@ -526,7 +609,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
     @Synchronized
     fun attachHidden(
         host: Any,
-        onHandoffStateChanged: ((Boolean) -> Unit)? = null,
+        onHandoffStateChanged: ((Boolean) -> Boolean)? = null,
     ): AttachResult {
         if (!injected) {
             return AttachResult.Failure(failureReason ?: "participant-not-injected")
@@ -637,6 +720,8 @@ internal object SystemUiNativeCombinedParticipantOwner {
         renderController?.updateVisualSettings(
             RuntimeVisualPreferencesOwner.currentSettings(),
         )
+        featureEnabled =
+            RuntimeFeaturePreferencesOwner.currentSettings().enabled
 
         render.measure(
             View.MeasureSpec.makeMeasureSpec(battery.width, View.MeasureSpec.EXACTLY),
@@ -789,54 +874,6 @@ internal object SystemUiNativeCombinedParticipantOwner {
         )
     }
 
-    fun onNativeBatteryHideChanged(hidden: Boolean) {
-        val root = synchronized(this) { rootRef?.get() } ?: return
-        if (Looper.myLooper() !== Looper.getMainLooper()) {
-            root.post {
-                onNativeBatteryHideChanged(hidden)
-            }
-            return
-        }
-
-        synchronized(this) {
-            if (!handoffCommitted || rootRef?.get() !== root) {
-                return
-            }
-            val render = renderViewRef?.get() ?: return
-            val targetWidth =
-                resolveIslandSlotWidth(
-                    nativeBatteryHidden = hidden,
-                    visualWidth = render.measuredWidth,
-                )
-            val layoutParams = root.layoutParams ?: return
-            val previousWidth = layoutParams.width
-            if (previousWidth == targetWidth) {
-                return
-            }
-            layoutParams.width = targetWidth
-            root.layoutParams = layoutParams
-            requestNativeLayout(root)
-            eventSink?.invoke(
-                "nativeCombinedParticipant islandSlotOccupancy " +
-                    "nativeBatteryHidden=" + hidden +
-                    " previousWidth=" + previousWidth +
-                    " targetWidth=" + targetWidth +
-                    " visualWidth=" + render.measuredWidth +
-                    " customRootWidthWrite=true peerNativeGeometryWrites=0",
-            )
-        }
-    }
-
-    internal fun resolveIslandSlotWidth(
-        nativeBatteryHidden: Boolean,
-        visualWidth: Int,
-    ): Int =
-        if (nativeBatteryHidden && visualWidth > 0) {
-            visualWidth
-        } else {
-            ZERO_SLOT_WIDTH
-        }
-
     @Synchronized
     fun onPresentationStateChanged(trace: RuntimeRenderTrace? = null) {
         val update =
@@ -848,6 +885,116 @@ internal object SystemUiNativeCombinedParticipantOwner {
             modelReady = true
         }
         reconcileVisibleHandoff("presentation")
+    }
+
+    @Synchronized
+    fun onFeatureSettingsChanged(settings: CombinedStatusFeatureSettings) {
+        val root = rootRef?.get()
+        if (
+            root != null &&
+            Looper.myLooper() !== Looper.getMainLooper()
+        ) {
+            root.post {
+                onFeatureSettingsChanged(settings)
+            }
+            return
+        }
+        if (featureEnabled == settings.enabled) {
+            return
+        }
+        featureEnabled = settings.enabled
+        if (featureEnabled) {
+            if (!resumeValidatedHandoff()) {
+                reconcileVisibleHandoff("feature-enabled")
+            }
+        } else {
+            suspendVisibleHandoff("feature-disabled")
+        }
+    }
+
+    private fun resumeValidatedHandoff(): Boolean {
+        if (!handoffValidated || !modelReady || !tintReady) {
+            return false
+        }
+        val root = rootRef?.get() ?: return false
+        val bindingState = targetBindingState ?: return false
+        val render = renderViewRef?.get() ?: return false
+        val parent = root.parent as? ViewGroup ?: return false
+        if (!root.isAttachedToWindow || render.measuredWidth <= 0 || render.measuredHeight <= 0) {
+            return false
+        }
+
+        if (
+            !isActiveSlotHandoffReady(
+                rootLayoutWidth = root.layoutParams?.width ?: Int.MIN_VALUE,
+                rootLayoutHeight = root.layoutParams?.height ?: Int.MIN_VALUE,
+                renderMeasuredWidth = render.measuredWidth,
+                renderMeasuredHeight = render.measuredHeight,
+                parentClipsChildren = parent.clipChildren,
+                renderLeft = render.left,
+                renderRight = render.right,
+            )
+        ) {
+            return false
+        }
+
+        removePendingPreDraw()
+        // Keep synchronous presentation callbacks produced by suppression inside
+        // this already-owned handoff transaction. Without this gate a callback
+        // can re-enter reconcileVisibleHandoff() before handoffCommitted becomes
+        // true, arm a bootstrap pre-draw, and roll back the warm native APPEAR.
+        handoffPending = true
+        try {
+            val removeFlag =
+                resolveNativeFeatureRemoveFlag(
+                    featureEnabled = true,
+                    handoffValidated = handoffValidated,
+                ) ?: return false
+
+            // HyperOS native mobile participants pair their semantic visibility with
+            // ModernStatusBarView.setRemove(...). Reuse the same contract so the
+            // container owns APPEAR/MOVE instead of treating this as measurement-only.
+            val suppressionCommitted = handoffSink?.invoke(true) == true
+            if (!suppressionCommitted) {
+                eventSink?.invoke(
+                    "nativeCombinedParticipant handoffResumeFail " +
+                        "source=feature-enabled reason=suppression-transaction-failed " +
+                        "failNative=true nativeGeometryWrites=0",
+                )
+                return false
+            }
+            root.visibility = View.VISIBLE
+            if (!setNativeRemoveFlag(root, removeFlag)) {
+                bindingState.visible = false
+                root.visibility = View.GONE
+                handoffSink?.invoke(false)
+                requestNativeLayout(root)
+                eventSink?.invoke(
+                    "nativeCombinedParticipant handoffResumeFail " +
+                        "source=feature-enabled reason=set-remove-failed " +
+                        "failNative=true nativeGeometryWrites=0",
+                )
+                return false
+            }
+            bindingState.visible = true
+            handoffCommitted = true
+            requestNativeLayout(root)
+            startMasterSwitchTransitionProbe(
+                direction = "enable",
+                root = root,
+            )
+            eventSink?.invoke(
+                "nativeCombinedParticipant handoffResume " +
+                    "source=feature-enabled validated=true " +
+                    "mode=native-remove-lifecycle rootShown=" + root.isShown +
+                    " visibilityAuthority=binding+removeFlag" +
+                    " nativeRemoveFlag=" + readNativeRemoveFlag(root) +
+                    " nativeGeometryWrites=0",
+            )
+            return true
+        } finally {
+            handoffPending = false
+        }
     }
 
     @Synchronized
@@ -879,6 +1026,167 @@ internal object SystemUiNativeCombinedParticipantOwner {
             tintReady = true
         }
         reconcileVisibleHandoff("tint-fallback")
+    }
+
+    @Synchronized
+    private fun onNativeBindingVisibilityStateChanged(
+        bindingState: BindingState,
+        state: Int,
+        parameterCount: Int,
+    ) {
+        val previous = bindingState.visibleState
+        bindingState.visibleState = state
+
+        val root =
+            bindingStates.entries
+                .firstOrNull { (_, candidate) -> candidate === bindingState }
+                ?.key
+        val render =
+            root?.let { candidateRoot ->
+                renderViewRef
+                    ?.get()
+                    ?.takeIf { candidate -> candidate.parent === candidateRoot }
+                    ?: (0 until candidateRoot.childCount)
+                        .asSequence()
+                        .map(candidateRoot::getChildAt)
+                        .filterIsInstance<CombinedStatusRenderView>()
+                        .firstOrNull()
+            }
+        val dot =
+            root?.let { candidateRoot ->
+                (0 until candidateRoot.childCount)
+                    .asSequence()
+                    .map(candidateRoot::getChildAt)
+                    .firstOrNull { child ->
+                        child.javaClass.name == STATUS_BAR_ICON_VIEW
+                    }
+            }
+
+        val resolved =
+            resolveNativeContentVisibility(
+                state = state,
+                iconState = nativeStateIcon,
+                dotState = nativeStateDot,
+                hiddenState = nativeStateHidden,
+            )
+        if (resolved != null) {
+            render?.visibility = resolved.renderVisibility
+            dot?.visibility = resolved.dotVisibility
+        } else {
+            render?.visibility = View.INVISIBLE
+            dot?.visibility = View.INVISIBLE
+        }
+
+        if (previous != state) {
+            eventSink?.invoke(
+                "nativeCombinedParticipant visibilityState " +
+                    "state=" + state +
+                    " previous=" + (previous ?: "none") +
+                    " parameterCount=" + parameterCount +
+                    " rootAlpha=" + (root?.alpha ?: -1f) +
+                    " rootScale=" +
+                    (root?.scaleX ?: -1f) + "x" + (root?.scaleY ?: -1f) +
+                    " rootTranslation=" +
+                    (root?.translationX ?: Float.NaN) + "," +
+                    (root?.translationY ?: Float.NaN) +
+                    " renderVisibility=" +
+                    (render?.let { visibilityName(it.visibility) } ?: "none") +
+                    " dotVisibility=" +
+                    (dot?.let { visibilityName(it.visibility) } ?: "none") +
+                    " nativeGeometryWrites=0",
+            )
+            root?.postOnAnimation {
+                eventSink?.invoke(
+                    "nativeCombinedParticipant visibilityStateFrame " +
+                        "state=" + state +
+                        " rootAlpha=" + root.alpha +
+                        " rootScale=" + root.scaleX + "x" + root.scaleY +
+                        " rootTranslation=" +
+                        root.translationX + "," + root.translationY +
+                        " nativeGeometryWrites=0",
+                )
+            }
+        }
+    }
+
+    internal fun resolveNativeContentVisibility(
+        state: Int,
+        iconState: Int?,
+        dotState: Int?,
+        hiddenState: Int?,
+    ): NativeContentVisibility? {
+        if (iconState != null && state == iconState) {
+            return NativeContentVisibility(
+                renderVisibility = View.VISIBLE,
+                dotVisibility = View.GONE,
+            )
+        }
+        if (dotState != null && state == dotState) {
+            return NativeContentVisibility(
+                renderVisibility = View.INVISIBLE,
+                dotVisibility = View.VISIBLE,
+            )
+        }
+        if (hiddenState != null && state == hiddenState) {
+            return NativeContentVisibility(
+                renderVisibility = View.INVISIBLE,
+                dotVisibility = View.INVISIBLE,
+            )
+        }
+        return null
+    }
+
+    private fun resolveNativeVisibilityStates(
+        statusBarIconViewClass: Class<*>,
+    ): NativeVisibilityStates? {
+        val stateNameMethod =
+            statusBarIconViewClass.methods
+                .firstOrNull { method ->
+                    method.name == "getVisibleStateString" &&
+                        method.parameterTypes.contentEquals(
+                            arrayOf(Int::class.javaPrimitiveType),
+                        ) &&
+                        method.returnType == String::class.java &&
+                        java.lang.reflect.Modifier.isStatic(method.modifiers)
+                }
+                ?: return null
+        stateNameMethod.isAccessible = true
+        return resolveNativeVisibilityStates { candidate ->
+            runCatching {
+                stateNameMethod.invoke(null, candidate) as? String
+            }.getOrNull()
+        }
+    }
+
+    internal fun resolveNativeVisibilityStates(
+        stateName: (Int) -> String?,
+    ): NativeVisibilityStates? {
+        var icon: Int? = null
+        var dot: Int? = null
+        var hidden: Int? = null
+
+        for (candidate in 0..MAX_NATIVE_VISIBLE_STATE_PROBE) {
+            when (stateName(candidate)?.trim()?.uppercase()) {
+                "ICON" -> icon = candidate
+                "DOT" -> dot = candidate
+                "HIDDEN" -> hidden = candidate
+            }
+            if (icon != null && dot != null && hidden != null) {
+                break
+            }
+        }
+
+        val resolvedIcon = icon ?: return null
+        val resolvedDot = dot ?: return null
+        val resolvedHidden = hidden ?: return null
+        if (setOf(resolvedIcon, resolvedDot, resolvedHidden).size != 3) {
+            return null
+        }
+        return NativeVisibilityStates(
+            icon = resolvedIcon,
+            dot = resolvedDot,
+            hidden = resolvedHidden,
+        )
     }
 
     @Synchronized
@@ -920,6 +1228,139 @@ internal object SystemUiNativeCombinedParticipantOwner {
         reconcileVisibleHandoff("native-tint")
     }
 
+    private fun startMasterSwitchTransitionProbe(
+        direction: String,
+        root: View,
+    ) {
+        val sink = eventSink ?: return
+        val enabled = transitionProbeEnabled ?: return
+        if (!enabled()) {
+            return
+        }
+        val group = root.parent as? ViewGroup ?: return
+        val tracked = mutableListOf(TransitionDiagnosticProbe.TrackedView.create(SLOT, root))
+        for (index in 0 until group.childCount) {
+            val child = group.getChildAt(index)
+            if (child === root) {
+                continue
+            }
+            val slot = NativeParticipantRuntimeAccess.slotOf(child) ?: continue
+            if (slot == "wifi" || slot == "mobile" || slot == "stacked_mobile") {
+                tracked += TransitionDiagnosticProbe.TrackedView.create(slot, child)
+            }
+        }
+        TransitionDiagnosticProbe.start(
+            direction = direction,
+            tracked = tracked,
+            onEvent = sink,
+            isProbeEnabled = enabled,
+        )
+    }
+
+    private fun suspendVisibleHandoff(source: String) {
+        removePendingPreDraw()
+        if (handoffPending) {
+            return
+        }
+
+        val root = rootRef?.get()
+        val bindingState = targetBindingState
+        val wasCommitted = handoffCommitted
+
+        handoffPending = true
+        try {
+            if (wasCommitted && handoffSink?.invoke(false) != true) {
+                eventSink?.invoke(
+                    "nativeCombinedParticipant featureGateFail source=" + source +
+                        " reason=native-restore-transaction-failed " +
+                        "failNative=true nativeGeometryWrites=0",
+                )
+                return
+            }
+
+            val bindingVisibilityChanged = bindingState?.visible == true
+            if (bindingVisibilityChanged) {
+                bindingState?.visible = false
+            }
+
+            val nativeRemoveFlag =
+                resolveNativeFeatureRemoveFlag(
+                    featureEnabled = false,
+                    handoffValidated = handoffValidated,
+                )
+            val nativeRemoveApplied =
+                if (
+                    root != null &&
+                    bindingState != null &&
+                    nativeRemoveFlag != null
+                ) {
+                    setNativeRemoveFlag(root, nativeRemoveFlag)
+                } else {
+                    false
+                }
+
+            var bootstrapRootChanged = false
+            if (
+                root != null &&
+                (
+                    nativeRemoveFlag == null ||
+                        !nativeRemoveApplied
+                )
+            ) {
+                if (root.visibility != View.GONE) {
+                    root.visibility = View.GONE
+                    bootstrapRootChanged = true
+                }
+            }
+
+            handoffCommitted = false
+            if (
+                root != null &&
+                (
+                    bindingVisibilityChanged ||
+                        nativeRemoveApplied ||
+                        bootstrapRootChanged
+                )
+            ) {
+                requestNativeLayout(root)
+            }
+            if (root != null && source == "feature-disabled") {
+                startMasterSwitchTransitionProbe(
+                    direction = "disable",
+                    root = root,
+                )
+            }
+
+            if (
+                wasCommitted ||
+                bindingVisibilityChanged ||
+                nativeRemoveApplied ||
+                bootstrapRootChanged
+            ) {
+                eventSink?.invoke(
+                    "nativeCombinedParticipant featureGate source=" + source +
+                        " enabled=false" +
+                        " previousHandoff=" + wasCommitted +
+                        " visibilityAuthority=" +
+                        (
+                            if (nativeRemoveApplied) {
+                                "binding+removeFlag"
+                            } else {
+                                "bootstrap-root"
+                            }
+                        ) +
+                        " nativeRemoveFlag=" +
+                        (root?.let(::readNativeRemoveFlag) ?: "none") +
+                        " shellLayoutWidth=" +
+                        (root?.layoutParams?.width ?: Int.MIN_VALUE) +
+                        " nativeGeometryWrites=0 peerNativeGeometryWrites=0",
+                )
+            }
+        } finally {
+            handoffPending = false
+        }
+    }
+
     private fun detailedTintReady(
         nativeTint: Int?,
         batteryTint: CombinedStatusTintState?,
@@ -953,6 +1394,11 @@ internal object SystemUiNativeCombinedParticipantOwner {
     }
 
     private fun reconcileVisibleHandoff(source: String) {
+        if (!featureEnabled) {
+            suspendVisibleHandoff(source)
+            return
+        }
+
         val root = rootRef?.get() ?: return
         val bindingState = targetBindingState ?: return
         if (handoffCommitted) {
@@ -998,8 +1444,8 @@ internal object SystemUiNativeCombinedParticipantOwner {
                 override fun onPreDraw(): Boolean {
                     removePendingPreDraw()
                     synchronized(this@SystemUiNativeCombinedParticipantOwner) {
-                        handoffPending = false
-                        if (
+                        try {
+                            if (
                             rootRef?.get() !== root ||
                             targetBindingState !== bindingState
                         ) {
@@ -1048,8 +1494,42 @@ internal object SystemUiNativeCombinedParticipantOwner {
                                 bridgeReady
 
                         if (ready) {
+                            // The zero-slot bridge is bootstrap-only. Once the native
+                            // battery slot is synchronously released by HyperOS, promote
+                            // this module-owned shell to the native 105px visual width so
+                            // SystemUI owns normal APPEAR/DISAPPEAR transform geometry.
+                            bindingState.visible = false
+                            root.visibility = View.GONE
+                            val suppressionCommitted = handoffSink?.invoke(true) == true
+                            val shellPromoted =
+                                suppressionCommitted &&
+                                    promoteActiveShellGeometry(
+                                        root = root,
+                                        visualWidth = render?.measuredWidth ?: -1,
+                                        visualHeight = render?.measuredHeight ?: -1,
+                                    )
+                            if (!suppressionCommitted || !shellPromoted) {
+                                handoffSink?.invoke(false)
+                                bindingState.visible = false
+                                root.visibility = View.GONE
+                                requestNativeLayout(root)
+                                eventSink?.invoke(
+                                    "nativeCombinedParticipant handoffRollback " +
+                                        "reason=" +
+                                        if (!suppressionCommitted) {
+                                            "suppression-transaction-failed"
+                                        } else {
+                                            "active-shell-promotion-failed"
+                                        } +
+                                        " failNative=true nativeGeometryWrites=0",
+                                )
+                                return@synchronized
+                            }
+                            bindingState.visible = true
+                            root.visibility = View.VISIBLE
                             handoffCommitted = true
-                            handoffSink?.invoke(true)
+                            handoffValidated = true
+                            requestNativeLayout(root)
                             eventSink?.invoke(
                                 "nativeCombinedParticipant handoffCommit " +
                                     "mode=" + resolvedMode.name +
@@ -1067,7 +1547,9 @@ internal object SystemUiNativeCombinedParticipantOwner {
                                     (render?.right ?: Int.MIN_VALUE) +
                                     " parentClipChildren=" +
                                     (parent?.clipChildren ?: true) +
-                                    " bridge=zero-slot-to-native-battery " +
+                                    " bridge=zero-slot-bootstrap-to-native-slot " +
+                                    "shellLayoutWidth=" +
+                                    (root.layoutParams?.width ?: Int.MIN_VALUE) + " " +
                                     "iconVisible=true overlayActive=false " +
                                     "peerNativeGeometryWrites=0",
                             )
@@ -1099,6 +1581,9 @@ internal object SystemUiNativeCombinedParticipantOwner {
                                     " bridgeReady=" + bridgeReady +
                                     " overlayActive=true nativeGeometryWrites=0",
                             )
+                        }
+                        } finally {
+                            handoffPending = false
                         }
                     }
                     return true
@@ -1132,6 +1617,48 @@ internal object SystemUiNativeCombinedParticipantOwner {
             rootScreenX == batteryScreenX &&
             renderLeft == 0 &&
             renderRight == expectedVisualWidth
+
+    internal fun isActiveSlotHandoffReady(
+        rootLayoutWidth: Int,
+        rootLayoutHeight: Int,
+        renderMeasuredWidth: Int,
+        renderMeasuredHeight: Int,
+        parentClipsChildren: Boolean,
+        renderLeft: Int,
+        renderRight: Int,
+    ): Boolean =
+        rootLayoutWidth > 0 &&
+            rootLayoutHeight > 0 &&
+            rootLayoutWidth == renderMeasuredWidth &&
+            rootLayoutHeight == renderMeasuredHeight &&
+            !parentClipsChildren &&
+            renderLeft == 0 &&
+            renderRight == rootLayoutWidth
+
+    private fun promoteActiveShellGeometry(
+        root: View,
+        visualWidth: Int,
+        visualHeight: Int,
+    ): Boolean {
+        if (visualWidth <= 0 || visualHeight <= 0) {
+            return false
+        }
+        val layoutParams = root.layoutParams ?: return false
+        var changed = false
+        if (layoutParams.width != visualWidth) {
+            layoutParams.width = visualWidth
+            changed = true
+        }
+        if (layoutParams.height != visualHeight) {
+            layoutParams.height = visualHeight
+            changed = true
+        }
+        if (changed) {
+            root.layoutParams = layoutParams
+        }
+        return root.layoutParams?.width == visualWidth &&
+            root.layoutParams?.height == visualHeight
+    }
 
     internal enum class HandoffMode {
         BLOCKED,
@@ -1170,6 +1697,40 @@ internal object SystemUiNativeCombinedParticipantOwner {
         root.requestLayout()
         (root.parent as? View)?.requestLayout()
     }
+
+    private fun setNativeRemoveFlag(
+        root: View,
+        remove: Boolean,
+    ): Boolean {
+        val method = nativeSetRemoveMethod ?: return false
+        if (!method.declaringClass.isInstance(root)) {
+            return false
+        }
+        return runCatching {
+            method.invoke(root, remove)
+            readNativeRemoveFlag(root) == remove
+        }.getOrDefault(false)
+    }
+
+    private fun readNativeRemoveFlag(root: View): Boolean? {
+        val method = nativeGetRemoveFlagMethod ?: return null
+        if (!method.declaringClass.isInstance(root)) {
+            return null
+        }
+        return runCatching {
+            method.invoke(root) as? Boolean
+        }.getOrNull()
+    }
+
+    internal fun resolveNativeFeatureRemoveFlag(
+        featureEnabled: Boolean,
+        handoffValidated: Boolean,
+    ): Boolean? =
+        if (handoffValidated) {
+            !featureEnabled
+        } else {
+            null
+        }
 
     private fun resolveCurrentHandles(): NativeParticipantRuntimeAccess.Handles? {
         val host = hostRef?.get() ?: return null
@@ -1234,6 +1795,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
 
     private fun <T> reset(result: T): T {
         removePendingPreDraw()
+        TransitionDiagnosticProbe.stop()
         if (handoffCommitted) {
             handoffSink?.invoke(false)
         }
@@ -1254,6 +1816,12 @@ internal object SystemUiNativeCombinedParticipantOwner {
         handoffPending = false
         handoffCommitted = false
         eventSink = null
+        nativeStateIcon = null
+        nativeStateDot = null
+        nativeStateHidden = null
+        nativeSetRemoveMethod = null
+        nativeGetRemoveFlagMethod = null
+        transitionProbeEnabled = null
         modelReadyLogged = false
         unlockedGeometryLogged = false
         renderController = null
@@ -1382,6 +1950,18 @@ internal object SystemUiNativeCombinedParticipantOwner {
                 when (method.name) {
                     "getShouldIconBeVisible" -> bindingState.visible
                     "isCollecting" -> true
+                    "onVisibilityStateChanged" -> {
+                        (args?.firstOrNull() as? Number)
+                            ?.toInt()
+                            ?.let { state ->
+                                onNativeBindingVisibilityStateChanged(
+                                    bindingState = bindingState,
+                                    state = state,
+                                    parameterCount = method.parameterCount,
+                                )
+                            }
+                        null
+                    }
                     "onIconTintChanged" -> {
                         (args?.firstOrNull() as? Number)
                             ?.toInt()
@@ -1518,10 +2098,209 @@ internal object SystemUiNativeCombinedParticipantOwner {
         data class Failure(val reason: String) : InstallResult
     }
 
+    private object TransitionDiagnosticProbe {
+        private var generation = 0
+        private var activeRoot = WeakReference<View>(null)
+        private var listener: ViewTreeObserver.OnPreDrawListener? = null
+        private var timeout: Runnable? = null
+
+        fun start(
+            direction: String,
+            tracked: List<TrackedView>,
+            onEvent: (String) -> Unit,
+            isProbeEnabled: () -> Boolean,
+        ) {
+            stop()
+            if (!isProbeEnabled() || tracked.isEmpty()) {
+                return
+            }
+            generation += 1
+            val currentGeneration = generation
+            val root = tracked.first().view.get()?.rootView ?: return
+            val observer = root.viewTreeObserver
+            if (!observer.isAlive) {
+                return
+            }
+            val startedAt = SystemClock.uptimeMillis()
+            var frame = 0
+            var samples = 0
+            var previous = ""
+
+            val nextListener =
+                ViewTreeObserver.OnPreDrawListener {
+                    if (!isProbeEnabled()) {
+                        stop()
+                        return@OnPreDrawListener true
+                    }
+                    frame += 1
+                    val snapshot =
+                        tracked.joinToString(" ") { item ->
+                            item.snapshot()
+                        }
+                    if (snapshot != previous && samples < MAX_SAMPLES) {
+                        previous = snapshot
+                        samples += 1
+                        onEvent(
+                            "nativeCombinedParticipant transitionSample " +
+                                "direction=" + direction +
+                                " frame=" + frame +
+                                " elapsedMs=" +
+                                (SystemClock.uptimeMillis() - startedAt) +
+                                " " + snapshot +
+                                " sample=" + samples + "/" + MAX_SAMPLES +
+                                " geometryWrites=0",
+                        )
+                    }
+                    if (
+                        currentGeneration == generation &&
+                        SystemClock.uptimeMillis() - startedAt >= FOLLOW_DURATION_MS
+                    ) {
+                        stop()
+                    }
+                    true
+                }
+            val nextTimeout =
+                Runnable {
+                    if (currentGeneration == generation) {
+                        stop()
+                    }
+                }
+
+            listener = nextListener
+            timeout = nextTimeout
+            activeRoot = WeakReference(root)
+            observer.addOnPreDrawListener(nextListener)
+            root.postDelayed(nextTimeout, FOLLOW_DURATION_MS)
+        }
+
+        fun stop() {
+            val root = activeRoot.get()
+            val currentListener = listener
+            val currentTimeout = timeout
+            if (root != null) {
+                if (currentListener != null) {
+                    val observer = root.viewTreeObserver
+                    if (observer.isAlive) {
+                        observer.removeOnPreDrawListener(currentListener)
+                    }
+                }
+                if (currentTimeout != null) {
+                    root.removeCallbacks(currentTimeout)
+                }
+            }
+            listener = null
+            timeout = null
+            activeRoot = WeakReference(null)
+        }
+
+        class TrackedView private constructor(
+            val slot: String,
+            val view: WeakReference<View>,
+            private val visibleStateGetter: Method?,
+            private val removeFlagGetter: Method?,
+        ) {
+            fun snapshot(): String {
+                val target = view.get() ?: return slot + "={released}"
+                val visibleState =
+                    visibleStateGetter
+                        ?.let { method ->
+                            runCatching { method.invoke(target) as? Number }
+                                .getOrNull()
+                                ?.toInt()
+                        }
+                val removeFlag =
+                    removeFlagGetter
+                        ?.let { method ->
+                            runCatching { method.invoke(target) as? Boolean }
+                                .getOrNull()
+                        }
+                return slot + "={" +
+                    "w=" + target.width +
+                    ",h=" + target.height +
+                    ",a=" + target.alpha +
+                    ",sx=" + target.scaleX +
+                    ",sy=" + target.scaleY +
+                    ",px=" + target.pivotX +
+                    ",py=" + target.pivotY +
+                    ",tx=" + target.translationX +
+                    ",ty=" + target.translationY +
+                    ",v=" + target.visibility +
+                    ",state=" + (visibleState ?: "none") +
+                    ",remove=" + (removeFlag ?: "none") +
+                    "}"
+            }
+
+            companion object {
+                fun create(
+                    slot: String,
+                    view: View,
+                ): TrackedView {
+                    val methods =
+                        generateSequence<Class<*>>(view.javaClass) { clazz ->
+                            clazz.superclass
+                        }
+                            .flatMap { clazz -> clazz.declaredMethods.asSequence() }
+                            .toList()
+                    val visibleStateGetter =
+                        methods
+                            .firstOrNull { method ->
+                                method.name == "getVisibleState" &&
+                                    method.parameterCount == 0 &&
+                                    Number::class.java.isAssignableFrom(
+                                        method.returnType.boxed(),
+                                    )
+                            }
+                            ?.apply { isAccessible = true }
+                    val removeFlagGetter =
+                        methods
+                            .firstOrNull { method ->
+                                method.name == "getRemoveFlag" &&
+                                    method.parameterCount == 0 &&
+                                    (
+                                        method.returnType == Boolean::class.javaPrimitiveType ||
+                                            method.returnType == Boolean::class.javaObjectType
+                                    )
+                            }
+                            ?.apply { isAccessible = true }
+                    return TrackedView(
+                        slot = slot,
+                        view = WeakReference(view),
+                        visibleStateGetter = visibleStateGetter,
+                        removeFlagGetter = removeFlagGetter,
+                    )
+                }
+
+                private fun Class<*>.boxed(): Class<*> =
+                    when (this) {
+                        Integer.TYPE -> Integer::class.java
+                        java.lang.Long.TYPE -> java.lang.Long::class.java
+                        java.lang.Short.TYPE -> java.lang.Short::class.java
+                        java.lang.Byte.TYPE -> java.lang.Byte::class.java
+                        else -> this
+                    }
+            }
+        }
+
+        private const val MAX_SAMPLES = 16
+        private const val FOLLOW_DURATION_MS = 900L
+    }
+
     private class BindingState(
         @Volatile var visible: Boolean = false,
         @Volatile var iconTint: Int? = null,
+        @Volatile var visibleState: Int? = null,
         @Volatile var tintEventLogged: Boolean = false,
+    )
+
+    internal data class NativeContentVisibility(
+        val renderVisibility: Int,
+        val dotVisibility: Int,
+    )
+
+    internal data class NativeVisibilityStates(
+        val icon: Int,
+        val dot: Int,
+        val hidden: Int,
     )
 
     internal sealed interface AttachResult {
