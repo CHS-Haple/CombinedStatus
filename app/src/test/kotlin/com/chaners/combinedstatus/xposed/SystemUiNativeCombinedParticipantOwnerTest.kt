@@ -289,24 +289,27 @@ class SystemUiNativeCombinedParticipantOwnerTest {
     }
 
     @Test
-    fun nativeBatterySlotTranslationUsesSiblingLayoutCoordinates() {
+    fun nativeSlotTranslationUsesStableStatusIconBoundary() {
         assertEquals(
             478f,
-            SystemUiNativeCombinedParticipantOwner.resolveNativeBatterySlotTranslationX(
-                statusIconsLeft = 4,
-                batteryLeft = 482,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeSlotTranslationX(
+                statusIconsWidth = 478,
                 rootLeft = 0,
             ),
-            0f,
         )
         assertEquals(
-            448f,
-            SystemUiNativeCombinedParticipantOwner.resolveNativeBatterySlotTranslationX(
-                statusIconsLeft = 4,
-                batteryLeft = 452,
+            478f,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeSlotTranslationX(
+                statusIconsWidth = 478,
                 rootLeft = 0,
             ),
-            0f,
+        )
+        assertEquals(
+            null,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeSlotTranslationX(
+                statusIconsWidth = 0,
+                rootLeft = 1,
+            ),
         )
     }
 
