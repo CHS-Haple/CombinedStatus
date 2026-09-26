@@ -13,7 +13,9 @@ internal data class CombinedStatusBatteryColorPreferences(
     val performance: CombinedStatusBatteryColorSource = CombinedStatusBatteryColorSource.SystemDefault,
     val low: CombinedStatusBatteryColorSource = CombinedStatusBatteryColorSource.SystemDefault,
 ) {
-    fun sourceFor(state: CombinedStatusBatterySemanticState): CombinedStatusBatteryColorSource =
+    fun sourceFor(
+        state: CombinedStatusBatterySemanticState,
+    ): CombinedStatusBatteryColorSource =
         when (state) {
             CombinedStatusBatterySemanticState.NORMAL -> normal
             CombinedStatusBatterySemanticState.CHARGING -> charging
@@ -30,18 +32,25 @@ internal object CombinedStatusBatteryColorPolicy {
         statusIconTint: Int,
         preferences: CombinedStatusBatteryColorPreferences =
             CombinedStatusBatteryColorPreferences(),
-    ): Int =
-        when (val source = preferences.sourceFor(state)) {
-            CombinedStatusBatteryColorSource.SystemDefault ->
-                if (state == CombinedStatusBatterySemanticState.NORMAL) {
-                    statusIconTint
-                } else {
-                    systemSemanticColor?.takeIf(::isVisibleColor) ?: statusIconTint
-                }
+    ): Int {
+        val systemDefault =
+            if (state == CombinedStatusBatterySemanticState.NORMAL) {
+                statusIconTint
+            } else {
+                systemSemanticColor
+                    ?.takeIf(::isVisibleColor)
+                    ?: statusIconTint
+            }
+        return when (val source = preferences.sourceFor(state)) {
+            CombinedStatusBatteryColorSource.SystemDefault -> systemDefault
             CombinedStatusBatteryColorSource.FollowStatusIcon -> statusIconTint
             is CombinedStatusBatteryColorSource.Custom ->
-                source.color.takeIf(::isVisibleColor) ?: statusIconTint
+                source.color
+                    .takeIf(::isVisibleColor)
+                    ?: systemDefault
         }
+    }
 
-    private fun isVisibleColor(color: Int): Boolean = (color ushr 24) != 0
+    private fun isVisibleColor(color: Int): Boolean =
+        color ushr 24 != 0
 }
