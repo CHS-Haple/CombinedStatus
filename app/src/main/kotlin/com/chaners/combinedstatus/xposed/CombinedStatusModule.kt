@@ -665,8 +665,6 @@ class CombinedStatusModule : XposedModule() {
                             log(Log.INFO, TAG, event)
                         }
                     },
-                    onNativeHideChanged =
-                        SystemUiNativeCombinedParticipantOwner::onNativeBatteryHideChanged,
                 )
         ) {
             SystemUiNativeBatterySuppressionOwner.InstallResult.Installed,
@@ -679,7 +677,7 @@ class CombinedStatusModule : XposedModule() {
                     "source" to source,
                     "hooks" to SystemUiNativeBatterySuppressionOwner.installedHookCount,
                     "contract" to
-                        "MiuiStatusBatteryContainer.setIsHideBattery(Boolean)",
+                        "MiuiStatusBatteryContainer.setIsHideBattery(Boolean):composed-owner",
                     "nativeGeometryWrites" to 0,
                 )
             }
@@ -1612,75 +1610,160 @@ class CombinedStatusModule : XposedModule() {
                 SystemUiNativeCombinedParticipantOwner.attachHidden(
                     host = host,
                     onHandoffStateChanged = { active ->
-                        val networkSuppression =
-                            if (active) {
-                                val presentation =
-                                    CombinedStatusPresentationStateStore.snapshot()
-                                val state =
-                                    CombinedStatusStateStore.snapshot()
-                                val wifi = state.wifi
-                                SystemUiNativeNetworkSuppressionOwner.activate(
-                                    host = host,
-                                    suppressWifi =
-                                        SystemUiNetworkRuntimeOwner.wifiReady &&
-                                            CombinedStatusConnectivityPolicy
-                                                .wifiReplacementReady(
-                                                    wifi = wifi,
-                                                    connectivity = presentation.connectivity,
-                                                ),
-                                    suppressMobile =
-                                        NativeNetworkSuppressionPolicy.suppressMobile(
-                                            airplaneMode = state.airplaneMode,
-                                            presentation = presentation.mobilePresentation,
-                                            wasSuppressed = false,
-                                        ),
-                                )
-                            } else {
-                                SystemUiNativeNetworkSuppressionOwner.deactivate(
-                                    "native-handoff-fallback",
-                                )
-                            }
-                        val batterySuppression =
-                            if (active) {
+                        val presentation =
+                            CombinedStatusPresentationStateStore.snapshot()
+                        val state = CombinedStatusStateStore.snapshot()
+                        val wifi = state.wifi
+
+                        if (active) {
+                            val batterySuppression =
                                 SystemUiNativeBatterySuppressionOwner.activate(
                                     host = host,
                                     source = "native-handoff:" + source,
                                 )
+                            if (
+                                batterySuppression is
+                                    SystemUiNativeBatterySuppressionOwner.StateResult.Failure
+                            ) {
+                                logDiagnostic(
+                                    level = Log.WARN,
+                                    event = "visibility.handoff",
+                                    component = "nativeCombinedParticipant",
+                                    state = "fallback",
+                                    "source" to source,
+                                    "nativeActive" to false,
+                                    "overlayActive" to true,
+                                    "networkSuppression" to "not-attempted",
+                                    "batterySuppression" to batterySuppression.summary,
+                                    "nativeGeometryWrites" to 0,
+                                )
+                                false
                             } else {
+                                val networkSuppression =
+                                    SystemUiNativeNetworkSuppressionOwner.activate(
+                                        host = host,
+                                        suppressWifi =
+                                            SystemUiNetworkRuntimeOwner.wifiReady &&
+                                                CombinedStatusConnectivityPolicy
+                                                    .wifiReplacementReady(
+                                                        wifi = wifi,
+                                                        connectivity = presentation.connectivity,
+                                                    ),
+                                        suppressMobile =
+                                            NativeNetworkSuppressionPolicy.suppressMobile(
+                                                airplaneMode = state.airplaneMode,
+                                                presentation = presentation.mobilePresentation,
+                                                wasSuppressed = false,
+                                            ),
+                                    )
+                                if (
+                                    networkSuppression is
+                                        SystemUiNativeNetworkSuppressionOwner.StateResult.Failure
+                                ) {
+                                    val batteryRollback =
+                                        SystemUiNativeBatterySuppressionOwner.deactivate(
+                                            "native-handoff-rollback",
+                                        )
+                                    logDiagnostic(
+                                        level = Log.WARN,
+                                        event = "visibility.handoff",
+                                        component = "nativeCombinedParticipant",
+                                        state = "fallback",
+                                        "source" to source,
+                                        "nativeActive" to false,
+                                        "overlayActive" to true,
+                                        "networkSuppression" to networkSuppression.summary,
+                                        "batterySuppression" to batteryRollback.summary,
+                                        "nativeGeometryWrites" to
+                                            if (
+                                                batteryRollback is
+                                                    SystemUiNativeBatterySuppressionOwner.StateResult.Inactive &&
+                                                batteryRollback.changed
+                                            ) {
+                                                1
+                                            } else {
+                                                0
+                                            },
+                                    )
+                                    false
+                                } else {
+                                    CombinedStatusHomeRenderSession.setNativeHandoffActive(true)
+                                    logDiagnostic(
+                                        level = Log.INFO,
+                                        event = "visibility.handoff",
+                                        component = "nativeCombinedParticipant",
+                                        state = "active",
+                                        "source" to source,
+                                        "nativeActive" to true,
+                                        "overlayActive" to false,
+                                        "networkSuppression" to networkSuppression.summary,
+                                        "batterySuppression" to batterySuppression.summary,
+                                        "nativeGeometryWrites" to
+                                            if (
+                                                batterySuppression is
+                                                    SystemUiNativeBatterySuppressionOwner.StateResult.Active &&
+                                                batterySuppression.changed
+                                            ) {
+                                                1
+                                            } else {
+                                                0
+                                            },
+                                    )
+                                    true
+                                }
+                            }
+                        } else {
+                            val batterySuppression =
                                 SystemUiNativeBatterySuppressionOwner.deactivate(
                                     "native-handoff-fallback",
                                 )
-                            }
-                        CombinedStatusHomeRenderSession.setNativeHandoffActive(active)
-                        val suppressionFailure =
-                            active &&
-                                (
-                                    networkSuppression is
-                                        SystemUiNativeNetworkSuppressionOwner.StateResult.Failure ||
-                                        batterySuppression is
-                                            SystemUiNativeBatterySuppressionOwner.StateResult.Failure
+                            if (
+                                batterySuppression is
+                                    SystemUiNativeBatterySuppressionOwner.StateResult.Failure
+                            ) {
+                                logDiagnostic(
+                                    level = Log.WARN,
+                                    event = "visibility.handoff",
+                                    component = "nativeCombinedParticipant",
+                                    state = "active",
+                                    "source" to source,
+                                    "nativeActive" to true,
+                                    "overlayActive" to false,
+                                    "networkSuppression" to "kept-active",
+                                    "batterySuppression" to batterySuppression.summary,
+                                    "nativeGeometryWrites" to 0,
                                 )
-                        val batteryGeometryWrite =
-                            when (batterySuppression) {
-                                is SystemUiNativeBatterySuppressionOwner.StateResult.Active ->
-                                    batterySuppression.changed
-                                is SystemUiNativeBatterySuppressionOwner.StateResult.Inactive ->
-                                    batterySuppression.changed
-                                is SystemUiNativeBatterySuppressionOwner.StateResult.Failure ->
-                                    false
+                                false
+                            } else {
+                                val networkSuppression =
+                                    SystemUiNativeNetworkSuppressionOwner.deactivate(
+                                        "native-handoff-fallback",
+                                    )
+                                CombinedStatusHomeRenderSession.setNativeHandoffActive(false)
+                                logDiagnostic(
+                                    level = Log.INFO,
+                                    event = "visibility.handoff",
+                                    component = "nativeCombinedParticipant",
+                                    state = "fallback",
+                                    "source" to source,
+                                    "nativeActive" to false,
+                                    "overlayActive" to true,
+                                    "networkSuppression" to networkSuppression.summary,
+                                    "batterySuppression" to batterySuppression.summary,
+                                    "nativeGeometryWrites" to
+                                        if (
+                                            batterySuppression is
+                                                SystemUiNativeBatterySuppressionOwner.StateResult.Inactive &&
+                                            batterySuppression.changed
+                                        ) {
+                                            1
+                                        } else {
+                                            0
+                                        },
+                                )
+                                true
                             }
-                        logDiagnostic(
-                            level = if (suppressionFailure) Log.WARN else Log.INFO,
-                            event = "visibility.handoff",
-                            component = "nativeCombinedParticipant",
-                            state = if (active) "active" else "fallback",
-                            "source" to source,
-                            "nativeActive" to active,
-                            "overlayActive" to !active,
-                            "networkSuppression" to networkSuppression.summary,
-                            "batterySuppression" to batterySuppression.summary,
-                            "nativeGeometryWrites" to if (batteryGeometryWrite) 1 else 0,
-                        )
+                        }
                     },
                 )
         ) {

@@ -71,7 +71,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
         )
     private var targetBindingState: BindingState? = null
     private var batteryRef: WeakReference<View>? = null
-    private var handoffSink: ((Boolean) -> Unit)? = null
+    private var handoffSink: ((Boolean) -> Boolean)? = null
     private var pendingPreDrawRoot: WeakReference<View>? = null
     private var pendingPreDrawListener: ViewTreeObserver.OnPreDrawListener? = null
     private var modelReady = false
@@ -609,7 +609,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
     @Synchronized
     fun attachHidden(
         host: Any,
-        onHandoffStateChanged: ((Boolean) -> Unit)? = null,
+        onHandoffStateChanged: ((Boolean) -> Boolean)? = null,
     ): AttachResult {
         if (!injected) {
             return AttachResult.Failure(failureReason ?: "participant-not-injected")
@@ -874,54 +874,6 @@ internal object SystemUiNativeCombinedParticipantOwner {
         )
     }
 
-    fun onNativeBatteryHideChanged(hidden: Boolean) {
-        val root = synchronized(this) { rootRef?.get() } ?: return
-        if (Looper.myLooper() !== Looper.getMainLooper()) {
-            root.post {
-                onNativeBatteryHideChanged(hidden)
-            }
-            return
-        }
-
-        synchronized(this) {
-            if (!handoffCommitted || rootRef?.get() !== root) {
-                return
-            }
-            val render = renderViewRef?.get() ?: return
-            val targetWidth =
-                resolveIslandSlotWidth(
-                    nativeBatteryHidden = hidden,
-                    visualWidth = render.measuredWidth,
-                )
-            val layoutParams = root.layoutParams ?: return
-            val previousWidth = layoutParams.width
-            if (previousWidth == targetWidth) {
-                return
-            }
-            layoutParams.width = targetWidth
-            root.layoutParams = layoutParams
-            requestNativeLayout(root)
-            eventSink?.invoke(
-                "nativeCombinedParticipant islandSlotOccupancy " +
-                    "nativeBatteryHidden=" + hidden +
-                    " previousWidth=" + previousWidth +
-                    " targetWidth=" + targetWidth +
-                    " visualWidth=" + render.measuredWidth +
-                    " customRootWidthWrite=true peerNativeGeometryWrites=0",
-            )
-        }
-    }
-
-    internal fun resolveIslandSlotWidth(
-        nativeBatteryHidden: Boolean,
-        visualWidth: Int,
-    ): Int =
-        if (nativeBatteryHidden && visualWidth > 0) {
-            visualWidth
-        } else {
-            ZERO_SLOT_WIDTH
-        }
-
     @Synchronized
     fun onPresentationStateChanged(trace: RuntimeRenderTrace? = null) {
         val update =
@@ -973,23 +925,15 @@ internal object SystemUiNativeCombinedParticipantOwner {
             return false
         }
 
-        val rootLocation = IntArray(2)
-        val batteryLocation = IntArray(2)
-        root.getLocationOnScreen(rootLocation)
-        if (battery.isAttachedToWindow) {
-            battery.getLocationOnScreen(batteryLocation)
-        }
         if (
-            !isZeroSlotHandoffReady(
-                rootMeasuredWidth = root.measuredWidth,
-                rootMeasuredHeight = root.measuredHeight,
+            !isActiveSlotHandoffReady(
+                rootLayoutWidth = root.layoutParams?.width ?: Int.MIN_VALUE,
+                rootLayoutHeight = root.layoutParams?.height ?: Int.MIN_VALUE,
                 renderMeasuredWidth = render.measuredWidth,
                 renderMeasuredHeight = render.measuredHeight,
                 expectedVisualWidth = battery.width,
                 expectedVisualHeight = battery.height,
                 parentClipsChildren = parent.clipChildren,
-                rootScreenX = rootLocation[0],
-                batteryScreenX = batteryLocation[0],
                 renderLeft = render.left,
                 renderRight = render.right,
             )
@@ -1013,7 +957,15 @@ internal object SystemUiNativeCombinedParticipantOwner {
             // HyperOS native mobile participants pair their semantic visibility with
             // ModernStatusBarView.setRemove(...). Reuse the same contract so the
             // container owns APPEAR/MOVE instead of treating this as measurement-only.
-            handoffSink?.invoke(true)
+            val suppressionCommitted = handoffSink?.invoke(true) == true
+            if (!suppressionCommitted) {
+                eventSink?.invoke(
+                    "nativeCombinedParticipant handoffResumeFail " +
+                        "source=feature-enabled reason=suppression-transaction-failed " +
+                        "failNative=true nativeGeometryWrites=0",
+                )
+                return false
+            }
             root.visibility = View.VISIBLE
             if (!setNativeRemoveFlag(root, removeFlag)) {
                 bindingState.visible = false
@@ -1310,103 +1262,105 @@ internal object SystemUiNativeCombinedParticipantOwner {
 
     private fun suspendVisibleHandoff(source: String) {
         removePendingPreDraw()
-        handoffPending = false
+        if (handoffPending) {
+            return
+        }
 
         val root = rootRef?.get()
         val bindingState = targetBindingState
         val wasCommitted = handoffCommitted
-        handoffCommitted = false
 
-        val bindingVisibilityChanged = bindingState?.visible == true
-        if (bindingVisibilityChanged) {
-            bindingState?.visible = false
-        }
-
-        val nativeRemoveFlag =
-            resolveNativeFeatureRemoveFlag(
-                featureEnabled = false,
-                handoffValidated = handoffValidated,
-            )
-        val nativeRemoveApplied =
-            if (
-                root != null &&
-                bindingState != null &&
-                nativeRemoveFlag != null
-            ) {
-                setNativeRemoveFlag(root, nativeRemoveFlag)
-            } else {
-                false
+        handoffPending = true
+        try {
+            if (wasCommitted && handoffSink?.invoke(false) != true) {
+                eventSink?.invoke(
+                    "nativeCombinedParticipant featureGateFail source=" + source +
+                        " reason=native-restore-transaction-failed " +
+                        "failNative=true nativeGeometryWrites=0",
+                )
+                return
             }
 
-        var bootstrapRootChanged = false
-        var shellWidthReset = false
-        if (root != null) {
+            val bindingVisibilityChanged = bindingState?.visible == true
+            if (bindingVisibilityChanged) {
+                bindingState?.visible = false
+            }
+
+            val nativeRemoveFlag =
+                resolveNativeFeatureRemoveFlag(
+                    featureEnabled = false,
+                    handoffValidated = handoffValidated,
+                )
+            val nativeRemoveApplied =
+                if (
+                    root != null &&
+                    bindingState != null &&
+                    nativeRemoveFlag != null
+                ) {
+                    setNativeRemoveFlag(root, nativeRemoveFlag)
+                } else {
+                    false
+                }
+
+            var bootstrapRootChanged = false
             if (
-                nativeRemoveFlag == null ||
-                !nativeRemoveApplied
+                root != null &&
+                (
+                    nativeRemoveFlag == null ||
+                        !nativeRemoveApplied
+                )
             ) {
                 if (root.visibility != View.GONE) {
                     root.visibility = View.GONE
                     bootstrapRootChanged = true
                 }
             }
-            val layoutParams = root.layoutParams
-            if (layoutParams != null && layoutParams.width != ZERO_SLOT_WIDTH) {
-                layoutParams.width = ZERO_SLOT_WIDTH
-                root.layoutParams = layoutParams
-                shellWidthReset = true
+
+            handoffCommitted = false
+            if (
+                root != null &&
+                (
+                    bindingVisibilityChanged ||
+                        nativeRemoveApplied ||
+                        bootstrapRootChanged
+                )
+            ) {
+                requestNativeLayout(root)
             }
-        }
+            if (root != null && source == "feature-disabled") {
+                startMasterSwitchTransitionProbe(
+                    direction = "disable",
+                    root = root,
+                )
+            }
 
-        // Keep peer restore and Combined Status removal in one main-thread turn.
-        // HyperOS can then animate the custom participant and native peers as one
-        // status-icon layout transaction.
-        if (wasCommitted) {
-            handoffSink?.invoke(false)
-        }
-        if (
-            root != null &&
-            (
+            if (
+                wasCommitted ||
                 bindingVisibilityChanged ||
-                    nativeRemoveApplied ||
-                    bootstrapRootChanged ||
-                    shellWidthReset
-            )
-        ) {
-            requestNativeLayout(root)
-        }
-        if (root != null && source == "feature-disabled") {
-            startMasterSwitchTransitionProbe(
-                direction = "disable",
-                root = root,
-            )
-        }
-
-        if (
-            wasCommitted ||
-            bindingVisibilityChanged ||
-            nativeRemoveApplied ||
-            bootstrapRootChanged ||
-            shellWidthReset
-        ) {
-            eventSink?.invoke(
-                "nativeCombinedParticipant featureGate source=" + source +
-                    " enabled=false" +
-                    " previousHandoff=" + wasCommitted +
-                    " visibilityAuthority=" +
-                    (
-                        if (nativeRemoveApplied) {
-                            "binding+removeFlag"
-                        } else {
-                            "bootstrap-root"
-                        }
-                    ) +
-                    " nativeRemoveFlag=" +
-                    (root?.let(::readNativeRemoveFlag) ?: "none") +
-                    " shellWidthReset=" + shellWidthReset +
-                    " customRootWidthWrite=" + shellWidthReset +
-                    " nativeGeometryWrites=0 peerNativeGeometryWrites=0",
-            )
+                nativeRemoveApplied ||
+                bootstrapRootChanged
+            ) {
+                eventSink?.invoke(
+                    "nativeCombinedParticipant featureGate source=" + source +
+                        " enabled=false" +
+                        " previousHandoff=" + wasCommitted +
+                        " visibilityAuthority=" +
+                        (
+                            if (nativeRemoveApplied) {
+                                "binding+removeFlag"
+                            } else {
+                                "bootstrap-root"
+                            }
+                        ) +
+                        " nativeRemoveFlag=" +
+                        (root?.let(::readNativeRemoveFlag) ?: "none") +
+                        " shellLayoutWidth=" +
+                        (root?.layoutParams?.width ?: Int.MIN_VALUE) +
+                        " nativeGeometryWrites=0 peerNativeGeometryWrites=0",
+                )
+            }
+        } finally {
+            handoffPending = false
         }
     }
 
@@ -1543,15 +1497,42 @@ internal object SystemUiNativeCombinedParticipantOwner {
                                 bridgeReady
 
                         if (ready) {
-                            // Keep the replacement gated until native suppression
-                            // is synchronously committed on this UI-thread turn.
+                            // The zero-slot bridge is bootstrap-only. Once the native
+                            // battery slot is synchronously released by HyperOS, promote
+                            // this module-owned shell to the native 105px visual width so
+                            // SystemUI owns normal APPEAR/DISAPPEAR transform geometry.
                             bindingState.visible = false
                             root.visibility = View.GONE
-                            handoffSink?.invoke(true)
+                            val suppressionCommitted = handoffSink?.invoke(true) == true
+                            val shellPromoted =
+                                suppressionCommitted &&
+                                    promoteActiveShellGeometry(
+                                        root = root,
+                                        visualWidth = render?.measuredWidth ?: -1,
+                                        visualHeight = render?.measuredHeight ?: -1,
+                                    )
+                            if (!suppressionCommitted || !shellPromoted) {
+                                handoffSink?.invoke(false)
+                                bindingState.visible = false
+                                root.visibility = View.GONE
+                                requestNativeLayout(root)
+                                eventSink?.invoke(
+                                    "nativeCombinedParticipant handoffRollback " +
+                                        "reason=" +
+                                        if (!suppressionCommitted) {
+                                            "suppression-transaction-failed"
+                                        } else {
+                                            "active-shell-promotion-failed"
+                                        } +
+                                        " failNative=true nativeGeometryWrites=0",
+                                )
+                                return@synchronized
+                            }
                             bindingState.visible = true
                             root.visibility = View.VISIBLE
                             handoffCommitted = true
                             handoffValidated = true
+                            requestNativeLayout(root)
                             eventSink?.invoke(
                                 "nativeCombinedParticipant handoffCommit " +
                                     "mode=" + resolvedMode.name +
@@ -1569,7 +1550,9 @@ internal object SystemUiNativeCombinedParticipantOwner {
                                     (render?.right ?: Int.MIN_VALUE) +
                                     " parentClipChildren=" +
                                     (parent?.clipChildren ?: true) +
-                                    " bridge=zero-slot-to-native-battery " +
+                                    " bridge=zero-slot-bootstrap-to-native-slot " +
+                                    "shellLayoutWidth=" +
+                                    (root.layoutParams?.width ?: Int.MIN_VALUE) + " " +
                                     "iconVisible=true overlayActive=false " +
                                     "peerNativeGeometryWrites=0",
                             )
@@ -1634,6 +1617,52 @@ internal object SystemUiNativeCombinedParticipantOwner {
             rootScreenX == batteryScreenX &&
             renderLeft == 0 &&
             renderRight == expectedVisualWidth
+
+    internal fun isActiveSlotHandoffReady(
+        rootLayoutWidth: Int,
+        rootLayoutHeight: Int,
+        renderMeasuredWidth: Int,
+        renderMeasuredHeight: Int,
+        expectedVisualWidth: Int,
+        expectedVisualHeight: Int,
+        parentClipsChildren: Boolean,
+        renderLeft: Int,
+        renderRight: Int,
+    ): Boolean =
+        rootLayoutWidth == expectedVisualWidth &&
+            rootLayoutHeight == expectedVisualHeight &&
+            renderMeasuredWidth == expectedVisualWidth &&
+            renderMeasuredHeight == expectedVisualHeight &&
+            expectedVisualWidth > 0 &&
+            expectedVisualHeight > 0 &&
+            !parentClipsChildren &&
+            renderLeft == 0 &&
+            renderRight == expectedVisualWidth
+
+    private fun promoteActiveShellGeometry(
+        root: View,
+        visualWidth: Int,
+        visualHeight: Int,
+    ): Boolean {
+        if (visualWidth <= 0 || visualHeight <= 0) {
+            return false
+        }
+        val layoutParams = root.layoutParams ?: return false
+        var changed = false
+        if (layoutParams.width != visualWidth) {
+            layoutParams.width = visualWidth
+            changed = true
+        }
+        if (layoutParams.height != visualHeight) {
+            layoutParams.height = visualHeight
+            changed = true
+        }
+        if (changed) {
+            root.layoutParams = layoutParams
+        }
+        return root.layoutParams?.width == visualWidth &&
+            root.layoutParams?.height == visualHeight
+    }
 
     internal enum class HandoffMode {
         BLOCKED,

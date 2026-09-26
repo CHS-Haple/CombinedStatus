@@ -147,30 +147,35 @@ class SystemUiNativeCombinedParticipantOwnerTest {
 
 
     @Test
-    fun islandSlotTakesOverBatteryOccupancyOnlyWhileNativeBatteryIsHidden() {
-        assertEquals(
-            105,
-            SystemUiNativeCombinedParticipantOwner.resolveIslandSlotWidth(
-                nativeBatteryHidden = true,
-                visualWidth = 105,
-            ),
-        )
-        assertEquals(
-            0,
-            SystemUiNativeCombinedParticipantOwner.resolveIslandSlotWidth(
-                nativeBatteryHidden = false,
-                visualWidth = 105,
+    fun activeNativeSlotAcceptsFullVisualWidthAfterBatteryRelease() {
+        assertTrue(
+            SystemUiNativeCombinedParticipantOwner.isActiveSlotHandoffReady(
+                rootLayoutWidth = 105,
+                rootLayoutHeight = 108,
+                renderMeasuredWidth = 105,
+                renderMeasuredHeight = 108,
+                expectedVisualWidth = 105,
+                expectedVisualHeight = 108,
+                parentClipsChildren = false,
+                renderLeft = 0,
+                renderRight = 105,
             ),
         )
     }
 
     @Test
-    fun islandSlotFailsClosedWhenVisualWidthIsUnavailable() {
-        assertEquals(
-            0,
-            SystemUiNativeCombinedParticipantOwner.resolveIslandSlotWidth(
-                nativeBatteryHidden = true,
-                visualWidth = 0,
+    fun activeNativeSlotRejectsLegacyZeroWidthShell() {
+        assertFalse(
+            SystemUiNativeCombinedParticipantOwner.isActiveSlotHandoffReady(
+                rootLayoutWidth = 0,
+                rootLayoutHeight = 108,
+                renderMeasuredWidth = 105,
+                renderMeasuredHeight = 108,
+                expectedVisualWidth = 105,
+                expectedVisualHeight = 108,
+                parentClipsChildren = false,
+                renderLeft = 0,
+                renderRight = 105,
             ),
         )
     }
