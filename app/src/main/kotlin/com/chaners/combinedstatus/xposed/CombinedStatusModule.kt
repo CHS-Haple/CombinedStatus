@@ -1086,7 +1086,7 @@ class CombinedStatusModule : XposedModule() {
                 "source" to source,
                 "authority" to
                     "MiuiBatteryMeterIconView.getProgressStatus() via " +
-                    "MiuiBatteryMeterView battery callbacks",
+                    "MiuiBatteryMeterIconView.onDarkChangeInternal()",
                 "eventDriven" to true,
             )
         }.onFailure { error ->
@@ -1299,7 +1299,20 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun onTintStateUpdate(update: SystemUiTintStateSource.TintUpdate) {
-        CombinedStatusHomeRenderSession.onTintUpdate(update)
+        val statusIconTint =
+            CombinedStatusPresentationStateStore
+                .snapshot()
+                .statusIcons
+                .appliedTint
+                ?.takeIf { color -> color ushr 24 != 0 }
+        CombinedStatusHomeRenderSession.onTintUpdate(
+            update.copy(
+                state =
+                    update.state.copy(
+                        statusIconTint = statusIconTint,
+                    ),
+            ),
+        )
     }
 
     private fun onSceneStateUpdate(update: SystemUiSceneStateSource.SceneUpdate) {
