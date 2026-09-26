@@ -14,12 +14,14 @@ internal object SystemUiBatteryStateSource {
     const val CHARGE_STATE_METHOD_NAME = "onChargeStateChanged"
     const val POWER_SAVE_METHOD_NAME = "onPowerSaveChanged"
     const val PERFORMANCE_METHOD_NAME = "onPerformanceModeChanged"
-    const val HOOK_COUNT = 4
+    const val MIUI_OPTIMIZATION_METHOD_NAME = "setMiuiOptimizationEnabled"
+    const val HOOK_COUNT = 5
 
     private const val LEVEL_HOOK_ID = "combinedstatus.battery.level"
     private const val CHARGE_HOOK_ID = "combinedstatus.battery.charge"
     private const val POWER_SAVE_HOOK_ID = "combinedstatus.battery.power-save"
     private const val PERFORMANCE_HOOK_ID = "combinedstatus.battery.performance"
+    private const val MIUI_OPTIMIZATION_HOOK_ID = "combinedstatus.battery.miui-optimization"
 
     @Volatile
     private var lastState: CombinedStatusStateStore.BatteryState? = null
@@ -42,6 +44,8 @@ internal object SystemUiBatteryStateSource {
         val performanceColorField =
             iconClass.requiredField("mBatteryPerformanceModeColor")
         val lowColorField = iconClass.requiredField("mBatteryLowColor")
+        val miuiOptimizationField =
+            iconClass.requiredField("mMiuiOptimizationEnabled")
 
         fun readState(iconView: View): CombinedStatusStateStore.BatteryState? {
             val level =
@@ -61,16 +65,23 @@ internal object SystemUiBatteryStateSource {
                 SystemUiBatterySemanticPolicy.fromNativeProgressStatus(
                     nativeStatusName,
                 )
+            val miuiOptimizationEnabled =
+                runCatching { miuiOptimizationField.getBoolean(iconView) }
+                    .getOrDefault(false)
             val systemSemanticColor =
-                semanticState?.let { state ->
-                    semanticColor(
-                        icon = iconView,
-                        state = state,
-                        chargingColorField = chargingColorField,
-                        powerSaveColorField = powerSaveColorField,
-                        performanceColorField = performanceColorField,
-                        lowColorField = lowColorField,
-                    )
+                if (miuiOptimizationEnabled) {
+                    semanticState?.let { state ->
+                        semanticColor(
+                            icon = iconView,
+                            state = state,
+                            chargingColorField = chargingColorField,
+                            powerSaveColorField = powerSaveColorField,
+                            performanceColorField = performanceColorField,
+                            lowColorField = lowColorField,
+                        )
+                    }
+                } else {
+                    null
                 }
 
             return CombinedStatusStateStore.BatteryState(
@@ -107,6 +118,9 @@ internal object SystemUiBatteryStateSource {
                     " systemColor=" +
                     (state.systemSemanticColor?.let(::colorHex) ?: "status-icon") +
                     " semanticAuthority=MiuiBatteryMeterIconView.getProgressStatus()" +
+                    " miuiOptimization=" +
+                    (state.systemSemanticColor != null ||
+                        state.semanticState == CombinedStatusBatterySemanticState.NORMAL) +
                     " eventDriven=true",
             )
         }
@@ -154,12 +168,18 @@ internal object SystemUiBatteryStateSource {
                 PERFORMANCE_METHOD_NAME,
                 Boolean::class.javaPrimitiveType,
             ).apply { isAccessible = true }
+        val miuiOptimizationMethod =
+            iconClass.getDeclaredMethod(
+                MIUI_OPTIMIZATION_METHOD_NAME,
+                Boolean::class.javaPrimitiveType,
+            ).apply { isAccessible = true }
 
         return listOf(
             hook(levelMethod, LEVEL_HOOK_ID),
             hook(chargeMethod, CHARGE_HOOK_ID),
             hook(powerSaveMethod, POWER_SAVE_HOOK_ID),
             hook(performanceMethod, PERFORMANCE_HOOK_ID),
+            hook(miuiOptimizationMethod, MIUI_OPTIMIZATION_HOOK_ID),
         )
     }
 
@@ -194,7 +214,8 @@ internal object SystemUiBatteryStateSource {
         handle.id == LEVEL_HOOK_ID ||
             handle.id == CHARGE_HOOK_ID ||
             handle.id == POWER_SAVE_HOOK_ID ||
-            handle.id == PERFORMANCE_HOOK_ID
+            handle.id == PERFORMANCE_HOOK_ID ||
+            handle.id == MIUI_OPTIMIZATION_HOOK_ID
 
     @Synchronized
     fun resetRuntimeState() {
