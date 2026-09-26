@@ -17,6 +17,8 @@ For SystemUI architecture, geometry, host, scene, transition, or sizing work, co
 6. [reference/README.md](reference/README.md)
 7. the relevant reference/architecture entry for the task
 
+For display-version, release-target, or release-preparation work, also read [development/VERSIONING.md](development/VERSIONING.md).
+
 ## Authority by purpose
 
 | Need | Document | Meaning |
@@ -24,6 +26,7 @@ For SystemUI architecture, geometry, host, scene, transition, or sizing work, co
 | Engineering rules | `CONTRIBUTING.md` | Normative |
 | Current branch truth | `development/CURRENT.md` | Current source of truth |
 | Planned direction | `development/ROADMAP.md` | Planning source of truth |
+| Version / first-release target | `development/VERSIONING.md` | Current versioning and release-boundary source of truth |
 | Architecture policy/status | `architecture/` | Policy plus explicit supersession state |
 | Reusable implementation evidence | `reference/` | Evidence only; never automatic write authority |
 | Engineering history | `development/DEVLOG.md` | Chronological historical record |
