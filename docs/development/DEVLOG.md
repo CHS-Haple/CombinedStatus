@@ -2590,3 +2590,58 @@ After Fast CI and signed Canary pass, device validation must begin with charger-
 - APK SHA-256: `e856a3216d60cb4ccc8b239a91102162e83369951c8409a0c77c29133ae97131`.
 - Device validation remains pending; Build 398 is not promoted to `dev`.
 
+---
+
+## 2026-09-27 — Build 397 accepted charging carrier; Build 399 battery-intensity checkpoint
+
+**Type:** device acceptance correction / visual root-cause analysis / runtime checkpoint  
+**Display version:** 0.0.2  
+**Accepted device checkpoint:** Build 397 / 20260927-397  
+**Structural refinement carried forward:** Build 398 / 20260927-398  
+**Next build:** 399 / 20260927-399  
+**Validation:** CI pending; focused visual device validation pending
+
+### Device correction
+
+The previous repository statement that Build 397 was superseded without device validation was incorrect. Build 397 was installed and tested on the pinned target. User feedback confirms:
+- charger-connected SystemUI cold start with no interaction has normal neighbor spacing;
+- the previous charging/Super-Island left-then-right twitch is gone;
+- charging steady-state placement is normal.
+
+A brief native Battery flash during same-architecture Hot Reload was also reported, but the user clarified that this behavior existed from the earliest implementation. It is therefore not classified as a Build-397 regression and remains a separate Hot Reload handoff-polish item.
+
+### New visual issue
+
+Two same-device screenshots were supplied for color/intensity review. Approximate JPEG-screen sampling shows:
+- adjacent native status icons: high-coverage grayscale roughly 58-64;
+- Combined Status center Wi-Fi: roughly 59-60;
+- active mobile dots: roughly 58-61;
+- battery ring: roughly 50 in the same normal gray scene.
+
+The screenshots therefore support a battery-ring intensity mismatch rather than a center/mobile tint-authority mismatch. The charging-green screenshot likewise shows closely matching core green values but a heavier overall ring coverage.
+
+### Root cause
+
+**High confidence / source-confirmed compositing difference:** `drawBattery()` paints the entire ring once with semantic alpha 48, then paints the active battery arc again with semantic alpha 255 over the same pixels. Center/native resources and mobile dots do not use this two-layer steady-state coverage. The overlap increases effective edge coverage and makes the battery ring read darker/heavier even when the resolved tint is identical.
+
+### Build 399 implementation
+
+- Keep `CombinedStatusColorPolicy`, tint source, native-center mask normalization and center/mobile paint paths unchanged.
+- Partition battery rendering into:
+  - full-strength active segment;
+  - dim inactive remainder;
+  - no full-length dim underlay below the active segment.
+- Preserve start angle, maximum sweep, degrees-per-percent, stroke geometry and semantic alpha values.
+- Add a JVM-pure `CombinedStatusBatteryArcPolicy` and tests proving 0/50/100% partitioning, clamping and total sweep preservation.
+- No per-glyph brightness multiplier, screenshot-derived alpha correction, native geometry change or animation change is introduced.
+
+### Review boundary
+
+- **Ownership:** unchanged; SystemUI remains tint/scene/motion authority.
+- **Lifecycle:** no new listeners, hooks or runtime owner.
+- **Single writer:** unchanged painter-only output.
+- **Cleanup/fail-native:** unaffected.
+- **Performance:** one constant-time arc partition per draw; no allocation-heavy probing or polling.
+- **Compatibility:** no new target member/resource dependency.
+- **Future extension:** visual-weight/user-size work can remain separate from color/intensity semantics.
+

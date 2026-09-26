@@ -128,13 +128,33 @@ internal class CombinedStatusPainter(
         opacity: Float,
         geometry: CombinedStatusOuterGeometry.Resolved,
     ) {
-        stroke(batteryTint, 48, geometry.ringStroke, opacity)
-        canvas.drawArc(batteryRing, BATTERY_START_DEGREES, BATTERY_MAX_SWEEP, false, paint)
+        val segments =
+            CombinedStatusBatteryArcPolicy.resolve(
+                batteryPercent = model.batteryPercent,
+                startDegrees = BATTERY_START_DEGREES,
+                maxSweep = BATTERY_MAX_SWEEP,
+                degreesPerPercent = BATTERY_DEGREES_PER_PERCENT,
+            )
 
-        val sweep = model.batteryPercent * BATTERY_DEGREES_PER_PERCENT
-        if (sweep > 0f) {
+        if (segments.inactiveSweep > 0f) {
+            stroke(batteryTint, 48, geometry.ringStroke, opacity)
+            canvas.drawArc(
+                batteryRing,
+                segments.inactiveStart,
+                segments.inactiveSweep,
+                false,
+                paint,
+            )
+        }
+        if (segments.activeSweep > 0f) {
             stroke(batteryTint, 255, geometry.ringStroke, opacity)
-            canvas.drawArc(batteryRing, BATTERY_START_DEGREES, sweep, false, paint)
+            canvas.drawArc(
+                batteryRing,
+                BATTERY_START_DEGREES,
+                segments.activeSweep,
+                false,
+                paint,
+            )
         }
     }
 

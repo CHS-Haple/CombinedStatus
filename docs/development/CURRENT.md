@@ -13,8 +13,8 @@ This file is the concise recovery point for active Combined Status development. 
 - Active PR: #100, `feat/native-panel-transition -> dev`
 - Active development line: **0.0.2**
 - First planned formal release target: **1.0.0** (current 0.0.x lines remain pre-release development)
-- Last device-tested runtime checkpoint: Build 395 (`0.0.2`) — rejected; charging steady-state still expands the replacement boundary and island entry still twitches
-- Current work-branch runtime checkpoint: Build 398 (`0.0.2`) — **Fast CI + signed Work Branch Canary passed; focused device validation pending**
+- Last device-tested runtime checkpoint: Build 397 (`0.0.2`) — **accepted for the tested Phase-2A charging carrier scenarios**
+- Current work-branch runtime checkpoint: Build 399 (`0.0.2`) — **source defined; CI and focused visual validation pending**
 - Target profile: HyperOS SystemUI `17.03.260226.r`
 - Exact SystemUI SHA-256: `a0e738e41fe599b97950cbf52a9e2ddc6ae2ceff986efbacb1c9840bea78768d`
 - Modern Xposed API: 102
@@ -328,9 +328,9 @@ Build 397 corrects that ownership boundary:
 
 Focused device acceptance must include a cold SystemUI start while already charging followed by no interaction. That steady frame must match non-charging Home neighbor spacing before island enter/exit is evaluated.
 
-## Build 397 pre-CI review rejection; Build 398 live carrier correction
+## Build 397 device acceptance; Build 398 live-carrier refinement
 
-Build 397 is superseded before device validation. It correctly separated the live 105/135 Battery presentation width from a stable replacement width, but it sourced that stable width from the `battery_meter_width` resource.
+Build 397 was device-tested before this documentation was reconciled. The target-device result passed the key Phase-2A charging-carrier checks: charger-connected SystemUI cold start with no interaction had normal neighbor spacing, charging/Super-Island no longer produced the previous left-then-right twitch, and the steady charging layout remained visually correct. The earlier statement that Build 397 was superseded without device validation was incorrect and is explicitly corrected here. Build 398 remains a higher-authority live-carrier refinement rather than a response to a new Build-397 runtime failure.
 
 Exact target layout inspection provides a stronger authority: `battery_icon_container` is the real `wrap_content` battery-body carrier inside `MiuiBatteryMeterView`, while `battery_charge_out_image` is a sibling charging-only presentation View. The Build-395 runtime diagnostic already shows the corresponding split: the Battery root reaches 135 px while the battery-body container remains 105 px.
 
@@ -343,5 +343,21 @@ Build 398 therefore:
 - keeps Battery hide/translation/alpha/visibility and island motion fully SystemUI-owned;
 - fails native if the core carrier is missing, invalid, narrower/greater than expected relative to the presentation, or if another padding writer appears.
 
-Build 396 and 397 are not device-test candidates. Build 398 is the next focused checkpoint.
+Build 396 remains non-candidate. Build 397 is the first device-accepted charging-carrier checkpoint. Build 398 is the live-carrier refinement carried forward into the next checkpoint.
 
+
+
+## Build 399 visual-intensity correction
+
+Two target-device screenshots were reviewed after the charging-carrier issue was accepted. Pixel sampling shows the normal gray center Wi-Fi and active mobile dots are already close to adjacent native status-icon intensity, while the battery ring is visibly heavier/darker.
+
+Source review confirms the battery renderer currently draws the complete 48-alpha background track and then draws the active 255-alpha progress arc over the same pixels. The center icon and mobile dots do not have this two-layer steady-state coverage. The mismatch is therefore treated as a battery compositing issue, not another tint-authority failure.
+
+Build 399 is intentionally single-purpose:
+- keep the existing native tint authority and native-center source-alpha normalization unchanged;
+- partition the battery ring into active and inactive arc segments so the steady active arc is no longer laid over the dim track;
+- keep the same ring geometry, stroke width, charging color, semantic 48/255 alpha values and all carrier/island behavior;
+- add a pure arc-partition test contract;
+- do not introduce per-glyph gray multipliers or screenshot-derived correction constants.
+
+The brief native-battery flash during Hot Reload predates Build 397 and is tracked as a separate handoff-polish item, not a Build-397 regression.
