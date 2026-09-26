@@ -682,6 +682,8 @@ class CombinedStatusModule : XposedModule() {
                             log(Log.INFO, TAG, event)
                         }
                     },
+                    onNativeHideChanged =
+                        SystemUiNativeCombinedParticipantOwner::onNativeBatteryHideChanged,
                 )
         ) {
             SystemUiNativeBatterySuppressionOwner.InstallResult.Installed,
@@ -694,7 +696,7 @@ class CombinedStatusModule : XposedModule() {
                     "source" to source,
                     "hooks" to SystemUiNativeBatterySuppressionOwner.installedHookCount,
                     "contract" to
-                        "MiuiStatusBatteryContainer.setIsHideBattery(Boolean):composed-owner",
+                        "MiuiStatusBatteryContainer.setIsHideBattery(Boolean):observe-only",
                     "nativeGeometryWrites" to 0,
                 )
             }
