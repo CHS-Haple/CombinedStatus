@@ -21,10 +21,11 @@ import java.lang.reflect.Proxy
 import java.util.ArrayList
 import java.util.Collections
 import java.util.WeakHashMap
+import kotlin.math.abs
 
 internal object SystemUiNativeCombinedParticipantOwner {
     const val SLOT = "combined_status"
-    private const val ZERO_SLOT_WIDTH = 0
+    private const val ZERO_SLOT_OCCUPANCY = 0
     private const val MAX_NATIVE_VISIBLE_STATE_PROBE = 8
 
     private const val CONTROLLER_IMPL =
@@ -642,36 +643,55 @@ internal object SystemUiNativeCombinedParticipantOwner {
             return AttachResult.Failure("battery-geometry-not-ready")
         }
 
+        val initialShellGeometry =
+            resolveNativeShellGeometry(
+                nativeBatteryHidden = isNativeBatterySlotReleased(root, battery),
+                visualWidth = battery.width,
+            ) ?: return AttachResult.Failure("native-shell-geometry-unavailable")
         val rootLayoutParams =
             root.layoutParams
                 ?: return AttachResult.Failure("native-root-layout-params-missing")
         val originalShellWidth = rootLayoutParams.width
         val originalShellHeight = rootLayoutParams.height
+        val originalPaddingStart = root.paddingStart
+        val originalPaddingEnd = root.paddingEnd
         val shellGeometryAdjusted =
-            if (
-                originalShellWidth != ZERO_SLOT_WIDTH ||
-                originalShellHeight != battery.height
-            ) {
-                runCatching {
-                    rootLayoutParams.width = ZERO_SLOT_WIDTH
-                    rootLayoutParams.height = battery.height
-                    root.layoutParams = rootLayoutParams
-                    root.layoutParams?.width == ZERO_SLOT_WIDTH &&
-                        root.layoutParams?.height == battery.height
-                }.getOrDefault(false)
-            } else {
-                true
-            }
+            runCatching {
+                rootLayoutParams.width = initialShellGeometry.width
+                rootLayoutParams.height = battery.height
+                root.layoutParams = rootLayoutParams
+                root.setPaddingRelative(
+                    initialShellGeometry.paddingStart,
+                    root.paddingTop,
+                    initialShellGeometry.paddingEnd,
+                    root.paddingBottom,
+                )
+                root.layoutParams?.width == initialShellGeometry.width &&
+                    root.layoutParams?.height == battery.height &&
+                    root.paddingStart == initialShellGeometry.paddingStart &&
+                    root.paddingEnd == initialShellGeometry.paddingEnd
+            }.getOrDefault(false)
         if (!shellGeometryAdjusted) {
             return AttachResult.Failure("native-root-geometry-adjustment-failed")
         }
         eventSink?.invoke(
             "nativeCombinedParticipant shellGeometry " +
                 "originalWidth=" + originalShellWidth +
-                " targetWidth=" + ZERO_SLOT_WIDTH +
+                " targetWidth=" + initialShellGeometry.width +
                 " originalHeight=" + originalShellHeight +
                 " targetHeight=" + battery.height +
-                " moduleOwnedSlotWidthWrite=" + (originalShellWidth != ZERO_SLOT_WIDTH) +
+                " originalPaddingStart=" + originalPaddingStart +
+                " originalPaddingEnd=" + originalPaddingEnd +
+                " targetPaddingStart=" + initialShellGeometry.paddingStart +
+                " targetPaddingEnd=" + initialShellGeometry.paddingEnd +
+                " effectiveOccupancy=" + initialShellGeometry.effectiveOccupancy +
+                " moduleOwnedShellWidthWrite=" +
+                (originalShellWidth != initialShellGeometry.width) +
+                " moduleOwnedPaddingWrite=" +
+                (
+                    originalPaddingStart != initialShellGeometry.paddingStart ||
+                        originalPaddingEnd != initialShellGeometry.paddingEnd
+                ) +
                 " customShellHeightWrite=" + (originalShellHeight != battery.height) +
                 " peerNativeGeometryWrites=0",
         )
@@ -884,43 +904,77 @@ internal object SystemUiNativeCombinedParticipantOwner {
         }
 
         synchronized(this) {
-            if (!handoffCommitted || rootRef?.get() !== root) {
+            if (rootRef?.get() !== root) {
                 return
             }
             val render = renderViewRef?.get() ?: return
-            val targetWidth =
-                resolveIslandSlotWidth(
+            val geometry =
+                resolveNativeShellGeometry(
                     nativeBatteryHidden = hidden,
                     visualWidth = render.measuredWidth,
-                )
+                ) ?: return
             val layoutParams = root.layoutParams ?: return
             val previousWidth = layoutParams.width
-            if (previousWidth == targetWidth) {
+            val previousPaddingStart = root.paddingStart
+            val previousPaddingEnd = root.paddingEnd
+            val widthChanged = previousWidth != geometry.width
+            val paddingChanged =
+                previousPaddingStart != geometry.paddingStart ||
+                    previousPaddingEnd != geometry.paddingEnd
+            if (!widthChanged && !paddingChanged) {
                 return
             }
-            layoutParams.width = targetWidth
-            root.layoutParams = layoutParams
+            if (widthChanged) {
+                layoutParams.width = geometry.width
+                root.layoutParams = layoutParams
+            }
+            if (paddingChanged) {
+                root.setPaddingRelative(
+                    geometry.paddingStart,
+                    root.paddingTop,
+                    geometry.paddingEnd,
+                    root.paddingBottom,
+                )
+            }
             requestNativeLayout(root)
             eventSink?.invoke(
                 "nativeCombinedParticipant islandSlotOccupancy " +
                     "nativeBatteryHidden=" + hidden +
                     " previousWidth=" + previousWidth +
-                    " targetWidth=" + targetWidth +
+                    " targetWidth=" + geometry.width +
+                    " previousPaddingStart=" + previousPaddingStart +
+                    " previousPaddingEnd=" + previousPaddingEnd +
+                    " targetPaddingStart=" + geometry.paddingStart +
+                    " targetPaddingEnd=" + geometry.paddingEnd +
+                    " effectiveOccupancy=" + geometry.effectiveOccupancy +
                     " visualWidth=" + render.measuredWidth +
-                    " customRootWidthWrite=true peerNativeGeometryWrites=0",
+                    " moduleOwnedShellGeometryWrite=true peerNativeGeometryWrites=0",
             )
         }
     }
 
-    internal fun resolveIslandSlotWidth(
+    internal data class NativeShellGeometry(
+        val width: Int,
+        val paddingStart: Int,
+        val paddingEnd: Int,
+    ) {
+        val effectiveOccupancy: Int
+            get() = width + paddingStart + paddingEnd
+    }
+
+    internal fun resolveNativeShellGeometry(
         nativeBatteryHidden: Boolean,
         visualWidth: Int,
-    ): Int =
-        if (nativeBatteryHidden && visualWidth > 0) {
-            visualWidth
-        } else {
-            ZERO_SLOT_WIDTH
+    ): NativeShellGeometry? {
+        if (visualWidth <= 0) {
+            return null
         }
+        return NativeShellGeometry(
+            width = visualWidth,
+            paddingStart = 0,
+            paddingEnd = if (nativeBatteryHidden) 0 else -visualWidth,
+        )
+    }
 
     @Synchronized
     fun onPresentationStateChanged(trace: RuntimeRenderTrace? = null) {
@@ -973,23 +1027,24 @@ internal object SystemUiNativeCombinedParticipantOwner {
             return false
         }
 
-        val rootLocation = IntArray(2)
-        val batteryLocation = IntArray(2)
-        root.getLocationOnScreen(rootLocation)
-        if (battery.isAttachedToWindow) {
-            battery.getLocationOnScreen(batteryLocation)
+        if (!syncShellGeometryToCurrentBatterySlot(root, render, battery)) {
+            return false
         }
+        val rootAnchorScreenX = layoutAnchorScreenX(root) ?: return false
+        val batteryAnchorScreenX = layoutAnchorScreenX(battery) ?: return false
         if (
-            !isZeroSlotHandoffReady(
+            !isCompensatedSlotHandoffReady(
                 rootMeasuredWidth = root.measuredWidth,
                 rootMeasuredHeight = root.measuredHeight,
+                rootPaddingStart = root.paddingStart,
+                rootPaddingEnd = root.paddingEnd,
                 renderMeasuredWidth = render.measuredWidth,
                 renderMeasuredHeight = render.measuredHeight,
                 expectedVisualWidth = battery.width,
                 expectedVisualHeight = battery.height,
                 parentClipsChildren = parent.clipChildren,
-                rootScreenX = rootLocation[0],
-                batteryScreenX = batteryLocation[0],
+                rootAnchorScreenX = rootAnchorScreenX,
+                batteryAnchorScreenX = batteryAnchorScreenX,
                 renderLeft = render.left,
                 renderRight = render.right,
             )
@@ -1332,7 +1387,6 @@ internal object SystemUiNativeCombinedParticipantOwner {
             }
 
         var bootstrapRootChanged = false
-        var shellWidthReset = false
         if (root != null) {
             if (
                 nativeRemoveFlag == null ||
@@ -1342,12 +1396,6 @@ internal object SystemUiNativeCombinedParticipantOwner {
                     root.visibility = View.GONE
                     bootstrapRootChanged = true
                 }
-            }
-            val layoutParams = root.layoutParams
-            if (layoutParams != null && layoutParams.width != ZERO_SLOT_WIDTH) {
-                layoutParams.width = ZERO_SLOT_WIDTH
-                root.layoutParams = layoutParams
-                shellWidthReset = true
             }
         }
 
@@ -1362,8 +1410,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
             (
                 bindingVisibilityChanged ||
                     nativeRemoveApplied ||
-                    bootstrapRootChanged ||
-                    shellWidthReset
+                    bootstrapRootChanged
             )
         ) {
             requestNativeLayout(root)
@@ -1379,8 +1426,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
             wasCommitted ||
             bindingVisibilityChanged ||
             nativeRemoveApplied ||
-            bootstrapRootChanged ||
-            shellWidthReset
+            bootstrapRootChanged
         ) {
             eventSink?.invoke(
                 "nativeCombinedParticipant featureGate source=" + source +
@@ -1396,8 +1442,6 @@ internal object SystemUiNativeCombinedParticipantOwner {
                     ) +
                     " nativeRemoveFlag=" +
                     (root?.let(::readNativeRemoveFlag) ?: "none") +
-                    " shellWidthReset=" + shellWidthReset +
-                    " customRootWidthWrite=" + shellWidthReset +
                     " nativeGeometryWrites=0 peerNativeGeometryWrites=0",
             )
         }
@@ -1467,6 +1511,12 @@ internal object SystemUiNativeCombinedParticipantOwner {
             return
         }
 
+        val render = renderViewRef?.get() ?: return
+        val battery = batteryRef?.get() ?: return
+        if (!syncShellGeometryToCurrentBatterySlot(root, render, battery)) {
+            return
+        }
+
         bindingState.visible = true
         root.visibility = View.VISIBLE
         handoffPending = true
@@ -1499,25 +1549,31 @@ internal object SystemUiNativeCombinedParticipantOwner {
                         val render = renderViewRef?.get()
                         val battery = batteryRef?.get()
                         val parent = root.parent as? ViewGroup
-                        val rootLocation = IntArray(2)
-                        val batteryLocation = IntArray(2)
-                        if (root.isAttachedToWindow) {
-                            root.getLocationOnScreen(rootLocation)
-                        }
-                        if (battery?.isAttachedToWindow == true) {
-                            battery.getLocationOnScreen(batteryLocation)
-                        }
+                        val rootAnchorScreenX =
+                            if (root.isAttachedToWindow) {
+                                layoutAnchorScreenX(root)
+                            } else {
+                                null
+                            }
+                        val batteryAnchorScreenX =
+                            if (battery?.isAttachedToWindow == true) {
+                                layoutAnchorScreenX(battery)
+                            } else {
+                                null
+                            }
                         val bridgeReady =
-                            isZeroSlotHandoffReady(
+                            isCompensatedSlotHandoffReady(
                                 rootMeasuredWidth = root.measuredWidth,
                                 rootMeasuredHeight = root.measuredHeight,
+                                rootPaddingStart = root.paddingStart,
+                                rootPaddingEnd = root.paddingEnd,
                                 renderMeasuredWidth = render?.measuredWidth ?: -1,
                                 renderMeasuredHeight = render?.measuredHeight ?: -1,
                                 expectedVisualWidth = battery?.width ?: -1,
                                 expectedVisualHeight = battery?.height ?: -1,
                                 parentClipsChildren = parent?.clipChildren ?: true,
-                                rootScreenX = rootLocation[0],
-                                batteryScreenX = batteryLocation[0],
+                                rootAnchorScreenX = rootAnchorScreenX ?: Float.NaN,
+                                batteryAnchorScreenX = batteryAnchorScreenX ?: Float.NaN,
                                 renderLeft = render?.left ?: Int.MIN_VALUE,
                                 renderRight = render?.right ?: Int.MIN_VALUE,
                             )
@@ -1555,14 +1611,14 @@ internal object SystemUiNativeCombinedParticipantOwner {
                                     " renderMeasured=" +
                                     (render?.measuredWidth ?: -1) + "x" +
                                     (render?.measuredHeight ?: -1) +
-                                    " rootScreenX=" + rootLocation[0] +
-                                    " batteryScreenX=" + batteryLocation[0] +
+                                    " rootAnchorX=" + (rootAnchorScreenX ?: Float.NaN) +
+                                    " batteryAnchorX=" + (batteryAnchorScreenX ?: Float.NaN) +
                                     " renderBounds=" +
                                     (render?.left ?: Int.MIN_VALUE) + "-" +
                                     (render?.right ?: Int.MIN_VALUE) +
                                     " parentClipChildren=" +
                                     (parent?.clipChildren ?: true) +
-                                    " bridge=zero-slot-to-native-battery " +
+                                    " bridge=compensated-native-battery " +
                                     "iconVisible=true overlayActive=false " +
                                     "peerNativeGeometryWrites=0",
                             )
@@ -1584,8 +1640,8 @@ internal object SystemUiNativeCombinedParticipantOwner {
                                     " renderMeasured=" +
                                     (render?.measuredWidth ?: -1) + "x" +
                                     (render?.measuredHeight ?: -1) +
-                                    " rootScreenX=" + rootLocation[0] +
-                                    " batteryScreenX=" + batteryLocation[0] +
+                                    " rootAnchorX=" + (rootAnchorScreenX ?: Float.NaN) +
+                                    " batteryAnchorX=" + (batteryAnchorScreenX ?: Float.NaN) +
                                     " renderBounds=" +
                                     (render?.left ?: Int.MIN_VALUE) + "-" +
                                     (render?.right ?: Int.MIN_VALUE) +
@@ -1604,29 +1660,91 @@ internal object SystemUiNativeCombinedParticipantOwner {
         root.viewTreeObserver.addOnPreDrawListener(listener)
     }
 
-    internal fun isZeroSlotHandoffReady(
+    internal fun isCompensatedSlotHandoffReady(
         rootMeasuredWidth: Int,
         rootMeasuredHeight: Int,
+        rootPaddingStart: Int,
+        rootPaddingEnd: Int,
         renderMeasuredWidth: Int,
         renderMeasuredHeight: Int,
         expectedVisualWidth: Int,
         expectedVisualHeight: Int,
         parentClipsChildren: Boolean,
-        rootScreenX: Int,
-        batteryScreenX: Int,
+        rootAnchorScreenX: Float,
+        batteryAnchorScreenX: Float,
         renderLeft: Int,
         renderRight: Int,
     ): Boolean =
-        rootMeasuredWidth == ZERO_SLOT_WIDTH &&
+        rootMeasuredWidth == expectedVisualWidth &&
             rootMeasuredHeight > 0 &&
+            rootMeasuredWidth + rootPaddingStart + rootPaddingEnd ==
+            ZERO_SLOT_OCCUPANCY &&
             renderMeasuredWidth == expectedVisualWidth &&
             renderMeasuredHeight == expectedVisualHeight &&
             expectedVisualWidth > 0 &&
             expectedVisualHeight > 0 &&
             !parentClipsChildren &&
-            rootScreenX == batteryScreenX &&
+            abs(rootAnchorScreenX - batteryAnchorScreenX) <= 0.5f &&
             renderLeft == 0 &&
             renderRight == expectedVisualWidth
+
+    private fun layoutAnchorScreenX(view: View): Float? {
+        val parent = view.parent as? View ?: return null
+        if (!parent.isAttachedToWindow) {
+            return null
+        }
+        val parentLocation = IntArray(2)
+        parent.getLocationOnScreen(parentLocation)
+        return parentLocation[0] + view.left + view.translationX
+    }
+
+    private fun isNativeBatterySlotReleased(
+        root: View,
+        battery: View,
+    ): Boolean {
+        val iconContainer = root.parent as? View ?: return false
+        if (iconContainer.parent !== battery.parent || battery.width <= 0) {
+            return false
+        }
+        return iconContainer.right >= battery.right
+    }
+
+    private fun syncShellGeometryToCurrentBatterySlot(
+        root: FrameLayout,
+        render: View,
+        battery: View,
+    ): Boolean {
+        val geometry =
+            resolveNativeShellGeometry(
+                nativeBatteryHidden = isNativeBatterySlotReleased(root, battery),
+                visualWidth = render.measuredWidth,
+            ) ?: return false
+        val layoutParams = root.layoutParams ?: return false
+        var changed = false
+        if (layoutParams.width != geometry.width) {
+            layoutParams.width = geometry.width
+            root.layoutParams = layoutParams
+            changed = true
+        }
+        if (
+            root.paddingStart != geometry.paddingStart ||
+            root.paddingEnd != geometry.paddingEnd
+        ) {
+            root.setPaddingRelative(
+                geometry.paddingStart,
+                root.paddingTop,
+                geometry.paddingEnd,
+                root.paddingBottom,
+            )
+            changed = true
+        }
+        if (changed) {
+            requestNativeLayout(root)
+        }
+        return root.layoutParams?.width == geometry.width &&
+            root.paddingStart == geometry.paddingStart &&
+            root.paddingEnd == geometry.paddingEnd
+    }
 
     internal enum class HandoffMode {
         BLOCKED,
@@ -2185,6 +2303,10 @@ internal object SystemUiNativeCombinedParticipantOwner {
                 return slot + "={" +
                     "w=" + target.width +
                     ",h=" + target.height +
+                    ",ps=" + target.paddingStart +
+                    ",pe=" + target.paddingEnd +
+                    ",ew=" +
+                    (target.width + target.paddingStart + target.paddingEnd) +
                     ",a=" + target.alpha +
                     ",sx=" + target.scaleX +
                     ",sy=" + target.scaleY +

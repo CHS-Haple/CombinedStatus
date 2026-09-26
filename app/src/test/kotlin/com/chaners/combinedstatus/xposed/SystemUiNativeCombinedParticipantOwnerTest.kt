@@ -7,37 +7,20 @@ import org.junit.Test
 
 class SystemUiNativeCombinedParticipantOwnerTest {
     @Test
-    fun zeroSlotBridgeAcceptsPreservedBatteryGeometry() {
+    fun compensatedBridgeAcceptsNativeWidthWithZeroEffectiveOccupancy() {
         assertTrue(
-            SystemUiNativeCombinedParticipantOwner.isZeroSlotHandoffReady(
-                rootMeasuredWidth = 0,
-                rootMeasuredHeight = 108,
-                renderMeasuredWidth = 105,
-                renderMeasuredHeight = 108,
-                expectedVisualWidth = 105,
-                expectedVisualHeight = 108,
-                parentClipsChildren = false,
-                rootScreenX = 1242,
-                batteryScreenX = 1242,
-                renderLeft = 0,
-                renderRight = 105,
-            ),
-        )
-    }
-
-    @Test
-    fun zeroSlotBridgeRejectsDuplicateLayoutWidth() {
-        assertFalse(
-            SystemUiNativeCombinedParticipantOwner.isZeroSlotHandoffReady(
+            SystemUiNativeCombinedParticipantOwner.isCompensatedSlotHandoffReady(
                 rootMeasuredWidth = 105,
                 rootMeasuredHeight = 108,
+                rootPaddingStart = 0,
+                rootPaddingEnd = -105,
                 renderMeasuredWidth = 105,
                 renderMeasuredHeight = 108,
                 expectedVisualWidth = 105,
                 expectedVisualHeight = 108,
                 parentClipsChildren = false,
-                rootScreenX = 1242,
-                batteryScreenX = 1242,
+                rootAnchorScreenX = 1242f,
+                batteryAnchorScreenX = 1242f,
                 renderLeft = 0,
                 renderRight = 105,
             ),
@@ -45,57 +28,85 @@ class SystemUiNativeCombinedParticipantOwnerTest {
     }
 
     @Test
-    fun zeroSlotBridgeRejectsCenteredChildOverflow() {
+    fun compensatedBridgeRejectsDuplicateNativeOccupancy() {
         assertFalse(
-            SystemUiNativeCombinedParticipantOwner.isZeroSlotHandoffReady(
-                rootMeasuredWidth = 0,
+            SystemUiNativeCombinedParticipantOwner.isCompensatedSlotHandoffReady(
+                rootMeasuredWidth = 105,
                 rootMeasuredHeight = 108,
+                rootPaddingStart = 0,
+                rootPaddingEnd = 0,
                 renderMeasuredWidth = 105,
                 renderMeasuredHeight = 108,
                 expectedVisualWidth = 105,
                 expectedVisualHeight = 108,
                 parentClipsChildren = false,
-                rootScreenX = 1242,
-                batteryScreenX = 1242,
-                renderLeft = -52,
-                renderRight = 53,
+                rootAnchorScreenX = 1242f,
+                batteryAnchorScreenX = 1242f,
+                renderLeft = 0,
+                renderRight = 105,
             ),
         )
     }
 
     @Test
-    fun zeroSlotBridgeRejectsClippedOrMisalignedOverflow() {
+    fun compensatedBridgeRejectsLegacyZeroWidthShell() {
         assertFalse(
-            SystemUiNativeCombinedParticipantOwner.isZeroSlotHandoffReady(
+            SystemUiNativeCombinedParticipantOwner.isCompensatedSlotHandoffReady(
                 rootMeasuredWidth = 0,
                 rootMeasuredHeight = 108,
+                rootPaddingStart = 0,
+                rootPaddingEnd = 0,
+                renderMeasuredWidth = 105,
+                renderMeasuredHeight = 108,
+                expectedVisualWidth = 105,
+                expectedVisualHeight = 108,
+                parentClipsChildren = false,
+                rootAnchorScreenX = 1242f,
+                batteryAnchorScreenX = 1242f,
+                renderLeft = 0,
+                renderRight = 105,
+            ),
+        )
+    }
+
+    @Test
+    fun compensatedBridgeRejectsClippedOrMisalignedGeometry() {
+        assertFalse(
+            SystemUiNativeCombinedParticipantOwner.isCompensatedSlotHandoffReady(
+                rootMeasuredWidth = 105,
+                rootMeasuredHeight = 108,
+                rootPaddingStart = 0,
+                rootPaddingEnd = -105,
                 renderMeasuredWidth = 105,
                 renderMeasuredHeight = 108,
                 expectedVisualWidth = 105,
                 expectedVisualHeight = 108,
                 parentClipsChildren = true,
-                rootScreenX = 1242,
-                batteryScreenX = 1242,
+                rootAnchorScreenX = 1242f,
+                batteryAnchorScreenX = 1242f,
                 renderLeft = 0,
                 renderRight = 105,
             ),
         )
         assertFalse(
-            SystemUiNativeCombinedParticipantOwner.isZeroSlotHandoffReady(
-                rootMeasuredWidth = 0,
+            SystemUiNativeCombinedParticipantOwner.isCompensatedSlotHandoffReady(
+                rootMeasuredWidth = 105,
                 rootMeasuredHeight = 108,
+                rootPaddingStart = 0,
+                rootPaddingEnd = -105,
                 renderMeasuredWidth = 105,
                 renderMeasuredHeight = 108,
                 expectedVisualWidth = 105,
                 expectedVisualHeight = 108,
                 parentClipsChildren = false,
-                rootScreenX = 1238,
-                batteryScreenX = 1242,
+                rootAnchorScreenX = 1243f,
+                batteryAnchorScreenX = 1242f,
                 renderLeft = 0,
                 renderRight = 105,
             ),
         )
     }
+
     @Test
     fun handoffModeAllowsVisibleHome() {
         assertEquals(
@@ -147,29 +158,39 @@ class SystemUiNativeCombinedParticipantOwnerTest {
 
 
     @Test
-    fun islandSlotTakesOverBatteryOccupancyOnlyWhileNativeBatteryIsHidden() {
-        assertEquals(
-            105,
-            SystemUiNativeCombinedParticipantOwner.resolveIslandSlotWidth(
-                nativeBatteryHidden = true,
-                visualWidth = 105,
-            ),
-        )
-        assertEquals(
-            0,
-            SystemUiNativeCombinedParticipantOwner.resolveIslandSlotWidth(
+    fun visibleBatteryUsesFullShellWithZeroEffectiveOccupancy() {
+        val geometry =
+            SystemUiNativeCombinedParticipantOwner.resolveNativeShellGeometry(
                 nativeBatteryHidden = false,
                 visualWidth = 105,
-            ),
-        )
+            )
+
+        assertEquals(105, geometry?.width)
+        assertEquals(0, geometry?.paddingStart)
+        assertEquals(-105, geometry?.paddingEnd)
+        assertEquals(0, geometry?.effectiveOccupancy)
     }
 
     @Test
-    fun islandSlotFailsClosedWhenVisualWidthIsUnavailable() {
-        assertEquals(
-            0,
-            SystemUiNativeCombinedParticipantOwner.resolveIslandSlotWidth(
+    fun hiddenBatteryLetsFullShellConsumeNativeSlot() {
+        val geometry =
+            SystemUiNativeCombinedParticipantOwner.resolveNativeShellGeometry(
                 nativeBatteryHidden = true,
+                visualWidth = 105,
+            )
+
+        assertEquals(105, geometry?.width)
+        assertEquals(0, geometry?.paddingStart)
+        assertEquals(0, geometry?.paddingEnd)
+        assertEquals(105, geometry?.effectiveOccupancy)
+    }
+
+    @Test
+    fun shellGeometryFailsClosedWithoutVisualWidth() {
+        assertEquals(
+            null,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeShellGeometry(
+                nativeBatteryHidden = false,
                 visualWidth = 0,
             ),
         )
