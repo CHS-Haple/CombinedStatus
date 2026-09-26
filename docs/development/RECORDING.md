@@ -38,6 +38,8 @@ When applicable, record:
 
 Avoid durable phrases such as “latest build”, “current APK”, or “the previous version” without the concrete identity they refer to.
 
+For active work branches, prefer the **effective runtime checkpoint / runtime source SHA** over a volatile documentation-only branch HEAD. A later docs-only commit does not create a new runtime Build and normally should not force CURRENT to track a new exact branch-head SHA unless that head itself matters to the next engineering decision.
+
 ### 1.4 Keep one logical boundary
 
 One record should describe one attributable engineering checkpoint or one coherent investigation.
