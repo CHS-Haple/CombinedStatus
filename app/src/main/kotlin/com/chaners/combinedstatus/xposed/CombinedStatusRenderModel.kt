@@ -89,11 +89,7 @@ internal data class CombinedStatusRenderModel(
             val batteryPercent = battery.percent.coerceIn(0, 100)
             val batterySemanticState =
                 battery.semanticState
-                    ?: when {
-                        battery.charging -> CombinedStatusBatterySemanticState.CHARGING
-                        batteryPercent <= 19 -> CombinedStatusBatterySemanticState.LOW
-                        else -> CombinedStatusBatterySemanticState.NORMAL
-                    }
+                    ?: CombinedStatusBatterySemanticState.NORMAL
 
             return CombinedStatusRenderModel(
                 batteryPercent = batteryPercent,
