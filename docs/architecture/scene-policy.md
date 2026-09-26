@@ -4,6 +4,14 @@ This document complements [layout-policy.md](layout-policy.md).
 
 The layout policy owns shared Combined Status visual calculations. The scene policy owns only scene capability classification and motion ownership.
 
+## 0.0.2 architecture status
+
+The capability map below is retained as the **last verified runtime-scene evidence for the currently implemented path**. It is not a mandate to preserve that Home carrier in 0.0.2.
+
+The permanent extra-participant / occupancy-handoff architecture explored by Builds 386-393 is **superseded as the default starting point for new 0.0.2 work**. Its runtime observations remain valid historical evidence.
+
+Current 0.0.2 work must follow `docs/development/CURRENT.md`, `docs/development/ROADMAP.md`, and `docs/architecture/README.md`. Any future capability-map promotion should describe the architecture actually validated by the new carrier/presentation contract.
+
 ## Rule
 
 A scene capability may define:
