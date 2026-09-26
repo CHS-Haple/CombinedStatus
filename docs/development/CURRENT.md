@@ -97,33 +97,37 @@ Build 385 preserves the native battery 105px slot as the single layout occupancy
 Build 385:
 - versionName: `0.0.1`
 - buildId: `20260926-385`
-- Fast Build #1031: success on `d3533828e82a335eab0b3e661cfadd4e70ebee27`
+- Fast Build #1031: success
 - Work Branch Canary #290: success
-- Canary checkout: exact tested work-branch SHA `d3533828e82a335eab0b3e661cfadd4e70ebee27`
+- Device validation: **rejected for visible entry animation**; the pivot remained centered while the Combined Status entry animation still failed to present visibly.
+
+Build 386:
+- versionName: `0.0.1`
+- buildId: `20260926-386`
+- runtime commit: `805b23ab0ef399b19cebd8b978bc4b76cb207d24`
+- Fast Build #1032: **success**
+- Work Branch Canary #291: **success**
+- Modern Xposed metadata: success
 - Haple signature verification: success
-- Canary debuggable check: false / success
-- Artifact ID: `10907652284`
-- Artifact archive digest: `sha256:6074e71cf5640ac5fd8d4e3d21d76a5f0603d733cba8479856ee0c756e3185fc`
-- Extracted APK SHA-256: `c1c084b2a6b79924bcc2c2e801d3f2c1050f597bff107cbddacbcbea619e3259`
-- Extracted APK size: `3375134` bytes
+- Canary non-debuggable verification: success
+- Artifact ID: `10907802307`
+- Artifact archive digest: `sha256:9cbf595eaf1ead0034b465bef2594215aba218a1cd859acf3b249174edb3c5c1`
+- Extracted APK SHA-256: `edfc56dd07f9aebe014563aa6c939a7ae18ef737022e8fed3f7a6cc28ff6ed48`
 - Device validation: pending
 
-Build 384 remains the immediate evidence baseline:
-- Fast Build #1020: success
-- Work Branch Canary #287: success
-- documentation-sync Fast Build #1023: success
-- documentation-sync Work Branch Canary #288: success
-- diagnostic evidence: received and analyzed
-
-Required Build 385 focused device scenarios:
-1. OFF -> ON: centered APPEAR with no flash/reappearance.
-2. ON -> OFF: centered DISAPPEAR.
-3. Steady Home placement remains aligned to the native battery slot.
+Required Build 386 focused device scenarios:
+1. OFF -> ON: Combined Status native entry animation must be visibly restored, not a flash/direct appearance.
+2. ON -> OFF remains animated.
+3. Steady Home placement remains aligned with the native battery slot, with no left shift.
 4. Pull down once and fully close: no first-frame / last-frame horizontal shift.
-5. Detailed diagnostic: `appearPivotAdapter state=applied`; APPEAR pivot remains visual-centered after animation start; Control Center anchor remains `statusIconsWidth=478` + `batteryWidth=105`.
+5. Detailed diagnostic should confirm `layoutWidth=0`, `measuredWidth=0`, `actualWidth=105` and native Control Center anchor semantics remain `statusIconsWidth=478`, `batteryWidth=105`.
 
 No merge to `dev` until these pass.
 
 ## Immediate next step
 
-Perform the focused Build 385 device validation using the signed Canary artifact. If any corner of the three-symptom cycle returns, stop and reopen ownership rather than adding another timing or offset patch.
+Device-test Build 386 once. This is the active single-variable checkpoint for the three-symptom loop: native layout still sees zero extra occupancy, while the module-owned Combined Status root receives real post-layout visual/transition bounds.
+
+If Build 386 restores the visible entry animation while steady and non-steady alignment remain correct, the three-way conflict is structurally resolved and the next work should be cleanup/review rather than another geometry experiment.
+
+If Build 386 still lacks a visible entry animation, stop the post-layout-bounds path and reopen animation-target ownership; do not add timing retries, offsets, repeated pivot writes, or another duplicate slot.
