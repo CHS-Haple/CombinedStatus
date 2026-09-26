@@ -21,26 +21,26 @@ class SystemUiHomePresentationOwnerTest {
     }
 
     @Test
-    fun carrierReservationPreservesNativeStateOutsideOwnedLayoutScope() {
+    fun endReservationExistsOnlyWhenNativeBatteryRegionIsReleased() {
         assertEquals(
-            false,
-            SystemUiHomePresentationOwner.CarrierReservationPolicy.resolveLayoutHide(
+            105,
+            SystemUiHomePresentationOwner.EndReservationPolicy.resolveReservationWidth(
                 nativeHide = true,
-                presentationActive = true,
+                requestedSlotWidthPx = 105,
             ),
         )
         assertEquals(
-            true,
-            SystemUiHomePresentationOwner.CarrierReservationPolicy.resolveLayoutHide(
-                nativeHide = true,
-                presentationActive = false,
-            ),
-        )
-        assertEquals(
-            false,
-            SystemUiHomePresentationOwner.CarrierReservationPolicy.resolveLayoutHide(
+            0,
+            SystemUiHomePresentationOwner.EndReservationPolicy.resolveReservationWidth(
                 nativeHide = false,
-                presentationActive = true,
+                requestedSlotWidthPx = 105,
+            ),
+        )
+        assertEquals(
+            0,
+            SystemUiHomePresentationOwner.EndReservationPolicy.resolveReservationWidth(
+                nativeHide = true,
+                requestedSlotWidthPx = -1,
             ),
         )
     }

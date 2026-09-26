@@ -524,27 +524,12 @@ internal object CombinedStatusHomeRenderSession {
 
             val rtl = hostView.layoutDirection == View.LAYOUT_DIRECTION_RTL
             val resolved =
-                CombinedStatusLayoutPolicy.resolve(
-                    settings =
-                        CombinedStatusLayoutSettings(
-                            baseVisualSidePx = minOf(carrierWidth, hostHeight).toFloat(),
-                            baseNeighborGapPx = 0f,
-                            userScale = 1f,
-                        ),
-                    host =
-                        CombinedStatusHostLayout(
-                            hostHeightPx = hostHeight.toFloat(),
-                            endAnchorPx =
-                                if (rtl) {
-                                    carrierWidth.toFloat()
-                                } else {
-                                    hostWidth.toFloat()
-                                },
-                            nativeSlotWidthPx = carrierWidth.toFloat(),
-                            renderMode = CombinedStatusRenderMode.PROJECTED,
-                            motionOwnership = CombinedStatusMotionOwnership.SYSTEM_UI,
-                        ),
-                )
+                CombinedStatusHomeLayoutResolver.resolve(
+                    hostWidthPx = hostWidth,
+                    hostHeightPx = hostHeight,
+                    nativeCarrierWidthPx = carrierWidth,
+                    isRtl = rtl,
+                ) ?: return false
             if (!resolved.renderCombined) {
                 return false
             }

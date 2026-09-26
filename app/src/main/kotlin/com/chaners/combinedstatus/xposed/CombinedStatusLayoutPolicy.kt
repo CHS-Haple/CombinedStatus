@@ -86,3 +86,33 @@ internal object CombinedStatusLayoutPolicy {
         )
     }
 }
+
+internal object CombinedStatusHomeLayoutResolver {
+    fun resolve(
+        hostWidthPx: Int,
+        hostHeightPx: Int,
+        nativeCarrierWidthPx: Int,
+        isRtl: Boolean,
+    ): CombinedStatusResolvedLayout? {
+        if (hostWidthPx <= 0 || hostHeightPx <= 0 || nativeCarrierWidthPx <= 0) {
+            return null
+        }
+        val carrierWidth = nativeCarrierWidthPx.coerceAtMost(hostWidthPx)
+        return CombinedStatusLayoutPolicy.resolve(
+            settings =
+                CombinedStatusLayoutSettings(
+                    baseVisualSidePx = minOf(carrierWidth, hostHeightPx).toFloat(),
+                    baseNeighborGapPx = 0f,
+                    userScale = 1f,
+                ),
+            host =
+                CombinedStatusHostLayout(
+                    hostHeightPx = hostHeightPx.toFloat(),
+                    endAnchorPx = if (isRtl) carrierWidth.toFloat() else hostWidthPx.toFloat(),
+                    nativeSlotWidthPx = carrierWidth.toFloat(),
+                    renderMode = CombinedStatusRenderMode.PROJECTED,
+                    motionOwnership = CombinedStatusMotionOwnership.SYSTEM_UI,
+                ),
+        )
+    }
+}
