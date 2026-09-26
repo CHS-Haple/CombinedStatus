@@ -1553,3 +1553,41 @@ PR #100 remains unmerged.
 The runtime delta is restricted to pinning the module-owned slot translation target to the same stable host boundary already used for the normalized slot width. No island animation curve, peer geometry, live View translation, occupancy lifecycle, network/battery suppression, or panel transition owner changed. Build 390's bounded child-motion diagnostics remain enabled for device confirmation.
 
 PR #100 remains unmerged pending device evidence.
+
+
+---
+
+## 2026-09-27 — 0.0.2 development line opened: unify Combined Status geometry
+
+**Type:** version-boundary / architecture decision  
+**Display version:** 0.0.2  
+**Runtime build:** not created by this documentation/version checkpoint
+
+### Why the display version advances
+
+The maintainer explicitly approved advancing from 0.0.1 to 0.0.2 because the current work has crossed from a narrow charging/island defect fix into a structural geometry redesign.
+
+The 0.0.2 runtime direction is to make one resolved layout contract authoritative for:
+- native end-side slot semantics;
+- Combined Status drawing/visual geometry;
+- optical neighbor spacing;
+- requested/adaptive occupancy;
+- transition / projection geometry.
+
+User-facing size and spacing controls are still a later product/UI task, but their underlying geometry contract is pulled forward now so future controls only change layout parameters and do not require another SystemUI hook/animation redesign.
+
+### Acceptance standard
+
+Internal implementation may change substantially, but the installed SystemUI result must behave as one coherent native participant:
+- stable visual placement;
+- consistent optical spacing to neighboring icons;
+- coherent native APPEAR/DISAPPEAR;
+- coherent charging/Super Island motion;
+- coherent Home <-> shade / Control Center first/last frames;
+- future scaling must preserve the same rules rather than adding scene-specific offsets.
+
+### Governance
+
+The existing 0.0.1 Build 386-393 experiments remain evidence, not architecture. The unfinished pre-0.0.2 Build-394 battery-slot experiment is provisional and must be either reconciled with the unified resolved-layout model or reverted before the first real 0.0.2 runtime checkpoint.
+
+The display-version change itself does not claim a validated runtime build and intentionally does not advance the Build ID.
