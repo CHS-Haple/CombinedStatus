@@ -6,6 +6,14 @@ Combined Status keeps visual geometry separate from native SystemUI layout and t
 
 This policy defines shared visual calculations for every scene so geometry rules do not drift into scene-specific hooks or compensation code.
 
+## 0.0.2 architecture status
+
+This document preserves verified layout-policy constraints and describes the last implemented PROJECTED path where relevant. That existing carrier is **not the selected default architecture for 0.0.2**.
+
+Builds 386-393 remain evidence about target-SystemUI geometry and animation behavior, but their permanent extra-participant / occupancy-handoff route is superseded as the default starting point for new work.
+
+For current implementation direction, read `docs/development/CURRENT.md`, `docs/development/ROADMAP.md`, `docs/architecture/README.md`, and the applicable `docs/reference/` evidence before using historical PROJECTED behavior as a design premise.
+
 ## Current render modes
 
 The runtime currently supports two layout modes:
