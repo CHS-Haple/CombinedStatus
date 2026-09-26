@@ -2692,3 +2692,47 @@ JADX 1.5.6 inspection of the pinned SystemUI target confirms:
 - **Compatibility:** reflected method/field contract is exact-target scoped and target-profile CI remains mandatory.
 - **Future extension:** settings only need to supply per-state color-source preferences; state acquisition and painter ownership do not change.
 
+
+
+---
+
+## 2026-09-27 — Build 401 battery semantic source consolidation
+
+**Type:** pre-device architecture correction / color authority  
+**Display version:** 0.0.2  
+**Build:** 401 / 20260927-401  
+**Supersedes before device validation:** Build 400  
+**Validation:** CI pending; focused device color validation pending
+
+### Why Build 400 was not sent to device
+
+Review of the first semantic-color implementation found two avoidable ownership costs:
+- four separate Battery callbacks were hooked even though the native icon already funnels semantic changes through `MiuiBatteryMeterIconView.onDarkChangeInternal()`;
+- a project-local fallback mode-priority mirror remained even though `getProgressStatus()` is available on the pinned target.
+
+Those choices would work functionally but would duplicate native semantics and increase maintenance surface.
+
+### Build 401 correction
+
+- Battery percent/charging continues to use the existing `MiuiBatteryMeterView.onBatteryLevelChanged(...)` source.
+- Semantic state/color changes use one additional exact-target hook on `MiuiBatteryMeterIconView.onDarkChangeInternal()`.
+- After the native method completes, Combined Status reads the final `getProgressStatus()` enum and maps only its names into the project presentation enum.
+- No local charging/power-save/performance/low priority reconstruction remains.
+- Native semantic colors come from the already-loaded SystemUI fields; no RGB palette is copied.
+- `mMiuiOptimizationEnabled=false` suppresses semantic color usage and falls back to the resolved status-icon tint, matching native SystemUI behavior.
+- The native status-icon tint already observed by the status-icon presentation owner is now merged into Battery-derived tint updates before they reach the Home renderer. This closes the 0.0.2 overlay cutover gap where peer tint was observed but discarded.
+- Future color-source policy remains available for NORMAL / CHARGING / POWER_SAVE / PERFORMANCE / LOW: System default, Follow status icon, Custom. Current runtime still uses System default only.
+- Invalid/missing custom color falls back to that state's System default rather than forcibly falling back to monochrome.
+
+### Review
+
+- **Ownership:** HyperOS owns battery semantic state and built-in colors.
+- **Lifecycle:** two battery hooks total for this owner: the existing level callback plus one native semantic callback.
+- **Single writer:** Combined Status writes no native mode/tint/Drawable state.
+- **Cleanup:** no new listener or observer registration; hook bookkeeping stays under the existing runtime owner.
+- **Fail-native:** missing semantic color degrades only that ring state to native status-icon tint.
+- **Performance:** event-driven, no polling, no frame callback, no duplicate mode observers.
+- **Compatibility:** exact private method/fields remain target-profile gated.
+- **Future extension:** settings can bind directly to the pure per-state color-source policy without new SystemUI integration.
+
+The shallow shade-pull Home-overlay leak remains next after this color checkpoint is device-validated.
