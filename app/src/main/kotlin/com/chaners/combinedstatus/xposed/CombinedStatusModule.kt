@@ -1086,7 +1086,7 @@ class CombinedStatusModule : XposedModule() {
                 "source" to source,
                 "authority" to
                     "MiuiBatteryMeterIconView.getProgressStatus() via " +
-                    "MiuiBatteryMeterIconView.onDarkChangeInternal()",
+                    "BatteryController callbacks",
                 "eventDriven" to true,
             )
         }.onFailure { error ->

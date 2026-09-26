@@ -78,6 +78,18 @@ class CombinedStatusBatteryColorPolicyTest {
     }
 
     @Test
+    fun missingNativeSemanticColorFallsBackToStatusTint() {
+        assertEquals(
+            statusTint,
+            CombinedStatusBatteryColorPolicy.resolve(
+                state = CombinedStatusBatterySemanticState.PERFORMANCE,
+                systemSemanticColor = null,
+                statusIconTint = statusTint,
+            ),
+        )
+    }
+
+    @Test
     fun invalidCustomFallsBackToSystemDefault() {
         assertEquals(
             systemSemantic,
