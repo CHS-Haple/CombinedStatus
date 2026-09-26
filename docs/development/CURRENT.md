@@ -10,11 +10,11 @@ This file is the concise recovery point for active Combined Status development. 
 - Integration branch: `dev`
 - Integration runtime baseline: Build 377, commit `f64fe0e3992eab4dd62ff479c3765d834ec7dfa4`
 - Active work branch: `feat/battery-semantic-colors` (stacked on the current Phase-2A source checkpoint)
-- Active PR: #100, `feat/native-panel-transition -> dev`
+- Active PRs: #100, `feat/native-panel-transition -> dev`; #105, `feat/battery-semantic-colors -> feat/native-panel-transition`
 - Active development line: **0.0.2**
 - First planned formal release target: **1.0.0** (current 0.0.x lines remain pre-release development)
 - Last device-tested runtime checkpoint: Build 397 (`0.0.2`) — **accepted for the tested Phase-2A charging carrier scenarios**
-- Current work-branch runtime checkpoint: Build 400 (`0.0.2`) — **source + tests defined; Fast CI and focused device validation pending**
+- Current work-branch runtime checkpoint: Build 403 (`0.0.2`) — **Fast CI + signed Work Branch Canary passed; focused device color validation pending**
 - Target profile: HyperOS SystemUI `17.03.260226.r`
 - Exact SystemUI SHA-256: `a0e738e41fe599b97950cbf52a9e2ddc6ae2ceff986efbacb1c9840bea78768d`
 - Modern Xposed API: 102
@@ -389,3 +389,26 @@ Build 401 narrows the runtime contract:
 Fallback: if a native semantic color cannot be read, the ring falls back to current native status-icon tint rather than inventing a replacement color.
 
 Build 399's battery-layer intensity correction is inherited by this branch. Fast Build #1050 and signed Work Branch Canary #309 passed for the Build-399 parent checkpoint; Build 400 requires its own Fast CI / Canary and device validation.
+
+
+## Build 403 battery semantic-color validation gate
+
+Build 403 is the current color candidate. Runtime source commit: `97ef67e648906a4b9bb2ce4d7dd390e955831189`.
+
+Final contract:
+- HyperOS `MiuiBatteryMeterIconView.getProgressStatus()` remains the semantic-state authority; Combined Status does not reproduce mode priority.
+- Exact low-frequency BatteryIcon callbacks are used only as update triggers; after each native callback completes, the final native progress status is read.
+- Charging, power-save, performance, and low-battery colors are read from the already-loaded SystemUI color fields.
+- `mMiuiOptimizationEnabled` gates semantic color usage exactly as the pinned target does; when disabled or when a semantic color is unavailable, the ring falls back to the resolved native status-icon tint.
+- Normal state always follows native status-icon tint.
+- The overlay renderer now consumes the already-observed native status-icon tint instead of discarding it at the Battery-derived tint boundary.
+- Build 399's non-overlapping battery-arc compositing remains in force.
+- Future per-state policy is already modeled for NORMAL / CHARGING / POWER_SAVE / PERFORMANCE / LOW with three sources: System default, Follow status icon, or Custom. Runtime UI/persistence for those choices is intentionally not exposed yet.
+
+Validation:
+- Fast Build #1063: **success**.
+- Signed Work Branch Canary #322: **success**.
+- Target-profile verification, unit/build, Modern Xposed metadata, Haple signature, non-debuggable check and artifact upload all passed.
+- Device validation remains required before the color branch is accepted.
+
+The shallow notification-shade pull / final held-return frame showing the Home Combined Status overlay is the next issue after this color checkpoint. It is classified as a Phase-2B scene-boundary leak, not intended final behavior.
