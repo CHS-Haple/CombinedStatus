@@ -7,6 +7,7 @@ import io.github.libxposed.api.XposedInterface.HookHandle
 import io.github.libxposed.api.XposedInterface.Hooker
 import io.github.libxposed.api.XposedModule
 import java.lang.ref.WeakReference
+import java.lang.reflect.Field
 
 internal object SystemUiIslandMotionSource {
     const val HOOK_COUNT = 1
@@ -29,6 +30,9 @@ internal object SystemUiIslandMotionSource {
             BATTERY_VIEW_FIELD,
         )
 
+    private var injectorRef = WeakReference<Any>(null)
+    private var diagnosticFields: List<Pair<String, Field>> = emptyList()
+
     fun install(
         module: XposedModule,
         classLoader: ClassLoader,
@@ -48,16 +52,15 @@ internal object SystemUiIslandMotionSource {
             listenerClass.declaredFields
                 .firstOrNull { it.type == injectorClass }
                 ?.apply { isAccessible = true }
-        val diagnosticFields =
-            if (onEvent == null) {
-                emptyList()
-            } else {
-                diagnosticTrackedNames.mapNotNull { name ->
-                    runCatching {
-                        injectorClass.getDeclaredField(name).apply { isAccessible = true }
-                    }.getOrNull()?.let { name to it }
-                }
+        val resolvedDiagnosticFields =
+            diagnosticTrackedNames.mapNotNull { name ->
+                runCatching {
+                    injectorClass.getDeclaredField(name).apply { isAccessible = true }
+                }.getOrNull()?.let { name to it }
             }
+        synchronized(this) {
+            diagnosticFields = resolvedDiagnosticFields
+        }
 
         val handle =
             module
@@ -78,8 +81,11 @@ internal object SystemUiIslandMotionSource {
                                 runCatching { field.get(chain.thisObject) }.getOrNull()
                             }
                         if (injector != null) {
+                            synchronized(this) {
+                                injectorRef = WeakReference(injector)
+                            }
                             val views =
-                                diagnosticFields.mapNotNull { (name, field) ->
+                                resolvedDiagnosticFields.mapNotNull { (name, field) ->
                                     (runCatching { field.get(injector) as? View }.getOrNull())
                                         ?.let { name to it }
                                 }.toMap()
@@ -106,8 +112,74 @@ internal object SystemUiIslandMotionSource {
 
     fun matches(handle: HookHandle): Boolean = handle.id == HOOK_ID
 
+    @Synchronized
+    fun currentOwnerSnapshot(): OwnerSnapshot? {
+        val injector = injectorRef.get() ?: return null
+        val views =
+            diagnosticFields.mapNotNull { (name, field) ->
+                (runCatching { field.get(injector) as? View }.getOrNull())
+                    ?.let { name to viewSnapshot(it) }
+            }.toMap()
+        if (views.isEmpty()) {
+            return null
+        }
+        return OwnerSnapshot(views)
+    }
+
     fun resetRuntimeState() {
+        synchronized(this) {
+            injectorRef = WeakReference(null)
+            diagnosticFields = emptyList()
+        }
         DiagnosticProbe.reset()
+    }
+
+    internal data class OwnerSnapshot(
+        val views: Map<String, MotionViewSnapshot>,
+    ) {
+        val summary: String
+            get() =
+                "{" +
+                    diagnosticTrackedNames
+                        .mapNotNull { name ->
+                            views[name]?.let { snapshot ->
+                                name + "=" + snapshot.summary
+                            }
+                        }
+                        .joinToString(",") +
+                    "}"
+    }
+
+    internal data class MotionViewSnapshot(
+        val className: String,
+        val screenX: Int,
+        val width: Int,
+        val translationX: Float,
+        val alpha: Float,
+        val visibility: Int,
+    ) {
+        val summary: String
+            get() =
+                className +
+                    "(x=" + screenX +
+                    ",w=" + width +
+                    ",tx=" + translationX +
+                    ",a=" + alpha +
+                    ",v=" + visibility +
+                    ")"
+    }
+
+    private fun viewSnapshot(view: View): MotionViewSnapshot {
+        val location = IntArray(2)
+        view.getLocationOnScreen(location)
+        return MotionViewSnapshot(
+            className = view.javaClass.simpleName,
+            screenX = location[0],
+            width = view.width,
+            translationX = view.translationX,
+            alpha = view.alpha,
+            visibility = view.visibility,
+        )
     }
 
     private object DiagnosticProbe {
@@ -196,15 +268,14 @@ internal object SystemUiIslandMotionSource {
         }
 
         private fun motion(view: View): String {
-            val location = IntArray(2)
-            view.getLocationOnScreen(location)
-            return view.javaClass.simpleName +
+            val snapshot = viewSnapshot(view)
+            return snapshot.className +
                 "{x=" + view.x +
-                ",screenX=" + location[0] +
-                ",tx=" + view.translationX +
-                ",a=" + view.alpha +
-                ",v=" + view.visibility +
-                ",w=" + view.width +
+                ",screenX=" + snapshot.screenX +
+                ",tx=" + snapshot.translationX +
+                ",a=" + snapshot.alpha +
+                ",v=" + snapshot.visibility +
+                ",w=" + snapshot.width +
                 "}"
         }
 

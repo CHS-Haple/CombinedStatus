@@ -92,6 +92,18 @@ internal object SystemUiPanelTransitionSource {
                                     expanded = expanded,
                                     tracking = tracking,
                                     visible = null,
+                                    homeMotion =
+                                        if (
+                                            onEvent != null &&
+                                            isProbeEnabled() &&
+                                            isBoundaryDiagnosticBucket(
+                                                diagnosticBucket(fraction),
+                                            )
+                                        ) {
+                                            SystemUiIslandMotionSource.currentOwnerSnapshot()
+                                        } else {
+                                            null
+                                        },
                                 )
                             onUpdate?.invoke(update)
                             emitDiagnostic(
@@ -132,6 +144,12 @@ internal object SystemUiPanelTransitionSource {
                                     tracking = null,
                                     visible = null,
                                     controlCenterAnchor = anchorSnapshot,
+                                    homeMotion =
+                                        if (anchorSnapshot != null) {
+                                            SystemUiIslandMotionSource.currentOwnerSnapshot()
+                                        } else {
+                                            null
+                                        },
                                 )
                             onUpdate?.invoke(update)
                             emitDiagnostic(
@@ -258,6 +276,10 @@ internal object SystemUiPanelTransitionSource {
             update.controlCenterAnchor?.let { snapshot ->
                 " controlAnchor=" + snapshot.summary
             }.orEmpty()
+        val homeMotionSummary =
+            update.homeMotion?.let { snapshot ->
+                " homeMotion=" + snapshot.summary
+            }.orEmpty()
         onEvent(
             "panelTransition source=" + update.source.logName +
                 " fraction=" + (update.fraction ?: "none") +
@@ -266,6 +288,7 @@ internal object SystemUiPanelTransitionSource {
                 " tracking=" + (update.tracking ?: probe.tracking ?: "none") +
                 " visible=" + (update.visible ?: probe.visible ?: "none") +
                 anchorSummary +
+                homeMotionSummary +
                 " authority=hyperos-native-callback nativeGeometryWrites=0",
         )
     }
@@ -277,6 +300,7 @@ internal object SystemUiPanelTransitionSource {
         val tracking: Boolean?,
         val visible: Boolean?,
         val controlCenterAnchor: ControlCenterAnchorSnapshot? = null,
+        val homeMotion: SystemUiIslandMotionSource.OwnerSnapshot? = null,
     )
 
     internal enum class Source(
