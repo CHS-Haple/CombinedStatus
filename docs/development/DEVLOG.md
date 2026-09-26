@@ -542,4 +542,149 @@ Build 384 Fast Build #1020 and Work Branch Canary #287 remain successful. This d
 #### Next step
 
 Inspect exact SystemUI animation code to identify the pivot writer and compare that ownership with the battery/end-side wrapper path. Do not produce Build 385 until the next implementation boundary is justified by that source-level review.
+---
 
+## 2026-09-26 — Build 385: adapt native APPEAR pivot to Combined Status visual geometry
+
+**Type:** runtime transition-geometry source fix
+**APK build:** 20260926-385
+**Source checkpoint:** current work-branch runtime commit
+**CI:** pending at commit creation
+**Device validation:** pending
+
+### Problem / objective
+
+Build 384 proved that a one-shot pre-draw pivot correction is overwritten when HyperOS native APPEAR actually starts. Build 385 aims to close the entry-animation corner of the three-symptom cycle without changing native battery-slot occupancy, steady placement, Control Center anchor semantics, or the native Folme alpha/scale curve.
+
+### Analysis / root cause
+
+**Confirmed by exact SystemUI source and Build 384 runtime evidence:** `MiuiStatusBarIconAnimatorController$FolmeHandler$appearAnimation$appear$1.onStart()` reads the target View height and width and writes `pivotY` and `pivotX`. Build 384 enable frames show project `pivotX=52.5` initially, then native `pivotX=0` once APPEAR starts on the intentional zero-width Combined Status shell.
+
+The defect is therefore not a missing animation callback, preference delay, or random pre-draw race. HyperOS is applying its normal status-icon geometry contract to a custom root whose layout width is deliberately zero while its renderer is 105px wide.
+
+### Additional architecture correction
+
+**Confirmed:** `HomeStatusBarViewBinderInjector.mBatteryContainer` is not an outer slot wrapper. Exact `battery_digital_view.xml` maps it to the internal `FrameLayout` holding `MiuiBatteryMeterIconView` / `MiuiHollowBatteryMeterIconView` inside `MiuiBatteryMeterView`. Build 384 also observes battery-specific alpha changes on this View. Hosting Combined Status there would incorrectly inherit battery-content hiding semantics and is rejected.
+
+### Evidence / references consulted
+
+- Latest `CONTRIBUTING.md`: root-cause order, evidence-driven solution changes, one-writer ownership, geometry separation, lightweight runtime, fail-native, and development-log requirements.
+- Exact HyperOS SystemUI `17.03.260226.r` artifact SHA-256 `a0e738e41fe599b97950cbf52a9e2ddc6ae2ceff986efbacb1c9840bea78768d`.
+- Exact DEX contract for `MiuiStatusBarIconAnimatorController$FolmeHandler$appearAnimation$appear$1`: captured `$view` field and zero-argument `onStart()` whose method references are `getHeight`, `setPivotY`, `getWidth`, and `setPivotX`.
+- Exact `system_icons.xml` and `battery_digital_view.xml` resource hierarchy.
+- Build 384 detailed device diagnostic.
+- `SystemUI-Reference/findings/statusbar.md`, `control-center.md`, and `charging.md`.
+
+### Alternatives considered
+
+1. **Repeat pivot writes on pre-draw / every frame** — rejected; Build 384 proves native writes later and racing it creates a competing hot-path writer.
+2. **Restore full-width Combined Status shell** — rejected as a final solution because Build 381 caused duplicate steady occupancy.
+3. **Hide native battery layout again** — rejected because Build 380/381 tied that topology to invalid Control Center anchor semantics.
+4. **Move renderer into binder `mBatteryContainer`** — rejected after exact resource identification proved it is battery-internal presentation content.
+5. **Conditionally replace the exact native APPEAR pivot callback only for the module-owned root** — selected. This preserves native lifecycle/curve while supplying the custom visual geometry that a zero-width shell cannot express.
+
+### Measures implemented
+
+- Removed Build 384's transition-pivot `OnPreDrawListener` and pending listener state.
+- Added an exact-target hook for `MiuiStatusBarIconAnimatorController$FolmeHandler$appearAnimation$appear$1.onStart()`.
+- The hook checks the callback's captured `$view`; every native peer immediately executes the original callback.
+- Only for the current Combined Status root, the module replaces the callback's pivot initialization with `pivotY = resolved visual/root height / 2` and `pivotX = renderer visual width / 2`.
+- HyperOS remains owner of visible state, remove lifecycle, APPEAR/DISAPPEAR timing, alpha, scale, Folme properties, panel/island behavior, and peer geometry.
+- Exact callback class/method/field are part of participant readiness; missing contract fails closed.
+- Hook count becomes two: controller construction plus APPEAR pivot adapter. Partial hook state is rejected.
+- Internal version advances to `20260926-385`; display version remains `0.0.1`.
+
+### Review
+
+- **Ownership:** one Combined Status-specific pivot writer for the custom root at native APPEAR start; the original native pivot callback is not executed for that root, so the module does not race a second pivot writer.
+- **Lifecycle:** both hooks are tracked; constructor-hook failure unhooks the already-installed pivot adapter; hot-reload accounting includes both.
+- **Performance:** one exact event-driven identity check per native APPEAR; no polling, View-tree traversal, frame loop, or resident listener.
+- **Fallback:** callback-contract or hook failure blocks the native replacement path instead of leaving a known-bad animation.
+- **Geometry:** battery slot remains the sole 105px layout occupancy owner; Combined Status visual stays independent; Control Center anchor inputs are intentionally unchanged.
+- **Future sizing:** pivot derives from resolved visual width rather than a fixed 105px constant.
+
+### CI / testing
+
+Fast Build and signed Work Branch Canary are pending at source commit creation.
+
+Required focused device test after CI:
+1. OFF -> ON centered APPEAR with no flash/reappearance;
+2. ON -> OFF centered DISAPPEAR;
+3. steady placement remains aligned to the native battery slot;
+4. pull-down first frame and return-to-steady last frame remain aligned;
+5. detailed diagnostic confirms `appearPivotAdapter state=applied`, APPEAR pivot remains centered after animation start, and Control Center anchor remains `statusIconsWidth=478`, `batteryWidth=105`.
+
+### Outcome / residual risk
+
+Pending CI and device evidence. If Build 385 still fails, do not add timing retries or repeated writes; reopen native end-side ownership.
+
+
+
+---
+
+## 2026-09-26 — Roadmap and App-home design intent restored
+
+**Type:** documentation / product-development continuity correction  
+**APK build:** none  
+**Runtime impact:** none
+
+### Problem / objective
+
+The repository development memory had become too focused on the active three-symptom transition investigation. A future session could therefore misread completed capabilities as future work or reopen an App Home design that had already been agreed.
+
+The objective is to restore the macro development sequence and preserve the confirmed Home-page information architecture without confusing design completion with implementation completion.
+
+### Evidence / references consulted
+
+- Latest `CONTRIBUTING.md`, especially development continuity, native ownership, and App/MIUIX rules.
+- Current repository and PR history through Build 377 and active PR #100 / Build 385.
+- Existing runtime evidence for multi-SIM presentation and native island/end-side motion participation.
+- Existing app source, including `FeaturesScreen`, the master-switch preference, and the real Modern Xposed Hot Reload entry point.
+- Confirmed project-design decisions recovered from prior development discussions and reconfirmed by the maintainer:
+  - current macro stage is Home -> shade / Control Center transition;
+  - the following macro order is Keyguard/lockscreen/AOD -> App Home/Preview Sandbox -> adaptive sizing/spacing and broader visual controls -> full regression -> 0.0.1 closure;
+  - Home is top real Runtime Status + bottom Preview Sandbox;
+  - primary tabs are `Home | Features | Settings`; the second tab is **Features**, not Customization.
+
+### Corrections
+
+- **Corrected:** dual-SIM and network presentation are not future roadmap phases. They are part of the completed core capability baseline. Later work may regression-test or extend compatibility, but should not plan them again as unimplemented milestones.
+- **Corrected:** island support is not a separate future feature stage. Native participant/slot/motion integration already gives Combined Status the SystemUI-owned island/end-side movement path that later work must preserve.
+- **Corrected:** the App Home page is a future implementation phase, but its high-level layout is already decided. Implementation should reproduce the retained design intent instead of reopening the information architecture.
+- **Corrected terminology:** the primary navigation is `Home | Features | Settings`; the second tab must not be described as `Customization`.
+
+### Confirmed App Home design snapshot
+
+**Top: Runtime Status**
+
+- Represents real module/SystemUI runtime state, not simulated state.
+- Shows the current Combined Status connection/takeover/health condition in a concise status-focused presentation.
+- Contains the global Combined Status master switch.
+- Retains a direct Hot Reload action backed by the real Modern Xposed Hot Reload path.
+- Detailed diagnostics remain secondary; Home must not become a diagnostic dump.
+
+**Bottom: Preview Sandbox**
+
+- A dedicated simulated Combined Status preview area below the real runtime section.
+- Can model Wi-Fi, mobile network, no-SIM, airplane mode, charging, battery and later visual-parameter combinations.
+- Preview state is local UI state only and must never mutate real SystemUI/network/battery state.
+- Future size/spacing/color controls should be observable here while reusing the real rendering semantics rather than creating a separate lookalike renderer.
+
+**Primary navigation**
+
+- `Home | Features | Settings`.
+- **Features** is the canonical second-tab name. Customization is a capability inside the product, not the top-level tab identity.
+
+### Review
+
+This is documentation/product-intent work only and adds no executable behavior.
+
+The review separates four categories that future sessions must not conflate:
+- **implemented capability** — supported by repository/runtime evidence;
+- **confirmed design intent** — already decided, implementation still future;
+- **active engineering checkpoint** — Build 385 inside the current transition phase;
+- **future macro phase** — work that genuinely follows the current stage.
+
+### Outcome
+
+The macro roadmap is restored above the Build-level route, and the Home page now has enough durable design intent to be reconstructed later without relying on chat memory.
