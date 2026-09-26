@@ -39,11 +39,11 @@ This avoids creating two independent layout identities that must later exchange 
 
 ### Combined Status applicability
 
-**Candidate for Combined Status.**
+**Adopted for the current Phase-2A Home path on the pinned target.**
 
-The earlier work-branch history shows repeated failure modes when a custom participant alternates between zero and non-zero occupancy around native battery-slot release. The 0.0.2 exact-target review has now selected an existing-host composition direction for the first runtime checkpoint instead of extending that participant model further.
+The earlier work-branch history showed repeated failure modes when a second permanent participant changed occupancy around native Battery-slot release. The current 0.0.2 Home path instead renders through the existing `MiuiNotificationStatusContainer / system_icon_area` host overlay.
 
-This does **not** prove that the exact native battery host is sufficient for every Combined Status scene. Combined Status carries network state and may need a different presentation carrier when that host is temporarily removed by platform scene policy.
+This adoption is Home-specific. It does **not** establish that the same host can be reused for shade / Control Center, keyguard or AOD.
 
 ---
 
@@ -77,16 +77,11 @@ Prefer a restoration-token model over long-lived mutation.
 
 ### Combined Status applicability
 
-**Candidate for Combined Status.**
+**Adopted for Home on the pinned target.**
 
-If 0.0.2 reuses an existing host, this pattern may allow native Wi-Fi/mobile items to stop consuming duplicate layout space while their Views remain alive.
+Exact-target inspection verified `MiuiStatusIconContainer.ignoredSlots` and its use by native measure/layout. The current Home session temporarily adds only represented slots around those native calls and restores exactly the entries it owned.
 
-Target verification is still required for:
-- the exact ignored-slot owner;
-- call ordering;
-- behavior with other modules;
-- host replacement;
-- island/shade/Control Center paths.
+This remains fingerprint-scoped. Other SystemUI builds/scenes and unexpected competing state must be revalidated or fail native.
 
 ---
 
@@ -109,11 +104,11 @@ When a native View must retain layout, lifecycle, tint, and state ownership but 
 
 ### Combined Status applicability
 
-**Strong candidate.**
+**Adopted for the current Home path.**
 
-Combined Status already benefits from keeping native Wi-Fi/mobile/battery state sources alive. A reversible visual mask can preserve that ownership while preventing duplicate drawing.
+Exact-target writer review found no competing Home Wi-Fi/mobile/Battery `clipBounds` writers in the directed target audit. The active Home session snapshots each native clip, applies an empty clip while replacement is ready, and restores only its own applied state.
 
-Any adopted mask must still be checked against accessibility, hit testing, clipping by ancestors, hardware layers, and transition rendering.
+The pattern remains scene- and target-scoped; later surfaces must repeat the writer/lifecycle review.
 
 ---
 
@@ -208,9 +203,9 @@ over:
 
 **Important negative guidance.**
 
-The provisional experiment that forced the native battery layout slot to remain present is not supported by this reference pattern and has been removed before the first 0.0.2 runtime checkpoint.
+The project rejected both the earlier global battery-hide-preservation idea and the later narrow Build-395 layout-time hide override. The current Home path treats native Battery hide as a read-only fact and adjusts only its own verified replacement-space reservation.
 
-Combined Status differs from a battery-only compact representation because it must preserve network information during charging-island behavior. Therefore the correct response may be a different presentation carrier or projection for that scene, not simply hiding the whole Combined Status visual.
+Combined Status differs from a battery-only compact representation because network information must remain represented during charging-island behavior.
 
 ---
 
@@ -240,7 +235,7 @@ is preferable to:
 
 This aligns with the project requirement that SystemUI own transition timing and target placement while Combined Status owns only its composed visual projection.
 
-The same principle may be useful for an island-specific presentation carrier, but the exact source/target hosts and progress authority must be proven on the target before implementation.
+For the current Home charging/Super-Island path, a separate projection is unnecessary: exact-target review shows the Combined Status overlay already rides the native animated `system_icon_area` host. The real-endpoint/native-progress principle remains the preferred candidate for Phase 2B Home -> shade / Control Center projection.
 
 ---
 
@@ -309,9 +304,9 @@ These must be verified independently.
 
 ---
 
-## 11. 0.0.2 architecture evaluation checklist
+## 11. 0.0.2 architecture / regression checklist
 
-Before the first 0.0.2 runtime checkpoint, evaluate a target-specific design against this checklist.
+Use this checklist for current Home regression review and before promoting the same ideas into a new scene or target.
 
 ### Steady Home
 
@@ -355,15 +350,17 @@ Before the first 0.0.2 runtime checkpoint, evaluate a target-specific design aga
 
 ## 12. Architecture implication for the current work branch
 
-The reference evidence triggered a reevaluation of the extra-participant integration choice. Subsequent exact-target review has now **superseded the permanent extra-participant route as the default 0.0.2 architecture** and selected the existing-host composition direction for the first runtime checkpoint.
+The reference evidence successfully redirected the project away from the permanent extra-participant / occupancy-handoff route.
 
-Builds 386-393 remain valuable evidence about:
-- native APPEAR requirements;
-- battery-slot release;
-- peer occupancy;
-- stable vs transient geometry;
-- panel-anchor semantics.
+Current target-specific status:
+- existing-host Home composition is implemented;
+- scoped represented-slot exclusion and reversible clip masking are implemented;
+- HostSession-scoped cleanup/fail-native boundaries are implemented;
+- native charging/Super-Island motion is inherited from `system_icon_area`;
+- Build 397 device validation accepted the corrected charging-carrier behavior;
+- Build 398 strengthens the stable width source to the live `battery_icon_container`;
+- Build 399 is a painter-only battery-intensity checkpoint and does not reopen these architecture decisions.
 
-They should not be treated as proof that the final 0.0.2 architecture must retain the same custom-participant ownership model.
+Builds 386-396 remain useful historical evidence but are not the current design premise.
 
-That exact-target verification is now complete for the pre-runtime Home carrier gate on the pinned target. Build 394 is the first runtime validation of the existing-host composition path, represented-slot restoration, reversible masking, carrier cutover, and inherited native island motion. No new offset, forced battery-hide override, or occupancy handoff should be added merely to preserve the previous implementation.
+The reference library should continue to guide Phase 2B and later scene work at the level of ownership, lifecycle, restoration and projection patterns. Exact target contracts must still be proven independently before new writes are introduced.

@@ -17,6 +17,8 @@ For SystemUI architecture, geometry, host, scene, transition, or sizing work, co
 6. [reference/README.md](reference/README.md)
 7. the relevant reference/architecture entry for the task
 
+For development-record maintenance or when creating/updating CURRENT, DEVLOG, ROADMAP, architecture/reference records, also follow [development/RECORDING.md](development/RECORDING.md).
+
 For display-version, release-target, or release-preparation work, also read [development/VERSIONING.md](development/VERSIONING.md).
 
 ## Authority by purpose
@@ -30,6 +32,7 @@ For display-version, release-target, or release-preparation work, also read [dev
 | Architecture policy/status | `architecture/` | Policy plus explicit supersession state |
 | Reusable implementation evidence | `reference/` | Evidence only; never automatic write authority |
 | Engineering history | `development/DEVLOG.md` | Chronological historical record |
+| Record writing format | `development/RECORDING.md` | File-level writing and synchronization guide |
 | Release/net-change record | `CHANGELOG.md` | Durable release-state record |
 
 ## Historical-record rule
