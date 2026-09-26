@@ -14,7 +14,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Active development line: **0.0.2**
 - First planned formal release target: **1.0.0** (current 0.0.x lines remain pre-release development)
 - Last device-tested runtime checkpoint: Build 393 (`0.0.1`)
-- Next runtime checkpoint: Build 394 (`0.0.2`), **not yet defined or built**
+- Next runtime checkpoint: Build 394 (`0.0.2`) — **architecture gate open, scope defined, not yet built**
 - Target profile: HyperOS SystemUI `17.03.260226.r`
 - Exact SystemUI SHA-256: `a0e738e41fe599b97950cbf52a9e2ddc6ae2ceff986efbacb1c9840bea78768d`
 - Modern Xposed API: 102
@@ -97,7 +97,7 @@ The reference review explains why the existing route is fragile:
 
 The unfinished experiment that forced the native battery slot to remain present has been removed. The platform hide decision remains authoritative unless new exact-target evidence proves otherwise.
 
-## Current 0.0.2 candidate direction
+## Selected pre-runtime 0.0.2 direction
 
 The next design review should evaluate:
 
@@ -135,7 +135,7 @@ Build 393 diagnostics and the pinned SystemUI reference now narrow the Phase-2A 
 - Exact-target APK method-body inspection now verifies `MiuiStatusIconContainer.ignoredSlots` plus public `addIgnoredSlots(...)` / `setIgnoredSlots(...)`: ignored slots are excluded from native measurement/layout and the add path requests layout. This closes the represented-slot layout-contract question without peer width/translation writes.
 - `CombinedStatusHomeRenderSession` already demonstrates the desired host-scoped overlay lifetime and exact overlay removal boundary.
 - **Clip-bound writer audit:** no Home status-bar Wi-Fi/mobile/battery implementation in the exact target APK was found writing `clipBounds`. A save -> empty-clip -> exact-restore mask is therefore the preferred non-competing visual-mask candidate for first runtime validation.
-- Promoting the Home candidate to production now primarily depends on island-time placement/handoff, runtime proof of ignored-slot restoration + clip-mask coverage, and final fail-native review.
+- The pre-runtime carrier/island contracts are now closed for the pinned target. Promotion now depends on Build 394 runtime proof of ignored-slot restoration, clip-mask coverage, carrier cutover, cleanup/fail-native restoration, Hot Reload, and focused device behavior.
 
 The shared `ResolvedLayout` semantics are now defined at design level in `docs/architecture/layout-policy.md`. Source/runtime implementation is intentionally deferred so this documentation checkpoint does not create Build 394.
 
