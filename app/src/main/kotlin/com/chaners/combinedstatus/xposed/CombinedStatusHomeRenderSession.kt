@@ -505,19 +505,16 @@ internal object CombinedStatusHomeRenderSession {
             val battery = batteryView.get() ?: return false
             val hostWidth = hostView.width
             val hostHeight = hostView.height
-            val carrierWidth =
-                (
-                    if (battery.measuredWidth > 0) {
-                        battery.measuredWidth
-                    } else {
-                        battery.width
-                    }
-                ).coerceAtMost(hostWidth)
+            val baseCarrierWidth =
+                SystemUiHomeCarrierMetrics
+                    .resolveBaseSlotWidthPx(battery)
+                    ?.coerceAtMost(hostWidth)
+                    ?: return false
             if (
                 !hostView.isLaidOut ||
                 hostWidth <= 0 ||
                 hostHeight <= 0 ||
-                carrierWidth <= 0
+                baseCarrierWidth <= 0
             ) {
                 return false
             }
@@ -527,7 +524,7 @@ internal object CombinedStatusHomeRenderSession {
                 CombinedStatusHomeLayoutResolver.resolve(
                     hostWidthPx = hostWidth,
                     hostHeightPx = hostHeight,
-                    nativeCarrierWidthPx = carrierWidth,
+                    baseCarrierWidthPx = baseCarrierWidth,
                     isRtl = rtl,
                 ) ?: return false
             if (!resolved.renderCombined) {

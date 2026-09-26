@@ -91,13 +91,13 @@ internal object CombinedStatusHomeLayoutResolver {
     fun resolve(
         hostWidthPx: Int,
         hostHeightPx: Int,
-        nativeCarrierWidthPx: Int,
+        baseCarrierWidthPx: Int,
         isRtl: Boolean,
     ): CombinedStatusResolvedLayout? {
-        if (hostWidthPx <= 0 || hostHeightPx <= 0 || nativeCarrierWidthPx <= 0) {
+        if (hostWidthPx <= 0 || hostHeightPx <= 0 || baseCarrierWidthPx <= 0) {
             return null
         }
-        val carrierWidth = nativeCarrierWidthPx.coerceAtMost(hostWidthPx)
+        val carrierWidth = baseCarrierWidthPx.coerceAtMost(hostWidthPx)
         return CombinedStatusLayoutPolicy.resolve(
             settings =
                 CombinedStatusLayoutSettings(

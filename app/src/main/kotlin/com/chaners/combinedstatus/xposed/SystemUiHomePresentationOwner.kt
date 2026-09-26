@@ -219,6 +219,9 @@ internal object SystemUiHomePresentationOwner {
         val hideField =
             batteryHideField
                 ?: return StateResult.Failure("battery-hide-field-unavailable")
+        val baseSlotWidthPx =
+            SystemUiHomeCarrierMetrics.resolveBaseSlotWidthPx(battery)
+                ?: return StateResult.Failure("battery-base-slot-width-unavailable")
 
         @Suppress("UNCHECKED_CAST")
         val list =
@@ -243,6 +246,7 @@ internal object SystemUiHomePresentationOwner {
                 battery = battery,
                 ignoredSlotsField = field,
                 batteryHideField = hideField,
+                baseSlotWidthPx = baseSlotWidthPx,
                 onEvent = { event -> eventSink?.invoke(event) },
                 onFailNative = ::onSessionFailure,
             )
@@ -387,6 +391,7 @@ internal object SystemUiHomePresentationOwner {
         battery: View,
         private val ignoredSlotsField: Field,
         private val batteryHideField: Field,
+        private val baseSlotWidthPx: Int,
         private val onEvent: (String) -> Unit,
         private val onFailNative: (String) -> Unit,
     ) : View.OnAttachStateChangeListener {
@@ -395,10 +400,26 @@ internal object SystemUiHomePresentationOwner {
         private val batteryContainer = WeakReference(batteryContainer)
         private val battery = WeakReference(battery)
         private var active = true
-        private var carrierReservationLogged = false
+        private var lastReservationDelta: Int? = null
         private var nativePadding: PaddingState? = null
         private var appliedPadding: PaddingState? = null
         private val clipStates = mutableListOf<ClipState>()
+        private val batteryLayoutListener =
+            View.OnLayoutChangeListener {
+                    _,
+                    left,
+                    _,
+                    right,
+                    _,
+                    oldLeft,
+                    _,
+                    oldRight,
+                    _,
+                ->
+                if (right - left != oldRight - oldLeft) {
+                    syncEndReservation()
+                }
+            }
 
         fun matches(
             host: ViewGroup,
@@ -427,6 +448,7 @@ internal object SystemUiHomePresentationOwner {
                         return 0
                     }
             nativePadding = PaddingState.from(group)
+            battery.get()?.addOnLayoutChangeListener(batteryLayoutListener)
             syncEndReservation()
             return refreshClipMasks()
         }
@@ -437,6 +459,7 @@ internal object SystemUiHomePresentationOwner {
             }
             active = false
             host.get()?.removeOnAttachStateChangeListener(this)
+            battery.get()?.removeOnLayoutChangeListener(batteryLayoutListener)
             val reservationRestored = restoreEndReservation()
             val restored = restoreClipMasks()
             batteryContainer.get()?.requestLayout()
@@ -501,21 +524,31 @@ internal object SystemUiHomePresentationOwner {
             val nativeHide =
                 runCatching { batteryHideField.getBoolean(container) }.getOrNull()
                     ?: run { onFailNative("battery-hide-state-unavailable"); return false }
-            val carrierWidth =
-                if (batteryView.measuredWidth > 0) batteryView.measuredWidth else batteryView.width
+            val actualBatteryWidthPx =
+                (if (batteryView.measuredWidth > 0) batteryView.measuredWidth else batteryView.width)
+                    .takeIf { width -> width > 0 }
+                    ?: run { onFailNative("battery-live-width-unavailable"); return false }
             val resolved =
                 CombinedStatusHomeLayoutResolver.resolve(
                     hostWidthPx = hostView.width,
                     hostHeightPx = hostView.height,
-                    nativeCarrierWidthPx = carrierWidth,
+                    baseCarrierWidthPx = baseSlotWidthPx,
                     isRtl = hostView.layoutDirection == View.LAYOUT_DIRECTION_RTL,
                 ) ?: run { onFailNative("home-layout-unavailable"); return false }
-            val reservationWidth =
-                EndReservationPolicy.resolveReservationWidth(
+            val requestedSlotWidthPx = resolved.requestedSlotWidthPx.toInt()
+            val reservationDelta =
+                EndReservationPolicy.resolvePaddingEndDelta(
                     nativeHide = nativeHide,
-                    requestedSlotWidthPx = resolved.requestedSlotWidthPx.toInt(),
+                    actualBatteryWidthPx = actualBatteryWidthPx,
+                    requestedSlotWidthPx = requestedSlotWidthPx,
                 )
-            val target = PaddingState(baseline.start, baseline.top, baseline.end + reservationWidth, baseline.bottom)
+            val target =
+                PaddingState(
+                    baseline.start,
+                    baseline.top,
+                    baseline.end + reservationDelta,
+                    baseline.bottom,
+                )
             if (live != target) {
                 group.setPaddingRelative(target.start, target.top, target.end, target.bottom)
             }
@@ -524,12 +557,14 @@ internal object SystemUiHomePresentationOwner {
                 return false
             }
             appliedPadding = if (target == baseline) null else target
-            if (!carrierReservationLogged || nativeHide) {
-                carrierReservationLogged = true
+            if (lastReservationDelta != reservationDelta) {
+                lastReservationDelta = reservationDelta
                 onEvent(
                     "homePresentation endReservation nativeHide=" + nativeHide +
-                        " requestedSlotWidth=" + resolved.requestedSlotWidthPx.toInt() +
-                        " reservationWidth=" + reservationWidth +
+                        " baseSlotWidth=" + baseSlotWidthPx +
+                        " actualBatteryWidth=" + actualBatteryWidthPx +
+                        " requestedSlotWidth=" + requestedSlotWidthPx +
+                        " paddingEndDelta=" + reservationDelta +
                         " basePaddingEnd=" + baseline.end +
                         " appliedPaddingEnd=" + target.end +
                         " owner=statusIcons-paddingEnd",
@@ -653,10 +688,19 @@ internal object SystemUiHomePresentationOwner {
     }
 
     internal object EndReservationPolicy {
-        fun resolveReservationWidth(
+        fun resolvePaddingEndDelta(
             nativeHide: Boolean,
+            actualBatteryWidthPx: Int,
             requestedSlotWidthPx: Int,
-        ): Int = if (nativeHide) requestedSlotWidthPx.coerceAtLeast(0) else 0
+        ): Int {
+            val requested = requestedSlotWidthPx.coerceAtLeast(0)
+            val actual = actualBatteryWidthPx.coerceAtLeast(0)
+            return if (nativeHide) {
+                requested
+            } else {
+                requested - actual
+            }
+        }
     }
 
     internal object OwnedListEntries {

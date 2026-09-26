@@ -14,7 +14,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Active development line: **0.0.2**
 - First planned formal release target: **1.0.0** (current 0.0.x lines remain pre-release development)
 - Last device-tested runtime checkpoint: Build 394 (`0.0.2`) — rejected for island occupancy/anchor behavior
-- Current work-branch runtime checkpoint: Build 396 (`0.0.2`) — **source defined; CI and focused device validation pending**
+- Current work-branch runtime checkpoint: Build 397 (`0.0.2`) — **source defined; CI and focused device validation pending**
 - Target profile: HyperOS SystemUI `17.03.260226.r`
 - Exact SystemUI SHA-256: `a0e738e41fe599b97950cbf52a9e2ddc6ae2ceff986efbacb1c9840bea78768d`
 - Modern Xposed API: 102
@@ -305,3 +305,25 @@ Read in this order:
 5. `docs/reference/statusbar-composition-patterns.md`;
 6. recent `DEVLOG.md`;
 7. exact target `SystemUI-Reference` findings as required.
+
+## Build 396 pre-device rejection; Build 397 stable base-slot correction
+
+Additional device clarification makes the charging defect a steady-state geometry failure, not only an island-transition artifact: when SystemUI starts while already plugged in and the user performs no interaction, Combined Status already has excessive neighbor spacing.
+
+Exact target resources close the width source:
+- `battery_meter_width = 28dp` is the stable native battery base width;
+- `hollow_battery_meter_charge_width = 8dp` is the charging-only addition;
+- on the current device those resolve to the observed ~105px base and ~30px charging addition, matching the 135px live charging Battery width.
+
+Build 396 is therefore not a device candidate even though its source compiles: it still derives the replacement width from the live Battery measured width and only adds positive end reservation when native battery layout is released.
+
+Build 397 corrects that ownership boundary:
+- the Home replacement slot resolves from SystemUI's runtime `battery_meter_width` resource; no 105/135 constant is used;
+- the live Battery measured width is observation-only input describing how much native width HyperOS currently consumes;
+- the Home overlay remains host-end anchored to the shared resolved slot width, so charging presentation cannot resize the Combined Status visual;
+- the status-icon end-boundary correction is signed and derived: native-visible Battery uses `requestedSlotWidth - actualBatteryWidth`; native-hidden Battery uses `requestedSlotWidth`;
+- on the verified device this yields 0px in normal Home, -30px in stable charging, and +105px when HyperOS releases the Battery region;
+- the session observes Battery layout changes and the native battery-hide setter only as low-frequency triggers; there is no polling or animation follower;
+- existing padding-writer conflict detection and exact restoration remain in force.
+
+Focused device acceptance must include a cold SystemUI start while already charging followed by no interaction. That steady frame must match non-charging Home neighbor spacing before island enter/exit is evaluated.

@@ -2463,3 +2463,61 @@ Build 396 must validate normal Home spacing, charging-island enter/steady/exit, 
 - Canary non-debuggable verification passed.
 - Artifact: `CombinedStatus-0.0.2-HyperOS-20260927-395-canary.apk`.
 - Device validation remains pending; Build 395 is not promoted to `dev`.
+
+---
+
+## 2026-09-27 — Build 396 pre-device rejection; Build 397 stable charging boundary
+
+**Type:** device clarification / exact-resource proof / runtime checkpoint  
+**Display version:** 0.0.2  
+**Rejected checkpoint:** Build 396 / 20260927-396  
+**Next build:** 397 / 20260927-397  
+**Validation:** CI pending; device validation pending
+
+### Device clarification
+
+The charging spacing defect is present after restarting SystemUI while already plugged in even when no subsequent user interaction occurs. This classifies the large neighbor gap as a steady charging-layout defect in addition to the separately observed island transition twitch.
+
+### Problem execution flow
+
+1. Separate steady charging geometry from island transition motion.
+2. Re-check the exact Battery width resources and live 105/135 runtime evidence.
+3. Reject live `MiuiBatteryMeterView.measuredWidth` as the replacement's width authority.
+4. Preserve the verified `system_icon_area` motion carrier.
+5. Derive one end boundary from the shared requested slot width while treating live Battery width and hide state as native environment inputs.
+6. Keep the correction host-scoped, reversible, event-driven and conflict-detected.
+
+### Exact target evidence
+
+The retained exact SystemUI artifact exposes:
+- `battery_meter_width = 28dp`;
+- `hollow_battery_meter_charge_width = 8dp`.
+
+On the current device these map to the already observed ~105px stable base Battery width and ~30px charging addition; the live charging Battery therefore reaches ~135px. The extra charging width is native presentation content, not Combined Status replacement-slot intent.
+
+### Build 397 implementation
+
+- Added a one-shot SystemUI Home carrier metric resolver for runtime `battery_meter_width`.
+- `CombinedStatusHomeLayoutResolver` now receives the stable base carrier width instead of live Battery measured width.
+- The Home overlay is therefore host-end anchored to the same resolved slot in charging and non-charging states.
+- `EndReservationPolicy` now derives a signed status-icon end adjustment:
+  - native Battery present: `requestedSlotWidth - actualBatteryWidth`;
+  - native Battery released: `requestedSlotWidth`.
+- This produces no adjustment for 105/105 normal Home, reclaims only the charging addition for 135/105 steady charging, and reserves the complete replacement slot when HyperOS releases Battery layout.
+- Battery layout changes and `setIsHideBattery` remain low-frequency synchronization triggers; no polling or frame follower is introduced.
+- The exact pre-session status-icon padding remains the restoration token and unexpected competing writers still fail native.
+
+### Review
+
+- **Ownership:** HyperOS owns Battery measured width, charging presentation, hide state and island motion. Combined Status owns only its resolved replacement slot and the proven status-icon end-boundary input.
+- **Lifecycle:** base width is resolved per Home session; live-width changes are observed through the Battery View's existing layout lifecycle; cleanup removes the listener and restores exact padding/clip state.
+- **Single writer:** no Battery width/translation/alpha/visibility write is added. The status-icon padding property has one verified module writer with runtime conflict detection.
+- **Cleanup:** teardown restores only the exact module-applied padding and clip snapshots and requests native relayout.
+- **Fail native:** missing `battery_meter_width`, unavailable live Battery width, missing hide state, or padding conflict restores native presentation.
+- **Performance:** one resource lookup per session plus low-frequency native layout/hide events; no polling or per-frame diagnostics.
+- **Compatibility:** resource/class/member claims remain scoped to the pinned exact SystemUI fingerprint.
+- **Future extension:** future user size/gap changes alter requested slot width through `ResolvedLayout`; the same signed boundary formula remains valid without charging-specific constants.
+
+### Device gate
+
+Build 397 must first prove normal Home vs plugged-in cold-start steady spacing with no user interaction. Only after that passes should island enter/steady/exit, feature disable/enable and same-architecture Hot Reload be evaluated.

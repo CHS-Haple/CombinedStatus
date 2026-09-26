@@ -21,26 +21,29 @@ class SystemUiHomePresentationOwnerTest {
     }
 
     @Test
-    fun endReservationExistsOnlyWhenNativeBatteryRegionIsReleased() {
+    fun endReservationKeepsOneResolvedEndBoundaryAcrossBatteryStates() {
+        assertEquals(
+            0,
+            SystemUiHomePresentationOwner.EndReservationPolicy.resolvePaddingEndDelta(
+                nativeHide = false,
+                actualBatteryWidthPx = 105,
+                requestedSlotWidthPx = 105,
+            ),
+        )
+        assertEquals(
+            -30,
+            SystemUiHomePresentationOwner.EndReservationPolicy.resolvePaddingEndDelta(
+                nativeHide = false,
+                actualBatteryWidthPx = 135,
+                requestedSlotWidthPx = 105,
+            ),
+        )
         assertEquals(
             105,
-            SystemUiHomePresentationOwner.EndReservationPolicy.resolveReservationWidth(
+            SystemUiHomePresentationOwner.EndReservationPolicy.resolvePaddingEndDelta(
                 nativeHide = true,
+                actualBatteryWidthPx = 135,
                 requestedSlotWidthPx = 105,
-            ),
-        )
-        assertEquals(
-            0,
-            SystemUiHomePresentationOwner.EndReservationPolicy.resolveReservationWidth(
-                nativeHide = false,
-                requestedSlotWidthPx = 105,
-            ),
-        )
-        assertEquals(
-            0,
-            SystemUiHomePresentationOwner.EndReservationPolicy.resolveReservationWidth(
-                nativeHide = true,
-                requestedSlotWidthPx = -1,
             ),
         )
     }
