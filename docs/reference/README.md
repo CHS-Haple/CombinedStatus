@@ -17,6 +17,7 @@ It is an **engineering reference**, not a dependency declaration, implementation
 ## Current entries
 
 - [Status-bar composition and scene-projection patterns](statusbar-composition-patterns.md) — existing-host composition, scoped slot suppression, reversible visual masking, host-scoped state, sizing separation, native-progress projection, and cleanup/fail-native behavior.
+- [Native status-icon resource rendering](native-icon-rendering.md) — native resource/tint/alpha-mask evidence and the Combined Status reuse boundary.
 
 ## Confidence language
 

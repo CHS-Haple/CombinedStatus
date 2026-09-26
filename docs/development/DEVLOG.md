@@ -2849,3 +2849,71 @@ This narrows the next review:
 
 The green screenshot is a separate semantic-color state and is not evidence of monochrome tint mismatch.
 
+---
+
+## 2026-09-27 — Post-Build 403 visual-intensity root-cause review: authored alpha mask becomes the next A/B boundary
+
+**Type:** root-cause review / historical correction / pre-runtime validation gate  
+**Display version:** 0.0.2  
+**Current runtime source:** Build 403 / `97ef67e648906a4b9bb2ce4d7dd390e955831189`  
+**Validation state:** source-level root cause narrowed; next executable checkpoint not yet created
+
+### Problem execution flow
+
+**Phenomenon and evidence**
+
+Target-device screenshots still show an optical-weight mismatch even though sampled core dark tones of the Combined Status center/mobile layers and adjacent native status icons are already close. Build 399 removed overlapping Battery-arc compositing, but the residual visual-parity issue remained open.
+
+**Root cause / responsibility source**
+
+Current painter review found a second project-owned compositing step in the native center path. `resolveNativeVisualProbe()` renders the HyperOS drawable into a bitmap, chooses an 85th-percentile visible-alpha ceiling, and linearly rescales every source-alpha pixel against that ceiling before the native status-icon tint is applied.
+
+This changes the authored alpha mask itself. It can increase edge coverage, saturate the upper part of the mask, and therefore alter the apparent stroke/antialias weight even when the final tint authority is otherwise correct. This does not yet prove that alpha rescaling is the sole remaining visual cause; it does establish an additional non-native coverage transformation at exactly the boundary implicated by the latest screenshots.
+
+**Repository and official platform rules**
+
+- `CONTRIBUTING.md` requires authoritative native resources/semantics to be reused rather than reconstructed when a verified source exists and keeps optical adjustment separate from tint/layout ownership.
+- Android `ImageView` applies image tint through the drawable; under SRC_IN semantics the tint is masked by the drawable alpha rather than by a project-derived percentile ceiling.
+- The exact target SystemUI Wi-Fi path exposes `Icon.Resource` through its native ImageView-based pipeline, and Combined Status already treats the resource identity and status-icon tint as authoritative.
+
+**HyperOS/SystemUI native implementation**
+
+No exact-target evidence currently shows HyperOS rescaling a Wi-Fi/airplane/no-SIM resource's internal alpha mask to a project-defined percentile ceiling before status-bar rendering.
+
+**Mature implementation comparison**
+
+The standard Android drawable/ImageView contract keeps the drawable's authored alpha mask as part of the asset and composes tint/overall image alpha around it. The Combined Status percentile-normalization layer is additional behavior rather than a reuse of that mature native rendering contract.
+
+### Historical correction
+
+Build 356 introduced shared native alpha-mask / visual-intensity normalization, but its own device feedback still reported a visual-intensity mismatch. The durable conclusion from that investigation is not that percentile normalization itself is proven correct; the durable conclusions are that native tint authority should remain shared and per-resource gray multipliers / hand-edited replacement assets are not justified.
+
+Historical Build-356 facts remain unchanged. This entry narrows the present interpretation using later device evidence and current source review.
+
+### Selected single-variable correction
+
+For the next runtime checkpoint:
+
+- preserve the HyperOS drawable's authored per-pixel alpha mask;
+- keep native resource identity, optical-bound measurement, final-pixel alignment and resolved native tint;
+- keep center sizing, outer weight, mobile-dot geometry and Build-399 Battery arc partition unchanged;
+- remove only the percentile source-alpha ceiling/rescaling path and its obsolete tests.
+
+No gray multiplier, replacement tint, per-resource exception, source-asset preprocessing, new hook, polling path, or geometry writer is authorized.
+
+### Review
+
+- **Ownership:** HyperOS/SystemUI remains resource and tint authority; Combined Status stops rewriting native asset coverage.
+- **Lifecycle:** unchanged; no new owner/listener/hook.
+- **Single writer:** unchanged for tint/layout/visibility; one project-side alpha-mask transformation is removed.
+- **Cleanup:** simpler; cached center assets remain session-local and recyclable.
+- **Fail native / recovery:** resource-resolution failure behavior is unchanged.
+- **Performance:** removes histogram/percentile normalization work from first-use center-asset preparation.
+- **Compatibility:** no new reflected target member/resource contract.
+- **Exception recovery:** malformed/unresolvable resources keep the existing native-center fallback.
+- **Future extension:** remains independent from later user color-source and size/spacing controls.
+
+### Next
+
+Create the next executable checkpoint with this one rendering-boundary change, run Fast CI plus signed Work Branch Canary, then stop runtime changes for focused device A/B validation of monochrome optical parity and Build-403 semantic battery colors.
+
