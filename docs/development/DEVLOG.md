@@ -1260,3 +1260,22 @@ PR #100 remains unmerged.
 Build 390 remains diagnostic-only. No motion/geometry behavior has been intentionally changed from Build 389. The next evidence required is one detailed-diagnostics charging-island enter/steady/exit capture containing the new `statusChildren=[...]` samples. That same-frame child data will decide whether the next runtime change belongs to Combined Status child state, participant occupancy/order, or a higher native owner.
 
 PR #100 remains unmerged.
+
+
+### Build 390 visual A/B finding — attach state may be the missing variable
+
+A new Build 390 recording does **not** reproduce the earlier Build 389 relative-motion split. Frame comparison shows the visible peer cluster and Combined Status maintain constant horizontal separation through both charging-island entry and exit.
+
+This cannot be attributed to Build 390 code: the 389 -> 390 runtime delta is diagnostic-only in `SystemUiIslandMotionSource`; it adds read-only child snapshots and does not alter geometry, motion, occupancy, state targets, or writers.
+
+The earlier Build 389 detailed session did, however, start with charging already active. At attach, the native battery measured 135px and Combined Status resolved `activeSlotWidth=135` / render width 135 from that battery-container measurement. The current good recording visibly starts from an uncharged steady state before charging begins.
+
+**Leading hypothesis:** the participant's slot/visual width is attach-state dependent. `activeSlotWidth` is seeded once from `NativeStatusBarSlotGeometry.resolve(...)` during attach; island occupancy later consumes the renderer's measured width or that cached slot width. Attaching while the battery is already in the 135px charging presentation can therefore create a different persistent participant geometry than attaching in the ordinary battery state.
+
+This is a stronger explanation than another translation offset because Build 390 behavior is otherwise identical to Build 389.
+
+Next gate is one same-build single-variable A/B:
+1. attach/reload while uncharged -> then charge;
+2. attach/reload while already charging -> then repeat the island cycle.
+
+Export a fresh detailed diagnostic for each case. If only case 2 reproduces the split and shows a 135px attach-time slot/render width, the fix should normalize participant slot identity against the stable native battery slot contract rather than the transient charging presentation width.
