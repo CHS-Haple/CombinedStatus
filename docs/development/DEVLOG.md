@@ -1015,3 +1015,38 @@ After CI, validate:
 7. detailed diagnostics show `slotOccupancy nativeBatteryHidden=true targetLayoutWidth=<visualWidth>` on island entry and restoration to 0 on exit.
 
 If Build 388 fails, reopen native measurement/order ownership. Do not add offsets or peer-translation patches.
+
+### Device validation and final work-branch review update — Build 387
+
+The focused Build 387 device gate is now accepted from the supplied screen recording and the matching detailed diagnostic session.
+
+#### Device evidence
+
+- Charging Super Island enter/steady/exit keeps the Combined Status visual fully within the right status-bar boundary; the previous Build 386 right-edge eviction is not reproduced.
+- Motion remains continuous with SystemUI; no project-owned translation jump is visible in the supplied recording.
+- The same diagnostic session preserves the restored native OFF -> ON APPEAR from Build 386. The Combined Status root has real 105x108 visual bounds, centered pivot geometry, and native alpha/scale progression.
+- Home -> shade / Control Center samples keep the Combined Status state target at `layoutTranslationX=478.0` while the native battery is separately translated/faded by HyperOS during charging/island behavior.
+- The state adapter continues to report `moduleViewTranslationWrites=0`, so HyperOS remains the only live View translation/Folme writer.
+
+#### Root-cause conclusion
+
+Build 387 confirms the remaining Build 386 charging defect was a **state-target semantic mismatch**, not a need for another live View writer or charging-specific offset. A zero-occupancy Combined Status participant must resolve its native state target to the battery slot's layout coordinate while leaving battery-only Super Island eviction to the native battery presentation.
+
+#### Review
+
+Final work-branch review rechecked the active implementation against the latest `CONTRIBUTING.md`, the exact target SystemUI contracts, and `SystemUI-Reference/findings/statusbar.md`, `control-center.md`, and `charging.md`.
+
+- **Scope:** PR #100 remains within the Home slot / native transition geometry boundary.
+- **Ownership:** HyperOS owns native measurement/state calculation, live translation, alpha/scale/Folme timing, island state, and peer geometry. Combined Status owns only its custom post-layout visual bounds and its custom state target adaptation.
+- **Lifecycle:** all three participant hooks are counted and reset together; partial installation rolls back installed hooks; host/battery/root references remain weak or generation-scoped.
+- **Performance:** event-driven constant-time hook work only; no polling, per-frame project animation writer, repeated tree traversal, or unbounded diagnostics were introduced.
+- **Fallback/compatibility:** exact target-contract failure keeps the native participant from partially activating. No hard-coded 105px translation compensation is used.
+- **Alternative review:** direct `View.translationX` writes, charging-state offsets, reintroducing full measured slot occupancy, and hiding Combined Status with the battery remain rejected because they violate one-writer, geometry-separation, or product-semantics boundaries.
+
+#### Validation continuity
+
+The tested runtime commit is `9cce4d2ea1e8ddf2512b1db5df4ac55dd9ff235c`. The later branch-head delta before this record contains only `CURRENT.md` / `DEVLOG.md` development-document updates, so it does not change APK/runtime behavior. Build 387 Fast #1033 and Work Branch Canary #292 remain the applicable automated validation for the runtime tree.
+
+#### Outcome / next step
+
+Build 387 passes the focused work-branch device gate and closes the original three-symptom loop plus the charging-island right-edge regression. PR #100 is ready for squash merge into `dev`, followed by trusted Integration CI on the resulting integrated baseline. Promotion to `main` remains a separate maintainer decision after the integrated baseline is validated.
