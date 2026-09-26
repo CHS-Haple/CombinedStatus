@@ -2,190 +2,200 @@
 
 ## Purpose
 
-Combined Status keeps visual geometry separate from native SystemUI layout and transition ownership.
+Combined Status keeps four responsibilities separate:
 
-This policy defines shared visual calculations for every scene so geometry rules do not drift into scene-specific hooks or compensation code.
-
-## 0.0.2 architecture status
-
-This document preserves verified layout-policy constraints and describes the last implemented PROJECTED path where relevant. That existing carrier is **not the selected default architecture for 0.0.2**.
-
-Builds 386-393 remain evidence about target-SystemUI geometry and animation behavior, but their permanent extra-participant / occupancy-handoff route is superseded as the default starting point for new work.
-
-For current implementation direction, read `docs/development/CURRENT.md`, `docs/development/ROADMAP.md`, `docs/architecture/README.md`, and the applicable `docs/reference/` evidence before using historical PROJECTED behavior as a design premise.
-
-## Current render modes
-
-The runtime currently supports two layout modes:
-
-### PROJECTED
-
-Combined Status renders its visual against a verified native anchor while preserving the native SystemUI slot width.
-
-In this mode:
-
-- `visualSidePx` describes the Combined Status drawing size;
-- `neighborGapPx` and `requestedSlotWidthPx` describe the desired visual/layout intent;
-- `appliedSlotWidthPx` remains the native slot width supplied by SystemUI;
-- the visual is end-anchored to the verified native anchor;
-- the policy does not grant permission to rewrite native measurement, layout, translation, or visibility.
-
-Home stable currently uses this mode.
-
-### NATIVE_ONLY
-
-Combined Status does not render on the surface. Native SystemUI content and motion remain authoritative.
-
-Notification-shade transition, Control Center, keyguard, and AOD currently use this mode.
-
-## Shared geometry
-
-The shared policy owns only Combined Status-side calculations:
-
-- canonical/base visual size;
-- user visual scale;
-- desired neighbor gap;
-- requested visual slot width;
-- end/right visual anchoring;
-- vertically centered visual bounds.
-
-Scene adapters must not duplicate these formulas.
-
-The policy intentionally distinguishes:
-
-1. native SystemUI slot geometry;
+1. native SystemUI layout/occupancy;
 2. Combined Status visual geometry;
 3. transition/motion geometry;
 4. optical adjustment.
 
 A value from one responsibility must not silently become the control value for another.
 
-## 0.0.2 target `ResolvedLayout` contract — design level
+## Current 0.0.2 Home contract
 
-The first 0.0.2 runtime implementation must not extend the historical participant-specific width/translation model. Before source code is changed, the shared layout contract is defined conceptually as follows.
+The current work-branch Home path uses the existing native Home host rather than a permanent extra status participant:
 
-### Inputs owned by Combined Status
+`MiuiNotificationStatusContainer / system_icon_area -> HostSession overlay -> CombinedStatusHomeLayoutResolver -> Combined Status renderer`
 
-The shared resolver may consume only Combined Status presentation intent:
+Build 397 is the first device-accepted charging-carrier checkpoint for this route. Build 398 refines the carrier-width authority to the live `battery_icon_container`; Build 399 changes only battery-ring compositing and does not alter this layout contract.
 
-- canonical composite visual size;
+### Ownership
+
+- HyperOS owns native Battery composition, Battery hide state, peer layout behavior, tint/scene facts and island/Folme motion.
+- Combined Status owns its overlay drawing, resolved replacement-slot intent, temporary represented-slot exclusions, reversible visual masks and one conflict-detected status-icon end reservation.
+- Native alpha, visibility, translation and Battery measured/layout width are not Combined Status write properties.
+
+## Render modes
+
+### PROJECTED
+
+Combined Status renders against verified native host geometry while SystemUI remains authoritative for surrounding layout and motion.
+
+Home currently uses this mode.
+
+### NATIVE_ONLY
+
+Combined Status does not render on the surface. Native SystemUI content and motion remain authoritative.
+
+Notification-shade / Control Center transitions, keyguard and AOD currently use this mode.
+
+## Shared `ResolvedLayout` contract
+
+### Combined Status inputs
+
+The shared resolver may consume presentation intent only:
+
+- canonical/base visual size;
 - user visual scale;
 - desired neighbor/leading optical gap;
-- relative per-glyph scales for mobile, center, and battery content;
-- a bounded optical adjustment that moves only Combined Status drawing inside its resolved presentation space.
+- relative per-glyph scale;
+- bounded optical adjustment inside the Combined Status presentation space.
 
-These are independent inputs. A visual scale must not silently become a native slot width, and an optical adjustment must not become a native translation correction.
+These inputs are independent. Visual scale is not automatically a native slot-width write, and optical adjustment is not native translation.
 
-### Inputs supplied by a scene/host adapter
+### Host/scene inputs
 
-A scene adapter may report only verified environment/capability facts:
+A host adapter supplies verified environment facts only:
 
-- host height and the real end anchor;
-- authoritative native/available occupancy or capacity, when such a contract actually exists;
-- whether the scene permits the compact presentation;
-- which component owns live motion/transition progress;
-- source geometry needed for a later draw-only projection.
+- host height;
+- real end anchor;
+- verified stable carrier/available width;
+- scene render capability;
+- motion owner;
+- source geometry needed by a later projection layer.
 
-The adapter must not invent a scene-specific scale, width difference, timing curve, or translation compensation.
+A host adapter must not invent a scene-specific width difference, timing curve or translation compensation.
 
 ### Resolved outputs
 
-The shared resolver should expose, as separate results:
+The shared resolver keeps separate:
 
-- whether Combined Status may render on the current surface;
-- resolved composite visual size and bounds;
-- requested neighbor gap and requested occupancy/slot width;
-- host-applied/native occupancy reported independently from the requested value;
-- the resulting visual-to-slot relationship, including insufficient-capacity/overflow information rather than hiding it with a correction;
-- resolved per-glyph relative scales;
-- the resolved optical adjustment;
-- stable source visual bounds that a later projection layer may consume.
+- whether Combined Status may render;
+- visual size/bounds;
+- requested neighbor gap;
+- requested replacement-slot width;
+- host-applied/stable carrier width;
+- visual-to-slot relationship;
+- per-glyph scale;
+- optical adjustment;
+- stable source bounds for later projection;
+- motion ownership.
 
-Native transition progress, animation duration/interpolators, and target-View translation remain outside the layout resolver. Phase 2B may combine the resolver's source bounds with verified native progress and real target geometry, but it must not add scene-specific geometry formulas back into the shared policy.
+Native transition progress, duration/interpolators and target-View translation remain outside the layout resolver.
 
-### Invariants
+### Current Home resolution
 
-- Requested occupancy and applied native occupancy are never treated as synonyms.
-- Per-glyph scale changes renderer composition only; they do not create a new SystemUI hook or native slot writer.
-- Optical adjustment changes Combined Status drawing only; it does not rewrite native measured width, layout width, translation, visibility, or scene state.
-- A missing host capability remains explicit and must fail native; the resolver must not fabricate a usable slot.
-- Home, future Keyguard/AOD adapters, and later user size/spacing controls consume the same contract rather than defining parallel formulas.
-- The Build-394 architecture gate is now satisfied for the pinned target. The first source implementation of this contract belongs to that bounded runtime checkpoint and must not expand into Phase-2B transition, Keyguard/AOD, or user-facing sizing work.
+The active Home adapter resolves the live native `battery_icon_container` under the bound `MiuiBatteryMeterView` and uses its stable width as the carrier-width authority.
 
-## Native slot preservation
+At the current default:
+- `userScale = 1`;
+- neighbor gap is zero;
+- visual side is bounded by the smaller of carrier width and host height;
+- applied slot width is the stable carrier width;
+- the visual is anchored to the Home host end.
 
-`CombinedStatusLayoutPolicy.resolve()` currently preserves `host.nativeSlotWidthPx` as the applied slot width.
+The full `MiuiBatteryMeterView` width is **not** the replacement visual-width authority because charging-only presentation can make the Battery root wider than its stable body.
 
-`requestedSlotWidthPx` is therefore not a production instruction to resize the native slot. It is a resolved Combined Status requirement that can be used for diagnostics, future capability evaluation, or a later explicitly owned layout contract.
+## Native represented-slot exclusion
 
-Any future change that makes requested width affect native SystemUI geometry must first establish a new ownership contract and pass the validation requirements below.
+Represented Wi-Fi/mobile/airplane/no-SIM slots are excluded only while the exact target `MiuiStatusIconContainer.onMeasure/onLayout` call executes.
+
+The active HostSession:
+1. reads the existing `ignoredSlots` collection;
+2. adds only missing Combined Status-owned entries;
+3. lets native measure/layout run;
+4. removes exactly those owned entries in `finally`.
+
+The project must not clear or replace the platform collection wholesale.
+
+## Reversible visual masking
+
+Native represented Views remain attached and state/tint/lifecycle capable.
+
+For each masked View:
+- snapshot its existing `clipBounds`;
+- apply the module-owned empty clip;
+- restore only when the live clip still matches the module-applied value.
+
+Do not replace this with permanent `GONE`, alpha racing or translation writes merely to hide duplicate visuals.
+
+## Home end-reservation contract
+
+The overlay itself does not consume native layout space. The current target therefore uses one narrow, reversible `MiuiStatusIconContainer.paddingEnd` reservation so the replacement and native peers share one coherent end boundary.
+
+Inputs:
+- requested replacement-slot width from `ResolvedLayout`;
+- actual native Battery-root presentation width;
+- native `mIsHideBattery` as a read-only scene/layout fact.
+
+The signed reservation is:
+
+- native Battery present: `requestedSlotWidth - actualBatteryWidth`;
+- native Battery released: `requestedSlotWidth`.
+
+This intentionally permits a negative delta when charging-only Battery presentation is wider than the stable replacement carrier. The value is derived from live/native geometry; it is not a hard-coded charging offset.
+
+The reservation:
+- is scoped to one Home HostSession;
+- snapshots the pre-session relative padding;
+- reacts only to low-frequency Battery/carrier layout and native hide-state events;
+- rejects unexpected competing padding writers;
+- restores only the exact module-applied state;
+- fails native when the carrier, width, hide-state or writer contract is unavailable.
 
 ## Motion ownership
 
 Motion ownership is independent from layout size:
 
-- `NONE` — no Combined Status-owned motion exists for the scene.
-- `SYSTEM_UI` — SystemUI owns positioning/transition motion.
-- `COMBINED_STATUS` — reserved for a future transition proven to be owned entirely by Combined Status.
+- `NONE` — no Combined Status-owned motion is needed;
+- `SYSTEM_UI` — SystemUI owns positioning/transition motion;
+- `COMBINED_STATUS` — reserved for a future transition proven to be fully module-owned.
 
-A SystemUI-owned scene must not add independent translation formulas, width-difference corrections, or endpoint compensation.
+Home island motion is `SYSTEM_UI`: the overlay rides the native `system_icon_area` host transform. Combined Status must not add a battery-translation follower, duplicate animator or custom timing curve.
 
-## End-anchor invariant
+Phase 2B may combine stable Home source bounds with verified native expansion progress and real target geometry, but it must not reopen Home carrier ownership.
 
-Changing Combined Status visual scale should preserve the resolved end/right visual anchor.
+## Future size / spacing
 
-Scaling affects the Combined Status drawing bounds. It must not be implemented by moving the final result with an unrelated `translationX` correction.
+Future user scale or gap settings must change shared layout inputs only.
 
-## Neighbor gap
+They must not introduce:
+- scene-specific hooks;
+- charging-specific constants;
+- translation compensation;
+- duplicate native slot writers.
 
-Neighbor gap is part of the Combined Status visual/layout requirement, but the current PROJECTED integration does not claim native neighbor-layout ownership.
+If a requested visual/slot size exceeds what a verified host can safely support, the capability remains explicit and fails native rather than being hidden with a correction.
 
-If a future native layout contract is established, the gap calculation must remain centralized here rather than being copied into individual scene adapters.
+## Rejected geometry / ownership patterns
 
-## Rejected geometry pattern
+Do not return to these without new exact-target evidence and a fresh ownership review:
 
-Runtime validation previously showed that mutating native battery-slot geometry can expand or move more of the SystemUI layout than the requested Combined Status visual size and can leak effects into other scenes.
+- permanent extra `combined_status` participant as the default carrier;
+- zero/full-width participant occupancy handoff;
+- overriding native Battery-hide requests to preserve module layout;
+- Battery-descendant translation/visibility as the steady Home anchor;
+- live charging-inflated Battery root width as replacement visual width;
+- fixed 105/135 or 448/478 correction chains;
+- per-frame/pre-draw translation or pivot races;
+- peer translation/alpha/visibility compensation.
 
-That experiment was removed.
+Build-specific history and rejected experiments belong in `docs/development/DEVLOG.md`.
 
-The project must not return to the pattern:
+## Requirements for any new native geometry write
 
-`custom native width -> scene-specific width difference -> translation/alignment compensation`
-
-without new runtime evidence and an explicit ownership transfer.
-
-## Requirements before any future native geometry ownership
-
-Before Combined Status may write native slot geometry, contributors must verify:
+Before Combined Status takes ownership of another native geometry property, verify:
 
 1. the exact owning SystemUI host and lifecycle;
-2. which component is the single writer for the affected property;
-3. the stable end anchor;
-4. adjacent-icon behavior when the slot changes;
-5. notification-shade, keyguard, AOD, Control Center, and island-transition behavior;
-6. restore/fallback behavior when Combined Status is unavailable or hidden;
-7. cleanup across host replacement, SystemUI recreation, and hot reload;
-8. that the change is safer than remaining PROJECTED.
+2. the current writer set and single-writer boundary;
+3. stable and transition geometry separately;
+4. adjacent-icon behavior;
+5. relevant Home/shade/Control Center/keyguard/AOD/island paths;
+6. restoration and failure behavior;
+7. host replacement, SystemUI recreation and Hot Reload cleanup;
+8. compatibility/fingerprint scope;
+9. that the change is safer than keeping the property SystemUI-owned.
 
-Until those requirements are met, native SystemUI geometry remains authoritative.
+## Reference evidence
 
-
-## Reference patterns under evaluation
-
-The current production policy above describes verified project behavior; it is not a requirement to preserve the same carrier implementation in 0.0.2.
-
-Generalized external implementation evidence that may inform the next target-specific architecture is stored in:
-- `docs/reference/README.md`;
-- `docs/reference/statusbar-composition-patterns.md`.
-
-Those notes are evidence, not ownership permission. Any pattern adopted from them must still satisfy this document's native-geometry requirements, exact target verification, fail-native behavior, and device validation.
-
-## Build 396 Home end-reservation runtime contract
-
-Build 394 device feedback invalidated Battery-descendant bounds as the steady Home local anchor. Build 396 uses the stable Home host end plus the shared resolved slot width.
-
-When HyperOS keeps the native battery region, no extra reservation is applied. When native `mIsHideBattery` releases that region, Combined Status adds its requested slot width to `MiuiStatusIconContainer.paddingEnd`. This uses the container's exact native measure/layout boundary while leaving battery hide, visibility, alpha and translation SystemUI-owned.
-
-The reservation is HostSession-scoped, snapshots existing relative padding, reacts only to native hide-state changes/activation, detects unexpected competing writers, and restores only its own applied state.
-
-The temporary Build-395 experiment that changed `mIsHideBattery` during `onLayout` is rejected and must not be restored.
+Generalized reusable evidence lives under `docs/reference/`. It may justify an investigation direction, but target-specific write ownership still requires exact SystemUI proof and device validation.
