@@ -2,7 +2,7 @@
 
 All notable changes to Combined Status are documented in this file.
 
-The project follows a Keep a Changelog-style structure. During normal development before the first formal release, `[Unreleased]` describes the **current net state intended for the initial 0.0.1 release**. The final release-preparation commit freezes those changes into a dated version section immediately before publication. Intermediate experiments, superseded implementations, CI-by-CI adjustments, and diagnostic investigation history belong in Git history or dedicated development documentation.
+The project follows a Keep a Changelog-style structure. During pre-release development, `[Unreleased]` describes the **current net state intended to progress toward the first formal 1.0.0 release**. Current `0.0.x` display versions are development lines, not formal-release milestones. The final release-preparation commit freezes applicable changes into a dated version section immediately before publication. Intermediate experiments, superseded implementations, CI-by-CI adjustments, and diagnostic investigation history belong in Git history or dedicated development documentation.
 
 ## [Unreleased]
 
