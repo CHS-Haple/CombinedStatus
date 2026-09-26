@@ -1242,3 +1242,21 @@ Changing geometry again before distinguishing these would violate the root-cause
 One short device capture must show `statusChildren=[...]` for island enter/exit. The next implementation decision will be based on same-frame Combined Status vs peer screen-X/translation deltas, not visual guessing.
 
 PR #100 remains unmerged.
+
+
+### CI validation update — Build 390
+
+- Exact tested work-branch SHA: `7531a43bbaac7d1d68c649f84a67224fb4f186ce`.
+- Fast Build #1040: **success**.
+- Work Branch Canary #299: **success**.
+- Artifact ID: `10910261548`.
+- Artifact archive digest: `sha256:7ac12e94efd4a769046da44f80b0eb9d0cd1dfc4e8b18d79be0ba994d65fcd00`.
+- Extracted APK SHA-256: `76e82cd0fb5d9e4e8330987e26aba2353e64e8e274cd35818c889cd79c38b699`.
+- Extracted APK size: `3375134` bytes.
+- The Canary workflow checked out the exact work-branch SHA above and completed successfully.
+
+### Current gate
+
+Build 390 remains diagnostic-only. No motion/geometry behavior has been intentionally changed from Build 389. The next evidence required is one detailed-diagnostics charging-island enter/steady/exit capture containing the new `statusChildren=[...]` samples. That same-frame child data will decide whether the next runtime change belongs to Combined Status child state, participant occupancy/order, or a higher native owner.
+
+PR #100 remains unmerged.
