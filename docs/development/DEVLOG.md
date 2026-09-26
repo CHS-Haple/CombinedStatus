@@ -1910,3 +1910,56 @@ Build 394 remains blocked on:
 4. final ownership/lifecycle/single-writer/cleanup/fail-native/performance/compatibility review.
 
 The next investigation must close those contracts rather than modify runtime behavior speculatively.
+
+---
+
+## 2026-09-27 — Exact-target ignored-slot and clip-mask proof
+
+**Type:** exact-target static contract / architecture review  
+**Runtime build:** none  
+**Display line:** 0.0.2  
+**Runtime impact:** none
+
+### Problem / objective
+
+The previous Phase-2A review still treated ignored-slot handling and a non-competing visual mask as unverified target contracts. The retained original target SystemUI APK was recovered from the file library and verified against the pinned SHA-256, allowing the missing contracts to be checked directly instead of inferred from AOSP/older MIUI behavior.
+
+### Problem execution flow
+
+1. Recover the retained original `SystemUI 17.03.260226.r` APK and verify the exact SHA-256.
+2. Inspect `MiuiStatusIconContainer` fields/methods and the exact `onMeasure()` / `onLayout()` call path.
+3. Verify the behavior of `setIgnoredSlots(...)` / `addIgnoredSlots(...)` rather than assuming AOSP `mIgnoredSlots` semantics.
+4. Audit `View.setClipBounds(...)` writers across the exact target DEX set.
+5. Re-run the ownership/single-writer/cleanup/fail-native review before granting either mechanism to a future runtime implementation.
+
+### Exact-target findings
+
+- `MiuiStatusIconContainer` defines its own `ignoredSlots: List` and public final `addIgnoredSlots(...)` / `setIgnoredSlots(...)` methods.
+- `onMeasure()` excludes a child from the measured set when its slot is in `ignoredSlots`; `onLayout()` also checks the same list.
+- the add path requests layout, so this is a native container layout contract rather than a peer-child width workaround.
+- the target Home Wi-Fi/mobile/battery implementations were not found writing `clipBounds` in the directed DEX writer audit.
+
+### Architecture consequence
+
+The preferred steady Home composition can now be expressed as:
+
+`MiuiNotificationStatusContainer.overlay carrier + host-scoped represented-slot exclusion + reversible clip-only native visual mask + shared ResolvedLayout`
+
+This does not authorize a global ignored-slot replacement. Combined Status must snapshot/restore only the slot exclusions it owns for the current host session, preserve unrelated ignored entries, and fail native if the active target views/contracts are incomplete.
+
+The clip candidate must save and restore each target View's pre-existing clip state. It must not replace native `alpha`, `visibility`, `translation`, or measured/layout geometry writers.
+
+### Review
+
+- **Ownership review:** `MiuiStatusIconContainer` remains the native layout owner; Combined Status may only use its exposed ignored-slot contract within the active Home session. Combined Status owns only its overlay drawing and its restoration tokens.
+- **Lifecycle review:** ignored-slot additions and clip snapshots are HostSession-scoped and invalid on host replacement.
+- **Single-writer review:** the new candidate avoids peer width/translation writes and avoids competing with native alpha/visibility animation writers.
+- **Cleanup review:** restore only Combined Status-owned ignored entries and the exact saved clip state; cleanup must run on feature disable, host detach/replacement, hot reload, partial activation failure, and module/session reset.
+- **Fail-native review:** native Views are not masked until the overlay renderer, target slot set, ignored-slot contract, and restoration tokens are all ready for the current session.
+- **Performance review:** no polling, no production pre-draw follower, no per-frame reflection, and no additional background work is required for this steady-state mechanism.
+- **Compatibility review:** this contract is proven only for the pinned target SHA-256. Other HyperOS builds must re-prove the class/method contract or remain native.
+- **Future-extension review:** represented-slot handling stays independent from `ResolvedLayout`; future visual size/gap controls change layout intent, not suppression hooks.
+
+### Remaining gate
+
+Build 394 is still not created. The primary unresolved Phase-2A question is charging/island presentation: Combined Status must consume verified native motion/geometry while preserving network information instead of inheriting the battery view's fade/hide semantics. Notification-shade endpoint mapping also remains less mature than the Control Center anchor contract.

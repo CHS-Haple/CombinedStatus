@@ -132,8 +132,10 @@ Build 393 diagnostics and the pinned SystemUI reference now narrow the Phase-2A 
 
 - `MiuiNotificationStatusContainer`'s host overlay has already accepted the real Combined Status renderer anchored to the live battery descendant bounds with no native geometry writes and without inheriting the battery ancestor's visibility. This verifies a **Home attachment/lifecycle candidate**, not yet the final production carrier contract.
 - Charging-island entry is confirmed to involve two distinct native responsibilities: `MiuiStatusIconContainer` changes its available/occupied width while the real `MiuiBatteryMeterView` independently translates and fades. The old permanent participant attempted to bridge both responsibilities with one custom slot identity, which is the ownership conflict 0.0.2 must remove.
-- The generalized ignored-slot pattern remains only reference evidence. The exact pinned SystemUI artifact has **not yet** established the concrete ignored-slot field/method, mutation scope, or restoration contract needed by Combined Status.
-- `CombinedStatusHomeRenderSession` already demonstrates the desired host-scoped overlay lifetime and exact overlay removal boundary. Promoting that mechanism from probe/candidate to production still depends on exact slot-suppression, reversible visual masking, island placement, and fail-native proof.
+- Exact-target APK method-body inspection now verifies `MiuiStatusIconContainer.ignoredSlots` plus public `addIgnoredSlots(...)` / `setIgnoredSlots(...)`: ignored slots are excluded from native measurement/layout and the add path requests layout. This closes the represented-slot layout-contract question without peer width/translation writes.
+- `CombinedStatusHomeRenderSession` already demonstrates the desired host-scoped overlay lifetime and exact overlay removal boundary.
+- **Clip-bound writer audit:** no Home status-bar Wi-Fi/mobile/battery implementation in the exact target APK was found writing `clipBounds`. A save -> empty-clip -> exact-restore mask is therefore the preferred non-competing visual-mask candidate for first runtime validation.
+- Promoting the Home candidate to production now primarily depends on island-time placement/handoff, runtime proof of ignored-slot restoration + clip-mask coverage, and final fail-native review.
 
 The shared `ResolvedLayout` semantics are now defined at design level in `docs/architecture/layout-policy.md`. Source/runtime implementation is intentionally deferred so this documentation checkpoint does not create Build 394.
 
@@ -153,12 +155,11 @@ The shared `ResolvedLayout` semantics are now defined at design level in `docs/a
 
 Before the first 0.0.2 runtime checkpoint:
 
-1. finish production-safety proof for the exact-target Home overlay candidate; its attachment/lifecycle boundary is verified, but duplicate-slot suppression and island placement are not;
-2. verify the native ignored-slot/measurement boundary and whether it is safe in the target host lifecycle;
-3. finish the charging-island carrier/projection proof using the now-confirmed split between status-container occupancy and battery presentation motion;
-4. map Home -> shade / Control Center source and target endpoints to the existing native expansion authority;
-5. keep the design-level shared `ResolvedLayout` contract as the single sizing/optical source and implement it only with the first justified 0.0.2 runtime checkpoint;
-6. repeat the ownership/lifecycle/single-writer/cleanup/fail-native/performance/compatibility review before writing the first 0.0.2 runtime implementation.
+1. finish the charging-island carrier/projection proof using the confirmed split between status-container occupancy and battery presentation motion;
+2. finalize the first runtime design for host-scoped `ignoredSlots` restoration and clip-only visual masking, then validate both on the target device;
+3. map/confirm the remaining Home -> shade notification endpoint contract while preserving the already-verified Control Center native progress/anchor authority;
+4. keep the design-level shared `ResolvedLayout` contract as the single sizing/optical source and implement it only with the first justified 0.0.2 runtime checkpoint;
+5. repeat the ownership/lifecycle/single-writer/cleanup/fail-native/performance/compatibility review before writing the first 0.0.2 runtime implementation.
 
 Only after those are proven should Build 394 be created.
 
