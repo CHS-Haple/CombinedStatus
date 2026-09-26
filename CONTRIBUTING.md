@@ -469,7 +469,11 @@ Before keeping an entry, ask: would it still be true and useful to someone who s
 
 ### 7.3 Release boundary
 
-Before the first formal release, `[Unreleased]` describes the current net state intended for that release.
+The first planned formal release target is **1.0.0**. Current `0.0.x` display versions are pre-release development lines and continue to advance only through explicit maintainer-approved development-version changes.
+
+Before the first formal release, `[Unreleased]` describes the current net state progressing toward the 1.0.0 release boundary. Do not rewrite historical Build/CI records when the future release target changes; historical records retain the version that actually existed at the time.
+
+The detailed current version plan is recorded in `docs/development/VERSIONING.md`.
 
 For a formal release:
 
@@ -671,6 +675,13 @@ Before implementation, diagnosis, review, or continuation of an existing Combine
 2. `docs/development/CURRENT.md`;
 3. `docs/development/ROADMAP.md`;
 4. the recent and historically relevant entries in `docs/development/DEVLOG.md`.
+
+Keep that four-step startup path intact. Then add task-specific repository evidence when applicable:
+- for architecture, host, geometry, scene, transition, or sizing work, read `docs/architecture/README.md` and `docs/reference/README.md` plus the relevant entries they index;
+- for display-version, release-target, or release-preparation work, read `docs/development/VERSIONING.md`;
+- `docs/README.md` is the repository documentation map when the correct document class is unclear.
+
+Reference-library material is evidence, not automatic implementation authority. A historical architecture documented elsewhere remains historical evidence even when `CURRENT.md` or `docs/architecture/README.md` marks that route superseded for new work.
 
 Repository state is authoritative over remembered conversation context. When the repository and an older discussion disagree, re-establish the task from the latest repository evidence before changing code.
 
