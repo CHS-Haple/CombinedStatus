@@ -14,8 +14,6 @@ class SystemUiNativeCombinedParticipantOwnerTest {
                 rootMeasuredHeight = 108,
                 renderMeasuredWidth = 105,
                 renderMeasuredHeight = 108,
-                expectedVisualWidth = 105,
-                expectedVisualHeight = 108,
                 parentClipsChildren = false,
                 rootScreenX = 1242,
                 batteryScreenX = 1242,
@@ -33,8 +31,6 @@ class SystemUiNativeCombinedParticipantOwnerTest {
                 rootMeasuredHeight = 108,
                 renderMeasuredWidth = 105,
                 renderMeasuredHeight = 108,
-                expectedVisualWidth = 105,
-                expectedVisualHeight = 108,
                 parentClipsChildren = false,
                 rootScreenX = 1242,
                 batteryScreenX = 1242,
@@ -52,8 +48,6 @@ class SystemUiNativeCombinedParticipantOwnerTest {
                 rootMeasuredHeight = 108,
                 renderMeasuredWidth = 105,
                 renderMeasuredHeight = 108,
-                expectedVisualWidth = 105,
-                expectedVisualHeight = 108,
                 parentClipsChildren = false,
                 rootScreenX = 1242,
                 batteryScreenX = 1242,
@@ -71,8 +65,6 @@ class SystemUiNativeCombinedParticipantOwnerTest {
                 rootMeasuredHeight = 108,
                 renderMeasuredWidth = 105,
                 renderMeasuredHeight = 108,
-                expectedVisualWidth = 105,
-                expectedVisualHeight = 108,
                 parentClipsChildren = true,
                 rootScreenX = 1242,
                 batteryScreenX = 1242,
@@ -86,8 +78,6 @@ class SystemUiNativeCombinedParticipantOwnerTest {
                 rootMeasuredHeight = 108,
                 renderMeasuredWidth = 105,
                 renderMeasuredHeight = 108,
-                expectedVisualWidth = 105,
-                expectedVisualHeight = 108,
                 parentClipsChildren = false,
                 rootScreenX = 1238,
                 batteryScreenX = 1242,
@@ -154,8 +144,6 @@ class SystemUiNativeCombinedParticipantOwnerTest {
                 rootLayoutHeight = 108,
                 renderMeasuredWidth = 105,
                 renderMeasuredHeight = 108,
-                expectedVisualWidth = 105,
-                expectedVisualHeight = 108,
                 parentClipsChildren = false,
                 renderLeft = 0,
                 renderRight = 105,
@@ -171,11 +159,24 @@ class SystemUiNativeCombinedParticipantOwnerTest {
                 rootLayoutHeight = 108,
                 renderMeasuredWidth = 105,
                 renderMeasuredHeight = 108,
-                expectedVisualWidth = 105,
-                expectedVisualHeight = 108,
                 parentClipsChildren = false,
                 renderLeft = 0,
                 renderRight = 105,
+            ),
+        )
+    }
+
+    @Test
+    fun activeNativeSlotRejectsRenderGeometryMismatch() {
+        assertFalse(
+            SystemUiNativeCombinedParticipantOwner.isActiveSlotHandoffReady(
+                rootLayoutWidth = 105,
+                rootLayoutHeight = 108,
+                renderMeasuredWidth = 135,
+                renderMeasuredHeight = 108,
+                parentClipsChildren = false,
+                renderLeft = 0,
+                renderRight = 135,
             ),
         )
     }

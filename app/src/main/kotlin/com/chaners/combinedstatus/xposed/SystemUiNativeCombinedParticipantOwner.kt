@@ -919,7 +919,6 @@ internal object SystemUiNativeCombinedParticipantOwner {
         val root = rootRef?.get() ?: return false
         val bindingState = targetBindingState ?: return false
         val render = renderViewRef?.get() ?: return false
-        val battery = batteryRef?.get() ?: return false
         val parent = root.parent as? ViewGroup ?: return false
         if (!root.isAttachedToWindow || render.measuredWidth <= 0 || render.measuredHeight <= 0) {
             return false
@@ -931,8 +930,6 @@ internal object SystemUiNativeCombinedParticipantOwner {
                 rootLayoutHeight = root.layoutParams?.height ?: Int.MIN_VALUE,
                 renderMeasuredWidth = render.measuredWidth,
                 renderMeasuredHeight = render.measuredHeight,
-                expectedVisualWidth = battery.width,
-                expectedVisualHeight = battery.height,
                 parentClipsChildren = parent.clipChildren,
                 renderLeft = render.left,
                 renderRight = render.right,
@@ -1626,21 +1623,17 @@ internal object SystemUiNativeCombinedParticipantOwner {
         rootLayoutHeight: Int,
         renderMeasuredWidth: Int,
         renderMeasuredHeight: Int,
-        expectedVisualWidth: Int,
-        expectedVisualHeight: Int,
         parentClipsChildren: Boolean,
         renderLeft: Int,
         renderRight: Int,
     ): Boolean =
-        rootLayoutWidth == expectedVisualWidth &&
-            rootLayoutHeight == expectedVisualHeight &&
-            renderMeasuredWidth == expectedVisualWidth &&
-            renderMeasuredHeight == expectedVisualHeight &&
-            expectedVisualWidth > 0 &&
-            expectedVisualHeight > 0 &&
+        rootLayoutWidth > 0 &&
+            rootLayoutHeight > 0 &&
+            rootLayoutWidth == renderMeasuredWidth &&
+            rootLayoutHeight == renderMeasuredHeight &&
             !parentClipsChildren &&
             renderLeft == 0 &&
-            renderRight == expectedVisualWidth
+            renderRight == rootLayoutWidth
 
     private fun promoteActiveShellGeometry(
         root: View,
