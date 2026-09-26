@@ -139,6 +139,19 @@ Build 393 diagnostics and the pinned SystemUI reference now narrow the Phase-2A 
 
 The shared `ResolvedLayout` semantics are now defined at design level in `docs/architecture/layout-policy.md`. Source/runtime implementation is intentionally deferred so this documentation checkpoint does not create Build 394.
 
+
+
+### Exact island-motion closure
+
+JADX 1.5.6 method-body and decoded-resource inspection of the pinned target establishes:
+- `translationFlow` carries the configured island translation endpoint, not live animation progress;
+- `IslandStretchAnimation` owns the native Folme motion and writes `rightContainer.translationX`;
+- Home binds `rightContainer` to `R.id.system_icon_area`;
+- `status_bar.xml` declares that ID as `MiuiNotificationStatusContainer`, the existing Combined Status overlay host;
+- `statusContainerSpace` is computed by `IslandMonitor.RealContainerIslandMonitor` as layout occupancy/overlap width and mirrored into other status-icon containers; it is not motion progress.
+
+Consequently the selected Home overlay naturally rides the native island transform. Combined Status must not subscribe to either flow as a custom animation clock.
+
 ## Ownership / non-negotiable boundaries
 
 - HyperOS remains authoritative for native peer layout, native scene state, native transition progress, and native live View motion.

@@ -2040,3 +2040,46 @@ The battery view's alpha/hide semantics remain separate and are not inherited by
 ### Decision
 
 The Build-394 architecture gate is open. The first 0.0.2 runtime checkpoint may implement only the Home carrier cutover, shared ResolvedLayout, target ignored-slot exclusion, reversible clip masking and inherited native island motion. Home -> shade/Control Center projection, Keyguard/AOD and user-facing sizing controls remain out of scope.
+
+---
+
+## 2026-09-27 — Exact Home island carrier contract closed
+
+**Type:** exact-target architecture proof  
+**Runtime build:** none  
+**Runtime impact:** none
+
+### Problem execution flow
+
+1. Use the maintainer-provided JADX 1.5.6 against the retained original SystemUI APK.
+2. Re-verify the target APK SHA-256 before decompilation.
+3. Decompile `StatusBarIslandControllerImpl`, `HomeStatusBarViewBinderInjector/HomeStatusBarViewBinderImpl`, `IslandStretchAnimation`, `IslandMonitor`, and decode `res/layout/status_bar.xml`.
+4. Trace the actual island endpoint, native animation writer, right-side target View and occupancy flow.
+5. Compare the result with the existing Combined Status Home overlay host and the Build-393 split-ownership evidence.
+
+### Findings
+
+- `translationFlow` is a configuration-derived endpoint containing `status_bar_island_translation`; it is refreshed for density/font-scale, layout direction and max-bounds changes and is not a per-frame animation stream.
+- `IslandStretchAnimation` consumes that endpoint and uses the native `MiuiStatusBarIconAnimatorController` ISLAND_SHOW/ISLAND_HIDE Folme configuration to animate the phone Home `rightContainer.translationX`.
+- `HomeStatusBarViewBinderImpl` passes `R.id.system_icon_area` as `rightContainer`.
+- exact `status_bar.xml` declares `system_icon_area` as `MiuiNotificationStatusContainer` — the same host already used by `CombinedStatusHomeRenderSession.overlay`.
+- `statusContainerSpace` is written by `IslandMonitor.RealContainerIslandMonitor.updateContainerSize()` from real island/container geometry and is consumed as layout occupancy by fake/mirrored status-icon containers; it is not animation progress.
+
+### Architecture consequence
+
+The preferred Home overlay is also the native island moving host. Keeping the Combined Status View in that overlay means native parent translation moves the replacement automatically, while the battery child's own fade/hide remains independent. No production pre-draw follower, duplicate animator, endpoint compensation, or Combined Status translation writer is required.
+
+### Review
+
+- **Ownership:** SystemUI exclusively owns island translation and animation configuration; Combined Status owns only overlay drawing.
+- **Lifecycle:** the carrier is already bound to the Home `MiuiNotificationStatusContainer` host lifetime.
+- **Single writer:** no native translation/alpha/visibility writer is added.
+- **Cleanup:** removing the overlay/session is sufficient for motion cleanup; no animation observer must outlive the host.
+- **Fail native:** if the exact host/slot/mask contracts cannot be acquired, leave native views visible and do not activate the replacement.
+- **Performance:** zero production frame polling/following is required.
+- **Compatibility:** the conclusion is scoped to the pinned SHA-256; other builds must re-prove the host/motion contract.
+- **Future extension:** Phase 2B can project from stable Home bounds without reopening island motion ownership.
+
+### Gate consequence
+
+The previous island-carrier architecture blocker is closed. The remaining pre-Build-394 work is implementation-boundary review: host-scoped ignored-slot restoration, clip-mask restoration, ResolvedLayout source shape, and explicit cutover from the superseded participant/suppression path.
