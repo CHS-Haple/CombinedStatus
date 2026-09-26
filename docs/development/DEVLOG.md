@@ -2835,3 +2835,17 @@ Those would hide the remaining cause instead of fixing the shared final-renderin
 3. Keep Build 403 semantic-color device validation open until the relevant native states and grayscale baseline are both acceptable.
 4. After color/intensity closure, continue with the already-identified shallow shade-pull Home-overlay scene-boundary issue in Phase 2B.
 
+### Quantitative screenshot follow-up
+
+A follow-up pixel sample of the target-device gray screenshot compared the dark stroke pixels of Combined Status with adjacent native VPN / headset / mute icons.
+
+The core dark-tone distributions are already closely aligned. The observed mismatch is therefore no longer best described as a simple base-gray/tint mismatch. The stronger current interpretation is **optical intensity / coverage**: stroke geometry, filled-pixel density, antialiasing, and final compositing can still make Combined Status look heavier or lighter even when the underlying dark tone is effectively the same.
+
+This narrows the next review:
+- keep the native status-icon tint authority unchanged;
+- keep Build 399's non-overlapping battery-arc partition;
+- compare final rendered coverage/antialiasing across battery ring, center glyph, and mobile dots;
+- do not introduce gray multipliers or screenshot-fitted constants unless later evidence disproves the shared-tint conclusion.
+
+The green screenshot is a separate semantic-color state and is not evidence of monochrome tint mismatch.
+
