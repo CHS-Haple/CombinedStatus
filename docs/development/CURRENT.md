@@ -13,8 +13,8 @@ This file is the concise recovery point for active Combined Status development. 
 - Active PR: #100, `feat/native-panel-transition -> dev`
 - Active development line: **0.0.2**
 - First planned formal release target: **1.0.0** (current 0.0.x lines remain pre-release development)
-- Last device-tested runtime checkpoint: Build 393 (`0.0.1`)
-- Current work-branch runtime checkpoint: Build 394 (`0.0.2`) — **Fast CI + signed Work Branch Canary passed; focused device validation pending**
+- Last device-tested runtime checkpoint: Build 394 (`0.0.2`) — rejected for island occupancy/anchor behavior
+- Current work-branch runtime checkpoint: Build 395 (`0.0.2`) — **source defined; CI and focused device validation pending**
 - Target profile: HyperOS SystemUI `17.03.260226.r`
 - Exact SystemUI SHA-256: `a0e738e41fe599b97950cbf52a9e2ddc6ae2ceff986efbacb1c9840bea78768d`
 - Modern Xposed API: 102
@@ -216,6 +216,42 @@ Fast CI workflow #1044 and signed Work Branch Canary #303 passed for source comm
 The pre-runtime architecture gate is satisfied for the pinned target. Exact evidence now covers the Home overlay host/lifecycle, represented-slot measure/layout exclusion, non-competing clip-mask candidate, shared `ResolvedLayout` boundary, carrier ownership cutover requirement, and native island-motion inheritance through the animated `system_icon_area` host.
 
 This is permission to create the first bounded runtime checkpoint, not proof that the runtime implementation is already correct. Build 394 must remain a single-variable architecture checkpoint and requires focused device validation before promotion.
+
+## Build 394 device result — rejected
+
+Focused device feedback rejects Build 394 as the Phase-2A promotion candidate.
+
+Observed:
+- partial Home -> shade pull and the final held return frame can still show the Home Combined Status representation; this belongs to deferred Phase 2B transition/projection work and is not the Build-394 rejection reason;
+- charging-island entry can visibly move Combined Status left and then immediately right;
+- while charging, the overlay does not behave as an occupied native end-side slot;
+- cold SystemUI start while already charging still produces a larger neighbor gap than normal Home.
+
+The supplied diagnostic report confirms the 394 Home overlay cutover itself is healthy, but that report was generated after a Hot Reload and its rendered model records `charging=false`; it is therefore not charging-transition proof.
+
+### Root-cause correction
+
+Exact target method-body review now separates **motion carrier** from **layout carrier**:
+
+- `system_icon_area / MiuiNotificationStatusContainer` remains the correct native island-motion parent;
+- `MiuiBatteryMeterView.updateIslandChanged(...)` sets `MiuiStatusBatteryContainer.mIsHideBattery=true`;
+- native `MiuiStatusBatteryContainer.onLayout(...)` then stops subtracting the battery width from the status-icon right boundary, so the status-icon container expands into the former battery end-side region;
+- the battery View independently animates translation/alpha/visibility after that layout;
+- Build 394 overlays Combined Status on the transformed host but still derives its local bounds from the battery descendant, while the overlay itself contributes no layout occupancy.
+
+Therefore “native transformed host inheritance” solved motion timing but did **not** by itself solve end-side occupancy or stable local anchoring.
+
+## Build 395 bounded correction
+
+Build 395 keeps the 394 carrier architecture and changes only the invalidated ownership boundary:
+
+1. local Combined Status bounds are resolved from the stable Home host end plus the measured native battery carrier width, through the shared layout policy; battery descendant translation/visibility no longer defines local position;
+2. while the Combined Status Home session is active and native `mIsHideBattery` is true, only the exact `MiuiStatusBatteryContainer.onLayout(...)` call is given a temporary `false` layout value so the native battery-width region remains reserved for the replacement;
+3. the real native hide state is restored in `finally`; the module does not intercept `setIsHideBattery`, does not keep the Battery visible, and does not write Battery translation/alpha/visibility;
+4. represented-slot ignored-list and clip-mask behavior remains unchanged;
+5. no custom participant, animation follower, timing compensation, width-difference formula, or Phase-2B behavior is added.
+
+Build 395 must re-test normal Home, charging-island enter/steady/exit, cold start while already charging, feature disable/enable, and same-architecture Hot Reload. The partial shade-held behavior remains intentionally deferred to Phase 2B.
 
 ## Reference priority for the next session
 

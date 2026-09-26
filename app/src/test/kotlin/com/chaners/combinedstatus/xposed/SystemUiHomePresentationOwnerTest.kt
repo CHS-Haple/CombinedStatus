@@ -21,6 +21,31 @@ class SystemUiHomePresentationOwnerTest {
     }
 
     @Test
+    fun carrierReservationPreservesNativeStateOutsideOwnedLayoutScope() {
+        assertEquals(
+            false,
+            SystemUiHomePresentationOwner.CarrierReservationPolicy.resolveLayoutHide(
+                nativeHide = true,
+                presentationActive = true,
+            ),
+        )
+        assertEquals(
+            true,
+            SystemUiHomePresentationOwner.CarrierReservationPolicy.resolveLayoutHide(
+                nativeHide = true,
+                presentationActive = false,
+            ),
+        )
+        assertEquals(
+            false,
+            SystemUiHomePresentationOwner.CarrierReservationPolicy.resolveLayoutHide(
+                nativeHide = false,
+                presentationActive = true,
+            ),
+        )
+    }
+
+    @Test
     fun temporaryEntriesRestoreAfterFailure() {
         val slots = mutableListOf("alarm_clock")
         runCatching {

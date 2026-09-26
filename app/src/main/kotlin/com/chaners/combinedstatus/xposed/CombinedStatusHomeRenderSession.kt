@@ -161,6 +161,21 @@ internal object CombinedStatusHomeRenderSession {
         private var lastPresentationReady = false
         private val anchorRect = Rect()
 
+        private val hostLayoutListener =
+            View.OnLayoutChangeListener {
+                    _,
+                    _,
+                    _,
+                    _,
+                    _,
+                    _,
+                    _,
+                    _,
+                    _,
+                ->
+                layoutProbe()
+            }
+
         private val batteryLayoutListener =
             View.OnLayoutChangeListener {
                     _,
@@ -191,6 +206,7 @@ internal object CombinedStatusHomeRenderSession {
             val battery = batteryView.get() ?: return
 
             hostView.addOnAttachStateChangeListener(this)
+            hostView.addOnLayoutChangeListener(hostLayoutListener)
             battery.addOnLayoutChangeListener(batteryLayoutListener)
             probeView.visibility = View.GONE
             hostView.overlay.add(probeView)
@@ -210,6 +226,7 @@ internal object CombinedStatusHomeRenderSession {
             layoutReady = false
             dispatchPresentationReadiness("stop")
             host.get()?.removeOnAttachStateChangeListener(this)
+            host.get()?.removeOnLayoutChangeListener(hostLayoutListener)
             batteryView.get()?.removeOnLayoutChangeListener(batteryLayoutListener)
             if (removeVisual) {
                 host.get()?.overlay?.remove(probeView)
@@ -440,7 +457,7 @@ internal object CombinedStatusHomeRenderSession {
                 layoutLogged = true
                 emitEvent {
                     "homeRenderProbe attached " +
-                        "slot=homeHostOverlay anchor=battery " +
+                        "slot=homeHostOverlay anchor=hostEnd " +
                         "bounds=" + anchorRect.left + "," + anchorRect.top + "-" +
                         anchorRect.right + "," + anchorRect.bottom +
                         " size=" + anchorRect.width() + "x" + anchorRect.height() +
@@ -486,21 +503,66 @@ internal object CombinedStatusHomeRenderSession {
         private fun resolveNativeAnchor(out: Rect): Boolean {
             val hostView = host.get() ?: return false
             val battery = batteryView.get() ?: return false
+            val hostWidth = hostView.width
+            val hostHeight = hostView.height
+            val carrierWidth =
+                (
+                    if (battery.measuredWidth > 0) {
+                        battery.measuredWidth
+                    } else {
+                        battery.width
+                    }
+                ).coerceAtMost(hostWidth)
             if (
                 !hostView.isLaidOut ||
-                !battery.isLaidOut ||
-                battery.width <= 0 ||
-                battery.height <= 0
+                hostWidth <= 0 ||
+                hostHeight <= 0 ||
+                carrierWidth <= 0
             ) {
                 return false
             }
 
-            out.set(0, 0, battery.width, battery.height)
-            hostView.offsetDescendantRectToMyCoords(
-                battery,
-                out,
-            )
-            return true
+            val rtl = hostView.layoutDirection == View.LAYOUT_DIRECTION_RTL
+            val resolved =
+                CombinedStatusLayoutPolicy.resolve(
+                    settings =
+                        CombinedStatusLayoutSettings(
+                            baseVisualSidePx = minOf(carrierWidth, hostHeight).toFloat(),
+                            baseNeighborGapPx = 0f,
+                            userScale = 1f,
+                        ),
+                    host =
+                        CombinedStatusHostLayout(
+                            hostHeightPx = hostHeight.toFloat(),
+                            endAnchorPx =
+                                if (rtl) {
+                                    carrierWidth.toFloat()
+                                } else {
+                                    hostWidth.toFloat()
+                                },
+                            nativeSlotWidthPx = carrierWidth.toFloat(),
+                            renderMode = CombinedStatusRenderMode.PROJECTED,
+                            motionOwnership = CombinedStatusMotionOwnership.SYSTEM_UI,
+                        ),
+                )
+            if (!resolved.renderCombined) {
+                return false
+            }
+
+            val left =
+                if (rtl) {
+                    0
+                } else {
+                    resolved.slotLeftPx.toInt()
+                }
+            val right =
+                if (rtl) {
+                    resolved.slotRightPx.toInt()
+                } else {
+                    resolved.slotRightPx.toInt()
+                }
+            out.set(left, 0, right, hostHeight)
+            return out.width() > 0 && out.height() > 0
         }
 
         private fun applyAnchorBounds(bounds: Rect) {

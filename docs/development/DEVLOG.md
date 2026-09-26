@@ -2298,3 +2298,66 @@ Local Gradle execution is unavailable in the current execution environment becau
 - Canary non-debuggable verification passed.
 - Artifact: `CombinedStatus-0.0.2-HyperOS-20260927-394-canary.apk`.
 - Device validation remains pending; Build 394 is not promoted to `dev`.
+---
+
+## 2026-09-27 — Build 394 device rejection; Build 395 carrier reservation correction
+
+**Type:** device contradiction / root-cause correction / runtime checkpoint  
+**Display version:** 0.0.2  
+**Rejected build:** 394 / 20260927-394  
+**Next build:** 395 / 20260927-395  
+**Validation:** CI pending; device validation pending
+
+### Device feedback
+
+Build 394 does not pass the Phase-2A device gate:
+- charging-island entry can move the Combined Status visual left and then immediately right;
+- charging state does not retain a stable occupied end-side region;
+- cold SystemUI start while already charging still has a larger neighbor gap than normal Home;
+- partial shade pull / final held return still shows the Home representation, but this is classified as deferred Phase-2B projection behavior rather than the Phase-2A blocker.
+
+The attached 394 diagnostic reports a healthy Home cutover, represented-slot masking and transformed-host inheritance, but it is a Hot Reload session and the renderer snapshot is `charging=false`. It does not capture the failing charging transition/cold-start geometry.
+
+### Problem execution flow
+
+1. Treat the device contradiction as invalidating the assumption that transformed-host inheritance alone closes the island carrier problem.
+2. Re-read the exact target `MiuiStatusBatteryContainer.onMeasure/onLayout/setIsHideBattery` and `MiuiBatteryMeterView.updateIslandChanged` method bodies.
+3. Separate native motion ownership from the end-side occupancy contract.
+4. Keep the verified native motion owner and remove the battery descendant from Combined Status local-position ownership.
+5. Introduce the narrowest reversible layout reservation; do not restore the superseded custom participant or fixed compensation chain.
+
+### Exact root cause
+
+On the pinned target:
+- island battery addition sets `mIsHideBattery=true`;
+- `MiuiStatusBatteryContainer.onLayout` then allows `MiuiStatusIconContainer` to extend into the battery end-side region;
+- the Battery View separately animates to its own width and fades/hides;
+- Build 394 overlay is draw-only and still resolves its local rectangle from that Battery descendant.
+
+This creates two independent geometry changes around one overlay: native peer occupancy is released while the overlay's local anchor is tied to a child with its own island presentation lifecycle.
+
+### Build 395 implementation
+
+- Home overlay slot bounds now resolve from the stable `MiuiNotificationStatusContainer` end edge plus measured native battery carrier width instead of `offsetDescendantRectToMyCoords(battery,...)`.
+- The shared `CombinedStatusLayoutPolicy` is now consumed for this Home end-anchor/slot calculation.
+- `SystemUiHomePresentationOwner` verifies the exact target `MiuiStatusBatteryContainer.mIsHideBattery` and `onLayout` contracts and adds one scoped layout hook.
+- When the replacement session is active and native hide is true, only that native `onLayout` invocation temporarily observes hide=false; the exact native value is restored in `finally`.
+- The module still does not block `setIsHideBattery`, force Battery visibility, or write Battery translation/alpha.
+- Parent layout is requested on activation/deactivation so native peer layout recomputes through the owned reservation boundary.
+- Unit coverage records the reservation policy while existing ignored-slot restoration tests remain unchanged.
+
+### Review
+
+- **Ownership:** SystemUI still owns island motion and Battery visual state. Combined Status newly owns only the replacement's end-side carrier reservation during the native parent layout call.
+- **Lifecycle:** reservation exists only while the Home presentation session is active; the native field is restored before the hook returns.
+- **Single writer:** no competing translation/alpha/visibility writer is added. The native layout method remains the geometry writer; Combined Status temporarily supplies the carrier-preservation input.
+- **Cleanup:** native hide state restores in `finally`; session stop requests parent relayout and restores clip masks.
+- **Fail native:** missing field/method/container contracts prevent activation; reservation apply/restore failures trigger native fallback.
+- **Performance:** one existing-layout-event hook, no polling, no pre-draw follower, no per-frame diagnostics.
+- **Compatibility:** exact-target only; no same-version-public-APK inference.
+- **Future extension:** Phase 2B still owns Home -> shade / Control Center projection; this checkpoint does not add transition formulas.
+
+### Acceptance gate
+
+Build 395 requires focused device validation of stable Home, island enter/steady/exit, cold start while charging, feature disable/enable and same-architecture Hot Reload before any promotion.
+

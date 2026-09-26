@@ -24,19 +24,23 @@ internal object SystemUiHomePresentationOwner {
         "combinedstatus.homePresentation.statusIconsMeasure"
     private const val LAYOUT_HOOK_ID =
         "combinedstatus.homePresentation.statusIconsLayout"
+    private const val BATTERY_LAYOUT_HOOK_ID =
+        "combinedstatus.homePresentation.batteryContainerLayout"
 
     private val representedSlots =
         linkedSetOf("wifi", "mobile", "stacked_mobile", "airplane", "no_sim")
 
     private var measureHook: HookHandle? = null
     private var layoutHook: HookHandle? = null
+    private var batteryLayoutHook: HookHandle? = null
     private var ignoredSlotsField: Field? = null
+    private var batteryHideField: Field? = null
     private var current: Session? = null
     private var eventSink: ((String) -> Unit)? = null
     private var failNativeSink: ((String) -> Unit)? = null
 
     val installedHookCount: Int
-        @Synchronized get() = listOfNotNull(measureHook, layoutHook).size
+        @Synchronized get() = listOfNotNull(measureHook, layoutHook, batteryLayoutHook).size
 
     @Synchronized
     fun install(
@@ -45,7 +49,7 @@ internal object SystemUiHomePresentationOwner {
         onEvent: ((String) -> Unit)? = null,
         onFailNative: ((String) -> Unit)? = null,
     ): InstallResult {
-        if (installedHookCount == 2) {
+        if (installedHookCount == 3) {
             eventSink = onEvent
             failNativeSink = onFailNative
             return InstallResult.AlreadyInstalled
@@ -71,6 +75,41 @@ internal object SystemUiHomePresentationOwner {
                 .firstOrNull()
                 ?.apply { isAccessible = true }
                 ?: return InstallResult.Failure("ignored-slots-field-missing")
+        val batteryContainerClass =
+            runCatching {
+                Class.forName(BATTERY_CONTAINER, false, classLoader)
+            }.getOrElse {
+                return InstallResult.Failure("battery-container-class-missing")
+            }
+        val hideField =
+            generateSequence(batteryContainerClass) { clazz -> clazz.superclass }
+                .mapNotNull { clazz ->
+                    clazz.declaredFields.firstOrNull { candidate ->
+                        candidate.name == "mIsHideBattery" &&
+                            candidate.type == java.lang.Boolean.TYPE
+                    }
+                }
+                .firstOrNull()
+                ?.apply { isAccessible = true }
+                ?: return InstallResult.Failure("battery-hide-field-missing")
+        val batteryOnLayout =
+            batteryContainerClass.declaredMethods
+                .firstOrNull { method ->
+                    method.name == "onLayout" &&
+                        method.parameterTypes.contentEquals(
+                            arrayOf(
+                                Boolean::class.javaPrimitiveType,
+                                Int::class.javaPrimitiveType,
+                                Int::class.javaPrimitiveType,
+                                Int::class.javaPrimitiveType,
+                                Int::class.javaPrimitiveType,
+                            ),
+                        ) &&
+                        method.returnType == Void.TYPE
+                }
+                ?.apply { isAccessible = true }
+                ?: return InstallResult.Failure("battery-layout-contract-missing")
+
         val onMeasure =
             containerClass.declaredMethods
                 .firstOrNull { method ->
@@ -106,6 +145,7 @@ internal object SystemUiHomePresentationOwner {
         eventSink = onEvent
         failNativeSink = onFailNative
         ignoredSlotsField = field
+        batteryHideField = hideField
 
         val first =
             runCatching {
@@ -132,9 +172,24 @@ internal object SystemUiHomePresentationOwner {
                     "layout-hook-" + (error.message ?: error.javaClass.simpleName),
                 )
             }
+        val third =
+            runCatching {
+                module
+                    .hook(batteryOnLayout)
+                    .setId(BATTERY_LAYOUT_HOOK_ID)
+                    .intercept(batteryContainerLayoutHooker())
+            }.getOrElse { error ->
+                runCatching { first.unhook() }
+                runCatching { second.unhook() }
+                clearInstallState()
+                return InstallResult.Failure(
+                    "battery-layout-hook-" + (error.message ?: error.javaClass.simpleName),
+                )
+            }
 
         measureHook = first
         layoutHook = second
+        batteryLayoutHook = third
         return InstallResult.Installed
     }
 
@@ -143,7 +198,7 @@ internal object SystemUiHomePresentationOwner {
         if (Looper.myLooper() !== Looper.getMainLooper()) {
             return StateResult.Failure("main-thread-required")
         }
-        if (installedHookCount != 2) {
+        if (installedHookCount != 3) {
             return StateResult.Failure("hooks-not-ready")
         }
         val hostView =
@@ -167,6 +222,9 @@ internal object SystemUiHomePresentationOwner {
         val field =
             ignoredSlotsField
                 ?: return StateResult.Failure("ignored-slots-field-unavailable")
+        val hideField =
+            batteryHideField
+                ?: return StateResult.Failure("battery-hide-field-unavailable")
 
         @Suppress("UNCHECKED_CAST")
         val list =
@@ -175,9 +233,9 @@ internal object SystemUiHomePresentationOwner {
         list.size
 
         val existing = current
-        if (existing?.matches(hostView, statusIcons, battery) == true) {
+        if (existing?.matches(hostView, statusIcons, batteryContainer, battery) == true) {
             val masked = existing.refreshClipMasks()
-            statusIcons.requestLayout()
+            batteryContainer.requestLayout()
             return StateResult.Active(representedSlots.size, masked, true)
         }
 
@@ -186,19 +244,22 @@ internal object SystemUiHomePresentationOwner {
             Session(
                 host = hostView,
                 statusIcons = statusIcons,
+                batteryContainer = batteryContainer,
                 battery = battery,
                 ignoredSlotsField = field,
+                batteryHideField = hideField,
                 onEvent = { event -> eventSink?.invoke(event) },
                 onFailNative = ::onSessionFailure,
             )
         current = session
         val masked = session.start()
-        statusIcons.requestLayout()
+        batteryContainer.requestLayout()
         eventSink?.invoke(
             "homePresentation active carrier=MiuiNotificationStatusContainer.overlay " +
                 "representedSlots=" + representedSlots.joinToString(",") +
                 " maskedViews=" + masked +
-                " slotExclusion=scoped-native-measure-layout visualMask=clipBounds " +
+                " slotExclusion=scoped-native-measure-layout " +
+                    "carrierReservation=scoped-battery-container-layout visualMask=clipBounds " +
                 "nativeTranslationWrites=0 nativeAlphaWrites=0 nativeVisibilityWrites=0",
         )
         return StateResult.Active(representedSlots.size, masked, false)
@@ -232,6 +293,7 @@ internal object SystemUiHomePresentationOwner {
         deactivate(source)
         runCatching { measureHook?.unhook() }
         runCatching { layoutHook?.unhook() }
+        runCatching { batteryLayoutHook?.unhook() }
         clearInstallState()
     }
 
@@ -289,6 +351,18 @@ internal object SystemUiHomePresentationOwner {
             result
         }
 
+    private fun batteryContainerLayoutHooker(): Hooker =
+        Hooker { chain ->
+            val target = chain.thisObject as? ViewGroup
+                ?: return@Hooker chain.proceed()
+            val session =
+                synchronized(this) {
+                    current?.takeIf { candidate -> candidate.ownsBatteryContainer(target) }
+                } ?: return@Hooker chain.proceed()
+
+            session.withCarrierSlotReserved { chain.proceed() }
+        }
+
     @Synchronized
     private fun onSessionFailure(reason: String) {
         val session = current ?: return
@@ -303,7 +377,9 @@ internal object SystemUiHomePresentationOwner {
     private fun clearInstallState() {
         measureHook = null
         layoutHook = null
+        batteryLayoutHook = null
         ignoredSlotsField = null
+        batteryHideField = null
         eventSink = null
         failNativeSink = null
     }
@@ -311,25 +387,38 @@ internal object SystemUiHomePresentationOwner {
     private class Session(
         host: ViewGroup,
         statusIcons: ViewGroup,
+        batteryContainer: ViewGroup,
         battery: View,
         private val ignoredSlotsField: Field,
+        private val batteryHideField: Field,
         private val onEvent: (String) -> Unit,
         private val onFailNative: (String) -> Unit,
     ) : View.OnAttachStateChangeListener {
         private val host = WeakReference(host)
         private val statusIcons = WeakReference(statusIcons)
+        private val batteryContainer = WeakReference(batteryContainer)
         private val battery = WeakReference(battery)
         private var active = true
+        private var carrierReservationLogged = false
         private val clipStates = mutableListOf<ClipState>()
 
-        fun matches(host: ViewGroup, statusIcons: ViewGroup, battery: View): Boolean =
+        fun matches(
+            host: ViewGroup,
+            statusIcons: ViewGroup,
+            batteryContainer: ViewGroup,
+            battery: View,
+        ): Boolean =
             active &&
                 this.host.get() === host &&
                 this.statusIcons.get() === statusIcons &&
+                this.batteryContainer.get() === batteryContainer &&
                 this.battery.get() === battery
 
         fun owns(candidate: ViewGroup): Boolean =
             active && statusIcons.get() === candidate
+
+        fun ownsBatteryContainer(candidate: ViewGroup): Boolean =
+            active && batteryContainer.get() === candidate
 
         fun start(): Int {
             host.get()?.addOnAttachStateChangeListener(this)
@@ -343,7 +432,7 @@ internal object SystemUiHomePresentationOwner {
             active = false
             host.get()?.removeOnAttachStateChangeListener(this)
             val restored = restoreClipMasks()
-            statusIcons.get()?.requestLayout()
+            batteryContainer.get()?.requestLayout()
             onEvent(
                 "homePresentation cleanup source=" + source +
                     " restoredClipBounds=" + restored,
@@ -385,6 +474,74 @@ internal object SystemUiHomePresentationOwner {
                 block()
             } finally {
                 OwnedListEntries.restoreOwnedEntries(list, owned)
+            }
+        }
+
+        fun <T> withCarrierSlotReserved(block: () -> T): T {
+            if (!active) {
+                return block()
+            }
+            val container =
+                batteryContainer.get()
+                    ?: run {
+                        onFailNative("battery-container-released")
+                        return block()
+                    }
+            val nativeHide =
+                runCatching {
+                    batteryHideField.getBoolean(container)
+                }.getOrNull()
+                    ?: run {
+                        onFailNative("battery-hide-state-unavailable")
+                        return block()
+                    }
+            val layoutHide =
+                CarrierReservationPolicy.resolveLayoutHide(
+                    nativeHide = nativeHide,
+                    presentationActive = true,
+                )
+            if (layoutHide == nativeHide) {
+                return block()
+            }
+
+            val applied =
+                runCatching {
+                    batteryHideField.setBoolean(container, layoutHide)
+                    batteryHideField.getBoolean(container) == layoutHide
+                }.getOrDefault(false)
+            if (!applied) {
+                onFailNative("battery-slot-reservation-apply-failed")
+                return block()
+            }
+
+            if (!carrierReservationLogged) {
+                carrierReservationLogged = true
+                onEvent(
+                    "homePresentation carrierReservation " +
+                        "nativeHide=" + nativeHide +
+                        " layoutHide=" + layoutHide +
+                        " scope=MiuiStatusBatteryContainer.onLayout " +
+                        "restore=finally",
+                )
+            }
+
+            return try {
+                block()
+            } finally {
+                val current =
+                    runCatching {
+                        batteryHideField.getBoolean(container)
+                    }.getOrNull()
+                if (current == layoutHide) {
+                    val restored =
+                        runCatching {
+                            batteryHideField.setBoolean(container, nativeHide)
+                            batteryHideField.getBoolean(container) == nativeHide
+                        }.getOrDefault(false)
+                    if (!restored) {
+                        onFailNative("battery-slot-reservation-restore-failed")
+                    }
+                }
             }
         }
 
@@ -470,6 +627,18 @@ internal object SystemUiHomePresentationOwner {
         val nativeClip: Rect?,
         val appliedClip: Rect,
     )
+
+    internal object CarrierReservationPolicy {
+        fun resolveLayoutHide(
+            nativeHide: Boolean,
+            presentationActive: Boolean,
+        ): Boolean =
+            if (presentationActive) {
+                false
+            } else {
+                nativeHide
+            }
+    }
 
     internal object OwnedListEntries {
         fun <T> addOwnedEntries(
