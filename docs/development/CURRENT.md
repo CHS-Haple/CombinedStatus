@@ -71,7 +71,9 @@ Build 385 preserves the native battery 105px slot as the single layout occupancy
 - **Confirmed by exact SystemUI DEX + Build 384 runtime:** `MiuiStatusBarIconAnimatorController$FolmeHandler$appearAnimation$appear$1.onStart()` computes `pivotY` from View height and `pivotX` from View width. The intentional zero-width Combined Status shell therefore receives native `pivotX=0`.
 - **Confirmed:** the three-symptom loop is structural if shell width alone is used for both layout occupancy and transition pivot.
 - **Confirmed correction:** `HomeStatusBarViewBinderInjector.mBatteryContainer` is the internal battery-icon `FrameLayout` from `battery_digital_view.xml`, not an outer battery-slot wrapper. Runtime battery-specific alpha changes make it unsuitable as the Combined Status renderer host.
-- **Selected Build 385 boundary:** replace the exact native APPEAR pivot callback only for the current Combined Status root, using renderer visual width and root/visual height. All native peer callbacks proceed unchanged.
+- **Build 385 device result:** rejected as a complete fix. The APPEAR pivot adapter keeps `pivotX=52.5` through the sampled native APPEAR frames, but the user still observes the same "flash / missing entry animation". Pivot was a real geometry defect but not the cause of the missing visible entry animation.
+- **Confirmed by 381 -> 382 code/device comparison:** the previously working visible entry animation was lost when `promoteActiveShellGeometry()` was removed and the active `ModernStatusBarView` shell changed from real visual width to zero width. This is the decisive behavioral boundary; later pivot-only fixes do not restore the visible animation.
+- **Current root-cause direction:** native alpha/scale are applied to the zero-width participant root while the 105px renderer is deliberately drawn outside that root's layout bounds. The remaining investigation is whether the native transition RenderNode/bounds can visibly animate this overflow content at all, and how to give APPEAR real transition bounds without reintroducing steady layout occupancy.
 
 ## Ownership / compatibility boundary
 

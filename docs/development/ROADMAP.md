@@ -174,7 +174,7 @@ Exact SystemUI source and Build 384 runtime evidence confirm why the previous 0p
 - a full-width custom status-icon participant therefore duplicates occupancy;
 - a zero-width custom participant avoids duplicate occupancy, but HyperOS APPEAR normally computes its pivot from that zero View width.
 
-Build 385 tests the smallest source-level separation: retain the zero-width layout shell and native battery slot, but replace only the native APPEAR pivot initialization for the module-owned Combined Status root with the renderer's actual visual center.
+Build 385 tested the smallest source-level pivot separation, but device validation rejected it: the pivot remains centered while the visible entry animation is still missing. The active route therefore moves one layer deeper, from pivot to **transition bounds vs layout occupancy**.
 
 **Acceptance boundary:**
 - clean centered OFF -> ON APPEAR;
@@ -185,9 +185,7 @@ Build 385 tests the smallest source-level separation: retain the zero-width layo
 - no repeated/per-frame project writer;
 - exact callback incompatibility fails native.
 
-If Build 385 passes, retire temporary Build 383/384 probes that no longer provide ongoing compatibility value.
-
-If Build 385 fails, reopen native end-side ownership. Do not add timing retries, repeated pivot writes, translation offsets, or duplicate layout occupancy.
+Build 385 failed the visible-entry acceptance check. Reopen transition ownership at the render/bounds layer. The next implementation may proceed only if it gives the native APPEAR a real visual transition extent without making that extent a second steady layout slot. Do not add timing retries, repeated pivot writes, translation offsets, or duplicate layout occupancy.
 
 ## Cross-cutting engineering routes
 
