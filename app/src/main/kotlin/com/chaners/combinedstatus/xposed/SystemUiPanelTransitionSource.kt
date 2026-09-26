@@ -53,97 +53,100 @@ internal object SystemUiPanelTransitionSource {
                 Boolean::class.javaPrimitiveType,
             ).apply { isAccessible = true }
 
-        val shadeHandle =
-            module
-                .hook(shadeMethod)
-                .setId(SHADE_HOOK_ID)
-                .intercept(
-                    Hooker { chain ->
-                        val fraction =
-                            normalizeFraction(
-                                (chain.getArg(0) as? Number)?.toFloat(),
+        val handles = ArrayList<HookHandle>(HOOK_COUNT)
+        try {
+            handles +=
+                module
+                    .hook(shadeMethod)
+                    .setId(SHADE_HOOK_ID)
+                    .intercept(
+                        Hooker { chain ->
+                            val fraction =
+                                nativeFraction(
+                                    (chain.getArg(0) as? Number)?.toFloat(),
+                                )
+                            val expanded = chain.getArg(1) as? Boolean
+                            val tracking = chain.getArg(2) as? Boolean
+                            val result = chain.proceed()
+                            val update =
+                                Update(
+                                    source = Source.NOTIFICATION_SHADE,
+                                    fraction = fraction,
+                                    expanded = expanded,
+                                    tracking = tracking,
+                                    visible = null,
+                                )
+                            onUpdate?.invoke(update)
+                            emitDiagnostic(
+                                update = update,
+                                onEvent = onEvent,
+                                isProbeEnabled = isProbeEnabled,
                             )
-                        val expanded = chain.getArg(1) as? Boolean
-                        val tracking = chain.getArg(2) as? Boolean
-                        val result = chain.proceed()
-                        val update =
-                            Update(
-                                source = Source.NOTIFICATION_SHADE,
-                                fraction = fraction,
-                                expanded = expanded,
-                                tracking = tracking,
-                                visible = null,
-                            )
-                        onUpdate?.invoke(update)
-                        emitDiagnostic(
-                            update = update,
-                            onEvent = onEvent,
-                            isProbeEnabled = isProbeEnabled,
-                        )
-                        result
-                    },
-                )
+                            result
+                        },
+                    )
 
-        val controlExpansionHandle =
-            module
-                .hook(controlExpansionMethod)
-                .setId(CONTROL_CENTER_EXPANSION_HOOK_ID)
-                .intercept(
-                    Hooker { chain ->
-                        val fraction =
-                            normalizeFraction(
-                                (chain.getArg(0) as? Number)?.toFloat(),
+            handles +=
+                module
+                    .hook(controlExpansionMethod)
+                    .setId(CONTROL_CENTER_EXPANSION_HOOK_ID)
+                    .intercept(
+                        Hooker { chain ->
+                            val fraction =
+                                nativeFraction(
+                                    (chain.getArg(0) as? Number)?.toFloat(),
+                                )
+                            val result = chain.proceed()
+                            val update =
+                                Update(
+                                    source = Source.CONTROL_CENTER,
+                                    fraction = fraction,
+                                    expanded = null,
+                                    tracking = null,
+                                    visible = null,
+                                )
+                            onUpdate?.invoke(update)
+                            emitDiagnostic(
+                                update = update,
+                                onEvent = onEvent,
+                                isProbeEnabled = isProbeEnabled,
                             )
-                        val result = chain.proceed()
-                        val update =
-                            Update(
-                                source = Source.CONTROL_CENTER,
-                                fraction = fraction,
-                                expanded = null,
-                                tracking = null,
-                                visible = null,
-                            )
-                        onUpdate?.invoke(update)
-                        emitDiagnostic(
-                            update = update,
-                            onEvent = onEvent,
-                            isProbeEnabled = isProbeEnabled,
-                        )
-                        result
-                    },
-                )
+                            result
+                        },
+                    )
 
-        val controlVisibleHandle =
-            module
-                .hook(controlVisibleMethod)
-                .setId(CONTROL_CENTER_VISIBLE_HOOK_ID)
-                .intercept(
-                    Hooker { chain ->
-                        val visible = chain.getArg(0) as? Boolean
-                        val result = chain.proceed()
-                        val update =
-                            Update(
-                                source = Source.CONTROL_CENTER,
-                                fraction = null,
-                                expanded = null,
-                                tracking = null,
-                                visible = visible,
+            handles +=
+                module
+                    .hook(controlVisibleMethod)
+                    .setId(CONTROL_CENTER_VISIBLE_HOOK_ID)
+                    .intercept(
+                        Hooker { chain ->
+                            val visible = chain.getArg(0) as? Boolean
+                            val result = chain.proceed()
+                            val update =
+                                Update(
+                                    source = Source.CONTROL_CENTER,
+                                    fraction = null,
+                                    expanded = null,
+                                    tracking = null,
+                                    visible = visible,
+                                )
+                            onUpdate?.invoke(update)
+                            emitDiagnostic(
+                                update = update,
+                                onEvent = onEvent,
+                                isProbeEnabled = isProbeEnabled,
                             )
-                        onUpdate?.invoke(update)
-                        emitDiagnostic(
-                            update = update,
-                            onEvent = onEvent,
-                            isProbeEnabled = isProbeEnabled,
-                        )
-                        result
-                    },
-                )
-
-        return listOf(
-            shadeHandle,
-            controlExpansionHandle,
-            controlVisibleHandle,
-        )
+                            result
+                        },
+                    )
+            return handles
+        } catch (error: Throwable) {
+            handles.asReversed().forEach { handle ->
+                runCatching { handle.unhook() }
+            }
+            throw error
+        }
     }
 
     fun resetRuntimeState() {
@@ -153,13 +156,12 @@ internal object SystemUiPanelTransitionSource {
         }
     }
 
-    internal fun normalizeFraction(value: Float?): Float? =
-        value
-            ?.takeIf { it.isFinite() }
-            ?.coerceIn(0f, 1f)
+    internal fun nativeFraction(value: Float?): Float? =
+        value?.takeIf { it.isFinite() }
 
     internal fun diagnosticBucket(fraction: Float?): Int? =
-        fraction?.let { value ->
+        fraction?.let { rawValue ->
+            val value = rawValue.coerceIn(0f, 1f)
             floor(value * DIAGNOSTIC_BUCKETS)
                 .toInt()
                 .coerceIn(0, DIAGNOSTIC_BUCKETS)
