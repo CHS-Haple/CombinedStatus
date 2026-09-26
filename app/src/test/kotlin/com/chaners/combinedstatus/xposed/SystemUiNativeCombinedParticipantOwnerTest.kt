@@ -289,6 +289,28 @@ class SystemUiNativeCombinedParticipantOwnerTest {
     }
 
     @Test
+    fun chargingPresentationDoesNotChangeStableSlotTranslation() {
+        val stableBoundary = 478
+        val chargingLiveBoundary = 448
+
+        assertEquals(
+            478f,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeSlotTranslationX(
+                statusIconsWidth = stableBoundary,
+                rootLeft = 0,
+            ),
+        )
+        assertEquals(
+            448f,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeSlotTranslationX(
+                statusIconsWidth = chargingLiveBoundary,
+                rootLeft = 0,
+            ),
+        )
+        assertEquals(30, stableBoundary - chargingLiveBoundary)
+    }
+
+    @Test
     fun nativeSlotTranslationUsesStableStatusIconBoundary() {
         assertEquals(
             478f,
