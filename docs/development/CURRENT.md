@@ -169,9 +169,17 @@ No merge to `dev` until these pass.
 Build 389:
 - versionName: `0.0.1`
 - buildId: `20260926-389`
-- runtime source: pending final checkpoint commit
-- Fast Build: pending
-- Work Branch Canary: pending
+- runtime commit / trusted tested work-branch SHA: `3ab0944abaf585f8afc79f483de8d9f08ca11906`
+- Fast Build #1039: **success**
+- Work Branch Canary #298: **success**
+- pinned target-profile verification: success
+- Modern Xposed metadata verification: success
+- Haple APK signature verification: success
+- Canary non-debuggable verification: success
+- Artifact ID: `10910190177`
+- Artifact archive digest: `sha256:2a1964d5bc4231a9c398684ccfcbe470faad044e9b15b58aed1864eba440f788`
+- Extracted APK SHA-256: `22fc81d38a5552ff50bf91e6e1b5c0ec9dd755eac7f76baf86a53b4a56984a22`
+- Extracted APK size: `3375134` bytes
 - Device validation: pending
 
 Required Build 389 focused device scenarios:
@@ -186,4 +194,4 @@ No merge to `dev` until these pass.
 
 ## Immediate next step
 
-Run Build 389 Fast CI and signed Work Branch Canary. If both pass, device-test the same short charging Super Island sequence from Build 388, focusing on whether native peers and Combined Status now share one stable end-side motion anchor. Then repeat the Build 386 regression checks. Do not merge PR #100 until this gate passes.
+Device-test the signed Build 389 Canary. Repeat the same short charging Super Island sequence from Build 388, focusing on whether native peers and Combined Status now keep coherent relative spacing with no custom-only ~30px shift. Then repeat the Build 386 regression checks. Do not merge PR #100 until this gate passes.
