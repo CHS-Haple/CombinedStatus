@@ -17,6 +17,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 class CombinedStatusModule : XposedModule() {
     private var islandMotionSourceInstalled = false
+    private var panelTransitionSourceInstalled = false
     private var runtimeSessionId = newRuntimeSessionId()
     private val diagnosticSequence = AtomicLong(0L)
     private val renderTraceSequence = AtomicLong(0L)
@@ -129,6 +130,10 @@ class CombinedStatusModule : XposedModule() {
                     classLoader = param.classLoader,
                     source = "coldStart",
                 )
+                installPanelTransitionSource(
+                    classLoader = param.classLoader,
+                    source = "coldStart",
+                )
             }
         }
     }
@@ -165,6 +170,11 @@ class CombinedStatusModule : XposedModule() {
                 SystemUiNativeBatterySuppressionOwner.installedHookCount +
                 if (islandMotionSourceInstalled) {
                     SystemUiIslandMotionSource.HOOK_COUNT
+                } else {
+                    0
+                } +
+                if (panelTransitionSourceInstalled) {
+                    SystemUiPanelTransitionSource.HOOK_COUNT
                 } else {
                     0
                 }
@@ -261,6 +271,7 @@ class CombinedStatusModule : XposedModule() {
             SystemUiBatteryRuntimeOwner.resetRuntimeState()
             SystemUiNetworkRuntimeOwner.resetRuntimeState()
             islandMotionSourceInstalled = false
+            panelTransitionSourceInstalled = false
             SystemUiPresentationRuntimeOwner.resetRuntimeState()
             SystemUiNativeParticipantRuntimeOwner.resetControllerRuntimeState()
             SystemUiNativeNetworkSuppressionOwner.resetRuntimeState("hotReload")
@@ -324,6 +335,10 @@ class CombinedStatusModule : XposedModule() {
             )
             if (BuildConfig.RUNTIME_DIAGNOSTICS) {
                 installIslandMotionSource(
+                    classLoader = classLoader,
+                    source = "hotReload",
+                )
+                installPanelTransitionSource(
                     classLoader = classLoader,
                     source = "hotReload",
                 )
@@ -912,6 +927,52 @@ class CombinedStatusModule : XposedModule() {
         }
     }
 
+    private fun installPanelTransitionSource(
+        classLoader: ClassLoader,
+        source: String,
+    ) {
+        runCatching {
+            SystemUiPanelTransitionSource.install(
+                module = this,
+                classLoader = classLoader,
+                onEvent = ::onPanelTransitionEvent,
+                isProbeEnabled = {
+                    BuildConfig.DEVELOPMENT_PROBES || detailedDiagnosticsEnabled
+                },
+            )
+        }.onSuccess { handles ->
+            panelTransitionSourceInstalled =
+                handles.size == SystemUiPanelTransitionSource.HOOK_COUNT
+            logDiagnostic(
+                level = if (panelTransitionSourceInstalled) Log.INFO else Log.WARN,
+                event = "source.install",
+                component = "panelTransition",
+                state = if (panelTransitionSourceInstalled) "ready" else "partial",
+                "hooks" to handles.size,
+                "expectedHooks" to SystemUiPanelTransitionSource.HOOK_COUNT,
+                "source" to source,
+                "nativeGeometryWrites" to 0,
+            )
+        }.onFailure { error ->
+            panelTransitionSourceInstalled = false
+            logDiagnostic(
+                level = Log.ERROR,
+                event = "source.install",
+                component = "panelTransition",
+                state = "error",
+                "reason" to (error.message ?: error.javaClass.simpleName),
+                "source" to source,
+            )
+            log(Log.ERROR, TAG, "Panel transition source installation failed", error)
+        }
+    }
+
+    private fun onPanelTransitionEvent(event: String) {
+        if (detailedDiagnosticsEnabled) {
+            log(Log.INFO, TAG, event)
+        }
+    }
+
     private fun installBatteryStateSource(
         classLoader: ClassLoader,
         source: String,
@@ -1222,6 +1283,7 @@ class CombinedStatusModule : XposedModule() {
         SystemUiPresentationRuntimeOwner.resetRuntimeState()
         CombinedStatusPresentationStateStore.reset()
         SystemUiIslandMotionSource.resetRuntimeState()
+        SystemUiPanelTransitionSource.resetRuntimeState()
         val nativeRuntimeReleased =
             SystemUiNativeCombinedParticipantOwner.releaseGenerationForHotReload()
 
