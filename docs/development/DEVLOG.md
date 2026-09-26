@@ -1749,3 +1749,63 @@ Before coding it:
 7. complete an ownership, lifecycle, cleanup, performance, compatibility and fail-native review.
 
 PR #100 remains unmerged.
+
+
+---
+
+## 2026-09-27 — Roadmap split for 0.0.2 architecture and 1.0.0 release qualification
+
+**Type:** roadmap / release-planning decision  
+**Runtime build:** none  
+**Runtime impact:** none
+
+### Maintainer decision
+
+The active macro route is refined without rewriting prior Build history.
+
+- Current development display version remains `0.0.2`.
+- The first planned formal release target is `1.0.0`.
+- Development may continue through `0.0.x` versions until the 1.0.0 acceptance boundary is satisfied and the maintainer explicitly authorizes the formal version transition.
+
+### Roadmap refinement
+
+The previous Phase 2 combined two different engineering problems: selecting a stable Home presentation carrier and implementing Home -> shade / Control Center transition behavior.
+
+It is now split into:
+
+- **Phase 2A — 0.0.2 Home carrier / presentation architecture**
+  - target host/carrier proof;
+  - scoped represented-slot handling;
+  - reversible native-view masking;
+  - HostSession ownership and cleanup;
+  - shared ResolvedLayout/sizing contract;
+  - island-time carrier/handoff preserving network information.
+
+- **Phase 2B — Home -> shade / Control Center projection**
+  - native progress authority;
+  - real source/target endpoints;
+  - draw-only projection;
+  - transition-specific masking/overlay lifetime and cleanup;
+  - no custom timing or endpoint compensation.
+
+Keyguard/AOD remains after Phase 2B. App Home/Preview Sandbox remains after scene-contract stabilization.
+
+### Sizing boundary
+
+The runtime sizing/layout contract is now a Phase-2A requirement.
+
+Phase 5 remains the user-facing adaptive size/spacing/visual-controls phase and should expose already-stable resolved-layout inputs rather than redesigning runtime SystemUI integration.
+
+### Superseded default route
+
+The permanent extra status participant / occupancy-handoff route explored by Builds 386-393 is now explicitly **superseded as the default 0.0.2 architecture**.
+
+Those builds remain valid historical evidence for individual target-SystemUI behaviors. They are not deleted, rewritten, or retroactively relabeled.
+
+The route may be reconsidered only if later exact-target evidence invalidates the preferred existing-host composition direction and a new ownership review proves a safer participant contract.
+
+### Formal release qualification
+
+The final pre-release macro phase is now **1.0.0 release qualification**, including full supported-scene/device-state regression, cleanup/fail-native behavior, adaptive sizing/spacing, performance/energy boundaries, Release/signing/metadata checks, and public-document consistency.
+
+Completing an earlier architecture phase does not itself advance the display version to `1.0.0`.
