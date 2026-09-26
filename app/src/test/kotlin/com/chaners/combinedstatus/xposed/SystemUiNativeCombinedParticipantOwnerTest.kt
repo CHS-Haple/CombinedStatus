@@ -18,7 +18,7 @@ class SystemUiNativeCombinedParticipantOwnerTest {
                 expectedVisualHeight = 108,
                 parentClipsChildren = false,
                 rootScreenX = 1242,
-                batteryScreenX = 1242,
+                slotAnchorScreenX = 1242,
                 renderLeft = 0,
                 renderRight = 105,
             ),
@@ -37,7 +37,7 @@ class SystemUiNativeCombinedParticipantOwnerTest {
                 expectedVisualHeight = 108,
                 parentClipsChildren = false,
                 rootScreenX = 1242,
-                batteryScreenX = 1242,
+                slotAnchorScreenX = 1242,
                 renderLeft = 0,
                 renderRight = 105,
             ),
@@ -56,7 +56,7 @@ class SystemUiNativeCombinedParticipantOwnerTest {
                 expectedVisualHeight = 108,
                 parentClipsChildren = false,
                 rootScreenX = 1242,
-                batteryScreenX = 1242,
+                slotAnchorScreenX = 1242,
                 renderLeft = -52,
                 renderRight = 53,
             ),
@@ -75,7 +75,7 @@ class SystemUiNativeCombinedParticipantOwnerTest {
                 expectedVisualHeight = 108,
                 parentClipsChildren = true,
                 rootScreenX = 1242,
-                batteryScreenX = 1242,
+                slotAnchorScreenX = 1242,
                 renderLeft = 0,
                 renderRight = 105,
             ),
@@ -90,7 +90,7 @@ class SystemUiNativeCombinedParticipantOwnerTest {
                 expectedVisualHeight = 108,
                 parentClipsChildren = false,
                 rootScreenX = 1238,
-                batteryScreenX = 1242,
+                slotAnchorScreenX = 1242,
                 renderLeft = 0,
                 renderRight = 105,
             ),
@@ -158,7 +158,7 @@ class SystemUiNativeCombinedParticipantOwnerTest {
                 expectedVisualHeight = 108,
                 parentClipsChildren = false,
                 rootScreenX = 1242,
-                batteryScreenX = 1242,
+                slotAnchorScreenX = 1242,
                 renderLeft = 0,
                 renderRight = 105,
             ),
@@ -177,7 +177,7 @@ class SystemUiNativeCombinedParticipantOwnerTest {
                 expectedVisualHeight = 108,
                 parentClipsChildren = false,
                 rootScreenX = 1137,
-                batteryScreenX = 1242,
+                slotAnchorScreenX = 1242,
                 renderLeft = 0,
                 renderRight = 105,
             ),
@@ -196,7 +196,7 @@ class SystemUiNativeCombinedParticipantOwnerTest {
                 expectedVisualHeight = 108,
                 parentClipsChildren = false,
                 rootScreenX = 1238,
-                batteryScreenX = 1242,
+                slotAnchorScreenX = 1242,
                 renderLeft = 0,
                 renderRight = 105,
             ),
@@ -211,7 +211,7 @@ class SystemUiNativeCombinedParticipantOwnerTest {
                 expectedVisualHeight = 108,
                 parentClipsChildren = false,
                 rootScreenX = 1242,
-                batteryScreenX = 1242,
+                slotAnchorScreenX = 1242,
                 renderLeft = 0,
                 renderRight = 135,
             ),
@@ -246,6 +246,62 @@ class SystemUiNativeCombinedParticipantOwnerTest {
                 layoutWidth = 0,
                 measuredWidth = 0,
                 visualWidth = 0,
+            ),
+        )
+    }
+
+    @Test
+    fun nativeBatterySlotTranslationUsesSiblingLayoutCoordinates() {
+        assertEquals(
+            478f,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeBatterySlotTranslationX(
+                statusIconsLeft = 4,
+                batteryLeft = 482,
+                rootLeft = 0,
+            ),
+            0f,
+        )
+        assertEquals(
+            448f,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeBatterySlotTranslationX(
+                statusIconsLeft = 4,
+                batteryLeft = 452,
+                rootLeft = 0,
+            ),
+            0f,
+        )
+    }
+
+    @Test
+    fun activeHandoffUsesSlotAnchorInsteadOfEvictedBatteryContent() {
+        assertTrue(
+            SystemUiNativeCombinedParticipantOwner.isActiveSlotHandoffReady(
+                rootLayoutWidth = 0,
+                rootLayoutHeight = 108,
+                renderMeasuredWidth = 105,
+                renderMeasuredHeight = 108,
+                expectedVisualWidth = 105,
+                expectedVisualHeight = 108,
+                parentClipsChildren = false,
+                rootScreenX = 1257,
+                slotAnchorScreenX = 1257,
+                renderLeft = 0,
+                renderRight = 105,
+            ),
+        )
+        assertFalse(
+            SystemUiNativeCombinedParticipantOwner.isActiveSlotHandoffReady(
+                rootLayoutWidth = 0,
+                rootLayoutHeight = 108,
+                renderMeasuredWidth = 105,
+                renderMeasuredHeight = 108,
+                expectedVisualWidth = 105,
+                expectedVisualHeight = 108,
+                parentClipsChildren = false,
+                rootScreenX = 1362,
+                slotAnchorScreenX = 1257,
+                renderLeft = 0,
+                renderRight = 105,
             ),
         )
     }

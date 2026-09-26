@@ -54,10 +54,17 @@ internal object SystemUiNativeCombinedParticipantOwner {
         "combinedstatus.nativeCombinedParticipant.constructor"
     private const val VISUAL_BOUNDS_HOOK_ID =
         "combinedstatus.nativeCombinedParticipant.visualBounds"
-    private const val HOOK_COUNT = 2
+    private const val FOLME_VIEW_STATE =
+        "com.android.systemui.statusbar.anim.MiuiStatusBarFolmeViewState"
+    private const val NEW_STATUS_ICON_STATE =
+        "com.android.systemui.statusbar.views.NewStatusIconState"
+    private const val SLOT_TRANSLATION_HOOK_ID =
+        "combinedstatus.nativeCombinedParticipant.slotTranslation"
+    private const val HOOK_COUNT = 3
 
     private var constructorHook: HookHandle? = null
     private var visualBoundsHook: HookHandle? = null
+    private var slotTranslationHook: HookHandle? = null
     private var rootRef: WeakReference<FrameLayout>? = null
     private var renderViewRef: WeakReference<CombinedStatusRenderView>? = null
     private var renderController: CombinedStatusRenderController? = null
@@ -89,6 +96,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
     private var modelReadyLogged = false
     private var unlockedGeometryLogged = false
     private var visualBoundsLogged = false
+    private var slotTranslationCorrectionLogged = false
     private var featureEnabled = false
     private var registryRestored = false
     private var injected = false
@@ -100,6 +108,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
             listOfNotNull(
                 constructorHook,
                 visualBoundsHook,
+                slotTranslationHook,
             ).size
 
     @Synchronized
@@ -165,6 +174,46 @@ internal object SystemUiNativeCombinedParticipantOwner {
                 }
                 ?.apply { isAccessible = true }
                 ?: return InstallResult.Failure("status-icon-container-on-layout-missing")
+        val folmeViewStateClass =
+            classOrNull(FOLME_VIEW_STATE, classLoader)
+                ?: return InstallResult.Failure("folme-view-state-class-missing")
+        val newStatusIconStateClass =
+            classOrNull(NEW_STATUS_ICON_STATE, classLoader)
+                ?: return InstallResult.Failure("new-status-icon-state-class-missing")
+        val applyToViewMethod =
+            folmeViewStateClass.declaredMethods
+                .firstOrNull { method ->
+                    method.name == "applyToView" &&
+                        method.parameterTypes.contentEquals(
+                            arrayOf(
+                                View::class.java,
+                                Boolean::class.javaPrimitiveType,
+                            ),
+                        ) &&
+                        method.returnType == Void.TYPE
+                }
+                ?.apply { isAccessible = true }
+                ?: return InstallResult.Failure("folme-apply-to-view-missing")
+        val translationXField =
+            runCatching {
+                folmeViewStateClass.getDeclaredField("translationX").apply {
+                    check(type == Float::class.javaPrimitiveType) {
+                        "folme-translation-x-type-mismatch"
+                    }
+                    isAccessible = true
+                }
+            }.getOrNull()
+                ?: return InstallResult.Failure("folme-translation-x-field-missing")
+        val layoutTranslationXField =
+            runCatching {
+                newStatusIconStateClass.getDeclaredField("layoutTranslationX").apply {
+                    check(type == Float::class.javaPrimitiveType) {
+                        "layout-translation-x-type-mismatch"
+                    }
+                    isAccessible = true
+                }
+            }.getOrNull()
+                ?: return InstallResult.Failure("layout-translation-x-field-missing")
 
         if (
             !bindableIconClass.isInterface ||
@@ -289,6 +338,82 @@ internal object SystemUiNativeCombinedParticipantOwner {
             }.getOrElse { error ->
                 return InstallResult.Failure(
                     "visual-bounds-hook-" +
+                        (error.message ?: error.javaClass.simpleName),
+                )
+            }
+
+        val slotTranslationHandle =
+            runCatching {
+                module
+                    .hook(applyToViewMethod)
+                    .setId(SLOT_TRANSLATION_HOOK_ID)
+                    .intercept(
+                        Hooker { chain ->
+                            val root =
+                                rootRef?.get()
+                                    ?: return@Hooker chain.proceed()
+                            val target =
+                                chain.getArg(0) as? View
+                                    ?: return@Hooker chain.proceed()
+                            if (
+                                target !== root ||
+                                !newStatusIconStateClass.isInstance(chain.thisObject)
+                            ) {
+                                return@Hooker chain.proceed()
+                            }
+                            val battery =
+                                batteryRef?.get()
+                                    ?: return@Hooker chain.proceed()
+                            val desired =
+                                resolveNativeBatterySlotTranslationX(
+                                    root = root,
+                                    battery = battery,
+                                ) ?: return@Hooker chain.proceed()
+                            val state = chain.thisObject
+                            val previousTranslation =
+                                runCatching {
+                                    translationXField.getFloat(state)
+                                }.getOrNull()
+                                    ?: return@Hooker chain.proceed()
+                            val previousLayoutTranslation =
+                                runCatching {
+                                    layoutTranslationXField.getFloat(state)
+                                }.getOrNull()
+                                    ?: return@Hooker chain.proceed()
+
+                            translationXField.setFloat(state, desired)
+                            layoutTranslationXField.setFloat(state, desired)
+
+                            if (
+                                !slotTranslationCorrectionLogged &&
+                                (
+                                    kotlin.math.abs(previousTranslation - desired) >= 0.5f ||
+                                        kotlin.math.abs(previousLayoutTranslation - desired) >= 0.5f
+                                )
+                            ) {
+                                slotTranslationCorrectionLogged = true
+                                eventSink?.invoke(
+                                    "nativeCombinedParticipant slotTranslation " +
+                                        "authority=native-battery-layout-slot " +
+                                        "previousTranslationX=" + previousTranslation +
+                                        " previousLayoutTranslationX=" + previousLayoutTranslation +
+                                        " correctedTranslationX=" + desired +
+                                        " batteryLeft=" + battery.left +
+                                        " statusIconsLeft=" +
+                                        ((root.parent as? View)?.left ?: Int.MIN_VALUE) +
+                                        " rootLeft=" + root.left +
+                                        " batteryMotionTranslationX=" + battery.translationX +
+                                        " nativeTranslationWriter=HyperOS " +
+                                        "moduleViewTranslationWrites=0 peerNativeGeometryWrites=0",
+                                )
+                            }
+                            chain.proceed()
+                        },
+                    )
+            }.getOrElse { error ->
+                runCatching { visualBoundsHandle.unhook() }
+                return InstallResult.Failure(
+                    "slot-translation-hook-" +
                         (error.message ?: error.javaClass.simpleName),
                 )
             }
@@ -481,6 +606,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
                         },
                     )
             }.getOrElse {
+                runCatching { slotTranslationHandle.unhook() }
                 runCatching { visualBoundsHandle.unhook() }
                 return InstallResult.Failure(
                     "constructor-hook-" + (it.message ?: it.javaClass.simpleName),
@@ -488,6 +614,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
             }
 
         visualBoundsHook = visualBoundsHandle
+        slotTranslationHook = slotTranslationHandle
         constructorHook = handle
         return InstallResult.Installed
     }
@@ -517,6 +644,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
         modelReadyLogged = false
         unlockedGeometryLogged = false
         visualBoundsLogged = false
+        slotTranslationCorrectionLogged = false
         featureEnabled = false
         eventSink = null
         return true
@@ -1029,6 +1157,11 @@ internal object SystemUiNativeCombinedParticipantOwner {
         val batteryLocation = IntArray(2)
         root.getLocationOnScreen(rootLocation)
         battery.getLocationOnScreen(batteryLocation)
+        val slotAnchorScreenX =
+            resolveNativeBatterySlotScreenX(
+                root = root,
+                battery = battery,
+            ) ?: return false
         if (
             !isActiveSlotHandoffReady(
                 rootLayoutWidth = root.layoutParams?.width ?: Int.MIN_VALUE,
@@ -1039,7 +1172,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
                 expectedVisualHeight = activeSlotHeight,
                 parentClipsChildren = parent.clipChildren,
                 rootScreenX = rootLocation[0],
-                batteryScreenX = batteryLocation[0],
+                slotAnchorScreenX = slotAnchorScreenX,
                 renderLeft = render.left,
                 renderRight = render.right,
             )
@@ -1578,6 +1711,15 @@ internal object SystemUiNativeCombinedParticipantOwner {
                         if (battery?.isAttachedToWindow == true) {
                             battery.getLocationOnScreen(batteryLocation)
                         }
+                        val slotAnchorScreenX =
+                            if (battery != null) {
+                                resolveNativeBatterySlotScreenX(
+                                    root = root,
+                                    battery = battery,
+                                )
+                            } else {
+                                null
+                            }
                         val bridgeReady =
                             isZeroSlotHandoffReady(
                                 rootMeasuredWidth = root.measuredWidth,
@@ -1588,7 +1730,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
                                 expectedVisualHeight = activeSlotHeight,
                                 parentClipsChildren = parent?.clipChildren ?: true,
                                 rootScreenX = rootLocation[0],
-                                batteryScreenX = batteryLocation[0],
+                                slotAnchorScreenX = slotAnchorScreenX ?: Int.MIN_VALUE,
                                 renderLeft = render?.left ?: Int.MIN_VALUE,
                                 renderRight = render?.right ?: Int.MIN_VALUE,
                             )
@@ -1695,6 +1837,46 @@ internal object SystemUiNativeCombinedParticipantOwner {
         root.viewTreeObserver.addOnPreDrawListener(listener)
     }
 
+    internal fun resolveNativeBatterySlotTranslationX(
+        statusIconsLeft: Int,
+        batteryLeft: Int,
+        rootLeft: Int,
+    ): Float =
+        (batteryLeft - statusIconsLeft - rootLeft).toFloat()
+
+    private fun resolveNativeBatterySlotTranslationX(
+        root: View,
+        battery: View,
+    ): Float? {
+        val statusIcons = root.parent as? View ?: return null
+        val endSide = statusIcons.parent ?: return null
+        if (battery.parent !== endSide) {
+            return null
+        }
+        return resolveNativeBatterySlotTranslationX(
+            statusIconsLeft = statusIcons.left,
+            batteryLeft = battery.left,
+            rootLeft = root.left,
+        )
+    }
+
+    private fun resolveNativeBatterySlotScreenX(
+        root: View,
+        battery: View,
+    ): Int? {
+        val statusIcons = root.parent as? View ?: return null
+        val translation =
+            resolveNativeBatterySlotTranslationX(
+                root = root,
+                battery = battery,
+            ) ?: return null
+        val statusIconsLocation = IntArray(2)
+        statusIcons.getLocationOnScreen(statusIconsLocation)
+        return kotlin.math.round(
+            statusIconsLocation[0] + root.left + translation,
+        ).toInt()
+    }
+
     internal fun isZeroSlotHandoffReady(
         rootMeasuredWidth: Int,
         rootMeasuredHeight: Int,
@@ -1704,7 +1886,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
         expectedVisualHeight: Int,
         parentClipsChildren: Boolean,
         rootScreenX: Int,
-        batteryScreenX: Int,
+        slotAnchorScreenX: Int,
         renderLeft: Int,
         renderRight: Int,
     ): Boolean =
@@ -1715,7 +1897,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
             expectedVisualWidth > 0 &&
             expectedVisualHeight > 0 &&
             !parentClipsChildren &&
-            rootScreenX == batteryScreenX &&
+            rootScreenX == slotAnchorScreenX &&
             renderLeft == 0 &&
             renderRight == expectedVisualWidth
 
@@ -1728,7 +1910,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
         expectedVisualHeight: Int,
         parentClipsChildren: Boolean,
         rootScreenX: Int,
-        batteryScreenX: Int,
+        slotAnchorScreenX: Int,
         renderLeft: Int,
         renderRight: Int,
     ): Boolean =
@@ -1739,7 +1921,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
             expectedVisualWidth > 0 &&
             expectedVisualHeight > 0 &&
             !parentClipsChildren &&
-            rootScreenX == batteryScreenX &&
+            rootScreenX == slotAnchorScreenX &&
             renderLeft == 0 &&
             renderRight == expectedVisualWidth
 
@@ -1952,6 +2134,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
     fun resetRuntimeState() {
         constructorHook = null
         visualBoundsHook = null
+        slotTranslationHook = null
         reset(Unit)
     }
 
@@ -1988,6 +2171,8 @@ internal object SystemUiNativeCombinedParticipantOwner {
         transitionProbeEnabled = null
         modelReadyLogged = false
         unlockedGeometryLogged = false
+        visualBoundsLogged = false
+        slotTranslationCorrectionLogged = false
         renderController = null
         injected = false
         registryRestored = false

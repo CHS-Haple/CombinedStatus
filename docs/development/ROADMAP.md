@@ -34,7 +34,7 @@ The project has already established the core Home implementation and the runtime
 
 ### Phase 2 — Home -> shade / Control Center native transition — active
 
-**Current checkpoint:** Build 385 on PR #100.
+**Current checkpoint:** Build 387 on PR #100. Build 386 resolved the original steady/entry/non-steady three-symptom loop; Build 387 addresses the remaining charging-island slot-vs-battery-motion semantic boundary.
 
 The goal is to make Home steady state, panel entry, intermediate transition, fully expanded state, return transition, and final Home steady state one coherent native SystemUI path without:
 - enable flash/reappearance;
@@ -42,7 +42,7 @@ The goal is to make Home steady state, panel entry, intermediate transition, ful
 - steady duplicate occupancy/left shift;
 - a second project-owned animation system.
 
-The three-symptom cycle and Build 385 APPEAR geometry adapter belong to this phase.
+The three-symptom cycle was broken by Build 386's zero-occupancy / real-visual-bounds separation. Build 387 preserves that architecture and adapts only the custom native translation target to the battery slot layout coordinate so battery-only Super Island eviction is not inherited by Combined Status.
 
 **Exit criteria:**
 - centered clean OFF -> ON APPEAR and ON -> OFF DISAPPEAR;

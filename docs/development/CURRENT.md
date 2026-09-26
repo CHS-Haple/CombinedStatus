@@ -10,7 +10,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Integration branch: `dev`
 - Integration runtime baseline: Build 377, commit `f64fe0e3992eab4dd62ff479c3765d834ec7dfa4`
 - Active work branch: `feat/native-panel-transition`
-- Active runtime checkpoint: Build 386 (current work-branch source checkpoint)
+- Active runtime checkpoint: Build 387 (current work-branch source checkpoint)
 - Build 385 trusted validation head: `d3533828e82a335eab0b3e661cfadd4e70ebee27` (history-synced tree; runtime-equivalent to Build 385)
 - Active PR: #100, `feat/native-panel-transition -> dev`
 - Target profile: HyperOS SystemUI `17.03.260226.r`
@@ -74,7 +74,7 @@ Build 385 preserves the native battery 105px slot as the single layout occupancy
 - **Build 385 device result:** rejected as a complete fix. The APPEAR pivot adapter keeps `pivotX=52.5` through the sampled native APPEAR frames, but the user still observes the same "flash / missing entry animation". Pivot was a real geometry defect but not the cause of the missing visible entry animation.
 - **Confirmed by 381 -> 382 code/device comparison:** the previously working visible entry animation was lost when `promoteActiveShellGeometry()` was removed and the active `ModernStatusBarView` shell changed from real visual width to zero width. This is the decisive behavioral boundary; later pivot-only fixes do not restore the visible animation.
 - **Confirmed source boundary for Build 386:** `MiuiStatusIconContainer.onMeasure()` uses child measured width for occupancy, and `onLayout()` first lays children from measured dimensions before calculating `NewStatusIconState`. Build 386 therefore keeps Combined Status `layoutParams.width=0` and `measuredWidth=0`, lets native layout/state compute zero extra occupancy, then expands only the module-owned root's actual post-layout bounds to the renderer width before draw/animation.
-- **Build 386 hypothesis:** real `View`/RenderNode bounds (105px) are the missing ingredient for visible native APPEAR, while measured width (0px) is the correct authority for steady layout occupancy.
+- **Build 386 device result:** accepted for the original three-symptom loop. Steady placement is correct, the Combined Status entry animation is visibly restored, and the previously reported non-steady first/last-frame shift is not observed. A new charging-island boundary remains: native battery eviction can push the custom zero-width participant target beyond the right edge.\n- **Confirmed Build 387 root cause:** charging Super Island replaces native battery presentation, so HyperOS translates/fades `MiuiBatteryMeterView` out while Combined Status must remain visible because it still carries network state. The zero-width custom participant's native `layoutTranslationX` was derived from the expanded status-icon extent instead of the battery slot layout coordinate.\n- **Selected Build 387 correction:** adapt only the Combined Status `NewStatusIconState` target to `battery.left - statusIcons.left - root.left`. HyperOS remains the sole live View `translationX`/Folme writer.
 
 ## Ownership / compatibility boundary
 
@@ -113,21 +113,25 @@ Build 386:
 - Artifact ID: `10907802307`
 - Artifact archive digest: `sha256:9cbf595eaf1ead0034b465bef2594215aba218a1cd859acf3b249174edb3c5c1`
 - Extracted APK SHA-256: `edfc56dd07f9aebe014563aa6c939a7ae18ef737022e8fed3f7a6cc28ff6ed48`
+- Device validation: **passed the original three-symptom boundary; charging-island right-edge eviction remains.**
+
+Build 387:
+- versionName: `0.0.1`
+- buildId: `20260926-387`
+- Fast Build: pending
+- Work Branch Canary: pending
 - Device validation: pending
 
-Required Build 386 focused device scenarios:
-1. OFF -> ON: Combined Status native entry animation must be visibly restored, not a flash/direct appearance.
-2. ON -> OFF remains animated.
-3. Steady Home placement remains aligned with the native battery slot, with no left shift.
-4. Pull down once and fully close: no first-frame / last-frame horizontal shift.
-5. Detailed diagnostic should confirm `layoutWidth=0`, `measuredWidth=0`, `actualWidth=105` and native Control Center anchor semantics remain `statusIconsWidth=478`, `batteryWidth=105`.
+Required Build 387 focused device scenarios:
+1. Charging Super Island enter/steady/exit keeps Combined Status fully inside the end-side boundary.
+2. Charging island motion remains native-smooth; no project-owned translation jump.
+3. Non-charging steady placement remains unchanged.
+4. OFF -> ON entry animation remains visible.
+5. Pull-down first frame / return last frame remain aligned.
+6. Diagnostic emits `nativeCombinedParticipant slotTranslation` only when native custom target differs from the battery-slot layout target and reports `moduleViewTranslationWrites=0`.
 
 No merge to `dev` until these pass.
 
 ## Immediate next step
 
-Device-test Build 386 once. This is the active single-variable checkpoint for the three-symptom loop: native layout still sees zero extra occupancy, while the module-owned Combined Status root receives real post-layout visual/transition bounds.
-
-If Build 386 restores the visible entry animation while steady and non-steady alignment remain correct, the three-way conflict is structurally resolved and the next work should be cleanup/review rather than another geometry experiment.
-
-If Build 386 still lacks a visible entry animation, stop the post-layout-bounds path and reopen animation-target ownership; do not add timing retries, offsets, repeated pivot writes, or another duplicate slot.
+Run Build 387 Fast CI and signed Work Branch Canary. If they pass, device-test charging Super Island enter/steady/exit plus one non-charging regression pass. Build 386 remains the checkpoint that broke the original three-symptom loop; Build 387 must change only the custom participant's native translation-target semantics and must not regress Build 386.

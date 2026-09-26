@@ -843,4 +843,83 @@ Pending CI and device validation. If real post-layout bounds still do not restor
 - Work Branch Canary #291: **success**.
 - Canary verified tested work-branch SHA checkout, unit/Canary build, pinned HyperOS target profile, Modern Xposed metadata, Haple APK signature, non-debuggable status, and artifact upload.
 - This CI update does not create a new runtime build. Device validation remains the acceptance gate.
+---
+
+## 2026-09-26 — Build 387: preserve battery-slot translation during charging-island eviction
+
+**Type:** runtime charging/island transition-target correction
+**APK build:** 20260926-387
+**CI:** pending at commit creation
+**Device validation:** pending
+
+### Build 386 device result
+
+Build 386 is the first checkpoint to break the original three-symptom loop on device: steady placement is correct, the Combined Status entry animation is visible, and the previously reported non-steady first/last-frame shift is not observed.
+
+A separate charging Super Island defect remains: while HyperOS evicts native battery presentation, Combined Status is pushed beyond the right display boundary.
+
+### Root cause
+
+Build 386 correctly separates zero measured/layout occupancy from real 105x108 visual bounds. The remaining defect is the translation-target semantic of the zero-width custom participant during charging island.
+
+Runtime evidence shows normal Home uses Combined Status `layoutTranslationX=478`. During charging island, HyperOS translates/fades native battery content out and the custom participant's native target advances to 583, causing the real Build 386 visual surface to start at the battery-eviction endpoint and extend beyond the right edge.
+
+Exact SystemUI review confirms `MiuiStatusIconContainer` / `NewStatusIconState` owns translation-state calculation and `MiuiStatusBarFolmeViewState.applyToView(View, boolean)` consumes that resolved state while HyperOS remains the actual View/Folme writer.
+
+The native battery slot target is directly available from sibling layout coordinates under `MiuiStatusBatteryContainer`: `desiredTranslationX = battery.left - statusIcons.left - root.left`. This excludes battery-only motion translation by construction while retaining native parent/end-side movement.
+
+### Evidence / references consulted
+
+- Latest repository `CONTRIBUTING.md`: root-cause order, authoritative native source hierarchy, one-live-writer rule, geometry separation, fail-native compatibility, bounded diagnostics.
+- Build 386 device screenshot and detailed diagnostic from Xiaomi 15 Pro / SystemUI 17.03.260226.r.
+- Build 386 runtime geometry: normal target 478; charging-island custom target 583; native battery content translated/faded by HyperOS.
+- Exact target DEX: `MiuiStatusIconContainer`, `NewStatusIconState`, `MiuiStatusBarFolmeViewState.applyToView(View, boolean)`, and native Folme state application.
+- Build 386 actual-bounds implementation and successful device result.
+
+### Alternatives considered
+
+1. Hard-code -105px while charging — rejected; observed delta is evidence, not architecture, and battery geometry can vary.
+2. Write `root.translationX` from the module — rejected; HyperOS already owns the live property and Folme animation.
+3. Move actual bounds left outside the native animation — rejected after review because it can fix an endpoint while introducing a start-frame jump.
+4. Hide Combined Status with native battery — rejected because Combined Status still carries Wi-Fi/mobile information.
+5. Adapt the custom `NewStatusIconState` target before native apply — selected. HyperOS continues to execute the live property update/animation.
+
+### Measures implemented
+
+- Preserved Build 386's `MiuiStatusIconContainer.onLayout(...)` post-layout visual-bounds hook unchanged.
+- Added one exact hook on `MiuiStatusBarFolmeViewState.applyToView(View, boolean)`.
+- Every non-CombinedStatus View and every non-`NewStatusIconState` proceeds untouched.
+- For the Combined Status root only, the adapter resolves the native battery-slot target from sibling layout coordinates and updates the state object's `translationX` and `layoutTranslationX` before original native apply.
+- The module never writes the root View's live `translationX`; HyperOS/Folme remains the sole live property writer.
+- Handoff readiness now compares against the same native battery-slot screen anchor rather than raw motion-translated battery content.
+- Added one bounded `nativeCombinedParticipant slotTranslation` diagnostic only when native and slot-layout targets differ materially.
+- Hook accounting becomes three owned hooks; partial installation fails closed and constructor-install rollback unhooks both previously installed integration hooks.
+- Internal build advances to `20260926-387`; display version remains `0.0.1`.
+
+### Review
+
+- **Single writer:** HyperOS remains sole writer of live translation, timing, curve, island state and peer geometry.
+- **Module ownership:** only custom state-target adaptation plus Build 386 actual bounds.
+- **Native source:** sibling layout coordinates are authoritative slot geometry; no local charging/island state machine.
+- **Normal invariance:** when native target already equals battery-slot target, the adapter is effectively a no-op.
+- **Dynamic geometry:** no 105px compensation constant; current native layout handles 105/135 and future width changes.
+- **Performance:** one constant-time identity/class check in existing state application; no polling, frame loop, tree traversal or persistent listener.
+- **Fail-native:** missing exact class/method/fields prevents a partial native participant installation.
+- **Hot reload:** third hook participates in hook counting/reset and constructor failure rollback.
+
+### CI / test gate
+
+Fast Build and signed Work Branch Canary are pending.
+
+Focused device acceptance after CI:
+1. charging Super Island enter/steady/exit keeps Combined Status inside the right boundary;
+2. native motion is continuous with no module-side jump;
+3. non-charging steady placement remains correct;
+4. OFF -> ON entry animation remains visible;
+5. shade/Control Center first/last-frame alignment remains correct;
+6. diagnostic reports target correction only when necessary and `moduleViewTranslationWrites=0`.
+
+### Route impact
+
+Build 386 remains the structural solution to the original three-symptom loop. Build 387 narrows translation semantics so Combined Status follows the battery slot rather than battery-only Super Island eviction. If this regresses Build 386, revert the adapter and reopen the state-target owner instead of adding offsets or live translation writes.
 
