@@ -7,6 +7,47 @@ import org.junit.Test
 
 class NativeStatusBarSlotGeometryTest {
     @Test
+    fun laidOutStatusIconWidthWinsOverTransientChargingMeasurement() {
+        val stableWidth =
+            NativeStatusBarSlotGeometry.resolveStableChildWidth(
+                layoutWidth = 478,
+                measuredWidth = 448,
+            )
+
+        assertEquals(478, stableWidth)
+
+        val resolved =
+            NativeStatusBarSlotGeometry.resolve(
+                containerWidth = 587,
+                containerPaddingStart = 4,
+                containerPaddingEnd = 0,
+                statusIconsMeasuredWidth = stableWidth ?: -1,
+                privacyMeasuredWidth = 0,
+                containerHeight = 108,
+            )
+
+        assertNotNull(resolved)
+        assertEquals(105, resolved?.slotWidth)
+    }
+
+    @Test
+    fun measuredWidthIsOnlyFallbackBeforeLayout() {
+        assertEquals(
+            448,
+            NativeStatusBarSlotGeometry.resolveStableChildWidth(
+                layoutWidth = 0,
+                measuredWidth = 448,
+            ),
+        )
+        assertNull(
+            NativeStatusBarSlotGeometry.resolveStableChildWidth(
+                layoutWidth = 0,
+                measuredWidth = 0,
+            ),
+        )
+    }
+
+    @Test
     fun stableHomeMeasurementResolvesNativeBatteryOccupancy() {
         val resolved =
             NativeStatusBarSlotGeometry.resolve(
