@@ -1279,3 +1279,84 @@ Next gate is one same-build single-variable A/B:
 2. attach/reload while already charging -> then repeat the island cycle.
 
 Export a fresh detailed diagnostic for each case. If only case 2 reproduces the split and shows a 135px attach-time slot/render width, the fix should normalize participant slot identity against the stable native battery slot contract rather than the transient charging presentation width.
+
+
+---
+
+## 2026-09-27 — Build 391: normalize attach-time native slot identity
+
+**Type:** root-cause runtime geometry correction  
+**APK build:** 20260927-391  
+**Device evidence source:** Build 390 charging-attached A/B case
+
+### Confirmed root cause
+
+The Build 390 A/B closes the attach-state hypothesis.
+
+In the failing charging-attached session:
+- battery state is already `pluggedIn=true charging=true` during runtime attach;
+- the laid-out native status-icon region remains 478px wide, preserving the stable 105px end-side slot in the 587px container with 4px start padding;
+- the same status-icon container reports a transient measured width of 448px while the charging battery presentation is 135px;
+- participant attach used `statusIcons.measuredWidth`, so `587 - 4 - 448 = 135` became `activeSlotWidth`;
+- renderer width and later released-slot occupancy consequently became 135px;
+- the new same-frame child trace confirms Combined Status then follows a different child-level motion trajectory from fixed native peers such as Wi-Fi/mobile.
+
+This is not an island interpolation defect. It is an attach-time slot-identity defect caused by treating transient measurement geometry as the stable layout boundary.
+
+### Problem execution flow
+
+1. User visual report identified inconsistent peer motion.
+2. Build 389/390 code review proved 390 did not change runtime behavior.
+3. Single-variable A/B isolated attach-while-charging as the reproducer.
+4. Build 390 bounded child trace measured the exact native child trajectories.
+5. Slot-resolution review located the source mismatch: translation already preferred `statusIcons.width`, but slot width still consumed `statusIcons.measuredWidth`.
+6. The stable laid-out boundary and transient charging measurement differ by exactly the previously observed 30px.
+7. Correct the source boundary instead of adding animation compensation.
+
+### References / rules reviewed
+
+- latest `CONTRIBUTING.md`: root-cause-first, evidence-change, one live writer, geometry separation, lightweight diagnostics, device evidence gate;
+- current `CURRENT.md`, `ROADMAP.md`, recent `DEVLOG.md`;
+- `SystemUI-Reference/findings/statusbar.md`: native slot/layout geometry must remain separate from battery presentation/motion geometry;
+- `SystemUI-Reference/findings/charging.md`: native battery hide remains the authoritative layout-release event;
+- Build 390 detailed diagnostic and maintainer recording.
+
+### Selected correction
+
+At participant attach:
+- prefer each already-laid-out native sibling's `width` as its stable occupancy;
+- use `measuredWidth` only as a pre-layout fallback;
+- feed that resolved stable width into `NativeStatusBarSlotGeometry.resolve(...)`;
+- log layout, measured, and resolved widths separately.
+
+For the failing observed geometry this changes only the source:
+- before: `statusIconsMeasuredWidth=448 -> resolvedSlot=135`;
+- after: `statusIconsLayoutWidth=478 -> resolvedStatusIconsWidth=478 -> resolvedSlot=105`.
+
+### Review
+
+- **Geometry review:** fixes slot identity at its source; no offset or interpolation patch.
+- **One-writer review:** HyperOS remains the sole live translation/Folme writer.
+- **Peer review:** no peer native geometry write.
+- **Island review:** Build 388 occupancy release contract remains unchanged; it now consumes the normalized stable visual/slot width.
+- **Lifecycle review:** no new persistent state or listener.
+- **Performance review:** constant-time width selection at participant attach only.
+- **Fallback review:** measured width remains available only when no positive laid-out width exists; invalid geometry still fails closed.
+- **Diagnostic review:** Build 390 bounded child trace remains detailed-only while this regression is validated.
+
+### Device gate
+
+Both attach orders must converge:
+1. uncharged attach -> charge Super Island enter/steady/exit;
+2. already-charging attach -> unplug/replug -> Super Island enter/steady/exit.
+
+Acceptance requires:
+- resolved stable slot 105px in both paths;
+- no CombinedStatus-only relative-motion split;
+- no peer overlap;
+- no right-edge escape;
+- non-charging steady placement unchanged;
+- OFF -> ON APPEAR preserved;
+- shade / Control Center first/last-frame alignment preserved.
+
+PR #100 remains unmerged.
