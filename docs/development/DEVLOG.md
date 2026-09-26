@@ -2736,3 +2736,49 @@ Those choices would work functionally but would duplicate native semantics and i
 - **Future extension:** settings can bind directly to the pure per-state color-source policy without new SystemUI integration.
 
 The shallow shade-pull Home-overlay leak remains next after this color checkpoint is device-validated.
+
+
+---
+
+## 2026-09-27 — Build 403 battery color gate
+
+**Type:** native semantic-color completion / CI checkpoint  
+**Display version:** 0.0.2  
+**Build:** 403 / 20260927-403  
+**Runtime source:** `97ef67e648906a4b9bb2ce4d7dd390e955831189`  
+**Validation:** Fast CI passed; signed Canary passed; focused device color validation pending
+
+### Final pre-device correction
+
+Review of Build 402 identified one remaining native gate: HyperOS conditionally applies its semantic battery colors through `mMiuiOptimizationEnabled`. Build 403 adds that exact target field and its setter to the verified compatibility contract. Semantic status still comes only from native `getProgressStatus()`; the gate controls only whether the native semantic color is consumed.
+
+### Resulting behavior
+
+- NORMAL -> resolved native status-icon tint.
+- CHARGING / POWER_SAVE / PERFORMANCE / LOW -> native SystemUI semantic color when HyperOS optimization is enabled.
+- When HyperOS disables semantic color optimization or the native semantic color is unavailable -> resolved native status-icon tint.
+- The existing center/mobile “follow battery color” options consume the final resolved battery color exactly as before.
+- All five states have the same future source choices: System default / Follow status icon / Custom, but no new user-facing settings are persisted yet.
+
+### Review
+
+- **Ownership:** HyperOS owns semantic state, priority, optimization gate and built-in colors.
+- **Lifecycle:** event-driven BatteryIcon callbacks only; no polling or background observer.
+- **Single writer:** no native field, Drawable, tint or mode state is written.
+- **Cleanup:** no registered listener/observer lifecycle is added beyond hook generation ownership.
+- **Fail-native/fallback:** unavailable semantic color degrades to the native status-icon tint.
+- **Performance:** bounded low-frequency callbacks; no frame or pre-draw work.
+- **Compatibility:** BatteryIcon methods/fields and optimization gate are pinned in the target profile and CI verifier.
+- **Future extension:** user color preferences can bind to the pure color-source policy without reopening SystemUI state acquisition.
+
+### CI / Canary
+
+- Fast Build #1063: success.
+- Signed Work Branch Canary #322: success.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260927-403-canary.apk`.
+- Artifact ZIP digest: `sha256:55535e2c5208e930142b0a4a5256a3740cf9748070a2710520921cde13032b34`.
+- Extracted APK SHA-256: `0715c2961264677e95bf96efe80b045cda91c07e02f34e588dba88df39c0d487`.
+
+### Next
+
+After focused device color validation, investigate the supplied shallow panel-pull video. The Home overlay must leave the Home presentation boundary as the shade begins taking ownership; future shade/Control Center Combined Status must move with its own target surface rather than rely on the stationary Home overlay.
