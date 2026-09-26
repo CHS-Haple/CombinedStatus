@@ -1171,3 +1171,24 @@ Focused device acceptance:
 6. diagnostic uses `authority=native-end-side-slot-boundary` and continues to report `moduleViewTranslationWrites=0`.
 
 If this still fails, reopen the native `NewStatusIconState` / island-state ordering boundary rather than moving peers or adding per-frame compensation.
+
+
+### CI validation update — Build 389
+
+- Runtime commit / exact tested work-branch SHA: `3ab0944abaf585f8afc79f483de8d9f08ca11906`.
+- Fast Build #1039: **success**.
+- Work Branch Canary #298: **success**.
+- Pinned HyperOS target profile: success.
+- Modern Xposed metadata verification: success.
+- Haple APK signature verification: success.
+- Canary non-debuggable verification: success.
+- Artifact ID: `10910190177`.
+- Artifact archive digest: `sha256:2a1964d5bc4231a9c398684ccfcbe470faad044e9b15b58aed1864eba440f788`.
+- Extracted APK SHA-256: `22fc81d38a5552ff50bf91e6e1b5c0ec9dd755eac7f76baf86a53b4a56984a22`.
+- Extracted APK size: `3375134` bytes.
+
+### Post-CI review
+
+The Fast and signed-Canary gates validate the source/build/signing/metadata boundary for Build 389. The runtime delta remains limited to the module-owned stable slot translation anchor; Build 388 occupancy handoff, peer geometry ownership, native live Folme translation, and existing lifecycle/fallback paths remain unchanged. No additional hook, observer, polling source, frame writer, peer translation or hard-coded pixel compensation was introduced.
+
+Device evidence remains the acceptance authority for the motion fix. PR #100 stays unmerged until the focused charging-island and non-charging regression gate passes.
