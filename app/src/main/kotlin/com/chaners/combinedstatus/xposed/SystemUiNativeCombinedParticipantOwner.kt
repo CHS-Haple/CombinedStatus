@@ -83,6 +83,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
     private var targetBindingState: BindingState? = null
     private var batteryRef: WeakReference<View>? = null
     private var nativeBatteryLayoutHidden = false
+    private var activeSlotTranslationX: Float? = null
     private var activeSlotWidth = 0
     private var activeSlotHeight = 0
     private var handoffSink: ((Boolean) -> Boolean)? = null
@@ -362,14 +363,10 @@ internal object SystemUiNativeCombinedParticipantOwner {
                             ) {
                                 return@Hooker chain.proceed()
                             }
-                            val battery =
-                                batteryRef?.get()
-                                    ?: return@Hooker chain.proceed()
                             val desired =
-                                resolveNativeBatterySlotTranslationX(
-                                    root = root,
-                                    battery = battery,
-                                ) ?: return@Hooker chain.proceed()
+                                currentNativeSlotTranslationX(root)
+                                    ?: return@Hooker chain.proceed()
+                            val battery = batteryRef?.get()
                             val state = chain.thisObject
                             val previousTranslation =
                                 runCatching {
@@ -395,15 +392,16 @@ internal object SystemUiNativeCombinedParticipantOwner {
                                 slotTranslationCorrectionLogged = true
                                 eventSink?.invoke(
                                     "nativeCombinedParticipant slotTranslation " +
-                                        "authority=native-battery-layout-slot " +
+                                        "authority=native-end-side-slot-boundary " +
                                         "previousTranslationX=" + previousTranslation +
                                         " previousLayoutTranslationX=" + previousLayoutTranslation +
                                         " correctedTranslationX=" + desired +
-                                        " batteryLeft=" + battery.left +
-                                        " statusIconsLeft=" +
-                                        ((root.parent as? View)?.left ?: Int.MIN_VALUE) +
+                                        " statusIconsWidth=" +
+                                        ((root.parent as? View)?.width ?: Int.MIN_VALUE) +
                                         " rootLeft=" + root.left +
-                                        " batteryMotionTranslationX=" + battery.translationX +
+                                        " batteryLeft=" + (battery?.left ?: Int.MIN_VALUE) +
+                                        " batteryWidth=" + (battery?.width ?: Int.MIN_VALUE) +
+                                        " batteryMotionTranslationX=" + (battery?.translationX ?: Float.NaN) +
                                         " nativeTranslationWriter=HyperOS " +
                                         "moduleViewTranslationWrites=0 peerNativeGeometryWrites=0",
                                 )
@@ -633,6 +631,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
         hostRef = null
         batteryRef = null
         nativeBatteryLayoutHidden = false
+        activeSlotTranslationX = null
         activeSlotWidth = 0
         activeSlotHeight = 0
         targetBindingState = null
@@ -858,6 +857,14 @@ internal object SystemUiNativeCombinedParticipantOwner {
         }
         activeSlotWidth = slotGeometry.slotWidth
         activeSlotHeight = slotGeometry.slotHeight
+        activeSlotTranslationX =
+            resolveNativeSlotTranslationX(
+                statusIconsWidth =
+                    statusIcons.width
+                        .takeIf { width -> width > 0 }
+                        ?: statusIcons.measuredWidth,
+                rootLeft = root.left,
+            ) ?: return AttachResult.Failure("native-slot-translation-anchor-not-ready")
         eventSink?.invoke(
             "nativeCombinedParticipant slotGeometry " +
                 "authority=MiuiStatusBatteryContainer.measurement " +
@@ -866,6 +873,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
                 " privacyMeasuredWidth=" + slotGeometry.privacyMeasuredWidth +
                 " batteryView=" + battery.width + "x" + battery.height +
                 " resolvedSlot=" + slotGeometry.slotWidth + "x" + slotGeometry.slotHeight +
+                " slotTranslationX=" + activeSlotTranslationX +
                 " readOnly=true nativeGeometryWrites=0",
         )
 
@@ -1166,10 +1174,8 @@ internal object SystemUiNativeCombinedParticipantOwner {
         root.getLocationOnScreen(rootLocation)
         battery.getLocationOnScreen(batteryLocation)
         val slotAnchorScreenX =
-            resolveNativeBatterySlotScreenX(
-                root = root,
-                battery = battery,
-            ) ?: return false
+            resolveNativeSlotScreenX(root)
+                ?: return false
         if (
             !isActiveSlotHandoffReady(
                 rootLayoutWidth = root.layoutParams?.width ?: Int.MIN_VALUE,
@@ -1722,10 +1728,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
                         }
                         val slotAnchorScreenX =
                             if (battery != null) {
-                                resolveNativeBatterySlotScreenX(
-                                    root = root,
-                                    battery = battery,
-                                )
+                                resolveNativeSlotScreenX(root)
                             } else {
                                 null
                             }
@@ -1847,39 +1850,45 @@ internal object SystemUiNativeCombinedParticipantOwner {
         root.viewTreeObserver.addOnPreDrawListener(listener)
     }
 
-    internal fun resolveNativeBatterySlotTranslationX(
-        statusIconsLeft: Int,
-        batteryLeft: Int,
+    internal fun resolveNativeSlotTranslationX(
+        statusIconsWidth: Int,
         rootLeft: Int,
-    ): Float =
-        (batteryLeft - statusIconsLeft - rootLeft).toFloat()
+    ): Float? =
+        (statusIconsWidth - rootLeft)
+            .takeIf { translation -> translation >= 0 }
+            ?.toFloat()
 
-    private fun resolveNativeBatterySlotTranslationX(
+    private fun currentNativeSlotTranslationX(root: View): Float? =
+        activeSlotTranslationX
+            ?: if (!nativeBatteryLayoutHidden) {
+                val statusIcons = root.parent as? View ?: return null
+                resolveNativeSlotTranslationX(
+                    statusIconsWidth = statusIcons.width,
+                    rootLeft = root.left,
+                )
+            } else {
+                null
+            }
+
+    private fun refreshNativeSlotTranslationX(
         root: View,
-        battery: View,
-    ): Float? {
-        val statusIcons = root.parent as? View ?: return null
-        val endSide = statusIcons.parent ?: return null
-        if (battery.parent !== endSide) {
-            return null
+        statusIcons: View,
+    ): Boolean {
+        if (nativeBatteryLayoutHidden) {
+            return activeSlotTranslationX != null
         }
-        return resolveNativeBatterySlotTranslationX(
-            statusIconsLeft = statusIcons.left,
-            batteryLeft = battery.left,
-            rootLeft = root.left,
-        )
+        val resolved =
+            resolveNativeSlotTranslationX(
+                statusIconsWidth = statusIcons.width,
+                rootLeft = root.left,
+            ) ?: return false
+        activeSlotTranslationX = resolved
+        return true
     }
 
-    private fun resolveNativeBatterySlotScreenX(
-        root: View,
-        battery: View,
-    ): Int? {
+    private fun resolveNativeSlotScreenX(root: View): Int? {
         val statusIcons = root.parent as? View ?: return null
-        val translation =
-            resolveNativeBatterySlotTranslationX(
-                root = root,
-                battery = battery,
-            ) ?: return null
+        val translation = currentNativeSlotTranslationX(root) ?: return null
         val statusIconsLocation = IntArray(2)
         statusIcons.getLocationOnScreen(statusIconsLocation)
         return kotlin.math.round(
@@ -2057,6 +2066,10 @@ internal object SystemUiNativeCombinedParticipantOwner {
     private fun applyPostLayoutVisualBounds(container: Any): Boolean {
         val root = rootRef?.get() ?: return false
         if (root.parent !== container) {
+            return false
+        }
+        val statusIcons = container as? View ?: return false
+        if (!refreshNativeSlotTranslationX(root, statusIcons)) {
             return false
         }
         return applyOwnVisualBounds(root)
@@ -2240,6 +2253,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
         hostRef = null
         batteryRef = null
         nativeBatteryLayoutHidden = false
+        activeSlotTranslationX = null
         activeSlotWidth = 0
         activeSlotHeight = 0
         handoffSink = null
