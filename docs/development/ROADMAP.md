@@ -16,42 +16,86 @@ Current implementation state belongs in `CURRENT.md`; investigation/build histor
 
 ## Macro development phases
 
-### Phase 1 — Core Home / native SystemUI foundation — completed
+### Phase 1 — Core state / renderer / native SystemUI foundation — completed
 
 The project has already established the core Home implementation and the runtime contracts needed for later scenes:
 
-- native Combined Status participant / Home rendering;
+- Home rendering foundation and native SystemUI integration evidence;
 - authoritative Wi-Fi and mobile state/presentation;
 - single-SIM and dual-SIM presentation paths;
 - no-SIM, hotspot, airplane mode and mobile-type presentation;
 - native resource/tint reuse and shared visual-intensity handling;
-- native Wi-Fi/mobile/battery suppression with fail-native restoration;
+- native Wi-Fi/mobile/battery presentation suppression and fail-native restoration groundwork;
 - master switch;
 - Hot Reload;
-- charging and island/end-side compatibility through the native SystemUI participant/slot/motion path.
+- charging/island diagnostics and ownership evidence needed to select the 0.0.2 presentation carrier.
 
-**Roadmap correction:** dual-SIM/network support and island participation are not future standalone phases. They are completed baseline capabilities that later phases must preserve.
+**Roadmap correction:** dual-SIM/network state/presentation support is not future work. The 0.0.2 redesign reopens only the Home/end-side presentation-carrier and scene-handoff architecture; it does not restart the domain model.
 
-### Phase 2 — Home -> shade / Control Center native transition — active
+### Phase 2A — 0.0.2 Home carrier / presentation architecture — active
 
-**Current checkpoint:** Build 385 on PR #100.
+The 0.0.2 line is first stabilizing the Home/end-side carrier and presentation contract before continuing transition work.
 
-The goal is to make Home steady state, panel entry, intermediate transition, fully expanded state, return transition, and final Home steady state one coherent native SystemUI path without:
-- enable flash/reappearance;
-- first/last-frame horizontal shift;
-- steady duplicate occupancy/left shift;
-- a second project-owned animation system.
+Builds 378-393 remain evidence, not the required implementation. They demonstrated that a separate permanent status participant can satisfy individual boundaries but repeatedly couples:
+- steady occupancy;
+- native APPEAR geometry;
+- battery-slot release;
+- charging presentation width;
+- peer MOVE targets;
+- panel handoff anchors.
 
-The three-symptom cycle and Build 385 APPEAR geometry adapter belong to this phase.
+A completed architecture reference review is stored under `docs/reference/`. The strongest reusable patterns are:
+- reuse an existing native host as the steady carrier when the target contract supports it;
+- suppress represented native slot participation only within the native measure/layout scope, with exact restoration;
+- keep native Views alive and mask only their drawing when appropriate;
+- keep runtime state host-scoped;
+- separate slot size, visual/glyph size, neighbor gap, per-glyph scale, and optical adjustment;
+- treat native scene/hide state as authoritative input;
+- keep cleanup/restoration explicit and layer-specific.
 
-**Exit criteria:**
-- centered clean OFF -> ON APPEAR and ON -> OFF DISAPPEAR;
-- correct steady Home placement;
-- no first/last-frame panel-transition shift;
-- native Control Center anchor semantics remain correct;
-- charging/island behavior remains native-compatible;
-- no duplicate geometry/animation writer;
-- temporary diagnostics that no longer provide compatibility value are retired.
+**Phase 2A target route:**
+1. prove an exact-target Home carrier contract;
+2. prove how represented native slots can be excluded without persistent duplicate layout ownership;
+3. prove reversible visual masking/restoration while native state/tint/lifecycle remain alive;
+4. define one shared `ResolvedLayout` / sizing contract that already supports future scale and optical gap;
+5. prove an island-time carrier or draw-only handoff that keeps Combined Status network information visible when the steady battery-oriented host is unavailable;
+6. keep unsupported scene states fail-native until their host adapters are verified.
+
+The provisional approach that overrides the platform battery-hide request is rejected as a default architecture and has been removed before Build 394.
+
+The permanent extra-participant route used in Builds 386-393 is **superseded as the default 0.0.2 architecture**. It remains historical evidence and may be reconsidered only if exact-target evidence later disproves the existing-host composition route and a new ownership review establishes a safer boundary.
+
+**Phase 2A exit criteria:**
+- correct steady Home placement and optical spacing in normal and charging states;
+- one coherent effective end-side layout responsibility with no duplicate native occupancy;
+- native Wi-Fi/mobile/battery state and tint sources remain live;
+- clean native-compatible enable/disable presentation;
+- charging/island enter, steady and exit preserve Combined Status network information without peer overlap or custom-only motion;
+- no platform hide override;
+- future user scale/gap changes require only resolved-layout inputs rather than scene-specific hooks or offsets;
+- exact cleanup returns every native View/slot/overlay to its prior state;
+- no duplicate geometry, layout, or animation writer.
+
+### Phase 2B — Home -> shade / Control Center projection — next after Phase 2A
+
+After the Home carrier/presentation contract is stable, complete cross-surface transition behavior without reopening steady-state ownership.
+
+**Direction:**
+- consume native expansion/transition progress as the timing authority;
+- resolve real source and target endpoints from live SystemUI geometry;
+- project Combined Status visual content through draw-only translate/scale/alpha where needed;
+- keep native target Views and peer motion SystemUI-owned;
+- separate transition masking/overlay lifetime from the steady Home HostSession;
+- restore native visuals and temporary transition resources exactly on completion, cancellation, host replacement, or failure;
+- do not introduce custom duration/interpolator systems, fixed endpoint offsets, or first/last-frame compensation.
+
+**Phase 2B exit criteria:**
+- no first-frame shift when leaving Home;
+- no last-frame snap when returning Home;
+- Control Center / shade endpoints match the live native targets;
+- native progress remains authoritative in both directions;
+- transition cleanup leaves no stale overlay, listener, mask, geometry, or host reference;
+- steady Home geometry from Phase 2A remains unchanged by transition code.
 
 ### Phase 3 — Keyguard / lockscreen / AOD scene completion — next
 
@@ -135,59 +179,83 @@ The schematic is an information-layout memory, not a pixel specification.
 - Preserve the already-decided information hierarchy when implementing the page.
 - Fine pixel values may evolve with the pinned MIUIX version, but the two-region Home structure and three-tab information architecture are design constraints.
 
-### Phase 5 — Adaptive sizing, spacing and broader visual controls — planned
+### Phase 5 — User-facing adaptive sizing, spacing and broader visual controls — planned
 
-After the native slot/transition contract is stable across required scenes:
+The **runtime sizing contract belongs to Phase 2A**, not Phase 5. By the time this phase begins, slot intent, visual/glyph size, optical gap, per-glyph scale, and transition endpoints should already resolve through the shared layout contract.
 
-- expose user-adjustable Combined Status sizing;
-- derive spacing from resolved visual geometry rather than a permanently fixed 105px assumption;
-- keep native slot occupancy, renderer visual width, transition geometry and optical spacing independently resolved;
+Phase 5 exposes those already-stable inputs to the user rather than redesigning SystemUI integration.
+
+- expose user-adjustable Combined Status visual sizing;
+- expose adaptive/optional user-adjustable neighbor spacing through the shared optical-gap model;
+- keep slot intent, renderer visual width, transition geometry, and optical adjustment independently resolved;
 - expose appropriate visual controls through the **Features** product structure;
-- make changes inspectable in the Preview Sandbox without confusing preview-only state with real runtime state.
+- make changes inspectable in the Preview Sandbox without confusing preview-only state with real runtime state;
+- require setting changes to alter resolved-layout inputs only, not introduce scene-specific hooks or offsets.
 
 Existing color-link and proportional visual parameters are groundwork, not the final customization surface.
 
-### Phase 6 — Full-scene compatibility regression and 0.0.1 closure — final pre-release phase
+### Phase 6 — Full-system regression and 1.0.0 release qualification — final pre-release phase
 
-Run the complete acceptance matrix across the supported target scope, including as applicable:
+The first planned formal release is **1.0.0**. Current `0.0.x` versions remain development lines until this qualification is complete and the maintainer explicitly authorizes the 1.0.0 version transition.
 
-- Home;
-- shade / Control Center transitions;
-- Keyguard / lockscreen / AOD;
-- charging / island states;
+Run the complete acceptance matrix for the intended first-release scope, including as applicable:
+
+- Home steady presentation and optical spacing;
+- charging / Super Island enter, steady, and exit;
+- shade / Control Center transitions and endpoint continuity;
+- Keyguard / lockscreen / AOD within the declared 1.0.0 support scope;
 - single-SIM and dual-SIM states;
 - Wi-Fi / hotspot / no-Internet / no-SIM / airplane combinations;
 - master-switch disable/enable;
-- Hot Reload / SystemUI recreation;
-- light/dark/tint behavior;
-- Release/Canary behavior and diagnostics boundaries.
+- Hot Reload / SystemUI recreation and host replacement;
+- light/dark/tint and native-resource intensity behavior;
+- adaptive sizing / spacing and visual-control persistence;
+- fail-native restoration and cleanup after cancellation/incompatibility;
+- performance, wakeup, logging, and energy-use regression boundaries;
+- Debug/Canary/Release behavior, Xposed metadata, signing, and non-debuggable Release properties;
+- public README / changelog / notices / architecture / compatibility consistency.
 
-Only after this phase is complete should the current `0.0.1` line be treated as release-ready.
+**1.0.0 release gate:**
+1. the intended support scope is explicit;
+2. all required device/scene acceptance tests pass;
+3. no known architecture path relies on superseded offsets, duplicate writers, or unresolved occupancy handoff;
+4. release documentation and changelog are prepared;
+5. formal Release validation/signing gates pass;
+6. the maintainer explicitly approves changing the display version to `1.0.0`.
+
+Completing an earlier architecture or feature phase does not by itself advance the display version to `1.0.0`.
 
 ## Active phase technical route
 
-### Build 385 — native slot + Combined Status transition-geometry adapter
+### Phase 2A / 0.0.2 — Build 397 Home carrier stabilization — active
 
-Exact SystemUI source and Build 384 runtime evidence confirm why the previous 0px/105px fixes formed a cycle:
+The pre-runtime architecture gate is open for the pinned target. Exact-target review has closed the Home overlay host/lifecycle, represented-slot exclusion, reversible clip-mask candidate, shared `ResolvedLayout` boundary, carrier cutover requirement, and inherited native island-motion contract.
 
-- the native battery slot must remain the single 105px end-side layout occupancy owner;
-- a full-width custom status-icon participant therefore duplicates occupancy;
-- a zero-width custom participant avoids duplicate occupancy, but HyperOS APPEAR normally computes its pivot from that zero View width.
+Build 394 established the overlay/ignored-slot/clip-mask carrier but failed charging geometry on device. Build 395 was rejected as an architecture candidate because it temporarily overrode native battery-hide state for layout. Build 396 moved to status-icon end reservation but still coupled replacement width to the charging-inflated live Battery width. Build 397 is the active bounded correction. Its scope is limited to:
+- make the verified Home overlay host the single active Home carrier;
+- introduce the shared `ResolvedLayout` runtime contract;
+- use host-scoped represented-slot exclusion through the exact target ignored-slot contract;
+- use reversible clip-only masking for represented native Wi-Fi/mobile/battery visuals;
+- inherit native island motion through the animated Home host without copying battery translation/fade semantics;
+- anchor Combined Status locally from the stable Home host end rather than the island-animated Battery child;
+- resolve the default replacement slot from HyperOS `battery_meter_width` rather than live charging-inflated Battery width;
+- maintain one host-end boundary through a reversible signed `MiuiStatusIconContainer.paddingEnd` adjustment derived from requested slot width, actual native Battery width, and native hide state, without changing native battery-hide state;
+- keep the superseded permanent participant/suppression path inactive for the same Home session;
+- restore exact slot/mask state on feature disable, host replacement, Hot Reload, partial activation failure, or session reset.
 
-Build 385 tests the smallest source-level separation: retain the zero-width layout shell and native battery slot, but replace only the native APPEAR pivot initialization for the module-owned Combined Status root with the renderer's actual visual center.
+Build 397 device/runtime validation must prove:
+- one Home HostSession owner and no duplicate carrier;
+- no duplicate slot occupancy;
+- no platform hide override or peer geometry writer;
+- exact ignored-slot and clip restoration;
+- correct normal Home spacing and cold-start behavior, including SystemUI restart while already charging followed by no user interaction;
+- charging/Super-Island enter, steady, and exit while preserving network information;
+- cleanup, fail-native fallback, and Hot Reload;
+- sizing/layout decisions come from the shared resolved-layout contract.
 
-**Acceptance boundary:**
-- clean centered OFF -> ON APPEAR;
-- clean centered ON -> OFF DISAPPEAR;
-- correct steady placement;
-- no first/last-frame transition shift;
-- native Control Center anchor remains 478+105;
-- no repeated/per-frame project writer;
-- exact callback incompatibility fails native.
+Builds 386-393 remain regression evidence. Their permanent extra-participant / 0-to-full-width occupancy-handoff route is superseded as the **default** 0.0.2 architecture.
 
-If Build 385 passes, retire temporary Build 383/384 probes that no longer provide ongoing compatibility value.
-
-If Build 385 fails, reopen native end-side ownership. Do not add timing retries, repeated pivot writes, translation offsets, or duplicate layout occupancy.
+Home -> shade / Control Center projection remains Phase 2B and is deliberately excluded from Build 394.
 
 ## Cross-cutting engineering routes
 
@@ -205,6 +273,10 @@ Keep diagnostics event-driven and bounded. Maintain fail-native behavior and use
 
 ## Deferred / rejected approaches
 
+- **Force native battery-hide requests to remain visible for layout purposes:** rejected as the default 0.0.2 route. It takes ownership of a platform scene decision and is not supported by the completed reference review.
+- **Permanent extra status participant as the default 0.0.2 carrier:** superseded. Builds 386-393 remain historical/runtime evidence, but new 0.0.2 work must start from the existing-host composition evaluation. Reconsider the participant route only if exact-target evidence later invalidates the preferred route and a new ownership review proves a safer contract.
+
+
 - **Native battery slot + full-width Combined Status participant:** rejected; duplicate steady occupancy caused left shift.
 - **Hide native battery layout + full-width participant:** rejected; diagnostics showed invalid Control Center anchor semantics and non-steady shift.
 - **Zero-width participant without transition-geometry adaptation:** rejected; native APPEAR derives pivot from shell width and writes `pivotX=0`.
@@ -217,6 +289,8 @@ Keep diagnostics event-driven and bounded. Maintain fail-native behavior and use
 Update this file when:
 - the project moves to a new macro phase;
 - an already-confirmed product design changes;
-- Build 385 accepts or invalidates the active transition route;
-- adaptive sizing gains a validated dynamic geometry contract;
+- the Phase-2A carrier/presentation architecture is selected or materially invalidated;
+- Phase 2A completes and Phase 2B transition work begins;
+- adaptive sizing gains or changes its validated runtime geometry contract;
+- the intended 1.0.0 support/qualification scope changes;
 - a cross-cutting ownership/compatibility boundary changes.

@@ -72,6 +72,9 @@ internal object SystemUiNativeNetworkSuppressionOwner {
     @Volatile
     private var noSimSuppressionEnabled = false
 
+    @Volatile
+    private var observationOnly = false
+
     val installedHookCount: Int
         @Synchronized get() = installedHandles.size
 
@@ -216,6 +219,62 @@ internal object SystemUiNativeNetworkSuppressionOwner {
     }
 
     @Synchronized
+    fun attachObserver(host: Any): StateResult {
+        val manager =
+            NativeParticipantRuntimeAccess.managerFor(host)
+                ?: return StateResult.Failure("dark-icon-manager-missing")
+        val group =
+            NativeParticipantRuntimeAccess.groupFor(host)
+                ?: return StateResult.Failure("status-icon-group-missing")
+        if (manager.javaClass.name != HOME_MANAGER_CLASS) {
+            return StateResult.Failure("home-manager-mismatch")
+        }
+
+        if (
+            activeManager !== manager ||
+            activeGroup?.get() !== group ||
+            !observationOnly
+        ) {
+            restoreMobileVisualMasksLocked()
+            clearSessionLocked(
+                requestLayout = false,
+                restoreVisualMasks = false,
+            )
+        }
+
+        activeManager = manager
+        activeGroup = WeakReference(group)
+        observationOnly = true
+        wifiSuppressionEnabled = false
+        mobileSuppressionEnabled = false
+        airplaneSuppressionEnabled = false
+        noSimSuppressionEnabled = false
+        suppressedBindings = emptyArray()
+        refreshStatusPresentationLocked("observerAttach")
+
+        eventSink?.invoke(
+            "nativeNetworkSuppression observerOnly source=observerAttach " +
+                "manager=" + manager.javaClass.name +
+                " group=" + group.javaClass.name +
+                " suppressionWriters=0 nativeGeometryWrites=0",
+        )
+        return StateResult.Active(
+            bindings = 0,
+            slots = emptyList(),
+            wifiSuppressed = false,
+            mobileSuppressed = false,
+            mobileVisualMasks = 0,
+        )
+    }
+
+    @Synchronized
+    fun refreshObservation(source: String) {
+        if (observationOnly && activeGroup?.get() != null) {
+            refreshStatusPresentationLocked(source)
+        }
+    }
+
+    @Synchronized
     fun activate(
         host: Any,
         suppressWifi: Boolean,
@@ -239,6 +298,7 @@ internal object SystemUiNativeNetworkSuppressionOwner {
 
         activeManager = handles.manager
         activeGroup = WeakReference(handles.group)
+        observationOnly = false
         wifiSuppressionEnabled = suppressWifi
         mobileSuppressionEnabled = suppressMobile
         airplaneSuppressionEnabled = true
@@ -407,15 +467,17 @@ internal object SystemUiNativeNetworkSuppressionOwner {
                 synchronized(this) {
                     if (manager === activeManager) {
                         refreshStatusPresentationLocked("iconAdded:" + slot)
-                        val snapshot = refreshBindingsLocked("iconAdded:" + slot)
-                        eventSink?.invoke(snapshot.logLine)
-                        if (snapshot.failureReason != null) {
-                            clearSessionLocked(requestLayout = true)
-                            eventSink?.invoke(
-                                "nativeNetworkSuppression failNative source=iconAdded:" + slot +
-                                    " reason=" + snapshot.failureReason +
-                                    " nativeGeometryWrites=0",
-                            )
+                        if (!observationOnly) {
+                            val snapshot = refreshBindingsLocked("iconAdded:" + slot)
+                            eventSink?.invoke(snapshot.logLine)
+                            if (snapshot.failureReason != null) {
+                                clearSessionLocked(requestLayout = true)
+                                eventSink?.invoke(
+                                    "nativeNetworkSuppression failNative source=iconAdded:" + slot +
+                                        " reason=" + snapshot.failureReason +
+                                        " nativeGeometryWrites=0",
+                                )
+                            }
                         }
                     }
                 }
@@ -484,6 +546,82 @@ internal object SystemUiNativeNetworkSuppressionOwner {
             }
             ?: candidates.firstOrNull()
 
+    @Synchronized
+    fun currentTransitionStateSnapshot(): TransitionStateSnapshot? {
+        val group = activeGroup?.get() ?: return null
+        val animatorController = readObjectField(group, "animatorController")
+        val notificationPanelExpand =
+            animatorController
+                ?.let { controller -> readObjectField(controller, "notificationPanelExpand") }
+                as? Boolean
+        val controlPanelExpand =
+            animatorController
+                ?.let { controller -> readObjectField(controller, "controlPanelExpand") }
+                as? Boolean
+
+        val children =
+            (0 until group.childCount)
+                .map(group::getChildAt)
+        fun stateFor(slot: String): TransitionIconState? {
+            val view =
+                selectTransitionTarget(
+                    children.filter { child ->
+                        NativeParticipantRuntimeAccess.slotOf(child) == slot
+                    },
+                ) ?: return null
+            return readTransitionIconState(group, view)
+        }
+
+        return TransitionStateSnapshot(
+            notificationPanelExpand = notificationPanelExpand,
+            controlPanelExpand = controlPanelExpand,
+            combined = stateFor("combined_status"),
+            wifi = stateFor("wifi"),
+            mobile = stateFor("mobile"),
+        )
+    }
+
+    private fun readTransitionIconState(
+        group: ViewGroup,
+        view: View,
+    ): TransitionIconState? {
+        val companionClass =
+            runCatching {
+                Class.forName(
+                    group.javaClass.name + "\$Companion",
+                    false,
+                    group.javaClass.classLoader,
+                )
+            }.getOrNull()
+                ?: return null
+        val accessor =
+            companionClass.declaredMethods
+                .firstOrNull { method ->
+                    method.name == "access\$getViewStateFromChild" &&
+                        method.parameterTypes.contentEquals(arrayOf(View::class.java))
+                }
+                ?.apply { isAccessible = true }
+                ?: return null
+        val state =
+            runCatching {
+                accessor.invoke(null, view)
+            }.getOrNull()
+                ?: return null
+
+        return TransitionIconState(
+            slot = readObjectField(state, "slot") as? String,
+            visibleState = (readObjectField(state, "visibleState") as? Number)?.toInt(),
+            inIslandState = (readObjectField(state, "inIslandState") as? Number)?.toInt(),
+            beforeInIslandState =
+                (readObjectField(state, "beforeInIslandState") as? Number)?.toInt(),
+            islandChanged = readObjectField(state, "islandChanged") as? Boolean,
+            supportAnim = readObjectField(state, "supportAnim") as? Boolean,
+            forceAppear = readObjectField(state, "forceAppear") as? Boolean,
+            layoutTranslationX =
+                (readObjectField(state, "layoutTranslationX") as? Number)?.toFloat(),
+        )
+    }
+
     private fun transitionViewGeometry(view: View): TransitionViewGeometry {
         val location = IntArray(2)
         val located =
@@ -502,6 +640,46 @@ internal object SystemUiNativeNetworkSuppressionOwner {
             visibility = view.visibility,
             alpha = view.alpha,
         )
+    }
+
+    internal data class TransitionStateSnapshot(
+        val notificationPanelExpand: Boolean?,
+        val controlPanelExpand: Boolean?,
+        val combined: TransitionIconState?,
+        val wifi: TransitionIconState?,
+        val mobile: TransitionIconState?,
+    ) {
+        val summary: String
+            get() =
+                "notificationPanelExpand=" + (notificationPanelExpand ?: "unknown") +
+                    " controlPanelExpand=" + (controlPanelExpand ?: "unknown") +
+                    " combined=" + (combined?.summary ?: "missing") +
+                    " wifi=" + (wifi?.summary ?: "missing") +
+                    " mobile=" + (mobile?.summary ?: "missing")
+    }
+
+    internal data class TransitionIconState(
+        val slot: String?,
+        val visibleState: Int?,
+        val inIslandState: Int?,
+        val beforeInIslandState: Int?,
+        val islandChanged: Boolean?,
+        val supportAnim: Boolean?,
+        val forceAppear: Boolean?,
+        val layoutTranslationX: Float?,
+    ) {
+        val summary: String
+            get() =
+                "{" +
+                    "slot=" + (slot ?: "unknown") +
+                    ",visibleState=" + (visibleState ?: "unknown") +
+                    ",inIslandState=" + (inIslandState ?: "unknown") +
+                    ",beforeInIslandState=" + (beforeInIslandState ?: "unknown") +
+                    ",islandChanged=" + (islandChanged ?: "unknown") +
+                    ",supportAnim=" + (supportAnim ?: "unknown") +
+                    ",forceAppear=" + (forceAppear ?: "unknown") +
+                    ",layoutTranslationX=" + (layoutTranslationX ?: "unknown") +
+                    "}"
     }
 
     internal data class TransitionTargetGeometry(
@@ -603,7 +781,8 @@ internal object SystemUiNativeNetworkSuppressionOwner {
             )
         val previousNoSimSuppression = noSimSuppressionEnabled
         noSimSuppressionEnabled =
-            presentation.noSimVisible &&
+            !observationOnly &&
+                presentation.noSimVisible &&
                 presentation.noSimIcon != null
 
         if (presentation != lastStatusPresentation) {
@@ -1254,6 +1433,7 @@ internal object SystemUiNativeNetworkSuppressionOwner {
         mobileSuppressionEnabled = false
         airplaneSuppressionEnabled = false
         noSimSuppressionEnabled = false
+        observationOnly = false
         lastStatusPresentation =
             CombinedStatusPresentationStateStore.StatusIconPresentation()
         if (requestLayout) {

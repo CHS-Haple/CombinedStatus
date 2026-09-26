@@ -1,118 +1,347 @@
 # Current Development State
 
-This file is the concise recovery point for active Combined Status development. Read it after `CONTRIBUTING.md` and before changing code. Keep detailed history in `DEVLOG.md` and future/deferred work in `ROADMAP.md`.
+This file is the concise recovery point for active Combined Status development. Read it after `CONTRIBUTING.md` and before changing code. Keep detailed history in `DEVLOG.md`, reusable implementation evidence in `docs/reference/`, future/deferred product work in `ROADMAP.md`, and release-target semantics in `VERSIONING.md`.
 
 ## Repository baseline
 
-- Last refreshed: 2026-09-26
+- Last refreshed: 2026-09-27
 - Stable branch: `main`
 - Stable runtime baseline: Build 351, commit `2477867278483b76b80ed0884de3a07c7ede668a`
 - Integration branch: `dev`
 - Integration runtime baseline: Build 377, commit `f64fe0e3992eab4dd62ff479c3765d834ec7dfa4`
 - Active work branch: `feat/native-panel-transition`
-- Active runtime checkpoint: Build 385 (current work-branch source checkpoint)
 - Active PR: #100, `feat/native-panel-transition -> dev`
+- Active development line: **0.0.2**
+- First planned formal release target: **1.0.0** (current 0.0.x lines remain pre-release development)
+- Last device-tested runtime checkpoint: Build 395 (`0.0.2`) — rejected; charging steady-state still expands the replacement boundary and island entry still twitches
+- Current work-branch runtime checkpoint: Build 398 (`0.0.2`) — **Fast CI + signed Work Branch Canary passed; focused device validation pending**
 - Target profile: HyperOS SystemUI `17.03.260226.r`
+- Exact SystemUI SHA-256: `a0e738e41fe599b97950cbf52a9e2ddc6ae2ceff986efbacb1c9840bea78768d`
 - Modern Xposed API: 102
 - Application ID: `com.chaners.combinedstatus`
 
-Documentation-only branch heads do not change their associated runtime baselines.
+Documentation-only branch heads do not create a new runtime baseline.
 
 ## Current integration state
 
-Build 377 remains the accepted `dev` runtime baseline. Builds 378-385 belong to the active work branch and are not accepted for integration until the active three-symptom geometry/transition boundary is device-validated.
+Build 377 remains the accepted `dev` runtime baseline. Builds 378-393 are work-branch evidence for Home/end-side/panel geometry and are not accepted integration architecture.
 
-PR #99 (`fix/native-visual-intensity-normalization`) remains open and unmerged; its head is not an accepted integration baseline. Shared native visual-intensity normalization is already present in the merged Build 377 line through PR #98, so any future use of PR #99 must be reconciled against current `dev`.
+Build 393 is rejected on device:
+- both tested attach orders remain visually wrong in charging state;
+- when SystemUI starts while already charging, Combined Status begins with visibly excessive optical spacing from the nearest native status icon;
+- pinning a custom participant to one stable boundary does not solve the underlying ownership conflict.
 
+PR #100 remains blocked from `dev`.
+
+PR #99 (`fix/native-visual-intensity-normalization`) remains open and unmerged. Shared visual-intensity normalization already exists in the accepted Build-377 line, so any future use of PR #99 must be reconciled against current `dev`.
 
 ## Macro roadmap position
 
-The project is currently in the **Home -> shade / Control Center native transition stage**. Build 385 is an implementation checkpoint inside this stage, not a new product phase.
+The project is in **Phase 2A — 0.0.2 Home carrier / presentation architecture**. Home -> shade / Control Center projection is Phase 2B and intentionally waits until the Home carrier contract is stable.
 
-The macro sequence is:
+The following capabilities remain reusable and are not being restarted:
+- authoritative Wi-Fi/mobile/battery/domain state;
+- single-SIM and dual-SIM presentation;
+- hotspot, no-SIM, airplane and mobile-type semantics;
+- native resource/tint integration and visual-intensity normalization;
+- feature settings and master switch;
+- Hot Reload and diagnostics;
+- fail-native restoration principles.
 
-1. **Core Home / native participant foundation — completed.**
-   - Home Combined Status rendering and native participant integration;
-   - authoritative network state/presentation, including single-SIM and dual-SIM paths;
-   - Wi-Fi / hotspot / no-SIM / airplane / mobile-type presentation;
-   - native resource/tint integration, network/battery suppression, fail-native restoration;
-   - master switch and Hot Reload;
-   - charging/island compatibility obtained through the native participant / slot / SystemUI ownership path rather than a separate project-owned island animation system.
-2. **Home -> shade / Control Center native transition — active.**
-   - Current three-symptom geometry/transition work belongs here.
-3. **Keyguard / lockscreen / AOD scene completion — next macro phase.**
-   - Reuse the stabilized state, ownership, and transition contracts instead of growing a second scene-specific patch stack.
-4. **App Home + Preview Sandbox implementation — planned, design already confirmed.**
-   - The page structure is not an open design question; see `ROADMAP.md` for the retained design snapshot.
-5. **Adaptive sizing / spacing and broader visual controls — planned after the geometry contract is stable.**
-6. **Full-scene compatibility regression and 0.0.1 release closure — final pre-release phase.**
+What is reopened is the **geometry/presentation carrier**, not the domain model.
 
-Do not reclassify already completed dual-SIM/network support or native island participation as future macro phases.
+After Phase 2A, complete Phase 2B Home -> shade / Control Center projection. Keyguard / lockscreen / AOD remains the next macro phase after Phase 2B.
 
-## Active objective
+## 0.0.2 architecture boundary
 
-Close the three-symptom repair cycle with one coherent separation of:
-- native end-side layout occupancy;
-- Combined Status drawing geometry;
-- native APPEAR/DISAPPEAR transition geometry;
-- Home -> shade / Control Center handoff geometry.
+The display version was explicitly advanced to **0.0.2** because the active work is now an architecture redesign rather than another Build-393 charging patch.
 
-Build 385 preserves the native battery 105px slot as the single layout occupancy owner and keeps the Combined Status status-icon shell at zero width. It changes only how the module-owned custom root receives its APPEAR pivot at the exact native callback boundary.
+0.0.2 must establish one shared geometry/presentation contract for:
+- native host/layout semantics;
+- Combined Status visual geometry;
+- optical spacing;
+- future adaptive sizing;
+- scene projection / transition geometry;
+- host-scoped cleanup and fail-native restoration.
 
-## Confirmed conclusions
+User-facing size/spacing controls remain a later UI task. Their runtime sizing contract is being pulled forward now so they do not require another SystemUI rewrite.
 
-- **Confirmed:** stable native battery-slot geometry and `MiuiBatteryMeterView` motion geometry are distinct.
-- **Confirmed:** Build 380 observed invalid Control Center anchor semantics when status-icons expanded into the battery area while battery width was still counted separately.
-- **Confirmed by device feedback:** preserving native battery layout removed the non-steady first/last-frame right shift.
-- **Confirmed by device feedback:** preserving native battery layout plus a full-width Combined Status participant caused steady left shift by one participant width.
-- **Confirmed by device feedback:** preserving native battery layout plus a zero-width participant restored steady placement but brought back the enable flash/no-clean-entry symptom.
-- **Confirmed by Build 384 runtime evidence:** native APPEAR is delivered; the one-shot pre-draw pivot bridge is overwritten when APPEAR actually starts.
-- **Confirmed by exact SystemUI DEX + Build 384 runtime:** `MiuiStatusBarIconAnimatorController$FolmeHandler$appearAnimation$appear$1.onStart()` computes `pivotY` from View height and `pivotX` from View width. The intentional zero-width Combined Status shell therefore receives native `pivotX=0`.
-- **Confirmed:** the three-symptom loop is structural if shell width alone is used for both layout occupancy and transition pivot.
-- **Confirmed correction:** `HomeStatusBarViewBinderInjector.mBatteryContainer` is the internal battery-icon `FrameLayout` from `battery_digital_view.xml`, not an outer battery-slot wrapper. Runtime battery-specific alpha changes make it unsuitable as the Combined Status renderer host.
-- **Selected Build 385 boundary:** replace the exact native APPEAR pivot callback only for the current Combined Status root, using renderer visual width and root/visual height. All native peer callbacks proceed unchanged.
+## Completed architecture reference review
 
-## Ownership / compatibility boundary
+A mature status-composition implementation was inspected as **reference evidence only**. No source code, assets, product identity, or implementation-specific naming is imported into this repository.
 
-- Native battery slot: HyperOS is the only layout occupancy owner.
-- Combined Status renderer: owns its drawing geometry.
-- HyperOS: continues to own visible state, remove lifecycle, alpha/scale Folme curve, panel/island transitions, and all peer geometry.
-- Combined Status: owns only the custom root's APPEAR pivot geometry because its visual width is intentionally decoupled from its zero layout width.
-- The exact APPEAR callback class, zero-argument `onStart()`, and captured `$view` field are required compatibility contracts. Missing contract fails the native Combined Status participant closed.
-- No polling, repeated pre-draw correction, per-frame writer, translation offset, margin compensation, or peer geometry write is permitted.
+Reusable patterns are recorded in:
+- `docs/reference/README.md`
+- `docs/reference/statusbar-composition-patterns.md`
 
-## Relevant authoritative references
+The review confirmed these reusable patterns:
 
-- Latest repository `CONTRIBUTING.md`, especially sections 3.1-3.4, 4.1-4.4, 5.1, 8, 10, and 11.
-- Exact SystemUI artifact SHA-256 `a0e738e41fe599b97950cbf52a9e2ddc6ae2ceff986efbacb1c9840bea78768d`.
-- `SystemUI-Reference/findings/statusbar.md`, `findings/control-center.md`, and `findings/charging.md`.
-- Build 384 detailed device diagnostic.
+1. **Existing-host composition.** A compact representation can reuse an existing native end-side host instead of adding a second permanent status-icon participant.
+2. **Scoped slot suppression.** Represented native slots can be temporarily excluded only during native measure/layout, with an exact restoration token.
+3. **Reversible visual masking.** Native Views can stay attached and state-capable while their drawing is temporarily clipped, then restored exactly.
+4. **Host-scoped sessions.** Runtime presentation state, overlays, native references and cleanup belong to the concrete host lifetime.
+5. **Sizing separation.** Slot size, glyph size, per-glyph scale and optical adjustment are independent inputs.
+6. **Native scene authority.** Platform hide/scene semantics are consumed as facts rather than rewritten to preserve a custom host.
+7. **Draw-only projection.** Native transition progress plus real source/target screen geometry can drive canvas translation/scale/alpha without taking ownership of native View translation.
+8. **Layered cleanup.** Layout mutation, steady visual masking and transition projection have separate lifetimes and restoration paths.
 
-## Validation / blockers
+## Architecture implication
 
-Build 385:
-- versionName: `0.0.1`
-- buildId: `20260926-385`
-- Fast Build: pending
-- Work Branch Canary: pending
-- Device validation: pending
+The extra custom-participant route used by Builds 386-393 is **no longer assumed to be the final 0.0.2 architecture**.
 
-Build 384 remains the immediate evidence baseline:
-- Fast Build #1020: success
-- Work Branch Canary #287: success
-- documentation-sync Fast Build #1023: success
-- documentation-sync Work Branch Canary #288: success
-- diagnostic evidence: received and analyzed
+The reference review explains why the existing route is fragile:
+- the platform battery/end-side host has its own scene-dependent occupancy lifecycle;
+- a separate custom participant creates a second layout identity;
+- releasing the native battery region and then promoting the custom participant from zero to full width changes participant identity during the same scene transition;
+- using one width/anchor to repair steady placement, APPEAR, island occupancy and panel handoff repeatedly couples responsibilities that should be independent.
 
-Required Build 385 focused device scenarios:
-1. OFF -> ON: centered APPEAR with no flash/reappearance.
-2. ON -> OFF: centered DISAPPEAR.
-3. Steady Home placement remains aligned to the native battery slot.
-4. Pull down once and fully close: no first-frame / last-frame horizontal shift.
-5. Detailed diagnostic: `appearPivotAdapter state=applied`; APPEAR pivot remains visual-centered after animation start; Control Center anchor remains `statusIconsWidth=478` + `batteryWidth=105`.
+The unfinished experiment that forced the native battery slot to remain present has been removed. The platform hide decision remains authoritative unless new exact-target evidence proves otherwise.
 
-No merge to `dev` until these pass.
+## Selected pre-runtime 0.0.2 direction
+
+The next design review should evaluate:
+
+`native host -> HostSession -> shared ResolvedLayout -> compact presentation`
+
+with these candidate mechanics:
+
+- reuse a verified existing Home end-side host as the steady layout carrier;
+- keep native Wi-Fi/mobile/battery Views alive for state/tint/lifecycle;
+- suppress duplicate native drawing reversibly;
+- if target evidence allows it, exclude represented native slots only inside the platform-owned measure/layout scope and restore them immediately afterward;
+- keep slot/glyph/gap/optical sizing in one shared resolved-layout model;
+- when a steady host becomes unavailable because of a platform scene decision, switch presentation mode rather than forcing the host to remain;
+- use native progress and real endpoints for Home -> shade / Control Center projection;
+- give Keyguard and AOD their own HostAdapters while sharing domain state, renderer semantics and layout policy.
+
+### Product-specific island requirement
+
+A battery-oriented host may legitimately disappear during charging-island presentation, but Combined Status still carries network information.
+
+Therefore 0.0.2 must **not** mechanically copy a policy that simply hides the whole compact representation whenever the battery host is hidden.
+
+The target-specific design must prove one of:
+- a valid island-time carrier for the Combined Status visual; or
+- a draw-only island projection/handoff that preserves network information while native peer layout/motion stays SystemUI-owned.
+
+This island carrier question is now closed for the pinned target: the verified `MiuiNotificationStatusContainer` overlay host is the exact `system_icon_area` animated by HyperOS `IslandStretchAnimation`, so the overlay inherits native island translation without its own follower or timing curve.
+
+## Exact-target evidence added before Build 394
+
+Build 393 diagnostics and the pinned SystemUI reference now narrow the Phase-2A carrier problem further:
+
+- `MiuiNotificationStatusContainer`'s host overlay has already accepted the real Combined Status renderer anchored to the live battery descendant bounds with no native geometry writes and without inheriting the battery ancestor's visibility. This verifies a **Home attachment/lifecycle candidate**, not yet the final production carrier contract.
+- Charging-island entry is confirmed to involve two distinct native responsibilities: `MiuiStatusIconContainer` changes its available/occupied width while the real `MiuiBatteryMeterView` independently translates and fades. The old permanent participant attempted to bridge both responsibilities with one custom slot identity, which is the ownership conflict 0.0.2 must remove.
+- Exact-target APK method-body inspection now verifies `MiuiStatusIconContainer.ignoredSlots` plus public `addIgnoredSlots(...)` / `setIgnoredSlots(...)`: ignored slots are excluded from native measurement/layout and the add path requests layout. This closes the represented-slot layout-contract question without peer width/translation writes.
+- `CombinedStatusHomeRenderSession` already demonstrates the desired host-scoped overlay lifetime and exact overlay removal boundary.
+- **Clip-bound writer audit:** no Home status-bar Wi-Fi/mobile/battery implementation in the exact target APK was found writing `clipBounds`. A save -> empty-clip -> exact-restore mask is therefore the preferred non-competing visual-mask candidate for first runtime validation.
+- The pre-runtime carrier/island contracts are now closed for the pinned target. Promotion now depends on Build 394 runtime proof of ignored-slot restoration, clip-mask coverage, carrier cutover, cleanup/fail-native restoration, Hot Reload, and focused device behavior.
+
+The shared `ResolvedLayout` semantics are defined at design level in `docs/architecture/layout-policy.md`. The architecture gate is now satisfied, so its first source/runtime implementation belongs to the bounded Build 394 checkpoint.
+
+
+
+### Exact island-motion closure
+
+JADX 1.5.6 method-body and decoded-resource inspection of the pinned target establishes:
+- `translationFlow` carries the configured island translation endpoint, not live animation progress;
+- `IslandStretchAnimation` owns the native Folme motion and writes `rightContainer.translationX`;
+- Home binds `rightContainer` to `R.id.system_icon_area`;
+- `status_bar.xml` declares that ID as `MiuiNotificationStatusContainer`, the existing Combined Status overlay host;
+- `statusContainerSpace` is computed by `IslandMonitor.RealContainerIslandMonitor` as layout occupancy/overlap width and mirrored into other status-icon containers; it is not motion progress.
+
+Consequently the selected Home overlay naturally rides the native island transform. Combined Status must not subscribe to either flow as a custom animation clock.
+
+## Exact-target island carrier contract closed
+
+Directed JADX inspection of the retained exact target APK now closes the remaining Phase-2A Home island ownership question:
+
+- `StatusBarIslandControllerImpl.translationFlow` is a configuration-dependent translation endpoint sourced from `status_bar_island_translation`; it is not realtime animation progress.
+- `statusContainerSpace` is native status-container avoidance/layout-space information computed by `IslandMonitor`; it is not realtime animation progress.
+- `HomeStatusBarViewBinderImpl` binds `IslandStretchAnimation.rightContainer` to `R.id.system_icon_area`.
+- exact `status_bar.xml` identifies `R.id.system_icon_area` as the same `MiuiNotificationStatusContainer` already used by the Home overlay candidate.
+- native island show/hide animates that host's `translationX` through SystemUI's own MIUIX/Folme `ISLAND_SHOW/HIDE` configuration.
+- because the Combined Status renderer is attached through that host's `ViewGroupOverlay`, it inherits the native host transform without a duplicate animator or production pre-draw follower.
+- the native battery's independent fade/hide remains child-local, so the Combined Status overlay can preserve network information while following the correct native island trajectory.
+
+### Build-394 architecture gate
+
+The static architecture gate is now satisfied for the first 0.0.2 runtime checkpoint. Build 394 may implement the smallest coherent Home carrier cutover:
+
+`system_icon_area HostSession -> shared ResolvedLayout -> overlay renderer + scoped represented-slot exclusion + reversible clip-only native visual masking`.
+
+Build 394 must not implement Phase-2B Home -> shade / Control Center projection, Keyguard/AOD, or user-facing size/spacing controls. Its device validation exists to prove the new Home carrier, restoration, island inheritance, and fail-native boundary before the superseded participant path is retired.
+
+
+## Build 394 device rejection — charging geometry
+
+Focused device validation on the pinned target rejects Build 394 for Phase 2A promotion:
+
+- normal Home composition is broadly functional and the new overlay/ignored-slot/clip-mask carrier activates successfully;
+- during charging/Super-Island entry the end-side composition shows a visible two-step motion / twitch rather than one coherent native motion;
+- when SystemUI starts while already charging, Combined Status-to-neighbor optical spacing is larger than the non-charging steady state;
+- brief shade pull-down / final held return can still show the Home Combined Status visual; this is classified separately as Phase 2B transition/handoff work, not the Build-394 Phase-2A root cause.
+
+The diagnostic confirms the new Home carrier is active (`MiuiNotificationStatusContainer.overlay`), represented slots are excluded through the scoped native measure/layout contract, clip masking is active, and no native translation/alpha/visibility writer is added. The failure is therefore not a rollback to the superseded custom-participant path.
+
+### Root-cause correction
+
+Source review shows Build 394 did **not** actually route Home geometry through `CombinedStatusLayoutPolicy.resolve()`. `CombinedStatusHomeRenderSession` still resolves the renderer rectangle directly from the live `MiuiBatteryMeterView` descendant bounds and lays the overlay View to that rectangle.
+
+Exact target JADX evidence also confirms that charging-island entry changes `MiuiStatusBatteryContainer` layout semantics: `mIsHideBattery=true` causes `statusIcons` layout to expand into the native battery region while the battery child retains its own independent translation/fade behavior. Therefore the battery descendant is not a stable layout anchor for the Combined Status overlay during this scene.
+
+Build 395 must correct the Home geometry source rather than add a translation offset:
+
+- stable visual anchoring comes from the Home host/end-side contract, not the moving/hidden battery child;
+- native island translation remains inherited from `system_icon_area`;
+- Combined Status must reserve its end-side visual occupancy when HyperOS releases the native battery region, without overriding `mIsHideBattery` or reintroducing a permanent custom participant;
+- the shared resolved-layout contract must become the actual runtime geometry source, with width/reservation intent separated from host height so the accepted 105x108 presentation is not silently changed to a square.
+
+## Ownership / non-negotiable boundaries
+
+- HyperOS remains authoritative for native peer layout, native scene state, native transition progress, and native live View motion.
+- Combined Status owns its domain composition, its own drawing, resolved optical geometry, and only explicitly proven presentation/projection state.
+- One live property must have one writer.
+- No magic 105/135, 448/478 correction chain is architecture.
+- No fixed translation offset, timing retry, custom duplicate scene animator, polling, or per-frame compensation may be added to preserve the old participant model.
+- Any native layout mutation must be narrowly scoped, reversible, and proven against the exact target.
+- Missing compatibility contracts fail native.
 
 ## Immediate next step
 
-Run Build 385 Fast CI and signed Work Branch Canary. If they pass, perform the focused device validation. If any corner of the three-symptom cycle returns, stop and reopen ownership rather than adding another timing or offset patch.
+**Build 394 architecture gate is now open.**
+
+Build 394 may now implement the first bounded 0.0.2 Home carrier checkpoint with this scope:
+
+1. introduce the shared `ResolvedLayout` runtime contract;
+2. make `MiuiNotificationStatusContainer` overlay the single active Home carrier;
+3. use host-scoped represented-slot exclusion through the exact target `ignoredSlots` contract;
+4. use reversible clip-only masking for represented native Wi-Fi/mobile/battery visuals;
+5. preserve native HyperOS island motion by inheriting the animated `system_icon_area` host transform rather than following battery motion or writing translation;
+6. explicitly cut over ownership so the superseded native-participant/suppression path cannot be active in the same Home session;
+7. keep Home -> shade / Control Center projection, Keyguard and AOD out of Build 394;
+8. validate cleanup, fail-native restoration, Hot Reload, normal Home, charging/island entry/exit and cold start while charging on device.
+
+## Build 394 implementation checkpoint
+
+Build 394 now defines the bounded Home carrier cutover described by the open architecture gate:
+- the Home overlay is readiness-gated and is the only active Combined Status Home carrier;
+- represented status slots are temporarily added to the exact target ignoredSlots list only while native measure/layout executes, with owned-entry restoration in finally;
+- represented status roots and the battery root use reversible clipBounds masks; native alpha, visibility, translation and measured/layout geometry remain SystemUI-owned;
+- the legacy combined_status participant and battery suppression owner are not installed or activated on the 0.0.2 Home path;
+- the former network suppression owner is retained temporarily only in observation-only mode for status-icon/no-SIM presentation evidence; all suppression flags stay off;
+- island motion is inherited from the animated system_icon_area / MiuiNotificationStatusContainer parent.
+
+Direct Hot Reload migration from a pre-0.0.2 participant build is fail-closed: if a legacy participant is found, it is removed and a one-time SystemUI restart is required because old-generation alpha/visibility mask provenance cannot be safely reconstructed. Clean-start Build 394 does not use the legacy carrier.
+
+Fast CI workflow #1044 and signed Work Branch Canary #303 passed for source commit `96fbb97e5d08280fee3c93e8091a61538b3bffcd`. The Canary passed unit/build, pinned-target, Modern Xposed metadata, Haple certificate and non-debuggable checks. Focused device validation is now the only Build-394 promotion gate.
+
+## Build 394 gate decision
+
+The pre-runtime architecture gate is satisfied for the pinned target. Exact evidence now covers the Home overlay host/lifecycle, represented-slot measure/layout exclusion, non-competing clip-mask candidate, shared `ResolvedLayout` boundary, carrier ownership cutover requirement, and native island-motion inheritance through the animated `system_icon_area` host.
+
+This is permission to create the first bounded runtime checkpoint, not proof that the runtime implementation is already correct. Build 394 must remain a single-variable architecture checkpoint and requires focused device validation before promotion.
+
+## Build 394 device result — rejected
+
+Focused device feedback rejects Build 394 as the Phase-2A promotion candidate.
+
+Observed:
+- partial Home -> shade pull and the final held return frame can still show the Home Combined Status representation; this belongs to deferred Phase 2B transition/projection work and is not the Build-394 rejection reason;
+- charging-island entry can visibly move Combined Status left and then immediately right;
+- while charging, the overlay does not behave as an occupied native end-side slot;
+- cold SystemUI start while already charging still produces a larger neighbor gap than normal Home.
+
+The supplied diagnostic report confirms the 394 Home overlay cutover itself is healthy, but that report was generated after a Hot Reload and its rendered model records `charging=false`; it is therefore not charging-transition proof.
+
+### Root-cause correction
+
+Exact target method-body review now separates **motion carrier** from **layout carrier**:
+
+- `system_icon_area / MiuiNotificationStatusContainer` remains the correct native island-motion parent;
+- `MiuiBatteryMeterView.updateIslandChanged(...)` sets `MiuiStatusBatteryContainer.mIsHideBattery=true`;
+- native `MiuiStatusBatteryContainer.onLayout(...)` then stops subtracting the battery width from the status-icon right boundary, so the status-icon container expands into the former battery end-side region;
+- the battery View independently animates translation/alpha/visibility after that layout;
+- Build 394 overlays Combined Status on the transformed host but still derives its local bounds from the battery descendant, while the overlay itself contributes no layout occupancy.
+
+Therefore “native transformed host inheritance” solved motion timing but did **not** by itself solve end-side occupancy or stable local anchoring.
+
+## Build 395 bounded correction
+
+Build 395 keeps the 394 carrier architecture and changes only the invalidated ownership boundary:
+
+1. local Combined Status bounds are resolved from the stable Home host end plus the measured native battery carrier width, through the shared layout policy; battery descendant translation/visibility no longer defines local position;
+2. while the Combined Status Home session is active and native `mIsHideBattery` is true, only the exact `MiuiStatusBatteryContainer.onLayout(...)` call is given a temporary `false` layout value so the native battery-width region remains reserved for the replacement;
+3. the real native hide state is restored in `finally`; the module does not intercept `setIsHideBattery`, does not keep the Battery visible, and does not write Battery translation/alpha/visibility;
+4. represented-slot ignored-list and clip-mask behavior remains unchanged;
+5. no custom participant, animation follower, timing compensation, width-difference formula, or Phase-2B behavior is added.
+
+Build 395 must re-test normal Home, charging-island enter/steady/exit, cold start while already charging, feature disable/enable, and same-architecture Hot Reload. The partial shade-held behavior remains intentionally deferred to Phase 2B.
+
+## Build 395 pre-CI review rejection
+
+Build 395 is retained as source-history evidence but is not sent to CI/device validation. Its temporary `mIsHideBattery=false` value inside `MiuiStatusBatteryContainer.onLayout(...)` is narrow but still overrides a native scene/layout decision and conflicts with the ROADMAP's rejected battery-hide-override route.
+
+Exact-target review identifies a cleaner reservation seam: `MiuiStatusIconContainer` has no authored padding in `system_icons.xml`, consumes `paddingEnd` as a native measure/layout boundary, and the directed status-bar writer audit found no competing runtime padding writer.
+
+## Build 396 bounded correction
+
+Build 396 keeps the host-end anchor correction but replaces the rejected hide-state override with a HostSession-owned `statusIcons.paddingEnd` reservation:
+- native `mIsHideBattery` is read-only;
+- when native battery space remains present, added reservation is zero;
+- when HyperOS releases the battery region, reservation equals the shared resolved layout's requested slot width;
+- pre-session relative padding is snapshotted and restored exactly;
+- conflicting padding writers fail native;
+- Home renderer and reservation use the same `CombinedStatusHomeLayoutResolver`;
+- island translation remains inherited from `system_icon_area`.
+
+## Reference priority for the next session
+
+Read in this order:
+1. latest `CONTRIBUTING.md`;
+2. this `CURRENT.md`;
+3. `docs/development/ROADMAP.md`;
+4. `docs/reference/README.md`;
+5. `docs/reference/statusbar-composition-patterns.md`;
+6. recent `DEVLOG.md`;
+7. exact target `SystemUI-Reference` findings as required.
+
+## Build 396 pre-device rejection; Build 397 stable base-slot correction
+
+Additional device clarification makes the charging defect a steady-state geometry failure, not only an island-transition artifact: when SystemUI starts while already plugged in and the user performs no interaction, Combined Status already has excessive neighbor spacing.
+
+Exact target resources close the width source:
+- `battery_meter_width = 28dp` is the stable native battery base width;
+- `hollow_battery_meter_charge_width = 8dp` is the charging-only addition;
+- on the current device those resolve to the observed ~105px base and ~30px charging addition, matching the 135px live charging Battery width.
+
+Build 396 is therefore not a device candidate even though its source compiles: it still derives the replacement width from the live Battery measured width and only adds positive end reservation when native battery layout is released.
+
+Build 397 corrects that ownership boundary:
+- the Home replacement slot resolves from SystemUI's runtime `battery_meter_width` resource; no 105/135 constant is used;
+- the live Battery measured width is observation-only input describing how much native width HyperOS currently consumes;
+- the Home overlay remains host-end anchored to the shared resolved slot width, so charging presentation cannot resize the Combined Status visual;
+- the status-icon end-boundary correction is signed and derived: native-visible Battery uses `requestedSlotWidth - actualBatteryWidth`; native-hidden Battery uses `requestedSlotWidth`;
+- on the verified device this yields 0px in normal Home, -30px in stable charging, and +105px when HyperOS releases the Battery region;
+- the session observes Battery layout changes and the native battery-hide setter only as low-frequency triggers; there is no polling or animation follower;
+- existing padding-writer conflict detection and exact restoration remain in force.
+
+Focused device acceptance must include a cold SystemUI start while already charging followed by no interaction. That steady frame must match non-charging Home neighbor spacing before island enter/exit is evaluated.
+
+## Build 397 pre-CI review rejection; Build 398 live carrier correction
+
+Build 397 is superseded before device validation. It correctly separated the live 105/135 Battery presentation width from a stable replacement width, but it sourced that stable width from the `battery_meter_width` resource.
+
+Exact target layout inspection provides a stronger authority: `battery_icon_container` is the real `wrap_content` battery-body carrier inside `MiuiBatteryMeterView`, while `battery_charge_out_image` is a sibling charging-only presentation View. The Build-395 runtime diagnostic already shows the corresponding split: the Battery root reaches 135 px while the battery-body container remains 105 px.
+
+Build 398 therefore:
+- resolves the concrete `battery_icon_container` View from the active Home Battery instance;
+- uses that same live carrier width for both overlay geometry and end-reservation intent;
+- treats the full Battery root width only as native presentation occupancy;
+- derives the status-icon padding delta from `stable carrier width - native currently reserved width`;
+- observes Battery-root and carrier layout changes only as low-frequency synchronization triggers;
+- keeps Battery hide/translation/alpha/visibility and island motion fully SystemUI-owned;
+- fails native if the core carrier is missing, invalid, narrower/greater than expected relative to the presentation, or if another padding writer appears.
+
+Build 396 and 397 are not device-test candidates. Build 398 is the next focused checkpoint.
+

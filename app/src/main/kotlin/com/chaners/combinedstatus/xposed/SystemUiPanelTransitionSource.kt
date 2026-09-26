@@ -1,8 +1,11 @@
 package com.chaners.combinedstatus.xposed
 
+import android.view.View
 import io.github.libxposed.api.XposedInterface.HookHandle
 import io.github.libxposed.api.XposedInterface.Hooker
 import io.github.libxposed.api.XposedModule
+import java.lang.ref.WeakReference
+import java.lang.reflect.Field
 import kotlin.math.floor
 
 internal object SystemUiPanelTransitionSource {
@@ -15,6 +18,12 @@ internal object SystemUiPanelTransitionSource {
         "com.miui.systemui.controlcenter.container.ControlCenterExpandControllerDelegate"
     private const val CONTROL_CENTER_EXPANSION_METHOD = "onExpansionChanged"
     private const val CONTROL_CENTER_VISIBLE_METHOD = "onVisibleChanged"
+    private const val CONTROL_CENTER_HEADER_CALLBACK_CLASS =
+        "com.android.systemui.controlcenter.shade.ControlCenterHeaderExpandController\$controlCenterCallback\$1"
+    private const val CONTROL_CENTER_HEADER_CLASS =
+        "com.android.systemui.controlcenter.shade.ControlCenterHeaderExpandController"
+    private const val STATUS_BAR_ANCHOR_CLASS =
+        "com.android.systemui.controlcenter.shade.StatusBarAnchorBounds"
 
     private const val SHADE_HOOK_ID = "combinedstatus.panel.notification.expansion"
     private const val CONTROL_CENTER_EXPANSION_HOOK_ID =
@@ -24,6 +33,8 @@ internal object SystemUiPanelTransitionSource {
 
     private var shadeProbe = ProbeState()
     private var controlProbe = ProbeState()
+    private var controlAnchorContract: ControlCenterAnchorContract? = null
+    private var controlHeaderRef = WeakReference<Any>(null)
 
     fun install(
         module: XposedModule,
@@ -53,6 +64,12 @@ internal object SystemUiPanelTransitionSource {
                 Boolean::class.javaPrimitiveType,
             ).apply { isAccessible = true }
 
+        controlAnchorContract =
+            ControlCenterAnchorContract.resolve(
+                classLoader = classLoader,
+                delegateClass = controlClass,
+            )
+
         val handles = ArrayList<HookHandle>(HOOK_COUNT)
         try {
             handles +=
@@ -75,6 +92,18 @@ internal object SystemUiPanelTransitionSource {
                                     expanded = expanded,
                                     tracking = tracking,
                                     visible = null,
+                                    homeMotion =
+                                        if (
+                                            onEvent != null &&
+                                            isProbeEnabled() &&
+                                            isBoundaryDiagnosticBucket(
+                                                diagnosticBucket(fraction),
+                                            )
+                                        ) {
+                                            SystemUiIslandMotionSource.currentOwnerSnapshot()
+                                        } else {
+                                            null
+                                        },
                                 )
                             onUpdate?.invoke(update)
                             emitDiagnostic(
@@ -97,6 +126,16 @@ internal object SystemUiPanelTransitionSource {
                                     (chain.getArg(0) as? Number)?.toFloat(),
                                 )
                             val result = chain.proceed()
+                            val anchorSnapshot =
+                                if (
+                                    onEvent != null &&
+                                    isProbeEnabled() &&
+                                    shouldCaptureControlAnchor(fraction)
+                                ) {
+                                    captureControlCenterAnchor(chain.thisObject)
+                                } else {
+                                    null
+                                }
                             val update =
                                 Update(
                                     source = Source.CONTROL_CENTER,
@@ -104,6 +143,13 @@ internal object SystemUiPanelTransitionSource {
                                     expanded = null,
                                     tracking = null,
                                     visible = null,
+                                    controlCenterAnchor = anchorSnapshot,
+                                    homeMotion =
+                                        if (anchorSnapshot != null) {
+                                            SystemUiIslandMotionSource.currentOwnerSnapshot()
+                                        } else {
+                                            null
+                                        },
                                 )
                             onUpdate?.invoke(update)
                             emitDiagnostic(
@@ -153,6 +199,8 @@ internal object SystemUiPanelTransitionSource {
         synchronized(this) {
             shadeProbe = ProbeState()
             controlProbe = ProbeState()
+            controlAnchorContract = null
+            controlHeaderRef = WeakReference(null)
         }
     }
 
@@ -166,6 +214,28 @@ internal object SystemUiPanelTransitionSource {
                 .toInt()
                 .coerceIn(0, DIAGNOSTIC_BUCKETS)
         }
+
+    internal fun isBoundaryDiagnosticBucket(bucket: Int?): Boolean =
+        bucket == 0 || bucket == 1 || bucket == 7 || bucket == 8
+
+    @Synchronized
+    private fun shouldCaptureControlAnchor(fraction: Float?): Boolean {
+        val bucket = diagnosticBucket(fraction)
+        return isBoundaryDiagnosticBucket(bucket) &&
+            bucket != controlProbe.bucket
+    }
+
+    private fun captureControlCenterAnchor(delegate: Any?): ControlCenterAnchorSnapshot? {
+        delegate ?: return null
+        val contract = controlAnchorContract ?: return null
+        val header =
+            controlHeaderRef.get()
+                ?: contract.resolveHeader(delegate)?.also { resolved ->
+                    controlHeaderRef = WeakReference(resolved)
+                }
+                ?: return null
+        return contract.snapshot(header)
+    }
 
     @Synchronized
     private fun emitDiagnostic(
@@ -202,6 +272,14 @@ internal object SystemUiPanelTransitionSource {
         if (update.visible != null) {
             probe.visible = update.visible
         }
+        val anchorSummary =
+            update.controlCenterAnchor?.let { snapshot ->
+                " controlAnchor=" + snapshot.summary
+            }.orEmpty()
+        val homeMotionSummary =
+            update.homeMotion?.let { snapshot ->
+                " homeMotion=" + snapshot.summary
+            }.orEmpty()
         onEvent(
             "panelTransition source=" + update.source.logName +
                 " fraction=" + (update.fraction ?: "none") +
@@ -209,6 +287,8 @@ internal object SystemUiPanelTransitionSource {
                 " expanded=" + (update.expanded ?: probe.expanded ?: "none") +
                 " tracking=" + (update.tracking ?: probe.tracking ?: "none") +
                 " visible=" + (update.visible ?: probe.visible ?: "none") +
+                anchorSummary +
+                homeMotionSummary +
                 " authority=hyperos-native-callback nativeGeometryWrites=0",
         )
     }
@@ -219,6 +299,8 @@ internal object SystemUiPanelTransitionSource {
         val expanded: Boolean?,
         val tracking: Boolean?,
         val visible: Boolean?,
+        val controlCenterAnchor: ControlCenterAnchorSnapshot? = null,
+        val homeMotion: SystemUiIslandMotionSource.OwnerSnapshot? = null,
     )
 
     internal enum class Source(
@@ -227,6 +309,175 @@ internal object SystemUiPanelTransitionSource {
         NOTIFICATION_SHADE("notification"),
         CONTROL_CENTER("control-center"),
     }
+
+    internal data class ControlCenterAnchorSnapshot(
+        val systemIconsX: Int?,
+        val systemIconsWidth: Int?,
+        val statusIconsX: Int?,
+        val statusIconsWidth: Int?,
+        val batteryWidth: Int?,
+        val realSystemIconsWidth: Int?,
+        val normalStatusBarTranslationX: Int?,
+        val normalStatusIconsTranslationX: Int?,
+        val batteryWidthDiff: Int?,
+        val addBatteryIsland: Boolean?,
+        val controlCenterExpanding: Boolean?,
+    ) {
+        val summary: String
+            get() =
+                "{" +
+                    "systemIconsX=" + (systemIconsX ?: "unknown") +
+                    ",systemIconsWidth=" + (systemIconsWidth ?: "unknown") +
+                    ",statusIconsX=" + (statusIconsX ?: "unknown") +
+                    ",statusIconsWidth=" + (statusIconsWidth ?: "unknown") +
+                    ",batteryWidth=" + (batteryWidth ?: "unknown") +
+                    ",realSystemIconsWidth=" + (realSystemIconsWidth ?: "unknown") +
+                    ",normalStatusBarTx=" + (normalStatusBarTranslationX ?: "unknown") +
+                    ",normalStatusIconsTx=" + (normalStatusIconsTranslationX ?: "unknown") +
+                    ",batteryWidthDiff=" + (batteryWidthDiff ?: "unknown") +
+                    ",addBatteryIsland=" + (addBatteryIsland ?: "unknown") +
+                    ",expanding=" + (controlCenterExpanding ?: "unknown") +
+                    "}"
+    }
+
+    private class ControlCenterAnchorContract(
+        private val callbackClass: Class<*>,
+        private val callbacksField: Field,
+        private val callbackOuterField: Field,
+        private val statusBarAnchorField: Field,
+        private val normalStatusBarTranslationXField: Field,
+        private val normalStatusIconsTranslationXField: Field,
+        private val batteryWidthDiffField: Field,
+        private val addBatteryIslandField: Field,
+        private val controlCenterExpandingField: Field,
+        private val realSystemIconsField: Field,
+        private val systemIconsLocationField: Field,
+        private val systemIconsWidthField: Field,
+        private val statusIconsLocationField: Field,
+        private val statusIconsWidthField: Field,
+        private val batteryWidthField: Field,
+    ) {
+        fun resolveHeader(delegate: Any): Any? {
+            val callbacks =
+                runCatching { callbacksField.get(delegate) as? Iterable<*> }
+                    .getOrNull()
+                    ?: return null
+            val callback =
+                callbacks.firstOrNull { candidate ->
+                    candidate != null && callbackClass.isInstance(candidate)
+                } ?: return null
+            return runCatching { callbackOuterField.get(callback) }.getOrNull()
+        }
+
+        fun snapshot(header: Any): ControlCenterAnchorSnapshot? {
+            val anchor =
+                runCatching { statusBarAnchorField.get(header) }
+                    .getOrNull()
+                    ?: return null
+            val realSystemIcons =
+                runCatching { realSystemIconsField.get(header) as? View }
+                    .getOrNull()
+            val systemLocation =
+                runCatching { systemIconsLocationField.get(anchor) as? IntArray }
+                    .getOrNull()
+            val statusLocation =
+                runCatching { statusIconsLocationField.get(anchor) as? IntArray }
+                    .getOrNull()
+            return ControlCenterAnchorSnapshot(
+                systemIconsX = systemLocation?.getOrNull(0),
+                systemIconsWidth = readInt(systemIconsWidthField, anchor),
+                statusIconsX = statusLocation?.getOrNull(0),
+                statusIconsWidth = readInt(statusIconsWidthField, anchor),
+                batteryWidth = readInt(batteryWidthField, anchor),
+                realSystemIconsWidth = realSystemIcons?.width,
+                normalStatusBarTranslationX =
+                    readInt(normalStatusBarTranslationXField, header),
+                normalStatusIconsTranslationX =
+                    readInt(normalStatusIconsTranslationXField, header),
+                batteryWidthDiff = readInt(batteryWidthDiffField, header),
+                addBatteryIsland = readBoolean(addBatteryIslandField, header),
+                controlCenterExpanding =
+                    readBoolean(controlCenterExpandingField, header),
+            )
+        }
+
+        private fun readInt(field: Field, target: Any): Int? =
+            runCatching { field.getInt(target) }.getOrNull()
+
+        private fun readBoolean(field: Field, target: Any): Boolean? =
+            runCatching { field.getBoolean(target) }.getOrNull()
+
+        companion object {
+            fun resolve(
+                classLoader: ClassLoader,
+                delegateClass: Class<*>,
+            ): ControlCenterAnchorContract? =
+                runCatching {
+                    val callbackClass =
+                        Class.forName(
+                            CONTROL_CENTER_HEADER_CALLBACK_CLASS,
+                            false,
+                            classLoader,
+                        )
+                    val headerClass =
+                        Class.forName(
+                            CONTROL_CENTER_HEADER_CLASS,
+                            false,
+                            classLoader,
+                        )
+                    val anchorClass =
+                        Class.forName(
+                            STATUS_BAR_ANCHOR_CLASS,
+                            false,
+                            classLoader,
+                        )
+                    ControlCenterAnchorContract(
+                        callbackClass = callbackClass,
+                        callbacksField =
+                            delegateClass.getDeclaredField("callbacks").accessible(),
+                        callbackOuterField =
+                            callbackClass.getDeclaredField("this\$0").accessible(),
+                        statusBarAnchorField =
+                            headerClass.getDeclaredField("statusBarAnchor").accessible(),
+                        normalStatusBarTranslationXField =
+                            headerClass
+                                .getDeclaredField("normalControlStatusBarTranslationX")
+                                .accessible(),
+                        normalStatusIconsTranslationXField =
+                            headerClass
+                                .getDeclaredField("normalControlStatusIconsTranslationX")
+                                .accessible(),
+                        batteryWidthDiffField =
+                            headerClass.getDeclaredField("batteryWidthDiff").accessible(),
+                        addBatteryIslandField =
+                            headerClass.getDeclaredField("isAddBatteryIsland").accessible(),
+                        controlCenterExpandingField =
+                            headerClass
+                                .getDeclaredField("isControlCenterExpanding")
+                                .accessible(),
+                        realSystemIconsField =
+                            headerClass.getDeclaredField("realSystemIcons").accessible(),
+                        systemIconsLocationField =
+                            anchorClass
+                                .getDeclaredField("systemIconsLocationOnScreen")
+                                .accessible(),
+                        systemIconsWidthField =
+                            anchorClass.getDeclaredField("systemIconsWidth").accessible(),
+                        statusIconsLocationField =
+                            anchorClass
+                                .getDeclaredField("statusIconsLocationInWindow")
+                                .accessible(),
+                        statusIconsWidthField =
+                            anchorClass.getDeclaredField("statusIconsWidth").accessible(),
+                        batteryWidthField =
+                            anchorClass.getDeclaredField("batteryWidth").accessible(),
+                    )
+                }.getOrNull()
+        }
+    }
+
+    private fun Field.accessible(): Field =
+        apply { isAccessible = true }
 
     private data class ProbeState(
         var bucket: Int = -1,

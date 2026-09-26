@@ -13,7 +13,7 @@ body:
     attributes:
       label: Combined Status version and build
       description: Include versionName, internal build ID, and channel (Debug/Canary/Release) when known.
-      placeholder: "0.0.1 / YYYYMMDD-NNN / Canary"
+      placeholder: "0.0.2 / YYYYMMDD-NNN / Canary"
     validations:
       required: true
   - type: input

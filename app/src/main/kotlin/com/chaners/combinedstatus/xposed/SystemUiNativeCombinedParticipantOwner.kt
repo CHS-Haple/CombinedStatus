@@ -50,10 +50,21 @@ internal object SystemUiNativeCombinedParticipantOwner {
         "com.android.systemui.statusbar.views.MiuiBatteryMeterView"
     private const val STATUS_ICON_CONTAINER =
         "com.android.systemui.statusbar.views.MiuiStatusIconContainer"
-    private const val HOOK_ID =
+    private const val CONSTRUCTOR_HOOK_ID =
         "combinedstatus.nativeCombinedParticipant.constructor"
+    private const val VISUAL_BOUNDS_HOOK_ID =
+        "combinedstatus.nativeCombinedParticipant.visualBounds"
+    private const val FOLME_VIEW_STATE =
+        "com.android.systemui.statusbar.anim.MiuiStatusBarFolmeViewState"
+    private const val NEW_STATUS_ICON_STATE =
+        "com.android.systemui.statusbar.views.NewStatusIconState"
+    private const val SLOT_TRANSLATION_HOOK_ID =
+        "combinedstatus.nativeCombinedParticipant.slotTranslation"
+    private const val HOOK_COUNT = 3
 
     private var constructorHook: HookHandle? = null
+    private var visualBoundsHook: HookHandle? = null
+    private var slotTranslationHook: HookHandle? = null
     private var rootRef: WeakReference<FrameLayout>? = null
     private var renderViewRef: WeakReference<CombinedStatusRenderView>? = null
     private var renderController: CombinedStatusRenderController? = null
@@ -71,6 +82,11 @@ internal object SystemUiNativeCombinedParticipantOwner {
         )
     private var targetBindingState: BindingState? = null
     private var batteryRef: WeakReference<View>? = null
+    private var nativeBatteryLayoutHidden = false
+    private var activeSlotBoundaryWidth = 0
+    private var activeSlotTranslationX: Float? = null
+    private var activeSlotWidth = 0
+    private var activeSlotHeight = 0
     private var handoffSink: ((Boolean) -> Boolean)? = null
     private var pendingPreDrawRoot: WeakReference<View>? = null
     private var pendingPreDrawListener: ViewTreeObserver.OnPreDrawListener? = null
@@ -82,13 +98,21 @@ internal object SystemUiNativeCombinedParticipantOwner {
     private var handoffValidated = false
     private var modelReadyLogged = false
     private var unlockedGeometryLogged = false
+    private var visualBoundsLogged = false
+    private var slotTranslationCorrectionLogged = false
     private var featureEnabled = false
     private var registryRestored = false
     private var injected = false
     private var failureReason: String? = null
 
     val installedHookCount: Int
-        @Synchronized get() = if (constructorHook != null) 1 else 0
+        @Synchronized
+        get() =
+            listOfNotNull(
+                constructorHook,
+                visualBoundsHook,
+                slotTranslationHook,
+            ).size
 
     @Synchronized
     fun install(
@@ -98,10 +122,13 @@ internal object SystemUiNativeCombinedParticipantOwner {
         onSlotOrderResult: ((NativeStatusBarSlotReservation.Result) -> Unit)? = null,
         isTransitionProbeEnabled: () -> Boolean = { false },
     ): InstallResult {
-        if (constructorHook != null) {
+        if (installedHookCount == HOOK_COUNT) {
             eventSink = onEvent
             transitionProbeEnabled = isTransitionProbeEnabled
             return InstallResult.AlreadyInstalled
+        }
+        if (installedHookCount != 0) {
+            return InstallResult.Failure("partial-hook-state")
         }
         eventSink = onEvent
         transitionProbeEnabled = isTransitionProbeEnabled
@@ -130,6 +157,66 @@ internal object SystemUiNativeCombinedParticipantOwner {
         val function0Class =
             classOrNull(FUNCTION0, classLoader)
                 ?: return InstallResult.Failure("function0-class-missing")
+        val statusIconContainerClass =
+            classOrNull(STATUS_ICON_CONTAINER, classLoader)
+                ?: return InstallResult.Failure("status-icon-container-class-missing")
+        val statusIconContainerOnLayout =
+            statusIconContainerClass.declaredMethods
+                .firstOrNull { method ->
+                    method.name == "onLayout" &&
+                        method.parameterTypes.contentEquals(
+                            arrayOf(
+                                Boolean::class.javaPrimitiveType,
+                                Int::class.javaPrimitiveType,
+                                Int::class.javaPrimitiveType,
+                                Int::class.javaPrimitiveType,
+                                Int::class.javaPrimitiveType,
+                            ),
+                        ) &&
+                        method.returnType == Void.TYPE
+                }
+                ?.apply { isAccessible = true }
+                ?: return InstallResult.Failure("status-icon-container-on-layout-missing")
+        val folmeViewStateClass =
+            classOrNull(FOLME_VIEW_STATE, classLoader)
+                ?: return InstallResult.Failure("folme-view-state-class-missing")
+        val newStatusIconStateClass =
+            classOrNull(NEW_STATUS_ICON_STATE, classLoader)
+                ?: return InstallResult.Failure("new-status-icon-state-class-missing")
+        val applyToViewMethod =
+            folmeViewStateClass.declaredMethods
+                .firstOrNull { method ->
+                    method.name == "applyToView" &&
+                        method.parameterTypes.contentEquals(
+                            arrayOf(
+                                View::class.java,
+                                Boolean::class.javaPrimitiveType,
+                            ),
+                        ) &&
+                        method.returnType == Void.TYPE
+                }
+                ?.apply { isAccessible = true }
+                ?: return InstallResult.Failure("folme-apply-to-view-missing")
+        val translationXField =
+            runCatching {
+                folmeViewStateClass.getDeclaredField("translationX").apply {
+                    check(type == Float::class.javaPrimitiveType) {
+                        "folme-translation-x-type-mismatch"
+                    }
+                    isAccessible = true
+                }
+            }.getOrNull()
+                ?: return InstallResult.Failure("folme-translation-x-field-missing")
+        val layoutTranslationXField =
+            runCatching {
+                newStatusIconStateClass.getDeclaredField("layoutTranslationX").apply {
+                    check(type == Float::class.javaPrimitiveType) {
+                        "layout-translation-x-type-mismatch"
+                    }
+                    isAccessible = true
+                }
+            }.getOrNull()
+                ?: return InstallResult.Failure("layout-translation-x-field-missing")
 
         if (
             !bindableIconClass.isInterface ||
@@ -237,11 +324,105 @@ internal object SystemUiNativeCombinedParticipantOwner {
         initView.isAccessible = true
         constructor.isAccessible = true
 
+        val visualBoundsHandle =
+            runCatching {
+                module
+                    .hook(statusIconContainerOnLayout)
+                    .setId(VISUAL_BOUNDS_HOOK_ID)
+                    .intercept(
+                        Hooker { chain ->
+                            val result = chain.proceed()
+                            synchronized(this) {
+                                applyPostLayoutVisualBounds(chain.thisObject)
+                            }
+                            result
+                        },
+                    )
+            }.getOrElse { error ->
+                return InstallResult.Failure(
+                    "visual-bounds-hook-" +
+                        (error.message ?: error.javaClass.simpleName),
+                )
+            }
+
+        val slotTranslationHandle =
+            runCatching {
+                module
+                    .hook(applyToViewMethod)
+                    .setId(SLOT_TRANSLATION_HOOK_ID)
+                    .intercept(
+                        Hooker { chain ->
+                            val root =
+                                rootRef?.get()
+                                    ?: return@Hooker chain.proceed()
+                            val target =
+                                chain.getArg(0) as? View
+                                    ?: return@Hooker chain.proceed()
+                            if (
+                                target !== root ||
+                                !newStatusIconStateClass.isInstance(chain.thisObject)
+                            ) {
+                                return@Hooker chain.proceed()
+                            }
+                            val desired =
+                                currentNativeSlotTranslationX(root)
+                                    ?: return@Hooker chain.proceed()
+                            val battery = batteryRef?.get()
+                            val state = chain.thisObject
+                            val previousTranslation =
+                                runCatching {
+                                    translationXField.getFloat(state)
+                                }.getOrNull()
+                                    ?: return@Hooker chain.proceed()
+                            val previousLayoutTranslation =
+                                runCatching {
+                                    layoutTranslationXField.getFloat(state)
+                                }.getOrNull()
+                                    ?: return@Hooker chain.proceed()
+
+                            translationXField.setFloat(state, desired)
+                            layoutTranslationXField.setFloat(state, desired)
+
+                            if (
+                                !slotTranslationCorrectionLogged &&
+                                (
+                                    kotlin.math.abs(previousTranslation - desired) >= 0.5f ||
+                                        kotlin.math.abs(previousLayoutTranslation - desired) >= 0.5f
+                                )
+                            ) {
+                                slotTranslationCorrectionLogged = true
+                                eventSink?.invoke(
+                                    "nativeCombinedParticipant slotTranslation " +
+                                        "authority=native-end-side-slot-boundary " +
+                                        "previousTranslationX=" + previousTranslation +
+                                        " previousLayoutTranslationX=" + previousLayoutTranslation +
+                                        " correctedTranslationX=" + desired +
+                                        " statusIconsWidth=" +
+                                        ((root.parent as? View)?.width ?: Int.MIN_VALUE) +
+                                        " rootLeft=" + root.left +
+                                        " batteryLeft=" + (battery?.left ?: Int.MIN_VALUE) +
+                                        " batteryWidth=" + (battery?.width ?: Int.MIN_VALUE) +
+                                        " batteryMotionTranslationX=" + (battery?.translationX ?: Float.NaN) +
+                                        " nativeTranslationWriter=HyperOS " +
+                                        "moduleViewTranslationWrites=0 peerNativeGeometryWrites=0",
+                                )
+                            }
+                            chain.proceed()
+                        },
+                    )
+            }.getOrElse { error ->
+                runCatching { visualBoundsHandle.unhook() }
+                return InstallResult.Failure(
+                    "slot-translation-hook-" +
+                        (error.message ?: error.javaClass.simpleName),
+                )
+            }
+
         val handle =
             runCatching {
                 module
                     .hook(constructor)
-                    .setId(HOOK_ID)
+                    .setId(CONSTRUCTOR_HOOK_ID)
                     .intercept(
                         Hooker { chain ->
                             val registry =
@@ -425,11 +606,15 @@ internal object SystemUiNativeCombinedParticipantOwner {
                         },
                     )
             }.getOrElse {
+                runCatching { slotTranslationHandle.unhook() }
+                runCatching { visualBoundsHandle.unhook() }
                 return InstallResult.Failure(
                     "constructor-hook-" + (it.message ?: it.javaClass.simpleName),
                 )
             }
 
+        visualBoundsHook = visualBoundsHandle
+        slotTranslationHook = slotTranslationHandle
         constructorHook = handle
         return InstallResult.Installed
     }
@@ -446,6 +631,11 @@ internal object SystemUiNativeCombinedParticipantOwner {
         renderController = null
         hostRef = null
         batteryRef = null
+        nativeBatteryLayoutHidden = false
+        activeSlotBoundaryWidth = 0
+        activeSlotTranslationX = null
+        activeSlotWidth = 0
+        activeSlotHeight = 0
         targetBindingState = null
         handoffSink = null
         bindingStates.clear()
@@ -456,6 +646,8 @@ internal object SystemUiNativeCombinedParticipantOwner {
         handoffCommitted = false
         modelReadyLogged = false
         unlockedGeometryLogged = false
+        visualBoundsLogged = false
+        slotTranslationCorrectionLogged = false
         featureEnabled = false
         eventSink = null
         return true
@@ -638,26 +830,95 @@ internal object SystemUiNativeCombinedParticipantOwner {
         val battery =
             batteryContainer.directChild(BATTERY_VIEW)
                 ?: return AttachResult.Failure("battery-view-missing")
+        val statusIcons =
+            batteryContainer.directChild(STATUS_ICON_CONTAINER)
+                ?: return AttachResult.Failure("status-icons-missing")
+        val privacy =
+            readField(batteryContainer, "mHomePrivacyContainer") as? View
+        val stableSlotMetrics =
+            StatusBarStableSession.currentSlotMetrics(host)
+        val stableStatusIconsWidth =
+            NativeStatusBarSlotGeometry.resolveCapturedOrLiveChildWidth(
+                capturedWidth = stableSlotMetrics?.statusIconsWidth,
+                layoutWidth = statusIcons.width,
+                measuredWidth = statusIcons.measuredWidth,
+            ) ?: return AttachResult.Failure("status-icons-width-not-ready")
+        val stablePrivacyWidth =
+            privacy
+                ?.takeIf { view -> view.visibility == View.VISIBLE }
+                ?.let { view ->
+                    NativeStatusBarSlotGeometry.resolveStableChildWidth(
+                        layoutWidth = view.width,
+                        measuredWidth = view.measuredWidth,
+                    )
+                }
+                ?: 0
+        val slotGeometry =
+            NativeStatusBarSlotGeometry.resolve(
+                containerWidth =
+                    batteryContainer.width
+                        .takeIf { width -> width > 0 }
+                        ?: batteryContainer.measuredWidth,
+                containerPaddingStart = batteryContainer.paddingStart,
+                containerPaddingEnd = batteryContainer.paddingEnd,
+                statusIconsMeasuredWidth = stableStatusIconsWidth,
+                privacyMeasuredWidth = stablePrivacyWidth,
+                containerHeight =
+                    batteryContainer.height
+                        .takeIf { height -> height > 0 }
+                        ?: batteryContainer.measuredHeight,
+            ) ?: return AttachResult.Failure("native-slot-geometry-not-ready")
         if (battery.width <= 0 || battery.height <= 0) {
             return AttachResult.Failure("battery-geometry-not-ready")
         }
+        activeSlotBoundaryWidth = stableStatusIconsWidth
+        activeSlotWidth = slotGeometry.slotWidth
+        activeSlotHeight = slotGeometry.slotHeight
+        activeSlotTranslationX =
+            resolveNativeSlotTranslationX(
+                statusIconsWidth = activeSlotBoundaryWidth,
+                rootLeft = root.left,
+            ) ?: return AttachResult.Failure("native-slot-translation-anchor-not-ready")
+        eventSink?.invoke(
+            "nativeCombinedParticipant slotGeometry " +
+                "authority=MiuiStatusBatteryContainer.layout-boundary " +
+                "container=" + slotGeometry.containerWidth + "x" + slotGeometry.slotHeight +
+                " stableCaptureStatusIconsWidth=" +
+                (stableSlotMetrics?.statusIconsWidth ?: Int.MIN_VALUE) +
+                " statusIconsLayoutWidth=" + statusIcons.width +
+                " statusIconsMeasuredWidth=" + statusIcons.measuredWidth +
+                " resolvedStatusIconsWidth=" + slotGeometry.statusIconsMeasuredWidth +
+                " stableSlotBoundaryWidth=" + activeSlotBoundaryWidth +
+                " privacyLayoutWidth=" + (privacy?.width ?: 0) +
+                " privacyMeasuredWidth=" + (privacy?.measuredWidth ?: 0) +
+                " resolvedPrivacyWidth=" + slotGeometry.privacyMeasuredWidth +
+                " batteryView=" + battery.width + "x" + battery.height +
+                " resolvedSlot=" + slotGeometry.slotWidth + "x" + slotGeometry.slotHeight +
+                " slotTranslationX=" + activeSlotTranslationX +
+                " readOnly=true nativeGeometryWrites=0",
+        )
 
         val rootLayoutParams =
             root.layoutParams
                 ?: return AttachResult.Failure("native-root-layout-params-missing")
+        val targetShellWidth =
+            resolveNativeSlotOccupancyWidth(
+                nativeBatteryHidden = nativeBatteryLayoutHidden,
+                visualWidth = activeSlotWidth,
+            ) ?: return AttachResult.Failure("native-root-occupancy-width-invalid")
         val originalShellWidth = rootLayoutParams.width
         val originalShellHeight = rootLayoutParams.height
         val shellGeometryAdjusted =
             if (
-                originalShellWidth != ZERO_SLOT_WIDTH ||
-                originalShellHeight != battery.height
+                originalShellWidth != targetShellWidth ||
+                originalShellHeight != activeSlotHeight
             ) {
                 runCatching {
-                    rootLayoutParams.width = ZERO_SLOT_WIDTH
-                    rootLayoutParams.height = battery.height
+                    rootLayoutParams.width = targetShellWidth
+                    rootLayoutParams.height = activeSlotHeight
                     root.layoutParams = rootLayoutParams
-                    root.layoutParams?.width == ZERO_SLOT_WIDTH &&
-                        root.layoutParams?.height == battery.height
+                    root.layoutParams?.width == targetShellWidth &&
+                        root.layoutParams?.height == activeSlotHeight
                 }.getOrDefault(false)
             } else {
                 true
@@ -668,11 +929,12 @@ internal object SystemUiNativeCombinedParticipantOwner {
         eventSink?.invoke(
             "nativeCombinedParticipant shellGeometry " +
                 "originalWidth=" + originalShellWidth +
-                " targetWidth=" + ZERO_SLOT_WIDTH +
+                " targetWidth=" + targetShellWidth +
+                " nativeBatteryHidden=" + nativeBatteryLayoutHidden +
                 " originalHeight=" + originalShellHeight +
-                " targetHeight=" + battery.height +
-                " moduleOwnedSlotWidthWrite=" + (originalShellWidth != ZERO_SLOT_WIDTH) +
-                " customShellHeightWrite=" + (originalShellHeight != battery.height) +
+                " targetHeight=" + activeSlotHeight +
+                " moduleOwnedSlotWidthWrite=" + (originalShellWidth != targetShellWidth) +
+                " customShellHeightWrite=" + (originalShellHeight != activeSlotHeight) +
                 " peerNativeGeometryWrites=0",
         )
 
@@ -697,8 +959,8 @@ internal object SystemUiNativeCombinedParticipantOwner {
                         root.addView(
                             child,
                             FrameLayout.LayoutParams(
-                                battery.width,
-                                battery.height,
+                                activeSlotWidth,
+                                activeSlotHeight,
                             ),
                         )
                     }
@@ -706,11 +968,11 @@ internal object SystemUiNativeCombinedParticipantOwner {
         val renderLayoutParams =
             (render.layoutParams as? FrameLayout.LayoutParams)
                 ?: FrameLayout.LayoutParams(
-                    battery.width,
-                    battery.height,
+                    activeSlotWidth,
+                    activeSlotHeight,
                 )
-        renderLayoutParams.width = battery.width
-        renderLayoutParams.height = battery.height
+        renderLayoutParams.width = activeSlotWidth
+        renderLayoutParams.height = activeSlotHeight
         renderLayoutParams.gravity = Gravity.NO_GRAVITY
         render.layoutParams = renderLayoutParams
 
@@ -724,20 +986,20 @@ internal object SystemUiNativeCombinedParticipantOwner {
             RuntimeFeaturePreferencesOwner.currentSettings().enabled
 
         render.measure(
-            View.MeasureSpec.makeMeasureSpec(battery.width, View.MeasureSpec.EXACTLY),
-            View.MeasureSpec.makeMeasureSpec(battery.height, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(activeSlotWidth, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(activeSlotHeight, View.MeasureSpec.EXACTLY),
         )
         val shellHeight =
             root.layoutParams
                 ?.height
                 ?.takeIf { height -> height > 0 }
-                ?: battery.height
-        val renderTop = (shellHeight - battery.height) / 2
+                ?: activeSlotHeight
+        val renderTop = (shellHeight - activeSlotHeight) / 2
         render.layout(
             0,
             renderTop,
-            battery.width,
-            renderTop + battery.height,
+            activeSlotWidth,
+            renderTop + activeSlotHeight,
         )
         val modelUpdate =
             renderController?.update(CombinedStatusStateStore.snapshot())
@@ -924,13 +1186,29 @@ internal object SystemUiNativeCombinedParticipantOwner {
             return false
         }
 
+        val battery = batteryRef?.get() ?: return false
+        if (!battery.isAttachedToWindow) {
+            return false
+        }
+        val rootLocation = IntArray(2)
+        val batteryLocation = IntArray(2)
+        root.getLocationOnScreen(rootLocation)
+        battery.getLocationOnScreen(batteryLocation)
+        val slotAnchorScreenX =
+            resolveNativeSlotScreenX(root)
+                ?: return false
         if (
             !isActiveSlotHandoffReady(
                 rootLayoutWidth = root.layoutParams?.width ?: Int.MIN_VALUE,
                 rootLayoutHeight = root.layoutParams?.height ?: Int.MIN_VALUE,
+                nativeBatteryHidden = nativeBatteryLayoutHidden,
                 renderMeasuredWidth = render.measuredWidth,
                 renderMeasuredHeight = render.measuredHeight,
+                expectedVisualWidth = activeSlotWidth,
+                expectedVisualHeight = activeSlotHeight,
                 parentClipsChildren = parent.clipChildren,
+                rootScreenX = rootLocation[0],
+                slotAnchorScreenX = slotAnchorScreenX,
                 renderLeft = render.left,
                 renderRight = render.right,
             )
@@ -978,6 +1256,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
             }
             bindingState.visible = true
             handoffCommitted = true
+            applyOwnVisualBounds(root)
             requestNativeLayout(root)
             startMasterSwitchTransitionProbe(
                 direction = "enable",
@@ -1314,6 +1593,9 @@ internal object SystemUiNativeCombinedParticipantOwner {
             }
 
             handoffCommitted = false
+            if (root != null && nativeRemoveApplied) {
+                applyOwnVisualBounds(root)
+            }
             if (
                 root != null &&
                 (
@@ -1465,17 +1747,24 @@ internal object SystemUiNativeCombinedParticipantOwner {
                         if (battery?.isAttachedToWindow == true) {
                             battery.getLocationOnScreen(batteryLocation)
                         }
+                        val slotAnchorScreenX =
+                            if (battery != null) {
+                                resolveNativeSlotScreenX(root)
+                            } else {
+                                null
+                            }
                         val bridgeReady =
                             isZeroSlotHandoffReady(
                                 rootMeasuredWidth = root.measuredWidth,
                                 rootMeasuredHeight = root.measuredHeight,
+                                nativeBatteryHidden = nativeBatteryLayoutHidden,
                                 renderMeasuredWidth = render?.measuredWidth ?: -1,
                                 renderMeasuredHeight = render?.measuredHeight ?: -1,
-                                expectedVisualWidth = battery?.width ?: -1,
-                                expectedVisualHeight = battery?.height ?: -1,
+                                expectedVisualWidth = activeSlotWidth,
+                                expectedVisualHeight = activeSlotHeight,
                                 parentClipsChildren = parent?.clipChildren ?: true,
                                 rootScreenX = rootLocation[0],
-                                batteryScreenX = batteryLocation[0],
+                                slotAnchorScreenX = slotAnchorScreenX ?: Int.MIN_VALUE,
                                 renderLeft = render?.left ?: Int.MIN_VALUE,
                                 renderRight = render?.right ?: Int.MIN_VALUE,
                             )
@@ -1494,34 +1783,21 @@ internal object SystemUiNativeCombinedParticipantOwner {
                                 bridgeReady
 
                         if (ready) {
-                            // The zero-slot bridge is bootstrap-only. Once the native
-                            // battery slot is synchronously released by HyperOS, promote
-                            // this module-owned shell to the native 105px visual width so
-                            // SystemUI owns normal APPEAR/DISAPPEAR transform geometry.
+                            // The native battery slot remains the single end-side occupancy
+                            // owner. Keep the Combined Status shell zero-width and render the
+                            // verified visual geometry into that preserved native slot.
                             bindingState.visible = false
                             root.visibility = View.GONE
                             val suppressionCommitted = handoffSink?.invoke(true) == true
-                            val shellPromoted =
-                                suppressionCommitted &&
-                                    promoteActiveShellGeometry(
-                                        root = root,
-                                        visualWidth = render?.measuredWidth ?: -1,
-                                        visualHeight = render?.measuredHeight ?: -1,
-                                    )
-                            if (!suppressionCommitted || !shellPromoted) {
+                            if (!suppressionCommitted) {
                                 handoffSink?.invoke(false)
                                 bindingState.visible = false
                                 root.visibility = View.GONE
                                 requestNativeLayout(root)
                                 eventSink?.invoke(
                                     "nativeCombinedParticipant handoffRollback " +
-                                        "reason=" +
-                                        if (!suppressionCommitted) {
-                                            "suppression-transaction-failed"
-                                        } else {
-                                            "active-shell-promotion-failed"
-                                        } +
-                                        " failNative=true nativeGeometryWrites=0",
+                                        "reason=suppression-transaction-failed " +
+                                        "failNative=true nativeGeometryWrites=0",
                                 )
                                 return@synchronized
                             }
@@ -1529,6 +1805,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
                             root.visibility = View.VISIBLE
                             handoffCommitted = true
                             handoffValidated = true
+                            applyOwnVisualBounds(root)
                             requestNativeLayout(root)
                             eventSink?.invoke(
                                 "nativeCombinedParticipant handoffCommit " +
@@ -1547,7 +1824,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
                                     (render?.right ?: Int.MIN_VALUE) +
                                     " parentClipChildren=" +
                                     (parent?.clipChildren ?: true) +
-                                    " bridge=zero-slot-bootstrap-to-native-slot " +
+                                    " bridge=preserved-native-battery-slot " +
                                     "shellLayoutWidth=" +
                                     (root.layoutParams?.width ?: Int.MIN_VALUE) + " " +
                                     "iconVisible=true overlayActive=false " +
@@ -1594,71 +1871,111 @@ internal object SystemUiNativeCombinedParticipantOwner {
         root.viewTreeObserver.addOnPreDrawListener(listener)
     }
 
+    internal fun resolveNativeSlotTranslationX(
+        statusIconsWidth: Int,
+        rootLeft: Int,
+    ): Float? =
+        (statusIconsWidth - rootLeft)
+            .takeIf { translation -> translation >= 0 }
+            ?.toFloat()
+
+    private fun currentNativeSlotTranslationX(root: View): Float? =
+        activeSlotTranslationX
+            ?: activeSlotBoundaryWidth
+                .takeIf { width -> width > 0 }
+                ?.let { boundaryWidth ->
+                    resolveNativeSlotTranslationX(
+                        statusIconsWidth = boundaryWidth,
+                        rootLeft = root.left,
+                    )
+                }
+
+    private fun refreshNativeSlotTranslationX(
+        root: View,
+        statusIcons: View,
+    ): Boolean {
+        val boundaryWidth =
+            activeSlotBoundaryWidth
+                .takeIf { width -> width > 0 }
+                ?: statusIcons.width
+                    .takeIf { width -> width > 0 }
+                ?: return false
+        val resolved =
+            resolveNativeSlotTranslationX(
+                statusIconsWidth = boundaryWidth,
+                rootLeft = root.left,
+            ) ?: return false
+        activeSlotTranslationX = resolved
+        return true
+    }
+
+    private fun resolveNativeSlotScreenX(root: View): Int? {
+        val statusIcons = root.parent as? View ?: return null
+        val translation = currentNativeSlotTranslationX(root) ?: return null
+        val statusIconsLocation = IntArray(2)
+        statusIcons.getLocationOnScreen(statusIconsLocation)
+        return kotlin.math.round(
+            statusIconsLocation[0] + root.left + translation,
+        ).toInt()
+    }
+
     internal fun isZeroSlotHandoffReady(
         rootMeasuredWidth: Int,
         rootMeasuredHeight: Int,
+        nativeBatteryHidden: Boolean = false,
         renderMeasuredWidth: Int,
         renderMeasuredHeight: Int,
         expectedVisualWidth: Int,
         expectedVisualHeight: Int,
         parentClipsChildren: Boolean,
         rootScreenX: Int,
-        batteryScreenX: Int,
+        slotAnchorScreenX: Int,
         renderLeft: Int,
         renderRight: Int,
     ): Boolean =
-        rootMeasuredWidth == ZERO_SLOT_WIDTH &&
+        rootMeasuredWidth ==
+            resolveNativeSlotOccupancyWidth(
+                nativeBatteryHidden = nativeBatteryHidden,
+                visualWidth = expectedVisualWidth,
+            ) &&
             rootMeasuredHeight > 0 &&
             renderMeasuredWidth == expectedVisualWidth &&
             renderMeasuredHeight == expectedVisualHeight &&
             expectedVisualWidth > 0 &&
             expectedVisualHeight > 0 &&
             !parentClipsChildren &&
-            rootScreenX == batteryScreenX &&
+            rootScreenX == slotAnchorScreenX &&
             renderLeft == 0 &&
             renderRight == expectedVisualWidth
 
     internal fun isActiveSlotHandoffReady(
         rootLayoutWidth: Int,
         rootLayoutHeight: Int,
+        nativeBatteryHidden: Boolean = false,
         renderMeasuredWidth: Int,
         renderMeasuredHeight: Int,
+        expectedVisualWidth: Int,
+        expectedVisualHeight: Int,
         parentClipsChildren: Boolean,
+        rootScreenX: Int,
+        slotAnchorScreenX: Int,
         renderLeft: Int,
         renderRight: Int,
     ): Boolean =
-        rootLayoutWidth > 0 &&
-            rootLayoutHeight > 0 &&
-            rootLayoutWidth == renderMeasuredWidth &&
-            rootLayoutHeight == renderMeasuredHeight &&
+        rootLayoutWidth ==
+            resolveNativeSlotOccupancyWidth(
+                nativeBatteryHidden = nativeBatteryHidden,
+                visualWidth = expectedVisualWidth,
+            ) &&
+            rootLayoutHeight == expectedVisualHeight &&
+            renderMeasuredWidth == expectedVisualWidth &&
+            renderMeasuredHeight == expectedVisualHeight &&
+            expectedVisualWidth > 0 &&
+            expectedVisualHeight > 0 &&
             !parentClipsChildren &&
+            rootScreenX == slotAnchorScreenX &&
             renderLeft == 0 &&
-            renderRight == rootLayoutWidth
-
-    private fun promoteActiveShellGeometry(
-        root: View,
-        visualWidth: Int,
-        visualHeight: Int,
-    ): Boolean {
-        if (visualWidth <= 0 || visualHeight <= 0) {
-            return false
-        }
-        val layoutParams = root.layoutParams ?: return false
-        var changed = false
-        if (layoutParams.width != visualWidth) {
-            layoutParams.width = visualWidth
-            changed = true
-        }
-        if (layoutParams.height != visualHeight) {
-            layoutParams.height = visualHeight
-            changed = true
-        }
-        if (changed) {
-            root.layoutParams = layoutParams
-        }
-        return root.layoutParams?.width == visualWidth &&
-            root.layoutParams?.height == visualHeight
-    }
+            renderRight == expectedVisualWidth
 
     internal enum class HandoffMode {
         BLOCKED,
@@ -1698,10 +2015,158 @@ internal object SystemUiNativeCombinedParticipantOwner {
         (root.parent as? View)?.requestLayout()
     }
 
+    @Synchronized
+    fun onNativeBatteryLayoutHideChanged(hidden: Boolean): Boolean {
+        nativeBatteryLayoutHidden = hidden
+        val root = rootRef?.get() ?: return true
+        if (Looper.myLooper() !== Looper.getMainLooper()) {
+            return root.post {
+                onNativeBatteryLayoutHideChanged(hidden)
+            }
+        }
+        val visualWidth =
+            renderViewRef
+                ?.get()
+                ?.measuredWidth
+                ?.takeIf { width -> width > 0 }
+                ?: activeSlotWidth
+        val targetWidth =
+            resolveNativeSlotOccupancyWidth(
+                nativeBatteryHidden = hidden,
+                visualWidth = visualWidth,
+            ) ?: return false
+        val layoutParams = root.layoutParams ?: return false
+        val previousWidth = layoutParams.width
+        if (previousWidth == targetWidth) {
+            return true
+        }
+        layoutParams.width = targetWidth
+        root.layoutParams = layoutParams
+        requestNativeLayout(root)
+        eventSink?.invoke(
+            "nativeCombinedParticipant slotOccupancy " +
+                "authority=MiuiStatusBatteryContainer.setIsHideBattery " +
+                "nativeBatteryHidden=" + hidden +
+                " previousLayoutWidth=" + previousWidth +
+                " targetLayoutWidth=" + targetWidth +
+                " visualWidth=" + visualWidth +
+                " moduleOwnedRootWidthWrite=true peerNativeGeometryWrites=0",
+        )
+        return root.layoutParams?.width == targetWidth
+    }
+
+    internal fun resolveNativeSlotOccupancyWidth(
+        nativeBatteryHidden: Boolean,
+        visualWidth: Int,
+    ): Int? =
+        visualWidth
+            .takeIf { width -> width > 0 }
+            ?.let { width ->
+                if (nativeBatteryHidden) {
+                    width
+                } else {
+                    ZERO_SLOT_WIDTH
+                }
+            }
+
+    internal fun resolvePostLayoutVisualWidth(
+        layoutWidth: Int,
+        measuredWidth: Int,
+        visualWidth: Int,
+        nativeBatteryHidden: Boolean = false,
+    ): Int? {
+        val occupancyWidth =
+            resolveNativeSlotOccupancyWidth(
+                nativeBatteryHidden = nativeBatteryHidden,
+                visualWidth = visualWidth,
+            ) ?: return null
+        return visualWidth.takeIf {
+            layoutWidth == occupancyWidth &&
+                measuredWidth == occupancyWidth
+        }
+    }
+
+    private fun applyPostLayoutVisualBounds(container: Any): Boolean {
+        val root = rootRef?.get() ?: return false
+        if (root.parent !== container) {
+            return false
+        }
+        val statusIcons = container as? View ?: return false
+        if (!refreshNativeSlotTranslationX(root, statusIcons)) {
+            return false
+        }
+        return applyOwnVisualBounds(root)
+    }
+
+    private fun applyOwnVisualBounds(root: View): Boolean {
+        val visualWidth =
+            renderViewRef
+                ?.get()
+                ?.measuredWidth
+                ?.takeIf { width -> width > 0 }
+                ?: activeSlotWidth
+        val visualHeight =
+            renderViewRef
+                ?.get()
+                ?.measuredHeight
+                ?.takeIf { height -> height > 0 }
+                ?: activeSlotHeight
+        val resolvedWidth =
+            resolvePostLayoutVisualWidth(
+                layoutWidth = root.layoutParams?.width ?: Int.MIN_VALUE,
+                measuredWidth = root.measuredWidth,
+                visualWidth = visualWidth,
+                nativeBatteryHidden = nativeBatteryLayoutHidden,
+            ) ?: return false
+        if (visualHeight <= 0) {
+            return false
+        }
+
+        val left = root.left
+        val top = root.top
+        val right = left + resolvedWidth
+        val bottom = top + visualHeight
+        if (
+            root.width != resolvedWidth ||
+            root.height != visualHeight ||
+            root.right != right ||
+            root.bottom != bottom
+        ) {
+            root.layout(left, top, right, bottom)
+        }
+        val expectedOccupancyWidth =
+            resolveNativeSlotOccupancyWidth(
+                nativeBatteryHidden = nativeBatteryLayoutHidden,
+                visualWidth = resolvedWidth,
+            ) ?: return false
+        val applied =
+            root.layoutParams?.width == expectedOccupancyWidth &&
+                root.measuredWidth == expectedOccupancyWidth &&
+                root.width == resolvedWidth &&
+                root.height == visualHeight
+        if (applied && !visualBoundsLogged) {
+            visualBoundsLogged = true
+            eventSink?.invoke(
+                "nativeCombinedParticipant visualBounds " +
+                    "authority=post-MiuiStatusIconContainer.onLayout " +
+                    "layoutWidth=" + (root.layoutParams?.width ?: Int.MIN_VALUE) +
+                    " measuredWidth=" + root.measuredWidth +
+                    " actualWidth=" + root.width +
+                    " actualHeight=" + root.height +
+                    " translationX=" + root.translationX +
+                    " moduleVisualBoundsWrites=1 peerNativeGeometryWrites=0",
+            )
+        }
+        return applied
+    }
+
     private fun setNativeRemoveFlag(
         root: View,
         remove: Boolean,
     ): Boolean {
+        if (rootRef?.get() === root && !applyOwnVisualBounds(root)) {
+            return false
+        }
         val method = nativeSetRemoveMethod ?: return false
         if (!method.declaringClass.isInstance(root)) {
             return false
@@ -1790,6 +2255,8 @@ internal object SystemUiNativeCombinedParticipantOwner {
     @Synchronized
     fun resetRuntimeState() {
         constructorHook = null
+        visualBoundsHook = null
+        slotTranslationHook = null
         reset(Unit)
     }
 
@@ -1808,6 +2275,11 @@ internal object SystemUiNativeCombinedParticipantOwner {
         renderViewRef = null
         hostRef = null
         batteryRef = null
+        nativeBatteryLayoutHidden = false
+        activeSlotBoundaryWidth = 0
+        activeSlotTranslationX = null
+        activeSlotWidth = 0
+        activeSlotHeight = 0
         handoffSink = null
         targetBindingState = null
         modelReady = false
@@ -1824,6 +2296,8 @@ internal object SystemUiNativeCombinedParticipantOwner {
         transitionProbeEnabled = null
         modelReadyLogged = false
         unlockedGeometryLogged = false
+        visualBoundsLogged = false
+        slotTranslationCorrectionLogged = false
         renderController = null
         injected = false
         registryRestored = false

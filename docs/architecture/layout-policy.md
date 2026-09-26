@@ -6,6 +6,14 @@ Combined Status keeps visual geometry separate from native SystemUI layout and t
 
 This policy defines shared visual calculations for every scene so geometry rules do not drift into scene-specific hooks or compensation code.
 
+## 0.0.2 architecture status
+
+This document preserves verified layout-policy constraints and describes the last implemented PROJECTED path where relevant. That existing carrier is **not the selected default architecture for 0.0.2**.
+
+Builds 386-393 remain evidence about target-SystemUI geometry and animation behavior, but their permanent extra-participant / occupancy-handoff route is superseded as the default starting point for new work.
+
+For current implementation direction, read `docs/development/CURRENT.md`, `docs/development/ROADMAP.md`, `docs/architecture/README.md`, and the applicable `docs/reference/` evidence before using historical PROJECTED behavior as a design premise.
+
 ## Current render modes
 
 The runtime currently supports two layout modes:
@@ -51,6 +59,58 @@ The policy intentionally distinguishes:
 4. optical adjustment.
 
 A value from one responsibility must not silently become the control value for another.
+
+## 0.0.2 target `ResolvedLayout` contract — design level
+
+The first 0.0.2 runtime implementation must not extend the historical participant-specific width/translation model. Before source code is changed, the shared layout contract is defined conceptually as follows.
+
+### Inputs owned by Combined Status
+
+The shared resolver may consume only Combined Status presentation intent:
+
+- canonical composite visual size;
+- user visual scale;
+- desired neighbor/leading optical gap;
+- relative per-glyph scales for mobile, center, and battery content;
+- a bounded optical adjustment that moves only Combined Status drawing inside its resolved presentation space.
+
+These are independent inputs. A visual scale must not silently become a native slot width, and an optical adjustment must not become a native translation correction.
+
+### Inputs supplied by a scene/host adapter
+
+A scene adapter may report only verified environment/capability facts:
+
+- host height and the real end anchor;
+- authoritative native/available occupancy or capacity, when such a contract actually exists;
+- whether the scene permits the compact presentation;
+- which component owns live motion/transition progress;
+- source geometry needed for a later draw-only projection.
+
+The adapter must not invent a scene-specific scale, width difference, timing curve, or translation compensation.
+
+### Resolved outputs
+
+The shared resolver should expose, as separate results:
+
+- whether Combined Status may render on the current surface;
+- resolved composite visual size and bounds;
+- requested neighbor gap and requested occupancy/slot width;
+- host-applied/native occupancy reported independently from the requested value;
+- the resulting visual-to-slot relationship, including insufficient-capacity/overflow information rather than hiding it with a correction;
+- resolved per-glyph relative scales;
+- the resolved optical adjustment;
+- stable source visual bounds that a later projection layer may consume.
+
+Native transition progress, animation duration/interpolators, and target-View translation remain outside the layout resolver. Phase 2B may combine the resolver's source bounds with verified native progress and real target geometry, but it must not add scene-specific geometry formulas back into the shared policy.
+
+### Invariants
+
+- Requested occupancy and applied native occupancy are never treated as synonyms.
+- Per-glyph scale changes renderer composition only; they do not create a new SystemUI hook or native slot writer.
+- Optical adjustment changes Combined Status drawing only; it does not rewrite native measured width, layout width, translation, visibility, or scene state.
+- A missing host capability remains explicit and must fail native; the resolver must not fabricate a usable slot.
+- Home, future Keyguard/AOD adapters, and later user size/spacing controls consume the same contract rather than defining parallel formulas.
+- The Build-394 architecture gate is now satisfied for the pinned target. The first source implementation of this contract belongs to that bounded runtime checkpoint and must not expand into Phase-2B transition, Keyguard/AOD, or user-facing sizing work.
 
 ## Native slot preservation
 
@@ -108,3 +168,24 @@ Before Combined Status may write native slot geometry, contributors must verify:
 8. that the change is safer than remaining PROJECTED.
 
 Until those requirements are met, native SystemUI geometry remains authoritative.
+
+
+## Reference patterns under evaluation
+
+The current production policy above describes verified project behavior; it is not a requirement to preserve the same carrier implementation in 0.0.2.
+
+Generalized external implementation evidence that may inform the next target-specific architecture is stored in:
+- `docs/reference/README.md`;
+- `docs/reference/statusbar-composition-patterns.md`.
+
+Those notes are evidence, not ownership permission. Any pattern adopted from them must still satisfy this document's native-geometry requirements, exact target verification, fail-native behavior, and device validation.
+
+## Build 396 Home end-reservation runtime contract
+
+Build 394 device feedback invalidated Battery-descendant bounds as the steady Home local anchor. Build 396 uses the stable Home host end plus the shared resolved slot width.
+
+When HyperOS keeps the native battery region, no extra reservation is applied. When native `mIsHideBattery` releases that region, Combined Status adds its requested slot width to `MiuiStatusIconContainer.paddingEnd`. This uses the container's exact native measure/layout boundary while leaving battery hide, visibility, alpha and translation SystemUI-owned.
+
+The reservation is HostSession-scoped, snapshots existing relative padding, reacts only to native hide-state changes/activation, detects unexpected competing writers, and restores only its own applied state.
+
+The temporary Build-395 experiment that changed `mIsHideBattery` during `onLayout` is rejected and must not be restored.

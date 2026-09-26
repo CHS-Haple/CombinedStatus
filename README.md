@@ -14,7 +14,7 @@
 
 **Combined Status** is an LSPosed module for Xiaomi HyperOS that combines battery, mobile network, and Wi-Fi status into a single status-bar indicator.
 
-> **Status:** pre-release development. The first planned release is **0.0.1** and has not yet been published.
+> **Status:** pre-release development. The first planned formal release is **1.0.0**. Current `0.0.x` versions are development lines and have not reached the first-release boundary.
 
 ### Compatibility
 
@@ -67,7 +67,10 @@ Combined Status is still pre-release software.
 - [PRIVACY.md](PRIVACY.md) — local data, diagnostics, Root, export, and sharing behavior.
 - [SECURITY.md](SECURITY.md) — private security-reporting policy.
 - [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) — direct third-party dependencies and license notices.
-- [docs/architecture](docs/architecture) — architecture notes for developers and contributors.
+- [docs/README.md](docs/README.md) — developer documentation map and authority guide.
+- [docs/architecture/README.md](docs/architecture/README.md) — current architecture-document status and supersession map.
+- [docs/development/README.md](docs/development/README.md) — current state, roadmap, versioning, and engineering-history guide.
+- [docs/reference/README.md](docs/reference/README.md) — generalized implementation-reference evidence and usage rules.
 - [LICENSE](LICENSE) — Apache License 2.0.
 
 ---
@@ -76,7 +79,7 @@ Combined Status is still pre-release software.
 
 **Combined Status** 是一个面向 Xiaomi HyperOS 的 LSPosed 模块，用于将电池、移动网络和 Wi-Fi 状态整合为一个状态栏图标。
 
-> **当前状态：** 尚处于预发布开发阶段。计划首个发布版本为 **0.0.1**，目前尚未正式发布。
+> **当前状态：** 尚处于预发布开发阶段。计划首个正式发布版本为 **1.0.0**。当前 `0.0.x` 均属于开发版本线，尚未达到首发验收边界。
 
 ### 兼容性
 
@@ -129,7 +132,10 @@ Combined Status 目前仍处于预发布阶段。
 - [PRIVACY.md](PRIVACY.md) — 本地数据、诊断、Root、导出与分享说明。
 - [SECURITY.md](SECURITY.md) — 安全问题私密报告规则。
 - [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) — 直接第三方依赖与许可证说明。
-- [docs/architecture](docs/architecture) — 面向开发者与贡献者的架构说明。
+- [docs/README.md](docs/README.md) — 开发文档导航与权威关系说明。
+- [docs/architecture/README.md](docs/architecture/README.md) — 当前架构文档状态与已否定路径说明。
+- [docs/development/README.md](docs/development/README.md) — 当前状态、路线图、版本规则与工程历史说明。
+- [docs/reference/README.md](docs/reference/README.md) — 通用实现参考证据与使用边界。
 - [LICENSE](LICENSE) — Apache License 2.0。
 
 ---
