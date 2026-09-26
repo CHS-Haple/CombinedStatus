@@ -157,9 +157,10 @@ Before the first 0.0.2 runtime checkpoint:
 
 1. finish the charging-island carrier/projection proof using the confirmed split between status-container occupancy and battery presentation motion;
 2. finalize the first runtime design for host-scoped `ignoredSlots` restoration and clip-only visual masking, then validate both on the target device;
-3. map/confirm the remaining Home -> shade notification endpoint contract while preserving the already-verified Control Center native progress/anchor authority;
+3. preserve the already-verified read-only panel-transition sources, but defer full Home -> shade / Control Center projection endpoint implementation to Phase 2B as required by the ROADMAP;
 4. keep the design-level shared `ResolvedLayout` contract as the single sizing/optical source and implement it only with the first justified 0.0.2 runtime checkpoint;
-5. repeat the ownership/lifecycle/single-writer/cleanup/fail-native/performance/compatibility review before writing the first 0.0.2 runtime implementation.
+5. define the carrier ownership cutover so the superseded native-participant/suppression path and the new Home composition path cannot be live writers for the same session;
+6. repeat the ownership/lifecycle/single-writer/cleanup/fail-native/performance/compatibility review before writing the first 0.0.2 runtime implementation.
 
 Only after those are proven should Build 394 be created.
 

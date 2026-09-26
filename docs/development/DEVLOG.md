@@ -1963,3 +1963,35 @@ The clip candidate must save and restore each target View's pre-existing clip st
 ### Remaining gate
 
 Build 394 is still not created. The primary unresolved Phase-2A question is charging/island presentation: Combined Status must consume verified native motion/geometry while preserving network information instead of inheriting the battery view's fade/hide semantics. Notification-shade endpoint mapping also remains less mature than the Control Center anchor contract.
+
+---
+
+## 2026-09-27 — Phase-boundary and carrier-cutover review
+
+**Type:** architecture consistency review  
+**Runtime build:** none  
+**Runtime impact:** none
+
+### Review finding
+
+The latest ROADMAP intentionally places Home -> shade / Control Center projection in Phase 2B after the Phase-2A Home carrier is stable. Treating full notification/control-center endpoint implementation as a Build-394 prerequisite would incorrectly expand the first 0.0.2 runtime boundary.
+
+Code review also confirms that the active work branch still routes Hot Reload, feature handoff and native suppression through the superseded `SystemUiNativeCombinedParticipantOwner`, `SystemUiNativeNetworkSuppressionOwner`, and `SystemUiNativeBatterySuppressionOwner` chain.
+
+### Decision
+
+- Phase 2A may retain existing read-only panel-transition evidence, but full projection/endpoints remain Phase 2B.
+- The first 0.0.2 runtime must establish an explicit carrier ownership cutover; the old participant/suppression carrier and the new Home overlay/ignored-slot/clip-mask carrier must not operate as concurrent writers.
+- Migration should reuse the accepted domain state, renderer, tint/resource pipeline, diagnostics, settings and Hot Reload infrastructure while replacing only presentation-carrier ownership.
+- Old participant code may remain temporarily for rollback/history during the checkpoint, but it must be inactive when the new carrier owns the session and should be retired after the new path is device-validated.
+
+### Review dimensions
+
+Ownership: one active carrier per Home session.  
+Lifecycle: carrier selection belongs to HostSession and must be re-evaluated on host replacement/hot reload.  
+Single writer: no overlapping native participant suppression and ignored-slot/clip-mask mutation.  
+Cleanup: carrier deactivation must restore its own state before another carrier can activate.  
+Fail native: if the new carrier cannot acquire all target contracts, do not fall through into a partially active mixture; restore native SystemUI.  
+Performance: reuse existing event-driven domain state; do not duplicate state observers for the new carrier.  
+Compatibility: the new target-specific slot/mask contract stays fingerprint-gated.  
+Future extension: Phase 2B consumes the stable Phase-2A source bounds rather than reopening Home carrier ownership.
