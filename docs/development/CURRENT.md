@@ -38,7 +38,7 @@ Home -> shade / Control Center projection is **Phase 2B**. Keyguard / lockscreen
 - **Build 398** strengthens stable width authority by using the live native `battery_icon_container`; it is carried forward but was not separately device-promoted before the next checkpoints.
 - **Build 399** separates active/inactive battery-ring arc compositing without reopening Home carrier ownership.
 - **Build 403 / `20260927-403`** is the current battery semantic-color runtime candidate. Runtime source: `97ef67e648906a4b9bb2ce4d7dd390e955831189`.
-- PR #105 may advance through documentation-only commits without creating a new runtime Build; until APK-affecting source changes, Build 403 remains identified by runtime source `97ef67e648906a4b9bb2ce4d7dd390e955831189`.
+- Documentation-only commits may advance PR #105 beyond the Build-403 runtime source without creating a new runtime Build; runtime identity remains the Build/source pair above until executable source changes.
 
 Build 403 validation already established:
 - Fast Build #1063: **success**;
@@ -47,16 +47,18 @@ Build 403 validation already established:
 
 ## Active runtime issues / validation
 
-### Visual intensity / grayscale parity — open
+### Visual intensity / optical parity — open
 
-Latest maintainer screenshots on the active color/intensity line still show an apparent grayscale/visual-weight difference between Combined Status elements and neighboring native status icons. This means visual parity is **not accepted yet**.
+Latest target-device screenshots still show a visible optical-weight difference between Combined Status and neighboring native status icons, so visual parity is **not accepted yet**.
+
+Screenshot pixel sampling narrows the problem: the core dark grayscale levels are already closely aligned with adjacent native icons. The remaining mismatch therefore appears to be dominated by optical coverage / geometry / antialiasing rather than a different base monochrome tint. Treat that as a strong current finding, not yet a final root-cause proof.
 
 Current boundary:
 - Build 399's non-overlapping battery-arc compositing remains the active correction;
-- native status-icon tint remains the intended monochrome authority;
+- native status-icon tint remains the intended monochrome authority and should not be replaced with a project gray;
 - native drawable alpha normalization remains shared rather than per-resource;
-- do **not** add per-glyph gray multipliers, replacement gray constants, screenshot-derived magic numbers, or source-asset edits merely to force a visual match;
-- the remaining mismatch must be attributed to the actual final compositing/tint/alpha path before another visual correction is accepted.
+- do **not** add per-glyph gray multipliers, replacement gray constants, screenshot-derived magic numbers, or source-asset recoloring merely to force a visual match;
+- the next review should compare final stroke coverage/compositing and antialiasing behavior before changing tint policy.
 
 ### Battery semantic colors — implemented, device acceptance still open
 
@@ -86,7 +88,7 @@ A shallow notification-shade pull / final held-return frame can still leave the 
 
 ## Immediate next step
 
-1. Treat the latest screenshots as active evidence that grayscale/visual-intensity parity is still unresolved; quantify/attribute the final rendered difference before changing color/alpha policy.
+1. Inspect final stroke coverage/compositing and antialiasing across battery ring, center glyph, mobile layer, and neighboring native icons; keep native monochrome tint authority unchanged unless new evidence disproves the shared-tint conclusion.
 2. Validate Build 403 semantic colors across the applicable native states while preserving the accepted Phase-2A Home carrier/spacing behavior.
 3. Update `CURRENT.md` and append `DEVLOG.md` immediately when that device result changes acceptance.
 4. After color/intensity closure, move to the already-identified Phase-2B shallow-shade scene-boundary leak without reopening steady Home carrier ownership.
