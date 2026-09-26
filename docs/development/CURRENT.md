@@ -10,7 +10,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Integration branch: `dev`
 - Integration runtime baseline: Build 377, commit `f64fe0e3992eab4dd62ff479c3765d834ec7dfa4`
 - Active work branch: `feat/native-panel-transition`
-- Active runtime checkpoint: Build 390 (diagnostic-only work-branch checkpoint)
+- Active runtime checkpoint: Build 391 (attach-state slot-geometry correction)
 - Build 385 trusted validation head: `d3533828e82a335eab0b3e661cfadd4e70ebee27` (history-synced tree; runtime-equivalent to Build 385)
 - Active PR: #100, `feat/native-panel-transition -> dev`
 - Target profile: HyperOS SystemUI `17.03.260226.r`
@@ -214,10 +214,23 @@ Build 389 device result:
 - Build 389's anchor adapter is active, but the diagnostic shows the native `MiuiStatusIconContainer` itself moves only about 10px during island entry while the native battery presentation travels more than 100px;
 - the current log does not yet expose the actual live screen position of `combined_status` and the visible peer children during that same island callback, so changing behavior again would be speculative.
 
-Build 390 therefore follows the contribution rule for unresolved competing hypotheses: one bounded, read-only A/B diagnostic before another runtime correction. It reuses the existing island callback and existing 16-sample/900ms probe; it adds no hook, writer, polling loop, state machine, or persistent observer.
+Build 390 A/B now closes the competing-hypothesis gate. The charging-attached case reproduces the motion split and records `statusIcons.width=478` while `statusIcons.measuredWidth=448`; attach-time slot resolution consumed the transient measured width and therefore created a 135px Combined Status identity instead of the stable 105px end-side slot.
 
-No merge to `dev` until this diagnostic gate resolves the motion owner.
+**Confirmed Build 391 root cause:** attach-time native slot geometry was sourced from transient measurement geometry even though the already-laid-out status-icon boundary still represented the stable end-side slot. This is the same 30px charging presentation delta seen earlier, but now proven at the exact slot-width source rather than inferred from animation.
+
+**Selected Build 391 correction:** when a laid-out native child width exists, use it as the authoritative sibling occupancy for participant slot resolution; fall back to measured width only before layout. The correction applies to the status-icon sibling and visible privacy sibling, preserves fail-native behavior, and does not change island animation ownership, peer geometry, or live translation writers.
+
+Build 391:
+- versionName: `0.0.1`
+- buildId: `20260927-391`
+- runtime scope: normalize attach-time participant slot identity against laid-out native end-side geometry
+- expected charging-attached evidence: `statusIconsLayoutWidth=478`, `statusIconsMeasuredWidth=448`, `resolvedStatusIconsWidth=478`, `resolvedSlot=105x108`
+- Fast Build: pending
+- Work Branch Canary: pending
+- Device validation: pending
+
+No merge to `dev` until Build 391 passes both uncharged-attach and charging-attach regressions.
 
 ## Immediate next step
 
-Use the same signed Build 390 Canary for a single-variable A/B: A) attach/reload while uncharged, then charge; B) attach/reload while already charging, then repeat the charge/island cycle. Export a fresh detailed diagnostic after each case. Confirm whether attach-time resolved slot/visual width is 105-like vs 135-like and whether only the charging-attached path reproduces the relative-motion split. Do not merge PR #100 until this state dependency is resolved.
+Run Build 391 Fast CI and signed Canary. Then validate both attach orders: A) reload while uncharged -> charge; B) reload while already charging -> unplug/replug. The two cases must converge to the same 105px stable slot identity and preserve peer spacing, right-edge containment, native APPEAR, and panel first/last-frame alignment.
