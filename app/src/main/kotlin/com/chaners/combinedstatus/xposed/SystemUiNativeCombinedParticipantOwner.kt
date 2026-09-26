@@ -82,6 +82,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
         )
     private var targetBindingState: BindingState? = null
     private var batteryRef: WeakReference<View>? = null
+    private var nativeBatteryLayoutHidden = false
     private var activeSlotWidth = 0
     private var activeSlotHeight = 0
     private var handoffSink: ((Boolean) -> Boolean)? = null
@@ -631,6 +632,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
         renderController = null
         hostRef = null
         batteryRef = null
+        nativeBatteryLayoutHidden = false
         activeSlotWidth = 0
         activeSlotHeight = 0
         targetBindingState = null
@@ -870,18 +872,23 @@ internal object SystemUiNativeCombinedParticipantOwner {
         val rootLayoutParams =
             root.layoutParams
                 ?: return AttachResult.Failure("native-root-layout-params-missing")
+        val targetShellWidth =
+            resolveNativeSlotOccupancyWidth(
+                nativeBatteryHidden = nativeBatteryLayoutHidden,
+                visualWidth = activeSlotWidth,
+            ) ?: return AttachResult.Failure("native-root-occupancy-width-invalid")
         val originalShellWidth = rootLayoutParams.width
         val originalShellHeight = rootLayoutParams.height
         val shellGeometryAdjusted =
             if (
-                originalShellWidth != ZERO_SLOT_WIDTH ||
+                originalShellWidth != targetShellWidth ||
                 originalShellHeight != activeSlotHeight
             ) {
                 runCatching {
-                    rootLayoutParams.width = ZERO_SLOT_WIDTH
+                    rootLayoutParams.width = targetShellWidth
                     rootLayoutParams.height = activeSlotHeight
                     root.layoutParams = rootLayoutParams
-                    root.layoutParams?.width == ZERO_SLOT_WIDTH &&
+                    root.layoutParams?.width == targetShellWidth &&
                         root.layoutParams?.height == activeSlotHeight
                 }.getOrDefault(false)
             } else {
@@ -893,10 +900,11 @@ internal object SystemUiNativeCombinedParticipantOwner {
         eventSink?.invoke(
             "nativeCombinedParticipant shellGeometry " +
                 "originalWidth=" + originalShellWidth +
-                " targetWidth=" + ZERO_SLOT_WIDTH +
+                " targetWidth=" + targetShellWidth +
+                " nativeBatteryHidden=" + nativeBatteryLayoutHidden +
                 " originalHeight=" + originalShellHeight +
                 " targetHeight=" + activeSlotHeight +
-                " moduleOwnedSlotWidthWrite=" + (originalShellWidth != ZERO_SLOT_WIDTH) +
+                " moduleOwnedSlotWidthWrite=" + (originalShellWidth != targetShellWidth) +
                 " customShellHeightWrite=" + (originalShellHeight != activeSlotHeight) +
                 " peerNativeGeometryWrites=0",
         )
@@ -1166,6 +1174,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
             !isActiveSlotHandoffReady(
                 rootLayoutWidth = root.layoutParams?.width ?: Int.MIN_VALUE,
                 rootLayoutHeight = root.layoutParams?.height ?: Int.MIN_VALUE,
+                nativeBatteryHidden = nativeBatteryLayoutHidden,
                 renderMeasuredWidth = render.measuredWidth,
                 renderMeasuredHeight = render.measuredHeight,
                 expectedVisualWidth = activeSlotWidth,
@@ -1724,6 +1733,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
                             isZeroSlotHandoffReady(
                                 rootMeasuredWidth = root.measuredWidth,
                                 rootMeasuredHeight = root.measuredHeight,
+                                nativeBatteryHidden = nativeBatteryLayoutHidden,
                                 renderMeasuredWidth = render?.measuredWidth ?: -1,
                                 renderMeasuredHeight = render?.measuredHeight ?: -1,
                                 expectedVisualWidth = activeSlotWidth,
@@ -1880,6 +1890,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
     internal fun isZeroSlotHandoffReady(
         rootMeasuredWidth: Int,
         rootMeasuredHeight: Int,
+        nativeBatteryHidden: Boolean = false,
         renderMeasuredWidth: Int,
         renderMeasuredHeight: Int,
         expectedVisualWidth: Int,
@@ -1890,7 +1901,11 @@ internal object SystemUiNativeCombinedParticipantOwner {
         renderLeft: Int,
         renderRight: Int,
     ): Boolean =
-        rootMeasuredWidth == ZERO_SLOT_WIDTH &&
+        rootMeasuredWidth ==
+            resolveNativeSlotOccupancyWidth(
+                nativeBatteryHidden = nativeBatteryHidden,
+                visualWidth = expectedVisualWidth,
+            ) &&
             rootMeasuredHeight > 0 &&
             renderMeasuredWidth == expectedVisualWidth &&
             renderMeasuredHeight == expectedVisualHeight &&
@@ -1904,6 +1919,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
     internal fun isActiveSlotHandoffReady(
         rootLayoutWidth: Int,
         rootLayoutHeight: Int,
+        nativeBatteryHidden: Boolean = false,
         renderMeasuredWidth: Int,
         renderMeasuredHeight: Int,
         expectedVisualWidth: Int,
@@ -1914,7 +1930,11 @@ internal object SystemUiNativeCombinedParticipantOwner {
         renderLeft: Int,
         renderRight: Int,
     ): Boolean =
-        rootLayoutWidth == ZERO_SLOT_WIDTH &&
+        rootLayoutWidth ==
+            resolveNativeSlotOccupancyWidth(
+                nativeBatteryHidden = nativeBatteryHidden,
+                visualWidth = expectedVisualWidth,
+            ) &&
             rootLayoutHeight == expectedVisualHeight &&
             renderMeasuredWidth == expectedVisualWidth &&
             renderMeasuredHeight == expectedVisualHeight &&
@@ -1963,16 +1983,76 @@ internal object SystemUiNativeCombinedParticipantOwner {
         (root.parent as? View)?.requestLayout()
     }
 
+    @Synchronized
+    fun onNativeBatteryLayoutHideChanged(hidden: Boolean): Boolean {
+        nativeBatteryLayoutHidden = hidden
+        val root = rootRef?.get() ?: return true
+        if (Looper.myLooper() !== Looper.getMainLooper()) {
+            return root.post {
+                onNativeBatteryLayoutHideChanged(hidden)
+            }
+        }
+        val visualWidth =
+            renderViewRef
+                ?.get()
+                ?.measuredWidth
+                ?.takeIf { width -> width > 0 }
+                ?: activeSlotWidth
+        val targetWidth =
+            resolveNativeSlotOccupancyWidth(
+                nativeBatteryHidden = hidden,
+                visualWidth = visualWidth,
+            ) ?: return false
+        val layoutParams = root.layoutParams ?: return false
+        val previousWidth = layoutParams.width
+        if (previousWidth == targetWidth) {
+            return true
+        }
+        layoutParams.width = targetWidth
+        root.layoutParams = layoutParams
+        requestNativeLayout(root)
+        eventSink?.invoke(
+            "nativeCombinedParticipant slotOccupancy " +
+                "authority=MiuiStatusBatteryContainer.setIsHideBattery " +
+                "nativeBatteryHidden=" + hidden +
+                " previousLayoutWidth=" + previousWidth +
+                " targetLayoutWidth=" + targetWidth +
+                " visualWidth=" + visualWidth +
+                " moduleOwnedRootWidthWrite=true peerNativeGeometryWrites=0",
+        )
+        return root.layoutParams?.width == targetWidth
+    }
+
+    internal fun resolveNativeSlotOccupancyWidth(
+        nativeBatteryHidden: Boolean,
+        visualWidth: Int,
+    ): Int? =
+        visualWidth
+            .takeIf { width -> width > 0 }
+            ?.let { width ->
+                if (nativeBatteryHidden) {
+                    width
+                } else {
+                    ZERO_SLOT_WIDTH
+                }
+            }
+
     internal fun resolvePostLayoutVisualWidth(
         layoutWidth: Int,
         measuredWidth: Int,
         visualWidth: Int,
-    ): Int? =
-        visualWidth.takeIf {
-            layoutWidth == ZERO_SLOT_WIDTH &&
-                measuredWidth == ZERO_SLOT_WIDTH &&
-                visualWidth > 0
+        nativeBatteryHidden: Boolean = false,
+    ): Int? {
+        val occupancyWidth =
+            resolveNativeSlotOccupancyWidth(
+                nativeBatteryHidden = nativeBatteryHidden,
+                visualWidth = visualWidth,
+            ) ?: return null
+        return visualWidth.takeIf {
+            layoutWidth == occupancyWidth &&
+                measuredWidth == occupancyWidth
         }
+    }
 
     private fun applyPostLayoutVisualBounds(container: Any): Boolean {
         val root = rootRef?.get() ?: return false
@@ -2000,6 +2080,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
                 layoutWidth = root.layoutParams?.width ?: Int.MIN_VALUE,
                 measuredWidth = root.measuredWidth,
                 visualWidth = visualWidth,
+                nativeBatteryHidden = nativeBatteryLayoutHidden,
             ) ?: return false
         if (visualHeight <= 0) {
             return false
@@ -2017,9 +2098,14 @@ internal object SystemUiNativeCombinedParticipantOwner {
         ) {
             root.layout(left, top, right, bottom)
         }
+        val expectedOccupancyWidth =
+            resolveNativeSlotOccupancyWidth(
+                nativeBatteryHidden = nativeBatteryLayoutHidden,
+                visualWidth = resolvedWidth,
+            ) ?: return false
         val applied =
-            root.layoutParams?.width == ZERO_SLOT_WIDTH &&
-                root.measuredWidth == ZERO_SLOT_WIDTH &&
+            root.layoutParams?.width == expectedOccupancyWidth &&
+                root.measuredWidth == expectedOccupancyWidth &&
                 root.width == resolvedWidth &&
                 root.height == visualHeight
         if (applied && !visualBoundsLogged) {
@@ -2153,6 +2239,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
         renderViewRef = null
         hostRef = null
         batteryRef = null
+        nativeBatteryLayoutHidden = false
         activeSlotWidth = 0
         activeSlotHeight = 0
         handoffSink = null

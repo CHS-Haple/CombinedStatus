@@ -34,6 +34,7 @@ internal object SystemUiNativeBatterySuppressionOwner {
     private var latestNativeHideRequest: Boolean? = null
     private var suppressionActive = false
     private var eventSink: ((String) -> Unit)? = null
+    private var nativeLayoutHideSink: ((Boolean) -> Unit)? = null
 
     val installedHookCount: Int
         @Synchronized get() =
@@ -44,9 +45,11 @@ internal object SystemUiNativeBatterySuppressionOwner {
         module: XposedModule,
         classLoader: ClassLoader,
         onEvent: ((String) -> Unit)? = null,
+        onNativeLayoutHideChanged: (Boolean) -> Unit = {},
     ): InstallResult {
         if (installedHookCount == HOOK_COUNT) {
             eventSink = onEvent
+            nativeLayoutHideSink = onNativeLayoutHideChanged
             return InstallResult.AlreadyInstalled
         }
 
@@ -124,6 +127,7 @@ internal object SystemUiNativeBatterySuppressionOwner {
             hideHookHandle = hideHandle
             chargeRefreshHookHandle = refreshHandle
             eventSink = onEvent
+            nativeLayoutHideSink = onNativeLayoutHideChanged
             InstallResult.Installed
         }.getOrElse { error ->
             createdHandles.forEach { handle ->
@@ -137,6 +141,7 @@ internal object SystemUiNativeBatterySuppressionOwner {
             chargingViewField = null
             clearOwnedStateLocked()
             eventSink = onEvent
+            nativeLayoutHideSink = null
             InstallResult.Failure(
                 error.message ?: error.javaClass.simpleName,
             )
@@ -193,6 +198,7 @@ internal object SystemUiNativeBatterySuppressionOwner {
         activeBatteryView = WeakReference(batteryView)
         latestNativeHideRequest = nativeRequestedHide
         suppressionActive = true
+        nativeLayoutHideSink?.invoke(nativeRequestedHide)
 
         val mask =
             applyPresentationMaskLocked(
@@ -252,6 +258,7 @@ internal object SystemUiNativeBatterySuppressionOwner {
         chargingViewField = null
         clearOwnedStateLocked()
         eventSink = null
+        nativeLayoutHideSink = null
     }
 
     private fun hideRequestHooker(): Hooker =
@@ -278,6 +285,9 @@ internal object SystemUiNativeBatterySuppressionOwner {
                     synchronized(this) {
                         readNativeHideLocked(container)
                     }
+                if (applied == requested) {
+                    nativeLayoutHideSink?.invoke(requested)
+                }
                 eventSink?.invoke(
                     "nativeBatterySuppression passthrough " +
                         "nativeRequestedHide=" + requested +

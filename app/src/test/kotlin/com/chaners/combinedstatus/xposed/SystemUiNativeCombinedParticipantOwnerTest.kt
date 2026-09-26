@@ -231,6 +231,44 @@ class SystemUiNativeCombinedParticipantOwnerTest {
     }
 
     @Test
+    fun nativeBatteryHideClaimsOnlyReleasedSlotWidth() {
+        assertEquals(
+            0,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeSlotOccupancyWidth(
+                nativeBatteryHidden = false,
+                visualWidth = 105,
+            ),
+        )
+        assertEquals(
+            105,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeSlotOccupancyWidth(
+                nativeBatteryHidden = true,
+                visualWidth = 105,
+            ),
+        )
+        assertEquals(
+            null,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeSlotOccupancyWidth(
+                nativeBatteryHidden = true,
+                visualWidth = 0,
+            ),
+        )
+    }
+
+    @Test
+    fun releasedBatterySlotAcceptsNativeMeasuredVisualWidth() {
+        assertEquals(
+            105,
+            SystemUiNativeCombinedParticipantOwner.resolvePostLayoutVisualWidth(
+                layoutWidth = 105,
+                measuredWidth = 105,
+                visualWidth = 105,
+                nativeBatteryHidden = true,
+            ),
+        )
+    }
+
+    @Test
     fun visualBoundsRejectNonZeroOccupancyOrInvalidVisualWidth() {
         assertEquals(
             null,

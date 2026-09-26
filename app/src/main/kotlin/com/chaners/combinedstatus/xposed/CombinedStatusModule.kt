@@ -684,6 +684,10 @@ class CombinedStatusModule : XposedModule() {
                             log(Log.INFO, TAG, event)
                         }
                     },
+                    onNativeLayoutHideChanged = { hidden ->
+                        SystemUiNativeCombinedParticipantOwner
+                            .onNativeBatteryLayoutHideChanged(hidden)
+                    },
                 )
         ) {
             SystemUiNativeBatterySuppressionOwner.InstallResult.Installed,

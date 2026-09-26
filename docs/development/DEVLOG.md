@@ -941,3 +941,77 @@ Build 386 remains the structural solution to the original three-symptom loop. Bu
 
 Build 387 has cleared repository Fast and signed-Canary gates. Device evidence remains the acceptance gate. The focused device check is charging Super Island enter/steady/exit plus one regression pass of the Build 386 steady/entry/non-steady behavior.
 
+
+
+---
+
+## 2026-09-26 — Build 388: reserve the released native battery slot during island hide
+
+**Type:** runtime island/layout-occupancy ownership correction  
+**APK build:** 20260926-388  
+**CI:** pending at commit creation  
+**Device validation:** pending
+
+### Problem / device evidence
+
+Build 387 is rejected as a complete charging-island fix. The supplied screen recording shows that the Combined Status visual remains inside the right edge, but native peer status icons move into and overlap the Combined Status visual while the charging Super Island is active.
+
+The matching Build 387 diagnostic provides the structural evidence: the normal status-icon region is 478px beside a 105px battery slot; when native battery hide is activated for the charging island, `MiuiStatusIconContainer` expands to 583px. The Combined Status renderer remains visually 105px wide while its native shell is measured at 0px, so the native layout has no reason to reserve the released battery region for it.
+
+### Root cause
+
+Build 387 corrected the participant translation target, but its steady-state assumption was too broad: the native battery is the single 105px end-side occupancy owner only while HyperOS keeps that battery slot in layout. Once HyperOS itself applies `MiuiStatusBatteryContainer.setIsHideBattery(true)`, that region is released to the status-icon container. Keeping Combined Status at 0px measured occupancy then allows peer icons to share the same native region as the module-owned 105px visual.
+
+### References consulted
+
+- latest `CONTRIBUTING.md`: root-cause-first flow, native state-source hierarchy, one-live-writer rule, geometry separation, fail-native behavior, lightweight/event-driven implementation, development-log requirements;
+- Build 387 maintainer screen recording and detailed device diagnostic;
+- `SystemUI-Reference/findings/statusbar.md`: `MiuiStatusIconContainer.onMeasure()` consumes child measured width and status-icon slot geometry must remain distinct from visual/motion geometry;
+- `SystemUI-Reference/findings/charging.md`: `MiuiStatusBatteryContainer.setIsHideBattery(Boolean)` is the exact native layout-level battery-hide authority used by HyperOS island behavior.
+
+### Alternatives reviewed
+
+- Move Combined Status farther right: rejected; that reintroduces the Build 386 right-edge eviction.
+- Move peer native icons from the module: rejected; peer geometry remains SystemUI-owned and this would create competing writers.
+- Hard-code a 105px compensation: rejected; current 105px is runtime evidence, not a future sizing contract.
+- Hide Combined Status with the battery: rejected; the combined icon still carries network state.
+- Copy/replay island animation: rejected; HyperOS already owns the animation.
+- **Selected:** reserve only the native region that HyperOS itself releases, using the already-hooked native battery-hide semantic as the authority.
+
+### Implementation
+
+- No new SystemUI hook or polling source.
+- `SystemUiNativeBatterySuppressionOwner` now forwards the verified native `setIsHideBattery(Boolean)` result to the Combined Status participant owner.
+- The module-owned `ModernStatusBarView` shell uses width 0 while native battery layout is present.
+- While native battery layout is hidden, the shell width becomes the current resolved Combined Status visual/native-slot width.
+- On native battery return, shell width returns to 0.
+- Width changes are event-driven and request a native layout pass.
+- Build 386 post-layout real visual bounds remain for the zero-occupancy mode.
+- Build 387's native `NewStatusIconState` translation-target adapter remains.
+- No peer translation, live View translation write, fixed pixel offset, frame listener, polling loop, or separate charging/island state machine is added.
+- Internal build advances to `20260926-388`; display version remains `0.0.1`.
+
+### Review
+
+- **Authority review:** `MiuiStatusBatteryContainer.setIsHideBattery(Boolean)` remains the single semantic owner for whether the battery region is released.
+- **Geometry review:** Combined Status changes only its own slot occupancy; peer measurement/layout and live motion remain HyperOS-owned.
+- **Normal-state review:** battery present keeps Build 386's zero additional occupancy.
+- **Island review:** battery hidden lets Combined Status claim its own resolved visual width, preventing native peers from using the same released region.
+- **Performance review:** no new hook count and no per-frame work; only a layout-width update on a native hide-state change.
+- **Future sizing review:** the reserved width comes from the resolved visual width instead of a hard-coded 105px constant.
+- **Fallback review:** invalid/unknown visual width does not create speculative occupancy.
+
+### CI / test gate
+
+Fast Build and signed Work Branch Canary are pending.
+
+After CI, validate:
+1. charging Super Island enter / steady / exit keeps Combined Status fully inside the right edge;
+2. native peer icons do not overlap Combined Status at any island phase;
+3. HyperOS motion remains continuous without a module translation jump;
+4. non-charging steady placement remains unchanged;
+5. OFF -> ON native entry animation remains visible;
+6. shade / Control Center first and last frames remain aligned;
+7. detailed diagnostics show `slotOccupancy nativeBatteryHidden=true targetLayoutWidth=<visualWidth>` on island entry and restoration to 0 on exit.
+
+If Build 388 fails, reopen native measurement/order ownership. Do not add offsets or peer-translation patches.

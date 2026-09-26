@@ -10,7 +10,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Integration branch: `dev`
 - Integration runtime baseline: Build 377, commit `f64fe0e3992eab4dd62ff479c3765d834ec7dfa4`
 - Active work branch: `feat/native-panel-transition`
-- Active runtime checkpoint: Build 387 (current work-branch source checkpoint)
+- Active runtime checkpoint: Build 388 (current work-branch source checkpoint)
 - Build 385 trusted validation head: `d3533828e82a335eab0b3e661cfadd4e70ebee27` (history-synced tree; runtime-equivalent to Build 385)
 - Active PR: #100, `feat/native-panel-transition -> dev`
 - Target profile: HyperOS SystemUI `17.03.260226.r`
@@ -58,7 +58,7 @@ Close the three-symptom repair cycle with one coherent separation of:
 - native APPEAR/DISAPPEAR transition geometry;
 - Home -> shade / Control Center handoff geometry.
 
-Build 386 established the current geometry architecture: the native battery slot remains the single layout-occupancy owner, the Combined Status participant remains zero-width for native measurement, and the custom root receives real post-layout visual bounds for native APPEAR. Build 387 preserves that architecture and adapts only the custom `NewStatusIconState` translation target to the native battery-slot layout coordinate during SystemUI state application.
+Build 386 established the real-bounds / zero-steady-occupancy architecture. Build 387 kept the custom visual inside the battery-slot coordinate but device video proved that this is insufficient while HyperOS hides the battery: native peer status icons expand into the released battery region and overlap the zero-width Combined Status visual. Build 388 keeps zero occupancy while the native battery is present and claims exactly the resolved visual/native-slot width only while the authoritative `setIsHideBattery(true)` state is active.
 
 ## Confirmed conclusions
 
@@ -76,7 +76,9 @@ Build 386 established the current geometry architecture: the native battery slot
 - **Confirmed source boundary for Build 386:** `MiuiStatusIconContainer.onMeasure()` uses child measured width for occupancy, and `onLayout()` first lays children from measured dimensions before calculating `NewStatusIconState`. Build 386 therefore keeps Combined Status `layoutParams.width=0` and `measuredWidth=0`, lets native layout/state compute zero extra occupancy, then expands only the module-owned root's actual post-layout bounds to the renderer width before draw/animation.
 - **Build 386 device result:** accepted for the original three-symptom loop. Steady placement is correct, the Combined Status entry animation is visibly restored, and the previously reported non-steady first/last-frame shift is not observed. A new charging-island boundary remains: native battery eviction can push the custom zero-width participant target beyond the right edge.
 - **Confirmed Build 387 root cause:** charging Super Island replaces native battery presentation, so HyperOS translates/fades `MiuiBatteryMeterView` out while Combined Status must remain visible because it still carries network state. The zero-width custom participant's native `layoutTranslationX` was derived from the expanded status-icon extent instead of the battery slot layout coordinate.
-- **Selected Build 387 correction:** adapt only the Combined Status `NewStatusIconState` target to `battery.left - statusIcons.left - root.left`. HyperOS remains the sole live View `translationX`/Folme writer.
+- **Build 387 device result:** rejected for charging-island coexistence. Right-edge containment is improved, but the supplied video shows native peer icons moving into and overlapping the Combined Status visual during charging Super Island.
+- **Confirmed Build 388 root cause:** native battery hide releases the battery region into `MiuiStatusIconContainer`; the log changes from the normal 478px status-icon region to 583px while the 105px Combined Status visual still has 0px measured occupancy. Native peers can therefore legally occupy the same region.
+- **Selected Build 388 correction:** keep the participant at 0px occupancy while the battery slot exists; when the existing authoritative `MiuiStatusBatteryContainer.setIsHideBattery(true)` source reports that HyperOS released the battery slot, change only the module-owned participant width to the resolved visual/native-slot width. Restore it to 0px when the native battery returns. Build 387's state-target adapter remains; peer geometry and live Folme translations remain SystemUI-owned.
 
 ## Ownership / compatibility boundary
 
@@ -131,9 +133,16 @@ Build 387:
 - Artifact archive digest: `sha256:bf91bb40923264f2a76aa6b9be8000373af5f71f0d4331a19695f6d46be02a40`
 - Extracted APK SHA-256: `2788a27aa64dc6c1495f71aaaafc1037b39310a95fab55db89341c3697209dec`
 - Extracted APK size: `3375134` bytes
+- Device validation: **rejected for charging-island overlap**; right-edge containment improved but peer icons overlap the Combined Status visual.
+
+Build 388:
+- versionName: `0.0.1`
+- buildId: `20260926-388`
+- Fast Build: pending
+- Work Branch Canary: pending
 - Device validation: pending
 
-Required Build 387 focused device scenarios:
+Required Build 388 focused device scenarios:
 1. Charging Super Island enter/steady/exit keeps Combined Status fully inside the end-side boundary.
 2. Charging island motion remains native-smooth; no project-owned translation jump.
 3. Non-charging steady placement remains unchanged.
@@ -145,4 +154,4 @@ No merge to `dev` until these pass.
 
 ## Immediate next step
 
-Device-test the signed Build 387 Canary. Focus first on charging Super Island enter/steady/exit, then do one non-charging regression pass for steady placement, OFF -> ON entry animation, and shade/Control Center first/last-frame alignment. Build 386 remains the checkpoint that broke the original three-symptom loop; Build 387 is accepted only if the narrower slot-target correction does not regress it.
+Run Build 388 Fast CI and signed Work Branch Canary. If they pass, device-test charging Super Island enter/steady/exit for both right-edge containment and peer-icon separation, then repeat the Build 386 regression checks. Do not add peer translations, fixed offsets, or a charging-specific animation path if this occupancy correction fails.
