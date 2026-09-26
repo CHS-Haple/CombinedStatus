@@ -1192,3 +1192,53 @@ If this still fails, reopen the native `NewStatusIconState` / island-state order
 The Fast and signed-Canary gates validate the source/build/signing/metadata boundary for Build 389. The runtime delta remains limited to the module-owned stable slot translation anchor; Build 388 occupancy handoff, peer geometry ownership, native live Folme translation, and existing lifecycle/fallback paths remain unchanged. No additional hook, observer, polling source, frame writer, peer translation or hard-coded pixel compensation was introduced.
 
 Device evidence remains the acceptance authority for the motion fix. PR #100 stays unmerged until the focused charging-island and non-charging regression gate passes.
+
+
+---
+
+## 2026-09-27 — Build 390: read-only per-participant island motion trace
+
+**Type:** focused runtime diagnostic; no intended feature-behavior change  
+**APK build:** 20260927-390  
+**Reason:** Build 389 device feedback reports the same relative-motion mismatch.
+
+### Problem / evidence
+
+The Build 389 detailed session confirms the new target authority is active, but it also exposes a stronger structural fact: during authoritative charging-island entry the native `MiuiStatusIconContainer` expands to 583px and its screen X changes only by roughly 10px over the bounded sample, while `MiuiBatteryMeterView` moves more than 100px and fades. The module still reports no native peer geometry writes.
+
+The existing diagnostic does not capture the live screen X / translation of the actual `combined_status` child and the visible peer status-icon children in those same frames. Therefore two materially different hypotheses remain:
+1. Combined Status is receiving an extra child-level native motion that peers do not receive.
+2. Combined Status is visually stationary relative to the container, while the perceived mismatch comes from occupancy/order or another container/state transition.
+
+Changing geometry again before distinguishing these would violate the root-cause-first and evidence-change rules.
+
+### References reviewed
+
+- latest `CONTRIBUTING.md` sections 3.1-3.4, 4.1-4.4 and 5.1;
+- Build 389 detailed diagnostic and maintainer visual feedback;
+- current `CURRENT.md`, `ROADMAP.md`, and recent `DEVLOG.md`;
+- `SystemUI-Reference/findings/statusbar.md`: native `MiuiStatusIconContainer` owns bindable participant measurement and APPEAR/DISAPPEAR/MOVE/ISLAND transitions;
+- `SystemUI-Reference/findings/scene-host-motion.md`: the Home island listener owns `mStatusContainer`, `mEndSideContent`, `mStatusBarIcons`, `mBatteryContainer`, and `mBatteryView`; battery presentation motion must not be copied blindly.
+
+### Review / selected approach
+
+**Selected:** extend only the already-existing, detailed-diagnostics-only island pre-draw probe. At island callback start, snapshot up to ten visible direct children of `MiuiStatusIconContainer` plus `combined_status`, resolving each child's slot once. Each bounded sample records child left, screen X, actual/measured width, live translation X, alpha and visibility.
+
+**Rejected for Build 390:** peer translation writes, Combined Status compensation, another slot-width change, battery-trajectory copying, or a new island state machine. None is justified until the same-frame child motion is measured.
+
+### Runtime cost / lifecycle review
+
+- no new hook;
+- no new persistent listener;
+- no polling;
+- no new writer;
+- no native geometry mutation;
+- child discovery occurs once per authoritative island callback only when detailed diagnostics are enabled;
+- sampling reuses the existing 16-sample / 900ms bounded pre-draw probe and is disposed by the same generation/timeout path;
+- tracked views remain weak references.
+
+### Acceptance
+
+One short device capture must show `statusChildren=[...]` for island enter/exit. The next implementation decision will be based on same-frame Combined Status vs peer screen-X/translation deltas, not visual guessing.
+
+PR #100 remains unmerged.
