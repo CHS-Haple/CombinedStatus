@@ -357,7 +357,7 @@ internal class CombinedStatusPainter(
                         resources = drawableContext.resources,
                     ) ?: return@runCatching null
                 NativeCenterAsset(
-                    bitmap = visualProbe.normalizedBitmap,
+                    bitmap = visualProbe.sourceBitmap,
                     intrinsicWidth = drawable.intrinsicWidth,
                     intrinsicHeight = drawable.intrinsicHeight,
                     opticalBounds = visualProbe.opticalBounds,
@@ -412,10 +412,8 @@ internal class CombinedStatusPainter(
         var minY = probeHeight
         var maxX = -1
         var maxY = -1
-        val sourceAlphas = IntArray(pixels.size)
         pixels.forEachIndexed { index, color ->
             val alpha = Color.alpha(color)
-            sourceAlphas[index] = alpha
             if (alpha > NATIVE_OPTICAL_ALPHA_THRESHOLD) {
                 val x = index % probeWidth
                 val y = index / probeWidth
@@ -426,36 +424,14 @@ internal class CombinedStatusPainter(
             }
         }
 
-        val ceilingAlpha =
-            CombinedStatusVisualIntensity.resolveSourceCeilingAlpha(
-                sourceAlphas = sourceAlphas,
-                minVisibleAlpha = NATIVE_OPTICAL_ALPHA_THRESHOLD,
-            )
-        if (ceilingAlpha <= 0 || maxX < minX || maxY < minY) {
+        if (maxX < minX || maxY < minY) {
             bitmap.recycle()
             return null
         }
 
-        for (index in pixels.indices) {
-            val normalizedAlpha =
-                CombinedStatusVisualIntensity.normalizeSourceAlpha(
-                    sourceAlpha = sourceAlphas[index],
-                    sourceCeilingAlpha = ceilingAlpha,
-                )
-            pixels[index] =
-                (normalizedAlpha shl 24) or
-                    0x00ffffff
-        }
-        bitmap.setPixels(
-            pixels,
-            0,
-            probeWidth,
-            0,
-            0,
-            probeWidth,
-            probeHeight,
-        )
-
+        // Preserve the HyperOS resource's authored alpha mask. The resolved
+        // status-icon tint is composed later through SRC_IN, matching the
+        // native ImageView contract instead of rewriting source coverage.
         return NativeVisualProbe(
             opticalBounds =
                 OpticalBounds(
@@ -464,7 +440,7 @@ internal class CombinedStatusPainter(
                     right = (maxX + 1) / probeWidth.toFloat(),
                     bottom = (maxY + 1) / probeHeight.toFloat(),
                 ),
-            normalizedBitmap = bitmap,
+            sourceBitmap = bitmap,
         )
     }
 
@@ -918,7 +894,7 @@ internal class CombinedStatusPainter(
 
     private data class NativeVisualProbe(
         val opticalBounds: OpticalBounds,
-        val normalizedBitmap: Bitmap,
+        val sourceBitmap: Bitmap,
     )
 
     private data class OpticalBounds(
@@ -1176,8 +1152,6 @@ internal object CombinedStatusOuterGeometry {
 
 
 internal object CombinedStatusVisualIntensity {
-    private const val SOURCE_ALPHA_CEILING_QUANTILE = 0.85f
-
     fun resolveCanvasAlpha(
         color: Int,
         semanticAlpha: Int,
@@ -1193,46 +1167,4 @@ internal object CombinedStatusVisualIntensity {
         (255f * opacity.coerceIn(0f, 1f))
             .roundToInt()
             .coerceIn(0, 255)
-
-    fun resolveSourceCeilingAlpha(
-        sourceAlphas: IntArray,
-        minVisibleAlpha: Int,
-    ): Int {
-        val threshold = minVisibleAlpha.coerceIn(0, 254)
-        val histogram = IntArray(256)
-        var visibleCount = 0
-        sourceAlphas.forEach { sourceAlpha ->
-            val alpha = sourceAlpha.coerceIn(0, 255)
-            if (alpha > threshold) {
-                histogram[alpha]++
-                visibleCount++
-            }
-        }
-        if (visibleCount == 0) {
-            return 0
-        }
-
-        val targetIndex =
-            ((visibleCount - 1) * SOURCE_ALPHA_CEILING_QUANTILE)
-                .toInt()
-                .coerceIn(0, visibleCount - 1)
-        var cumulative = 0
-        for (alpha in (threshold + 1)..255) {
-            cumulative += histogram[alpha]
-            if (cumulative > targetIndex) {
-                return alpha
-            }
-        }
-        return 255
-    }
-
-    fun normalizeSourceAlpha(
-        sourceAlpha: Int,
-        sourceCeilingAlpha: Int,
-    ): Int {
-        val ceilingAlpha = sourceCeilingAlpha.coerceIn(1, 255)
-        return (sourceAlpha.coerceIn(0, 255) * 255f / ceilingAlpha)
-            .roundToInt()
-            .coerceIn(0, 255)
-    }
 }
