@@ -51,7 +51,9 @@ Do not continue choosing between a 0px and 105px status-icon shell as if shell w
 - **High confidence:** the recurring three-symptom cycle is structural. The current implementation asks one ordinary status-icon participant to serve incompatible responsibilities across slot occupancy, visual replacement of the battery area, and animation geometry.
 - **Confirmed static/runtime topology fact:** HyperOS exposes distinct Home binder objects for the battery wrapper/container and the concrete `MiuiBatteryMeterView`. This creates a possible seam between slot/motion ownership and battery content.
 - **Hypothesis:** the native battery wrapper/container can become the correct visual/motion ownership layer for Combined Status. Build 383 adds bounded read-only evidence collection for this question; it is not yet proven.
-- **High confidence:** Build 384's pivot normalization is a bounded experiment, not a final architecture. Even if device-visible entry improves, the ownership split still requires review before acceptance.
+- **Confirmed by Build 384 diagnostics:** the one-shot pivot normalization does not retain animation ownership during native APPEAR. Enable frames 1-5 report `pivotX=52.5`, but frame 6 onward reports `pivotX=0` while alpha/scale continue progressing. HyperOS therefore remains the later writer for the zero-width shell's pivot.
+- **Confirmed by Build 384 diagnostics:** during bounded island/end-side motion sampling, `mBatteryContainer` and `mBatteryView` remain co-anchored at the same screen X and move together through the sampled sequence; the wrapper keeps width 105 while the outer `MiuiStatusBatteryContainer`/end-side content owns broader visibility/alpha changes.
+- **High confidence:** Build 384's pivot bridge is not a viable final fix. Repeated or per-frame project-side pivot rewrites would create a competing animation writer and violate the repository ownership/lightweight rules.
 
 ## Relevant authoritative references
 
@@ -70,7 +72,8 @@ Build 384:
 - Fast Build #1020: success
 - Work Branch Canary #287: success
 - Signed non-debuggable Canary artifact: produced
-- Device validation: pending
+- Diagnostic validation: received and analyzed
+- Visual acceptance: still requires user-visible confirmation; the diagnostic itself proves the pivot bridge is overwritten during enable
 
 Required focused device evidence:
 1. master-switch OFF -> ON entry behavior, specifically whether the flash/reappearance remains;
@@ -82,9 +85,11 @@ No merge to `dev` is allowed while the three-symptom cycle or ownership model re
 
 ## Immediate next step
 
-Device-test Build 384 once. Use the resulting behavior plus the bounded `homeMotion` / Control Center anchor diagnostics to decide between:
+Use the Build 384 evidence to identify the native APPEAR pivot writer and complete the end-side ownership decision. Do not add another pivot rewrite. Decide between:
 
 - retiring the ordinary bindable participant as the visual owner and migrating rendering to a verified native battery-slot/motion layer; or
-- retaining the participant only if the evidence proves a single-writer transition contract that does not reintroduce duplicate occupancy or handoff geometry.
+- retaining the participant only if source/runtime evidence reveals a native-supported way for its animation geometry to use the Combined Status visual width without a competing writer.
 
-Do not add another width, translation, margin, delay, or per-frame compensation before this ownership decision.
+The battery-wrapper candidate is strengthened by Build 384 motion evidence but is not yet accepted because island/privacy alpha semantics and master-switch animation ownership still need source-level review.
+
+Do not add another width, translation, margin, delay, repeated pivot write, or per-frame compensation before this ownership decision.
