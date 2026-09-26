@@ -18,6 +18,7 @@ import java.util.concurrent.atomic.AtomicLong
 class CombinedStatusModule : XposedModule() {
     private var islandMotionSourceInstalled = false
     private var panelTransitionSourceInstalled = false
+    private var notificationStateProbeBucket = -1
     private var controlCenterGeometryProbeBucket = -1
     private var runtimeSessionId = newRuntimeSessionId()
     private val diagnosticSequence = AtomicLong(0L)
@@ -273,6 +274,7 @@ class CombinedStatusModule : XposedModule() {
             SystemUiNetworkRuntimeOwner.resetRuntimeState()
             islandMotionSourceInstalled = false
             panelTransitionSourceInstalled = false
+            notificationStateProbeBucket = -1
             controlCenterGeometryProbeBucket = -1
             SystemUiPresentationRuntimeOwner.resetRuntimeState()
             SystemUiNativeParticipantRuntimeOwner.resetControllerRuntimeState()
@@ -958,6 +960,7 @@ class CombinedStatusModule : XposedModule() {
             )
         }.onFailure { error ->
             panelTransitionSourceInstalled = false
+            notificationStateProbeBucket = -1
             controlCenterGeometryProbeBucket = -1
             logDiagnostic(
                 level = Log.ERROR,
@@ -974,35 +977,62 @@ class CombinedStatusModule : XposedModule() {
     private fun onPanelTransitionUpdate(
         update: SystemUiPanelTransitionSource.Update,
     ) {
-        if (update.source != SystemUiPanelTransitionSource.Source.CONTROL_CENTER) {
-            return
-        }
-        if (update.visible == false) {
-            controlCenterGeometryProbeBucket = -1
-            return
-        }
         if (!detailedDiagnosticsEnabled) {
             return
         }
+
         val bucket =
             SystemUiPanelTransitionSource.diagnosticBucket(update.fraction)
                 ?: return
-        if (bucket == controlCenterGeometryProbeBucket) {
-            return
+        val state =
+            SystemUiNativeNetworkSuppressionOwner.currentTransitionStateSnapshot()
+
+        when (update.source) {
+            SystemUiPanelTransitionSource.Source.NOTIFICATION_SHADE -> {
+                val shouldLog =
+                    bucket != notificationStateProbeBucket ||
+                        update.expanded == false
+                if (!shouldLog) {
+                    return
+                }
+                notificationStateProbeBucket = bucket
+                log(
+                    Log.INFO,
+                    TAG,
+                    "notificationTransitionState " +
+                        "fraction=" + update.fraction +
+                        " bucket=" + bucket + "/8 " +
+                        (state?.summary ?: "state=unavailable") +
+                        " readOnly=true nativeGeometryWrites=0",
+                )
+                if (update.expanded == false && bucket == 0) {
+                    notificationStateProbeBucket = -1
+                }
+            }
+
+            SystemUiPanelTransitionSource.Source.CONTROL_CENTER -> {
+                if (update.visible == false) {
+                    controlCenterGeometryProbeBucket = -1
+                    return
+                }
+                if (bucket == controlCenterGeometryProbeBucket) {
+                    return
+                }
+                controlCenterGeometryProbeBucket = bucket
+                val geometry =
+                    SystemUiNativeNetworkSuppressionOwner.currentTransitionTargetGeometry()
+                log(
+                    Log.INFO,
+                    TAG,
+                    "controlCenterTransitionGeometry " +
+                        "fraction=" + update.fraction +
+                        " bucket=" + bucket + "/8 " +
+                        (geometry?.summary ?: "geometry=unavailable") +
+                        " " + (state?.summary ?: "state=unavailable") +
+                        " readOnly=true nativeGeometryWrites=0",
+                )
+            }
         }
-        controlCenterGeometryProbeBucket = bucket
-        val geometry =
-            SystemUiNativeNetworkSuppressionOwner.currentTransitionTargetGeometry()
-                ?: return
-        log(
-            Log.INFO,
-            TAG,
-            "controlCenterTransitionGeometry " +
-                "fraction=" + update.fraction +
-                " bucket=" + bucket + "/8 " +
-                geometry.summary +
-                " readOnly=true nativeGeometryWrites=0",
-        )
     }
 
     private fun onPanelTransitionEvent(event: String) {
