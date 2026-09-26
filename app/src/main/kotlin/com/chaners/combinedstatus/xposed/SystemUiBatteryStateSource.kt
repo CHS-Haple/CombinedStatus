@@ -118,9 +118,6 @@ internal object SystemUiBatteryStateSource {
                     " systemColor=" +
                     (state.systemSemanticColor?.let(::colorHex) ?: "status-icon") +
                     " semanticAuthority=MiuiBatteryMeterIconView.getProgressStatus()" +
-                    " miuiOptimization=" +
-                    (state.systemSemanticColor != null ||
-                        state.semanticState == CombinedStatusBatterySemanticState.NORMAL) +
                     " eventDriven=true",
             )
         }
