@@ -2579,3 +2579,14 @@ After Fast CI and signed Canary pass, device validation must begin with charger-
 - Canary non-debuggable verification passed.
 - Artifact: `CombinedStatus-0.0.2-HyperOS-20260927-397-canary.apk`.
 - Device validation remains pending; Build 397 is not promoted to `dev`.
+
+
+### Build 398 CI / Canary result
+
+- Source commit: `e0cf4ffa523480f2221f710df0563e5346fc0914`.
+- Fast PR Build workflow #1049 (`36273586837`): **success**.
+- Signed Work Branch Canary #308 (`36273770652`): **success** through build, metadata, certificate, non-debuggable and artifact-upload gates.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260927-398-canary.apk`.
+- APK SHA-256: `e856a3216d60cb4ccc8b239a91102162e83369951c8409a0c77c29133ae97131`.
+- Device validation remains pending; Build 398 is not promoted to `dev`.
+

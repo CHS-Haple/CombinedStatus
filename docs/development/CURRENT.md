@@ -14,7 +14,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Active development line: **0.0.2**
 - First planned formal release target: **1.0.0** (current 0.0.x lines remain pre-release development)
 - Last device-tested runtime checkpoint: Build 395 (`0.0.2`) — rejected; charging steady-state still expands the replacement boundary and island entry still twitches
-- Current work-branch runtime checkpoint: Build 398 (`0.0.2`) — **source defined; CI and focused device validation pending**
+- Current work-branch runtime checkpoint: Build 398 (`0.0.2`) — **Fast CI + signed Work Branch Canary passed; focused device validation pending**
 - Target profile: HyperOS SystemUI `17.03.260226.r`
 - Exact SystemUI SHA-256: `a0e738e41fe599b97950cbf52a9e2ddc6ae2ceff986efbacb1c9840bea78768d`
 - Modern Xposed API: 102
