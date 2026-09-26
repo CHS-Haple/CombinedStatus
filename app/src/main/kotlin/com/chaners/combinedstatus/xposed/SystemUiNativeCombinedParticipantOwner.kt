@@ -998,47 +998,54 @@ internal object SystemUiNativeCombinedParticipantOwner {
         }
 
         removePendingPreDraw()
-        handoffPending = false
+        // Keep synchronous presentation callbacks produced by suppression inside
+        // this already-owned handoff transaction. Without this gate a callback
+        // can re-enter reconcileVisibleHandoff() before handoffCommitted becomes
+        // true, arm a bootstrap pre-draw, and roll back the warm native APPEAR.
+        handoffPending = true
+        try {
+            val removeFlag =
+                resolveNativeFeatureRemoveFlag(
+                    featureEnabled = true,
+                    handoffValidated = handoffValidated,
+                ) ?: return false
 
-        val removeFlag =
-            resolveNativeFeatureRemoveFlag(
-                featureEnabled = true,
-                handoffValidated = handoffValidated,
-            ) ?: return false
-
-        // HyperOS native mobile participants pair their semantic visibility with
-        // ModernStatusBarView.setRemove(...). Reuse the same contract so the
-        // container owns APPEAR/MOVE instead of treating this as measurement-only.
-        handoffSink?.invoke(true)
-        root.visibility = View.VISIBLE
-        if (!setNativeRemoveFlag(root, removeFlag)) {
-            bindingState.visible = false
-            root.visibility = View.GONE
-            handoffSink?.invoke(false)
+            // HyperOS native mobile participants pair their semantic visibility with
+            // ModernStatusBarView.setRemove(...). Reuse the same contract so the
+            // container owns APPEAR/MOVE instead of treating this as measurement-only.
+            handoffSink?.invoke(true)
+            root.visibility = View.VISIBLE
+            if (!setNativeRemoveFlag(root, removeFlag)) {
+                bindingState.visible = false
+                root.visibility = View.GONE
+                handoffSink?.invoke(false)
+                requestNativeLayout(root)
+                eventSink?.invoke(
+                    "nativeCombinedParticipant handoffResumeFail " +
+                        "source=feature-enabled reason=set-remove-failed " +
+                        "failNative=true nativeGeometryWrites=0",
+                )
+                return false
+            }
+            bindingState.visible = true
+            handoffCommitted = true
             requestNativeLayout(root)
-            eventSink?.invoke(
-                "nativeCombinedParticipant handoffResumeFail " +
-                    "source=feature-enabled reason=set-remove-failed " +
-                    "failNative=true nativeGeometryWrites=0",
+            startMasterSwitchTransitionProbe(
+                direction = "enable",
+                root = root,
             )
-            return false
+            eventSink?.invoke(
+                "nativeCombinedParticipant handoffResume " +
+                    "source=feature-enabled validated=true " +
+                    "mode=native-remove-lifecycle rootShown=" + root.isShown +
+                    " visibilityAuthority=binding+removeFlag" +
+                    " nativeRemoveFlag=" + readNativeRemoveFlag(root) +
+                    " nativeGeometryWrites=0",
+            )
+            return true
+        } finally {
+            handoffPending = false
         }
-        bindingState.visible = true
-        handoffCommitted = true
-        requestNativeLayout(root)
-        startMasterSwitchTransitionProbe(
-            direction = "enable",
-            root = root,
-        )
-        eventSink?.invoke(
-            "nativeCombinedParticipant handoffResume " +
-                "source=feature-enabled validated=true " +
-                "mode=native-remove-lifecycle rootShown=" + root.isShown +
-                " visibilityAuthority=binding+removeFlag" +
-                " nativeRemoveFlag=" + readNativeRemoveFlag(root) +
-                " nativeGeometryWrites=0",
-        )
-        return true
     }
 
     @Synchronized
