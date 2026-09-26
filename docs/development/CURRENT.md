@@ -282,10 +282,19 @@ Build 393:
 - versionName: `0.0.1`
 - buildId: `20260927-393`
 - expected charging evidence: `stableSlotBoundaryWidth=478`, live `statusIconsLayoutWidth=448`, `resolvedSlot=105x108`, `slotTranslationX=478.0`
-- Fast Build: pending
-- Work Branch Canary: pending
+- exact tested work-branch SHA: `ee76d8d5319fff4efcc640314318881fecd716ba`
+- Fast Build #1043: **success**
+- Work Branch Canary #302: **success**
+- pinned target-profile verification: success
+- Modern Xposed metadata verification: success
+- Haple APK signature verification: success
+- Canary non-debuggable verification: success
+- Artifact ID: `10911242961`
+- Artifact archive digest: `sha256:cb8d1e8bd2c5b7e4f580553b4331b296db6afa4598c420ea7506c3f9751a4818`
+- Extracted APK SHA-256: `da6e55434dceb81cdaf746a9d725011795105bc346e2242e9c508e8cda674623`
+- Extracted APK size: `3375134` bytes
 - Device validation: pending
 
 ## Immediate next step
 
-Run Build 393 Fast CI and signed Canary. Then test charging steady placement first in either attach order: the custom root must remain at the stable 478px slot boundary while the live native status-icon container may shrink to 448px. If steady placement passes, repeat island enter/exit, both attach orders, native APPEAR, and panel first/last-frame regression checks.
+Device-test the signed Build 393 Canary. First check charging steady placement in either attach order: the custom root must remain at the stable 478px slot boundary while the live native status-icon container may shrink to 448px. If steady placement passes, repeat island enter/exit, both attach orders, native APPEAR, and panel first/last-frame regression checks.
