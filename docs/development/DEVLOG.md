@@ -2645,3 +2645,47 @@ The screenshots therefore support a battery-ring intensity mismatch rather than 
 - **Compatibility:** no new target member/resource dependency.
 - **Future extension:** visual-weight/user-size work can remain separate from color/intensity semantics.
 
+
+
+---
+
+## 2026-09-27 — Engineering record writing guide established
+
+**Type:** documentation governance / development continuity  
+**Runtime build:** none  
+**Display line:** 0.0.2  
+**Runtime impact:** none
+
+### Problem / objective
+
+The repository already required continuous updates to `CURRENT.md`, `DEVLOG.md`, `ROADMAP.md`, architecture/reference records and other current-state documents, but another contributor still had to infer much of the expected writing structure from existing entries.
+
+The goal was to make repository memory independently maintainable by defining not only **when** a record is required, but also **how** each record class should be written.
+
+### Decision / implementation
+
+- Added `docs/development/RECORDING.md` as the file-level engineering-record writing guide.
+- Kept `CONTRIBUTING.md` as the normative source for update triggers and required synchronization.
+- `RECORDING.md` now defines:
+  - current-truth versus history boundaries;
+  - evidence-strength vocabulary;
+  - concrete Build/source/CI identity requirements;
+  - logical checkpoint granularity;
+  - responsibilities for CURRENT, DEVLOG, ROADMAP, architecture, reference, CHANGELOG and VERSIONING;
+  - a recommended DEVLOG checkpoint template;
+  - cross-file synchronization and duplication rules;
+  - a pre-commit review checklist.
+- Indexed the guide from `docs/README.md` and `docs/development/README.md`.
+- Bound engineering-record maintenance to the guide from `CONTRIBUTING.md` with MUST-level wording.
+
+### Review
+
+- **Historical integrity:** no prior DEVLOG entry was rewritten.
+- **Responsibility separation:** CONTRIBUTING defines *when* records are required; RECORDING defines *how* they are written.
+- **Duplication control:** CURRENT remains concise current truth; DEVLOG carries chronology; ROADMAP carries future direction; architecture/reference retain reusable policy/evidence.
+- **Contributor usability:** a new contributor no longer needs to infer the expected format solely from historical examples.
+- **Validation:** documentation/governance only; no APK, Build ID, Canary or device validation is required.
+
+### Outcome
+
+The development-record system now has both normative trigger rules and a dedicated writing specification. Future meaningful engineering checkpoints must synchronize the appropriate files using this guide before the checkpoint is treated as complete.
