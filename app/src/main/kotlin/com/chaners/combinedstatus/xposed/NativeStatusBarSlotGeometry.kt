@@ -11,6 +11,18 @@ internal object NativeStatusBarSlotGeometry {
             else -> null
         }
 
+    internal fun resolveCapturedOrLiveChildWidth(
+        capturedWidth: Int?,
+        layoutWidth: Int,
+        measuredWidth: Int,
+    ): Int? =
+        capturedWidth
+            ?.takeIf { width -> width > 0 }
+            ?: resolveStableChildWidth(
+                layoutWidth = layoutWidth,
+                measuredWidth = measuredWidth,
+            )
+
     internal data class Resolved(
         val containerWidth: Int,
         val statusIconsMeasuredWidth: Int,
