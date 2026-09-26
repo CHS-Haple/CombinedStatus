@@ -1,6 +1,16 @@
 package com.chaners.combinedstatus.xposed
 
 internal object NativeStatusBarSlotGeometry {
+    internal fun resolveStableChildWidth(
+        layoutWidth: Int,
+        measuredWidth: Int,
+    ): Int? =
+        when {
+            layoutWidth > 0 -> layoutWidth
+            measuredWidth > 0 -> measuredWidth
+            else -> null
+        }
+
     internal data class Resolved(
         val containerWidth: Int,
         val statusIconsMeasuredWidth: Int,
