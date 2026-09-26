@@ -21,14 +21,14 @@ Documentation-only branch heads do not change their associated runtime baselines
 
 ## Current integration state
 
-Build 377 remains the accepted `dev` runtime baseline. Builds 378-385 belong to the active work branch and are not accepted for integration until the active three-symptom geometry/transition boundary is device-validated.
+Build 377 remains the accepted `dev` runtime baseline. Builds 378-387 belong to the active work branch. Build 387 has now passed the focused work-branch device gate, so PR #100 is eligible for final merge review and `dev` integration validation.
 
 PR #99 (`fix/native-visual-intensity-normalization`) remains open and unmerged; its head is not an accepted integration baseline. Shared native visual-intensity normalization is already present in the merged Build 377 line through PR #98, so any future use of PR #99 must be reconciled against current `dev`.
 
 
 ## Macro roadmap position
 
-The project is currently in the **Home -> shade / Control Center native transition stage**. Build 385 is an implementation checkpoint inside this stage, not a new product phase.
+The project is currently in the **Home -> shade / Control Center native transition stage**. Build 387 is the validated work-branch checkpoint inside this stage; the remaining work is integration into `dev` and the resulting trusted integration validation.
 
 The macro sequence is:
 
@@ -85,9 +85,9 @@ Build 386 established the real-bounds / zero-steady-occupancy architecture. Buil
 - Native battery slot: HyperOS is the only layout occupancy owner.
 - Combined Status renderer: owns its drawing geometry.
 - HyperOS: continues to own visible state, remove lifecycle, alpha/scale Folme curve, panel/island transitions, and all peer geometry.
-- Combined Status: owns only the custom root's APPEAR pivot geometry because its visual width is intentionally decoupled from its zero layout width.
-- The exact APPEAR callback class, zero-argument `onStart()`, and captured `$view` field are required compatibility contracts. Missing contract fails the native Combined Status participant closed.
-- No polling, repeated pre-draw correction, per-frame writer, translation offset, margin compensation, or peer geometry write is permitted.
+- Combined Status: owns only its custom root's post-layout visual bounds and the custom `NewStatusIconState` translation target adaptation needed to map zero layout occupancy onto the native battery-slot coordinate.
+- Required compatibility contracts are the exact `MiuiStatusIconContainer.onLayout(boolean,int,int,int,int)` boundary plus `MiuiStatusBarFolmeViewState.applyToView(View, boolean)` / `NewStatusIconState.layoutTranslationX`. Missing contracts fail the native Combined Status participant closed.
+- No polling, repeated pre-draw correction, per-frame writer, live View translation write, hard-coded slot offset, margin compensation, or peer geometry write is permitted.
 
 ## Relevant authoritative references
 
@@ -95,6 +95,7 @@ Build 386 established the real-bounds / zero-steady-occupancy architecture. Buil
 - Exact SystemUI artifact SHA-256 `a0e738e41fe599b97950cbf52a9e2ddc6ae2ceff986efbacb1c9840bea78768d`.
 - `SystemUI-Reference/findings/statusbar.md`, `findings/control-center.md`, and `findings/charging.md`.
 - Build 384 detailed device diagnostic.
+- Build 387 detailed diagnostic plus the focused device screen recording covering charging Super Island and panel-transition behavior.
 
 ## Validation / blockers
 
