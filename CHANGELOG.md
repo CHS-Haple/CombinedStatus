@@ -2,7 +2,7 @@
 
 All notable changes to Combined Status are documented in this file.
 
-The project follows a Keep a Changelog-style structure. During normal development before the first formal release, `[Unreleased]` describes the **current net state intended for the initial 0.0.1 release**. The final release-preparation commit freezes those changes into a dated version section immediately before publication. Intermediate experiments, superseded implementations, CI-by-CI adjustments, and diagnostic investigation history belong in Git history or dedicated development documentation.
+The project follows a Keep a Changelog-style structure. During pre-release development, `[Unreleased]` describes the **current net state progressing toward the first formal 1.0.0 release**. Current `0.0.x` display versions are development lines, not formal-release milestones. The final release-preparation commit freezes applicable changes into a dated version section immediately before publication. Intermediate experiments, superseded implementations, CI-by-CI adjustments, and diagnostic investigation history belong in Git history or dedicated development documentation.
 
 ## [Unreleased]
 
@@ -104,6 +104,8 @@ The project follows a Keep a Changelog-style structure. During normal developmen
 - Removed the experimental Home owned-slot padding mutation after validation showed that it altered native battery geometry and leaked layout effects into other scenes.
 
 ### Engineering
+
+- Repository documentation is organized by authority: `CONTRIBUTING.md` for normative engineering rules, `docs/development/CURRENT.md` for current truth, `ROADMAP.md` for future direction, `VERSIONING.md` for version/release semantics, `DEVLOG.md` for chronological history, and `RECORDING.md` for record-writing and synchronization conventions.
 
 - Runtime diagnostics preference listening now has explicit lifecycle ownership outside `CombinedStatusModule`, keeping remote-preference registration and cleanup bounded across Hot Reload generations.
 - Battery state acquisition moves from an app-owned `ACTION_BATTERY_CHANGED` receiver to the verified HyperOS `MiuiBatteryMeterView.onBatteryLevelChanged` callback with a dedicated runtime owner, leaving `StatusBarStableSession` responsible only for host/anchor diagnostics.

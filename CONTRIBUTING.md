@@ -443,9 +443,13 @@ Merged short-lived branches should be removed automatically when role and target
 
 The display version changes only when the formal external version is explicitly advanced.
 
+The active development display-version line is **0.0.2**. The first planned formal release target is **1.0.0**. Current `0.0.x` versions are pre-release development checkpoints and do not become formal releases merely because their display version advances.
+
 Normal APK-affecting iterations advance internal `versionCode` / `buildId` according to project rules. Documentation-only changes do not require an APK build-number bump.
 
 GitHub Actions run numbers are CI execution metadata, not application version identifiers.
+
+Detailed current version semantics and the formal-release boundary are maintained in `docs/development/VERSIONING.md`. Historical Build/CI records keep the display version that actually existed at the time.
 
 ### 7.2 Changelog
 
@@ -676,6 +680,8 @@ Repository state is authoritative over remembered conversation context. When the
 
 Do not treat this startup read as ceremonial. The active task must be checked against the current baseline, confirmed engineering conclusions, known invalidated hypotheses, remaining validation, and planned design boundaries before implementation continues.
 
+For development-record maintenance, also read `docs/development/RECORDING.md`. For display-version, release-target, or release-preparation work, also read `docs/development/VERSIONING.md`.
+
 ### 11.2 Development log requirement
 
 Every APK-affecting CI/build checkpoint created for engineering work MUST have a corresponding development-log record. A record should capture, in proportion to the change:
@@ -709,6 +715,8 @@ Use the three files for different purposes:
 Update `CURRENT.md` whenever the effective development baseline, active problem, confirmed conclusion, validation state, or immediate next step changes. Update `ROADMAP.md` when a planned direction, prerequisite, trigger, or intentionally reserved design boundary changes.
 
 `CHANGELOG.md` remains the durable net project-state record defined in section 7.2. Do not turn it into the development diary.
+
+File-level writing structure, evidence language, duplication boundaries, and cross-file synchronization are defined in `docs/development/RECORDING.md`. That guide standardizes how records are written; this `CONTRIBUTING.md` remains the normative source for when a record is required and which engineering rules apply.
 
 ### 11.4 CI/build linkage and corrections
 
