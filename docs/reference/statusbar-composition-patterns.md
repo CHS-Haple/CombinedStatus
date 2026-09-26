@@ -355,7 +355,7 @@ Before the first 0.0.2 runtime checkpoint, evaluate a target-specific design aga
 
 ## 12. Architecture implication for the current work branch
 
-The reference evidence is strong enough to **reopen the extra-participant integration choice**.
+The reference evidence triggered a reevaluation of the extra-participant integration choice. Subsequent exact-target review has now **superseded the permanent extra-participant route as the default 0.0.2 architecture** and selected the existing-host composition direction for the first runtime checkpoint.
 
 Builds 386-393 remain valuable evidence about:
 - native APPEAR requirements;
@@ -366,4 +366,4 @@ Builds 386-393 remain valuable evidence about:
 
 They should not be treated as proof that the final 0.0.2 architecture must retain the same custom-participant ownership model.
 
-The next runtime checkpoint should be selected only after exact target-SystemUI verification of an existing-host composition path and an island presentation path. No new offset, forced battery-hide override, or occupancy handoff should be added merely to preserve the previous implementation.
+That exact-target verification is now complete for the pre-runtime Home carrier gate on the pinned target. Build 394 is the first runtime validation of the existing-host composition path, represented-slot restoration, reversible masking, carrier cutover, and inherited native island motion. No new offset, forced battery-hide override, or occupancy handoff should be added merely to preserve the previous implementation.
