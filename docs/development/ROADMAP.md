@@ -227,31 +227,32 @@ Completing an earlier architecture or feature phase does not by itself advance t
 
 ## Active phase technical route
 
-### Phase 2A / 0.0.2 — verify the Home carrier and presentation contract before Build 394
+### Phase 2A / 0.0.2 — Build 394 Home carrier cutover — active
 
-The next runtime build is intentionally blocked on target-specific architecture proof.
+The pre-runtime architecture gate is open for the pinned target. Exact-target review has closed the Home overlay host/lifecycle, represented-slot exclusion, reversible clip-mask candidate, shared `ResolvedLayout` boundary, carrier cutover requirement, and inherited native island-motion contract.
 
-The reference-library review under `docs/reference/` establishes useful patterns but does not grant write ownership on the target SystemUI.
+Build 394 is the first bounded runtime checkpoint for this architecture. Its scope is limited to:
+- make the verified Home overlay host the single active Home carrier;
+- introduce the shared `ResolvedLayout` runtime contract;
+- use host-scoped represented-slot exclusion through the exact target ignored-slot contract;
+- use reversible clip-only masking for represented native Wi-Fi/mobile/battery visuals;
+- inherit native island motion through the animated Home host without copying battery translation/fade semantics;
+- keep the superseded permanent participant/suppression path inactive for the same Home session;
+- restore exact slot/mask state on feature disable, host replacement, Hot Reload, partial activation failure, or session reset.
 
-Before coding Build 394, verify:
-- the exact Home native host that can carry Combined Status without creating a second permanent participant;
-- the exact native measurement/layout boundary for temporary represented-slot suppression;
-- reversible visual masking and restoration behavior;
-- the platform battery-hide/island transition point and the carrier/handoff needed to keep network information visible;
-- one shared `ResolvedLayout` contract for slot intent, visual/glyph size, optical gap, per-glyph scale, and future transition endpoints;
-- host/session cleanup and fail-native restoration.
-
-Builds 386-393 remain regression evidence. Their permanent extra-participant / 0-to-full-width occupancy-handoff route is superseded as the **default** 0.0.2 architecture. Do not recreate its fixed-boundary selection, translation compensation, or occupancy handoff merely to preserve previous work.
-
-The first 0.0.2 Build 394 should test one coherent Phase-2A architecture slice and include diagnostics proving:
-- one host/session owner;
+Build 394 device/runtime validation must prove:
+- one Home HostSession owner and no duplicate carrier;
 - no duplicate slot occupancy;
-- no platform hide override;
-- no peer geometry writer;
-- exact cleanup and restoration;
+- no platform hide override or peer geometry writer;
+- exact ignored-slot and clip restoration;
+- correct normal Home spacing and cold-start behavior;
+- charging/Super-Island enter, steady, and exit while preserving network information;
+- cleanup, fail-native fallback, and Hot Reload;
 - sizing/layout decisions come from the shared resolved-layout contract.
 
-Home -> shade / Control Center projection belongs to Phase 2B after this carrier contract passes.
+Builds 386-393 remain regression evidence. Their permanent extra-participant / 0-to-full-width occupancy-handoff route is superseded as the **default** 0.0.2 architecture.
+
+Home -> shade / Control Center projection remains Phase 2B and is deliberately excluded from Build 394.
 
 ## Cross-cutting engineering routes
 
