@@ -1,6 +1,6 @@
 # Current Development State
 
-This file is the concise recovery point for active Combined Status development. Read it after `CONTRIBUTING.md` and before changing code. Keep detailed history in `DEVLOG.md`, reusable implementation evidence in `docs/reference/`, and future/deferred product work in `ROADMAP.md`.
+This file is the concise recovery point for active Combined Status development. Read it after `CONTRIBUTING.md` and before changing code. Keep detailed history in `DEVLOG.md`, reusable implementation evidence in `docs/reference/`, future/deferred product work in `ROADMAP.md`, and release-target semantics in `VERSIONING.md`.
 
 ## Repository baseline
 
@@ -12,6 +12,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Active work branch: `feat/native-panel-transition`
 - Active PR: #100, `feat/native-panel-transition -> dev`
 - Active development line: **0.0.2**
+- First planned formal release target: **1.0.0** (current 0.0.x lines remain pre-release development)
 - Last device-tested runtime checkpoint: Build 393 (`0.0.1`)
 - Next runtime checkpoint: Build 394 (`0.0.2`), **not yet defined or built**
 - Target profile: HyperOS SystemUI `17.03.260226.r`
@@ -36,7 +37,7 @@ PR #99 (`fix/native-visual-intensity-normalization`) remains open and unmerged. 
 
 ## Macro roadmap position
 
-The project is still in **Home -> shade / Control Center transition completion**, but the concrete Home integration architecture has been reopened for 0.0.2.
+The project is in **Phase 2A — 0.0.2 Home carrier / presentation architecture**. Home -> shade / Control Center projection is Phase 2B and intentionally waits until the Home carrier contract is stable.
 
 The following capabilities remain reusable and are not being restarted:
 - authoritative Wi-Fi/mobile/battery/domain state;
@@ -49,7 +50,7 @@ The following capabilities remain reusable and are not being restarted:
 
 What is reopened is the **geometry/presentation carrier**, not the domain model.
 
-Next macro phase after this contract stabilizes remains Keyguard / lockscreen / AOD.
+After Phase 2A, complete Phase 2B Home -> shade / Control Center projection. Keyguard / lockscreen / AOD remains the next macro phase after Phase 2B.
 
 ## 0.0.2 architecture boundary
 
