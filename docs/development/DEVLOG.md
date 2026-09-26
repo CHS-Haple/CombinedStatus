@@ -1050,3 +1050,25 @@ The tested runtime commit is `9cce4d2ea1e8ddf2512b1db5df4ac55dd9ff235c`. The lat
 #### Outcome / next step
 
 Build 387 passes the focused work-branch device gate and closes the original three-symptom loop plus the charging-island right-edge regression. PR #100 is ready for squash merge into `dev`, followed by trusted Integration CI on the resulting integrated baseline. Promotion to `main` remains a separate maintainer decision after the integrated baseline is validated.
+
+### Correction — Build 387 device gate was not accepted
+
+The immediately preceding Build 387 validation note is superseded by a closer review of the supplied recording and the repository state that had already advanced to Build 388.
+
+#### Corrected visual interpretation
+
+- Build 387 **does** keep the Combined Status visual inside the right screen boundary during charging Super Island.
+- However, the recording clearly shows native peer status icons moving into the same released battery region and overlapping the Combined Status visual.
+- Therefore Build 387 does **not** pass the charging-island coexistence gate and PR #100 is not ready to merge to `dev`.
+
+#### Diagnostic confirmation
+
+The matching diagnostic explains the overlap structurally: normal Home has a 478px status-icon region beside a 105px battery slot; when HyperOS applies native battery hide, `MiuiStatusIconContainer` expands to 583px. Build 387 still contributes 0px measured occupancy while drawing a 105px visual, so peers are allowed to occupy that region. The maintained `layoutTranslationX=478.0` and `moduleViewTranslationWrites=0` show that right-edge translation ownership is no longer the remaining defect.
+
+#### Active correction
+
+Build 388 is the current runtime checkpoint. It uses the existing authoritative `MiuiStatusBatteryContainer.setIsHideBattery(Boolean)` event to switch only the module-owned participant occupancy: 0px while the native battery slot is present, resolved visual/native-slot width while HyperOS has released that battery slot, then back to 0px on return. HyperOS remains owner of peer geometry and live Folme translation.
+
+#### Process correction
+
+This correction is intentionally appended rather than rewriting the earlier note. The earlier acceptance statement was made from an incomplete interpretation of the recording and became inconsistent with the already-present Build 388 repository evidence. `CURRENT.md` has been corrected immediately; Build 388 CI/device validation is now the active gate.
