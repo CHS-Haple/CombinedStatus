@@ -10,7 +10,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Integration branch: `dev`
 - Integration runtime baseline: Build 377, commit `f64fe0e3992eab4dd62ff479c3765d834ec7dfa4`
 - Active work branch: `feat/native-panel-transition`
-- Active runtime checkpoint: Build 389 (current work-branch source checkpoint)
+- Active runtime checkpoint: Build 390 (diagnostic-only work-branch checkpoint)
 - Build 385 trusted validation head: `d3533828e82a335eab0b3e661cfadd4e70ebee27` (history-synced tree; runtime-equivalent to Build 385)
 - Active PR: #100, `feat/native-panel-transition -> dev`
 - Target profile: HyperOS SystemUI `17.03.260226.r`
@@ -192,6 +192,24 @@ Required Build 389 focused device scenarios:
 
 No merge to `dev` until these pass.
 
+Build 390:
+- versionName: `0.0.1`
+- buildId: `20260927-390`
+- scope: **diagnostic-only; no runtime motion/geometry behavior change**
+- objective: capture the actual per-child screen-X / width / live translation of Combined Status and native peer status icons during the authoritative Home island callback
+- Fast Build: pending
+- Work Branch Canary: pending
+- Device validation: pending
+
+Build 389 device result:
+- the reported relative-motion mismatch is still present;
+- Build 389's anchor adapter is active, but the diagnostic shows the native `MiuiStatusIconContainer` itself moves only about 10px during island entry while the native battery presentation travels more than 100px;
+- the current log does not yet expose the actual live screen position of `combined_status` and the visible peer children during that same island callback, so changing behavior again would be speculative.
+
+Build 390 therefore follows the contribution rule for unresolved competing hypotheses: one bounded, read-only A/B diagnostic before another runtime correction. It reuses the existing island callback and existing 16-sample/900ms probe; it adds no hook, writer, polling loop, state machine, or persistent observer.
+
+No merge to `dev` until this diagnostic gate resolves the motion owner.
+
 ## Immediate next step
 
-Device-test the signed Build 389 Canary. Repeat the same short charging Super Island sequence from Build 388, focusing on whether native peers and Combined Status now keep coherent relative spacing with no custom-only ~30px shift. Then repeat the Build 386 regression checks. Do not merge PR #100 until this gate passes.
+Run Build 390 CI and signed Canary. Then capture one charging Super Island enter/steady/exit sequence with detailed diagnostics enabled. Use the new bounded `statusChildren=[...]` samples to compare Combined Status and native peers in the same frames before selecting the next runtime correction. Do not merge PR #100 until the motion owner is resolved.
