@@ -1,37 +1,48 @@
 # Architecture document status
 
-This directory contains architecture policy and scene/layout capability descriptions.
+This directory contains the current architecture policy and scene/layout capability boundaries for Combined Status.
 
-## Current status
+## Current 0.0.2 status
 
-The 0.0.2 development line has selected a pre-runtime Home/end-side carrier direction for the pinned target, and Build 394 is the first runtime proof of that direction. Older runtime architecture descriptions are retained as verified historical/current-code evidence but must not be mistaken for the selected 0.0.2 target architecture.
+The pinned-target Home carrier redesign has moved from pre-runtime evaluation into runtime validation.
 
-### Documents
+- Builds 386-393 remain historical evidence for the superseded permanent extra-participant / occupancy-handoff route.
+- Build 397 is the first device-accepted charging-carrier checkpoint on the new Home overlay architecture.
+- Build 398 refines the stable width source to the live native `battery_icon_container`.
+- Build 399 is a visual battery-ring compositing checkpoint and does not reopen carrier ownership.
+
+Current Home direction:
+
+`MiuiNotificationStatusContainer / system_icon_area -> HostSession overlay -> ResolvedLayout -> Combined Status renderer`
+
+SystemUI retains native peer layout, Battery hide/presentation, tint authority, and live island motion. Combined Status owns only its compact composition plus the explicitly verified, reversible Home presentation state described in [layout-policy.md](layout-policy.md).
+
+## Documents
 
 - [layout-policy.md](layout-policy.md)
-  - describes the shared geometry policy and the constraints around native geometry ownership;
-  - its descriptions of the currently implemented PROJECTED path describe the existing/last-tested runtime model;
-  - they do **not** require 0.0.2 to preserve the extra custom-participant carrier.
+  - current shared geometry and Home carrier/reservation contract;
+  - separation of visual geometry, native occupancy, motion and optical adjustment;
+  - rejected geometry/writer patterns and future sizing boundary.
 
 - [scene-policy.md](scene-policy.md)
-  - describes the last verified scene capability boundaries;
-  - Home capability evidence remains valid;
-  - its existing PROJECTED/NATIVE_ONLY map is **not a commitment to the final 0.0.2 carrier/handoff architecture**.
+  - current scene capability map;
+  - Home is the only Combined Status rendering surface currently runtime-verified;
+  - shade / Control Center, keyguard and AOD remain native-only until separately promoted.
 
 - [../reference/README.md](../reference/README.md)
-  - indexes generalized reusable implementation evidence;
-  - reference evidence does not grant SystemUI write ownership.
+  - generalized reusable implementation evidence;
+  - reference evidence never grants SystemUI write ownership by itself.
 
 ## Superseded architecture route
 
-The following route is preserved only as engineering evidence and must not be used as the default starting point for new 0.0.2 work:
+The default 0.0.2 architecture must not return to:
 
-`extra permanent status participant -> zero/full-width occupancy handoff -> compensate battery-slot release with custom slot/translation ownership`
+`extra permanent status participant -> zero/full-width occupancy handoff -> custom slot/translation compensation`
 
-Builds 386-393 demonstrated useful facts about native APPEAR, battery-slot release, peer occupancy, charging geometry, and panel anchors, but later evidence showed that the overall carrier model creates conflicting layout identities across scene transitions.
+Those builds still provide useful evidence about native APPEAR behavior, battery-slot release, peer occupancy, charging geometry and panel anchors, but their carrier model created conflicting layout identities across scene transitions.
 
-New 0.0.2 work must begin from the current decision in `docs/development/CURRENT.md`. The pre-runtime Home carrier contract is now closed for the pinned target; Build 394 must validate that contract at runtime before any historical mechanism is reconsidered.
+A superseded mechanism may be reconsidered only if new exact-target evidence invalidates the current route and a fresh ownership/lifecycle/single-writer review proves the alternative safer.
 
 ## History policy
 
-Do not rewrite historical DEVLOG entries to match this status. They record what was actually believed, implemented, and observed at the time. Supersession is expressed here and in current development-state documents.
+Do not rewrite historical `DEVLOG.md` entries to match current conclusions. Preserve what was actually implemented and believed at the time, append later corrections, and keep current policy in this directory plus `docs/development/CURRENT.md`.
