@@ -922,4 +922,22 @@ Focused device acceptance after CI:
 ### Route impact
 
 Build 386 remains the structural solution to the original three-symptom loop. Build 387 narrows translation semantics so Combined Status follows the battery slot rather than battery-only Super Island eviction. If this regresses Build 386, revert the adapter and reopen the state-target owner instead of adding offsets or live translation writes.
+### CI validation update — Build 387
+
+- Fast Build #1033: **success** on runtime commit `9cce4d2ea1e8ddf2512b1db5df4ac55dd9ff235c`.
+- Work Branch Canary #292: **success**.
+- Canary exact tested work-branch SHA checkout: success.
+- Pinned HyperOS target-profile verification: success.
+- Modern Xposed metadata verification: success.
+- Haple APK signature verification: success.
+- Canary non-debuggable verification: success.
+- Artifact upload: success.
+- Artifact ID: `10908269727`.
+- Artifact archive digest: `sha256:bf91bb40923264f2a76aa6b9be8000373af5f71f0d4331a19695f6d46be02a40`.
+- Extracted APK SHA-256: `2788a27aa64dc6c1495f71aaaafc1037b39310a95fab55db89341c3697209dec`.
+- Extracted APK size: `3375134` bytes.
+
+### Validation state
+
+Build 387 has cleared repository Fast and signed-Canary gates. Device evidence remains the acceptance gate. The focused device check is charging Super Island enter/steady/exit plus one regression pass of the Build 386 steady/entry/non-steady behavior.
 
