@@ -657,3 +657,65 @@ A completed non-trivial change should leave a concise record answering:
 For runtime-sensitive/architectural work, also record the relevant owner/call chain, lifecycle/cleanup impact, fallback behavior, meaningful evidence, and required device scenarios.
 
 Use the PR template when a PR exists. Mechanical maintenance may use a short commit description as long as its non-behavioral nature and branch synchronization are clear.
+
+
+## 11. Development continuity and engineering memory
+
+Combined Status keeps durable engineering context in the repository so a new development session can recover the current state without relying on chat history.
+
+### 11.1 Required startup read
+
+Before implementation, diagnosis, review, or continuation of an existing Combined Status task, read in this order:
+
+1. the latest `CONTRIBUTING.md`;
+2. `docs/development/CURRENT.md`;
+3. `docs/development/ROADMAP.md`;
+4. the recent and historically relevant entries in `docs/development/DEVLOG.md`.
+
+Repository state is authoritative over remembered conversation context. When the repository and an older discussion disagree, re-establish the task from the latest repository evidence before changing code.
+
+Do not treat this startup read as ceremonial. The active task must be checked against the current baseline, confirmed engineering conclusions, known invalidated hypotheses, remaining validation, and planned design boundaries before implementation continues.
+
+### 11.2 Development log requirement
+
+Every APK-affecting CI/build checkpoint created for engineering work MUST have a corresponding development-log record. A record should capture, in proportion to the change:
+
+- problem or objective and observed context;
+- analysis and competing hypotheses;
+- root-cause status, explicitly distinguishing confirmed findings from high-confidence conclusions and open hypotheses;
+- evidence and references actually consulted, including project rules, Android/HyperOS/MIUIX/Xposed guidance, SystemUI Reference, or established implementation patterns where applicable;
+- alternatives considered and why the selected solution is preferable;
+- implementation scope, owners/lifecycles touched, and behavior intentionally left unchanged;
+- review findings, including architecture, ownership, lifecycle, performance, fallback, compatibility, and future-design impact as applicable;
+- CI/build identity and validation state;
+- required device scenarios and actual device feedback;
+- final outcome, durable conclusions, residual risks, and follow-up;
+- roadmap or design-preparation consequences when the finding affects future work.
+
+A major root-cause, architecture, compatibility, lifecycle, or design conclusion SHOULD also be logged even when no code change or CI build is produced.
+
+Failed hypotheses and superseded approaches are engineering evidence. Preserve the historical record and append a correction or invalidation; do not silently rewrite history to make an earlier decision appear correct.
+
+Do not fabricate historical details. Older entries may be backfilled only from verifiable repository history, CI artifacts/logs, diagnostics, device feedback, or other durable evidence.
+
+### 11.3 Three-layer development record
+
+Use the three files for different purposes:
+
+- `CURRENT.md` — concise current baseline, active objective, confirmed conclusions, blockers, validation state, and next step. Keep it small enough to read at the start of every development session.
+- `DEVLOG.md` — chronological engineering diary for CI/build checkpoints, investigations, failed hypotheses, root causes, implementation decisions, reviews, and device feedback.
+- `ROADMAP.md` — future directions, deferred work, trigger conditions, prerequisites, and design seams that should be preserved for later work.
+
+Update `CURRENT.md` whenever the effective development baseline, active problem, confirmed conclusion, validation state, or immediate next step changes. Update `ROADMAP.md` when a planned direction, prerequisite, trigger, or intentionally reserved design boundary changes.
+
+`CHANGELOG.md` remains the durable net project-state record defined in section 7.2. Do not turn it into the development diary.
+
+### 11.4 CI/build linkage and corrections
+
+One logical engineering checkpoint should have one attributable DEVLOG entry even when several independently attributable issues share a test build under section 3.4.
+
+A rerun of the same source SHA for a transient CI failure may be appended to the same entry. A new source state that changes the hypothesis, implementation, or validation boundary should create or extend the appropriate new checkpoint record.
+
+When device evidence contradicts the current entry, update `CURRENT.md` immediately if the active conclusion changed, then append the contradiction and revised conclusion to `DEVLOG.md`. Never leave an invalidated hypothesis presented as the current source of truth.
+
+Development-log maintenance is repository text/governance work under section 6.1A when it has no executable effect. If a log update travels with runtime work because it records that same checkpoint, it may be committed with the owning work branch rather than creating unrelated CI solely for documentation.
