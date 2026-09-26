@@ -197,8 +197,13 @@ Build 390:
 - buildId: `20260927-390`
 - scope: **diagnostic-only; no runtime motion/geometry behavior change**
 - objective: capture the actual per-child screen-X / width / live translation of Combined Status and native peer status icons during the authoritative Home island callback
-- Fast Build: pending
-- Work Branch Canary: pending
+- exact tested work-branch SHA: `7531a43bbaac7d1d68c649f84a67224fb4f186ce`
+- Fast Build #1040: **success**
+- Work Branch Canary #299: **success**
+- Artifact ID: `10910261548`
+- Artifact archive digest: `sha256:7ac12e94efd4a769046da44f80b0eb9d0cd1dfc4e8b18d79be0ba994d65fcd00`
+- Extracted APK SHA-256: `76e82cd0fb5d9e4e8330987e26aba2353e64e8e274cd35818c889cd79c38b699`
+- Extracted APK size: `3375134` bytes
 - Device validation: pending
 
 Build 389 device result:
@@ -212,4 +217,4 @@ No merge to `dev` until this diagnostic gate resolves the motion owner.
 
 ## Immediate next step
 
-Run Build 390 CI and signed Canary. Then capture one charging Super Island enter/steady/exit sequence with detailed diagnostics enabled. Use the new bounded `statusChildren=[...]` samples to compare Combined Status and native peers in the same frames before selecting the next runtime correction. Do not merge PR #100 until the motion owner is resolved.
+Device-test the signed Build 390 Canary with detailed diagnostics enabled. Capture one charging Super Island enter/steady/exit sequence. Use the new bounded `statusChildren=[...]` samples to compare Combined Status and native peers in the same frames before selecting the next runtime correction. Do not merge PR #100 until the motion owner is resolved.
