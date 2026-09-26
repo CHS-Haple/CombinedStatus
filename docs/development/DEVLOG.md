@@ -1995,3 +1995,48 @@ Fail native: if the new carrier cannot acquire all target contracts, do not fall
 Performance: reuse existing event-driven domain state; do not duplicate state observers for the new carrier.  
 Compatibility: the new target-specific slot/mask contract stays fingerprint-gated.  
 Future extension: Phase 2B consumes the stable Phase-2A source bounds rather than reopening Home carrier ownership.
+
+---
+
+## 2026-09-27 — Home island carrier contract closed; Build 394 gate opened
+
+**Type:** exact-target architecture closure / gate review  
+**Runtime build:** none  
+**Runtime impact:** none
+
+### Problem execution flow
+
+1. Inspect exact `StatusBarIslandControllerImpl` method bodies rather than relying on member existence.
+2. Trace `translationFlow`, `refreshTranslation()`, `HomeStatusBarViewBinderInjector`, and `IslandStretchAnimation` ownership.
+3. Resolve `IslandStretchAnimation.rightContainer` through the exact target resource table.
+4. Cross-check the resolved host against Build-393 runtime topology and island-frame geometry.
+5. Re-run ownership, lifecycle, single-writer, cleanup, fail-native, performance, compatibility and future-extension review.
+
+### Exact-target closure
+
+- `translationFlow` carries the target translation distance refreshed by SystemUI; it is not a per-frame progress source.
+- `IslandStretchAnimation` applies SystemUI-owned Folme island show/hide animation to its `rightContainer.translationX`.
+- `rightContainer` resolves to the exact target resource `system_icon_area`.
+- Build-393 topology identifies `system_icon_area` as the `MiuiNotificationStatusContainer` used by the Home overlay session.
+- Runtime island samples show inner status/battery containers keeping zero local translation while their screen coordinates move, confirming ancestor-owned motion.
+
+### Architecture consequence
+
+The Home overlay inherits native charging/Super-Island translation directly from its animated host. No production pre-draw follower, battery-translation copier, custom duration/interpolator, or participant width handoff is required.
+
+The battery view's alpha/hide semantics remain separate and are not inherited by Combined Status, which must continue to preserve network information.
+
+### Final gate review
+
+- **Ownership:** SystemUI owns `system_icon_area` motion and peer layout; Combined Status owns only overlay composition plus its scoped slot/mask restoration state.
+- **Lifecycle:** overlay, ignored-slot restoration and clip snapshots are bound to one Home HostSession.
+- **Single writer:** no native translation/alpha/visibility writer is added for island motion; old participant/suppression ownership must be inactive during the new carrier session.
+- **Cleanup:** deactivate in reverse ownership order and restore exact clip/slot state on feature disable, host replacement, hot reload and partial activation failure.
+- **Fail native:** do not mask any native representation until the new Home session has acquired every required target contract and renderer state.
+- **Performance:** steady state remains event-driven; island movement is inherited through parent transformation with no module per-frame work.
+- **Compatibility:** all new contracts are scoped to the pinned SystemUI SHA-256; unmatched profiles remain native.
+- **Future extension:** Phase 2B can consume the stable Home source bounds without reopening carrier ownership.
+
+### Decision
+
+The Build-394 architecture gate is open. The first 0.0.2 runtime checkpoint may implement only the Home carrier cutover, shared ResolvedLayout, target ignored-slot exclusion, reversible clip masking and inherited native island motion. Home -> shade/Control Center projection, Keyguard/AOD and user-facing sizing controls remain out of scope.

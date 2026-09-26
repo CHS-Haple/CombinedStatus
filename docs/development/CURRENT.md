@@ -124,7 +124,7 @@ The target-specific design must prove one of:
 - a valid island-time carrier for the Combined Status visual; or
 - a draw-only island projection/handoff that preserves network information while native peer layout/motion stays SystemUI-owned.
 
-This is the main unresolved architecture question before Build 394.
+This island carrier question is now closed for the pinned target: the verified `MiuiNotificationStatusContainer` overlay host is the exact `system_icon_area` animated by HyperOS `IslandStretchAnimation`, so the overlay inherits native island translation without its own follower or timing curve.
 
 ## Exact-target evidence added before Build 394
 
@@ -151,18 +151,24 @@ The shared `ResolvedLayout` semantics are now defined at design level in `docs/a
 
 ## Immediate next step
 
-**Do not build 394 yet.**
+**Build 394 architecture gate is now open.**
 
-Before the first 0.0.2 runtime checkpoint:
+Build 394 may now implement the first bounded 0.0.2 Home carrier checkpoint with this scope:
 
-1. finish the charging-island carrier/projection proof using the confirmed split between status-container occupancy and battery presentation motion;
-2. finalize the first runtime design for host-scoped `ignoredSlots` restoration and clip-only visual masking, then validate both on the target device;
-3. preserve the already-verified read-only panel-transition sources, but defer full Home -> shade / Control Center projection endpoint implementation to Phase 2B as required by the ROADMAP;
-4. keep the design-level shared `ResolvedLayout` contract as the single sizing/optical source and implement it only with the first justified 0.0.2 runtime checkpoint;
-5. define the carrier ownership cutover so the superseded native-participant/suppression path and the new Home composition path cannot be live writers for the same session;
-6. repeat the ownership/lifecycle/single-writer/cleanup/fail-native/performance/compatibility review before writing the first 0.0.2 runtime implementation.
+1. introduce the shared `ResolvedLayout` runtime contract;
+2. make `MiuiNotificationStatusContainer` overlay the single active Home carrier;
+3. use host-scoped represented-slot exclusion through the exact target `ignoredSlots` contract;
+4. use reversible clip-only masking for represented native Wi-Fi/mobile/battery visuals;
+5. preserve native HyperOS island motion by inheriting the animated `system_icon_area` host transform rather than following battery motion or writing translation;
+6. explicitly cut over ownership so the superseded native-participant/suppression path cannot be active in the same Home session;
+7. keep Home -> shade / Control Center projection, Keyguard and AOD out of Build 394;
+8. validate cleanup, fail-native restoration, Hot Reload, normal Home, charging/island entry/exit and cold start while charging on device.
 
-Only after those are proven should Build 394 be created.
+## Build 394 gate decision
+
+The pre-runtime architecture gate is satisfied for the pinned target. Exact evidence now covers the Home overlay host/lifecycle, represented-slot measure/layout exclusion, non-competing clip-mask candidate, shared `ResolvedLayout` boundary, carrier ownership cutover requirement, and native island-motion inheritance through the animated `system_icon_area` host.
+
+This is permission to create the first bounded runtime checkpoint, not proof that the runtime implementation is already correct. Build 394 must remain a single-variable architecture checkpoint and requires focused device validation before promotion.
 
 ## Reference priority for the next session
 
