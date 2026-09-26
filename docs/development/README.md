@@ -8,6 +8,7 @@ This directory stores current development state, future direction, version plann
 - [ROADMAP.md](ROADMAP.md) — macro phases, planned work, deferred directions, prerequisites, and future-compatible seams.
 - [VERSIONING.md](VERSIONING.md) — current development display-version policy and the first formal-release target.
 - [DEVLOG.md](DEVLOG.md) — chronological engineering history.
+- [RECORDING.md](RECORDING.md) — file-level writing conventions, templates, evidence language, and cross-file synchronization rules.
 
 ## Historical integrity
 
