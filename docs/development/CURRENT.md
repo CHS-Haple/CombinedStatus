@@ -137,7 +137,7 @@ Build 393 diagnostics and the pinned SystemUI reference now narrow the Phase-2A 
 - **Clip-bound writer audit:** no Home status-bar Wi-Fi/mobile/battery implementation in the exact target APK was found writing `clipBounds`. A save -> empty-clip -> exact-restore mask is therefore the preferred non-competing visual-mask candidate for first runtime validation.
 - The pre-runtime carrier/island contracts are now closed for the pinned target. Promotion now depends on Build 394 runtime proof of ignored-slot restoration, clip-mask coverage, carrier cutover, cleanup/fail-native restoration, Hot Reload, and focused device behavior.
 
-The shared `ResolvedLayout` semantics are now defined at design level in `docs/architecture/layout-policy.md`. Source/runtime implementation is intentionally deferred so this documentation checkpoint does not create Build 394.
+The shared `ResolvedLayout` semantics are defined at design level in `docs/architecture/layout-policy.md`. The architecture gate is now satisfied, so its first source/runtime implementation belongs to the bounded Build 394 checkpoint.
 
 
 
