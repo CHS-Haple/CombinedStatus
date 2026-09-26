@@ -1381,3 +1381,70 @@ PR #100 remains unmerged.
 The runtime delta is restricted to attach-time sibling-width authority selection plus its regression tests. No island callback behavior, animation curve, live translation writer, peer geometry write, or occupancy lifecycle has changed. Device validation remains the authority for confirming that charging-attached and uncharged-attached sessions now converge to the same stable 105px participant identity.
 
 PR #100 remains unmerged.
+
+
+---
+
+## 2026-09-27 — Build 392: consume the stable host slot snapshot
+
+**Type:** root-cause lifecycle/geometry correction  
+**APK build:** 20260927-392  
+**Predecessor result:** Build 391 rejected on device
+
+### New evidence
+
+Build 391 proves the previous source correction was still too late.
+
+In the charging-attached session:
+- at host capture, the native topology reports `MiuiStatusIconContainer=478px` and native battery `105px`;
+- the existing `StatusBarStableSession` then records `statusIconsWidth=478` while charging battery presentation becomes 135px;
+- before the native Combined Status participant attaches, HyperOS performs another charging layout and the same status-icon container becomes `layoutWidth=448`, `measuredWidth=448`;
+- Build 391 correctly prefers layout over measured width, but both are already transient by that lifecycle point, so it still resolves `587 - 4 - 448 = 135px`.
+
+The failure therefore moves the responsible boundary again: stable-vs-transient geometry is a lifecycle timing issue, not a property-type issue.
+
+### Root cause
+
+A valid stable end-side occupancy snapshot already exists earlier in the host lifecycle, owned by `StatusBarStableSession`. Native participant attach resampled the live container later instead of consuming that host-scoped snapshot.
+
+This creates an avoidable second geometry authority and allows charging presentation timing to change participant identity.
+
+### Selected correction
+
+- keep `StatusBarStableSession` as the one-shot owner of the early stable host geometry;
+- retain its captured `SlotMetrics` in the session and expose it only for the matching host;
+- native participant attach prefers captured `statusIconsWidth`;
+- live `View.width` then `measuredWidth` remain fallback sources only if a matching captured value is unavailable;
+- keep current privacy handling unchanged;
+- log captured, live-layout, live-measured, and resolved widths independently.
+
+Expected failing-path conversion:
+- capture: 478;
+- later live layout/measure: 448/448;
+- resolved occupancy source: 478;
+- stable participant slot: 105px.
+
+### Review
+
+- **Root-cause review:** fixes the lifecycle authority mismatch; no translation compensation.
+- **Ownership review:** one host-scoped stable geometry owner; native participant becomes a consumer instead of resampling a competing stable fact.
+- **Writer review:** HyperOS remains sole live layout/translation animation writer outside the already accepted custom participant occupancy boundary.
+- **Hook review:** no new hook.
+- **Performance review:** one in-memory host-scoped snapshot read at participant attach.
+- **Lifecycle review:** snapshot dies with `StatusBarStableSession` on detach/host replacement; host identity must match.
+- **Fallback review:** absent/invalid captured width falls back to current layout then measured width; invalid final geometry still fails closed.
+- **Regression review:** Build 388 occupancy handoff, Build 389 state target adapter, Build 390 bounded diagnostic trace, tint/network suppression, and panel transition behavior are otherwise unchanged.
+
+### Device gate
+
+Test charging-attached first. Required diagnostic:
+`stableCaptureStatusIconsWidth=478 statusIconsLayoutWidth=448 statusIconsMeasuredWidth=448 resolvedStatusIconsWidth=478 ... resolvedSlot=105x108`.
+
+Then verify:
+1. charging-attached -> unplug/replug has coherent peer spacing;
+2. uncharged-attached -> charge remains coherent;
+3. no peer overlap or right-edge escape;
+4. OFF -> ON APPEAR remains visible;
+5. shade / Control Center first/last frames remain aligned.
+
+PR #100 remains unmerged.
