@@ -833,8 +833,11 @@ internal object SystemUiNativeCombinedParticipantOwner {
                 ?: return AttachResult.Failure("status-icons-missing")
         val privacy =
             readField(batteryContainer, "mHomePrivacyContainer") as? View
+        val stableSlotMetrics =
+            StatusBarStableSession.currentSlotMetrics(host)
         val stableStatusIconsWidth =
-            NativeStatusBarSlotGeometry.resolveStableChildWidth(
+            NativeStatusBarSlotGeometry.resolveCapturedOrLiveChildWidth(
+                capturedWidth = stableSlotMetrics?.statusIconsWidth,
                 layoutWidth = statusIcons.width,
                 measuredWidth = statusIcons.measuredWidth,
             ) ?: return AttachResult.Failure("status-icons-width-not-ready")
@@ -880,6 +883,8 @@ internal object SystemUiNativeCombinedParticipantOwner {
             "nativeCombinedParticipant slotGeometry " +
                 "authority=MiuiStatusBatteryContainer.layout-boundary " +
                 "container=" + slotGeometry.containerWidth + "x" + slotGeometry.slotHeight +
+                " stableCaptureStatusIconsWidth=" +
+                (stableSlotMetrics?.statusIconsWidth ?: Int.MIN_VALUE) +
                 " statusIconsLayoutWidth=" + statusIcons.width +
                 " statusIconsMeasuredWidth=" + statusIcons.measuredWidth +
                 " resolvedStatusIconsWidth=" + slotGeometry.statusIconsMeasuredWidth +
