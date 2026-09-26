@@ -771,4 +771,70 @@ A direct 381 -> 382 code/device comparison identifies the decisive boundary: Bui
 Inspect the Android/SystemUI render boundary for `ModernStatusBarView` to determine whether a zero-width root can provide native animated visual bounds for an overflowing 105px child. The next solution must separate **transition bounds** from **layout occupancy**: real bounds for APPEAR, zero additional steady slot consumption.
 
 Build 386 is blocked until this boundary is source-justified.
+---
+
+## 2026-09-26 — Build 386: separate native layout occupancy from actual transition bounds
+
+**Type:** runtime geometry/transition ownership correction
+**APK build:** 20260926-386
+**CI:** pending at commit creation
+**Device validation:** pending
+
+### Problem / objective
+
+Build 385 kept the native APPEAR pivot centered but the user still observed the same missing entry animation. The previously working visible APPEAR existed when Build 381 promoted the custom `ModernStatusBarView` root to a real 105px width. Build 382 removed that promotion to fix duplicate steady occupancy, and the visible entry animation disappeared again.
+
+Build 386 aims to preserve the two independently validated requirements simultaneously:
+- zero extra measured/layout occupancy so the native battery slot remains the only 105px end-side slot;
+- real 105px View/RenderNode bounds so HyperOS APPEAR/DISAPPEAR has a real visual animation surface.
+
+### Root cause / source analysis
+
+**Confirmed device/code boundary:** the visible entry animation tracks the presence of real participant bounds, not pivot alone.
+
+**Confirmed exact SystemUI ordering:** `MiuiStatusIconContainer.onMeasure()` measures selected child views and uses child measured widths for its occupancy calculations. `MiuiStatusIconContainer.onLayout()` first lays every child from `getMeasuredWidth()/getMeasuredHeight()`, then performs its `NewStatusIconState` / `layoutTranslationX` calculations. Therefore a custom child can remain measured as 0px during native layout/state computation and receive different actual bounds only after the container's native `onLayout()` completes.
+
+Android's View/ViewGroup contract also distinguishes child clipping/layout from subtree rendering; `clipChildren=false` allows descendants to draw outside parent bounds, but it does not create non-zero bounds for a zero-width animation target. Build 385 runtime evidence showed native alpha/scale state alone was insufficient for the overflowing renderer.
+
+### Alternatives considered
+
+1. More pivot/timing work — rejected by Build 385 device result.
+2. Redirect native Folme animation directly to `CombinedStatusRenderView` — deferred because `MiuiStatusBarFolmeViewState.animateTo()` also owns translation and other properties; redirecting the whole target risks applying root layout translation to the child and would require a larger native-animation fork.
+3. Return to permanent 105px measured shell — rejected because Build 381 produced duplicate steady occupancy / left shift.
+4. Post-native-layout visual bounds — selected. Keep measured/layout width 0 for native occupancy, then expand only the module-owned root's actual bounds to the renderer width after native layout/state calculations.
+
+### Measures implemented
+
+- Removed Build 385's exact APPEAR pivot hook and callback contract.
+- Added one hook on exact `MiuiStatusIconContainer.onLayout(boolean,int,int,int,int)`.
+- The hook always executes native layout first. After native layout returns, it checks only the current Combined Status root and expands its actual bounds from 0x108 to the resolved renderer dimensions while leaving `layoutParams.width=0` and `measuredWidth=0` unchanged.
+- The same visual-bounds preparation runs before `ModernStatusBarView.setRemove(...)` so APPEAR/DISAPPEAR begins with real root bounds.
+- No native peer View, container bounds, translation, margin, padding, or Control Center anchor is modified.
+- The existing renderer stays a direct child of the custom root; the root now owns a real 105px visual/transition surface rather than relying on child overflow from a zero-width parent.
+- Added bounded diagnostic `nativeCombinedParticipant visualBounds` that logs only the first successful application per runtime generation.
+- Internal build advances to `20260926-386`; display version remains `0.0.1`.
+
+### Review
+
+- **Single writer:** HyperOS remains the only writer for container measurement, slot ordering, `NewStatusIconState`, translation, alpha/scale curve and peer geometry. The module owns only its custom root's post-layout visual bounds.
+- **Ordering:** native parent measurement and layout-state calculation see 0px; module visual bounds are applied only after native `onLayout()` returns.
+- **Performance:** one constant-time post-layout identity check on the status-icon container; no tree traversal, polling, per-frame animation copying, or persistent pre-draw listener.
+- **Lifecycle:** visual bounds are also prepared synchronously before `setRemove(...)`, avoiding a race where APPEAR begins on 0px bounds.
+- **Future sizing:** actual transition width derives from renderer measured width, not a fixed 105px constant.
+- **Fallback:** if layout/measured width is not zero or resolved visual geometry is unavailable, the visual-bounds operation fails instead of mutating native peers.
+
+### CI / testing
+
+Fast Build and signed Work Branch Canary are pending.
+
+Focused device acceptance after CI:
+1. OFF -> ON: native entry animation is visibly restored, not a flash/direct appearance;
+2. ON -> OFF remains animated;
+3. steady Combined Status remains aligned with the battery slot, with no left shift;
+4. pull-down first frame / return last frame remain aligned, with no right shift;
+5. diagnostic confirms `layoutWidth=0`, `measuredWidth=0`, `actualWidth=105` and Control Center anchor remains `statusIconsWidth=478`, `batteryWidth=105`.
+
+### Outcome / residual risk
+
+Pending CI and device validation. If real post-layout bounds still do not restore visible APPEAR, stop and reopen the animation-target architecture rather than adding another offset or timing layer.
 

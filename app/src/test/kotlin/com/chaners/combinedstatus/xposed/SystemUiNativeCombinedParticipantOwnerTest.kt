@@ -219,33 +219,34 @@ class SystemUiNativeCombinedParticipantOwnerTest {
     }
 
     @Test
-    fun zeroWidthShellUsesVisualGeometryForNativeAppearPivot() {
+    fun zeroOccupancyShellResolvesRealVisualBounds() {
         assertEquals(
-            52.5f,
-            SystemUiNativeCombinedParticipantOwner.resolveTransitionPivotX(105) ?: -1f,
-            0f,
-        )
-        assertEquals(
-            67.5f,
-            SystemUiNativeCombinedParticipantOwner.resolveTransitionPivotX(135) ?: -1f,
-            0f,
-        )
-        assertEquals(
-            54f,
-            SystemUiNativeCombinedParticipantOwner.resolveTransitionPivotY(108) ?: -1f,
-            0f,
+            105,
+            SystemUiNativeCombinedParticipantOwner.resolvePostLayoutVisualWidth(
+                layoutWidth = 0,
+                measuredWidth = 0,
+                visualWidth = 105,
+            ),
         )
     }
 
     @Test
-    fun unavailableVisualGeometryHasNoTransitionPivot() {
+    fun visualBoundsRejectNonZeroOccupancyOrInvalidVisualWidth() {
         assertEquals(
             null,
-            SystemUiNativeCombinedParticipantOwner.resolveTransitionPivotX(0),
+            SystemUiNativeCombinedParticipantOwner.resolvePostLayoutVisualWidth(
+                layoutWidth = 105,
+                measuredWidth = 105,
+                visualWidth = 105,
+            ),
         )
         assertEquals(
             null,
-            SystemUiNativeCombinedParticipantOwner.resolveTransitionPivotY(0),
+            SystemUiNativeCombinedParticipantOwner.resolvePostLayoutVisualWidth(
+                layoutWidth = 0,
+                measuredWidth = 0,
+                visualWidth = 0,
+            ),
         )
     }
 

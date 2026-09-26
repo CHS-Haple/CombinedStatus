@@ -174,7 +174,7 @@ Exact SystemUI source and Build 384 runtime evidence confirm why the previous 0p
 - a full-width custom status-icon participant therefore duplicates occupancy;
 - a zero-width custom participant avoids duplicate occupancy, but HyperOS APPEAR normally computes its pivot from that zero View width.
 
-Build 385 tested the smallest source-level pivot separation, but device validation rejected it: the pivot remains centered while the visible entry animation is still missing. The active route therefore moves one layer deeper, from pivot to **transition bounds vs layout occupancy**.
+Build 385 proved pivot alone is insufficient. Build 386 now tests the source-justified separation of **measured/layout occupancy** from **actual View transition bounds**: the custom participant remains measured as 0px for native layout accounting, while its module-owned root is expanded to the real renderer width only after native `MiuiStatusIconContainer.onLayout()` has completed.
 
 **Acceptance boundary:**
 - clean centered OFF -> ON APPEAR;
@@ -185,7 +185,7 @@ Build 385 tested the smallest source-level pivot separation, but device validati
 - no repeated/per-frame project writer;
 - exact callback incompatibility fails native.
 
-Build 385 failed the visible-entry acceptance check. Reopen transition ownership at the render/bounds layer. The next implementation may proceed only if it gives the native APPEAR a real visual transition extent without making that extent a second steady layout slot. Do not add timing retries, repeated pivot writes, translation offsets, or duplicate layout occupancy.
+Build 385 failed the visible-entry acceptance check. Build 386 is the bounded render/bounds experiment: real 105px post-layout root bounds with zero measured/layout occupancy. If it fails, reopen transition ownership again; do not add timing retries, repeated pivot writes, translation offsets, or duplicate layout occupancy.
 
 ## Cross-cutting engineering routes
 

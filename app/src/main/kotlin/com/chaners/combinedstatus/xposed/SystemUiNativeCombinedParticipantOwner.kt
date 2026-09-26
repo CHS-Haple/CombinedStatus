@@ -52,15 +52,12 @@ internal object SystemUiNativeCombinedParticipantOwner {
         "com.android.systemui.statusbar.views.MiuiStatusIconContainer"
     private const val CONSTRUCTOR_HOOK_ID =
         "combinedstatus.nativeCombinedParticipant.constructor"
-    private const val APPEAR_CALLBACK =
-        "com.android.systemui.statusbar.anim." +
-            "MiuiStatusBarIconAnimatorController\$FolmeHandler\$appearAnimation\$appear\$1"
-    private const val APPEAR_PIVOT_HOOK_ID =
-        "combinedstatus.nativeCombinedParticipant.appearPivot"
+    private const val VISUAL_BOUNDS_HOOK_ID =
+        "combinedstatus.nativeCombinedParticipant.visualBounds"
     private const val HOOK_COUNT = 2
 
     private var constructorHook: HookHandle? = null
-    private var appearPivotHook: HookHandle? = null
+    private var visualBoundsHook: HookHandle? = null
     private var rootRef: WeakReference<FrameLayout>? = null
     private var renderViewRef: WeakReference<CombinedStatusRenderView>? = null
     private var renderController: CombinedStatusRenderController? = null
@@ -91,6 +88,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
     private var handoffValidated = false
     private var modelReadyLogged = false
     private var unlockedGeometryLogged = false
+    private var visualBoundsLogged = false
     private var featureEnabled = false
     private var registryRestored = false
     private var injected = false
@@ -101,7 +99,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
         get() =
             listOfNotNull(
                 constructorHook,
-                appearPivotHook,
+                visualBoundsHook,
             ).size
 
     @Synchronized
@@ -147,26 +145,26 @@ internal object SystemUiNativeCombinedParticipantOwner {
         val function0Class =
             classOrNull(FUNCTION0, classLoader)
                 ?: return InstallResult.Failure("function0-class-missing")
-        val appearCallbackClass =
-            classOrNull(APPEAR_CALLBACK, classLoader)
-                ?: return InstallResult.Failure("appear-callback-class-missing")
-        val appearStartMethod =
-            appearCallbackClass.declaredMethods
+        val statusIconContainerClass =
+            classOrNull(STATUS_ICON_CONTAINER, classLoader)
+                ?: return InstallResult.Failure("status-icon-container-class-missing")
+        val statusIconContainerOnLayout =
+            statusIconContainerClass.declaredMethods
                 .firstOrNull { method ->
-                    method.name == "onStart" &&
-                        method.parameterTypes.isEmpty() &&
+                    method.name == "onLayout" &&
+                        method.parameterTypes.contentEquals(
+                            arrayOf(
+                                Boolean::class.javaPrimitiveType,
+                                Int::class.javaPrimitiveType,
+                                Int::class.javaPrimitiveType,
+                                Int::class.javaPrimitiveType,
+                                Int::class.javaPrimitiveType,
+                            ),
+                        ) &&
                         method.returnType == Void.TYPE
                 }
                 ?.apply { isAccessible = true }
-                ?: return InstallResult.Failure("appear-callback-on-start-missing")
-        val appearViewField =
-            appearCallbackClass.declaredFields
-                .firstOrNull { field ->
-                    field.name == "\$view" &&
-                        field.type == View::class.java
-                }
-                ?.apply { isAccessible = true }
-                ?: return InstallResult.Failure("appear-callback-view-field-missing")
+                ?: return InstallResult.Failure("status-icon-container-on-layout-missing")
 
         if (
             !bindableIconClass.isInterface ||
@@ -274,53 +272,23 @@ internal object SystemUiNativeCombinedParticipantOwner {
         initView.isAccessible = true
         constructor.isAccessible = true
 
-        val pivotHandle =
+        val visualBoundsHandle =
             runCatching {
                 module
-                    .hook(appearStartMethod)
-                    .setId(APPEAR_PIVOT_HOOK_ID)
+                    .hook(statusIconContainerOnLayout)
+                    .setId(VISUAL_BOUNDS_HOOK_ID)
                     .intercept(
                         Hooker { chain ->
-                            val root =
-                                rootRef?.get()
-                                    ?: return@Hooker chain.proceed()
-                            val target =
-                                runCatching {
-                                    appearViewField.get(chain.thisObject) as? View
-                                }.getOrNull()
-                                    ?: return@Hooker chain.proceed()
-                            if (target !== root) {
-                                return@Hooker chain.proceed()
+                            val result = chain.proceed()
+                            synchronized(this) {
+                                applyPostLayoutVisualBounds(chain.thisObject)
                             }
-                            if (!applyTransitionPivot(root)) {
-                                eventSink?.invoke(
-                                    "nativeCombinedParticipant appearPivotAdapter " +
-                                        "state=unavailable fallback=native-callback " +
-                                        "peerNativeGeometryWrites=0",
-                                )
-                                return@Hooker chain.proceed()
-                            }
-                            eventSink?.invoke(
-                                "nativeCombinedParticipant appearPivotAdapter " +
-                                    "state=applied shellWidth=" + root.width +
-                                    " visualWidth=" +
-                                    (
-                                        renderViewRef
-                                            ?.get()
-                                            ?.measuredWidth
-                                            ?: activeSlotWidth
-                                    ) +
-                                    " pivotX=" + root.pivotX +
-                                    " pivotY=" + root.pivotY +
-                                    " nativeCallbackReplaced=true " +
-                                    "peerNativeGeometryWrites=0",
-                            )
-                            null
+                            result
                         },
                     )
             }.getOrElse { error ->
                 return InstallResult.Failure(
-                    "appear-pivot-hook-" +
+                    "visual-bounds-hook-" +
                         (error.message ?: error.javaClass.simpleName),
                 )
             }
@@ -513,13 +481,13 @@ internal object SystemUiNativeCombinedParticipantOwner {
                         },
                     )
             }.getOrElse {
-                runCatching { pivotHandle.unhook() }
+                runCatching { visualBoundsHandle.unhook() }
                 return InstallResult.Failure(
                     "constructor-hook-" + (it.message ?: it.javaClass.simpleName),
                 )
             }
 
-        appearPivotHook = pivotHandle
+        visualBoundsHook = visualBoundsHandle
         constructorHook = handle
         return InstallResult.Installed
     }
@@ -548,6 +516,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
         handoffCommitted = false
         modelReadyLogged = false
         unlockedGeometryLogged = false
+        visualBoundsLogged = false
         featureEnabled = false
         eventSink = null
         return true
@@ -1118,7 +1087,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
             }
             bindingState.visible = true
             handoffCommitted = true
-            applyTransitionPivot(root)
+            applyOwnVisualBounds(root)
             requestNativeLayout(root)
             startMasterSwitchTransitionProbe(
                 direction = "enable",
@@ -1456,7 +1425,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
 
             handoffCommitted = false
             if (root != null && nativeRemoveApplied) {
-                applyTransitionPivot(root)
+                applyOwnVisualBounds(root)
             }
             if (
                 root != null &&
@@ -1660,7 +1629,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
                             root.visibility = View.VISIBLE
                             handoffCommitted = true
                             handoffValidated = true
-                            applyTransitionPivot(root)
+                            applyOwnVisualBounds(root)
                             requestNativeLayout(root)
                             eventSink?.invoke(
                                 "nativeCombinedParticipant handoffCommit " +
@@ -1812,17 +1781,26 @@ internal object SystemUiNativeCombinedParticipantOwner {
         (root.parent as? View)?.requestLayout()
     }
 
-    internal fun resolveTransitionPivotX(visualWidth: Int): Float? =
-        visualWidth
-            .takeIf { width -> width > 0 }
-            ?.div(2f)
+    internal fun resolvePostLayoutVisualWidth(
+        layoutWidth: Int,
+        measuredWidth: Int,
+        visualWidth: Int,
+    ): Int? =
+        visualWidth.takeIf {
+            layoutWidth == ZERO_SLOT_WIDTH &&
+                measuredWidth == ZERO_SLOT_WIDTH &&
+                visualWidth > 0
+        }
 
-    internal fun resolveTransitionPivotY(visualHeight: Int): Float? =
-        visualHeight
-            .takeIf { height -> height > 0 }
-            ?.div(2f)
+    private fun applyPostLayoutVisualBounds(container: Any): Boolean {
+        val root = rootRef?.get() ?: return false
+        if (root.parent !== container) {
+            return false
+        }
+        return applyOwnVisualBounds(root)
+    }
 
-    private fun applyTransitionPivot(root: View): Boolean {
+    private fun applyOwnVisualBounds(root: View): Boolean {
         val visualWidth =
             renderViewRef
                 ?.get()
@@ -1830,20 +1808,61 @@ internal object SystemUiNativeCombinedParticipantOwner {
                 ?.takeIf { width -> width > 0 }
                 ?: activeSlotWidth
         val visualHeight =
-            root.height
-                .takeIf { height -> height > 0 }
+            renderViewRef
+                ?.get()
+                ?.measuredHeight
+                ?.takeIf { height -> height > 0 }
                 ?: activeSlotHeight
-        val pivotX = resolveTransitionPivotX(visualWidth) ?: return false
-        val pivotY = resolveTransitionPivotY(visualHeight) ?: return false
-        root.pivotX = pivotX
-        root.pivotY = pivotY
-        return root.pivotX == pivotX && root.pivotY == pivotY
+        val resolvedWidth =
+            resolvePostLayoutVisualWidth(
+                layoutWidth = root.layoutParams?.width ?: Int.MIN_VALUE,
+                measuredWidth = root.measuredWidth,
+                visualWidth = visualWidth,
+            ) ?: return false
+        if (visualHeight <= 0) {
+            return false
+        }
+
+        val left = root.left
+        val top = root.top
+        val right = left + resolvedWidth
+        val bottom = top + visualHeight
+        if (
+            root.width != resolvedWidth ||
+            root.height != visualHeight ||
+            root.right != right ||
+            root.bottom != bottom
+        ) {
+            root.layout(left, top, right, bottom)
+        }
+        val applied =
+            root.layoutParams?.width == ZERO_SLOT_WIDTH &&
+                root.measuredWidth == ZERO_SLOT_WIDTH &&
+                root.width == resolvedWidth &&
+                root.height == visualHeight
+        if (applied && !visualBoundsLogged) {
+            visualBoundsLogged = true
+            eventSink?.invoke(
+                "nativeCombinedParticipant visualBounds " +
+                    "authority=post-MiuiStatusIconContainer.onLayout " +
+                    "layoutWidth=" + (root.layoutParams?.width ?: Int.MIN_VALUE) +
+                    " measuredWidth=" + root.measuredWidth +
+                    " actualWidth=" + root.width +
+                    " actualHeight=" + root.height +
+                    " translationX=" + root.translationX +
+                    " moduleVisualBoundsWrites=1 peerNativeGeometryWrites=0",
+            )
+        }
+        return applied
     }
 
     private fun setNativeRemoveFlag(
         root: View,
         remove: Boolean,
     ): Boolean {
+        if (rootRef?.get() === root && !applyOwnVisualBounds(root)) {
+            return false
+        }
         val method = nativeSetRemoveMethod ?: return false
         if (!method.declaringClass.isInstance(root)) {
             return false
@@ -1932,7 +1951,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
     @Synchronized
     fun resetRuntimeState() {
         constructorHook = null
-        appearPivotHook = null
+        visualBoundsHook = null
         reset(Unit)
     }
 
