@@ -15,89 +15,72 @@ Current behavior belongs in `CURRENT.md`; investigation/build history belongs in
 
 ## Active near-term route
 
-### Native end-side ownership / three-symptom cycle
+### Native slot + Combined Status transition-geometry adapter
 
-The active route is to stop treating status-icon shell width as the sole control for Combined Status placement and motion.
+Exact SystemUI source and Build 384 runtime evidence confirm why the previous 0px/105px fixes formed a cycle:
 
-**Evidence already established by Build 384:**
-- the one-shot Combined Status pivot bridge is overwritten during native APPEAR and is not a viable final animation owner;
-- bounded `homeMotion` evidence shows `mBatteryContainer` and `mBatteryView` remain co-anchored and move together through the sampled end-side motion;
-- the battery-wrapper/end-side path is therefore strengthened as a candidate, but not yet accepted.
+- the native battery slot must remain the single 105px end-side layout occupancy owner;
+- a full-width custom status-icon participant therefore duplicates occupancy;
+- a zero-width custom participant avoids duplicate occupancy, but HyperOS APPEAR normally computes its pivot from that zero View width.
 
-**Remaining prerequisites:**
-- source-level identification of the exact native APPEAR pivot writer;
-- verification of battery-wrapper / end-side alpha and visibility semantics across island and privacy states;
-- confirmation that a renderer under the selected native layer preserves Combined Status network visibility when native battery presentation is intentionally hidden.
-
-**Preferred direction if evidence confirms the native battery wrapper/container as a stable motion/slot owner:**
-- keep exactly one native end-side occupancy owner;
-- place Combined Status rendering in the verified battery-slot/motion layer rather than reserving a second ordinary status-icon width;
-- preserve the real `MiuiBatteryMeterView` lifecycle/state/tint role unless evidence requires otherwise;
-- retire or narrow the custom bindable participant so it no longer simultaneously owns slot geometry and animation geometry;
-- retain fail-native restoration and avoid peer geometry writes.
-
-**Alternative if wrapper ownership is disproven:**
-- continue source-level ownership investigation before adding compensation;
-- do not fall back to a permanent 0px/105px shell toggle, translation patch, margin patch, or delay-based handoff.
+Build 385 tests the smallest source-level separation: retain the zero-width layout shell and native battery slot, but replace only the native APPEAR pivot initialization for the module-owned Combined Status root with the renderer's actual visual center.
 
 **Acceptance boundary:**
-- clean enable/disable transition;
-- correct steady position;
+- clean centered OFF -> ON APPEAR;
+- clean centered ON -> OFF DISAPPEAR;
+- correct steady placement;
 - no first/last-frame transition shift;
-- charging/island/privacy behavior remains native-compatible;
-- no duplicate live geometry writer;
-- no polling, persistent per-frame logging, or repeated View-tree traversal.
+- native Control Center anchor remains 478+105;
+- no repeated/per-frame project writer;
+- exact callback incompatibility fails native.
+
+If Build 385 passes, retire temporary Build 383/384 probes that no longer provide ongoing compatibility value.
+
+If Build 385 fails, reopen native end-side ownership. Do not add timing retries, repeated pivot writes, translation offsets, or duplicate layout occupancy.
 
 ## Known future design themes to revalidate
 
 ### Adaptive sizing and spacing
 
-Longer-term presentation may allow user-adjustable Combined Status visual size with spacing derived from the resolved visual geometry rather than a permanently fixed slot assumption.
+Longer-term presentation may allow user-adjustable Combined Status visual size with spacing derived from resolved visual geometry.
 
-**Design seam to preserve:** native end-side slot ownership, Combined Status drawing geometry, transition geometry, and optical spacing must remain separate. A future size control must not require reviving duplicate native slot occupancy.
+**Design seam to preserve:** native slot occupancy, renderer visual width, transition pivot, and optical spacing remain independently resolved. Build 385 derives APPEAR pivot from the resolved renderer width rather than a fixed 105px constant.
 
-**Prerequisite:** the active native end-side ownership work must first establish a single stable slot/motion contract.
+**Prerequisite:** the active transition checkpoint must pass before exposing user scaling.
 
 ### Dual-SIM behavior
 
-Future mobile presentation may need explicit dual-SIM semantics beyond the currently validated single/selected-source behavior.
+Future mobile presentation may need explicit dual-SIM semantics beyond the currently validated selected/effective data source behavior.
 
 **Design seam to preserve:** mobile state acquisition and presentation policy should not hard-wire one transient View topology as the permanent domain model.
 
 ### Island / SystemUI transition participation
 
-Combined Status should continue to align with native SystemUI scene/transition behavior rather than implementing a parallel animation authority.
+Combined Status should continue to align with native SystemUI scene/transition behavior rather than implement a parallel animation authority.
 
-**Design seam to preserve:** stable geometry and transition geometry remain separate, and native visibility/scene/motion ownership should be reused when verifiable.
-
-The current native end-side ownership investigation is now a prerequisite for this theme.
+**Design seam to preserve:** HyperOS owns scene, visibility, alpha/scale curve and panel/island transition state. Combined Status may adapt only transition geometry that is inherently different because drawing width is deliberately decoupled from layout width.
 
 ### Runtime ownership migration
 
-If long-lived lifecycle responsibilities begin accumulating again in the module bootstrap, move bounded ownership into dedicated session/owner components one responsibility at a time.
-
-**Trigger:** a responsibility becomes independently ownable, testable, and removable, or the bootstrap begins retaining lifecycle state that violates the ownership rules.
-
-The current transition work should prefer a dedicated end-side rendering/motion owner over adding more state to `CombinedStatusModule`.
+If long-lived lifecycle responsibilities accumulate in the bootstrap, move bounded ownership into dedicated owner/session components.
 
 ### Native resource reuse
 
-New HyperOS/SystemUI visual resources should be integrated through verified runtime resource identity and the shared tint/intensity contract rather than copied or manually gray-matched.
-
-**Design seam to preserve:** resource resolution, semantic state, tint authority, and rendering normalization remain independently testable.
+New HyperOS/SystemUI visual resources should continue through verified runtime identity and shared tint/intensity normalization.
 
 ## Deferred / rejected approaches
 
-- **Permanent duplicate occupancy (native battery slot + full-width ordinary Combined Status participant): rejected for the current target.** Device evidence shows it can correct one transition path while shifting steady placement.
-- **Permanent zero-width ordinary participant as the complete architecture: deferred/rejected as a final design.** It avoids duplicate occupancy but leaves animation geometry dependent on a shell with no real width.
-- **Magic translation/margin/padding/delay compensation: rejected unless later source evidence proves no direct ownership fix is viable.**
-- **Treating Build 384 pivot normalization as final architecture: rejected.** Runtime evidence shows HyperOS overwrites the one-shot pivot during APPEAR; racing that writer with repeated or per-frame project writes would violate the ownership and lightweight rules.
+- **Native battery slot + full-width Combined Status participant:** rejected; duplicate steady occupancy caused left shift.
+- **Hide native battery layout + full-width participant:** rejected; diagnostics showed invalid Control Center anchor semantics and non-steady shift.
+- **Zero-width participant without transition-geometry adaptation:** rejected; native APPEAR derives pivot from shell width and writes `pivotX=0`.
+- **Build 384 pre-draw / repeated / per-frame pivot rewrites:** rejected; runtime proved the native writer occurs later, and racing it violates ownership/lightweight rules.
+- **`HomeStatusBarViewBinderInjector.mBatteryContainer` as renderer wrapper:** rejected; exact `battery_digital_view.xml` proves it is battery-internal icon content with battery-specific alpha behavior.
+- **Magic translation/margin/padding/delay compensation:** rejected unless future evidence proves no direct ownership fix is viable.
 
 ## Update trigger
 
 Update this file when:
-- source-level review identifies the native APPEAR geometry writer and resolves the battery-wrapper/end-side ownership decision;
-- a renderer/owner migration becomes the selected implementation route;
-- the bindable participant is narrowed or retired;
-- adaptive sizing gains a verified slot-width contract;
-- a planned direction, prerequisite, trigger, or intentionally reserved design boundary changes.
+- Build 385 device evidence accepts or invalidates the native APPEAR pivot adapter;
+- temporary diagnostics can be retired;
+- adaptive sizing gains a validated dynamic slot/transition contract;
+- another ownership boundary changes.

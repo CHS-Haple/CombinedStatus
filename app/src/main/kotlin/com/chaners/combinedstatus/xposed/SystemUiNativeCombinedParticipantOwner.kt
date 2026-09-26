@@ -50,10 +50,17 @@ internal object SystemUiNativeCombinedParticipantOwner {
         "com.android.systemui.statusbar.views.MiuiBatteryMeterView"
     private const val STATUS_ICON_CONTAINER =
         "com.android.systemui.statusbar.views.MiuiStatusIconContainer"
-    private const val HOOK_ID =
+    private const val CONSTRUCTOR_HOOK_ID =
         "combinedstatus.nativeCombinedParticipant.constructor"
+    private const val APPEAR_CALLBACK =
+        "com.android.systemui.statusbar.anim." +
+            "MiuiStatusBarIconAnimatorController\$FolmeHandler\$appearAnimation\$appear\$1"
+    private const val APPEAR_PIVOT_HOOK_ID =
+        "combinedstatus.nativeCombinedParticipant.appearPivot"
+    private const val HOOK_COUNT = 2
 
     private var constructorHook: HookHandle? = null
+    private var appearPivotHook: HookHandle? = null
     private var rootRef: WeakReference<FrameLayout>? = null
     private var renderViewRef: WeakReference<CombinedStatusRenderView>? = null
     private var renderController: CombinedStatusRenderController? = null
@@ -76,8 +83,6 @@ internal object SystemUiNativeCombinedParticipantOwner {
     private var handoffSink: ((Boolean) -> Boolean)? = null
     private var pendingPreDrawRoot: WeakReference<View>? = null
     private var pendingPreDrawListener: ViewTreeObserver.OnPreDrawListener? = null
-    private var pendingTransitionPivotRoot: WeakReference<View>? = null
-    private var pendingTransitionPivotListener: ViewTreeObserver.OnPreDrawListener? = null
     private var modelReady = false
     private var tintReady = false
     private var currentSurface = SystemUiSceneStateSource.Surface.UNKNOWN
@@ -92,7 +97,12 @@ internal object SystemUiNativeCombinedParticipantOwner {
     private var failureReason: String? = null
 
     val installedHookCount: Int
-        @Synchronized get() = if (constructorHook != null) 1 else 0
+        @Synchronized
+        get() =
+            listOfNotNull(
+                constructorHook,
+                appearPivotHook,
+            ).size
 
     @Synchronized
     fun install(
@@ -102,10 +112,13 @@ internal object SystemUiNativeCombinedParticipantOwner {
         onSlotOrderResult: ((NativeStatusBarSlotReservation.Result) -> Unit)? = null,
         isTransitionProbeEnabled: () -> Boolean = { false },
     ): InstallResult {
-        if (constructorHook != null) {
+        if (installedHookCount == HOOK_COUNT) {
             eventSink = onEvent
             transitionProbeEnabled = isTransitionProbeEnabled
             return InstallResult.AlreadyInstalled
+        }
+        if (installedHookCount != 0) {
+            return InstallResult.Failure("partial-hook-state")
         }
         eventSink = onEvent
         transitionProbeEnabled = isTransitionProbeEnabled
@@ -134,6 +147,26 @@ internal object SystemUiNativeCombinedParticipantOwner {
         val function0Class =
             classOrNull(FUNCTION0, classLoader)
                 ?: return InstallResult.Failure("function0-class-missing")
+        val appearCallbackClass =
+            classOrNull(APPEAR_CALLBACK, classLoader)
+                ?: return InstallResult.Failure("appear-callback-class-missing")
+        val appearStartMethod =
+            appearCallbackClass.declaredMethods
+                .firstOrNull { method ->
+                    method.name == "onStart" &&
+                        method.parameterTypes.isEmpty() &&
+                        method.returnType == Void.TYPE
+                }
+                ?.apply { isAccessible = true }
+                ?: return InstallResult.Failure("appear-callback-on-start-missing")
+        val appearViewField =
+            appearCallbackClass.declaredFields
+                .firstOrNull { field ->
+                    field.name == "\$view" &&
+                        field.type == View::class.java
+                }
+                ?.apply { isAccessible = true }
+                ?: return InstallResult.Failure("appear-callback-view-field-missing")
 
         if (
             !bindableIconClass.isInterface ||
@@ -241,11 +274,62 @@ internal object SystemUiNativeCombinedParticipantOwner {
         initView.isAccessible = true
         constructor.isAccessible = true
 
+        val pivotHandle =
+            runCatching {
+                module
+                    .hook(appearStartMethod)
+                    .setId(APPEAR_PIVOT_HOOK_ID)
+                    .intercept(
+                        Hooker { chain ->
+                            val root =
+                                rootRef?.get()
+                                    ?: return@Hooker chain.proceed()
+                            val target =
+                                runCatching {
+                                    appearViewField.get(chain.thisObject) as? View
+                                }.getOrNull()
+                                    ?: return@Hooker chain.proceed()
+                            if (target !== root) {
+                                return@Hooker chain.proceed()
+                            }
+                            if (!applyTransitionPivot(root)) {
+                                eventSink?.invoke(
+                                    "nativeCombinedParticipant appearPivotAdapter " +
+                                        "state=unavailable fallback=native-callback " +
+                                        "peerNativeGeometryWrites=0",
+                                )
+                                return@Hooker chain.proceed()
+                            }
+                            eventSink?.invoke(
+                                "nativeCombinedParticipant appearPivotAdapter " +
+                                    "state=applied shellWidth=" + root.width +
+                                    " visualWidth=" +
+                                    (
+                                        renderViewRef
+                                            ?.get()
+                                            ?.measuredWidth
+                                            ?: activeSlotWidth
+                                    ) +
+                                    " pivotX=" + root.pivotX +
+                                    " pivotY=" + root.pivotY +
+                                    " nativeCallbackReplaced=true " +
+                                    "peerNativeGeometryWrites=0",
+                            )
+                            null
+                        },
+                    )
+            }.getOrElse { error ->
+                return InstallResult.Failure(
+                    "appear-pivot-hook-" +
+                        (error.message ?: error.javaClass.simpleName),
+                )
+            }
+
         val handle =
             runCatching {
                 module
                     .hook(constructor)
-                    .setId(HOOK_ID)
+                    .setId(CONSTRUCTOR_HOOK_ID)
                     .intercept(
                         Hooker { chain ->
                             val registry =
@@ -429,11 +513,13 @@ internal object SystemUiNativeCombinedParticipantOwner {
                         },
                     )
             }.getOrElse {
+                runCatching { pivotHandle.unhook() }
                 return InstallResult.Failure(
                     "constructor-hook-" + (it.message ?: it.javaClass.simpleName),
                 )
             }
 
+        appearPivotHook = pivotHandle
         constructorHook = handle
         return InstallResult.Installed
     }
@@ -445,7 +531,6 @@ internal object SystemUiNativeCombinedParticipantOwner {
         }
 
         removePendingPreDraw()
-        removePendingTransitionPivot()
         rootRef = null
         renderViewRef = null
         renderController = null
@@ -1033,7 +1118,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
             }
             bindingState.visible = true
             handoffCommitted = true
-            scheduleTransitionPivotNormalization(root)
+            applyTransitionPivot(root)
             requestNativeLayout(root)
             startMasterSwitchTransitionProbe(
                 direction = "enable",
@@ -1315,7 +1400,6 @@ internal object SystemUiNativeCombinedParticipantOwner {
 
     private fun suspendVisibleHandoff(source: String) {
         removePendingPreDraw()
-        removePendingTransitionPivot()
         if (handoffPending) {
             return
         }
@@ -1372,7 +1456,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
 
             handoffCommitted = false
             if (root != null && nativeRemoveApplied) {
-                scheduleTransitionPivotNormalization(root)
+                applyTransitionPivot(root)
             }
             if (
                 root != null &&
@@ -1576,7 +1660,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
                             root.visibility = View.VISIBLE
                             handoffCommitted = true
                             handoffValidated = true
-                            scheduleTransitionPivotNormalization(root)
+                            applyTransitionPivot(root)
                             requestNativeLayout(root)
                             eventSink?.invoke(
                                 "nativeCombinedParticipant handoffCommit " +
@@ -1733,6 +1817,11 @@ internal object SystemUiNativeCombinedParticipantOwner {
             .takeIf { width -> width > 0 }
             ?.div(2f)
 
+    internal fun resolveTransitionPivotY(visualHeight: Int): Float? =
+        visualHeight
+            .takeIf { height -> height > 0 }
+            ?.div(2f)
+
     private fun applyTransitionPivot(root: View): Boolean {
         val visualWidth =
             renderViewRef
@@ -1740,49 +1829,15 @@ internal object SystemUiNativeCombinedParticipantOwner {
                 ?.measuredWidth
                 ?.takeIf { width -> width > 0 }
                 ?: activeSlotWidth
+        val visualHeight =
+            root.height
+                .takeIf { height -> height > 0 }
+                ?: activeSlotHeight
         val pivotX = resolveTransitionPivotX(visualWidth) ?: return false
+        val pivotY = resolveTransitionPivotY(visualHeight) ?: return false
         root.pivotX = pivotX
-        return root.pivotX == pivotX
-    }
-
-    private fun scheduleTransitionPivotNormalization(root: View) {
-        removePendingTransitionPivot()
-
-        // Combined Status deliberately keeps a zero-width layout shell so the native
-        // battery slot remains the single occupancy owner. HyperOS status-icon Folme
-        // derives pivotX from View.width during DISAPPEAR, which would collapse to 0.
-        // Keep HyperOS alpha/scale/curve ownership and bridge only the animation pivot
-        // to the verified Combined Status visual width.
-        applyTransitionPivot(root)
-
-        val observer = root.viewTreeObserver
-        if (!observer.isAlive) {
-            return
-        }
-        val listener =
-            object : ViewTreeObserver.OnPreDrawListener {
-                override fun onPreDraw(): Boolean {
-                    removePendingTransitionPivot()
-                    applyTransitionPivot(root)
-                    return true
-                }
-            }
-        pendingTransitionPivotRoot = WeakReference(root)
-        pendingTransitionPivotListener = listener
-        observer.addOnPreDrawListener(listener)
-    }
-
-    private fun removePendingTransitionPivot() {
-        val root = pendingTransitionPivotRoot?.get()
-        val listener = pendingTransitionPivotListener
-        if (root != null && listener != null) {
-            val observer = root.viewTreeObserver
-            if (observer.isAlive) {
-                observer.removeOnPreDrawListener(listener)
-            }
-        }
-        pendingTransitionPivotRoot = null
-        pendingTransitionPivotListener = null
+        root.pivotY = pivotY
+        return root.pivotX == pivotX && root.pivotY == pivotY
     }
 
     private fun setNativeRemoveFlag(
@@ -1877,12 +1932,12 @@ internal object SystemUiNativeCombinedParticipantOwner {
     @Synchronized
     fun resetRuntimeState() {
         constructorHook = null
+        appearPivotHook = null
         reset(Unit)
     }
 
     private fun <T> reset(result: T): T {
         removePendingPreDraw()
-        removePendingTransitionPivot()
         TransitionDiagnosticProbe.stop()
         if (handoffCommitted) {
             handoffSink?.invoke(false)
