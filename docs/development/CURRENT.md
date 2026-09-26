@@ -10,7 +10,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Integration branch: `dev`
 - Integration runtime baseline: Build 377, commit `f64fe0e3992eab4dd62ff479c3765d834ec7dfa4`
 - Active work branch: `feat/native-panel-transition`
-- Active runtime checkpoint: Build 391 (attach-state slot-geometry correction)
+- Active runtime checkpoint: Build 392 (stable-host slot-snapshot correction)
 - Build 385 trusted validation head: `d3533828e82a335eab0b3e661cfadd4e70ebee27` (history-synced tree; runtime-equivalent to Build 385)
 - Active PR: #100, `feat/native-panel-transition -> dev`
 - Target profile: HyperOS SystemUI `17.03.260226.r`
@@ -238,8 +238,24 @@ Build 391:
 - Extracted APK size: `3375134` bytes
 - Device validation: pending
 
-No merge to `dev` until Build 391 passes both uncharged-attach and charging-attach regressions.
+Build 391 device result: **rejected**. The source selection changed from measured width to laid-out width, but the charging-attached session still resolves a 135px participant.
+
+New exact evidence explains why: the existing `StatusBarStableSession` captures `statusIconsWidth=478` first, while the native battery slot is still the ordinary 105px contract. About one second later, before native participant attach, HyperOS charging presentation has already relaid the same `MiuiStatusIconContainer` to 448px. Build 391 therefore reads `layoutWidth=448` and `measuredWidth=448` and still resolves `135px`.
+
+**Confirmed Build 392 root cause:** the remaining defect is not layout-vs-measurement selection; it is lifecycle timing. The stable geometry exists and is already captured by the host-scoped stable session, but the native participant ignores that earlier authoritative snapshot and samples the live container after charging presentation has mutated it.
+
+**Selected Build 392 correction:** expose the existing host-scoped one-shot `StatusBarStableSession.SlotMetrics` snapshot and let native participant slot resolution prefer its captured `statusIconsWidth`. Live layout/measured width remain fail-native fallbacks only if no matching stable snapshot exists. No new hook, observer, poller, animation writer, or peer geometry write is added.
+
+No merge to `dev` until Build 392 passes both attach-order regressions.
+
+Build 392:
+- versionName: `0.0.1`
+- buildId: `20260927-392`
+- expected failing-path evidence: `stableCaptureStatusIconsWidth=478`, live `statusIconsLayoutWidth=448`, `resolvedStatusIconsWidth=478`, `resolvedSlot=105x108`
+- Fast Build: pending
+- Work Branch Canary: pending
+- Device validation: pending
 
 ## Immediate next step
 
-Device-test the signed Build 391 Canary in both attach orders: A) reload while uncharged -> charge; B) reload while already charging -> unplug/replug. The two cases must converge to the same 105px stable slot identity and preserve peer spacing, right-edge containment, native APPEAR, and panel first/last-frame alignment.
+Run Build 392 Fast CI and signed Canary. Then retest the charging-attached reproducer first. The diagnostic must show the stable 478px host snapshot winning over the later 448px charging layout and resolving a 105px participant. If that passes, repeat the uncharged-attach path and the existing APPEAR/panel regression checks.
