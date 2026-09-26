@@ -11,25 +11,36 @@ import java.lang.reflect.Field
 import java.lang.reflect.Method
 
 internal object SystemUiNativeBatterySuppressionOwner {
-    const val HOOK_COUNT = 1
+    const val HOOK_COUNT = 2
 
     private const val BATTERY_CONTAINER_CLASS_NAME =
         "com.android.systemui.statusbar.views.MiuiStatusBatteryContainer"
+    private const val BATTERY_VIEW_CLASS_NAME =
+        "com.android.systemui.statusbar.views.MiuiBatteryMeterView"
     private const val SET_HIDE_METHOD_NAME = "setIsHideBattery"
+    private const val UPDATE_CHARGE_METHOD_NAME = "updateChargeAndText"
     private const val HIDE_FIELD_NAME = "mIsHideBattery"
+    private const val CHARGING_VIEW_FIELD_NAME = "mBatteryChargingView"
     private const val HIDE_HOOK_ID =
         "combinedstatus.nativeBatterySuppression.setIsHideBattery"
+    private const val CHARGE_REFRESH_HOOK_ID =
+        "combinedstatus.nativeBatterySuppression.updateChargeAndText"
 
     private var hideHookHandle: HookHandle? = null
+    private var chargeRefreshHookHandle: HookHandle? = null
     private var hideField: Field? = null
     private var hideOriginInvoker: XposedInterface.Invoker<*, Method>? = null
+    private var chargingViewField: Field? = null
     private var activeContainer: WeakReference<Any>? = null
+    private var activeBatteryView: WeakReference<ViewGroup>? = null
+    private var presentationMasks: Array<PresentationMaskState> = emptyArray()
     private var latestNativeHideRequest: Boolean? = null
     private var suppressionActive = false
     private var eventSink: ((String) -> Unit)? = null
 
     val installedHookCount: Int
-        @Synchronized get() = if (hideHookHandle != null) 1 else 0
+        @Synchronized get() =
+            listOf(hideHookHandle, chargeRefreshHookHandle).count { it != null }
 
     @Synchronized
     fun install(
@@ -42,6 +53,7 @@ internal object SystemUiNativeBatterySuppressionOwner {
             return InstallResult.AlreadyInstalled
         }
 
+        val createdHandles = mutableListOf<HookHandle>()
         return runCatching {
             val containerClass =
                 Class.forName(
@@ -77,22 +89,62 @@ internal object SystemUiNativeBatterySuppressionOwner {
                     .getInvoker(hideMethod)
                     .setType(XposedInterface.Invoker.Type.ORIGIN)
 
+            val batteryClass =
+                Class.forName(
+                    BATTERY_VIEW_CLASS_NAME,
+                    false,
+                    classLoader,
+                )
+            val updateChargeMethod =
+                batteryClass
+                    .getDeclaredMethod(UPDATE_CHARGE_METHOD_NAME)
+                    .apply {
+                        check(returnType == Void.TYPE) {
+                            "battery-charge-refresh-return-type-mismatch"
+                        }
+                        isAccessible = true
+                    }
+            val chargingField =
+                batteryClass
+                    .getDeclaredField(CHARGING_VIEW_FIELD_NAME)
+                    .apply {
+                        check(View::class.java.isAssignableFrom(type)) {
+                            "battery-charging-view-field-type-mismatch"
+                        }
+                        isAccessible = true
+                    }
+
             val hideHandle =
                 module
                     .hook(hideMethod)
                     .setId(HIDE_HOOK_ID)
                     .intercept(hideRequestHooker())
+                    .also(createdHandles::add)
+            val refreshHandle =
+                module
+                    .hook(updateChargeMethod)
+                    .setId(CHARGE_REFRESH_HOOK_ID)
+                    .intercept(chargePresentationHooker())
+                    .also(createdHandles::add)
 
             hideField = field
             hideOriginInvoker = originInvoker
+            chargingViewField = chargingField
             hideHookHandle = hideHandle
+            chargeRefreshHookHandle = refreshHandle
             eventSink = onEvent
             InstallResult.Installed
         }.getOrElse { error ->
+            createdHandles.forEach { handle ->
+                runCatching { handle.unhook() }
+            }
             runCatching { hideHookHandle?.unhook() }
+            runCatching { chargeRefreshHookHandle?.unhook() }
             hideHookHandle = null
+            chargeRefreshHookHandle = null
             hideField = null
             hideOriginInvoker = null
+            chargingViewField = null
             clearOwnedStateLocked()
             eventSink = onEvent
             InstallResult.Failure(
@@ -109,7 +161,8 @@ internal object SystemUiNativeBatterySuppressionOwner {
         if (
             installedHookCount != HOOK_COUNT ||
             hideField == null ||
-            hideOriginInvoker == null
+            hideOriginInvoker == null ||
+            chargingViewField == null
         ) {
             return StateResult.Failure("hook-not-ready")
         }
@@ -120,12 +173,20 @@ internal object SystemUiNativeBatterySuppressionOwner {
         val container =
             hostView.directChild(BATTERY_CONTAINER_CLASS_NAME)
                 ?: return StateResult.Failure("battery-container-missing")
+        val batteryView =
+            (container as? ViewGroup)
+                ?.directChild(BATTERY_VIEW_CLASS_NAME) as? ViewGroup
+                ?: return StateResult.Failure("battery-view-missing")
 
         val sameSession =
             suppressionActive &&
-                activeContainer?.get() === container
+                activeContainer?.get() === container &&
+                activeBatteryView?.get() === batteryView
 
-        if (!sameSession && activeContainer?.get() != null) {
+        if (
+            !sameSession &&
+            (activeContainer?.get() != null || activeBatteryView?.get() != null)
+        ) {
             if (!restorePreviousLocked()) {
                 return StateResult.Failure("previous-session-restore-failed")
             }
@@ -140,6 +201,7 @@ internal object SystemUiNativeBatterySuppressionOwner {
             } ?: return StateResult.Failure("native-hide-state-unavailable")
 
         activeContainer = WeakReference(container)
+        activeBatteryView = WeakReference(batteryView)
         latestNativeHideRequest = nativeRequestedHide
         suppressionActive = true
 
@@ -150,11 +212,21 @@ internal object SystemUiNativeBatterySuppressionOwner {
             )
         val beforeHide = readNativeHideLocked(container)
         if (!invokeOriginHideLocked(container, effectiveHide)) {
-            runCatching {
-                invokeOriginHideLocked(container, nativeRequestedHide)
-            }
+            runCatching { invokeOriginHideLocked(container, nativeRequestedHide) }
             clearOwnedStateLocked()
             return StateResult.Failure("effective-hide-commit-failed")
+        }
+
+        val mask =
+            applyPresentationMaskLocked(
+                batteryView = batteryView,
+                preserveExistingNativeAlpha = sameSession,
+            )
+        if (mask.failureReason != null) {
+            restorePresentationMasksLocked()
+            runCatching { invokeOriginHideLocked(container, nativeRequestedHide) }
+            clearOwnedStateLocked()
+            return StateResult.Failure(mask.failureReason)
         }
 
         val result =
@@ -162,7 +234,9 @@ internal object SystemUiNativeBatterySuppressionOwner {
                 source = source,
                 nativeRequestedHide = nativeRequestedHide,
                 effectiveHide = effectiveHide,
+                maskedChildren = mask.maskedChildren,
                 layoutChanged = beforeHide != effectiveHide,
+                visualChanged = mask.alphaWrites > 0 || mask.visibilityWrites > 0,
             )
         eventSink?.invoke(result.logLine)
         return result
@@ -174,11 +248,14 @@ internal object SystemUiNativeBatterySuppressionOwner {
         val nativeRequestedHide = latestNativeHideRequest
 
         if (!suppressionActive || container == null || nativeRequestedHide == null) {
+            val restoredChildren = restorePresentationMasksLocked()
             clearOwnedStateLocked()
             return StateResult.Inactive(
                 source = source,
                 restoredNativeHide = nativeRequestedHide,
+                restoredChildren = restoredChildren,
                 layoutChanged = false,
+                visualChanged = restoredChildren > 0,
             )
         }
 
@@ -187,11 +264,14 @@ internal object SystemUiNativeBatterySuppressionOwner {
             return StateResult.Failure("native-hide-restore-failed")
         }
 
+        val restoredChildren = restorePresentationMasksLocked()
         val result =
             StateResult.Inactive(
                 source = source,
                 restoredNativeHide = nativeRequestedHide,
+                restoredChildren = restoredChildren,
                 layoutChanged = beforeHide != nativeRequestedHide,
+                visualChanged = restoredChildren > 0,
             )
         clearOwnedStateLocked()
         eventSink?.invoke(result.logLine)
@@ -202,9 +282,12 @@ internal object SystemUiNativeBatterySuppressionOwner {
     fun resetRuntimeState(source: String) {
         deactivate(source)
         runCatching { hideHookHandle?.unhook() }
+        runCatching { chargeRefreshHookHandle?.unhook() }
         hideHookHandle = null
+        chargeRefreshHookHandle = null
         hideField = null
         hideOriginInvoker = null
+        chargingViewField = null
         clearOwnedStateLocked()
         eventSink = null
     }
@@ -250,9 +333,50 @@ internal object SystemUiNativeBatterySuppressionOwner {
                     "nativeRequestedHide=" + requested +
                     " effectiveHide=" + effectiveHide +
                     " verified=" + verified +
-                    " contract=MiuiStatusBatteryContainer.setIsHideBattery(composed-owner) " +
+                    " contract=MiuiStatusBatteryContainer.setIsHideBattery(composed-layout-owner) " +
                     "moduleLayoutWrites=0 nativeGeometryWrites=1",
             )
+            result
+        }
+
+    private fun chargePresentationHooker(): Hooker =
+        Hooker { chain ->
+            val result = chain.proceed()
+            val batteryView = chain.thisObject as? ViewGroup
+                ?: return@Hooker result
+            val snapshot =
+                synchronized(this) {
+                    if (
+                        !suppressionActive ||
+                        activeBatteryView?.get() !== batteryView
+                    ) {
+                        null
+                    } else {
+                        applyPresentationMaskLocked(
+                            batteryView = batteryView,
+                            preserveExistingNativeAlpha = true,
+                        )
+                    }
+                }
+            if (
+                snapshot != null &&
+                snapshot.failureReason == null &&
+                (snapshot.alphaWrites > 0 || snapshot.visibilityWrites > 0)
+            ) {
+                eventSink?.invoke(
+                    "nativeBatterySuppression revalidate " +
+                        "source=" + UPDATE_CHARGE_METHOD_NAME +
+                        " maskedChildren=" + snapshot.maskedChildren +
+                        " chargingTarget=" + snapshot.chargingTargetPresent +
+                        " chargingNativeVisibility=" +
+                        visibilityName(snapshot.chargingNativeVisibility) +
+                        " chargingAppliedVisibility=" +
+                        visibilityName(snapshot.chargingAppliedVisibility) +
+                        " alphaWrites=" + snapshot.alphaWrites +
+                        " visibilityWrites=" + snapshot.visibilityWrites +
+                        " visualChanged=true moduleLayoutWrites=0 nativeGeometryWrites=0",
+                )
+            }
             result
         }
 
@@ -261,14 +385,185 @@ internal object SystemUiNativeBatterySuppressionOwner {
         val container = activeContainer?.get()
         val nativeRequestedHide = latestNativeHideRequest
         if (container == null || nativeRequestedHide == null) {
+            restorePresentationMasksLocked()
             clearOwnedStateLocked()
             return true
         }
         if (!invokeOriginHideLocked(container, nativeRequestedHide)) {
             return false
         }
+        restorePresentationMasksLocked()
         clearOwnedStateLocked()
         return true
+    }
+
+    private fun applyPresentationMaskLocked(
+        batteryView: ViewGroup,
+        preserveExistingNativeAlpha: Boolean,
+    ): PresentationMaskSnapshot {
+        val chargingView =
+            runCatching {
+                chargingViewField?.get(batteryView) as? View
+            }.getOrNull()
+        if (batteryView.childCount <= 0 && chargingView == null) {
+            return PresentationMaskSnapshot.failure(
+                reason = "battery-presentation-children-missing",
+            )
+        }
+
+        val previous = presentationMasks
+        val next = mutableListOf<PresentationMaskState>()
+        val targets = mutableListOf<View>()
+
+        for (index in 0 until batteryView.childCount) {
+            targets += batteryView.getChildAt(index)
+        }
+        if (
+            chargingView != null &&
+            targets.none { child -> child === chargingView }
+        ) {
+            targets += chargingView
+        }
+
+        targets.forEach { child ->
+            val existing =
+                previous.firstOrNull { state ->
+                    state.view.get() === child
+                }
+            val controlsChargingVisibility = child === chargingView
+            val currentVisibility = child.visibility
+            val nativeVisibility =
+                if (!controlsChargingVisibility) {
+                    null
+                } else if (
+                    existing != null &&
+                    existing.appliedVisibility != null &&
+                    currentVisibility == existing.appliedVisibility
+                ) {
+                    existing.nativeVisibility
+                } else {
+                    currentVisibility
+                }
+            val appliedVisibility =
+                nativeVisibility?.let { visibility ->
+                    resolveChargingPresentationVisibility(
+                        nativeVisibility = visibility,
+                        suppressionActive = true,
+                    )
+                }
+            next +=
+                PresentationMaskState(
+                    view = WeakReference(child),
+                    nativeAlpha =
+                        if (preserveExistingNativeAlpha && existing != null) {
+                            existing.nativeAlpha
+                        } else {
+                            child.alpha
+                        },
+                    nativeVisibility = nativeVisibility,
+                    appliedVisibility = appliedVisibility,
+                )
+        }
+
+        val nextViews =
+            next
+                .mapNotNull { state -> state.view.get() }
+                .toSet()
+        previous
+            .filter { state ->
+                val view = state.view.get()
+                view != null && view !in nextViews
+            }
+            .forEach { state ->
+                restorePresentationMaskLocked(state)
+            }
+
+        presentationMasks =
+            next
+                .distinctBy { state ->
+                    state.view.get()?.let(System::identityHashCode)
+                }
+                .toTypedArray()
+
+        var masked = 0
+        var alphaWrites = 0
+        var visibilityWrites = 0
+        presentationMasks.forEach { state ->
+            val child = state.view.get() ?: return@forEach
+            val targetAlpha =
+                resolvePresentationChildAlpha(
+                    nativeAlpha = state.nativeAlpha,
+                    suppressionActive = true,
+                )
+            if (child.alpha != targetAlpha) {
+                child.alpha = targetAlpha
+                alphaWrites += 1
+            }
+
+            val targetVisibility = state.appliedVisibility
+            if (
+                targetVisibility != null &&
+                child.visibility != targetVisibility
+            ) {
+                child.visibility = targetVisibility
+                visibilityWrites += 1
+            }
+
+            if (
+                child.alpha == targetAlpha &&
+                (targetVisibility == null || child.visibility == targetVisibility)
+            ) {
+                masked += 1
+            }
+        }
+
+        val chargingState =
+            presentationMasks.firstOrNull { state ->
+                state.view.get() === chargingView
+            }
+        return PresentationMaskSnapshot.ready(
+            maskedChildren = masked,
+            alphaWrites = alphaWrites,
+            visibilityWrites = visibilityWrites,
+            chargingTargetPresent = chargingView != null,
+            chargingNativeVisibility = chargingState?.nativeVisibility,
+            chargingAppliedVisibility = chargingState?.appliedVisibility,
+        )
+    }
+
+    private fun restorePresentationMasksLocked(): Int {
+        val states = presentationMasks
+        presentationMasks = emptyArray()
+        var restored = 0
+        states.forEach { state ->
+            if (restorePresentationMaskLocked(state)) {
+                restored += 1
+            }
+        }
+        return restored
+    }
+
+    private fun restorePresentationMaskLocked(state: PresentationMaskState): Boolean {
+        val child = state.view.get() ?: return false
+        return runCatching {
+            if (child.alpha != state.nativeAlpha) {
+                child.alpha = state.nativeAlpha
+            }
+
+            val nativeVisibility = state.nativeVisibility
+            val appliedVisibility = state.appliedVisibility
+            val ownsVisibility =
+                nativeVisibility != null &&
+                    appliedVisibility != null &&
+                    appliedVisibility != nativeVisibility &&
+                    child.visibility == appliedVisibility
+            if (ownsVisibility) {
+                child.visibility = nativeVisibility
+            }
+
+            child.alpha == state.nativeAlpha &&
+                (!ownsVisibility || child.visibility == nativeVisibility)
+        }.getOrDefault(false)
     }
 
     private fun invokeOriginHideLocked(
@@ -288,7 +583,9 @@ internal object SystemUiNativeBatterySuppressionOwner {
         }.getOrNull()
 
     private fun clearOwnedStateLocked() {
+        presentationMasks = emptyArray()
         activeContainer = null
+        activeBatteryView = null
         latestNativeHideRequest = null
         suppressionActive = false
     }
@@ -309,6 +606,38 @@ internal object SystemUiNativeBatterySuppressionOwner {
     ): Boolean =
         nativeRequestedHide || replacementActive
 
+    internal fun resolvePresentationChildAlpha(
+        nativeAlpha: Float,
+        suppressionActive: Boolean,
+    ): Float =
+        if (suppressionActive) {
+            0f
+        } else {
+            nativeAlpha
+        }
+
+    internal fun resolveChargingPresentationVisibility(
+        nativeVisibility: Int,
+        suppressionActive: Boolean,
+    ): Int =
+        if (
+            suppressionActive &&
+            nativeVisibility == View.VISIBLE
+        ) {
+            View.INVISIBLE
+        } else {
+            nativeVisibility
+        }
+
+    private fun visibilityName(visibility: Int?): String =
+        when (visibility) {
+            View.VISIBLE -> "VISIBLE"
+            View.INVISIBLE -> "INVISIBLE"
+            View.GONE -> "GONE"
+            null -> "none"
+            else -> visibility.toString()
+        }
+
     internal sealed interface InstallResult {
         data object Installed : InstallResult
         data object AlreadyInstalled : InstallResult
@@ -326,7 +655,9 @@ internal object SystemUiNativeBatterySuppressionOwner {
             val source: String,
             val nativeRequestedHide: Boolean,
             val effectiveHide: Boolean,
+            val maskedChildren: Int,
             val layoutChanged: Boolean,
+            val visualChanged: Boolean,
         ) : StateResult {
             val changed: Boolean
                 get() = layoutChanged
@@ -335,15 +666,20 @@ internal object SystemUiNativeBatterySuppressionOwner {
                 get() =
                     "active:nativeRequestedHide=" + nativeRequestedHide +
                         ",effectiveHide=" + effectiveHide +
-                        ",layoutChanged=" + layoutChanged
+                        ",maskedChildren=" + maskedChildren +
+                        ",layoutChanged=" + layoutChanged +
+                        ",visualChanged=" + visualChanged
 
             override val logLine: String
                 get() =
                     "nativeBatterySuppression active source=" + source +
                         " nativeRequestedHide=" + nativeRequestedHide +
                         " effectiveHide=" + effectiveHide +
+                        " maskedChildren=" + maskedChildren +
                         " layoutChanged=" + layoutChanged +
-                        " contract=MiuiStatusBatteryContainer.setIsHideBattery(composed-owner) " +
+                        " visualChanged=" + visualChanged +
+                        " contract=MiuiStatusBatteryContainer.setIsHideBattery(composed-layout-owner)+" +
+                        "MiuiBatteryMeterView.children.alpha+mBatteryChargingView.visibility " +
                         "moduleLayoutWrites=0 rootVisibilityWrites=0 rootAlphaWrites=0 rootTranslationWrites=0 " +
                         "nativeGeometryWrites=" + if (layoutChanged) 1 else 0
         }
@@ -351,7 +687,9 @@ internal object SystemUiNativeBatterySuppressionOwner {
         data class Inactive(
             val source: String,
             val restoredNativeHide: Boolean?,
+            val restoredChildren: Int,
             val layoutChanged: Boolean,
+            val visualChanged: Boolean,
         ) : StateResult {
             val changed: Boolean
                 get() = layoutChanged
@@ -359,14 +697,19 @@ internal object SystemUiNativeBatterySuppressionOwner {
             override val summary: String
                 get() =
                     "inactive:restoredNativeHide=" + restoredNativeHide +
-                        ",layoutChanged=" + layoutChanged
+                        ",restoredChildren=" + restoredChildren +
+                        ",layoutChanged=" + layoutChanged +
+                        ",visualChanged=" + visualChanged
 
             override val logLine: String
                 get() =
                     "nativeBatterySuppression inactive source=" + source +
                         " restoredNativeHide=" + restoredNativeHide +
+                        " restoredChildren=" + restoredChildren +
                         " layoutChanged=" + layoutChanged +
-                        " contract=MiuiStatusBatteryContainer.setIsHideBattery(composed-owner) " +
+                        " visualChanged=" + visualChanged +
+                        " contract=MiuiStatusBatteryContainer.setIsHideBattery(composed-layout-owner)+" +
+                        "MiuiBatteryMeterView.children.alpha+mBatteryChargingView.visibility " +
                         "moduleLayoutWrites=0 rootVisibilityWrites=0 rootAlphaWrites=0 rootTranslationWrites=0 " +
                         "nativeGeometryWrites=" + if (layoutChanged) 1 else 0
         }
@@ -382,6 +725,56 @@ internal object SystemUiNativeBatterySuppressionOwner {
                     "nativeBatterySuppression unavailable reason=" + reason +
                         " moduleLayoutWrites=0 nativeGeometryWrites=0 " +
                         "rootVisibilityWrites=0 rootAlphaWrites=0 rootTranslationWrites=0"
+        }
+    }
+
+    private data class PresentationMaskState(
+        val view: WeakReference<View>,
+        val nativeAlpha: Float,
+        val nativeVisibility: Int?,
+        val appliedVisibility: Int?,
+    )
+
+    private data class PresentationMaskSnapshot(
+        val maskedChildren: Int,
+        val alphaWrites: Int,
+        val visibilityWrites: Int,
+        val chargingTargetPresent: Boolean,
+        val chargingNativeVisibility: Int?,
+        val chargingAppliedVisibility: Int?,
+        val failureReason: String?,
+    ) {
+        companion object {
+            fun ready(
+                maskedChildren: Int,
+                alphaWrites: Int,
+                visibilityWrites: Int,
+                chargingTargetPresent: Boolean,
+                chargingNativeVisibility: Int?,
+                chargingAppliedVisibility: Int?,
+            ): PresentationMaskSnapshot =
+                PresentationMaskSnapshot(
+                    maskedChildren = maskedChildren,
+                    alphaWrites = alphaWrites,
+                    visibilityWrites = visibilityWrites,
+                    chargingTargetPresent = chargingTargetPresent,
+                    chargingNativeVisibility = chargingNativeVisibility,
+                    chargingAppliedVisibility = chargingAppliedVisibility,
+                    failureReason = null,
+                )
+
+            fun failure(
+                reason: String,
+            ): PresentationMaskSnapshot =
+                PresentationMaskSnapshot(
+                    maskedChildren = 0,
+                    alphaWrites = 0,
+                    visibilityWrites = 0,
+                    chargingTargetPresent = false,
+                    chargingNativeVisibility = null,
+                    chargingAppliedVisibility = null,
+                    failureReason = reason,
+                )
         }
     }
 }

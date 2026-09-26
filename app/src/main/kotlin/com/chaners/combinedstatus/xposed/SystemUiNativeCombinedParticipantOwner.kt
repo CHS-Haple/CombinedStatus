@@ -1447,8 +1447,8 @@ internal object SystemUiNativeCombinedParticipantOwner {
                 override fun onPreDraw(): Boolean {
                     removePendingPreDraw()
                     synchronized(this@SystemUiNativeCombinedParticipantOwner) {
-                        handoffPending = false
-                        if (
+                        try {
+                            if (
                             rootRef?.get() !== root ||
                             targetBindingState !== bindingState
                         ) {
@@ -1584,6 +1584,9 @@ internal object SystemUiNativeCombinedParticipantOwner {
                                     " bridgeReady=" + bridgeReady +
                                     " overlayActive=true nativeGeometryWrites=0",
                             )
+                        }
+                        } finally {
+                            handoffPending = false
                         }
                     }
                     return true
