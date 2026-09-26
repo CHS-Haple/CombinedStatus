@@ -2450,3 +2450,16 @@ Build 395 temporarily changed `MiuiStatusBatteryContainer.mIsHideBattery` to fal
 ### Acceptance gate
 
 Build 396 must validate normal Home spacing, charging-island enter/steady/exit, cold SystemUI start while already charging, feature disable/enable and same-architecture Hot Reload. Partial shade-held visibility remains Phase 2B.
+
+### Build 395 CI / Canary result
+
+- Source commit: `632812ba4bbaedca3d42b26c937537479c2a6626`.
+- Fast PR Build workflow #1045 (`36271668949`): **success**.
+- Signed Work Branch Canary #304 (`36271854940`): **success**.
+- Unit tests and Canary assembly passed.
+- pinned HyperOS target-profile verification passed.
+- Modern Xposed metadata/API/scope/Hot Reload metadata verification passed.
+- Haple signing certificate verification passed.
+- Canary non-debuggable verification passed.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260927-395-canary.apk`.
+- Device validation remains pending; Build 395 is not promoted to `dev`.
