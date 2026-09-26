@@ -71,7 +71,9 @@ Build 384:
 - commit: `b838b8dfcdf90f575dba3485b0094dfa5c8aacdf`
 - Fast Build #1020: success
 - Work Branch Canary #287: success
-- Signed non-debuggable Canary artifact: produced
+- Development-memory sync revalidation Fast Build #1023: success
+- Development-memory sync revalidation Work Branch Canary #288: success
+- Signed non-debuggable Canary artifact: produced from both runtime-equivalent Canary checkpoints
 - Diagnostic validation: received and analyzed
 - Visual acceptance: still requires user-visible confirmation; the diagnostic itself proves the pivot bridge is overwritten during enable
 

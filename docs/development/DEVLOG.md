@@ -423,7 +423,11 @@ Build 383's read-only battery-owner diagnostics remain present.
 
 - Fast Build #1020: success.
 - Work Branch Canary #287: success.
+- The later development-memory synchronization commit changed only repository governance/development-history files and did not change APK/runtime source or build identity.
+- Fast Build #1023 revalidated the same Build 384 runtime source after that documentation synchronization: success.
+- Work Branch Canary #288 revalidated the same Build 384 runtime source after that documentation synchronization: success.
 - Signed non-debuggable Canary artifact `CombinedStatus-0.0.1-HyperOS-20260926-384-canary.apk` produced.
+- Latest extracted APK SHA-256 after Canary #288: `9551d931012c75eb9ba3a37596d7e0564fc1f16850683759c86a983aaf37f235`.
 - Device validation remains required; CI is not runtime proof.
 
 ### Required device scenarios
