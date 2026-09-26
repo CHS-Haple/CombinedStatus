@@ -2,6 +2,7 @@ package com.chaners.combinedstatus.xposed
 
 import android.os.SystemClock
 import android.view.View
+import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import io.github.libxposed.api.XposedInterface.HookHandle
 import io.github.libxposed.api.XposedInterface.Hooker
@@ -99,6 +100,10 @@ internal object SystemUiIslandMotionSource {
                             if (views.isNotEmpty()) {
                                 DiagnosticProbe.start(
                                     views = views,
+                                    statusChildren =
+                                        collectStatusChildren(
+                                            views["mStatusContainer"] as? ViewGroup,
+                                        ),
                                     onEvent = onEvent,
                                     isProbeEnabled = isProbeEnabled,
                                 )
@@ -182,6 +187,80 @@ internal object SystemUiIslandMotionSource {
         )
     }
 
+    private fun collectStatusChildren(
+        group: ViewGroup?,
+    ): List<TrackedStatusChild> {
+        if (group == null) {
+            return emptyList()
+        }
+        return (0 until group.childCount)
+            .mapNotNull { index ->
+                val child = group.getChildAt(index) ?: return@mapNotNull null
+                val slot =
+                    runCatching {
+                        child.javaClass.methods
+                            .firstOrNull { method ->
+                                method.name == "getSlot" &&
+                                    method.parameterCount == 0 &&
+                                    method.returnType == String::class.java
+                            }
+                            ?.invoke(child) as? String
+                    }.getOrNull()
+                        ?: child.resources
+                            ?.let { resources ->
+                                runCatching {
+                                    if (child.id != View.NO_ID) {
+                                        resources.getResourceEntryName(child.id)
+                                    } else {
+                                        null
+                                    }
+                                }.getOrNull()
+                            }
+                        ?: child.javaClass.simpleName
+                if (
+                    child.visibility != View.VISIBLE &&
+                    slot != SystemUiNativeCombinedParticipantOwner.SLOT
+                ) {
+                    return@mapNotNull null
+                }
+                TrackedStatusChild(
+                    index = index,
+                    slot = slot,
+                    view = WeakReference(child),
+                )
+            }
+            .sortedByDescending { item ->
+                item.view.get()?.let { view ->
+                    val location = IntArray(2)
+                    view.getLocationOnScreen(location)
+                    location[0]
+                } ?: Int.MIN_VALUE
+            }
+            .take(MAX_TRACKED_STATUS_CHILDREN)
+    }
+
+    private data class TrackedStatusChild(
+        val index: Int,
+        val slot: String,
+        val view: WeakReference<View>,
+    ) {
+        fun snapshot(): String {
+            val target = view.get()
+                ?: return index.toString() + ":" + slot + "={released}"
+            val location = IntArray(2)
+            target.getLocationOnScreen(location)
+            return index.toString() + ":" + slot + "={" +
+                "left=" + target.left +
+                ",screenX=" + location[0] +
+                ",w=" + target.width +
+                ",mw=" + target.measuredWidth +
+                ",tx=" + target.translationX +
+                ",a=" + target.alpha +
+                ",v=" + target.visibility +
+                "}"
+        }
+    }
+
     private object DiagnosticProbe {
         private var generation = 0
         private var activeRoot = WeakReference<View>(null)
@@ -190,6 +269,7 @@ internal object SystemUiIslandMotionSource {
 
         fun start(
             views: Map<String, View>,
+            statusChildren: List<TrackedStatusChild>,
             onEvent: (String) -> Unit,
             isProbeEnabled: () -> Boolean,
         ) {
@@ -211,10 +291,21 @@ internal object SystemUiIslandMotionSource {
                         return@OnPreDrawListener true
                     }
                     frame += 1
-                    val snapshot =
+                    val ownerSnapshot =
                         views.entries.joinToString(" ") { (name, view) ->
                             name + "=" + motion(view)
                         }
+                    val childSnapshot =
+                        if (statusChildren.isEmpty()) {
+                            "statusChildren=none"
+                        } else {
+                            "statusChildren=[" +
+                                statusChildren.joinToString(";") { item ->
+                                    item.snapshot()
+                                } +
+                                "]"
+                        }
+                    val snapshot = ownerSnapshot + " " + childSnapshot
                     if (snapshot != previous && samples < MAX_SAMPLES) {
                         previous = snapshot
                         samples += 1
@@ -283,4 +374,5 @@ internal object SystemUiIslandMotionSource {
     }
 
     private const val FOLLOW_DURATION_MS = 900L
+    private const val MAX_TRACKED_STATUS_CHILDREN = 10
 }
