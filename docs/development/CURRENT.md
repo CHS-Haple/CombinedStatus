@@ -172,6 +172,31 @@ The static architecture gate is now satisfied for the first 0.0.2 runtime checkp
 
 Build 394 must not implement Phase-2B Home -> shade / Control Center projection, Keyguard/AOD, or user-facing size/spacing controls. Its device validation exists to prove the new Home carrier, restoration, island inheritance, and fail-native boundary before the superseded participant path is retired.
 
+
+## Build 394 device rejection — charging geometry
+
+Focused device validation on the pinned target rejects Build 394 for Phase 2A promotion:
+
+- normal Home composition is broadly functional and the new overlay/ignored-slot/clip-mask carrier activates successfully;
+- during charging/Super-Island entry the end-side composition shows a visible two-step motion / twitch rather than one coherent native motion;
+- when SystemUI starts while already charging, Combined Status-to-neighbor optical spacing is larger than the non-charging steady state;
+- brief shade pull-down / final held return can still show the Home Combined Status visual; this is classified separately as Phase 2B transition/handoff work, not the Build-394 Phase-2A root cause.
+
+The diagnostic confirms the new Home carrier is active (`MiuiNotificationStatusContainer.overlay`), represented slots are excluded through the scoped native measure/layout contract, clip masking is active, and no native translation/alpha/visibility writer is added. The failure is therefore not a rollback to the superseded custom-participant path.
+
+### Root-cause correction
+
+Source review shows Build 394 did **not** actually route Home geometry through `CombinedStatusLayoutPolicy.resolve()`. `CombinedStatusHomeRenderSession` still resolves the renderer rectangle directly from the live `MiuiBatteryMeterView` descendant bounds and lays the overlay View to that rectangle.
+
+Exact target JADX evidence also confirms that charging-island entry changes `MiuiStatusBatteryContainer` layout semantics: `mIsHideBattery=true` causes `statusIcons` layout to expand into the native battery region while the battery child retains its own independent translation/fade behavior. Therefore the battery descendant is not a stable layout anchor for the Combined Status overlay during this scene.
+
+Build 395 must correct the Home geometry source rather than add a translation offset:
+
+- stable visual anchoring comes from the Home host/end-side contract, not the moving/hidden battery child;
+- native island translation remains inherited from `system_icon_area`;
+- Combined Status must reserve its end-side visual occupancy when HyperOS releases the native battery region, without overriding `mIsHideBattery` or reintroducing a permanent custom participant;
+- the shared resolved-layout contract must become the actual runtime geometry source, with width/reservation intent separated from host height so the accepted 105x108 presentation is not silently changed to a square.
+
 ## Ownership / non-negotiable boundaries
 
 - HyperOS remains authoritative for native peer layout, native scene state, native transition progress, and native live View motion.

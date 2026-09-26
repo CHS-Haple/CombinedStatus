@@ -2361,3 +2361,45 @@ This creates two independent geometry changes around one overlay: native peer oc
 
 Build 395 requires focused device validation of stable Home, island enter/steady/exit, cold start while charging, feature disable/enable and same-architecture Hot Reload before any promotion.
 
+---
+
+## 2026-09-27 — Build 394 device rejection: charging geometry
+
+**Type:** device feedback / root-cause correction  
+**Display version:** 0.0.2  
+**Build:** 394 / 20260927-394  
+**Promotion:** rejected; remains work-branch evidence
+
+### Device feedback
+
+- brief shade pull-down and final held return still show the Home Combined Status visual;
+- charging/Super-Island entry shows a visible two-step/twitch motion;
+- cold SystemUI start while already charging shows a larger Combined Status-to-neighbor gap than the non-charging state.
+
+### Evidence
+
+The Build-394 diagnostic reports a healthy runtime, `homePresentation=combined`, carrier `MiuiNotificationStatusContainer.overlay`, `representedSlots=5`, `maskedViews=6`, and `islandMotion=inherited-from-system_icon_area`, with zero Combined Status native translation/alpha/visibility writes.
+
+Static source review then found a mismatch between the documented architecture and runtime wiring: `CombinedStatusLayoutPolicy.resolve()` is not called by the Home renderer path. `CombinedStatusHomeRenderSession` still derives the overlay rectangle directly from `MiuiBatteryMeterView` descendant bounds.
+
+Exact target JADX confirms `MiuiBatteryMeterView.updateIslandChanged(...)` drives `MiuiStatusBatteryContainer.setIsHideBattery(...)`; the container's layout then allows `MiuiStatusIconContainer` to expand into the battery region while the battery child independently animates translation/alpha/scale. That makes the battery descendant unsuitable as the stable Combined Status layout anchor during island presentation.
+
+### Problem execution flow
+
+1. classify shade-held visibility separately as Phase 2B projection/handoff;
+2. keep Phase 2A focused on charging steady geometry and island enter/exit;
+3. remove Battery-child geometry from the steady Home overlay anchor;
+4. make the shared resolved-layout contract the actual runtime geometry source;
+5. establish a reversible end-side reservation only when native battery layout releases its region;
+6. preserve native `mIsHideBattery`, native host Folme translation, and fail-native cleanup.
+
+### Review boundary for Build 395
+
+- **Ownership:** SystemUI keeps battery hide and island translation; Combined Status owns only overlay bounds plus its narrow reversible end reservation.
+- **Lifecycle:** reservation state is Home HostSession-scoped and restored on every teardown/failure path.
+- **Single writer:** no battery translation/alpha/visibility writes; any reservation property requires an exact writer audit before use.
+- **Cleanup:** restore the exact pre-session value only when the live property still matches the module-applied value.
+- **Fail native:** if reservation capability or resolved geometry is unavailable, restore native visuals rather than render an overlapping overlay.
+- **Performance:** event/layout-driven only; no permanent pre-draw follower.
+- **Compatibility:** exact target only until the new reservation contract is re-proven elsewhere.
+- **Future extension:** width/gap inputs must flow through resolved layout rather than scene-specific offsets.
