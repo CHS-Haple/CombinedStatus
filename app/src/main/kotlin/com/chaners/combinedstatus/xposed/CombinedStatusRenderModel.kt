@@ -7,6 +7,9 @@ internal data class CombinedStatusRenderModel(
     val mobileLevel: Int?,
     val mobileUnavailableMark: Boolean = false,
     val effectiveDataSubscriptionId: Int,
+    val batterySemanticState: CombinedStatusBatterySemanticState =
+        CombinedStatusBatterySemanticState.NORMAL,
+    val batterySystemSemanticColor: Int? = null,
 ) {
     companion object {
         fun from(
@@ -83,13 +86,24 @@ internal data class CombinedStatusRenderModel(
                     else -> false
                 }
 
+            val batteryPercent = battery.percent.coerceIn(0, 100)
+            val batterySemanticState =
+                battery.semanticState
+                    ?: when {
+                        battery.charging -> CombinedStatusBatterySemanticState.CHARGING
+                        batteryPercent <= 19 -> CombinedStatusBatterySemanticState.LOW
+                        else -> CombinedStatusBatterySemanticState.NORMAL
+                    }
+
             return CombinedStatusRenderModel(
-                batteryPercent = battery.percent.coerceIn(0, 100),
+                batteryPercent = batteryPercent,
                 charging = battery.charging,
                 centerIndicator = centerIndicator,
                 mobileLevel = mobileLevel,
                 mobileUnavailableMark = mobileUnavailableMark,
                 effectiveDataSubscriptionId = selectedSubscriptionId,
+                batterySemanticState = batterySemanticState,
+                batterySystemSemanticColor = battery.systemSemanticColor,
             )
         }
     }

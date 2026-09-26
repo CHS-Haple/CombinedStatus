@@ -1085,7 +1085,8 @@ class CombinedStatusModule : XposedModule() {
                 "expectedHooks" to SystemUiBatteryStateSource.HOOK_COUNT,
                 "source" to source,
                 "authority" to
-                    "MiuiBatteryMeterView.onBatteryLevelChanged(int,boolean,boolean)",
+                    "MiuiBatteryMeterIconView.getProgressStatus() via " +
+                    "MiuiBatteryMeterView battery callbacks",
                 "eventDriven" to true,
             )
         }.onFailure { error ->

@@ -13,34 +13,29 @@ internal object CombinedStatusColorPolicy {
         model: CombinedStatusRenderModel,
         tintState: CombinedStatusTintState,
         visualSettings: CombinedStatusVisualSettings = CombinedStatusVisualSettings(),
+        batteryColorPreferences: CombinedStatusBatteryColorPreferences =
+            CombinedStatusBatteryColorPreferences(),
     ): CombinedStatusColors {
         val nativeParticipantTint =
             tintState.statusIconTint
                 ?.takeIf { color -> (color ushr 24) != 0 }
                 ?: tintState.appliedTint
         val batteryTint =
-            if (model.charging) {
-                CHARGING_TINT
-            } else {
-                nativeParticipantTint
-            }
+            CombinedStatusBatteryColorPolicy.resolve(
+                state = model.batterySemanticState,
+                systemSemanticColor = model.batterySystemSemanticColor,
+                statusIconTint = nativeParticipantTint,
+                preferences = batteryColorPreferences,
+            )
 
         return CombinedStatusColors(
             centerTint =
-                if (visualSettings.centerFollowsBatteryColor) {
-                    batteryTint
-                } else {
-                    nativeParticipantTint
-                },
+                if (visualSettings.centerFollowsBatteryColor) batteryTint
+                else nativeParticipantTint,
             mobileTint =
-                if (visualSettings.mobileFollowsBatteryColor) {
-                    batteryTint
-                } else {
-                    nativeParticipantTint
-                },
+                if (visualSettings.mobileFollowsBatteryColor) batteryTint
+                else nativeParticipantTint,
             batteryTint = batteryTint,
         )
     }
-
-    internal const val CHARGING_TINT = 0xff1cb753.toInt()
 }
