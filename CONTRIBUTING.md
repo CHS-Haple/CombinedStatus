@@ -719,6 +719,19 @@ Use the three files for different purposes:
 
 Update `CURRENT.md` whenever the effective development baseline, active problem, confirmed conclusion, validation state, or immediate next step changes. Update `ROADMAP.md` when a planned direction, prerequisite, trigger, or intentionally reserved design boundary changes.
 
+Do not postpone repository-memory updates until the end of a long task. After each **meaningful engineering step** that changes what the next step should be, synchronize the affected record before continuing:
+
+- **Investigation/evidence changes the active hypothesis, blocker, or next action:** update `CURRENT.md`; append `DEVLOG.md` when the finding is a durable root-cause/architecture/compatibility conclusion.
+- **Architecture or ownership contract changes:** update the applicable `docs/architecture/` policy, `CURRENT.md`, and `ROADMAP.md` when future sequencing changes; append the decision to `DEVLOG.md`.
+- **Reusable reference evidence is added or invalidated:** update `docs/reference/`; update current/roadmap documents only when that evidence changes the active project decision.
+- **A runtime implementation checkpoint is created:** update `CURRENT.md` and create/extend the attributable `DEVLOG.md` entry before presenting the checkpoint as current.
+- **CI/device validation changes acceptance status:** update `CURRENT.md` immediately and append the actual validation result/correction to `DEVLOG.md`; never leave the previous status as the current truth.
+- **A planned phase, prerequisite, or release target changes:** update `ROADMAP.md` and, for version/release semantics, `VERSIONING.md`; synchronize README/CHANGELOG wording when their current public/net-state description is affected.
+- **A durable user-visible/net project behavior changes:** update `CHANGELOG.md`; do not add temporary probes, failed experiments, or superseded mechanisms as final net state.
+- **The active PR's real objective or acceptance boundary changes:** update the PR title/body so it describes the current branch purpose rather than an earlier checkpoint.
+
+Mechanical sub-steps that do not change engineering meaning do not require a separate log entry.
+
 `CHANGELOG.md` remains the durable net project-state record defined in section 7.2. Do not turn it into the development diary.
 
 ### 11.4 CI/build linkage and corrections
