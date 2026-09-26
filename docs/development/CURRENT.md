@@ -373,14 +373,18 @@ Exact-target evidence:
 - `MiuiBatteryMeterIconView` already holds the SystemUI-resolved semantic colors in `mBatteryChargingColor`, `mBatteryPowerSaveColor`, `mBatteryPerformanceModeColor`, and `mBatteryLowColor`.
 - Normal state remains the normal status-icon tint. The exact status-bar battery path exposes no separate super-power-save progress color.
 
-Build 400:
-- observes the existing battery callback family for level, charge, power-save and performance;
-- reads the post-native `getProgressStatus()` result instead of reconstructing the primary semantic state;
-- reads the semantic color already loaded by SystemUI rather than copying RGB constants;
-- stores semantic state + optional native semantic color in the existing battery domain snapshot and preserves them across Hot Reload;
-- removes the project hard-coded charging green from the color policy;
-- uses HyperOS System default only for the battery ring by default; existing optional center/mobile color links still consume the final battery color when enabled;
-- defines a future per-state color-source policy for all five states: **System default**, **Follow status icon tint**, or **Custom color**. No user-facing color picker/preferences are exposed yet.
+Build 400 established the semantic-color model but is superseded before device validation. Its first implementation expanded to four battery callbacks and retained a local fallback priority mirror, which is unnecessary because the exact native icon already emits one consolidated semantic update path.
+
+Build 401 narrows the runtime contract:
+- keep the existing outer Battery level callback for percent/charging state;
+- add only one semantic callback hook: `MiuiBatteryMeterIconView.onDarkChangeInternal()`;
+- after native completion, read the final private `getProgressStatus()` result; do not reconstruct HyperOS mode priority locally;
+- read the semantic color already loaded by SystemUI and honor `mMiuiOptimizationEnabled`; when HyperOS itself disables semantic optimization, fall back to status-icon tint;
+- store semantic state + optional native semantic color in the existing battery domain snapshot and preserve them across Hot Reload;
+- restore the already-observed native status-icon tint into the overlay renderer before color resolution, closing the overlay-era tint-authority gap;
+- keep Build-399 non-overlapping battery-arc compositing;
+- remove the project hard-coded charging green from the active color policy;
+- define the future per-state source choices for all five states: **System default**, **Follow status icon tint**, or **Custom color**. No user-facing picker/preferences are exposed yet.
 
 Fallback: if a native semantic color cannot be read, the ring falls back to current native status-icon tint rather than inventing a replacement color.
 
