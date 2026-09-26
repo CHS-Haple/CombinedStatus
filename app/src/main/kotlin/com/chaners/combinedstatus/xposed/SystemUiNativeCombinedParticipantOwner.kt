@@ -83,6 +83,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
     private var targetBindingState: BindingState? = null
     private var batteryRef: WeakReference<View>? = null
     private var nativeBatteryLayoutHidden = false
+    private var activeSlotBoundaryWidth = 0
     private var activeSlotTranslationX: Float? = null
     private var activeSlotWidth = 0
     private var activeSlotHeight = 0
@@ -631,6 +632,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
         hostRef = null
         batteryRef = null
         nativeBatteryLayoutHidden = false
+        activeSlotBoundaryWidth = 0
         activeSlotTranslationX = null
         activeSlotWidth = 0
         activeSlotHeight = 0
@@ -869,14 +871,12 @@ internal object SystemUiNativeCombinedParticipantOwner {
         if (battery.width <= 0 || battery.height <= 0) {
             return AttachResult.Failure("battery-geometry-not-ready")
         }
+        activeSlotBoundaryWidth = stableStatusIconsWidth
         activeSlotWidth = slotGeometry.slotWidth
         activeSlotHeight = slotGeometry.slotHeight
         activeSlotTranslationX =
             resolveNativeSlotTranslationX(
-                statusIconsWidth =
-                    statusIcons.width
-                        .takeIf { width -> width > 0 }
-                        ?: statusIcons.measuredWidth,
+                statusIconsWidth = activeSlotBoundaryWidth,
                 rootLeft = root.left,
             ) ?: return AttachResult.Failure("native-slot-translation-anchor-not-ready")
         eventSink?.invoke(
@@ -888,6 +888,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
                 " statusIconsLayoutWidth=" + statusIcons.width +
                 " statusIconsMeasuredWidth=" + statusIcons.measuredWidth +
                 " resolvedStatusIconsWidth=" + slotGeometry.statusIconsMeasuredWidth +
+                " stableSlotBoundaryWidth=" + activeSlotBoundaryWidth +
                 " privacyLayoutWidth=" + (privacy?.width ?: 0) +
                 " privacyMeasuredWidth=" + (privacy?.measuredWidth ?: 0) +
                 " resolvedPrivacyWidth=" + slotGeometry.privacyMeasuredWidth +
@@ -1880,26 +1881,28 @@ internal object SystemUiNativeCombinedParticipantOwner {
 
     private fun currentNativeSlotTranslationX(root: View): Float? =
         activeSlotTranslationX
-            ?: if (!nativeBatteryLayoutHidden) {
-                val statusIcons = root.parent as? View ?: return null
-                resolveNativeSlotTranslationX(
-                    statusIconsWidth = statusIcons.width,
-                    rootLeft = root.left,
-                )
-            } else {
-                null
-            }
+            ?: activeSlotBoundaryWidth
+                .takeIf { width -> width > 0 }
+                ?.let { boundaryWidth ->
+                    resolveNativeSlotTranslationX(
+                        statusIconsWidth = boundaryWidth,
+                        rootLeft = root.left,
+                    )
+                }
 
     private fun refreshNativeSlotTranslationX(
         root: View,
         statusIcons: View,
     ): Boolean {
-        if (nativeBatteryLayoutHidden) {
-            return activeSlotTranslationX != null
-        }
+        val boundaryWidth =
+            activeSlotBoundaryWidth
+                .takeIf { width -> width > 0 }
+                ?: statusIcons.width
+                    .takeIf { width -> width > 0 }
+                ?: return false
         val resolved =
             resolveNativeSlotTranslationX(
-                statusIconsWidth = statusIcons.width,
+                statusIconsWidth = boundaryWidth,
                 rootLeft = root.left,
             ) ?: return false
         activeSlotTranslationX = resolved
@@ -2273,6 +2276,7 @@ internal object SystemUiNativeCombinedParticipantOwner {
         hostRef = null
         batteryRef = null
         nativeBatteryLayoutHidden = false
+        activeSlotBoundaryWidth = 0
         activeSlotTranslationX = null
         activeSlotWidth = 0
         activeSlotHeight = 0
