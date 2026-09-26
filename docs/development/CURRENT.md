@@ -10,7 +10,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Integration branch: `dev`
 - Integration runtime baseline: Build 377, commit `f64fe0e3992eab4dd62ff479c3765d834ec7dfa4`
 - Active work branch: `feat/native-panel-transition`
-- Active runtime checkpoint: Build 392 (stable-host slot-snapshot correction)
+- Active runtime checkpoint: Build 393 (stable slot boundary correction)
 - Build 385 trusted validation head: `d3533828e82a335eab0b3e661cfadd4e70ebee27` (history-synced tree; runtime-equivalent to Build 385)
 - Active PR: #100, `feat/native-panel-transition -> dev`
 - Target profile: HyperOS SystemUI `17.03.260226.r`
@@ -246,7 +246,20 @@ New exact evidence explains why: the existing `StatusBarStableSession` captures 
 
 **Selected Build 392 correction:** expose the existing host-scoped one-shot `StatusBarStableSession.SlotMetrics` snapshot and let native participant slot resolution prefer its captured `statusIconsWidth`. Live layout/measured width remain fail-native fallbacks only if no matching stable snapshot exists. No new hook, observer, poller, animation writer, or peer geometry write is added.
 
-No merge to `dev` until Build 392 passes both attach-order regressions.
+Build 392 device result: **rejected for charging-state left shift in both attach orders.** The stable snapshot successfully normalizes participant width to 105px, but translation remains sourced from the live charging presentation boundary.
+
+Exact Build 392 evidence:
+- stable capture / resolved slot width: `478 -> 105px`;
+- charging live status-icon width: `448px`;
+- participant translation target at attach: `448px`;
+- therefore Combined Status occupies `448..553` in status-icon coordinates instead of the stable `478..583` end-side slot: a deterministic 30px left shift;
+- when HyperOS later expands the status-icon container for island release, the custom target can return toward 478, recreating the relative-motion split.
+
+**Confirmed Build 393 root cause:** Build 392 unified slot-width authority but left slot-position authority on the live `MiuiStatusIconContainer.width` refresh path. Stable slot identity requires width and translation to consume the same host-scoped stable boundary.
+
+**Selected Build 393 correction:** pin the module-owned slot translation boundary to the same resolved stable status-icon width used for slot width (478 in the observed target). Post-layout refresh recomputes only from that stable boundary and current root-local coordinate; live 448px charging presentation remains diagnostic/fallback evidence and no longer moves the custom slot.
+
+No merge to `dev` until Build 393 passes both attach-order charging regressions.
 
 Build 392:
 - versionName: `0.0.1`
@@ -265,6 +278,14 @@ Build 392:
 - Extracted APK size: `3375134` bytes
 - Device validation: pending
 
+Build 393:
+- versionName: `0.0.1`
+- buildId: `20260927-393`
+- expected charging evidence: `stableSlotBoundaryWidth=478`, live `statusIconsLayoutWidth=448`, `resolvedSlot=105x108`, `slotTranslationX=478.0`
+- Fast Build: pending
+- Work Branch Canary: pending
+- Device validation: pending
+
 ## Immediate next step
 
-Device-test the signed Build 392 Canary on the charging-attached reproducer first. The diagnostic must show the stable 478px host snapshot winning over the later 448px charging layout and resolving a 105px participant. If that passes, repeat the uncharged-attach path and the existing APPEAR/panel regression checks.
+Run Build 393 Fast CI and signed Canary. Then test charging steady placement first in either attach order: the custom root must remain at the stable 478px slot boundary while the live native status-icon container may shrink to 448px. If steady placement passes, repeat island enter/exit, both attach orders, native APPEAR, and panel first/last-frame regression checks.
