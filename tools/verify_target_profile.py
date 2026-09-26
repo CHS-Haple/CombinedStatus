@@ -163,6 +163,7 @@ battery_hook_constants = {
     "batteryIconChargeStateChanged": "CHARGE_STATE_METHOD_NAME",
     "batteryIconPowerSaveChanged": "POWER_SAVE_METHOD_NAME",
     "batteryIconPerformanceModeChanged": "PERFORMANCE_METHOD_NAME",
+    "batteryIconMiuiOptimizationChanged": "MIUI_OPTIMIZATION_METHOD_NAME",
 }
 for hook_name, method_constant in battery_hook_constants.items():
     hook_point = hook_points.get(hook_name)
