@@ -1072,3 +1072,30 @@ Build 388 is the current runtime checkpoint. It uses the existing authoritative 
 #### Process correction
 
 This correction is intentionally appended rather than rewriting the earlier note. The earlier acceptance statement was made from an incomplete interpretation of the recording and became inconsistent with the already-present Build 388 repository evidence. `CURRENT.md` has been corrected immediately; Build 388 CI/device validation is now the active gate.
+
+### CI validation update — Build 388
+
+- Runtime commit: `bb840c96a9d7ea2376dfb6b02048e91a9976e1fa`.
+- Fast Build #1038: **success**.
+- Work Branch Canary #297: **success**.
+- Canary checked out trusted work-branch SHA `d57f35664e435722025809d3acba456f44ee3883`; the delta after the Build 388 runtime commit is development documentation only.
+- Pinned HyperOS target profile: success.
+- Modern Xposed metadata: success.
+- Haple APK signature verification: success.
+- Canary non-debuggable verification: success.
+- Artifact ID: `10910080114`.
+- Artifact archive digest: `sha256:a18273b7f35646174db9181079b40ad0bd4027bd68238b38c2942006b894baaa`.
+- Extracted APK SHA-256: `d737521d285fdc35433c1e5b852db2063ef637362c45e0ff2ebfc9a0fece57f8`.
+- Extracted APK size: `3375134` bytes.
+
+### Post-CI review
+
+- **Authority:** the occupancy handoff is driven only by the verified native `MiuiStatusBatteryContainer.setIsHideBattery(Boolean)` result; no duplicate charging/island semantic source was added.
+- **Ownership:** while the native battery slot exists, Combined Status keeps 0px additional measured occupancy. Only after HyperOS releases that slot does the module-owned participant claim its own resolved visual width; peer geometry and live translation remain HyperOS-owned.
+- **Lifecycle:** activation seeds the current native hide value, verified hide callbacks update it, and participant reset/hot reload clears the state. No persistent polling or frame listener was added.
+- **Performance:** the new work occurs only on native hide-state changes and the resulting normal layout traversal.
+- **Fallback:** an invalid visual width does not create speculative occupancy; exact native hook/participant readiness remains fail-closed.
+
+### Remaining device gate
+
+CI proves source/build/signing/metadata correctness, not SystemUI runtime behavior. Device validation is still required for charging Super Island peer separation, right-edge containment, motion continuity, non-charging steady placement, OFF -> ON APPEAR, and shade / Control Center first/last-frame alignment. PR #100 remains unmerged until this gate passes.
