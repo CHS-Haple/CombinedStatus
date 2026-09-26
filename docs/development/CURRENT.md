@@ -5,9 +5,9 @@ This file is the concise recovery point for active Combined Status development. 
 ## Repository baseline
 
 - Last refreshed: 2026-09-26
-- Stable branch head: `main` at documentation commit `cb6430beb99a376cf8c13abe2305454d63c74122`
+- Stable branch: `main`
 - Stable runtime baseline: Build 351, commit `2477867278483b76b80ed0884de3a07c7ede668a`
-- Integration branch head: `dev` at documentation back-sync commit `c2f9ac02596f39467ed2a47891ca8043fedf41bd`
+- Integration branch: `dev`
 - Integration runtime baseline: Build 377, commit `f64fe0e3992eab4dd62ff479c3765d834ec7dfa4`
 - Active work branch: `feat/native-panel-transition`
 - Active runtime checkpoint: Build 384, commit `b838b8dfcdf90f575dba3485b0094dfa5c8aacdf`
@@ -21,6 +21,8 @@ The documentation-only branch heads above do not change their associated runtime
 ## Current integration state
 
 Build 377 remains the accepted `dev` runtime baseline. The active work branch contains Builds 378-384 and has not been merged to `dev`.
+
+PR #99 (`fix/native-visual-intensity-normalization`) remains open and unmerged; its head is not an accepted integration baseline. Shared native visual-intensity normalization is already present in the merged Build 377 line through PR #98, so any future use of PR #99 must be reconciled against current `dev` rather than assumed necessary.
 
 The current work is a runtime-sensitive geometry/transition investigation. CI success is available through Build 384, but no Build 378-384 state is accepted for integration until the focused device scenarios and ownership review are complete.
 

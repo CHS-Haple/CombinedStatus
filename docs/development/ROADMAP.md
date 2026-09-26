@@ -19,10 +19,15 @@ Current behavior belongs in `CURRENT.md`; investigation/build history belongs in
 
 The active route is to stop treating status-icon shell width as the sole control for Combined Status placement and motion.
 
-**Prerequisite evidence:**
-- Build 384 focused device validation;
-- bounded panel-boundary comparison of `mBatteryContainer`, `mBatteryView`, and `mStatusContainer`;
-- confirmation of which native object owns end-side motion across Home, shade/Control Center, island/privacy, and master-switch visibility transitions.
+**Evidence already established by Build 384:**
+- the one-shot Combined Status pivot bridge is overwritten during native APPEAR and is not a viable final animation owner;
+- bounded `homeMotion` evidence shows `mBatteryContainer` and `mBatteryView` remain co-anchored and move together through the sampled end-side motion;
+- the battery-wrapper/end-side path is therefore strengthened as a candidate, but not yet accepted.
+
+**Remaining prerequisites:**
+- source-level identification of the exact native APPEAR pivot writer;
+- verification of battery-wrapper / end-side alpha and visibility semantics across island and privacy states;
+- confirmation that a renderer under the selected native layer preserves Combined Status network visibility when native battery presentation is intentionally hidden.
 
 **Preferred direction if evidence confirms the native battery wrapper/container as a stable motion/slot owner:**
 - keep exactly one native end-side occupancy owner;
@@ -86,12 +91,12 @@ New HyperOS/SystemUI visual resources should be integrated through verified runt
 - **Permanent duplicate occupancy (native battery slot + full-width ordinary Combined Status participant): rejected for the current target.** Device evidence shows it can correct one transition path while shifting steady placement.
 - **Permanent zero-width ordinary participant as the complete architecture: deferred/rejected as a final design.** It avoids duplicate occupancy but leaves animation geometry dependent on a shell with no real width.
 - **Magic translation/margin/padding/delay compensation: rejected unless later source evidence proves no direct ownership fix is viable.**
-- **Treating Build 384 pivot normalization as final architecture: deferred.** It is a bounded experiment pending device evidence and ownership review.
+- **Treating Build 384 pivot normalization as final architecture: rejected.** Runtime evidence shows HyperOS overwrites the one-shot pivot during APPEAR; racing that writer with repeated or per-frame project writes would violate the ownership and lightweight rules.
 
 ## Update trigger
 
 Update this file when:
-- Build 384 device evidence proves or disproves the battery-wrapper ownership candidate;
+- source-level review identifies the native APPEAR geometry writer and resolves the battery-wrapper/end-side ownership decision;
 - a renderer/owner migration becomes the selected implementation route;
 - the bindable participant is narrowed or retired;
 - adaptive sizing gains a verified slot-width contract;
