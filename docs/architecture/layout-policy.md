@@ -110,7 +110,7 @@ Native transition progress, animation duration/interpolators, and target-View tr
 - Optical adjustment changes Combined Status drawing only; it does not rewrite native measured width, layout width, translation, visibility, or scene state.
 - A missing host capability remains explicit and must fail native; the resolver must not fabricate a usable slot.
 - Home, future Keyguard/AOD adapters, and later user size/spacing controls consume the same contract rather than defining parallel formulas.
-- The first source implementation of this contract is part of the first justified 0.0.2 runtime checkpoint and therefore must not be committed before the Build-394 architecture gate is otherwise satisfied.
+- The Build-394 architecture gate is now satisfied for the pinned target. The first source implementation of this contract belongs to that bounded runtime checkpoint and must not expand into Phase-2B transition, Keyguard/AOD, or user-facing sizing work.
 
 ## Native slot preservation
 
