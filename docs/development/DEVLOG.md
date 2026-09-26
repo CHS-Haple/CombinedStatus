@@ -605,7 +605,17 @@ The defect is therefore not a missing animation callback, preference delay, or r
 
 ### CI / testing
 
-Fast Build and signed Work Branch Canary are pending at source commit creation.
+- Fast Build #1031: **success**.
+- Work Branch Canary #290: **success**.
+- Canary checkout log confirms exact tested work-branch SHA `d3533828e82a335eab0b3e661cfadd4e70ebee27`.
+- Modern Xposed metadata verification: success.
+- Haple signature verification: success; APK signature verifies with v3.
+- Canary non-debuggable verification: success.
+- Artifact ID: `10907652284`.
+- Artifact archive digest: `sha256:6074e71cf5640ac5fd8d4e3d21d76a5f0603d733cba8479856ee0c756e3185fc`.
+- Extracted APK: `CombinedStatus-0.0.1-HyperOS-20260926-385-canary.apk`.
+- Extracted APK SHA-256: `c1c084b2a6b79924bcc2c2e801d3f2c1050f597bff107cbddacbcbea619e3259`.
+- Extracted APK size: `3375134` bytes.
 
 Required focused device test after CI:
 1. OFF -> ON centered APPEAR with no flash/reappearance;
@@ -616,7 +626,7 @@ Required focused device test after CI:
 
 ### Outcome / residual risk
 
-Pending CI and device evidence. If Build 385 still fails, do not add timing retries or repeated writes; reopen native end-side ownership.
+CI and signed-Canary validation passed. Device evidence remains the gate. If Build 385 still fails any focused scenario, do not add timing retries or repeated writes; reopen native end-side ownership.
 
 
 
@@ -725,4 +735,11 @@ This is intentionally **not** a runtime change and does not increment the extern
 - No app/SystemUI source, Gradle runtime property, dependency, signing, or workflow logic changes are introduced by this history synchronization.
 - Build 385 runtime ownership and acceptance criteria remain unchanged.
 - CI success after the merge is validation of Build 385; it is not a new Build 386 checkpoint.
+### Validation-history resolution result
+
+The history-only merge restored PR #100 to `mergeable=true` and immediately produced Fast Build #1031. That Fast gate succeeded and triggered Work Branch Canary #290.
+
+Canary #290 explicitly checked out `d3533828e82a335eab0b3e661cfadd4e70ebee27`, completed tests/build, Modern Xposed metadata validation, Haple signing verification, non-debuggable verification, and artifact upload successfully.
+
+This confirms the earlier missing-run condition was a PR dirty/test-merge-ref problem rather than a Build 385 source or workflow-classification failure.
 

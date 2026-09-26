@@ -10,7 +10,8 @@ This file is the concise recovery point for active Combined Status development. 
 - Integration branch: `dev`
 - Integration runtime baseline: Build 377, commit `f64fe0e3992eab4dd62ff479c3765d834ec7dfa4`
 - Active work branch: `feat/native-panel-transition`
-- Active runtime checkpoint: Build 385 (current work-branch source checkpoint)
+- Active runtime checkpoint: Build 385, runtime commit `6826944a79fbe1cb649ffe23807b32c30d565697`
+- Build 385 trusted validation head: `d3533828e82a335eab0b3e661cfadd4e70ebee27` (history-synced tree; runtime-equivalent to Build 385)
 - Active PR: #100, `feat/native-panel-transition -> dev`
 - Target profile: HyperOS SystemUI `17.03.260226.r`
 - Modern Xposed API: 102
@@ -93,8 +94,15 @@ Build 385 preserves the native battery 105px slot as the single layout occupancy
 Build 385:
 - versionName: `0.0.1`
 - buildId: `20260926-385`
-- Fast Build: pending
-- Work Branch Canary: pending
+- Fast Build #1031: success on `d3533828e82a335eab0b3e661cfadd4e70ebee27`
+- Work Branch Canary #290: success
+- Canary checkout: exact tested work-branch SHA `d3533828e82a335eab0b3e661cfadd4e70ebee27`
+- Haple signature verification: success
+- Canary debuggable check: false / success
+- Artifact ID: `10907652284`
+- Artifact archive digest: `sha256:6074e71cf5640ac5fd8d4e3d21d76a5f0603d733cba8479856ee0c756e3185fc`
+- Extracted APK SHA-256: `c1c084b2a6b79924bcc2c2e801d3f2c1050f597bff107cbddacbcbea619e3259`
+- Extracted APK size: `3375134` bytes
 - Device validation: pending
 
 Build 384 remains the immediate evidence baseline:
@@ -115,4 +123,4 @@ No merge to `dev` until these pass.
 
 ## Immediate next step
 
-Run Build 385 Fast CI and signed Work Branch Canary. If they pass, perform the focused device validation. If any corner of the three-symptom cycle returns, stop and reopen ownership rather than adding another timing or offset patch.
+Perform the focused Build 385 device validation using the signed Canary artifact. If any corner of the three-symptom cycle returns, stop and reopen ownership rather than adding another timing or offset patch.
