@@ -2083,3 +2083,63 @@ The preferred Home overlay is also the native island moving host. Keeping the Co
 ### Gate consequence
 
 The previous island-carrier architecture blocker is closed. The remaining pre-Build-394 work is implementation-boundary review: host-scoped ignored-slot restoration, clip-mask restoration, ResolvedLayout source shape, and explicit cutover from the superseded participant/suppression path.
+
+
+---
+
+## 2026-09-27 — Repository consistency review after Build-394 architecture gate
+
+**Type:** documentation / architecture-state consistency review  
+**Runtime build:** none  
+**Display line:** 0.0.2  
+**Runtime impact:** none
+
+### Problem / objective
+
+The exact-target Phase-2A investigation advanced faster than several current-facing repository surfaces. `CURRENT.md` had already opened the Build-394 gate, while the ROADMAP active route, architecture/reference status text, PR #100, CHANGELOG implementation wording, and bug-report example still described older checkpoints or superseded carrier mechanics.
+
+The objective was to restore one current repository narrative without rewriting historical Build/DEVLOG evidence.
+
+### Problem execution flow
+
+1. Re-read the latest `CONTRIBUTING.md`, `CURRENT.md`, `ROADMAP.md`, and relevant recent `DEVLOG.md`.
+2. Cross-check architecture/reference documents, README/CHANGELOG, issue/PR surfaces, version metadata, and CI/release configuration.
+3. Separate genuine historical records from current/future/general descriptions.
+4. Mark the Build-394 pre-runtime architecture gate as open everywhere that describes current state.
+5. Remove or neutralize superseded participant/occupancy-handoff details from the current `[Unreleased]` net-state changelog.
+6. Update PR #100 so its current purpose/acceptance boundary matches Phase 2A rather than the original Build-378 slot-geometry checkpoint.
+7. Add an explicit contributor rule mapping meaningful checkpoint outcomes to the documents that must be synchronized.
+8. Run a final consistency review without creating an APK/runtime checkpoint.
+
+### Documents / references reviewed
+
+- latest `CONTRIBUTING.md`;
+- `docs/development/CURRENT.md`, `ROADMAP.md`, recent `DEVLOG.md`, and `VERSIONING.md`;
+- `docs/architecture/README.md`, `layout-policy.md`, and `scene-policy.md`;
+- `docs/reference/README.md` and `statusbar-composition-patterns.md`;
+- public `README.md`, `CHANGELOG.md`, bug-report template, PR #100;
+- `gradle.properties`, app build configuration, target profile, and release/build workflows.
+
+### Corrections
+
+- `CURRENT.md` now describes Build 394 as scope-defined, gate-open, and not yet built.
+- ROADMAP active work now begins at the Build-394 Home carrier runtime cutover instead of repeating already-closed static prerequisites.
+- architecture/reference status now distinguishes selected pre-runtime direction from runtime acceptance.
+- the shared `ResolvedLayout` source implementation is explicitly authorized only inside the bounded Build-394 checkpoint.
+- PR #100 is retitled/reframed around the 0.0.2 Home carrier architecture and its current validation gate.
+- `CHANGELOG.md` no longer presents the superseded permanent participant / battery-occupancy handoff and related participant-specific suppression/Hot-Reload details as the intended current net state.
+- the bug-report version example now uses the current 0.0.2 development line.
+- `CONTRIBUTING.md` now requires documentation synchronization after each meaningful engineering checkpoint and defines which document changes for which kind of state change.
+
+### Review
+
+- **History review:** existing historical DEVLOG/Build entries were not rewritten. New conclusions are appended only.
+- **Architecture review:** current-facing documents consistently treat the permanent extra participant / occupancy-handoff route as superseded by default and Build 394 as the first runtime proof of the selected Home carrier direction.
+- **Ownership review:** no documentation correction grants new runtime write ownership; Build 394 remains responsible for runtime proof.
+- **Lifecycle/cleanup review:** current acceptance wording keeps HostSession-scoped restoration and fail-native cleanup explicit.
+- **Version review:** current development line remains 0.0.2; historical 0.0.1 Build identities remain unchanged; first formal release target remains 1.0.0.
+- **CI/runtime review:** documentation/governance only; no Build ID, APK, runtime code, or Canary checkpoint is created.
+
+### Outcome
+
+Repository current-state surfaces are aligned for the Build-394 implementation stage. Future meaningful checkpoints must synchronize repository memory before the checkpoint is treated as complete, using the new `CONTRIBUTING.md` mapping.
