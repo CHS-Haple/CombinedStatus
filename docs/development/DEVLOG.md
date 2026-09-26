@@ -1448,3 +1448,24 @@ Then verify:
 5. shade / Control Center first/last frames remain aligned.
 
 PR #100 remains unmerged.
+
+
+### CI validation update — Build 392
+
+- Exact tested work-branch SHA: `18c563b318cf53f68f51f95a079ff6edd0b4186e`.
+- Fast Build #1042: **success**.
+- Work Branch Canary #301: **success**.
+- Pinned HyperOS target profile: success.
+- Modern Xposed metadata verification: success.
+- Haple APK signature verification: success.
+- Canary non-debuggable verification: success.
+- Artifact ID: `10911296876`.
+- Artifact archive digest: `sha256:99674450d14cf206255e06b7d599705d6c87a470bb2d6556172b865564f4867b`.
+- Extracted APK SHA-256: `777fc688ad8290197ee176d795b5842e8a754d248f85069a5cfb1154d9e24285`.
+- Extracted APK size: `3375134` bytes.
+
+### Post-CI review
+
+The runtime change remains limited to consuming an already-owned host-scoped stable geometry snapshot at participant attach. No new SystemUI hook, listener, poller, animation/state machine, peer write, or live translation writer was added. Build 390's bounded same-frame diagnostics remain available to verify the resulting child motion.
+
+Device evidence remains the acceptance authority. PR #100 stays unmerged.
