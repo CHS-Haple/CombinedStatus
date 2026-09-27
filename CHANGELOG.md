@@ -57,6 +57,7 @@ The project follows a Keep a Changelog-style structure. During pre-release devel
 - The app uses native MIUIX components and shared production material definitions for navigation and appearance previews instead of separate visual approximations.
 - Diagnostics, app descriptions, and user-facing copy consistently identify Xiaomi HyperOS as the target and use **mobile network / 移动网络** terminology.
 - Build and release tooling separates Debug, Canary, and formal Release signing/CI responsibilities; distributable APK filenames use application version/build identity rather than GitHub Actions run numbers, while test-release tags may retain the run number as CI execution metadata.
+- Trusted work-branch Canary validation keeps the automatic PR-follow-up path as the default and adds owner-only fallback admission when GitHub fails to deliver the PR event: an exact `/canary` comment on an open same-repository work-branch PR can resolve and validate its live head automatically, while explicit manual dispatch remains the final operator fallback. All paths resolve an exact source SHA and enforce the same signed non-debuggable Canary validation contract.
 
 ### Fixed
 
