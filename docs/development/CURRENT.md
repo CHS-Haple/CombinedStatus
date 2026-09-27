@@ -12,7 +12,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Repository-automation baseline: checkpoint-driven CI accepted on `main` via PR #139 (`0ab8e211eb4cac04e591b1ea908a0a9a9aab78e3`) and history-preserving back-synced into `dev` via PR #141 (`a3fb5d1f70d6ac3d98b37d29ef13d15e3bd4aded`). This does **not** create a new runtime Build; `dev` executable identity remains Build 412.
 - Phase-2A integration: PR #105 merged to `dev` as `2f584c3b393dc5ee606284426aa95a9d6beae5d5`; former stacked PR #100 is closed as superseded.
 - Phase-2B panel/scene-owner integration: PR #138 merged to `dev` as `a25cb5ce2aeab235cfaed579474df70596f03a63`.
-- Active Phase-2B work branch: `fix/home-hun-ownership` (notification/HUN ownership investigation); Draft PR is the intended iteration boundary. No runtime delta has been created yet, so executable identity remains Build 412.
+- Active Phase-2B work branch / PR: `fix/home-hun-ownership` / Draft PR #142 (notification/HUN ownership investigation). No runtime delta has been created yet, so executable identity remains Build 412.
 - Active development display line: **0.0.2**
 - First planned formal release: **1.0.0**
 - Target profile: HyperOS SystemUI `17.03.260226.r`
