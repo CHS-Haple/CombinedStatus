@@ -2,6 +2,62 @@
 
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
+## 2026-09-28 — Hot Reload tint continuity root-cause checkpoint
+
+**Type:** root-cause review / branch-scope checkpoint
+**Input evidence:** Build 414 / `20260928-414` device diagnostic
+**Fix branch:** `fix/hot-reload-tint-continuity`
+**Runtime fix build:** not assigned yet
+
+### Problem execution flow
+
+**Phenomenon**
+
+Installing Build 414 and using module Hot Reload can leave Combined Status with incorrect inversion/tint. Restarting SystemUI restores correct behavior. The supplied Detailed diagnostic captures the abnormal Hot Reload session before that restart.
+
+**Observed ordering**
+
+- new-generation presentation hooks install successfully;
+- structured health still reports tint as not yet observed;
+- Home renderer/session is restored and seeds a live color immediately;
+- Home reaches presentation-ready state;
+- only afterward does native `MiuiBatteryMeterView.onDarkChangedInternal` arrive.
+
+**Source review**
+
+Hot Reload teardown resets both `SystemUiPresentationRuntimeOwner` (which clears `SystemUiTintStateSource`) and `CombinedStatusPresentationStateStore`. The current classloader-neutral transfer carries Combined Status model/network state and panel eligibility, but no stable tint continuity.
+
+On reattach, `CombinedStatusHomeRenderSession.start()` calls `SystemUiTintStateSource.currentState(battery)`. That function refreshes from the live battery-percent TextView when possible. During Hot Reload handoff this live View can reflect a transient native color state before the new generation receives its first authoritative tint event.
+
+### Root cause status
+
+**High confidence / evidence-backed:** Hot Reload lacks a transferred stable tint state and can therefore expose a transient live View tint as the new renderer's initial stable tint. The observed device symptom and event ordering match this gap.
+
+The Build-414 notification-header probe is not a tint/alpha/layout writer. Its extra hook may perturb timing enough to expose the weakness, but it is not the tint authority and is not selected as the root cause.
+
+### Selected correction
+
+Transfer the last already-accepted Combined Status tint as classloader-neutral primitive values during Hot Reload preparation. On the new generation:
+
+- seed the Home renderer from that transferred stable tint;
+- do not immediately overwrite it with a live View read during the handoff;
+- let the first real native tint callback replace it naturally;
+- keep cold-start live seeding unchanged;
+- fall back to native re-observation if transferred tint is absent/invalid.
+
+### 审查 / review
+
+- **Ownership:** SystemUI remains the sole tint authority; transfer preserves continuity only.
+- **Lifecycle:** transferred tint survives one module-generation handoff and is superseded by the first new native event.
+- **Single writer:** no dark-mode or SystemUI tint writer is added.
+- **Cleanup:** only primitive tint values cross generations; no module object/View is transferred as tint state.
+- **Fail native:** older/missing/invalid transfer uses existing native re-observation.
+- **Performance:** no delay, polling, retry or frame work.
+- **Compatibility:** Hot Reload payload restore remains backward-compatible.
+- **Exception recovery:** failed tint transfer does not block other restored runtime state.
+- **Future extension:** fix is independent from panel projection and will be integrated before PR #146 resumes.
+
+
 ## 2026-09-28 — Build 413 stable promotion to main
 
 **Type:** validated runtime promotion / stable-baseline closure
