@@ -5291,9 +5291,9 @@ The earlier heads-up/notification-popup report in which native status presentati
 
 ## 2026-09-27 — PR #138 merged to dev; Build 412 Integration passed
 
-**Type:** dev integration / accepted Phase-2B baseline  
-**Dev merge:** `a25cb5ce2aeab235cfaed579474df70596f03a63`  
-**Build:** 412 / 20260927-412  
+**Type:** dev integration / accepted Phase-2B baseline
+**Dev merge:** `a25cb5ce2aeab235cfaed579474df70596f03a63`
+**Build:** 412 / 20260927-412
 **Executable source:** `f794a7c01513364eefc726316fcaf4058d581683`
 
 ### Merge / acceptance
