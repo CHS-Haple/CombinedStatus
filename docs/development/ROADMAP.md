@@ -25,7 +25,7 @@ Established capabilities that later phases must preserve include:
 
 Dual-SIM/network support and island participation are not separate future phases.
 
-## Phase 2A — 0.0.2 Home carrier / presentation architecture — active
+## Phase 2A — 0.0.2 Home carrier / presentation architecture — completed for current dev baseline
 
 Stabilize one coherent Home/end-side presentation contract before extending the visual into other SystemUI surfaces.
 
@@ -47,7 +47,9 @@ Exit criteria:
 - cleanup and Hot Reload restore only module-owned state;
 - current target behavior passes the declared focused device scenarios.
 
-## Phase 2B — Home -> shade / Control Center projection — next
+Current acceptance note: Build 408 is accepted for `dev` as the Phase-2A working baseline. Minor residual ring/center/dot optical-weight variance is deferred to later visual polish and does not reopen Home carrier ownership or block Phase 2B.
+
+## Phase 2B — Home -> shade / Control Center projection — active
 
 Extend the accepted Phase-2A Home visual into panel transitions without reopening steady Home ownership.
 
