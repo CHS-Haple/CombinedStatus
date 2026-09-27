@@ -10,6 +10,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Integration branch: `dev`
 - Integration runtime baseline: Build 413, commit `2aa6833cfca69a59af5027a7855b7d8282dbade9`
 - Build 413 / `20260927-413` is the current device-accepted, Integration-validated, and `main`-promoted runtime baseline.
+- Active corrective work: `fix/hot-reload-tint-continuity`. Build 414 device diagnostics exposed a Hot Reload-only inversion/tint continuity defect; full SystemUI restart restores correct tint. No fix Build has been created yet.
 - Repository-automation baseline: checkpoint-driven CI from PR #139 remains active; Canary admission hardening and bounded automation-only merge delegation were accepted on `main` via PR #143 (`a1aed8b6451d1018f46e252166545d67f48fe8e4`) and history-preserving back-synced into `dev` via PR #144 (`faaa12b1c8e955138d2ce8d51fb481263b4d7570`). These automation changes do **not** create a new runtime Build.
 - Phase-2A integration: PR #105 merged to `dev` as `2f584c3b393dc5ee606284426aa95a9d6beae5d5`; former stacked PR #100 is closed as superseded.
 - Phase-2B panel/scene-owner integration: PR #138 merged to `dev` as `a25cb5ce2aeab235cfaed579474df70596f03a63`.
@@ -152,11 +153,12 @@ Build 409's notification-shade implementation remains intact and is not reopened
 
 ## Immediate next step
 
-1. Treat Build 413 / `20260927-413` as the current stable runtime baseline on `main` and the integrated baseline on `dev`. HUN disappearance, shallow-pull leakage, Home ownership, 8.25 ring geometry, and the accepted Phase-2A semantic-color/native-center work are now part of the stable line.
-2. Continue the remaining **Phase 2B** objective only on `feat/panel-projection` / PR #146. Build 414 / `20260928-414` is a bounded diagnostics candidate and is **not** part of stable `main`.
-3. Build 414's next gate is focused device evidence for the exact notification-header target host/geometry plus the existing Control Center anchor path. Do not implement panel projection until those runtime facts are captured.
-4. Keep SystemUI as the transition-motion writer; no Home-overlay reuse, arbitrary fraction threshold, delay, polling, per-frame native-geometry write, or second animation owner.
-5. Keyguard / lockscreen / AOD remains Phase 3.
+1. Keep Build 413 / `20260927-413` as the stable/runtime baseline on `main` and `dev`.
+2. Resolve the Hot Reload-only tint continuity defect on `fix/hot-reload-tint-continuity` before resuming panel-projection runtime work.
+3. Preserve the last accepted native-derived Combined Status tint across the classloader-generation handoff using primitive/classloader-neutral transfer data. The transferred tint is continuity state only; the first new native tint event must supersede it.
+4. Do not use delays, polling, forced dark-mode refresh, synthetic colors, or a second tint authority.
+5. Keep cold-start behavior unchanged and keep older Hot Reload payload versions backward-compatible; missing/invalid transferred tint falls back to current native re-observation.
+6. After the tint fix is device-accepted and integrated, refresh Draft PR #146 from the new `dev` baseline and continue bounded panel target-host discovery.
 
 ## Reference priority
 
