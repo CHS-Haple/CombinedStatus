@@ -4528,3 +4528,47 @@ No runtime, Hook, transfer format, Build identity, color, geometry or scene-poli
 ### Gate
 
 Re-run Fast CI after the assertion correction. A signed Canary remains required before device validation.
+
+
+---
+
+## 2026-09-27 — Build 409 Fast + signed Canary success
+
+**Type:** validation success / device-test gate  
+**Build:** 409 / 20260927-409  
+**Executable runtime source:** `4ab7b490617757e34c0ea8e0b59e3d7a16bae9ad`  
+**Tested PR head:** `e7f2ca9a104875688fd2b91640ec84f43c8b228a`
+
+### Fast validation
+
+- Build workflow: **#1129** / run `36318210235`.
+- Result: **success**.
+- Scope: Fast / ordinary product-runtime PR.
+- Passed Gradle Wrapper, Java/API 37 setup, pinned HyperOS target-profile verification, all unit tests, Debug assembly, built-APK resolution and Modern Xposed metadata validation.
+- Earlier #1122/#1123/#1124/#1127 failures are retained as historical validation evidence and were closed by documentation/test-only corrections; no runtime source change followed `4ab7b490...`.
+
+### Signed Work Branch Canary
+
+- Work Branch Canary: **#363** / run `36318369493`.
+- Result: **success**.
+- Trusted source resolution and exact checked-out source verification passed for PR #138 head `e7f2ca9a104875688fd2b91640ec84f43c8b228a`.
+- Passed:
+  - Gradle Wrapper;
+  - Java / Android API 37;
+  - Haple signing restore and verification;
+  - pinned HyperOS target-profile verification, including `ShadeExpansionStateManager.onPanelExpansionChanged(FZZ)V`;
+  - tests and Canary build;
+  - Modern Xposed metadata;
+  - Haple APK signature;
+  - non-debuggable verification;
+  - artifact preparation/upload.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260927-409-canary.apk`
+- GitHub artifact ID: `10931079487`
+- Extracted APK size: `3293218` bytes
+- Extracted APK SHA-256: `c8d8aabbaeb8f60abfc1897996b45019e7f9d8d130e5055acacf3848164591ba`
+
+### Gate
+
+**Runtime is frozen at Build 409.**
+
+The next required evidence is maintainer device validation of the notification-shade lifetime boundary. Do not add Control Center projection, shade rendering, timing compensation, geometry/color changes, or any other runtime change before that result.
