@@ -44,9 +44,9 @@ Home -> shade / Control Center projection is now the active Phase 2B direction. 
 - **Build 407 / `20260927-407`** is **device-accepted for the native-center opacity/resource-mask correction**, but overall optical balance remains open. Runtime source: `ffe746b24252f974db05e1fa4381ed5c56f0e73e`. The maintainer reports that the prior center-transparency defect is resolved. New same-device screenshots show the battery ring still reads darker/heavier than the native center and four mobile dots even when all three consume the same green semantic tint. Work Branch Canary #337 / run `36313837646` passed all gates and produced artifact `10929728522`.
 - **Build 408 / `20260927-408`** is the maintainer-accepted Phase-2A working baseline for `dev` integration. Runtime source: `8a7a39d8297fe926387d56cc8ff5be4b08405f4a`. Work Branch Canary #338 / run `36315043013` passed all gates and produced artifact `10930143406`. The maintainer considers the current color/native-center result basically compliant with the intended design. A small residual ring/center/dot optical-weight difference may remain and is explicitly deferred as visual polish rather than treated as a blocker.
 - **Build 409 / `20260927-409`** is a completed but **device-incomplete Phase-2B checkpoint**. Executable source: `4ab7b490617757e34c0ea8e0b59e3d7a16bae9ad`; Fast #1129 and Work Branch Canary #363 passed. Device video + diagnostics show the promoted notification-shade gate does transition Home to `homeEligible=false` and runs the existing cleanup path, but the reported leak reproduction is driven by **Control Center**. During that transition `ControlCenterExpandControllerDelegate` reports `visible=true` and changing native fraction while Build 409 leaves Control Center callbacks diagnostics-only, so Home remains eligible and the compact overlay can overlap the native icons. Build 409 is therefore not accepted as the complete shallow-pull fix.
-- **Build 410 / `20260927-410`** is the current source-reviewed Phase-2B Home scene-lifetime candidate. Runtime source: `6e2fc55944753c6cb9ef22f537008c97217f17e1`. It retains Build 409's notification-shade semantic gate and adds the device-verified Control Center visibility gate: `onVisibleChanged(true)` removes Home ownership and `visible=false` returns it. Production installs exactly two scene-lifetime hooks; Control Center fraction remains diagnostics-only. Hot Reload payload v6 transfers both nullable eligibility facts and remains compatible with v5/v4. Pinned target profile now declares `ControlCenterExpandControllerDelegate.onVisibleChanged(Z)V`. Source/call-site review passed. Fast #1141 verified the new target-profile contract and compiled production Kotlin successfully, but unit-test compilation exposed five stale `CombinedStatusHomeRenderSessionTest` calls missing the new neutral `controlCenterAllowsHome=true` argument. This is test-only validation maintenance; runtime source remains unchanged.
+- **Build 410 / `20260927-410`** is the current signed Phase-2B Home scene-lifetime device-test candidate. Executable runtime source: `6e2fc55944753c6cb9ef22f537008c97217f17e1`. Fast Build #1143 / run `36319763905` passed on test head `5320bf87253128de290b4b0809694949a02b6c38`; trusted Work Branch Canary #377 / run `36319940085` passed exact checkout, both pinned HyperOS scene contracts, tests/build, Haple signature, Modern Xposed metadata and non-debuggable validation and produced artifact `10932655599`. APK size: `3309598` bytes; SHA-256: `8c3f3011c214e66d20a89698e902191bdd8bc039803a6c824a261170a5cbf0eb`. Runtime is frozen pending device validation.
 - Build 406 trusted validation: owner `/canary` Work Branch Canary #335 **succeeded**. Validated PR head `80f371784ffaee406dd6ea5728219eeee5913318` differs from the frozen runtime source only in `CURRENT.md` and `DEVLOG.md`, so executable content remains exactly Build 406. Artifact `10929711688`; artifact ZIP digest `sha256:c7af997217acd171c66beb860d7212c0d72fd672a38978f7b5c2eb5a524f11ba`; extracted APK SHA-256 `e086d8914fece7ba8ea86200756f4a6366d56dadaa5510846618a4077e6ddd80`.
-- Documentation-only commits may advance the Phase-2B work branch beyond Build-409 runtime source `4ab7b490617757e34c0ea8e0b59e3d7a16bae9ad` without creating a new runtime Build; runtime identity remains `20260927-409` until executable source changes.
+- Documentation/test-only commits may advance the Phase-2B work branch beyond Build-410 executable source `6e2fc55944753c6cb9ef22f537008c97217f17e1` without creating a new runtime Build; runtime identity remains `20260927-410` until executable source changes.
 
 Build 403 validation already established:
 - Fast Build #1063: **success**;
@@ -75,6 +75,7 @@ Maintainer acceptance:
 - the result is considered basically compliant with the intended visual design;
 - a small residual optical-weight difference between ring, center and dots may still be visible;
 - that residual is recorded as deferred polish, **not** as perfect parity and **not** as a Phase-2B blocker.
+- after Build 408 reduced the ring default stroke from the prior 8.25 effective units to 7.5 while retaining the accepted dot radius, the maintainer now reports the battery ring may read slightly too thin; this is recorded as a deferred **ring-only optical-weight A/B** and must not be mixed into Build 410 scene-lifetime validation.
 
 Do not reopen this with per-glyph RGB/alpha multipliers or screenshot-derived compensation during Phase 2B.
 
@@ -84,7 +85,7 @@ Build 403 uses HyperOS `MiuiBatteryMeterIconView.getProgressStatus()` as semanti
 
 No user-facing per-state color picker/source selector is exposed yet. The future policy seam remains: **System default / Follow status icon / Custom** for NORMAL / CHARGING / POWER_SAVE / PERFORMANCE / LOW.
 
-### Home -> shade / Control Center scene boundary — Build 410 Control Center gate next
+### Home -> shade / Control Center scene boundary — Build 410 signed candidate
 
 Build 409 corrected only the notification-shade half of the scene lifetime. Maintainer video and Build-409 diagnostics show the unresolved reproduction is a **Control Center** transition.
 
@@ -131,13 +132,14 @@ Build 409's notification-shade implementation remains intact and is not reopened
 
 ## Immediate next step
 
-1. Apply the Build-410 **test-only** correction in `CombinedStatusHomeRenderSessionTest.kt`: add `controlCenterAllowsHome=true` to the five legacy visibility-policy assertions so they preserve their original notification/feature/scene/handoff intent.
-2. Do not change Build identity or runtime source; Build 410 executable remains `6e2fc55944753c6cb9ef22f537008c97217f17e1`.
-3. Re-run PR #138 Fast CI on the corrected test head.
-4. After Fast success, run/accept the trusted signed Work Branch Canary and freeze runtime.
-5. Device validation must reproduce the exact Control Center gesture from the Build-409 video, then separately verify notification-shade shallow pull/return.
-6. Expected Control Center behavior: `visible=true` immediately removes Home Combined Status and restores native presentation; Combined Status must not return during return-motion fractions; it may return only after native `visible=false`.
-7. Do not add projection/animation or fraction thresholds during this checkpoint.
+1. **Runtime freeze:** Build 410 / `20260927-410`, executable source `6e2fc55944753c6cb9ef22f537008c97217f17e1`.
+2. Use signed Work Branch Canary #377 artifact `10932655599`.
+3. Reproduce the exact Control Center gesture from the Build-409 video: begin from steady Home, shallow-pull Control Center, hold, return toward zero while still in transition, then fully release.
+4. Expected Control Center behavior: native `visible=true` immediately removes Home Combined Status and restores native presentation; Combined Status stays absent throughout outward/return motion and may return only after native `visible=false`.
+5. Separately verify notification-shade shallow pull/return still follows Build 409's semantic `expanded=false && tracking=false` boundary.
+6. Watch for any one-frame overlap, native+Combined Status double display, stale end reservation, delayed Home restoration, Hot Reload flash, or color/geometry regression.
+7. Do not modify runtime again until maintainer device feedback is recorded.
+8. After the Phase-2B scene gate is accepted, revisit the deferred battery-ring optical weight as a **separate ring-only A/B**; do not mix it into this candidate.
 
 ## Reference priority
 
