@@ -117,20 +117,22 @@ A shallow notification-shade pull / final held-return frame can still leave the 
 
 - PR #100 remains the architecture work branch based on `dev`.
 - PR #105 is intentionally stacked on PR #100.
-- PR #134 installed the trusted work-branch Canary fallback into `main`; a history-preserving back-sync into `dev` is required so development and stable workflow/process policy remain aligned.
-- Validation-only PRs #131/#132 and the dev-based automation review PR #133 are superseded once their evidence is recorded; they must not be merged as product/runtime work.
-- The documentation-governance baseline is already accepted into `main` and back-synced into `dev`; active runtime branches must preserve it when they are updated/merged rather than restoring their older README/CURRENT/ROADMAP variants.
+- PR #134 installed the trusted work-branch Canary fallback into `main`; PR #136 history-preserving back-synced that accepted process state into `dev`.
+- PR #135 then fixed Markdown backtick escaping in the Canary source summary without changing validation/trust semantics; PR #137 history-preserving back-synced that follow-up into `dev`.
+- Validation-only PRs #131/#132 and the dev-based automation review PR #133 are superseded and closed without merge.
+- The documentation-governance baseline is accepted in `main` and synchronized into `dev`; active runtime branches must preserve it when updated/merged rather than restoring older workflow/process text.
 - PR #99 remains separate open historical work and is not an accepted baseline; any useful delta must be reconciled against the current line before reuse.
 
 ## Immediate next step
 
 1. Build 405 source review and trusted Canary validation are complete; keep runtime frozen at `bf8091c8680dec7b85c58afded7f476ec95ca49d`.
-2. The CI event-delivery blocker is resolved at the repository-process level. PR #134 installed the default-branch trusted Canary fallback and passed Full Build #1095 plus signed Work Branch Canary #331; `main` merge commit is `5ca1029bb8383da793b69f81370df2760d4389dc`.
-3. Build 405 was then validated through the new owner `/canary` PR-comment path on PR #105. Work Branch Canary #332 resolved PR #105 head `3cdfcc4db4bd5cd350e17400f2ed71d818b9c8d9`, verified its exact checkout, passed target-profile/tests/Xposed metadata/Haple signature/non-debuggable checks, and published `CombinedStatus-0.0.2-HyperOS-20260927-405-canary.apk`.
-4. The validated PR #105 head differs from runtime source `bf8091c...` only in `CURRENT.md` and `DEVLOG.md`; executable Build 405 content is unchanged.
-5. Stop runtime changes now and perform the focused target-device A/B against Builds 403 and 404: center edge quality/antialiasing, apparent stroke weight, size/centering, and unchanged outer geometry/tint.
-6. Keep HyperOS Light / Dark / Tint `transformResId` resource-variant alignment out of Build 405 so the direct-draw result remains attributable. Keep Build-403 battery semantic-color acceptance separate.
-7. Only after optical/color closure move to the already-identified Phase-2B shallow-shade scene-boundary leak.
+2. The CI event-delivery blocker is resolved at the repository-process level. PR #134 installed the owner `/canary` + manual-dispatch fallback, PR #136 synchronized it into `dev`, and PR #135/#137 corrected and synchronized summary escaping without changing the trust/build contract.
+3. Build 405 passed the owner-comment Canary path twice. #332 validated PR #105 head `3cdfcc4db4bd5cd350e17400f2ed71d818b9c8d9`; after the summary-escaping fix, #334 validated head `b3092d42e428acb6d00a4e0c752459dc8ea64152`. Both passed exact-source checkout, target profile, tests, Xposed metadata, Haple signature and non-debuggable checks.
+4. The final #334 artifact is `CombinedStatus-0.0.2-HyperOS-20260927-405-canary.apk`, Actions artifact `10929556081`, ZIP SHA-256 `4b3a37d9c83901743122294fa436380769a6c0f9cb5aba84e64632237a3771a9`, APK SHA-256 `17b8ed5783373ab37c4bf2ae3e8fda55ddff965e59a9c42d7c2ccb18efb4c566`.
+5. Byte-level comparison of #332 and #334 found 94/95 APK ZIP entries identical. The only content difference is `META-INF/version-control-info.textproto`, whose revision changed from the earlier docs-only head to the later docs-only head; classes/resources/runtime entries are unchanged. The differing APK/signature hashes therefore do not represent a runtime delta.
+6. Stop runtime changes now and perform the focused target-device A/B against Builds 403 and 404: center edge quality/antialiasing, apparent stroke weight, size/centering, and unchanged outer geometry/tint.
+7. Keep HyperOS Light / Dark / Tint `transformResId` resource-variant alignment out of Build 405 so the direct-draw result remains attributable. Keep Build-403 battery semantic-color acceptance separate.
+8. Only after optical/color closure move to the already-identified Phase-2B shallow-shade scene-boundary leak.
 
 ## Reference priority
 
