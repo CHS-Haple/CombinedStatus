@@ -43,6 +43,7 @@ Home -> shade / Control Center projection is **Phase 2B**. Keyguard / lockscreen
 - **Build 406 / `20260927-406`** is a completed but **device-rejected tint-variant A/B checkpoint**. Runtime source: `3d5e9d2339824c6d19e50dda170917559369135b`. Work Branch Canary #335 passed all CI/signing gates, but target-device evidence shows the center Wi-Fi glyph remains optically lighter/lower-coverage than the outer ring **even when `centerFollowsBatteryColor=false`**. Therefore the Build-406 hypothesis that the remaining defect was confined to the custom/battery-color tint branch is rejected.
 - **Build 407 / `20260927-407`** is the current signed device-test candidate. Implementation commit: `bbb421ef0354ad60e7d046e38c643d16d61504c7`; final executable source after style-only cleanup: `ffe746b24252f974db05e1fa4381ed5c56f0e73e`. Because the Painter externally tints every native center Drawable, all native center resources now resolve the verified HyperOS `_tint` sibling when available before `setTint(...)`; the Build-406 color-source gate has been removed. Work Branch Canary #337 passed all validation gates and produced artifact `10929728522`. Runtime is frozen pending device A/B.
 - **Build 407 / `20260927-407`** is **device-accepted for the native-center opacity/resource-mask correction**, but overall optical balance remains open. Runtime source: `ffe746b24252f974db05e1fa4381ed5c56f0e73e`. The maintainer reports that the prior center-transparency defect is resolved. New same-device screenshots show the battery ring still reads darker/heavier than the native center and four mobile dots even when all three consume the same green semantic tint. Work Branch Canary #337 / run `36313837646` passed all gates and produced artifact `10929728522`.
+- **Build 408 / `20260927-408`** is the current outer optical-weight A/B candidate. Runtime source: `8a7a39d8297fe926387d56cc8ff5be4b08405f4a`. It changes no tint or alpha: the battery ring default stroke returns from 8.25 to the historical 7.5 canonical units while the four-dot radius and unavailable-mark geometry remain exactly at their Build-407 physical defaults. The shared future outer-weight scale is rebased to 1.0 around that balanced baseline. Source review passed; CI/Canary and device acceptance are pending.
 - Build 406 trusted validation: owner `/canary` Work Branch Canary #335 **succeeded**. Validated PR head `80f371784ffaee406dd6ea5728219eeee5913318` differs from the frozen runtime source only in `CURRENT.md` and `DEVLOG.md`, so executable content remains exactly Build 406. Artifact `10929711688`; artifact ZIP digest `sha256:c7af997217acd171c66beb860d7212c0d72fd672a38978f7b5c2eb5a524f11ba`; extracted APK SHA-256 `e086d8914fece7ba8ea86200756f4a6366d56dadaa5510846618a4077e6ddd80`.
 - Documentation-only commits may advance PR #105 beyond the Build-405 runtime source without creating a new runtime Build; runtime identity remains the Build/source pair above until executable source changes.
 
@@ -117,12 +118,12 @@ A shallow notification-shade pull / final held-return frame can still leave the 
 
 ## Immediate next step
 
-1. Record Build 407 as accepted for center opacity / native tint-mask handling; optical-weight parity remains open.
-2. Build one bounded outer-geometry A/B: preserve the current four-dot physical radius, return only the continuous battery ring to the known pre-Build-332 base stroke, and rebase the shared default weight scale so future proportional scaling still has one clean control seam.
-3. Do not alter any tint value, semantic alpha, native center asset, center size, dot color/alpha, Home carrier/spacing or scene behavior.
-4. Re-run outer-geometry unit tests, source review and signed Canary.
-5. Freeze runtime when that Canary exists; device validation should compare Build 407 vs the new candidate on the same semantic-green state and a normal monochrome state if practical.
-6. If the thinner ring looks visually weak rather than balanced, reject the geometry A/B and keep Build 407 rather than compensating with color hacks.
+1. Build 408 source review is complete. Runtime source: `8a7a39d8297fe926387d56cc8ff5be4b08405f4a`.
+2. Run CI and a signed Work Branch Canary. The normal connector-authored synchronize event may be absent; use the accepted owner `/canary` fallback if needed.
+3. Freeze runtime immediately when the signed Build-408 Canary exists.
+4. Device A/B: compare Build 407 vs 408 in the same semantic-green state. The desired change is only that the ring no longer reads darker/heavier; center/dot opacity, color and geometry should remain unchanged.
+5. If practical, also check one normal monochrome state to ensure the optical rebalance is not charging-color-specific.
+6. If the ring becomes visibly too thin, reject Build 408 and retain Build 407 rather than adding alpha/RGB compensation.
 7. Phase-2B shallow-shade work remains after visual closure.
 
 ## Reference priority
