@@ -9,7 +9,9 @@ import java.lang.reflect.Field
 import kotlin.math.floor
 
 internal object SystemUiPanelTransitionSource {
-    const val HOOK_COUNT = 3
+    const val NOTIFICATION_HOOK_COUNT = 1
+    const val CONTROL_CENTER_HOOK_COUNT = 2
+    const val HOOK_COUNT = NOTIFICATION_HOOK_COUNT + CONTROL_CENTER_HOOK_COUNT
 
     private const val SHADE_MANAGER_CLASS =
         "com.android.systemui.shade.ShadeExpansionStateManager"
@@ -33,6 +35,8 @@ internal object SystemUiPanelTransitionSource {
 
     private var shadeProbe = ProbeState()
     private var controlProbe = ProbeState()
+    @Volatile
+    private var notificationShadeHomeEligible: Boolean? = null
     private var controlAnchorContract: ControlCenterAnchorContract? = null
     private var controlHeaderRef = WeakReference<Any>(null)
 
@@ -42,6 +46,7 @@ internal object SystemUiPanelTransitionSource {
         onUpdate: ((Update) -> Unit)? = null,
         onEvent: ((String) -> Unit)? = null,
         isProbeEnabled: () -> Boolean = { false },
+        includeControlCenterDiagnostics: Boolean = true,
     ): List<HookHandle> {
         val shadeClass = Class.forName(SHADE_MANAGER_CLASS, false, classLoader)
         val shadeMethod =
@@ -52,25 +57,39 @@ internal object SystemUiPanelTransitionSource {
                 Boolean::class.javaPrimitiveType,
             ).apply { isAccessible = true }
 
-        val controlClass = Class.forName(CONTROL_CENTER_CLASS, false, classLoader)
+        val controlClass =
+            if (includeControlCenterDiagnostics) {
+                Class.forName(CONTROL_CENTER_CLASS, false, classLoader)
+            } else {
+                null
+            }
         val controlExpansionMethod =
-            controlClass.getDeclaredMethod(
-                CONTROL_CENTER_EXPANSION_METHOD,
-                Float::class.javaPrimitiveType,
-            ).apply { isAccessible = true }
+            controlClass
+                ?.getDeclaredMethod(
+                    CONTROL_CENTER_EXPANSION_METHOD,
+                    Float::class.javaPrimitiveType,
+                )
+                ?.apply { isAccessible = true }
         val controlVisibleMethod =
-            controlClass.getDeclaredMethod(
-                CONTROL_CENTER_VISIBLE_METHOD,
-                Boolean::class.javaPrimitiveType,
-            ).apply { isAccessible = true }
+            controlClass
+                ?.getDeclaredMethod(
+                    CONTROL_CENTER_VISIBLE_METHOD,
+                    Boolean::class.javaPrimitiveType,
+                )
+                ?.apply { isAccessible = true }
 
         controlAnchorContract =
-            ControlCenterAnchorContract.resolve(
-                classLoader = classLoader,
-                delegateClass = controlClass,
-            )
+            controlClass?.let { delegateClass ->
+                ControlCenterAnchorContract.resolve(
+                    classLoader = classLoader,
+                    delegateClass = delegateClass,
+                )
+            }
 
-        val handles = ArrayList<HookHandle>(HOOK_COUNT)
+        val handles =
+            ArrayList<HookHandle>(
+                expectedHookCount(includeControlCenterDiagnostics),
+            )
         try {
             handles +=
                 module
@@ -85,6 +104,12 @@ internal object SystemUiPanelTransitionSource {
                             val expanded = chain.getArg(1) as? Boolean
                             val tracking = chain.getArg(2) as? Boolean
                             val result = chain.proceed()
+                            val homeEligible =
+                                notificationShadeAllowsHome(
+                                    expanded = expanded,
+                                    tracking = tracking,
+                                )
+                            notificationShadeHomeEligible = homeEligible
                             val update =
                                 Update(
                                     source = Source.NOTIFICATION_SHADE,
@@ -115,77 +140,82 @@ internal object SystemUiPanelTransitionSource {
                         },
                     )
 
-            handles +=
-                module
-                    .hook(controlExpansionMethod)
-                    .setId(CONTROL_CENTER_EXPANSION_HOOK_ID)
-                    .intercept(
-                        Hooker { chain ->
-                            val fraction =
-                                nativeFraction(
-                                    (chain.getArg(0) as? Number)?.toFloat(),
-                                )
-                            val result = chain.proceed()
-                            val anchorSnapshot =
-                                if (
-                                    onEvent != null &&
-                                    isProbeEnabled() &&
-                                    shouldCaptureControlAnchor(fraction)
-                                ) {
-                                    captureControlCenterAnchor(chain.thisObject)
-                                } else {
-                                    null
-                                }
-                            val update =
-                                Update(
-                                    source = Source.CONTROL_CENTER,
-                                    fraction = fraction,
-                                    expanded = null,
-                                    tracking = null,
-                                    visible = null,
-                                    controlCenterAnchor = anchorSnapshot,
-                                    homeMotion =
-                                        if (anchorSnapshot != null) {
-                                            SystemUiIslandMotionSource.currentOwnerSnapshot()
-                                        } else {
-                                            null
-                                        },
-                                )
-                            onUpdate?.invoke(update)
-                            emitDiagnostic(
-                                update = update,
-                                onEvent = onEvent,
-                                isProbeEnabled = isProbeEnabled,
-                            )
-                            result
-                        },
-                    )
+            if (includeControlCenterDiagnostics) {
+                val expansionMethod = checkNotNull(controlExpansionMethod)
+                val visibleMethod = checkNotNull(controlVisibleMethod)
 
-            handles +=
-                module
-                    .hook(controlVisibleMethod)
-                    .setId(CONTROL_CENTER_VISIBLE_HOOK_ID)
-                    .intercept(
-                        Hooker { chain ->
-                            val visible = chain.getArg(0) as? Boolean
-                            val result = chain.proceed()
-                            val update =
-                                Update(
-                                    source = Source.CONTROL_CENTER,
-                                    fraction = null,
-                                    expanded = null,
-                                    tracking = null,
-                                    visible = visible,
+                handles +=
+                    module
+                        .hook(expansionMethod)
+                        .setId(CONTROL_CENTER_EXPANSION_HOOK_ID)
+                        .intercept(
+                            Hooker { chain ->
+                                val fraction =
+                                    nativeFraction(
+                                        (chain.getArg(0) as? Number)?.toFloat(),
+                                    )
+                                val result = chain.proceed()
+                                val anchorSnapshot =
+                                    if (
+                                        onEvent != null &&
+                                        isProbeEnabled() &&
+                                        shouldCaptureControlAnchor(fraction)
+                                    ) {
+                                        captureControlCenterAnchor(chain.thisObject)
+                                    } else {
+                                        null
+                                    }
+                                val update =
+                                    Update(
+                                        source = Source.CONTROL_CENTER,
+                                        fraction = fraction,
+                                        expanded = null,
+                                        tracking = null,
+                                        visible = null,
+                                        controlCenterAnchor = anchorSnapshot,
+                                        homeMotion =
+                                            if (anchorSnapshot != null) {
+                                                SystemUiIslandMotionSource.currentOwnerSnapshot()
+                                            } else {
+                                                null
+                                            },
+                                    )
+                                onUpdate?.invoke(update)
+                                emitDiagnostic(
+                                    update = update,
+                                    onEvent = onEvent,
+                                    isProbeEnabled = isProbeEnabled,
                                 )
-                            onUpdate?.invoke(update)
-                            emitDiagnostic(
-                                update = update,
-                                onEvent = onEvent,
-                                isProbeEnabled = isProbeEnabled,
-                            )
-                            result
-                        },
-                    )
+                                result
+                            },
+                        )
+
+                handles +=
+                    module
+                        .hook(visibleMethod)
+                        .setId(CONTROL_CENTER_VISIBLE_HOOK_ID)
+                        .intercept(
+                            Hooker { chain ->
+                                val visible = chain.getArg(0) as? Boolean
+                                val result = chain.proceed()
+                                val update =
+                                    Update(
+                                        source = Source.CONTROL_CENTER,
+                                        fraction = null,
+                                        expanded = null,
+                                        tracking = null,
+                                        visible = visible,
+                                    )
+                                onUpdate?.invoke(update)
+                                emitDiagnostic(
+                                    update = update,
+                                    onEvent = onEvent,
+                                    isProbeEnabled = isProbeEnabled,
+                                )
+                                result
+                            },
+                        )
+            }
             return handles
         } catch (error: Throwable) {
             handles.asReversed().forEach { handle ->
@@ -199,6 +229,7 @@ internal object SystemUiPanelTransitionSource {
         synchronized(this) {
             shadeProbe = ProbeState()
             controlProbe = ProbeState()
+            notificationShadeHomeEligible = null
             controlAnchorContract = null
             controlHeaderRef = WeakReference(null)
         }
@@ -206,6 +237,20 @@ internal object SystemUiPanelTransitionSource {
 
     internal fun nativeFraction(value: Float?): Float? =
         value?.takeIf { it.isFinite() }
+
+    internal fun expectedHookCount(includeControlCenterDiagnostics: Boolean): Int =
+        NOTIFICATION_HOOK_COUNT +
+            if (includeControlCenterDiagnostics) CONTROL_CENTER_HOOK_COUNT else 0
+
+    internal fun notificationShadeAllowsHome(
+        expanded: Boolean?,
+        tracking: Boolean?,
+    ): Boolean =
+        expanded == false && tracking == false
+
+    fun currentNotificationShadeHomeEligibility(): Boolean? =
+        notificationShadeHomeEligible
+
 
     internal fun diagnosticBucket(fraction: Float?): Int? =
         fraction?.let { rawValue ->
