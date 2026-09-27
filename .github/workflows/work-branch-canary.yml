@@ -117,10 +117,10 @@ jobs:
           echo "branch=$branch" >> "$GITHUB_OUTPUT"
           echo "sha=$source_sha" >> "$GITHUB_OUTPUT"
           {
-            echo "### Trusted source"
-            echo "- Trigger: `$EVENT_NAME`"
-            echo "- Source branch: `$branch`"
-            echo "- Resolved SHA: `$source_sha`"
+            printf '%s\n' "### Trusted source"
+            printf '%s\n' "- Trigger: \`$EVENT_NAME\`"
+            printf '%s\n' "- Source branch: \`$branch\`"
+            printf '%s\n' "- Resolved SHA: \`$source_sha\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Checkout tested work-branch SHA
