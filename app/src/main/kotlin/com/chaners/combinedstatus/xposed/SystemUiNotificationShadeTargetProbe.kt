@@ -152,7 +152,8 @@ internal object SystemUiNotificationShadeTargetProbe {
         fieldName: String,
         typeName: String,
     ): Boolean {
-        val normalized = (fieldName + " " + typeName).lowercase()
+        val simpleTypeName = typeName.substringAfterLast('.')
+        val normalized = (fieldName + " " + simpleTypeName).lowercase()
         return CANDIDATE_TOKENS.any(normalized::contains)
     }
 
