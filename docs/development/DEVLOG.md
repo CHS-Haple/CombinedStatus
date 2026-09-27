@@ -4787,3 +4787,67 @@ Re-run Fast CI after the test-only correction. Build 410 remains the same execut
 ### Deferred visual note
 
 The maintainer additionally reports that the battery ring now feels somewhat thin. This is consistent with Build 408's ring-only reduction from the previous effective 8.25-unit stroke to 7.5 while the accepted mobile-dot size remained unchanged. No visual change is added to Build 410. After Phase-2B scene validation, evaluate a separate ring-only optical-weight A/B rather than coupling thickness to scene-lifetime work.
+
+
+---
+
+## 2026-09-27 — Build 411 combined checkpoint: persistent Home owner + ring optical rebalance
+
+**Type:** accelerated combined device candidate / root-cause architecture correction / visual A/B
+
+### New maintainer evidence
+
+After Build 410:
+- every notification-shade / Control Center down-up cycle can replay the native status-icon entrance presentation;
+- a heads-up/notification appearance can leave the status bar restored to the native icon set;
+- the Build-408 battery-ring reduction now reads too thin and the ROUND endpoint curvature looks visually mismatched against the lower dot group.
+
+The maintainer explicitly requested that the next scene/runtime correction and the size/thickness visual coordination be tested in **one version** to reduce iteration time.
+
+### Scene root cause
+
+Current `dispatchPresentationReadiness()` combines two different responsibilities:
+1. structural ability of the Home owner to maintain a valid replacement session;
+2. scene eligibility of the Home overlay.
+
+Because notification-shade / Control Center gates participate in that single Boolean, every transient panel ownership change currently drives:
+
+`ready=false -> SystemUiHomePresentationOwner.deactivate() -> restore Home native masks/reservation`
+
+and return drives:
+
+`ready=true -> activate() -> recapture/reapply masks/reservation`.
+
+That is unnecessarily destructive. Build-409 device evidence already demonstrated that Control Center has its own native status presentation while the Home overlay can still exist underneath; therefore target-scene native rendering does not require tearing down the Home owner.
+
+### Selected Build-411 ownership correction
+
+Separate:
+- **owner structural readiness** = feature enabled + model/tint/layout ready + Home host attached;
+- **overlay scene eligibility** = unlocked Home + notification shade settled + Control Center not visible + native handoff inactive.
+
+The persistent Home owner remains active across notification-shade / Control Center scene transitions. Scene callbacks only drive overlay visibility. Full owner teardown remains for real structural invalidation/fail-native/hot-reload/host replacement.
+
+Expected effect:
+- no repeated Home native restore/re-mask cycle on every panel gesture;
+- no project-triggered replay of native icon entrance caused by that cycle;
+- less susceptibility to temporary notification/HUN scene fluctuations restoring the whole Home status representation.
+
+### Visual A/B in the same candidate
+
+Build 408 reduced effective ring width from 8.25 to 7.5 while preserving the accepted mobile-dot radius (~5.39). Maintainer feedback now reports:
+- ring too thin;
+- ROUND endpoint curvature no longer visually matches the lower opening/dots.
+
+Build 411 uses:
+- ring stroke: **8.0 canonical units**;
+- mobile dot radius: unchanged;
+- center size/geometry: unchanged;
+- color/alpha: unchanged;
+- existing lower-opening edge-gap solver recomputes dot angles from the new ring width.
+
+This is intentionally between rejected/heavy 8.25 and current/thin 7.5.
+
+### Review boundary
+
+No delay, retry, polling, custom scene animation, fraction threshold, per-glyph color compensation, center resize, or device-pixel magic value is added.
