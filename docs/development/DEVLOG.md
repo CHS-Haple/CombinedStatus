@@ -2,6 +2,60 @@
 
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
+## 2026-09-27 — Build 412 HUN device evidence and motion-semantic gate fix
+
+**Type:** maintainer device evidence / root-cause confirmation / runtime fix candidate  
+**Input build:** Build 412 / `20260927-412`  
+**Work branch / PR:** `fix/home-hun-ownership` / Draft #142
+
+### Problem execution flow
+
+**Phenomenon and evidence**
+
+The maintainer reproduced the notification/HUN disappearance on Build 412 and supplied detailed diagnostics. At 23:07:45.362 the target reports `expanded=true tracking=false fraction=0.0`; the current gate immediately records `homeEligible=false visible=false`. At 23:07:50.549 the same callback returns `expanded=false tracking=false fraction=0.0`, and Home returns `homeEligible=true visible=true`. The interval matches the visible HUN lifetime. The represented native Wi-Fi/mobile/Battery state remains independently managed; there is no participant-visible-state event or Home-owner teardown explaining the disappearance.
+
+**Root cause / responsibility source**
+
+The bug is in Combined Status scene interpretation, not suppression or renderer ownership. `notificationShadeAllowsHome()` equated native `expanded=true` with notification-shade ownership. On this HyperOS target, HUN sets `expanded=true` while the actual shade fraction remains exactly zero and tracking remains false. Therefore `expanded` is not a sufficient ownership discriminator.
+
+**Repository / platform / native evidence**
+
+- Build-412 detailed target evidence is authoritative for this device and callback.
+- `SystemUi-Reference` verifies the exact target callback contract and Home carrier.
+- Existing architecture requires transient scene visibility to be separate from persistent Home presentation ownership.
+- The prior panel-leak evidence requires any real positive shade fraction to leave Home, even before a settled expanded state.
+
+**Selected solution**
+
+Use the native callback's motion semantics for notification-shade ownership:
+
+- Home eligible: `tracking == false && fraction != null && fraction <= 0f`.
+- Shade owns presentation: active tracking, any positive finite fraction, missing fraction, or missing tracking.
+- Keep `expanded` in the diagnostic payload but do not use it as an independent Home-visibility authority.
+
+This is not a HUN special case. It removes an over-broad semantic assumption and uses the native transition's actual motion facts. It also preserves the accepted slight-pull fix because positive fraction remains non-Home regardless of `expanded`.
+
+### 审查 / review
+
+- **Ownership:** one scene-visibility writer remains; no HUN owner is introduced.
+- **Lifecycle:** existing event-driven shade callback only; no new listener or hook.
+- **Single writer:** unchanged.
+- **Cleanup:** unchanged; persistent Home owner is not torn down.
+- **Fail-native:** missing/unknown motion facts fail closed rather than force Home visible.
+- **Performance:** constant-time predicate change only; no polling/per-frame work.
+- **Compatibility:** uses fields already delivered by the installed target callback; no new reflection contract.
+- **Exception recovery:** unchanged.
+- **Future extension:** separates motion ownership from coarse `expanded` hints, composing cleanly with later shade/keyguard/AOD policy.
+
+### Tests
+
+`SystemUiPanelTransitionSourceTest` now covers zero-fraction/non-tracking Home eligibility, active tracking, positive fraction, negative settled overshoot, and missing-value fail-closed behavior.
+
+### Gate
+
+Run Fast CI at the exact runtime-fix PR HEAD. If Fast passes, request a signed Canary because the fix changes the HUN/shade runtime visibility boundary and needs focused maintainer validation before integration.
+
+
 ## 2026-09-27 — Post-Build 412 HUN ownership source review
 
 **Type:** root-cause triage / historical-assumption correction / documentation-only checkpoint
