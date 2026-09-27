@@ -58,9 +58,22 @@ Added deterministic coverage that:
 - Draft Light #1248 passed on exact source head `be9e14db5f0670f875d828129878b1b2c1c422bd`.
 - Source review is clean for ownership, lifecycle, single writer, cleanup, fail-native behavior, performance, compatibility, exception recovery and future extension.
 
-### Gate
+### Fast / Canary result
 
-Draft Light -> source review -> Ready/Fast. If Fast passes, request one signed Canary and stop runtime mutation for the same Hot Reload-vs-SystemUI-restart device comparison.
+- PR #148 was marked Ready only after Draft Light and source review.
+- Fast Build #1250 passed on exact tested runtime SHA `c341fd52af8e1b873278088f3cc3c7303f9e4da3`, including pinned HyperOS target-profile verification, unit tests, Debug build, and Modern Xposed metadata.
+- Maintainer `/canary` request produced Work Branch Canary #402.
+- Canary trust gates passed: trusted source resolution, checkout of the tested work-branch SHA, and checked-out-source verification.
+- Signing restore, pinned target profile, Canary build, Xposed metadata, APK signature, non-debuggable verification, artifact preparation, and upload all passed.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260928-417-canary.apk`.
+- GitHub artifact digest: `sha256:7866447367bb6a0c062384246f30ce6c4ff59db148d8a61cb33a6d2c6d4a740a`.
+- Extracted APK SHA-256: `e816e303c08f8ac754bca2333ab780c69dcd728a10cf238c82dff8ae98db1cad`.
+- PR returned to Draft after the signed checkpoint was produced. No runtime changes are allowed until maintainer device feedback.
+- This record-only closure does **not** create a new runtime Build; runtime identity remains Build 417 / `20260928-417`.
+
+### Device gate
+
+Install the signed Build-417 Canary without first restarting SystemUI. Trigger module Hot Reload and compare dark/light Home surfaces. If the defect remains, export Detailed diagnostics **before** restarting SystemUI. Acceptance requires both correct visible tint and a non-represented `tintAnchorSlot` / `tintAnchorClass`.
 
 
 ## 2026-09-28 — Build 416 device rejection: SystemUI restart isolates Hot Reload lifecycle

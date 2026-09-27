@@ -10,7 +10,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Integration branch: `dev`
 - Integration runtime baseline: Build 413, commit `2aa6833cfca69a59af5027a7855b7d8282dbade9`
 - Build 413 / `20260927-413` is the current device-accepted, Integration-validated, and `main`-promoted runtime baseline.
-- Active corrective work / PR: `fix/hot-reload-tint-continuity` / Draft #148. Builds 415 and 416 are device-rejected. Build 417 / `20260928-417` is the current bounded candidate: represented/masked native slots are excluded from Home visible Tint peer/anchor authority, while Hot Reload transfer v7, Battery semantic colors, geometry, scene ownership and rendering remain unchanged. Draft Light #1248 passed on source head `be9e14db5f0670f875d828129878b1b2c1c422bd`; source review is complete before the Fast checkpoint.
+- Active corrective work / PR: `fix/hot-reload-tint-continuity` / Draft #148. Builds 415 and 416 are device-rejected. Build 417 / `20260928-417` is now the signed device-test checkpoint. Exact tested runtime SHA: `c341fd52af8e1b873278088f3cc3c7303f9e4da3`; Fast #1250 passed and Work Branch Canary #402 passed. Canary artifact: `CombinedStatus-0.0.2-HyperOS-20260928-417-canary.apk`; APK SHA-256 `e816e303c08f8ac754bca2333ab780c69dcd728a10cf238c82dff8ae98db1cad`. Runtime is frozen pending maintainer device validation.
 - Repository-automation baseline: checkpoint-driven CI from PR #139 remains active; Canary admission hardening and bounded automation-only merge delegation were accepted on `main` via PR #143 (`a1aed8b6451d1018f46e252166545d67f48fe8e4`) and history-preserving back-synced into `dev` via PR #144 (`faaa12b1c8e955138d2ce8d51fb481263b4d7570`). These automation changes do **not** create a new runtime Build.
 - Phase-2A integration: PR #105 merged to `dev` as `2f584c3b393dc5ee606284426aa95a9d6beae5d5`; former stacked PR #100 is closed as superseded.
 - Phase-2B panel/scene-owner integration: PR #138 merged to `dev` as `a25cb5ce2aeab235cfaed579474df70596f03a63`.
@@ -155,11 +155,11 @@ Build 409's notification-shade implementation remains intact and is not reopened
 ## Immediate next step
 
 1. Keep Build 413 / `20260927-413` as the stable/runtime baseline on `main` and `dev`.
-2. Build 417 / `20260928-417` is the current Draft #148 checkpoint. It changes only the Home Tint authority candidate set.
-3. A represented/masked slot (`wifi`, `mobile`, `stacked_mobile`, `airplane`, `no_sim`) may remain attached for native state/lifecycle ownership but cannot be used as a visible Home Tint peer/anchor.
-4. Prefer a visible non-represented Home peer for location-aware dispatcher/static tint resolution; retain manager-global/cached fallback if no eligible peer exists.
-5. Keep Hot Reload v7 continuity, Battery semantic colors, Home geometry, scene ownership, panel projection and native rendering unchanged. Add no refresh timer, polling, retry, forced dark-mode update or color writer.
-6. Run Draft Light and source review. If clean, mark Ready for Fast, then request one signed Canary and repeat the exact Hot Reload test without SystemUI restart. Compare against the known fact that full SystemUI restart is healthy.
+2. Build 417 / `20260928-417` is the current signed device-test checkpoint from exact tested runtime SHA `c341fd52af8e1b873278088f3cc3c7303f9e4da3`.
+3. Fast #1250 and signed Work Branch Canary #402 passed. Do not modify runtime while awaiting device evidence.
+4. Device test must reproduce the original boundary: install Build 417, do **not** restart SystemUI first, trigger module Hot Reload, then compare Home dark/light surfaces. Collect Detailed diagnostics before any SystemUI restart if inversion remains.
+5. Acceptance requires both correct visual tint continuity and diagnostic confirmation that `tintAnchorSlot` / `tintAnchorClass` resolve to a visible non-represented peer rather than `wifi`, `mobile`, `stacked_mobile`, `airplane`, `no_sim`, or `combined_status`.
+6. A full SystemUI restart is a comparison control only, because Builds 415/416 already showed that restart can hide the Hot Reload-specific defect.
 7. PR #146 panel projection remains paused until this shared Home tint lifecycle is accepted.
 
 ## Reference priority
