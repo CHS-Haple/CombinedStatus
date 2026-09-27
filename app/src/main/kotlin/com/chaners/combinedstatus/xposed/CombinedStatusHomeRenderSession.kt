@@ -108,6 +108,14 @@ internal object CombinedStatusHomeRenderSession {
     }
 
     @Synchronized
+    fun onControlCenterAuthorityChanged(homeEligible: Boolean) {
+        current?.updateControlCenterHomeEligibility(
+            homeEligible = homeEligible,
+            source = "source-availability",
+        )
+    }
+
+    @Synchronized
     fun setNativeHandoffActive(active: Boolean) {
         current?.setNativeHandoffActive(active)
     }
@@ -122,11 +130,13 @@ internal object CombinedStatusHomeRenderSession {
         featureEnabled: Boolean,
         sceneAllowsOverlay: Boolean,
         notificationShadeAllowsHome: Boolean,
+        controlCenterAllowsHome: Boolean,
         nativeHandoffActive: Boolean,
     ): Boolean =
         featureEnabled &&
             sceneAllowsOverlay &&
             notificationShadeAllowsHome &&
+            controlCenterAllowsHome &&
             !nativeHandoffActive
 
     private fun ViewGroup.directChild(className: String): ViewGroup? {
@@ -176,6 +186,8 @@ internal object CombinedStatusHomeRenderSession {
         private var sceneSurface = SystemUiSceneStateSource.Surface.UNKNOWN
         private var notificationShadeAllowsHome =
             SystemUiPanelTransitionSource.currentNotificationShadeHomeEligibility() ?: false
+        private var controlCenterAllowsHome =
+            SystemUiPanelTransitionSource.currentControlCenterHomeEligibility() ?: false
         private var nativeHandoffActive = initialNativeHandoffActive
         private var featureEnabled = initialFeatureEnabled
         private var modelReady = false
@@ -268,28 +280,39 @@ internal object CombinedStatusHomeRenderSession {
         }
 
         fun updatePanelTransition(update: SystemUiPanelTransitionSource.Update) {
-            if (update.source != SystemUiPanelTransitionSource.Source.NOTIFICATION_SHADE) {
-                return
-            }
             if (Looper.myLooper() !== Looper.getMainLooper()) {
                 host.get()?.post {
                     updatePanelTransition(update)
                 }
                 return
             }
-            val allowsHome =
-                SystemUiPanelTransitionSource.notificationShadeAllowsHome(
-                    expanded = update.expanded,
-                    tracking = update.tracking,
-                )
-            updateNotificationShadeHomeEligibility(
-                homeEligible = allowsHome,
-                source = "notification-shade",
-                detail =
-                    " expanded=" + (update.expanded ?: "unknown") +
-                        " tracking=" + (update.tracking ?: "unknown") +
-                        " fraction=" + (update.fraction ?: "unknown"),
-            )
+            when (update.source) {
+                SystemUiPanelTransitionSource.Source.NOTIFICATION_SHADE -> {
+                    val allowsHome =
+                        SystemUiPanelTransitionSource.notificationShadeAllowsHome(
+                            expanded = update.expanded,
+                            tracking = update.tracking,
+                        )
+                    updateNotificationShadeHomeEligibility(
+                        homeEligible = allowsHome,
+                        source = "notification-shade",
+                        detail =
+                            " expanded=" + (update.expanded ?: "unknown") +
+                                " tracking=" + (update.tracking ?: "unknown") +
+                                " fraction=" + (update.fraction ?: "unknown"),
+                    )
+                }
+
+                SystemUiPanelTransitionSource.Source.CONTROL_CENTER -> {
+                    val visible = update.visible ?: return
+                    updateControlCenterHomeEligibility(
+                        homeEligible =
+                            SystemUiPanelTransitionSource.controlCenterAllowsHome(visible),
+                        source = "control-center",
+                        detail = " visible=" + visible,
+                    )
+                }
+            }
         }
 
         fun updateNotificationShadeHomeEligibility(
@@ -323,6 +346,37 @@ internal object CombinedStatusHomeRenderSession {
             dispatchPresentationReadiness("shade:" + source)
         }
 
+        fun updateControlCenterHomeEligibility(
+            homeEligible: Boolean,
+            source: String,
+            detail: String = "",
+        ) {
+            if (Looper.myLooper() !== Looper.getMainLooper()) {
+                host.get()?.post {
+                    updateControlCenterHomeEligibility(
+                        homeEligible = homeEligible,
+                        source = source,
+                        detail = detail,
+                    )
+                }
+                return
+            }
+            if (controlCenterAllowsHome == homeEligible) {
+                return
+            }
+            controlCenterAllowsHome = homeEligible
+            val visible = applyResolvedVisibility()
+            emitEvent {
+                "homeRenderControlCenterEligibility" +
+                    " source=" + source +
+                    detail +
+                    " homeEligible=" + controlCenterAllowsHome +
+                    " visible=" + visible +
+                    " nativeGeometryWrites=0"
+            }
+            dispatchPresentationReadiness("control-center:" + source)
+        }
+
         private fun applySceneState(
             update: SystemUiSceneStateSource.SceneUpdate,
             source: String,
@@ -339,6 +393,7 @@ internal object CombinedStatusHomeRenderSession {
                     " raw=" + update.rawState +
                     " surface=" + update.surface.name +
                     " shadeHomeEligible=" + notificationShadeAllowsHome +
+                    " controlCenterHomeEligible=" + controlCenterAllowsHome +
                     " visible=" + visible +
                     " policy=failClosedOutsideUnlockedStatusBarAndSettledShade " +
                     " nativeGeometryWrites=0"
@@ -436,7 +491,8 @@ internal object CombinedStatusHomeRenderSession {
                 trace?.takeIf {
                     layoutLogged &&
                         SystemUiSceneStateSource.allowsHomeOverlay(sceneSurface) &&
-                        notificationShadeAllowsHome
+                        notificationShadeAllowsHome &&
+                        controlCenterAllowsHome
                 }
             val update =
                 renderController.update(
@@ -525,6 +581,7 @@ internal object CombinedStatusHomeRenderSession {
                     sceneAllowsOverlay =
                         SystemUiSceneStateSource.allowsHomeOverlay(sceneSurface),
                     notificationShadeAllowsHome = notificationShadeAllowsHome,
+                    controlCenterAllowsHome = controlCenterAllowsHome,
                     nativeHandoffActive = nativeHandoffActive,
                 )
             probeView.visibility = if (visible) View.VISIBLE else View.GONE
@@ -541,6 +598,7 @@ internal object CombinedStatusHomeRenderSession {
                 featureEnabled &&
                     SystemUiSceneStateSource.allowsHomeOverlay(sceneSurface) &&
                     notificationShadeAllowsHome &&
+                    controlCenterAllowsHome &&
                     modelReady &&
                     tintReady &&
                     layoutReady &&
@@ -557,6 +615,7 @@ internal object CombinedStatusHomeRenderSession {
                     " layoutReady=" + layoutReady +
                     " scene=" + sceneSurface.name +
                     " shadeHomeEligible=" + notificationShadeAllowsHome +
+                    " controlCenterHomeEligible=" + controlCenterAllowsHome +
                     " featureEnabled=" + featureEnabled +
                     " nativeGeometryWrites=0"
             }
