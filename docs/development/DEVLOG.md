@@ -69,6 +69,18 @@ Keep PR #146 Draft for Light repository validation and source review. This is a 
 - The failure is test-call-site drift, not a runtime/profile failure. The correction removes those stale arguments, renames the affected tests to panel/handoff semantics, and converts the former scene-false assertion into Notification-Shade ownership denial.
 - No executable production source, Hook contract, build identity, geometry, tint, Control Center behavior, or ownership decision changes in this correction.
 
+### Build-422 signed checkpoint
+
+- Draft Light #1300 passed after the stale unit-test call sites were corrected; runtime production source remained unchanged.
+- Ready validation #1301 / run `36357104464` then passed under **Full** scope on exact PR head `f5cfbc87c819a776a5476f3ea1e5817b9c776d86`, including Gradle wrapper, JDK/API 37, pinned HyperOS target profile, Kotlin unit tests, Debug build, and Modern Xposed metadata checks.
+- Owner `/canary` triggered Work Branch Canary #412 / run `36357295818`.
+- Canary trusted-source resolution, exact checkout and source verification all resolved `f5cfbc87c819a776a5476f3ea1e5817b9c776d86`.
+- Haple signing restore and APK signature verification passed; signer certificate SHA-256: `7a64fc85325afe79439afb63369d832d7ddc20fd5b3935b4c28d7bcb85e92fc7`.
+- Modern Xposed metadata and non-debuggable checks passed.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260928-422-canary.apk`; artifact id `10944007922`; uploaded ZIP digest `sha256:78df112998aa2d38b4b4b24e93b78e2c7d90480d44ba89912d825f593418dd01`.
+- Extracted APK size: `3309602` bytes; APK SHA-256: `6d1bcab45ccf01ba3d0110eae2e7b9be5e00a3dc04ae994e308645d144cf5e7e`.
+- PR returns to Draft and runtime is frozen pending focused device validation of Notification-Shade edge continuity, quick Control Center regression, and one lock/unlock Home-overlay leak smoke test.
+
 ---
 
 ## 2026-09-28 — Build 419: narrow NotificationShadeWrapper target probe

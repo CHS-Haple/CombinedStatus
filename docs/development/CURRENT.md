@@ -10,7 +10,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Integration branch: `dev`
 - Integration runtime baseline: Build 418 / `20260928-418`, merge commit `11bc4ff741869e3311d2be697d4dcfb66f5cb39c`
 - Build 418 / `20260928-418` is the current device-accepted and Integration-validated `dev` runtime baseline. Build 413 remains the current `main`-promoted stable runtime baseline.
-- Active Phase-2B work / PR: `feat/panel-projection` / Draft #146. Build 420 / `20260928-420` remains **device-accepted for Control Center projection**. Build 421 / `20260928-421` is **device-rejected for Notification-Shade edge continuity**: real-device evidence shows `KeyguardManager.isKeyguardLocked=true` during the same transient Battery `mStatusBarState=1`, so the Build-421 discriminator still hides Home before the shade fraction owner. Build 422 / `20260928-422` removes Battery status state as a Home-visibility writer; Home visibility is owned by the native Home host plus the verified Notification-Shade / Control Center coordinator.
+- Active Phase-2B work / PR: `feat/panel-projection` / Draft #146. Build 420 / `20260928-420` remains **device-accepted for Control Center projection**. Build 421 / `20260928-421` is **device-rejected for Notification-Shade edge continuity**. Build 422 / `20260928-422` removes Battery status state as a Home-visibility writer; Ready Full #1301 and trusted Work Branch Canary #412 passed on exact tested head `f5cfbc87c819a776a5476f3ea1e5817b9c776d86`. Build 422 is now frozen pending focused device validation.
 - Repository-automation baseline: checkpoint-driven CI from PR #139 remains active; Canary admission hardening and bounded automation-only merge delegation were accepted on `main` via PR #143 (`a1aed8b6451d1018f46e252166545d67f48fe8e4`) and history-preserving back-synced into `dev` via PR #144 (`faaa12b1c8e955138d2ce8d51fb481263b4d7570`). These automation changes do **not** create a new runtime Build.
 - Phase-2A integration: PR #105 merged to `dev` as `2f584c3b393dc5ee606284426aa95a9d6beae5d5`; former stacked PR #100 is closed as superseded.
 - Phase-2B panel/scene-owner integration: PR #138 merged to `dev` as `a25cb5ce2aeab235cfaed579474df70596f03a63`.
@@ -149,13 +149,14 @@ Build 422 selects a narrower ownership model:
 
 ## Immediate next step
 
-1. Treat Build 421 as device-rejected; do not restore the `KeyguardManager` discriminator.
-2. Build 422 removes Battery status state from Home-visibility ownership while retaining the existing Battery event hook as read-only presentation/tint context.
-3. Keep accepted Build-420 Control Center projection, handoff order, geometry and tint behavior unchanged.
-4. Keep Notification-Shade ownership on the verified native fraction boundary only; do not add delay, epsilon, tracking workaround or a second scene state machine.
-5. Review and validate the exact Build-422 PR head. If automated validation passes, request one signed Canary.
-6. Device gate must cover Notification-Shade first/last-frame continuity, a quick Control Center regression, and a lock/unlock smoke test proving the Home-host-scoped overlay does not leak into the separate Keyguard host.
+1. Runtime is frozen at Build 422 / `20260928-422`; do not modify production code while device validation is pending.
+2. Install signed Canary `CombinedStatus-0.0.2-HyperOS-20260928-422-canary.apk` built from exact tested head `f5cfbc87c819a776a5476f3ea1e5817b9c776d86`.
+3. Validate Notification-Shade first/last-frame continuity with one normal pull-down and return-up cycle.
+4. Perform a quick Control Center open/close regression check; accepted Build-420 projection behavior should remain unchanged.
+5. Lock and unlock once to confirm the Home-host-scoped overlay does not leak into the separate Keyguard host. This is a smoke test only; Phase 3 Keyguard/AOD implementation is not started.
+6. Export Detailed diagnostics and, if the edge issue is visible, a short screen recording. Record maintainer feedback in CURRENT/DEVLOG before any further runtime change.
 
+Signed checkpoint: Ready Full #1301 / run `36357104464` succeeded. Work Branch Canary #412 / run `36357295818` succeeded with trusted source SHA `f5cfbc87c819a776a5476f3ea1e5817b9c776d86`, artifact `10944007922`, ZIP digest `sha256:78df112998aa2d38b4b4b24e93b78e2c7d90480d44ba89912d825f593418dd01`, APK size `3309602` bytes, and extracted APK SHA-256 `6d1bcab45ccf01ba3d0110eae2e7b9be5e00a3dc04ae994e308645d144cf5e7e`.
 ## Reference priority
 
 1. latest `CONTRIBUTING.md`;
