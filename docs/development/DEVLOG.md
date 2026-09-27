@@ -2977,3 +2977,64 @@ The reopened historical validation PR #104 triggered Build #1087 and signed Work
 
 A fresh ephemeral `fix/*` validation branch/PR based on the current Build-404 branch head is the selected CI path. This changes no executable source or workflow logic; it exists only to obtain an unambiguous `opened` PR event against `dev` so the repository's existing Fast Build -> signed Work Branch Canary chain validates the current candidate.
 
+
+
+---
+
+## 2026-09-27 — Build 404 CI / signed Canary gate passed
+
+**Type:** CI acceptance / pre-device validation gate  
+**Display version:** 0.0.2  
+**Build:** 404 / 20260927-404  
+**Runtime source:** `614c6ae96f1753088e21ce3568d969b900852081`  
+**Validation carrier tested head:** `ad55baa47eecadfa7fe1968556d5c7f13a1be460`  
+**Device validation:** pending
+
+### CI evidence
+
+A fresh validation-only PR #130 (`fix/build-404-validation-carrier -> dev`) produced an unambiguous normal `pull_request` Build event for the Build-404 line.
+
+- Fast Build #1088: **success**.
+- Build #1088 tested head: `ad55baa47eecadfa7fe1968556d5c7f13a1be460`.
+- Signed Work Branch Canary #324: **success**.
+- Canary job explicitly checked out `ad55baa47eecadfa7fe1968556d5c7f13a1be460`.
+- Target-profile verification: passed.
+- Unit/build checks: passed.
+- Modern Xposed API metadata verification: passed.
+- Haple signature verification: passed.
+- Non-debuggable Canary verification: passed.
+- Artifact upload: passed.
+
+The tested validation head is 16 commits ahead of runtime source `614c6ae96f1753088e21ce3568d969b900852081`, and repository compare shows the only file differences after that runtime source are `docs/development/CURRENT.md` and `docs/development/DEVLOG.md`. Therefore the validated executable runtime is still exactly Build 404; no later runtime delta is hidden in the validation carrier.
+
+### Artifact
+
+- `CombinedStatus-0.0.2-HyperOS-20260927-404-canary.apk`
+- Workflow run: Work Branch Canary #324 / run id `36281397598`
+- Artifact id: `10919007288`
+- Artifact ZIP digest: `sha256:694c81c37b5dc8227f0da076211ae538ac9250770da2eb97003be0727734c79f`
+
+### Validation-carrier cleanup
+
+PR #129 and PR #130 were validation-only carriers and are now closed. Neither is product work and neither should be merged. Temporary branches may remain until branch deletion is performed through a GitHub path that exposes ref deletion.
+
+### Review
+
+- **Ownership:** unchanged; HyperOS/SystemUI still owns native resource/tint/semantic state.
+- **Lifecycle:** unchanged.
+- **Single writer:** unchanged; Build 404 removes one project-side alpha-mask rewrite rather than adding another writer.
+- **Cleanup:** validation carriers are closed; runtime cleanup contract is unchanged.
+- **Fail native / recovery:** unchanged.
+- **Performance:** no new runtime work; Build 404 still removes percentile alpha-remap work.
+- **Compatibility:** exact target profile and Modern Xposed metadata passed CI.
+- **Future extension:** no coupling added to future color-source or size/spacing settings.
+
+### Device gate
+
+Runtime modification stops here. The exact signed Build-404 Canary must now be tested on the target device for:
+1. monochrome optical parity / native center antialiasing and apparent stroke weight;
+2. unchanged center size, centering, outer ring/mobile geometry and Home spacing;
+3. unchanged HyperOS battery semantic colors for NORMAL / CHARGING / POWER_SAVE / PERFORMANCE / LOW;
+4. absence of regressions in Wi-Fi, hotspot, airplane and no-SIM native-resource presentation.
+
+The shallow Home-overlay leak during notification-shade pull remains a separate Phase-2B issue and must not be mixed into this Build-404 A/B gate.
