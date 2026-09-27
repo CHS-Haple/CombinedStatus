@@ -35,6 +35,22 @@ class CombinedStatusTintAuthorityTest {
         assertEquals(0xbf223344.toInt(), resolved.statusIconTint)
     }
 
+
+    @Test
+    fun batteryEventDoesNotReuseEmbeddedStaleStatusTintWhenLiveAuthorityIsMissing() {
+        val resolved =
+            CombinedStatusTintAuthority.resolveBatteryEvent(
+                batteryState =
+                    CombinedStatusTintState(
+                        appliedTint = 0xbf112233.toInt(),
+                        statusIconTint = 0xe6ffffff.toInt(),
+                    ),
+                liveStatusIconTint = null,
+            )
+
+        assertEquals(0xbf112233.toInt(), resolved.statusIconTint)
+    }
+
     @Test
     fun statusIconEventUpdatesOnlyStatusAuthority() {
         val previous =

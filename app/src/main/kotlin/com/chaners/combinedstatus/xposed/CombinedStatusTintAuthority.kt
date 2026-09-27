@@ -7,7 +7,6 @@ internal object CombinedStatusTintAuthority {
     ): CombinedStatusTintState {
         val statusIconTint =
             visible(liveStatusIconTint)
-                ?: visible(batteryState.statusIconTint)
                 ?: visible(batteryState.appliedTint)
         return batteryState.copy(statusIconTint = statusIconTint)
     }

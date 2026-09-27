@@ -1298,18 +1298,6 @@ class CombinedStatusModule : XposedModule() {
         val changed =
             CombinedStatusPresentationStateStore.updateStatusIcons(state)
 
-        val tintSourceView = SystemUiTintStateSource.currentSourceView()
-        if (tintSourceView != null) {
-            SystemUiTintStateSource.currentState(tintSourceView)?.let { tintState ->
-                onTintStateUpdate(
-                    SystemUiTintStateSource.TintUpdate(
-                        sourceView = tintSourceView,
-                        state = tintState,
-                    ),
-                )
-            }
-        }
-
         CombinedStatusHomeRenderSession.onStatusIconTintUpdate(
             state.appliedTint,
         )
