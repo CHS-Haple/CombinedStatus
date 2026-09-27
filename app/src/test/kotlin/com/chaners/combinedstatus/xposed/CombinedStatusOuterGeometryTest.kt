@@ -9,14 +9,14 @@ import org.junit.Test
 
 class CombinedStatusOuterGeometryTest {
     @Test
-    fun defaultOpticalBaselineLightensOnlyRingFromBuild407Geometry() {
+    fun defaultOpticalBaselineUsesBuild411RingRebalance() {
         val geometry =
             CombinedStatusOuterGeometry.resolve(
                 CombinedStatusOuterGeometry.DEFAULT_WEIGHT_SCALE,
             )
 
         assertEquals(
-            7.5f,
+            8.0f,
             geometry.ringStroke,
             0.0001f,
         )
