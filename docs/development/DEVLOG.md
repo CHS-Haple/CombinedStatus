@@ -5253,8 +5253,8 @@ PR #138 may integrate to `dev` after its latest documentation-only head satisfie
 
 ## 2026-09-27 — PR #138 merged to dev; Build 412 Integration passed
 
-**Type:** dev integration / accepted baseline update  
-**Merge commit:** `a25cb5ce2aeab235cfaed579474df70596f03a63`  
+**Type:** dev integration / accepted baseline update
+**Merge commit:** `a25cb5ce2aeab235cfaed579474df70596f03a63`
 **Integrated build:** 412 / 20260927-412
 
 ### Accepted net state
