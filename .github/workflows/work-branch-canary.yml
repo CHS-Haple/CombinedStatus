@@ -7,6 +7,12 @@ on:
     branches:
       - 'feat/**'
       - 'fix/**'
+  workflow_dispatch:
+    inputs:
+      source_branch:
+        description: 'Trusted same-repository feat/* or fix/* branch to validate'
+        required: true
+        type: string
 
 permissions:
   actions: read
@@ -20,10 +26,12 @@ concurrency:
 jobs:
   canary:
     if: >-
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'pull_request' &&
-      github.event.workflow_run.actor.login == github.repository_owner &&
-      github.event.workflow_run.head_repository.full_name == github.repository
+      (github.event_name == 'workflow_dispatch' && github.actor == github.repository_owner) ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'pull_request' &&
+       github.event.workflow_run.actor.login == github.repository_owner &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -36,9 +44,52 @@ jobs:
       - name: Checkout tested work-branch SHA
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
-          ref: ${{ github.event.workflow_run.head_sha }}
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.source_branch || github.event.workflow_run.head_sha }}
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Resolve trusted source
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          AUTO_SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+          AUTO_SOURCE_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          MANUAL_SOURCE_BRANCH: ${{ inputs.source_branch }}
+        run: |
+          set -euo pipefail
+          resolved_sha="$(git rev-parse HEAD)"
+
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            branch="$MANUAL_SOURCE_BRANCH"
+            if [[ "$branch" != feat/* && "$branch" != fix/* ]]; then
+              echo "::error::Manual Canary source must be a feat/* or fix/* branch, got: $branch"
+              exit 1
+            fi
+            remote_sha="$(git rev-parse "origin/$branch")"
+            if [[ "$resolved_sha" != "$remote_sha" ]]; then
+              echo "::error::Checked-out SHA does not match the requested remote branch head."
+              exit 1
+            fi
+          else
+            branch="$AUTO_SOURCE_BRANCH"
+            if [[ "$branch" != feat/* && "$branch" != fix/* ]]; then
+              echo "::error::Automatic Canary source must be a feat/* or fix/* branch, got: $branch"
+              exit 1
+            fi
+            if [[ "$resolved_sha" != "$AUTO_SOURCE_SHA" ]]; then
+              echo "::error::Checked-out SHA does not match successful upstream Build SHA."
+              exit 1
+            fi
+          fi
+
+          echo "TRUSTED_SOURCE_SHA=$resolved_sha" >> "$GITHUB_ENV"
+          echo "TRUSTED_SOURCE_BRANCH=$branch" >> "$GITHUB_ENV"
+          {
+            echo "### Trusted source"
+            echo "- Trigger: `$EVENT_NAME`"
+            echo "- Source branch: `$branch`"
+            echo "- Resolved SHA: `$resolved_sha`"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Validate Gradle Wrapper
         uses: gradle/actions/wrapper-validation@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.3
@@ -195,6 +246,10 @@ jobs:
         shell: bash
         run: |
           echo "### Work-branch Canary" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Source branch: ${{ github.event.workflow_run.head_branch }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Source SHA: ${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Triggering Build: ${{ github.event.workflow_run.id }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Source branch: $TRUSTED_SOURCE_BRANCH" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Source SHA: $TRUSTED_SOURCE_SHA" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${{ github.event_name }}" == "workflow_run" ]]; then
+            echo "- Triggering Build: ${{ github.event.workflow_run.id }}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- Triggering Build: manual maintainer fallback" >> "$GITHUB_STEP_SUMMARY"
+          fi
