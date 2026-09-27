@@ -10,7 +10,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Integration branch: `dev`
 - Integration runtime baseline: Build 413, commit `2aa6833cfca69a59af5027a7855b7d8282dbade9`
 - Build 413 / `20260927-413` is the current device-accepted and Integration-validated `dev` runtime baseline.
-- Active Phase-2B work branch / PR: `feat/panel-projection` / Draft PR #146. Build 414 / `20260928-414` is a bounded notification-header diagnostic candidate; it does not render panel Combined Status yet.
+- Active Phase-2B work branch / PR: `feat/panel-projection` / Draft PR #146. Build 414 / `20260928-414` completed its bounded notification-header diagnostic capture. Panel rendering is still not enabled. Device testing also exposed a separate Hot Reload tint-continuity defect: immediately after APK Hot Reload the Home Combined Status can use the wrong inversion/tint, while a full SystemUI restart restores correct tint.
 - Repository-automation baseline: checkpoint-driven CI from PR #139 remains active; Canary admission hardening and bounded automation-only merge delegation were accepted on `main` via PR #143 (`a1aed8b6451d1018f46e252166545d67f48fe8e4`) and history-preserving back-synced into `dev` via PR #144 (`faaa12b1c8e955138d2ce8d51fb481263b4d7570`). These automation changes do **not** create a new runtime Build.
 - Phase-2A integration: PR #105 merged to `dev` as `2f584c3b393dc5ee606284426aa95a9d6beae5d5`; former stacked PR #100 is closed as superseded.
 - Phase-2B panel/scene-owner integration: PR #138 merged to `dev` as `a25cb5ce2aeab235cfaed579474df70596f03a63`.
@@ -151,12 +151,12 @@ Build 409's notification-shade implementation remains intact and is not reopened
 
 ## Immediate next step
 
-1. Keep Build 413 / `20260927-413` at dev commit `2aa6833cfca69a59af5027a7855b7d8282dbade9` as the closed scene-lifetime/runtime baseline.
-2. Validate **Build 414 / `20260928-414`** on Draft PR #146. Its only executable purpose is to observe the exact target's `NotificationHeaderExpandController` at native expansion boundary buckets and identify direct View candidates/target geometry.
-3. Build 414 must remain read-only: no projection render, no Home visibility change, no peer/native geometry write, no polling, no per-frame listener, and probe installation failure must not affect the Build-413 panel authority.
-4. After automated validation, obtain one focused device diagnostic covering one notification-shade pull/return and one Control Center pull/return. Use that evidence to select the actual scene projection hosts/anchors before implementing any renderer.
-5. Reuse the existing shared render model/controller for later projection; do not reuse the Home overlay as the target panel surface and do not create a second network/battery state machine.
-6. Keyguard / lockscreen / AOD remains Phase 3 and stays out of this branch.
+1. Keep Build 413 / `20260927-413` as the accepted stable/runtime baseline. Build 414 remains a diagnostic work-branch checkpoint only.
+2. Treat the Build-414 panel probe as successful evidence collection: `NotificationHeaderExpandController` was observed at native buckets 0/1/7/8, but its only direct Android `View` field observed by the bounded probe was `realClockIcons`; the controller-level `notificationTranslationX=2` and `notificationTranslationY=-109` remained stable across those captures. The field inventory exposes narrower next seams such as `headerController: Lazy` and `notification: NotificationShadeWrapper`; do not guess a status-icon target host from the clock view.
+3. Pause new panel-projection runtime mutation while the independent **Hot Reload tint continuity** defect is resolved. Device evidence: APK install + Hot Reload can produce wrong inversion/tint; restarting SystemUI returns to correct behavior.
+4. Fix Hot Reload tint continuity in a separate `fix/*` boundary because its root cause/runtime owner is presentation-state transfer rather than panel projection. Prefer transferring the last accepted stable tint across generations and letting the first new native tint callback supersede it; do not add a delay, polling, forced dark-mode refresh, or synthetic color.
+5. After that fix is integrated, update PR #146 from the new `dev` baseline and continue bounded notification-header target-host discovery through the verified controller/wrapper ownership chain.
+6. Keyguard / lockscreen / AOD remains Phase 3 and stays out of both changes.
 
 ## Reference priority
 
