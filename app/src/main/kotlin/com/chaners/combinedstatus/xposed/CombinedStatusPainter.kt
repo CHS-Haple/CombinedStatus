@@ -396,46 +396,48 @@ internal class CombinedStatusPainter(
                 probeHeight,
                 Bitmap.Config.ARGB_8888,
             )
-        probeDrawable.setTint(Color.WHITE)
-        probeDrawable.alpha = 255
-        probeDrawable.setBounds(0, 0, probeWidth, probeHeight)
-        probeDrawable.draw(Canvas(bitmap))
+        try {
+            probeDrawable.setTint(Color.WHITE)
+            probeDrawable.alpha = 255
+            probeDrawable.setBounds(0, 0, probeWidth, probeHeight)
+            probeDrawable.draw(Canvas(bitmap))
 
-        val pixels = IntArray(probeWidth * probeHeight)
-        bitmap.getPixels(pixels, 0, probeWidth, 0, 0, probeWidth, probeHeight)
+            val pixels = IntArray(probeWidth * probeHeight)
+            bitmap.getPixels(pixels, 0, probeWidth, 0, 0, probeWidth, probeHeight)
 
-        var minX = probeWidth
-        var minY = probeHeight
-        var maxX = -1
-        var maxY = -1
-        pixels.forEachIndexed { index, color ->
-            val alpha = Color.alpha(color)
-            if (alpha > NATIVE_OPTICAL_ALPHA_THRESHOLD) {
-                val x = index % probeWidth
-                val y = index / probeWidth
-                if (x < minX) minX = x
-                if (x > maxX) maxX = x
-                if (y < minY) minY = y
-                if (y > maxY) maxY = y
+            var minX = probeWidth
+            var minY = probeHeight
+            var maxX = -1
+            var maxY = -1
+            pixels.forEachIndexed { index, color ->
+                val alpha = Color.alpha(color)
+                if (alpha > NATIVE_OPTICAL_ALPHA_THRESHOLD) {
+                    val x = index % probeWidth
+                    val y = index / probeWidth
+                    if (x < minX) minX = x
+                    if (x > maxX) maxX = x
+                    if (y < minY) minY = y
+                    if (y > maxY) maxY = y
+                }
             }
-        }
 
-        if (maxX < minX || maxY < minY) {
+            if (maxX < minX || maxY < minY) {
+                return null
+            }
+
+            val opticalBounds =
+                OpticalBounds(
+                    left = minX / probeWidth.toFloat(),
+                    top = minY / probeHeight.toFloat(),
+                    right = (maxX + 1) / probeWidth.toFloat(),
+                    bottom = (maxY + 1) / probeHeight.toFloat(),
+                )
+            // Keep the raster probe measurement-only. The native Drawable is
+            // rendered directly at the final presentation bounds below.
+            return NativeVisualProbe(opticalBounds = opticalBounds)
+        } finally {
             bitmap.recycle()
-            return null
         }
-
-        val opticalBounds =
-            OpticalBounds(
-                left = minX / probeWidth.toFloat(),
-                top = minY / probeHeight.toFloat(),
-                right = (maxX + 1) / probeWidth.toFloat(),
-                bottom = (maxY + 1) / probeHeight.toFloat(),
-            )
-        // Keep the raster probe measurement-only. The native Drawable is
-        // rendered directly at the final presentation bounds below.
-        bitmap.recycle()
-        return NativeVisualProbe(opticalBounds = opticalBounds)
     }
 
     private fun drawNativeCenterResource(
