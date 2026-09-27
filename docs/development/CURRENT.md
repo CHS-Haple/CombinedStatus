@@ -53,6 +53,7 @@ Build 404 validation:
 - compare evidence from runtime source `614c6ae96f1753088e21ce3568d969b900852081` to tested head `ad55baa47eecadfa7fe1968556d5c7f13a1be460` shows only `CURRENT.md` / `DEVLOG.md` documentation changes, so the validated executable runtime remains Build 404;
 - signed artifact: `CombinedStatus-0.0.2-HyperOS-20260927-404-canary.apk`;
 - artifact ZIP digest: `sha256:694c81c37b5dc8227f0da076211ae538ac9250770da2eb97003be0727734c79f`;
+- extracted APK SHA-256: `eb16169738f3e16bcd208463ae4fc638898c3c46f2ca3b43efea3bda625519f1`;
 - device optical-parity and semantic-color acceptance: **pending**.
 - validation-only PRs #129 and #130 are closed after evidence capture; neither is mergeable product work.
 
