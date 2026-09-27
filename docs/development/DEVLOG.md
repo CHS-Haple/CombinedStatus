@@ -2,6 +2,74 @@
 
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
+## 2026-09-27 — Post-Build 412 HUN ownership source review
+
+**Type:** root-cause triage / historical-assumption correction / documentation-only checkpoint  
+**APK build:** none; executable runtime remains Build 412 / `20260927-412`  
+**Work branch:** `fix/home-hun-ownership`
+
+### Problem execution flow
+
+**Phenomenon and evidence**
+
+Maintainer device observation after the accepted Build-411 panel-owner correction: when a notification / heads-up notification (HUN) appears, Combined Status can temporarily disappear while the represented native Wi-Fi / mobile / Battery icons do not reappear. No Build-411/412 HUN diagnostic capture has been supplied yet; the available Build-409 diagnostic belongs to the earlier panel investigation and must not be repurposed as HUN evidence.
+
+**Root cause / responsibility source**
+
+Current-source review disproves the tentative explanation that the active Combined Status surface is a native status participant receiving `ICON / DOT / HIDDEN` visible-state callbacks:
+
+- `CombinedStatusHomeRenderSession.Session.start()` adds the renderer to `MiuiNotificationStatusContainer.overlay`;
+- `SystemUiHomePresentationOwner` owns represented-slot exclusion, reversible clip masks and end reservation for that Home overlay path;
+- the legacy native-participant install/schedule methods still present in `CombinedStatusModule` have no active call site on the Build-412 path;
+- Home startup/hot-reload explicitly calls `cleanupLegacyParticipant(...)` for the obsolete `combined_status` slot.
+
+Therefore a participant-visible-state explanation is not an accepted root cause for Build 412.
+
+The two evidence-bearing candidates that remain are:
+
+1. the already-hooked `ShadeExpansionStateManager.onPanelExpansionChanged(...)` reports a non-Home semantic state during HUN and the existing scene gate intentionally hides the Home overlay while keeping the persistent Home owner/masks alive; or
+2. Home eligibility/readiness remains valid, but the native Home host/ancestor presentation path temporarily prevents the overlay from being drawn.
+
+**Repository / platform evidence**
+
+- `CONTRIBUTING.md`: root-cause-first, one owner/writer, event-driven native state, no timing/polling workaround.
+- `docs/architecture/scene-policy.md`: transient shade/Control Center ownership hides the overlay without tearing down a structurally valid Home presentation owner.
+- `docs/architecture/layout-policy.md`: accepted Home carrier is `system_icon_area / MiuiNotificationStatusContainer -> ViewGroupOverlay`; permanent native participant is rejected as the default carrier.
+- `SystemUI-Reference/findings/statusbar.md`: exact target identifies `system_icon_area` as the Home carrier/island right-container and records the historical native-participant route as superseded by the overlay architecture.
+- Exact target profile verifies `ShadeExpansionStateManager.onPanelExpansionChanged(float, boolean, boolean)`.
+- AOSP's documented `ShadeExpansionStateManager` contract states that `expanded` is independent of the numeric fraction, including the possibility of `expanded=true` at fraction 0. This is supporting contract context only; HyperOS HUN behavior still requires target-device evidence.
+
+### Selected next evidence boundary
+
+No runtime change is justified yet. Build 412 already emits the required bounded detailed diagnostics for the first branch of the decision:
+
+- `panelTransition source=notification ... fraction=... expanded=... tracking=...`;
+- Home shade eligibility / overlay visibility updates;
+- Home presentation readiness and activation/deactivation/fail-native events.
+
+Reproduce a single HUN with detailed diagnostics enabled on the existing signed Build-412 Canary. If the HUN drives the shade gate non-Home, review the target's intended HUN ownership before changing policy. If Home remains eligible and the overlay still disappears, add only the smallest host/ancestor diagnostic needed to resolve the second branch.
+
+### 审查 / review
+
+- **Ownership:** remains `MiuiNotificationStatusContainer.overlay` + persistent Home presentation owner; no second HUN owner added.
+- **Lifecycle:** no new Hook/listener/frame callback in this checkpoint.
+- **Single writer:** existing scene gate remains the only overlay-visibility writer; native represented-slot masks/reservation remain Home-owner scoped.
+- **Cleanup:** unchanged; no new state to restore.
+- **Fail-native:** unchanged; no forced always-visible path.
+- **Performance:** zero runtime impact; avoids a speculative HUN hook or per-frame visibility probe.
+- **Compatibility:** no new private SystemUI member is assumed.
+- **Exception recovery:** existing fail-native and structural-readiness paths remain intact.
+- **Future extension:** keeps HUN as a scene-ownership question that can later compose with shade/keyguard/AOD instead of a special-case patch.
+
+### Historical correction
+
+The prior tentative statement that the current Combined Status native participant likely receives `ICON / DOT / HIDDEN` and hides itself is rejected for Build 412 by current source/call-site review. Historical native-participant experiments remain valid evidence for those older builds but are not the active carrier architecture.
+
+### Gate
+
+This checkpoint creates no Build 413. Obtain focused Build-412 HUN diagnostics before any runtime mutation.
+
+
 ## Entry requirements
 
 For each engineering checkpoint, record the problem/goal, observed evidence, analysis, root-cause status, references consulted, alternatives, implementation, review, CI/build identity, validation/device feedback, result, durable conclusions, residual risk, and future-design consequences as applicable.
