@@ -438,6 +438,7 @@ class SystemUiNativeCombinedParticipantOwnerTest {
                 featureEnabled = false,
                 sceneAllowsOverlay = true,
                 notificationShadeAllowsHome = true,
+                controlCenterAllowsHome = true,
                 nativeHandoffActive = false,
             ),
         )
@@ -446,7 +447,21 @@ class SystemUiNativeCombinedParticipantOwnerTest {
                 featureEnabled = false,
                 sceneAllowsOverlay = true,
                 notificationShadeAllowsHome = true,
+                controlCenterAllowsHome = true,
                 nativeHandoffActive = true,
+            ),
+        )
+    }
+
+    @Test
+    fun controlCenterOwnershipBlocksHomeOverlay() {
+        assertFalse(
+            CombinedStatusHomeRenderSession.resolveOverlayVisible(
+                featureEnabled = true,
+                sceneAllowsOverlay = true,
+                notificationShadeAllowsHome = true,
+                controlCenterAllowsHome = false,
+                nativeHandoffActive = false,
             ),
         )
     }
@@ -458,6 +473,7 @@ class SystemUiNativeCombinedParticipantOwnerTest {
                 featureEnabled = true,
                 sceneAllowsOverlay = true,
                 notificationShadeAllowsHome = true,
+                controlCenterAllowsHome = true,
                 nativeHandoffActive = false,
             ),
         )
@@ -466,6 +482,7 @@ class SystemUiNativeCombinedParticipantOwnerTest {
                 featureEnabled = true,
                 sceneAllowsOverlay = false,
                 notificationShadeAllowsHome = true,
+                controlCenterAllowsHome = true,
                 nativeHandoffActive = false,
             ),
         )
@@ -474,6 +491,7 @@ class SystemUiNativeCombinedParticipantOwnerTest {
                 featureEnabled = true,
                 sceneAllowsOverlay = true,
                 notificationShadeAllowsHome = true,
+                controlCenterAllowsHome = true,
                 nativeHandoffActive = true,
             ),
         )
