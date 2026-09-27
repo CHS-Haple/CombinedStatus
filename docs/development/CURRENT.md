@@ -61,20 +61,37 @@ Build 404 validation:
 
 ### Visual intensity / optical parity — open
 
-Latest target-device screenshots still show a visible optical-weight difference between Combined Status and neighboring native status icons, so visual parity is **not accepted yet**.
+Build 404 device feedback is **negative**: preserving the alpha values of the existing 96px native-center bitmap did not improve parity and is reported to look worse than the previous checkpoint. Do not treat Build 404 as an accepted rendering baseline.
 
-Screenshot pixel sampling narrows the problem: the core dark grayscale levels are already closely aligned with adjacent native icons. The remaining mismatch therefore appears to be dominated by optical coverage / geometry / antialiasing rather than a different base monochrome tint. Treat that as a strong current finding, not yet a final root-cause proof.
+The root-cause boundary has moved upstream after exact-target SystemUI inspection.
+
+Verified native Home Wi-Fi path on the pinned target:
+- semantic state carries a base `Icon.Resource`;
+- `MiuiWifiViewBinder` resolves the current native resource variant through `MiuiStatusBarIconViewHelper.transformResId(resId, useTint, light)`;
+- the native ImageView receives the resulting resource with `setImageResource(...)`;
+- tint mode either applies the current `ColorStateList` or clears image tint so the selected light/dark resource owns its color;
+- the target resource is a 20dp × 20dp VectorDrawable;
+- target-device diagnostics show the final native Wi-Fi ImageView/Drawable at 75 × 75 px, `FIT_CENTER`, identity matrix, zero padding, drawable alpha 255 and image alpha 255;
+- the vector is therefore rasterized once at its final native drawable bounds.
+
+Build 404 still uses a different rendering pipeline:
+- load the base native Drawable;
+- rasterize it first into a 96px ARGB bitmap;
+- measure optical bounds from that bitmap;
+- scale that bitmap again into the smaller Combined Status center destination using filtered bitmap sampling;
+- apply the final tint through SRC_IN.
+
+The earlier assumption that preserving the 96px bitmap's authored alpha values would sufficiently match native rendering is therefore **superseded**. The remaining non-native responsibility is the intermediate bitmap / second resampling stage itself: antialias/coverage is generated at the probe resolution and then redistributed when the bitmap is reduced to the final center size.
+
+A controlled same-path comparison supports that mechanism. At a representative 63px final center size, direct vector rasterization kept 585 fully covered pixels and 275 partial-edge pixels; rendering at 96px then bilinear-downsampling to 63px kept only 474 fully covered pixels and produced 530 partial-edge pixels. Total alpha mass remained close, but edge coverage became materially softer.
 
 Current boundary:
-- Build 399's non-overlapping battery-arc compositing remains the active correction;
-- native status-icon tint remains the intended monochrome authority and should not be replaced with a project gray;
-- Build 404 disproves the narrower assumption that removing percentile alpha remapping is sufficient: preserving authored alpha while keeping the existing raster-probe pipeline makes the target-device center presentation worse than Build 403;
-- exact-target SystemUI reverse engineering now establishes a more fundamental rendering-path difference. Native Home Wi-Fi resolves the semantic `Icon.Resource`, transforms it through HyperOS Light / Dark / Tint resource maps, assigns the resulting VectorDrawable with `ImageView.setImageResource()`, optionally applies `ImageTintList`, and lets the VectorDrawable rasterize directly at the final 20dp ImageView/slot size;
-- Combined Status instead takes the raw semantic resource, renders it into an intermediate bitmap up to 96px, measures optical bounds from that bitmap, then rescales the bitmap into the final Combined Status bounds and applies another SRC_IN tint. That intermediate raster/resample stage is absent from the verified native path and is now the primary root-cause candidate for the remaining optical-weight/antialiasing mismatch;
-- the native resource-variant transformation is a second verified difference and must remain distinct from the rasterization hypothesis so A/B evidence stays attributable;
-- the next bounded runtime A/B should remove the bitmap as the **rendered asset** while keeping the existing raw semantic resource, final tint authority, center size, optical measurement, outer geometry, Battery arc policy, and Home carrier unchanged. A small probe may remain measurement-only and must not be drawn;
-- do **not** add per-glyph gray multipliers, replacement gray constants, screenshot-derived magic numbers, source-asset recoloring, or another coverage remap merely to force a visual match;
-- the green screenshot is a semantic-color state and is not evidence of a monochrome tint mismatch.
+- native status-icon tint remains authoritative; do not tune gray values;
+- Build 399's non-overlapping Battery arc partition remains valid;
+- do not add per-glyph gray multipliers, percentile alpha remaps, source-asset edits or screenshot-derived compensation;
+- the next bounded rendering A/B should remove the intermediate bitmap from the **final presentation path** and draw a module-owned clone of the native Drawable directly at the resolved final bounds;
+- a bitmap probe may remain measurement-only if optical bounds are still needed;
+- center size, center position, outer ring/mobile geometry, Battery semantic colors, Home carrier and scene behavior must remain unchanged for that A/B.
 
 ### Battery semantic colors — implemented, device acceptance still open
 
@@ -104,12 +121,12 @@ A shallow notification-shade pull / final held-return frame can still leave the 
 
 ## Immediate next step
 
-1. Treat Build 404 as a rejected visual A/B and keep its CI evidence only as build/compatibility evidence.
-2. Implement one new rendering-boundary A/B: keep the existing optical measurement and geometry contract, but stop drawing the cached probe bitmap; draw the cloned HyperOS Drawable / VectorDrawable directly into the final resolved bounds so it rasterizes once at the final canvas size.
-3. Keep the raw semantic resource ID, current native tint authority, center size/centering, outer weight, Battery arc policy, battery semantic colors, Home carrier, and shade behavior unchanged in that checkpoint.
-4. Run source review, Fast CI and signed Work Branch Canary. Then stop runtime changes for target-device comparison against Builds 403 and 404.
-5. If direct final Drawable rendering fixes coverage/antialiasing but a remaining state-dependent difference persists, evaluate the separately verified HyperOS Light / Dark / Tint `transformResId` contract as the next independent boundary rather than folding both changes into one test.
-6. After color/intensity closure, move to the already-identified Phase-2B shallow-shade scene-boundary leak without reopening steady Home carrier ownership.
+1. Treat Build 404 as a failed optical-parity A/B; do not stack another tint/alpha compensation on it.
+2. Implement one new rendering-boundary A/B: keep the current semantic resource, tint authority, optical sizing and geometry, but replace the cached 96px bitmap as the final native-center source with direct Drawable rendering at the resolved final bounds.
+3. Keep any bitmap/alpha scan measurement-only; it must not feed final presentation pixels.
+4. Review ownership, lifecycle, single writer, cleanup, fail-native behavior, performance, compatibility, exception recovery and future custom color/size support before committing the runtime change.
+5. Run Fast CI + signed Work Branch Canary, then stop runtime changes for focused target-device A/B.
+6. Only after optical/color closure move to the already-identified Phase-2B shallow-shade scene-boundary leak.
 
 ## Reference priority
 
