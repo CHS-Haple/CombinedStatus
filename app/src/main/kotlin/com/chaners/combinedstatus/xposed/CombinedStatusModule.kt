@@ -183,6 +183,7 @@ class CombinedStatusModule : XposedModule() {
             "hostIdentity" to System.identityHashCode(prepared.host),
             "wifiRoots" to prepared.wifiRoots,
             "mobileRoots" to prepared.mobileRoots,
+            "tintTransfer" to if (prepared.tintTransferred) "ready" else "native-fallback",
         )
         log(
             Log.INFO,
@@ -468,10 +469,18 @@ class CombinedStatusModule : XposedModule() {
             SystemUiPanelTransitionSource.restoreControlCenterHomeEligibility(
                 restored.controlCenterHomeEligible,
             )
+            val transferredTint =
+                restored.appliedTint?.let { appliedTint ->
+                    CombinedStatusTintState(
+                        appliedTint = appliedTint,
+                        statusIconTint = restored.statusIconTint,
+                    )
+                }
             attachHostRuntime(
                 host = capture.host,
                 source = "hotReloadRestore",
                 initialNativeHandoffActive = true,
+                initialTintState = transferredTint,
             )
 
             logDiagnostic(
@@ -488,6 +497,7 @@ class CombinedStatusModule : XposedModule() {
                     (restored.notificationShadeHomeEligible ?: "unknown"),
                 "controlCenterHomeEligible" to
                     (restored.controlCenterHomeEligible ?: "unknown"),
+                "tintTransfer" to if (transferredTint != null) "restored" else "native-fallback",
                 "mainThread" to true,
             )
             logDiagnostic(
@@ -1396,6 +1406,7 @@ class CombinedStatusModule : XposedModule() {
         host: Any,
         source: String,
         initialNativeHandoffActive: Boolean = false,
+        initialTintState: CombinedStatusTintState? = null,
     ) {
         val hostContext = (host as? android.view.View)?.context
         val coreRuntime =
@@ -1544,6 +1555,7 @@ class CombinedStatusModule : XposedModule() {
                 onLatencySample = ::onRenderLatencySample,
                 isDetailedDiagnosticsEnabled = { detailedDiagnosticsEnabled },
                 initialNativeHandoffActive = true,
+                initialTintState = initialTintState,
                 onPresentationReadinessChanged = { ready ->
                     onHomePresentationReadinessChanged(host, ready, source)
                 },
