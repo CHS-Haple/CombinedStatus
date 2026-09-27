@@ -1,12 +1,6 @@
 name: Work Branch Canary
 
 on:
-  workflow_run:
-    workflows: [Build]
-    types: [completed]
-    branches:
-      - 'feat/**'
-      - 'fix/**'
   workflow_dispatch:
     inputs:
       source_branch:
@@ -24,7 +18,7 @@ permissions:
   pull-requests: read
 
 concurrency:
-  group: work-canary-${{ github.event_name == 'workflow_dispatch' && inputs.source_branch || github.event_name == 'issue_comment' && github.event.issue.number || github.event.workflow_run.head_branch }}
+  group: work-canary-${{ github.event_name == 'workflow_dispatch' && inputs.source_branch || github.event.issue.number }}
   cancel-in-progress: true
 
 jobs:
@@ -35,12 +29,7 @@ jobs:
       (github.event_name == 'issue_comment' &&
        github.event.issue.pull_request != null &&
        github.event.comment.body == '/canary' &&
-       github.actor == github.repository_owner) ||
-      (github.event_name == 'workflow_run' &&
-       github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.event == 'pull_request' &&
-       github.event.workflow_run.actor.login == github.repository_owner &&
-       github.event.workflow_run.head_repository.full_name == github.repository)
+       github.actor == github.repository_owner)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -56,18 +45,14 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EVENT_NAME: ${{ github.event_name }}
-          AUTO_SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
-          AUTO_SOURCE_BRANCH: ${{ github.event.workflow_run.head_branch }}
           MANUAL_SOURCE_BRANCH: ${{ inputs.source_branch }}
           COMMENT_PR_NUMBER: ${{ github.event.issue.number }}
         run: |
           set -euo pipefail
 
+          fast_build_id=""
+
           case "$EVENT_NAME" in
-            workflow_run)
-              branch="$AUTO_SOURCE_BRANCH"
-              source_sha="$AUTO_SOURCE_SHA"
-              ;;
             workflow_dispatch)
               branch="$MANUAL_SOURCE_BRANCH"
               if [[ "$branch" != feat/* && "$branch" != fix/* ]]; then
@@ -86,6 +71,7 @@ jobs:
             issue_comment)
               pr_json="$(gh api "repos/$GITHUB_REPOSITORY/pulls/$COMMENT_PR_NUMBER")"
               pr_state="$(jq -r '.state' <<<"$pr_json")"
+              pr_draft="$(jq -r '.draft' <<<"$pr_json")"
               head_repo="$(jq -r '.head.repo.full_name // empty' <<<"$pr_json")"
               branch="$(jq -r '.head.ref // empty' <<<"$pr_json")"
               source_sha="$(jq -r '.head.sha // empty' <<<"$pr_json")"
@@ -94,8 +80,26 @@ jobs:
                 echo "::error::Comment-triggered Canary requires an open pull request."
                 exit 1
               fi
+              if [[ "$pr_draft" == "true" ]]; then
+                echo "::error::Comment-triggered Canary requires a ready-for-review checkpoint."
+                exit 1
+              fi
               if [[ "$head_repo" != "$GITHUB_REPOSITORY" ]]; then
                 echo "::error::Comment-triggered Canary accepts same-repository pull requests only."
+                exit 1
+              fi
+
+              fast_build_id="$(
+                gh api -X GET "repos/$GITHUB_REPOSITORY/actions/workflows/build.yml/runs" \
+                  -f event=pull_request \
+                  -f branch="$branch" \
+                  -f status=success \
+                  -f per_page=20 \
+                  --jq ".workflow_runs[] | select(.head_sha == \"$source_sha\") | .id" |
+                  head -n 1
+              )"
+              if [[ -z "$fast_build_id" ]]; then
+                echo "::error::No successful pull-request Build exists for the exact requested Canary SHA."
                 exit 1
               fi
               ;;
@@ -116,11 +120,17 @@ jobs:
 
           echo "branch=$branch" >> "$GITHUB_OUTPUT"
           echo "sha=$source_sha" >> "$GITHUB_OUTPUT"
+          echo "fast_build_id=$fast_build_id" >> "$GITHUB_OUTPUT"
           {
             printf '%s\n' "### Trusted source"
             printf '%s\n' "- Trigger: \`$EVENT_NAME\`"
             printf '%s\n' "- Source branch: \`$branch\`"
             printf '%s\n' "- Resolved SHA: \`$source_sha\`"
+            if [[ -n "$fast_build_id" ]]; then
+              printf '%s\n' "- Verified pull-request Build: \`$fast_build_id\`"
+            else
+              printf '%s\n' "- Verified pull-request Build: manual-dispatch path performs independent Canary validation"
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Checkout tested work-branch SHA
@@ -302,8 +312,9 @@ jobs:
           echo "### Work-branch Canary" >> "$GITHUB_STEP_SUMMARY"
           echo "- Source branch: $TRUSTED_SOURCE_BRANCH" >> "$GITHUB_STEP_SUMMARY"
           echo "- Source SHA: $TRUSTED_SOURCE_SHA" >> "$GITHUB_STEP_SUMMARY"
-          if [[ "${{ github.event_name }}" == "workflow_run" ]]; then
-            echo "- Triggering Build: ${{ github.event.workflow_run.id }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Trigger: ${{ github.event_name }}" >> "$GITHUB_STEP_SUMMARY"
+          if [[ -n "${{ steps.source.outputs.fast_build_id }}" ]]; then
+            echo "- Verified pull-request Build: ${{ steps.source.outputs.fast_build_id }}" >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "- Triggering Build: manual maintainer fallback" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Verified pull-request Build: independent manual-dispatch validation" >> "$GITHUB_STEP_SUMMARY"
           fi
