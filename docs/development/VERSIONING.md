@@ -37,6 +37,6 @@ Focused work-branch device testing normally uses the trusted automatic path:
 
 `ready feat/* or fix/* PR -> Fast Build -> default-branch Work Branch Canary -> signed non-debuggable APK`.
 
-If GitHub does not deliver the pull-request event into Actions, the repository-owner-only manual fallback in `Work Branch Canary` may validate an explicit same-repository `feat/*` or `fix/*` branch. The workflow resolves and records the exact remote branch-head SHA and performs the same target-profile, tests, Xposed metadata, Haple signature and non-debuggable checks before artifact publication.
+If GitHub does not deliver the pull-request event into Actions, the default-branch `Work Branch Canary` keeps the validation checkpoint reachable through trusted fallback admission. The normal operator fallback is an exact repository-owner `/canary` comment on an open same-repository PR with a `feat/*` or `fix/*` head; the workflow resolves the PR's live head branch/SHA before checkout. A repository-owner-only manual dispatch for an explicit same-repository work branch remains the final fallback. Both paths record the exact resolved source and perform the same target-profile, tests, Xposed metadata, Haple signature and non-debuggable checks before artifact publication.
 
-The fallback does not change application version semantics, does not create a release, does not establish a `dev` integration baseline, and does not authorize merge. It exists only to keep a trusted work-branch validation checkpoint reachable when the normal PR event-delivery path is unavailable.
+These fallbacks do not change application version semantics, do not create a release, do not establish a `dev` integration baseline, and do not authorize merge.
