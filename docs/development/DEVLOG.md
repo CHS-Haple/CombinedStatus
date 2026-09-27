@@ -3985,3 +3985,32 @@ Device test must explicitly compare:
 5. semantic-color transition still recolors linked center correctly.
 
 If optical parity still fails, the next investigation returns to the final native Wi-Fi ImageView presentation after HyperOS applies its own transform/tint state. Do not restore Build-403 percentile normalization without that evidence.
+
+
+### Build 407 CI / Canary result
+
+- First owner-only fallback run: Work Branch Canary #336 / run `36313792930`.
+  - It passed source/checkout/wrapper/Java/API/signing/target-profile setup.
+  - It was **cancelled during Test and build Canary because a newer Canary run (#337) superseded it**. This is not a compile/test failure.
+- Effective validation run: Work Branch Canary **#337** / run `36313837646`.
+- Result: **success**.
+- Passed gates:
+  - trusted source resolution and exact tested-work-branch checkout;
+  - Gradle Wrapper validation;
+  - Java / Android API 37 setup;
+  - Haple signing restore/verification;
+  - pinned HyperOS target-profile verification;
+  - tests and Canary build;
+  - modern Xposed metadata verification;
+  - Haple APK signature verification;
+  - non-debuggable verification;
+  - artifact upload and final summary.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260927-407-canary.apk`
+- GitHub artifact ID: `10929728522`.
+- Extracted APK SHA-256: `b3bf76727f1fa5defe0b76d71fb090b5135ab713e9629260a12ec03b3867824a`.
+- Extracted APK size: `3293218` bytes.
+- Runtime source remains `ffe746b24252f974db05e1fa4381ed5c56f0e73e`; subsequent commits are documentation-only.
+
+### Gate
+
+**Runtime is frozen at Build 407.** The next required evidence is maintainer device A/B with center-follow-battery both disabled and enabled across light/dark surfaces. No Phase-2B or further center-rendering runtime change should be layered before that result.
