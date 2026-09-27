@@ -100,6 +100,14 @@ internal object CombinedStatusHomeRenderSession {
     }
 
     @Synchronized
+    fun onNotificationShadeAuthorityChanged(homeEligible: Boolean) {
+        current?.updateNotificationShadeHomeEligibility(
+            homeEligible = homeEligible,
+            source = "source-availability",
+        )
+    }
+
+    @Synchronized
     fun setNativeHandoffActive(active: Boolean) {
         current?.setNativeHandoffActive(active)
     }
@@ -167,7 +175,7 @@ internal object CombinedStatusHomeRenderSession {
         private var rejectedTintLogged = false
         private var sceneSurface = SystemUiSceneStateSource.Surface.UNKNOWN
         private var notificationShadeAllowsHome =
-            SystemUiPanelTransitionSource.currentNotificationShadeHomeEligibility() ?: true
+            SystemUiPanelTransitionSource.currentNotificationShadeHomeEligibility() ?: false
         private var nativeHandoffActive = initialNativeHandoffActive
         private var featureEnabled = initialFeatureEnabled
         private var modelReady = false
@@ -274,21 +282,45 @@ internal object CombinedStatusHomeRenderSession {
                     expanded = update.expanded,
                     tracking = update.tracking,
                 )
-            if (notificationShadeAllowsHome == allowsHome) {
+            updateNotificationShadeHomeEligibility(
+                homeEligible = allowsHome,
+                source = "notification-shade",
+                detail =
+                    " expanded=" + (update.expanded ?: "unknown") +
+                        " tracking=" + (update.tracking ?: "unknown") +
+                        " fraction=" + (update.fraction ?: "unknown"),
+            )
+        }
+
+        fun updateNotificationShadeHomeEligibility(
+            homeEligible: Boolean,
+            source: String,
+            detail: String = "",
+        ) {
+            if (Looper.myLooper() !== Looper.getMainLooper()) {
+                host.get()?.post {
+                    updateNotificationShadeHomeEligibility(
+                        homeEligible = homeEligible,
+                        source = source,
+                        detail = detail,
+                    )
+                }
                 return
             }
-            notificationShadeAllowsHome = allowsHome
+            if (notificationShadeAllowsHome == homeEligible) {
+                return
+            }
+            notificationShadeAllowsHome = homeEligible
             val visible = applyResolvedVisibility()
             emitEvent {
                 "homeRenderShadeEligibility" +
-                    " expanded=" + (update.expanded ?: "unknown") +
-                    " tracking=" + (update.tracking ?: "unknown") +
-                    " fraction=" + (update.fraction ?: "unknown") +
+                    " source=" + source +
+                    detail +
                     " homeEligible=" + notificationShadeAllowsHome +
                     " visible=" + visible +
                     " nativeGeometryWrites=0"
             }
-            dispatchPresentationReadiness("notification-shade")
+            dispatchPresentationReadiness("shade:" + source)
         }
 
         private fun applySceneState(
