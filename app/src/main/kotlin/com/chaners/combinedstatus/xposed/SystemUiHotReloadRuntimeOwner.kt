@@ -10,6 +10,7 @@ internal object SystemUiHotReloadRuntimeOwner {
             val host: Any,
             val wifiRoots: Int,
             val mobileRoots: Int,
+            val tintTransferred: Boolean,
         ) : PrepareResult
 
         data class Unavailable(
@@ -36,6 +37,7 @@ internal object SystemUiHotReloadRuntimeOwner {
             SystemUiHostRegistry.currentStatusHost()
                 ?: return PrepareResult.Unavailable("status-host-not-captured")
         val snapshot = CombinedStatusStateStore.snapshot()
+        val stableTint = CombinedStatusHomeRenderSession.currentTintState()
         val bindingCounts = SystemUiNetworkStateSource.hotReloadBindingCounts()
         val bindingStateReady =
             (snapshot.wifi is CombinedStatusStateStore.WifiState.Unknown || bindingCounts.first > 0) &&
@@ -57,6 +59,8 @@ internal object SystemUiHotReloadRuntimeOwner {
                     SystemUiPanelTransitionSource.currentNotificationShadeHomeEligibility(),
                 controlCenterHomeEligible =
                     SystemUiPanelTransitionSource.currentControlCenterHomeEligibility(),
+                appliedTint = stableTint?.appliedTint,
+                statusIconTint = stableTint?.statusIconTint,
             ) ?: return PrepareResult.Unavailable(
                 reason = "state-transfer-capture-failed",
                 wifiRoots = bindingCounts.first,
@@ -77,6 +81,7 @@ internal object SystemUiHotReloadRuntimeOwner {
             host = host,
             wifiRoots = bindingCounts.first,
             mobileRoots = bindingCounts.second,
+            tintTransferred = stableTint != null,
         )
     }
 
