@@ -42,7 +42,7 @@ Home -> shade / Control Center projection is **Phase 2B**. Keyguard / lockscreen
 - **Build 405 / `20260927-405`** is a completed but **device-rejected direct-final-Drawable optical-parity A/B checkpoint**. Runtime source: `bf8091c8680dec7b85c58afded7f476ec95ca49d`. It removed the intermediate final-presentation bitmap/resample stage, but target-device screenshots still show the native center glyph materially lighter/lower-opacity than neighboring native status icons across light and dark surfaces. The direct-Drawable mechanism remains preferable to the superseded bitmap presentation path, but it is not sufficient for parity by itself.
 - **Build 406 / `20260927-406`** is a completed but **device-rejected tint-variant A/B checkpoint**. Runtime source: `3d5e9d2339824c6d19e50dda170917559369135b`. Work Branch Canary #335 passed all CI/signing gates, but target-device evidence shows the center Wi-Fi glyph remains optically lighter/lower-coverage than the outer ring **even when `centerFollowsBatteryColor=false`**. Therefore the Build-406 hypothesis that the remaining defect was confined to the custom/battery-color tint branch is rejected.
 - **Build 407 / `20260927-407`** is the current signed device-test candidate. Implementation commit: `bbb421ef0354ad60e7d046e38c643d16d61504c7`; final executable source after style-only cleanup: `ffe746b24252f974db05e1fa4381ed5c56f0e73e`. Because the Painter externally tints every native center Drawable, all native center resources now resolve the verified HyperOS `_tint` sibling when available before `setTint(...)`; the Build-406 color-source gate has been removed. Work Branch Canary #337 passed all validation gates and produced artifact `10929728522`. Runtime is frozen pending device A/B.
-- **Build 407 / `20260927-407`** is the current signed device-test candidate. Runtime source: `ffe746b24252f974db05e1fa4381ed5c56f0e73e`. All native center resources rendered through `Drawable.setTint(...)` resolve the verified HyperOS `_tint` sibling mask first, regardless of whether the center follows the battery color. Work Branch Canary #337 / run `36313837646` passed all gates and produced artifact `10929728522`; runtime is frozen pending device A/B.
+- **Build 407 / `20260927-407`** is **device-accepted for the native-center opacity/resource-mask correction**, but overall optical balance remains open. Runtime source: `ffe746b24252f974db05e1fa4381ed5c56f0e73e`. The maintainer reports that the prior center-transparency defect is resolved. New same-device screenshots show the battery ring still reads darker/heavier than the native center and four mobile dots even when all three consume the same green semantic tint. Work Branch Canary #337 / run `36313837646` passed all gates and produced artifact `10929728522`.
 - Build 406 trusted validation: owner `/canary` Work Branch Canary #335 **succeeded**. Validated PR head `80f371784ffaee406dd6ea5728219eeee5913318` differs from the frozen runtime source only in `CURRENT.md` and `DEVLOG.md`, so executable content remains exactly Build 406. Artifact `10929711688`; artifact ZIP digest `sha256:c7af997217acd171c66beb860d7212c0d72fd672a38978f7b5c2eb5a524f11ba`; extracted APK SHA-256 `e086d8914fece7ba8ea86200756f4a6366d56dadaa5510846618a4077e6ddd80`.
 - Documentation-only commits may advance PR #105 beyond the Build-405 runtime source without creating a new runtime Build; runtime identity remains the Build/source pair above until executable source changes.
 
@@ -66,22 +66,25 @@ Build 404 validation:
 
 ### Visual intensity / optical parity — open
 
-Build 406 target-device feedback is **negative** and corrects the previous narrow diagnosis. The center native Wi-Fi glyph remains visibly lighter / lower-coverage than the outer ring and neighboring native status icons even with **center follows battery color disabled**. Therefore the remaining mismatch is not confined to the custom semantic-color branch and cannot be closed by selecting the native `_tint` sibling only when custom coloring is enabled.
+Build 407 closes the previous native-center transparency/resource-mask defect: the maintainer reports that center opacity is now correct after routing every externally tinted native center asset through the verified HyperOS `_tint` mask.
 
-Pixel inspection of the supplied screenshot supports two separate observations:
-- on the light embedded Settings surface, the darkest center and ring pixels are similar, but the center's overall gray distribution is lighter, consistent with lower optical coverage / antialias weight rather than only a different flat tint value;
-- on the live dark status bar, the center's brightest core is materially dimmer than the outer ring, so source/presentation alpha remains state-dependent as well.
+A residual **optical-weight** mismatch remains. In the new charging-green screenshots, the continuous battery ring reads darker/heavier while the center Wi-Fi and four mobile dots read lighter.
 
-Build-403 history is therefore relevant again as evidence, not as an implementation to restore blindly. Build 403 used an 85th-percentile source-alpha ceiling and normalized the rasterized native-center mask before final tint. Build 404 removed that normalization and visibly regressed. Builds 405/406 removed the final bitmap-resample path / added one tint-resource branch, but did not recover parity. The current interpretation is that Build 403's normalization was compensating a real **final native presentation / optical-coverage mismatch** that still exists in the direct-Drawable path.
+Same-image sampling is useful only as diagnosis, not as a render constant:
+- ring and center **core** green pixels converge to effectively the same RGB/tint on both light and dark screenshots;
+- the ring has a much larger proportion of fully covered pixels because it is a wide continuous stroke;
+- the native center mask has more antialiased edge coverage;
+- the small mobile dots have the highest edge-to-core ratio at the final physical size.
+
+This means the remaining difference is no longer a color-source or alpha-authority bug. The renderer is already feeding the same tint/semantic alpha to active ring, linked center and active mobile dots; the perceived difference comes from custom outer geometry / raster coverage.
 
 Current boundary:
-- do **not** reinstate Build-403 percentile normalization as the final solution without locating the native responsibility it was compensating;
-- do **not** add opacity multipliers, per-glyph gray constants, screenshot-fitted thresholds or source-asset edits;
-- do **not** treat `centerFollowsBatteryColor` as the root boundary; both enabled and disabled states are affected;
-- source review of the current Painter closes a simpler responsibility boundary first: **every native center Drawable is externally tinted through `Drawable.setTint(...)`, including the default `centerFollowsBatteryColor=false` path**. Therefore the module is semantically in HyperOS's `useTint=true` branch whenever it draws these native center resources, and must use the verified `_tint` mask variant before applying that tint;
-- a live native-ImageView presentation mirror is deferred because it is unnecessary for this narrower A/B and would add a larger ownership/data-flow surface than the already-verified resource contract;
-- preserve Build-405 direct final-bounds Drawable rendering as the cleaner rendering baseline while investigating the presentation source;
-- center geometry, battery semantic colors, Home carrier/spacing and Phase-2B behavior remain out of scope for this root-cause pass.
+- do **not** introduce a darker center/mobile tint, lighter battery tint, per-glyph alpha multiplier, screenshot-fitted RGB, or resurrect Build-403 source-alpha normalization;
+- keep the native center resource/geometry as the visual authority;
+- preserve the current mobile-dot size because the dots and native center are now in the same perceived-weight band;
+- the next bounded A/B may reduce only the custom continuous ring's base optical stroke while leaving tint, semantic alpha, dot size, center size and host geometry unchanged;
+- use the known pre-Build-332 base ring stroke as the A/B anchor rather than inventing a screenshot-derived thickness;
+- retain one shared future outer-weight scale by rebasing the default geometry, not by adding a device-specific runtime multiplier.
 
 ### Battery semantic colors — implemented, device acceptance still open
 
@@ -114,13 +117,13 @@ A shallow notification-shade pull / final held-return frame can still leave the 
 
 ## Immediate next step
 
-1. **Runtime freeze:** Build 407 / `20260927-407`, final executable source `ffe746b24252f974db05e1fa4381ed5c56f0e73e`.
-2. Use Work Branch Canary #337 artifact `10929728522`. Validation passed trusted source resolution, exact checkout verification, target profile, tests/build, Modern Xposed metadata, Haple signature and non-debuggable checks.
-3. Device A/B must test both `centerFollowsBatteryColor=false` and `true`, preferably on the same light surface and one dark surface.
-4. Acceptance question: does the native center glyph now match ring/native-peer apparent opacity/coverage without changing size, centering, outer geometry or Home spacing?
-5. Also verify one semantic battery-color transition when the center-color link is ON.
-6. If Build 407 still fails, record the device evidence before any runtime change and reopen the final native Wi-Fi ImageView presentation investigation; do not restore Build-403 percentile normalization blindly.
-7. Phase-2B shallow-shade work remains blocked until this optical/color checkpoint closes.
+1. Record Build 407 as accepted for center opacity / native tint-mask handling; optical-weight parity remains open.
+2. Build one bounded outer-geometry A/B: preserve the current four-dot physical radius, return only the continuous battery ring to the known pre-Build-332 base stroke, and rebase the shared default weight scale so future proportional scaling still has one clean control seam.
+3. Do not alter any tint value, semantic alpha, native center asset, center size, dot color/alpha, Home carrier/spacing or scene behavior.
+4. Re-run outer-geometry unit tests, source review and signed Canary.
+5. Freeze runtime when that Canary exists; device validation should compare Build 407 vs the new candidate on the same semantic-green state and a normal monochrome state if practical.
+6. If the thinner ring looks visually weak rather than balanced, reject the geometry A/B and keep Build 407 rather than compensating with color hacks.
+7. Phase-2B shallow-shade work remains after visual closure.
 
 ## Reference priority
 
