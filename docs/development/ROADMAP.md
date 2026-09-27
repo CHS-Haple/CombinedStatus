@@ -49,25 +49,30 @@ Exit criteria:
 
 Current acceptance note: Build 408 is accepted for `dev` as the Phase-2A working baseline. Minor residual ring/center/dot optical-weight variance is deferred to later visual polish and does not reopen Home carrier ownership or block Phase 2B.
 
-## Phase 2B — Home -> shade / Control Center projection — active
+## Phase 2B — Home ownership continuity + Control Center projection — active
 
 Extend the accepted Phase-2A Home visual into panel transitions without reopening steady Home ownership.
 
 Direction:
 - treat steady Home geometry as the source contract;
+- do **not** create a Notification-Shade Combined Status surface on the pinned target because the native Notification Shade does not expose the status-icon row there;
+- use Notification-Shade motion only to transfer Home ownership cleanly at the real motion boundary;
+- project Combined Status only into Control Center, using a verified native transformed carrier;
 - use verified native transition progress/endpoints where available;
 - separate transition lifetime/masking from the steady Home session;
 - preserve native peer animation and Control Center geometry ownership;
 - avoid first-frame shift, last-frame snap, duplicate occupancy, or a second animation system.
 
-Accepted prerequisite: Build 413 closes the Home scene-lifetime/HUN boundary on the pinned target. Zero-fraction, non-tracking HUN state no longer evicts Home; active shade tracking or positive native shade motion and Control Center's native visible state transfer presentation away from Home without destroying the persistent Home owner. This prerequisite does **not** complete Phase 2B: the remaining task is a real Combined Status projection for the supported shade / Control Center surfaces with coherent native-owned intermediate motion.
+Accepted prerequisite: Build 413 closes the HUN/scene-lifetime boundary on the pinned target. Build 418 closes the shared Home Tint lifecycle blocker exposed while preparing panel projection.
 
-Build 418 closes the shared Home Tint lifecycle blocker exposed while preparing panel projection. Hot Reload and repeated light/dark app/Home transitions now consume one live SystemUI Tint authority snapshot per renderer commit; transferred/cached status Tint is no longer allowed to override a newer scene. With PR #148 integrated into `dev`, PR #146 may resume/rebase against the current `dev` baseline. This acceptance does not itself complete Phase 2B.
+Build-419 diagnostics plus maintainer clarification refine the remaining Phase-2B scope: Notification Shade is a **Home ownership boundary only**, while Control Center is the actual projection surface. The Build-419 bounded Notification-Shade probe is therefore retired rather than promoted into production.
+
+Build 420 is the first implementation checkpoint for this corrected boundary. It keeps Home visible at `fraction=0` regardless of `tracking`, yields only on positive shade motion, and introduces a readiness-gated Control Center projection attached to the exact `realSystemIcons` carrier already owned/masked by the Home presentation owner.
 
 Exit criteria:
 - clean Home departure and return;
 - coherent intermediate motion;
-- correct expanded-surface behavior for the supported target;
+- correct Control Center expanded-surface behavior; Notification Shade remains native/no-status-icon by design;
 - no regression in steady Home or charging/island behavior.
 
 ## Phase 3 — Keyguard / lockscreen / AOD scene completion
