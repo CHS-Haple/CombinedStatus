@@ -168,7 +168,7 @@ Build 423 corrects the remaining Notification-Shade source:
 4. Perform one Control Center open/close regression pass and one lock/unlock smoke pass; accepted Build-420 Control Center projection must remain unchanged and Home overlay must not leak onto Keyguard.
 5. If the edge defect persists, capture a short video plus Detailed diagnostics so `authority=hyperos-notification-header-callback` progress can be correlated directly with the visible frame. Do not reintroduce Battery/Keyguard inference or timing compensation.
 
-Signed checkpoint: Ready Full #1301 / run `36357104464` succeeded. Work Branch Canary #412 / run `36357295818` succeeded with trusted source SHA `f5cfbc87c819a776a5476f3ea1e5817b9c776d86`, artifact `10944007922`, ZIP digest `sha256:78df112998aa2d38b4b4b24e93b78e2c7d90480d44ba89912d825f593418dd01`, APK size `3309602` bytes, and extracted APK SHA-256 `6d1bcab45ccf01ba3d0110eae2e7b9be5e00a3dc04ae994e308645d144cf5e7e`.
+Signed checkpoint: Ready Full #1307 / run `36359395894` succeeded. Work Branch Canary #413 / run `36359604981` succeeded on attempt 2 with exact trusted source SHA `5d982a74f80d157bfcfd543e7d1706099dd46e64`; attempt 1 was platform-cancelled during Gradle execution without a code-failure verdict. Artifact `10945257544`, ZIP digest `sha256:d04859b9ec595d43f599174d61fa80fb169a509517b873b309189e418de13d20`, APK size `3309602` bytes, and extracted APK SHA-256 `9830f24a36d55c5c38914a2b2c23f3cf52a49babfda26572a96420e79138597d`.
 ## Reference priority
 
 1. latest `CONTRIBUTING.md`;
