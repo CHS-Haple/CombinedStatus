@@ -138,18 +138,17 @@ Build 409's notification-shade implementation remains intact and is not reopened
 - PR #135 then fixed Markdown backtick escaping in the Canary source summary without changing validation/trust semantics; PR #137 history-preserving back-synced that follow-up into `dev`.
 - Validation-only PRs #131/#132 and the dev-based automation review PR #133 are superseded and closed without merge.
 - The documentation-governance baseline is accepted in `main` and synchronized into `dev`; active runtime branches must preserve it when updated/merged rather than restoring older workflow/process text.
+- PR #138 is merged into `dev` as the accepted Phase-2B panel scene-ownership + 8.25 ring integration boundary (`a25cb5ce2aeab235cfaed579474df70596f03a63`).
 - PR #99 remains separate open historical work and is not an accepted baseline; any useful delta must be reconciled against the current line before reuse.
 
 ## Immediate next step
 
-1. Current `dev` runtime baseline: **Build 412 / `20260927-412`**, executable source `f794a7c01513364eefc726316fcaf4058d581683`, merged through `a25cb5ce2aeab235cfaed579474df70596f03a63`.
-2. Post-merge Integration Build #1159 / run `36323866999`: **success**. Signed Canary artifact ID `10933541364`; extracted APK size `3309602` bytes; SHA-256 `caca75d56145f58dafd25d4798d79025997113c6965d254ccffe2f7e707d5421`.
-3. Final redundant work-branch verification Canary #392 also completed **success** after merge; this confirms the latest PR head remained valid through signing, target-profile, metadata and non-debuggable checks.
-4. Accepted panel result: Build-411/412 notification-shade + Control Center down/up behavior is no longer a blocker.
-5. Accepted visual result: battery ring is restored to the maintainer-preferred **8.25** canonical stroke with unchanged ROUND cap, dots, center, tint and scene ownership.
-6. The next runtime investigation is the **separate notification/HUN-triggered native-status fallback** report: when a notification/HUN appears, native status presentation can remain restored and Combined Status can fail to reacquire Home ownership.
-7. Treat that HUN/notification problem as a fresh ownership/lifecycle issue. Do not reopen the accepted panel gate or 8.25 geometry unless new evidence directly implicates them.
-8. Continue to keep actual shade/Control Center Combined Status projection, lockscreen/AOD, and future visual customization as separate roadmap work.
+1. Treat Build 412 / `20260927-412` on dev merge `a25cb5ce2aeab235cfaed579474df70596f03a63` as the current integrated runtime baseline.
+2. Panel down/up behavior and the restored 8.25 ring are accepted and no longer block development.
+3. Investigate the **separate notification / heads-up notification (HUN) native-status fallback** reported by the maintainer: when a notification appears, native status icons can remain restored instead of Combined Status reasserting the stable Home presentation.
+4. Start that investigation from ownership/lifecycle and notification/HUN scene facts; do not reopen the accepted notification-shade / Control Center gate or ring geometry unless new evidence directly implicates them.
+5. Preserve the current persistent Home owner / scene-visibility separation so ordinary panel gestures do not retrigger native icon entrance animation.
+6. No additional maintainer ring-size test is required.
 
 ## Reference priority
 
