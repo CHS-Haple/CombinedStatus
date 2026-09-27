@@ -3914,3 +3914,74 @@ Run trusted signed Canary for this exact runtime source. After the artifact exis
 5. one available semantic color transition.
 
 No further runtime change before those device results.
+
+
+---
+
+## 2026-09-27 — Build 407: use native tint masks for every externally tinted center glyph
+
+**Type:** bounded root-cause correction / source review  
+**Display version:** 0.0.2  
+**Build:** 407 / 20260927-407  
+**Implementation commit:** `bbb421ef0354ad60e7d046e38c643d16d61504c7`  
+**Final executable source:** `ffe746b24252f974db05e1fa4381ed5c56f0e73e`  
+**CI / device validation:** pending
+
+### Problem / objective
+
+Build 406 incorrectly tied HyperOS `_tint` resource selection to whether the center color came from the battery semantic-color option. Device evidence shows the default/unlinked branch is also visually underweight.
+
+### Root cause
+
+`CombinedStatusPainter.drawNativeCenterResource(...)` applies `Drawable.setTint(centerTint)` for native center assets in **all** color-source modes. Therefore the renderer's presentation mode is externally tinted regardless of whether `centerTint` comes from:
+- native/status-icon tint; or
+- battery semantic color.
+
+Exact-target HyperOS evidence establishes that the externally tinted branch uses the dedicated `*_tint` presentation resource. Build 406 only selected that mask in one color-source mode, leaving the default branch on the raw semantic resource and preserving its authored alpha/coverage.
+
+### Implementation
+
+- Remove the Build-406-only `centerUsesBatteryTint` / `forceNativeTintVariant` presentation flag.
+- Every native center resource entering the existing external-tint draw path now attempts to resolve the verified SystemUI `_tint` sibling first.
+- Continue applying the already-authoritative resolved center tint through the existing module-owned Drawable clone.
+- Keep resource-ID lookup cached.
+- If no verified sibling exists, fall back to the original resource path.
+- Build identity advances to `20260927-407`.
+- Commit `ffe746b...` only fixes indentation introduced by the functional commit and does not change runtime semantics.
+
+### Intentionally unchanged
+
+- Build-405 direct final-bounds Drawable rendering;
+- measurement-only optical raster probe;
+- center size/position and pixel-aligned final bounds;
+- outer ring/mobile geometry;
+- battery semantic-state/color authority and user link behavior;
+- Home overlay/carrier/spacing ownership;
+- native suppression and scene behavior;
+- no Build-403 percentile source-alpha normalization;
+- no alpha multiplier, gray constant, asset edit or screenshot-derived tuning.
+
+### Review
+
+- **Ownership:** HyperOS remains semantic-resource/tint authority; Combined Status only selects a verified presentation sibling and mutates its own Drawable clone.
+- **Lifecycle:** no new Hook, observer, listener, coroutine or lifecycle owner.
+- **Single writer:** one existing Drawable tint writer; the removed boolean gate reduces presentation branching.
+- **Cleanup:** existing painter-scoped bounded resource caches only.
+- **Fail native:** missing/unresolvable `_tint` sibling falls back to the prior resource without affecting SystemUI.
+- **Performance:** no additional steady-state work beyond existing cached lookup; no polling/per-frame reflection.
+- **Compatibility:** suffix normalization is limited to the exact verified SystemUI resource family and is existence-checked.
+- **Exception recovery:** package/resource lookup remains guarded.
+- **Future extension:** rendering mode is now separated from color-source policy, so future custom colors reuse the same native tint-mask seam.
+
+### Validation gate
+
+Run signed Canary for the exact Build-407 executable source, then freeze runtime.
+
+Device test must explicitly compare:
+1. center-color link OFF on a light surface;
+2. center-color link ON on the same light surface;
+3. at least one dark surface;
+4. unchanged center geometry, outer geometry and Home spacing;
+5. semantic-color transition still recolors linked center correctly.
+
+If optical parity still fails, the next investigation returns to the final native Wi-Fi ImageView presentation after HyperOS applies its own transform/tint state. Do not restore Build-403 percentile normalization without that evidence.
