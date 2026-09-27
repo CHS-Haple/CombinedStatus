@@ -5,7 +5,7 @@ import android.view.View
 
 internal object CombinedStatusHotReloadTransfer {
     private const val VERSION = 5
-    private const val PANEL_STATE_TRANSFER_VERSION = 4
+    private const val PREVIOUS_VERSION = 4
     private const val NATIVE_TRANSFER_VERSION = 3
     private const val VISUAL_TRANSFER_VERSION = 2
     private const val LEGACY_VERSION = 1
@@ -15,7 +15,7 @@ internal object CombinedStatusHotReloadTransfer {
     private const val INDEX_BINDINGS = 3
     private const val INDEX_NOTIFICATION_SHADE_HOME_ELIGIBLE = 4
     private const val CURRENT_PAYLOAD_SIZE = 5
-    private const val PANEL_STATE_PAYLOAD_SIZE = 4
+    private const val PREVIOUS_PAYLOAD_SIZE = 4
     private const val LEGACY_PAYLOAD_SIZE = 4
     private const val VISUAL_PAYLOAD_SIZE = 5
     private const val NATIVE_PAYLOAD_SIZE = 6
@@ -47,7 +47,7 @@ internal object CombinedStatusHotReloadTransfer {
         val expectedSize =
             when (version) {
                 VERSION -> CURRENT_PAYLOAD_SIZE
-                PANEL_STATE_TRANSFER_VERSION -> PANEL_STATE_PAYLOAD_SIZE
+                PREVIOUS_VERSION -> PREVIOUS_PAYLOAD_SIZE
                 NATIVE_TRANSFER_VERSION -> NATIVE_PAYLOAD_SIZE
                 VISUAL_TRANSFER_VERSION -> VISUAL_PAYLOAD_SIZE
                 LEGACY_VERSION -> LEGACY_PAYLOAD_SIZE
