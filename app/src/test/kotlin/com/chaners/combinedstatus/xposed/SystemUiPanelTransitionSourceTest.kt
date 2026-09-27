@@ -15,13 +15,14 @@ class SystemUiPanelTransitionSourceTest {
     }
 
     @Test
-    fun notificationShadeHomeEligibilityRequiresNativeClosedSemantics() {
-        assertEquals(true, SystemUiPanelTransitionSource.notificationShadeAllowsHome(false, false))
-        assertEquals(false, SystemUiPanelTransitionSource.notificationShadeAllowsHome(false, true))
-        assertEquals(false, SystemUiPanelTransitionSource.notificationShadeAllowsHome(true, false))
-        assertEquals(false, SystemUiPanelTransitionSource.notificationShadeAllowsHome(true, true))
+    fun notificationShadeHomeEligibilityUsesMotionInsteadOfExpandedHint() {
+        assertEquals(true, SystemUiPanelTransitionSource.notificationShadeAllowsHome(0f, false))
+        assertEquals(true, SystemUiPanelTransitionSource.notificationShadeAllowsHome(-0.1f, false))
+        assertEquals(false, SystemUiPanelTransitionSource.notificationShadeAllowsHome(0f, true))
+        assertEquals(false, SystemUiPanelTransitionSource.notificationShadeAllowsHome(0.01f, false))
+        assertEquals(false, SystemUiPanelTransitionSource.notificationShadeAllowsHome(1f, false))
         assertEquals(false, SystemUiPanelTransitionSource.notificationShadeAllowsHome(null, false))
-        assertEquals(false, SystemUiPanelTransitionSource.notificationShadeAllowsHome(false, null))
+        assertEquals(false, SystemUiPanelTransitionSource.notificationShadeAllowsHome(0f, null))
     }
 
     @Test
