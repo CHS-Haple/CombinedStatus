@@ -79,14 +79,15 @@ jobs:
               if [[ "$pr_state" != "open" ]]; then
                 echo "::error::Comment-triggered Canary requires an open pull request."
                 exit 1
+              fi
               if [[ "$pr_draft" == "true" ]]; then
                 echo "::error::Comment-triggered Canary requires a ready-for-review checkpoint."
                 exit 1
               fi
-              fi
               if [[ "$head_repo" != "$GITHUB_REPOSITORY" ]]; then
                 echo "::error::Comment-triggered Canary accepts same-repository pull requests only."
                 exit 1
+              fi
 
               fast_build_id="$(
                 gh api -X GET "repos/$GITHUB_REPOSITORY/actions/workflows/build.yml/runs" \
@@ -100,7 +101,6 @@ jobs:
               if [[ -z "$fast_build_id" ]]; then
                 echo "::error::No successful pull-request Build exists for the exact requested Canary SHA."
                 exit 1
-              fi
               fi
               ;;
             *)
