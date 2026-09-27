@@ -57,6 +57,23 @@ jobs:
           MIXED_SURFACE=false
           MIXED_SURFACE_REASON=""
 
+          has_non_routine_gradle_properties() {
+            local base_sha="$1"
+            local head_sha="$2"
+            local changes
+
+            changes="$(
+              git diff --unified=0 "$base_sha" "$head_sha" -- gradle.properties |
+                awk '/^[+-][^+-]/ {
+                  line = substr($0, 2)
+                  if (line !~ /^combinedStatus\.(versionCode|buildId)=/) {
+                    print line
+                  }
+                }'
+            )"
+            [[ -n "$changes" ]]
+          }
+
           detect_surfaces() {
             local base_sha="$1"
             local head_sha="$2"
@@ -80,16 +97,7 @@ jobs:
                   HAS_BUILD=true
                   ;;
                 gradle.properties)
-                  NON_ROUTINE_SURFACE_PROPERTIES="$(
-                    git diff --unified=0 "$base_sha" "$head_sha" -- gradle.properties |
-                      awk '/^[+-][^+-]/ {
-                        line = substr($0, 2)
-                        if (line !~ /^combinedStatus\\.(versionCode|buildId)=/) {
-                          print line
-                        }
-                      }'
-                  )"
-                  if [[ -n "$NON_ROUTINE_SURFACE_PROPERTIES" ]]; then
+                  if has_non_routine_gradle_properties "$base_sha" "$head_sha"; then
                     HAS_BUILD=true
                   fi
                   ;;
@@ -147,16 +155,7 @@ jobs:
                   break
                   ;;
                 gradle.properties)
-                  NON_ROUTINE_PROPERTIES="$(
-                    git diff --unified=0 "$base_sha" "$head_sha" -- gradle.properties |
-                      awk '/^[+-][^+-]/ {
-                        line = substr($0, 2)
-                        if (line !~ /^combinedStatus\.(versionCode|buildId)=/) {
-                          print line
-                        }
-                      }'
-                  )"
-                  if [[ -n "$NON_ROUTINE_PROPERTIES" ]]; then
+                  if has_non_routine_gradle_properties "$base_sha" "$head_sha"; then
                     SCOPE=full
                     REASON="non-routine Gradle property changed"
                     break
