@@ -66,9 +66,13 @@ The exact target's `expanded` boolean is too coarse to act as notification-shade
 - **Compatibility:** no new private member or reflection contract beyond the already-pinned callback.
 - **Future extension:** the accepted lifetime gate is now a prerequisite for, not a substitute for, real Phase-2B shade / Control Center projection.
 
+### Integration closure
+
+PR #142 was squash-merged into `dev` as `2aa6833cfca69a59af5027a7855b7d8282dbade9`. Trusted Integration Build #1200 / run `36337302873` completed **successfully** and produced signed Canary artifact `10937951856` with artifact ZIP digest `sha256:26234811fa453ea3c7b4a57acbdea3886340ca61f1b043f90e0e4c8769eb0f20`. This promotes Build 413 from an accepted work-branch checkpoint to the current integrated `dev` runtime baseline.
+
 ### Outcome / next step
 
-Build 413 is device-accepted for the focused HUN + shallow-pull defect. Merge PR #142 into `dev`, require Integration validation, then continue Phase 2B with actual expanded-surface projection / intermediate motion rather than adding more Home-lifetime patches.
+Build 413 is closed and accepted for the focused HUN + shallow-pull defect. Continue Phase 2B with actual notification-shade / Control Center Combined Status projection and intermediate motion, rather than adding more Home-lifetime patches.
 
 ## 2026-09-27 — Build 412 HUN device evidence and motion-semantic gate fix
 
