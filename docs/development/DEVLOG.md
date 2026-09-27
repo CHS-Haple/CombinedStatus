@@ -4478,3 +4478,53 @@ No runtime source, Build identity, scene policy, Hook, state source, geometry, c
 ### Gate
 
 Re-run Fast CI after the test-only correction. Build 409 remains the same runtime candidate and must still receive a signed Canary before device validation.
+
+
+---
+
+## 2026-09-27 — Build 409 Fast #1127: one stale Hot Reload assertion
+
+**Type:** CI failure / test-semantics correction  
+**Fast run:** #1127 / `36318037749`  
+**Runtime source:** `4ab7b490617757e34c0ea8e0b59e3d7a16bae9ad`  
+**Runtime conclusion:** unchanged
+
+### Evidence
+
+Fast #1127 passed:
+- Fast scope classification;
+- Gradle Wrapper / Java / API 37 setup;
+- pinned HyperOS target-profile verification, including the promoted Shade callback contract;
+- production Debug Kotlin compilation;
+- unit-test Kotlin compilation.
+
+The test task executed **239 tests; 238 passed and 1 failed**:
+`SystemUiPanelTransitionSourceTest.notificationShadeEligibilitySnapshotCanSeedHotReloadGeneration`.
+
+The failure is at the final assertion after:
+`restoreNotificationShadeHomeEligibility(null)`.
+
+### Root cause
+
+Final Build-409 hardening deliberately changed restore semantics so `null` means “this payload contains no shade eligibility fact” and therefore **does not overwrite** the current source state.
+
+That matters for 408/v4 -> 409/v5 Hot Reload:
+- the new generation successfully installs the required Shade Hook and establishes its conservative steady-Home bootstrap;
+- an older payload cannot contain shade eligibility;
+- restoring its null value must not erase the newly-established bootstrap.
+
+The failing test still expected the earlier intermediate behavior where null cleared the snapshot. The assertion is stale; the production implementation matches the documented compatibility boundary.
+
+### Selected correction
+
+Test-only:
+- retain reset -> null;
+- verify false restores false;
+- verify true restores true;
+- verify a subsequent null restore preserves true.
+
+No runtime, Hook, transfer format, Build identity, color, geometry or scene-policy change is required.
+
+### Gate
+
+Re-run Fast CI after the assertion correction. A signed Canary remains required before device validation.
