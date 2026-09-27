@@ -51,6 +51,9 @@ Add `SystemUiNotificationShadeTargetProbe`:
 - Review found the semantic candidate filter was matching the full package name, which could classify unrelated `ConfigurationController` values through the `statusbar` package segment.
 - The filter was tightened to field name + type `simpleName`, preserving intended status/icon/header/battery/system/shade/clock/container candidates while avoiding package-name false positives.
 - Draft Light #1271 passed on exact runtime head `1532cb33f9ebefc71ad361db226f0434e0de21b1`.
+- Ready Full #1274 correctly exercised the full unit/build gate and failed one new probe unit test at `candidateSelectionIsNarrowAndSemantic`. Root cause: the runtime caller had already switched to `Field.type.simpleName`, but the reusable helper still accepted arbitrary full type strings; its test intentionally supplied a fully qualified `ConfigurationController`, whose package path contains `statusbar`, exposing the inconsistent helper contract.
+- Fix: normalize `typeName` inside `isCandidateField()` with `substringAfterLast('.')` before semantic token matching. This preserves intended Header/Status/Icon candidates and makes package paths unable to widen the diagnostic scope. No Hook, lifecycle, target-profile, geometry, presentation, or writer behavior changes.
+- Build identity remains 419 because this is a correction within the same unaccepted diagnostic checkpoint.
 - Hot Reload takeover review confirms the status-host handle is the only preserved old handle; every other old-generation HookHandle is unhooked. The new probe therefore cannot accumulate across Hot Reload generations.
 - No additional runtime writer/listener/poller was introduced.
 
