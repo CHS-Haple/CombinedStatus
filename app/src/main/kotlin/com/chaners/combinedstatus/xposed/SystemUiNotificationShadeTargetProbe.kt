@@ -203,7 +203,7 @@ internal object SystemUiNotificationShadeTargetProbe {
             fields
                 .filter { field ->
                     !View::class.java.isAssignableFrom(field.type) &&
-                        isCandidateField(field.name, field.type.name)
+                        isCandidateField(field.name, field.type.simpleName)
                 }
                 .take(MAX_CANDIDATE_FIELDS)
                 .joinToString(";") { field ->
