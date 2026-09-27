@@ -239,7 +239,6 @@ internal object CombinedStatusHomeRenderSession {
         private val renderController = CombinedStatusRenderController(probeView)
         private var readyLogged = false
         private var layoutLogged = false
-        private var tintLogged = false
         private var deferredStateLogged = false
         private var rejectedTintLogged = false
         private var sceneSurface = SystemUiSceneStateSource.Surface.UNKNOWN
@@ -548,7 +547,6 @@ internal object CombinedStatusHomeRenderSession {
             if (update.changed) {
                 val resolved = update.resolved
                 if (resolved != null) {
-                    tintLogged = true
                     emitEvent {
                         "homeRenderTint source=" + source +
                             " applied=#" +

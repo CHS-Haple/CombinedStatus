@@ -49,9 +49,18 @@ Deterministic tests cover:
 - **Exception recovery:** null/transparent authority falls through existing visible-color checks.
 - **Future extension:** provides a coherent snapshot boundary reusable by panel/lockscreen projections.
 
+### Draft validation / source review
+
+- Draft Light #1254 passed on the first Build-418 implementation checkpoint.
+- Post-implementation review removed a redundant Battery replay from the status-icon callback so one status event produces one status-authority commit.
+- Battery-event composition was tightened further: when live SystemUI status authority is unavailable it now falls directly to the current Battery applied tint rather than accepting any embedded stale status field.
+- Deterministic test coverage was extended for this stale-embedded-status rejection.
+- Draft Light #1255 passed on runtime head `dda51a7efa93131ab9fe0203f3b4f42d6ee8f161`.
+- Final cleanup removes an unused one-shot Tint-log flag; Detailed diagnostics intentionally log each **changed** renderer Tint state because scene transitions are low-frequency, event-driven checkpoints rather than frame events.
+
 ### Gate
 
-Draft Light -> source review -> Ready/Fast -> one explicit signed Canary -> repeated scene-switch device validation.
+Record-only/source-cleanup closure -> Draft Light -> Ready/Fast -> one explicit signed Canary -> repeated scene-switch device validation.
 
 
 ## 2026-09-28 — Build 417 device rejection: fresh Tint lost before renderer attach / repeated scene race
