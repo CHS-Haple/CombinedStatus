@@ -3367,3 +3367,6 @@ Run Fast CI and signed Work Branch Canary for Build 405. If both pass, stop runt
 Primary acceptance question: does removing the intermediate raster/resample stage restore native-like edge coverage / antialiasing and apparent stroke weight **without** changing size, centering, tint, outer geometry or semantic battery colors?
 
 The verified HyperOS Light / Dark / Tint resource transformation remains the next separate rendering boundary only if Build 405 still leaves a state-dependent difference.
+
+
+<!-- Validation carrier synchronize marker for Build 405; no runtime delta. -->
