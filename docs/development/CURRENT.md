@@ -10,7 +10,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Integration branch: `dev`
 - Integration runtime baseline: Build 418 / `20260928-418`, merge commit `11bc4ff741869e3311d2be697d4dcfb66f5cb39c`
 - Build 418 / `20260928-418` is the current device-accepted and Integration-validated `dev` runtime baseline. Build 413 remains the current `main`-promoted stable runtime baseline.
-- Active Phase-2B work / PR: `feat/panel-projection` / Draft #146. Build 419 / `20260928-419` is the current bounded diagnostic checkpoint. It adds one Detailed-only read-only probe on the already-verified notification-header expansion callback and inspects only the known `notification: NotificationShadeWrapper` and `headerController: Lazy` ownership seams. Panel projection rendering remains disabled. Draft Light #1271 passed on runtime head `1532cb33f9ebefc71ad361db226f0434e0de21b1`; post-implementation source review is complete and the next gate is Ready/Full.
+- Active Phase-2B work / PR: `feat/panel-projection` / Draft #146. Build 419 / `20260928-419` remains the current bounded diagnostic checkpoint. First device evidence confirms the probe and `NotificationShadeWrapper` path are valid, but exposed a diagnostic accessor defect: the exact `headerController` holder is `dagger.internal.DoubleCheck`, while the probe only attempted Kotlin-style `getValue()`. The corrected Build-419 source now supports guarded Dagger `get()` and Kotlin `getValue()` resolution without widening Hook scope or enabling projection.
 - Repository-automation baseline: checkpoint-driven CI from PR #139 remains active; Canary admission hardening and bounded automation-only merge delegation were accepted on `main` via PR #143 (`a1aed8b6451d1018f46e252166545d67f48fe8e4`) and history-preserving back-synced into `dev` via PR #144 (`faaa12b1c8e955138d2ce8d51fb481263b4d7570`). These automation changes do **not** create a new runtime Build.
 - Phase-2A integration: PR #105 merged to `dev` as `2f584c3b393dc5ee606284426aa95a9d6beae5d5`; former stacked PR #100 is closed as superseded.
 - Phase-2B panel/scene-owner integration: PR #138 merged to `dev` as `a25cb5ce2aeab235cfaed579474df70596f03a63`.
@@ -155,18 +155,20 @@ Build 409's notification-shade implementation remains intact and is not reopened
 
 ## Immediate next step
 
-1. Build 419 / `20260928-419` is the current Draft #146 diagnostic checkpoint; Build 418 remains the accepted `dev` runtime baseline.
-2. The Build-419 probe is deliberately narrower than Build 414:
-   - hook only the verified `NotificationHeaderExpandController$notificationCallback$1.onExpansionChanged(float)`;
-   - execute reads only after the native callback;
-   - capture only native boundary buckets 0/1/7/8 while Detailed diagnostics / development probes are enabled;
-   - inspect only `notification: NotificationShadeWrapper`, the resolved `headerController: Lazy` value, their direct View fields, and a bounded one-level set of semantically named candidate owners;
-   - perform zero geometry/visibility/tint writes and no root View traversal.
-3. Run Draft Light and source review. Because executable source plus exact-target profile/verifier change, the meaningful Ready checkpoint must use the repository's Full validation path before any signed Canary.
-4. Request a signed Canary only if Full passes; device test then needs only one notification-shade down/up cycle with Detailed diagnostics. No broad regression matrix is required for this read-only probe.
-5. Use the resulting evidence to identify the actual notification status-icon target host/bounds/tint owner. Retire the probe immediately after its evidence is captured.
-6. Do not enable projection rendering until that target contract is proven. Control Center continues to reuse existing `StatusBarAnchorBounds` evidence.
-7. Keyguard / lockscreen / AOD remains Phase 3.
+1. Keep Build 418 / `20260928-418` as the accepted `dev` runtime baseline. Build 419 remains one unaccepted diagnostic checkpoint.
+2. Treat the first Build-419 device run as **partial diagnostic success**, not target-host closure:
+   - the probe installed successfully with one hook and zero native geometry writes;
+   - `notification` resolves to `com.miui.systemui.shade.NotificationShadeWrapper`;
+   - the wrapper exposes native shade owners including `NotificationHeaderClipHelper -> SharedNotificationContainer` and `StatusBarStateControllerImpl -> NotificationPanelView`;
+   - `headerController` remained `dagger.internal.DoubleCheck`, proving the probe failed to unwrap Dagger Lazy rather than proving the controller is absent.
+3. Keep the same Build-419 identity and correct only the Lazy resolver:
+   - Dagger Lazy / DoubleCheck -> guarded zero-arg `get()`;
+   - Kotlin Lazy -> guarded zero-arg `getValue()`;
+   - unrelated objects with a generic `get()` method must not be invoked.
+4. Run Draft Light -> source review -> Ready Full again because executable diagnostic source changed after Canary #406.
+5. If Full passes, generate one replacement signed Build-419 Canary. Device test remains one notification shade down/up cycle with Detailed diagnostics.
+6. Projection rendering remains disabled until the unwrapped native header owner exposes a verified target host/bounds/tint contract.
+7. Retire the diagnostic immediately once that contract is proven; do not carry the probe into the production projection runtime.
 
 ## Reference priority
 

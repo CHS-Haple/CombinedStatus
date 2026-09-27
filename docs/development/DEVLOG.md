@@ -57,6 +57,32 @@ Add `SystemUiNotificationShadeTargetProbe`:
 - Hot Reload takeover review confirms the status-host handle is the only preserved old handle; every other old-generation HookHandle is unhooked. The new probe therefore cannot accumulate across Hot Reload generations.
 - No additional runtime writer/listener/poller was introduced.
 
+### First device evidence — Build 419
+
+The first signed Build-419 diagnostic run is valid Canary evidence:
+
+- report identity is Build 419 Canary with Detailed diagnostics;
+- runtime health is healthy;
+- `notificationShadeTargetProbe` installs `1/1` hooks in bounded read-only mode with `nativeGeometryWrites=0`;
+- notification-shade buckets 0/1/7/8 are captured across the requested pull-down / return cycle;
+- controller field `notification` resolves to `com.miui.systemui.shade.NotificationShadeWrapper`;
+- the wrapper exposes real native shade ownership objects, including `NotificationHeaderClipHelper` with `SharedNotificationContainer`, and `StatusBarStateControllerImpl` with `NotificationPanelView`;
+- the shared notification/panel Views move from alpha/visibility inactive at the settled top state to active while the notification shade is expanded;
+- `headerController` does **not** resolve to the expected header owner and remains `dagger.internal.DoubleCheck`.
+
+### Root-cause correction of the diagnostic
+
+Review of the probe implementation shows `resolveLazyValue()` only searched for zero-arg `getValue()`. The device object is Dagger `DoubleCheck`, whose Lazy contract uses zero-arg `get()`. Therefore the missing header target is a **probe accessor defect**, not evidence that the header controller or status-icon host is absent.
+
+Selected correction within the same unaccepted Build 419:
+- recognize only Dagger Lazy/DoubleCheck holders before calling `get()`;
+- retain Kotlin Lazy `getValue()` support;
+- do not invoke generic `get()` on unrelated objects;
+- add deterministic unit coverage for Dagger, Kotlin, and unrelated-get cases;
+- leave Hook count, boundary buckets, reflection depth, native writers, profile contract, and projection state unchanged.
+
+**Review / 审查:** ownership remains read-only SystemUI discovery; lifecycle and Hook ownership are unchanged; single-writer boundary remains zero new presentation writers; fail-native returns the original holder if accessor resolution fails; performance remains four bounded boundary reads only; compatibility does not add another SystemUI Hook contract.
+
 ### Validation gate
 
 Executable diagnostics plus target-profile/verifier change advance the next runtime identity to Build 419. Ready Full -> one signed Canary only because one focused device diagnostic is now required.

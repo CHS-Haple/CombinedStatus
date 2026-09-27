@@ -157,14 +157,21 @@ internal object SystemUiNotificationShadeTargetProbe {
         return CANDIDATE_TOKENS.any(normalized::contains)
     }
 
-    private fun resolveLazyValue(holder: Any?): Any? {
+    internal fun resolveLazyValue(holder: Any?): Any? {
         if (holder == null) {
             return null
         }
+        val holderClass = holder.javaClass
+        val accessorName =
+            lazyAccessorName(
+                className = holderClass.name,
+                interfaceNames = holderClass.interfaces.map(Class<*>::getName),
+                methodNames = holderClass.methods.map(java.lang.reflect.Method::getName).toSet(),
+            ) ?: return holder
         val method =
-            holder.javaClass.methods
+            holderClass.methods
                 .firstOrNull { candidate ->
-                    candidate.name == "getValue" &&
+                    candidate.name == accessorName &&
                         candidate.parameterCount == 0
                 }
                 ?: return holder
@@ -172,6 +179,27 @@ internal object SystemUiNotificationShadeTargetProbe {
             method.isAccessible = true
             method.invoke(holder)
         }.getOrNull() ?: holder
+    }
+
+    internal fun lazyAccessorName(
+        className: String,
+        interfaceNames: List<String>,
+        methodNames: Set<String>,
+    ): String? {
+        val daggerLazy =
+            className.startsWith("dagger.") ||
+                interfaceNames.any { name -> name == "dagger.Lazy" }
+        if (daggerLazy && "get" in methodNames) {
+            return "get"
+        }
+
+        val kotlinLazy =
+            className.startsWith("kotlin.") ||
+                interfaceNames.any { name -> name == "kotlin.Lazy" }
+        if (kotlinLazy && "getValue" in methodNames) {
+            return "getValue"
+        }
+        return null
     }
 
     private fun ownerSummary(

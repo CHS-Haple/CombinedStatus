@@ -56,4 +56,39 @@ class SystemUiNotificationShadeTargetProbeTest {
             ),
         )
     }
+    @Test
+    fun daggerLazyUsesGetAccessor() {
+        assertEquals(
+            "get",
+            SystemUiNotificationShadeTargetProbe.lazyAccessorName(
+                className = "dagger.internal.DoubleCheck",
+                interfaceNames = listOf("dagger.Lazy", "javax.inject.Provider"),
+                methodNames = setOf("get", "toString"),
+            ),
+        )
+    }
+
+    @Test
+    fun kotlinLazyUsesGetValueAccessor() {
+        assertEquals(
+            "getValue",
+            SystemUiNotificationShadeTargetProbe.lazyAccessorName(
+                className = "kotlin.SynchronizedLazyImpl",
+                interfaceNames = listOf("kotlin.Lazy"),
+                methodNames = setOf("getValue", "isInitialized"),
+            ),
+        )
+    }
+
+    @Test
+    fun unrelatedGetMethodIsNotInvokedAsLazy() {
+        assertEquals(
+            null,
+            SystemUiNotificationShadeTargetProbe.lazyAccessorName(
+                className = "com.android.systemui.SomeController",
+                interfaceNames = emptyList(),
+                methodNames = setOf("get"),
+            ),
+        )
+    }
 }
