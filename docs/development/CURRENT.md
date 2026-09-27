@@ -48,7 +48,7 @@ Home -> shade / Control Center projection is now the active Phase 2B direction. 
 - **Build 411 / `20260927-411`** is **device-accepted for the panel/scene-owner correction but visually rejected at the 8.0 ring checkpoint**. Executable runtime source: `aaaaf0810b114b1e90a3de3f1520721a420da2d0`. Fast #1150 and trusted Canary #384 passed. Maintainer device feedback confirms notification-shade / Control Center down-up behavior is now correct, so the persistent Home owner / scene-visibility separation is retained. The 8.0 ring remains visually inferior to the previously seen 8.25 geometry, including endpoint/lower-opening harmony, so 8.0 is not the final visual baseline.
 - **Build 412 / `20260927-412`** is the current source-reviewed deterministic ring-restoration candidate. Executable source: `f794a7c01513364eefc726316fcaf4058d581683`. It preserves Build-411 panel scene ownership and changes only the default battery-ring stroke from 8.0 back to the maintainer-preferred 8.25 canonical units. `Paint.Cap.ROUND` and `Paint.Join.ROUND` remain unchanged, restoring endpoint radius to 4.125; mobile dots, center geometry, tint/alpha, opening angles and scene logic are unchanged. The existing lower-opening solver recomputes edge spacing from the restored stroke. Source review passed; CI pending.
 - Build 406 trusted validation: owner `/canary` Work Branch Canary #335 **succeeded**. Validated PR head `80f371784ffaee406dd6ea5728219eeee5913318` differs from the frozen runtime source only in `CURRENT.md` and `DEVLOG.md`, so executable content remains exactly Build 406. Artifact `10929711688`; artifact ZIP digest `sha256:c7af997217acd171c66beb860d7212c0d72fd672a38978f7b5c2eb5a524f11ba`; extracted APK SHA-256 `e086d8914fece7ba8ea86200756f4a6366d56dadaa5510846618a4077e6ddd80`.
-- Documentation/test-only commits may advance the Phase-2B work branch beyond Build-410 executable source `6e2fc55944753c6cb9ef22f537008c97217f17e1` without creating a new runtime Build; runtime identity remains `20260927-410` until executable source changes.
+- Documentation/test-only commits may advance the Phase-2B work branch beyond Build-412 executable source `f794a7c01513364eefc726316fcaf4058d581683` without creating a new runtime Build; runtime identity remains `20260927-412` until executable source changes.
 
 Build 403 validation already established:
 - Fast Build #1063: **success**;
@@ -139,12 +139,12 @@ Build 409's notification-shade implementation remains intact and is not reopened
 
 ## Immediate next step
 
-1. Run PR #138 Fast CI for Build 412, executable source `f794a7c01513364eefc726316fcaf4058d581683`.
-2. Verify the outer-geometry test locks 8.25, balanced lower-opening gaps remain positive/symmetric across supported scales, and Build-411 scene tests remain unchanged/passing.
-3. After Fast success, run/accept the trusted signed Work Branch Canary.
-4. No dedicated maintainer ring-size A/B is required before integration because 8.25 is an already device-seen and explicitly preferred baseline.
-5. Preserve the Build-411 panel scene behavior as accepted.
-6. Keep heads-up/notification-triggered native-status fallback as the next separate runtime issue unless separately confirmed fixed.
+1. Build 412 source review is complete. Executable source: `f794a7c01513364eefc726316fcaf4058d581683`.
+2. Run PR #138 Fast CI, then the trusted signed Work Branch Canary.
+3. Validation target is narrow: confirm the restored 8.25 ring compiles with the existing ROUND cap and lower-opening gap solver while all Build-411 scene/owner behavior remains byte-for-byte unchanged outside Painter/build identity.
+4. No dedicated maintainer ring A/B is required after CI because 8.25 is a previously device-seen geometry and is now the explicitly preferred baseline.
+5. Keep the Build-411 panel/scene-owner acceptance. The earlier HUN/notification-popup issue remains a separate runtime question unless independently confirmed; Build 412 neither changes nor claims to resolve it.
+6. After Fast + signed Canary success, use 8.25 as the current visual baseline and proceed without another thickness-only device gate.
 
 ## Reference priority
 
