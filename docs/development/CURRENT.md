@@ -8,12 +8,12 @@ This file is the concise recovery point for active Combined Status development. 
 - Stable branch: `main`
 - Stable runtime baseline: Build 351, commit `2477867278483b76b80ed0884de3a07c7ede668a`
 - Integration branch: `dev`
-- Integration runtime baseline: Build 412, commit `a25cb5ce2aeab235cfaed579474df70596f03a63`
-- Active work-branch runtime candidate: Build 413 / `20260927-413` on PR #142; focused HUN / shallow-pull device validation is accepted, pending `dev` integration.
+- Integration runtime baseline: Build 413, commit `2aa6833cfca69a59af5027a7855b7d8282dbade9`
+- Build 413 / `20260927-413` is the current device-accepted and Integration-validated `dev` runtime baseline.
 - Repository-automation baseline: checkpoint-driven CI from PR #139 remains active; Canary admission hardening and bounded automation-only merge delegation were accepted on `main` via PR #143 (`a1aed8b6451d1018f46e252166545d67f48fe8e4`) and history-preserving back-synced into `dev` via PR #144 (`faaa12b1c8e955138d2ce8d51fb481263b4d7570`). These automation changes do **not** create a new runtime Build.
 - Phase-2A integration: PR #105 merged to `dev` as `2f584c3b393dc5ee606284426aa95a9d6beae5d5`; former stacked PR #100 is closed as superseded.
 - Phase-2B panel/scene-owner integration: PR #138 merged to `dev` as `a25cb5ce2aeab235cfaed579474df70596f03a63`.
-- Active Phase-2B work branch / PR: `fix/home-hun-ownership` / PR #142. Build 413 corrects the notification/HUN ownership predicate and is device-accepted for the focused HUN + shallow-pull boundary; merge/integration remains the final checkpoint for this branch.
+- PR #142 (`fix/home-hun-ownership`) is merged and closed; its Build-413 HUN/shallow-pull lifetime correction is now part of `dev`.
 - Active development display line: **0.0.2**
 - First planned formal release: **1.0.0**
 - Target profile: HyperOS SystemUI `17.03.260226.r`
@@ -96,7 +96,7 @@ Build 403 uses HyperOS `MiuiBatteryMeterIconView.getProgressStatus()` as semanti
 
 No user-facing per-state color picker/source selector is exposed yet. The future policy seam remains: **System default / Follow status icon / Custom** for NORMAL / CHARGING / POWER_SAVE / PERFORMANCE / LOW.
 
-### Home -> shade / Control Center scene boundary — Build 413 device-accepted, integration pending
+### Home -> shade / Control Center scene boundary — Build 413 accepted in dev
 
 Build 409 corrected only the notification-shade half of the scene lifetime. Maintainer video and Build-409 diagnostics show the unresolved reproduction is a **Control Center** transition.
 
@@ -142,6 +142,7 @@ Build 409's notification-shade implementation remains intact and is not reopened
 - Validation-only PRs #131/#132 and the dev-based automation review PR #133 are superseded and closed without merge.
 - The documentation-governance baseline is accepted in `main` and synchronized into `dev`; active runtime branches must preserve it when updated/merged rather than restoring older workflow/process text.
 - PR #138 is merged into `dev` as the accepted Phase-2B panel scene-ownership + 8.25 ring integration boundary (`a25cb5ce2aeab235cfaed579474df70596f03a63`).
+- PR #142 is merged into `dev` as `2aa6833cfca69a59af5027a7855b7d8282dbade9`, making Build 413 the integrated HUN/shallow-pull lifetime baseline. Trusted Integration Build #1200 / run `36337302873` passed and produced signed Canary artifact `10937951856`.
 - PR #139 replaced automatic per-Fast work-branch Canary follow-up with checkpoint-driven validation: active runtime PRs stay Draft during iteration, Ready is reserved for meaningful Fast checkpoints, and signed work-branch Canary is requested explicitly only when device evidence is needed.
 - PR #141 history-preserving back-synced that accepted CI/governance state into `dev` without replacing the Build-412 runtime tree. The direct `main -> dev` PR #140 was closed after branch-history conflicts were identified; the accepted sync used an explicit two-parent merge preserving both histories.
 - CI self-validation for the policy change passed at PR Build #1168, `main` push #1169, sync PR Build #1170, and trusted `dev` push #1171. The generated artifacts retain stable runtime build identities (`main` Build 351 / `dev` Build 412), so these automation checks are not new application Builds.
@@ -149,11 +150,11 @@ Build 409's notification-shade implementation remains intact and is not reopened
 
 ## Immediate next step
 
-1. Treat Build 413 / `20260927-413` as the accepted PR #142 runtime checkpoint for the HUN + shallow-pull ownership boundary.
-2. Merge PR #142 into `dev` and require the trusted Integration build before declaring Build 413 the integrated runtime baseline.
-3. After integration, continue **Phase 2B** with the remaining product task: actual notification-shade / Control Center Combined Status projection and coherent intermediate motion. Do not reopen the now-accepted Home scene-lifetime gate without contradictory device evidence.
-4. For that projection, first verify each target surface's real host/lifecycle/progress/tint/geometry contract in SystemUI Reference; keep native peer motion authoritative and avoid Home-overlay offsets, timing patches, per-frame followers, or a second animation owner.
-5. Keyguard / lockscreen / AOD remains Phase 3 and must not be mixed into the Phase-2B projection branch.
+1. Treat Build 413 / `20260927-413` at dev commit `2aa6833cfca69a59af5027a7855b7d8282dbade9` as the integrated Phase-2B scene-lifetime baseline. HUN disappearance and the previously accepted shallow-pull leak are closed unless contradictory device evidence appears.
+2. Continue the remaining **Phase 2B** objective on a new bounded feature branch: implement an actual Combined Status projection for notification shade / Control Center rather than leaking or reusing the Home overlay.
+3. Before runtime mutation, verify the exact target's separate notification-shade and Control Center hosts, lifecycle, tint source, native progress/end anchors, and native icon surfaces. Existing evidence already establishes `NotificationHeaderExpandController`, `ControlCenterHeaderExpandController`, `StatusBarAnchorBounds`, and the distinct Control Center fake/status-icon surfaces as high-value owners.
+4. Keep SystemUI as the transition-motion writer. The new projection may consume native progress/geometry but must not add a parallel translation formula, arbitrary fraction threshold, timing patch, per-frame native-geometry writer, or destructive Home-owner teardown.
+5. Keyguard / lockscreen / AOD remains Phase 3 and stays out of the Phase-2B projection branch.
 
 ## Reference priority
 
