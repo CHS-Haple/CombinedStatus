@@ -1234,14 +1234,26 @@ On this target, Battery state 1 can occur as part of Notification-Shade presenta
 
 ### Selected Build-421 correction
 
-Use the pinned, already-verified `MiuiKeyguardStatusBarView` runtime marker as the additional Keyguard proof:
-- raw 1 only vetoes Home when the real Keyguard header is attached and visibly participating;
-- transient raw 1 without that marker does not override the panel owner;
-- marker resolution is bounded/cached and read-only;
-- unresolved/ambiguous true-Keyguard evidence fails native rather than forcing Home visible;
+Use the platform `KeyguardManager.isKeyguardLocked` authority as the additional Keyguard proof:
+- raw 1 + `true` -> real `KEYGUARD`, Home remains native-only;
+- raw 1 + `false` -> `TRANSIENT_PANEL`, which does not independently veto Home;
+- raw 1 + unavailable result -> `UNKNOWN`, fail-native;
+- raw 2 remains `SHADE_LOCKED`, native-only;
+- the read occurs only on the existing Battery scene event, with no polling, new Hook, reflection contract, or ViewTree traversal;
 - no Control Center code, geometry, tint, or handoff changes.
 
 This preserves the accepted Control Center result and addresses the actual remaining Notification-Shade writer conflict instead of adding another threshold or delay.
+
+### Build-421 implementation review
+
+- runtime source: `fb5bd499f01add37c12be8ee38668f0dc5270d52`;
+- Draft validation #1291 passed on the exact Build-421 head;
+- platform Keyguard state is read only from the existing `MiuiBatteryMeterView.updateState()` event;
+- `TRANSIENT_PANEL` is an explicit scene classification rather than pretending raw state 1 is unlocked;
+- only `UNLOCKED_STATUS_BAR` and `TRANSIENT_PANEL` allow Home; true Keyguard, Shade Locked, and Unknown remain native-only;
+- Control Center projection implementation is unchanged from the device-accepted Build-420 path;
+- no delay, threshold, timer, polling, extra SystemUI Hook, or geometry/tint writer is introduced.
+
 
 
 ---
