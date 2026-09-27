@@ -147,8 +147,6 @@ jobs:
           EXPECTED_SOURCE_BRANCH: ${{ steps.source.outputs.branch }}
         run: |
           set -euo pipefail
-
-          fast_build_id=""
           resolved_sha="$(git rev-parse HEAD)"
           if [[ "$resolved_sha" != "$EXPECTED_SOURCE_SHA" ]]; then
             echo "::error::Checked-out SHA does not match the resolved trusted source."
