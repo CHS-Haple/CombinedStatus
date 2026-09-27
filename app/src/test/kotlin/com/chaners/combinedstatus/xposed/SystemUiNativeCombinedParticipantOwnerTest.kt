@@ -437,6 +437,7 @@ class SystemUiNativeCombinedParticipantOwnerTest {
             CombinedStatusHomeRenderSession.resolveOverlayVisible(
                 featureEnabled = false,
                 sceneAllowsOverlay = true,
+                notificationShadeAllowsHome = true,
                 nativeHandoffActive = false,
             ),
         )
@@ -444,6 +445,7 @@ class SystemUiNativeCombinedParticipantOwnerTest {
             CombinedStatusHomeRenderSession.resolveOverlayVisible(
                 featureEnabled = false,
                 sceneAllowsOverlay = true,
+                notificationShadeAllowsHome = true,
                 nativeHandoffActive = true,
             ),
         )
@@ -455,6 +457,7 @@ class SystemUiNativeCombinedParticipantOwnerTest {
             CombinedStatusHomeRenderSession.resolveOverlayVisible(
                 featureEnabled = true,
                 sceneAllowsOverlay = true,
+                notificationShadeAllowsHome = true,
                 nativeHandoffActive = false,
             ),
         )
@@ -462,6 +465,7 @@ class SystemUiNativeCombinedParticipantOwnerTest {
             CombinedStatusHomeRenderSession.resolveOverlayVisible(
                 featureEnabled = true,
                 sceneAllowsOverlay = false,
+                notificationShadeAllowsHome = true,
                 nativeHandoffActive = false,
             ),
         )
@@ -469,6 +473,7 @@ class SystemUiNativeCombinedParticipantOwnerTest {
             CombinedStatusHomeRenderSession.resolveOverlayVisible(
                 featureEnabled = true,
                 sceneAllowsOverlay = true,
+                notificationShadeAllowsHome = true,
                 nativeHandoffActive = true,
             ),
         )
