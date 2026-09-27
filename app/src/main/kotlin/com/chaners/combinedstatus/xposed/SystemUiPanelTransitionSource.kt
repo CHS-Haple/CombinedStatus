@@ -261,7 +261,9 @@ internal object SystemUiPanelTransitionSource {
 
     @Synchronized
     fun restoreNotificationShadeHomeEligibility(eligible: Boolean?) {
-        notificationShadeHomeEligible = eligible
+        if (eligible != null) {
+            notificationShadeHomeEligible = eligible
+        }
     }
 
     internal fun diagnosticBucket(fraction: Float?): Int? =
