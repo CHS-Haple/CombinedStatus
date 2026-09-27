@@ -2,6 +2,58 @@
 
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
+## 2026-09-28 — Build 418: live Tint authority snapshot at renderer commit
+
+**Type:** single-variable Tint lifecycle correction
+**Build:** 418 / `20260928-418`
+**Work branch / PR:** `fix/hot-reload-tint-continuity` / Draft #148
+**Device validation:** pending
+
+### Problem execution flow
+
+**Phenomenon and evidence:** Build 417 selects a valid non-represented `volume` anchor and resolves black native status-icon Tint, but Combined Status can remain white. Maintainer video shows native VPN/mute icons changing black/white across repeated app/Home transitions while Combined Status can stay white; the same scene may be correct once and wrong on a later entry.
+
+**Root cause / responsibility source:** renderer Tint state is assembled from two asynchronous sources. A fresh status-icon event can arrive before renderer attach and be lost. Later Battery/scene events currently combine fresh Battery `appliedTint` with cached presentation-store `statusIconTint`, creating a mixed-generation/mixed-scene snapshot. Normal monochrome policy prefers `statusIconTint`, so the stale secondary field can override an otherwise correct Battery event.
+
+**Native rule:** SystemUI Home status-icon authority owns monochrome presentation. Battery DarkReceiver is a useful event trigger and fallback but must not provide or freeze another status-icon authority generation.
+
+### Implementation
+
+- add `CombinedStatusTintAuthority` as the deterministic composition boundary;
+- Battery events resolve current Home status-icon Tint live on every renderer commit;
+- status-icon observer events directly refresh only the renderer's status authority while preserving current Battery applied tint;
+- after Hot Reload observer attach, transferred Tint is rebased against the new generation's live status-icon authority before renderer attach;
+- if live status authority is unavailable, fall back to transferred status Tint, then Battery applied Tint;
+- renderer diagnostics emit both `appliedTint` and `statusIconTint` on every changed Tint state in Detailed mode;
+- Battery semantic-color, geometry, masking, scene ownership, transfer payload shape and animation code are unchanged.
+
+### Tests
+
+Deterministic tests cover:
+- live status-icon authority wins over stale embedded status Tint on Battery events;
+- Battery applied tint is the fail-native fallback;
+- status-icon events update status authority without overwriting Battery applied tint;
+- status-icon events can seed a renderer Tint state;
+- Hot Reload transfer is rebased to new-generation live authority;
+- transferred status Tint remains fallback when live authority is unavailable.
+
+### 审查 / review
+
+- **Ownership:** one composition boundary decides renderer Tint; SystemUI status icons own monochrome direction, Battery owns its applied-tint input/event timing.
+- **Lifecycle:** new-generation authority supersedes transfer before renderer attach.
+- **Single writer:** `CombinedStatusHomeRenderSession -> CombinedStatusRenderController` remains the only renderer writer.
+- **Cleanup:** no new listener/hook/observer.
+- **Fail native:** live authority -> transferred status tint -> Battery applied tint.
+- **Performance:** one bounded current-authority read on existing Dark/scene events; no polling or frame work.
+- **Compatibility:** reuses already validated Home manager/group contracts and existing hooks.
+- **Exception recovery:** null/transparent authority falls through existing visible-color checks.
+- **Future extension:** provides a coherent snapshot boundary reusable by panel/lockscreen projections.
+
+### Gate
+
+Draft Light -> source review -> Ready/Fast -> one explicit signed Canary -> repeated scene-switch device validation.
+
+
 ## 2026-09-28 — Build 417 device rejection: fresh Tint lost before renderer attach / repeated scene race
 
 **Type:** maintainer device rejection / lifecycle root-cause narrowing

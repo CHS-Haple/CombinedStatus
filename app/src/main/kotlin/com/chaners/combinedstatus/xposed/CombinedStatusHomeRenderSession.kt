@@ -84,6 +84,11 @@ internal object CombinedStatusHomeRenderSession {
     }
 
     @Synchronized
+    fun onStatusIconTintUpdate(statusIconTint: Int?) {
+        current?.updateStatusIconTint(statusIconTint)
+    }
+
+    @Synchronized
     fun onFeatureSettingsChanged(settings: CombinedStatusFeatureSettings) {
         current?.setFeatureEnabled(settings.enabled)
     }
@@ -512,6 +517,15 @@ internal object CombinedStatusHomeRenderSession {
             applyTintState(update.state, "darkReceiver")
         }
 
+        fun updateStatusIconTint(statusIconTint: Int?) {
+            val resolved =
+                CombinedStatusTintAuthority.resolveStatusIconEvent(
+                    previous = renderController.currentTintState(),
+                    liveStatusIconTint = statusIconTint,
+                ) ?: return
+            applyTintState(resolved, "statusIcons")
+        }
+
         private fun applyTintState(
             state: CombinedStatusTintState,
             source: String,
@@ -531,7 +545,7 @@ internal object CombinedStatusHomeRenderSession {
                 }
             }
 
-            if (update.changed && !tintLogged) {
+            if (update.changed) {
                 val resolved = update.resolved
                 if (resolved != null) {
                     tintLogged = true
@@ -539,6 +553,14 @@ internal object CombinedStatusHomeRenderSession {
                         "homeRenderTint source=" + source +
                             " applied=#" +
                             resolved.appliedTint.toUInt().toString(16).padStart(8, '0') +
+                            " statusIcon=#" +
+                            (
+                                resolved.statusIconTint
+                                    ?.toUInt()
+                                    ?.toString(16)
+                                    ?.padStart(8, '0')
+                                    ?: "none"
+                            ) +
                             " eventDriven=true stable=true"
                     }
                 }

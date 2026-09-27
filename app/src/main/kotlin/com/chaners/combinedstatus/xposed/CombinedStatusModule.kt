@@ -1310,6 +1310,10 @@ class CombinedStatusModule : XposedModule() {
             }
         }
 
+        CombinedStatusHomeRenderSession.onStatusIconTintUpdate(
+            state.appliedTint,
+        )
+
         if (changed != null) {
             val presentationTrace = markPresentationCommitted(trace)
             CombinedStatusHomeRenderSession.onPresentationStateChanged(
@@ -1339,20 +1343,42 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun onTintStateUpdate(update: SystemUiTintStateSource.TintUpdate) {
-        val statusIconTint =
-            CombinedStatusPresentationStateStore
-                .snapshot()
-                .statusIcons
-                .appliedTint
-                ?.takeIf { color -> color ushr 24 != 0 }
+        val liveStatusIconTint =
+            SystemUiNativeNetworkSuppressionOwner.currentAppliedStatusIconTint()
+        val resolvedState =
+            CombinedStatusTintAuthority.resolveBatteryEvent(
+                batteryState = update.state,
+                liveStatusIconTint = liveStatusIconTint,
+            )
         CombinedStatusHomeRenderSession.onTintUpdate(
-            update.copy(
-                state =
-                    update.state.copy(
-                        statusIconTint = statusIconTint,
-                    ),
-            ),
+            update.copy(state = resolvedState),
         )
+        if (detailedDiagnosticsEnabled) {
+            log(
+                Log.INFO,
+                TAG,
+                "tintCommit source=batteryDarkReceiver" +
+                    " applied=#" +
+                    resolvedState.appliedTint.toUInt().toString(16).padStart(8, '0') +
+                    " statusIcon=#" +
+                    (
+                        resolvedState.statusIconTint
+                            ?.toUInt()
+                            ?.toString(16)
+                            ?.padStart(8, '0')
+                            ?: "none"
+                    ) +
+                    " liveStatusIcon=#" +
+                    (
+                        liveStatusIconTint
+                            ?.toUInt()
+                            ?.toString(16)
+                            ?.padStart(8, '0')
+                            ?: "none"
+                    ) +
+                    " authority=live-systemui-status-icons",
+            )
+        }
     }
 
     private fun onSceneStateUpdate(update: SystemUiSceneStateSource.SceneUpdate) {
@@ -1546,6 +1572,16 @@ class CombinedStatusModule : XposedModule() {
             is SystemUiNativeNetworkSuppressionOwner.StateResult.Inactive -> Unit
         }
 
+        val rendererInitialTintState =
+            initialTintState?.let { transferred ->
+                CombinedStatusTintAuthority.rebaseTransferred(
+                    transferred = transferred,
+                    liveStatusIconTint =
+                        SystemUiNativeNetworkSuppressionOwner
+                            .currentAppliedStatusIconTint(),
+                )
+            }
+
         when (
             val renderSession = CombinedStatusHomeRenderSession.attach(
                 host = host,
@@ -1557,7 +1593,7 @@ class CombinedStatusModule : XposedModule() {
                 onLatencySample = ::onRenderLatencySample,
                 isDetailedDiagnosticsEnabled = { detailedDiagnosticsEnabled },
                 initialNativeHandoffActive = true,
-                initialTintState = initialTintState,
+                initialTintState = rendererInitialTintState,
                 allowLiveTintSeed = allowLiveTintSeed,
                 onPresentationReadinessChanged = { ready ->
                     onHomePresentationReadinessChanged(host, ready, source)
