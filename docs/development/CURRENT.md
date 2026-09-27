@@ -43,7 +43,7 @@ Home -> shade / Control Center projection is now the active Phase 2B direction. 
 - **Build 406 / `20260927-406`** is a completed but **device-rejected tint-variant A/B checkpoint**. Runtime source: `3d5e9d2339824c6d19e50dda170917559369135b`. Work Branch Canary #335 passed all CI/signing gates, but target-device evidence shows the center Wi-Fi glyph remains optically lighter/lower-coverage than the outer ring **even when `centerFollowsBatteryColor=false`**. Therefore the Build-406 hypothesis that the remaining defect was confined to the custom/battery-color tint branch is rejected.
 - **Build 407 / `20260927-407`** is **device-accepted for the native-center opacity/resource-mask correction**, but overall optical balance remains open. Runtime source: `ffe746b24252f974db05e1fa4381ed5c56f0e73e`. The maintainer reports that the prior center-transparency defect is resolved. New same-device screenshots show the battery ring still reads darker/heavier than the native center and four mobile dots even when all three consume the same green semantic tint. Work Branch Canary #337 / run `36313837646` passed all gates and produced artifact `10929728522`.
 - **Build 408 / `20260927-408`** is the maintainer-accepted Phase-2A working baseline for `dev` integration. Runtime source: `8a7a39d8297fe926387d56cc8ff5be4b08405f4a`. Work Branch Canary #338 / run `36315043013` passed all gates and produced artifact `10930143406`. The maintainer considers the current color/native-center result basically compliant with the intended design. A small residual ring/center/dot optical-weight difference may remain and is explicitly deferred as visual polish rather than treated as a blocker.
-- **Build 409 / `20260927-409`** is the current Phase-2B notification-shade Home-eligibility candidate. Final executable source: `4ab7b490617757e34c0ea8e0b59e3d7a16bae9ad`. It promotes exactly one native `ShadeExpansionStateManager.onPanelExpansionChanged(FZZ)V` callback into production scene eligibility, keeps Control Center callbacks diagnostics-only, uses `expanded=false && tracking=false` as the semantic closed boundary, transfers the last known nullable eligibility through 409+ Hot Reload, and fails Home-native when the required shade authority cannot be established. No fraction threshold, delay, polling, custom animation, peer geometry, tint or alpha write is added. Source review passed; CI/Canary and device acceptance are pending.
+- **Build 409 / `20260927-409`** is the current signed Phase-2B notification-shade Home-eligibility device-test candidate. Final executable source: `4ab7b490617757e34c0ea8e0b59e3d7a16bae9ad`. Fast Build #1129 passed on tested head `e7f2ca9a104875688fd2b91640ec84f43c8b228a`; Work Branch Canary #363 / run `36318369493` passed trusted-source checkout, target-profile, tests/build, Haple signature, Modern Xposed metadata and non-debuggable validation and produced artifact `10931079487`. Runtime is frozen pending focused device validation. The implementation keeps exactly one production notification-shade callback, Control Center callbacks diagnostics-only, uses `expanded=false && tracking=false` as the semantic Home boundary, preserves shade eligibility across Hot Reload, and fails Home-native when required Shade authority is unavailable.
 - Build 406 trusted validation: owner `/canary` Work Branch Canary #335 **succeeded**. Validated PR head `80f371784ffaee406dd6ea5728219eeee5913318` differs from the frozen runtime source only in `CURRENT.md` and `DEVLOG.md`, so executable content remains exactly Build 406. Artifact `10929711688`; artifact ZIP digest `sha256:c7af997217acd171c66beb860d7212c0d72fd672a38978f7b5c2eb5a524f11ba`; extracted APK SHA-256 `e086d8914fece7ba8ea86200756f4a6366d56dadaa5510846618a4077e6ddd80`.
 - Documentation-only commits may advance the Phase-2B work branch beyond Build-409 runtime source `4ab7b490617757e34c0ea8e0b59e3d7a16bae9ad` without creating a new runtime Build; runtime identity remains `20260927-409` until executable source changes.
 
@@ -99,14 +99,15 @@ Implementation boundary:
 - 409+ Hot Reload transfers the last known shade eligibility; a legacy 408 payload has no such field, so it preserves the successfully installed 409 bootstrap until the next native panel callback;
 - numeric `fraction` remains read-only for diagnostics/future projection. No fraction threshold, delay, translation follower, custom animator or Control Center projection is introduced.
 
-Source review is complete. Fast CI has exposed only validation-maintenance issues so far:
-- Draft Build #1122 failed `git diff --check` on trailing whitespace in newly added DEVLOG lines; the whitespace was corrected without runtime changes.
-- Ready Fast Build #1123 reached Android compilation: production Kotlin compiled successfully, but unit-test compilation failed because five pre-existing `resolveOverlayVisible(...)` call sites were not updated for the new `notificationShadeAllowsHome` argument.
-- Build #1124 reproduced the same pre-fix validation state on the whitespace-cleaned head.
-- Fast Build #1127 / run `36318037749` passed source classification, wrapper/API setup, pinned target-profile validation, production Kotlin compilation and unit-test compilation. It then ran 239 unit tests: 238 passed and exactly one newly-added Hot Reload snapshot test failed because it still expected `restore(null)` to clear eligibility. Final 409 hardening intentionally makes null mean “legacy/unknown payload: preserve the already-established current bootstrap”, so the implementation is correct and the stale assertion must be updated.
-- the next correction is test-only: pass `notificationShadeAllowsHome=true` to those five legacy assertions so their original feature/scene/handoff semantics remain unchanged.
+Build 409 validation is complete:
+- Fast Build #1129 / run `36318210235`: **success** on tested head `e7f2ca9a104875688fd2b91640ec84f43c8b228a`.
+- Work Branch Canary #363 / run `36318369493`: **success** on the same tested head through trusted-source resolution and exact checkout verification.
+- Signed Canary artifact: `10931079487`.
+- APK size: `3293218` bytes.
+- APK SHA-256: `c8d8aabbaeb8f60abfc1897996b45019e7f9d8d130e5055acacf3848164591ba`.
+- Executable runtime remains `4ab7b490617757e34c0ea8e0b59e3d7a16bae9ad`; commits after that source are tests/documentation only.
 
-Build identity remains 409 and executable source remains `4ab7b490617757e34c0ea8e0b59e3d7a16bae9ad`.
+**Runtime is frozen at Build 409 pending device validation.**
 
 ## Non-negotiable boundaries
 
@@ -129,15 +130,15 @@ Build identity remains 409 and executable source remains `4ab7b490617757e34c0ea8
 
 ## Immediate next step
 
-1. Apply the final test-only Build-409 correction: update the Hot Reload snapshot test so a null/legacy shade value preserves the current successfully-installed bootstrap rather than clearing it.
-2. The five legacy `resolveOverlayVisible(...)` assertions are already corrected and now compile.
-3. Do not change runtime or Build identity; executable source remains `4ab7b490617757e34c0ea8e0b59e3d7a16bae9ad`.
-4. Re-run PR #138 Fast CI on the corrected test head, then run a signed Work Branch Canary.
-4. If CI/Canary passes, freeze runtime.
-5. Focused device test: shallow notification pull, hold at a tiny pull, return while still tracking, release back to Home, full notification-shade pull, and return.
-6. Expected boundary: Combined Status disappears as soon as native shade expansion/tracking owns the scene, stays absent at fraction 0 while tracking/expanded is still true, and returns only after `expanded=false && tracking=false`.
-7. If practical, Hot Reload once while shade is visibly open and verify the Home replacement does not flash back in.
-8. Keep Control Center projection, shade Combined Status rendering, steady Home geometry, Build-408 color policy and deferred optical polish unchanged until this gate is accepted.
+1. **Runtime freeze:** Build 409 / `20260927-409`, executable source `4ab7b490617757e34c0ea8e0b59e3d7a16bae9ad`.
+2. Use signed Work Branch Canary #363 artifact `10931079487`.
+3. Device test a steady Home baseline, then a very shallow notification-shade pull and hold.
+4. While still touching, drag the shade back to the top / near fraction 0 and hold briefly before release.
+5. Release fully back to Home, then perform one full notification-shade pull and return.
+6. Expected: Combined Status leaves Home as soon as native `expanded/tracking` owns the shade transition, remains absent while tracking/expanded is still active even if fraction returns to 0, and returns only after native `expanded=false && tracking=false`.
+7. Watch for one-frame Combined Status leakage, duplicate native+Combined Status visuals, native icons failing to restore, a stale end-side gap/reservation, delayed Home return, or any Build-408 color/geometry regression.
+8. If practical, Hot Reload once while the notification shade is visibly open; Combined Status must not flash back into Home during generation transfer.
+9. Do not modify runtime again until maintainer device feedback is recorded.
 
 ## Reference priority
 
