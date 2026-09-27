@@ -4276,9 +4276,9 @@ The Phase-2B investigation must start from native scene/progress ownership and m
 
 ## 2026-09-27 — Phase 2B root-cause review: Home overlay ignores native shade lifetime
 
-**Type:** scene-boundary root-cause review / pre-runtime checkpoint  
-**Display version:** 0.0.2  
-**Baseline:** dev Build 408 / `2f584c3b393dc5ee606284426aa95a9d6beae5d5`  
+**Type:** scene-boundary root-cause review / pre-runtime checkpoint
+**Display version:** 0.0.2
+**Baseline:** dev Build 408 / `2f584c3b393dc5ee606284426aa95a9d6beae5d5`
 **Work branch:** `fix/shade-home-overlay-leak`
 
 ### Problem execution flow
@@ -4368,10 +4368,10 @@ Review:
 
 ## 2026-09-27 — Build 409 source review: native notification-shade Home eligibility
 
-**Type:** Phase-2B runtime checkpoint / source review  
-**Display version:** 0.0.2  
-**Build:** 409 / 20260927-409  
-**Runtime source:** `08574da0abcf192ff59b0eb8fa94c818ca1221b9`  
+**Type:** Phase-2B runtime checkpoint / source review
+**Display version:** 0.0.2
+**Build:** 409 / 20260927-409
+**Runtime source:** `08574da0abcf192ff59b0eb8fa94c818ca1221b9`
 **Validation:** source review passed; CI/Canary and device acceptance pending
 
 ### Runtime delta
