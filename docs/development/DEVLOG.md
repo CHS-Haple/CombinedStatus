@@ -5328,3 +5328,106 @@ The earlier heads-up/notification-popup report in which native status presentati
 ### Current boundary
 
 Build 412 is now the dev integration baseline. The next runtime problem is the separately observed notification/HUN-triggered native-status fallback. It is not considered part of the accepted panel scene gate or ring geometry and must be investigated independently.
+
+---
+
+## 2026-09-27 — Checkpoint-driven CI policy accepted and synchronized
+
+**Type:** repository automation / engineering governance  
+**APK build:** none; runtime identities remain main Build 351 and dev Build 412  
+**Runtime impact:** none
+
+### Problem / objective
+
+Development iteration was paying avoidable CI cost in two places:
+
+1. a ready work-branch PR could run Fast on every intermediate push;
+2. every successful trusted Fast Build could automatically trigger another signed Work Branch Canary even when no device evidence was needed.
+
+At the same time, Build/device results still need to be written into `CURRENT.md` / `DEVLOG.md` so repository state remains recoverable across sessions. Removing those records would reduce continuity and reintroduce dependence on conversation memory.
+
+The objective was therefore to reduce redundant CI **without weakening validation gates or removing repository engineering memory**.
+
+### Analysis / root cause
+
+**Confirmed:** the expensive part was not the existence of Light/Fast/Integration/Full validation itself; it was admission cadence.
+
+- Draft PRs already map to Light.
+- Ready ordinary runtime PRs map to Fast.
+- Trusted `dev` integration and CI/build-system changes correctly retain stronger Integration/Full validation.
+- The old Work Branch Canary workflow additionally followed every qualifying successful Fast Build automatically.
+- Documentation closure commits could also create misleading “next Build” bookkeeping if CI execution metadata were treated as application Build identity.
+
+Therefore the correct change is to make expensive validation **checkpoint-driven**, while preserving the existing quality levels.
+
+### Evidence / references consulted
+
+Reviewed current repository authority and implementation before changing the workflow:
+
+- `CONTRIBUTING.md` — branch routing, checkpoint-based validation, CI scopes, development-memory requirements;
+- `docs/development/RECORDING.md` — current/runtime identity and cross-file synchronization;
+- `docs/development/VERSIONING.md` — application Build versus GitHub Actions run semantics;
+- `.github/workflows/build.yml` — Light/Fast/Integration/Full classifier and cancellation policy;
+- `.github/workflows/work-branch-canary.yml` — automatic `workflow_run` admission plus owner fallbacks;
+- `.github/workflows/promotion-readiness.yml` — post-Build readiness separation.
+
+The review also confirmed that `cancel-in-progress` and the existing combined Gradle invocation were already reasonable; duplicate admission was the higher-value optimization.
+
+### Measures implemented
+
+Accepted through PR #139 on `main`:
+
+- active ordinary runtime work PRs stay **Draft** during implementation so intermediate pushes receive Light validation;
+- Ready-for-review is used only for a meaningful Fast checkpoint;
+- successful Fast no longer automatically starts a signed Work Branch Canary;
+- an exact owner `/canary` comment is now the normal explicit device-validation admission;
+- comment-triggered Canary requires:
+  - an open same-repository `feat/**` / `fix/**` PR;
+  - PR not Draft;
+  - a successful trusted pull-request Build for the exact requested head SHA;
+- owner-only `workflow_dispatch` remains the independent fallback and still runs the full Canary validation contract;
+- documentation-only checkpoint closure is explicitly defined as repository memory, not a new executable Build;
+- `CONTRIBUTING.md`, `RECORDING.md`, `VERSIONING.md`, and `CHANGELOG.md` were updated with the same semantics.
+
+### Review
+
+- **Runtime/SystemUI:** unchanged.
+- **Application buildId/versionCode:** unchanged by the policy change.
+- **Signing boundary:** preserved; PR validation does not expose signing secrets, while trusted branch/Canary flows retain Haple signing verification.
+- **Validation strength:** unchanged at each actual checkpoint; only the frequency/admission of expensive checks changed.
+- **Device validation:** still required when behavior/risk requires it; signed work-branch APK creation is now demand-driven.
+- **Repository memory:** preserved and clarified; Build/device conclusions still land in repository records.
+- **Non-recursive recording:** a record-only closure commit may receive Light repository validation but must not fabricate a new Build number or DEVLOG runtime checkpoint.
+- **Compatibility/performance:** no installed runtime code path changed.
+
+### Validation / CI
+
+PR #139 / source head `d711c380aa7fad86abecbc53355e5d1dca903525`:
+
+- Build workflow **#1168** / run `36325319934`: **success** under Full validation.
+- PR environment correctly skipped trusted signing/upload while passing required source/build checks.
+
+Accepted `main` commit `0ab8e211eb4cac04e591b1ea908a0a9a9aab78e3`:
+
+- trusted push Build workflow **#1169** / run `36325541667`: **success**;
+- produced artifacts still identify the unchanged stable runtime as Build 351.
+
+Back-sync:
+
+- direct PR #140 was closed after branch-history conflicts showed that a simple `main -> dev` merge would not preserve the newer dev documentation history cleanly;
+- an explicit two-parent merge commit `b2af353653c7f6e357ce22d135c27b69eabb4f82` was created from current dev plus accepted main policy ancestry, resolving only the intended five policy/workflow files;
+- PR #141 Build workflow **#1170** / run `36325722071`: **success** under Full validation;
+- PR #141 merged into `dev` as `a3fb5d1f70d6ac3d98b37d29ef13d15e3bd4aded`;
+- trusted dev push Build workflow **#1171** / run `36325956985`: **success**, including signing, Debug/Canary build, Modern Xposed metadata, Haple signature, non-debuggable checks and artifact upload;
+- the resulting dev artifacts still identify **Build 412 / 20260927-412**.
+
+### Outcome / durable conclusion
+
+CI is now **checkpoint-driven rather than commit-driven**:
+
+`Draft iteration -> meaningful Ready/Fast checkpoint -> explicit /canary only when device evidence is needed -> dev integration`
+
+Repository memory remains mandatory. A later documentation-only closure commit records the completed checkpoint but does not advance application Build identity merely because GitHub executes a Light repository check for that commit.
+
+The current runtime development baseline remains **Build 412**. This automation/governance change does not resolve or alter the separate notification/HUN native-status fallback investigation.
+
