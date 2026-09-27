@@ -33,10 +33,12 @@ Do not rewrite older `0.0.1` / `0.0.2` DEVLOG or CI history to match the current
 
 ## Work-branch Canary validation entry
 
-Focused work-branch device testing normally uses the trusted automatic path:
+Focused work-branch device testing is checkpoint-driven rather than automatic:
 
-`ready feat/* or fix/* PR -> Fast Build -> default-branch Work Branch Canary -> signed non-debuggable APK`.
+`Draft iteration -> ready checkpoint -> Fast Build -> device evidence needed -> owner /canary -> signed non-debuggable APK`.
 
-If GitHub does not deliver the pull-request event into Actions, the default-branch `Work Branch Canary` keeps the validation checkpoint reachable through trusted fallback admission. The normal operator fallback is an exact repository-owner `/canary` comment on an open same-repository PR with a `feat/*` or `fix/*` head; the workflow resolves the PR's live head branch/SHA before checkout. A repository-owner-only manual dispatch for an explicit same-repository work branch remains the final fallback. Both paths record the exact resolved source and perform the same target-profile, tests, Xposed metadata, Haple signature and non-debuggable checks before artifact publication.
+A successful Fast Build does not by itself create a signed work-branch Canary. The normal Canary entry is an exact repository-owner `/canary` comment on an open same-repository **ready** PR with a `feat/*` or `fix/*` head. The workflow resolves the live PR head branch/SHA and requires a successful trusted pull-request Build for that exact SHA before building the signed Canary.
 
-These fallbacks do not change application version semantics, do not create a release, do not establish a `dev` integration baseline, and do not authorize merge.
+A repository-owner-only manual dispatch for an explicit same-repository work branch remains the independent fallback when the normal PR checkpoint path is unavailable. It resolves the current remote head SHA and performs the same target-profile, tests, Xposed metadata, Haple signature and non-debuggable checks before artifact publication.
+
+Neither path changes application version semantics, creates a release, establishes a `dev` integration baseline, or authorizes merge. Documentation-only checkpoint closure does not advance `versionCode` / `buildId`.

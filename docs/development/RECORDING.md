@@ -40,6 +40,8 @@ Avoid durable phrases such as “latest build”, “current APK”, or “the p
 
 For active work branches, prefer the concrete **runtime Build/source identity** over a mutable documentation-only branch HEAD. A docs-only commit may advance the branch without creating a new runtime checkpoint; do not make `CURRENT.md` stale by pinning that head unless the head itself materially defines the executable state.
 
+A record-only commit that closes an already completed Build/device checkpoint is still documentation state, not a new executable checkpoint. If GitHub runs Light validation for that commit, record it only when the repository-check result itself matters; do not invent a new Build number or recursive DEVLOG entry for the Light run.
+
 ### 1.4 Keep one logical boundary
 
 One record should describe one attributable engineering checkpoint or one coherent investigation.
@@ -251,6 +253,8 @@ Follow the mapping in `CONTRIBUTING.md`:
 
 Synchronize the affected record **before treating the checkpoint as complete**.
 
+For a checkpoint whose final CI/device result is known only after the executable source commit, use one documentation closure update to capture that result. Keep the original runtime Build/source identity, do not bump `buildId`, and do not start a new engineering checkpoint merely because the closure commit itself receives Light CI. GitHub Actions remains the detailed execution ledger; repository records preserve the durable facts required to recover the engineering state.
+
 ## 4. Cross-file consistency rules
 
 - `CURRENT.md` may summarize a DEVLOG conclusion but must not reproduce the whole historical entry.
@@ -274,5 +278,6 @@ For a meaningful engineering record, check:
 - Is the next step actionable?
 - Did any current/future document become stale because of this result?
 - Did this record accidentally duplicate content that belongs in another layer?
+- Did a documentation-only closure get mistaken for a new runtime Build or create a recursive CI-recording loop?
 
 The goal is not maximal documentation volume. The goal is **accurate, recoverable engineering state with minimal duplication**.
