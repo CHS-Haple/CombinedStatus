@@ -41,6 +41,7 @@ Home -> shade / Control Center projection is **Phase 2B**. Keyguard / lockscreen
 - **Build 404 / `20260927-404`** is a completed but **device-rejected optical-parity A/B checkpoint**. Runtime source: `614c6ae96f1753088e21ce3568d969b900852081`. It removed percentile alpha remapping while retaining the existing bitmap-probe rendering path; target-device feedback shows the center presentation is visually worse than Build 403, so authored-alpha preservation alone is not an accepted fix.
 - **Build 405 / `20260927-405`** is a completed but **device-rejected direct-final-Drawable optical-parity A/B checkpoint**. Runtime source: `bf8091c8680dec7b85c58afded7f476ec95ca49d`. It removed the intermediate final-presentation bitmap/resample stage, but target-device screenshots still show the native center glyph materially lighter/lower-opacity than neighboring native status icons across light and dark surfaces. The direct-Drawable mechanism remains preferable to the superseded bitmap presentation path, but it is not sufficient for parity by itself.
 - **Build 406 / `20260927-406`** is a completed but **device-rejected tint-variant A/B checkpoint**. Runtime source: `3d5e9d2339824c6d19e50dda170917559369135b`. Work Branch Canary #335 passed all CI/signing gates, but target-device evidence shows the center Wi-Fi glyph remains optically lighter/lower-coverage than the outer ring **even when `centerFollowsBatteryColor=false`**. Therefore the Build-406 hypothesis that the remaining defect was confined to the custom/battery-color tint branch is rejected.
+- **Build 407 / `20260927-407`** is the current source-reviewed native tint-mask A/B candidate. Implementation commit: `bbb421ef0354ad60e7d046e38c643d16d61504c7`; final executable source after style-only cleanup: `ffe746b24252f974db05e1fa4381ed5c56f0e73e`. Because the Painter externally tints every native center Drawable, all native center resources now resolve the verified HyperOS `_tint` sibling when available before `setTint(...)`; the Build-406 color-source gate has been removed. CI/Canary and device acceptance are pending.
 - **Build 407 / `20260927-407`** is the current source-reviewed tint-contract candidate. Runtime source: `ffe746b24252f974db05e1fa4381ed5c56f0e73e`. All native center resources rendered through `Drawable.setTint(...)` now resolve the verified HyperOS `_tint` sibling mask first, regardless of whether the center follows the battery color. No geometry/Host/state-source/lifecycle behavior changed.
 - Build 406 trusted validation: owner `/canary` Work Branch Canary #335 **succeeded**. Validated PR head `80f371784ffaee406dd6ea5728219eeee5913318` differs from the frozen runtime source only in `CURRENT.md` and `DEVLOG.md`, so executable content remains exactly Build 406. Artifact `10929711688`; artifact ZIP digest `sha256:c7af997217acd171c66beb860d7212c0d72fd672a38978f7b5c2eb5a524f11ba`; extracted APK SHA-256 `e086d8914fece7ba8ea86200756f4a6366d56dadaa5510846618a4077e6ddd80`.
 - Documentation-only commits may advance PR #105 beyond the Build-405 runtime source without creating a new runtime Build; runtime identity remains the Build/source pair above until executable source changes.
@@ -113,12 +114,13 @@ A shallow notification-shade pull / final held-return frame can still leave the 
 
 ## Immediate next step
 
-1. Build 407 source review is complete. Runtime source: `ffe746b24252f974db05e1fa4381ed5c56f0e73e`.
-2. Validate Build 407 through the trusted Work Branch Canary path. The executable delta versus Build 406 is limited to removing the custom-color-only condition so every externally tinted native center resource resolves the native `_tint` mask first; Build ID advances to `20260927-407`.
-3. Once a signed Canary exists, freeze runtime and test both `centerFollowsBatteryColor=false` and `true` on light and dark surfaces.
-4. Acceptance question: does the center now match the battery ring/native peers in apparent opacity/weight without changing size, centering, ring/mobile geometry or semantic colors?
-5. If Build 407 still fails, return to the already-reviewed live native-ImageView presentation mirror / compact-scale coverage boundary. Do not add gray/alpha constants.
-6. Phase-2B shade work remains blocked until this optical gate closes.
+1. Build 407 source review is complete. Exact executable source: `ffe746b24252f974db05e1fa4381ed5c56f0e73e`.
+2. Run the trusted signed Work Branch Canary for PR #105. Normal connector-authored synchronize runs may be absent; use the owner `/canary` fallback if necessary.
+3. Freeze runtime immediately once the signed Build-407 Canary exists.
+4. Device A/B must test both `centerFollowsBatteryColor=false` and `true`, preferably on the same light surface and one dark surface.
+5. Acceptance question: does the native center glyph now match ring/native-peer apparent opacity/coverage without geometry or semantic-color regressions?
+6. If Build 407 still fails, do not restore 403 blindly. Reopen the already-defined fallback investigation: mirror/measure the final SystemUI-owned Wi-Fi ImageView presentation after HyperOS applies its own resource/tint branch.
+7. Phase-2B shallow-shade work remains blocked until this optical/color checkpoint closes.
 
 ## Reference priority
 
