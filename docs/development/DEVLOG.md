@@ -5153,3 +5153,58 @@ This restores the previously experienced geometry rather than introducing a new 
 The maintainer explicitly prefers the historical 8.25 geometry over 8.0/7.5 and asks to restore it. Because this is a single-variable return to a previously device-seen baseline using the same ROUND cap and solver, Fast CI + signed Canary are sufficient; no dedicated thickness-only maintainer test is required unless validation exposes an unexpected difference.
 
 The Build-411 panel/scene-owner acceptance is retained. The earlier HUN/notification-popup report is not silently marked resolved by this visual change.
+
+
+---
+
+## 2026-09-27 — Build 412 Fast + signed Canary success; 8.25 baseline accepted
+
+**Type:** validation success / visual baseline acceptance  
+**Build:** 412 / 20260927-412  
+**Final executable source:** `f794a7c01513364eefc726316fcaf4058d581683`
+
+### Fast validation
+
+- Fast Build #1156 / run `36323242298`: **success**.
+- Passed Fast classification, Gradle Wrapper, Java/API 37, pinned HyperOS target-profile verification, all unit tests, Debug assembly, APK resolution and Modern Xposed metadata.
+
+### Signed Work Branch Canary
+
+- Work Branch Canary #390 / run `36323397870`: **success**.
+- Trusted source resolution and exact checkout verification passed for PR #138.
+- Passed:
+  - Gradle Wrapper;
+  - Java / Android API 37;
+  - Haple signing restore/verification;
+  - pinned notification-shade + Control Center contracts;
+  - tests and Canary build;
+  - Modern Xposed metadata;
+  - Haple APK signature;
+  - non-debuggable verification;
+  - artifact preparation/upload.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260927-412-canary.apk`
+- Artifact ID: `10933571263`
+- Extracted APK size: `3309602` bytes
+- Extracted APK SHA-256: `51daaab32c5f3a152a41340eb0c6b8d2cb93f2448b83a32a980942a85cc8e1e8`
+
+### Acceptance
+
+The maintainer explicitly rejected the intermediate 8.0 visual checkpoint in favor of the previously experienced 8.25 ring and requested restoration without a dedicated follow-up thickness test.
+
+Build 412 therefore becomes the current accepted visual baseline after CI/Canary:
+- ring stroke 8.25;
+- ROUND endpoint radius 4.125;
+- dot radius unchanged;
+- center geometry unchanged;
+- lower-opening solver unchanged;
+- Build-411 panel/scene-owner behavior unchanged.
+
+No additional thickness-only device gate is required.
+
+### Separate unresolved boundary
+
+The earlier heads-up/notification-popup report in which native status presentation can remain restored is **not** marked resolved by this acceptance. It remains a separate runtime question unless independently confirmed.
+
+### Integration gate
+
+PR #138 may proceed to `dev` after the final documentation head satisfies the required PR check. No further runtime change is required for the 8.25 restoration.
