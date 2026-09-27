@@ -51,9 +51,15 @@ This is not a HUN special case. It removes an over-broad semantic assumption and
 
 `SystemUiPanelTransitionSourceTest` now covers zero-fraction/non-tracking Home eligibility, active tracking, positive fraction, negative settled overshoot, and missing-value fail-closed behavior.
 
+### First Fast result and correction
+
+Fast Build #1179 / run `36328523953` reached the exact-target verification successfully, then failed at `:app:compileDebugKotlin`. The compiler error identified one missed production call site in `CombinedStatusHomeRenderSession.updatePanelTransition()`: the pure helper signature had been changed from `expanded/tracking` to `fraction/tracking`, but this caller still passed `expanded`.
+
+This is an implementation-completeness failure, not evidence against the motion-semantic root cause. The PR was immediately returned to Draft. The missed call site is corrected to pass the same native `update.fraction` consumed by the source owner, and the executable identity is advanced to **Build 413 / `20260927-413`** (`versionCode=260927213`) because the runtime tree has changed.
+
 ### Gate
 
-Run Fast CI at the exact runtime-fix PR HEAD. If Fast passes, request a signed Canary because the fix changes the HUN/shade runtime visibility boundary and needs focused maintainer validation before integration.
+Return PR #142 to Ready only after the Build-413 source/call-site correction and records are complete. Run Fast CI at the exact final PR HEAD. If Fast passes, request one signed Canary because the fix changes the HUN/shade runtime visibility boundary and needs focused maintainer validation before integration.
 
 
 ## 2026-09-27 — Post-Build 412 HUN ownership source review
