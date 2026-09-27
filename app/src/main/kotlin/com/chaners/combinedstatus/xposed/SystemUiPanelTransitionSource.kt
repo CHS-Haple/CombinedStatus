@@ -10,8 +10,12 @@ import kotlin.math.floor
 
 internal object SystemUiPanelTransitionSource {
     const val NOTIFICATION_HOOK_COUNT = 1
-    const val CONTROL_CENTER_HOOK_COUNT = 2
-    const val HOOK_COUNT = NOTIFICATION_HOOK_COUNT + CONTROL_CENTER_HOOK_COUNT
+    const val CONTROL_CENTER_RUNTIME_HOOK_COUNT = 1
+    const val CONTROL_CENTER_DIAGNOSTIC_HOOK_COUNT = 1
+    const val HOOK_COUNT =
+        NOTIFICATION_HOOK_COUNT +
+            CONTROL_CENTER_RUNTIME_HOOK_COUNT +
+            CONTROL_CENTER_DIAGNOSTIC_HOOK_COUNT
 
     private const val SHADE_MANAGER_CLASS =
         "com.android.systemui.shade.ShadeExpansionStateManager"
@@ -37,6 +41,8 @@ internal object SystemUiPanelTransitionSource {
     private var controlProbe = ProbeState()
     @Volatile
     private var notificationShadeHomeEligible: Boolean? = null
+    @Volatile
+    private var controlCenterHomeEligible: Boolean? = null
     private var controlAnchorContract: ControlCenterAnchorContract? = null
     private var controlHeaderRef = WeakReference<Any>(null)
 
@@ -58,32 +64,34 @@ internal object SystemUiPanelTransitionSource {
             ).apply { isAccessible = true }
 
         val controlClass =
-            if (includeControlCenterDiagnostics) {
-                Class.forName(CONTROL_CENTER_CLASS, false, classLoader)
-            } else {
-                null
-            }
-        val controlExpansionMethod =
-            controlClass
-                ?.getDeclaredMethod(
-                    CONTROL_CENTER_EXPANSION_METHOD,
-                    Float::class.javaPrimitiveType,
-                )
-                ?.apply { isAccessible = true }
+            Class.forName(CONTROL_CENTER_CLASS, false, classLoader)
         val controlVisibleMethod =
             controlClass
-                ?.getDeclaredMethod(
+                .getDeclaredMethod(
                     CONTROL_CENTER_VISIBLE_METHOD,
                     Boolean::class.javaPrimitiveType,
                 )
-                ?.apply { isAccessible = true }
+                .apply { isAccessible = true }
+        val controlExpansionMethod =
+            if (includeControlCenterDiagnostics) {
+                controlClass
+                    .getDeclaredMethod(
+                        CONTROL_CENTER_EXPANSION_METHOD,
+                        Float::class.javaPrimitiveType,
+                    )
+                    .apply { isAccessible = true }
+            } else {
+                null
+            }
 
         controlAnchorContract =
-            controlClass?.let { delegateClass ->
+            if (includeControlCenterDiagnostics) {
                 ControlCenterAnchorContract.resolve(
                     classLoader = classLoader,
-                    delegateClass = delegateClass,
+                    delegateClass = controlClass,
                 )
+            } else {
+                null
             }
 
         val handles =
@@ -140,16 +148,46 @@ internal object SystemUiPanelTransitionSource {
                         },
                     )
 
-            // The shade callback is runtime authority rather than a diagnostic. A
-            // successful hook install means the native source is available; before
-            // its first callback steady Home is the conservative bootstrap state.
+            handles +=
+                module
+                    .hook(controlVisibleMethod)
+                    .setId(CONTROL_CENTER_VISIBLE_HOOK_ID)
+                    .intercept(
+                        Hooker { chain ->
+                            val visible = chain.getArg(0) as? Boolean
+                            val result = chain.proceed()
+                            controlCenterHomeEligible =
+                                controlCenterAllowsHome(visible)
+                            val update =
+                                Update(
+                                    source = Source.CONTROL_CENTER,
+                                    fraction = null,
+                                    expanded = null,
+                                    tracking = null,
+                                    visible = visible,
+                                )
+                            onUpdate?.invoke(update)
+                            emitDiagnostic(
+                                update = update,
+                                onEvent = onEvent,
+                                isProbeEnabled = isProbeEnabled,
+                            )
+                            result
+                        },
+                    )
+
+            // Both semantic scene callbacks are runtime authorities. A successful
+            // install means steady Home is a safe cold-start bootstrap until the
+            // first native callback for that scene owner.
             if (notificationShadeHomeEligible == null) {
                 notificationShadeHomeEligible = true
+            }
+            if (controlCenterHomeEligible == null) {
+                controlCenterHomeEligible = true
             }
 
             if (includeControlCenterDiagnostics) {
                 val expansionMethod = checkNotNull(controlExpansionMethod)
-                val visibleMethod = checkNotNull(controlVisibleMethod)
 
                 handles +=
                     module
@@ -196,39 +234,15 @@ internal object SystemUiPanelTransitionSource {
                                 result
                             },
                         )
-
-                handles +=
-                    module
-                        .hook(visibleMethod)
-                        .setId(CONTROL_CENTER_VISIBLE_HOOK_ID)
-                        .intercept(
-                            Hooker { chain ->
-                                val visible = chain.getArg(0) as? Boolean
-                                val result = chain.proceed()
-                                val update =
-                                    Update(
-                                        source = Source.CONTROL_CENTER,
-                                        fraction = null,
-                                        expanded = null,
-                                        tracking = null,
-                                        visible = visible,
-                                    )
-                                onUpdate?.invoke(update)
-                                emitDiagnostic(
-                                    update = update,
-                                    onEvent = onEvent,
-                                    isProbeEnabled = isProbeEnabled,
-                                )
-                                result
-                            },
-                        )
             }
+
             return handles
         } catch (error: Throwable) {
             handles.asReversed().forEach { handle ->
                 runCatching { handle.unhook() }
             }
             notificationShadeHomeEligible = false
+            controlCenterHomeEligible = false
             throw error
         }
     }
@@ -238,6 +252,7 @@ internal object SystemUiPanelTransitionSource {
             shadeProbe = ProbeState()
             controlProbe = ProbeState()
             notificationShadeHomeEligible = null
+            controlCenterHomeEligible = null
             controlAnchorContract = null
             controlHeaderRef = WeakReference(null)
         }
@@ -248,7 +263,8 @@ internal object SystemUiPanelTransitionSource {
 
     internal fun expectedHookCount(includeControlCenterDiagnostics: Boolean): Int =
         NOTIFICATION_HOOK_COUNT +
-            if (includeControlCenterDiagnostics) CONTROL_CENTER_HOOK_COUNT else 0
+            CONTROL_CENTER_RUNTIME_HOOK_COUNT +
+            if (includeControlCenterDiagnostics) CONTROL_CENTER_DIAGNOSTIC_HOOK_COUNT else 0
 
     internal fun notificationShadeAllowsHome(
         expanded: Boolean?,
@@ -259,12 +275,25 @@ internal object SystemUiPanelTransitionSource {
     fun currentNotificationShadeHomeEligibility(): Boolean? =
         notificationShadeHomeEligible
 
+    fun currentControlCenterHomeEligibility(): Boolean? =
+        controlCenterHomeEligible
+
     @Synchronized
     fun restoreNotificationShadeHomeEligibility(eligible: Boolean?) {
         if (eligible != null) {
             notificationShadeHomeEligible = eligible
         }
     }
+
+    @Synchronized
+    fun restoreControlCenterHomeEligibility(eligible: Boolean?) {
+        if (eligible != null) {
+            controlCenterHomeEligible = eligible
+        }
+    }
+
+    internal fun controlCenterAllowsHome(visible: Boolean?): Boolean =
+        visible == false
 
     internal fun diagnosticBucket(fraction: Float?): Int? =
         fraction?.let { rawValue ->
