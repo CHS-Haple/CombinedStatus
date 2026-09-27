@@ -244,8 +244,9 @@ internal object CombinedStatusHomeRenderSession {
         private var sceneSurface = SystemUiSceneStateSource.Surface.UNKNOWN
         private var notificationShadeAllowsHome =
             SystemUiPanelTransitionSource.currentNotificationShadeHomeEligibility() ?: false
-        private var controlCenterAllowsHome =
-            SystemUiPanelTransitionSource.currentControlCenterHomeEligibility() ?: false
+        // Control Center handoff is coordinator-owned. Source visibility is
+        // diagnostic context only until a projected carrier is ready.
+        private var controlCenterAllowsHome = true
         private var nativeHandoffActive = initialNativeHandoffActive
         private var featureEnabled = initialFeatureEnabled
         private var modelReady = false
