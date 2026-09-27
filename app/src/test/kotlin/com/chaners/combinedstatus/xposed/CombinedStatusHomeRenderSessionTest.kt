@@ -103,6 +103,7 @@ class CombinedStatusHomeRenderSessionTest {
         val seed =
             CombinedStatusHomeRenderSession.resolveInitialTintSeed(
                 transferred = transferred,
+                allowLiveSeed = false,
                 liveState = {
                     liveReads += 1
                     CombinedStatusTintState(
@@ -130,6 +131,7 @@ class CombinedStatusHomeRenderSessionTest {
                     CombinedStatusTintState(
                         appliedTint = 0x00112233,
                     ),
+                allowLiveSeed = true,
                 liveState = {
                     liveReads += 1
                     live
@@ -139,5 +141,25 @@ class CombinedStatusHomeRenderSessionTest {
         assertEquals("seed", seed?.source)
         assertEquals(live, seed?.state)
         assertEquals(1, liveReads)
+    }
+
+    @Test
+    fun legacyHotReloadWithoutTransferredTintWaitsForNativeEvent() {
+        var liveReads = 0
+
+        val seed =
+            CombinedStatusHomeRenderSession.resolveInitialTintSeed(
+                transferred = null,
+                allowLiveSeed = false,
+                liveState = {
+                    liveReads += 1
+                    CombinedStatusTintState(
+                        appliedTint = 0xbf000000.toInt(),
+                    )
+                },
+            )
+
+        assertEquals(null, seed)
+        assertEquals(0, liveReads)
     }
 }
