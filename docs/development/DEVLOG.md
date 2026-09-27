@@ -3663,3 +3663,68 @@ Focused device acceptance:
 3. repeat on a dark surface;
 4. verify center size/centering, ring/mobile geometry and Home spacing are unchanged;
 5. verify charging/power-mode semantic color still propagates to the center when enabled.
+
+
+---
+
+## 2026-09-27 — Build 406 trusted Canary validation complete
+
+**Type:** CI validation / device-test handoff  
+**Display version:** 0.0.2  
+**Build:** 406 / 20260927-406  
+**Runtime source:** `3d5e9d2339824c6d19e50dda170917559369135b`  
+**Validation:** passed; focused device A/B pending
+
+### CI path
+
+The normal connector-originated pull-request synchronize event again produced no Build workflow run for either the runtime source or the documentation-only PR head. This matches the already-documented GitHub event-delivery failure and is not a compile/test failure.
+
+The repository-owner exact `/canary` fallback on PR #105 started Work Branch Canary #335 (run `36312717485`).
+
+The trusted workflow:
+- resolved the live same-repository PR source;
+- checked out and verified the tested source identity;
+- validated the Gradle Wrapper and JDK/API environment;
+- restored and verified Haple signing;
+- passed the pinned HyperOS target-profile check;
+- passed unit tests and Canary build;
+- passed Modern Xposed metadata validation;
+- passed Haple APK signature verification;
+- passed non-debuggable verification;
+- prepared and uploaded the signed Canary artifact.
+
+### Source identity
+
+Validated PR head: `80f371784ffaee406dd6ea5728219eeee5913318`.
+
+Comparison from frozen runtime source `3d5e9d2339824c6d19e50dda170917559369135b` to that validated head contains only:
+- `docs/development/CURRENT.md`;
+- `docs/development/DEVLOG.md`.
+
+Therefore the validated executable/runtime content is exactly Build 406.
+
+### Artifact identity
+
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260927-406-canary.apk`
+- Actions artifact ID: `10929711688`
+- Artifact ZIP digest: `sha256:c7af997217acd171c66beb860d7212c0d72fd672a38978f7b5c2eb5a524f11ba`
+- Extracted APK SHA-256: `e086d8914fece7ba8ea86200756f4a6366d56dadaa5510846618a4077e6ddd80`
+
+### Review / outcome
+
+- **Ownership / lifecycle / single writer:** unchanged from source review; no new runtime owner or competing writer was introduced.
+- **Cleanup / recovery:** unchanged; the added resource-ID cache is painter-local and bounded by encountered center resources.
+- **Fail native:** missing tint siblings fall back to the prior resource path.
+- **Performance:** no new callback or polling path; tint sibling lookup is cached.
+- **Compatibility:** exact-target resource-family behavior is used only when the sibling exists.
+- **Runtime state:** frozen pending device acceptance.
+
+### Focused device test
+
+1. Keep **center follows battery color** enabled.
+2. On a light surface, compare the center glyph with the battery ring and neighboring native icons.
+3. Repeat on a dark surface.
+4. Check that center size/centering, ring/mobile geometry and Home spacing did not move.
+5. Switch a semantic battery state when practical and confirm the center still follows the final battery color.
+
+No Phase-2B, opacity multiplier, grayscale compensation, geometry tuning or additional runtime feature work should be added until this A/B result is returned.
