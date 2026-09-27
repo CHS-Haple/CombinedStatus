@@ -10,7 +10,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Integration branch: `dev`
 - Integration runtime baseline: Build 408, commit `2f584c3b393dc5ee606284426aa95a9d6beae5d5`
 - Phase-2A integration: PR #105 merged to `dev` as `2f584c3b393dc5ee606284426aa95a9d6beae5d5`; former stacked PR #100 is closed as superseded.
-- Active Phase-2B work branch / PR: not created yet.
+- Active Phase-2B work branch: `fix/shade-home-overlay-leak`; PR will be opened from this bounded fix.
 - Active development display line: **0.0.2**
 - First planned formal release: **1.0.0**
 - Target profile: HyperOS SystemUI `17.03.260226.r`
@@ -82,9 +82,25 @@ Build 403 uses HyperOS `MiuiBatteryMeterIconView.getProgressStatus()` as semanti
 
 No user-facing per-state color picker/source selector is exposed yet. The future policy seam remains: **System default / Follow status icon / Custom** for NORMAL / CHARGING / POWER_SAVE / PERFORMANCE / LOW.
 
-### Home -> shade / Control Center scene boundary — active next issue
+### Home -> shade / Control Center scene boundary — active Phase 2B
 
-A shallow notification-shade pull / final held-return frame can still leave the Home Combined Status overlay visible. This is **not intended final behavior** and is classified as the next Phase-2B scene-boundary/handoff problem, not as a reason to reopen the accepted steady Home carrier.
+A shallow notification-shade pull / final held-return frame can leave the Home Combined Status overlay visible after notification-shade transition ownership has already begun.
+
+Current root-cause finding:
+- Home overlay eligibility currently depends on the static battery `mStatusBarState` classification only;
+- `SHADE(0)` means the unlocked status-bar mode and can remain unchanged while the notification panel is opening/closing;
+- the exact target already exposes `ShadeExpansionStateManager.onPanelExpansionChanged(fraction, expanded, tracking)`, and Combined Status already hooks it;
+- however the current `onPanelTransitionUpdate()` path is diagnostic-only: it returns immediately when Detailed diagnostics are off and otherwise only logs the update;
+- therefore native panel transition facts never participate in Home presentation readiness.
+
+Selected first correction boundary:
+- notification shade remains `NATIVE_ONLY`;
+- do not use a numeric fraction threshold;
+- treat native `expanded=false && tracking=false` as the settled-Home eligibility condition for the notification panel;
+- any `expanded=true` or `tracking=true` update makes the Home replacement ineligible and restores native presentation through the existing readiness/fail-native path;
+- keep `fraction` read-only for diagnostics and future projection work;
+- Control Center projection is intentionally not added in this first A/B.
+
 
 ## Non-negotiable boundaries
 
@@ -107,11 +123,11 @@ A shallow notification-shade pull / final held-return frame can still leave the 
 
 ## Immediate next step
 
-1. Create a new bounded Phase-2B work branch from current `dev`.
-2. Investigate the shallow notification-shade pull / held-return Home-overlay leak in root-cause order: native scene/progress owner -> Home eligibility boundary -> target surface lifecycle/endpoints -> projection only if required.
-3. Do not reopen Phase-2A steady Home carrier/spacing, Build-408 color policy, or deferred optical polish while diagnosing the scene leak.
-4. Keep shade / Control Center native until the exact target proves a safe projection/replacement contract.
-5. Preserve SystemUI-owned transition timing, native peer animation and fail-native cleanup.
+1. Implement one bounded notification-shade eligibility A/B on `fix/shade-home-overlay-leak`.
+2. Route the already-existing native `ShadeExpansionStateManager` update into Home presentation readiness instead of diagnostics only.
+3. Home remains eligible only when the notification panel reports `expanded=false` and `tracking=false`; do not invent a fraction threshold, delay, polling loop, translation follower, or custom animator.
+4. Keep Control Center, shade rendering/projection, steady Home carrier/spacing, Build-408 color policy and deferred optical polish unchanged in the same checkpoint.
+5. Add deterministic policy tests, run source review and CI/Canary, then freeze runtime for focused device testing of shallow pull, held-return, full pull and return-to-Home.
 
 ## Reference priority
 
