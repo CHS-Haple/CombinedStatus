@@ -5285,3 +5285,46 @@ PR #138 may integrate to `dev` after its latest documentation-only head satisfie
 ### Remaining boundary
 
 The earlier heads-up/notification-popup report in which native status presentation can remain restored was not independently closed by the latest maintainer panel-gesture feedback. It remains a separate Phase-2B runtime question and must be investigated without reopening the accepted panel scene gates or 8.25 visual baseline.
+
+
+---
+
+## 2026-09-27 — PR #138 merged to dev; Build 412 Integration passed
+
+**Type:** dev integration / accepted Phase-2B baseline  
+**Dev merge:** `a25cb5ce2aeab235cfaed579474df70596f03a63`  
+**Build:** 412 / 20260927-412  
+**Executable source:** `f794a7c01513364eefc726316fcaf4058d581683`
+
+### Merge / acceptance
+
+- PR #138 was clean and squash-merged to `dev`.
+- Accepted device result carried into the merge:
+  - notification-shade / Control Center down-up behavior correct;
+  - persistent Home owner / scene-visibility separation retained;
+  - 8.25 battery-ring stroke preferred over 7.5 and 8.0;
+  - ROUND endpoint geometry restored naturally with the 8.25 stroke.
+- No dedicated post-merge ring-size device test is required.
+
+### Dev Integration CI
+
+- Build workflow: **#1159** / run `36323866999`.
+- Result: **success**.
+- Passed:
+  - Gradle Wrapper;
+  - Java / Android API 37;
+  - Haple signing restore/verification;
+  - pinned HyperOS notification-shade + Control Center contracts;
+  - tests and required APK build;
+  - Modern Xposed metadata;
+  - Haple APK signature;
+  - non-debuggable verification;
+  - Canary artifact publication.
+- Integration artifact: `CombinedStatus-0.0.2-HyperOS-20260927-412-canary.apk`
+- Artifact ID: `10933541364`
+- Extracted APK size: `3309602` bytes
+- Extracted APK SHA-256: `caca75d56145f58dafd25d4798d79025997113c6965d254ccffe2f7e707d5421`
+
+### Current boundary
+
+Build 412 is now the dev integration baseline. The next runtime problem is the separately observed notification/HUN-triggered native-status fallback. It is not considered part of the accepted panel scene gate or ring geometry and must be investigated independently.
