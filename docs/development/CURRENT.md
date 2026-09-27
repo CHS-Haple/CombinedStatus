@@ -99,7 +99,13 @@ Implementation boundary:
 - 409+ Hot Reload transfers the last known shade eligibility; a legacy 408 payload has no such field, so it preserves the successfully installed 409 bootstrap until the next native panel callback;
 - numeric `fraction` remains read-only for diagnostics/future projection. No fraction threshold, delay, translation follower, custom animator or Control Center projection is introduced.
 
-Source review is complete. The remaining gates are Fast CI, signed Canary, then focused real-device validation.
+Source review is complete. Fast CI has exposed only validation-maintenance issues so far:
+- Draft Build #1122 failed `git diff --check` on trailing whitespace in newly added DEVLOG lines; the whitespace was corrected without runtime changes.
+- Ready Fast Build #1123 reached Android compilation: production Kotlin compiled successfully, but unit-test compilation failed because five pre-existing `resolveOverlayVisible(...)` call sites were not updated for the new `notificationShadeAllowsHome` argument.
+- Build #1124 reproduced the same pre-fix validation state on the whitespace-cleaned head.
+- the next correction is test-only: pass `notificationShadeAllowsHome=true` to those five legacy assertions so their original feature/scene/handoff semantics remain unchanged.
+
+Build identity remains 409 and executable source remains `4ab7b490617757e34c0ea8e0b59e3d7a16bae9ad`.
 
 ## Non-negotiable boundaries
 
@@ -122,13 +128,14 @@ Source review is complete. The remaining gates are Fast CI, signed Canary, then 
 
 ## Immediate next step
 
-1. Open the bounded Build-409 PR from `fix/shade-home-overlay-leak` to `dev`.
-2. Run Fast CI and signed Work Branch Canary against executable source `4ab7b490617757e34c0ea8e0b59e3d7a16bae9ad`.
-3. If CI/Canary passes, freeze runtime.
-4. Focused device test: shallow notification pull, hold at a tiny pull, return while still tracking, release back to Home, full notification-shade pull, and return.
-5. Expected boundary: Combined Status disappears as soon as native shade expansion/tracking owns the scene, stays absent at fraction 0 while tracking/expanded is still true, and returns only after `expanded=false && tracking=false`.
-6. If practical, Hot Reload once while shade is visibly open and verify the Home replacement does not flash back in.
-7. Keep Control Center projection, shade Combined Status rendering, steady Home geometry, Build-408 color policy and deferred optical polish unchanged until this gate is accepted.
+1. Apply the test-only Build-409 compatibility fix: update the five legacy `resolveOverlayVisible(...)` assertions to pass `notificationShadeAllowsHome=true`.
+2. Do not change runtime or Build identity; executable source remains `4ab7b490617757e34c0ea8e0b59e3d7a16bae9ad`.
+3. Re-run PR #138 Fast CI on the corrected test head, then run a signed Work Branch Canary.
+4. If CI/Canary passes, freeze runtime.
+5. Focused device test: shallow notification pull, hold at a tiny pull, return while still tracking, release back to Home, full notification-shade pull, and return.
+6. Expected boundary: Combined Status disappears as soon as native shade expansion/tracking owns the scene, stays absent at fraction 0 while tracking/expanded is still true, and returns only after `expanded=false && tracking=false`.
+7. If practical, Hot Reload once while shade is visibly open and verify the Home replacement does not flash back in.
+8. Keep Control Center projection, shade Combined Status rendering, steady Home geometry, Build-408 color policy and deferred optical polish unchanged until this gate is accepted.
 
 ## Reference priority
 
