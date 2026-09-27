@@ -4042,3 +4042,78 @@ If optical parity still fails, the next investigation returns to the final nativ
 ### Gate
 
 **Runtime is frozen at Build 407.** The next required evidence is maintainer device A/B with center-color link both OFF and ON. No Phase-2B, alpha normalization, geometry tuning or additional runtime change should be layered before that result.
+
+
+---
+
+## 2026-09-27 — Build 407 device result: opacity fixed; residual ring optical-weight mismatch
+
+**Type:** device acceptance correction / visual root-cause refinement  
+**Build:** 407 / 20260927-407  
+**Runtime source:** `ffe746b24252f974db05e1fa4381ed5c56f0e73e`  
+**Result:** native-center opacity correction accepted; overall optical balance still open
+
+### Device evidence
+
+The maintainer reports that the center transparency defect is resolved in Build 407.
+
+New same-device screenshots in the charging-green state still make the battery ring appear darker/heavier than the native Wi-Fi center and the four mobile dots.
+
+### Quantitative interpretation
+
+Same-image sampling was used only to distinguish tint mismatch from coverage mismatch.
+
+On both light and dark screenshots:
+- high-coverage ring and center core pixels converge to essentially the same green RGB;
+- the ring's overall pixel distribution is darker/more saturated because a wide continuous stroke creates a larger proportion of fully covered pixels;
+- the native center mask contains more antialiased edge coverage;
+- the small circular mobile dots contain still more edge coverage at their final physical size.
+
+Therefore the remaining defect is **optical weight / raster coverage**, not a second semantic-color or tint-source defect. The sampled values are evidence only and must not become rendering constants.
+
+### Problem execution flow
+
+**Phenomenon and evidence -> responsibility source**
+
+1. Build 407 fixed the raw-resource/tint-mask responsibility and the reported center-transparency problem.
+2. Source review confirms active battery ring, linked center and active dots all receive the same resolved tint and full semantic alpha.
+3. The ring is a project-owned continuous `Paint.Style.STROKE`; the dots are small project-owned fills; the center is the authoritative HyperOS vector mask.
+4. Current outer geometry still carries the Build-332 1.10x shared boldening. The ring therefore remains a wider continuous custom element even though the center should now be treated as native visual authority.
+
+**Repository / historical basis**
+
+Build 332 changed both the original 7.5 canonical ring stroke and 4.9 dot radius through a shared 1.10x default scale. The user accepted the bolder outer geometry at that stage. After native center presentation was corrected in Build 407, the continuous ring now reads optically dominant while the existing dot size remains in the same perceived-weight band as the center.
+
+### Alternatives reviewed
+
+1. Darken center/dots or lighten the ring color — rejected; the actual resolved tint is already shared.
+2. Add per-element alpha multipliers — rejected as a visual compensation layer with no native authority.
+3. Reintroduce Build-403 alpha normalization — rejected; Build 407 already fixed the native center resource path and the residual issue is broader geometry/coverage.
+4. Enlarge the native center — rejected; HyperOS native glyph geometry is now the stronger visual authority.
+5. Enlarge dots — rejected for the first A/B; they already read close to the center and their current size was previously accepted.
+6. Reduce only the custom ring to the known pre-Build-332 base stroke while keeping dot size stable — selected as the smallest attributable A/B.
+
+### Selected Build-408 boundary
+
+Rebase the outer geometry so the current default resolves to:
+- battery ring stroke: historical base 7.5 canonical units;
+- mobile dot radius: current accepted 5.39 canonical units;
+- shared future weight scale: 1.0 at this newly balanced default, scaling both values proportionally from there.
+
+This preserves a single future thickness-control seam without retaining the assumption that ring and dot require the same historical 1.10 calibration.
+
+### Review
+
+- **Ownership:** only project-owned geometry changes; native center/SystemUI geometry is untouched.
+- **Lifecycle:** no new observer/hook/listener.
+- **Single writer:** painter geometry remains the only writer.
+- **Cleanup:** no new runtime state.
+- **Fail native:** unaffected.
+- **Performance:** arithmetic/constants only; no new allocation, raster pass or callback.
+- **Compatibility:** removes reliance on screenshot/device-specific RGB/alpha compensation.
+- **Exception recovery:** unaffected.
+- **Future extension:** a future user thickness control can still scale the balanced ring/dot baseline proportionally.
+
+### Gate
+
+Implement one Build-408 geometry-only A/B, run CI/Canary, then stop for device comparison. Do not mix shade/Control Center, tint, alpha or center-resource work into the same candidate.
