@@ -76,7 +76,8 @@ Current boundary:
 - do **not** reinstate Build-403 percentile normalization as the final solution without locating the native responsibility it was compensating;
 - do **not** add opacity multipliers, per-glyph gray constants, screenshot-fitted thresholds or source-asset edits;
 - do **not** treat `centerFollowsBatteryColor` as the root boundary; both enabled and disabled states are affected;
-- next investigation must compare the module's current center Drawable against the **already-rendered native Wi-Fi ImageView presentation after HyperOS has selected its final resource/tint branch**, so the module does not infer Light/Dark/Tint state independently;
+- source review of the current Painter closes a simpler responsibility boundary first: **every native center Drawable is externally tinted through `Drawable.setTint(...)`, including the default `centerFollowsBatteryColor=false` path**. Therefore the module is semantically in HyperOS's `useTint=true` branch whenever it draws these native center resources, and must use the verified `_tint` mask variant before applying that tint;
+- a live native-ImageView presentation mirror is deferred because it is unnecessary for this narrower A/B and would add a larger ownership/data-flow surface than the already-verified resource contract;
 - preserve Build-405 direct final-bounds Drawable rendering as the cleaner rendering baseline while investigating the presentation source;
 - center geometry, battery semantic colors, Home carrier/spacing and Phase-2B behavior remain out of scope for this root-cause pass.
 
@@ -111,12 +112,12 @@ A shallow notification-shade pull / final held-return frame can still leave the 
 
 ## Immediate next step
 
-1. Record Build 406 as device-rejected for optical parity; CI success remains valid process evidence only.
-2. Re-read the exact Build-403 alpha-normalization implementation and compare it against Builds 404-406 to identify what visual property it compensated.
-3. Prefer the already-existing native Wi-Fi binder/ImageView lifecycle as the next evidence source: inspect/capture the final native drawable/tint presentation **after** HyperOS applies its own resource transformation, without adding a parallel Light/Dark state machine.
-4. Review whether that final native presentation can be mirrored into a module-owned clone through the existing Wi-Fi event hook, with no new polling/listener and no mutation of the native View.
-5. Only after that review, implement one bounded next A/B. Do not change geometry, Home ownership, battery semantic policy or Phase-2B scene handling in the same checkpoint.
-6. Stop again for device validation as soon as a signed Canary exists.
+1. Build 406 remains device-rejected; retain its CI evidence only.
+2. Implement one bounded Build-407 A/B: because the Painter always externally tints native center Drawables, resolve the verified HyperOS `_tint` sibling for **all** native center resources before `setTint(...)`, not only when `centerFollowsBatteryColor=true`.
+3. Remove the Build-406-only conditional presentation flag if it is no longer needed; keep the resource resolver cached and fail-soft when a sibling is absent.
+4. Do not change center size/position, optical probe, outer geometry, battery semantic-color authority, Home carrier/spacing or Phase-2B scene behavior.
+5. Run source review and signed Canary validation; freeze runtime as soon as the Build-407 Canary exists.
+6. Device A/B must explicitly test both `centerFollowsBatteryColor=false` and `true` on light/dark surfaces.
 
 ## Reference priority
 
