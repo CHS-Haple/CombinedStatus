@@ -2971,3 +2971,9 @@ The established `dev`-based validation carrier PR #104 was reopened for Build 40
 
 Reopen and Draft -> Ready mutations on validation carrier PR #104 were recorded by GitHub but did not create an Actions run for the current head. No runtime or workflow change was made in response. A documentation-only Contents-API commit is used as the next minimal trigger attempt so the open `dev`-based carrier receives a normal synchronize event while Build 404 executable source remains `614c6ae96f1753088e21ce3568d969b900852081`.
 
+### Validation-carrier correction
+
+The reopened historical validation PR #104 triggered Build #1087 and signed Work Branch Canary #323, but GitHub associated that run with the PR's historical executable head `97ef67e648906a4b9bb2ce4d7dd390e955831189` (Build 403), not the current Build-404 source. Those green runs are therefore **Build-403 evidence only** and must not be cited for Build 404.
+
+A fresh ephemeral `fix/*` validation branch/PR based on the current Build-404 branch head is the selected CI path. This changes no executable source or workflow logic; it exists only to obtain an unambiguous `opened` PR event against `dev` so the repository's existing Fast Build -> signed Work Branch Canary chain validates the current candidate.
+
