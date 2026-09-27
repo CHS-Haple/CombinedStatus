@@ -89,17 +89,22 @@ jobs:
                 exit 1
               fi
 
-              fast_build_id="$(
+              runs_json="$(
                 gh api -X GET "repos/$GITHUB_REPOSITORY/actions/workflows/build.yml/runs" \
                   -f event=pull_request \
                   -f branch="$branch" \
-                  -f status=success \
-                  -f per_page=20 \
-                  --jq ".workflow_runs[] | select(.head_sha == \"$source_sha\") | .id" |
-                  head -n 1
+                  -f per_page=20
               )"
-              if [[ -z "$fast_build_id" ]]; then
-                echo "::error::No successful pull-request Build exists for the exact requested Canary SHA."
+              latest_build="$(
+                jq -c --arg sha "$source_sha" \
+                  '[.workflow_runs[] | select(.head_sha == $sha)] | max_by(.run_number) // {}' \
+                  <<<"$runs_json"
+              )"
+              fast_build_id="$(jq -r '.id // empty' <<<"$latest_build")"
+              fast_build_status="$(jq -r '.status // empty' <<<"$latest_build")"
+              fast_build_conclusion="$(jq -r '.conclusion // empty' <<<"$latest_build")"
+              if [[ -z "$fast_build_id" || "$fast_build_status" != "completed" || "$fast_build_conclusion" != "success" ]]; then
+                echo "::error::Latest pull-request Build for the exact requested Canary SHA must be completed successfully."
                 exit 1
               fi
               ;;

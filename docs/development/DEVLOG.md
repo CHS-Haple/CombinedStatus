@@ -2,6 +2,39 @@
 
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
+## 2026-09-27 — Canary admission gate hardening and bounded automation merge delegation
+
+**Type:** repository automation / CI governance
+**APK build:** none
+**Runtime impact:** none
+
+### Problem / evidence
+
+Work Branch Canary #395 failed in `Resolve trusted source` with exit 141 after runtime PR #142 had both a successful Draft Light run and a successful Ready Fast run for the same SHA. Review of the default-branch workflow showed a `gh api ... | head -n 1` pipeline under `set -o pipefail`, creating a deterministic SIGPIPE path. The query also filtered to successful runs before choosing a result, so an older Light success could remain admissible while a newer Ready checkpoint was queued, running, or failed.
+
+### Root cause and implementation
+
+The gate now retrieves PR Build runs without a success filter, selects the newest exact-SHA run by `run_number` inside `jq`, and requires that newest run to be `completed/success`. This removes the shell SIGPIPE condition and preserves the intended Fast-before-Canary checkpoint semantics.
+
+An initial edit was rejected during review because shell-tab escaping corrupted the workflow diff. That unmerged state was replaced from the clean `main` workflow before validation.
+
+### 审查 / review
+
+- **Runtime/APK:** no installed/runtime source, dependency resolution, APK contents, signing identity, or target profile change.
+- **Security/trust:** no secret scope, actor rule, same-repository rule, or signing permission is broadened.
+- **Publication:** Canary remains explicit and owner-triggered; the fix only hardens admission to the existing path.
+- **Failure semantics:** newest exact-SHA PR Build must be completed/success; older success cannot mask a newer unfinished or failed checkpoint.
+- **Maintenance:** removes pipeline-order ambiguity and keeps the decision in one bounded JSON selection.
+
+### Validation
+
+Full Build #1189 / run `36329234898` passed on `3aee0d206b0c966afed9d30d7921abb07a409f19`, including target-profile verification, tests, Debug + Canary build, Xposed metadata, and non-debuggable validation.
+
+### Governance
+
+The maintainer explicitly delegated future merge judgment for bounded automation-only changes. CONTRIBUTING now allows the active development operator to merge and synchronize such changes without a second maintainer confirmation only when Full/self-validation and review pass and there is no runtime/APK/dependency/signing/release/trust-boundary effect. Uncertain or broader changes still require explicit maintainer approval.
+
+
 ## Entry requirements
 
 For each engineering checkpoint, record the problem/goal, observed evidence, analysis, root-cause status, references consulted, alternatives, implementation, review, CI/build identity, validation/device feedback, result, durable conclusions, residual risk, and future-design consequences as applicable.
@@ -18,8 +51,8 @@ Preserve failed hypotheses and append corrections. Do not rewrite history to hid
 
 ## 2026-09-26 — Development-memory system initialized
 
-**Type:** repository documentation / engineering governance  
-**APK build:** none  
+**Type:** repository documentation / engineering governance
+**APK build:** none
 **Runtime impact:** none
 
 ### Problem / objective
@@ -102,7 +135,7 @@ Repository-local engineering memory is now a required part of Combined Status de
 
 ## Historical backfill — validated predecessor baselines and Builds 352-377
 
-**Backfill date:** 2026-09-26  
+**Backfill date:** 2026-09-26
 **Evidence boundary:** Git commits and build identities, PR #93 / #95 / #96 / #98, GitHub Actions records, and previously recorded target-device feedback. Conversation/device recollections are used only where they agree with repository evidence; they are not used to invent missing CI or source facts.
 
 ### Accepted predecessor baselines
@@ -164,9 +197,9 @@ Repository-local engineering memory is now a required part of Combined Status de
 
 ## 2026-09-26 — Build 378: decouple stable slot geometry from battery motion geometry
 
-**Type:** runtime geometry correction  
-**APK build:** 20260926-378  
-**Commit:** `7dafc723e9f10ec801a78af33c90dd11cadbaa36`  
+**Type:** runtime geometry correction
+**APK build:** 20260926-378
+**Commit:** `7dafc723e9f10ec801a78af33c90dd11cadbaa36`
 **CI:** Fast Build #1013 succeeded
 
 ### Problem / objective
@@ -214,9 +247,9 @@ Device feedback later showed that this correction did **not** by itself eliminat
 
 ## 2026-09-26 — Build 379: trace native panel icon transition state
 
-**Type:** bounded runtime diagnostics  
-**APK build:** 20260926-379  
-**Commit:** `1d68ca310eafe1f9fd8ec9db7a94f587a4f44de9`  
+**Type:** bounded runtime diagnostics
+**APK build:** 20260926-379
+**Commit:** `1d68ca310eafe1f9fd8ec9db7a94f587a4f44de9`
 **CI:** Fast Build #1014 succeeded
 
 ### Problem / objective
@@ -255,9 +288,9 @@ The checkpoint narrowed the problem toward panel-boundary ownership and justifie
 
 ## 2026-09-26 — Build 380: capture Control Center anchor boundaries
 
-**Type:** bounded runtime diagnostics / root-cause confirmation  
-**APK build:** 20260926-380  
-**Commit:** `f5564d68e853c7d41ebf079a4809be95e510b622`  
+**Type:** bounded runtime diagnostics / root-cause confirmation
+**APK build:** 20260926-380
+**Commit:** `f5564d68e853c7d41ebf079a4809be95e510b622`
 **CI:** Fast Build #1015 succeeded
 
 ### Problem / objective
@@ -298,9 +331,9 @@ Fast CI succeeded. The diagnostic was bounded to panel boundary buckets and reus
 
 ## 2026-09-26 — Build 381: preserve native battery slot during replacement
 
-**Type:** runtime ownership correction  
-**APK build:** 20260926-381  
-**Commit:** `f6ff15f1bdda27ca7e1f47fdc79f686a9acdae1a`  
+**Type:** runtime ownership correction
+**APK build:** 20260926-381
+**Commit:** `f6ff15f1bdda27ca7e1f47fdc79f686a9acdae1a`
 **CI:** Fast Build #1016 succeeded
 
 ### Problem / objective
@@ -343,9 +376,9 @@ Device feedback: the non-steady first/last-frame right shift disappeared, but st
 
 ## 2026-09-26 — Build 382: anchor Combined Status visual to the preserved native battery slot
 
-**Type:** single-variable runtime geometry experiment  
-**APK build:** 20260926-382  
-**Commit:** `a80fb7550d601ff37a977941a8b89b088fa29a3e`  
+**Type:** single-variable runtime geometry experiment
+**APK build:** 20260926-382
+**Commit:** `a80fb7550d601ff37a977941a8b89b088fa29a3e`
 **CI:** Fast Build #1017 succeeded
 
 ### Problem / objective
@@ -392,9 +425,9 @@ Build 382 diagnostics further showed that native APPEAR state was delivered: Com
 
 ## 2026-09-26 — Build 383: trace native battery motion ownership
 
-**Type:** bounded architecture diagnostics  
-**APK build:** 20260926-383  
-**Commit:** `8b8dbb799409e50d5c40ddc339843a8c1be4f290`  
+**Type:** bounded architecture diagnostics
+**APK build:** 20260926-383
+**Commit:** `8b8dbb799409e50d5c40ddc339843a8c1be4f290`
 **CI:** Fast Build #1018 succeeded; Work Branch Canary #286 succeeded
 
 ### Problem / objective
@@ -438,10 +471,10 @@ Device panel-boundary evidence is still required before implementing a renderer 
 
 ## 2026-09-26 — Build 384: center native transition on Combined Status visual
 
-**Type:** bounded animation-geometry experiment  
-**APK build:** 20260926-384  
-**Commit:** `b838b8dfcdf90f575dba3485b0094dfa5c8aacdf`  
-**CI:** Fast Build #1020 succeeded; Work Branch Canary #287 succeeded  
+**Type:** bounded animation-geometry experiment
+**APK build:** 20260926-384
+**Commit:** `b838b8dfcdf90f575dba3485b0094dfa5c8aacdf`
+**CI:** Fast Build #1020 succeeded; Work Branch Canary #287 succeeded
 **Device validation:** pending
 
 ### Problem / objective
@@ -624,8 +657,8 @@ Pending CI and device evidence. If Build 385 still fails, do not add timing retr
 
 ## 2026-09-26 — Roadmap and App-home design intent restored
 
-**Type:** documentation / product-development continuity correction  
-**APK build:** none  
+**Type:** documentation / product-development continuity correction
+**APK build:** none
 **Runtime impact:** none
 
 ### Problem / objective
