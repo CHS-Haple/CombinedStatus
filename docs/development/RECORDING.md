@@ -246,6 +246,7 @@ Follow the mapping in `CONTRIBUTING.md`:
 | Reusable evidence changes | relevant `docs/reference/` |
 | Durable net behavior changes | `CHANGELOG.md` |
 | Display/release semantics change | `VERSIONING.md` + affected public text |
+| CI/development-validation flow or trigger/fallback contract changes | `CONTRIBUTING.md` + affected workflow/process docs + `CURRENT.md`/`DEVLOG.md` when active work is affected |
 | Active PR purpose materially changes | PR title/body |
 
 Synchronize the affected record **before treating the checkpoint as complete**.
