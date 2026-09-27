@@ -4851,3 +4851,60 @@ This is intentionally between rejected/heavy 8.25 and current/thin 7.5.
 ### Review boundary
 
 No delay, retry, polling, custom scene animation, fraction threshold, per-glyph color compensation, center resize, or device-pixel magic value is added.
+
+
+---
+
+## 2026-09-27 — Build 411 source review: stable Home owner + 8.0 ring
+
+**Type:** combined scene/visual checkpoint / source review  
+**Build:** 411 / 20260927-411  
+**Executable runtime source:** `aaaaf0810b114b1e90a3de3f1520721a420da2d0`  
+**Validation:** source review passed; Fast/Canary pending
+
+### Executable delta from Build 410
+
+Only two runtime files change:
+
+1. `CombinedStatusHomeRenderSession.kt`
+   - introduces pure `resolveOwnerReady(...)`;
+   - owner readiness now depends only on feature/model/tint/layout/host attachment;
+   - scene surface, notification-shade eligibility and Control Center eligibility remain overlay-visibility gates only;
+   - existing Build-410 panel authorities are unchanged.
+
+2. `CombinedStatusPainter.kt`
+   - default battery-ring stroke: `7.5 -> 8.0`;
+   - mobile-dot radius unchanged;
+   - center geometry unchanged;
+   - tint/alpha unchanged;
+   - lower-opening solver automatically recomputes balanced edge gaps from the new ring width.
+
+### Why this addresses the new runtime symptoms
+
+Before Build 411, every panel scene-gate change could toggle presentation readiness and therefore execute full Home owner `deactivate()/activate()`, restoring and then reapplying native Home clip masks and end reservation. This creates an unnecessary Home-layer cutover cycle on every down/up gesture and can amplify transient notification/HUN state changes into a full native fallback.
+
+Build 411 keeps the structurally valid Home owner stable. Shade/Control Center remain NATIVE_ONLY target surfaces; only the Home overlay is hidden during their ownership.
+
+### Review
+
+- **Ownership:** Home owner stays scoped to the Home host; target surfaces remain native/SystemUI-owned.
+- **Lifecycle:** no new Hook/listener/polling; fewer owner lifecycle transitions.
+- **Single writer:** unchanged mask/reservation writer; scene callbacks no longer destroy/recreate it.
+- **Cleanup:** real structural invalidation still reaches the existing deactivate/cleanup path.
+- **Fail native:** feature/model/tint/layout/host failure still makes owner readiness false.
+- **Performance:** removes repeated owner setup/teardown on panel gestures.
+- **Compatibility:** no new private SystemUI contract.
+- **Exception recovery:** unchanged target-profile and fail-native boundaries.
+- **Future extension:** scene progress remains available for later projection without being coupled to owner lifetime.
+
+### Visual review
+
+Ring 8.0 is intentionally between:
+- Build 407 effective 8.25, which read too heavy;
+- Build 408-410 7.5, which now reads too thin and gives a smaller ROUND endpoint radius.
+
+The existing gap solver remains the only lower-opening spacing authority.
+
+### Gate
+
+Fast CI + signed Canary, then one combined device pass for scene behavior and visual balance.
