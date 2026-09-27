@@ -183,6 +183,7 @@ class CombinedStatusModule : XposedModule() {
             "hostIdentity" to System.identityHashCode(prepared.host),
             "wifiRoots" to prepared.wifiRoots,
             "mobileRoots" to prepared.mobileRoots,
+            "tintTransfer" to if (prepared.tintTransferred) "ready" else "native-fallback",
         )
         log(
             Log.INFO,
@@ -468,10 +469,19 @@ class CombinedStatusModule : XposedModule() {
             SystemUiPanelTransitionSource.restoreControlCenterHomeEligibility(
                 restored.controlCenterHomeEligible,
             )
+            val transferredTint =
+                restored.appliedTint?.let { appliedTint ->
+                    CombinedStatusTintState(
+                        appliedTint = appliedTint,
+                        statusIconTint = restored.statusIconTint,
+                    )
+                }
             attachHostRuntime(
                 host = capture.host,
                 source = "hotReloadRestore",
                 initialNativeHandoffActive = true,
+                initialTintState = transferredTint,
+                allowLiveTintSeed = false,
             )
 
             logDiagnostic(
@@ -488,6 +498,7 @@ class CombinedStatusModule : XposedModule() {
                     (restored.notificationShadeHomeEligible ?: "unknown"),
                 "controlCenterHomeEligible" to
                     (restored.controlCenterHomeEligible ?: "unknown"),
+                "tintTransfer" to if (transferredTint != null) "restored" else "native-fallback",
                 "mainThread" to true,
             )
             logDiagnostic(
@@ -1287,17 +1298,9 @@ class CombinedStatusModule : XposedModule() {
         val changed =
             CombinedStatusPresentationStateStore.updateStatusIcons(state)
 
-        val tintSourceView = SystemUiTintStateSource.currentSourceView()
-        if (tintSourceView != null) {
-            SystemUiTintStateSource.currentState(tintSourceView)?.let { tintState ->
-                onTintStateUpdate(
-                    SystemUiTintStateSource.TintUpdate(
-                        sourceView = tintSourceView,
-                        state = tintState,
-                    ),
-                )
-            }
-        }
+        CombinedStatusHomeRenderSession.onStatusIconTintUpdate(
+            state.appliedTint,
+        )
 
         if (changed != null) {
             val presentationTrace = markPresentationCommitted(trace)
@@ -1328,20 +1331,42 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun onTintStateUpdate(update: SystemUiTintStateSource.TintUpdate) {
-        val statusIconTint =
-            CombinedStatusPresentationStateStore
-                .snapshot()
-                .statusIcons
-                .appliedTint
-                ?.takeIf { color -> color ushr 24 != 0 }
+        val liveStatusIconTint =
+            SystemUiNativeNetworkSuppressionOwner.currentAppliedStatusIconTint()
+        val resolvedState =
+            CombinedStatusTintAuthority.resolveBatteryEvent(
+                batteryState = update.state,
+                liveStatusIconTint = liveStatusIconTint,
+            )
         CombinedStatusHomeRenderSession.onTintUpdate(
-            update.copy(
-                state =
-                    update.state.copy(
-                        statusIconTint = statusIconTint,
-                    ),
-            ),
+            update.copy(state = resolvedState),
         )
+        if (detailedDiagnosticsEnabled) {
+            log(
+                Log.INFO,
+                TAG,
+                "tintCommit source=batteryDarkReceiver" +
+                    " applied=#" +
+                    resolvedState.appliedTint.toUInt().toString(16).padStart(8, '0') +
+                    " statusIcon=#" +
+                    (
+                        resolvedState.statusIconTint
+                            ?.toUInt()
+                            ?.toString(16)
+                            ?.padStart(8, '0')
+                            ?: "none"
+                    ) +
+                    " liveStatusIcon=#" +
+                    (
+                        liveStatusIconTint
+                            ?.toUInt()
+                            ?.toString(16)
+                            ?.padStart(8, '0')
+                            ?: "none"
+                    ) +
+                    " authority=live-systemui-status-icons",
+            )
+        }
     }
 
     private fun onSceneStateUpdate(update: SystemUiSceneStateSource.SceneUpdate) {
@@ -1396,6 +1421,8 @@ class CombinedStatusModule : XposedModule() {
         host: Any,
         source: String,
         initialNativeHandoffActive: Boolean = false,
+        initialTintState: CombinedStatusTintState? = null,
+        allowLiveTintSeed: Boolean = true,
     ) {
         val hostContext = (host as? android.view.View)?.context
         val coreRuntime =
@@ -1533,6 +1560,16 @@ class CombinedStatusModule : XposedModule() {
             is SystemUiNativeNetworkSuppressionOwner.StateResult.Inactive -> Unit
         }
 
+        val rendererInitialTintState =
+            initialTintState?.let { transferred ->
+                CombinedStatusTintAuthority.rebaseTransferred(
+                    transferred = transferred,
+                    liveStatusIconTint =
+                        SystemUiNativeNetworkSuppressionOwner
+                            .currentAppliedStatusIconTint(),
+                )
+            }
+
         when (
             val renderSession = CombinedStatusHomeRenderSession.attach(
                 host = host,
@@ -1544,6 +1581,8 @@ class CombinedStatusModule : XposedModule() {
                 onLatencySample = ::onRenderLatencySample,
                 isDetailedDiagnosticsEnabled = { detailedDiagnosticsEnabled },
                 initialNativeHandoffActive = true,
+                initialTintState = rendererInitialTintState,
+                allowLiveTintSeed = allowLiveTintSeed,
                 onPresentationReadinessChanged = { ready ->
                     onHomePresentationReadinessChanged(host, ready, source)
                 },

@@ -38,8 +38,8 @@ internal object SystemUiNativeNetworkSuppressionOwner {
     private val mobileOnlyTargetSlots = setOf("mobile")
     private val wifiAndMobileTargetSlots = setOf("wifi", "mobile")
     private val observableTargetSlots = setOf("wifi", "mobile", NO_SIM_SLOT)
-    private val preferredTintSlots =
-        listOf("wifi", "mobile", NO_SIM_SLOT, AIRPLANE_SLOT)
+    private val representedTintSlots =
+        setOf("combined_status", "wifi", "mobile", "stacked_mobile", NO_SIM_SLOT, AIRPLANE_SLOT)
 
     private val installedHandles = mutableListOf<HookHandle>()
     private var activeManager: Any? = null
@@ -725,16 +725,21 @@ internal object SystemUiNativeNetworkSuppressionOwner {
     fun currentAppliedStatusIconTint(anchorView: View? = null): Int? {
         val group = activeGroup?.get()
         val peerTint = group?.let(::resolveAppliedStatusIconTint)
-        val managerTint =
-            resolveManagerAppliedTint(
+        val resolvedAnchor =
+            anchorView
+                ?.takeIf(::isTintAuthorityCandidate)
+                ?: group?.let(::resolveTintAnchorView)
+        val locationAwareTint =
+            resolveLocationAwareManagerTint(
                 manager = activeManager,
-                anchorView =
-                    anchorView
-                        ?: group?.let(::resolveTintAnchorView),
+                anchorView = resolvedAnchor,
             )
+        val managerFallbackTint =
+            resolveManagerFallbackTint(activeManager)
         return selectStatusIconTint(
+            locationAwareTint = locationAwareTint,
             peerAppliedTint = peerTint,
-            managerTint = managerTint,
+            managerFallbackTint = managerFallbackTint,
             fallbackTint = lastStatusPresentation.appliedTint,
         )
     }
@@ -762,15 +767,19 @@ internal object SystemUiNativeNetworkSuppressionOwner {
                 null
             }
         val peerTint = resolveAppliedStatusIconTint(group)
-        val managerTint =
-            resolveManagerAppliedTint(
+        val tintAnchor = resolveTintAnchorView(group)
+        val locationAwareTint =
+            resolveLocationAwareManagerTint(
                 manager = activeManager,
-                anchorView = resolveTintAnchorView(group),
+                anchorView = tintAnchor,
             )
+        val managerFallbackTint =
+            resolveManagerFallbackTint(activeManager)
         val appliedTint =
             selectStatusIconTint(
+                locationAwareTint = locationAwareTint,
                 peerAppliedTint = peerTint,
-                managerTint = managerTint,
+                managerFallbackTint = managerFallbackTint,
                 fallbackTint = lastStatusPresentation.appliedTint,
             )
         val presentation =
@@ -798,22 +807,33 @@ internal object SystemUiNativeNetworkSuppressionOwner {
                         ?: "none") +
                     " tintAuthority=" +
                     when {
+                        locationAwareTint != null -> "dispatcher-location-aware"
                         peerTint != null -> "peer-static-applied"
-                        managerTint != null -> "manager-dark-dispatcher"
+                        managerFallbackTint != null -> "manager-global-fallback"
                         else -> "cached-fallback"
                     } +
+                    " locationAwareTint=" +
+                    (locationAwareTint
+                        ?.toUInt()
+                        ?.toString(16)
+                        ?.padStart(8, '0')
+                        ?: "none") +
                     " peerTint=" +
                     (peerTint
                         ?.toUInt()
                         ?.toString(16)
                         ?.padStart(8, '0')
                         ?: "none") +
-                    " managerTint=" +
-                    (managerTint
+                    " managerFallbackTint=" +
+                    (managerFallbackTint
                         ?.toUInt()
                         ?.toString(16)
                         ?.padStart(8, '0')
                         ?: "none") +
+                    " tintAnchorSlot=" +
+                    (tintAnchor?.let(NativeParticipantRuntimeAccess::slotOf) ?: "none") +
+                    " tintAnchorClass=" +
+                    (tintAnchor?.javaClass?.simpleName ?: "none") +
                     " noSimVisible=" + presentation.noSimVisible +
                     " noSimResource=" +
                     (
@@ -867,28 +887,24 @@ internal object SystemUiNativeNetworkSuppressionOwner {
         )
     }
 
-    private fun resolveManagerAppliedTint(
+    private fun resolveLocationAwareManagerTint(
         manager: Any?,
         anchorView: View?,
     ): Int? {
         manager ?: return null
-
-        readIntField(manager, "mColor")
-            ?.takeIf { color -> (color ushr 24) != 0 }
-            ?.let { return it }
+        anchorView ?: return null
 
         val dispatcher =
             readObjectField(manager, "mDarkIconDispatcher")
                 ?: return null
         val iconTint =
             readIntField(dispatcher, "mIconTint")
-                ?.takeIf { color -> (color ushr 24) != 0 }
+                ?.takeIf(::isVisibleTint)
                 ?: return null
         val tintAreas =
             readObjectField(dispatcher, "mTintAreas")
-        if (anchorView == null || tintAreas !is Collection<*>) {
-            return iconTint
-        }
+                as? Collection<*>
+                ?: return null
 
         return runCatching {
             val dispatcherType =
@@ -906,26 +922,62 @@ internal object SystemUiNativeNetworkSuppressionOwner {
                         ) &&
                         method.parameterTypes.getOrNull(2) ==
                             Int::class.javaPrimitiveType
-                } ?: return@runCatching iconTint
+                } ?: return@runCatching null
             (getTint.invoke(null, tintAreas, anchorView, iconTint) as? Number)
                 ?.toInt()
-                ?: iconTint
-        }.getOrDefault(iconTint)
+                ?.takeIf(::isVisibleTint)
+        }.getOrNull()
+    }
+
+    private fun resolveManagerFallbackTint(manager: Any?): Int? {
+        manager ?: return null
+
+        readIntField(manager, "mColor")
+            ?.takeIf(::isVisibleTint)
+            ?.let { return it }
+
+        val dispatcher =
+            readObjectField(manager, "mDarkIconDispatcher")
+                ?: return null
+        return readIntField(dispatcher, "mIconTint")
+            ?.takeIf(::isVisibleTint)
     }
 
     private fun resolveTintAnchorView(group: ViewGroup): View? {
         for (index in group.childCount - 1 downTo 0) {
             val child = group.getChildAt(index)
             if (
-                NativeParticipantRuntimeAccess.slotOf(child) != "combined_status" &&
-                child.width > 0 &&
-                child.height > 0
+                isTintAuthorityCandidate(
+                    slot = NativeParticipantRuntimeAccess.slotOf(child),
+                    visible = child.visibility == View.VISIBLE,
+                    width = child.width,
+                    height = child.height,
+                )
             ) {
                 return child
             }
         }
         return null
     }
+
+    private fun isTintAuthorityCandidate(view: View): Boolean =
+        isTintAuthorityCandidate(
+            slot = NativeParticipantRuntimeAccess.slotOf(view),
+            visible = view.visibility == View.VISIBLE,
+            width = view.width,
+            height = view.height,
+        )
+
+    internal fun isTintAuthorityCandidate(
+        slot: String?,
+        visible: Boolean,
+        width: Int,
+        height: Int,
+    ): Boolean =
+        slot !in representedTintSlots &&
+            visible &&
+            width > 0 &&
+            height > 0
 
     private fun readObjectField(
         target: Any,
@@ -970,16 +1022,22 @@ internal object SystemUiNativeNetworkSuppressionOwner {
     }
 
     internal fun selectStatusIconTint(
+        locationAwareTint: Int?,
         peerAppliedTint: Int?,
-        managerTint: Int?,
+        managerFallbackTint: Int?,
         fallbackTint: Int?,
     ): Int? =
-        peerAppliedTint
-            ?.takeIf { color -> (color ushr 24) != 0 }
-            ?: managerTint
-                ?.takeIf { color -> (color ushr 24) != 0 }
+        locationAwareTint
+            ?.takeIf(::isVisibleTint)
+            ?: peerAppliedTint
+                ?.takeIf(::isVisibleTint)
+            ?: managerFallbackTint
+                ?.takeIf(::isVisibleTint)
             ?: fallbackTint
-                ?.takeIf { color -> (color ushr 24) != 0 }
+                ?.takeIf(::isVisibleTint)
+
+    private fun isVisibleTint(color: Int): Boolean =
+        color ushr 24 != 0
 
     private fun resolveStaticDrawableColor(view: View): Int? {
         val accessor = statusIconStaticColorAccessor ?: return null
@@ -997,10 +1055,12 @@ internal object SystemUiNativeNetworkSuppressionOwner {
             (group.childCount - 1 downTo 0)
                 .map(group::getChildAt)
                 .filter { child ->
-                    NativeParticipantRuntimeAccess.slotOf(child) != "combined_status" &&
-                        child.visibility == View.VISIBLE &&
-                        child.width > 0 &&
-                        child.height > 0
+                    isTintAuthorityCandidate(
+                        slot = NativeParticipantRuntimeAccess.slotOf(child),
+                        visible = child.visibility == View.VISIBLE,
+                        width = child.width,
+                        height = child.height,
+                    )
                 }
 
         visiblePeers.forEach { child ->
@@ -1008,27 +1068,6 @@ internal object SystemUiNativeNetworkSuppressionOwner {
         }
         visiblePeers.forEach { child ->
             resolveStaticDrawableColor(child)?.let { return it }
-        }
-
-        val childrenBySlot =
-            (0 until group.childCount)
-                .map(group::getChildAt)
-                .mapNotNull { child ->
-                    NativeParticipantRuntimeAccess.slotOf(child)
-                        ?.let { slot -> slot to child }
-                }
-                .filterNot { (slot, _) -> slot == "combined_status" }
-                .toMap()
-
-        preferredTintSlots.forEach { slot ->
-            childrenBySlot[slot]
-                ?.let(::findAppliedTint)
-                ?.let { return it }
-        }
-        preferredTintSlots.forEach { slot ->
-            childrenBySlot[slot]
-                ?.let(::resolveStaticDrawableColor)
-                ?.let { return it }
         }
         return null
     }

@@ -23,6 +23,8 @@ internal object CombinedStatusHomeRenderSession {
         onLatencySample: ((RuntimeRenderLatencySample) -> Unit)? = null,
         isDetailedDiagnosticsEnabled: () -> Boolean = { true },
         initialNativeHandoffActive: Boolean = false,
+        initialTintState: CombinedStatusTintState? = null,
+        allowLiveTintSeed: Boolean = true,
         onPresentationReadinessChanged: ((Boolean) -> Unit)? = null,
     ): AttachResult {
         val hostView = host as? ViewGroup
@@ -51,6 +53,8 @@ internal object CombinedStatusHomeRenderSession {
             onLatencySample = onLatencySample,
             isDetailedDiagnosticsEnabled = isDetailedDiagnosticsEnabled,
             initialNativeHandoffActive = initialNativeHandoffActive,
+            initialTintState = initialTintState,
+            allowLiveTintSeed = allowLiveTintSeed,
             initialFeatureEnabled =
                 RuntimeFeaturePreferencesOwner.currentSettings().enabled,
             onPresentationReadinessChanged = onPresentationReadinessChanged,
@@ -77,6 +81,11 @@ internal object CombinedStatusHomeRenderSession {
     @Synchronized
     fun onTintUpdate(update: SystemUiTintStateSource.TintUpdate) {
         current?.updateTint(update)
+    }
+
+    @Synchronized
+    fun onStatusIconTintUpdate(statusIconTint: Int?) {
+        current?.updateStatusIconTint(statusIconTint)
     }
 
     @Synchronized
@@ -121,6 +130,9 @@ internal object CombinedStatusHomeRenderSession {
     }
 
     @Synchronized
+    fun currentTintState(): CombinedStatusTintState? = current?.currentTintState()
+
+    @Synchronized
     fun detach(preserveVisual: Boolean = false) {
         current?.stop(removeVisual = !preserveVisual)
         current = null
@@ -152,6 +164,38 @@ internal object CombinedStatusHomeRenderSession {
             layoutReady &&
             hostAttached
 
+    internal data class InitialTintSeed(
+        val state: CombinedStatusTintState,
+        val source: String,
+    )
+
+    internal fun resolveInitialTintSeed(
+        transferred: CombinedStatusTintState?,
+        allowLiveSeed: Boolean,
+        liveState: () -> CombinedStatusTintState?,
+    ): InitialTintSeed? {
+        val transferredValid =
+            transferred?.takeIf(CombinedStatusPresentationPolicy::isValidTint)
+        if (transferredValid != null) {
+            return InitialTintSeed(
+                state = transferredValid,
+                source = "hotReloadTransfer",
+            )
+        }
+        if (!allowLiveSeed) {
+            return null
+        }
+
+        val liveValid =
+            liveState()
+                ?.takeIf(CombinedStatusPresentationPolicy::isValidTint)
+                ?: return null
+        return InitialTintSeed(
+            state = liveValid,
+            source = "seed",
+        )
+    }
+
     private fun ViewGroup.directChild(className: String): ViewGroup? {
         for (index in 0 until childCount) {
             val child = getChildAt(index)
@@ -171,6 +215,8 @@ internal object CombinedStatusHomeRenderSession {
         private val onLatencySample: ((RuntimeRenderLatencySample) -> Unit)?,
         private val isDetailedDiagnosticsEnabled: () -> Boolean,
         initialNativeHandoffActive: Boolean,
+        private val initialTintState: CombinedStatusTintState?,
+        private val allowLiveTintSeed: Boolean,
         initialFeatureEnabled: Boolean,
         private val onPresentationReadinessChanged: ((Boolean) -> Unit)?,
     ) : View.OnAttachStateChangeListener {
@@ -193,7 +239,6 @@ internal object CombinedStatusHomeRenderSession {
         private val renderController = CombinedStatusRenderController(probeView)
         private var readyLogged = false
         private var layoutLogged = false
-        private var tintLogged = false
         private var deferredStateLogged = false
         private var rejectedTintLogged = false
         private var sceneSurface = SystemUiSceneStateSource.Surface.UNKNOWN
@@ -267,11 +312,20 @@ internal object CombinedStatusHomeRenderSession {
             SystemUiSceneStateSource.currentState(battery)?.let {
                 applySceneState(it, "seed")
             }
-            SystemUiTintStateSource.currentState(battery)?.let {
-                applyTintState(it, "seed")
+            resolveInitialTintSeed(
+                transferred = initialTintState,
+                allowLiveSeed = allowLiveTintSeed,
+                liveState = {
+                    SystemUiTintStateSource.currentState(battery)
+                },
+            )?.let { seed ->
+                applyTintState(seed.state, seed.source)
             }
             layoutProbe()
         }
+
+        fun currentTintState(): CombinedStatusTintState? =
+            renderController.currentTintState()
 
         fun stop(removeVisual: Boolean = true) {
             layoutReady = false
@@ -462,6 +516,15 @@ internal object CombinedStatusHomeRenderSession {
             applyTintState(update.state, "darkReceiver")
         }
 
+        fun updateStatusIconTint(statusIconTint: Int?) {
+            val resolved =
+                CombinedStatusTintAuthority.resolveStatusIconEvent(
+                    previous = renderController.currentTintState(),
+                    liveStatusIconTint = statusIconTint,
+                ) ?: return
+            applyTintState(resolved, "statusIcons")
+        }
+
         private fun applyTintState(
             state: CombinedStatusTintState,
             source: String,
@@ -481,14 +544,21 @@ internal object CombinedStatusHomeRenderSession {
                 }
             }
 
-            if (update.changed && !tintLogged) {
+            if (update.changed) {
                 val resolved = update.resolved
                 if (resolved != null) {
-                    tintLogged = true
                     emitEvent {
                         "homeRenderTint source=" + source +
                             " applied=#" +
                             resolved.appliedTint.toUInt().toString(16).padStart(8, '0') +
+                            " statusIcon=#" +
+                            (
+                                resolved.statusIconTint
+                                    ?.toUInt()
+                                    ?.toString(16)
+                                    ?.padStart(8, '0')
+                                    ?: "none"
+                            ) +
                             " eventDriven=true stable=true"
                     }
                 }

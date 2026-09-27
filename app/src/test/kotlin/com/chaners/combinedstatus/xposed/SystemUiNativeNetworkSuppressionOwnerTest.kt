@@ -174,20 +174,35 @@ class SystemUiNativeNetworkSuppressionOwnerTest {
         )
     }
     @Test
-    fun peerAppliedTintWinsOverManagerAndCachedFallback() {
+    fun locationAwareTintWinsOverPeerManagerAndCachedFallback() {
+        assertEquals(
+            0xe6ffffff.toInt(),
+            SystemUiNativeNetworkSuppressionOwner.selectStatusIconTint(
+                locationAwareTint = 0xe6ffffff.toInt(),
+                peerAppliedTint = 0xbf000000.toInt(),
+                managerFallbackTint = 0xbf000000.toInt(),
+                fallbackTint = 0xbf000000.toInt(),
+            ),
+        )
+    }
+
+    @Test
+    fun peerTintWinsWhenLocationAwareTintIsUnavailable() {
         assertEquals(
             0xfff2f2f2.toInt(),
             SystemUiNativeNetworkSuppressionOwner.selectStatusIconTint(
+                locationAwareTint = null,
                 peerAppliedTint = 0xfff2f2f2.toInt(),
-                managerTint = 0xdee5e5e5.toInt(),
+                managerFallbackTint = 0xdee5e5e5.toInt(),
                 fallbackTint = 0xe6ffffff.toInt(),
             ),
         )
         assertEquals(
             0xdee5e5e5.toInt(),
             SystemUiNativeNetworkSuppressionOwner.selectStatusIconTint(
+                locationAwareTint = null,
                 peerAppliedTint = 0x00ffffff,
-                managerTint = 0xdee5e5e5.toInt(),
+                managerFallbackTint = 0xdee5e5e5.toInt(),
                 fallbackTint = 0xe6ffffff.toInt(),
             ),
         )
@@ -214,6 +229,52 @@ class SystemUiNativeNetworkSuppressionOwnerTest {
             SystemUiNativeNetworkSuppressionOwner.shouldPreMaskMobileSignal(
                 suppressionActive = false,
                 belongsToActiveHomeGroup = true,
+            ),
+        )
+    }
+
+    @Test
+    fun representedSlotsAreNotEligibleVisibleTintAuthorities() {
+        listOf("combined_status", "wifi", "mobile", "stacked_mobile", "airplane", "no_sim").forEach { slot ->
+            assertEquals(
+                false,
+                SystemUiNativeNetworkSuppressionOwner.isTintAuthorityCandidate(
+                    slot = slot,
+                    visible = true,
+                    width = 75,
+                    height = 75,
+                ),
+            )
+        }
+    }
+
+    @Test
+    fun visibleNonRepresentedPeerCanAnchorHomeTint() {
+        assertEquals(
+            true,
+            SystemUiNativeNetworkSuppressionOwner.isTintAuthorityCandidate(
+                slot = "vpn",
+                visible = true,
+                width = 75,
+                height = 75,
+            ),
+        )
+        assertEquals(
+            false,
+            SystemUiNativeNetworkSuppressionOwner.isTintAuthorityCandidate(
+                slot = "vpn",
+                visible = false,
+                width = 75,
+                height = 75,
+            ),
+        )
+        assertEquals(
+            false,
+            SystemUiNativeNetworkSuppressionOwner.isTintAuthorityCandidate(
+                slot = "vpn",
+                visible = true,
+                width = 0,
+                height = 75,
             ),
         )
     }
