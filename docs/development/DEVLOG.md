@@ -4180,3 +4180,29 @@ Existing tests continue to require proportional scaling, mirror symmetry, balanc
 ### Gate
 
 Run CI and signed Canary, then freeze runtime for a Build-407 vs Build-408 device A/B. Do not mix any further center-resource, tint, alpha or Phase-2B change into the same candidate.
+
+
+### Build 408 CI / Canary result
+
+- Work Branch Canary: **#338** / run ID `36315043013`.
+- Result: **success**.
+- Passed gates:
+  - trusted PR source resolution and exact checkout verification;
+  - Gradle Wrapper validation;
+  - Java / Android API 37 setup;
+  - Haple signing restore/verification;
+  - pinned HyperOS target-profile verification;
+  - tests and Canary build;
+  - Modern Xposed metadata verification;
+  - Haple APK signature verification;
+  - non-debuggable verification;
+  - artifact preparation/upload and final summary.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260927-408-canary.apk`
+- GitHub artifact ID: `10930143406`
+- Extracted APK size: `3293218` bytes
+- Extracted APK SHA-256: `2a5ed37e52ffcae71139bf006e025559192fb3ed3e15e089bc3841ba6bf3efb3`
+- Runtime source remains `8a7a39d8297fe926387d56cc8ff5be4b08405f4a`; later commits are documentation-only.
+
+### Gate
+
+**Runtime is frozen at Build 408.** The next required evidence is a Build-407 vs Build-408 device A/B focused on ring optical weight. No tint/alpha compensation, center-resource change or Phase-2B runtime work should be layered before that result.
