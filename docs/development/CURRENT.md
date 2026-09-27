@@ -46,6 +46,7 @@ Home -> shade / Control Center projection is now the active Phase 2B direction. 
 - **Build 409 / `20260927-409`** is a completed but **device-incomplete Phase-2B checkpoint**. Executable source: `4ab7b490617757e34c0ea8e0b59e3d7a16bae9ad`; Fast #1129 and Work Branch Canary #363 passed. Device video + diagnostics show the promoted notification-shade gate does transition Home to `homeEligible=false` and runs the existing cleanup path, but the reported leak reproduction is driven by **Control Center**. During that transition `ControlCenterExpandControllerDelegate` reports `visible=true` and changing native fraction while Build 409 leaves Control Center callbacks diagnostics-only, so Home remains eligible and the compact overlay can overlap the native icons. Build 409 is therefore not accepted as the complete shallow-pull fix.
 - **Build 410 / `20260927-410`** is the current signed Phase-2B Home scene-lifetime device-test candidate. Executable runtime source: `6e2fc55944753c6cb9ef22f537008c97217f17e1`. Fast Build #1143 / run `36319763905` passed on test head `5320bf87253128de290b4b0809694949a02b6c38`; trusted Work Branch Canary #377 / run `36319940085` passed exact checkout, both pinned HyperOS scene contracts, tests/build, Haple signature, Modern Xposed metadata and non-debuggable validation and produced artifact `10932655599`. APK size: `3309598` bytes; SHA-256: `8c3f3011c214e66d20a89698e902191bdd8bc039803a6c824a261170a5cbf0eb`. Runtime is frozen pending device validation.
 - **Build 411 / `20260927-411`** is **device-accepted for the panel/scene-owner correction but visually rejected at the 8.0 ring checkpoint**. Executable runtime source: `aaaaf0810b114b1e90a3de3f1520721a420da2d0`. Fast #1150 and trusted Canary #384 passed. Maintainer device feedback confirms notification-shade / Control Center down-up behavior is now correct, so the persistent Home owner / scene-visibility separation is retained. The 8.0 ring remains visually inferior to the previously seen 8.25 geometry, including endpoint/lower-opening harmony, so 8.0 is not the final visual baseline.
+- **Build 412 / `20260927-412`** is the current source-reviewed deterministic ring-restoration candidate. Executable source: `f794a7c01513364eefc726316fcaf4058d581683`. It preserves Build-411 panel scene ownership and changes only the default battery-ring stroke from 8.0 back to the maintainer-preferred 8.25 canonical units. `Paint.Cap.ROUND` and `Paint.Join.ROUND` remain unchanged, restoring endpoint radius to 4.125; mobile dots, center geometry, tint/alpha, opening angles and scene logic are unchanged. The existing lower-opening solver recomputes edge spacing from the restored stroke. Source review passed; CI pending.
 - Build 406 trusted validation: owner `/canary` Work Branch Canary #335 **succeeded**. Validated PR head `80f371784ffaee406dd6ea5728219eeee5913318` differs from the frozen runtime source only in `CURRENT.md` and `DEVLOG.md`, so executable content remains exactly Build 406. Artifact `10929711688`; artifact ZIP digest `sha256:c7af997217acd171c66beb860d7212c0d72fd672a38978f7b5c2eb5a524f11ba`; extracted APK SHA-256 `e086d8914fece7ba8ea86200756f4a6366d56dadaa5510846618a4077e6ddd80`.
 - Documentation/test-only commits may advance the Phase-2B work branch beyond Build-410 executable source `6e2fc55944753c6cb9ef22f537008c97217f17e1` without creating a new runtime Build; runtime identity remains `20260927-410` until executable source changes.
 
@@ -138,13 +139,12 @@ Build 409's notification-shade implementation remains intact and is not reopened
 
 ## Immediate next step
 
-1. Build 412 is a **ring-only historical-baseline restoration** on top of the device-accepted Build-411 scene/owner runtime.
-2. Change only the default battery-ring stroke from 8.0 to **8.25 canonical units**.
-3. Keep `Paint.Cap.ROUND`; at 8.25 the endpoint radius becomes 4.125 canonical units. Let the existing lower-opening solver recompute ring-to-dot / dot-to-dot edge spacing from that geometry.
-4. Keep mobile-dot radius, center geometry, semantic colors, alpha, Home owner lifetime, notification-shade gate, Control Center gate, HUN behavior and all projection boundaries unchanged.
-5. Update the deterministic outer-geometry test and Build identity only; then run source review, Fast CI and signed Canary.
-6. Because 8.25 is a previously device-seen historical geometry and this is a single-variable restoration with no new geometry mechanism, no dedicated maintainer device round is required unless CI/review exposes an unexpected delta.
-7. After validation, retain the Build-411 scene acceptance and use 8.25 as the current visual baseline.
+1. Run PR #138 Fast CI for Build 412, executable source `f794a7c01513364eefc726316fcaf4058d581683`.
+2. Verify the outer-geometry test locks 8.25, balanced lower-opening gaps remain positive/symmetric across supported scales, and Build-411 scene tests remain unchanged/passing.
+3. After Fast success, run/accept the trusted signed Work Branch Canary.
+4. No dedicated maintainer ring-size A/B is required before integration because 8.25 is an already device-seen and explicitly preferred baseline.
+5. Preserve the Build-411 panel scene behavior as accepted.
+6. Keep heads-up/notification-triggered native-status fallback as the next separate runtime issue unless separately confirmed fixed.
 
 ## Reference priority
 
