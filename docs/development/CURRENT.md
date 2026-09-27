@@ -39,7 +39,8 @@ Home -> shade / Control Center projection is **Phase 2B**. Keyguard / lockscreen
 - **Build 399** separates active/inactive battery-ring arc compositing without reopening Home carrier ownership.
 - **Build 403 / `20260927-403`** established the current HyperOS battery semantic-color implementation. Runtime source: `97ef67e648906a4b9bb2ce4d7dd390e955831189`.
 - **Build 404 / `20260927-404`** is a completed but **device-rejected optical-parity A/B checkpoint**. Runtime source: `614c6ae96f1753088e21ce3568d969b900852081`. It removed percentile alpha remapping while retaining the existing bitmap-probe rendering path; target-device feedback shows the center presentation is visually worse than Build 403, so authored-alpha preservation alone is not an accepted fix.
-- Documentation-only commits may advance PR #105 beyond the Build-404 runtime source without creating a new runtime Build; runtime identity remains the Build/source pair above until executable source changes.
+- **Build 405 / `20260927-405`** is the current direct-final-Drawable optical-parity A/B candidate. Runtime source: `bf8091c8680dec7b85c58afded7f476ec95ca49d`. The existing raster probe is measurement-only and unconditionally recycled; the module-owned cloned native Drawable is rendered directly into the same final resolved bounds. HyperOS resource-variant selection remains deliberately unchanged for this checkpoint.
+- Documentation-only commits may advance PR #105 beyond the Build-405 runtime source without creating a new runtime Build; runtime identity remains the Build/source pair above until executable source changes.
 
 Build 403 validation already established:
 - Fast Build #1063: **success**;
@@ -121,11 +122,11 @@ A shallow notification-shade pull / final held-return frame can still leave the 
 
 ## Immediate next step
 
-1. Treat Build 404 as a failed optical-parity A/B; do not stack another tint/alpha compensation on it.
-2. Implement one new rendering-boundary A/B: keep the current semantic resource, tint authority, optical sizing and geometry, but replace the cached 96px bitmap as the final native-center source with direct Drawable rendering at the resolved final bounds.
-3. Keep any bitmap/alpha scan measurement-only; it must not feed final presentation pixels.
-4. Review ownership, lifecycle, single writer, cleanup, fail-native behavior, performance, compatibility, exception recovery and future custom color/size support before committing the runtime change.
-5. Run Fast CI + signed Work Branch Canary, then stop runtime changes for focused target-device A/B.
+1. Build 405 source review is complete; freeze its direct-final-Drawable boundary.
+2. Run Fast CI + signed Work Branch Canary for Build 405.
+3. If CI passes, stop runtime changes and perform focused target-device A/B against Builds 403 and 404: center edge quality/antialiasing, apparent stroke weight, size/centering, and unchanged outer geometry/tint.
+4. Keep HyperOS Light / Dark / Tint `transformResId` resource-variant alignment out of Build 405 so the direct-draw result remains attributable. Evaluate it only if a state-dependent difference remains afterward.
+5. Keep Build-403 battery semantic-color acceptance separate and unchanged.
 6. Only after optical/color closure move to the already-identified Phase-2B shallow-shade scene-boundary leak.
 
 ## Reference priority
