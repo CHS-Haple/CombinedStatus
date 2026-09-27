@@ -4014,3 +4014,31 @@ If optical parity still fails, the next investigation returns to the final nativ
 ### Gate
 
 **Runtime is frozen at Build 407.** The next required evidence is maintainer device A/B with center-follow-battery both disabled and enabled across light/dark surfaces. No Phase-2B or further center-rendering runtime change should be layered before that result.
+
+
+### Build 407 CI / Canary result
+
+- Work Branch Canary: **#337** / run ID `36313837646`.
+- Result: **success**.
+- Earlier duplicate Canary #336 was cancelled by workflow concurrency after #337 superseded it; this is not a test failure.
+- Passed gates:
+  - trusted PR source resolution;
+  - exact checked-out source verification;
+  - Gradle Wrapper validation;
+  - Java / Android API 37 setup;
+  - Haple signing restore/verification;
+  - pinned HyperOS target-profile verification;
+  - tests and Canary build;
+  - modern Xposed metadata verification;
+  - Haple APK signature verification;
+  - non-debuggable verification;
+  - artifact preparation/upload.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260927-407-canary.apk`
+- GitHub artifact ID: `10929728522`
+- Extracted APK size: `3293218` bytes
+- Extracted APK SHA-256: `b3bf76727f1fa5defe0b76d71fb090b5135ab713e9629260a12ec03b3867824a`
+- Final executable source remains `ffe746b24252f974db05e1fa4381ed5c56f0e73e`; subsequent commits are documentation-only.
+
+### Gate
+
+**Runtime is frozen at Build 407.** The next required evidence is maintainer device A/B with center-color link both OFF and ON. No Phase-2B, alpha normalization, geometry tuning or additional runtime change should be layered before that result.
