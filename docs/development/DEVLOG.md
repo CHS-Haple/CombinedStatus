@@ -4955,3 +4955,45 @@ The next required evidence is one combined maintainer device pass covering:
 - ring 8.0 thickness / ROUND endpoint / lower-dot visual coordination.
 
 No further runtime change should be layered before that result.
+
+
+---
+
+## 2026-09-27 — Build 411 device result: panel handoff accepted; 8.0 ring rejected
+
+**Type:** maintainer device acceptance / visual baseline correction  
+**Build under test:** 411 / 20260927-411  
+**Executable source:** `aaaaf0810b114b1e90a3de3f1520721a420da2d0`
+
+### Maintainer result
+
+- notification-shade / Control Center down-up behavior is now reported as **no problem**;
+- therefore the Build-411 persistent Home-owner / scene-visibility separation is accepted for the tested panel gesture path;
+- the 8.0-unit battery-ring A/B is rejected: the maintainer prefers the original 8.25 geometry;
+- the thinner ring also makes the `ROUND` endpoint curvature look visually less coordinated with the lower four-dot opening.
+
+The earlier report that a heads-up/notification popup can restore the native status bar is **not** automatically marked resolved by the panel acceptance and remains a separate issue unless separately confirmed.
+
+### Geometry interpretation
+
+The renderer uses `Paint.Cap.ROUND`. Therefore ring endpoint radius is intrinsically half the stroke width:
+- 7.5 -> 3.75;
+- 8.0 -> 4.0;
+- 8.25 -> 4.125.
+
+Restoring 8.25 therefore restores both line weight and the previously preferred endpoint curvature without adding a custom cap implementation.
+
+### Selected Build-412 correction
+
+- ring stroke: **8.0 -> 8.25** canonical units;
+- `ROUND` cap unchanged;
+- mobile-dot radius unchanged;
+- center size/geometry unchanged;
+- tint/alpha unchanged;
+- opening-angle contract unchanged;
+- existing lower-opening solver recomputes balanced edge gaps from the restored stroke;
+- Build-411 scene ownership/lifecycle logic unchanged.
+
+### Review boundary
+
+This is a deterministic return to an already device-seen and explicitly preferred visual baseline. It still requires source review and CI/Canary, but does not require a separate maintainer thickness A/B before integration.
