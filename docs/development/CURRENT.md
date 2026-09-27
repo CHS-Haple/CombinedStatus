@@ -96,7 +96,7 @@ Build 403 uses HyperOS `MiuiBatteryMeterIconView.getProgressStatus()` as semanti
 
 No user-facing per-state color picker/source selector is exposed yet. The future policy seam remains: **System default / Follow status icon / Custom** for NORMAL / CHARGING / POWER_SAVE / PERFORMANCE / LOW.
 
-### Home -> shade / Control Center scene boundary — Build 413 accepted in dev
+### Home -> shade / Control Center scene boundary — Build 413 accepted in stable main
 
 Build 409 corrected only the notification-shade half of the scene lifetime. Maintainer video and Build-409 diagnostics show the unresolved reproduction is a **Control Center** transition.
 
@@ -143,6 +143,7 @@ Build 409's notification-shade implementation remains intact and is not reopened
 - The documentation-governance baseline is accepted in `main` and synchronized into `dev`; active runtime branches must preserve it when updated/merged rather than restoring older workflow/process text.
 - PR #138 is merged into `dev` as the accepted Phase-2B panel scene-ownership + 8.25 ring integration boundary (`a25cb5ce2aeab235cfaed579474df70596f03a63`).
 - PR #142 is merged into `dev` as `2aa6833cfca69a59af5027a7855b7d8282dbade9`, making Build 413 the integrated HUN/shallow-pull lifetime baseline. Trusted Integration Build #1200 / run `36337302873` passed and produced signed Canary artifact `10937951856`.
+- `validation/dev` was advanced to exact dev candidate `36ce04011f0a1fb2c5dd185d911b639bb1787408` after maintainer device acceptance. Promotion readiness reported READY; PR #147 promoted that exact candidate to `main` with merge commit `3114ade06bcb4846a5654a70f38ea572f5b47b37`. Promotion Full #1213, post-merge Full #1214, and Push on main #59 all passed.
 - Promotion PR #147 promoted exact validated `dev` SHA `36ce04011f0a1fb2c5dd185d911b639bb1787408` to `main` using the required merge commit `3114ade06bcb4846a5654a70f38ea572f5b47b37`. Promotion Full #1213 and post-merge main Full #1214 both passed; `Push on main` #59 also passed.
 - PR #139 replaced automatic per-Fast work-branch Canary follow-up with checkpoint-driven validation: active runtime PRs stay Draft during iteration, Ready is reserved for meaningful Fast checkpoints, and signed work-branch Canary is requested explicitly only when device evidence is needed.
 - PR #141 history-preserving back-synced that accepted CI/governance state into `dev` without replacing the Build-412 runtime tree. The direct `main -> dev` PR #140 was closed after branch-history conflicts were identified; the accepted sync used an explicit two-parent merge preserving both histories.
@@ -151,11 +152,11 @@ Build 409's notification-shade implementation remains intact and is not reopened
 
 ## Immediate next step
 
-1. Treat Build 413 / `20260927-413` at dev commit `2aa6833cfca69a59af5027a7855b7d8282dbade9` as the integrated Phase-2B scene-lifetime baseline. HUN disappearance and the previously accepted shallow-pull leak are closed unless contradictory device evidence appears.
-2. Continue the remaining **Phase 2B** objective on a new bounded feature branch: implement an actual Combined Status projection for notification shade / Control Center rather than leaking or reusing the Home overlay.
-3. Before runtime mutation, verify the exact target's separate notification-shade and Control Center hosts, lifecycle, tint source, native progress/end anchors, and native icon surfaces. Existing evidence already establishes `NotificationHeaderExpandController`, `ControlCenterHeaderExpandController`, `StatusBarAnchorBounds`, and the distinct Control Center fake/status-icon surfaces as high-value owners.
-4. Keep SystemUI as the transition-motion writer. The new projection may consume native progress/geometry but must not add a parallel translation formula, arbitrary fraction threshold, timing patch, per-frame native-geometry writer, or destructive Home-owner teardown.
-5. Keyguard / lockscreen / AOD remains Phase 3 and stays out of the Phase-2B projection branch.
+1. Treat Build 413 / `20260927-413` as the current stable runtime baseline on `main` and the integrated baseline on `dev`. HUN disappearance, shallow-pull leakage, Home ownership, 8.25 ring geometry, and the accepted Phase-2A semantic-color/native-center work are now part of the stable line.
+2. Continue the remaining **Phase 2B** objective only on `feat/panel-projection` / PR #146. Build 414 / `20260928-414` is a bounded diagnostics candidate and is **not** part of stable `main`.
+3. Build 414's next gate is focused device evidence for the exact notification-header target host/geometry plus the existing Control Center anchor path. Do not implement panel projection until those runtime facts are captured.
+4. Keep SystemUI as the transition-motion writer; no Home-overlay reuse, arbitrary fraction threshold, delay, polling, per-frame native-geometry write, or second animation owner.
+5. Keyguard / lockscreen / AOD remains Phase 3.
 
 ## Reference priority
 
