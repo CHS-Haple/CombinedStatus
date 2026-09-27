@@ -5247,3 +5247,41 @@ PR #138 may proceed to `dev` after the final documentation head satisfies the re
 ### Gate
 
 PR #138 may integrate to `dev` after its latest documentation-only head satisfies the required PR check. No further runtime change is required for this integration boundary.
+
+
+---
+
+## 2026-09-27 — PR #138 merged to dev; Build 412 Integration passed
+
+**Type:** dev integration / accepted baseline update  
+**Merge commit:** `a25cb5ce2aeab235cfaed579474df70596f03a63`  
+**Integrated build:** 412 / 20260927-412
+
+### Accepted net state
+
+- Build-411 persistent Home owner / panel scene-visibility separation is retained after maintainer acceptance of notification-shade / Control Center down-up behavior.
+- Battery ring default is restored to the maintainer-preferred 8.25 canonical units with unchanged ROUND cap.
+- Mobile dots, center geometry, semantic colors, alpha and lower-opening solver remain unchanged.
+- No dedicated thickness-only device gate is required.
+
+### Dev Integration CI
+
+- Build workflow: **#1159** / run `36323866999`.
+- Result: **success**.
+- Passed:
+  - Integration scope classification;
+  - Gradle Wrapper / Java / API 37;
+  - Haple signing restore/verification;
+  - pinned HyperOS notification-shade + Control Center contracts;
+  - all tests and signed Canary build;
+  - Modern Xposed metadata;
+  - Haple APK signature;
+  - non-debuggable verification;
+  - artifact upload.
+- Integration artifact ID: `10933541364`
+- Extracted APK size: `3309602` bytes
+- Extracted APK SHA-256: `caca75d56145f58dafd25d4798d79025997113c6965d254ccffe2f7e707d5421`
+
+### Remaining boundary
+
+The earlier heads-up/notification-popup report in which native status presentation can remain restored was not independently closed by the latest maintainer panel-gesture feedback. It remains a separate Phase-2B runtime question and must be investigated without reopening the accepted panel scene gates or 8.25 visual baseline.
