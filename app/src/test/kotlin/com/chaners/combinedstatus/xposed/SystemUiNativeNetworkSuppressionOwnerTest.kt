@@ -233,4 +233,50 @@ class SystemUiNativeNetworkSuppressionOwnerTest {
         )
     }
 
+    @Test
+    fun representedSlotsAreNotEligibleVisibleTintAuthorities() {
+        listOf("wifi", "mobile", "stacked_mobile", "airplane", "no_sim").forEach { slot ->
+            assertEquals(
+                false,
+                SystemUiNativeNetworkSuppressionOwner.isTintAuthorityCandidate(
+                    slot = slot,
+                    visible = true,
+                    width = 75,
+                    height = 75,
+                ),
+            )
+        }
+    }
+
+    @Test
+    fun visibleNonRepresentedPeerCanAnchorHomeTint() {
+        assertEquals(
+            true,
+            SystemUiNativeNetworkSuppressionOwner.isTintAuthorityCandidate(
+                slot = "vpn",
+                visible = true,
+                width = 75,
+                height = 75,
+            ),
+        )
+        assertEquals(
+            false,
+            SystemUiNativeNetworkSuppressionOwner.isTintAuthorityCandidate(
+                slot = "vpn",
+                visible = false,
+                width = 75,
+                height = 75,
+            ),
+        )
+        assertEquals(
+            false,
+            SystemUiNativeNetworkSuppressionOwner.isTintAuthorityCandidate(
+                slot = "vpn",
+                visible = true,
+                width = 0,
+                height = 75,
+            ),
+        )
+    }
+
 }

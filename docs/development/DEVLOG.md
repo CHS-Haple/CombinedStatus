@@ -2,6 +2,58 @@
 
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
+## 2026-09-28 — Build 417: exclude represented slots from visible Home Tint authority
+
+**Type:** single-variable ownership correction  
+**Build:** 417 / `20260928-417`  
+**Work branch / PR:** `fix/hot-reload-tint-continuity` / Draft #148  
+**Device validation:** pending
+
+### Problem execution flow
+
+**Phenomenon and evidence:** Build 416 remains inverted after module Hot Reload, while a full SystemUI restart restores correct behavior. The abnormal diagnostic shows the retained native Wi-Fi path carrying `#bf000000` during the Hot Reload session while visible neighboring status icons can present the opposite monochrome direction.
+
+**Root cause / responsibility source:** the current Home tint resolver treats attached/sized native children as visible tint candidates even when Combined Status has taken over their visible presentation. `resolveTintAnchorView()` can therefore pick the rightmost represented Wi-Fi/mobile slot, and peer tint traversal can also consume represented slots. After Hot Reload those native Views are intentionally kept alive for state/lifecycle continuity but their presentation state is not authoritative for what the user sees.
+
+**Repository/native rule:** preserving a native View for lifecycle ownership does not imply that it remains the visible presentation authority. Tint ownership must follow the actual visible Home peers.
+
+**Selected correction:** exclude `wifi`, `mobile`, `stacked_mobile`, `airplane` and `no_sim` from visible Home Tint anchor/peer eligibility. Require the candidate View to be `VISIBLE` with positive geometry. Use the existing location-aware `DarkIconDispatcher.getTint(...)` against that non-represented peer; keep manager-global/cached fallback.
+
+### Implementation boundary
+
+- one new shared candidate predicate;
+- anchor selection and peer tint traversal consume the same predicate;
+- represented-slot fallback traversal is removed;
+- diagnostics now report the selected tint-anchor slot/class;
+- no Hot Reload payload change;
+- no Battery semantic-color change;
+- no geometry, mask, scene, animation or panel-projection change;
+- Build identity advances from 416 to 417.
+
+### Tests
+
+Added deterministic coverage that:
+- `wifi`, `mobile`, `stacked_mobile`, `airplane`, and `no_sim` are never eligible visible Tint authorities;
+- a visible, positive-geometry non-represented peer (for example `vpn`) is eligible;
+- invisible or zero-geometry peers are rejected.
+
+### 审查 / review
+
+- **Ownership:** represented native slots remain state/lifecycle carriers; visible non-represented SystemUI peers own Home monochrome presentation authority.
+- **Lifecycle:** directly addresses the Hot Reload-only stale represented-slot state without changing cold-start behavior.
+- **Single writer:** read-only Tint selection; no native Tint writer.
+- **Cleanup:** unchanged.
+- **Fail native:** missing eligible peer falls through to manager-global/cached authority.
+- **Performance:** bounded existing-group traversal only on existing events; no polling/frame work.
+- **Compatibility:** no new private class/method/hook contract.
+- **Exception recovery:** existing reflection fallbacks remain.
+- **Future extension:** makes presentation authority explicit and reusable for later scene projection.
+
+### Gate
+
+Draft Light -> source review -> Ready/Fast. If Fast passes, request one signed Canary and stop runtime mutation for the same Hot Reload-vs-SystemUI-restart device comparison.
+
+
 ## 2026-09-28 — Build 416 device rejection: SystemUI restart isolates Hot Reload lifecycle
 
 **Type:** maintainer device rejection / root-cause narrowing  

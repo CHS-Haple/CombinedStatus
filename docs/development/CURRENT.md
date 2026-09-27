@@ -10,7 +10,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Integration branch: `dev`
 - Integration runtime baseline: Build 413, commit `2aa6833cfca69a59af5027a7855b7d8282dbade9`
 - Build 413 / `20260927-413` is the current device-accepted, Integration-validated, and `main`-promoted runtime baseline.
-- Active corrective work / PR: `fix/hot-reload-tint-continuity` / Draft #148. Builds 415 and 416 are device-rejected. Build 416 proves that changing the status-icon Tint authority precedence alone is insufficient: the defect remains after module Hot Reload but disappears after a full SystemUI restart. Current evidence therefore scopes the unresolved defect to Hot Reload generation handoff / post-handoff native presentation ownership rather than the steady cold-start color policy.
+- Active corrective work / PR: `fix/hot-reload-tint-continuity` / Draft #148. Builds 415 and 416 are device-rejected. Build 417 / `20260928-417` is the current bounded candidate: represented/masked native slots are excluded from Home visible Tint peer/anchor authority, while Hot Reload transfer v7, Battery semantic colors, geometry, scene ownership and rendering remain unchanged.
 - Repository-automation baseline: checkpoint-driven CI from PR #139 remains active; Canary admission hardening and bounded automation-only merge delegation were accepted on `main` via PR #143 (`a1aed8b6451d1018f46e252166545d67f48fe8e4`) and history-preserving back-synced into `dev` via PR #144 (`faaa12b1c8e955138d2ce8d51fb481263b4d7570`). These automation changes do **not** create a new runtime Build.
 - Phase-2A integration: PR #105 merged to `dev` as `2f584c3b393dc5ee606284426aa95a9d6beae5d5`; former stacked PR #100 is closed as superseded.
 - Phase-2B panel/scene-owner integration: PR #138 merged to `dev` as `a25cb5ce2aeab235cfaed579474df70596f03a63`.
@@ -155,12 +155,12 @@ Build 409's notification-shade implementation remains intact and is not reopened
 ## Immediate next step
 
 1. Keep Build 413 / `20260927-413` as the stable/runtime baseline on `main` and `dev`.
-2. Treat Builds 415 and 416 as device-rejected Hot Reload tint checkpoints. Do not merge PR #148 yet.
-3. Root-cause boundary: the defect exists after module-generation Hot Reload and disappears after a full SystemUI restart. Preserve the accepted cold-start tint/color policy unless new evidence contradicts this.
-4. Review the post-Hot-Reload Home tint authority boundary. In particular, represented/masked native slots (`wifi`, `mobile`, `stacked_mobile`, `airplane`, `no_sim`) must not be treated as visible Home peer/anchor authority merely because their Views remain attached and sized for native lifecycle ownership.
-5. The next executable checkpoint must remain single-variable and event-driven: no forced dark-mode refresh, delay, polling, retry, screenshot-derived color, or SystemUI tint writer.
-6. After source review + tests, advance to Build 417, run Draft Light -> Ready/Fast -> explicit signed Canary, then stop for the same focused Hot Reload vs SystemUI-restart comparison.
-7. PR #146 panel projection remains paused until the shared Home tint lifecycle is accepted.
+2. Build 417 / `20260928-417` is the current Draft #148 checkpoint. It changes only the Home Tint authority candidate set.
+3. A represented/masked slot (`wifi`, `mobile`, `stacked_mobile`, `airplane`, `no_sim`) may remain attached for native state/lifecycle ownership but cannot be used as a visible Home Tint peer/anchor.
+4. Prefer a visible non-represented Home peer for location-aware dispatcher/static tint resolution; retain manager-global/cached fallback if no eligible peer exists.
+5. Keep Hot Reload v7 continuity, Battery semantic colors, Home geometry, scene ownership, panel projection and native rendering unchanged. Add no refresh timer, polling, retry, forced dark-mode update or color writer.
+6. Run Draft Light and source review. If clean, mark Ready for Fast, then request one signed Canary and repeat the exact Hot Reload test without SystemUI restart. Compare against the known fact that full SystemUI restart is healthy.
+7. PR #146 panel projection remains paused until this shared Home tint lifecycle is accepted.
 
 ## Reference priority
 

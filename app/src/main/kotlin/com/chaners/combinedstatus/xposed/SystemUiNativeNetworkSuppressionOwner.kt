@@ -38,8 +38,8 @@ internal object SystemUiNativeNetworkSuppressionOwner {
     private val mobileOnlyTargetSlots = setOf("mobile")
     private val wifiAndMobileTargetSlots = setOf("wifi", "mobile")
     private val observableTargetSlots = setOf("wifi", "mobile", NO_SIM_SLOT)
-    private val preferredTintSlots =
-        listOf("wifi", "mobile", NO_SIM_SLOT, AIRPLANE_SLOT)
+    private val representedTintSlots =
+        setOf("wifi", "mobile", "stacked_mobile", NO_SIM_SLOT, AIRPLANE_SLOT)
 
     private val installedHandles = mutableListOf<HookHandle>()
     private var activeManager: Any? = null
@@ -829,6 +829,10 @@ internal object SystemUiNativeNetworkSuppressionOwner {
                         ?.toString(16)
                         ?.padStart(8, '0')
                         ?: "none") +
+                    " tintAnchorSlot=" +
+                    (tintAnchor?.let(NativeParticipantRuntimeAccess::slotOf) ?: "none") +
+                    " tintAnchorClass=" +
+                    (tintAnchor?.javaClass?.simpleName ?: "none") +
                     " noSimVisible=" + presentation.noSimVisible +
                     " noSimResource=" +
                     (
@@ -942,15 +946,29 @@ internal object SystemUiNativeNetworkSuppressionOwner {
         for (index in group.childCount - 1 downTo 0) {
             val child = group.getChildAt(index)
             if (
-                NativeParticipantRuntimeAccess.slotOf(child) != "combined_status" &&
-                child.width > 0 &&
-                child.height > 0
+                isTintAuthorityCandidate(
+                    slot = NativeParticipantRuntimeAccess.slotOf(child),
+                    visible = child.visibility == View.VISIBLE,
+                    width = child.width,
+                    height = child.height,
+                )
             ) {
                 return child
             }
         }
         return null
     }
+
+    internal fun isTintAuthorityCandidate(
+        slot: String?,
+        visible: Boolean,
+        width: Int,
+        height: Int,
+    ): Boolean =
+        slot !in representedTintSlots &&
+            visible &&
+            width > 0 &&
+            height > 0
 
     private fun readObjectField(
         target: Any,
@@ -1028,10 +1046,12 @@ internal object SystemUiNativeNetworkSuppressionOwner {
             (group.childCount - 1 downTo 0)
                 .map(group::getChildAt)
                 .filter { child ->
-                    NativeParticipantRuntimeAccess.slotOf(child) != "combined_status" &&
-                        child.visibility == View.VISIBLE &&
-                        child.width > 0 &&
-                        child.height > 0
+                    isTintAuthorityCandidate(
+                        slot = NativeParticipantRuntimeAccess.slotOf(child),
+                        visible = child.visibility == View.VISIBLE,
+                        width = child.width,
+                        height = child.height,
+                    )
                 }
 
         visiblePeers.forEach { child ->
@@ -1039,27 +1059,6 @@ internal object SystemUiNativeNetworkSuppressionOwner {
         }
         visiblePeers.forEach { child ->
             resolveStaticDrawableColor(child)?.let { return it }
-        }
-
-        val childrenBySlot =
-            (0 until group.childCount)
-                .map(group::getChildAt)
-                .mapNotNull { child ->
-                    NativeParticipantRuntimeAccess.slotOf(child)
-                        ?.let { slot -> slot to child }
-                }
-                .filterNot { (slot, _) -> slot == "combined_status" }
-                .toMap()
-
-        preferredTintSlots.forEach { slot ->
-            childrenBySlot[slot]
-                ?.let(::findAppliedTint)
-                ?.let { return it }
-        }
-        preferredTintSlots.forEach { slot ->
-            childrenBySlot[slot]
-                ?.let(::resolveStaticDrawableColor)
-                ?.let { return it }
         }
         return null
     }
