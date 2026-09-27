@@ -12,6 +12,7 @@ NATIVE_STATUS_INVENTORY_PATH = ROOT / "app" / "src" / "main" / "kotlin" / "com" 
 NETWORK_STATE_SOURCE_PATH = ROOT / "app" / "src" / "main" / "kotlin" / "com" / "chaners" / "combinedstatus" / "xposed" / "SystemUiNetworkStateSource.kt"
 SCENE_STATE_SOURCE_PATH = ROOT / "app" / "src" / "main" / "kotlin" / "com" / "chaners" / "combinedstatus" / "xposed" / "SystemUiSceneStateSource.kt"
 BATTERY_STATE_SOURCE_PATH = ROOT / "app" / "src" / "main" / "kotlin" / "com" / "chaners" / "combinedstatus" / "xposed" / "SystemUiBatteryStateSource.kt"
+NOTIFICATION_HEADER_PROBE_PATH = ROOT / "app" / "src" / "main" / "kotlin" / "com" / "chaners" / "combinedstatus" / "xposed" / "SystemUiNotificationHeaderProbe.kt"
 
 HEX_LENGTHS = {"md5": 32, "sha1": 40, "sha256": 64}
 
@@ -221,6 +222,51 @@ if not battery_semantic_fields.issubset(source_required_fields):
         "battery semantic source fields drifted from profile: " +
         ", ".join(sorted(battery_semantic_fields - source_required_fields))
     )
+
+notification_header_probe_text = NOTIFICATION_HEADER_PROBE_PATH.read_text(encoding="utf-8")
+notification_header_hook = hook_points.get("notificationHeaderExpansionDiagnostic")
+if not isinstance(notification_header_hook, dict):
+    fail("missing notificationHeaderExpansionDiagnostic hook point")
+
+notification_header_callback = re.search(
+    r'CALLBACK_CLASS_NAME\s*=\s*\n?\s*"([^"]+)"',
+    notification_header_probe_text,
+)
+notification_header_method = re.search(
+    r'EXPANSION_METHOD_NAME\s*=\s*"([^"]+)"',
+    notification_header_probe_text,
+)
+notification_header_controller = re.search(
+    r'CONTROLLER_CLASS_NAME\s*=\s*\n?\s*"([^"]+)"',
+    notification_header_probe_text,
+)
+if not notification_header_callback or not notification_header_method or not notification_header_controller:
+    fail("notification header diagnostic constants are missing")
+
+callback_class_name = notification_header_callback.group(1).replace("\\$", "$")
+if callback_class_name != notification_header_hook.get("className"):
+    fail("notification header diagnostic callback class drifted from profile")
+if notification_header_method.group(1) != notification_header_hook.get("methodName"):
+    fail("notification header diagnostic method drifted from profile")
+
+controller_class_name = notification_header_controller.group(1)
+if controller_class_name not in verified_systemui:
+    fail("notification header controller is not verified in the SystemUI APK")
+
+notification_header_fields = set(
+    re.findall(r'"(notificationTranslation[XY])"', notification_header_probe_text)
+)
+verified_notification_header_fields = set(
+    verified_fields.get(controller_class_name, [])
+)
+if not notification_header_fields.issubset(verified_notification_header_fields):
+    fail(
+        "notification header diagnostic fields drifted from profile: " +
+        ", ".join(
+            sorted(notification_header_fields - verified_notification_header_fields)
+        )
+    )
+
 
 native_status_views = profile.get("nativeStatusViews", {})
 expected_native_roles = {"mobileNetwork", "wifi", "battery"}
