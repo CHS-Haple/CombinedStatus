@@ -23,6 +23,7 @@ internal object CombinedStatusHomeRenderSession {
         onLatencySample: ((RuntimeRenderLatencySample) -> Unit)? = null,
         isDetailedDiagnosticsEnabled: () -> Boolean = { true },
         initialNativeHandoffActive: Boolean = false,
+        initialTintState: CombinedStatusTintState? = null,
         onPresentationReadinessChanged: ((Boolean) -> Unit)? = null,
     ): AttachResult {
         val hostView = host as? ViewGroup
@@ -51,6 +52,7 @@ internal object CombinedStatusHomeRenderSession {
             onLatencySample = onLatencySample,
             isDetailedDiagnosticsEnabled = isDetailedDiagnosticsEnabled,
             initialNativeHandoffActive = initialNativeHandoffActive,
+            initialTintState = initialTintState,
             initialFeatureEnabled =
                 RuntimeFeaturePreferencesOwner.currentSettings().enabled,
             onPresentationReadinessChanged = onPresentationReadinessChanged,
@@ -121,6 +123,9 @@ internal object CombinedStatusHomeRenderSession {
     }
 
     @Synchronized
+    fun currentTintState(): CombinedStatusTintState? = current?.currentTintState()
+
+    @Synchronized
     fun detach(preserveVisual: Boolean = false) {
         current?.stop(removeVisual = !preserveVisual)
         current = null
@@ -152,6 +157,34 @@ internal object CombinedStatusHomeRenderSession {
             layoutReady &&
             hostAttached
 
+    internal data class InitialTintSeed(
+        val state: CombinedStatusTintState,
+        val source: String,
+    )
+
+    internal fun resolveInitialTintSeed(
+        transferred: CombinedStatusTintState?,
+        liveState: () -> CombinedStatusTintState?,
+    ): InitialTintSeed? {
+        val transferredValid =
+            transferred?.takeIf(CombinedStatusPresentationPolicy::isValidTint)
+        if (transferredValid != null) {
+            return InitialTintSeed(
+                state = transferredValid,
+                source = "hotReloadTransfer",
+            )
+        }
+
+        val liveValid =
+            liveState()
+                ?.takeIf(CombinedStatusPresentationPolicy::isValidTint)
+                ?: return null
+        return InitialTintSeed(
+            state = liveValid,
+            source = "seed",
+        )
+    }
+
     private fun ViewGroup.directChild(className: String): ViewGroup? {
         for (index in 0 until childCount) {
             val child = getChildAt(index)
@@ -171,6 +204,7 @@ internal object CombinedStatusHomeRenderSession {
         private val onLatencySample: ((RuntimeRenderLatencySample) -> Unit)?,
         private val isDetailedDiagnosticsEnabled: () -> Boolean,
         initialNativeHandoffActive: Boolean,
+        private val initialTintState: CombinedStatusTintState?,
         initialFeatureEnabled: Boolean,
         private val onPresentationReadinessChanged: ((Boolean) -> Unit)?,
     ) : View.OnAttachStateChangeListener {
@@ -267,11 +301,19 @@ internal object CombinedStatusHomeRenderSession {
             SystemUiSceneStateSource.currentState(battery)?.let {
                 applySceneState(it, "seed")
             }
-            SystemUiTintStateSource.currentState(battery)?.let {
-                applyTintState(it, "seed")
+            resolveInitialTintSeed(
+                transferred = initialTintState,
+                liveState = {
+                    SystemUiTintStateSource.currentState(battery)
+                },
+            )?.let { seed ->
+                applyTintState(seed.state, seed.source)
             }
             layoutProbe()
         }
+
+        fun currentTintState(): CombinedStatusTintState? =
+            renderController.currentTintState()
 
         fun stop(removeVisual: Boolean = true) {
             layoutReady = false
