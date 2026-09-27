@@ -688,3 +688,62 @@ The review separates four categories that future sessions must not conflate:
 ### Outcome
 
 The macro roadmap is restored above the Build-level route, and the Home page now has enough durable design intent to be reconstructed later without relying on chat memory.
+
+
+---
+
+## 2026-09-27 — CI flow correction: trusted maintainer Canary fallback
+
+**Type:** repository automation / validation-flow correction  
+**Runtime impact:** none  
+**Branch:** `fix/ci-maintainer-canary-fallback`  
+**Validation:** Full self-validation required before synchronization
+
+### Problem execution flow
+
+Build 405 was frozen after source review, but multiple validation-only PR events created through the available repository connector produced no Actions run/check-run. The same `dev` base SHA and unchanged `build.yml` had produced Build #1088 within seconds for the preceding Build-404 carrier, so the blocker was isolated before workflow execution rather than to Gradle, Build 405, or path classification.
+
+The existing workflow architecture had only one privileged work-branch Canary admission route:
+
+`successful owner same-repository pull_request Build -> workflow_run -> signed Work Branch Canary`.
+
+Although `build.yml` also supports `workflow_dispatch`, a manually dispatched Build cannot satisfy the downstream Canary gate because its upstream event is not `pull_request`. Repeated temporary PR mutation therefore became an infrastructure single point of failure.
+
+### Selected flow
+
+Keep the automatic PR route as the normal path and add a second admission mode to the **default-branch** `Work Branch Canary` workflow:
+
+- manual trigger is accepted only when `github.actor == github.repository_owner`;
+- caller supplies an explicit same-repository `feat/*` or `fix/*` branch;
+- checkout resolves the branch and verifies the checked-out SHA equals the remote branch head;
+- the exact branch and SHA are written to the job summary;
+- target-profile verification, unit tests, Canary build, Modern Xposed metadata, Haple certificate verification, non-debuggable verification and artifact publication are shared with the automatic path;
+- the fallback does not turn a failed CI result green, does not validate arbitrary refs, does not establish `dev` integration, and does not authorize merge.
+
+### Review
+
+- **Trust / secrets:** signing remains only in the default-branch privileged workflow; no work-branch workflow definition receives secrets.
+- **Source attribution:** manual input is branch-scoped rather than arbitrary SHA; resolved remote head is verified and recorded.
+- **Single validation contract:** automatic and fallback modes share the same job body instead of maintaining separate signing/build implementations.
+- **Failure semantics:** manual fallback is for missing event delivery only; actual test/build/signature failures remain blockers.
+- **Concurrency:** manual runs are keyed by the requested source branch rather than an empty workflow-run branch.
+- **Runtime ownership/lifecycle:** no APK/SystemUI code or runtime owner changes.
+- **Compatibility:** no application target/dependency/signing identity change.
+- **Future maintenance:** `RECORDING.md` now explicitly requires CI/development-validation flow changes to synchronize normative rules and affected process docs.
+
+### Documentation synchronization
+
+Updated together:
+- `CONTRIBUTING.md` — normative fallback/trust boundary;
+- `docs/development/RECORDING.md` — CI-flow synchronization rule;
+- `docs/development/VERSIONING.md` — work-branch Canary validation semantics;
+- `docs/development/CURRENT.md` — active blocker/maintenance state;
+- `docs/development/DEVLOG.md` — this historical decision;
+- `docs/development/ROADMAP.md` — corrected superseded native alpha-normalization wording;
+- `CHANGELOG.md` — durable CI fallback and corrected native Drawable/vector net state.
+
+Architecture docs are intentionally unchanged because this is repository-validation automation, not a SystemUI runtime ownership/scene/layout contract change.
+
+### Next
+
+Run Full self-validation for the workflow branch. Only after that succeeds may the automation/process files be synchronized to `main` and `dev`. Then use the installed default-branch manual fallback for Build 405 if normal PR event delivery remains unavailable.
