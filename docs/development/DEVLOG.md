@@ -4439,3 +4439,42 @@ Final review additions:
 - duplicate/incorrectly inserted helper code found during source review was removed before CI.
 
 No additional visual, geometry, color, Control Center, or animation behavior was added by this hardening.
+
+
+---
+
+## 2026-09-27 — Build 409 CI correction: stale test call sites
+
+**Type:** CI failure / test-maintenance correction  
+**Runtime source:** `4ab7b490617757e34c0ea8e0b59e3d7a16bae9ad`  
+**Runtime conclusion:** unchanged
+
+### CI evidence
+
+- Draft Build #1122 / run `36317771794` failed during lightweight repository checks because newly added DEVLOG lines contained trailing whitespace. No Android compile step ran. The whitespace was removed in a documentation-only commit.
+- Ready Fast Build #1123 / run `36317790493` correctly classified the PR as **Fast** and passed Gradle Wrapper, Java/API setup, and the pinned HyperOS target-profile check.
+- Build #1123 then reached Android compilation. Production `compileDebugKotlin` **succeeded**.
+- `compileDebugUnitTestKotlin` failed at five existing assertions in `SystemUiNativeCombinedParticipantOwnerTest.kt` because `CombinedStatusHomeRenderSession.resolveOverlayVisible(...)` now requires the additional `notificationShadeAllowsHome` argument.
+- Build #1124 / run `36317833217` was created from the whitespace-cleaned head before that test-call-site correction and completed failure from the same pre-fix branch state.
+
+### Root cause
+
+The Phase-2B runtime change intentionally extended the pure visibility policy function with a fourth gate. New dedicated shade-policy tests were added, but five older tests for the feature/scene/native-handoff gates still called the previous three-argument signature.
+
+This is a test-maintenance omission, not a production compile or runtime design failure.
+
+### Selected correction
+
+Update only those five legacy assertions with `notificationShadeAllowsHome=true`.
+
+That preserves their original purpose:
+- master switch false still blocks;
+- scene false still blocks;
+- native handoff true still blocks;
+- the shade gate is held neutral/allowing in those pre-existing tests.
+
+No runtime source, Build identity, scene policy, Hook, state source, geometry, color, or lifecycle behavior changes.
+
+### Gate
+
+Re-run Fast CI after the test-only correction. Build 409 remains the same runtime candidate and must still receive a signed Canary before device validation.
