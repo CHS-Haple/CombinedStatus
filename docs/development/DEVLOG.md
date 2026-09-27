@@ -4335,3 +4335,30 @@ A shallow notification-shade pull and the final held-return frame can leave the 
 ### Next
 
 Implement a pure notification-shade eligibility policy plus Home RenderSession routing, advance one runtime Build, run CI/Canary, and stop for focused device validation.
+
+
+### Phase 2B implementation review refinement — Hot Reload scene continuity
+
+Before promoting the shade callback from diagnostics into runtime eligibility, the Hot Reload path was reviewed.
+
+Finding:
+- cold process start may safely retain the existing Home-default behavior until the first native panel callback because there is no pre-existing user gesture from an older SystemUI generation;
+- Hot Reload is different: the classloader/source object is replaced while the existing SystemUI scene can already be mid-shade;
+- the current source-local `notificationShadeHomeEligible` snapshot would otherwise reset to unknown and the Home session currently treats unknown as the stable-Home default;
+- therefore a Hot Reload performed while shade is expanded/tracking could briefly re-enable the Home replacement before another native panel callback arrives.
+
+Selected correction:
+- extend the existing classloader-neutral Hot Reload payload with one nullable Boolean: the last known notification-shade Home eligibility;
+- restore that value into the new `SystemUiPanelTransitionSource` before `attachHostRuntime(...)`;
+- preserve null for old/unknown payloads and retain the existing cold-start default only in that unknown case;
+- do not reflect private ShadeExpansionStateManager fields, poll state, or add another observer.
+
+Review:
+- **ownership:** SystemUI callback remains the authority; transferred state is only the last observed native fact;
+- **lifecycle:** the value lives with the existing panel source and existing Hot Reload transfer lifecycle;
+- **single writer:** only the native notification-shade callback updates the live eligibility; Hot Reload restore seeds it once;
+- **cleanup:** panel source reset clears the snapshot; no listener/state survives beyond its owner;
+- **fail-native:** malformed callback semantics resolve Home-ineligible; unknown transfer stays on the existing cold-start-compatible behavior;
+- **performance:** one Boolean snapshot, no additional callback or polling;
+- **compatibility:** no new reflection/private-field dependency;
+- **future extension:** Control Center remains separate and diagnostics-only in this checkpoint.
