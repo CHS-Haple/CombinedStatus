@@ -2977,3 +2977,7 @@ The reopened historical validation PR #104 triggered Build #1087 and signed Work
 
 A fresh ephemeral `fix/*` validation branch/PR based on the current Build-404 branch head is the selected CI path. This changes no executable source or workflow logic; it exists only to obtain an unambiguous `opened` PR event against `dev` so the repository's existing Fast Build -> signed Work Branch Canary chain validates the current candidate.
 
+### Ephemeral validation-carrier synchronize trigger
+
+Fresh validation PR #129 was opened from the correct Build-404 branch head, but no Actions run was registered for the `opened` event. This validation-only branch now receives a documentation-only Contents-API commit to produce an ordinary PR `synchronize` event. The executable Build-404 source remains `614c6ae96f1753088e21ce3568d969b900852081`.
+
