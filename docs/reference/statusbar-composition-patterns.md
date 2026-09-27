@@ -408,3 +408,16 @@ For Combined Status:
 - do not add polling, delayed retries, forced DarkIcon refreshes, or a second native Tint writer to compensate for ordering.
 
 The exact-target SystemUI-Reference currently verifies the Home host/status-icon/Battery/scene contracts used by this path, but does **not** establish a stable `DarkIconDispatcher.addDarkReceiver/removeDarkReceiver` registration contract for this artifact. Therefore direct receiver registration is not introduced without separate DEX/runtime verification.
+
+
+### Build-418 acceptance evidence
+
+Build 418 device validation accepts the snapshot rule above on the pinned HyperOS target.
+
+Observed in the accepted Detailed session:
+- Hot Reload restores the Home host without a SystemUI restart and the new generation resolves a visible non-represented status-icon anchor;
+- the renderer begins with matching `appliedTint` and `statusIconTint`;
+- across repeated native dark/light transitions, `appliedTint`, `statusIconTint`, and the live SystemUI status-icon authority advance together through the same intermediate values;
+- repeated entry/exit no longer reproduces the stale white/black inversion seen in Builds 415-417.
+
+This supports the ownership rule that a native event may trigger a renderer update, but the visible status-icon authority must be resolved for the same commit generation. It does not justify a second color writer, polling, delayed retry, or direct DarkIcon registration on an unverified contract.

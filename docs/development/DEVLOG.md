@@ -7,7 +7,7 @@ This is the chronological engineering diary for Combined Status. It complements,
 **Type:** single-variable Tint lifecycle correction
 **Build:** 418 / `20260928-418`
 **Work branch / PR:** `fix/hot-reload-tint-continuity` / Draft #148
-**Device validation:** pending
+**Device validation:** accepted
 
 ### Problem execution flow
 
@@ -84,6 +84,20 @@ Deterministic tests cover:
 - GitHub artifact digest: `sha256:2a89a293fe636703494776682d8f08f071872790d327143c54317ff0e1a16a1b`.
 - Extracted APK SHA-256: `eac3105741237f361d72f3227db6b8a45daa13508ba244048ae77ff76c8642c5`.
 - PR #148 is returned to Draft and runtime remains frozen. This record-only closure does **not** create another runtime Build.
+
+### Device acceptance — Build 418
+
+- Maintainer device result: **normal** after the focused repeated Home -> light app -> Home -> light app test.
+- Validation was performed on Build 418 Canary with Detailed diagnostics enabled and without requiring a SystemUI restart to recover presentation.
+- Runtime health reports the Hot Reload generation, status-icon observation, renderer, presentation cutover, panel transition source, and network suppression owner as ready.
+- Hot Reload observer attach resolves the visible non-represented `volume` peer at `#bf000000`; renderer transfer state starts with `appliedTint=#bf000000` and `statusIconTint=#bf000000`.
+- During subsequent DarkIcon transitions, renderer commits track the current native authority rather than stale cache: `appliedTint`, `statusIconTint`, and `liveStatusIconTint` move together through the native intermediate shades and final light/dark endpoints.
+- Later status-icon observation transitions from light back to dark are also reflected without requiring SystemUI recreation.
+- The maintainer reports the previously reproducible "one entry correct, next entry wrong" behavior is no longer observed.
+
+**Conclusion:** Build 418 is accepted. The root cause is closed as a mixed-generation/mixed-scene Tint snapshot race: cached status authority was being combined with newer Battery/Dark events and fresh authority could arrive before renderer attachment. The accepted mechanism keeps SystemUI as the sole presentation authority, composes one live authority snapshot per renderer commit, and treats Hot Reload transfer only as bounded continuity/fallback.
+
+**Integration decision:** close the fix branch into `dev`, then resume Phase-2B projection. No further Build increment is created by acceptance documentation.
 
 ### Device gate
 

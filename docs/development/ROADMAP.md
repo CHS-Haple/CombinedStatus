@@ -62,6 +62,8 @@ Direction:
 
 Accepted prerequisite: Build 413 closes the Home scene-lifetime/HUN boundary on the pinned target. Zero-fraction, non-tracking HUN state no longer evicts Home; active shade tracking or positive native shade motion and Control Center's native visible state transfer presentation away from Home without destroying the persistent Home owner. This prerequisite does **not** complete Phase 2B: the remaining task is a real Combined Status projection for the supported shade / Control Center surfaces with coherent native-owned intermediate motion.
 
+Build 418 closes the shared Home Tint lifecycle blocker exposed while preparing panel projection. Hot Reload and repeated light/dark app/Home transitions now consume one live SystemUI Tint authority snapshot per renderer commit; transferred/cached status Tint is no longer allowed to override a newer scene. With PR #148 integrated into `dev`, PR #146 may resume/rebase against the current `dev` baseline. This acceptance does not itself complete Phase 2B.
+
 Exit criteria:
 - clean Home departure and return;
 - coherent intermediate motion;

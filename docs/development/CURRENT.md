@@ -10,7 +10,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Integration branch: `dev`
 - Integration runtime baseline: Build 413, commit `2aa6833cfca69a59af5027a7855b7d8282dbade9`
 - Build 413 / `20260927-413` is the current device-accepted, Integration-validated, and `main`-promoted runtime baseline.
-- Active corrective work / PR: `fix/hot-reload-tint-continuity` / Draft #148. Builds 415, 416 and 417 are device-rejected. Build 418 / `20260928-418` is the current signed device-test checkpoint. Runtime code last changed at `c05d2ee3c094b3331135d66565771b67e7faf6cb`; exact PR head `42f350c2bb8d7338906469454fadabc5dcb629de` was revalidated by Fast #1261 and signed Work Branch Canary #405. Canary artifact: `CombinedStatus-0.0.2-HyperOS-20260928-418-canary.apk`; extracted APK SHA-256 `eac3105741237f361d72f3227db6b8a45daa13508ba244048ae77ff76c8642c5`. Runtime is frozen pending repeated-scene device validation.
+- Active corrective work / PR: `fix/hot-reload-tint-continuity` / #148. Builds 415, 416 and 417 are device-rejected. Build 418 / `20260928-418` is **device-accepted** for Hot Reload and repeated Home/light-app Tint continuity. Runtime code last changed at `c05d2ee3c094b3331135d66565771b67e7faf6cb`; exact tested PR head `42f350c2bb8d7338906469454fadabc5dcb629de` passed Fast #1261 and signed Work Branch Canary #405. Maintainer repeated-scene validation reports normal behavior; Detailed diagnostics confirm renderer `statusIconTint` tracks the live SystemUI Home status-icon authority across the tested transitions. Next action is integration into `dev`, then resume Phase-2B projection work.
 - Repository-automation baseline: checkpoint-driven CI from PR #139 remains active; Canary admission hardening and bounded automation-only merge delegation were accepted on `main` via PR #143 (`a1aed8b6451d1018f46e252166545d67f48fe8e4`) and history-preserving back-synced into `dev` via PR #144 (`faaa12b1c8e955138d2ce8d51fb481263b4d7570`). These automation changes do **not** create a new runtime Build.
 - Phase-2A integration: PR #105 merged to `dev` as `2f584c3b393dc5ee606284426aa95a9d6beae5d5`; former stacked PR #100 is closed as superseded.
 - Phase-2B panel/scene-owner integration: PR #138 merged to `dev` as `a25cb5ce2aeab235cfaed579474df70596f03a63`.
@@ -54,6 +54,7 @@ Home -> shade / Control Center projection is now the active Phase 2B direction. 
 
 - **Build 416 / `20260928-416`** is **device-rejected for Hot Reload tint continuity**. Fast #1243 and signed Work Branch Canary #400 passed, but maintainer screenshots plus Detailed diagnostics show Combined Status can remain inverted relative to neighboring Home status icons after Hot Reload; a full SystemUI restart restores correct behavior. The location-aware dispatcher resolver itself changes between `#bf000000` and `#e6ffffff`, while the Hot Reload path initially restores `#bf000000`. The key discriminant is lifecycle: the same executable behaves correctly after SystemUI recreation, so steady cold-start tint policy is not reopened by default.
 - Build 406 trusted validation: owner `/canary` Work Branch Canary #335 **succeeded**. Validated PR head `80f371784ffaee406dd6ea5728219eeee5913318` differs from the frozen runtime source only in `CURRENT.md` and `DEVLOG.md`, so executable content remains exactly Build 406. Artifact `10929711688`; artifact ZIP digest `sha256:c7af997217acd171c66beb860d7212c0d72fd672a38978f7b5c2eb5a524f11ba`; extracted APK SHA-256 `e086d8914fece7ba8ea86200756f4a6366d56dadaa5510846618a4077e6ddd80`.
+- **Build 418 / `20260928-418`** is **device-accepted for Hot Reload Tint continuity and repeated app/Home scene switching**. Maintainer validation reports normal behavior after repeated light/dark transitions without a SystemUI restart. Detailed diagnostics show Hot Reload restoration with `statusIconTint` rebased to live SystemUI authority and subsequent event-driven renderer commits keeping `appliedTint`, `statusIconTint`, and `liveStatusIconTint` aligned. Exact tested PR head `42f350c2bb8d7338906469454fadabc5dcb629de`; Fast #1261 and Work Branch Canary #405 passed. This closes the shared Home Tint lifecycle blocker for Phase 2B.
 - Documentation/test-only commits may advance the Phase-2B work branch beyond Build-412 executable source `f794a7c01513364eefc726316fcaf4058d581683` without creating a new runtime Build; runtime identity remains `20260927-412` until executable source changes.
 
 Build 403 validation already established:
@@ -154,14 +155,12 @@ Build 409's notification-shade implementation remains intact and is not reopened
 
 ## Immediate next step
 
-1. Keep Build 413 / `20260927-413` as the stable/runtime baseline on `main` and `dev`.
-2. Build 418 / `20260928-418` is the current signed device-test checkpoint; PR #148 is Draft and runtime must remain frozen pending device evidence.
-3. Fast #1261 passed on exact PR head `42f350c2bb8d7338906469454fadabc5dcb629de`. Work Branch Canary #405 passed for the same trusted SHA and verified Fast run `36345741835`.
-4. Signed artifact: `CombinedStatus-0.0.2-HyperOS-20260928-418-canary.apk`; extracted APK SHA-256 `eac3105741237f361d72f3227db6b8a45daa13508ba244048ae77ff76c8642c5`.
-5. Device validation must **not restart SystemUI first**. Trigger module Hot Reload, then repeat the exact video pattern across light app surfaces and dark Home several times. Acceptance requires Combined Status to follow native VPN/mute monochrome direction on every transition, not merely the first entry.
-6. If any mismatch remains, export Detailed diagnostics before restarting SystemUI. Inspect `homeRenderTint` and `tintCommit`: both `appliedTint` and `statusIconTint` are now logged, so stale-secondary-field races can be distinguished directly.
-7. Canary #404 was superseded/cancelled by newer same-PR Canary #405 through the workflow's `cancel-in-progress` concurrency rule; this is CI history, not a runtime failure.
-8. PR #146 panel projection remains paused until this shared Home Tint lifecycle is accepted.
+1. Build 418 / `20260928-418` is device-accepted for the Hot Reload/repeated-scene Tint continuity correction.
+2. Finalize PR #148 as Ready and merge it into `dev` without changing runtime code.
+3. Run the required trusted `dev` integration validation and verify that the integrated runtime identity remains Build 418.
+4. After `dev` integration succeeds, rebase/update PR #146 from current `dev` and resume the Phase-2B Home -> shade / Control Center projection work.
+5. Do not reopen the accepted Home Tint lifecycle unless new device evidence contradicts Build 418.
+6. Keep `main` at Build 413 until the next explicit stable-promotion decision; do not auto-promote Build 418 solely because the fix is accepted in `dev`.
 
 ## Reference priority
 
