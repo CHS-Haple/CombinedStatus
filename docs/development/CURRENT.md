@@ -9,6 +9,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Stable runtime baseline: Build 351, commit `2477867278483b76b80ed0884de3a07c7ede668a`
 - Integration branch: `dev`
 - Integration runtime baseline: Build 412, commit `a25cb5ce2aeab235cfaed579474df70596f03a63`
+- Active work-branch runtime candidate: Build 413 / `20260927-413` on PR #142; not integrated or device-accepted yet.
 - Repository-automation baseline: checkpoint-driven CI accepted on `main` via PR #139 (`0ab8e211eb4cac04e591b1ea908a0a9a9aab78e3`) and history-preserving back-synced into `dev` via PR #141 (`a3fb5d1f70d6ac3d98b37d29ef13d15e3bd4aded`). This does **not** create a new runtime Build; `dev` executable identity remains Build 412.
 - Phase-2A integration: PR #105 merged to `dev` as `2f584c3b393dc5ee606284426aa95a9d6beae5d5`; former stacked PR #100 is closed as superseded.
 - Phase-2B panel/scene-owner integration: PR #138 merged to `dev` as `a25cb5ce2aeab235cfaed579474df70596f03a63`.
@@ -151,7 +152,7 @@ Build 409's notification-shade implementation remains intact and is not reopened
 2. Panel down/up behavior and the restored 8.25 ring are accepted and no longer block development.
 3. The **notification / HUN disappearance root cause is now device-confirmed** on Build 412: HyperOS reports `expanded=true`, `tracking=false`, `fraction=0.0` for the HUN interval. The old gate treated `expanded` as shade ownership and hid the Home overlay for that interval even though there was zero shade motion. The active carrier remains the Home `MiuiNotificationStatusContainer.overlay`; the native-participant hypothesis stays rejected.
 4. Runtime fix on Draft PR #142 now derives notification-shade Home ownership from **actual motion semantics**: Home remains eligible only when `tracking=false` and native `fraction<=0`; any positive fraction or active tracking yields shade ownership. `expanded` remains diagnostic evidence but no longer independently hides Home because the target uses it for HUN at zero fraction.
-5. This preserves the accepted slight-pull leak fix: even `expanded=false` with a positive fraction is non-Home. It also avoids a HUN-specific hook/override, delay, polling loop, or legacy participant workaround. Next gate is Fast CI on the exact PR HEAD; request a signed Canary only after Fast passes because focused device validation is required.
+5. This preserves the accepted slight-pull leak fix: even `expanded=false` with a positive fraction is non-Home. It also avoids a HUN-specific hook/override, delay, polling loop, or legacy participant workaround. Fast #1179 exposed one missed production call site during Kotlin compilation; that caller is corrected, the PR returned to Draft during repair, and the runtime candidate is now Build 413. Next gate is a new Fast CI on the exact corrected PR HEAD; request a signed Canary only after Fast passes because focused device validation is required.
 6. Preserve the current persistent Home owner / scene-visibility separation so ordinary panel gestures do not retrigger native icon entrance animation. The accepted notification-shade / Control Center gates and 8.25 ring stay closed unless new evidence directly implicates them.
 7. No additional maintainer ring-size test is required. This source-review checkpoint is documentation-only and does not create Build 413.
 
