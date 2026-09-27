@@ -31,35 +31,48 @@ Classification is not permission to mutate SystemUI. Runtime integration still r
 | --- | --- | --- | --- |
 | Home stable | PROJECTED | NONE | Runtime verified |
 | Notification-shade transition | NATIVE_ONLY | SYSTEM_UI | Runtime lifetime verified |
-| Control Center | NATIVE_ONLY | SYSTEM_UI | Runtime lifetime verified |
+| Control Center | PROJECTED | SYSTEM_UI | Build-420 runtime verified |
 | Keyguard | NATIVE_ONLY | SYSTEM_UI | Static ownership verified |
 | AOD | NATIVE_ONLY | SYSTEM_UI | Static ownership verified |
 
-The map intentionally fails closed outside the verified Home path. Unsupported or not-yet-verified scenes remain native rather than receiving a partial Combined Status implementation.
+The map fails closed outside the verified Home and Control Center presentation paths. Unsupported or not-yet-verified scenes remain native rather than receiving a partial Combined Status implementation.
 
 ## Home stable
 
-Home stable is currently the only runtime-verified Combined Status rendering scene.
+Home stable remains the primary persistent rendering scene. Build 420 additionally runtime-verifies a bounded Control Center projection.
 
 Its PROJECTED mode means the Combined Status visual is anchored from verified native geometry while the native slot, native motion, and surrounding layout remain SystemUI-owned.
 
 ## Notification shade and Control Center
 
-These surfaces remain NATIVE_ONLY because SystemUI owns their transition containers and motion.
+The pinned target separates these two panel paths.
 
-For the notification shade, the unlocked status-bar state by itself is **not** sufficient to prove steady Home eligibility. The native panel expansion contract is a separate scene-lifetime fact. On the pinned target Combined Status already observes `ShadeExpansionStateManager.onPanelExpansionChanged(fraction, expanded, tracking)`.
+### Notification Shade
 
-Until a real shade / Control Center projection is promoted:
-- the **Home overlay** is eligible only while the notification panel has no active native shade motion **and** Control Center reports not visible;
-- notification-shade Home eligibility is `tracking=false` with native `fraction<=0`; active tracking or any positive native shade fraction transfers presentation away from Home;
-- `expanded` is diagnostic context rather than an independent Home-ownership authority because the pinned target can assert `expanded=true` for a HUN while `fraction=0.0` and `tracking=false`;
-- Control Center Home eligibility is the native semantic visibility boundary, `visible=false`;
-- notification-shade fraction is a verified scene-lifetime input at the native closed/moving boundary; Control Center numeric fraction remains diagnostics/future-projection input. Neither may be turned into arbitrary project-owned thresholds or a parallel motion model;
-- transient scene ownership must hide the Home overlay without tearing down the structurally valid Home presentation owner;
-- the Home owner may keep its reversible Home-only mask/reservation session stable underneath, while the target Shade/Control Center surface remains fully native and authoritative;
-- full Home-owner teardown is reserved for structural invalidation, feature disable, host replacement/detach, fail-native, and Hot Reload cleanup.
+Notification Shade remains **NATIVE_ONLY**: this target does not present the status-icon row there, so Combined Status must not invent one.
 
-A future combined representation must first prove a stable host/lifecycle contract and must not be implemented as an offset correction layered over native animation.
+Home departure/return is governed by the verified `ShadeExpansionStateManager.onPanelExpansionChanged(fraction, expanded, tracking)` boundary. Runtime evidence through Build 421 establishes:
+- `fraction <= 0` is the Home-owned edge even when `expanded` or `tracking` carry transient/HUN context;
+- positive native fraction transfers presentation away from Home;
+- `expanded` remains diagnostic context because HUN can assert it at zero fraction;
+- Battery `MiuiBatteryMeterView.mStatusBarState` is **not** a Home-visibility authority;
+- Build 421 further proves `KeyguardManager.isKeyguardLocked` cannot safely convert that Battery state into global Home-vs-Keyguard ownership on this target.
+
+The Home overlay is hosted in `MiuiNotificationStatusContainer / system_icon_area`. Its HostSession and host drawing lifecycle stay SystemUI-owned; Combined Status must not duplicate that lifecycle with a second global surface gate.
+
+### Control Center
+
+Control Center is **PROJECTED** from Build 420 device evidence.
+
+The projection:
+- resolves `ControlCenterHeaderExpandController.realSystemIcons`;
+- requires the exact verified `MiuiStatusBatteryContainer` carrier already known to the Home presentation owner;
+- reuses the shared renderer/model/tint policy;
+- becomes ready before Home yields on entry;
+- restores Home before projection cleanup on exit;
+- leaves native motion/translation and native suppression ownership with SystemUI/current Home presentation owner.
+
+No project-owned transition animation, fraction interpolation, peer geometry write or second native suppression owner is permitted.
 
 ## Keyguard and AOD
 
@@ -77,7 +90,7 @@ They must not create a second scene geometry policy or a separate slot-width rul
 
 Home stable currently uses `NONE`: Combined Status has no independent motion requirement there.
 
-SystemUI-owned transition scenes use `SYSTEM_UI`.
+Notification Shade and the projected Control Center both keep transition motion under `SYSTEM_UI`; projection does not transfer motion ownership to Combined Status.
 
 `COMBINED_STATUS` remains reserved for a future transition that is demonstrated to be genuinely owned by Combined Status from start state through cleanup.
 

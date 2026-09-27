@@ -10,7 +10,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Integration branch: `dev`
 - Integration runtime baseline: Build 418 / `20260928-418`, merge commit `11bc4ff741869e3311d2be697d4dcfb66f5cb39c`
 - Build 418 / `20260928-418` is the current device-accepted and Integration-validated `dev` runtime baseline. Build 413 remains the current `main`-promoted stable runtime baseline.
-- Active Phase-2B work / PR: `feat/panel-projection` / Draft #146. Build 420 / `20260928-420` is **device-accepted for Control Center projection but device-rejected for the Notification-Shade first/last-frame continuity fix**. Detailed diagnostics prove the remaining gap is caused by an independent scene writer: `MiuiBatteryMeterView.updateState()` reports `mStatusBarState=1` and the current scene source classifies it as `KEYGUARD` before the notification fraction handoff, hiding Home early. Build 421 will keep the accepted Control Center projection unchanged and correct only this scene-authority boundary.
+- Active Phase-2B work / PR: `feat/panel-projection` / Draft #146. Build 420 / `20260928-420` remains **device-accepted for Control Center projection**. Build 421 / `20260928-421` is **device-rejected for Notification-Shade edge continuity**: real-device evidence shows `KeyguardManager.isKeyguardLocked=true` during the same transient Battery `mStatusBarState=1`, so the Build-421 discriminator still hides Home before the shade fraction owner. Build 422 / `20260928-422` removes Battery status state as a Home-visibility writer; Home visibility is owned by the native Home host plus the verified Notification-Shade / Control Center coordinator.
 - Repository-automation baseline: checkpoint-driven CI from PR #139 remains active; Canary admission hardening and bounded automation-only merge delegation were accepted on `main` via PR #143 (`a1aed8b6451d1018f46e252166545d67f48fe8e4`) and history-preserving back-synced into `dev` via PR #144 (`faaa12b1c8e955138d2ce8d51fb481263b4d7570`). These automation changes do **not** create a new runtime Build.
 - Phase-2A integration: PR #105 merged to `dev` as `2f584c3b393dc5ee606284426aa95a9d6beae5d5`; former stacked PR #100 is closed as superseded.
 - Phase-2B panel/scene-owner integration: PR #138 merged to `dev` as `a25cb5ce2aeab235cfaed579474df70596f03a63`.
@@ -31,7 +31,7 @@ The selected Home direction is an existing-host composition rather than the supe
 
 `MiuiNotificationStatusContainer / system_icon_area -> host-scoped overlay -> resolved Home layout -> Combined Status renderer`
 
-SystemUI remains authoritative for surrounding native layout, Battery scene/hide behavior, native tint semantics, and charging/Super-Island motion. Combined Status owns its compact composition plus only narrowly scoped, reversible Home presentation state.
+SystemUI remains authoritative for surrounding native layout, Battery presentation/hide behavior, native tint semantics, Home-host scene visibility, and charging/Super-Island motion. Combined Status owns its compact composition plus only narrowly scoped, reversible Home presentation state.
 
 For the pinned HyperOS target, Notification Shade itself does not present the status-icon row; therefore Phase 2B does **not** project Combined Status into Notification Shade. Notification Shade participates only in Home ownership transfer: Home remains visible at the exact zero-motion boundary and yields once native shade fraction becomes positive. Control Center is the supported panel projection surface. Keyguard / lockscreen / AOD follows after Phase 2B.
 
@@ -55,7 +55,7 @@ For the pinned HyperOS target, Notification Shade itself does not present the st
 - **Build 416 / `20260928-416`** is **device-rejected for Hot Reload tint continuity**. Fast #1243 and signed Work Branch Canary #400 passed, but maintainer screenshots plus Detailed diagnostics show Combined Status can remain inverted relative to neighboring Home status icons after Hot Reload; a full SystemUI restart restores correct behavior. The location-aware dispatcher resolver itself changes between `#bf000000` and `#e6ffffff`, while the Hot Reload path initially restores `#bf000000`. The key discriminant is lifecycle: the same executable behaves correctly after SystemUI recreation, so steady cold-start tint policy is not reopened by default.
 - Build 406 trusted validation: owner `/canary` Work Branch Canary #335 **succeeded**. Validated PR head `80f371784ffaee406dd6ea5728219eeee5913318` differs from the frozen runtime source only in `CURRENT.md` and `DEVLOG.md`, so executable content remains exactly Build 406. Artifact `10929711688`; artifact ZIP digest `sha256:c7af997217acd171c66beb860d7212c0d72fd672a38978f7b5c2eb5a524f11ba`; extracted APK SHA-256 `e086d8914fece7ba8ea86200756f4a6366d56dadaa5510846618a4077e6ddd80`.
 - **Build 418 / `20260928-418`** is **device-accepted for Hot Reload Tint continuity and repeated app/Home scene switching**. Maintainer validation reports normal behavior after repeated light/dark transitions without a SystemUI restart. Detailed diagnostics show Hot Reload restoration with `statusIconTint` rebased to live SystemUI authority and subsequent event-driven renderer commits keeping `appliedTint`, `statusIconTint`, and `liveStatusIconTint` aligned. Exact tested PR head `42f350c2bb8d7338906469454fadabc5dcb629de`; Fast #1261 and Work Branch Canary #405 passed. This closes the shared Home Tint lifecycle blocker for Phase 2B.
-- Documentation/test-only commits may advance the Phase-2B work branch beyond Build-412 executable source `f794a7c01513364eefc726316fcaf4058d581683` without creating a new runtime Build; runtime identity remains `20260927-412` until executable source changes.
+- Documentation/test-only commits after a frozen executable checkpoint may advance the PR head without creating a new runtime Build; runtime identity changes only when executable/build metadata changes.
 
 Build 403 validation already established:
 - Fast Build #1063: **success**;
@@ -99,23 +99,29 @@ Build 403 uses HyperOS `MiuiBatteryMeterIconView.getProgressStatus()` as semanti
 
 No user-facing per-state color picker/source selector is exposed yet. The future policy seam remains: **System default / Follow status icon / Custom** for NORMAL / CHARGING / POWER_SAVE / PERFORMANCE / LOW.
 
-### Home -> panel scene boundary / Control Center projection — Build 420 active
+### Home -> panel scene boundary / Control Center projection — Build 422 active
 
-Build 419 diagnostic evidence plus maintainer clarification corrects the earlier Phase-2B product assumption:
+Build 420 established the accepted panel architecture:
+- Notification Shade has no status-icon projection target on this pinned configuration; it only transfers Home ownership.
+- Control Center projection is accepted through the verified `realSystemIcons` / `MiuiStatusBatteryContainer` carrier.
+- Open handoff remains projection-ready before Home yields; close handoff remains Home restored before projection cleanup.
+- No second suppression writer, custom animation, timer, polling loop, or geometry compensation is introduced.
 
-- HyperOS Notification Shade does not display the status-icon row in this target configuration, so Combined Status must not create a Notification-Shade projection.
-- Notification Shade only owns Home departure/return semantics. The observed first/last-frame gap comes from treating `tracking=true` at `fraction=0` as an immediate Home eviction.
-- Build 420 therefore uses native positive shade motion as the ownership boundary: `fraction <= 0` remains Home-owned; `fraction > 0` yields Home. `expanded` and `tracking` remain diagnostic context rather than independent visibility writers.
-- Control Center remains the real projection target. Build 420 resolves `ControlCenterHeaderExpandController.realSystemIcons`, requires it to be the exact `MiuiStatusBatteryContainer` already owned by `SystemUiHomePresentationOwner`, and projects a second renderer view into that native transformed carrier.
-- No second native suppression writer is added. Wi-Fi/mobile/battery masking remains owned exclusively by the existing Home presentation owner.
-- Control Center handoff is readiness-gated: projection becomes visible before Home yields; on close Home is restored before projection cleanup.
-- The Build-419 Notification-Shade target probe is retired from active runtime and preserved only as historical diagnostic evidence.
+Build 421 is rejected by device evidence:
+- `MiuiBatteryMeterView.updateState()` still emitted raw state 1 at the Notification-Shade edge.
+- `KeyguardManager.isKeyguardLocked` returned `true` in that same transition, so the attempted platform discriminator still classified the Battery signal as global Keyguard and hid Home before the shade fraction callback.
+- Therefore Battery `mStatusBarState` plus a global Keyguard boolean is not a valid Home-surface ownership authority on this target.
 
-Current Build-420 runtime head after single-writer review: `3635b52c3f3781db74a09ea6ab23a7e9dfcf40e5`. Draft validation is in progress.
+Build 422 selects a narrower ownership model:
+- the Home overlay remains attached to `MiuiNotificationStatusContainer / system_icon_area`;
+- the Battery status-state hook remains only as a read-only presentation/tint event source and no longer writes Home visibility;
+- Notification-Shade Home yield/restore is controlled only by the verified native shade fraction authority;
+- Control Center handoff remains coordinator-owned and unchanged from accepted Build 420;
+- Keyguard/AOD remain separate native surfaces for Phase 3 and are not inferred from the Home Battery state.
 
 ## Non-negotiable boundaries
 
-- Home is the only Combined Status rendering surface currently treated as runtime-verified.
+- Home and the Build-420 Control Center projection are the currently runtime-verified Combined Status rendering surfaces; Notification Shade, Keyguard, and AOD remain native-only.
 - Unsupported/unverified surfaces remain native until their own host/lifecycle/handoff contract is validated.
 - Reuse authoritative HyperOS/SystemUI state and resources when a verified source exists.
 - Native peer geometry, Battery translation/alpha/visibility, and island animation remain SystemUI-owned.
@@ -143,13 +149,12 @@ Current Build-420 runtime head after single-writer review: `3635b52c3f3781db74a0
 
 ## Immediate next step
 
-1. Preserve Build-420 Control Center projection unchanged; maintainer reports no abnormal Control Center behavior.
-2. Treat Build-420 Notification-Shade edge continuity as rejected.
-3. Root cause from the accepted Detailed diagnostic: Battery `mStatusBarState=1` is being interpreted as a global Keyguard surface and vetoes Home before the Notification-Shade fraction owner runs.
-4. Build 421 distinguishes **real Keyguard presentation** from this transient Battery scene state with the platform `KeyguardManager.isKeyguardLocked` authority; no new SystemUI Hook or reflection contract is added.
-5. Raw state 1 converts to a Home scene veto only when `KeyguardManager.isKeyguardLocked == true`; when false it becomes `TRANSIENT_PANEL`, so Home remains governed by Notification-Shade fraction / Control Center coordinator. An unavailable KeyguardManager result maps to `UNKNOWN` and fails native.
-6. Keep fail-native behavior if the Keyguard marker cannot be resolved safely; do not ignore real Keyguard, add delays, or change Control Center motion/geometry.
-7. Run Draft validation, source review, Ready Full, then one focused Canary validating Notification-Shade first/last frame plus quick Control Center regression.
+1. Treat Build 421 as device-rejected; do not restore the `KeyguardManager` discriminator.
+2. Build 422 removes Battery status state from Home-visibility ownership while retaining the existing Battery event hook as read-only presentation/tint context.
+3. Keep accepted Build-420 Control Center projection, handoff order, geometry and tint behavior unchanged.
+4. Keep Notification-Shade ownership on the verified native fraction boundary only; do not add delay, epsilon, tracking workaround or a second scene state machine.
+5. Review and validate the exact Build-422 PR head. If automated validation passes, request one signed Canary.
+6. Device gate must cover Notification-Shade first/last-frame continuity, a quick Control Center regression, and a lock/unlock smoke test proving the Home-host-scoped overlay does not leak into the separate Keyguard host.
 
 ## Reference priority
 

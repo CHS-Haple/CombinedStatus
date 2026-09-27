@@ -445,3 +445,30 @@ The next notification-shade review should follow the controller/wrapper ownershi
 4. the lifecycle boundary for attaching/removing a draw-only Combined Status projection.
 
 Only if exact-target source/reference review cannot resolve one of those facts should a new bounded runtime diagnostic be added. A completed diagnostic hook should not remain resident after its evidence is captured.
+
+---
+
+## 16. Build-420/421 panel ownership correction — host lifecycle over Battery scene inference
+
+Later Phase-2B device evidence supersedes the open Notification-Shade continuation described in section 15.
+
+### Verified target behavior
+
+- The pinned Notification Shade does not expose/present the status-icon row as a Combined Status projection target; it remains native-only.
+- Build 420 device validation accepts Control Center projection through the native `realSystemIcons` / `MiuiStatusBatteryContainer` carrier and its readiness-ordered handoff.
+- Build 421 device diagnostics show `MiuiBatteryMeterView.updateState()` can emit raw status-bar state `1` at a Notification-Shade boundary while `KeyguardManager.isKeyguardLocked` is also `true`.
+- That Battery/global-Keyguard combination fires before the verified shade-fraction owner and therefore cannot be used as a second Home-visibility authority.
+- Home Combined Status is already drawn in `MiuiNotificationStatusContainer.overlay`; Android's overlay contract makes it a visual layer of that host rather than an independent global surface.
+
+### Reusable principle
+
+Do not reconstruct a global scene state machine from a retained native presentation carrier when the real host and panel owners already expose their lifecycles.
+
+For the current target:
+1. **Home surface drawing:** native `MiuiNotificationStatusContainer / system_icon_area` HostSession.
+2. **Notification-Shade handoff:** native `ShadeExpansionStateManager` fraction boundary only.
+3. **Control Center:** verified projected carrier + coordinator handoff.
+4. **Battery status state:** read-only presentation/tint event context; not Home visibility.
+5. **Keyguard/AOD:** separate native hosts/adapters; no inference from Home Battery state.
+
+This removes a competing writer instead of refining it with another boolean. It also keeps future Keyguard/AOD support explicit and host-scoped rather than coupling those scenes to Home's Battery presentation internals.

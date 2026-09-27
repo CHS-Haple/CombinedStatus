@@ -2,6 +2,67 @@
 
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
+## 2026-09-28 — Build 422: remove duplicate Home scene writer
+
+**Type:** Phase-2B runtime ownership correction  
+**Build:** 422 / `20260928-422`  
+**Work branch / PR:** `feat/panel-projection` / Draft #146  
+**Device validation:** pending
+
+### Build-421 device result
+
+Build 421 is device-rejected for the remaining Notification-Shade first/last-frame gap. The supplied Detailed diagnostic shows the decisive ordering:
+
+- native notification state first reaches `fraction=0.0`;
+- `MiuiBatteryMeterView.updateState()` then emits raw status-bar state `1`;
+- the Build-421 platform discriminator reports `KeyguardManager.isKeyguardLocked=true`, producing `surface=KEYGUARD` and hiding the Home overlay;
+- only afterward does `ShadeExpansionStateManager` publish the positive shade fraction and take legitimate panel ownership.
+
+The supplied video matches that ordering visually: Combined Status leaves before the Notification Shade has taken over on open, and returns after native Home status icons on close. Build-420 Control Center projection/handoff remains normal in the same device evidence.
+
+**Rejected hypothesis:** platform `KeyguardManager.isKeyguardLocked` can disambiguate transient Battery raw state 1 from real Keyguard ownership. On this target it cannot.
+
+### 问题执行流程
+
+**现象与证据 -> 根因 / 责任源:** the edge gap is not an animation-speed or fraction-threshold defect. Home visibility has two asynchronous writers: the native Home host/panel coordinator and a second project-side Battery-status scene gate.
+
+**仓库规范与官方规范:** current architecture requires Host -> HostSession ownership, one live property / one writer, native motion/lifecycle reuse and root-cause-first correction. Android `ViewGroupOverlay` is a visual layer of its host ViewGroup; Combined Status is already attached to the verified Home host rather than a global window.
+
+**HyperOS / SystemUI 原生实现:** the pinned target has a distinct Home `MiuiNotificationStatusContainer / system_icon_area`, distinct `MiuiKeyguardStatusBarView`, verified Notification-Shade `ShadeExpansionStateManager`, and accepted Control Center carrier/coordinator. Battery `mStatusBarState` is a presentation input and is not sufficient proof of global surface ownership.
+
+**成熟实现对比:** the existing-host reference pattern scopes presentation lifetime to a HostSession and consumes platform scene/hide inputs without inventing a parallel global scene machine. No mature evidence justifies a second Battery-derived Home visibility writer.
+
+**方案选择:** remove Battery status state from Home visibility. Keep its existing hook only as read-only presentation/tint event context. Notification Shade remains the sole native fraction handoff for that panel; Control Center keeps the accepted Build-420 coordinator. Keyguard/AOD stay separate native surfaces for their later adapters.
+
+**workaround:** none. No delay, epsilon, retry, polling, pre-draw follower, custom animation, Keyguard boolean substitution, geometry compensation or extra Hook is added.
+
+### Implementation
+
+- `SystemUiSceneStateSource` no longer reads `KeyguardManager`, creates `TRANSIENT_PANEL`, or publishes a Home-visibility decision. Raw Battery status states are retained only as read-only classifications/diagnostics.
+- `CombinedStatusHomeRenderSession` no longer stores or seeds a Battery-derived `sceneSurface` and no longer includes it in overlay visibility/readiness diagnostics.
+- `CombinedStatusModule.onSceneStateUpdate()` retains the existing Battery-triggered tint refresh / unlocked observation trigger but no longer forwards that event as a Home visibility writer.
+- Home overlay eligibility is now the composition of feature enablement, verified Notification-Shade ownership, Control Center coordinator ownership, and existing native handoff state. Its actual drawing remains scoped to the Home host overlay.
+- Build identity advances to 422 because executable runtime behavior changes.
+- Unit coverage is updated so Battery states remain read-only classifications and Home visibility is governed by feature/panel/handoff gates only.
+
+### 审查 / review
+
+- **ownership:** Home surface drawing belongs to the native Home host; Notification Shade and Control Center retain their own verified authorities. Battery status state no longer owns Home visibility.
+- **lifecycle:** no new observer/listener is added; existing HostSession attach/detach and panel callbacks remain.
+- **single writer:** removes the conflicting scene writer instead of adding a third discriminator.
+- **cleanup:** no new mutable presentation token exists; current overlay/mask/reservation/Control Center cleanup remains unchanged.
+- **fail-native:** structural Home readiness and target-profile failure behavior remain unchanged; unsupported Keyguard/AOD surfaces stay native because they use separate SystemUI hosts.
+- **performance:** removes the per-scene-event platform Keyguard service read; adds no polling or frame work.
+- **compatibility:** no new private SystemUI class/member/Hook is required and the pinned Hook count is unchanged.
+- **exception recovery:** existing source-install, host detach, Hot Reload and fail-native paths remain intact.
+- **future extension:** Keyguard/AOD can add explicit host adapters without reusing or duplicating a Home Battery-state gate.
+
+### Validation gate
+
+Keep PR #146 Draft for Light repository validation and source review. This is a meaningful runtime checkpoint; after review, move Ready for the prescribed runtime validation. A signed Canary is required because the correction changes scene ownership and must be tested for Notification-Shade continuity plus lock/unlock regression before integration.
+
+---
+
 ## 2026-09-28 — Build 419: narrow NotificationShadeWrapper target probe
 
 **Type:** Phase-2B bounded runtime diagnostics
