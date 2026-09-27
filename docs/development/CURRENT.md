@@ -103,6 +103,7 @@ Source review is complete. Fast CI has exposed only validation-maintenance issue
 - Draft Build #1122 failed `git diff --check` on trailing whitespace in newly added DEVLOG lines; the whitespace was corrected without runtime changes.
 - Ready Fast Build #1123 reached Android compilation: production Kotlin compiled successfully, but unit-test compilation failed because five pre-existing `resolveOverlayVisible(...)` call sites were not updated for the new `notificationShadeAllowsHome` argument.
 - Build #1124 reproduced the same pre-fix validation state on the whitespace-cleaned head.
+- Fast Build #1127 / run `36318037749` passed source classification, wrapper/API setup, pinned target-profile validation, production Kotlin compilation and unit-test compilation. It then ran 239 unit tests: 238 passed and exactly one newly-added Hot Reload snapshot test failed because it still expected `restore(null)` to clear eligibility. Final 409 hardening intentionally makes null mean “legacy/unknown payload: preserve the already-established current bootstrap”, so the implementation is correct and the stale assertion must be updated.
 - the next correction is test-only: pass `notificationShadeAllowsHome=true` to those five legacy assertions so their original feature/scene/handoff semantics remain unchanged.
 
 Build identity remains 409 and executable source remains `4ab7b490617757e34c0ea8e0b59e3d7a16bae9ad`.
@@ -128,9 +129,10 @@ Build identity remains 409 and executable source remains `4ab7b490617757e34c0ea8
 
 ## Immediate next step
 
-1. Apply the test-only Build-409 compatibility fix: update the five legacy `resolveOverlayVisible(...)` assertions to pass `notificationShadeAllowsHome=true`.
-2. Do not change runtime or Build identity; executable source remains `4ab7b490617757e34c0ea8e0b59e3d7a16bae9ad`.
-3. Re-run PR #138 Fast CI on the corrected test head, then run a signed Work Branch Canary.
+1. Apply the final test-only Build-409 correction: update the Hot Reload snapshot test so a null/legacy shade value preserves the current successfully-installed bootstrap rather than clearing it.
+2. The five legacy `resolveOverlayVisible(...)` assertions are already corrected and now compile.
+3. Do not change runtime or Build identity; executable source remains `4ab7b490617757e34c0ea8e0b59e3d7a16bae9ad`.
+4. Re-run PR #138 Fast CI on the corrected test head, then run a signed Work Branch Canary.
 4. If CI/Canary passes, freeze runtime.
 5. Focused device test: shallow notification pull, hold at a tiny pull, return while still tracking, release back to Home, full notification-shade pull, and return.
 6. Expected boundary: Combined Status disappears as soon as native shade expansion/tracking owns the scene, stays absent at fraction 0 while tracking/expanded is still true, and returns only after `expanded=false && tracking=false`.
