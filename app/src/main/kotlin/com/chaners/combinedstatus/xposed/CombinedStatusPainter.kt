@@ -235,7 +235,7 @@ internal class CombinedStatusPainter(
                     canvas = canvas,
                     indicator = indicator,
                     tint = tint,
-                        opacity = opacity,
+                    opacity = opacity,
                     geometry = geometry,
                     nativeTransform = nativeTransform,
                     pixelAligned = appearAmount >= NATIVE_STEADY_APPEAR_THRESHOLD,
@@ -255,7 +255,7 @@ internal class CombinedStatusPainter(
                 drawNativeAirplane(
                     canvas = canvas,
                     tint = tint,
-                        opacity = animatedOpacity,
+                    opacity = animatedOpacity,
                     geometry = geometry,
                     nativeTransform = nativeTransform,
                     pixelAligned = appearAmount >= NATIVE_STEADY_APPEAR_THRESHOLD,
