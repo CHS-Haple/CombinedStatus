@@ -69,7 +69,7 @@ Build 404 validation:
 
 ## Active runtime issues / validation
 
-### Visual intensity / optical parity — 8.25 ring baseline restored next
+### Visual intensity / optical parity — 8.25 ring baseline accepted in dev
 
 Build 407 resolved the blocking native-center opacity/resource-mask defect. Build 408 reduced the ring from the earlier effective 8.25 to 7.5 while retaining the accepted dot size; Build 411 tried an intermediate 8.0.
 
@@ -85,7 +85,7 @@ Selected Build-412 visual correction:
 - keep four-dot radius, center geometry, tint/alpha, opening angles and scene ownership unchanged;
 - let the existing lower-opening solver recompute balanced edge gaps from the restored stroke.
 
-This is a deterministic return to the maintainer-preferred earlier geometry, not a new visual experiment. It does not require a dedicated maintainer A/B before integration, but still requires source review and CI.
+This is now the accepted `dev` visual baseline. The 8.25 restoration passed Fast, signed Canary, and post-merge Integration validation; no dedicated thickness-only maintainer A/B is required.
 
 ### Battery semantic colors — implemented and accepted for dev
 
@@ -93,7 +93,7 @@ Build 403 uses HyperOS `MiuiBatteryMeterIconView.getProgressStatus()` as semanti
 
 No user-facing per-state color picker/source selector is exposed yet. The future policy seam remains: **System default / Follow status icon / Custom** for NORMAL / CHARGING / POWER_SAVE / PERFORMANCE / LOW.
 
-### Home -> shade / Control Center scene boundary — panel transition accepted
+### Home -> shade / Control Center scene boundary — accepted in dev
 
 Build 409 corrected only the notification-shade half of the scene lifetime. Maintainer video and Build-409 diagnostics show the unresolved reproduction is a **Control Center** transition.
 
@@ -130,7 +130,8 @@ Build 409's notification-shade implementation remains intact and is not reopened
 
 ## Repository / branch synchronization
 
-- PR #105 is merged into `dev` as the accepted Phase-2A integration boundary.
+- PR #138 is merged into `dev` as merge commit `a25cb5ce2aeab235cfaed579474df70596f03a63`, carrying the accepted Build-411 panel-owner stabilization and Build-412 8.25 ring baseline.
+- PR #105 remains the earlier accepted Phase-2A integration boundary.
 - PR #100 is closed as superseded by that final integration PR.
 - PR #138 is merged into `dev` as the accepted Phase-2B panel/scene-owner + Build-412 8.25 ring integration boundary.
 - PR #134 installed the trusted work-branch Canary fallback into `main`; PR #136 history-preserving back-synced that accepted process state into `dev`.
@@ -141,11 +142,14 @@ Build 409's notification-shade implementation remains intact and is not reopened
 
 ## Immediate next step
 
-1. Current `dev` runtime baseline is Build 412 / `20260927-412`, merge commit `a25cb5ce2aeab235cfaed579474df70596f03a63`.
-2. Retain the accepted panel/scene-owner behavior and the 8.25 ring + ROUND endpoint baseline; no dedicated thickness-only device test is required.
-3. The earlier HUN/notification-popup native-status fallback remains the next separate runtime question because the latest maintainer feedback accepted panel gestures but did not independently close that notification path.
-4. Investigate that HUN path root-cause-first from the integrated `dev` baseline before opening another runtime branch: identify the native notification/HUN lifecycle event, confirm whether it changes host structural readiness or only scene visibility, and avoid reopening panel ownership or visual geometry.
-5. Actual shade / Control Center Combined Status projection remains later Phase-2B work.
+1. Current `dev` runtime baseline: **Build 412 / `20260927-412`**, executable source `f794a7c01513364eefc726316fcaf4058d581683`, merged through `a25cb5ce2aeab235cfaed579474df70596f03a63`.
+2. Post-merge Integration Build #1159 / run `36323866999`: **success**. Signed Canary artifact ID `10933541364`; extracted APK size `3309602` bytes; SHA-256 `caca75d56145f58dafd25d4798d79025997113c6965d254ccffe2f7e707d5421`.
+3. Final redundant work-branch verification Canary #392 also completed **success** after merge; this confirms the latest PR head remained valid through signing, target-profile, metadata and non-debuggable checks.
+4. Accepted panel result: Build-411/412 notification-shade + Control Center down/up behavior is no longer a blocker.
+5. Accepted visual result: battery ring is restored to the maintainer-preferred **8.25** canonical stroke with unchanged ROUND cap, dots, center, tint and scene ownership.
+6. The next runtime investigation is the **separate notification/HUN-triggered native-status fallback** report: when a notification/HUN appears, native status presentation can remain restored and Combined Status can fail to reacquire Home ownership.
+7. Treat that HUN/notification problem as a fresh ownership/lifecycle issue. Do not reopen the accepted panel gate or 8.25 geometry unless new evidence directly implicates them.
+8. Continue to keep actual shade/Control Center Combined Status projection, lockscreen/AOD, and future visual customization as separate roadmap work.
 
 ## Reference priority
 
