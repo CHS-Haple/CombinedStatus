@@ -6,6 +6,37 @@ import org.junit.Test
 
 class CombinedStatusHomeRenderSessionTest {
     @Test
+    fun ownerReadinessDependsOnlyOnStructuralHomeRequirements() {
+        assertTrue(
+            CombinedStatusHomeRenderSession.resolveOwnerReady(
+                featureEnabled = true,
+                modelReady = true,
+                tintReady = true,
+                layoutReady = true,
+                hostAttached = true,
+            ),
+        )
+        assertFalse(
+            CombinedStatusHomeRenderSession.resolveOwnerReady(
+                featureEnabled = false,
+                modelReady = true,
+                tintReady = true,
+                layoutReady = true,
+                hostAttached = true,
+            ),
+        )
+        assertFalse(
+            CombinedStatusHomeRenderSession.resolveOwnerReady(
+                featureEnabled = true,
+                modelReady = true,
+                tintReady = true,
+                layoutReady = false,
+                hostAttached = true,
+            ),
+        )
+    }
+
+    @Test
     fun overlayVisibilityRequiresSettledNotificationShade() {
         assertTrue(
             CombinedStatusHomeRenderSession.resolveOverlayVisible(
