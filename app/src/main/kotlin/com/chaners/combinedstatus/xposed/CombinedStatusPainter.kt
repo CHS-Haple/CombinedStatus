@@ -92,7 +92,6 @@ internal class CombinedStatusPainter(
             current = model.centerIndicator,
             previous = previousCenterIndicator,
             tint = colors.centerTint,
-            forceNativeTintVariant = colors.centerUsesBatteryTint,
             opacity = opacity,
             scale = scale,
             exitAmount = centerExitAmount,
@@ -162,7 +161,6 @@ internal class CombinedStatusPainter(
         current: CenterIndicator,
         previous: CenterIndicator?,
         tint: Int,
-        forceNativeTintVariant: Boolean,
         opacity: Float,
         scale: Float,
         exitAmount: Float,
@@ -175,7 +173,6 @@ internal class CombinedStatusPainter(
                 canvas = canvas,
                 indicator = current,
                 tint = tint,
-                forceNativeTintVariant = forceNativeTintVariant,
                 opacity = opacity,
                 scale = scale,
                 appearAmount = 1f,
@@ -189,7 +186,6 @@ internal class CombinedStatusPainter(
             canvas = canvas,
             indicator = previous,
             tint = tint,
-            forceNativeTintVariant = forceNativeTintVariant,
             opacity = opacity,
             scale = scale,
             appearAmount = exitAmount.coerceIn(0f, 1f),
@@ -200,7 +196,6 @@ internal class CombinedStatusPainter(
             canvas = canvas,
             indicator = current,
             tint = tint,
-            forceNativeTintVariant = forceNativeTintVariant,
             opacity = opacity,
             scale = scale,
             appearAmount = enterAmount.coerceIn(0f, 1f),
@@ -213,7 +208,6 @@ internal class CombinedStatusPainter(
         canvas: Canvas,
         indicator: CenterIndicator,
         tint: Int,
-        forceNativeTintVariant: Boolean,
         opacity: Float,
         scale: Float,
         appearAmount: Float,
@@ -241,8 +235,7 @@ internal class CombinedStatusPainter(
                     canvas = canvas,
                     indicator = indicator,
                     tint = tint,
-                    forceNativeTintVariant = forceNativeTintVariant,
-                    opacity = opacity,
+                        opacity = opacity,
                     geometry = geometry,
                     nativeTransform = nativeTransform,
                     pixelAligned = appearAmount >= NATIVE_STEADY_APPEAR_THRESHOLD,
@@ -262,8 +255,7 @@ internal class CombinedStatusPainter(
                 drawNativeAirplane(
                     canvas = canvas,
                     tint = tint,
-                    forceNativeTintVariant = forceNativeTintVariant,
-                    opacity = animatedOpacity,
+                        opacity = animatedOpacity,
                     geometry = geometry,
                     nativeTransform = nativeTransform,
                     pixelAligned = appearAmount >= NATIVE_STEADY_APPEAR_THRESHOLD,
@@ -274,7 +266,6 @@ internal class CombinedStatusPainter(
                     canvas = canvas,
                     resource = indicator.nativeResource,
                     tint = tint,
-                    forceTintVariant = forceNativeTintVariant,
                     opacity = animatedOpacity,
                     centerX = CENTER_TRANSITION_PIVOT_X,
                     centerY = CENTER_TRANSITION_PIVOT_Y,
@@ -293,7 +284,6 @@ internal class CombinedStatusPainter(
         canvas: Canvas,
         indicator: CenterIndicator.Wifi,
         tint: Int,
-        forceNativeTintVariant: Boolean,
         opacity: Float,
         geometry: CombinedStatusCenterGeometry.Resolved,
         nativeTransform: NativeRenderTransform,
@@ -310,7 +300,6 @@ internal class CombinedStatusPainter(
                         resourceId = nativeResourceId,
                     ),
                 tint = tint,
-                forceTintVariant = forceNativeTintVariant,
                 opacity = opacity,
                 centerX = WIFI_CENTER_X,
                 centerY = WIFI_CENTER_Y,
@@ -485,7 +474,6 @@ internal class CombinedStatusPainter(
         canvas: Canvas,
         resource: CombinedStatusPresentationStateStore.NativeIconResource,
         tint: Int,
-        forceTintVariant: Boolean = false,
         opacity: Float,
         centerX: Float,
         centerY: Float,
@@ -494,12 +482,10 @@ internal class CombinedStatusPainter(
         nativeTransform: NativeRenderTransform,
         pixelAligned: Boolean,
     ): Boolean {
-        val presentationResource =
-            if (forceTintVariant) {
-                resolveNativeTintVariant(resource) ?: resource
-            } else {
-                resource
-            }
+        // This renderer always applies an external tint below. Match HyperOS's
+        // useTint=true presentation contract by resolving the native opaque
+        // *_tint mask first, then apply the already-authoritative resolved tint.
+        val presentationResource = resolveNativeTintVariant(resource) ?: resource
         val asset = nativeCenterAsset(presentationResource) ?: return false
         val intrinsicWidth = asset.intrinsicWidth
         val intrinsicHeight = asset.intrinsicHeight
@@ -621,7 +607,6 @@ internal class CombinedStatusPainter(
     private fun drawNativeAirplane(
         canvas: Canvas,
         tint: Int,
-        forceNativeTintVariant: Boolean,
         opacity: Float,
         geometry: CombinedStatusCenterGeometry.Resolved,
         nativeTransform: NativeRenderTransform,
@@ -636,7 +621,6 @@ internal class CombinedStatusPainter(
                     resourceId = resourceId,
                 ),
             tint = tint,
-            forceTintVariant = forceNativeTintVariant,
             opacity = opacity,
             centerX = AIRPLANE_CENTER_X,
             centerY = AIRPLANE_CENTER_Y,

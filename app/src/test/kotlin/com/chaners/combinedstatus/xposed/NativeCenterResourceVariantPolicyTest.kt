@@ -35,6 +35,16 @@ class NativeCenterResourceVariantPolicyTest {
     }
 
     @Test
+    fun alreadyDarkModeInputStillResolvesOpaqueTintMask() {
+        assertEquals(
+            "stat_sys_wifi_signal_1_tint",
+            NativeCenterResourceVariantPolicy.tintEntryName(
+                "stat_sys_wifi_signal_1_darkmode",
+            ),
+        )
+    }
+
+    @Test
     fun hotspotFamilyUsesSamePresentationSuffixContract() {
         assertEquals(
             "stat_sys_hotspot_signal_3_tint",

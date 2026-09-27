@@ -6,7 +6,6 @@ internal data class CombinedStatusColors(
     val centerTint: Int,
     val mobileTint: Int,
     val batteryTint: Int,
-    val centerUsesBatteryTint: Boolean = false,
 )
 
 internal object CombinedStatusColorPolicy {
@@ -37,7 +36,6 @@ internal object CombinedStatusColorPolicy {
                 if (visualSettings.mobileFollowsBatteryColor) batteryTint
                 else nativeParticipantTint,
             batteryTint = batteryTint,
-            centerUsesBatteryTint = visualSettings.centerFollowsBatteryColor,
         )
     }
 }
