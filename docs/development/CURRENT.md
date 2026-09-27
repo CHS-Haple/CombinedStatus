@@ -45,7 +45,7 @@ Home -> shade / Control Center projection is now the active Phase 2B direction. 
 - **Build 408 / `20260927-408`** is the maintainer-accepted Phase-2A working baseline for `dev` integration. Runtime source: `8a7a39d8297fe926387d56cc8ff5be4b08405f4a`. Work Branch Canary #338 / run `36315043013` passed all gates and produced artifact `10930143406`. The maintainer considers the current color/native-center result basically compliant with the intended design. A small residual ring/center/dot optical-weight difference may remain and is explicitly deferred as visual polish rather than treated as a blocker.
 - **Build 409 / `20260927-409`** is a completed but **device-incomplete Phase-2B checkpoint**. Executable source: `4ab7b490617757e34c0ea8e0b59e3d7a16bae9ad`; Fast #1129 and Work Branch Canary #363 passed. Device video + diagnostics show the promoted notification-shade gate does transition Home to `homeEligible=false` and runs the existing cleanup path, but the reported leak reproduction is driven by **Control Center**. During that transition `ControlCenterExpandControllerDelegate` reports `visible=true` and changing native fraction while Build 409 leaves Control Center callbacks diagnostics-only, so Home remains eligible and the compact overlay can overlap the native icons. Build 409 is therefore not accepted as the complete shallow-pull fix.
 - **Build 410 / `20260927-410`** is the current signed Phase-2B Home scene-lifetime device-test candidate. Executable runtime source: `6e2fc55944753c6cb9ef22f537008c97217f17e1`. Fast Build #1143 / run `36319763905` passed on test head `5320bf87253128de290b4b0809694949a02b6c38`; trusted Work Branch Canary #377 / run `36319940085` passed exact checkout, both pinned HyperOS scene contracts, tests/build, Haple signature, Modern Xposed metadata and non-debuggable validation and produced artifact `10932655599`. APK size: `3309598` bytes; SHA-256: `8c3f3011c214e66d20a89698e902191bdd8bc039803a6c824a261170a5cbf0eb`. Runtime is frozen pending device validation.
-- **Build 411 / `20260927-411`** is the current signed combined scene/visual device-test candidate. Executable runtime source: `aaaaf0810b114b1e90a3de3f1520721a420da2d0`. Fast Build #1150 / run `36321207293` passed on tested head `6bc260143c056bac643daf1c8d3f1af99bcd30df`; trusted Work Branch Canary #384 / run `36321322516` passed exact checkout, both pinned HyperOS scene contracts, tests/build, Haple signature, Modern Xposed metadata and non-debuggable validation and produced artifact `10931903528`. Extracted APK size: `3309602` bytes; SHA-256: `a596bd8b7841675174330be27421ee729ffe3d453b0f0b9a6ecb3f5956d7c759`. Runtime is frozen pending one combined device pass for panel transitions, notification/HUN behavior, and ring/endpoint/dot visual balance.
+- **Build 411 / `20260927-411`** is a signed combined scene/visual checkpoint. Executable runtime source: `aaaaf0810b114b1e90a3de3f1520721a420da2d0`; Fast #1150 and Canary #384 passed. Maintainer device feedback now **accepts the panel down/up scene behavior**: the notification-shade / Control Center transition issue is no longer blocking. The 8.0-unit ring visual A/B is **rejected** versus the previously preferred 8.25-unit ring; ring thickness/ROUND endpoint curvature still looks less harmonious. Heads-up/notification-triggered native fallback remains a separate issue unless separately confirmed fixed.
 - Build 406 trusted validation: owner `/canary` Work Branch Canary #335 **succeeded**. Validated PR head `80f371784ffaee406dd6ea5728219eeee5913318` differs from the frozen runtime source only in `CURRENT.md` and `DEVLOG.md`, so executable content remains exactly Build 406. Artifact `10929711688`; artifact ZIP digest `sha256:c7af997217acd171c66beb860d7212c0d72fd672a38978f7b5c2eb5a524f11ba`; extracted APK SHA-256 `e086d8914fece7ba8ea86200756f4a6366d56dadaa5510846618a4077e6ddd80`.
 - Documentation/test-only commits may advance the Phase-2B work branch beyond Build-410 executable source `6e2fc55944753c6cb9ef22f537008c97217f17e1` without creating a new runtime Build; runtime identity remains `20260927-410` until executable source changes.
 
@@ -67,18 +67,23 @@ Build 404 validation:
 
 ## Active runtime issues / validation
 
-### Visual intensity / optical parity — accepted for dev with deferred minor polish
+### Visual intensity / optical parity — 8.25 ring baseline restored next
 
-Build 407 resolved the blocking native-center opacity/resource-mask defect. Build 408 retained the native tint/resource fix and rebalanced the custom outer ring without changing semantic color authority.
+Build 407 resolved the blocking native-center opacity/resource-mask defect. Build 408 reduced the ring from the earlier effective 8.25 to 7.5 while retaining the accepted dot size; Build 411 tried an intermediate 8.0.
 
-Maintainer acceptance:
-- current color behavior and center opacity are **accepted for `dev` integration**;
-- the result is considered basically compliant with the intended visual design;
-- a small residual optical-weight difference between ring, center and dots may still be visible;
-- that residual is recorded as deferred polish, **not** as perfect parity and **not** as a Phase-2B blocker.
-- after Build 408 reduced the ring default stroke from the prior 8.25 effective units to 7.5 while retaining the accepted dot radius, the maintainer now reports the battery ring may read slightly too thin; this is recorded as a deferred **ring-only optical-weight A/B** and must not be mixed into Build 410 scene-lifetime validation.
+Maintainer device conclusion:
+- 7.5 is too thin;
+- 8.0 still looks worse than the original 8.25;
+- the thinner ring also reduces the `ROUND` endpoint radius and makes the lower-opening curvature look less visually unified with the four-dot group;
+- the preferred baseline is therefore the previously experienced **8.25 ring**.
 
-Do not reopen this with per-glyph RGB/alpha multipliers or screenshot-derived compensation during Phase 2B.
+Selected Build-412 visual correction:
+- restore ring stroke exactly to **8.25 canonical units**;
+- retain `Paint.Cap.ROUND`; do not invent a custom cap shape;
+- keep four-dot radius, center geometry, tint/alpha, opening angles and scene ownership unchanged;
+- let the existing lower-opening solver recompute balanced edge gaps from the restored stroke.
+
+This is a deterministic return to the maintainer-preferred earlier geometry, not a new visual experiment. It does not require a dedicated maintainer A/B before integration, but still requires source review and CI.
 
 ### Battery semantic colors — implemented and accepted for dev
 
@@ -86,7 +91,7 @@ Build 403 uses HyperOS `MiuiBatteryMeterIconView.getProgressStatus()` as semanti
 
 No user-facing per-state color picker/source selector is exposed yet. The future policy seam remains: **System default / Follow status icon / Custom** for NORMAL / CHARGING / POWER_SAVE / PERFORMANCE / LOW.
 
-### Home -> shade / Control Center scene boundary — Build 410 signed candidate
+### Home -> shade / Control Center scene boundary — panel transition accepted
 
 Build 409 corrected only the notification-shade half of the scene lifetime. Maintainer video and Build-409 diagnostics show the unresolved reproduction is a **Control Center** transition.
 
@@ -133,18 +138,13 @@ Build 409's notification-shade implementation remains intact and is not reopened
 
 ## Immediate next step
 
-1. **Runtime freeze:** Build 411 / `20260927-411`, executable source `aaaaf0810b114b1e90a3de3f1520721a420da2d0`.
-2. Use signed Work Branch Canary #384 artifact `10931903528`.
-3. One combined device pass:
-   - repeat Control Center shallow pull / return several times;
-   - repeat notification-shade shallow pull / return several times;
-   - confirm native status icons do **not** replay a fresh Home-layer entrance on every gesture;
-   - trigger one heads-up/notification popup and verify Combined Status remains/restores correctly instead of permanently falling back to native;
-   - inspect battery ring thickness, ROUND endpoint curvature and four-dot spacing/visual balance.
-4. Expected scene behavior: target Shade/Control Center surfaces remain native, while the structurally valid Home owner stays stable underneath; only the Home overlay visibility changes with scene eligibility.
-5. Expected visual baseline: ring 8.0 canonical units, dots unchanged, center unchanged, lower-opening solver recomputed automatically.
-6. Watch for any overlap, one-frame leak, stale end reservation, delayed Home return, notification-triggered native fallback, or ring becoming too heavy again.
-7. Do not modify runtime again until maintainer device feedback is recorded.
+1. Implement Build 412 as a **ring-only deterministic restoration** on the current bounded branch: `8.0 -> 8.25` canonical units.
+2. Keep `Paint.Cap.ROUND`; the endpoint radius should naturally return from 4.0 to 4.125 canonical units with the restored stroke.
+3. Keep mobile-dot size, center geometry, tint/alpha, opening-angle contract and Build-411 scene ownership unchanged; the lower-opening solver remains the only spacing authority.
+4. Update the outer-geometry baseline test from 8.0 to 8.25 and run Fast CI / signed Canary.
+5. No dedicated maintainer size A/B is required before integration because 8.25 is an already device-seen, explicitly preferred baseline.
+6. Record panel down/up scene behavior as accepted from Build 411.
+7. Keep the notification/HUN-triggered native-status fallback as a separate unresolved item unless maintainer feedback explicitly confirms it is fixed.
 
 ## Reference priority
 
