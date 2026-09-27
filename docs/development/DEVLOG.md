@@ -3013,6 +3013,7 @@ The tested validation head is 16 commits ahead of runtime source `614c6ae96f1753
 - Workflow run: Work Branch Canary #324 / run id `36281397598`
 - Artifact id: `10919007288`
 - Artifact ZIP digest: `sha256:694c81c37b5dc8227f0da076211ae538ac9250770da2eb97003be0727734c79f`
+- Extracted APK SHA-256: `eb16169738f3e16bcd208463ae4fc638898c3c46f2ca3b43efea3bda625519f1`
 
 ### Validation-carrier cleanup
 
