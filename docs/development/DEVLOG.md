@@ -4,9 +4,9 @@ This is the chronological engineering diary for Combined Status. It complements,
 
 ## 2026-09-28 — Build 417: exclude represented slots from visible Home Tint authority
 
-**Type:** single-variable ownership correction  
-**Build:** 417 / `20260928-417`  
-**Work branch / PR:** `fix/hot-reload-tint-continuity` / Draft #148  
+**Type:** single-variable ownership correction
+**Build:** 417 / `20260928-417`
+**Work branch / PR:** `fix/hot-reload-tint-continuity` / Draft #148
 **Device validation:** pending
 
 ### Problem execution flow
@@ -49,6 +49,10 @@ Added deterministic coverage that:
 - **Exception recovery:** existing reflection fallbacks remain.
 - **Future extension:** makes presentation authority explicit and reusable for later scene projection.
 
+### CI note
+
+Draft Light #1246 failed before Android/Gradle execution because the newly added DEVLOG metadata lines contained trailing whitespace. This is a documentation-format failure only; it does not validate or reject the Build-417 runtime change. The whitespace is removed in a record-only follow-up without changing Build identity.
+
 ### Gate
 
 Draft Light -> source review -> Ready/Fast. If Fast passes, request one signed Canary and stop runtime mutation for the same Hot Reload-vs-SystemUI-restart device comparison.
@@ -56,9 +60,9 @@ Draft Light -> source review -> Ready/Fast. If Fast passes, request one signed C
 
 ## 2026-09-28 — Build 416 device rejection: SystemUI restart isolates Hot Reload lifecycle
 
-**Type:** maintainer device rejection / root-cause narrowing  
-**Rejected build:** 416 / `20260928-416`  
-**Stable baseline:** 413 / `20260927-413`  
+**Type:** maintainer device rejection / root-cause narrowing
+**Rejected build:** 416 / `20260928-416`
+**Stable baseline:** 413 / `20260927-413`
 **Work branch / PR:** `fix/hot-reload-tint-continuity` / Draft #148
 
 ### Maintainer evidence
