@@ -382,6 +382,8 @@ Normal lifecycle:
 
 Opening a PR does not freeze development. Related follow-up inside the same acceptance boundary should remain in that branch until merge.
 
+During active iteration, keep an ordinary runtime work PR in **Draft** so intermediate pushes receive only Light validation. Move it to ready-for-review only when the source has reached a meaningful automated-validation checkpoint worth running Fast. If further runtime edits are required after that checkpoint, return the PR to Draft while iterating and mark it ready again for the next meaningful checkpoint. Do not use ready PR state as a permanent per-commit CI trigger.
+
 Do not reuse a merged branch. Abandoned/superseded branches should be closed and removed once their diagnostic value is exhausted.
 
 A work branch may merge to `dev` when:
@@ -445,13 +447,9 @@ Merged short-lived branches should be removed automatically when role and target
 
 The display version changes only when the formal external version is explicitly advanced.
 
-The active development display-version line is **0.0.2**. The first planned formal release target is **1.0.0**. Current `0.0.x` versions are pre-release development checkpoints and do not become formal releases merely because their display version advances.
-
 Normal APK-affecting iterations advance internal `versionCode` / `buildId` according to project rules. Documentation-only changes do not require an APK build-number bump.
 
 GitHub Actions run numbers are CI execution metadata, not application version identifiers.
-
-Detailed current version semantics and the formal-release boundary are maintained in `docs/development/VERSIONING.md`. Historical Build/CI records keep the display version that actually existed at the time.
 
 ### 7.2 Changelog
 
@@ -475,7 +473,11 @@ Before keeping an entry, ask: would it still be true and useful to someone who s
 
 ### 7.3 Release boundary
 
-Before the first formal release, `[Unreleased]` describes the current net state intended for that release.
+The first planned formal release target is **1.0.0**. Current `0.0.x` display versions are pre-release development lines and continue to advance only through explicit maintainer-approved development-version changes.
+
+Before the first formal release, `[Unreleased]` describes the current net state progressing toward the 1.0.0 release boundary. Do not rewrite historical Build/CI records when the future release target changes; historical records retain the version that actually existed at the time.
+
+The detailed current version plan is recorded in `docs/development/VERSIONING.md`.
 
 For a formal release:
 
@@ -521,8 +523,10 @@ Use four purpose-specific validation scopes:
 Routing:
 
 - Draft PR -> Light unless deeper validation is specifically required.
-- Ready ordinary product/runtime PR to `dev` -> Fast. When that Fast Build succeeds for a same-repository `feat/**` or `fix/**` branch updated by the repository owner, the trusted default-branch Canary follow-up may automatically build and publish one signed Canary for focused device testing.
-- Non-owner and fork pull requests never receive project signing credentials and do not trigger the signed Canary follow-up.
+- Ready ordinary product/runtime PR to `dev` -> Fast.
+- Keep active implementation PRs Draft between meaningful checkpoints so intermediate pushes stay Light rather than repeatedly paying the Fast cost.
+- A signed work-branch Canary is **explicit and demand-driven**: after the exact work-branch SHA has a successful trusted Fast Build, request Canary only when focused device evidence is actually needed. The normal entry is an exact repository-owner `/canary` comment on the open same-repository ready PR; maintainer `workflow_dispatch` remains the independent fallback.
+- Non-owner and fork pull requests never receive project signing credentials and cannot request the signed Canary path.
 - Trusted ordinary runtime push to `dev` -> Integration.
 - Routine internal `versionCode` / `buildId` changes may remain in Fast/Integration with the runtime change they identify.
 - Dependency/build/CI/tooling changes, including `app/build.gradle.kts` and ProGuard configuration -> Full.
@@ -530,21 +534,19 @@ Routing:
 - Runtime-affecting push or promotion/hotfix boundary on `main` -> Full.
 - Release workflow -> deliberate publication validation.
 
-This keeps validation proportional to the lifecycle stage: pull requests prove bounded source/build correctness without signing secrets; an owner-maintained work branch can receive an automatic signed Canary only after that unprivileged Build succeeds; `dev` still produces the integrated Canary baseline; Full is reserved for changes that can alter the build system or stable artifact contract.
+This keeps validation proportional to the lifecycle stage: Draft pull requests stay cheap while implementation is moving; ready pull requests prove bounded source/build correctness without signing secrets; signed work-branch Canary is created only for an explicit device-validation checkpoint; `dev` still produces the integrated Canary baseline; Full is reserved for changes that can alter the build system or stable artifact contract.
 
-The work-branch Canary is a privileged default-branch workflow. Its normal path follows a successful unprivileged `pull_request` Build for same-repository `feat/**` / `fix/**` work owned by the repository owner, checks out the exact tested SHA, reruns the applicable tests/profile checks, produces only the signed non-debuggable Canary, and publishes that APK for focused device validation. The work branch itself does not gain a privileged push-triggered workflow.
+The work-branch Canary is a privileged default-branch workflow, but it is **not** an automatic follow-up to every successful Fast Build. For the normal path, a repository-owner `/canary` top-level comment on an **open, same-repository, ready** `feat/**` or `fix/**` PR resolves the live head branch/SHA, verifies that exact SHA already has a successful trusted `pull_request` Build, then reruns the applicable target-profile/tests and produces one signed non-debuggable Canary for focused device validation. The work branch itself does not gain a privileged push-triggered workflow.
 
-If GitHub fails to deliver the normal pull-request event into Actions, the same default-branch workflow provides two trusted fallback admissions. The preferred operator fallback is an exact `/canary` top-level comment by the repository owner on an **open, same-repository** pull request whose head is `feat/**` or `fix/**`; the workflow resolves the live PR head branch/SHA from the GitHub API before checkout. A repository-owner-only `workflow_dispatch` entry remains available for an explicit same-repository `feat/**` or `fix/**` branch and resolves its current remote head SHA. Both fallbacks record the exact source identity and run the same target-profile/tests/metadata/signature/non-debuggable checks before publishing the Canary.
+A repository-owner-only `workflow_dispatch` entry remains available for an explicit same-repository `feat/**` or `fix/**` branch when PR-event delivery or the normal checkpoint path is unavailable. Manual dispatch resolves the current remote head SHA and independently runs the full Canary validation contract before artifact publication; it is not permission to ignore a known failed source state.
 
-Fallback admission is for event-delivery/infrastructure failure, not a way to turn failed CI green or bypass branch trust, source attribution, signing verification, device validation, or merge review. Prefer the automatic PR path whenever it is functioning; use the owner `/canary` command when automation needs to continue without a working pull-request event; keep manual dispatch as the final operator fallback.
-
-A work-branch Canary is a test artifact, not merge approval, not a `dev` integration baseline, and not a release. Automatic, owner-comment, and maintainer-dispatch invocations have the same runtime-validation meaning once the exact source SHA and required checks are recorded.
+A work-branch Canary is a test artifact, not merge approval, not a `dev` integration baseline, and not a release. Owner-comment and maintainer-dispatch invocations have the same runtime-validation meaning once the exact source SHA and required checks are recorded.
 
 A CI-workflow change is itself CI-affecting and requires Full validation.
 
 Superseded runs for the same PR/branch should be cancelled when a newer source state makes them irrelevant.
 
-Pull-request CI must remain safe for untrusted forks: never require or expose repository signing secrets. Secret-independent tests/build/compatibility/metadata checks are allowed. Project-signed artifacts remain a trusted-maintainer responsibility. Any automatic signed work-branch artifact must be produced by a trusted default-branch follow-up workflow after the unprivileged Build completes; do not expose signing secrets to a workflow definition controlled by the work branch itself.
+Pull-request CI must remain safe for untrusted forks: never require or expose repository signing secrets. Secret-independent tests/build/compatibility/metadata checks are allowed. Project-signed artifacts remain a trusted-maintainer responsibility. Any signed work-branch artifact must be produced by the trusted default-branch Canary workflow after explicit maintainer admission; do not expose signing secrets to a workflow definition controlled by the work branch itself.
 
 ### 8.3 Device validation
 
@@ -682,15 +684,22 @@ Before implementation, diagnosis, review, or continuation of an existing Combine
 3. `docs/development/ROADMAP.md`;
 4. the recent and historically relevant entries in `docs/development/DEVLOG.md`.
 
+Keep that four-step startup path intact. Then add task-specific repository evidence when applicable:
+- for architecture, host, geometry, scene, transition, or sizing work, read `docs/architecture/README.md` and `docs/reference/README.md` plus the relevant entries they index;
+- for display-version, release-target, or release-preparation work, read `docs/development/VERSIONING.md`;
+- `docs/README.md` is the repository documentation map when the correct document class is unclear.
+
+Reference-library material is evidence, not automatic implementation authority. A historical architecture documented elsewhere remains historical evidence even when `CURRENT.md` or `docs/architecture/README.md` marks that route superseded for new work.
+
 Repository state is authoritative over remembered conversation context. When the repository and an older discussion disagree, re-establish the task from the latest repository evidence before changing code.
 
 Do not treat this startup read as ceremonial. The active task must be checked against the current baseline, confirmed engineering conclusions, known invalidated hypotheses, remaining validation, and planned design boundaries before implementation continues.
 
-For development-record maintenance, also read `docs/development/RECORDING.md`. For display-version, release-target, or release-preparation work, also read `docs/development/VERSIONING.md`.
-
 ### 11.2 Development log requirement
 
-Every APK-affecting CI/build checkpoint created for engineering work MUST have a corresponding development-log record. A record should capture, in proportion to the change:
+The normative trigger/ownership rules are defined here. File-level structure, evidence wording, templates, duplication boundaries, and cross-file writing conventions are defined in `docs/development/RECORDING.md` and MUST be followed when maintaining engineering records.
+
+Every meaningful APK-affecting engineering checkpoint that creates or validates a distinct executable source state MUST have a corresponding development-log record. A documentation-only closure commit that records the result of that checkpoint is not a second APK/runtime checkpoint. A record should capture, in proportion to the change:
 
 - problem or objective and observed context;
 - analysis and competing hypotheses;
@@ -720,9 +729,20 @@ Use the three files for different purposes:
 
 Update `CURRENT.md` whenever the effective development baseline, active problem, confirmed conclusion, validation state, or immediate next step changes. Update `ROADMAP.md` when a planned direction, prerequisite, trigger, or intentionally reserved design boundary changes.
 
-`CHANGELOG.md` remains the durable net project-state record defined in section 7.2. Do not turn it into the development diary.
+Do not postpone repository-memory updates until the end of a long task. After each **meaningful engineering step** that changes what the next step should be, synchronize the affected record before continuing:
 
-File-level writing structure, evidence language, duplication boundaries, and cross-file synchronization are defined in `docs/development/RECORDING.md`. That guide standardizes how records are written; this `CONTRIBUTING.md` remains the normative source for when a record is required and which engineering rules apply.
+- **Investigation/evidence changes the active hypothesis, blocker, or next action:** update `CURRENT.md`; append `DEVLOG.md` when the finding is a durable root-cause/architecture/compatibility conclusion.
+- **Architecture or ownership contract changes:** update the applicable `docs/architecture/` policy, `CURRENT.md`, and `ROADMAP.md` when future sequencing changes; append the decision to `DEVLOG.md`.
+- **Reusable reference evidence is added or invalidated:** update `docs/reference/`; update current/roadmap documents only when that evidence changes the active project decision.
+- **A runtime implementation checkpoint is created:** update `CURRENT.md` and create/extend the attributable `DEVLOG.md` entry before presenting the checkpoint as current.
+- **CI/device validation changes acceptance status:** update `CURRENT.md` immediately and append the actual validation result/correction to `DEVLOG.md`; never leave the previous status as the current truth.
+- **A planned phase, prerequisite, or release target changes:** update `ROADMAP.md` and, for version/release semantics, `VERSIONING.md`; synchronize README/CHANGELOG wording when their current public/net-state description is affected.
+- **A durable user-visible/net project behavior changes:** update `CHANGELOG.md`; do not add temporary probes, failed experiments, or superseded mechanisms as final net state.
+- **The active PR's real objective or acceptance boundary changes:** update the PR title/body so it describes the current branch purpose rather than an earlier checkpoint.
+
+Mechanical sub-steps that do not change engineering meaning do not require a separate log entry.
+
+`CHANGELOG.md` remains the durable net project-state record defined in section 7.2. Do not turn it into the development diary.
 
 ### 11.4 CI/build linkage and corrections
 
@@ -733,3 +753,22 @@ A rerun of the same source SHA for a transient CI failure may be appended to the
 When device evidence contradicts the current entry, update `CURRENT.md` immediately if the active conclusion changed, then append the contradiction and revised conclusion to `DEVLOG.md`. Never leave an invalidated hypothesis presented as the current source of truth.
 
 Development-log maintenance is repository text/governance work under section 6.1A when it has no executable effect. If a log update travels with runtime work because it records that same checkpoint, it may be committed with the owning work branch rather than creating unrelated CI solely for documentation.
+
+When a Build/device result becomes known only after the executable commit is already finalized, close that checkpoint with one coherent documentation update. Do **not** increment `versionCode` / `buildId`, create another runtime Build, or create a new DEVLOG checkpoint merely because that record-only commit receives a Light repository check. Raw CI execution metadata may remain in GitHub Actions; the repository record preserves the engineering meaning needed for recovery.
+
+### 11.5 Documentation synchronization after meaningful checkpoints
+
+Repository memory must move with the engineering state. After each **meaningful checkpoint**—a step that changes the active problem, evidence, root-cause conclusion, implementation boundary, validation state, roadmap direction, or durable project behavior—synchronize the applicable documents before treating that checkpoint as complete.
+
+Use this mapping:
+
+- **Active problem / confirmed conclusion / blocker / validation state / immediate next step changed** -> update `docs/development/CURRENT.md`.
+- **Architecture route, future phase, prerequisite, trigger, or reserved design seam changed** -> update `docs/development/ROADMAP.md` and the relevant `docs/architecture/` policy/status document.
+- **Reusable implementation evidence or generalized reference conclusion changed** -> update the relevant `docs/reference/` entry without importing third-party-specific naming or code.
+- **Major investigation or architecture conclusion completed, with or without code** -> append a `DEVLOG.md` entry; do not rewrite the historical entry it supersedes.
+- **APK/runtime checkpoint created** -> record the Build/CI identity, review, required device gate, and resulting feedback in `DEVLOG.md`, and update `CURRENT.md` to the new validation state. A later documentation-only closure commit for that same checkpoint remains part of the same record and must not be promoted into a fictitious next Build.
+- **Durable user-visible/project-state behavior changed** -> update `CHANGELOG.md` in present-state wording; remove or neutralize superseded implementation details from `[Unreleased]` rather than turning it into a historical diary.
+- **Display-version or formal-release target/boundary changed** -> update `docs/development/VERSIONING.md` and any public README/release wording that depends on it.
+- **Open PR purpose or acceptance boundary materially changed** -> update the PR title/body so it describes the current work rather than an earlier checkpoint.
+
+Mechanical sub-steps that do not change engineering state do not require separate records. The goal is continuous, accurate recovery context, not logging every file read or line edit.
