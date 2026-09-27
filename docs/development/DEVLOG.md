@@ -3755,3 +3755,72 @@ No Phase-2B, opacity multiplier, grayscale compensation, geometry tuning or addi
 ### Gate
 
 **Runtime is frozen at Build 406.** The next required evidence is maintainer device A/B with `centerFollowsBatteryColor=true` on both light and dark surfaces. No Phase-2B or further center-rendering runtime change should be layered before that result.
+
+
+---
+
+## 2026-09-27 — Build 406 device rejection: default center branch is also optically light
+
+**Type:** device rejection / hypothesis correction  
+**Display version:** 0.0.2  
+**Build under test:** 406 / 20260927-406  
+**Runtime source:** `3d5e9d2339824c6d19e50dda170917559369135b`  
+**Result:** optical parity rejected; custom-tint-only hypothesis disproved
+
+### Problem / objective
+
+Build 406 tested whether the remaining low-opacity/low-weight center was primarily caused by recoloring a raw native resource instead of the verified HyperOS `_tint` mask variant.
+
+### Device evidence
+
+The maintainer supplied a new screenshot with **center follows battery color disabled**. The center Wi-Fi glyph remains visibly lighter / less solid than the outer battery ring and native peers.
+
+A direct pixel inspection of that screenshot gives supporting evidence:
+- light embedded status-bar crop: ring dark pixels reach approximately gray 53 while center dark pixels reach approximately 56, but the center's dark-pixel median is approximately 96 versus ring approximately 80, indicating less effective optical coverage even when the darkest core is similar;
+- live dark status-bar crop: ring bright pixels reach approximately 239 while center reaches approximately 216, indicating a real presentation-alpha/coverage difference on that surface.
+
+These values are screenshot observations, not runtime constants and must **not** be copied into rendering policy.
+
+### Problem execution flow
+
+**Phenomenon and evidence -> root-cause correction**
+
+Because the defect persists with `centerFollowsBatteryColor=false`, Build 406's selected custom-color-only responsibility boundary is too narrow.
+
+**Build-403 comparison**
+
+The exact Build-403 source (`97ef67e648906a4b9bb2ce4d7dd390e955831189`) rasterized the native center into a bounded probe, computed an 85th-percentile visible-alpha ceiling, normalized source alpha against that ceiling, retained the normalized bitmap, then applied the final resolved tint with SRC_IN.
+
+Build 404 removed that source-alpha normalization while retaining the same bitmap path and regressed on device. This establishes that the normalization materially increased apparent center coverage/weight, but does **not** establish that percentile normalization is a native SystemUI contract.
+
+Build 405 moved final rendering back to a direct module-owned Drawable clone and kept the bitmap only for optical measurement. Build 406 added a native `_tint` sibling only for the custom/battery-color branch. Neither closed parity.
+
+**Current root-cause interpretation**
+
+Build 403 was compensating a mismatch in the final presentation/coverage boundary. The remaining issue is broader than custom recolor and narrower than Home layout/geometry. The next native authority to inspect is the already-rendered Home Wi-Fi ImageView after HyperOS has applied its own resource transformation, tint list/mode, drawable alpha and ImageView alpha.
+
+### Selected investigation direction
+
+Prefer reusing the existing `MiuiWifiViewBinder` / Wi-Fi emitter hook lifecycle:
+- it already exposes the bound native `ImageView`;
+- after `chain.proceed()`, HyperOS has applied the current final drawable/tint presentation;
+- the native Wi-Fi View remains alive even when Combined Status masks its pixels, so its presentation can remain authoritative;
+- capture only read-only final presentation data and create a module-owned Drawable clone before rendering;
+- do not mutate the live native ImageView/Drawable;
+- do not add a second Light/Dark/Tint state machine, polling loop or extra lifecycle owner.
+
+### Review boundary
+
+- **Ownership:** native ImageView remains SystemUI-owned; Combined Status may mirror only a module-owned clone.
+- **Lifecycle:** reuse the existing Wi-Fi binder/emitter hook instead of installing a new observer.
+- **Single writer:** no native View tint/alpha/resource write.
+- **Cleanup:** any mirrored Drawable state must stay bounded to the existing runtime/painter lifecycle and Hot Reload cleanup.
+- **Fail native:** if final presentation cannot be captured safely, preserve the existing native/fallback behavior.
+- **Performance:** update only on existing Wi-Fi presentation events; no per-frame reflection/tree traversal.
+- **Compatibility:** use exact-target verified binder/ImageView contracts and degrade safely.
+- **Exception recovery:** capture/clone failure must not affect the native Wi-Fi pipeline.
+- **Future extension:** a generic final-native-presentation seam may later support other center resources, but the next A/B should remain Wi-Fi-focused.
+
+### Gate
+
+No runtime change is accepted yet from this correction. Complete the final-native-presentation review first, then implement one bounded next A/B and stop for signed-Canary device validation.
