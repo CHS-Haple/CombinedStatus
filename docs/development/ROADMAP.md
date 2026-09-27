@@ -18,7 +18,7 @@ Established capabilities that later phases must preserve include:
 - authoritative Wi-Fi/mobile/battery/domain state;
 - single-SIM and dual-SIM presentation paths;
 - hotspot, no-SIM, airplane and mobile-type semantics;
-- native resource/tint reuse and bounded visual-intensity handling;
+- native resource/tint reuse with authored Drawable/vector semantics preserved through final rendering where verified;
 - native Wi-Fi/mobile/battery replacement with fail-native restoration;
 - master switch and Hot Reload;
 - charging/island ownership evidence required for the current carrier architecture.
