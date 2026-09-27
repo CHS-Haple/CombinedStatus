@@ -53,6 +53,8 @@ internal object SystemUiHotReloadRuntimeOwner {
                 host = host,
                 state = CombinedStatusStateStore.exportHotReloadState(),
                 bindings = SystemUiNetworkStateSource.exportHotReloadBindings(),
+                notificationShadeHomeEligible =
+                    SystemUiPanelTransitionSource.currentNotificationShadeHomeEligibility(),
             ) ?: return PrepareResult.Unavailable(
                 reason = "state-transfer-capture-failed",
                 wifiRoots = bindingCounts.first,

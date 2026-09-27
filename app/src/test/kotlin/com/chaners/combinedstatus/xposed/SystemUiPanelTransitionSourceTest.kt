@@ -25,6 +25,21 @@ class SystemUiPanelTransitionSourceTest {
     }
 
     @Test
+    fun notificationShadeEligibilitySnapshotCanSeedHotReloadGeneration() {
+        SystemUiPanelTransitionSource.resetRuntimeState()
+        assertNull(SystemUiPanelTransitionSource.currentNotificationShadeHomeEligibility())
+
+        SystemUiPanelTransitionSource.restoreNotificationShadeHomeEligibility(false)
+        assertEquals(false, SystemUiPanelTransitionSource.currentNotificationShadeHomeEligibility())
+
+        SystemUiPanelTransitionSource.restoreNotificationShadeHomeEligibility(true)
+        assertEquals(true, SystemUiPanelTransitionSource.currentNotificationShadeHomeEligibility())
+
+        SystemUiPanelTransitionSource.restoreNotificationShadeHomeEligibility(null)
+        assertNull(SystemUiPanelTransitionSource.currentNotificationShadeHomeEligibility())
+    }
+
+    @Test
     fun runtimeHookCountKeepsControlCenterDiagnosticsOptional() {
         assertEquals(1, SystemUiPanelTransitionSource.expectedHookCount(false))
         assertEquals(3, SystemUiPanelTransitionSource.expectedHookCount(true))

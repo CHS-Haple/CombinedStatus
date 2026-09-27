@@ -462,6 +462,9 @@ class CombinedStatusModule : XposedModule() {
                 }
             }
 
+            SystemUiPanelTransitionSource.restoreNotificationShadeHomeEligibility(
+                restored.notificationShadeHomeEligible,
+            )
             attachHostRuntime(
                 host = capture.host,
                 source = "hotReloadRestore",
@@ -478,6 +481,8 @@ class CombinedStatusModule : XposedModule() {
                 "mobileRoots" to bindings.mobileRoots,
                 "state" to restoredSnapshot.logLine,
                 "homePresentation" to "readiness-gated",
+                "shadeHomeEligible" to
+                    (restored.notificationShadeHomeEligible ?: "unknown"),
                 "mainThread" to true,
             )
             logDiagnostic(
