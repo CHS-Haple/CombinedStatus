@@ -2,6 +2,62 @@
 
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
+## 2026-09-28 — Phase 2B panel projection evidence boundary
+
+**Type:** architecture/source review / documentation-only checkpoint
+**APK build:** none; integrated runtime remains Build 413 / `20260927-413`
+**Work branch:** `feat/panel-projection`
+
+### Problem / objective
+
+Build 413 closes Home scene-lifetime ownership for HUN, notification-shade shallow pull, and Control Center visibility handoff. Phase 2B is still incomplete because Combined Status does not yet render as a verified projection on the notification-shade / Control Center surfaces; those surfaces remain native-only while the Home overlay is suppressed.
+
+### Problem execution flow
+
+**Phenomenon / current state**
+
+- Home rendering is runtime-verified and uses `MiuiNotificationStatusContainer.overlay`.
+- Notification shade and Control Center have verified native lifetime owners and progress callbacks.
+- Control Center already exposes bounded exact-target anchor evidence through `ControlCenterHeaderExpandController` + `StatusBarAnchorBounds`.
+- Notification shade currently exposes the accepted `ShadeExpansionStateManager` motion/lifetime facts, while exact target reference identifies `NotificationHeaderExpandController` as translation owner, but the current repository does not yet have an equivalent verified target-host / target-bounds snapshot for rendering.
+
+**Root-cause / evidence gap**
+
+The remaining Phase-2B blocker is not another Home visibility defect. It is missing evidence for the actual target-surface projection contract, especially notification shade. Without a verified target host/bounds/tint source, writing an interpolation formula would invent geometry ownership.
+
+### References consulted
+
+- latest `CONTRIBUTING.md`, `CURRENT.md`, `ROADMAP.md`, and Build-413 DEVLOG closure;
+- `docs/architecture/layout-policy.md` and `scene-policy.md`;
+- exact-target `SystemUI-Reference/findings/scene-host-motion.md`;
+- exact-target `SystemUI-Reference/findings/control-center.md`;
+- exact-target verified-contract index;
+- historical Builds 380-390 only as evidence, not as reusable architecture.
+
+### Selected direction
+
+1. Resolve notification-shade controller/host/target geometry first.
+2. Reuse existing Control Center anchor diagnostics unless a concrete missing fact is identified.
+3. If exact static evidence cannot close the notification target contract, add one bounded Detailed-only read-only probe at the existing native callback boundary.
+4. Only after target contracts are known may a scene-specific projection session be implemented using the shared Combined Status render model.
+
+### 审查 / review
+
+- **Ownership:** SystemUI remains owner of notification/Control Center translation, peer layout, and native surface lifecycle.
+- **Lifecycle:** no new runtime owner in this checkpoint.
+- **Single writer:** no geometry/visibility writer added.
+- **Cleanup:** no runtime resource added.
+- **Fail native:** both surfaces remain native-only until their projection contracts are established.
+- **Performance:** documentation/source review only.
+- **Compatibility:** exact pinned SystemUI fingerprint remains the evidence scope.
+- **Exception recovery:** unchanged.
+- **Future extension:** target-surface adapters should reuse one shared renderer/state model and remain independent from the Home overlay lifecycle.
+
+### Outcome / next step
+
+Open a Draft Phase-2B projection PR from this checkpoint. Continue exact-target notification-header source/contract review. Create Build 414 only if a bounded runtime diagnostic is actually needed to resolve the remaining target-host/geometry facts.
+
+
 ## 2026-09-27 — Canary admission gate hardening and bounded automation merge delegation
 
 **Type:** repository automation / CI governance
