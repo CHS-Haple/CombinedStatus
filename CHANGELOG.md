@@ -29,6 +29,8 @@ The project follows a Keep a Changelog-style structure. During pre-release devel
 
 ### Changed
 
+- Home status-icon tint now remains synchronized with the live HyperOS/SystemUI status-icon authority across module Hot Reload and repeated light/dark app/Home transitions, avoiding stale cross-scene tint snapshots while preserving native Battery semantic colors and fail-native behavior.
+
 
 - Center network presentation reuses authoritative HyperOS Wi-Fi/hotspot, airplane, and no-SIM drawable resources. Native center drawables resolve the verified SystemUI tint presentation variant when externally tinted, are measured with a bounded optical probe, and are drawn directly at final resolved bounds without a final bitmap-resample or project-owned alpha-normalization stage. Battery semantic states continue to use the native battery color policy, while the optional center/mobile color links can intentionally follow the battery ring’s final resolved color. Proportional center size/text-weight parameters remain reserved for later user customization.
 - Outer Combined Status visual weight uses the maintainer-preferred 8.25-unit battery-ring stroke with the accepted 5.39-unit mobile-dot radius and native-style ROUND endpoints; the lower opening is recomputed so ring-to-dot and dot-to-dot edge spacing remains balanced. A shared proportional weight scale remains reserved for future user-facing thickness control.

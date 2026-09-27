@@ -2,6 +2,53 @@
 
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
+## 2026-09-28 — PR #146 refreshed from accepted Build 418 dev baseline
+
+**Type:** history-preserving feature-branch recovery / documentation checkpoint
+**Runtime Build:** unchanged — 418 / `20260928-418`
+**Work branch / PR:** `feat/panel-projection` / Draft #146
+**dev source merged:** `2a0ddbac7daeeb4129042c1702773df0f47583a0`
+
+### Recovery decision
+
+PR #146 had diverged from `dev` while the independent Hot Reload/Tint defect was resolved through Builds 415-418. Build 418 is now device-accepted and Integration-validated, so the Phase-2B branch can resume.
+
+The branch refresh is deliberately history-preserving:
+- retain the old #146 commit history as the first-parent feature history;
+- merge the accepted current `dev` history as the second parent;
+- use the latest `dev` runtime tree as the resolved runtime baseline;
+- preserve Build-414 panel-probe findings in DEVLOG/reference only;
+- do **not** retain the completed `SystemUiNotificationHeaderProbe`, its diagnostic-only target-profile expansion, or its verifier/test scaffolding in the active runtime;
+- do not increment Build identity because this synchronization leaves executable runtime equal to accepted Build 418.
+
+### Build-414 evidence retained
+
+The bounded Build-414 notification-header probe completed its diagnostic purpose:
+- native expansion boundary buckets 0/1/7/8 were observed;
+- the only directly discovered Android `View` on `NotificationHeaderExpandController` was `realClockIcons`;
+- controller `notificationTranslationX=2` and `notificationTranslationY=-109` remained stable in the captured boundaries;
+- the field inventory identified `headerController: Lazy` and `notification: NotificationShadeWrapper` as narrower ownership seams for follow-up;
+- the probe was read-only and is not accepted as a production geometry source.
+
+The contemporaneous Hot Reload tint defect exposed during Build 414 is superseded by the accepted Build-418 lifecycle correction and must not be reintroduced while continuing projection work.
+
+### 审查 / review
+
+- **ownership:** latest `dev` Home/Tint/scene owners remain authoritative; no old diagnostic owner is restored.
+- **lifecycle:** synchronization adds no runtime lifecycle.
+- **single writer:** unchanged from Build 418.
+- **cleanup:** obsolete diagnostic hook state is absent from the resolved runtime tree.
+- **fail-native:** notification shade and Control Center remain native-only until a verified projection target contract exists.
+- **performance:** no runtime change.
+- **compatibility:** no extra Build-414 diagnostic contract is imposed on current runtime compatibility.
+- **exception recovery:** unchanged from Build 418.
+- **future extension:** continue static/reference discovery through `NotificationShadeWrapper` / `headerController`; add another diagnostic only if a specific fact remains unavailable.
+
+### Next
+
+Continue Phase 2B source/contract review before runtime mutation. The next application Build is created only when executable projection/diagnostic source genuinely changes.
+
+
 ## 2026-09-28 — Build 414 device evidence: panel probe succeeds, Hot Reload tint continuity fails
 
 **Type:** maintainer device evidence / root-cause triage
@@ -58,7 +105,6 @@ Because this is a different runtime owner and independently shippable correction
 ### Panel-projection outcome
 
 Build 414 achieved its diagnostic objective but is not accepted as a mergeable projection checkpoint because of the Hot Reload tint regression. Keep PR #146 Draft. After the separate Hot Reload fix integrates, refresh the branch and continue target-host discovery through the verified notification header controller/wrapper chain.
-
 
 ## 2026-09-28 — Build 414 notification-header target-geometry probe
 
@@ -131,7 +177,6 @@ Probe installation is isolated from `SystemUiPanelTransitionSource`. If the diag
 
 Because executable source and the pinned compatibility/tooling contract changed, this checkpoint advances to Build 414 and requires the applicable automated validation before a signed Canary. No panel-projection behavior should be implemented until the focused device diagnostic closes the target-host/geometry evidence gap.
 
-
 ## 2026-09-28 — Phase 2B panel projection evidence boundary
 
 **Type:** architecture/source review / documentation-only checkpoint
@@ -186,6 +231,662 @@ The remaining Phase-2B blocker is not another Home visibility defect. It is miss
 ### Outcome / next step
 
 Open a Draft Phase-2B projection PR from this checkpoint. Continue exact-target notification-header source/contract review. Create Build 414 only if a bounded runtime diagnostic is actually needed to resolve the remaining target-host/geometry facts.
+
+## 2026-09-28 — Build 418 integrated into dev
+
+**Type:** device-accepted runtime integration closure
+**Build:** 418 / `20260928-418`
+**PR:** #148 `fix/hot-reload-tint-continuity`
+**dev merge commit:** `11bc4ff741869e3311d2be697d4dcfb66f5cb39c`
+
+### Acceptance and integration
+
+- Maintainer focused device validation reports the repeated Home/light-app Tint transition is normal and no longer reproduces the stale inversion.
+- The accepted Detailed diagnostic confirms Hot Reload restoration and subsequent DarkIcon transitions keep renderer `appliedTint`, renderer `statusIconTint`, and live SystemUI status-icon authority aligned.
+- PR #148 merged into `dev` through a merge commit without changing the accepted Build-418 runtime identity.
+- Trusted `dev` push/integration Build #1267 / run `36346676416` passed on exact merge commit `11bc4ff741869e3311d2be697d4dcfb66f5cb39c`.
+- Integration validation passed Gradle Wrapper, Java/API37 setup, signing restore, pinned HyperOS target profile, unit tests/build, Modern Xposed metadata, APK signature, non-debuggable verification, artifact preparation and upload.
+- Integration Canary artifact: `CombinedStatus-0.0.2-HyperOS-20260928-418-canary.apk`, artifact id `10940941306`, GitHub artifact digest `sha256:6d9dd2e53185e4974d74f0d8fcdcd21f0d9388c6bc7362246bb497ce0ffaaec0`.
+
+### Review / 审查
+
+- **ownership:** SystemUI remains Tint authority; accepted snapshot composition is now part of the dev baseline.
+- **lifecycle:** Hot Reload transfer is continuity/fallback only; fresh generation authority wins.
+- **single writer:** renderer ownership remains unchanged.
+- **cleanup/fail-native:** unchanged and Integration-tested.
+- **performance:** no polling, delay, retry or frame-level Tint work was introduced.
+- **compatibility:** pinned target validation passed after integration.
+- **future extension:** the shared Home Tint lifecycle blocker is closed, so Phase-2B projection can resume without duplicating color policy.
+
+### Next
+
+Resume Draft PR #146 from current `dev`. Preserve Build-414 probe findings as historical evidence, but remove the completed diagnostic probe from the active runtime unless a newly identified evidence gap justifies another bounded diagnostic.
+
+
+## 2026-09-28 — Build 418: live Tint authority snapshot at renderer commit
+
+**Type:** single-variable Tint lifecycle correction
+**Build:** 418 / `20260928-418`
+**Work branch / PR:** `fix/hot-reload-tint-continuity` / Draft #148
+**Device validation:** accepted
+
+### Problem execution flow
+
+**Phenomenon and evidence:** Build 417 selects a valid non-represented `volume` anchor and resolves black native status-icon Tint, but Combined Status can remain white. Maintainer video shows native VPN/mute icons changing black/white across repeated app/Home transitions while Combined Status can stay white; the same scene may be correct once and wrong on a later entry.
+
+**Root cause / responsibility source:** renderer Tint state is assembled from two asynchronous sources. A fresh status-icon event can arrive before renderer attach and be lost. Later Battery/scene events currently combine fresh Battery `appliedTint` with cached presentation-store `statusIconTint`, creating a mixed-generation/mixed-scene snapshot. Normal monochrome policy prefers `statusIconTint`, so the stale secondary field can override an otherwise correct Battery event.
+
+**Native rule:** SystemUI Home status-icon authority owns monochrome presentation. Battery DarkReceiver is a useful event trigger and fallback but must not provide or freeze another status-icon authority generation.
+
+### Implementation
+
+- add `CombinedStatusTintAuthority` as the deterministic composition boundary;
+- Battery events resolve current Home status-icon Tint live on every renderer commit;
+- status-icon observer events directly refresh only the renderer's status authority while preserving current Battery applied tint;
+- after Hot Reload observer attach, transferred Tint is rebased against the new generation's live status-icon authority before renderer attach;
+- if live status authority is unavailable, fall back to transferred status Tint, then Battery applied Tint;
+- renderer diagnostics emit both `appliedTint` and `statusIconTint` on every changed Tint state in Detailed mode;
+- Battery semantic-color, geometry, masking, scene ownership, transfer payload shape and animation code are unchanged.
+
+### Tests
+
+Deterministic tests cover:
+- live status-icon authority wins over stale embedded status Tint on Battery events;
+- Battery applied tint is the fail-native fallback;
+- status-icon events update status authority without overwriting Battery applied tint;
+- status-icon events can seed a renderer Tint state;
+- Hot Reload transfer is rebased to new-generation live authority;
+- transferred status Tint remains fallback when live authority is unavailable.
+
+### 审查 / review
+
+- **Ownership:** one composition boundary decides renderer Tint; SystemUI status icons own monochrome direction, Battery owns its applied-tint input/event timing.
+- **Lifecycle:** new-generation authority supersedes transfer before renderer attach.
+- **Single writer:** `CombinedStatusHomeRenderSession -> CombinedStatusRenderController` remains the only renderer writer.
+- **Cleanup:** no new listener/hook/observer.
+- **Fail native:** live authority -> transferred status tint -> Battery applied tint.
+- **Performance:** one bounded current-authority read on existing Dark/scene events; no polling or frame work.
+- **Compatibility:** reuses already validated Home manager/group contracts and existing hooks.
+- **Exception recovery:** null/transparent authority falls through existing visible-color checks.
+- **Future extension:** provides a coherent snapshot boundary reusable by panel/lockscreen projections.
+
+### Draft validation / source review
+
+- Draft Light #1254 passed on the first Build-418 implementation checkpoint.
+- Post-implementation review removed a redundant Battery replay from the status-icon callback so one status event produces one status-authority commit.
+- Battery-event composition was tightened further: when live SystemUI status authority is unavailable it now falls directly to the current Battery applied tint rather than accepting any embedded stale status field.
+- Deterministic test coverage was extended for this stale-embedded-status rejection.
+- Draft Light #1255 passed on runtime head `dda51a7efa93131ab9fe0203f3b4f42d6ee8f161`.
+- Final cleanup removes an unused one-shot Tint-log flag; Detailed diagnostics intentionally log each **changed** renderer Tint state because scene transitions are low-frequency, event-driven checkpoints rather than frame events.
+- Draft Light #1256 and #1257 both passed after the single-event/single-commit cleanup. Exact runtime/source head before this record-only closure: `c05d2ee3c094b3331135d66565771b67e7faf6cb`.
+- Exact-target SystemUI-Reference review found no verified stable `DarkIconDispatcher.addDarkReceiver/removeDarkReceiver` registration contract. Build 418 therefore deliberately reuses already-validated native events and live Home status-icon reads rather than widening the Hook/registration surface.
+
+### Fast / Canary result
+
+- Final Draft Light #1256 passed on exact PR head `c05d2ee3c094b3331135d66565771b67e7faf6cb`.
+- PR #148 was marked Ready only after Draft Light and source review.
+- Fast Build #1257 passed on the same exact head, including pinned HyperOS target-profile verification, unit tests, Debug build and Modern Xposed metadata.
+- Explicit maintainer `/canary` request produced Work Branch Canary #403.
+- Canary trusted-source resolution, tested-head checkout verification, signing restore, pinned target profile, Canary build, Xposed metadata, APK signature, non-debuggable verification, artifact preparation and upload all passed.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260928-418-canary.apk`.
+- GitHub artifact digest: `sha256:f02e6db7c1d9c51aaceaf2e60392beffb5e4442f140d4804f350bf978e81d996`.
+- Extracted APK SHA-256: `45ffb3d8b894dcaff482d1bdd350bc0b29ddf57e48900347ee9e93d50c4a7761`.
+- Runtime is frozen at Build 418 pending repeated scene-switch device evidence.
+- This record-only closure does **not** create a new runtime Build.
+
+### Final exact-head revalidation
+
+- The earlier Fast #1257 / Canary #403 validation remains valid historical evidence for the same Build-418 runtime code.
+- Subsequent record-only commits advanced PR #148 to exact head `42f350c2bb8d7338906469454fadabc5dcb629de` without changing runtime source after `c05d2ee3c094b3331135d66565771b67e7faf6cb`.
+- Ready checkpoint Fast #1261 passed on exact PR head `42f350c2bb8d7338906469454fadabc5dcb629de`, including pinned target profile, unit tests, Debug build and Modern Xposed metadata.
+- One duplicate Work Branch Canary request (#404) passed trust/checkout/profile/signing setup but was cancelled during the build by the later Canary request through workflow concurrency; this is **not** a runtime failure.
+- Work Branch Canary #405 completed successfully on trusted source SHA `42f350c2bb8d7338906469454fadabc5dcb629de`. The completed job verified trusted-source resolution, exact checkout, pinned target profile, tests/Canary build, Modern Xposed metadata, Haple APK signature, non-debuggable status and artifact upload.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260928-418-canary.apk`.
+- GitHub artifact digest: `sha256:2a89a293fe636703494776682d8f08f071872790d327143c54317ff0e1a16a1b`.
+- Extracted APK SHA-256: `eac3105741237f361d72f3227db6b8a45daa13508ba244048ae77ff76c8642c5`.
+- PR #148 is returned to Draft and runtime remains frozen. This record-only closure does **not** create another runtime Build.
+
+### Device acceptance — Build 418
+
+- Maintainer device result: **normal** after the focused repeated Home -> light app -> Home -> light app test.
+- Validation was performed on Build 418 Canary with Detailed diagnostics enabled and without requiring a SystemUI restart to recover presentation.
+- Runtime health reports the Hot Reload generation, status-icon observation, renderer, presentation cutover, panel transition source, and network suppression owner as ready.
+- Hot Reload observer attach resolves the visible non-represented `volume` peer at `#bf000000`; renderer transfer state starts with `appliedTint=#bf000000` and `statusIconTint=#bf000000`.
+- During subsequent DarkIcon transitions, renderer commits track the current native authority rather than stale cache: `appliedTint`, `statusIconTint`, and `liveStatusIconTint` move together through the native intermediate shades and final light/dark endpoints.
+- Later status-icon observation transitions from light back to dark are also reflected without requiring SystemUI recreation.
+- The maintainer reports the previously reproducible "one entry correct, next entry wrong" behavior is no longer observed.
+
+**Conclusion:** Build 418 is accepted. The root cause is closed as a mixed-generation/mixed-scene Tint snapshot race: cached status authority was being combined with newer Battery/Dark events and fresh authority could arrive before renderer attachment. The accepted mechanism keeps SystemUI as the sole presentation authority, composes one live authority snapshot per renderer commit, and treats Hot Reload transfer only as bounded continuity/fallback.
+
+**Integration decision:** close the fix branch into `dev`, then resume Phase-2B projection. No further Build increment is created by acceptance documentation.
+
+### Device gate
+
+Install the signed Build-418 Canary without first restarting SystemUI. Trigger module Hot Reload, then repeatedly switch Home -> a light app -> Home -> the same light app. Compare Combined Status with native VPN/mute/status icons on every transition. If mismatch appears, export Detailed diagnostics before any SystemUI restart.
+
+
+### Fast / Canary checkpoint
+
+- Final Draft validation on the reviewed branch state passed before the Ready gate; record-only intermediate runs that were superseded by a newer same-PR run are not treated as runtime failures.
+- PR #148 was marked Ready only after source review.
+- Fast Build #1261 / run `36345741835` passed on exact PR head `42f350c2bb8d7338906469454fadabc5dcb629de`, including pinned HyperOS target-profile verification, unit tests, Debug build, and Modern Xposed metadata.
+- Explicit maintainer Canary #404 began on the same trusted SHA but was cancelled when Canary #405 entered the same `work-canary-148` concurrency group; `cancel-in-progress: true` made #405 supersede #404. #404 therefore is not a code/test rejection.
+- Work Branch Canary #405 / run `36345969171` resolved and verified trusted source SHA `42f350c2bb8d7338906469454fadabc5dcb629de` and verified Fast run `36345741835`.
+- Canary #405 passed unit tests, Canary build, pinned target profile, Modern Xposed metadata, Haple signature verification, non-debuggable verification, artifact preparation, and upload.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260928-418-canary.apk`.
+- GitHub artifact digest: `sha256:2a89a293fe636703494776682d8f08f071872790d327143c54317ff0e1a16a1b`.
+- Extracted APK SHA-256: `eac3105741237f361d72f3227db6b8a45daa13508ba244048ae77ff76c8642c5`.
+- PR #148 returned to Draft after Canary success. Runtime is frozen until maintainer device feedback.
+- This record-only closure does **not** create another runtime Build; Build identity remains 418 / `20260928-418`.
+
+### Device gate
+
+Install the signed Build-418 Canary without restarting SystemUI first. Trigger module Hot Reload, then repeatedly switch between the light app surface(s) and dark Home used in the maintainer video. Compare Combined Status against native VPN/mute icons on every entry/exit. If any mismatch occurs, export Detailed diagnostics before restarting SystemUI.
+
+## 2026-09-28 — Build 417 device rejection: fresh Tint lost before renderer attach / repeated scene race
+
+**Type:** maintainer device rejection / lifecycle root-cause narrowing
+**Rejected build:** 417 / `20260928-417`
+**Stable baseline:** 413 / `20260927-413`
+**Work branch / PR:** `fix/hot-reload-tint-continuity` / Draft #148
+
+### Maintainer evidence
+
+Build 417 remains visually incorrect. The supplied video shows the native VPN/mute status icons switching between light and dark presentation across repeated app/Home transitions while Combined Status can remain white. The maintainer also reports that a scene may be correct on one entry, then become incorrect after leaving and entering again.
+
+### Diagnostic facts
+
+- Build 417 is confirmed Canary.
+- Hot Reload completes without SystemUI restart.
+- The represented-slot exclusion works: the new generation selects `tintAnchorSlot=volume`, `tintAnchorClass=StatusBarIconView`.
+- At observer attach, `locationAwareTint`, peer tint and manager fallback all resolve `#bf000000`.
+- The renderer is attached **after** that fresh observer event.
+- Renderer seed is reported as `homeRenderTint source=hotReloadTransfer applied=#bf000000`; that diagnostic logs only `appliedTint`, not `statusIconTint`.
+- Later scene activity produces Battery `onDarkChangedInternal` events, but no guaranteed synchronized status-icon presentation refresh is paired with each Battery event.
+
+### Root-cause correction
+
+Build 417 rejects the assumption that choosing the correct visible peer/anchor is sufficient. The remaining defect is an authority snapshot / lifecycle ordering problem:
+
+1. the fresh new-generation status-icon Tint can be observed before the renderer exists, so the event cannot update renderer state;
+2. the renderer then consumes the transferred old-generation Tint state;
+3. later `onTintStateUpdate()` combines a fresh Battery `appliedTint` with `statusIconTint` taken from the presentation store cache, which is not guaranteed to represent the same SystemUI DarkIcon generation/scene;
+4. the visual policy prefers `statusIconTint` for normal monochrome rendering, so a stale secondary field can keep Combined Status white even when the logged `appliedTint` is black.
+
+This explains both:
+- Hot Reload abnormal / full SystemUI restart healthy;
+- repeated scene entry where one transition is correct and a later entry is wrong.
+
+### Selected Build-418 boundary
+
+- Treat Battery DarkReceiver as event trigger and fallback, not primary status-icon color authority.
+- For every renderer Tint commit, resolve current Home status-icon Tint live from SystemUI.
+- Before renderer attach after Hot Reload, rebase transferred state with the new-generation live status-icon authority.
+- Keep transferred/cached status-icon Tint only as fallback if live native authority is unavailable.
+- Add renderer diagnostics for both `appliedTint` and `statusIconTint`.
+- No timer, polling, delayed retry, forced DarkIcon refresh, or additional native writer.
+
+### 审查 / review
+
+- **Ownership:** SystemUI Home status-icon authority owns monochrome presentation; Battery owns only its own applied tint/event timing.
+- **Lifecycle:** fresh generation authority must supersede old-generation transfer before visible renderer ownership starts.
+- **Single writer:** renderer state remains owned by `CombinedStatusHomeRenderSession -> CombinedStatusRenderController`; only input authority resolution changes.
+- **Cleanup:** unchanged.
+- **Fail native:** live status-icon authority falls back to current Battery applied tint / transferred state only when unavailable.
+- **Performance:** bounded synchronous read on existing native Tint/scene events; no frame loop.
+- **Compatibility:** uses already validated manager/group reflection contracts; no new hook target.
+- **Exception recovery:** existing null/reflection fallbacks remain.
+- **Future extension:** establishes one-time-consistent Tint snapshots needed by panel/lockscreen projection later.
+
+### Gate
+
+Record this rejection before runtime mutation. Build 418 is the next single-variable checkpoint.
+
+
+## 2026-09-28 — Build 417: exclude represented slots from visible Home Tint authority
+
+**Type:** single-variable ownership correction
+**Build:** 417 / `20260928-417`
+**Work branch / PR:** `fix/hot-reload-tint-continuity` / Draft #148
+**Device validation:** pending
+
+### Problem execution flow
+
+**Phenomenon and evidence:** Build 416 remains inverted after module Hot Reload, while a full SystemUI restart restores correct behavior. The abnormal diagnostic shows the retained native Wi-Fi path carrying `#bf000000` during the Hot Reload session while visible neighboring status icons can present the opposite monochrome direction.
+
+**Root cause / responsibility source:** the current Home tint resolver treats attached/sized native children as visible tint candidates even when Combined Status has taken over their visible presentation. `resolveTintAnchorView()` can therefore pick the rightmost represented Wi-Fi/mobile slot, and peer tint traversal can also consume represented slots. After Hot Reload those native Views are intentionally kept alive for state/lifecycle continuity but their presentation state is not authoritative for what the user sees.
+
+**Repository/native rule:** preserving a native View for lifecycle ownership does not imply that it remains the visible presentation authority. Tint ownership must follow the actual visible Home peers.
+
+**Selected correction:** exclude `wifi`, `mobile`, `stacked_mobile`, `airplane` and `no_sim` from visible Home Tint anchor/peer eligibility. Require the candidate View to be `VISIBLE` with positive geometry. Use the existing location-aware `DarkIconDispatcher.getTint(...)` against that non-represented peer; keep manager-global/cached fallback.
+
+### Implementation boundary
+
+- one new shared candidate predicate;
+- anchor selection and peer tint traversal consume the same predicate;
+- represented-slot fallback traversal is removed;
+- diagnostics now report the selected tint-anchor slot/class;
+- no Hot Reload payload change;
+- no Battery semantic-color change;
+- no geometry, mask, scene, animation or panel-projection change;
+- Build identity advances from 416 to 417.
+
+### Tests
+
+Added deterministic coverage that:
+- `wifi`, `mobile`, `stacked_mobile`, `airplane`, and `no_sim` are never eligible visible Tint authorities;
+- a visible, positive-geometry non-represented peer (for example `vpn`) is eligible;
+- invisible or zero-geometry peers are rejected.
+
+### 审查 / review
+
+- **Ownership:** represented native slots remain state/lifecycle carriers; visible non-represented SystemUI peers own Home monochrome presentation authority.
+- **Lifecycle:** directly addresses the Hot Reload-only stale represented-slot state without changing cold-start behavior.
+- **Single writer:** read-only Tint selection; no native Tint writer.
+- **Cleanup:** unchanged.
+- **Fail native:** missing eligible peer falls through to manager-global/cached authority.
+- **Performance:** bounded existing-group traversal only on existing events; no polling/frame work.
+- **Compatibility:** no new private class/method/hook contract.
+- **Exception recovery:** existing reflection fallbacks remain.
+- **Future extension:** makes presentation authority explicit and reusable for later scene projection.
+
+### CI / source-review status
+
+- Draft Light #1246 failed before Android/Gradle execution because the newly added DEVLOG metadata lines contained trailing whitespace. This was a documentation-format failure only and did not validate or reject Build 417.
+- The whitespace-only record correction preserved Build identity.
+- Draft Light #1247 then passed on the documentation-closure head.
+- Post-review hardening additionally excludes `combined_status` itself and makes any explicit anchor parameter obey the same candidate predicate, preventing a future caller from bypassing the visible-authority boundary.
+- Draft Light #1248 passed on exact source head `be9e14db5f0670f875d828129878b1b2c1c422bd`.
+- Source review is clean for ownership, lifecycle, single writer, cleanup, fail-native behavior, performance, compatibility, exception recovery and future extension.
+
+### Fast / Canary result
+
+- PR #148 was marked Ready only after Draft Light and source review.
+- Fast Build #1250 passed on exact tested runtime SHA `c341fd52af8e1b873278088f3cc3c7303f9e4da3`, including pinned HyperOS target-profile verification, unit tests, Debug build, and Modern Xposed metadata.
+- Maintainer `/canary` request produced Work Branch Canary #402.
+- Canary trust gates passed: trusted source resolution, checkout of the tested work-branch SHA, and checked-out-source verification.
+- Signing restore, pinned target profile, Canary build, Xposed metadata, APK signature, non-debuggable verification, artifact preparation, and upload all passed.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260928-417-canary.apk`.
+- GitHub artifact digest: `sha256:7866447367bb6a0c062384246f30ce6c4ff59db148d8a61cb33a6d2c6d4a740a`.
+- Extracted APK SHA-256: `e816e303c08f8ac754bca2333ab780c69dcd728a10cf238c82dff8ae98db1cad`.
+- PR returned to Draft after the signed checkpoint was produced. No runtime changes are allowed until maintainer device feedback.
+- This record-only closure does **not** create a new runtime Build; runtime identity remains Build 417 / `20260928-417`.
+
+### Device gate
+
+Install the signed Build-417 Canary without first restarting SystemUI. Trigger module Hot Reload and compare dark/light Home surfaces. If the defect remains, export Detailed diagnostics **before** restarting SystemUI. Acceptance requires both correct visible tint and a non-represented `tintAnchorSlot` / `tintAnchorClass`.
+
+
+## 2026-09-28 — Build 416 device rejection: SystemUI restart isolates Hot Reload lifecycle
+
+**Type:** maintainer device rejection / root-cause narrowing
+**Rejected build:** 416 / `20260928-416`
+**Stable baseline:** 413 / `20260927-413`
+**Work branch / PR:** `fix/hot-reload-tint-continuity` / Draft #148
+
+### Maintainer evidence
+
+The Build-416 signed Canary remains visually incorrect after module Hot Reload. The same installed Build becomes visually correct after a full SystemUI restart.
+
+Screenshots show the Combined Status monochrome direction disagreeing with neighboring native Home icons across dark/light surfaces after Hot Reload. The supplied Detailed diagnostic is Build 416 Canary and captures the abnormal post-Hot-Reload session.
+
+### Diagnostic facts
+
+- Hot Reload completes with `restartScope=false` and restores the existing Home host.
+- Initial restored renderer tint is `#bf000000`.
+- `statusIconPresentation` later alternates between `#bf000000` and `#e6ffffff`, with `tintAuthority=dispatcher-location-aware`.
+- The current resolved anchor/peer search is allowed to use represented native slots that remain attached and sized even while Combined Status owns their visible presentation.
+- The native Wi-Fi View remains present and reports a dark tint in the captured abnormal Hot Reload session.
+- Full SystemUI recreation clears the defect without changing the installed Build.
+
+### Historical correction
+
+Build 416 rejects the assumption that changing Tint authority precedence alone closes the issue. The dispatcher calculation is not sufficient if the anchor itself belongs to a represented/masked native slot whose post-Hot-Reload presentation state is no longer authoritative for what the user actually sees.
+
+The stronger discriminator is lifecycle: cold SystemUI recreation is healthy while module-generation handoff is not. Therefore steady cold-start color policy is not reopened by default.
+
+### Selected next boundary
+
+Audit and correct the Home Tint authority candidate set:
+
+- represented/masked native slots (`wifi`, `mobile`, `stacked_mobile`, `airplane`, `no_sim`) remain alive for native lifecycle/state ownership but must not be treated as visible Home tint peers/anchors;
+- use a genuinely visible, non-represented Home peer as the location-aware dispatcher anchor / static-tint peer when available;
+- only then fall back to manager-global/cached sources;
+- keep Hot Reload transfer v7, Battery semantic colors, geometry, scene ownership and rendering unchanged.
+
+### 审查 / review
+
+- **Ownership:** visible Home peer tint belongs to still-visible native SystemUI participants; represented/masked slots are state/lifecycle carriers, not visible tint authorities.
+- **Lifecycle:** directly addresses the Hot Reload-only stale represented-slot state while preserving the healthy full-restart path.
+- **Single writer:** read-only authority selection; no SystemUI tint writer.
+- **Cleanup:** unchanged.
+- **Fail native:** if no valid visible peer/anchor is available, use the existing manager/global/cached fallback rather than fabricating a color.
+- **Performance:** bounded traversal of the already-captured Home icon group on existing events only.
+- **Compatibility:** no new private class/method/hook contract.
+- **Exception recovery:** existing reflective fallbacks remain.
+- **Future extension:** separates “kept alive for state” from “authoritative for visible presentation,” which is required for future scene projections as well.
+
+### Gate
+
+Record this rejection before further runtime mutation. Build 417, if implemented, must be the single-variable represented-slot authority correction and must pass source review/tests, Fast CI and one signed Canary before another device pass.
+
+
+## 2026-09-28 — Build 416 location-aware Home tint authority
+
+**Type:** single-variable runtime authority correction
+**Display version:** 0.0.2
+**Build:** 416 / `20260928-416`
+**Work branch / PR:** `fix/hot-reload-tint-continuity` / Draft #148
+**Device validation:** pending
+
+### Change boundary
+
+Build 416 retains the full Build-415 Hot Reload lifecycle correction and changes only how the Home status-icon monochrome tint is selected.
+
+Previous order:
+`recursive peer tint -> manager/global tint -> cached fallback`.
+
+Build-416 order:
+`DarkIconDispatcher location-aware tint -> peer/static tint -> manager-global fallback -> cached fallback`.
+
+The location-aware path uses the already-present runtime contract:
+`DarkIconDispatcher.getTint(mTintAreas, anchorView, mIconTint)`.
+
+The resolved anchor remains the existing non-Combined Home status-icon anchor. No new SystemUI class, field, hook or callback is introduced.
+
+### Implementation details
+
+`SystemUiNativeNetworkSuppressionOwner` now separates:
+- `resolveLocationAwareManagerTint()`: resolves dispatcher `mIconTint`, `mTintAreas`, and invokes `getTint(...)` for the Home anchor;
+- `resolveManagerFallbackTint()`: reads manager-global `mColor` and then dispatcher-global `mIconTint` only as fallback;
+- `selectStatusIconTint()`: gives the location-aware result first priority.
+
+Diagnostics distinguish:
+- `dispatcher-location-aware`;
+- `peer-static-applied`;
+- `manager-global-fallback`;
+- `cached-fallback`.
+
+The peer resolver is intentionally left otherwise unchanged in this checkpoint so Build 416 tests one authority-order correction rather than simultaneously rewriting peer traversal.
+
+### Tests
+
+`SystemUiNativeNetworkSuppressionOwnerTest` now pins:
+- location-aware tint wins even when peer/global/cached values disagree;
+- peer tint remains the first fallback when location-aware resolution is unavailable;
+- manager-global tint remains the next fallback when peer tint is invalid.
+
+Existing Build-415 Hot Reload transfer/fail-native tests remain intact.
+
+### 审查 / review
+
+- **Ownership:** SystemUI's native DarkIconDispatcher remains the source of truth; Combined Status only consumes its computed tint for the actual Home anchor.
+- **Lifecycle:** unchanged from Build 415; no new listener or scheduling path.
+- **Single writer:** read-only selection only; no native color/tint mutation.
+- **Cleanup:** unchanged.
+- **Fail native:** dispatcher resolution failure falls through to existing peer/global/cached sources.
+- **Performance:** constant-time reflection and one native static tint computation on existing event-driven observation; no periodic work.
+- **Compatibility:** no new private runtime contract; only reorders contracts already used by the branch.
+- **Exception recovery:** reflective dispatcher failure is local and does not block Home runtime state.
+- **Future extension:** establishes one position-aware Home monochrome authority suitable for reuse by future scene projections.
+
+### Validation gate
+
+Keep PR #148 Draft through source review and Light. If clean, move Ready for Fast. Only then request one signed Canary and repeat the same Hot Reload inversion test without restarting SystemUI.
+
+
+## 2026-09-28 — Build 415 device rejection and tint-authority root-cause correction
+
+**Type:** maintainer device rejection / root-cause correction
+**Display version:** 0.0.2
+**Rejected build:** 415 / `20260928-415`
+**Work branch / PR:** `fix/hot-reload-tint-continuity` / Draft #148
+**Stable baseline remains:** Build 413 / `20260927-413`
+
+### Maintainer feedback
+
+Build 415 still shows incorrect Combined Status inversion/tint after installing over Build 414 and using module Hot Reload without restarting SystemUI. Screenshots show Combined Status using the opposite light/dark direction from neighboring native status icons on the same surface.
+
+The supplied Build-415 Detailed diagnostic is the abnormal pre-restart state and therefore is the authoritative device evidence for this failure.
+
+### Diagnostic facts
+
+- Build identity is `20260928-415`, Canary, Detailed diagnostics.
+- Hot Reload restores successfully and reports `tintTransfer=native-fallback`, which is expected for the first 414 -> 415 upgrade because Build 414 emits the older payload.
+- The new Home generation initially remains non-presenting until a native tint event arrives.
+- At the first accepted new-generation tint event, `MiuiBatteryMeterView` / Battery anchor reports `#bf000000`; Home becomes presentation-ready from that event.
+- Immediately afterward status-icon observation reports the Home peer/manager tint in the light family (`#e5fcfcfc` / `#e6ffffff`).
+- During the same captured session status-icon observation subsequently alternates between light and dark values. This matches the maintainer's visual report that Combined Status remains inverted relative to neighboring native icons.
+- Build 415's Hot Reload lifecycle change therefore behaved as designed but waited for the wrong authority source.
+
+### Historical correction
+
+The Build-414 conclusion that missing Hot Reload tint continuity was the root cause was **incomplete**.
+
+The continuity gap is real and Build 415's transfer/fail-native mechanics remain valuable:
+- same/new payload generations can carry stable primitive tint across Hot Reload;
+- legacy payloads no longer trust an arbitrary handoff-time live Battery TextView color.
+
+However, Build 415 proves that continuity alone cannot fix the defect because the first later Battery tint callback can itself disagree with the actual Home status-icon presentation.
+
+The root cause moves upstream from **when tint is accepted** to **which native tint authority is authoritative for the Combined Status Home location**.
+
+### Source review
+
+Current implementation has two overlapping tint pipelines:
+
+1. `SystemUiTintStateSource` follows `MiuiBatteryMeterView` and reads `mBatteryPercentView.currentTextColor`; this is logged as `battery-anchor-fallback`.
+2. `SystemUiNativeNetworkSuppressionOwner` observes the Home `MiuiStatusIconContainer`, its native peers, and the `DarkIconManager / DarkIconDispatcher`; this becomes `statusIcons.appliedTint` and is already preferred by `CombinedStatusColorPolicy` when present.
+
+The second resolver currently has two weak ordering choices:
+- `resolveManagerAppliedTint()` returns opaque manager-global `mColor` before attempting the already-implemented `DarkIconDispatcher.getTint(mTintAreas, anchorView, mIconTint)` location-aware calculation;
+- `selectStatusIconTint()` gives recursively discovered peer tint priority over manager tint, while recursive peer search can descend into internal child views that are not the final visible status-icon authority.
+
+The exact device symptom is therefore consistent with a project-side authority-selection issue, not a need for new dark-mode timing logic.
+
+### Selected Build-416 boundary
+
+Use the existing native location-aware DarkIconDispatcher calculation as primary Home monochrome tint authority:
+
+- resolve `mDarkIconDispatcher.mIconTint` and `mTintAreas`;
+- when a valid Home anchor is available, call the existing exact runtime `DarkIconDispatcher.getTint(...)` path first;
+- only fall back to manager-global `mColor`, visible-peer/static tint, or cached tint when the location-aware result cannot be resolved;
+- keep `CombinedStatusBatteryColorPolicy` unchanged so semantic charging/power-save/performance/low colors remain native-semantic while NORMAL continues to follow the status-icon tint;
+- retain Build-415 Hot Reload transfer/fail-native mechanics unchanged.
+
+### 审查 / review
+
+- **Ownership:** HyperOS/SystemUI remains tint authority; Combined Status stops privileging a project-observed Battery text color or manager-global value over the native location-aware dark dispatcher result.
+- **Lifecycle:** no new listener, timer, polling or frame loop.
+- **Single writer:** read-only authority selection only; no SystemUI color writer is introduced.
+- **Cleanup:** unchanged from Build 415.
+- **Fail native:** if location-aware dispatcher tint cannot be resolved, existing manager/peer/cached fallback remains available.
+- **Performance:** constant-time reflection/read during existing event-driven observation; no new periodic work.
+- **Compatibility:** no new private class/field contract is introduced in the first correction; it reorders already-used runtime contracts.
+- **Exception recovery:** dispatcher reflection failure falls through to existing fallback sources.
+- **Future extension:** establishes one Home monochrome authority that can later be reused by panel projections without duplicating color policy.
+
+### Validation gate
+
+Advance the next executable correction to Build 416. Keep PR #148 Draft until source review/tests pass, then Fast + one signed Canary + focused device Hot Reload inversion test. Do not resume PR #146 until this shared tint authority is accepted.
+
+
+## 2026-09-28 — Build 415 Hot Reload tint continuity implementation
+
+**Type:** runtime lifecycle correction
+**Display version:** 0.0.2
+**Build:** 415 / `20260928-415`
+**Work branch / PR:** `fix/hot-reload-tint-continuity` / Draft #148
+**Device validation:** pending
+
+### Implementation
+
+The Hot Reload payload advances from v6 to v7 and adds only classloader-neutral tint primitives:
+
+- last stable renderer `appliedTint`;
+- optional last stable `statusIconTint`.
+
+The old generation captures these values from `CombinedStatusHomeRenderSession` before teardown. The new generation reconstructs a `CombinedStatusTintState` locally and gives it to the new Home render session as continuity state.
+
+`CombinedStatusHomeRenderSession` now uses a lazy initial-tint policy:
+
+- valid transferred tint wins immediately and the live Battery View is not read;
+- cold start keeps the existing native live seed path;
+- Hot Reload without transferred tint does **not** read the handoff-time live View and therefore keeps `tintReady=false` / native handoff active until a real new-generation native tint event arrives.
+
+The last case is required for the first Build-414 -> Build-415 Hot Reload because Build 414's v6 payload cannot contain the new tint fields. v6 and older payloads remain accepted by the v7 restore logic.
+
+### Tests
+
+`CombinedStatusHomeRenderSessionTest` now verifies:
+
+- a valid transferred tint wins without invoking the live tint provider;
+- invalid transferred tint may fall back to the existing live seed when live seeding is explicitly allowed;
+- legacy Hot Reload with no transferred tint and live seeding disabled returns no initial tint and never reads the transient live provider.
+
+### 审查 / review
+
+- **Ownership:** native HyperOS/SystemUI tint events remain authoritative; transferred tint is only continuity of the last already-accepted renderer state.
+- **Lifecycle:** v7 continuity spans one Hot Reload generation boundary; first new native tint update supersedes it through the unchanged `onTintStateUpdate` path.
+- **Single writer:** no SystemUI color/tint/dark-mode writer is added.
+- **Cleanup:** raw transfer contains primitive integers only; no old-generation tint object or View crosses the classloader boundary.
+- **Fail native:** legacy/missing/invalid tint transfer keeps native presentation until the new generation observes authoritative tint; it does not show Combined Status with a guessed color.
+- **Performance:** constant-time state transfer only; no polling, timer, retry, traversal, or frame listener.
+- **Compatibility:** payload v7 explicitly preserves v6 Control Center, v5 shade, and older restore formats. Cold start is unchanged.
+- **Exception recovery:** absence of tint continuity does not invalidate network/model/panel state transfer; it narrows fallback to native presentation until tint becomes ready.
+- **Future extension:** panel projection remains independent and paused; once this shared Hot Reload presentation path is accepted, #146 can rebase/update from the integrated fix.
+
+### Validation gate
+
+Build 415 changes executable Hot Reload lifecycle behavior and therefore requires Fast validation plus one trusted signed Canary and focused maintainer device validation before integration.
+
+
+## 2026-09-28 — Hot Reload tint continuity root-cause checkpoint
+
+**Type:** root-cause review / branch-scope checkpoint
+**Input evidence:** Build 414 / `20260928-414` device diagnostic
+**Fix branch:** `fix/hot-reload-tint-continuity`
+**Runtime fix build:** not assigned yet
+
+### Problem execution flow
+
+**Phenomenon**
+
+Installing Build 414 and using module Hot Reload can leave Combined Status with incorrect inversion/tint. Restarting SystemUI restores correct behavior. The supplied Detailed diagnostic captures the abnormal Hot Reload session before that restart.
+
+**Observed ordering**
+
+- new-generation presentation hooks install successfully;
+- structured health still reports tint as not yet observed;
+- Home renderer/session is restored and seeds a live color immediately;
+- Home reaches presentation-ready state;
+- only afterward does native `MiuiBatteryMeterView.onDarkChangedInternal` arrive.
+
+**Source review**
+
+Hot Reload teardown resets both `SystemUiPresentationRuntimeOwner` (which clears `SystemUiTintStateSource`) and `CombinedStatusPresentationStateStore`. The current classloader-neutral transfer carries Combined Status model/network state and panel eligibility, but no stable tint continuity.
+
+On reattach, `CombinedStatusHomeRenderSession.start()` calls `SystemUiTintStateSource.currentState(battery)`. That function refreshes from the live battery-percent TextView when possible. During Hot Reload handoff this live View can reflect a transient native color state before the new generation receives its first authoritative tint event.
+
+### Root cause status
+
+**High confidence / evidence-backed:** Hot Reload lacks a transferred stable tint state and can therefore expose a transient live View tint as the new renderer's initial stable tint. The observed device symptom and event ordering match this gap.
+
+The Build-414 notification-header probe is not a tint/alpha/layout writer. Its extra hook may perturb timing enough to expose the weakness, but it is not the tint authority and is not selected as the root cause.
+
+### Selected correction
+
+Transfer the last already-accepted Combined Status tint as classloader-neutral primitive values during Hot Reload preparation. On the new generation:
+
+- seed the Home renderer from that transferred stable tint;
+- do not immediately overwrite it with a live View read during the handoff;
+- let the first real native tint callback replace it naturally;
+- keep cold-start live seeding unchanged;
+- fall back to native re-observation if transferred tint is absent/invalid.
+
+### 审查 / review
+
+- **Ownership:** SystemUI remains the sole tint authority; transfer preserves continuity only.
+- **Lifecycle:** transferred tint survives one module-generation handoff and is superseded by the first new native event.
+- **Single writer:** no dark-mode or SystemUI tint writer is added.
+- **Cleanup:** only primitive tint values cross generations; no module object/View is transferred as tint state.
+- **Fail native:** older/missing/invalid transfer uses existing native re-observation.
+- **Performance:** no delay, polling, retry or frame work.
+- **Compatibility:** Hot Reload payload restore remains backward-compatible.
+- **Exception recovery:** failed tint transfer does not block other restored runtime state.
+- **Future extension:** fix is independent from panel projection and will be integrated before PR #146 resumes.
+
+
+## 2026-09-28 — Build 413 stable promotion to main
+
+**Type:** validated runtime promotion / stable-baseline closure
+**Display version:** 0.0.2
+**Build:** 413 / `20260927-413`
+**Promotion PR:** #147
+**Exact promoted dev candidate:** `36ce04011f0a1fb2c5dd185d911b639bb1787408`
+**Stable merge commit:** `3114ade06bcb4846a5654a70f38ea572f5b47b37`
+
+### Promotion evidence
+
+- Build 413 had already passed focused maintainer device validation for the HUN disappearance while preserving the accepted shallow-pull handoff.
+- PR #142 integrated the runtime checkpoint into `dev` as `2aa6833cfca69a59af5027a7855b7d8282dbade9`.
+- Trusted dev Integration Build #1200 / run `36337302873` passed.
+- The only commits after the integrated runtime commit and before promotion candidate `36ce04011f0a1fb2c5dd185d911b639bb1787408` changed only `CURRENT.md` and `DEVLOG.md`; no APK/runtime path changed.
+- `validation/dev` was moved to the exact candidate only after the maintainer accepted the required device scenarios.
+- Promotion readiness then reported **READY: dev is CI-green and device-validated**.
+- Promotion PR #147 contained the exact validated candidate and no Build-414 diagnostic work.
+- Stable-boundary Full Build #1213 passed before merge.
+- PR #147 was merged with an explicit merge commit, preserving the stable-baseline boundary.
+- Post-merge Full Build #1214 passed, including pinned target-profile verification, tests/build, Modern Xposed metadata, Haple signatures, non-debuggable Canary validation, and artifact preparation/upload.
+- Push on main #59 completed successfully, including CodeQL analysis.
+
+### 审查 / review
+
+- **Promotion scope:** exact validated dev state only; no new runtime edit on `promote/build-413`.
+- **Ownership/lifecycle:** unchanged from the already device-accepted Build-413 model.
+- **Single writer / cleanup:** unchanged.
+- **Compatibility:** exact HyperOS target profile remained green at promotion and post-merge Full validation.
+- **Stable isolation:** PR #146 / Build 414 remained on its separate work branch and was not included in the promotion.
+- **Rollback clarity:** stable boundary is the explicit merge commit `3114ade06bcb4846a5654a70f38ea572f5b47b37`.
+
+### Outcome
+
+Build 413 is now the stable `main` runtime baseline and remains the integrated `dev` baseline. Ongoing Phase-2B panel-projection diagnostics continue separately on PR #146 / Build 414.
+
+
+## 2026-09-28 — Build 413 stable promotion to main
+
+**Type:** stable-baseline promotion closure
+**Display version:** 0.0.2
+**Runtime build:** 413 / `20260927-413`
+**Promotion PR:** #147
+**Validated dev candidate:** `36ce04011f0a1fb2c5dd185d911b639bb1787408`
+**Main promotion merge:** `3114ade06bcb4846a5654a70f38ea572f5b47b37`
+
+### Promotion evidence
+
+- Build 413 was already focused-device accepted for the HUN disappearance and the preserved shallow-pull scene boundary.
+- PR #142 integrated the accepted runtime into `dev` as `2aa6833cfca69a59af5027a7855b7d8282dbade9`.
+- Trusted Integration Build #1200 / run `36337302873` passed.
+- The two commits after that runtime integration point changed only `CURRENT.md` and `DEVLOG.md`; no APK/runtime path changed before promotion.
+- `validation/dev` was advanced to the exact dev candidate only after maintainer device acceptance. Promotion readiness then reported **READY: dev is CI-green and device-validated**.
+- Promotion PR #147 was created from that exact candidate and contained no new engineering delta.
+- Stable-boundary Full Build #1213 passed before merge.
+- PR #147 was merged to `main` with the required merge commit.
+- Post-merge `Push on main` #59 and main Full Build #1214 both passed.
+
+### 审查 / review
+
+- **Scope:** promotion contains the accepted Build-413 dev state only.
+- **Runtime:** no new runtime code was introduced on the promotion branch.
+- **Device evidence:** current and exact for the runtime candidate; no runtime-affecting delta existed after the accepted Build-413 integration.
+- **Ownership/lifecycle/single writer/cleanup:** unchanged from the accepted Build-413 architecture.
+- **Compatibility/signing:** stable-boundary Full validation passed after merge.
+- **Separation from next work:** PR #146 / Build 414 notification-header diagnostics are not part of this promotion and remain a separate Phase-2B work branch.
+
+### Outcome
+
+Build 413 is now the stable `main` runtime baseline. Continue Phase 2B panel-projection investigation on PR #146 without changing the stable baseline until its own evidence and validation gates are satisfied.
 
 
 ## 2026-09-27 — Canary admission gate hardening and bounded automation merge delegation

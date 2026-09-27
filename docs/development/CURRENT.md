@@ -4,17 +4,17 @@ This file is the concise recovery point for active Combined Status development. 
 
 ## Repository baseline
 
-- Last refreshed: 2026-09-27
+- Last refreshed: 2026-09-28
 - Stable branch: `main`
-- Stable runtime baseline: Build 351, commit `2477867278483b76b80ed0884de3a07c7ede668a`
+- Stable runtime baseline: Build 413 / `20260927-413`, promotion merge commit `3114ade06bcb4846a5654a70f38ea572f5b47b37`
 - Integration branch: `dev`
-- Integration runtime baseline: Build 413, commit `2aa6833cfca69a59af5027a7855b7d8282dbade9`
-- Build 413 / `20260927-413` is the current device-accepted and Integration-validated `dev` runtime baseline.
-- Active Phase-2B work branch / PR: `feat/panel-projection` / Draft PR #146. Build 414 / `20260928-414` completed its bounded notification-header diagnostic capture. Panel rendering is still not enabled. Device testing also exposed a separate Hot Reload tint-continuity defect: immediately after APK Hot Reload the Home Combined Status can use the wrong inversion/tint, while a full SystemUI restart restores correct tint.
+- Integration runtime baseline: Build 418 / `20260928-418`, merge commit `11bc4ff741869e3311d2be697d4dcfb66f5cb39c`
+- Build 418 / `20260928-418` is the current device-accepted and Integration-validated `dev` runtime baseline. Build 413 remains the current `main`-promoted stable runtime baseline.
+- Active Phase-2B work / PR: `feat/panel-projection` / Draft #146. The branch is refreshed from current Build-418 `dev` with a history-preserving merge. Active runtime is intentionally identical to the accepted `dev` baseline; the completed Build-414 notification-header probe is retired from runtime and retained only as evidence. No Build 419 exists yet.
 - Repository-automation baseline: checkpoint-driven CI from PR #139 remains active; Canary admission hardening and bounded automation-only merge delegation were accepted on `main` via PR #143 (`a1aed8b6451d1018f46e252166545d67f48fe8e4`) and history-preserving back-synced into `dev` via PR #144 (`faaa12b1c8e955138d2ce8d51fb481263b4d7570`). These automation changes do **not** create a new runtime Build.
 - Phase-2A integration: PR #105 merged to `dev` as `2f584c3b393dc5ee606284426aa95a9d6beae5d5`; former stacked PR #100 is closed as superseded.
 - Phase-2B panel/scene-owner integration: PR #138 merged to `dev` as `a25cb5ce2aeab235cfaed579474df70596f03a63`.
-- PR #142 (`fix/home-hun-ownership`) is merged and closed; its Build-413 HUN/shallow-pull lifetime correction is now part of `dev`.
+- PR #142 (`fix/home-hun-ownership`) is merged and closed; its Build-413 HUN/shallow-pull lifetime correction is part of `dev` and was promoted to `main` through PR #147.
 - Active development display line: **0.0.2**
 - First planned formal release: **1.0.0**
 - Target profile: HyperOS SystemUI `17.03.260226.r`
@@ -52,7 +52,9 @@ Home -> shade / Control Center projection is now the active Phase 2B direction. 
 - **Build 411 / `20260927-411`** is **device-accepted for the panel/scene-owner correction but visually rejected at the 8.0 ring checkpoint**. Executable runtime source: `aaaaf0810b114b1e90a3de3f1520721a420da2d0`. Fast #1150 and trusted Canary #384 passed. Maintainer device feedback confirms notification-shade / Control Center down-up behavior is now correct, so the persistent Home owner / scene-visibility separation is retained. The 8.0 ring remains visually inferior to the previously seen 8.25 geometry, including endpoint/lower-opening harmony, so 8.0 is not the final visual baseline.
 - **Build 412 / `20260927-412`** is the accepted integration candidate for the current Phase-2B panel handoff + preferred ring baseline. Executable source: `f794a7c01513364eefc726316fcaf4058d581683`. Fast Build #1156 / run `36323242298` passed on tested head `74c234060f77da958c4eae21e8d170e29f2da1cb`; trusted Work Branch Canary #390 / run `36323397870` passed exact checkout, target-profile, tests/build, Haple signature, Modern Xposed metadata and non-debuggable validation and produced artifact `10933571263`. Extracted APK size: `3309602` bytes; SHA-256: `51daaab32c5f3a152a41340eb0c6b8d2cb93f2448b83a32a980942a85cc8e1e8`. Panel down/up behavior is maintainer-accepted from Build 411; the 8.25 ring is explicitly preferred over 7.5 and 8.0 and does not require a separate device A/B before `dev` integration.- **Build 413 / `20260927-413`** is **device-accepted for the notification/HUN ownership correction** on PR #142. Executable runtime source closes the missed production caller and advances identity through `75034b7efa9d0c8d59b7e7b9d87e9cc382172d23`; the exact tested PR head after automation back-sync is `15b92d64440eb565e44ce8a7dda3739c9ab8964e`. Fast Build #1195 passed, trusted Work Branch Canary #397 / run `36336524857` passed exact source resolution, target profile, unit/build, Haple signature, Modern Xposed metadata and non-debuggable checks, and produced artifact `10937297772`. Extracted APK SHA-256: `a0c39bc21e81175b7c6fafed0316cd7b807e90ed8515ce257c69b4091088dff3`. Maintainer focused device feedback reports the HUN disappearance is fixed; the accepted shallow-pull handoff remains intact.
 
+- **Build 416 / `20260928-416`** is **device-rejected for Hot Reload tint continuity**. Fast #1243 and signed Work Branch Canary #400 passed, but maintainer screenshots plus Detailed diagnostics show Combined Status can remain inverted relative to neighboring Home status icons after Hot Reload; a full SystemUI restart restores correct behavior. The location-aware dispatcher resolver itself changes between `#bf000000` and `#e6ffffff`, while the Hot Reload path initially restores `#bf000000`. The key discriminant is lifecycle: the same executable behaves correctly after SystemUI recreation, so steady cold-start tint policy is not reopened by default.
 - Build 406 trusted validation: owner `/canary` Work Branch Canary #335 **succeeded**. Validated PR head `80f371784ffaee406dd6ea5728219eeee5913318` differs from the frozen runtime source only in `CURRENT.md` and `DEVLOG.md`, so executable content remains exactly Build 406. Artifact `10929711688`; artifact ZIP digest `sha256:c7af997217acd171c66beb860d7212c0d72fd672a38978f7b5c2eb5a524f11ba`; extracted APK SHA-256 `e086d8914fece7ba8ea86200756f4a6366d56dadaa5510846618a4077e6ddd80`.
+- **Build 418 / `20260928-418`** is **device-accepted for Hot Reload Tint continuity and repeated app/Home scene switching**. Maintainer validation reports normal behavior after repeated light/dark transitions without a SystemUI restart. Detailed diagnostics show Hot Reload restoration with `statusIconTint` rebased to live SystemUI authority and subsequent event-driven renderer commits keeping `appliedTint`, `statusIconTint`, and `liveStatusIconTint` aligned. Exact tested PR head `42f350c2bb8d7338906469454fadabc5dcb629de`; Fast #1261 and Work Branch Canary #405 passed. This closes the shared Home Tint lifecycle blocker for Phase 2B.
 - Documentation/test-only commits may advance the Phase-2B work branch beyond Build-412 executable source `f794a7c01513364eefc726316fcaf4058d581683` without creating a new runtime Build; runtime identity remains `20260927-412` until executable source changes.
 
 Build 403 validation already established:
@@ -97,7 +99,7 @@ Build 403 uses HyperOS `MiuiBatteryMeterIconView.getProgressStatus()` as semanti
 
 No user-facing per-state color picker/source selector is exposed yet. The future policy seam remains: **System default / Follow status icon / Custom** for NORMAL / CHARGING / POWER_SAVE / PERFORMANCE / LOW.
 
-### Home -> shade / Control Center scene boundary — Build 413 accepted in dev
+### Home -> shade / Control Center scene boundary — Build 413 accepted in stable main
 
 Build 409 corrected only the notification-shade half of the scene lifetime. Maintainer video and Build-409 diagnostics show the unresolved reproduction is a **Control Center** transition.
 
@@ -144,6 +146,8 @@ Build 409's notification-shade implementation remains intact and is not reopened
 - The documentation-governance baseline is accepted in `main` and synchronized into `dev`; active runtime branches must preserve it when updated/merged rather than restoring older workflow/process text.
 - PR #138 is merged into `dev` as the accepted Phase-2B panel scene-ownership + 8.25 ring integration boundary (`a25cb5ce2aeab235cfaed579474df70596f03a63`).
 - PR #142 is merged into `dev` as `2aa6833cfca69a59af5027a7855b7d8282dbade9`, making Build 413 the integrated HUN/shallow-pull lifetime baseline. Trusted Integration Build #1200 / run `36337302873` passed and produced signed Canary artifact `10937951856`.
+- `validation/dev` was advanced to exact dev candidate `36ce04011f0a1fb2c5dd185d911b639bb1787408` after maintainer device acceptance. Promotion readiness reported READY; PR #147 promoted that exact candidate to `main` with merge commit `3114ade06bcb4846a5654a70f38ea572f5b47b37`. Promotion Full #1213, post-merge Full #1214, and Push on main #59 all passed.
+- Promotion PR #147 promoted exact validated `dev` SHA `36ce04011f0a1fb2c5dd185d911b639bb1787408` to `main` using the required merge commit `3114ade06bcb4846a5654a70f38ea572f5b47b37`. Promotion Full #1213 and post-merge main Full #1214 both passed; `Push on main` #59 also passed.
 - PR #139 replaced automatic per-Fast work-branch Canary follow-up with checkpoint-driven validation: active runtime PRs stay Draft during iteration, Ready is reserved for meaningful Fast checkpoints, and signed work-branch Canary is requested explicitly only when device evidence is needed.
 - PR #141 history-preserving back-synced that accepted CI/governance state into `dev` without replacing the Build-412 runtime tree. The direct `main -> dev` PR #140 was closed after branch-history conflicts were identified; the accepted sync used an explicit two-parent merge preserving both histories.
 - CI self-validation for the policy change passed at PR Build #1168, `main` push #1169, sync PR Build #1170, and trusted `dev` push #1171. The generated artifacts retain stable runtime build identities (`main` Build 351 / `dev` Build 412), so these automation checks are not new application Builds.
@@ -151,12 +155,13 @@ Build 409's notification-shade implementation remains intact and is not reopened
 
 ## Immediate next step
 
-1. Keep Build 413 / `20260927-413` as the accepted stable/runtime baseline. Build 414 remains a diagnostic work-branch checkpoint only.
-2. Treat the Build-414 panel probe as successful evidence collection: `NotificationHeaderExpandController` was observed at native buckets 0/1/7/8, but its only direct Android `View` field observed by the bounded probe was `realClockIcons`; the controller-level `notificationTranslationX=2` and `notificationTranslationY=-109` remained stable across those captures. The field inventory exposes narrower next seams such as `headerController: Lazy` and `notification: NotificationShadeWrapper`; do not guess a status-icon target host from the clock view.
-3. Pause new panel-projection runtime mutation while the independent **Hot Reload tint continuity** defect is resolved. Device evidence: APK install + Hot Reload can produce wrong inversion/tint; restarting SystemUI returns to correct behavior.
-4. Fix Hot Reload tint continuity in a separate `fix/*` boundary because its root cause/runtime owner is presentation-state transfer rather than panel projection. Prefer transferring the last accepted stable tint across generations and letting the first new native tint callback supersede it; do not add a delay, polling, forced dark-mode refresh, or synthetic color.
-5. After that fix is integrated, update PR #146 from the new `dev` baseline and continue bounded notification-header target-host discovery through the verified controller/wrapper ownership chain.
-6. Keyguard / lockscreen / AOD remains Phase 3 and stays out of both changes.
+1. Treat Build 418 / `20260928-418` as the active runtime baseline for Draft PR #146; branch synchronization itself does not create a new application Build.
+2. Continue Phase-2B notification-shade contract discovery from the retained Build-414 evidence: inspect `NotificationShadeWrapper` and the `headerController: Lazy` ownership chain to locate a real status-icon target host/bounds/tint contract.
+3. Reuse the existing verified Control Center `StatusBarAnchorBounds` seam; do not add another Control Center probe without a specific missing fact.
+4. Prefer exact-target source/reference evidence. If static evidence closes the notification-shade contract, implement the smallest scene-specific projection adapter directly. Only if one concrete target fact remains unavailable may another bounded Detailed-only diagnostic be introduced.
+5. Keep SystemUI as transition-motion/layout writer. Do not introduce guessed offsets, arbitrary fraction thresholds, delayed retries, polling, per-frame native geometry writes, or reuse the Home overlay on expanded surfaces.
+6. Keep PR #146 Draft during this analysis/runtime iteration. Advance to the next Build only when executable source changes.
+7. Keyguard / lockscreen / AOD remains Phase 3.
 
 ## Reference priority
 

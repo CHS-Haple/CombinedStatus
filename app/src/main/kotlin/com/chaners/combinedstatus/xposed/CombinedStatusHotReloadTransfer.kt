@@ -4,7 +4,8 @@ import android.os.Bundle
 import android.view.View
 
 internal object CombinedStatusHotReloadTransfer {
-    private const val VERSION = 6
+    private const val VERSION = 7
+    private const val CONTROL_CENTER_TRANSFER_VERSION = 6
     private const val SHADE_TRANSFER_VERSION = 5
     private const val PREVIOUS_VERSION = 4
     private const val NATIVE_TRANSFER_VERSION = 3
@@ -16,7 +17,10 @@ internal object CombinedStatusHotReloadTransfer {
     private const val INDEX_BINDINGS = 3
     private const val INDEX_NOTIFICATION_SHADE_HOME_ELIGIBLE = 4
     private const val INDEX_CONTROL_CENTER_HOME_ELIGIBLE = 5
-    private const val CURRENT_PAYLOAD_SIZE = 6
+    private const val INDEX_APPLIED_TINT = 6
+    private const val INDEX_STATUS_ICON_TINT = 7
+    private const val CURRENT_PAYLOAD_SIZE = 8
+    private const val CONTROL_CENTER_PAYLOAD_SIZE = 6
     private const val SHADE_PAYLOAD_SIZE = 5
     private const val PREVIOUS_PAYLOAD_SIZE = 4
     private const val LEGACY_PAYLOAD_SIZE = 4
@@ -29,6 +33,8 @@ internal object CombinedStatusHotReloadTransfer {
         bindings: Any,
         notificationShadeHomeEligible: Boolean?,
         controlCenterHomeEligible: Boolean?,
+        appliedTint: Int?,
+        statusIconTint: Int?,
     ): Any? {
         val hostView = host as? View ?: return null
         if (hostView.javaClass.name != StatusBarHostCapture.HOST_CLASS_NAME) {
@@ -42,6 +48,8 @@ internal object CombinedStatusHotReloadTransfer {
             bindings,
             notificationShadeHomeEligible,
             controlCenterHomeEligible,
+            appliedTint,
+            statusIconTint,
         )
     }
 
@@ -52,6 +60,7 @@ internal object CombinedStatusHotReloadTransfer {
         val expectedSize =
             when (version) {
                 VERSION -> CURRENT_PAYLOAD_SIZE
+                CONTROL_CENTER_TRANSFER_VERSION -> CONTROL_CENTER_PAYLOAD_SIZE
                 SHADE_TRANSFER_VERSION -> SHADE_PAYLOAD_SIZE
                 PREVIOUS_VERSION -> PREVIOUS_PAYLOAD_SIZE
                 NATIVE_TRANSFER_VERSION -> NATIVE_PAYLOAD_SIZE
@@ -71,14 +80,34 @@ internal object CombinedStatusHotReloadTransfer {
         val state = payload.getOrNull(INDEX_STATE) as? Bundle ?: return null
         val bindings = payload.getOrNull(INDEX_BINDINGS)
         val notificationShadeHomeEligible =
-            if (version == VERSION || version == SHADE_TRANSFER_VERSION) {
+            if (
+                version == VERSION ||
+                version == CONTROL_CENTER_TRANSFER_VERSION ||
+                version == SHADE_TRANSFER_VERSION
+            ) {
                 payload.getOrNull(INDEX_NOTIFICATION_SHADE_HOME_ELIGIBLE) as? Boolean
             } else {
                 null
             }
         val controlCenterHomeEligible =
-            if (version == VERSION) {
+            if (version == VERSION || version == CONTROL_CENTER_TRANSFER_VERSION) {
                 payload.getOrNull(INDEX_CONTROL_CENTER_HOME_ELIGIBLE) as? Boolean
+            } else {
+                null
+            }
+        val appliedTint =
+            if (version == VERSION) {
+                (payload.getOrNull(INDEX_APPLIED_TINT) as? Number)
+                    ?.toInt()
+                    ?.takeIf(::isOpaqueEnoughForPresentation)
+            } else {
+                null
+            }
+        val statusIconTint =
+            if (version == VERSION && appliedTint != null) {
+                (payload.getOrNull(INDEX_STATUS_ICON_TINT) as? Number)
+                    ?.toInt()
+                    ?.takeIf(::isOpaqueEnoughForPresentation)
             } else {
                 null
             }
@@ -89,8 +118,13 @@ internal object CombinedStatusHotReloadTransfer {
             bindings = bindings,
             notificationShadeHomeEligible = notificationShadeHomeEligible,
             controlCenterHomeEligible = controlCenterHomeEligible,
+            appliedTint = appliedTint,
+            statusIconTint = statusIconTint,
         )
     }
+
+    private fun isOpaqueEnoughForPresentation(color: Int): Boolean =
+        color ushr 24 != 0
 
     internal data class Restored(
         val host: View,
@@ -98,5 +132,7 @@ internal object CombinedStatusHotReloadTransfer {
         val bindings: Any?,
         val notificationShadeHomeEligible: Boolean?,
         val controlCenterHomeEligible: Boolean?,
+        val appliedTint: Int?,
+        val statusIconTint: Int?,
     )
 }

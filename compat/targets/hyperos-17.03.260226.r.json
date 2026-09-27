@@ -43,9 +43,7 @@
     "com.android.systemui.statusbar.pipeline.mobile.ui.binder.MiuiMobileIconBinder$bind$1$1$4$2",
     "com.android.systemui.statusbar.views.MiuiBatteryMeterIconView",
     "com.android.systemui.shade.ShadeExpansionStateManager",
-    "com.miui.systemui.controlcenter.container.ControlCenterExpandControllerDelegate",
-    "com.android.systemui.controlcenter.shade.NotificationHeaderExpandController",
-    "com.android.systemui.controlcenter.shade.NotificationHeaderExpandController$notificationCallback$1"
+    "com.miui.systemui.controlcenter.container.ControlCenterExpandControllerDelegate"
   ],
   "hookPoints": {
     "statusHostInflated": {
@@ -125,12 +123,6 @@
       "className": "com.miui.systemui.controlcenter.container.ControlCenterExpandControllerDelegate",
       "methodName": "onVisibleChanged",
       "descriptor": "(Z)V"
-    },
-    "notificationHeaderExpansionDiagnostic": {
-      "sourceArtifact": "systemUi",
-      "className": "com.android.systemui.controlcenter.shade.NotificationHeaderExpandController$notificationCallback$1",
-      "methodName": "onExpansionChanged",
-      "descriptor": "(F)V"
     }
   },
   "verifiedSystemUiMethods": {
@@ -167,9 +159,6 @@
     ],
     "com.miui.systemui.controlcenter.container.ControlCenterExpandControllerDelegate": [
       "onVisibleChanged(Z)V"
-    ],
-    "com.android.systemui.controlcenter.shade.NotificationHeaderExpandController$notificationCallback$1": [
-      "onExpansionChanged(F)V"
     ]
   },
   "nativeStatusViews": {
@@ -194,10 +183,6 @@
       "mBatteryPerformanceModeColor",
       "mBatteryLowColor",
       "mMiuiOptimizationEnabled"
-    ],
-    "com.android.systemui.controlcenter.shade.NotificationHeaderExpandController": [
-      "notificationTranslationX",
-      "notificationTranslationY"
     ]
   },
   "batterySemanticContract": {
