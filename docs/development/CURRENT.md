@@ -10,7 +10,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Integration branch: `dev`
 - Integration runtime baseline: Build 418 / `20260928-418`, merge commit `11bc4ff741869e3311d2be697d4dcfb66f5cb39c`
 - Build 418 / `20260928-418` is the current device-accepted and Integration-validated `dev` runtime baseline. Build 413 remains the current `main`-promoted stable runtime baseline.
-- Active Phase-2B work / PR: `feat/panel-projection` / Draft #146. Build 419 / `20260928-419` remains the current bounded diagnostic checkpoint. First device evidence confirms the probe and `NotificationShadeWrapper` path are valid, but exposed a diagnostic accessor defect: the exact `headerController` holder is `dagger.internal.DoubleCheck`, while the probe only attempted Kotlin-style `getValue()`. The corrected Build-419 source now supports guarded Dagger `get()` and Kotlin `getValue()` resolution without widening Hook scope or enabling projection.
+- Active Phase-2B work / PR: `feat/panel-projection` / Draft #146. Build 420 / `20260928-420` is the current runtime checkpoint. Product/native behavior has been corrected: Notification Shade does not own a status-icon projection on this HyperOS target; it only gates Home visibility during positive shade motion. Control Center is the actual panel surface that receives Combined Status projection.
 - Repository-automation baseline: checkpoint-driven CI from PR #139 remains active; Canary admission hardening and bounded automation-only merge delegation were accepted on `main` via PR #143 (`a1aed8b6451d1018f46e252166545d67f48fe8e4`) and history-preserving back-synced into `dev` via PR #144 (`faaa12b1c8e955138d2ce8d51fb481263b4d7570`). These automation changes do **not** create a new runtime Build.
 - Phase-2A integration: PR #105 merged to `dev` as `2f584c3b393dc5ee606284426aa95a9d6beae5d5`; former stacked PR #100 is closed as superseded.
 - Phase-2B panel/scene-owner integration: PR #138 merged to `dev` as `a25cb5ce2aeab235cfaed579474df70596f03a63`.
@@ -25,7 +25,7 @@ This file is the concise recovery point for active Combined Status development. 
 
 ## Current phase
 
-The project has completed the current **Phase 2A — 0.0.2 Home carrier / presentation architecture** gate for `dev` integration and is moving into **Phase 2B — Home -> shade / Control Center scene boundary/projection**.
+The project has completed the current **Phase 2A — 0.0.2 Home carrier / presentation architecture** gate for `dev` integration and is moving into **Phase 2B — Home -> Control Center projection with Notification Shade ownership continuity**.
 
 The selected Home direction is an existing-host composition rather than the superseded permanent extra-participant / occupancy-handoff route:
 
@@ -33,7 +33,7 @@ The selected Home direction is an existing-host composition rather than the supe
 
 SystemUI remains authoritative for surrounding native layout, Battery scene/hide behavior, native tint semantics, and charging/Super-Island motion. Combined Status owns its compact composition plus only narrowly scoped, reversible Home presentation state.
 
-Home -> shade / Control Center projection is now the active Phase 2B direction. Keyguard / lockscreen / AOD follows after Phase 2B.
+For the pinned HyperOS target, Notification Shade itself does not present the status-icon row; therefore Phase 2B does **not** project Combined Status into Notification Shade. Notification Shade participates only in Home ownership transfer: Home remains visible at the exact zero-motion boundary and yields once native shade fraction becomes positive. Control Center is the supported panel projection surface. Keyguard / lockscreen / AOD follows after Phase 2B.
 
 ## Current runtime checkpoints
 
@@ -99,31 +99,19 @@ Build 403 uses HyperOS `MiuiBatteryMeterIconView.getProgressStatus()` as semanti
 
 No user-facing per-state color picker/source selector is exposed yet. The future policy seam remains: **System default / Follow status icon / Custom** for NORMAL / CHARGING / POWER_SAVE / PERFORMANCE / LOW.
 
-### Home -> shade / Control Center scene boundary — Build 413 accepted in stable main
+### Home -> panel scene boundary / Control Center projection — Build 420 active
 
-Build 409 corrected only the notification-shade half of the scene lifetime. Maintainer video and Build-409 diagnostics show the unresolved reproduction is a **Control Center** transition.
+Build 419 diagnostic evidence plus maintainer clarification corrects the earlier Phase-2B product assumption:
 
-Device evidence:
-- the exact-target Control Center callback reports `visible=true` before/through the fraction transition and remains true while the panel is returning toward zero;
-- during those Control Center callbacks Build 409 emits no Home-eligibility transition because both Control Center hooks are still diagnostics-only;
-- the video correspondingly shows native status icons entering while the Home Combined Status overlay remains visible;
-- only a later notification-shade update drives `homeEligible=false`, which is not the owner of the reproduced Control Center transition.
+- HyperOS Notification Shade does not display the status-icon row in this target configuration, so Combined Status must not create a Notification-Shade projection.
+- Notification Shade only owns Home departure/return semantics. The observed first/last-frame gap comes from treating `tracking=true` at `fraction=0` as an immediate Home eviction.
+- Build 420 therefore uses native positive shade motion as the ownership boundary: `fraction <= 0` remains Home-owned; `fraction > 0` yields Home. `expanded` and `tracking` remain diagnostic context rather than independent visibility writers.
+- Control Center remains the real projection target. Build 420 resolves `ControlCenterHeaderExpandController.realSystemIcons`, requires it to be the exact `MiuiStatusBatteryContainer` already owned by `SystemUiHomePresentationOwner`, and projects a second renderer view into that native transformed carrier.
+- No second native suppression writer is added. Wi-Fi/mobile/battery masking remains owned exclusively by the existing Home presentation owner.
+- Control Center handoff is readiness-gated: projection becomes visible before Home yields; on close Home is restored before projection cleanup.
+- The Build-419 Notification-Shade target probe is retired from active runtime and preserved only as historical diagnostic evidence.
 
-Root-cause conclusion:
-- Build 409's state source and cleanup mechanism are not the remaining problem;
-- the Home eligibility model is still incomplete because it does not consume Control Center visibility ownership.
-
-Selected Build-410 boundary:
-- promote only `ControlCenterExpandControllerDelegate.onVisibleChanged(boolean)` to runtime authority;
-- keep `onExpansionChanged(float)` diagnostics/read-only for future projection;
-- Control Center permits Home only while native `visible=false`;
-- final Home eligibility becomes: unlocked surface + notification shade settled + Control Center not visible;
-- transfer the last known Control Center eligibility through Hot Reload alongside the notification-shade fact;
-- declare the exact runtime callback in the pinned target profile;
-- fail Home-native if either required scene-lifetime authority cannot be installed;
-- no fraction threshold, delay, translation/alpha writer, geometry follower or custom animation.
-
-Build 409's notification-shade implementation remains intact and is not reopened.
+Current Build-420 runtime head after single-writer review: `3635b52c3f3781db74a09ea6ab23a7e9dfcf40e5`. Draft validation is in progress.
 
 ## Non-negotiable boundaries
 
