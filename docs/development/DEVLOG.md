@@ -2,6 +2,37 @@
 
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
+## 2026-09-28 — Build 418 integrated into dev
+
+**Type:** device-accepted runtime integration closure
+**Build:** 418 / `20260928-418`
+**PR:** #148 `fix/hot-reload-tint-continuity`
+**dev merge commit:** `11bc4ff741869e3311d2be697d4dcfb66f5cb39c`
+
+### Acceptance and integration
+
+- Maintainer focused device validation reports the repeated Home/light-app Tint transition is normal and no longer reproduces the stale inversion.
+- The accepted Detailed diagnostic confirms Hot Reload restoration and subsequent DarkIcon transitions keep renderer `appliedTint`, renderer `statusIconTint`, and live SystemUI status-icon authority aligned.
+- PR #148 merged into `dev` through a merge commit without changing the accepted Build-418 runtime identity.
+- Trusted `dev` push/integration Build #1267 / run `36346676416` passed on exact merge commit `11bc4ff741869e3311d2be697d4dcfb66f5cb39c`.
+- Integration validation passed Gradle Wrapper, Java/API37 setup, signing restore, pinned HyperOS target profile, unit tests/build, Modern Xposed metadata, APK signature, non-debuggable verification, artifact preparation and upload.
+- Integration Canary artifact: `CombinedStatus-0.0.2-HyperOS-20260928-418-canary.apk`, artifact id `10940941306`, GitHub artifact digest `sha256:6d9dd2e53185e4974d74f0d8fcdcd21f0d9388c6bc7362246bb497ce0ffaaec0`.
+
+### Review / 审查
+
+- **ownership:** SystemUI remains Tint authority; accepted snapshot composition is now part of the dev baseline.
+- **lifecycle:** Hot Reload transfer is continuity/fallback only; fresh generation authority wins.
+- **single writer:** renderer ownership remains unchanged.
+- **cleanup/fail-native:** unchanged and Integration-tested.
+- **performance:** no polling, delay, retry or frame-level Tint work was introduced.
+- **compatibility:** pinned target validation passed after integration.
+- **future extension:** the shared Home Tint lifecycle blocker is closed, so Phase-2B projection can resume without duplicating color policy.
+
+### Next
+
+Resume Draft PR #146 from current `dev`. Preserve Build-414 probe findings as historical evidence, but remove the completed diagnostic probe from the active runtime unless a newly identified evidence gap justifies another bounded diagnostic.
+
+
 ## 2026-09-28 — Build 418: live Tint authority snapshot at renderer commit
 
 **Type:** single-variable Tint lifecycle correction

@@ -8,9 +8,9 @@ This file is the concise recovery point for active Combined Status development. 
 - Stable branch: `main`
 - Stable runtime baseline: Build 413 / `20260927-413`, promotion merge commit `3114ade06bcb4846a5654a70f38ea572f5b47b37`
 - Integration branch: `dev`
-- Integration runtime baseline: Build 413, commit `2aa6833cfca69a59af5027a7855b7d8282dbade9`
-- Build 413 / `20260927-413` is the current device-accepted, Integration-validated, and `main`-promoted runtime baseline.
-- Active corrective work / PR: `fix/hot-reload-tint-continuity` / #148. Builds 415, 416 and 417 are device-rejected. Build 418 / `20260928-418` is **device-accepted** for Hot Reload and repeated Home/light-app Tint continuity. Runtime code last changed at `c05d2ee3c094b3331135d66565771b67e7faf6cb`; exact tested PR head `42f350c2bb8d7338906469454fadabc5dcb629de` passed Fast #1261 and signed Work Branch Canary #405. Maintainer repeated-scene validation reports normal behavior; Detailed diagnostics confirm renderer `statusIconTint` tracks the live SystemUI Home status-icon authority across the tested transitions. Next action is integration into `dev`, then resume Phase-2B projection work.
+- Integration runtime baseline: Build 418 / `20260928-418`, merge commit `11bc4ff741869e3311d2be697d4dcfb66f5cb39c`
+- Build 418 / `20260928-418` is the current device-accepted and Integration-validated `dev` runtime baseline. Build 413 remains the current `main`-promoted stable runtime baseline.
+- Active Phase-2B work / PR: `feat/panel-projection` / Draft #146. The Build-418 Tint/Hot Reload blocker is closed and integrated into `dev`; #146 is being refreshed from this baseline. The completed Build-414 notification-header probe is historical evidence only and must not be retained as unnecessary production/runtime baggage.
 - Repository-automation baseline: checkpoint-driven CI from PR #139 remains active; Canary admission hardening and bounded automation-only merge delegation were accepted on `main` via PR #143 (`a1aed8b6451d1018f46e252166545d67f48fe8e4`) and history-preserving back-synced into `dev` via PR #144 (`faaa12b1c8e955138d2ce8d51fb481263b4d7570`). These automation changes do **not** create a new runtime Build.
 - Phase-2A integration: PR #105 merged to `dev` as `2f584c3b393dc5ee606284426aa95a9d6beae5d5`; former stacked PR #100 is closed as superseded.
 - Phase-2B panel/scene-owner integration: PR #138 merged to `dev` as `a25cb5ce2aeab235cfaed579474df70596f03a63`.
@@ -155,12 +155,12 @@ Build 409's notification-shade implementation remains intact and is not reopened
 
 ## Immediate next step
 
-1. Build 418 / `20260928-418` is device-accepted for the Hot Reload/repeated-scene Tint continuity correction.
-2. Finalize PR #148 as Ready and merge it into `dev` without changing runtime code.
-3. Run the required trusted `dev` integration validation and verify that the integrated runtime identity remains Build 418.
-4. After `dev` integration succeeds, rebase/update PR #146 from current `dev` and resume the Phase-2B Home -> shade / Control Center projection work.
-5. Do not reopen the accepted Home Tint lifecycle unless new device evidence contradicts Build 418.
-6. Keep `main` at Build 413 until the next explicit stable-promotion decision; do not auto-promote Build 418 solely because the fix is accepted in `dev`.
+1. Treat Build 418 / `20260928-418` at dev merge commit `11bc4ff741869e3311d2be697d4dcfb66f5cb39c` as the current device-accepted, Integration-validated development baseline.
+2. Keep `main` on Build 413 until an explicit stable-promotion decision.
+3. Refresh Draft PR #146 from current `dev` using a history-preserving merge. Preserve its Build-414 diagnostic evidence, but remove the completed notification-header probe/runtime compatibility expansion from the resulting active runtime unless a new evidence gap explicitly requires it.
+4. Continue Phase 2B from the collected notification-header evidence: inspect the verified `headerController: Lazy` / `NotificationShadeWrapper` ownership chain and identify a real shade status-icon target host/bounds contract before implementing projection.
+5. Reuse the existing Control Center `StatusBarAnchorBounds` evidence; do not reopen Home Tint, Home scene lifetime, HUN/shallow-pull, 8.25 ring, or Battery semantic-color ownership.
+6. Create the next runtime Build only when executable Phase-2B source changes; branch synchronization/document recovery alone does not create Build 419.
 
 ## Reference priority
 
