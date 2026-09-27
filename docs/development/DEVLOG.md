@@ -73,6 +73,18 @@ Deterministic tests cover:
 - Runtime is frozen at Build 418 pending repeated scene-switch device evidence.
 - This record-only closure does **not** create a new runtime Build.
 
+### Final exact-head revalidation
+
+- The earlier Fast #1257 / Canary #403 validation remains valid historical evidence for the same Build-418 runtime code.
+- Subsequent record-only commits advanced PR #148 to exact head `42f350c2bb8d7338906469454fadabc5dcb629de` without changing runtime source after `c05d2ee3c094b3331135d66565771b67e7faf6cb`.
+- Ready checkpoint Fast #1261 passed on exact PR head `42f350c2bb8d7338906469454fadabc5dcb629de`, including pinned target profile, unit tests, Debug build and Modern Xposed metadata.
+- One duplicate Work Branch Canary request (#404) passed trust/checkout/profile/signing setup but was cancelled during the build by the later Canary request through workflow concurrency; this is **not** a runtime failure.
+- Work Branch Canary #405 completed successfully on trusted source SHA `42f350c2bb8d7338906469454fadabc5dcb629de`. The completed job verified trusted-source resolution, exact checkout, pinned target profile, tests/Canary build, Modern Xposed metadata, Haple APK signature, non-debuggable status and artifact upload.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260928-418-canary.apk`.
+- GitHub artifact digest: `sha256:2a89a293fe636703494776682d8f08f071872790d327143c54317ff0e1a16a1b`.
+- Extracted APK SHA-256: `eac3105741237f361d72f3227db6b8a45daa13508ba244048ae77ff76c8642c5`.
+- PR #148 is returned to Draft and runtime remains frozen. This record-only closure does **not** create another runtime Build.
+
 ### Device gate
 
 Install the signed Build-418 Canary without first restarting SystemUI. Trigger module Hot Reload, then repeatedly switch Home -> a light app -> Home -> the same light app. Compare Combined Status with native VPN/mute/status icons on every transition. If mismatch appears, export Detailed diagnostics before any SystemUI restart.
