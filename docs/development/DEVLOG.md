@@ -1202,6 +1202,48 @@ Use explicit confidence labels when root cause is not proven:
 
 Preserve failed hypotheses and append corrections. Do not rewrite history to hide an invalidated path. Historical entries before this log was introduced may be backfilled only from verifiable evidence.
 
+## 2026-09-28 — Build 420 device result: Control Center accepted, shade edge rejected
+
+**Type:** maintainer device evidence / root-cause update
+**Build:** 420 / `20260928-420`
+**PR:** #146 `feat/panel-projection`
+
+### Maintainer result
+
+- Control Center: no abnormal behavior observed. Keep the Build-420 projection architecture and handoff unchanged.
+- Notification Shade: first/last-frame Combined Status disappearance remains; the Build-420 `tracking/fraction=0` correction is insufficient.
+
+### Diagnostic evidence
+
+The Build-420 Detailed report is healthy and confirms the new panel source is installed normally. During Notification-Shade transition:
+
+- `homeRenderScene ... raw=1 surface=KEYGUARD ... visible=false` occurs before the notification fraction callback changes Home shade eligibility;
+- immediately afterward the panel callback reports `fraction=1.0` and `homeEligible=false`;
+- on return, scene state changes back to raw 0 / unlocked before the later `fraction=0.0` callback restores shade Home eligibility.
+
+This proves Home visibility still has two asynchronous writers for the same transition boundary. The earlier Build-420 change fixed the panel predicate, but `SystemUiSceneStateSource` can still evict Home independently.
+
+### Root cause
+
+`SystemUiSceneStateSource` currently maps the Battery view's `mStatusBarState` directly:
+- 0 -> unlocked;
+- 1 -> Keyguard;
+- 2 -> shade locked.
+
+On this target, Battery state 1 can occur as part of Notification-Shade presentation even while the user is not on the actual Keyguard surface. Therefore the Battery field is a presentation-state input, not sufficient proof of global Keyguard ownership.
+
+### Selected Build-421 correction
+
+Use the pinned, already-verified `MiuiKeyguardStatusBarView` runtime marker as the additional Keyguard proof:
+- raw 1 only vetoes Home when the real Keyguard header is attached and visibly participating;
+- transient raw 1 without that marker does not override the panel owner;
+- marker resolution is bounded/cached and read-only;
+- unresolved/ambiguous true-Keyguard evidence fails native rather than forcing Home visible;
+- no Control Center code, geometry, tint, or handoff changes.
+
+This preserves the accepted Control Center result and addresses the actual remaining Notification-Shade writer conflict instead of adding another threshold or delay.
+
+
 ---
 
 ## 2026-09-28 — Build 420: Notification-Shade edge continuity + Control Center projection

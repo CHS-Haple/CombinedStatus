@@ -10,7 +10,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Integration branch: `dev`
 - Integration runtime baseline: Build 418 / `20260928-418`, merge commit `11bc4ff741869e3311d2be697d4dcfb66f5cb39c`
 - Build 418 / `20260928-418` is the current device-accepted and Integration-validated `dev` runtime baseline. Build 413 remains the current `main`-promoted stable runtime baseline.
-- Active Phase-2B work / PR: `feat/panel-projection` / Draft #146. Build 420 / `20260928-420` is the current runtime checkpoint. Product/native behavior has been corrected: Notification Shade does not own a status-icon projection on this HyperOS target; it only gates Home visibility during positive shade motion. Control Center is the actual panel surface that receives Combined Status projection.
+- Active Phase-2B work / PR: `feat/panel-projection` / Draft #146. Build 420 / `20260928-420` is **device-accepted for Control Center projection but device-rejected for the Notification-Shade first/last-frame continuity fix**. Detailed diagnostics prove the remaining gap is caused by an independent scene writer: `MiuiBatteryMeterView.updateState()` reports `mStatusBarState=1` and the current scene source classifies it as `KEYGUARD` before the notification fraction handoff, hiding Home early. Build 421 will keep the accepted Control Center projection unchanged and correct only this scene-authority boundary.
 - Repository-automation baseline: checkpoint-driven CI from PR #139 remains active; Canary admission hardening and bounded automation-only merge delegation were accepted on `main` via PR #143 (`a1aed8b6451d1018f46e252166545d67f48fe8e4`) and history-preserving back-synced into `dev` via PR #144 (`faaa12b1c8e955138d2ce8d51fb481263b4d7570`). These automation changes do **not** create a new runtime Build.
 - Phase-2A integration: PR #105 merged to `dev` as `2f584c3b393dc5ee606284426aa95a9d6beae5d5`; former stacked PR #100 is closed as superseded.
 - Phase-2B panel/scene-owner integration: PR #138 merged to `dev` as `a25cb5ce2aeab235cfaed579474df70596f03a63`.
@@ -143,20 +143,13 @@ Current Build-420 runtime head after single-writer review: `3635b52c3f3781db74a0
 
 ## Immediate next step
 
-1. Keep Build 418 / `20260928-418` as the accepted `dev` runtime baseline. Build 419 remains one unaccepted diagnostic checkpoint.
-2. Treat the first Build-419 device run as **partial diagnostic success**, not target-host closure:
-   - the probe installed successfully with one hook and zero native geometry writes;
-   - `notification` resolves to `com.miui.systemui.shade.NotificationShadeWrapper`;
-   - the wrapper exposes native shade owners including `NotificationHeaderClipHelper -> SharedNotificationContainer` and `StatusBarStateControllerImpl -> NotificationPanelView`;
-   - `headerController` remained `dagger.internal.DoubleCheck`, proving the probe failed to unwrap Dagger Lazy rather than proving the controller is absent.
-3. Keep the same Build-419 identity and correct only the Lazy resolver:
-   - Dagger Lazy / DoubleCheck -> guarded zero-arg `get()`;
-   - Kotlin Lazy -> guarded zero-arg `getValue()`;
-   - unrelated objects with a generic `get()` method must not be invoked.
-4. Run Draft Light -> source review -> Ready Full again because executable diagnostic source changed after Canary #406.
-5. If Full passes, generate one replacement signed Build-419 Canary. Device test remains one notification shade down/up cycle with Detailed diagnostics.
-6. Projection rendering remains disabled until the unwrapped native header owner exposes a verified target host/bounds/tint contract.
-7. Retire the diagnostic immediately once that contract is proven; do not carry the probe into the production projection runtime.
+1. Preserve Build-420 Control Center projection unchanged; maintainer reports no abnormal Control Center behavior.
+2. Treat Build-420 Notification-Shade edge continuity as rejected.
+3. Root cause from the accepted Detailed diagnostic: Battery `mStatusBarState=1` is being interpreted as a global Keyguard surface and vetoes Home before the Notification-Shade fraction owner runs.
+4. Build 421 must distinguish **real Keyguard presentation** from this transient Battery scene state using the verified `MiuiKeyguardStatusBarView` marker already present in the pinned target profile.
+5. Only a proven visible/attached Keyguard marker may convert raw state 1 into a Home scene veto; otherwise the update is treated as panel-transition context and Home remains governed by Notification-Shade fraction / Control Center coordinator.
+6. Keep fail-native behavior if the Keyguard marker cannot be resolved safely; do not ignore real Keyguard, add delays, or change Control Center motion/geometry.
+7. Run Draft validation, source review, Ready Full, then one focused Canary validating Notification-Shade first/last frame plus quick Control Center regression.
 
 ## Reference priority
 
