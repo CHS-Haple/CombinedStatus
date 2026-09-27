@@ -2,6 +2,56 @@
 
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
+## 2026-09-28 — Build 415 Hot Reload tint continuity implementation
+
+**Type:** runtime lifecycle correction
+**Display version:** 0.0.2
+**Build:** 415 / `20260928-415`
+**Work branch / PR:** `fix/hot-reload-tint-continuity` / Draft #148
+**Device validation:** pending
+
+### Implementation
+
+The Hot Reload payload advances from v6 to v7 and adds only classloader-neutral tint primitives:
+
+- last stable renderer `appliedTint`;
+- optional last stable `statusIconTint`.
+
+The old generation captures these values from `CombinedStatusHomeRenderSession` before teardown. The new generation reconstructs a `CombinedStatusTintState` locally and gives it to the new Home render session as continuity state.
+
+`CombinedStatusHomeRenderSession` now uses a lazy initial-tint policy:
+
+- valid transferred tint wins immediately and the live Battery View is not read;
+- cold start keeps the existing native live seed path;
+- Hot Reload without transferred tint does **not** read the handoff-time live View and therefore keeps `tintReady=false` / native handoff active until a real new-generation native tint event arrives.
+
+The last case is required for the first Build-414 -> Build-415 Hot Reload because Build 414's v6 payload cannot contain the new tint fields. v6 and older payloads remain accepted by the v7 restore logic.
+
+### Tests
+
+`CombinedStatusHomeRenderSessionTest` now verifies:
+
+- a valid transferred tint wins without invoking the live tint provider;
+- invalid transferred tint may fall back to the existing live seed when live seeding is explicitly allowed;
+- legacy Hot Reload with no transferred tint and live seeding disabled returns no initial tint and never reads the transient live provider.
+
+### 审查 / review
+
+- **Ownership:** native HyperOS/SystemUI tint events remain authoritative; transferred tint is only continuity of the last already-accepted renderer state.
+- **Lifecycle:** v7 continuity spans one Hot Reload generation boundary; first new native tint update supersedes it through the unchanged `onTintStateUpdate` path.
+- **Single writer:** no SystemUI color/tint/dark-mode writer is added.
+- **Cleanup:** raw transfer contains primitive integers only; no old-generation tint object or View crosses the classloader boundary.
+- **Fail native:** legacy/missing/invalid tint transfer keeps native presentation until the new generation observes authoritative tint; it does not show Combined Status with a guessed color.
+- **Performance:** constant-time state transfer only; no polling, timer, retry, traversal, or frame listener.
+- **Compatibility:** payload v7 explicitly preserves v6 Control Center, v5 shade, and older restore formats. Cold start is unchanged.
+- **Exception recovery:** absence of tint continuity does not invalidate network/model/panel state transfer; it narrows fallback to native presentation until tint becomes ready.
+- **Future extension:** panel projection remains independent and paused; once this shared Hot Reload presentation path is accepted, #146 can rebase/update from the integrated fix.
+
+### Validation gate
+
+Build 415 changes executable Hot Reload lifecycle behavior and therefore requires Fast validation plus one trusted signed Canary and focused maintainer device validation before integration.
+
+
 ## 2026-09-28 — Hot Reload tint continuity root-cause checkpoint
 
 **Type:** root-cause review / branch-scope checkpoint
