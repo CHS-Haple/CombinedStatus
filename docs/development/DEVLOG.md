@@ -4271,3 +4271,979 @@ The Phase-2B investigation must start from native scene/progress ownership and m
 - **Performance / compatibility:** no new runtime mechanism was introduced during integration/back-sync.
 - **Residual:** slight outer optical-weight variance is deferred and does not block subsequent scene work.
 - **Next:** Phase 2B is active. Start from a new work branch based on this dev baseline and address the shallow shade-pull Home-overlay leak from native scene/progress ownership rather than geometry or timing compensation.
+
+---
+
+## 2026-09-27 — Phase 2B root-cause review: Home overlay ignores native shade lifetime
+
+**Type:** scene-boundary root-cause review / pre-runtime checkpoint
+**Display version:** 0.0.2
+**Baseline:** dev Build 408 / `2f584c3b393dc5ee606284426aa95a9d6beae5d5`
+**Work branch:** `fix/shade-home-overlay-leak`
+
+### Problem execution flow
+
+**Phenomenon and evidence**
+
+A shallow notification-shade pull and the final held-return frame can leave the Home Combined Status representation visible even though the notification panel has begun owning presentation.
+
+**Root cause / responsibility source**
+
+- `SystemUiSceneStateSource` classifies the Battery view from `mStatusBarState`; raw `SHADE(0)` maps to `UNLOCKED_STATUS_BAR` and allows Home overlay.
+- That status-bar mode is not a panel-expansion lifecycle. It can remain `SHADE(0)` while the notification panel opens/closes.
+- `SystemUiPanelTransitionSource` already hooks the exact target `ShadeExpansionStateManager.onPanelExpansionChanged(float, boolean, boolean)` and receives native `fraction`, `expanded`, and `tracking`.
+- `CombinedStatusModule.onPanelTransitionUpdate()` currently returns immediately when Detailed diagnostics are disabled. When enabled, it only records bounded diagnostic buckets / native transition snapshots.
+- `CombinedStatusHomeRenderSession` receives no panel-transition eligibility fact. Its overlay visibility and readiness therefore remain true as long as the static surface stays `UNLOCKED_STATUS_BAR`.
+
+**Root-cause status:** confirmed at source level. The native panel fact exists and is already hooked; the missing responsibility is routing that fact into Home presentation eligibility.
+
+### Platform / reference evidence
+
+- Android SystemUI documents `expanded` as independent from numeric fraction and `tracking` as active user gesture ownership.
+- The native shade state manager considers the panel closed only after it is not expanded and tracking has ended.
+- This explains the observed held-return case: a zero/near-zero fraction alone cannot establish Home ownership.
+- Existing Combined Status reference policy already requires native progress/scene ownership and forbids first/last-frame offset compensation or a second animation system.
+
+### Alternatives reviewed
+
+1. Hide Home when `fraction > 0.01` (or another epsilon) — rejected as a project-owned magic threshold and fails the zero-fraction-but-still-expanded/tracking case.
+2. Delay hide/show around touch release — rejected as lifecycle compensation and race-prone.
+3. Follow panel translation each frame — rejected; SystemUI owns motion and the immediate defect is eligibility, not geometry.
+4. Implement full shade/Control Center Combined Status projection now — rejected for this first fix because it mixes a new surface contract into a confirmed Home-leak correction.
+5. Route native `expanded/tracking` into Home eligibility and fail native during notification transition — selected.
+
+### Selected first runtime boundary
+
+- Notification shade stays `NATIVE_ONLY`.
+- Home notification-panel eligibility is true only for native `expanded=false && tracking=false`.
+- Any native update reporting `expanded=true` or `tracking=true` makes Home presentation not ready; existing presentation-cutover cleanup restores native status visuals.
+- Keep `fraction` read-only for diagnostics and later draw-only projection.
+- Do not change Control Center behavior in the same Build.
+
+### Review
+
+- **Ownership:** SystemUI `ShadeExpansionStateManager` remains the scene/gesture authority; Combined Status only consumes its facts.
+- **Lifecycle:** reuse the three already-installed panel hooks; no new Hook, listener, polling owner or frame callback.
+- **Single writer:** visibility/readiness remains owned by the existing Home RenderSession + presentation cutover path.
+- **Cleanup:** losing Home readiness uses the existing reversible suppression/reservation cleanup; no new mutable native state.
+- **Fail native:** shade transition explicitly restores native presentation rather than trying to render an unverified shade representation.
+- **Performance:** event-driven callback already exists; the new path is boolean state/recompute only.
+- **Compatibility:** exact target hook contract is already installed and target-profile validated.
+- **Exception recovery:** invalid/missing panel payload should not invent a transition; existing static scene/fail-native rules remain.
+- **Future extension:** fraction/endpoints remain available for a later projection layer without coupling steady Home lifetime to animation geometry.
+
+### Next
+
+Implement a pure notification-shade eligibility policy plus Home RenderSession routing, advance one runtime Build, run CI/Canary, and stop for focused device validation.
+
+
+### Phase 2B implementation review refinement — Hot Reload scene continuity
+
+Before promoting the shade callback from diagnostics into runtime eligibility, the Hot Reload path was reviewed.
+
+Finding:
+- cold process start may safely retain the existing Home-default behavior until the first native panel callback because there is no pre-existing user gesture from an older SystemUI generation;
+- Hot Reload is different: the classloader/source object is replaced while the existing SystemUI scene can already be mid-shade;
+- the current source-local `notificationShadeHomeEligible` snapshot would otherwise reset to unknown and the Home session currently treats unknown as the stable-Home default;
+- therefore a Hot Reload performed while shade is expanded/tracking could briefly re-enable the Home replacement before another native panel callback arrives.
+
+Selected correction:
+- extend the existing classloader-neutral Hot Reload payload with one nullable Boolean: the last known notification-shade Home eligibility;
+- restore that value into the new `SystemUiPanelTransitionSource` before `attachHostRuntime(...)`;
+- preserve null for old/unknown payloads and retain the existing cold-start default only in that unknown case;
+- do not reflect private ShadeExpansionStateManager fields, poll state, or add another observer.
+
+Review:
+- **ownership:** SystemUI callback remains the authority; transferred state is only the last observed native fact;
+- **lifecycle:** the value lives with the existing panel source and existing Hot Reload transfer lifecycle;
+- **single writer:** only the native notification-shade callback updates the live eligibility; Hot Reload restore seeds it once;
+- **cleanup:** panel source reset clears the snapshot; no listener/state survives beyond its owner;
+- **fail-native:** malformed callback semantics resolve Home-ineligible; unknown transfer stays on the existing cold-start-compatible behavior;
+- **performance:** one Boolean snapshot, no additional callback or polling;
+- **compatibility:** no new reflection/private-field dependency;
+- **future extension:** Control Center remains separate and diagnostics-only in this checkpoint.
+
+
+---
+
+## 2026-09-27 — Build 409 source review: native notification-shade Home eligibility
+
+**Type:** Phase-2B runtime checkpoint / source review
+**Display version:** 0.0.2
+**Build:** 409 / 20260927-409
+**Runtime source:** `08574da0abcf192ff59b0eb8fa94c818ca1221b9`
+**Validation:** source review passed; CI/Canary and device acceptance pending
+
+### Runtime delta
+
+- Promote exactly one `ShadeExpansionStateManager.onPanelExpansionChanged(FZZ)V` hook from diagnostics-only use into the production runtime.
+- Keep the two Control Center expansion/visibility hooks diagnostics-only.
+- Derive Home notification-shade eligibility only from native `expanded=false && tracking=false`.
+- Route the eligibility into the existing Home render/readiness gate.
+- Keep fraction as read-only diagnostic/future projection progress; no numeric threshold is used.
+- Extend the classloader-neutral Hot Reload payload from v4 to v5 with one nullable Boolean containing the last observed native shade eligibility.
+- Restore that snapshot before the new-generation Home runtime attaches.
+- Promote the exact ShadeExpansionStateManager method into the pinned HyperOS compatibility profile.
+- Advance build identity to `20260927-409`.
+
+### Review
+
+- **Ownership:** SystemUI shade state manager remains scene/gesture authority; Combined Status consumes only native callback facts.
+- **Lifecycle:** one event-driven production callback; no new observer, timer or polling loop.
+- **Single writer:** the live callback owns eligibility updates; Hot Reload restoration is a one-time generation seed.
+- **Cleanup:** source reset clears the snapshot and existing Home presentation cleanup restores only module-owned masks/reservation.
+- **Fail native:** malformed/missing expanded/tracking values resolve Home-ineligible; unsupported surfaces remain native.
+- **Performance:** Boolean comparison + existing readiness transition only; no per-frame reflection or custom animation.
+- **Compatibility:** runtime dependency is now declared in the exact-target profile and SystemUI-Reference contract index.
+- **Exception recovery:** existing panel install failure path leaves Home replacement unable to rely on an unverified transition source rather than introducing fallback timing logic.
+- **Future extension:** native fraction remains available for a later real Home-to-shade projection without coupling this leak fix to geometry or animation.
+
+### Intentionally unchanged
+
+- Control Center presentation/projection;
+- shade Combined Status rendering;
+- steady Home carrier, masks, reservation and island inheritance;
+- Battery semantic-color policy and Build-408 visual baseline;
+- deferred ring/center/dot optical-weight polish;
+- keyguard/AOD behavior.
+
+### Validation gate
+
+Fast CI + signed Canary are required before device testing. Once a signed Build-409 Canary exists, runtime must freeze for the focused shade-lifetime scenarios.
+
+
+### Build 409 pre-CI correction
+
+Repository-latest runtime review found three commits after the first Build-409 implementation checkpoint:
+
+- `a63565f47700148fa349e30dce8d1062c480c746`: if the required notification-shade runtime Hook cannot be installed, mark Home shade eligibility false so the feature fails native instead of silently continuing without scene authority.
+- `cf8f53233a6a4f358c0840336efb57cf827e94c8`: empty commit; no executable delta.
+- `d4ef6e6bc2be143a961e0130f0978e5788c325c4`: move the cold-start Home bootstrap to after successful Shade Hook registration and remove the transient duplicate restore helper.
+
+Review conclusion:
+- these changes tighten fail-native/bootstrap semantics without adding another state source or writer;
+- Build identity remains 409 because no validated/issued Build-409 Canary existed before these corrections;
+- **final executable source for Build 409 is `d4ef6e6bc2be143a961e0130f0978e5788c325c4`**;
+- earlier `08574da...` is an intermediate unvalidated Build-409 source and must not be used for device acceptance.
+
+
+### Build 409 source correction after review hardening
+
+The earlier Build-409 source-review note preceded the final Fail-native and Hot Reload hardening. Historical checkpoints remain unchanged; the **final executable Build-409 source is now `4ab7b490617757e34c0ea8e0b59e3d7a16bae9ad`**.
+
+Final review additions:
+- unknown shade authority no longer defaults to Home-eligible;
+- successful authority installation provides the steady-Home bootstrap, while installation failure leaves Home native;
+- current shade eligibility is transferred in the version-5 Hot Reload payload and restored before the Home host session is attached;
+- version-4/older payloads remain readable; because 408 could not have stored shade eligibility, a 408 -> 409 reload preserves the successfully installed 409 bootstrap until the next native callback;
+- duplicate/incorrectly inserted helper code found during source review was removed before CI.
+
+No additional visual, geometry, color, Control Center, or animation behavior was added by this hardening.
+
+
+---
+
+## 2026-09-27 — Build 409 CI correction: stale test call sites
+
+**Type:** CI failure / test-maintenance correction  
+**Runtime source:** `4ab7b490617757e34c0ea8e0b59e3d7a16bae9ad`  
+**Runtime conclusion:** unchanged
+
+### CI evidence
+
+- Draft Build #1122 / run `36317771794` failed during lightweight repository checks because newly added DEVLOG lines contained trailing whitespace. No Android compile step ran. The whitespace was removed in a documentation-only commit.
+- Ready Fast Build #1123 / run `36317790493` correctly classified the PR as **Fast** and passed Gradle Wrapper, Java/API setup, and the pinned HyperOS target-profile check.
+- Build #1123 then reached Android compilation. Production `compileDebugKotlin` **succeeded**.
+- `compileDebugUnitTestKotlin` failed at five existing assertions in `SystemUiNativeCombinedParticipantOwnerTest.kt` because `CombinedStatusHomeRenderSession.resolveOverlayVisible(...)` now requires the additional `notificationShadeAllowsHome` argument.
+- Build #1124 / run `36317833217` was created from the whitespace-cleaned head before that test-call-site correction and completed failure from the same pre-fix branch state.
+
+### Root cause
+
+The Phase-2B runtime change intentionally extended the pure visibility policy function with a fourth gate. New dedicated shade-policy tests were added, but five older tests for the feature/scene/native-handoff gates still called the previous three-argument signature.
+
+This is a test-maintenance omission, not a production compile or runtime design failure.
+
+### Selected correction
+
+Update only those five legacy assertions with `notificationShadeAllowsHome=true`.
+
+That preserves their original purpose:
+- master switch false still blocks;
+- scene false still blocks;
+- native handoff true still blocks;
+- the shade gate is held neutral/allowing in those pre-existing tests.
+
+No runtime source, Build identity, scene policy, Hook, state source, geometry, color, or lifecycle behavior changes.
+
+### Gate
+
+Re-run Fast CI after the test-only correction. Build 409 remains the same runtime candidate and must still receive a signed Canary before device validation.
+
+
+---
+
+## 2026-09-27 — Build 409 Fast #1127: one stale Hot Reload assertion
+
+**Type:** CI failure / test-semantics correction  
+**Fast run:** #1127 / `36318037749`  
+**Runtime source:** `4ab7b490617757e34c0ea8e0b59e3d7a16bae9ad`  
+**Runtime conclusion:** unchanged
+
+### Evidence
+
+Fast #1127 passed:
+- Fast scope classification;
+- Gradle Wrapper / Java / API 37 setup;
+- pinned HyperOS target-profile verification, including the promoted Shade callback contract;
+- production Debug Kotlin compilation;
+- unit-test Kotlin compilation.
+
+The test task executed **239 tests; 238 passed and 1 failed**:
+`SystemUiPanelTransitionSourceTest.notificationShadeEligibilitySnapshotCanSeedHotReloadGeneration`.
+
+The failure is at the final assertion after:
+`restoreNotificationShadeHomeEligibility(null)`.
+
+### Root cause
+
+Final Build-409 hardening deliberately changed restore semantics so `null` means “this payload contains no shade eligibility fact” and therefore **does not overwrite** the current source state.
+
+That matters for 408/v4 -> 409/v5 Hot Reload:
+- the new generation successfully installs the required Shade Hook and establishes its conservative steady-Home bootstrap;
+- an older payload cannot contain shade eligibility;
+- restoring its null value must not erase the newly-established bootstrap.
+
+The failing test still expected the earlier intermediate behavior where null cleared the snapshot. The assertion is stale; the production implementation matches the documented compatibility boundary.
+
+### Selected correction
+
+Test-only:
+- retain reset -> null;
+- verify false restores false;
+- verify true restores true;
+- verify a subsequent null restore preserves true.
+
+No runtime, Hook, transfer format, Build identity, color, geometry or scene-policy change is required.
+
+### Gate
+
+Re-run Fast CI after the assertion correction. A signed Canary remains required before device validation.
+
+
+---
+
+## 2026-09-27 — Build 409 Fast + signed Canary success
+
+**Type:** validation success / device-test gate  
+**Build:** 409 / 20260927-409  
+**Executable runtime source:** `4ab7b490617757e34c0ea8e0b59e3d7a16bae9ad`  
+**Tested PR head:** `e7f2ca9a104875688fd2b91640ec84f43c8b228a`
+
+### Fast validation
+
+- Build workflow: **#1129** / run `36318210235`.
+- Result: **success**.
+- Scope: Fast / ordinary product-runtime PR.
+- Passed Gradle Wrapper, Java/API 37 setup, pinned HyperOS target-profile verification, all unit tests, Debug assembly, built-APK resolution and Modern Xposed metadata validation.
+- Earlier #1122/#1123/#1124/#1127 failures are retained as historical validation evidence and were closed by documentation/test-only corrections; no runtime source change followed `4ab7b490...`.
+
+### Signed Work Branch Canary
+
+- Work Branch Canary: **#363** / run `36318369493`.
+- Result: **success**.
+- Trusted source resolution and exact checked-out source verification passed for PR #138 head `e7f2ca9a104875688fd2b91640ec84f43c8b228a`.
+- Passed:
+  - Gradle Wrapper;
+  - Java / Android API 37;
+  - Haple signing restore and verification;
+  - pinned HyperOS target-profile verification, including `ShadeExpansionStateManager.onPanelExpansionChanged(FZZ)V`;
+  - tests and Canary build;
+  - Modern Xposed metadata;
+  - Haple APK signature;
+  - non-debuggable verification;
+  - artifact preparation/upload.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260927-409-canary.apk`
+- GitHub artifact ID: `10931079487`
+- Extracted APK size: `3293218` bytes
+- Extracted APK SHA-256: `c8d8aabbaeb8f60abfc1897996b45019e7f9d8d130e5055acacf3848164591ba`
+
+### Gate
+
+**Runtime is frozen at Build 409.**
+
+The next required evidence is maintainer device validation of the notification-shade lifetime boundary. Do not add Control Center projection, shade rendering, timing compensation, geometry/color changes, or any other runtime change before that result.
+
+
+---
+
+## 2026-09-27 — Build 409 device rejection: unresolved path is Control Center
+
+**Type:** device evidence / root-cause correction  
+**Build under test:** 409 / 20260927-409  
+**Executable source:** `4ab7b490617757e34c0ea8e0b59e3d7a16bae9ad`  
+**Result:** notification-shade gate observed working; overall shallow-pull issue not solved
+
+### Evidence
+
+The maintainer supplied:
+- a six-second device recording reproducing the visible overlap/leak;
+- `CombinedStatus-Diagnostic-20260927-409-20260927-202347.txt`.
+
+The recording shows a transition interval where native Wi-Fi/mobile/battery presentation has already entered while the Home Combined Status remains visible.
+
+The matching diagnostics identify that transition as Control Center:
+- `panelTransition source=control-center ... visible=true` begins before fraction progress and persists through the outward/return motion;
+- fractions traverse roughly 0.12 -> 0.50 -> 0.12 while `visible=true`;
+- the native callback finally emits `visible=false` only after the Control Center transition has settled;
+- Build 409 emits no Home readiness/eligibility change for those Control Center updates because both callbacks were deliberately diagnostics-only.
+
+Separately, later notification-shade evidence shows Build 409 can drive:
+`homeRenderShadeEligibility ... homeEligible=false` ->
+`homeRenderReadiness ... ready=false` ->
+`homeRenderHandoff nativeActive=true overlayVisible=false` ->
+Home presentation cleanup/restoration.
+
+Therefore the remaining failure is **not** that the Home cleanup transaction ignores a false eligibility. The missing responsibility is the Control Center lifetime fact.
+
+### Root cause / responsibility source
+
+Build 409 modeled:
+
+`Home eligibility = unlocked surface && notification shade settled`
+
+but the actual SystemUI has another independent end-side transition owner:
+
+`ControlCenterExpandControllerDelegate.onVisibleChanged(boolean)`.
+
+Because that fact was diagnostics-only, Control Center could own the status-bar transition while Combined Status still considered Home eligible.
+
+### Selected Build-410 correction
+
+- production runtime authorities:
+  1. notification shade semantic CLOSED: `expanded=false && tracking=false`;
+  2. Control Center not visible: `visible=false`;
+- keep Control Center `onExpansionChanged(float)` diagnostics/read-only only;
+- no fraction threshold;
+- route both booleans into the existing Home readiness / cleanup transaction;
+- Hot Reload transfers both last-known nullable eligibility facts;
+- exact-target profile must verify `ControlCenterExpandControllerDelegate.onVisibleChanged(Z)V`;
+- if either required runtime authority fails installation, Home Combined Status fails native.
+
+### Review
+
+- **Ownership:** each SystemUI scene callback owns its own lifetime fact; Combined Status composes them, it does not invent progress state.
+- **Lifecycle:** one additional existing event callback becomes production-relevant; no observer/poll/timer is added.
+- **Single writer:** notification callback writes notification eligibility; Control Center visibility callback writes Control Center eligibility; the Home session only consumes both.
+- **Cleanup:** unchanged existing Home cleanup restores exact module-owned mask/reservation state.
+- **Fail native:** missing runtime scene authority disables Home replacement rather than leaving a stationary overlay across an unknown transition.
+- **Performance:** Boolean event gate only.
+- **Compatibility:** exact-target method moves from diagnostic evidence to declared runtime profile contract.
+- **Future extension:** Control Center fraction remains available for later draw-only projection without being repurposed as an eligibility threshold.
+
+### Gate
+
+Implement and validate Build 410 before any projection or animation work.
+
+
+---
+
+## 2026-09-27 — Build 410 source review: compose Control Center visibility into Home ownership
+
+**Type:** Phase-2B runtime checkpoint / source review  
+**Build:** 410 / 20260927-410  
+**Runtime source:** `6e2fc55944753c6cb9ef22f537008c97217f17e1`  
+**Validation:** source/call-site review passed; Fast/Canary pending
+
+### Runtime delta
+
+Build 410 retains the Build-409 notification-shade authority and adds the second native scene-lifetime authority demonstrated by the maintainer's device evidence:
+
+- production hook 1: `ShadeExpansionStateManager.onPanelExpansionChanged(FZZ)V`;
+- production hook 2: `ControlCenterExpandControllerDelegate.onVisibleChanged(Z)V`;
+- diagnostics-only hook: `ControlCenterExpandControllerDelegate.onExpansionChanged(F)V`.
+
+Home eligibility now requires:
+- unlocked Home surface;
+- notification shade semantically settled: `expanded=false && tracking=false`;
+- Control Center not visible: `visible=false`;
+- existing model/tint/layout readiness;
+- no native handoff activity.
+
+### Hot Reload
+
+The classloader-neutral payload advances to v6:
+- v6 carries notification-shade + Control Center eligibility;
+- v5 remains readable and carries only notification-shade eligibility;
+- v4 and older remain readable through their established compatibility paths;
+- a missing legacy Control Center field does not erase the successfully installed new generation's bootstrap state.
+
+### Exact-target compatibility
+
+The pinned HyperOS profile now verifies:
+`com.miui.systemui.controlcenter.container.ControlCenterExpandControllerDelegate.onVisibleChanged(Z)V`.
+
+The matching SystemUI-Reference contract index records the same callback as semantic scene lifetime. `onExpansionChanged(F)V` remains progress evidence only.
+
+### Review
+
+- **Ownership:** SystemUI remains owner of both transition lifetimes; Combined Status composes two native booleans into Home eligibility.
+- **Lifecycle:** exactly two production event hooks; no polling/timer/listener layer added.
+- **Single writer:** each native callback writes only its corresponding source snapshot; Home Session is the single consumer that resolves presentation readiness.
+- **Cleanup:** unchanged Home cleanup transaction restores only module-owned clip/reservation state.
+- **Fail native:** install failure marks both required scene authorities Home-ineligible.
+- **Performance:** event-driven Boolean gates; Control Center fraction processing remains diagnostics-only.
+- **Compatibility:** both production private contracts are fingerprint/profile checked.
+- **Exception recovery:** partial hook install is unhooked on failure; Home falls native.
+- **Future extension:** progress callbacks remain available for later draw-only projection without contaminating eligibility with thresholds.
+
+### Call-site review
+
+- all legacy `resolveOverlayVisible(...)` test calls explicitly pass the new Control Center gate;
+- Home visibility and presentation readiness both require the gate;
+- the sole Hot Reload capture call passes both eligibility facts;
+- expected hook count is 2 in production and 3 with diagnostics;
+- no RGB/alpha/geometry/translation/animation behavior changed.
+
+### Gate
+
+Fast CI and a signed Canary are required before another device test. Runtime changes stop once the signed Build-410 Canary exists.
+
+
+---
+
+## 2026-09-27 — Build 410 Fast #1141: stale Home-session test call sites
+
+**Type:** CI failure / test-maintenance correction  
+**Fast run:** #1141 / `36319627573`  
+**Runtime source:** `6e2fc55944753c6cb9ef22f537008c97217f17e1`  
+**Runtime conclusion:** unchanged
+
+### CI evidence
+
+Fast #1141:
+- correctly classified as Fast;
+- passed Gradle Wrapper / Java / API 37 setup;
+- passed the pinned HyperOS target-profile verification, including `ControlCenterExpandControllerDelegate.onVisibleChanged(Z)V`;
+- production `compileDebugKotlin` succeeded;
+- `compileDebugUnitTestKotlin` failed at five pre-existing `CombinedStatusHomeRenderSessionTest.kt` calls to `resolveOverlayVisible(...)` because they did not yet supply the new `controlCenterAllowsHome` parameter.
+
+### Root cause
+
+Build 410 extends the pure Home visibility policy with a second native scene-lifetime gate. The participant-owner tests were updated during source review, but the separate Home-session policy test file contains five additional legacy calls.
+
+Those tests cover pre-existing feature/scene/notification/handoff semantics. They should hold the new Control Center gate neutral/allowing with `controlCenterAllowsHome=true`.
+
+This is a test-maintenance omission, not a production compilation, target-contract or runtime design failure.
+
+### Selected correction
+
+Update only the five legacy policy-test calls with `controlCenterAllowsHome=true`.
+
+No runtime code, Hook contract, Hot Reload payload, build identity, color, geometry, animation or scene policy changes.
+
+### Gate
+
+Re-run Fast CI after the test-only correction. Build 410 remains the same executable candidate and still requires a signed Canary before device validation.
+
+
+---
+
+## 2026-09-27 — Build 410 Fast + signed Canary success
+
+**Type:** validation success / device-test gate  
+**Build:** 410 / 20260927-410  
+**Executable runtime source:** `6e2fc55944753c6cb9ef22f537008c97217f17e1`  
+**Tested PR head:** `5320bf87253128de290b4b0809694949a02b6c38`
+
+### Fast validation
+
+- Fast Build #1143 / run `36319763905`: **success**.
+- Passed Fast scope classification, Gradle Wrapper, Java/API 37, pinned HyperOS target-profile verification, all unit tests, Debug build, APK resolution and Modern Xposed metadata.
+- The preceding #1141 failure is retained as historical evidence; it was a test-only stale-call-site omission and did not require a runtime change.
+
+### Signed Work Branch Canary
+
+- Work Branch Canary #377 / run `36319940085`: **success**.
+- Trusted source resolution and exact checked-out source verification passed for PR #138 head `5320bf87253128de290b4b0809694949a02b6c38`.
+- Passed:
+  - Gradle Wrapper;
+  - Java / Android API 37;
+  - Haple signing restore/verification;
+  - pinned notification-shade + Control Center runtime contracts;
+  - tests and Canary build;
+  - Modern Xposed metadata;
+  - Haple APK signature;
+  - non-debuggable verification;
+  - artifact preparation/upload.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260927-410-canary.apk`
+- Artifact ID: `10932655599`
+- Extracted APK size: `3309598` bytes
+- Extracted APK SHA-256: `8c3f3011c214e66d20a89698e902191bdd8bc039803a6c824a261170a5cbf0eb`
+
+### Runtime gate
+
+**Runtime is frozen at Build 410 pending maintainer device validation.**
+
+### Deferred visual note
+
+The maintainer additionally reports that the battery ring now feels somewhat thin. This is consistent with Build 408's ring-only reduction from the previous effective 8.25-unit stroke to 7.5 while the accepted mobile-dot size remained unchanged. No visual change is added to Build 410. After Phase-2B scene validation, evaluate a separate ring-only optical-weight A/B rather than coupling thickness to scene-lifetime work.
+
+
+---
+
+## 2026-09-27 — Build 411 combined checkpoint: persistent Home owner + ring optical rebalance
+
+**Type:** accelerated combined device candidate / root-cause architecture correction / visual A/B
+
+### New maintainer evidence
+
+After Build 410:
+- every notification-shade / Control Center down-up cycle can replay the native status-icon entrance presentation;
+- a heads-up/notification appearance can leave the status bar restored to the native icon set;
+- the Build-408 battery-ring reduction now reads too thin and the ROUND endpoint curvature looks visually mismatched against the lower dot group.
+
+The maintainer explicitly requested that the next scene/runtime correction and the size/thickness visual coordination be tested in **one version** to reduce iteration time.
+
+### Scene root cause
+
+Current `dispatchPresentationReadiness()` combines two different responsibilities:
+1. structural ability of the Home owner to maintain a valid replacement session;
+2. scene eligibility of the Home overlay.
+
+Because notification-shade / Control Center gates participate in that single Boolean, every transient panel ownership change currently drives:
+
+`ready=false -> SystemUiHomePresentationOwner.deactivate() -> restore Home native masks/reservation`
+
+and return drives:
+
+`ready=true -> activate() -> recapture/reapply masks/reservation`.
+
+That is unnecessarily destructive. Build-409 device evidence already demonstrated that Control Center has its own native status presentation while the Home overlay can still exist underneath; therefore target-scene native rendering does not require tearing down the Home owner.
+
+### Selected Build-411 ownership correction
+
+Separate:
+- **owner structural readiness** = feature enabled + model/tint/layout ready + Home host attached;
+- **overlay scene eligibility** = unlocked Home + notification shade settled + Control Center not visible + native handoff inactive.
+
+The persistent Home owner remains active across notification-shade / Control Center scene transitions. Scene callbacks only drive overlay visibility. Full owner teardown remains for real structural invalidation/fail-native/hot-reload/host replacement.
+
+Expected effect:
+- no repeated Home native restore/re-mask cycle on every panel gesture;
+- no project-triggered replay of native icon entrance caused by that cycle;
+- less susceptibility to temporary notification/HUN scene fluctuations restoring the whole Home status representation.
+
+### Visual A/B in the same candidate
+
+Build 408 reduced effective ring width from 8.25 to 7.5 while preserving the accepted mobile-dot radius (~5.39). Maintainer feedback now reports:
+- ring too thin;
+- ROUND endpoint curvature no longer visually matches the lower opening/dots.
+
+Build 411 uses:
+- ring stroke: **8.0 canonical units**;
+- mobile dot radius: unchanged;
+- center size/geometry: unchanged;
+- color/alpha: unchanged;
+- existing lower-opening edge-gap solver recomputes dot angles from the new ring width.
+
+This is intentionally between rejected/heavy 8.25 and current/thin 7.5.
+
+### Review boundary
+
+No delay, retry, polling, custom scene animation, fraction threshold, per-glyph color compensation, center resize, or device-pixel magic value is added.
+
+
+---
+
+## 2026-09-27 — Build 411 source review: stable Home owner + 8.0 ring
+
+**Type:** combined scene/visual checkpoint / source review  
+**Build:** 411 / 20260927-411  
+**Executable runtime source:** `aaaaf0810b114b1e90a3de3f1520721a420da2d0`  
+**Validation:** source review passed; Fast/Canary pending
+
+### Executable delta from Build 410
+
+Only two runtime files change:
+
+1. `CombinedStatusHomeRenderSession.kt`
+   - introduces pure `resolveOwnerReady(...)`;
+   - owner readiness now depends only on feature/model/tint/layout/host attachment;
+   - scene surface, notification-shade eligibility and Control Center eligibility remain overlay-visibility gates only;
+   - existing Build-410 panel authorities are unchanged.
+
+2. `CombinedStatusPainter.kt`
+   - default battery-ring stroke: `7.5 -> 8.0`;
+   - mobile-dot radius unchanged;
+   - center geometry unchanged;
+   - tint/alpha unchanged;
+   - lower-opening solver automatically recomputes balanced edge gaps from the new ring width.
+
+### Why this addresses the new runtime symptoms
+
+Before Build 411, every panel scene-gate change could toggle presentation readiness and therefore execute full Home owner `deactivate()/activate()`, restoring and then reapplying native Home clip masks and end reservation. This creates an unnecessary Home-layer cutover cycle on every down/up gesture and can amplify transient notification/HUN state changes into a full native fallback.
+
+Build 411 keeps the structurally valid Home owner stable. Shade/Control Center remain NATIVE_ONLY target surfaces; only the Home overlay is hidden during their ownership.
+
+### Review
+
+- **Ownership:** Home owner stays scoped to the Home host; target surfaces remain native/SystemUI-owned.
+- **Lifecycle:** no new Hook/listener/polling; fewer owner lifecycle transitions.
+- **Single writer:** unchanged mask/reservation writer; scene callbacks no longer destroy/recreate it.
+- **Cleanup:** real structural invalidation still reaches the existing deactivate/cleanup path.
+- **Fail native:** feature/model/tint/layout/host failure still makes owner readiness false.
+- **Performance:** removes repeated owner setup/teardown on panel gestures.
+- **Compatibility:** no new private SystemUI contract.
+- **Exception recovery:** unchanged target-profile and fail-native boundaries.
+- **Future extension:** scene progress remains available for later projection without being coupled to owner lifetime.
+
+### Visual review
+
+Ring 8.0 is intentionally between:
+- Build 407 effective 8.25, which read too heavy;
+- Build 408-410 7.5, which now reads too thin and gives a smaller ROUND endpoint radius.
+
+The existing gap solver remains the only lower-opening spacing authority.
+
+### Gate
+
+Fast CI + signed Canary, then one combined device pass for scene behavior and visual balance.
+
+
+---
+
+## 2026-09-27 — Build 411 Fast + signed Canary success
+
+**Type:** combined validation success / device-test gate  
+**Build:** 411 / 20260927-411  
+**Executable runtime source:** `aaaaf0810b114b1e90a3de3f1520721a420da2d0`  
+**Tested PR head:** `6bc260143c056bac643daf1c8d3f1af99bcd30df`
+
+### Fast validation
+
+- Fast Build #1150 / run `36321207293`: **success**.
+- Passed Fast classification, Gradle Wrapper, Java/API 37, pinned HyperOS target-profile verification, all unit tests, Debug assembly, APK resolution and Modern Xposed metadata.
+- The new owner-readiness separation test and Build-411 outer-geometry baseline are included in the passing test suite.
+
+### Signed Work Branch Canary
+
+- Work Branch Canary #384 / run `36321322516`: **success**.
+- Trusted source resolution and exact checkout verification passed for PR #138 head `6bc260143c056bac643daf1c8d3f1af99bcd30df`.
+- Passed:
+  - Gradle Wrapper;
+  - Java / Android API 37;
+  - Haple signing restore/verification;
+  - pinned notification-shade + Control Center runtime contracts;
+  - tests and Canary build;
+  - Modern Xposed metadata;
+  - Haple APK signature;
+  - non-debuggable verification;
+  - artifact preparation/upload.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260927-411-canary.apk`
+- Artifact ID: `10931903528`
+- Extracted APK size: `3309602` bytes
+- Extracted APK SHA-256: `a596bd8b7841675174330be27421ee729ffe3d453b0f0b9a6ecb3f5956d7c759`
+
+### Gate
+
+**Runtime is frozen at Build 411.**
+
+The next required evidence is one combined maintainer device pass covering:
+- repeated panel gestures / native-icon entrance behavior;
+- heads-up notification behavior;
+- Control Center and notification-shade leak regression;
+- ring 8.0 thickness / ROUND endpoint / lower-dot visual coordination.
+
+No further runtime change should be layered before that result.
+
+
+---
+
+## 2026-09-27 — Build 411 device result: panel handoff accepted; 8.0 ring rejected
+
+**Type:** maintainer device acceptance / visual baseline correction  
+**Build under test:** 411 / 20260927-411  
+**Executable source:** `aaaaf0810b114b1e90a3de3f1520721a420da2d0`
+
+### Maintainer result
+
+- notification-shade / Control Center down-up behavior is now reported as **no problem**;
+- therefore the Build-411 persistent Home-owner / scene-visibility separation is accepted for the tested panel gesture path;
+- the 8.0-unit battery-ring A/B is rejected: the maintainer prefers the original 8.25 geometry;
+- the thinner ring also makes the `ROUND` endpoint curvature look visually less coordinated with the lower four-dot opening.
+
+The earlier report that a heads-up/notification popup can restore the native status bar is **not** automatically marked resolved by the panel acceptance and remains a separate issue unless separately confirmed.
+
+### Geometry interpretation
+
+The renderer uses `Paint.Cap.ROUND`. Therefore ring endpoint radius is intrinsically half the stroke width:
+- 7.5 -> 3.75;
+- 8.0 -> 4.0;
+- 8.25 -> 4.125.
+
+Restoring 8.25 therefore restores both line weight and the previously preferred endpoint curvature without adding a custom cap implementation.
+
+### Selected Build-412 correction
+
+- ring stroke: **8.0 -> 8.25** canonical units;
+- `ROUND` cap unchanged;
+- mobile-dot radius unchanged;
+- center size/geometry unchanged;
+- tint/alpha unchanged;
+- opening-angle contract unchanged;
+- existing lower-opening solver recomputes balanced edge gaps from the restored stroke;
+- Build-411 scene ownership/lifecycle logic unchanged.
+
+### Review boundary
+
+This is a deterministic return to an already device-seen and explicitly preferred visual baseline. It still requires source review and CI/Canary, but does not require a separate maintainer thickness A/B before integration.
+
+
+---
+
+## 2026-09-27 — Build 411 device verdict: scene accepted, 8.0 ring rejected
+
+**Type:** maintainer device acceptance / visual baseline correction  
+**Build under test:** 411 / 20260927-411  
+**Executable source:** `aaaaf0810b114b1e90a3de3f1520721a420da2d0`
+
+### Maintainer feedback
+
+The maintainer reports:
+- notification-shade / panel down-up behavior is now correct;
+- the 8.0 battery ring still looks worse than the previously seen 8.25 geometry;
+- the ring/ROUND-endpoint/lower-opening relationship should prioritize visual harmony rather than keeping the 8.0 compromise.
+
+### Accepted runtime conclusion
+
+The Build-411 ownership correction is retained:
+- the structurally valid Home owner remains persistent across panel scene transitions;
+- notification-shade / Control Center gates affect overlay visibility rather than destructively tearing down/recreating the Home owner;
+- no further panel-scene runtime change is requested by this feedback.
+
+### Visual correction
+
+The Build-411 8.0 ring A/B is rejected.
+
+The next candidate restores exactly:
+- ring stroke: **8.25 canonical units**;
+- `Paint.Cap.ROUND`: unchanged;
+- resulting endpoint cap radius: **4.125 canonical units**;
+- mobile dot radius: unchanged at the accepted current value;
+- center geometry: unchanged;
+- colors/alpha: unchanged;
+- lower-opening solver: unchanged and allowed to recompute balanced edge gaps from the restored ring width.
+
+This is intentionally an exact historical ring-width restoration, not a new screenshot-derived or device-pixel constant.
+
+### Historical clarification
+
+Earlier Build-407 notes recorded that 8.25 could read optically heavy relative to the then-current center/dot presentation. That historical observation remains valid evidence and is not rewritten. Later center-resource/tint corrections and current maintainer comparison change the present decision: on the current visual/runtime baseline, the maintainer explicitly prefers 8.25 over 8.0/7.5.
+
+### Review boundary
+
+No scene lifecycle, Hook, Home ownership, notification/HUN behavior, center/dot geometry, tint, alpha or animation change is authorized in this follow-up.
+
+Because 8.25 is already a previously observed device geometry and the change is a one-variable restoration using the existing ROUND cap and gap solver, CI/review is sufficient for this follow-up unless an unexpected delta appears.
+
+
+---
+
+## 2026-09-27 — Build 412 source review: restore preferred 8.25 ring
+
+**Type:** deterministic visual restoration / source review  
+**Build:** 412 / 20260927-412  
+**Executable source:** `f794a7c01513364eefc726316fcaf4058d581683`  
+**Validation:** source review passed; Fast/Canary pending
+
+### Executable delta from Build 411
+
+- `CombinedStatusPainter.kt`: default ring stroke `8.0 -> 8.25`.
+- `CombinedStatusOuterGeometryTest.kt`: default baseline assertion updated to 8.25.
+- build identity: `20260927-412`.
+
+No other runtime behavior changes.
+
+### Geometry / endpoint review
+
+The renderer continues to use:
+- `Paint.Style.STROKE`;
+- `Paint.Cap.ROUND`;
+- `Paint.Join.ROUND`.
+
+Therefore restoring the stroke from 8.0 to 8.25 naturally restores endpoint radius from 4.0 to 4.125 canonical units. No custom cap path or separate curvature constant is introduced.
+
+The lower-opening solver remains the sole spacing authority. It recomputes dot angles from:
+- current ring stroke;
+- current dot radius;
+- fixed ring/dot orbit radii;
+- the existing lower-opening angular contract.
+
+There is no hard-coded 8.0 gap value left behind.
+
+### Review
+
+- **Ownership:** visual-only module geometry; scene/SystemUI ownership unchanged.
+- **Lifecycle:** no Hook/listener/session change.
+- **Single writer:** painter remains the sole ring geometry writer.
+- **Cleanup / fail-native:** unchanged.
+- **Performance:** constant change plus existing bounded solver only.
+- **Compatibility:** no new private API or device-pixel constant.
+- **Exception recovery:** unchanged.
+- **Future extension:** shared outer-weight scale continues to scale the restored 8.25 baseline proportionally.
+- **Visual consistency:** mobile dots, center geometry, tint/alpha and opening-angle contract remain unchanged; ROUND endpoint curvature returns with the preferred stroke rather than through a custom cap workaround.
+
+### Gate
+
+Fast CI + signed Canary. No separate maintainer thickness A/B is required before integration because the maintainer explicitly prefers the previously experienced 8.25 baseline over both 7.5 and 8.0.
+
+
+---
+
+## 2026-09-27 — Build 412 source review: restore preferred 8.25 ring
+
+**Type:** low-risk visual restoration / source review  
+**Build:** 412 / 20260927-412  
+**Final executable source:** `f794a7c01513364eefc726316fcaf4058d581683`  
+**Validation:** source review passed; Fast/Canary pending
+
+### Executable delta from Build 411
+
+Only the visual ring baseline and build identity change:
+
+1. `CombinedStatusPainter.kt`
+   - `BASE_RING_STROKE: 8.0f -> 8.25f`.
+2. `gradle.properties`
+   - Build 411 -> Build 412.
+
+No scene/owner/HUN runtime file changes after the device-accepted Build-411 executable source.
+
+### Geometry review
+
+- ring radius: unchanged at 50 canonical units;
+- ring cap: unchanged `Paint.Cap.ROUND`;
+- endpoint cap radius therefore becomes 4.125 canonical units at the restored 8.25 stroke;
+- mobile-dot radius: unchanged;
+- center geometry: unchanged;
+- lower opening angles: unchanged;
+- existing binary-search gap solver remains the sole authority for ring-end/dot and dot/dot edge spacing and recomputes from the restored stroke width.
+
+This restores the previously experienced geometry rather than introducing a new cap, magic pixel value, or screenshot-fitted parameter.
+
+### Call-site / regression review
+
+- the deterministic outer-geometry test now pins 8.25;
+- proportional scaling, symmetry, balanced five-edge gaps and clamp tests remain intact;
+- no Home scene gate, owner readiness, Hot Reload, Hook contract, color, alpha, center resource or animation code changes.
+
+### Review
+
+- **Ownership:** unchanged.
+- **Lifecycle:** unchanged.
+- **Single writer:** unchanged Painter geometry ownership.
+- **Cleanup:** unchanged.
+- **Fail native:** unchanged.
+- **Performance:** one constant change; solver complexity unchanged.
+- **Compatibility:** no new platform/private contract.
+- **Exception recovery:** unchanged.
+- **Future extension:** the shared outer-weight scale still applies proportionally from the restored 8.25 default.
+
+### Device-gate decision
+
+The maintainer explicitly prefers the historical 8.25 geometry over 8.0/7.5 and asks to restore it. Because this is a single-variable return to a previously device-seen baseline using the same ROUND cap and solver, Fast CI + signed Canary are sufficient; no dedicated thickness-only maintainer test is required unless validation exposes an unexpected difference.
+
+The Build-411 panel/scene-owner acceptance is retained. The earlier HUN/notification-popup report is not silently marked resolved by this visual change.
+
+
+---
+
+## 2026-09-27 — Build 412 Fast + signed Canary success; 8.25 baseline accepted
+
+**Type:** validation success / visual baseline acceptance  
+**Build:** 412 / 20260927-412  
+**Final executable source:** `f794a7c01513364eefc726316fcaf4058d581683`
+
+### Fast validation
+
+- Fast Build #1156 / run `36323242298`: **success**.
+- Passed Fast classification, Gradle Wrapper, Java/API 37, pinned HyperOS target-profile verification, all unit tests, Debug assembly, APK resolution and Modern Xposed metadata.
+
+### Signed Work Branch Canary
+
+- Work Branch Canary #390 / run `36323397870`: **success**.
+- Trusted source resolution and exact checkout verification passed for PR #138.
+- Passed:
+  - Gradle Wrapper;
+  - Java / Android API 37;
+  - Haple signing restore/verification;
+  - pinned notification-shade + Control Center contracts;
+  - tests and Canary build;
+  - Modern Xposed metadata;
+  - Haple APK signature;
+  - non-debuggable verification;
+  - artifact preparation/upload.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260927-412-canary.apk`
+- Artifact ID: `10933571263`
+- Extracted APK size: `3309602` bytes
+- Extracted APK SHA-256: `51daaab32c5f3a152a41340eb0c6b8d2cb93f2448b83a32a980942a85cc8e1e8`
+
+### Acceptance
+
+The maintainer explicitly rejected the intermediate 8.0 visual checkpoint in favor of the previously experienced 8.25 ring and requested restoration without a dedicated follow-up thickness test.
+
+Build 412 therefore becomes the current accepted visual baseline after CI/Canary:
+- ring stroke 8.25;
+- ROUND endpoint radius 4.125;
+- dot radius unchanged;
+- center geometry unchanged;
+- lower-opening solver unchanged;
+- Build-411 panel/scene-owner behavior unchanged.
+
+No additional thickness-only device gate is required.
+
+### Separate unresolved boundary
+
+The earlier heads-up/notification-popup report in which native status presentation can remain restored is **not** marked resolved by this acceptance. It remains a separate runtime question unless independently confirmed.
+
+### Integration gate
+
+PR #138 may proceed to `dev` after the final documentation head satisfies the required PR check. No further runtime change is required for the 8.25 restoration.
+
+
+---
+
+## 2026-09-27 — Build 412 Fast + signed Canary success; integration accepted
+
+**Type:** validation success / maintainer-directed integration gate  
+**Build:** 412 / 20260927-412  
+**Executable source:** `f794a7c01513364eefc726316fcaf4058d581683`  
+**Tested PR head:** `74c234060f77da958c4eae21e8d170e29f2da1cb`
+
+### Fast validation
+
+- Fast Build #1156 / run `36323242298`: **success**.
+- Passed Fast classification, Gradle Wrapper, Java/API 37, pinned HyperOS target profile, all unit tests, Debug assembly, APK resolution and Modern Xposed metadata.
+- Outer-geometry coverage includes the restored 8.25 default ring plus mirror-symmetry, positive/equalized lower-opening edge gaps and supported scale bounds.
+- Build-411 Home owner / panel scene tests remain passing.
+
+### Signed Work Branch Canary
+
+- Work Branch Canary #390 / run `36323397870`: **success**.
+- Trusted source resolution and exact checkout verification passed for the tested PR head.
+- Passed signing restore/verification, pinned target profile, tests/build, Modern Xposed metadata, Haple APK signature, non-debuggable verification and artifact publication.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260927-412-canary.apk`
+- Artifact ID: `10933571263`
+- Extracted APK size: `3309602` bytes
+- Extracted APK SHA-256: `51daaab32c5f3a152a41340eb0c6b8d2cb93f2448b83a32a980942a85cc8e1e8`
+
+### Maintainer acceptance / integration rule
+
+- Panel down/up behavior is accepted from the Build-411 device result and carried unchanged into Build 412.
+- The maintainer explicitly prefers the already-experienced 8.25 ring over both the 7.5 and 8.0 variants.
+- Therefore the 8.25 restoration is accepted for `dev` without another dedicated ring-size device A/B.
+- The ROUND endpoint implementation remains unchanged; restoring 8.25 restores the preferred endpoint radius naturally.
+- The earlier notification/HUN-triggered native-status fallback report remains separate and is not silently marked fixed by this acceptance.
+
+### Gate
+
+PR #138 may integrate to `dev` after its latest documentation-only head satisfies the required PR check. No further runtime change is required for this integration boundary.

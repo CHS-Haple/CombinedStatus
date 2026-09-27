@@ -437,6 +437,8 @@ class SystemUiNativeCombinedParticipantOwnerTest {
             CombinedStatusHomeRenderSession.resolveOverlayVisible(
                 featureEnabled = false,
                 sceneAllowsOverlay = true,
+                notificationShadeAllowsHome = true,
+                controlCenterAllowsHome = true,
                 nativeHandoffActive = false,
             ),
         )
@@ -444,7 +446,22 @@ class SystemUiNativeCombinedParticipantOwnerTest {
             CombinedStatusHomeRenderSession.resolveOverlayVisible(
                 featureEnabled = false,
                 sceneAllowsOverlay = true,
+                notificationShadeAllowsHome = true,
+                controlCenterAllowsHome = true,
                 nativeHandoffActive = true,
+            ),
+        )
+    }
+
+    @Test
+    fun controlCenterOwnershipBlocksHomeOverlay() {
+        assertFalse(
+            CombinedStatusHomeRenderSession.resolveOverlayVisible(
+                featureEnabled = true,
+                sceneAllowsOverlay = true,
+                notificationShadeAllowsHome = true,
+                controlCenterAllowsHome = false,
+                nativeHandoffActive = false,
             ),
         )
     }
@@ -455,6 +472,8 @@ class SystemUiNativeCombinedParticipantOwnerTest {
             CombinedStatusHomeRenderSession.resolveOverlayVisible(
                 featureEnabled = true,
                 sceneAllowsOverlay = true,
+                notificationShadeAllowsHome = true,
+                controlCenterAllowsHome = true,
                 nativeHandoffActive = false,
             ),
         )
@@ -462,6 +481,8 @@ class SystemUiNativeCombinedParticipantOwnerTest {
             CombinedStatusHomeRenderSession.resolveOverlayVisible(
                 featureEnabled = true,
                 sceneAllowsOverlay = false,
+                notificationShadeAllowsHome = true,
+                controlCenterAllowsHome = true,
                 nativeHandoffActive = false,
             ),
         )
@@ -469,6 +490,8 @@ class SystemUiNativeCombinedParticipantOwnerTest {
             CombinedStatusHomeRenderSession.resolveOverlayVisible(
                 featureEnabled = true,
                 sceneAllowsOverlay = true,
+                notificationShadeAllowsHome = true,
+                controlCenterAllowsHome = true,
                 nativeHandoffActive = true,
             ),
         )

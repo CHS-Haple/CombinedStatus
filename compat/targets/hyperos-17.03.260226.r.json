@@ -41,7 +41,9 @@
     "com.android.systemui.statusbar.pipeline.mobile.ui.viewmodel.MiuiMobileIconViewModel",
     "com.android.systemui.statusbar.pipeline.mobile.ui.MobileViewLogger",
     "com.android.systemui.statusbar.pipeline.mobile.ui.binder.MiuiMobileIconBinder$bind$1$1$4$2",
-    "com.android.systemui.statusbar.views.MiuiBatteryMeterIconView"
+    "com.android.systemui.statusbar.views.MiuiBatteryMeterIconView",
+    "com.android.systemui.shade.ShadeExpansionStateManager",
+    "com.miui.systemui.controlcenter.container.ControlCenterExpandControllerDelegate"
   ],
   "hookPoints": {
     "statusHostInflated": {
@@ -109,6 +111,18 @@
       "className": "com.android.systemui.statusbar.views.MiuiBatteryMeterIconView",
       "methodName": "setMiuiOptimizationEnabled",
       "descriptor": "(Z)V"
+    },
+    "notificationShadeExpansion": {
+      "sourceArtifact": "systemUi",
+      "className": "com.android.systemui.shade.ShadeExpansionStateManager",
+      "methodName": "onPanelExpansionChanged",
+      "descriptor": "(FZZ)V"
+    },
+    "controlCenterVisibility": {
+      "sourceArtifact": "systemUi",
+      "className": "com.miui.systemui.controlcenter.container.ControlCenterExpandControllerDelegate",
+      "methodName": "onVisibleChanged",
+      "descriptor": "(Z)V"
     }
   },
   "verifiedSystemUiMethods": {
@@ -139,6 +153,12 @@
       "onPerformanceModeChanged(Z)V",
       "getProgressStatus()Lcom/android/systemui/statusbar/views/MiuiBatteryUtils$BatteryStatus;",
       "setMiuiOptimizationEnabled(Z)V"
+    ],
+    "com.android.systemui.shade.ShadeExpansionStateManager": [
+      "onPanelExpansionChanged(FZZ)V"
+    ],
+    "com.miui.systemui.controlcenter.container.ControlCenterExpandControllerDelegate": [
+      "onVisibleChanged(Z)V"
     ]
   },
   "nativeStatusViews": {
