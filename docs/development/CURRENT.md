@@ -8,9 +8,9 @@ This file is the concise recovery point for active Combined Status development. 
 - Stable branch: `main`
 - Stable runtime baseline: Build 351, commit `2477867278483b76b80ed0884de3a07c7ede668a`
 - Integration branch: `dev`
-- Integration runtime baseline: Build 377, commit `f64fe0e3992eab4dd62ff479c3765d834ec7dfa4`
-- Active architecture PR: #100, `feat/native-panel-transition -> dev`
-- Active stacked feature PR: #105, `feat/battery-semantic-colors -> feat/native-panel-transition`
+- Integration runtime baseline: Build 408, commit `2f584c3b393dc5ee606284426aa95a9d6beae5d5`
+- Phase-2A integration: PR #105 merged to `dev` as `2f584c3b393dc5ee606284426aa95a9d6beae5d5`; former stacked PR #100 is closed as superseded.
+- Active Phase-2B work branch / PR: not created yet.
 - Active development display line: **0.0.2**
 - First planned formal release: **1.0.0**
 - Target profile: HyperOS SystemUI `17.03.260226.r`
@@ -97,8 +97,8 @@ A shallow notification-shade pull / final held-return frame can still leave the 
 
 ## Repository / branch synchronization
 
-- PR #100 remains the architecture work branch based on `dev`.
-- PR #105 is intentionally stacked on PR #100.
+- PR #105 is merged into `dev` as the accepted Phase-2A integration boundary.
+- PR #100 is closed as superseded by that final integration PR.
 - PR #134 installed the trusted work-branch Canary fallback into `main`; PR #136 history-preserving back-synced that accepted process state into `dev`.
 - PR #135 then fixed Markdown backtick escaping in the Canary source summary without changing validation/trust semantics; PR #137 history-preserving back-synced that follow-up into `dev`.
 - Validation-only PRs #131/#132 and the dev-based automation review PR #133 are superseded and closed without merge.
@@ -107,11 +107,11 @@ A shallow notification-shade pull / final held-return frame can still leave the 
 
 ## Immediate next step
 
-1. Integrate the accepted Phase-2A / Build-408 work into `dev` while preserving the latest shared CI/documentation governance from `dev`.
-2. Treat the small residual ring/center/dot optical-weight mismatch as deferred visual polish; do not block integration on it.
-3. Start Phase 2B from the resulting integrated `dev` baseline on a new bounded scene-transition branch.
-4. First Phase-2B target: eliminate the shallow shade-pull / held-return Home-overlay leak by identifying the native scene/progress ownership boundary before introducing any projection or animation.
-5. Keep unsupported shade/Control Center rendering fail-native until its own host/lifecycle/projection contract is validated.
+1. Create a new bounded Phase-2B work branch from current `dev`.
+2. Investigate the shallow notification-shade pull / held-return Home-overlay leak in root-cause order: native scene/progress owner -> Home eligibility boundary -> target surface lifecycle/endpoints -> projection only if required.
+3. Do not reopen Phase-2A steady Home carrier/spacing, Build-408 color policy, or deferred optical polish while diagnosing the scene leak.
+4. Keep shade / Control Center native until the exact target proves a safe projection/replacement contract.
+5. Preserve SystemUI-owned transition timing, native peer animation and fail-native cleanup.
 
 ## Reference priority
 
