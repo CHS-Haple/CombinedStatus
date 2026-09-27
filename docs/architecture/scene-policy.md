@@ -47,6 +47,14 @@ Its PROJECTED mode means the Combined Status visual is anchored from verified na
 
 These surfaces remain NATIVE_ONLY because SystemUI owns their transition containers and motion.
 
+For the notification shade, the unlocked status-bar state by itself is **not** sufficient to prove steady Home eligibility. The native panel expansion contract is a separate scene-lifetime fact. On the pinned target Combined Status already observes `ShadeExpansionStateManager.onPanelExpansionChanged(fraction, expanded, tracking)`.
+
+Until a real shade projection is promoted:
+- Home presentation is eligible only while the notification panel is natively settled closed;
+- `expanded=false && tracking=false` is the semantic closed boundary used by the first Phase-2B Home-leak correction;
+- `fraction` remains a native progress input for diagnostics/future projection and must not be converted into a project-owned magic threshold;
+- when notification transition ownership is active, Combined Status must fail toward native shade/status presentation rather than keep the stationary Home overlay visible.
+
 A future combined representation must first prove a stable host/lifecycle contract and must not be implemented as an offset correction layered over native animation.
 
 ## Keyguard and AOD
