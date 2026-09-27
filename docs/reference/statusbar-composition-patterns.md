@@ -215,6 +215,10 @@ Combined Status differs from a battery-only compact representation because netwo
 
 Scene transition progress is consumed from an existing native expansion callback.
 
+For notification-shade state, Android SystemUI's `ShadeExpansionStateManager` documents `expanded` as independent from the numeric expansion fraction and `tracking` as active gesture ownership. Its closed-state transition occurs only after the panel is no longer expanded and user tracking has ended. The pinned HyperOS target exposes the same three semantic inputs through the already-verified `onPanelExpansionChanged(float, boolean, boolean)` hook contract.
+
+Combined Status consequence: static unlocked status-bar state and numeric `fraction == 0` are not, by themselves, proof that Home presentation has regained ownership. Treat the native expanded/tracking facts as the first scene-lifetime boundary; preserve fraction for native-progress projection rather than inventing a local threshold.
+
 Projection endpoints are derived from actual View screen coordinates. The visual transition is then drawn using canvas translation/scale/alpha rather than by taking ownership of the native Views' live translation.
 
 The projection layer is updated only when relevant source/target/progress state changes.
