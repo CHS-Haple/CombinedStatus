@@ -12,7 +12,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Repository-automation baseline: checkpoint-driven CI accepted on `main` via PR #139 (`0ab8e211eb4cac04e591b1ea908a0a9a9aab78e3`) and history-preserving back-synced into `dev` via PR #141 (`a3fb5d1f70d6ac3d98b37d29ef13d15e3bd4aded`). This does **not** create a new runtime Build; `dev` executable identity remains Build 412.
 - Phase-2A integration: PR #105 merged to `dev` as `2f584c3b393dc5ee606284426aa95a9d6beae5d5`; former stacked PR #100 is closed as superseded.
 - Phase-2B panel/scene-owner integration: PR #138 merged to `dev` as `a25cb5ce2aeab235cfaed579474df70596f03a63`.
-- Active Phase-2B work branch / PR: none after #138 integration.
+- Active Phase-2B work branch: `fix/home-hun-ownership` (notification/HUN ownership investigation); Draft PR is the intended iteration boundary. No runtime delta has been created yet, so executable identity remains Build 412.
 - Active development display line: **0.0.2**
 - First planned formal release: **1.0.0**
 - Target profile: HyperOS SystemUI `17.03.260226.r`
@@ -149,11 +149,11 @@ Build 409's notification-shade implementation remains intact and is not reopened
 
 1. Treat Build 412 / `20260927-412` on dev merge `a25cb5ce2aeab235cfaed579474df70596f03a63` as the current integrated runtime baseline.
 2. Panel down/up behavior and the restored 8.25 ring are accepted and no longer block development.
-3. Investigate the **separate notification / heads-up notification (HUN) native-status fallback** reported by the maintainer: when a notification appears, native status icons can remain restored instead of Combined Status reasserting the stable Home presentation.
-4. Start that investigation from ownership/lifecycle and notification/HUN scene facts; do not reopen the accepted notification-shade / Control Center gate or ring geometry unless new evidence directly implicates them.
-5. Preserve the current persistent Home owner / scene-visibility separation so ordinary panel gestures do not retrigger native icon entrance animation.
-6. No additional maintainer ring-size test is required.
-7. For the next runtime branch, keep the PR Draft while iterating, move it to Ready only at a meaningful Fast checkpoint, and request `/canary` only when focused device evidence is actually required. Documentation-only checkpoint closure must remain a record update, not a fictitious new runtime Build.
+3. Investigate the **separate notification / heads-up notification (HUN) disappearance** reported by the maintainer. Source review corrects the earlier fallback hypothesis: the accepted Build-412 path is the Home `MiuiNotificationStatusContainer.overlay`; legacy native `combined_status` participant install/schedule methods remain in source but have no active call site, and `SystemUiHomePresentationOwner` explicitly cleans up that legacy slot.
+4. Do **not** assume an `ICON / DOT / HIDDEN` callback is hiding the current Combined Status surface. The next evidence boundary is to reproduce one HUN on the existing detailed Build-412 Canary and correlate the already-present notification-shade callback (`fraction / expanded / tracking`), Home overlay visibility/handoff, and presentation readiness/cleanup logs.
+5. If the HUN reproduction drives the existing shade gate false, determine whether HyperOS is intentionally declaring shade ownership for that interval before changing policy. If the shade gate remains Home-eligible while the overlay still disappears, investigate the native Home host/ancestor presentation path next. Do not add a HUN-specific visibility override, delay, polling loop, or participant workaround without that evidence.
+6. Preserve the current persistent Home owner / scene-visibility separation so ordinary panel gestures do not retrigger native icon entrance animation. The accepted notification-shade / Control Center gates and 8.25 ring stay closed unless new evidence directly implicates them.
+7. No additional maintainer ring-size test is required. This source-review checkpoint is documentation-only and does not create Build 413.
 
 ## Reference priority
 
