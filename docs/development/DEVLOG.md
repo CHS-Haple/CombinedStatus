@@ -45,9 +45,18 @@ Add `SystemUiNotificationShadeTargetProbe`:
 - **exception recovery:** reflective owner/value/view reads are guarded and report unavailable/null instead of changing behavior.
 - **future extension:** probe should be deleted from active runtime after the real shade target contract is identified.
 
+### Draft validation / source review
+
+- Draft Light #1270 passed on the initial Build-419 implementation.
+- Review found the semantic candidate filter was matching the full package name, which could classify unrelated `ConfigurationController` values through the `statusbar` package segment.
+- The filter was tightened to field name + type `simpleName`, preserving intended status/icon/header/battery/system/shade/clock/container candidates while avoiding package-name false positives.
+- Draft Light #1271 passed on exact runtime head `1532cb33f9ebefc71ad361db226f0434e0de21b1`.
+- Hot Reload takeover review confirms the status-host handle is the only preserved old handle; every other old-generation HookHandle is unhooked. The new probe therefore cannot accumulate across Hot Reload generations.
+- No additional runtime writer/listener/poller was introduced.
+
 ### Validation gate
 
-Executable diagnostics plus target-profile/verifier change advance the next runtime identity to Build 419. Draft Light -> source review -> Ready Full -> one signed Canary only if device evidence is required.
+Executable diagnostics plus target-profile/verifier change advance the next runtime identity to Build 419. Ready Full -> one signed Canary only because one focused device diagnostic is now required.
 
 
 ## 2026-09-28 — PR #146 refreshed from accepted Build 418 dev baseline
