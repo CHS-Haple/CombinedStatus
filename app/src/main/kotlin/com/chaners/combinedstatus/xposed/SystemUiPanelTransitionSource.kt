@@ -114,7 +114,7 @@ internal object SystemUiPanelTransitionSource {
                             val result = chain.proceed()
                             val homeEligible =
                                 notificationShadeAllowsHome(
-                                    expanded = expanded,
+                                    fraction = fraction,
                                     tracking = tracking,
                                 )
                             notificationShadeHomeEligible = homeEligible
@@ -267,10 +267,12 @@ internal object SystemUiPanelTransitionSource {
             if (includeControlCenterDiagnostics) CONTROL_CENTER_DIAGNOSTIC_HOOK_COUNT else 0
 
     internal fun notificationShadeAllowsHome(
-        expanded: Boolean?,
+        fraction: Float?,
         tracking: Boolean?,
     ): Boolean =
-        expanded == false && tracking == false
+        tracking == false &&
+            fraction != null &&
+            fraction <= 0f
 
     fun currentNotificationShadeHomeEligibility(): Boolean? =
         notificationShadeHomeEligible

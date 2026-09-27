@@ -28,11 +28,189 @@ An initial edit was rejected during review because shell-tab escaping corrupted 
 
 ### Validation
 
-Full Build #1189 / run `36329234898` passed on `3aee0d206b0c966afed9d30d7921abb07a409f19`, including target-profile verification, tests, Debug + Canary build, Xposed metadata, and non-debuggable validation.
+Full Build #1189 / run `36329234898` passed on `3aee0d206b0c966afed9d30d7921abb07a409f19`, including target-profile verification, tests, Debug + Canary build, Xposed metadata, and non-debuggable validation. After the governance record was added, final PR Full #1190 also passed; the squash merge to `main` was followed by successful main Full #1191, history-preserving back-sync Full #1192, and dev push Build #1193.
 
 ### Governance
 
 The maintainer explicitly delegated future merge judgment for bounded automation-only changes. CONTRIBUTING now allows the active development operator to merge and synchronize such changes without a second maintainer confirmation only when Full/self-validation and review pass and there is no runtime/APK/dependency/signing/release/trust-boundary effect. Uncertain or broader changes still require explicit maintainer approval.
+
+## 2026-09-28 — Build 413 HUN / shallow-pull device acceptance
+
+**Type:** focused maintainer device acceptance / runtime checkpoint closure
+**Display version:** 0.0.2
+**Build:** 413 / `20260927-413`
+**Work branch / PR:** `fix/home-hun-ownership` / #142
+**Validated PR head:** `15b92d64440eb565e44ce8a7dda3739c9ab8964e`
+
+### Validation evidence
+
+- Fast Build #1195 passed on the exact current PR head after the accepted automation back-sync.
+- Work Branch Canary #397 / run `36336524857` passed trusted-source resolution, pinned target-profile verification, unit tests, Canary build, Modern Xposed metadata, Haple certificate verification, and non-debuggable validation.
+- Canary artifact: `10937297772`, `CombinedStatus-0.0.2-HyperOS-20260927-413-canary.apk`.
+- Artifact ZIP digest: `sha256:9af1b58ad588885d7e1ced83c746c134e7fe7e22f1646a158a5557fed277bd30`.
+- Extracted APK SHA-256: `a0c39bc21e81175b7c6fafed0316cd7b807e90ed8515ce257c69b4091088dff3`.
+- The maintainer performed the requested focused device validation and reports that the previously reproduced HUN disappearance now appears fixed. The accepted shallow-pull handoff behavior remains satisfactory, so this defect is accepted for `dev` integration.
+
+### Confirmed conclusion
+
+The exact target's `expanded` boolean is too coarse to act as notification-shade ownership authority because HUN can assert `expanded=true` at `fraction=0.0` with `tracking=false`. The accepted Home eligibility contract for this callback is therefore motion-based: non-tracking with native fraction at/below the closed boundary remains Home; active tracking or positive shade motion transfers presentation away from Home. `expanded` remains diagnostic context only.
+
+### 审查 / review
+
+- **Ownership:** persistent Home presentation ownership and the single scene-visibility writer remain unchanged.
+- **Lifecycle:** no HUN-specific owner, listener, delay, timer, or polling path was introduced.
+- **Single writer:** scene eligibility remains the sole overlay-visibility authority.
+- **Cleanup:** transient shade/HUN state does not destructively tear down a structurally valid Home owner.
+- **Fail native:** missing motion facts still fail closed.
+- **Performance:** constant-time predicate only; no additional wakeup/frame work.
+- **Compatibility:** no new private member or reflection contract beyond the already-pinned callback.
+- **Future extension:** the accepted lifetime gate is now a prerequisite for, not a substitute for, real Phase-2B shade / Control Center projection.
+
+### Outcome / next step
+
+Build 413 is device-accepted for the focused HUN + shallow-pull defect. Merge PR #142 into `dev`, require Integration validation, then continue Phase 2B with actual expanded-surface projection / intermediate motion rather than adding more Home-lifetime patches.
+
+## 2026-09-27 — Build 412 HUN device evidence and motion-semantic gate fix
+
+**Type:** maintainer device evidence / root-cause confirmation / runtime fix candidate
+**Input build:** Build 412 / `20260927-412`
+**Work branch / PR:** `fix/home-hun-ownership` / Draft #142
+
+### Problem execution flow
+
+**Phenomenon and evidence**
+
+The maintainer reproduced the notification/HUN disappearance on Build 412 and supplied detailed diagnostics. At 23:07:45.362 the target reports `expanded=true tracking=false fraction=0.0`; the current gate immediately records `homeEligible=false visible=false`. At 23:07:50.549 the same callback returns `expanded=false tracking=false fraction=0.0`, and Home returns `homeEligible=true visible=true`. The interval matches the visible HUN lifetime. The represented native Wi-Fi/mobile/Battery state remains independently managed; there is no participant-visible-state event or Home-owner teardown explaining the disappearance.
+
+**Root cause / responsibility source**
+
+The bug is in Combined Status scene interpretation, not suppression or renderer ownership. `notificationShadeAllowsHome()` equated native `expanded=true` with notification-shade ownership. On this HyperOS target, HUN sets `expanded=true` while the actual shade fraction remains exactly zero and tracking remains false. Therefore `expanded` is not a sufficient ownership discriminator.
+
+**Repository / platform / native evidence**
+
+- Build-412 detailed target evidence is authoritative for this device and callback.
+- `SystemUi-Reference` verifies the exact target callback contract and Home carrier.
+- Existing architecture requires transient scene visibility to be separate from persistent Home presentation ownership.
+- The prior panel-leak evidence requires any real positive shade fraction to leave Home, even before a settled expanded state.
+
+**Selected solution**
+
+Use the native callback's motion semantics for notification-shade ownership:
+
+- Home eligible: `tracking == false && fraction != null && fraction <= 0f`.
+- Shade owns presentation: active tracking, any positive finite fraction, missing fraction, or missing tracking.
+- Keep `expanded` in the diagnostic payload but do not use it as an independent Home-visibility authority.
+
+This is not a HUN special case. It removes an over-broad semantic assumption and uses the native transition's actual motion facts. It also preserves the accepted slight-pull fix because positive fraction remains non-Home regardless of `expanded`.
+
+### 审查 / review
+
+- **Ownership:** one scene-visibility writer remains; no HUN owner is introduced.
+- **Lifecycle:** existing event-driven shade callback only; no new listener or hook.
+- **Single writer:** unchanged.
+- **Cleanup:** unchanged; persistent Home owner is not torn down.
+- **Fail-native:** missing/unknown motion facts fail closed rather than force Home visible.
+- **Performance:** constant-time predicate change only; no polling/per-frame work.
+- **Compatibility:** uses fields already delivered by the installed target callback; no new reflection contract.
+- **Exception recovery:** unchanged.
+- **Future extension:** separates motion ownership from coarse `expanded` hints, composing cleanly with later shade/keyguard/AOD policy.
+
+### Tests
+
+`SystemUiPanelTransitionSourceTest` now covers zero-fraction/non-tracking Home eligibility, active tracking, positive fraction, negative settled overshoot, and missing-value fail-closed behavior.
+
+### First Fast result and correction
+
+Fast Build #1179 / run `36328523953` reached the exact-target verification successfully, then failed at `:app:compileDebugKotlin`. The compiler error identified one missed production call site in `CombinedStatusHomeRenderSession.updatePanelTransition()`: the pure helper signature had been changed from `expanded/tracking` to `fraction/tracking`, but this caller still passed `expanded`.
+
+This is an implementation-completeness failure, not evidence against the motion-semantic root cause. The PR was immediately returned to Draft. The missed call site is corrected to pass the same native `update.fraction` consumed by the source owner, and the executable identity is advanced to **Build 413 / `20260927-413`** (`versionCode=260927213`) because the runtime tree has changed.
+
+### Draft validation after correction
+
+- Draft Light #1182 / run `36328726733` failed only `git diff --check` because two newly added DEVLOG metadata lines carried trailing whitespace.
+- PR #142 remained/returned Draft while that repository-only issue was corrected.
+- Draft Light #1185 / run `36328796244` then **passed** on the corrected Build-413 branch state.
+- No Android/Gradle/signing/APK work was required for this Draft documentation closure.
+
+### Gate
+
+Return PR #142 to Ready now that the Build-413 source/call-site correction and required records are complete. Run Fast CI at the exact final PR HEAD. If Fast passes, request one signed Canary because the fix changes the HUN/shade runtime visibility boundary and needs focused maintainer validation before integration.
+
+
+## 2026-09-27 — Post-Build 412 HUN ownership source review
+
+**Type:** root-cause triage / historical-assumption correction / documentation-only checkpoint
+**APK build:** none; executable runtime remains Build 412 / `20260927-412`
+**Work branch:** `fix/home-hun-ownership`
+
+### Problem execution flow
+
+**Phenomenon and evidence**
+
+Maintainer device observation after the accepted Build-411 panel-owner correction: when a notification / heads-up notification (HUN) appears, Combined Status can temporarily disappear while the represented native Wi-Fi / mobile / Battery icons do not reappear. No Build-411/412 HUN diagnostic capture has been supplied yet; the available Build-409 diagnostic belongs to the earlier panel investigation and must not be repurposed as HUN evidence.
+
+**Root cause / responsibility source**
+
+Current-source review disproves the tentative explanation that the active Combined Status surface is a native status participant receiving `ICON / DOT / HIDDEN` visible-state callbacks:
+
+- `CombinedStatusHomeRenderSession.Session.start()` adds the renderer to `MiuiNotificationStatusContainer.overlay`;
+- `SystemUiHomePresentationOwner` owns represented-slot exclusion, reversible clip masks and end reservation for that Home overlay path;
+- the legacy native-participant install/schedule methods still present in `CombinedStatusModule` have no active call site on the Build-412 path;
+- Home startup/hot-reload explicitly calls `cleanupLegacyParticipant(...)` for the obsolete `combined_status` slot.
+
+Therefore a participant-visible-state explanation is not an accepted root cause for Build 412.
+
+The two evidence-bearing candidates that remain are:
+
+1. the already-hooked `ShadeExpansionStateManager.onPanelExpansionChanged(...)` reports a non-Home semantic state during HUN and the existing scene gate intentionally hides the Home overlay while keeping the persistent Home owner/masks alive; or
+2. Home eligibility/readiness remains valid, but the native Home host/ancestor presentation path temporarily prevents the overlay from being drawn.
+
+**Repository / platform evidence**
+
+- `CONTRIBUTING.md`: root-cause-first, one owner/writer, event-driven native state, no timing/polling workaround.
+- `docs/architecture/scene-policy.md`: transient shade/Control Center ownership hides the overlay without tearing down a structurally valid Home presentation owner.
+- `docs/architecture/layout-policy.md`: accepted Home carrier is `system_icon_area / MiuiNotificationStatusContainer -> ViewGroupOverlay`; permanent native participant is rejected as the default carrier.
+- `SystemUI-Reference/findings/statusbar.md`: exact target identifies `system_icon_area` as the Home carrier/island right-container and records the historical native-participant route as superseded by the overlay architecture.
+- Exact target profile verifies `ShadeExpansionStateManager.onPanelExpansionChanged(float, boolean, boolean)`.
+- AOSP's documented `ShadeExpansionStateManager` contract states that `expanded` is independent of the numeric fraction, including the possibility of `expanded=true` at fraction 0. This is supporting contract context only; HyperOS HUN behavior still requires target-device evidence.
+
+### Selected next evidence boundary
+
+No runtime change is justified yet. Build 412 already emits the required bounded detailed diagnostics for the first branch of the decision:
+
+- `panelTransition source=notification ... fraction=... expanded=... tracking=...`;
+- Home shade eligibility / overlay visibility updates;
+- Home presentation readiness and activation/deactivation/fail-native events.
+
+Reproduce a single HUN with detailed diagnostics enabled on the existing signed Build-412 Canary. If the HUN drives the shade gate non-Home, review the target's intended HUN ownership before changing policy. If Home remains eligible and the overlay still disappears, add only the smallest host/ancestor diagnostic needed to resolve the second branch.
+
+### 审查 / review
+
+- **Ownership:** remains `MiuiNotificationStatusContainer.overlay` + persistent Home presentation owner; no second HUN owner added.
+- **Lifecycle:** no new Hook/listener/frame callback in this checkpoint.
+- **Single writer:** existing scene gate remains the only overlay-visibility writer; native represented-slot masks/reservation remain Home-owner scoped.
+- **Cleanup:** unchanged; no new state to restore.
+- **Fail-native:** unchanged; no forced always-visible path.
+- **Performance:** zero runtime impact; avoids a speculative HUN hook or per-frame visibility probe.
+- **Compatibility:** no new private SystemUI member is assumed.
+- **Exception recovery:** existing fail-native and structural-readiness paths remain intact.
+- **Future extension:** keeps HUN as a scene-ownership question that can later compose with shade/keyguard/AOD instead of a special-case patch.
+
+### Historical correction
+
+The prior tentative statement that the current Combined Status native participant likely receives `ICON / DOT / HIDDEN` and hides itself is rejected for Build 412 by current source/call-site review. Historical native-participant experiments remain valid evidence for those older builds but are not the active carrier architecture.
+
+### Documentation CI
+
+- Draft PR #142 correctly classified this documentation-only checkpoint as **Light** validation.
+- Light Build #1174 / run `36327495300` failed only `git diff --check` because two newly added DEVLOG metadata lines carried trailing Markdown whitespace.
+- The whitespace was removed without changing engineering content.
+- Light Build #1175 / run `36327543097` then **passed**. Android/Gradle/signing/APK work remained skipped as required for documentation-only validation.
+- Any record-only closure commit after this entry remains repository-memory maintenance and does not create a runtime Build or require recursive DEVLOG bookkeeping.
+
+### Gate
+
+This checkpoint creates no Build 413. Obtain focused Build-412 HUN diagnostics before any runtime mutation.
 
 
 ## Entry requirements

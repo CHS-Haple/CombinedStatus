@@ -303,7 +303,7 @@ internal object CombinedStatusHomeRenderSession {
                 SystemUiPanelTransitionSource.Source.NOTIFICATION_SHADE -> {
                     val allowsHome =
                         SystemUiPanelTransitionSource.notificationShadeAllowsHome(
-                            expanded = update.expanded,
+                            fraction = update.fraction,
                             tracking = update.tracking,
                         )
                     updateNotificationShadeHomeEligibility(
