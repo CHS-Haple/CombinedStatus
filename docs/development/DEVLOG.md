@@ -2,6 +2,70 @@
 
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
+## 2026-09-28 — Build 416 location-aware Home tint authority
+
+**Type:** single-variable runtime authority correction
+**Display version:** 0.0.2
+**Build:** 416 / `20260928-416`
+**Work branch / PR:** `fix/hot-reload-tint-continuity` / Draft #148
+**Device validation:** pending
+
+### Change boundary
+
+Build 416 retains the full Build-415 Hot Reload lifecycle correction and changes only how the Home status-icon monochrome tint is selected.
+
+Previous order:
+`recursive peer tint -> manager/global tint -> cached fallback`.
+
+Build-416 order:
+`DarkIconDispatcher location-aware tint -> peer/static tint -> manager-global fallback -> cached fallback`.
+
+The location-aware path uses the already-present runtime contract:
+`DarkIconDispatcher.getTint(mTintAreas, anchorView, mIconTint)`.
+
+The resolved anchor remains the existing non-Combined Home status-icon anchor. No new SystemUI class, field, hook or callback is introduced.
+
+### Implementation details
+
+`SystemUiNativeNetworkSuppressionOwner` now separates:
+- `resolveLocationAwareManagerTint()`: resolves dispatcher `mIconTint`, `mTintAreas`, and invokes `getTint(...)` for the Home anchor;
+- `resolveManagerFallbackTint()`: reads manager-global `mColor` and then dispatcher-global `mIconTint` only as fallback;
+- `selectStatusIconTint()`: gives the location-aware result first priority.
+
+Diagnostics distinguish:
+- `dispatcher-location-aware`;
+- `peer-static-applied`;
+- `manager-global-fallback`;
+- `cached-fallback`.
+
+The peer resolver is intentionally left otherwise unchanged in this checkpoint so Build 416 tests one authority-order correction rather than simultaneously rewriting peer traversal.
+
+### Tests
+
+`SystemUiNativeNetworkSuppressionOwnerTest` now pins:
+- location-aware tint wins even when peer/global/cached values disagree;
+- peer tint remains the first fallback when location-aware resolution is unavailable;
+- manager-global tint remains the next fallback when peer tint is invalid.
+
+Existing Build-415 Hot Reload transfer/fail-native tests remain intact.
+
+### 审查 / review
+
+- **Ownership:** SystemUI's native DarkIconDispatcher remains the source of truth; Combined Status only consumes its computed tint for the actual Home anchor.
+- **Lifecycle:** unchanged from Build 415; no new listener or scheduling path.
+- **Single writer:** read-only selection only; no native color/tint mutation.
+- **Cleanup:** unchanged.
+- **Fail native:** dispatcher resolution failure falls through to existing peer/global/cached sources.
+- **Performance:** constant-time reflection and one native static tint computation on existing event-driven observation; no periodic work.
+- **Compatibility:** no new private runtime contract; only reorders contracts already used by the branch.
+- **Exception recovery:** reflective dispatcher failure is local and does not block Home runtime state.
+- **Future extension:** establishes one position-aware Home monochrome authority suitable for reuse by future scene projections.
+
+### Validation gate
+
+Keep PR #148 Draft through source review and Light. If clean, move Ready for Fast. Only then request one signed Canary and repeat the same Hot Reload inversion test without restarting SystemUI.
+
+
 ## 2026-09-28 — Build 415 device rejection and tint-authority root-cause correction
 
 **Type:** maintainer device rejection / root-cause correction
