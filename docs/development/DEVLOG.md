@@ -3367,3 +3367,35 @@ Run Fast CI and signed Work Branch Canary for Build 405. If both pass, stop runt
 Primary acceptance question: does removing the intermediate raster/resample stage restore native-like edge coverage / antialiasing and apparent stroke weight **without** changing size, centering, tint, outer geometry or semantic battery colors?
 
 The verified HyperOS Light / Dark / Tint resource transformation remains the next separate rendering boundary only if Build 405 still leaves a state-dependent difference.
+
+
+---
+
+## 2026-09-27 — Build 405 CI event-delivery blocker
+
+**Type:** CI infrastructure / validation-carrier status  
+**Runtime source:** `bf8091c8680dec7b85c58afded7f476ec95ca49d`  
+**Build:** 405 / 20260927-405  
+**Runtime state:** frozen; no further runtime mutation
+
+Two validation-only carriers were attempted against the unchanged `dev` base SHA `6de78d7257c6bd376c57834a052fe51325fbfc1f`:
+
+- PR #131: `fix/build-405-validation-carrier -> dev`;
+- PR #132: `fix/build-405-validation-carrier-2 -> dev`.
+
+For #132, the docs-only carrier commit `9b90286499574ec142be302ff1a426e0f7fcf29a` contains no executable delta after the frozen Build-405 runtime line.
+
+The active base workflow remains unchanged and listens to `pull_request` types `opened`, `synchronize`, `reopened`, `ready_for_review`, and `converted_to_draft`. Connector-originated opened, docs-only synchronize, Draft -> Ready, and close -> reopen events produced **zero Actions workflow runs and zero check-runs** for the carrier SHA.
+
+Historical comparison:
+- Build-404 validation PR #130 used the same `dev` base SHA and produced Build #1088 within seconds of PR creation.
+- Build #1088 actor / triggering_actor were both `CHS-Haple`.
+
+Current conclusion: this is an event-delivery failure before Actions execution, not evidence of a Build-405 compile/test failure and not a repository workflow-condition mismatch.
+
+Validation rule:
+- keep Build 405 frozen;
+- keep PR #132 as the active validation carrier;
+- obtain one normal user-originated `pull_request synchronize` event from GitHub web/local git;
+- do not cite Build 405 as CI-passed until a run explicitly tests the carrier head and the downstream signed Work Branch Canary succeeds;
+- workflow_dispatch alone is insufficient for the full signed Canary chain because Work Branch Canary requires the upstream Build event to be `pull_request`.
