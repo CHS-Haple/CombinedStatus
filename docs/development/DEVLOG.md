@@ -60,9 +60,22 @@ Deterministic tests cover:
 - Draft Light #1256 and #1257 both passed after the single-event/single-commit cleanup. Exact runtime/source head before this record-only closure: `c05d2ee3c094b3331135d66565771b67e7faf6cb`.
 - Exact-target SystemUI-Reference review found no verified stable `DarkIconDispatcher.addDarkReceiver/removeDarkReceiver` registration contract. Build 418 therefore deliberately reuses already-validated native events and live Home status-icon reads rather than widening the Hook/registration surface.
 
-### Gate
+### Fast / Canary result
 
-Record-only/source-cleanup closure -> Draft Light -> Ready/Fast -> one explicit signed Canary -> repeated scene-switch device validation.
+- Final Draft Light #1256 passed on exact PR head `c05d2ee3c094b3331135d66565771b67e7faf6cb`.
+- PR #148 was marked Ready only after Draft Light and source review.
+- Fast Build #1257 passed on the same exact head, including pinned HyperOS target-profile verification, unit tests, Debug build and Modern Xposed metadata.
+- Explicit maintainer `/canary` request produced Work Branch Canary #403.
+- Canary trusted-source resolution, tested-head checkout verification, signing restore, pinned target profile, Canary build, Xposed metadata, APK signature, non-debuggable verification, artifact preparation and upload all passed.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260928-418-canary.apk`.
+- GitHub artifact digest: `sha256:f02e6db7c1d9c51aaceaf2e60392beffb5e4442f140d4804f350bf978e81d996`.
+- Extracted APK SHA-256: `45ffb3d8b894dcaff482d1bdd350bc0b29ddf57e48900347ee9e93d50c4a7761`.
+- Runtime is frozen at Build 418 pending repeated scene-switch device evidence.
+- This record-only closure does **not** create a new runtime Build.
+
+### Device gate
+
+Install the signed Build-418 Canary without first restarting SystemUI. Trigger module Hot Reload, then repeatedly switch Home -> a light app -> Home -> the same light app. Compare Combined Status with native VPN/mute/status icons on every transition. If mismatch appears, export Detailed diagnostics before any SystemUI restart.
 
 
 ## 2026-09-28 — Build 417 device rejection: fresh Tint lost before renderer attach / repeated scene race

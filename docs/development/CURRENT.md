@@ -10,7 +10,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Integration branch: `dev`
 - Integration runtime baseline: Build 413, commit `2aa6833cfca69a59af5027a7855b7d8282dbade9`
 - Build 413 / `20260927-413` is the current device-accepted, Integration-validated, and `main`-promoted runtime baseline.
-- Active corrective work / PR: `fix/hot-reload-tint-continuity` / Draft #148. Builds 415, 416 and 417 are device-rejected. Build 418 / `20260928-418` is the current bounded candidate: renderer Tint commits now resolve live SystemUI Home status-icon authority at commit time; Hot Reload transferred status-icon Tint is rebased against the new generation before renderer attach; status-icon observation can directly refresh the renderer's status authority. Draft Light #1255, #1256 and #1257 passed through the post-implementation cleanup/review sequence; current runtime/source HEAD before this record-only closure is `c05d2ee3c094b3331135d66565771b67e7faf6cb`.
+- Active corrective work / PR: `fix/hot-reload-tint-continuity` / Draft #148. Builds 415, 416 and 417 are device-rejected. Build 418 / `20260928-418` is the current signed device-test checkpoint. Exact tested runtime SHA: `c05d2ee3c094b3331135d66565771b67e7faf6cb`; Fast #1257 passed and Work Branch Canary #403 passed. Canary artifact: `CombinedStatus-0.0.2-HyperOS-20260928-418-canary.apk`; APK SHA-256 `45ffb3d8b894dcaff482d1bdd350bc0b29ddf57e48900347ee9e93d50c4a7761`. Runtime is frozen pending repeated-scene device validation.
 - Repository-automation baseline: checkpoint-driven CI from PR #139 remains active; Canary admission hardening and bounded automation-only merge delegation were accepted on `main` via PR #143 (`a1aed8b6451d1018f46e252166545d67f48fe8e4`) and history-preserving back-synced into `dev` via PR #144 (`faaa12b1c8e955138d2ce8d51fb481263b4d7570`). These automation changes do **not** create a new runtime Build.
 - Phase-2A integration: PR #105 merged to `dev` as `2f584c3b393dc5ee606284426aa95a9d6beae5d5`; former stacked PR #100 is closed as superseded.
 - Phase-2B panel/scene-owner integration: PR #138 merged to `dev` as `a25cb5ce2aeab235cfaed579474df70596f03a63`.
@@ -155,17 +155,13 @@ Build 409's notification-shade implementation remains intact and is not reopened
 ## Immediate next step
 
 1. Keep Build 413 / `20260927-413` as the stable/runtime baseline on `main` and `dev`.
-2. Build 418 / `20260928-418` is the current Draft #148 checkpoint.
-3. Runtime change is intentionally bounded to Tint snapshot authority:
-   - each Battery DarkReceiver event reads current SystemUI Home status-icon Tint live instead of copying cached presentation-store Tint;
-   - status-icon observation events can refresh the renderer's status authority directly;
-   - Hot Reload transfer is rebased against new-generation live status-icon authority after observer attach and before renderer attach;
-   - transfer/cache remain fallback only.
-4. Detailed diagnostics now log both renderer `appliedTint` and `statusIconTint`, plus the live authority on Battery-triggered commits.
-5. Preserve Battery semantic-color policy, network state, Home geometry, masking, scene ownership, Hot Reload payload format, panel projection and animations.
-6. Run Draft Light and source review. If clean, Ready/Fast -> explicit signed Canary -> repeated app/Home light/dark scene-switch validation without restarting SystemUI.
-7. Acceptance requires Combined Status to follow native VPN/mute icon monochrome direction through repeated entries, not merely one successful transition.
-8. PR #146 panel projection remains paused until this Tint lifecycle is accepted.
+2. Build 418 / `20260928-418` is the current signed device-test checkpoint from exact tested runtime SHA `c05d2ee3c094b3331135d66565771b67e7faf6cb`.
+3. Fast #1257 and signed Work Branch Canary #403 passed. Do not modify runtime while awaiting device evidence.
+4. Install Build 418 without restarting SystemUI first, trigger module Hot Reload, then repeatedly switch **Home -> light app -> Home -> same light app** several times.
+5. Compare Combined Status against still-visible native VPN/mute/status icons on every transition. Acceptance requires repeated synchronization, not a one-time correct entry.
+6. If any mismatch appears, export Detailed diagnostics before restarting SystemUI. New diagnostics must show `homeRenderTint applied=... statusIcon=...` and `tintCommit ... liveStatusIcon=...`, allowing direct comparison of native authority and renderer state.
+7. A full SystemUI restart remains a comparison control only.
+8. PR #146 panel projection remains paused until this shared Home Tint lifecycle is accepted.
 
 ## Reference priority
 
