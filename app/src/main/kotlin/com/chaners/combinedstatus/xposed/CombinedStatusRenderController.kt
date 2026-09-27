@@ -45,6 +45,8 @@ internal class CombinedStatusRenderController(
         view.setVisualSettings(state)
     }
 
+    fun currentTintState(): CombinedStatusTintState? = stableTint
+
     fun updateTint(state: CombinedStatusTintState): TintUpdate {
         val previous = stableTint
         val resolved =
