@@ -3519,3 +3519,74 @@ Therefore the overall APK/signature bytes differ because build provenance metada
 ### Outcome
 
 Use the #334 artifact as the final Build-405 device-test package. Runtime remains frozen. No Light/Dark/Tint `transformResId` integration, Phase-2B scene work, or other runtime modification should occur until the focused device A/B result is returned.
+
+
+---
+
+## 2026-09-27 — Build 405 device rejection: final presentation-resource contract remains
+
+**Type:** device rejection / root-cause refinement  
+**Display version:** 0.0.2  
+**Build under test:** 405 / 20260927-405  
+**Runtime source:** `bf8091c8680dec7b85c58afded7f476ec95ca49d`  
+**Result:** optical-parity A/B rejected; direct-Drawable baseline retained
+
+### Problem / objective
+
+Determine whether removing the project-owned 96px bitmap from the final native-center presentation path is sufficient to match neighboring HyperOS status-icon opacity/weight.
+
+### Problem execution flow
+
+**Phenomenon and evidence**
+
+Target-device screenshots on both a light Settings surface and a dark Home/recents surface show the Combined Status center Wi-Fi glyph still materially lighter / lower-opacity than neighboring native status icons. The difference is visible inside the same Combined Status composition: the outer ring remains visually strong while the center native glyph is comparatively faint.
+
+**Root cause / responsibility source**
+
+Build 405 successfully removed the intermediate final-presentation bitmap/resample stage, so that stage is no longer sufficient to explain the remaining mismatch.
+
+Exact-target reference evidence already establishes a second presentation difference that Build 405 intentionally left unchanged: HyperOS transforms the raw semantic resource through `MiuiStatusBarIconViewHelper.transformResId(rawResId, useTint, isLight)` and then follows distinct Tint versus Light/Dark drawing branches. Build 405 still resolves the raw resource and uniformly applies the Combined Status center tint.
+
+**Root-cause status:** high confidence that final presentation-resource/tint-branch mismatch is now the next responsible boundary. It is not yet confirmed as the complete final cause until a single-variable A/B is device-tested.
+
+### Evidence / references consulted
+
+- Latest repository `CONTRIBUTING.md`, especially native visual-resource integration, root-cause order, single-writer and fail-native rules.
+- `docs/reference/native-icon-rendering.md`.
+- `docs/architecture/layout-policy.md` and `scene-policy.md`.
+- Exact target SystemUI reference for Wi-Fi Light / Dark / Tint transformation and final ImageView/VectorDrawable rendering.
+- Build 405 source/CI record and the maintainer-provided target-device screenshots.
+
+### Alternatives considered
+
+1. Increase center alpha or apply a per-resource opacity multiplier — rejected as screenshot-fitted symptom compensation and contrary to native-resource rules.
+2. Return to Build 403 percentile alpha remapping — rejected; it partially compensated a non-native bitmap pipeline and is not an authoritative HyperOS contract.
+3. Restore the bitmap final-render path — rejected; Build 405 removed a verified non-native resampling responsibility and the direct final-bounds Drawable path remains the cleaner baseline.
+4. Reproduce the verified HyperOS presentation variant + tint/no-tint branch for native center resources only — selected for the next bounded A/B.
+
+### Decision / next implementation boundary
+
+Build 406 may change only native center presentation selection:
+- resolve the final Light / Dark / Tint resource variant using the exact target HyperOS contract;
+- in Tint mode, apply the resolved native status-icon tint to the Tint resource;
+- in non-Tint Light/Dark modes, draw the selected authored resource without imposing the Combined Status tint;
+- retain Build 405 direct final-bounds Drawable rendering and measurement-only optical probe.
+
+Do not change center size/position, outer geometry, Home carrier/spacing, battery semantic-color logic, or Phase-2B scene behavior in the same checkpoint.
+
+### Review
+
+- **Ownership:** presentation-resource choice remains Combined Status-owned only for the module-owned native center clone; no native View is mutated.
+- **Lifecycle:** no new observer/listener is justified if the already-resolved native tint/light state can be carried through the existing presentation state.
+- **Single writer:** no alpha/tint compensation writer may be layered on top of the selected branch.
+- **Cleanup:** no new long-lived resource owner is required beyond the bounded center asset cache.
+- **Fail native:** if exact transformation state/resource resolution is unavailable, preserve the existing safe fallback rather than inventing a color.
+- **Performance:** resource transformation should be event/state-driven and cacheable; no polling or per-frame reflection.
+- **Compatibility:** exact target private helper/member use must remain fingerprint-scoped and optional.
+- **Future extension:** preserving semantic resource identity separately from presentation resource selection supports later custom-color policy without duplicating HyperOS state semantics.
+
+### Validation / outcome
+
+Build 405 is **rejected for optical-parity acceptance**. Battery semantic-color acceptance remains a separate gate.
+
+The next executable checkpoint is Build 406. Runtime changes should stop again as soon as its signed Canary is ready for focused light/dark device comparison.
