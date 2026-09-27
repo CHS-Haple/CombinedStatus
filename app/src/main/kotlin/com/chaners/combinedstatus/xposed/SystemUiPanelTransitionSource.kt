@@ -58,14 +58,6 @@ internal object SystemUiPanelTransitionSource {
             ).apply { isAccessible = true }
 
         val controlClass =
-            // The notification shade hook is runtime authority, not a diagnostic.
-            // At cold start there may be no expansion callback yet; successful hook
-            // installation establishes the native panel source as available and keeps
-            // steady Home eligible until SystemUI reports otherwise.
-            if (notificationShadeHomeEligible == null) {
-                notificationShadeHomeEligible = true
-            }
-
             if (includeControlCenterDiagnostics) {
                 Class.forName(CONTROL_CENTER_CLASS, false, classLoader)
             } else {
@@ -147,6 +139,13 @@ internal object SystemUiPanelTransitionSource {
                             result
                         },
                     )
+
+            // The shade callback is runtime authority rather than a diagnostic. A
+            // successful hook install means the native source is available; before
+            // its first callback steady Home is the conservative bootstrap state.
+            if (notificationShadeHomeEligible == null) {
+                notificationShadeHomeEligible = true
+            }
 
             if (includeControlCenterDiagnostics) {
                 val expansionMethod = checkNotNull(controlExpansionMethod)
@@ -259,13 +258,6 @@ internal object SystemUiPanelTransitionSource {
 
     fun currentNotificationShadeHomeEligibility(): Boolean? =
         notificationShadeHomeEligible
-
-    @Synchronized
-    fun restoreNotificationShadeHomeEligibility(value: Boolean?) {
-        if (value != null) {
-            notificationShadeHomeEligible = value
-        }
-    }
 
     @Synchronized
     fun restoreNotificationShadeHomeEligibility(eligible: Boolean?) {
