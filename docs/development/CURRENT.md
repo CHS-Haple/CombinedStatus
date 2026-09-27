@@ -10,7 +10,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Integration branch: `dev`
 - Integration runtime baseline: Build 413, commit `2aa6833cfca69a59af5027a7855b7d8282dbade9`
 - Build 413 / `20260927-413` is the current device-accepted, Integration-validated, and `main`-promoted runtime baseline.
-- Active corrective work / PR: `fix/hot-reload-tint-continuity` / Draft #148. Build 415 / `20260928-415` is **device-rejected**: it correctly waits for a new-generation tint event on the legacy 414 -> 415 Hot Reload path, but the selected Battery-anchor tint authority can still disagree with the actual Home status-icon tint. The next bounded checkpoint is Build 416.
+- Active corrective work / PR: `fix/hot-reload-tint-continuity` / Draft #148. Build 415 / `20260928-415` is device-rejected. Build 416 / `20260928-416` is the current bounded candidate: it retains Build-415 Hot Reload continuity/fail-native mechanics but changes Home monochrome tint authority to prefer the native location-aware DarkIconDispatcher result.
 - Repository-automation baseline: checkpoint-driven CI from PR #139 remains active; Canary admission hardening and bounded automation-only merge delegation were accepted on `main` via PR #143 (`a1aed8b6451d1018f46e252166545d67f48fe8e4`) and history-preserving back-synced into `dev` via PR #144 (`faaa12b1c8e955138d2ce8d51fb481263b4d7570`). These automation changes do **not** create a new runtime Build.
 - Phase-2A integration: PR #105 merged to `dev` as `2f584c3b393dc5ee606284426aa95a9d6beae5d5`; former stacked PR #100 is closed as superseded.
 - Phase-2B panel/scene-owner integration: PR #138 merged to `dev` as `a25cb5ce2aeab235cfaed579474df70596f03a63`.
@@ -154,12 +154,12 @@ Build 409's notification-shade implementation remains intact and is not reopened
 ## Immediate next step
 
 1. Keep Build 413 / `20260927-413` as the stable/runtime baseline on `main` and `dev`.
-2. Treat Build 415 / `20260928-415` as **device-rejected** for the Hot Reload inversion/tint defect. Retain its classloader-neutral tint-transfer and legacy fail-native mechanics as valid lifecycle hardening, but do not treat them as sufficient root-cause closure.
-3. Build-415 device evidence shows the legacy Hot Reload path correctly reports `tintTransfer=native-fallback`, waits for a new native tint event, then cuts Home over from a Battery-anchor result of `#bf000000`; immediately afterward the observed Home status-icon peer/manager tint reports a light value near `#e6ffffff`, and later the status-icon observation alternates between light and dark values while the device screenshot shows Combined Status inverted relative to neighboring icons.
-4. Correct the **status-icon tint authority**, not Hot Reload timing: prefer the exact native `DarkIconDispatcher` location-aware tint result for the resolved Home anchor over manager-global `mColor` and recursive peer tint heuristics. Preserve current peer/static/cached sources only as fallback evidence.
-5. Keep this a single-variable authority correction. Do not change battery semantic-color policy, visual settings, Home geometry, Hot Reload cleanup, panel projection, or native icon rendering in the same checkpoint.
-6. Add deterministic tests for manager/location-aware tint precedence and retain the existing Build-415 Hot Reload continuity tests.
-7. After Fast + signed Canary, repeat the same Hot Reload inversion test without restarting SystemUI. Only after device acceptance may #148 integrate and #146 resume.
+2. Validate **Build 416 / `20260928-416`** on Draft PR #148. The only intended behavior change versus rejected Build 415 is Home monochrome tint authority precedence.
+3. Resolve Home status tint in this order: native `DarkIconDispatcher.getTint(mTintAreas, anchorView, mIconTint)` for the resolved Home anchor -> visible peer/static tint -> manager-global fallback -> cached fallback.
+4. Keep Build-415 Hot Reload payload v7, legacy fail-native behavior, Battery semantic color policy, Home geometry, scene ownership, panel projection and native rendering unchanged.
+5. Use the existing event-driven status-icon observation path; add no timer, polling, retry, per-frame tint sampling, forced dark-mode refresh or synthetic color.
+6. After Draft Light and Fast pass, request one signed Canary and repeat the exact inversion test without SystemUI restart. The acceptance signal is visual parity with neighboring native icons plus diagnostics showing `tintAuthority=dispatcher-location-aware` when the native location-aware contract resolves.
+7. If Build 416 is accepted, integrate #148 to `dev`, then refresh Draft PR #146 from the new `dev` baseline and resume panel-projection work.
 
 ## Reference priority
 
