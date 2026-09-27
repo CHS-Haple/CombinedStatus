@@ -100,6 +100,7 @@ Selected first correction boundary:
 - any `expanded=true` or `tracking=true` update makes the Home replacement ineligible and restores native presentation through the existing readiness/fail-native path;
 - keep `fraction` read-only for diagnostics and future projection work;
 - Control Center projection is intentionally not added in this first A/B.
+- cold start preserves the existing stable-Home default until the first native shade callback; Hot Reload must transfer the last known notification-shade eligibility so a reload performed while shade is open/tracking cannot temporarily re-enable Home presentation.
 
 
 ## Non-negotiable boundaries
@@ -123,11 +124,12 @@ Selected first correction boundary:
 
 ## Immediate next step
 
-1. Implement one bounded notification-shade eligibility A/B on `fix/shade-home-overlay-leak`.
-2. Route the already-existing native `ShadeExpansionStateManager` update into Home presentation readiness instead of diagnostics only.
-3. Home remains eligible only when the notification panel reports `expanded=false` and `tracking=false`; do not invent a fraction threshold, delay, polling loop, translation follower, or custom animator.
-4. Keep Control Center, shade rendering/projection, steady Home carrier/spacing, Build-408 color policy and deferred optical polish unchanged in the same checkpoint.
-5. Add deterministic policy tests, run source review and CI/Canary, then freeze runtime for focused device testing of shallow pull, held-return, full pull and return-to-Home.
+1. Finalize Build 409 as one bounded notification-shade eligibility correction on `fix/shade-home-overlay-leak`.
+2. Keep exactly one production notification-shade Hook; keep the two Control Center expansion/visibility Hooks diagnostics-only.
+3. Route native `expanded/tracking` into Home presentation readiness. No fraction threshold, delay, polling loop, translation follower, alpha writer, or custom animator.
+4. Preserve cold-start behavior, but transfer the last known nullable notification-shade eligibility through the existing Hot Reload payload before the new Home session attaches.
+5. Keep Control Center rendering/projection, steady Home carrier/spacing, Build-408 color policy and deferred optical polish unchanged.
+6. Run unit tests, source review, Fast CI and signed Canary, then freeze runtime for focused device testing of shallow pull, held-return, full pull, return-to-Home, and one Hot Reload while shade is open if practical.
 
 ## Reference priority
 
