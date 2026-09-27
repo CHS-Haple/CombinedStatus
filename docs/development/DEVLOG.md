@@ -2,6 +2,78 @@
 
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
+## 2026-09-28 — Build 414 notification-header target-geometry probe
+
+**Type:** Phase-2B bounded runtime diagnostics
+**Display version:** 0.0.2
+**Build:** 414 / `20260928-414`
+**Work branch / PR:** `feat/panel-projection` / Draft #146
+**Device validation:** pending
+
+### Problem / objective
+
+Static exact-target evidence identifies `NotificationHeaderExpandController` as the native notification-header translation owner and its `notificationCallback$1.onExpansionChanged(float)` callback as the expansion signal. The repository still lacks a verified runtime target-host/bounds snapshot comparable to Control Center's existing `StatusBarAnchorBounds` evidence.
+
+Implementing the panel renderer before that fact is known would require guessing a host or inventing a geometry formula.
+
+### Root cause / evidence gap
+
+**Confirmed evidence gap:** notification-shade lifetime/progress is verified, but the actual controller-owned View candidates and their native target geometry are not yet runtime-verified in Combined Status.
+
+This is not evidence that the Home overlay or legacy native participant should be reused. It is a request for one missing native target fact.
+
+### Exact-target contracts used
+
+- `com.android.systemui.controlcenter.shade.NotificationHeaderExpandController`;
+- `NotificationHeaderExpandController$notificationCallback$1.onExpansionChanged(F)V`;
+- controller scalar fields `notificationTranslationX` and `notificationTranslationY`;
+- existing Build-413 `ShadeExpansionStateManager.onPanelExpansionChanged(FZZ)V` remains the runtime Home-lifetime authority;
+- existing Control Center `StatusBarAnchorBounds` diagnostics remain unchanged.
+
+The new diagnostic callback contract is recorded in `compat/targets/hyperos-17.03.260226.r.json` and bound to source constants by `tools/verify_target_profile.py`.
+
+### Measures implemented
+
+Added `SystemUiNotificationHeaderProbe`:
+
+- installed only in runtime-diagnostics builds;
+- hooks the exact notification-header expansion callback;
+- calls the native callback first;
+- performs no work unless Detailed diagnostics / development probes are enabled;
+- samples only when entering native diagnostic boundary buckets 0, 1, 7, or 8;
+- resolves the callback's owning `NotificationHeaderExpandController`;
+- reads only the two verified translation scalar fields plus direct controller fields whose declared type is an Android `View`;
+- records field name, runtime View type, resource id, parent type, screen coordinates, laid-out/measured bounds, translation, alpha, visibility, and attachment state;
+- emits one capped controller field/type inventory to make absence of direct View fields diagnosable without repeated reflection;
+- writes no View/layout/translation state.
+
+Probe installation is isolated from `SystemUiPanelTransitionSource`. If the diagnostic contract cannot be installed, Build-413 notification-shade / Control Center runtime authority remains intact and the probe is reported unavailable.
+
+### 审查 / review
+
+- **Ownership:** SystemUI remains the sole notification-header motion/layout owner; the module only observes controller-owned state.
+- **Lifecycle:** one diagnostics-build Hook tied to the existing module generation; Hot Reload resets probe bookkeeping and old-generation hooks remain under the existing takeover lifecycle.
+- **Single writer:** zero new writers. No Home or panel visibility, layout, translation, alpha, tint, or peer state is changed.
+- **Cleanup:** bucket/inventory state is generation-scoped and reset during Hot Reload teardown.
+- **Fail native:** diagnostic install failure is fail-soft and explicitly does not affect runtime panel authority; actual panel projection remains native-only.
+- **Performance:** no polling, ViewTree traversal, frame listener, or continuous logging. Reflection metadata is resolved once at install and runtime snapshots occur only at four bounded progress buckets while Detailed diagnostics are enabled.
+- **Compatibility:** the callback/controller and translation fields are declared in the exact pinned target profile; source constants are CI-checked against that profile.
+- **Exception recovery:** all probe reads are guarded; missing optional direct View values report null/unavailable rather than changing behavior.
+- **Future extension:** runtime evidence from this probe will determine a surface-specific projection adapter/host. The probe is not itself intended to become the production geometry source.
+
+### Rejected alternatives
+
+- Interpolate from Home to a guessed notification translation: rejected; target host/bounds unverified.
+- Reuse the Home overlay in the expanded surface: rejected; wrong scene ownership.
+- Traverse the whole root View tree continuously: rejected; broader and more expensive than the controller-scoped probe.
+- Add a per-frame listener: rejected; unnecessary for host/anchor discovery.
+- Reuse old zero-width native-participant experiments: rejected; superseded architecture with known ownership/geometry conflicts.
+
+### Validation gate
+
+Because executable source and the pinned compatibility/tooling contract changed, this checkpoint advances to Build 414 and requires the applicable automated validation before a signed Canary. No panel-projection behavior should be implemented until the focused device diagnostic closes the target-host/geometry evidence gap.
+
+
 ## 2026-09-28 — Phase 2B panel projection evidence boundary
 
 **Type:** architecture/source review / documentation-only checkpoint
