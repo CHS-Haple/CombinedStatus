@@ -235,7 +235,7 @@ class SystemUiNativeNetworkSuppressionOwnerTest {
 
     @Test
     fun representedSlotsAreNotEligibleVisibleTintAuthorities() {
-        listOf("wifi", "mobile", "stacked_mobile", "airplane", "no_sim").forEach { slot ->
+        listOf("combined_status", "wifi", "mobile", "stacked_mobile", "airplane", "no_sim").forEach { slot ->
             assertEquals(
                 false,
                 SystemUiNativeNetworkSuppressionOwner.isTintAuthorityCandidate(

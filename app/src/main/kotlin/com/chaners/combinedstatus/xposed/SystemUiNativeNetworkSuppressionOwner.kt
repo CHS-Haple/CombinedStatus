@@ -39,7 +39,7 @@ internal object SystemUiNativeNetworkSuppressionOwner {
     private val wifiAndMobileTargetSlots = setOf("wifi", "mobile")
     private val observableTargetSlots = setOf("wifi", "mobile", NO_SIM_SLOT)
     private val representedTintSlots =
-        setOf("wifi", "mobile", "stacked_mobile", NO_SIM_SLOT, AIRPLANE_SLOT)
+        setOf("combined_status", "wifi", "mobile", "stacked_mobile", NO_SIM_SLOT, AIRPLANE_SLOT)
 
     private val installedHandles = mutableListOf<HookHandle>()
     private var activeManager: Any? = null
@@ -727,6 +727,7 @@ internal object SystemUiNativeNetworkSuppressionOwner {
         val peerTint = group?.let(::resolveAppliedStatusIconTint)
         val resolvedAnchor =
             anchorView
+                ?.takeIf(::isTintAuthorityCandidate)
                 ?: group?.let(::resolveTintAnchorView)
         val locationAwareTint =
             resolveLocationAwareManagerTint(
@@ -958,6 +959,14 @@ internal object SystemUiNativeNetworkSuppressionOwner {
         }
         return null
     }
+
+    private fun isTintAuthorityCandidate(view: View): Boolean =
+        isTintAuthorityCandidate(
+            slot = NativeParticipantRuntimeAccess.slotOf(view),
+            visible = view.visibility == View.VISIBLE,
+            width = view.width,
+            height = view.height,
+        )
 
     internal fun isTintAuthorityCandidate(
         slot: String?,
