@@ -99,7 +99,7 @@ Build 403 uses HyperOS `MiuiBatteryMeterIconView.getProgressStatus()` as semanti
 
 No user-facing per-state color picker/source selector is exposed yet. The future policy seam remains: **System default / Follow status icon / Custom** for NORMAL / CHARGING / POWER_SAVE / PERFORMANCE / LOW.
 
-### Home -> panel scene boundary / Control Center projection — Build 423 active
+### Home -> panel scene boundary / Control Center projection — Build 423 device-rejected
 
 Build 420 established the accepted panel architecture:
 - Notification Shade has no status-icon projection target on this pinned configuration; it only transfers Home ownership.
@@ -132,6 +132,14 @@ Build 423 corrects the remaining Notification-Shade source:
 - Build 420 Control Center projection remains independently accepted unless the new evidence demonstrates a regression.
 - Runtime work is reopened at the ownership/ordering investigation boundary. Do not add delay/epsilon/timer/polling/geometry compensation; correlate the supplied video, Detailed diagnostics, and LSPosed log against the native shade callback ordering before choosing the next change.
 
+**Build 423 device rejection — Header progress alone is not the ownership gate:**
+- Maintainer device validation reports that the Notification-Shade first/last-frame problem still reproduces on the signed Build 423 Canary.
+- Detailed diagnostics confirm the expected Build 423 Canary and healthy panel-hook installation.
+- The maintainer-provided LogFox system log proves `NotificationHeaderExpandController.notificationCallback` does emit continuous native progress; the earlier suspicion that only endpoint values were delivered is rejected.
+- During panel opening, HyperOS logs `StatusBar##isHomeStatusBarAllowed: newValue: false` before the first tiny positive Header progress that causes Build 423 to hide the Home overlay.
+- During collapse, Build 423 restores the overlay at Header progress zero before HyperOS logs `isHomeStatusBarAllowed: newValue: true`.
+- Therefore Header progress is valid motion context but is not, by itself, the native Home-status-bar ownership decision. The next root-cause step is exact-target source review of `isHomeStatusBarAllowed` and its consumers; do not replace this with an epsilon threshold.
+
 ## Non-negotiable boundaries
 
 - Home and the Build-420 Control Center projection are the currently runtime-verified Combined Status rendering surfaces; Notification Shade, Keyguard, and AOD remain native-only.
@@ -162,13 +170,12 @@ Build 423 corrects the remaining Notification-Shade source:
 
 ## Immediate next step
 
-1. Build 423 / `20260928-423` is frozen at the signed device-validation boundary; do not layer another runtime change before maintainer feedback.
-2. Install the signed Build-423 Canary and Hot Reload once.
-3. Repeat Notification-Shade open/close gestures 2-3 times, focusing on the first departure frame and final Home return frame.
-4. Perform one Control Center open/close regression pass and one lock/unlock smoke pass; accepted Build-420 Control Center projection must remain unchanged and Home overlay must not leak onto Keyguard.
-5. If the edge defect persists, capture a short video plus Detailed diagnostics so `authority=hyperos-notification-header-callback` progress can be correlated directly with the visible frame. Do not reintroduce Battery/Keyguard inference or timing compensation.
+1. Build 423 / `20260928-423` is device-rejected for Notification-Shade edge continuity; keep its executable frozen as evidence.
+2. Use the maintainer-provided LogFox system timeline to trace the exact-target `StatusBar##isHomeStatusBarAllowed` producer and every native consumer that controls Home status-bar presentation.
+3. Compare that native ownership signal against the current Header-progress gate and Home overlay carrier lifecycle.
+4. Preserve accepted Build-420 Control Center projection unless new evidence demonstrates a regression.
+5. Do not add an epsilon threshold, timer, polling loop, delay, or geometry compensation. Only after the actual native Home ownership contract is verified should Build 424 change runtime behavior.
 
-Signed checkpoint: Ready Full #1307 / run `36359395894` succeeded. Work Branch Canary #413 / run `36359604981` succeeded on attempt 2 with exact trusted source SHA `5d982a74f80d157bfcfd543e7d1706099dd46e64`; attempt 1 was platform-cancelled during Gradle execution without a code-failure verdict. Artifact `10945257544`, ZIP digest `sha256:d04859b9ec595d43f599174d61fa80fb169a509517b873b309189e418de13d20`, APK size `3309602` bytes, and extracted APK SHA-256 `9830f24a36d55c5c38914a2b2c23f3cf52a49babfda26572a96420e79138597d`.
 ## Reference priority
 
 1. latest `CONTRIBUTING.md`;

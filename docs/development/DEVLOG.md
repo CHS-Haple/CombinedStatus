@@ -6989,3 +6989,59 @@ After repository Full validation and a signed Canary:
 - Extracted APK SHA-256: `9830f24a36d55c5c38914a2b2c23f3cf52a49babfda26572a96420e79138597d`
 
 Runtime is frozen at Build 423 pending focused maintainer device validation.
+
+
+---
+
+## 2026-09-28 — Build 423 device rejection: Header progress is motion, not ownership
+
+**Type:** device feedback / root-cause refinement
+**Build:** 423 / `20260928-423`
+**Signed Canary:** Work Branch Canary #413 / run `36359604981`, successful attempt 2
+**Runtime source:** `81deafdb3b25e1d34f4cb57ee57de09c9f1fa5e0`
+**Runtime after this record:** unchanged
+
+### Device result
+
+The maintainer reports that the Notification-Shade first/last-frame defect still reproduces on Build 423.
+
+The supplied Detailed report confirms the tested package is the expected `0.0.2` Build `20260928-423` Canary and reports `panelTransition` ready with all expected hooks installed. This rejects stale installation or missing Hook as an explanation.
+
+The separate file `28_09-07-52-49_225.log` is a LogFox whole-system capture, not an LSPosed-only export. That distinction matters because it places native HyperOS SystemUI logs and Combined Status events on the same clock.
+
+### New evidence
+
+Build 423's Header callback is valid and continuous. The LogFox capture includes intermediate
+`NotificationHeaderExpandController` progress values across the gesture, so the temporary hypothesis that Combined Status was attached to an endpoint-only callback instance is rejected.
+
+The remaining problem is the ownership interpretation:
+
+- Opening sequence:
+  - native `StatusBar##isHomeStatusBarAllowed` changes to `false`;
+  - `NotificationPanelExpandController` begins increasing panel height;
+  - Build 423 then receives a tiny positive Header progress and immediately sets Home overlay eligibility false.
+- Closing sequence:
+  - Header progress reaches zero and Build 423 restores the overlay;
+  - only after that does native `StatusBar##isHomeStatusBarAllowed` change back to `true`.
+
+This establishes that Header progress is native motion context but not the complete native Home-status-bar ownership decision.
+
+### Root-cause direction
+
+The exact-target source for `isHomeStatusBarAllowed` must be traced before Build 424:
+1. identify its defining state / Flow and producer;
+2. identify the native status-bar presentation consumers;
+3. determine whether Combined Status can observe the same authority without creating a second state machine;
+4. keep Notification Shade native-only and Control Center on the accepted Build-420 projection path.
+
+### 审查 / review boundary
+
+- **Ownership:** unresolved but now narrowed to the native Home-status-bar allowed contract.
+- **Lifecycle:** no runtime change in this record.
+- **Single writer:** do not combine Header progress and a new boolean as independent writers; select one verified authority or compose through an existing native contract.
+- **Cleanup:** unchanged.
+- **Fail-native:** unchanged.
+- **Performance:** no polling or frame-loop instrumentation.
+- **Compatibility:** exact target remains SystemUI `17.03.260226.r`.
+- **Rejected workaround:** no epsilon threshold around zero progress; the new evidence is about ownership ordering, not float noise.
+- **Build identity:** remains Build 423.
