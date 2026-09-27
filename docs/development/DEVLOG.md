@@ -4425,3 +4425,17 @@ Review conclusion:
 - Build identity remains 409 because no validated/issued Build-409 Canary existed before these corrections;
 - **final executable source for Build 409 is `d4ef6e6bc2be143a961e0130f0978e5788c325c4`**;
 - earlier `08574da...` is an intermediate unvalidated Build-409 source and must not be used for device acceptance.
+
+
+### Build 409 source correction after review hardening
+
+The earlier Build-409 source-review note preceded the final Fail-native and Hot Reload hardening. Historical checkpoints remain unchanged; the **final executable Build-409 source is now `4ab7b490617757e34c0ea8e0b59e3d7a16bae9ad`**.
+
+Final review additions:
+- unknown shade authority no longer defaults to Home-eligible;
+- successful authority installation provides the steady-Home bootstrap, while installation failure leaves Home native;
+- current shade eligibility is transferred in the version-5 Hot Reload payload and restored before the Home host session is attached;
+- version-4/older payloads remain readable; because 408 could not have stored shade eligibility, a 408 -> 409 reload preserves the successfully installed 409 bootstrap until the next native callback;
+- duplicate/incorrectly inserted helper code found during source review was removed before CI.
+
+No additional visual, geometry, color, Control Center, or animation behavior was added by this hardening.
