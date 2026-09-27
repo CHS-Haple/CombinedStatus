@@ -34,6 +34,42 @@ Full Build #1189 / run `36329234898` passed on `3aee0d206b0c966afed9d30d7921abb0
 
 The maintainer explicitly delegated future merge judgment for bounded automation-only changes. CONTRIBUTING now allows the active development operator to merge and synchronize such changes without a second maintainer confirmation only when Full/self-validation and review pass and there is no runtime/APK/dependency/signing/release/trust-boundary effect. Uncertain or broader changes still require explicit maintainer approval.
 
+## 2026-09-28 — Build 413 HUN / shallow-pull device acceptance
+
+**Type:** focused maintainer device acceptance / runtime checkpoint closure
+**Display version:** 0.0.2
+**Build:** 413 / `20260927-413`
+**Work branch / PR:** `fix/home-hun-ownership` / #142
+**Validated PR head:** `15b92d64440eb565e44ce8a7dda3739c9ab8964e`
+
+### Validation evidence
+
+- Fast Build #1195 passed on the exact current PR head after the accepted automation back-sync.
+- Work Branch Canary #397 / run `36336524857` passed trusted-source resolution, pinned target-profile verification, unit tests, Canary build, Modern Xposed metadata, Haple certificate verification, and non-debuggable validation.
+- Canary artifact: `10937297772`, `CombinedStatus-0.0.2-HyperOS-20260927-413-canary.apk`.
+- Artifact ZIP digest: `sha256:9af1b58ad588885d7e1ced83c746c134e7fe7e22f1646a158a5557fed277bd30`.
+- Extracted APK SHA-256: `a0c39bc21e81175b7c6fafed0316cd7b807e90ed8515ce257c69b4091088dff3`.
+- The maintainer performed the requested focused device validation and reports that the previously reproduced HUN disappearance now appears fixed. The accepted shallow-pull handoff behavior remains satisfactory, so this defect is accepted for `dev` integration.
+
+### Confirmed conclusion
+
+The exact target's `expanded` boolean is too coarse to act as notification-shade ownership authority because HUN can assert `expanded=true` at `fraction=0.0` with `tracking=false`. The accepted Home eligibility contract for this callback is therefore motion-based: non-tracking with native fraction at/below the closed boundary remains Home; active tracking or positive shade motion transfers presentation away from Home. `expanded` remains diagnostic context only.
+
+### 审查 / review
+
+- **Ownership:** persistent Home presentation ownership and the single scene-visibility writer remain unchanged.
+- **Lifecycle:** no HUN-specific owner, listener, delay, timer, or polling path was introduced.
+- **Single writer:** scene eligibility remains the sole overlay-visibility authority.
+- **Cleanup:** transient shade/HUN state does not destructively tear down a structurally valid Home owner.
+- **Fail native:** missing motion facts still fail closed.
+- **Performance:** constant-time predicate only; no additional wakeup/frame work.
+- **Compatibility:** no new private member or reflection contract beyond the already-pinned callback.
+- **Future extension:** the accepted lifetime gate is now a prerequisite for, not a substitute for, real Phase-2B shade / Control Center projection.
+
+### Outcome / next step
+
+Build 413 is device-accepted for the focused HUN + shallow-pull defect. Merge PR #142 into `dev`, require Integration validation, then continue Phase 2B with actual expanded-surface projection / intermediate motion rather than adding more Home-lifetime patches.
+
 ## 2026-09-27 — Build 412 HUN device evidence and motion-semantic gate fix
 
 **Type:** maintainer device evidence / root-cause confirmation / runtime fix candidate
