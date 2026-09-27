@@ -4643,3 +4643,67 @@ Because that fact was diagnostics-only, Control Center could own the status-bar 
 ### Gate
 
 Implement and validate Build 410 before any projection or animation work.
+
+
+---
+
+## 2026-09-27 — Build 410 source review: compose Control Center visibility into Home ownership
+
+**Type:** Phase-2B runtime checkpoint / source review  
+**Build:** 410 / 20260927-410  
+**Runtime source:** `6e2fc55944753c6cb9ef22f537008c97217f17e1`  
+**Validation:** source/call-site review passed; Fast/Canary pending
+
+### Runtime delta
+
+Build 410 retains the Build-409 notification-shade authority and adds the second native scene-lifetime authority demonstrated by the maintainer's device evidence:
+
+- production hook 1: `ShadeExpansionStateManager.onPanelExpansionChanged(FZZ)V`;
+- production hook 2: `ControlCenterExpandControllerDelegate.onVisibleChanged(Z)V`;
+- diagnostics-only hook: `ControlCenterExpandControllerDelegate.onExpansionChanged(F)V`.
+
+Home eligibility now requires:
+- unlocked Home surface;
+- notification shade semantically settled: `expanded=false && tracking=false`;
+- Control Center not visible: `visible=false`;
+- existing model/tint/layout readiness;
+- no native handoff activity.
+
+### Hot Reload
+
+The classloader-neutral payload advances to v6:
+- v6 carries notification-shade + Control Center eligibility;
+- v5 remains readable and carries only notification-shade eligibility;
+- v4 and older remain readable through their established compatibility paths;
+- a missing legacy Control Center field does not erase the successfully installed new generation's bootstrap state.
+
+### Exact-target compatibility
+
+The pinned HyperOS profile now verifies:
+`com.miui.systemui.controlcenter.container.ControlCenterExpandControllerDelegate.onVisibleChanged(Z)V`.
+
+The matching SystemUI-Reference contract index records the same callback as semantic scene lifetime. `onExpansionChanged(F)V` remains progress evidence only.
+
+### Review
+
+- **Ownership:** SystemUI remains owner of both transition lifetimes; Combined Status composes two native booleans into Home eligibility.
+- **Lifecycle:** exactly two production event hooks; no polling/timer/listener layer added.
+- **Single writer:** each native callback writes only its corresponding source snapshot; Home Session is the single consumer that resolves presentation readiness.
+- **Cleanup:** unchanged Home cleanup transaction restores only module-owned clip/reservation state.
+- **Fail native:** install failure marks both required scene authorities Home-ineligible.
+- **Performance:** event-driven Boolean gates; Control Center fraction processing remains diagnostics-only.
+- **Compatibility:** both production private contracts are fingerprint/profile checked.
+- **Exception recovery:** partial hook install is unhooked on failure; Home falls native.
+- **Future extension:** progress callbacks remain available for later draw-only projection without contaminating eligibility with thresholds.
+
+### Call-site review
+
+- all legacy `resolveOverlayVisible(...)` test calls explicitly pass the new Control Center gate;
+- Home visibility and presentation readiness both require the gate;
+- the sole Hot Reload capture call passes both eligibility facts;
+- expected hook count is 2 in production and 3 with diagnostics;
+- no RGB/alpha/geometry/translation/animation behavior changed.
+
+### Gate
+
+Fast CI and a signed Canary are required before another device test. Runtime changes stop once the signed Build-410 Canary exists.
