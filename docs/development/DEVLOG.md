@@ -1204,6 +1204,110 @@ Preserve failed hypotheses and append corrections. Do not rewrite history to hid
 
 ---
 
+## 2026-09-28 — Build 420: Notification-Shade edge continuity + Control Center projection
+
+**Type:** Phase-2B runtime implementation / route correction
+**Build:** 420 / `20260928-420`
+**Exact runtime source after review:** `3635b52c3f3781db74a09ea6ab23a7e9dfcf40e5`
+**Stable dev baseline remains:** Build 418 / `20260928-418`
+
+### Problem / target correction
+
+Maintainer clarification corrected an implicit Phase-2B assumption: on the pinned HyperOS target, the Notification Shade does **not** present the native status-icon row. Only Control Center does. Therefore a Notification-Shade Combined Status projection would be non-native behavior and must not be implemented.
+
+One Notification-Shade bug remains in scope: the Home Combined Status can disappear for the first/last transition frame, matching the previously observed Control Center edge gap. The issue is not steady-state shade visibility; it is ownership timing at the exact zero-motion boundary.
+
+### Build-419 evidence and route closure
+
+Build 419 successfully unwrapped `NotificationHeaderExpandController.headerController` through Dagger `DoubleCheck.get()` and exposed `CombinedHeaderController`. The resulting runtime inventory showed:
+
+- Notification side: `normal_shade_header`, notification clock, and shade containers;
+- Control Center side: `controlCenterStatusBar`, `controlCenterStatusIcons`, `controlCenterSystemIcons`, and the dedicated Control Center header;
+- no evidence that Notification Shade should own a status-icon projection.
+
+Combined with the maintainer's native-behavior clarification, the Build-419 Notification-Shade target probe is retired. Its findings remain historical evidence; the probe source/test and active compatibility hook point are removed from Build 420.
+
+### Root cause — Notification-Shade first/last frame
+
+The existing Home eligibility predicate was:
+
+`tracking == false && fraction <= 0`
+
+At gesture start, HyperOS may report `tracking=true` while native fraction is still exactly `0`. That evicts Home before there is real shade motion. The inverse can occur on return, keeping Home hidden through the final zero-motion frame.
+
+Build 420 changes the ownership fact to the native motion boundary:
+
+- `fraction <= 0` -> Home remains eligible;
+- `fraction > 0` -> shade owns the transition;
+- `tracking` / `expanded` remain diagnostic context and do not independently hide Home.
+
+This does not make Combined Status visible in steady Notification Shade; once positive shade motion begins, Home yields as before.
+
+### Control Center projection architecture
+
+Build 420 does not invent a second animation path. It promotes the already-evidenced `ControlCenterHeaderExpandController.realSystemIcons` reference from diagnostic use to runtime carrier resolution.
+
+The Control Center projection session:
+
+- accepts only `MiuiStatusBatteryContainer`;
+- additionally requires object identity with the exact battery container already owned by `SystemUiHomePresentationOwner`;
+- resolves the existing native status-icon group, battery view, and `battery_icon_container`;
+- reuses `CombinedStatusHomeLayoutResolver`, the existing render model, visual settings, semantic battery colors, and renderer;
+- reads monochrome tint from the Control Center carrier's own visible non-represented status peers;
+- adds only a `ViewGroupOverlay` child to the native transformed carrier;
+- performs no custom `translationX/Y`, no progress interpolation, no timer, polling, frame follower, or peer alpha/visibility writer.
+
+Because `realSystemIcons` is identity-gated to the existing Home presentation container, Wi-Fi/mobile/battery masking and ignored-slot ownership remain single-writer under `SystemUiHomePresentationOwner`. Build 420 adds no second suppression owner.
+
+### Handoff sequencing
+
+Control Center open:
+1. native `onVisibleChanged(true)` completes;
+2. resolve and attach the projected surface while Home remains visible;
+3. require model + local tint + layout + attached host + carrier identity;
+4. make Control Center projection visible;
+5. only then mark Home Control Center eligibility false.
+
+Control Center close:
+1. restore Home eligibility first;
+2. hide/remove the Control Center projection second.
+
+This ordering prevents an intentionally empty ownership frame at either edge.
+
+### Hot Reload review
+
+Post-implementation review found HomeRenderSession still seeded its Control Center gate directly from `SystemUiPanelTransitionSource.currentControlCenterHomeEligibility()`. That could bypass the new readiness coordinator during Hot Reload. The final Build-420 runtime correction makes the Control Center Home gate coordinator-owned from initialization (`true` until the coordinator explicitly yields).
+
+The panel source still retains Control Center visibility as diagnostic/transfer context, but it is no longer a second Home visibility writer.
+
+### Review / 审查
+
+- **ownership:** Home and Control Center visual ownership are coordinated explicitly; native masking remains owned only by HomePresentationOwner.
+- **lifecycle:** projection is attached only for native Control Center visibility and cleaned on close/Hot Reload.
+- **single writer:** no duplicate suppression, translation, alpha, or visibility writer is introduced.
+- **cleanup:** overlay/listeners are removed; Home is restored before projection teardown.
+- **fail-native:** unresolved/wrong-identity carrier keeps Home visible and skips Control Center projection.
+- **performance:** event-driven only; no frame loop/polling/retry.
+- **compatibility:** runtime carrier comes from the already-verified Control Center callback owner; wrong type/identity fails closed.
+- **exception recovery:** partial projection readiness cannot evict Home.
+- **future extension:** surface adapter shares global render policy/model without creating a second network/battery state machine.
+
+### Validation state
+
+- core projection carrier commit `960131626992e9a149f512a38b6d75e201e61b9e`: Draft Light #1281 passed;
+- full Build-420 wiring commit `ccff32bc629b52487996c3ccbfc1525d4b41ed8b`: Draft Light #1282 passed;
+- final runtime review correction `3635b52c3f3781db74a09ea6ab23a7e9dfcf40e5`: pending final Draft validation at time of this record;
+- runtime remains frozen until that check passes and the checkpoint advances to Ready/Full.
+
+### Device gate
+
+One combined Build-420 device package will validate both requested behaviors:
+
+1. Notification Shade: first and last transition frames no longer show the one-frame Combined Status disappearance; steady shade remains without status icons.
+2. Control Center: Combined Status appears in the native status-icon surface, follows native motion without duplicate/blank edge frames, and returns cleanly to Home.
+
+No separate Notification-Shade projection test is required.
+
 ## 2026-09-26 — Development-memory system initialized
 
 **Type:** repository documentation / engineering governance
