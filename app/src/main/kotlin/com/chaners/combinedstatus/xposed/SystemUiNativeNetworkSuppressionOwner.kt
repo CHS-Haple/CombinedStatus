@@ -725,16 +725,20 @@ internal object SystemUiNativeNetworkSuppressionOwner {
     fun currentAppliedStatusIconTint(anchorView: View? = null): Int? {
         val group = activeGroup?.get()
         val peerTint = group?.let(::resolveAppliedStatusIconTint)
-        val managerTint =
-            resolveManagerAppliedTint(
+        val resolvedAnchor =
+            anchorView
+                ?: group?.let(::resolveTintAnchorView)
+        val locationAwareTint =
+            resolveLocationAwareManagerTint(
                 manager = activeManager,
-                anchorView =
-                    anchorView
-                        ?: group?.let(::resolveTintAnchorView),
+                anchorView = resolvedAnchor,
             )
+        val managerFallbackTint =
+            resolveManagerFallbackTint(activeManager)
         return selectStatusIconTint(
+            locationAwareTint = locationAwareTint,
             peerAppliedTint = peerTint,
-            managerTint = managerTint,
+            managerFallbackTint = managerFallbackTint,
             fallbackTint = lastStatusPresentation.appliedTint,
         )
     }
@@ -762,15 +766,19 @@ internal object SystemUiNativeNetworkSuppressionOwner {
                 null
             }
         val peerTint = resolveAppliedStatusIconTint(group)
-        val managerTint =
-            resolveManagerAppliedTint(
+        val tintAnchor = resolveTintAnchorView(group)
+        val locationAwareTint =
+            resolveLocationAwareManagerTint(
                 manager = activeManager,
-                anchorView = resolveTintAnchorView(group),
+                anchorView = tintAnchor,
             )
+        val managerFallbackTint =
+            resolveManagerFallbackTint(activeManager)
         val appliedTint =
             selectStatusIconTint(
+                locationAwareTint = locationAwareTint,
                 peerAppliedTint = peerTint,
-                managerTint = managerTint,
+                managerFallbackTint = managerFallbackTint,
                 fallbackTint = lastStatusPresentation.appliedTint,
             )
         val presentation =
@@ -798,18 +806,25 @@ internal object SystemUiNativeNetworkSuppressionOwner {
                         ?: "none") +
                     " tintAuthority=" +
                     when {
+                        locationAwareTint != null -> "dispatcher-location-aware"
                         peerTint != null -> "peer-static-applied"
-                        managerTint != null -> "manager-dark-dispatcher"
+                        managerFallbackTint != null -> "manager-global-fallback"
                         else -> "cached-fallback"
                     } +
+                    " locationAwareTint=" +
+                    (locationAwareTint
+                        ?.toUInt()
+                        ?.toString(16)
+                        ?.padStart(8, '0')
+                        ?: "none") +
                     " peerTint=" +
                     (peerTint
                         ?.toUInt()
                         ?.toString(16)
                         ?.padStart(8, '0')
                         ?: "none") +
-                    " managerTint=" +
-                    (managerTint
+                    " managerFallbackTint=" +
+                    (managerFallbackTint
                         ?.toUInt()
                         ?.toString(16)
                         ?.padStart(8, '0')
@@ -867,28 +882,24 @@ internal object SystemUiNativeNetworkSuppressionOwner {
         )
     }
 
-    private fun resolveManagerAppliedTint(
+    private fun resolveLocationAwareManagerTint(
         manager: Any?,
         anchorView: View?,
     ): Int? {
         manager ?: return null
-
-        readIntField(manager, "mColor")
-            ?.takeIf { color -> (color ushr 24) != 0 }
-            ?.let { return it }
+        anchorView ?: return null
 
         val dispatcher =
             readObjectField(manager, "mDarkIconDispatcher")
                 ?: return null
         val iconTint =
             readIntField(dispatcher, "mIconTint")
-                ?.takeIf { color -> (color ushr 24) != 0 }
+                ?.takeIf(::isVisibleTint)
                 ?: return null
         val tintAreas =
             readObjectField(dispatcher, "mTintAreas")
-        if (anchorView == null || tintAreas !is Collection<*>) {
-            return iconTint
-        }
+                as? Collection<*>
+                ?: return null
 
         return runCatching {
             val dispatcherType =
@@ -906,11 +917,25 @@ internal object SystemUiNativeNetworkSuppressionOwner {
                         ) &&
                         method.parameterTypes.getOrNull(2) ==
                             Int::class.javaPrimitiveType
-                } ?: return@runCatching iconTint
+                } ?: return@runCatching null
             (getTint.invoke(null, tintAreas, anchorView, iconTint) as? Number)
                 ?.toInt()
-                ?: iconTint
-        }.getOrDefault(iconTint)
+                ?.takeIf(::isVisibleTint)
+        }.getOrNull()
+    }
+
+    private fun resolveManagerFallbackTint(manager: Any?): Int? {
+        manager ?: return null
+
+        readIntField(manager, "mColor")
+            ?.takeIf(::isVisibleTint)
+            ?.let { return it }
+
+        val dispatcher =
+            readObjectField(manager, "mDarkIconDispatcher")
+                ?: return null
+        return readIntField(dispatcher, "mIconTint")
+            ?.takeIf(::isVisibleTint)
     }
 
     private fun resolveTintAnchorView(group: ViewGroup): View? {
@@ -970,16 +995,22 @@ internal object SystemUiNativeNetworkSuppressionOwner {
     }
 
     internal fun selectStatusIconTint(
+        locationAwareTint: Int?,
         peerAppliedTint: Int?,
-        managerTint: Int?,
+        managerFallbackTint: Int?,
         fallbackTint: Int?,
     ): Int? =
-        peerAppliedTint
-            ?.takeIf { color -> (color ushr 24) != 0 }
-            ?: managerTint
-                ?.takeIf { color -> (color ushr 24) != 0 }
+        locationAwareTint
+            ?.takeIf(::isVisibleTint)
+            ?: peerAppliedTint
+                ?.takeIf(::isVisibleTint)
+            ?: managerFallbackTint
+                ?.takeIf(::isVisibleTint)
             ?: fallbackTint
-                ?.takeIf { color -> (color ushr 24) != 0 }
+                ?.takeIf(::isVisibleTint)
+
+    private fun isVisibleTint(color: Int): Boolean =
+        color ushr 24 != 0
 
     private fun resolveStaticDrawableColor(view: View): Int? {
         val accessor = statusIconStaticColorAccessor ?: return null
