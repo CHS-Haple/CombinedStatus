@@ -4744,3 +4744,46 @@ No runtime code, Hook contract, Hot Reload payload, build identity, color, geome
 ### Gate
 
 Re-run Fast CI after the test-only correction. Build 410 remains the same executable candidate and still requires a signed Canary before device validation.
+
+
+---
+
+## 2026-09-27 — Build 410 Fast + signed Canary success
+
+**Type:** validation success / device-test gate  
+**Build:** 410 / 20260927-410  
+**Executable runtime source:** `6e2fc55944753c6cb9ef22f537008c97217f17e1`  
+**Tested PR head:** `5320bf87253128de290b4b0809694949a02b6c38`
+
+### Fast validation
+
+- Fast Build #1143 / run `36319763905`: **success**.
+- Passed Fast scope classification, Gradle Wrapper, Java/API 37, pinned HyperOS target-profile verification, all unit tests, Debug build, APK resolution and Modern Xposed metadata.
+- The preceding #1141 failure is retained as historical evidence; it was a test-only stale-call-site omission and did not require a runtime change.
+
+### Signed Work Branch Canary
+
+- Work Branch Canary #377 / run `36319940085`: **success**.
+- Trusted source resolution and exact checked-out source verification passed for PR #138 head `5320bf87253128de290b4b0809694949a02b6c38`.
+- Passed:
+  - Gradle Wrapper;
+  - Java / Android API 37;
+  - Haple signing restore/verification;
+  - pinned notification-shade + Control Center runtime contracts;
+  - tests and Canary build;
+  - Modern Xposed metadata;
+  - Haple APK signature;
+  - non-debuggable verification;
+  - artifact preparation/upload.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260927-410-canary.apk`
+- Artifact ID: `10932655599`
+- Extracted APK size: `3309598` bytes
+- Extracted APK SHA-256: `8c3f3011c214e66d20a89698e902191bdd8bc039803a6c824a261170a5cbf0eb`
+
+### Runtime gate
+
+**Runtime is frozen at Build 410 pending maintainer device validation.**
+
+### Deferred visual note
+
+The maintainer additionally reports that the battery ring now feels somewhat thin. This is consistent with Build 408's ring-only reduction from the previous effective 8.25-unit stroke to 7.5 while the accepted mobile-dot size remained unchanged. No visual change is added to Build 410. After Phase-2B scene validation, evaluate a separate ring-only optical-weight A/B rather than coupling thickness to scene-lifetime work.
