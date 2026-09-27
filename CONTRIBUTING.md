@@ -328,6 +328,15 @@ Use the validation appropriate to the automation itself:
 
 After the automation proves itself, keep the applicable files aligned between `main` and `dev` without waiting for `validation/dev` or a SystemUI stability checkpoint.
 
+For **automation-only** changes, the maintainer delegates merge judgment to the active development operator when all of the following are true:
+
+- the change does not alter installed/runtime behavior, dependency resolution, generated APK contents, signing identity, target compatibility, release artifact semantics, or the stable runtime baseline;
+- the required automation review is complete with no unresolved blocker;
+- required Full self-validation succeeds for CI/build/release workflow changes;
+- the change does not broaden secret exposure, trust boundaries, or publication permissions.
+
+When those conditions are satisfied, the operator may merge the automation change and perform the required `main` / `dev` synchronization without a separate maintainer confirmation. If any condition is uncertain, the merge returns to explicit maintainer approval.
+
 A repository-automation change that also changes dependency resolution, generated APK contents, signing identity, target compatibility, or release artifact semantics is no longer automation-only and uses the product/engineering route.
 
 #### C. Product/runtime engineering
@@ -398,7 +407,7 @@ A work branch may merge to `dev` when:
 
 Known reproducible crashes, ownership conflicts, invalid fallbacks, or failed required device scenarios must not be merged merely to obtain another build.
 
-Pull requests are proposals, not acceptance. Passing CI shows that the configured automated checks succeeded; it does not by itself authorize a merge. The maintainer reviews scope, correctness, ownership/lifecycle impact, compatibility, security, performance, documentation/licensing obligations, and the applicable validation evidence before acceptance. Runtime-sensitive contributions may require maintainer-side device validation even when contributor testing is provided. Final merge requires an explicit maintainer decision; no automated check, bot, or successful workflow run constitutes acceptance on its own.
+Pull requests are proposals, not acceptance. Passing CI shows that the configured automated checks succeeded; it does not by itself authorize a merge. The maintainer reviews scope, correctness, ownership/lifecycle impact, compatibility, security, performance, documentation/licensing obligations, and the applicable validation evidence before acceptance. Runtime-sensitive contributions may require maintainer-side device validation even when contributor testing is provided. Final merge requires an explicit maintainer decision **except for the bounded automation-only delegation defined in Section 6.1.B**; no automated check, bot, or successful workflow run constitutes acceptance on its own.
 
 ### 6.5 Promotion and device-validation marker
 
