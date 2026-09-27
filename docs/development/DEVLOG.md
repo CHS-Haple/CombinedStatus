@@ -5208,3 +5208,42 @@ The earlier heads-up/notification-popup report in which native status presentati
 ### Integration gate
 
 PR #138 may proceed to `dev` after the final documentation head satisfies the required PR check. No further runtime change is required for the 8.25 restoration.
+
+
+---
+
+## 2026-09-27 — Build 412 Fast + signed Canary success; integration accepted
+
+**Type:** validation success / maintainer-directed integration gate  
+**Build:** 412 / 20260927-412  
+**Executable source:** `f794a7c01513364eefc726316fcaf4058d581683`  
+**Tested PR head:** `74c234060f77da958c4eae21e8d170e29f2da1cb`
+
+### Fast validation
+
+- Fast Build #1156 / run `36323242298`: **success**.
+- Passed Fast classification, Gradle Wrapper, Java/API 37, pinned HyperOS target profile, all unit tests, Debug assembly, APK resolution and Modern Xposed metadata.
+- Outer-geometry coverage includes the restored 8.25 default ring plus mirror-symmetry, positive/equalized lower-opening edge gaps and supported scale bounds.
+- Build-411 Home owner / panel scene tests remain passing.
+
+### Signed Work Branch Canary
+
+- Work Branch Canary #390 / run `36323397870`: **success**.
+- Trusted source resolution and exact checkout verification passed for the tested PR head.
+- Passed signing restore/verification, pinned target profile, tests/build, Modern Xposed metadata, Haple APK signature, non-debuggable verification and artifact publication.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260927-412-canary.apk`
+- Artifact ID: `10933571263`
+- Extracted APK size: `3309602` bytes
+- Extracted APK SHA-256: `51daaab32c5f3a152a41340eb0c6b8d2cb93f2448b83a32a980942a85cc8e1e8`
+
+### Maintainer acceptance / integration rule
+
+- Panel down/up behavior is accepted from the Build-411 device result and carried unchanged into Build 412.
+- The maintainer explicitly prefers the already-experienced 8.25 ring over both the 7.5 and 8.0 variants.
+- Therefore the 8.25 restoration is accepted for `dev` without another dedicated ring-size device A/B.
+- The ROUND endpoint implementation remains unchanged; restoring 8.25 restores the preferred endpoint radius naturally.
+- The earlier notification/HUN-triggered native-status fallback report remains separate and is not silently marked fixed by this acceptance.
+
+### Gate
+
+PR #138 may integrate to `dev` after its latest documentation-only head satisfies the required PR check. No further runtime change is required for this integration boundary.
