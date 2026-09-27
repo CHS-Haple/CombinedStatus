@@ -146,8 +146,8 @@ Current Build-420 runtime head after single-writer review: `3635b52c3f3781db74a0
 1. Preserve Build-420 Control Center projection unchanged; maintainer reports no abnormal Control Center behavior.
 2. Treat Build-420 Notification-Shade edge continuity as rejected.
 3. Root cause from the accepted Detailed diagnostic: Battery `mStatusBarState=1` is being interpreted as a global Keyguard surface and vetoes Home before the Notification-Shade fraction owner runs.
-4. Build 421 must distinguish **real Keyguard presentation** from this transient Battery scene state using the verified `MiuiKeyguardStatusBarView` marker already present in the pinned target profile.
-5. Only a proven visible/attached Keyguard marker may convert raw state 1 into a Home scene veto; otherwise the update is treated as panel-transition context and Home remains governed by Notification-Shade fraction / Control Center coordinator.
+4. Build 421 distinguishes **real Keyguard presentation** from this transient Battery scene state with the platform `KeyguardManager.isKeyguardLocked` authority; no new SystemUI Hook or reflection contract is added.
+5. Raw state 1 converts to a Home scene veto only when `KeyguardManager.isKeyguardLocked == true`; when false it becomes `TRANSIENT_PANEL`, so Home remains governed by Notification-Shade fraction / Control Center coordinator. An unavailable KeyguardManager result maps to `UNKNOWN` and fails native.
 6. Keep fail-native behavior if the Keyguard marker cannot be resolved safely; do not ignore real Keyguard, add delays, or change Control Center motion/geometry.
 7. Run Draft validation, source review, Ready Full, then one focused Canary validating Notification-Shade first/last frame plus quick Control Center regression.
 
