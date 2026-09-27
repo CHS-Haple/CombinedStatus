@@ -4117,3 +4117,66 @@ This preserves a single future thickness-control seam without retaining the assu
 ### Gate
 
 Implement one Build-408 geometry-only A/B, run CI/Canary, then stop for device comparison. Do not mix shade/Control Center, tint, alpha or center-resource work into the same candidate.
+
+
+---
+
+## 2026-09-27 — Build 408: ring-only optical baseline rebalance
+
+**Type:** bounded visual-geometry A/B / source review  
+**Display version:** 0.0.2  
+**Build:** 408 / 20260927-408  
+**Runtime source:** `8a7a39d8297fe926387d56cc8ff5be4b08405f4a`  
+**Validation:** source review passed; CI/Canary pending
+
+### Objective
+
+Test the residual Build-407 visual mismatch without changing color authority or alpha. Same-image evidence shows ring and center core tint is already effectively identical; the ring appears darker because the project-owned continuous stroke has more full-coverage pixels.
+
+### Implementation
+
+Rebase `CombinedStatusOuterGeometry` default dimensions:
+- ring stroke: 7.5 canonical units (historical pre-Build-332 base);
+- mobile dot radius: preserve the Build-407 default exactly at `4.9 * 1.10 = 5.39`;
+- unavailable-mark stroke/extent: preserve Build-407 defaults exactly;
+- default outer weight scale: rebase from 1.10 to 1.00;
+- future weight scaling still multiplies ring, dots and unavailable mark proportionally from the new default baseline.
+
+The lower-opening gap solver remains unchanged and recomputes spacing from the resolved ring/dot geometry.
+
+### Intentionally unchanged
+
+- battery/center/mobile tint values;
+- active/inactive semantic alpha values;
+- native center `_tint` resource selection;
+- native center size and optical bounds;
+- mobile dot physical default size;
+- unavailable-mark physical default size;
+- battery arc angles/sweep;
+- Home carrier/spacing/suppression;
+- scene lifecycle and Phase-2B behavior.
+
+### Tests
+
+Added a deterministic default-baseline test asserting:
+- ring resolves to 7.5;
+- dot radius remains 5.39;
+- unavailable-mark dimensions remain Build-407-equivalent.
+
+Existing tests continue to require proportional scaling, mirror symmetry, balanced five-edge gaps and safe scale clamping.
+
+### Review
+
+- **Ownership:** only module-owned outer geometry changes; native resources/Views remain untouched.
+- **Lifecycle:** no change.
+- **Single writer:** unchanged painter-only geometry.
+- **Cleanup:** no change.
+- **Fail native:** no change.
+- **Performance:** constants plus the existing bounded geometry solver only.
+- **Compatibility:** no target-specific RGB/alpha/physical-pixel constants are introduced.
+- **Exception recovery:** no change.
+- **Future extension:** one outer weight scale remains available for a future user-facing thickness control while the default baseline can carry an optical ring/dot calibration.
+
+### Gate
+
+Run CI and signed Canary, then freeze runtime for a Build-407 vs Build-408 device A/B. Do not mix any further center-resource, tint, alpha or Phase-2B change into the same candidate.
