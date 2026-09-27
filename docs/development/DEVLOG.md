@@ -4908,3 +4908,50 @@ The existing gap solver remains the only lower-opening spacing authority.
 ### Gate
 
 Fast CI + signed Canary, then one combined device pass for scene behavior and visual balance.
+
+
+---
+
+## 2026-09-27 — Build 411 Fast + signed Canary success
+
+**Type:** combined validation success / device-test gate  
+**Build:** 411 / 20260927-411  
+**Executable runtime source:** `aaaaf0810b114b1e90a3de3f1520721a420da2d0`  
+**Tested PR head:** `6bc260143c056bac643daf1c8d3f1af99bcd30df`
+
+### Fast validation
+
+- Fast Build #1150 / run `36321207293`: **success**.
+- Passed Fast classification, Gradle Wrapper, Java/API 37, pinned HyperOS target-profile verification, all unit tests, Debug assembly, APK resolution and Modern Xposed metadata.
+- The new owner-readiness separation test and Build-411 outer-geometry baseline are included in the passing test suite.
+
+### Signed Work Branch Canary
+
+- Work Branch Canary #384 / run `36321322516`: **success**.
+- Trusted source resolution and exact checkout verification passed for PR #138 head `6bc260143c056bac643daf1c8d3f1af99bcd30df`.
+- Passed:
+  - Gradle Wrapper;
+  - Java / Android API 37;
+  - Haple signing restore/verification;
+  - pinned notification-shade + Control Center runtime contracts;
+  - tests and Canary build;
+  - Modern Xposed metadata;
+  - Haple APK signature;
+  - non-debuggable verification;
+  - artifact preparation/upload.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260927-411-canary.apk`
+- Artifact ID: `10931903528`
+- Extracted APK size: `3309602` bytes
+- Extracted APK SHA-256: `a596bd8b7841675174330be27421ee729ffe3d453b0f0b9a6ecb3f5956d7c759`
+
+### Gate
+
+**Runtime is frozen at Build 411.**
+
+The next required evidence is one combined maintainer device pass covering:
+- repeated panel gestures / native-icon entrance behavior;
+- heads-up notification behavior;
+- Control Center and notification-shade leak regression;
+- ring 8.0 thickness / ROUND endpoint / lower-dot visual coordination.
+
+No further runtime change should be layered before that result.
