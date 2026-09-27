@@ -10,7 +10,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Integration branch: `dev`
 - Integration runtime baseline: Build 413, commit `2aa6833cfca69a59af5027a7855b7d8282dbade9`
 - Build 413 / `20260927-413` is the current device-accepted, Integration-validated, and `main`-promoted runtime baseline.
-- Active corrective work / PR: `fix/hot-reload-tint-continuity` / Draft #148. Builds 415, 416 and 417 are device-rejected. Build 418 / `20260928-418` is the current signed device-test checkpoint. Exact tested runtime SHA: `c05d2ee3c094b3331135d66565771b67e7faf6cb`; Fast #1257 passed and Work Branch Canary #403 passed. Canary artifact: `CombinedStatus-0.0.2-HyperOS-20260928-418-canary.apk`; APK SHA-256 `45ffb3d8b894dcaff482d1bdd350bc0b29ddf57e48900347ee9e93d50c4a7761`. Runtime is frozen pending repeated-scene device validation.
+- Active corrective work / PR: `fix/hot-reload-tint-continuity` / Draft #148. Builds 415, 416 and 417 are device-rejected. Build 418 / `20260928-418` is the current signed device-test checkpoint. Runtime/source implementation head: `c05d2ee3c094b3331135d66565771b67e7faf6cb`; exact Fast/Canary-tested PR head: `42f350c2bb8d7338906469454fadabc5dcb629de` (subsequent delta before validation was records only). Fast #1261 passed; Work Branch Canary #405 passed and produced signed non-debuggable `CombinedStatus-0.0.2-HyperOS-20260928-418-canary.apk`. Extracted APK SHA-256: `eac3105741237f361d72f3227db6b8a45daa13508ba244048ae77ff76c8642c5`. Runtime is frozen pending maintainer device validation.
 - Repository-automation baseline: checkpoint-driven CI from PR #139 remains active; Canary admission hardening and bounded automation-only merge delegation were accepted on `main` via PR #143 (`a1aed8b6451d1018f46e252166545d67f48fe8e4`) and history-preserving back-synced into `dev` via PR #144 (`faaa12b1c8e955138d2ce8d51fb481263b4d7570`). These automation changes do **not** create a new runtime Build.
 - Phase-2A integration: PR #105 merged to `dev` as `2f584c3b393dc5ee606284426aa95a9d6beae5d5`; former stacked PR #100 is closed as superseded.
 - Phase-2B panel/scene-owner integration: PR #138 merged to `dev` as `a25cb5ce2aeab235cfaed579474df70596f03a63`.
@@ -155,12 +155,12 @@ Build 409's notification-shade implementation remains intact and is not reopened
 ## Immediate next step
 
 1. Keep Build 413 / `20260927-413` as the stable/runtime baseline on `main` and `dev`.
-2. Build 418 / `20260928-418` is the current signed device-test checkpoint from exact tested runtime SHA `c05d2ee3c094b3331135d66565771b67e7faf6cb`.
-3. Fast #1257 and signed Work Branch Canary #403 passed. Do not modify runtime while awaiting device evidence.
-4. Install Build 418 without restarting SystemUI first, trigger module Hot Reload, then repeatedly switch **Home -> light app -> Home -> same light app** several times.
-5. Compare Combined Status against still-visible native VPN/mute/status icons on every transition. Acceptance requires repeated synchronization, not a one-time correct entry.
-6. If any mismatch appears, export Detailed diagnostics before restarting SystemUI. New diagnostics must show `homeRenderTint applied=... statusIcon=...` and `tintCommit ... liveStatusIcon=...`, allowing direct comparison of native authority and renderer state.
-7. A full SystemUI restart remains a comparison control only.
+2. Build 418 / `20260928-418` is the current signed device-test checkpoint; PR #148 is Draft and runtime must remain frozen pending device evidence.
+3. Fast #1261 passed on exact PR head `42f350c2bb8d7338906469454fadabc5dcb629de`. Work Branch Canary #405 passed for the same trusted SHA and verified Fast run `36345741835`.
+4. Signed artifact: `CombinedStatus-0.0.2-HyperOS-20260928-418-canary.apk`; extracted APK SHA-256 `eac3105741237f361d72f3227db6b8a45daa13508ba244048ae77ff76c8642c5`.
+5. Device validation must **not restart SystemUI first**. Trigger module Hot Reload, then repeat the exact video pattern across light app surfaces and dark Home several times. Acceptance requires Combined Status to follow native VPN/mute monochrome direction on every transition, not merely the first entry.
+6. If any mismatch remains, export Detailed diagnostics before restarting SystemUI. Inspect `homeRenderTint` and `tintCommit`: both `appliedTint` and `statusIconTint` are now logged, so stale-secondary-field races can be distinguished directly.
+7. Canary #404 was superseded/cancelled by newer same-PR Canary #405 through the workflow's `cancel-in-progress` concurrency rule; this is CI history, not a runtime failure.
 8. PR #146 panel projection remains paused until this shared Home Tint lifecycle is accepted.
 
 ## Reference priority

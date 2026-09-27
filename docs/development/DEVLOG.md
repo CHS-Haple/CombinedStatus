@@ -78,6 +78,24 @@ Deterministic tests cover:
 Install the signed Build-418 Canary without first restarting SystemUI. Trigger module Hot Reload, then repeatedly switch Home -> a light app -> Home -> the same light app. Compare Combined Status with native VPN/mute/status icons on every transition. If mismatch appears, export Detailed diagnostics before any SystemUI restart.
 
 
+### Fast / Canary checkpoint
+
+- Final Draft validation on the reviewed branch state passed before the Ready gate; record-only intermediate runs that were superseded by a newer same-PR run are not treated as runtime failures.
+- PR #148 was marked Ready only after source review.
+- Fast Build #1261 / run `36345741835` passed on exact PR head `42f350c2bb8d7338906469454fadabc5dcb629de`, including pinned HyperOS target-profile verification, unit tests, Debug build, and Modern Xposed metadata.
+- Explicit maintainer Canary #404 began on the same trusted SHA but was cancelled when Canary #405 entered the same `work-canary-148` concurrency group; `cancel-in-progress: true` made #405 supersede #404. #404 therefore is not a code/test rejection.
+- Work Branch Canary #405 / run `36345969171` resolved and verified trusted source SHA `42f350c2bb8d7338906469454fadabc5dcb629de` and verified Fast run `36345741835`.
+- Canary #405 passed unit tests, Canary build, pinned target profile, Modern Xposed metadata, Haple signature verification, non-debuggable verification, artifact preparation, and upload.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260928-418-canary.apk`.
+- GitHub artifact digest: `sha256:2a89a293fe636703494776682d8f08f071872790d327143c54317ff0e1a16a1b`.
+- Extracted APK SHA-256: `eac3105741237f361d72f3227db6b8a45daa13508ba244048ae77ff76c8642c5`.
+- PR #148 returned to Draft after Canary success. Runtime is frozen until maintainer device feedback.
+- This record-only closure does **not** create another runtime Build; Build identity remains 418 / `20260928-418`.
+
+### Device gate
+
+Install the signed Build-418 Canary without restarting SystemUI first. Trigger module Hot Reload, then repeatedly switch between the light app surface(s) and dark Home used in the maintainer video. Compare Combined Status against native VPN/mute icons on every entry/exit. If any mismatch occurs, export Detailed diagnostics before restarting SystemUI.
+
 ## 2026-09-28 — Build 417 device rejection: fresh Tint lost before renderer attach / repeated scene race
 
 **Type:** maintainer device rejection / lifecycle root-cause narrowing
