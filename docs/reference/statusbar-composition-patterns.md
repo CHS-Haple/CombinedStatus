@@ -215,9 +215,9 @@ Combined Status differs from a battery-only compact representation because netwo
 
 Scene transition progress is consumed from an existing native expansion callback.
 
-For notification-shade state, Android SystemUI's `ShadeExpansionStateManager` documents `expanded` as independent from the numeric expansion fraction and `tracking` as active gesture ownership. Its closed-state transition occurs only after the panel is no longer expanded and user tracking has ended. The pinned HyperOS target exposes the same three semantic inputs through the already-verified `onPanelExpansionChanged(float, boolean, boolean)` hook contract.
+For Notification Shade on the pinned HyperOS target, Build-422 root-cause review supersedes the earlier reliance on generic `ShadeExpansionStateManager.onPanelExpansionChanged(...)` for Home handoff timing. Exact-target source shows that the native Notification Header is driven from `NotificationPanelExpansionAnimator.expansion`, exposed through `NotificationPanelExpandController.expansionState`, then delivered to `NotificationHeaderExpandController$notificationCallback$1.onExpansionChanged(float)`.
 
-Combined Status consequence: static unlocked status-bar state and numeric `fraction == 0` are not, by themselves, proof that Home presentation has regained ownership. Treat the native expanded/tracking facts as the first scene-lifetime boundary; preserve fraction for native-progress projection rather than inventing a local threshold.
+Combined Status consequence: observe the same target-specific Header progress callback HyperOS already uses for its top-area transition. Do not reconstruct Header ownership from Battery status state, global Keyguard state, generic Shade expanded/tracking flags, or a local timing threshold.
 
 Exact-target device diagnostics also verify a separate Control Center lifetime contract on `com.miui.systemui.controlcenter.container.ControlCenterExpandControllerDelegate`:
 - `onVisibleChanged(boolean)` brackets Control Center ownership and remains true throughout the outward/return transition;
@@ -466,7 +466,7 @@ Do not reconstruct a global scene state machine from a retained native presentat
 
 For the current target:
 1. **Home surface drawing:** native `MiuiNotificationStatusContainer / system_icon_area` HostSession.
-2. **Notification-Shade handoff:** native `ShadeExpansionStateManager` fraction boundary only.
+2. **Notification-Shade handoff:** native Notification Header expansion callback used by `NotificationPanelExpandController`.
 3. **Control Center:** verified projected carrier + coordinator handoff.
 4. **Battery status state:** read-only presentation/tint event context; not Home visibility.
 5. **Keyguard/AOD:** separate native hosts/adapters; no inference from Home Battery state.

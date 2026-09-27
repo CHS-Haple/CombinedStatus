@@ -51,12 +51,17 @@ The pinned target separates these two panel paths.
 
 Notification Shade remains **NATIVE_ONLY**: this target does not present the status-icon row there, so Combined Status must not invent one.
 
-Home departure/return is governed by the verified `ShadeExpansionStateManager.onPanelExpansionChanged(fraction, expanded, tracking)` boundary. Runtime evidence through Build 421 establishes:
-- `fraction <= 0` is the Home-owned edge even when `expanded` or `tracking` carry transient/HUN context;
-- positive native fraction transfers presentation away from Home;
-- `expanded` remains diagnostic context because HUN can assert it at zero fraction;
+Home departure/return is governed by the verified Notification Header expansion path used by HyperOS itself:
+`NotificationPanelExpansionAnimator.expansion -> NotificationPanelExpandController.expansionState -> NotificationHeaderExpandController.notificationCallback.onExpansionChanged(float)`.
+
+Build-422 device/runtime evidence supersedes the earlier assumption that generic `ShadeExpansionStateManager.onPanelExpansionChanged(...)` is the correct Home handoff seam on this target. The generic callback remains useful scene context, but it is not the active Combined Status visibility authority.
+
+Current rules:
+- Header progress at the native zero boundary keeps Home eligible;
+- positive Header progress transfers Combined Status away from Home;
 - Battery `MiuiBatteryMeterView.mStatusBarState` is **not** a Home-visibility authority;
-- Build 421 further proves `KeyguardManager.isKeyguardLocked` cannot safely convert that Battery state into global Home-vs-Keyguard ownership on this target.
+- `KeyguardManager.isKeyguardLocked` is not a valid discriminator for the transient Battery state;
+- no local timing threshold, delay, polling loop, or reconstructed panel state machine is permitted.
 
 The Home overlay is hosted in `MiuiNotificationStatusContainer / system_icon_area`. Its HostSession and host drawing lifecycle stay SystemUI-owned; Combined Status must not duplicate that lifecycle with a second global surface gate.
 

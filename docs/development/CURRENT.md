@@ -10,7 +10,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Integration branch: `dev`
 - Integration runtime baseline: Build 418 / `20260928-418`, merge commit `11bc4ff741869e3311d2be697d4dcfb66f5cb39c`
 - Build 418 / `20260928-418` is the current device-accepted and Integration-validated `dev` runtime baseline. Build 413 remains the current `main`-promoted stable runtime baseline.
-- Active Phase-2B work / PR: `feat/panel-projection` / Draft #146. Build 420 / `20260928-420` remains **device-accepted for Control Center projection**. Build 421 / `20260928-421` is **device-rejected for Notification-Shade edge continuity**. Build 422 / `20260928-422` removes Battery status state as a Home-visibility writer; Ready Full #1301 and trusted Work Branch Canary #412 passed on exact tested head `f5cfbc87c819a776a5476f3ea1e5817b9c776d86`. Build 422 is now frozen pending focused device validation.
+- Active Phase-2B work / PR: `feat/panel-projection` / Draft #146. Build 420 / `20260928-420` remains **device-accepted for Control Center projection**. Builds 421 and 422 are **device-rejected for Notification-Shade edge continuity**. Build 423 / `20260928-423` replaces the incorrect global `ShadeExpansionStateManager` Home-handoff source with HyperOS's own `NotificationHeaderExpandController$notificationCallback$1.onExpansionChanged(float)` path. Runtime source: `81deafdb3b25e1d34f4cb57ee57de09c9f1fa5e0`. CI/device validation is pending.
 - Repository-automation baseline: checkpoint-driven CI from PR #139 remains active; Canary admission hardening and bounded automation-only merge delegation were accepted on `main` via PR #143 (`a1aed8b6451d1018f46e252166545d67f48fe8e4`) and history-preserving back-synced into `dev` via PR #144 (`faaa12b1c8e955138d2ce8d51fb481263b4d7570`). These automation changes do **not** create a new runtime Build.
 - Phase-2A integration: PR #105 merged to `dev` as `2f584c3b393dc5ee606284426aa95a9d6beae5d5`; former stacked PR #100 is closed as superseded.
 - Phase-2B panel/scene-owner integration: PR #138 merged to `dev` as `a25cb5ce2aeab235cfaed579474df70596f03a63`.
@@ -33,7 +33,7 @@ The selected Home direction is an existing-host composition rather than the supe
 
 SystemUI remains authoritative for surrounding native layout, Battery presentation/hide behavior, native tint semantics, Home-host scene visibility, and charging/Super-Island motion. Combined Status owns its compact composition plus only narrowly scoped, reversible Home presentation state.
 
-For the pinned HyperOS target, Notification Shade itself does not present the status-icon row; therefore Phase 2B does **not** project Combined Status into Notification Shade. Notification Shade participates only in Home ownership transfer: Home remains visible at the exact zero-motion boundary and yields once native shade fraction becomes positive. Control Center is the supported panel projection surface. Keyguard / lockscreen / AOD follows after Phase 2B.
+For the pinned HyperOS target, Notification Shade itself does not present the status-icon row; therefore Phase 2B does **not** project Combined Status into Notification Shade. Notification Shade participates only in Home ownership transfer. Exact-target Build-422 investigation establishes that the relevant progress authority is the same `NotificationHeaderExpandController.notificationCallback.onExpansionChanged(float)` path HyperOS uses to render the Notification Header, not the generic `ShadeExpansionStateManager` broadcast. Home remains visible at the native zero-progress boundary and yields when that Header progress becomes positive. Control Center remains the separately accepted projected surface. Keyguard / lockscreen / AOD follows after Phase 2B.
 
 ## Current runtime checkpoints
 
@@ -99,7 +99,7 @@ Build 403 uses HyperOS `MiuiBatteryMeterIconView.getProgressStatus()` as semanti
 
 No user-facing per-state color picker/source selector is exposed yet. The future policy seam remains: **System default / Follow status icon / Custom** for NORMAL / CHARGING / POWER_SAVE / PERFORMANCE / LOW.
 
-### Home -> panel scene boundary / Control Center projection — Build 422 active
+### Home -> panel scene boundary / Control Center projection — Build 423 active
 
 Build 420 established the accepted panel architecture:
 - Notification Shade has no status-icon projection target on this pinned configuration; it only transfers Home ownership.
@@ -115,9 +115,15 @@ Build 421 is rejected by device evidence:
 Build 422 selects a narrower ownership model:
 - the Home overlay remains attached to `MiuiNotificationStatusContainer / system_icon_area`;
 - the Battery status-state hook remains only as a read-only presentation/tint event source and no longer writes Home visibility;
-- Notification-Shade Home yield/restore is controlled only by the verified native shade fraction authority;
 - Control Center handoff remains coordinator-owned and unchanged from accepted Build 420;
 - Keyguard/AOD remain separate native surfaces for Phase 3 and are not inferred from the Home Battery state.
+
+Build 423 corrects the remaining Notification-Shade source:
+- Build-422 diagnostics show the generic `ShadeExpansionStateManager` payload on this target behaves as an unsuitable 0/1 edge signal for the observed Header handoff, while Control Center exposes continuous progress independently;
+- exact-target jadx review shows `CombinedHeaderController.start()` registers `NotificationHeaderExpandController.notificationCallback` on `NotificationPanelExpandController`;
+- `NotificationPanelExpandController` collects `NotificationPanelExpansionAnimator.expansion` and directly dispatches each float to registered `PanelExpandController.Callback.onExpansionChanged(float)`;
+- the native Notification Header callback consumes that same float for Header translation/scale/alpha;
+- Combined Status now observes that already-native callback and uses only its progress to drive the existing Home visibility gate. No new state machine, listener, timer, threshold, geometry writer, or panel projection is introduced.
 
 **Build 422 device rejection — Notification Shade edge persists:**
 - Maintainer device validation on Xiaomi 15 Pro / HyperOS SystemUI `17.03.260226.r` reports that the Notification Shade first/last-frame problem still reproduces on the signed Build 422 Canary.
@@ -156,11 +162,11 @@ Build 422 selects a narrower ownership model:
 
 ## Immediate next step
 
-1. Build 422 / `20260928-422` is device-rejected for the remaining Notification-Shade first/last-frame continuity defect; keep its runtime source frozen as evidence.
-2. Correlate the maintainer's Build-422 screen recording, Detailed diagnostics, and LSPosed log on one timeline to identify the remaining Home/shade ownership or ordering source.
-3. Re-check the exact-target SystemUI reference around `ShadeExpansionStateManager`, status-bar host visibility/alpha, and any callback that can change Home/native icon presentation before or after the project shade fraction callback.
-4. Preserve accepted Build-420 Control Center projection unless the new evidence proves a Control Center regression.
-5. Only after the responsible source is identified, implement one bounded runtime change, perform explicit ownership/lifecycle/single-writer/cleanup/fail-native/performance/compatibility review, then create the next Build checkpoint.
+1. Keep Build 423 / `20260928-423` runtime fixed while repository validation runs.
+2. Draft validation first checks repository consistency; because the pinned compatibility profile changed, the meaningful Ready checkpoint must pass the repository's required Full validation.
+3. If Full passes, request one signed Canary for focused device validation.
+4. Device test scope: Notification-Shade first/last-frame continuity over repeated open/close gestures, plus one quick Control Center regression check. Build-420 Control Center projection must remain unchanged.
+5. If the edge defect persists, use the new `authority=hyperos-notification-header-callback` diagnostics to compare exact Header progress against the visible frame; do not reintroduce Battery/Keyguard inference or timing compensation.
 
 Signed checkpoint: Ready Full #1301 / run `36357104464` succeeded. Work Branch Canary #412 / run `36357295818` succeeded with trusted source SHA `f5cfbc87c819a776a5476f3ea1e5817b9c776d86`, artifact `10944007922`, ZIP digest `sha256:78df112998aa2d38b4b4b24e93b78e2c7d90480d44ba89912d825f593418dd01`, APK size `3309602` bytes, and extracted APK SHA-256 `6d1bcab45ccf01ba3d0110eae2e7b9be5e00a3dc04ae994e308645d144cf5e7e`.
 ## Reference priority

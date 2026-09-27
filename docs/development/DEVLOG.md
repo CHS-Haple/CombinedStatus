@@ -6863,10 +6863,10 @@ The current runtime development baseline remains **Build 412**. This automation/
 
 ## 2026-09-28 — Build 422 device rejection — Notification Shade edge persists
 
-**Type:** device feedback / rejected runtime checkpoint  
-**Build:** 422 / `20260928-422`  
-**Signed Canary:** Work Branch Canary #412 / run `36357295818`  
-**Exact tested runtime head:** `f5cfbc87c819a776a5476f3ea1e5817b9c776d86`  
+**Type:** device feedback / rejected runtime checkpoint
+**Build:** 422 / `20260928-422`
+**Signed Canary:** Work Branch Canary #412 / run `36357295818`
+**Exact tested runtime head:** `f5cfbc87c819a776a5476f3ea1e5817b9c776d86`
 **Runtime code after this record:** unchanged
 
 ### Device feedback
@@ -6903,3 +6903,74 @@ Before another runtime edit:
 - **Compatibility:** pinned target remains SystemUI `17.03.260226.r`.
 - **Forbidden workaround path:** no delays, epsilon thresholds, timers, polling, per-frame followers, or geometry compensation.
 - **Build identity:** remains Build 422 because this commit is record-only.
+
+
+---
+
+## 2026-09-28 — Build 423: follow native Notification Header expansion
+
+**Type:** Phase-2B root-cause correction
+**Build:** 423 / `20260928-423`
+**Work branch / PR:** `feat/panel-projection` / Draft #146
+**Runtime source:** `81deafdb3b25e1d34f4cb57ee57de09c9f1fa5e0`
+**Device validation:** pending
+
+### Problem / Build-422 evidence
+
+The maintainer reports that Build 422 still reproduces the Notification-Shade first/last-frame continuity defect. The supplied Detailed report confirms the signed Build-422 Canary was active and all three panel hooks were installed, so stale installation / missing hook is rejected as the cause.
+
+Timeline inspection shows the project's current Notification-Shade source, `ShadeExpansionStateManager.onPanelExpansionChanged(float, boolean, boolean)`, is not exposing the continuous Header transition needed for this handoff on the pinned target: captured Notification-Shade values jump between the closed/open boundaries while Control Center diagnostics expose normal intermediate progress values.
+
+This rejects the Build-422 assumption that the generic Shade expansion callback is the correct Home-vs-Notification-Header handoff authority.
+
+### Exact-target source review
+
+Using maintainer-provided jadx 1.5.6 against the exact SystemUI APK
+`17.03.260226.r` / SHA-256 `a0e738e41fe599b97950cbf52a9e2ddc6ae2ceff986efbacb1c9840bea78768d`:
+
+1. `CombinedHeaderController.start()` registers
+   `NotificationHeaderExpandController.notificationCallback` through
+   `NotificationPanelExpandController.addCallback(...)`.
+2. `NotificationPanelExpandController.expansionState` is the read-only projection of
+   `NotificationPanelExpansionAnimator.expansion`.
+3. `NotificationPanelExpandController$2$1` collects that expansion StateFlow and, for each float,
+   directly calls every registered `PanelExpandController.Callback.onExpansionChanged(float)`.
+4. `NotificationHeaderExpandController$notificationCallback$1.onExpansionChanged(float)`
+   consumes that same progress to update native Notification Header color fraction,
+   translation, scale and alpha.
+
+Therefore the Notification Header callback is the verified target-specific visual transition seam Combined Status needs; the generic `ShadeExpansionStateManager` broadcast is not used as the Home handoff source in Build 423.
+
+### Implementation
+
+- Replaced the Notification-Shade runtime Hook with
+  `NotificationHeaderExpandController$notificationCallback$1.onExpansionChanged(float)`.
+- The Hook observes after `chain.proceed()`, so native HyperOS remains authoritative and a native callback failure cannot leave Combined Status ahead of SystemUI state.
+- Existing Home visibility ownership is unchanged: the callback only supplies native progress to the existing `notificationShadeAllowsHome` gate.
+- Removed stale tracking dependence from that gate; Header progress alone is used.
+- Kept Build-420 Control Center visibility/projection path unchanged.
+- Updated the pinned target profile hookPoint from generic Shade expansion to the already-verified Notification Header callback.
+- Added diagnostic authority `hyperos-notification-header-callback`.
+
+### 审查 / review
+
+- **Ownership:** native Notification Header transition remains SystemUI-owned; Combined Status only observes its already-used callback and controls its own Home overlay visibility.
+- **Lifecycle:** no new observer/listener/service. One existing Notification hook is replaced one-for-one; installed hook count remains unchanged.
+- **Single writer:** Home overlay visibility still has one project gate; Battery/Keyguard scene inference remains removed.
+- **Cleanup:** existing HookHandle teardown / Hot Reload generation cleanup is unchanged.
+- **Fail-native:** native callback executes first; reflection/contract failure rejects panel-source installation rather than inventing fallback scene semantics.
+- **Performance:** event-driven native callback only; no polling, timer, per-frame tree scan, or added reflection hot path.
+- **Compatibility:** callback class/method is already verified in the pinned exact-target profile; the profile hookPoint is updated to match actual runtime integration.
+- **Future extension:** Notification Shade remains native-only with no Combined Status projection; Keyguard/AOD remain separate Phase-3 surfaces.
+
+### CI status
+
+Draft Light #1305 on the first Build-423 runtime commit failed only at `git diff --check` because the preceding Build-422 DEVLOG record contained four trailing-space Markdown lines. Runtime code, Kotlin compilation and target-profile validation were not reached by that Light run. The whitespace is corrected in the subsequent record-only commit without changing Build identity.
+
+### Device acceptance boundary
+
+After repository Full validation and a signed Canary:
+- repeat Notification-Shade open/close gestures and inspect the very first departure frame plus final Home return frame;
+- confirm Combined Status no longer disappears/restores out of phase with the native top-area transition;
+- perform one Control Center open/close regression pass;
+- if any edge remains, export Detailed diagnostics so the new Header-progress authority can be correlated directly with the video.
