@@ -18,8 +18,8 @@ Preserve failed hypotheses and append corrections. Do not rewrite history to hid
 
 ## 2026-09-26 — Development-memory system initialized
 
-**Type:** repository documentation / engineering governance  
-**APK build:** none  
+**Type:** repository documentation / engineering governance
+**APK build:** none
 **Runtime impact:** none
 
 ### Problem / objective
@@ -102,7 +102,7 @@ Repository-local engineering memory is now a required part of Combined Status de
 
 ## Historical backfill — validated predecessor baselines and Builds 352-377
 
-**Backfill date:** 2026-09-26  
+**Backfill date:** 2026-09-26
 **Evidence boundary:** Git commits and build identities, PR #93 / #95 / #96 / #98, GitHub Actions records, and previously recorded target-device feedback. Conversation/device recollections are used only where they agree with repository evidence; they are not used to invent missing CI or source facts.
 
 ### Accepted predecessor baselines
@@ -164,9 +164,9 @@ Repository-local engineering memory is now a required part of Combined Status de
 
 ## 2026-09-26 — Build 378: decouple stable slot geometry from battery motion geometry
 
-**Type:** runtime geometry correction  
-**APK build:** 20260926-378  
-**Commit:** `7dafc723e9f10ec801a78af33c90dd11cadbaa36`  
+**Type:** runtime geometry correction
+**APK build:** 20260926-378
+**Commit:** `7dafc723e9f10ec801a78af33c90dd11cadbaa36`
 **CI:** Fast Build #1013 succeeded
 
 ### Problem / objective
@@ -214,9 +214,9 @@ Device feedback later showed that this correction did **not** by itself eliminat
 
 ## 2026-09-26 — Build 379: trace native panel icon transition state
 
-**Type:** bounded runtime diagnostics  
-**APK build:** 20260926-379  
-**Commit:** `1d68ca310eafe1f9fd8ec9db7a94f587a4f44de9`  
+**Type:** bounded runtime diagnostics
+**APK build:** 20260926-379
+**Commit:** `1d68ca310eafe1f9fd8ec9db7a94f587a4f44de9`
 **CI:** Fast Build #1014 succeeded
 
 ### Problem / objective
@@ -255,9 +255,9 @@ The checkpoint narrowed the problem toward panel-boundary ownership and justifie
 
 ## 2026-09-26 — Build 380: capture Control Center anchor boundaries
 
-**Type:** bounded runtime diagnostics / root-cause confirmation  
-**APK build:** 20260926-380  
-**Commit:** `f5564d68e853c7d41ebf079a4809be95e510b622`  
+**Type:** bounded runtime diagnostics / root-cause confirmation
+**APK build:** 20260926-380
+**Commit:** `f5564d68e853c7d41ebf079a4809be95e510b622`
 **CI:** Fast Build #1015 succeeded
 
 ### Problem / objective
@@ -298,9 +298,9 @@ Fast CI succeeded. The diagnostic was bounded to panel boundary buckets and reus
 
 ## 2026-09-26 — Build 381: preserve native battery slot during replacement
 
-**Type:** runtime ownership correction  
-**APK build:** 20260926-381  
-**Commit:** `f6ff15f1bdda27ca7e1f47fdc79f686a9acdae1a`  
+**Type:** runtime ownership correction
+**APK build:** 20260926-381
+**Commit:** `f6ff15f1bdda27ca7e1f47fdc79f686a9acdae1a`
 **CI:** Fast Build #1016 succeeded
 
 ### Problem / objective
@@ -343,9 +343,9 @@ Device feedback: the non-steady first/last-frame right shift disappeared, but st
 
 ## 2026-09-26 — Build 382: anchor Combined Status visual to the preserved native battery slot
 
-**Type:** single-variable runtime geometry experiment  
-**APK build:** 20260926-382  
-**Commit:** `a80fb7550d601ff37a977941a8b89b088fa29a3e`  
+**Type:** single-variable runtime geometry experiment
+**APK build:** 20260926-382
+**Commit:** `a80fb7550d601ff37a977941a8b89b088fa29a3e`
 **CI:** Fast Build #1017 succeeded
 
 ### Problem / objective
@@ -392,9 +392,9 @@ Build 382 diagnostics further showed that native APPEAR state was delivered: Com
 
 ## 2026-09-26 — Build 383: trace native battery motion ownership
 
-**Type:** bounded architecture diagnostics  
-**APK build:** 20260926-383  
-**Commit:** `8b8dbb799409e50d5c40ddc339843a8c1be4f290`  
+**Type:** bounded architecture diagnostics
+**APK build:** 20260926-383
+**Commit:** `8b8dbb799409e50d5c40ddc339843a8c1be4f290`
 **CI:** Fast Build #1018 succeeded; Work Branch Canary #286 succeeded
 
 ### Problem / objective
@@ -438,10 +438,10 @@ Device panel-boundary evidence is still required before implementing a renderer 
 
 ## 2026-09-26 — Build 384: center native transition on Combined Status visual
 
-**Type:** bounded animation-geometry experiment  
-**APK build:** 20260926-384  
-**Commit:** `b838b8dfcdf90f575dba3485b0094dfa5c8aacdf`  
-**CI:** Fast Build #1020 succeeded; Work Branch Canary #287 succeeded  
+**Type:** bounded animation-geometry experiment
+**APK build:** 20260926-384
+**Commit:** `b838b8dfcdf90f575dba3485b0094dfa5c8aacdf`
+**CI:** Fast Build #1020 succeeded; Work Branch Canary #287 succeeded
 **Device validation:** pending
 
 ### Problem / objective
@@ -634,8 +634,8 @@ CI and signed-Canary validation passed. Device evidence remains the gate. If Bui
 
 ## 2026-09-26 — Roadmap and App-home design intent restored
 
-**Type:** documentation / product-development continuity correction  
-**APK build:** none  
+**Type:** documentation / product-development continuity correction
+**APK build:** none
 **Runtime impact:** none
 
 ### Problem / objective
@@ -947,9 +947,9 @@ Build 387 has cleared repository Fast and signed-Canary gates. Device evidence r
 
 ## 2026-09-26 — Build 388: reserve the released native battery slot during island hide
 
-**Type:** runtime island/layout-occupancy ownership correction  
-**APK build:** 20260926-388  
-**CI:** pending at commit creation  
+**Type:** runtime island/layout-occupancy ownership correction
+**APK build:** 20260926-388
+**CI:** pending at commit creation
 **Device validation:** pending
 
 ### Problem / device evidence
@@ -1105,9 +1105,9 @@ CI proves source/build/signing/metadata correctness, not SystemUI runtime behavi
 
 ## 2026-09-26 — Build 389: keep Combined Status on the stable end-side slot anchor
 
-**Type:** runtime island/motion-anchor correction  
-**APK build:** 20260926-389  
-**CI:** pending at commit creation  
+**Type:** runtime island/motion-anchor correction
+**APK build:** 20260926-389
+**CI:** pending at commit creation
 **Device validation:** pending
 
 ### Build 388 device result
@@ -1198,8 +1198,8 @@ Device evidence remains the acceptance authority for the motion fix. PR #100 sta
 
 ## 2026-09-27 — Build 390: read-only per-participant island motion trace
 
-**Type:** focused runtime diagnostic; no intended feature-behavior change  
-**APK build:** 20260927-390  
+**Type:** focused runtime diagnostic; no intended feature-behavior change
+**APK build:** 20260927-390
 **Reason:** Build 389 device feedback reports the same relative-motion mismatch.
 
 ### Problem / evidence
@@ -1285,8 +1285,8 @@ Export a fresh detailed diagnostic for each case. If only case 2 reproduces the 
 
 ## 2026-09-27 — Build 391: normalize attach-time native slot identity
 
-**Type:** root-cause runtime geometry correction  
-**APK build:** 20260927-391  
+**Type:** root-cause runtime geometry correction
+**APK build:** 20260927-391
 **Device evidence source:** Build 390 charging-attached A/B case
 
 ### Confirmed root cause
@@ -1387,8 +1387,8 @@ PR #100 remains unmerged.
 
 ## 2026-09-27 — Build 392: consume the stable host slot snapshot
 
-**Type:** root-cause lifecycle/geometry correction  
-**APK build:** 20260927-392  
+**Type:** root-cause lifecycle/geometry correction
+**APK build:** 20260927-392
 **Predecessor result:** Build 391 rejected on device
 
 ### New evidence
@@ -1475,8 +1475,8 @@ Device evidence remains the acceptance authority. PR #100 stays unmerged.
 
 ## 2026-09-27 — Build 393: pin width and translation to one stable slot boundary
 
-**Type:** root-cause geometry-authority correction  
-**APK build:** 20260927-393  
+**Type:** root-cause geometry-authority correction
+**APK build:** 20260927-393
 **Predecessor result:** Build 392 rejected for charging-state left shift in both A/B attach orders
 
 ### New device evidence
@@ -1559,8 +1559,8 @@ PR #100 remains unmerged pending device evidence.
 
 ## 2026-09-27 — 0.0.2 development line opened: unify Combined Status geometry
 
-**Type:** version-boundary / architecture decision  
-**Display version:** 0.0.2  
+**Type:** version-boundary / architecture decision
+**Display version:** 0.0.2
 **Runtime build:** not created by this documentation/version checkpoint
 
 ### Why the display version advances
@@ -1597,9 +1597,9 @@ The display-version change itself does not claim a validated runtime build and i
 
 ## 2026-09-27 — 0.0.2 architecture reference review and reference-library baseline
 
-**Type:** architecture investigation / reference-library preparation  
-**Runtime build:** none  
-**Display line:** 0.0.2  
+**Type:** architecture investigation / reference-library preparation
+**Runtime build:** none
+**Display line:** 0.0.2
 **Runtime behavior changed:** no; the earlier provisional battery-slot override experiment was removed before this record was finalized.
 
 ### Problem / objective
@@ -1755,8 +1755,8 @@ PR #100 remains unmerged.
 
 ## 2026-09-27 — Roadmap split for 0.0.2 architecture and 1.0.0 release qualification
 
-**Type:** roadmap / release-planning decision  
-**Runtime build:** none  
+**Type:** roadmap / release-planning decision
+**Runtime build:** none
 **Runtime impact:** none
 
 ### Maintainer decision
@@ -1814,9 +1814,9 @@ Completing an earlier architecture phase does not itself advance the display ver
 
 ## 2026-09-27 — Phase 2A exact-target carrier review before Build 394
 
-**Type:** architecture / exact-target evidence review  
-**Runtime build:** none  
-**Display line:** 0.0.2  
+**Type:** architecture / exact-target evidence review
+**Runtime build:** none
+**Display line:** 0.0.2
 **Runtime impact:** none
 
 ### Problem / objective
@@ -1857,16 +1857,16 @@ Established-pattern comparison:
 
 ### Exact-target findings
 
-**Confirmed — Home attachment/lifecycle candidate.**  
+**Confirmed — Home attachment/lifecycle candidate.**
 The existing Home render session attaches the real Combined Status renderer through the `MiuiNotificationStatusContainer` overlay and resolves its bounds from the live `MiuiBatteryMeterView`. Build-393 diagnostics record that candidate with `ancestorVisibilityIndependent=true` and `nativeGeometryWrites=0`. This proves a viable module-owned drawing lifetime on the real Home host, but not yet production acceptance across slot suppression and island transitions.
 
-**Confirmed — island has separate occupancy and battery-presentation owners.**  
+**Confirmed — island has separate occupancy and battery-presentation owners.**
 During charging-island entry, the diagnostic shows `MiuiStatusIconContainer` expanding to 583 px while `MiuiBatteryMeterView` independently translates and fades. The custom `combined_status` participant simultaneously retains its own 105 px occupancy/translation identity. One custom participant was therefore being asked to reconcile platform status-icon occupancy with a different battery presentation trajectory.
 
-**Root-cause conclusion — high confidence.**  
+**Root-cause conclusion — high confidence.**
 The remaining Build-393 charging defect is architectural: the permanent custom participant couples responsibilities that the target SystemUI owns separately. Another fixed boundary, width difference, or translation correction would continue the same ownership error rather than fix it.
 
-**Not established — exact ignored-slot contract.**  
+**Not established — exact ignored-slot contract.**
 The mature reference and AOSP/older MIUI implementations demonstrate an ignored-slot pattern, but the pinned target reference does not yet verify the concrete field/method, mutation boundary, restoration semantics, or interaction with the active HyperOS icon pipeline. No 0.0.2 runtime implementation may assume that contract yet.
 
 ### Design-level `ResolvedLayout` decision
@@ -1915,9 +1915,9 @@ The next investigation must close those contracts rather than modify runtime beh
 
 ## 2026-09-27 — Exact-target ignored-slot and clip-mask proof
 
-**Type:** exact-target static contract / architecture review  
-**Runtime build:** none  
-**Display line:** 0.0.2  
+**Type:** exact-target static contract / architecture review
+**Runtime build:** none
+**Display line:** 0.0.2
 **Runtime impact:** none
 
 ### Problem / objective
@@ -1968,8 +1968,8 @@ Build 394 is still not created. The primary unresolved Phase-2A question is char
 
 ## 2026-09-27 — Phase-boundary and carrier-cutover review
 
-**Type:** architecture consistency review  
-**Runtime build:** none  
+**Type:** architecture consistency review
+**Runtime build:** none
 **Runtime impact:** none
 
 ### Review finding
@@ -1987,21 +1987,21 @@ Code review also confirms that the active work branch still routes Hot Reload, f
 
 ### Review dimensions
 
-Ownership: one active carrier per Home session.  
-Lifecycle: carrier selection belongs to HostSession and must be re-evaluated on host replacement/hot reload.  
-Single writer: no overlapping native participant suppression and ignored-slot/clip-mask mutation.  
-Cleanup: carrier deactivation must restore its own state before another carrier can activate.  
-Fail native: if the new carrier cannot acquire all target contracts, do not fall through into a partially active mixture; restore native SystemUI.  
-Performance: reuse existing event-driven domain state; do not duplicate state observers for the new carrier.  
-Compatibility: the new target-specific slot/mask contract stays fingerprint-gated.  
+Ownership: one active carrier per Home session.
+Lifecycle: carrier selection belongs to HostSession and must be re-evaluated on host replacement/hot reload.
+Single writer: no overlapping native participant suppression and ignored-slot/clip-mask mutation.
+Cleanup: carrier deactivation must restore its own state before another carrier can activate.
+Fail native: if the new carrier cannot acquire all target contracts, do not fall through into a partially active mixture; restore native SystemUI.
+Performance: reuse existing event-driven domain state; do not duplicate state observers for the new carrier.
+Compatibility: the new target-specific slot/mask contract stays fingerprint-gated.
 Future extension: Phase 2B consumes the stable Phase-2A source bounds rather than reopening Home carrier ownership.
 
 ---
 
 ## 2026-09-27 — Home island carrier contract closed; Build 394 gate opened
 
-**Type:** exact-target architecture closure / gate review  
-**Runtime build:** none  
+**Type:** exact-target architecture closure / gate review
+**Runtime build:** none
 **Runtime impact:** none
 
 ### Problem execution flow
@@ -2045,8 +2045,8 @@ The Build-394 architecture gate is open. The first 0.0.2 runtime checkpoint may 
 
 ## 2026-09-27 — Exact Home island carrier contract closed
 
-**Type:** exact-target architecture proof  
-**Runtime build:** none  
+**Type:** exact-target architecture proof
+**Runtime build:** none
 **Runtime impact:** none
 
 ### Problem execution flow
@@ -2089,9 +2089,9 @@ The previous island-carrier architecture blocker is closed. The remaining pre-Bu
 
 ## 2026-09-27 — Repository consistency review after Build-394 architecture gate
 
-**Type:** documentation / architecture-state consistency review  
-**Runtime build:** none  
-**Display line:** 0.0.2  
+**Type:** documentation / architecture-state consistency review
+**Runtime build:** none
+**Display line:** 0.0.2
 **Runtime impact:** none
 
 ### Problem / objective
@@ -2149,9 +2149,9 @@ Repository current-state surfaces are aligned for the Build-394 implementation s
 
 ## 2026-09-27 — Repository consistency review and stepwise documentation synchronization
 
-**Type:** documentation / governance consistency review  
-**Runtime build:** none  
-**Display line:** 0.0.2  
+**Type:** documentation / governance consistency review
+**Runtime build:** none
+**Display line:** 0.0.2
 **Runtime impact:** none
 
 ### Problem / objective
@@ -2206,9 +2206,9 @@ Repository-facing development state is aligned around the open Build-394 gate. T
 
 ## 2026-09-27 — Exact Home island carrier contract closed; Build 394 authorized
 
-**Type:** exact-target architecture closure / runtime gate  
-**Runtime build:** none yet  
-**Display line:** 0.0.2  
+**Type:** exact-target architecture closure / runtime gate
+**Runtime build:** none yet
+**Display line:** 0.0.2
 **Runtime impact:** none
 
 ### Exact method-body findings
@@ -2243,9 +2243,9 @@ The pre-Build-394 static architecture gate is satisfied. Build 394 is authorized
 
 ## 2026-09-27 — Build 394 source checkpoint: Home carrier ownership cutover
 
-**Type:** runtime architecture checkpoint  
-**Display version:** 0.0.2  
-**Build:** 394 / 20260927-394  
+**Type:** runtime architecture checkpoint
+**Display version:** 0.0.2
+**Build:** 394 / 20260927-394
 **Validation:** Fast CI pending; device validation pending
 
 ### Problem / objective
@@ -2302,10 +2302,10 @@ Local Gradle execution is unavailable in the current execution environment becau
 
 ## 2026-09-27 — Build 394 device rejection; Build 395 carrier reservation correction
 
-**Type:** device contradiction / root-cause correction / runtime checkpoint  
-**Display version:** 0.0.2  
-**Rejected build:** 394 / 20260927-394  
-**Next build:** 395 / 20260927-395  
+**Type:** device contradiction / root-cause correction / runtime checkpoint
+**Display version:** 0.0.2
+**Rejected build:** 394 / 20260927-394
+**Next build:** 395 / 20260927-395
 **Validation:** CI pending; device validation pending
 
 ### Device feedback
@@ -2365,9 +2365,9 @@ Build 395 requires focused device validation of stable Home, island enter/steady
 
 ## 2026-09-27 — Build 394 device rejection: charging geometry
 
-**Type:** device feedback / root-cause correction  
-**Display version:** 0.0.2  
-**Build:** 394 / 20260927-394  
+**Type:** device feedback / root-cause correction
+**Display version:** 0.0.2
+**Build:** 394 / 20260927-394
 **Promotion:** rejected; remains work-branch evidence
 
 ### Device feedback
@@ -2408,11 +2408,11 @@ Exact target JADX confirms `MiuiBatteryMeterView.updateIslandChanged(...)` drive
 
 ## 2026-09-27 — Build 395 pre-CI rejection; Build 396 end reservation
 
-**Type:** architecture review / source correction  
-**Display version:** 0.0.2  
-**Rejected source checkpoint:** Build 395  
-**Next checkpoint:** Build 396 / 20260927-396  
-**Source commit:** `f4c20db514d6767eb027d38cc5b1a800f58a130c`  
+**Type:** architecture review / source correction
+**Display version:** 0.0.2
+**Rejected source checkpoint:** Build 395
+**Next checkpoint:** Build 396 / 20260927-396
+**Source commit:** `f4c20db514d6767eb027d38cc5b1a800f58a130c`
 **Validation:** CI pending; device validation pending
 
 ### Review finding
@@ -2468,10 +2468,10 @@ Build 396 must validate normal Home spacing, charging-island enter/steady/exit, 
 
 ## 2026-09-27 — Build 396 pre-device rejection; Build 397 stable charging boundary
 
-**Type:** device clarification / exact-resource proof / runtime checkpoint  
-**Display version:** 0.0.2  
-**Rejected checkpoint:** Build 396 / 20260927-396  
-**Next build:** 397 / 20260927-397  
+**Type:** device clarification / exact-resource proof / runtime checkpoint
+**Display version:** 0.0.2
+**Rejected checkpoint:** Build 396 / 20260927-396
+**Next build:** 397 / 20260927-397
 **Validation:** CI pending; device validation pending
 
 ### Device clarification
@@ -2526,11 +2526,11 @@ Build 397 must first prove normal Home vs plugged-in cold-start steady spacing w
 
 ## 2026-09-27 — Build 397 statically superseded; Build 398 binds the live battery-body carrier
 
-**Type:** root-cause refinement / higher-authority native contract / runtime checkpoint  
-**Display version:** 0.0.2  
-**Last device-rejected build:** 395 / 20260927-395  
-**Superseded without device validation:** 396, 397  
-**Next build:** 398 / 20260927-398  
+**Type:** root-cause refinement / higher-authority native contract / runtime checkpoint
+**Display version:** 0.0.2
+**Last device-rejected build:** 395 / 20260927-395
+**Superseded without device validation:** 396, 397
+**Next build:** 398 / 20260927-398
 **Validation:** CI pending; device validation pending
 
 ### Problem execution flow
@@ -2594,11 +2594,11 @@ After Fast CI and signed Canary pass, device validation must begin with charger-
 
 ## 2026-09-27 — Build 397 accepted charging carrier; Build 399 battery-intensity checkpoint
 
-**Type:** device acceptance correction / visual root-cause analysis / runtime checkpoint  
-**Display version:** 0.0.2  
-**Accepted device checkpoint:** Build 397 / 20260927-397  
-**Structural refinement carried forward:** Build 398 / 20260927-398  
-**Next build:** 399 / 20260927-399  
+**Type:** device acceptance correction / visual root-cause analysis / runtime checkpoint
+**Display version:** 0.0.2
+**Accepted device checkpoint:** Build 397 / 20260927-397
+**Structural refinement carried forward:** Build 398 / 20260927-398
+**Next build:** 399 / 20260927-399
 **Validation:** CI pending; focused visual device validation pending
 
 ### Device correction
@@ -2649,11 +2649,11 @@ The screenshots therefore support a battery-ring intensity mismatch rather than 
 
 ## 2026-09-27 — Build 400 HyperOS battery semantic color source
 
-**Type:** bounded feature / native semantic-state reuse  
-**Branch:** `feat/battery-semantic-colors`  
-**Display version:** 0.0.2  
-**Build:** 400 / 20260927-400  
-**Parent source:** Build 399 checkpoint `00e819f6d2c3ad518982016a8bf22d1524fece57`  
+**Type:** bounded feature / native semantic-state reuse
+**Branch:** `feat/battery-semantic-colors`
+**Display version:** 0.0.2
+**Build:** 400 / 20260927-400
+**Parent source:** Build 399 checkpoint `00e819f6d2c3ad518982016a8bf22d1524fece57`
 **Validation:** Fast CI pending; device validation pending
 
 ### Requirement
@@ -2698,10 +2698,10 @@ JADX 1.5.6 inspection of the pinned SystemUI target confirms:
 
 ## 2026-09-27 — Build 401 battery semantic source consolidation
 
-**Type:** pre-device architecture correction / color authority  
-**Display version:** 0.0.2  
-**Build:** 401 / 20260927-401  
-**Supersedes before device validation:** Build 400  
+**Type:** pre-device architecture correction / color authority
+**Display version:** 0.0.2
+**Build:** 401 / 20260927-401
+**Supersedes before device validation:** Build 400
 **Validation:** CI pending; focused device color validation pending
 
 ### Why Build 400 was not sent to device
@@ -2742,10 +2742,10 @@ The shallow shade-pull Home-overlay leak remains next after this color checkpoin
 
 ## 2026-09-27 — Build 403 battery color gate
 
-**Type:** native semantic-color completion / CI checkpoint  
-**Display version:** 0.0.2  
-**Build:** 403 / 20260927-403  
-**Runtime source:** `97ef67e648906a4b9bb2ce4d7dd390e955831189`  
+**Type:** native semantic-color completion / CI checkpoint
+**Display version:** 0.0.2
+**Build:** 403 / 20260927-403
+**Runtime source:** `97ef67e648906a4b9bb2ce4d7dd390e955831189`
 **Validation:** Fast CI passed; signed Canary passed; focused device color validation pending
 
 ### Final pre-device correction
@@ -2787,10 +2787,10 @@ After focused device color validation, investigate the supplied shallow panel-pu
 
 ## 2026-09-27 — Build 403 device visual feedback: grayscale parity remains open
 
-**Type:** device visual-validation feedback / acceptance correction  
-**Display version:** 0.0.2  
-**Build:** 403 / 20260927-403  
-**Runtime source:** `97ef67e648906a4b9bb2ce4d7dd390e955831189`  
+**Type:** device visual-validation feedback / acceptance correction
+**Display version:** 0.0.2
+**Build:** 403 / 20260927-403
+**Runtime source:** `97ef67e648906a4b9bb2ce4d7dd390e955831189`
 **Validation:** Fast CI passed; signed Canary passed; visual-intensity acceptance remains open
 
 ### Device feedback
@@ -2853,9 +2853,9 @@ The green screenshot is a separate semantic-color state and is not evidence of m
 
 ## 2026-09-27 — Post-Build 403 visual-intensity root-cause review: authored alpha mask becomes the next A/B boundary
 
-**Type:** root-cause review / historical correction / pre-runtime validation gate  
-**Display version:** 0.0.2  
-**Current runtime source:** Build 403 / `97ef67e648906a4b9bb2ce4d7dd390e955831189`  
+**Type:** root-cause review / historical correction / pre-runtime validation gate
+**Display version:** 0.0.2
+**Current runtime source:** Build 403 / `97ef67e648906a4b9bb2ce4d7dd390e955831189`
 **Validation state:** source-level root cause narrowed; next executable checkpoint not yet created
 
 ### Problem execution flow
@@ -2921,11 +2921,11 @@ Create the next executable checkpoint with this one rendering-boundary change, r
 
 ## 2026-09-27 — Build 404: preserve authored native center alpha mask
 
-**Type:** single-variable runtime rendering correction  
-**Display version:** 0.0.2  
-**APK build:** 20260927-404  
-**Runtime source:** `614c6ae96f1753088e21ce3568d969b900852081`  
-**CI:** pending at documentation checkpoint  
+**Type:** single-variable runtime rendering correction
+**Display version:** 0.0.2
+**APK build:** 20260927-404
+**Runtime source:** `614c6ae96f1753088e21ce3568d969b900852081`
+**CI:** pending at documentation checkpoint
 **Device validation:** pending
 
 ### Change
@@ -2983,11 +2983,11 @@ A fresh ephemeral `fix/*` validation branch/PR based on the current Build-404 br
 
 ## 2026-09-27 — Build 404 CI / signed Canary gate passed
 
-**Type:** CI acceptance / pre-device validation gate  
-**Display version:** 0.0.2  
-**Build:** 404 / 20260927-404  
-**Runtime source:** `614c6ae96f1753088e21ce3568d969b900852081`  
-**Validation carrier tested head:** `ad55baa47eecadfa7fe1968556d5c7f13a1be460`  
+**Type:** CI acceptance / pre-device validation gate
+**Display version:** 0.0.2
+**Build:** 404 / 20260927-404
+**Runtime source:** `614c6ae96f1753088e21ce3568d969b900852081`
+**Validation carrier tested head:** `ad55baa47eecadfa7fe1968556d5c7f13a1be460`
 **Device validation:** pending
 
 ### CI evidence
@@ -3045,10 +3045,10 @@ The shallow Home-overlay leak during notification-shade pull remains a separate 
 
 ## 2026-09-27 — Build 404 device rejection and native Wi-Fi rendering-path closure
 
-**Type:** device rejection / root-cause correction / exact-target rendering review  
-**Display version:** 0.0.2  
-**Build under test:** 404 / 20260927-404  
-**Runtime source:** `614c6ae96f1753088e21ce3568d969b900852081`  
+**Type:** device rejection / root-cause correction / exact-target rendering review
+**Display version:** 0.0.2
+**Build under test:** 404 / 20260927-404
+**Runtime source:** `614c6ae96f1753088e21ce3568d969b900852081`
 **Result:** optical-parity A/B rejected; next root-cause boundary moved upstream
 
 ### Device feedback
@@ -3199,10 +3199,10 @@ Implement this single rendering-boundary A/B as the next runtime checkpoint, run
 
 ## 2026-09-27 — Build 404 device regression and exact native icon-rendering root cause
 
-**Type:** device A/B rejection / exact-target rendering-path review / historical correction  
-**Display version:** 0.0.2  
-**Rejected checkpoint:** Build 404 / 20260927-404  
-**Runtime source:** `614c6ae96f1753088e21ce3568d969b900852081`  
+**Type:** device A/B rejection / exact-target rendering-path review / historical correction
+**Display version:** 0.0.2
+**Rejected checkpoint:** Build 404 / 20260927-404
+**Runtime source:** `614c6ae96f1753088e21ce3568d969b900852081`
 **Device result:** center visual parity regressed versus Build 403
 
 ### Problem execution flow
@@ -3315,11 +3315,11 @@ Implement the direct-final-Drawable A/B as the next executable checkpoint, run s
 
 ## 2026-09-27 — Build 405: direct final-bounds native Drawable rendering
 
-**Type:** single-variable runtime rendering correction / post-review checkpoint  
-**Display version:** 0.0.2  
-**Build:** 405 / 20260927-405  
-**Runtime source:** `bf8091c8680dec7b85c58afded7f476ec95ca49d`  
-**CI:** pending  
+**Type:** single-variable runtime rendering correction / post-review checkpoint
+**Display version:** 0.0.2
+**Build:** 405 / 20260927-405
+**Runtime source:** `bf8091c8680dec7b85c58afded7f476ec95ca49d`
+**CI:** pending
 **Device validation:** pending
 
 ### Change
@@ -3373,9 +3373,9 @@ The verified HyperOS Light / Dark / Tint resource transformation remains the nex
 
 ## 2026-09-27 — Build 405 CI event-delivery blocker
 
-**Type:** CI infrastructure / validation-carrier status  
-**Runtime source:** `bf8091c8680dec7b85c58afded7f476ec95ca49d`  
-**Build:** 405 / 20260927-405  
+**Type:** CI infrastructure / validation-carrier status
+**Runtime source:** `bf8091c8680dec7b85c58afded7f476ec95ca49d`
+**Build:** 405 / 20260927-405
 **Runtime state:** frozen; no further runtime mutation
 
 Two validation-only carriers were attempted against the unchanged `dev` base SHA `6de78d7257c6bd376c57834a052fe51325fbfc1f`:
@@ -3405,11 +3405,11 @@ Validation rule:
 
 ## 2026-09-27 — Build 405 trusted Canary validation complete
 
-**Type:** CI validation / device-test handoff  
-**Display version:** 0.0.2  
-**Build:** 405 / 20260927-405  
-**Runtime source:** `bf8091c8680dec7b85c58afded7f476ec95ca49d`  
-**Validated PR head:** `3cdfcc4db4bd5cd350e17400f2ed71d818b9c8d9`  
+**Type:** CI validation / device-test handoff
+**Display version:** 0.0.2
+**Build:** 405 / 20260927-405
+**Runtime source:** `bf8091c8680dec7b85c58afded7f476ec95ca49d`
+**Validated PR head:** `3cdfcc4db4bd5cd350e17400f2ed71d818b9c8d9`
 **Validation:** passed; device A/B pending
 
 ### CI-flow resolution
@@ -3465,10 +3465,10 @@ Therefore the validated executable content remains exactly the frozen Build-405 
 
 ## 2026-09-27 — Build 405 final Canary revalidation after summary escaping fix
 
-**Type:** CI process follow-up / final device-test artifact identity  
-**Display version:** 0.0.2  
-**Build:** 405 / 20260927-405  
-**Runtime source:** `bf8091c8680dec7b85c58afded7f476ec95ca49d`  
+**Type:** CI process follow-up / final device-test artifact identity
+**Display version:** 0.0.2
+**Build:** 405 / 20260927-405
+**Runtime source:** `bf8091c8680dec7b85c58afded7f476ec95ca49d`
 **Validation:** passed; device A/B pending
 
 ### Process follow-up
@@ -3525,10 +3525,10 @@ Use the #334 artifact as the final Build-405 device-test package. Runtime remain
 
 ## 2026-09-27 — Build 405 device rejection: final presentation-resource contract remains
 
-**Type:** device rejection / root-cause refinement  
-**Display version:** 0.0.2  
-**Build under test:** 405 / 20260927-405  
-**Runtime source:** `bf8091c8680dec7b85c58afded7f476ec95ca49d`  
+**Type:** device rejection / root-cause refinement
+**Display version:** 0.0.2
+**Build under test:** 405 / 20260927-405
+**Runtime source:** `bf8091c8680dec7b85c58afded7f476ec95ca49d`
 **Result:** optical-parity A/B rejected; direct-Drawable baseline retained
 
 ### Problem / objective
@@ -3596,10 +3596,10 @@ The next executable checkpoint is Build 406. Runtime changes should stop again a
 
 ## 2026-09-27 — Build 406: use native tint-mask variants for battery-colored center glyphs
 
-**Type:** bounded native-center presentation correction  
-**Display version:** 0.0.2  
-**Build:** 406 / 20260927-406  
-**Runtime source:** `3d5e9d2339824c6d19e50dda170917559369135b`  
+**Type:** bounded native-center presentation correction
+**Display version:** 0.0.2
+**Build:** 406 / 20260927-406
+**Runtime source:** `3d5e9d2339824c6d19e50dda170917559369135b`
 **Validation:** source review complete; CI/Canary pending
 
 ### Problem / objective
@@ -3669,10 +3669,10 @@ Focused device acceptance:
 
 ## 2026-09-27 — Build 406 trusted Canary validation complete
 
-**Type:** CI validation / device-test handoff  
-**Display version:** 0.0.2  
-**Build:** 406 / 20260927-406  
-**Runtime source:** `3d5e9d2339824c6d19e50dda170917559369135b`  
+**Type:** CI validation / device-test handoff
+**Display version:** 0.0.2
+**Build:** 406 / 20260927-406
+**Runtime source:** `3d5e9d2339824c6d19e50dda170917559369135b`
 **Validation:** passed; focused device A/B pending
 
 ### CI path
@@ -3761,10 +3761,10 @@ No Phase-2B, opacity multiplier, grayscale compensation, geometry tuning or addi
 
 ## 2026-09-27 — Build 406 device rejection: default center branch is also optically light
 
-**Type:** device rejection / hypothesis correction  
-**Display version:** 0.0.2  
-**Build under test:** 406 / 20260927-406  
-**Runtime source:** `3d5e9d2339824c6d19e50dda170917559369135b`  
+**Type:** device rejection / hypothesis correction
+**Display version:** 0.0.2
+**Build under test:** 406 / 20260927-406
+**Runtime source:** `3d5e9d2339824c6d19e50dda170917559369135b`
 **Result:** optical parity rejected; custom-tint-only hypothesis disproved
 
 ### Problem / objective
@@ -3850,10 +3850,10 @@ The live native-ImageView presentation mirror remains a fallback investigation r
 
 ## 2026-09-27 — Build 407: apply native tint-mask contract to every tinted center glyph
 
-**Type:** bounded root-cause correction / source review  
-**Display version:** 0.0.2  
-**Build:** 407 / 20260927-407  
-**Runtime source:** `ffe746b24252f974db05e1fa4381ed5c56f0e73e`  
+**Type:** bounded root-cause correction / source review
+**Display version:** 0.0.2
+**Build:** 407 / 20260927-407
+**Runtime source:** `ffe746b24252f974db05e1fa4381ed5c56f0e73e`
 **Validation:** source review complete; signed Canary pending
 
 ### Problem / objective
@@ -3920,11 +3920,11 @@ No further runtime change before those device results.
 
 ## 2026-09-27 — Build 407: use native tint masks for every externally tinted center glyph
 
-**Type:** bounded root-cause correction / source review  
-**Display version:** 0.0.2  
-**Build:** 407 / 20260927-407  
-**Implementation commit:** `bbb421ef0354ad60e7d046e38c643d16d61504c7`  
-**Final executable source:** `ffe746b24252f974db05e1fa4381ed5c56f0e73e`  
+**Type:** bounded root-cause correction / source review
+**Display version:** 0.0.2
+**Build:** 407 / 20260927-407
+**Implementation commit:** `bbb421ef0354ad60e7d046e38c643d16d61504c7`
+**Final executable source:** `ffe746b24252f974db05e1fa4381ed5c56f0e73e`
 **CI / device validation:** pending
 
 ### Problem / objective
@@ -4048,9 +4048,9 @@ If optical parity still fails, the next investigation returns to the final nativ
 
 ## 2026-09-27 — Build 407 device result: opacity fixed; residual ring optical-weight mismatch
 
-**Type:** device acceptance correction / visual root-cause refinement  
-**Build:** 407 / 20260927-407  
-**Runtime source:** `ffe746b24252f974db05e1fa4381ed5c56f0e73e`  
+**Type:** device acceptance correction / visual root-cause refinement
+**Build:** 407 / 20260927-407
+**Runtime source:** `ffe746b24252f974db05e1fa4381ed5c56f0e73e`
 **Result:** native-center opacity correction accepted; overall optical balance still open
 
 ### Device evidence
@@ -4123,10 +4123,10 @@ Implement one Build-408 geometry-only A/B, run CI/Canary, then stop for device c
 
 ## 2026-09-27 — Build 408: ring-only optical baseline rebalance
 
-**Type:** bounded visual-geometry A/B / source review  
-**Display version:** 0.0.2  
-**Build:** 408 / 20260927-408  
-**Runtime source:** `8a7a39d8297fe926387d56cc8ff5be4b08405f4a`  
+**Type:** bounded visual-geometry A/B / source review
+**Display version:** 0.0.2
+**Build:** 408 / 20260927-408
+**Runtime source:** `8a7a39d8297fe926387d56cc8ff5be4b08405f4a`
 **Validation:** source review passed; CI/Canary pending
 
 ### Objective
@@ -4211,9 +4211,9 @@ Run CI and signed Canary, then freeze runtime for a Build-407 vs Build-408 devic
 
 ## 2026-09-27 — Build 408 maintainer acceptance for dev integration
 
-**Type:** maintainer acceptance / phase gate / integration authorization  
-**Display version:** 0.0.2  
-**Accepted runtime source:** `8a7a39d8297fe926387d56cc8ff5be4b08405f4a`  
+**Type:** maintainer acceptance / phase gate / integration authorization
+**Display version:** 0.0.2
+**Accepted runtime source:** `8a7a39d8297fe926387d56cc8ff5be4b08405f4a`
 **Validated Canary:** Work Branch Canary #338 / run `36315043013` / artifact `10930143406`
 
 ### Maintainer decision
@@ -4243,9 +4243,9 @@ The Phase-2B investigation must start from native scene/progress ownership and m
 
 ## 2026-09-27 — Phase 2A merged to dev and Integration validation passed
 
-**Type:** dev integration / CI validation / phase transition  
-**Display version:** 0.0.2  
-**Dev merge:** `2f584c3b393dc5ee606284426aa95a9d6beae5d5`  
+**Type:** dev integration / CI validation / phase transition
+**Display version:** 0.0.2
+**Dev merge:** `2f584c3b393dc5ee606284426aa95a9d6beae5d5`
 **Integrated build:** 408 / 20260927-408
 
 ### Integration
@@ -4445,8 +4445,8 @@ No additional visual, geometry, color, Control Center, or animation behavior was
 
 ## 2026-09-27 — Build 409 CI correction: stale test call sites
 
-**Type:** CI failure / test-maintenance correction  
-**Runtime source:** `4ab7b490617757e34c0ea8e0b59e3d7a16bae9ad`  
+**Type:** CI failure / test-maintenance correction
+**Runtime source:** `4ab7b490617757e34c0ea8e0b59e3d7a16bae9ad`
 **Runtime conclusion:** unchanged
 
 ### CI evidence
@@ -4484,9 +4484,9 @@ Re-run Fast CI after the test-only correction. Build 409 remains the same runtim
 
 ## 2026-09-27 — Build 409 Fast #1127: one stale Hot Reload assertion
 
-**Type:** CI failure / test-semantics correction  
-**Fast run:** #1127 / `36318037749`  
-**Runtime source:** `4ab7b490617757e34c0ea8e0b59e3d7a16bae9ad`  
+**Type:** CI failure / test-semantics correction
+**Fast run:** #1127 / `36318037749`
+**Runtime source:** `4ab7b490617757e34c0ea8e0b59e3d7a16bae9ad`
 **Runtime conclusion:** unchanged
 
 ### Evidence
@@ -4534,9 +4534,9 @@ Re-run Fast CI after the assertion correction. A signed Canary remains required 
 
 ## 2026-09-27 — Build 409 Fast + signed Canary success
 
-**Type:** validation success / device-test gate  
-**Build:** 409 / 20260927-409  
-**Executable runtime source:** `4ab7b490617757e34c0ea8e0b59e3d7a16bae9ad`  
+**Type:** validation success / device-test gate
+**Build:** 409 / 20260927-409
+**Executable runtime source:** `4ab7b490617757e34c0ea8e0b59e3d7a16bae9ad`
 **Tested PR head:** `e7f2ca9a104875688fd2b91640ec84f43c8b228a`
 
 ### Fast validation
@@ -4578,9 +4578,9 @@ The next required evidence is maintainer device validation of the notification-s
 
 ## 2026-09-27 — Build 409 device rejection: unresolved path is Control Center
 
-**Type:** device evidence / root-cause correction  
-**Build under test:** 409 / 20260927-409  
-**Executable source:** `4ab7b490617757e34c0ea8e0b59e3d7a16bae9ad`  
+**Type:** device evidence / root-cause correction
+**Build under test:** 409 / 20260927-409
+**Executable source:** `4ab7b490617757e34c0ea8e0b59e3d7a16bae9ad`
 **Result:** notification-shade gate observed working; overall shallow-pull issue not solved
 
 ### Evidence
@@ -4649,9 +4649,9 @@ Implement and validate Build 410 before any projection or animation work.
 
 ## 2026-09-27 — Build 410 source review: compose Control Center visibility into Home ownership
 
-**Type:** Phase-2B runtime checkpoint / source review  
-**Build:** 410 / 20260927-410  
-**Runtime source:** `6e2fc55944753c6cb9ef22f537008c97217f17e1`  
+**Type:** Phase-2B runtime checkpoint / source review
+**Build:** 410 / 20260927-410
+**Runtime source:** `6e2fc55944753c6cb9ef22f537008c97217f17e1`
 **Validation:** source/call-site review passed; Fast/Canary pending
 
 ### Runtime delta
@@ -4713,9 +4713,9 @@ Fast CI and a signed Canary are required before another device test. Runtime cha
 
 ## 2026-09-27 — Build 410 Fast #1141: stale Home-session test call sites
 
-**Type:** CI failure / test-maintenance correction  
-**Fast run:** #1141 / `36319627573`  
-**Runtime source:** `6e2fc55944753c6cb9ef22f537008c97217f17e1`  
+**Type:** CI failure / test-maintenance correction
+**Fast run:** #1141 / `36319627573`
+**Runtime source:** `6e2fc55944753c6cb9ef22f537008c97217f17e1`
 **Runtime conclusion:** unchanged
 
 ### CI evidence
@@ -4750,9 +4750,9 @@ Re-run Fast CI after the test-only correction. Build 410 remains the same execut
 
 ## 2026-09-27 — Build 410 Fast + signed Canary success
 
-**Type:** validation success / device-test gate  
-**Build:** 410 / 20260927-410  
-**Executable runtime source:** `6e2fc55944753c6cb9ef22f537008c97217f17e1`  
+**Type:** validation success / device-test gate
+**Build:** 410 / 20260927-410
+**Executable runtime source:** `6e2fc55944753c6cb9ef22f537008c97217f17e1`
 **Tested PR head:** `5320bf87253128de290b4b0809694949a02b6c38`
 
 ### Fast validation
@@ -4857,9 +4857,9 @@ No delay, retry, polling, custom scene animation, fraction threshold, per-glyph 
 
 ## 2026-09-27 — Build 411 source review: stable Home owner + 8.0 ring
 
-**Type:** combined scene/visual checkpoint / source review  
-**Build:** 411 / 20260927-411  
-**Executable runtime source:** `aaaaf0810b114b1e90a3de3f1520721a420da2d0`  
+**Type:** combined scene/visual checkpoint / source review
+**Build:** 411 / 20260927-411
+**Executable runtime source:** `aaaaf0810b114b1e90a3de3f1520721a420da2d0`
 **Validation:** source review passed; Fast/Canary pending
 
 ### Executable delta from Build 410
@@ -4914,9 +4914,9 @@ Fast CI + signed Canary, then one combined device pass for scene behavior and vi
 
 ## 2026-09-27 — Build 411 Fast + signed Canary success
 
-**Type:** combined validation success / device-test gate  
-**Build:** 411 / 20260927-411  
-**Executable runtime source:** `aaaaf0810b114b1e90a3de3f1520721a420da2d0`  
+**Type:** combined validation success / device-test gate
+**Build:** 411 / 20260927-411
+**Executable runtime source:** `aaaaf0810b114b1e90a3de3f1520721a420da2d0`
 **Tested PR head:** `6bc260143c056bac643daf1c8d3f1af99bcd30df`
 
 ### Fast validation
@@ -4961,8 +4961,8 @@ No further runtime change should be layered before that result.
 
 ## 2026-09-27 — Build 411 device result: panel handoff accepted; 8.0 ring rejected
 
-**Type:** maintainer device acceptance / visual baseline correction  
-**Build under test:** 411 / 20260927-411  
+**Type:** maintainer device acceptance / visual baseline correction
+**Build under test:** 411 / 20260927-411
 **Executable source:** `aaaaf0810b114b1e90a3de3f1520721a420da2d0`
 
 ### Maintainer result
@@ -5003,8 +5003,8 @@ This is a deterministic return to an already device-seen and explicitly preferre
 
 ## 2026-09-27 — Build 411 device verdict: scene accepted, 8.0 ring rejected
 
-**Type:** maintainer device acceptance / visual baseline correction  
-**Build under test:** 411 / 20260927-411  
+**Type:** maintainer device acceptance / visual baseline correction
+**Build under test:** 411 / 20260927-411
 **Executable source:** `aaaaf0810b114b1e90a3de3f1520721a420da2d0`
 
 ### Maintainer feedback
@@ -5051,9 +5051,9 @@ Because 8.25 is already a previously observed device geometry and the change is 
 
 ## 2026-09-27 — Build 412 source review: restore preferred 8.25 ring
 
-**Type:** deterministic visual restoration / source review  
-**Build:** 412 / 20260927-412  
-**Executable source:** `f794a7c01513364eefc726316fcaf4058d581683`  
+**Type:** deterministic visual restoration / source review
+**Build:** 412 / 20260927-412
+**Executable source:** `f794a7c01513364eefc726316fcaf4058d581683`
 **Validation:** source review passed; Fast/Canary pending
 
 ### Executable delta from Build 411
@@ -5102,9 +5102,9 @@ Fast CI + signed Canary. No separate maintainer thickness A/B is required before
 
 ## 2026-09-27 — Build 412 source review: restore preferred 8.25 ring
 
-**Type:** low-risk visual restoration / source review  
-**Build:** 412 / 20260927-412  
-**Final executable source:** `f794a7c01513364eefc726316fcaf4058d581683`  
+**Type:** low-risk visual restoration / source review
+**Build:** 412 / 20260927-412
+**Final executable source:** `f794a7c01513364eefc726316fcaf4058d581683`
 **Validation:** source review passed; Fast/Canary pending
 
 ### Executable delta from Build 411
@@ -5159,8 +5159,8 @@ The Build-411 panel/scene-owner acceptance is retained. The earlier HUN/notifica
 
 ## 2026-09-27 — Build 412 Fast + signed Canary success; 8.25 baseline accepted
 
-**Type:** validation success / visual baseline acceptance  
-**Build:** 412 / 20260927-412  
+**Type:** validation success / visual baseline acceptance
+**Build:** 412 / 20260927-412
 **Final executable source:** `f794a7c01513364eefc726316fcaf4058d581683`
 
 ### Fast validation
@@ -5214,9 +5214,9 @@ PR #138 may proceed to `dev` after the final documentation head satisfies the re
 
 ## 2026-09-27 — Build 412 Fast + signed Canary success; integration accepted
 
-**Type:** validation success / maintainer-directed integration gate  
-**Build:** 412 / 20260927-412  
-**Executable source:** `f794a7c01513364eefc726316fcaf4058d581683`  
+**Type:** validation success / maintainer-directed integration gate
+**Build:** 412 / 20260927-412
+**Executable source:** `f794a7c01513364eefc726316fcaf4058d581683`
 **Tested PR head:** `74c234060f77da958c4eae21e8d170e29f2da1cb`
 
 ### Fast validation
@@ -5333,8 +5333,8 @@ Build 412 is now the dev integration baseline. The next runtime problem is the s
 
 ## 2026-09-27 — Checkpoint-driven CI policy accepted and synchronized
 
-**Type:** repository automation / engineering governance  
-**APK build:** none; runtime identities remain main Build 351 and dev Build 412  
+**Type:** repository automation / engineering governance
+**APK build:** none; runtime identities remain main Build 351 and dev Build 412
 **Runtime impact:** none
 
 ### Problem / objective
@@ -5430,4 +5430,3 @@ CI is now **checkpoint-driven rather than commit-driven**:
 Repository memory remains mandatory. A later documentation-only closure commit records the completed checkpoint but does not advance application Build identity merely because GitHub executes a Light repository check for that commit.
 
 The current runtime development baseline remains **Build 412**. This automation/governance change does not resolve or alter the separate notification/HUN native-status fallback investigation.
-
