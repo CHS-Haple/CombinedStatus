@@ -3728,3 +3728,30 @@ Therefore the validated executable/runtime content is exactly Build 406.
 5. Switch a semantic battery state when practical and confirm the center still follows the final battery color.
 
 No Phase-2B, opacity multiplier, grayscale compensation, geometry tuning or additional runtime feature work should be added until this A/B result is returned.
+
+
+### Build 406 CI / Canary result
+
+- Work Branch Canary run: **#335** / run ID `36312717485`.
+- Trigger: owner-only PR `/canary` fallback because connector-authored branch updates again produced no PR synchronize workflow run.
+- Result: **success**.
+- Passed gates:
+  - trusted source resolution and exact checkout verification;
+  - Gradle Wrapper validation;
+  - Java / Android API 37 setup;
+  - Haple signing restore/verification;
+  - pinned HyperOS target-profile verification;
+  - tests and Canary build;
+  - modern Xposed metadata verification;
+  - Haple APK signature verification;
+  - non-debuggable verification;
+  - artifact upload.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260927-406-canary.apk`
+- GitHub artifact ID: `10929711688`.
+- Extracted APK SHA-256: `e086d8914fece7ba8ea86200756f4a6366d56dadaa5510846618a4077e6ddd80`.
+- Extracted APK size: `3293214` bytes.
+- Runtime source remains `3d5e9d2339824c6d19e50dda170917559369135b`; subsequent commits are documentation-only.
+
+### Gate
+
+**Runtime is frozen at Build 406.** The next required evidence is maintainer device A/B with `centerFollowsBatteryColor=true` on both light and dark surfaces. No Phase-2B or further center-rendering runtime change should be layered before that result.
