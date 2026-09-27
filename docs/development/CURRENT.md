@@ -10,7 +10,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Integration branch: `dev`
 - Integration runtime baseline: Build 413, commit `2aa6833cfca69a59af5027a7855b7d8282dbade9`
 - Build 413 / `20260927-413` is the current device-accepted, Integration-validated, and `main`-promoted runtime baseline.
-- Active corrective work / PR: `fix/hot-reload-tint-continuity` / Draft #148. Builds 415 and 416 are device-rejected. Build 417 / `20260928-417` is now the signed device-test checkpoint. Exact tested runtime SHA: `c341fd52af8e1b873278088f3cc3c7303f9e4da3`; Fast #1250 passed and Work Branch Canary #402 passed. Canary artifact: `CombinedStatus-0.0.2-HyperOS-20260928-417-canary.apk`; APK SHA-256 `e816e303c08f8ac754bca2333ab780c69dcd728a10cf238c82dff8ae98db1cad`. Runtime is frozen pending maintainer device validation.
+- Active corrective work / PR: `fix/hot-reload-tint-continuity` / Draft #148. Builds 415, 416 and 417 are device-rejected. Build 417 proves the represented-slot anchor correction works (`tintAnchorSlot=volume`) but does not fix the visible defect. Maintainer video shows Combined Status can remain white while native VPN/mute icons switch black/white across repeated app/Home scene transitions. Current root cause is narrowed to Tint lifecycle/event ordering: fresh new-generation status-icon tint can arrive before renderer attach and be lost, while later Battery/scene updates can combine a fresh battery tint with stale cached status-icon tint.
 - Repository-automation baseline: checkpoint-driven CI from PR #139 remains active; Canary admission hardening and bounded automation-only merge delegation were accepted on `main` via PR #143 (`a1aed8b6451d1018f46e252166545d67f48fe8e4`) and history-preserving back-synced into `dev` via PR #144 (`faaa12b1c8e955138d2ce8d51fb481263b4d7570`). These automation changes do **not** create a new runtime Build.
 - Phase-2A integration: PR #105 merged to `dev` as `2f584c3b393dc5ee606284426aa95a9d6beae5d5`; former stacked PR #100 is closed as superseded.
 - Phase-2B panel/scene-owner integration: PR #138 merged to `dev` as `a25cb5ce2aeab235cfaed579474df70596f03a63`.
@@ -155,12 +155,18 @@ Build 409's notification-shade implementation remains intact and is not reopened
 ## Immediate next step
 
 1. Keep Build 413 / `20260927-413` as the stable/runtime baseline on `main` and `dev`.
-2. Build 417 / `20260928-417` is the current signed device-test checkpoint from exact tested runtime SHA `c341fd52af8e1b873278088f3cc3c7303f9e4da3`.
-3. Fast #1250 and signed Work Branch Canary #402 passed. Do not modify runtime while awaiting device evidence.
-4. Device test must reproduce the original boundary: install Build 417, do **not** restart SystemUI first, trigger module Hot Reload, then compare Home dark/light surfaces. Collect Detailed diagnostics before any SystemUI restart if inversion remains.
-5. Acceptance requires both correct visual tint continuity and diagnostic confirmation that `tintAnchorSlot` / `tintAnchorClass` resolve to a visible non-represented peer rather than `wifi`, `mobile`, `stacked_mobile`, `airplane`, `no_sim`, or `combined_status`.
-6. A full SystemUI restart is a comparison control only, because Builds 415/416 already showed that restart can hide the Hot Reload-specific defect.
-7. PR #146 panel projection remains paused until this shared Home tint lifecycle is accepted.
+2. Treat Builds 415, 416 and 417 as device-rejected Hot Reload Tint checkpoints. PR #148 remains Draft.
+3. Build 417 specifically disproves the anchor-candidate hypothesis as the final root cause: the abnormal session selected non-represented `volume` and resolved `#bf000000`, yet Combined Status remained visually white.
+4. Root-cause boundary is now Tint lifecycle/event ordering. Fresh status-icon authority may be observed before renderer attach and lost; later scene/Battery events may combine current Battery `appliedTint` with stale cached `statusIconTint`.
+5. Implement Build 418 as one bounded authority correction:
+   - Battery DarkReceiver events are triggers/fallbacks, not status-icon color authority.
+   - Resolve the current Home status-icon Tint live from SystemUI for each renderer Tint commit.
+   - On Hot Reload attach, rebase transferred Tint against the new generation's live status-icon authority before the renderer consumes it.
+   - Demote transferred/cached status-icon Tint to fallback only.
+6. Preserve native event-driven behavior. Do not add timer, polling, delayed retry, forced dark-mode refresh, screenshot-derived color, or another Tint writer.
+7. Add diagnostics that print both `appliedTint` and `statusIconTint` on renderer commits so future logs cannot hide a stale secondary field.
+8. After source review/tests, advance to Build 418 -> Draft Light -> Ready/Fast -> explicit signed Canary -> focused repeated scene-switch device validation.
+9. PR #146 panel projection remains paused until this shared Home Tint lifecycle is accepted.
 
 ## Reference priority
 

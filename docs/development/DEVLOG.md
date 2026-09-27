@@ -2,6 +2,66 @@
 
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
+## 2026-09-28 — Build 417 device rejection: fresh Tint lost before renderer attach / repeated scene race
+
+**Type:** maintainer device rejection / lifecycle root-cause narrowing
+**Rejected build:** 417 / `20260928-417`
+**Stable baseline:** 413 / `20260927-413`
+**Work branch / PR:** `fix/hot-reload-tint-continuity` / Draft #148
+
+### Maintainer evidence
+
+Build 417 remains visually incorrect. The supplied video shows the native VPN/mute status icons switching between light and dark presentation across repeated app/Home transitions while Combined Status can remain white. The maintainer also reports that a scene may be correct on one entry, then become incorrect after leaving and entering again.
+
+### Diagnostic facts
+
+- Build 417 is confirmed Canary.
+- Hot Reload completes without SystemUI restart.
+- The represented-slot exclusion works: the new generation selects `tintAnchorSlot=volume`, `tintAnchorClass=StatusBarIconView`.
+- At observer attach, `locationAwareTint`, peer tint and manager fallback all resolve `#bf000000`.
+- The renderer is attached **after** that fresh observer event.
+- Renderer seed is reported as `homeRenderTint source=hotReloadTransfer applied=#bf000000`; that diagnostic logs only `appliedTint`, not `statusIconTint`.
+- Later scene activity produces Battery `onDarkChangedInternal` events, but no guaranteed synchronized status-icon presentation refresh is paired with each Battery event.
+
+### Root-cause correction
+
+Build 417 rejects the assumption that choosing the correct visible peer/anchor is sufficient. The remaining defect is an authority snapshot / lifecycle ordering problem:
+
+1. the fresh new-generation status-icon Tint can be observed before the renderer exists, so the event cannot update renderer state;
+2. the renderer then consumes the transferred old-generation Tint state;
+3. later `onTintStateUpdate()` combines a fresh Battery `appliedTint` with `statusIconTint` taken from the presentation store cache, which is not guaranteed to represent the same SystemUI DarkIcon generation/scene;
+4. the visual policy prefers `statusIconTint` for normal monochrome rendering, so a stale secondary field can keep Combined Status white even when the logged `appliedTint` is black.
+
+This explains both:
+- Hot Reload abnormal / full SystemUI restart healthy;
+- repeated scene entry where one transition is correct and a later entry is wrong.
+
+### Selected Build-418 boundary
+
+- Treat Battery DarkReceiver as event trigger and fallback, not primary status-icon color authority.
+- For every renderer Tint commit, resolve current Home status-icon Tint live from SystemUI.
+- Before renderer attach after Hot Reload, rebase transferred state with the new-generation live status-icon authority.
+- Keep transferred/cached status-icon Tint only as fallback if live native authority is unavailable.
+- Add renderer diagnostics for both `appliedTint` and `statusIconTint`.
+- No timer, polling, delayed retry, forced DarkIcon refresh, or additional native writer.
+
+### 审查 / review
+
+- **Ownership:** SystemUI Home status-icon authority owns monochrome presentation; Battery owns only its own applied tint/event timing.
+- **Lifecycle:** fresh generation authority must supersede old-generation transfer before visible renderer ownership starts.
+- **Single writer:** renderer state remains owned by `CombinedStatusHomeRenderSession -> CombinedStatusRenderController`; only input authority resolution changes.
+- **Cleanup:** unchanged.
+- **Fail native:** live status-icon authority falls back to current Battery applied tint / transferred state only when unavailable.
+- **Performance:** bounded synchronous read on existing native Tint/scene events; no frame loop.
+- **Compatibility:** uses already validated manager/group reflection contracts; no new hook target.
+- **Exception recovery:** existing null/reflection fallbacks remain.
+- **Future extension:** establishes one-time-consistent Tint snapshots needed by panel/lockscreen projection later.
+
+### Gate
+
+Record this rejection before runtime mutation. Build 418 is the next single-variable checkpoint.
+
+
 ## 2026-09-28 — Build 417: exclude represented slots from visible Home Tint authority
 
 **Type:** single-variable ownership correction
