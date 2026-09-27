@@ -12,7 +12,6 @@ NATIVE_STATUS_INVENTORY_PATH = ROOT / "app" / "src" / "main" / "kotlin" / "com" 
 NETWORK_STATE_SOURCE_PATH = ROOT / "app" / "src" / "main" / "kotlin" / "com" / "chaners" / "combinedstatus" / "xposed" / "SystemUiNetworkStateSource.kt"
 SCENE_STATE_SOURCE_PATH = ROOT / "app" / "src" / "main" / "kotlin" / "com" / "chaners" / "combinedstatus" / "xposed" / "SystemUiSceneStateSource.kt"
 BATTERY_STATE_SOURCE_PATH = ROOT / "app" / "src" / "main" / "kotlin" / "com" / "chaners" / "combinedstatus" / "xposed" / "SystemUiBatteryStateSource.kt"
-NOTIFICATION_SHADE_TARGET_PROBE_PATH = ROOT / "app" / "src" / "main" / "kotlin" / "com" / "chaners" / "combinedstatus" / "xposed" / "SystemUiNotificationShadeTargetProbe.kt"
 
 HEX_LENGTHS = {"md5": 32, "sha1": 40, "sha256": 64}
 
@@ -223,53 +222,6 @@ if not battery_semantic_fields.issubset(source_required_fields):
         ", ".join(sorted(battery_semantic_fields - source_required_fields))
     )
 
-
-notification_shade_probe_text = NOTIFICATION_SHADE_TARGET_PROBE_PATH.read_text(encoding="utf-8")
-notification_shade_hook = hook_points.get("notificationShadeTargetDiagnostic")
-if not isinstance(notification_shade_hook, dict):
-    fail("missing notificationShadeTargetDiagnostic hook point")
-
-notification_shade_callback = re.search(
-    r'CALLBACK_CLASS_NAME\s*=\s*\n?\s*"([^"]+)"',
-    notification_shade_probe_text,
-)
-notification_shade_method = re.search(
-    r'EXPANSION_METHOD_NAME\s*=\s*"([^"]+)"',
-    notification_shade_probe_text,
-)
-notification_shade_controller = re.search(
-    r'CONTROLLER_CLASS_NAME\s*=\s*\n?\s*"([^"]+)"',
-    notification_shade_probe_text,
-)
-if not notification_shade_callback or not notification_shade_method or not notification_shade_controller:
-    fail("notification shade target probe constants are missing")
-
-notification_shade_callback_name = notification_shade_callback.group(1).replace("\\$", "$")
-if notification_shade_callback_name != notification_shade_hook.get("className"):
-    fail("notification shade target callback class drifted from profile")
-if notification_shade_method.group(1) != notification_shade_hook.get("methodName"):
-    fail("notification shade target callback method drifted from profile")
-
-notification_shade_controller_name = notification_shade_controller.group(1)
-if notification_shade_controller_name not in verified_systemui:
-    fail("notification shade target controller is not verified in the SystemUI APK")
-
-notification_shade_fields = set(
-    re.findall(r'(?:NOTIFICATION_FIELD_NAME|HEADER_CONTROLLER_FIELD_NAME)\s*=\s*"([^"]+)"',
-               notification_shade_probe_text)
-)
-verified_notification_shade_fields = set(
-    verified_fields.get(notification_shade_controller_name, [])
-)
-if not notification_shade_fields or not notification_shade_fields.issubset(
-    verified_notification_shade_fields
-):
-    fail(
-        "notification shade target fields drifted from profile: " +
-        ", ".join(
-            sorted(notification_shade_fields - verified_notification_shade_fields)
-        )
-    )
 
 native_status_views = profile.get("nativeStatusViews", {})
 expected_native_roles = {"mobileNetwork", "wifi", "battery"}

@@ -126,12 +126,6 @@
       "className": "com.miui.systemui.controlcenter.container.ControlCenterExpandControllerDelegate",
       "methodName": "onVisibleChanged",
       "descriptor": "(Z)V"
-    },
-    "notificationShadeTargetDiagnostic": {
-      "sourceArtifact": "systemUi",
-      "className": "com.android.systemui.controlcenter.shade.NotificationHeaderExpandController$notificationCallback$1",
-      "methodName": "onExpansionChanged",
-      "descriptor": "(F)V"
     }
   },
   "verifiedSystemUiMethods": {
