@@ -30,8 +30,8 @@ Classification is not permission to mutate SystemUI. Runtime integration still r
 | Scene | Render mode | Motion ownership | Evidence |
 | --- | --- | --- | --- |
 | Home stable | PROJECTED | NONE | Runtime verified |
-| Notification-shade transition | NATIVE_ONLY | SYSTEM_UI | Static ownership verified |
-| Control Center | NATIVE_ONLY | SYSTEM_UI | Static ownership verified |
+| Notification-shade transition | NATIVE_ONLY | SYSTEM_UI | Runtime lifetime verified |
+| Control Center | NATIVE_ONLY | SYSTEM_UI | Runtime lifetime verified |
 | Keyguard | NATIVE_ONLY | SYSTEM_UI | Static ownership verified |
 | AOD | NATIVE_ONLY | SYSTEM_UI | Static ownership verified |
 
@@ -50,10 +50,11 @@ These surfaces remain NATIVE_ONLY because SystemUI owns their transition contain
 For the notification shade, the unlocked status-bar state by itself is **not** sufficient to prove steady Home eligibility. The native panel expansion contract is a separate scene-lifetime fact. On the pinned target Combined Status already observes `ShadeExpansionStateManager.onPanelExpansionChanged(fraction, expanded, tracking)`.
 
 Until a real shade / Control Center projection is promoted:
-- the **Home overlay** is eligible only while the notification panel is natively settled closed **and** Control Center reports not visible;
-- notification-shade closed is `expanded=false && tracking=false`;
+- the **Home overlay** is eligible only while the notification panel has no active native shade motion **and** Control Center reports not visible;
+- notification-shade Home eligibility is `tracking=false` with native `fraction<=0`; active tracking or any positive native shade fraction transfers presentation away from Home;
+- `expanded` is diagnostic context rather than an independent Home-ownership authority because the pinned target can assert `expanded=true` for a HUN while `fraction=0.0` and `tracking=false`;
 - Control Center Home eligibility is the native semantic visibility boundary, `visible=false`;
-- notification/Control Center numeric fractions remain progress inputs for diagnostics/future projection and must not be converted into project-owned magic thresholds;
+- notification-shade fraction is a verified scene-lifetime input at the native closed/moving boundary; Control Center numeric fraction remains diagnostics/future-projection input. Neither may be turned into arbitrary project-owned thresholds or a parallel motion model;
 - transient scene ownership must hide the Home overlay without tearing down the structurally valid Home presentation owner;
 - the Home owner may keep its reversible Home-only mask/reservation session stable underneath, while the target Shade/Control Center surface remains fully native and authoritative;
 - full Home-owner teardown is reserved for structural invalidation, feature disable, host replacement/detach, fail-native, and Hot Reload cleanup.
