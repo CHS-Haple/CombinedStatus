@@ -4410,3 +4410,18 @@ Review:
 ### Validation gate
 
 Fast CI + signed Canary are required before device testing. Once a signed Build-409 Canary exists, runtime must freeze for the focused shade-lifetime scenarios.
+
+
+### Build 409 pre-CI correction
+
+Repository-latest runtime review found three commits after the first Build-409 implementation checkpoint:
+
+- `a63565f47700148fa349e30dce8d1062c480c746`: if the required notification-shade runtime Hook cannot be installed, mark Home shade eligibility false so the feature fails native instead of silently continuing without scene authority.
+- `cf8f53233a6a4f358c0840336efb57cf827e94c8`: empty commit; no executable delta.
+- `d4ef6e6bc2be143a961e0130f0978e5788c325c4`: move the cold-start Home bootstrap to after successful Shade Hook registration and remove the transient duplicate restore helper.
+
+Review conclusion:
+- these changes tighten fail-native/bootstrap semantics without adding another state source or writer;
+- Build identity remains 409 because no validated/issued Build-409 Canary existed before these corrections;
+- **final executable source for Build 409 is `d4ef6e6bc2be143a961e0130f0978e5788c325c4`**;
+- earlier `08574da...` is an intermediate unvalidated Build-409 source and must not be used for device acceptance.
