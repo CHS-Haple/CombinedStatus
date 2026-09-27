@@ -374,3 +374,18 @@ Current target-specific status:
 Builds 386-396 remain useful historical evidence but are not the current design premise.
 
 The reference library should continue to guide Phase 2B and later scene work at the level of ownership, lifecycle, restoration and projection patterns. Exact target contracts must still be proven independently before new writes are introduced.
+
+
+## 13. Retained state carrier is not visible Tint authority
+
+Build-416 Hot Reload device evidence adds a presentation-ownership distinction to the existing masking pattern.
+
+A represented native status View may remain attached, measured, event-driven and tint-capable because Combined Status deliberately preserves its SystemUI lifecycle. That does **not** make the represented View authoritative for the tint of what the user currently sees after its visual has been replaced/masked.
+
+For Home monochrome tint resolution:
+- represented Combined Status slots (`wifi`, `mobile`, `stacked_mobile`, `airplane`, `no_sim`, and any future `combined_status` participant itself) are state/lifecycle carriers, not visible peer/anchor candidates;
+- prefer a genuinely visible, non-represented Home peer as the location-aware `DarkIconDispatcher.getTint(...)` anchor and static/applied tint peer;
+- require the peer to be visible with positive layout geometry;
+- when no eligible visible peer exists, fall back to the native manager/global/cached authority rather than forcing a dark-mode refresh or inventing a color.
+
+This rule is especially important across module Hot Reload: represented native Views can temporarily retain presentation state that a full SystemUI recreation would rebuild, while neighboring visible SystemUI icons already reflect the current surface tint.

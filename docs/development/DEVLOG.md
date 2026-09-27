@@ -49,9 +49,14 @@ Added deterministic coverage that:
 - **Exception recovery:** existing reflection fallbacks remain.
 - **Future extension:** makes presentation authority explicit and reusable for later scene projection.
 
-### CI note
+### CI / source-review status
 
-Draft Light #1246 failed before Android/Gradle execution because the newly added DEVLOG metadata lines contained trailing whitespace. This is a documentation-format failure only; it does not validate or reject the Build-417 runtime change. The whitespace is removed in a record-only follow-up without changing Build identity.
+- Draft Light #1246 failed before Android/Gradle execution because the newly added DEVLOG metadata lines contained trailing whitespace. This was a documentation-format failure only and did not validate or reject Build 417.
+- The whitespace-only record correction preserved Build identity.
+- Draft Light #1247 then passed on the documentation-closure head.
+- Post-review hardening additionally excludes `combined_status` itself and makes any explicit anchor parameter obey the same candidate predicate, preventing a future caller from bypassing the visible-authority boundary.
+- Draft Light #1248 passed on exact source head `be9e14db5f0670f875d828129878b1b2c1c422bd`.
+- Source review is clean for ownership, lifecycle, single writer, cleanup, fail-native behavior, performance, compatibility, exception recovery and future extension.
 
 ### Gate
 
