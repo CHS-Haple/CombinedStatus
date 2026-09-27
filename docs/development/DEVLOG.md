@@ -4271,3 +4271,67 @@ The Phase-2B investigation must start from native scene/progress ownership and m
 - **Performance / compatibility:** no new runtime mechanism was introduced during integration/back-sync.
 - **Residual:** slight outer optical-weight variance is deferred and does not block subsequent scene work.
 - **Next:** Phase 2B is active. Start from a new work branch based on this dev baseline and address the shallow shade-pull Home-overlay leak from native scene/progress ownership rather than geometry or timing compensation.
+
+---
+
+## 2026-09-27 — Phase 2B root-cause review: Home overlay ignores native shade lifetime
+
+**Type:** scene-boundary root-cause review / pre-runtime checkpoint  
+**Display version:** 0.0.2  
+**Baseline:** dev Build 408 / `2f584c3b393dc5ee606284426aa95a9d6beae5d5`  
+**Work branch:** `fix/shade-home-overlay-leak`
+
+### Problem execution flow
+
+**Phenomenon and evidence**
+
+A shallow notification-shade pull and the final held-return frame can leave the Home Combined Status representation visible even though the notification panel has begun owning presentation.
+
+**Root cause / responsibility source**
+
+- `SystemUiSceneStateSource` classifies the Battery view from `mStatusBarState`; raw `SHADE(0)` maps to `UNLOCKED_STATUS_BAR` and allows Home overlay.
+- That status-bar mode is not a panel-expansion lifecycle. It can remain `SHADE(0)` while the notification panel opens/closes.
+- `SystemUiPanelTransitionSource` already hooks the exact target `ShadeExpansionStateManager.onPanelExpansionChanged(float, boolean, boolean)` and receives native `fraction`, `expanded`, and `tracking`.
+- `CombinedStatusModule.onPanelTransitionUpdate()` currently returns immediately when Detailed diagnostics are disabled. When enabled, it only records bounded diagnostic buckets / native transition snapshots.
+- `CombinedStatusHomeRenderSession` receives no panel-transition eligibility fact. Its overlay visibility and readiness therefore remain true as long as the static surface stays `UNLOCKED_STATUS_BAR`.
+
+**Root-cause status:** confirmed at source level. The native panel fact exists and is already hooked; the missing responsibility is routing that fact into Home presentation eligibility.
+
+### Platform / reference evidence
+
+- Android SystemUI documents `expanded` as independent from numeric fraction and `tracking` as active user gesture ownership.
+- The native shade state manager considers the panel closed only after it is not expanded and tracking has ended.
+- This explains the observed held-return case: a zero/near-zero fraction alone cannot establish Home ownership.
+- Existing Combined Status reference policy already requires native progress/scene ownership and forbids first/last-frame offset compensation or a second animation system.
+
+### Alternatives reviewed
+
+1. Hide Home when `fraction > 0.01` (or another epsilon) — rejected as a project-owned magic threshold and fails the zero-fraction-but-still-expanded/tracking case.
+2. Delay hide/show around touch release — rejected as lifecycle compensation and race-prone.
+3. Follow panel translation each frame — rejected; SystemUI owns motion and the immediate defect is eligibility, not geometry.
+4. Implement full shade/Control Center Combined Status projection now — rejected for this first fix because it mixes a new surface contract into a confirmed Home-leak correction.
+5. Route native `expanded/tracking` into Home eligibility and fail native during notification transition — selected.
+
+### Selected first runtime boundary
+
+- Notification shade stays `NATIVE_ONLY`.
+- Home notification-panel eligibility is true only for native `expanded=false && tracking=false`.
+- Any native update reporting `expanded=true` or `tracking=true` makes Home presentation not ready; existing presentation-cutover cleanup restores native status visuals.
+- Keep `fraction` read-only for diagnostics and later draw-only projection.
+- Do not change Control Center behavior in the same Build.
+
+### Review
+
+- **Ownership:** SystemUI `ShadeExpansionStateManager` remains the scene/gesture authority; Combined Status only consumes its facts.
+- **Lifecycle:** reuse the three already-installed panel hooks; no new Hook, listener, polling owner or frame callback.
+- **Single writer:** visibility/readiness remains owned by the existing Home RenderSession + presentation cutover path.
+- **Cleanup:** losing Home readiness uses the existing reversible suppression/reservation cleanup; no new mutable native state.
+- **Fail native:** shade transition explicitly restores native presentation rather than trying to render an unverified shade representation.
+- **Performance:** event-driven callback already exists; the new path is boolean state/recompute only.
+- **Compatibility:** exact target hook contract is already installed and target-profile validated.
+- **Exception recovery:** invalid/missing panel payload should not invent a transition; existing static scene/fail-native rules remain.
+- **Future extension:** fraction/endpoints remain available for a later projection layer without coupling steady Home lifetime to animation geometry.
+
+### Next
+
+Implement a pure notification-shade eligibility policy plus Home RenderSession routing, advance one runtime Build, run CI/Canary, and stop for focused device validation.
