@@ -119,12 +119,12 @@ class CombinedStatusModule : XposedModule() {
                 classLoader = param.classLoader,
                 source = "coldStart",
             )
+            installPanelTransitionSource(
+                classLoader = param.classLoader,
+                source = "coldStart",
+            )
             if (BuildConfig.RUNTIME_DIAGNOSTICS) {
                 installIslandMotionSource(
-                    classLoader = param.classLoader,
-                    source = "coldStart",
-                )
-                installPanelTransitionSource(
                     classLoader = param.classLoader,
                     source = "coldStart",
                 )
@@ -166,7 +166,9 @@ class CombinedStatusModule : XposedModule() {
                     0
                 } +
                 if (panelTransitionSourceInstalled) {
-                    SystemUiPanelTransitionSource.HOOK_COUNT
+                    SystemUiPanelTransitionSource.expectedHookCount(
+                        BuildConfig.RUNTIME_DIAGNOSTICS,
+                    )
                 } else {
                     0
                 }
@@ -318,12 +320,12 @@ class CombinedStatusModule : XposedModule() {
                 classLoader = classLoader,
                 source = "hotReload",
             )
+            installPanelTransitionSource(
+                classLoader = classLoader,
+                source = "hotReload",
+            )
             if (BuildConfig.RUNTIME_DIAGNOSTICS) {
                 installIslandMotionSource(
-                    classLoader = classLoader,
-                    source = "hotReload",
-                )
-                installPanelTransitionSource(
                     classLoader = classLoader,
                     source = "hotReload",
                 )
@@ -950,17 +952,23 @@ class CombinedStatusModule : XposedModule() {
                 isProbeEnabled = {
                     BuildConfig.DEVELOPMENT_PROBES || detailedDiagnosticsEnabled
                 },
+                includeControlCenterDiagnostics = BuildConfig.RUNTIME_DIAGNOSTICS,
             )
         }.onSuccess { handles ->
-            panelTransitionSourceInstalled =
-                handles.size == SystemUiPanelTransitionSource.HOOK_COUNT
+            val expectedHooks =
+                SystemUiPanelTransitionSource.expectedHookCount(
+                    BuildConfig.RUNTIME_DIAGNOSTICS,
+                )
+            panelTransitionSourceInstalled = handles.size == expectedHooks
             logDiagnostic(
                 level = if (panelTransitionSourceInstalled) Log.INFO else Log.WARN,
                 event = "source.install",
                 component = "panelTransition",
                 state = if (panelTransitionSourceInstalled) "ready" else "partial",
                 "hooks" to handles.size,
-                "expectedHooks" to SystemUiPanelTransitionSource.HOOK_COUNT,
+                "expectedHooks" to expectedHooks,
+                "notificationRuntimeHook" to true,
+                "controlCenterDiagnosticHooks" to BuildConfig.RUNTIME_DIAGNOSTICS,
                 "source" to source,
                 "nativeGeometryWrites" to 0,
             )
@@ -983,6 +991,10 @@ class CombinedStatusModule : XposedModule() {
     private fun onPanelTransitionUpdate(
         update: SystemUiPanelTransitionSource.Update,
     ) {
+        if (update.source == SystemUiPanelTransitionSource.Source.NOTIFICATION_SHADE) {
+            CombinedStatusHomeRenderSession.onPanelTransitionUpdate(update)
+        }
+
         if (!detailedDiagnosticsEnabled) {
             return
         }
