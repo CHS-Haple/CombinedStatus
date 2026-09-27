@@ -123,10 +123,10 @@ A shallow notification-shade pull / final held-return frame can still leave the 
 ## Immediate next step
 
 1. Build 405 source review is complete; freeze its direct-final-Drawable boundary.
-2. Run Fast CI + signed Work Branch Canary for Build 405.
-3. If CI passes, stop runtime changes and perform focused target-device A/B against Builds 403 and 404: center edge quality/antialiasing, apparent stroke weight, size/centering, and unchanged outer geometry/tint.
-4. Keep HyperOS Light / Dark / Tint `transformResId` resource-variant alignment out of Build 405 so the direct-draw result remains attributable. Evaluate it only if a state-dependent difference remains afterward.
-5. Keep Build-403 battery semantic-color acceptance separate and unchanged.
+2. CI is currently blocked **before workflow execution**: validation PRs #131 and #132 were created/updated against the same `dev` base SHA and the unchanged `build.yml`, but connector-originated opened/synchronize/reopened/ready events produced zero Actions runs/check-runs. This is an event-delivery blocker, not a compile/test failure.
+3. Keep validation-only PR #132 open as the active carrier. The next required trigger is a normal user-originated GitHub `pull_request synchronize` event on `fix/build-405-validation-carrier-2` (for example, a harmless docs-only commit made from GitHub web/local git). Do not use workflow_dispatch as a substitute for the signed Work Branch Canary chain because that workflow requires an upstream Build whose event is `pull_request`.
+4. Once Fast CI and signed Work Branch Canary pass, stop runtime changes and perform focused target-device A/B against Builds 403 and 404: center edge quality/antialiasing, apparent stroke weight, size/centering, and unchanged outer geometry/tint.
+5. Keep HyperOS Light / Dark / Tint `transformResId` resource-variant alignment out of Build 405 so the direct-draw result remains attributable. Keep Build-403 battery semantic-color acceptance separate.
 6. Only after optical/color closure move to the already-identified Phase-2B shallow-shade scene-boundary leak.
 
 ## Reference priority
