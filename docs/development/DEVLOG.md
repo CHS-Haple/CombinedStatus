@@ -4997,3 +4997,51 @@ Restoring 8.25 therefore restores both line weight and the previously preferred 
 ### Review boundary
 
 This is a deterministic return to an already device-seen and explicitly preferred visual baseline. It still requires source review and CI/Canary, but does not require a separate maintainer thickness A/B before integration.
+
+
+---
+
+## 2026-09-27 — Build 411 device verdict: scene accepted, 8.0 ring rejected
+
+**Type:** maintainer device acceptance / visual baseline correction  
+**Build under test:** 411 / 20260927-411  
+**Executable source:** `aaaaf0810b114b1e90a3de3f1520721a420da2d0`
+
+### Maintainer feedback
+
+The maintainer reports:
+- notification-shade / panel down-up behavior is now correct;
+- the 8.0 battery ring still looks worse than the previously seen 8.25 geometry;
+- the ring/ROUND-endpoint/lower-opening relationship should prioritize visual harmony rather than keeping the 8.0 compromise.
+
+### Accepted runtime conclusion
+
+The Build-411 ownership correction is retained:
+- the structurally valid Home owner remains persistent across panel scene transitions;
+- notification-shade / Control Center gates affect overlay visibility rather than destructively tearing down/recreating the Home owner;
+- no further panel-scene runtime change is requested by this feedback.
+
+### Visual correction
+
+The Build-411 8.0 ring A/B is rejected.
+
+The next candidate restores exactly:
+- ring stroke: **8.25 canonical units**;
+- `Paint.Cap.ROUND`: unchanged;
+- resulting endpoint cap radius: **4.125 canonical units**;
+- mobile dot radius: unchanged at the accepted current value;
+- center geometry: unchanged;
+- colors/alpha: unchanged;
+- lower-opening solver: unchanged and allowed to recompute balanced edge gaps from the restored ring width.
+
+This is intentionally an exact historical ring-width restoration, not a new screenshot-derived or device-pixel constant.
+
+### Historical clarification
+
+Earlier Build-407 notes recorded that 8.25 could read optically heavy relative to the then-current center/dot presentation. That historical observation remains valid evidence and is not rewritten. Later center-resource/tint corrections and current maintainer comparison change the present decision: on the current visual/runtime baseline, the maintainer explicitly prefers 8.25 over 8.0/7.5.
+
+### Review boundary
+
+No scene lifecycle, Hook, Home ownership, notification/HUN behavior, center/dot geometry, tint, alpha or animation change is authorized in this follow-up.
+
+Because 8.25 is already a previously observed device geometry and the change is a one-variable restoration using the existing ROUND cap and gap solver, CI/review is sufficient for this follow-up unless an unexpected delta appears.
