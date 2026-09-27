@@ -481,6 +481,7 @@ class CombinedStatusModule : XposedModule() {
                 source = "hotReloadRestore",
                 initialNativeHandoffActive = true,
                 initialTintState = transferredTint,
+                allowLiveTintSeed = false,
             )
 
             logDiagnostic(
@@ -1407,6 +1408,7 @@ class CombinedStatusModule : XposedModule() {
         source: String,
         initialNativeHandoffActive: Boolean = false,
         initialTintState: CombinedStatusTintState? = null,
+        allowLiveTintSeed: Boolean = true,
     ) {
         val hostContext = (host as? android.view.View)?.context
         val coreRuntime =
@@ -1556,6 +1558,7 @@ class CombinedStatusModule : XposedModule() {
                 isDetailedDiagnosticsEnabled = { detailedDiagnosticsEnabled },
                 initialNativeHandoffActive = true,
                 initialTintState = initialTintState,
+                allowLiveTintSeed = allowLiveTintSeed,
                 onPresentationReadinessChanged = { ready ->
                     onHomePresentationReadinessChanged(host, ready, source)
                 },
