@@ -24,6 +24,7 @@ internal class CombinedStatusPainter(
     private var airplaneDrawableResolved = false
     private var cachedAirplaneResourceId: Int = 0
     private val nativeCenterAssets = LinkedHashMap<String, NativeCenterAsset>(NATIVE_CENTER_CACHE_SIZE, 0.75f, true)
+    private val nativeTintVariantIds = HashMap<String, Int>()
     private var cachedMobileTypeWeight: Int = Int.MIN_VALUE
     private var cachedMobileTypeTypeface: Typeface = Typeface.DEFAULT
     private val mobileTypeMainBounds = Rect()
@@ -91,6 +92,7 @@ internal class CombinedStatusPainter(
             current = model.centerIndicator,
             previous = previousCenterIndicator,
             tint = colors.centerTint,
+            forceNativeTintVariant = colors.centerUsesBatteryTint,
             opacity = opacity,
             scale = scale,
             exitAmount = centerExitAmount,
@@ -160,6 +162,7 @@ internal class CombinedStatusPainter(
         current: CenterIndicator,
         previous: CenterIndicator?,
         tint: Int,
+        forceNativeTintVariant: Boolean,
         opacity: Float,
         scale: Float,
         exitAmount: Float,
@@ -172,6 +175,7 @@ internal class CombinedStatusPainter(
                 canvas = canvas,
                 indicator = current,
                 tint = tint,
+                forceNativeTintVariant = forceNativeTintVariant,
                 opacity = opacity,
                 scale = scale,
                 appearAmount = 1f,
@@ -185,6 +189,7 @@ internal class CombinedStatusPainter(
             canvas = canvas,
             indicator = previous,
             tint = tint,
+            forceNativeTintVariant = forceNativeTintVariant,
             opacity = opacity,
             scale = scale,
             appearAmount = exitAmount.coerceIn(0f, 1f),
@@ -195,6 +200,7 @@ internal class CombinedStatusPainter(
             canvas = canvas,
             indicator = current,
             tint = tint,
+            forceNativeTintVariant = forceNativeTintVariant,
             opacity = opacity,
             scale = scale,
             appearAmount = enterAmount.coerceIn(0f, 1f),
@@ -207,6 +213,7 @@ internal class CombinedStatusPainter(
         canvas: Canvas,
         indicator: CenterIndicator,
         tint: Int,
+        forceNativeTintVariant: Boolean,
         opacity: Float,
         scale: Float,
         appearAmount: Float,
@@ -234,6 +241,7 @@ internal class CombinedStatusPainter(
                     canvas = canvas,
                     indicator = indicator,
                     tint = tint,
+                    forceNativeTintVariant = forceNativeTintVariant,
                     opacity = opacity,
                     geometry = geometry,
                     nativeTransform = nativeTransform,
@@ -254,6 +262,7 @@ internal class CombinedStatusPainter(
                 drawNativeAirplane(
                     canvas = canvas,
                     tint = tint,
+                    forceNativeTintVariant = forceNativeTintVariant,
                     opacity = animatedOpacity,
                     geometry = geometry,
                     nativeTransform = nativeTransform,
@@ -265,6 +274,7 @@ internal class CombinedStatusPainter(
                     canvas = canvas,
                     resource = indicator.nativeResource,
                     tint = tint,
+                    forceTintVariant = forceNativeTintVariant,
                     opacity = animatedOpacity,
                     centerX = CENTER_TRANSITION_PIVOT_X,
                     centerY = CENTER_TRANSITION_PIVOT_Y,
@@ -283,6 +293,7 @@ internal class CombinedStatusPainter(
         canvas: Canvas,
         indicator: CenterIndicator.Wifi,
         tint: Int,
+        forceNativeTintVariant: Boolean,
         opacity: Float,
         geometry: CombinedStatusCenterGeometry.Resolved,
         nativeTransform: NativeRenderTransform,
@@ -299,6 +310,7 @@ internal class CombinedStatusPainter(
                         resourceId = nativeResourceId,
                     ),
                 tint = tint,
+                forceTintVariant = forceNativeTintVariant,
                 opacity = opacity,
                 centerX = WIFI_CENTER_X,
                 centerY = WIFI_CENTER_Y,
@@ -325,6 +337,35 @@ internal class CombinedStatusPainter(
             canvas.drawPath(path, paint)
         }
         canvas.restoreToCount(save)
+    }
+
+    private fun resolveNativeTintVariant(
+        resource: CombinedStatusPresentationStateStore.NativeIconResource,
+    ): CombinedStatusPresentationStateStore.NativeIconResource? {
+        if (resource.packageName != SYSTEM_UI_PACKAGE) {
+            return null
+        }
+
+        val key = resource.packageName + ":" + resource.resourceId
+        val tintResourceId =
+            nativeTintVariantIds.getOrPut(key) {
+                runCatching {
+                    val drawableContext =
+                        context.createPackageContext(resource.packageName, 0)
+                    val entryName =
+                        drawableContext.resources.getResourceEntryName(resource.resourceId)
+                    val tintEntryName =
+                        NativeCenterResourceVariantPolicy.tintEntryName(entryName)
+                    drawableContext.resources.getIdentifier(
+                        tintEntryName,
+                        "drawable",
+                        resource.packageName,
+                    )
+                }.getOrDefault(0)
+            }
+        return tintResourceId
+            .takeIf { it != 0 }
+            ?.let { resource.copy(resourceId = it) }
     }
 
     private fun nativeCenterAsset(
@@ -444,6 +485,7 @@ internal class CombinedStatusPainter(
         canvas: Canvas,
         resource: CombinedStatusPresentationStateStore.NativeIconResource,
         tint: Int,
+        forceTintVariant: Boolean = false,
         opacity: Float,
         centerX: Float,
         centerY: Float,
@@ -452,7 +494,13 @@ internal class CombinedStatusPainter(
         nativeTransform: NativeRenderTransform,
         pixelAligned: Boolean,
     ): Boolean {
-        val asset = nativeCenterAsset(resource) ?: return false
+        val presentationResource =
+            if (forceTintVariant) {
+                resolveNativeTintVariant(resource) ?: resource
+            } else {
+                resource
+            }
+        val asset = nativeCenterAsset(presentationResource) ?: return false
         val intrinsicWidth = asset.intrinsicWidth
         val intrinsicHeight = asset.intrinsicHeight
         if (intrinsicWidth <= 0 || intrinsicHeight <= 0) {
@@ -573,6 +621,7 @@ internal class CombinedStatusPainter(
     private fun drawNativeAirplane(
         canvas: Canvas,
         tint: Int,
+        forceNativeTintVariant: Boolean,
         opacity: Float,
         geometry: CombinedStatusCenterGeometry.Resolved,
         nativeTransform: NativeRenderTransform,
@@ -587,6 +636,7 @@ internal class CombinedStatusPainter(
                     resourceId = resourceId,
                 ),
             tint = tint,
+            forceTintVariant = forceNativeTintVariant,
             opacity = opacity,
             centerX = AIRPLANE_CENTER_X,
             centerY = AIRPLANE_CENTER_Y,
@@ -932,6 +982,17 @@ internal class CombinedStatusPainter(
     }
 }
 
+
+
+internal object NativeCenterResourceVariantPolicy {
+    fun tintEntryName(entryName: String): String {
+        val base =
+            entryName
+                .removeSuffix("_darkmode")
+                .removeSuffix("_tint")
+        return base + "_tint"
+    }
+}
 
 
 internal data class NativeRenderTransform(

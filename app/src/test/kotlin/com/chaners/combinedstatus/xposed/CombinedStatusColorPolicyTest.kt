@@ -19,6 +19,7 @@ class CombinedStatusColorPolicyTest {
         assertEquals(0xff445566.toInt(), colors.centerTint)
         assertEquals(0xff445566.toInt(), colors.mobileTint)
         assertEquals(0xff445566.toInt(), colors.batteryTint)
+        assertEquals(false, colors.centerUsesBatteryTint)
     }
 
     @Test
@@ -87,6 +88,7 @@ class CombinedStatusColorPolicyTest {
         assertEquals(semanticColor, colors.centerTint)
         assertEquals(semanticColor, colors.mobileTint)
         assertEquals(semanticColor, colors.batteryTint)
+        assertEquals(true, colors.centerUsesBatteryTint)
     }
 
     @Test
