@@ -4,7 +4,8 @@ import android.os.Bundle
 import android.view.View
 
 internal object CombinedStatusHotReloadTransfer {
-    private const val VERSION = 5
+    private const val VERSION = 6
+    private const val SHADE_TRANSFER_VERSION = 5
     private const val PREVIOUS_VERSION = 4
     private const val NATIVE_TRANSFER_VERSION = 3
     private const val VISUAL_TRANSFER_VERSION = 2
@@ -14,7 +15,9 @@ internal object CombinedStatusHotReloadTransfer {
     private const val INDEX_STATE = 2
     private const val INDEX_BINDINGS = 3
     private const val INDEX_NOTIFICATION_SHADE_HOME_ELIGIBLE = 4
-    private const val CURRENT_PAYLOAD_SIZE = 5
+    private const val INDEX_CONTROL_CENTER_HOME_ELIGIBLE = 5
+    private const val CURRENT_PAYLOAD_SIZE = 6
+    private const val SHADE_PAYLOAD_SIZE = 5
     private const val PREVIOUS_PAYLOAD_SIZE = 4
     private const val LEGACY_PAYLOAD_SIZE = 4
     private const val VISUAL_PAYLOAD_SIZE = 5
@@ -25,6 +28,7 @@ internal object CombinedStatusHotReloadTransfer {
         state: Bundle,
         bindings: Any,
         notificationShadeHomeEligible: Boolean?,
+        controlCenterHomeEligible: Boolean?,
     ): Any? {
         val hostView = host as? View ?: return null
         if (hostView.javaClass.name != StatusBarHostCapture.HOST_CLASS_NAME) {
@@ -37,6 +41,7 @@ internal object CombinedStatusHotReloadTransfer {
             state,
             bindings,
             notificationShadeHomeEligible,
+            controlCenterHomeEligible,
         )
     }
 
@@ -47,6 +52,7 @@ internal object CombinedStatusHotReloadTransfer {
         val expectedSize =
             when (version) {
                 VERSION -> CURRENT_PAYLOAD_SIZE
+                SHADE_TRANSFER_VERSION -> SHADE_PAYLOAD_SIZE
                 PREVIOUS_VERSION -> PREVIOUS_PAYLOAD_SIZE
                 NATIVE_TRANSFER_VERSION -> NATIVE_PAYLOAD_SIZE
                 VISUAL_TRANSFER_VERSION -> VISUAL_PAYLOAD_SIZE
@@ -65,8 +71,14 @@ internal object CombinedStatusHotReloadTransfer {
         val state = payload.getOrNull(INDEX_STATE) as? Bundle ?: return null
         val bindings = payload.getOrNull(INDEX_BINDINGS)
         val notificationShadeHomeEligible =
-            if (version == VERSION) {
+            if (version == VERSION || version == SHADE_TRANSFER_VERSION) {
                 payload.getOrNull(INDEX_NOTIFICATION_SHADE_HOME_ELIGIBLE) as? Boolean
+            } else {
+                null
+            }
+        val controlCenterHomeEligible =
+            if (version == VERSION) {
+                payload.getOrNull(INDEX_CONTROL_CENTER_HOME_ELIGIBLE) as? Boolean
             } else {
                 null
             }
@@ -76,6 +88,7 @@ internal object CombinedStatusHotReloadTransfer {
             state = state,
             bindings = bindings,
             notificationShadeHomeEligible = notificationShadeHomeEligible,
+            controlCenterHomeEligible = controlCenterHomeEligible,
         )
     }
 
@@ -84,5 +97,6 @@ internal object CombinedStatusHotReloadTransfer {
         val state: Bundle,
         val bindings: Any?,
         val notificationShadeHomeEligible: Boolean?,
+        val controlCenterHomeEligible: Boolean?,
     )
 }
