@@ -3824,3 +3824,23 @@ Prefer reusing the existing `MiuiWifiViewBinder` / Wi-Fi emitter hook lifecycle:
 ### Gate
 
 No runtime change is accepted yet from this correction. Complete the final-native-presentation review first, then implement one bounded next A/B and stop for signed-Canary device validation.
+
+
+### Root-cause refinement before Build 407
+
+A direct source review of the Build-406 Painter found a simpler contract mismatch than the provisional live-ImageView mirroring direction:
+
+- `drawNativeCenterResource(...)` unconditionally calls `drawable.setTint(tint)` for native center assets;
+- this is true in both the normal center-color path and the optional battery-follow path;
+- therefore Combined Status is effectively always using an **externally tinted native-center presentation**;
+- exact-target HyperOS evidence already establishes that the external-tint branch first transforms the semantic resource to its `*_tint` presentation variant, whose authored mask is intended for ImageView tinting;
+- Build 406 selected that `_tint` sibling only when `centerFollowsBatteryColor=true`, leaving the default externally-tinted path on the raw authored resource.
+
+This explains the new device evidence without reintroducing percentile normalization:
+- raw authored resources can retain their own alpha/coverage when `setTint` is applied;
+- the project battery ring is painted at the resolved tint's full active alpha;
+- Build 403's source-alpha normalization artificially removed much of that residual authored-alpha difference, which is why it could look more uniform even though its bitmap pipeline was not the native mechanism.
+
+**Selected Build-407 boundary:** use the verified native `_tint` mask for every native center resource that Combined Status externally tints. This is narrower than mirroring a live ImageView, requires no new Hook/lifecycle owner, and directly matches the existing Painter's presentation mode.
+
+The live native-ImageView presentation mirror remains a fallback investigation route only if this exact contract correction still fails on device.
