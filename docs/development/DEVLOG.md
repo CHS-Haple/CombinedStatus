@@ -2,6 +2,60 @@
 
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
+## 2026-09-28 — Build 416 device rejection: SystemUI restart isolates Hot Reload lifecycle
+
+**Type:** maintainer device rejection / root-cause narrowing  
+**Rejected build:** 416 / `20260928-416`  
+**Stable baseline:** 413 / `20260927-413`  
+**Work branch / PR:** `fix/hot-reload-tint-continuity` / Draft #148
+
+### Maintainer evidence
+
+The Build-416 signed Canary remains visually incorrect after module Hot Reload. The same installed Build becomes visually correct after a full SystemUI restart.
+
+Screenshots show the Combined Status monochrome direction disagreeing with neighboring native Home icons across dark/light surfaces after Hot Reload. The supplied Detailed diagnostic is Build 416 Canary and captures the abnormal post-Hot-Reload session.
+
+### Diagnostic facts
+
+- Hot Reload completes with `restartScope=false` and restores the existing Home host.
+- Initial restored renderer tint is `#bf000000`.
+- `statusIconPresentation` later alternates between `#bf000000` and `#e6ffffff`, with `tintAuthority=dispatcher-location-aware`.
+- The current resolved anchor/peer search is allowed to use represented native slots that remain attached and sized even while Combined Status owns their visible presentation.
+- The native Wi-Fi View remains present and reports a dark tint in the captured abnormal Hot Reload session.
+- Full SystemUI recreation clears the defect without changing the installed Build.
+
+### Historical correction
+
+Build 416 rejects the assumption that changing Tint authority precedence alone closes the issue. The dispatcher calculation is not sufficient if the anchor itself belongs to a represented/masked native slot whose post-Hot-Reload presentation state is no longer authoritative for what the user actually sees.
+
+The stronger discriminator is lifecycle: cold SystemUI recreation is healthy while module-generation handoff is not. Therefore steady cold-start color policy is not reopened by default.
+
+### Selected next boundary
+
+Audit and correct the Home Tint authority candidate set:
+
+- represented/masked native slots (`wifi`, `mobile`, `stacked_mobile`, `airplane`, `no_sim`) remain alive for native lifecycle/state ownership but must not be treated as visible Home tint peers/anchors;
+- use a genuinely visible, non-represented Home peer as the location-aware dispatcher anchor / static-tint peer when available;
+- only then fall back to manager-global/cached sources;
+- keep Hot Reload transfer v7, Battery semantic colors, geometry, scene ownership and rendering unchanged.
+
+### 审查 / review
+
+- **Ownership:** visible Home peer tint belongs to still-visible native SystemUI participants; represented/masked slots are state/lifecycle carriers, not visible tint authorities.
+- **Lifecycle:** directly addresses the Hot Reload-only stale represented-slot state while preserving the healthy full-restart path.
+- **Single writer:** read-only authority selection; no SystemUI tint writer.
+- **Cleanup:** unchanged.
+- **Fail native:** if no valid visible peer/anchor is available, use the existing manager/global/cached fallback rather than fabricating a color.
+- **Performance:** bounded traversal of the already-captured Home icon group on existing events only.
+- **Compatibility:** no new private class/method/hook contract.
+- **Exception recovery:** existing reflective fallbacks remain.
+- **Future extension:** separates “kept alive for state” from “authoritative for visible presentation,” which is required for future scene projections as well.
+
+### Gate
+
+Record this rejection before further runtime mutation. Build 417, if implemented, must be the single-variable represented-slot authority correction and must pass source review/tests, Fast CI and one signed Canary before another device pass.
+
+
 ## 2026-09-28 — Build 416 location-aware Home tint authority
 
 **Type:** single-variable runtime authority correction
