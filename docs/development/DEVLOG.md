@@ -65,6 +65,14 @@ Reproduce a single HUN with detailed diagnostics enabled on the existing signed 
 
 The prior tentative statement that the current Combined Status native participant likely receives `ICON / DOT / HIDDEN` and hides itself is rejected for Build 412 by current source/call-site review. Historical native-participant experiments remain valid evidence for those older builds but are not the active carrier architecture.
 
+### Documentation CI
+
+- Draft PR #142 correctly classified this documentation-only checkpoint as **Light** validation.
+- Light Build #1174 / run `36327495300` failed only `git diff --check` because two newly added DEVLOG metadata lines carried trailing Markdown whitespace.
+- The whitespace was removed without changing engineering content.
+- Light Build #1175 / run `36327543097` then **passed**. Android/Gradle/signing/APK work remained skipped as required for documentation-only validation.
+- Any record-only closure commit after this entry remains repository-memory maintenance and does not create a runtime Build or require recursive DEVLOG bookkeeping.
+
 ### Gate
 
 This checkpoint creates no Build 413. Obtain focused Build-412 HUN diagnostics before any runtime mutation.
