@@ -4,8 +4,8 @@ This is the chronological engineering diary for Combined Status. It complements,
 
 ## 2026-09-27 — Post-Build 412 HUN ownership source review
 
-**Type:** root-cause triage / historical-assumption correction / documentation-only checkpoint  
-**APK build:** none; executable runtime remains Build 412 / `20260927-412`  
+**Type:** root-cause triage / historical-assumption correction / documentation-only checkpoint
+**APK build:** none; executable runtime remains Build 412 / `20260927-412`
 **Work branch:** `fix/home-hun-ownership`
 
 ### Problem execution flow
