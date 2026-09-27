@@ -3399,3 +3399,63 @@ Validation rule:
 - obtain one normal user-originated `pull_request synchronize` event from GitHub web/local git;
 - do not cite Build 405 as CI-passed until a run explicitly tests the carrier head and the downstream signed Work Branch Canary succeeds;
 - workflow_dispatch alone is insufficient for the full signed Canary chain because Work Branch Canary requires the upstream Build event to be `pull_request`.
+
+
+---
+
+## 2026-09-27 — Build 405 trusted Canary validation complete
+
+**Type:** CI validation / device-test handoff  
+**Display version:** 0.0.2  
+**Build:** 405 / 20260927-405  
+**Runtime source:** `bf8091c8680dec7b85c58afded7f476ec95ca49d`  
+**Validated PR head:** `3cdfcc4db4bd5cd350e17400f2ed71d818b9c8d9`  
+**Validation:** passed; device A/B pending
+
+### CI-flow resolution
+
+The earlier connector-originated pull-request event-delivery failure was resolved at the repository-process layer rather than by mutating Build 405 runtime code.
+
+PR #134 installed the trusted default-branch Canary fallback and passed:
+- Full Build #1095: success on final process head `6c08962914b3af204cf2e94701cd28dc5084f357`;
+- signed Work Branch Canary #331: success;
+- merge to `main`: `5ca1029bb8383da793b69f81370df2760d4389dc`;
+- post-merge main Build #1096: success.
+
+The fallback adds an owner-only exact `/canary` PR-comment admission path plus a manual-dispatch fallback while preserving the normal automatic PR-Build follow-up.
+
+### Build 405 trusted validation
+
+Repository owner posted exact `/canary` on PR #105. Work Branch Canary #332 then:
+- resolved the live same-repository PR head;
+- resolved branch `feat/battery-semantic-colors`;
+- resolved source SHA `3cdfcc4db4bd5cd350e17400f2ed71d818b9c8d9`;
+- verified checkout equals the resolved trusted source;
+- restored/verified Haple signing;
+- verified the pinned HyperOS target profile;
+- passed unit tests and Canary build;
+- passed Modern Xposed metadata validation;
+- passed Haple APK signature verification;
+- passed non-debuggable verification;
+- uploaded the signed Canary artifact.
+
+Comparison from runtime source `bf8091c8680dec7b85c58afded7f476ec95ca49d` to validated PR head `3cdfcc4db4bd5cd350e17400f2ed71d818b9c8d9` contains only:
+- `docs/development/CURRENT.md`;
+- `docs/development/DEVLOG.md`.
+
+Therefore the validated executable content remains exactly the frozen Build-405 runtime checkpoint.
+
+### Artifact identity
+
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260927-405-canary.apk`
+- Actions artifact ID: `10929226454`
+- Artifact ZIP SHA-256: `4d0a9b45bd1ec3cc9ab921226adca8ca6897188468393a4d65137c4fd7843137`
+- Extracted APK SHA-256: `106fbfebe88a9e386f00f61271e38cc8f5999e5f43e086627c42d66985310203`
+
+### Review / outcome
+
+- **Ownership/lifecycle/single writer:** unchanged from the Build-405 source review; no runtime mutation was made while resolving CI.
+- **Cleanup:** CI carrier PRs are no longer needed for Build 405.
+- **Fail native / compatibility / performance:** unchanged from the frozen Build-405 runtime checkpoint.
+- **Validation meaning:** CI proves source/build/signing/metadata contract only; optical parity still requires focused target-device comparison.
+- **Next:** stop runtime changes and compare Build 405 against Builds 403 and 404 for native center edge coverage/antialiasing, apparent weight, size/centering, and unchanged outer geometry/tint. HyperOS Light/Dark/Tint resource-variant transformation remains a separate follow-up boundary only if a state-dependent mismatch survives.
