@@ -2,6 +2,82 @@
 
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
+## 2026-09-28 — Build 415 device rejection and tint-authority root-cause correction
+
+**Type:** maintainer device rejection / root-cause correction
+**Display version:** 0.0.2
+**Rejected build:** 415 / `20260928-415`
+**Work branch / PR:** `fix/hot-reload-tint-continuity` / Draft #148
+**Stable baseline remains:** Build 413 / `20260927-413`
+
+### Maintainer feedback
+
+Build 415 still shows incorrect Combined Status inversion/tint after installing over Build 414 and using module Hot Reload without restarting SystemUI. Screenshots show Combined Status using the opposite light/dark direction from neighboring native status icons on the same surface.
+
+The supplied Build-415 Detailed diagnostic is the abnormal pre-restart state and therefore is the authoritative device evidence for this failure.
+
+### Diagnostic facts
+
+- Build identity is `20260928-415`, Canary, Detailed diagnostics.
+- Hot Reload restores successfully and reports `tintTransfer=native-fallback`, which is expected for the first 414 -> 415 upgrade because Build 414 emits the older payload.
+- The new Home generation initially remains non-presenting until a native tint event arrives.
+- At the first accepted new-generation tint event, `MiuiBatteryMeterView` / Battery anchor reports `#bf000000`; Home becomes presentation-ready from that event.
+- Immediately afterward status-icon observation reports the Home peer/manager tint in the light family (`#e5fcfcfc` / `#e6ffffff`).
+- During the same captured session status-icon observation subsequently alternates between light and dark values. This matches the maintainer's visual report that Combined Status remains inverted relative to neighboring native icons.
+- Build 415's Hot Reload lifecycle change therefore behaved as designed but waited for the wrong authority source.
+
+### Historical correction
+
+The Build-414 conclusion that missing Hot Reload tint continuity was the root cause was **incomplete**.
+
+The continuity gap is real and Build 415's transfer/fail-native mechanics remain valuable:
+- same/new payload generations can carry stable primitive tint across Hot Reload;
+- legacy payloads no longer trust an arbitrary handoff-time live Battery TextView color.
+
+However, Build 415 proves that continuity alone cannot fix the defect because the first later Battery tint callback can itself disagree with the actual Home status-icon presentation.
+
+The root cause moves upstream from **when tint is accepted** to **which native tint authority is authoritative for the Combined Status Home location**.
+
+### Source review
+
+Current implementation has two overlapping tint pipelines:
+
+1. `SystemUiTintStateSource` follows `MiuiBatteryMeterView` and reads `mBatteryPercentView.currentTextColor`; this is logged as `battery-anchor-fallback`.
+2. `SystemUiNativeNetworkSuppressionOwner` observes the Home `MiuiStatusIconContainer`, its native peers, and the `DarkIconManager / DarkIconDispatcher`; this becomes `statusIcons.appliedTint` and is already preferred by `CombinedStatusColorPolicy` when present.
+
+The second resolver currently has two weak ordering choices:
+- `resolveManagerAppliedTint()` returns opaque manager-global `mColor` before attempting the already-implemented `DarkIconDispatcher.getTint(mTintAreas, anchorView, mIconTint)` location-aware calculation;
+- `selectStatusIconTint()` gives recursively discovered peer tint priority over manager tint, while recursive peer search can descend into internal child views that are not the final visible status-icon authority.
+
+The exact device symptom is therefore consistent with a project-side authority-selection issue, not a need for new dark-mode timing logic.
+
+### Selected Build-416 boundary
+
+Use the existing native location-aware DarkIconDispatcher calculation as primary Home monochrome tint authority:
+
+- resolve `mDarkIconDispatcher.mIconTint` and `mTintAreas`;
+- when a valid Home anchor is available, call the existing exact runtime `DarkIconDispatcher.getTint(...)` path first;
+- only fall back to manager-global `mColor`, visible-peer/static tint, or cached tint when the location-aware result cannot be resolved;
+- keep `CombinedStatusBatteryColorPolicy` unchanged so semantic charging/power-save/performance/low colors remain native-semantic while NORMAL continues to follow the status-icon tint;
+- retain Build-415 Hot Reload transfer/fail-native mechanics unchanged.
+
+### 审查 / review
+
+- **Ownership:** HyperOS/SystemUI remains tint authority; Combined Status stops privileging a project-observed Battery text color or manager-global value over the native location-aware dark dispatcher result.
+- **Lifecycle:** no new listener, timer, polling or frame loop.
+- **Single writer:** read-only authority selection only; no SystemUI color writer is introduced.
+- **Cleanup:** unchanged from Build 415.
+- **Fail native:** if location-aware dispatcher tint cannot be resolved, existing manager/peer/cached fallback remains available.
+- **Performance:** constant-time reflection/read during existing event-driven observation; no new periodic work.
+- **Compatibility:** no new private class/field contract is introduced in the first correction; it reorders already-used runtime contracts.
+- **Exception recovery:** dispatcher reflection failure falls through to existing fallback sources.
+- **Future extension:** establishes one Home monochrome authority that can later be reused by panel projections without duplicating color policy.
+
+### Validation gate
+
+Advance the next executable correction to Build 416. Keep PR #148 Draft until source review/tests pass, then Fast + one signed Canary + focused device Hot Reload inversion test. Do not resume PR #146 until this shared tint authority is accepted.
+
+
 ## 2026-09-28 — Build 415 Hot Reload tint continuity implementation
 
 **Type:** runtime lifecycle correction
