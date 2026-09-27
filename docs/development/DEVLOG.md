@@ -4,9 +4,9 @@ This is the chronological engineering diary for Combined Status. It complements,
 
 ## 2026-09-28 — Build 422: remove duplicate Home scene writer
 
-**Type:** Phase-2B runtime ownership correction  
-**Build:** 422 / `20260928-422`  
-**Work branch / PR:** `feat/panel-projection` / Draft #146  
+**Type:** Phase-2B runtime ownership correction
+**Build:** 422 / `20260928-422`
+**Work branch / PR:** `feat/panel-projection` / Draft #146
 **Device validation:** pending
 
 ### Build-421 device result
