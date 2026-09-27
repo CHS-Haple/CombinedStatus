@@ -1,6 +1,7 @@
 package com.chaners.combinedstatus.xposed
 
 import android.view.View
+import android.view.ViewGroup
 import io.github.libxposed.api.XposedInterface.HookHandle
 import io.github.libxposed.api.XposedInterface.Hooker
 import io.github.libxposed.api.XposedModule
@@ -85,14 +86,10 @@ internal object SystemUiPanelTransitionSource {
             }
 
         controlAnchorContract =
-            if (includeControlCenterDiagnostics) {
-                ControlCenterAnchorContract.resolve(
-                    classLoader = classLoader,
-                    delegateClass = controlClass,
-                )
-            } else {
-                null
-            }
+            ControlCenterAnchorContract.resolve(
+                classLoader = classLoader,
+                delegateClass = controlClass,
+            )
 
         val handles =
             ArrayList<HookHandle>(
@@ -158,6 +155,12 @@ internal object SystemUiPanelTransitionSource {
                             val result = chain.proceed()
                             controlCenterHomeEligible =
                                 controlCenterAllowsHome(visible)
+                            val controlCenterCarrier =
+                                if (visible == true) {
+                                    resolveControlCenterRealSystemIcons(chain.thisObject)
+                                } else {
+                                    null
+                                }
                             val update =
                                 Update(
                                     source = Source.CONTROL_CENTER,
@@ -165,6 +168,7 @@ internal object SystemUiPanelTransitionSource {
                                     expanded = null,
                                     tracking = null,
                                     visible = visible,
+                                    controlCenterCarrier = controlCenterCarrier,
                                 )
                             onUpdate?.invoke(update)
                             emitDiagnostic(
@@ -269,10 +273,11 @@ internal object SystemUiPanelTransitionSource {
     internal fun notificationShadeAllowsHome(
         fraction: Float?,
         tracking: Boolean?,
-    ): Boolean =
-        tracking == false &&
-            fraction != null &&
-            fraction <= 0f
+    ): Boolean {
+        @Suppress("UNUSED_VARIABLE")
+        val nativeTrackingContext = tracking
+        return fraction != null && fraction <= 0f
+    }
 
     fun currentNotificationShadeHomeEligibility(): Boolean? =
         notificationShadeHomeEligible
@@ -315,15 +320,24 @@ internal object SystemUiPanelTransitionSource {
             bucket != controlProbe.bucket
     }
 
-    private fun captureControlCenterAnchor(delegate: Any?): ControlCenterAnchorSnapshot? {
+    private fun resolveControlCenterHeader(delegate: Any?): Any? {
         delegate ?: return null
         val contract = controlAnchorContract ?: return null
-        val header =
-            controlHeaderRef.get()
-                ?: contract.resolveHeader(delegate)?.also { resolved ->
-                    controlHeaderRef = WeakReference(resolved)
-                }
-                ?: return null
+        return controlHeaderRef.get()
+            ?: contract.resolveHeader(delegate)?.also { resolved ->
+                controlHeaderRef = WeakReference(resolved)
+            }
+    }
+
+    private fun resolveControlCenterRealSystemIcons(delegate: Any?): ViewGroup? {
+        val contract = controlAnchorContract ?: return null
+        val header = resolveControlCenterHeader(delegate) ?: return null
+        return contract.realSystemIcons(header)
+    }
+
+    private fun captureControlCenterAnchor(delegate: Any?): ControlCenterAnchorSnapshot? {
+        val contract = controlAnchorContract ?: return null
+        val header = resolveControlCenterHeader(delegate) ?: return null
         return contract.snapshot(header)
     }
 
@@ -389,6 +403,7 @@ internal object SystemUiPanelTransitionSource {
         val expanded: Boolean?,
         val tracking: Boolean?,
         val visible: Boolean?,
+        val controlCenterCarrier: ViewGroup? = null,
         val controlCenterAnchor: ControlCenterAnchorSnapshot? = null,
         val homeMotion: SystemUiIslandMotionSource.OwnerSnapshot? = null,
     )
@@ -458,6 +473,10 @@ internal object SystemUiPanelTransitionSource {
                 } ?: return null
             return runCatching { callbackOuterField.get(callback) }.getOrNull()
         }
+
+        fun realSystemIcons(header: Any): ViewGroup? =
+            runCatching { realSystemIconsField.get(header) as? ViewGroup }
+                .getOrNull()
 
         fun snapshot(header: Any): ControlCenterAnchorSnapshot? {
             val anchor =

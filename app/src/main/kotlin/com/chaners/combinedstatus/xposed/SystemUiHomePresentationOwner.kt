@@ -270,6 +270,10 @@ internal object SystemUiHomePresentationOwner {
     }
 
     @Synchronized
+    fun ownsBatteryContainer(candidate: ViewGroup): Boolean =
+        current?.ownsBatteryContainer(candidate) == true
+
+    @Synchronized
     fun deactivate(source: String): StateResult {
         val session = current ?: return StateResult.Inactive(0)
         current = null

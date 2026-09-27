@@ -1050,6 +1050,10 @@ internal object SystemUiNativeNetworkSuppressionOwner {
             ?.takeIf { color -> (color ushr 24) != 0 }
     }
 
+    @Synchronized
+    internal fun currentAppliedStatusIconTintForGroup(group: ViewGroup): Int? =
+        resolveAppliedStatusIconTint(group)
+
     private fun resolveAppliedStatusIconTint(group: ViewGroup): Int? {
         val visiblePeers =
             (group.childCount - 1 downTo 0)
