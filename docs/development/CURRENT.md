@@ -103,3 +103,10 @@ A shallow notification-shade pull / final held-return frame can still leave the 
 5. applicable `docs/architecture/` policy;
 6. applicable `docs/reference/` evidence;
 7. `VERSIONING.md` for version/release semantics and `RECORDING.md` for documentation maintenance.
+
+
+## Repository-validation flow maintenance
+
+A repository-automation correction is being validated independently on `fix/ci-maintainer-canary-fallback`. The selected flow keeps the automatic `pull_request Build -> workflow_run Work Branch Canary` path as default and adds a repository-owner-only manual fallback to the default-branch Canary workflow for explicit same-repository `feat/*` / `fix/*` branch heads. The fallback resolves and records the exact branch-head SHA and runs the same signed Canary validation contract; it is not merge approval or a replacement for failed checks.
+
+This automation work does not alter the frozen Build-405 runtime candidate. Once the workflow change self-validates at Full scope and is synchronized to the default/development branches, use the trusted fallback to validate the exact active Build-405 work-branch head if PR event delivery is still unavailable.
