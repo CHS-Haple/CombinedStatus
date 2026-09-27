@@ -3193,3 +3193,119 @@ Change only final native-center presentation:
 ### Next
 
 Implement this single rendering-boundary A/B as the next runtime checkpoint, run Fast CI and signed Canary, then stop for target-device comparison. Do not combine the shallow shade-scene fix, new geometry values, or new color policy with this checkpoint.
+
+
+---
+
+## 2026-09-27 — Build 404 device regression and exact native icon-rendering root cause
+
+**Type:** device A/B rejection / exact-target rendering-path review / historical correction  
+**Display version:** 0.0.2  
+**Rejected checkpoint:** Build 404 / 20260927-404  
+**Runtime source:** `614c6ae96f1753088e21ce3568d969b900852081`  
+**Device result:** center visual parity regressed versus Build 403
+
+### Problem execution flow
+
+**Phenomenon and evidence**
+
+The target-device Build-404 screenshot shows the center Wi-Fi presentation looking worse than the immediately preceding Build-403 line. Build 404 changed only the center native-resource alpha preparation: it removed the 85th-percentile alpha-ceiling/remap and retained the resource's authored alpha mask. Geometry, native tint authority, outer ring/mobile weight, Battery arc policy, battery semantic colors and Home carrier were unchanged by that runtime commit.
+
+This device A/B therefore rejects the claim that authored-alpha preservation **within the existing bitmap path** is sufficient to fix visual parity.
+
+**Root cause / responsibility source**
+
+A fresh directed reverse engineering pass was performed against the exact retained target SystemUI APK:
+
+- SystemUI `17.03.260226.r`;
+- SHA-256 `a0e738e41fe599b97950cbf52a9e2ddc6ae2ceff986efbacb1c9840bea78768d`.
+
+The earlier Build-404 premise compared only alpha-mask semantics, but the native pipeline differs at an earlier rendering boundary.
+
+Verified HyperOS Home Wi-Fi path:
+
+`WifiIcon.Visible.icon / Icon.Resource`
+-> `MiuiWifiViewBinder`
+-> `MiuiStatusBarIconViewHelper.transformResId(rawResId, useTint, isLight)`
+-> Light / Dark / Tint VectorDrawable variant
+-> `ImageView.setImageResource(...)`
+-> optional `ImageView.setImageTintList(...)`
+-> direct VectorDrawable rendering in the final native ImageView.
+
+Exact geometry/resource facts:
+- modern Home Wi-Fi slot height: `R.dimen.status_bar_icon_height = 20dp`;
+- Wi-Fi root: `WRAP_CONTENT x MATCH_PARENT`;
+- main `AlphaOptimizedImageView`: `WRAP_CONTENT x MATCH_PARENT`, `adjustViewBounds=true`;
+- `stat_sys_wifi_signal_3*`: `20dp x 20dp`, viewport `20 x 20`;
+- `AlphaOptimizedImageView` does not replace ImageView drawing with a custom bitmap path.
+
+Verified level-3 presentation variants:
+- Light/base `0x7f081b3e`: path fill `#FFFFFFFF`;
+- Dark `0x7f081b3f`: path fill `#BF000000`;
+- Tint `0x7f081b40`: opaque black mask plus ImageView tint.
+
+By contrast, Build 404 still performs:
+
+`raw semantic resource`
+-> clone Drawable
+-> tint white
+-> rasterize to an ARGB bitmap up to 96px
+-> scan bitmap alpha for optical bounds
+-> retain that bitmap as the cached rendered asset
+-> compute Combined Status size from optical bounds
+-> resample the bitmap into final physical bounds
+-> apply final native tint through SRC_IN.
+
+The project therefore performs at least one intermediate rasterization plus a later bitmap resample that the verified native Wi-Fi/status-icon draw path does not perform.
+
+**Repository / native guidance**
+
+The current `CONTRIBUTING.md` native-visual rule is already aligned with this newer evidence: preserve authored drawable/vector semantics through the final resolved bounds where practical and do not introduce intermediate rasterization/resampling or project alpha normalization unless exact-target evidence proves the native path does the same.
+
+The new exact-target evidence also narrows the role of optical measurement. Combined Status may still need a bounded optical probe because its compact center is not the native 20dp status-icon slot, but that probe is a measurement implementation detail and should not automatically become the final visual asset.
+
+**Mature implementation comparison**
+
+Both the exact HyperOS Wi-Fi path and the neighboring traditional `StatusBarIconView` path retain Drawable/ImageView rendering. HyperOS changes resource variants and tint state, then lets the Drawable rasterize at the final presentation bounds. No equivalent 96px cached-resource bitmap -> final bitmap-resample stage was found in the directed target audit.
+
+### Historical correction
+
+Build 403's percentile normalization is **not reinstated as a native requirement** merely because Build 404 looks worse.
+
+The more consistent interpretation is:
+
+- Build 403: non-native bitmap/resample path + additional alpha compensation;
+- Build 404: same non-native bitmap/resample path without that compensation;
+- Build 404 regression: evidence that the alpha compensation had been masking part of the larger rendering-path mismatch.
+
+This correction preserves the valid historical conclusion that per-resource gray constants and hand-edited assets are not justified.
+
+### Selected next A/B boundary
+
+Keep the test single-variable:
+
+- preserve the current raw semantic resource ID;
+- preserve current status-icon tint authority;
+- preserve current optical-bound measurement and final center dimensions;
+- preserve center placement, outer weight, Battery arc policy, battery semantic colors and Home carrier;
+- stop using the probe bitmap as the rendered asset;
+- cache/clone the native Drawable and draw it directly into the final resolved bounds so VectorDrawable rasterization happens at the final presentation size;
+- a bounded bitmap probe may remain **measurement-only** and should be recycled after optical bounds are extracted.
+
+The HyperOS Light / Dark / Tint `transformResId` presentation transformation is a second verified difference. It must remain a separate follow-up boundary unless new evidence proves it is inseparable from direct Drawable rendering.
+
+### Review
+
+- **Ownership:** HyperOS remains semantic resource and tint authority; Combined Status owns only compact placement/scale and its own final Drawable instance.
+- **Lifecycle:** resource assets remain painter/session scoped; no new listener, observer or SystemUI owner is introduced.
+- **Single writer:** no native View/Drawable property is written; only module-owned cloned Drawable state is changed before draw.
+- **Cleanup:** removing cached rendered bitmaps reduces retained bitmap ownership; any measurement bitmap must be recycled immediately.
+- **Fail native / recovery:** unresolved/malformed native resources keep the existing fallback behavior.
+- **Performance:** direct VectorDrawable draw removes bitmap resampling and persistent bitmap cache cost. Resource cloning/cache policy must avoid allocation per frame.
+- **Compatibility:** no new private member/hook is required for the first A/B.
+- **Exception recovery:** resource-resolution failure remains bounded to the center native-resource path.
+- **Future extension:** direct final-bounds Drawable rendering is compatible with later user size controls because the vector rasterizes at each resolved final size instead of stretching a pre-rasterized source.
+
+### Next
+
+Implement the direct-final-Drawable A/B as the next executable checkpoint, run source review + Fast CI + signed Work Branch Canary, then stop runtime changes for focused target-device comparison against Build 403 and Build 404. Do not mix the later Light / Dark / Tint resource-transform integration or Phase-2B shade work into that checkpoint.
