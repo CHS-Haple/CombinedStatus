@@ -108,6 +108,8 @@ The active HostSession:
 
 The project must not clear or replace the platform collection wholesale.
 
+The Home HostSession lifetime is independent from transient Shade/Control Center overlay visibility. Once the Home owner is structurally valid, scene transitions must not repeatedly destroy/recreate that session merely to let another SystemUI surface render. The Home-only exclusions/masks/reservation may remain scoped to the Home host while target transition surfaces keep their own native presentation authority.
+
 ## Reversible visual masking
 
 Native represented Views remain attached and state/tint/lifecycle capable.
