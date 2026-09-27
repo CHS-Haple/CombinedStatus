@@ -35,8 +35,10 @@ class SystemUiPanelTransitionSourceTest {
         SystemUiPanelTransitionSource.restoreNotificationShadeHomeEligibility(true)
         assertEquals(true, SystemUiPanelTransitionSource.currentNotificationShadeHomeEligibility())
 
+        // A legacy payload has no shade field; it must not erase the
+        // successfully installed generation's current/bootstrap eligibility.
         SystemUiPanelTransitionSource.restoreNotificationShadeHomeEligibility(null)
-        assertNull(SystemUiPanelTransitionSource.currentNotificationShadeHomeEligibility())
+        assertEquals(true, SystemUiPanelTransitionSource.currentNotificationShadeHomeEligibility())
     }
 
     @Test
