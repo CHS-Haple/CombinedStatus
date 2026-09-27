@@ -8,9 +8,10 @@ This file is the concise recovery point for active Combined Status development. 
 - Stable branch: `main`
 - Stable runtime baseline: Build 351, commit `2477867278483b76b80ed0884de3a07c7ede668a`
 - Integration branch: `dev`
-- Integration runtime baseline: Build 408, commit `2f584c3b393dc5ee606284426aa95a9d6beae5d5`
+- Integration runtime baseline: Build 412, commit `a25cb5ce2aeab235cfaed579474df70596f03a63`
 - Phase-2A integration: PR #105 merged to `dev` as `2f584c3b393dc5ee606284426aa95a9d6beae5d5`; former stacked PR #100 is closed as superseded.
-- Active Phase-2B work branch: `fix/shade-home-overlay-leak`; PR will be opened from this bounded fix.
+- Phase-2B panel/scene-owner integration: PR #138 merged to `dev` as `a25cb5ce2aeab235cfaed579474df70596f03a63`.
+- Active Phase-2B work branch / PR: none after #138 integration.
 - Active development display line: **0.0.2**
 - First planned formal release: **1.0.0**
 - Target profile: HyperOS SystemUI `17.03.260226.r`
@@ -131,6 +132,7 @@ Build 409's notification-shade implementation remains intact and is not reopened
 
 - PR #105 is merged into `dev` as the accepted Phase-2A integration boundary.
 - PR #100 is closed as superseded by that final integration PR.
+- PR #138 is merged into `dev` as the accepted Phase-2B panel/scene-owner + Build-412 8.25 ring integration boundary.
 - PR #134 installed the trusted work-branch Canary fallback into `main`; PR #136 history-preserving back-synced that accepted process state into `dev`.
 - PR #135 then fixed Markdown backtick escaping in the Canary source summary without changing validation/trust semantics; PR #137 history-preserving back-synced that follow-up into `dev`.
 - Validation-only PRs #131/#132 and the dev-based automation review PR #133 are superseded and closed without merge.
@@ -139,13 +141,11 @@ Build 409's notification-shade implementation remains intact and is not reopened
 
 ## Immediate next step
 
-1. Integrate PR #138 into `dev` after the latest documentation-only head satisfies the required PR check.
-2. Accepted runtime baseline for integration: Build 412 / `20260927-412`, executable source `f794a7c01513364eefc726316fcaf4058d581683`.
-3. Accepted panel result: Build-411/412 notification-shade + Control Center down/up behavior is no longer a blocker.
-4. Accepted visual result: battery ring returns to the previously preferred 8.25 canonical stroke with unchanged ROUND cap, dots, center, tint and scene ownership.
-5. No additional maintainer ring-size test is required before `dev` integration.
-6. After integration, continue the **separate** notification/HUN-triggered native-status fallback investigation unless maintainer feedback confirms it is already resolved.
-7. Do not conflate that notification/HUN issue with panel scene ownership or ring geometry.
+1. Current `dev` runtime baseline is Build 412 / `20260927-412`, merge commit `a25cb5ce2aeab235cfaed579474df70596f03a63`.
+2. Retain the accepted panel/scene-owner behavior and the 8.25 ring + ROUND endpoint baseline; no dedicated thickness-only device test is required.
+3. The earlier HUN/notification-popup native-status fallback remains the next separate runtime question because the latest maintainer feedback accepted panel gestures but did not independently close that notification path.
+4. Investigate that HUN path root-cause-first from the integrated `dev` baseline before opening another runtime branch: identify the native notification/HUN lifecycle event, confirm whether it changes host structural readiness or only scene visibility, and avoid reopening panel ownership or visual geometry.
+5. Actual shade / Control Center Combined Status projection remains later Phase-2B work.
 
 ## Reference priority
 
