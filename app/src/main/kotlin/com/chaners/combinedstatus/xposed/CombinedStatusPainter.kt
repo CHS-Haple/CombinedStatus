@@ -2,8 +2,6 @@ package com.chaners.combinedstatus.xposed
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.BlendMode
-import android.graphics.BlendModeColorFilter
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -23,7 +21,6 @@ internal class CombinedStatusPainter(
     private val context: Context,
 ) {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val nativeBitmapPaint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private var airplaneDrawableResolved = false
     private var cachedAirplaneResourceId: Int = 0
     private val nativeCenterAssets = LinkedHashMap<String, NativeCenterAsset>(NATIVE_CENTER_CACHE_SIZE, 0.75f, true)
@@ -357,7 +354,7 @@ internal class CombinedStatusPainter(
                         resources = drawableContext.resources,
                     ) ?: return@runCatching null
                 NativeCenterAsset(
-                    bitmap = visualProbe.sourceBitmap,
+                    drawable = drawable,
                     intrinsicWidth = drawable.intrinsicWidth,
                     intrinsicHeight = drawable.intrinsicHeight,
                     opticalBounds = visualProbe.opticalBounds,
@@ -369,7 +366,6 @@ internal class CombinedStatusPainter(
         if (nativeCenterAssets.size > NATIVE_CENTER_CACHE_SIZE) {
             val eldest = nativeCenterAssets.entries.iterator().next()
             nativeCenterAssets.remove(eldest.key)
-            eldest.value.bitmap.recycle()
         }
         return asset
     }
@@ -429,19 +425,17 @@ internal class CombinedStatusPainter(
             return null
         }
 
-        // Preserve the HyperOS resource's authored alpha mask. The resolved
-        // status-icon tint is composed later through SRC_IN, matching the
-        // native ImageView contract instead of rewriting source coverage.
-        return NativeVisualProbe(
-            opticalBounds =
-                OpticalBounds(
-                    left = minX / probeWidth.toFloat(),
-                    top = minY / probeHeight.toFloat(),
-                    right = (maxX + 1) / probeWidth.toFloat(),
-                    bottom = (maxY + 1) / probeHeight.toFloat(),
-                ),
-            sourceBitmap = bitmap,
-        )
+        val opticalBounds =
+            OpticalBounds(
+                left = minX / probeWidth.toFloat(),
+                top = minY / probeHeight.toFloat(),
+                right = (maxX + 1) / probeWidth.toFloat(),
+                bottom = (maxY + 1) / probeHeight.toFloat(),
+            )
+        // Keep the raster probe measurement-only. The native Drawable is
+        // rendered directly at the final presentation bounds below.
+        bitmap.recycle()
+        return NativeVisualProbe(opticalBounds = opticalBounds)
     }
 
     private fun drawNativeCenterResource(
@@ -478,12 +472,9 @@ internal class CombinedStatusPainter(
         val drawWidth = intrinsicWidth * drawableScale
         val drawHeight = intrinsicHeight * drawableScale
 
-        nativeBitmapPaint.colorFilter =
-            BlendModeColorFilter(
-                tint,
-                BlendMode.SRC_IN,
-            )
-        nativeBitmapPaint.alpha =
+        val drawable = asset.drawable
+        drawable.setTint(tint)
+        drawable.alpha =
             CombinedStatusVisualIntensity.resolveDrawableAlpha(opacity)
 
         if (pixelAligned && nativeTransform.scale > 0f) {
@@ -504,35 +495,60 @@ internal class CombinedStatusPainter(
                 -nativeTransform.offsetX,
                 -nativeTransform.offsetY,
             )
-            canvas.drawBitmap(
-                asset.bitmap,
-                null,
-                Rect(
-                    bounds.left,
-                    bounds.top,
-                    bounds.right,
-                    bounds.bottom,
-                ),
-                nativeBitmapPaint,
+            drawNativeDrawable(
+                canvas = canvas,
+                drawable = drawable,
+                left = bounds.left.toFloat(),
+                top = bounds.top.toFloat(),
+                width = (bounds.right - bounds.left).toFloat(),
+                height = (bounds.bottom - bounds.top).toFloat(),
+                intrinsicWidth = intrinsicWidth,
+                intrinsicHeight = intrinsicHeight,
             )
             canvas.restoreToCount(save)
         } else {
-            val left = centerX - drawWidth / 2f
-            val top = centerY - drawHeight / 2f
-            canvas.drawBitmap(
-                asset.bitmap,
-                null,
-                RectF(
-                    left,
-                    top,
-                    left + drawWidth,
-                    top + drawHeight,
-                ),
-                nativeBitmapPaint,
+            drawNativeDrawable(
+                canvas = canvas,
+                drawable = drawable,
+                left = centerX - drawWidth / 2f,
+                top = centerY - drawHeight / 2f,
+                width = drawWidth,
+                height = drawHeight,
+                intrinsicWidth = intrinsicWidth,
+                intrinsicHeight = intrinsicHeight,
             )
         }
-        nativeBitmapPaint.colorFilter = null
         return true
+    }
+
+    private fun drawNativeDrawable(
+        canvas: Canvas,
+        drawable: Drawable,
+        left: Float,
+        top: Float,
+        width: Float,
+        height: Float,
+        intrinsicWidth: Int,
+        intrinsicHeight: Int,
+    ) {
+        if (
+            width <= 0f ||
+            height <= 0f ||
+            intrinsicWidth <= 0 ||
+            intrinsicHeight <= 0
+        ) {
+            return
+        }
+
+        val save = canvas.save()
+        canvas.translate(left, top)
+        canvas.scale(
+            width / intrinsicWidth.toFloat(),
+            height / intrinsicHeight.toFloat(),
+        )
+        drawable.setBounds(0, 0, intrinsicWidth, intrinsicHeight)
+        drawable.draw(canvas)
+        canvas.restoreToCount(save)
     }
 
     private fun airplaneResourceId(): Int? {
@@ -886,7 +902,7 @@ internal class CombinedStatusPainter(
     }
 
     private data class NativeCenterAsset(
-        val bitmap: Bitmap,
+        val drawable: Drawable,
         val intrinsicWidth: Int,
         val intrinsicHeight: Int,
         val opticalBounds: OpticalBounds,
@@ -894,7 +910,6 @@ internal class CombinedStatusPainter(
 
     private data class NativeVisualProbe(
         val opticalBounds: OpticalBounds,
-        val sourceBitmap: Bitmap,
     )
 
     private data class OpticalBounds(
