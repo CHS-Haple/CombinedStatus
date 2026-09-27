@@ -153,11 +153,13 @@ internal object SystemUiNotificationHeaderProbe {
                                 " controller=" + controller.javaClass.simpleName +
                                 " scalars={" + scalarSummary + "}" +
                                 " views=[" + viewSummary + "]" +
-                                if (includeInventory) {
-                                    " fields=[" + fieldInventory + "]"
-                                } else {
-                                    ""
-                                } +
+                                (
+                                    if (includeInventory) {
+                                        " fields=[" + fieldInventory + "]"
+                                    } else {
+                                        ""
+                                    }
+                                ) +
                                 " readOnly=true nativeGeometryWrites=0",
                         )
                         result
