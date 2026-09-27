@@ -45,6 +45,7 @@ Home -> shade / Control Center projection is now the active Phase 2B direction. 
 - **Build 408 / `20260927-408`** is the maintainer-accepted Phase-2A working baseline for `dev` integration. Runtime source: `8a7a39d8297fe926387d56cc8ff5be4b08405f4a`. Work Branch Canary #338 / run `36315043013` passed all gates and produced artifact `10930143406`. The maintainer considers the current color/native-center result basically compliant with the intended design. A small residual ring/center/dot optical-weight difference may remain and is explicitly deferred as visual polish rather than treated as a blocker.
 - **Build 409 / `20260927-409`** is a completed but **device-incomplete Phase-2B checkpoint**. Executable source: `4ab7b490617757e34c0ea8e0b59e3d7a16bae9ad`; Fast #1129 and Work Branch Canary #363 passed. Device video + diagnostics show the promoted notification-shade gate does transition Home to `homeEligible=false` and runs the existing cleanup path, but the reported leak reproduction is driven by **Control Center**. During that transition `ControlCenterExpandControllerDelegate` reports `visible=true` and changing native fraction while Build 409 leaves Control Center callbacks diagnostics-only, so Home remains eligible and the compact overlay can overlap the native icons. Build 409 is therefore not accepted as the complete shallow-pull fix.
 - **Build 410 / `20260927-410`** is the current signed Phase-2B Home scene-lifetime device-test candidate. Executable runtime source: `6e2fc55944753c6cb9ef22f537008c97217f17e1`. Fast Build #1143 / run `36319763905` passed on test head `5320bf87253128de290b4b0809694949a02b6c38`; trusted Work Branch Canary #377 / run `36319940085` passed exact checkout, both pinned HyperOS scene contracts, tests/build, Haple signature, Modern Xposed metadata and non-debuggable validation and produced artifact `10932655599`. APK size: `3309598` bytes; SHA-256: `8c3f3011c214e66d20a89698e902191bdd8bc039803a6c824a261170a5cbf0eb`. Runtime is frozen pending device validation.
+- **Build 411 / `20260927-411`** is the current combined scene/visual candidate. Executable runtime source: `aaaaf0810b114b1e90a3de3f1520721a420da2d0`. It preserves Build 410's notification-shade + Control Center native lifetime gates, but scene eligibility now controls only the Home overlay; structurally valid Home owner readiness no longer includes scene gates, preventing repeated Home owner teardown/reactivation on every panel gesture. The same build raises the battery-ring default stroke from 7.5 to 8.0 canonical units while keeping mobile dots, center geometry, tint and alpha unchanged; the existing opening solver recomputes the ring-to-dot geometry. Source review passed; CI/Canary and device acceptance are pending.
 - Build 406 trusted validation: owner `/canary` Work Branch Canary #335 **succeeded**. Validated PR head `80f371784ffaee406dd6ea5728219eeee5913318` differs from the frozen runtime source only in `CURRENT.md` and `DEVLOG.md`, so executable content remains exactly Build 406. Artifact `10929711688`; artifact ZIP digest `sha256:c7af997217acd171c66beb860d7212c0d72fd672a38978f7b5c2eb5a524f11ba`; extracted APK SHA-256 `e086d8914fece7ba8ea86200756f4a6366d56dadaa5510846618a4077e6ddd80`.
 - Documentation/test-only commits may advance the Phase-2B work branch beyond Build-410 executable source `6e2fc55944753c6cb9ef22f537008c97217f17e1` without creating a new runtime Build; runtime identity remains `20260927-410` until executable source changes.
 
@@ -132,16 +133,17 @@ Build 409's notification-shade implementation remains intact and is not reopened
 
 ## Immediate next step
 
-1. Build one combined **Build 411** device candidate rather than splitting scene and visual work again.
-2. Keep Build-410 notification-shade + Control Center lifetime authorities unchanged.
-3. Split Home **owner structural readiness** from **overlay scene eligibility**:
-   - owner structural readiness: feature + model + tint + layout + attached host;
-   - overlay scene eligibility: unlocked Home + notification shade settled + Control Center not visible + no native handoff.
-4. Scene transitions must no longer deactivate/reactivate `SystemUiHomePresentationOwner`; they only hide/show the Home overlay while the Home owner keeps its mask/reservation session stable.
-5. Full owner teardown remains reserved for real structural failure, feature disable, host replacement/detach, fail-native, and Hot Reload cleanup.
-6. Visual A/B in the same Build 411: battery ring default stroke `7.5 -> 8.0`; keep the accepted mobile-dot radius and center geometry unchanged; let the existing lower-opening solver recompute ring-to-dot/dot-to-dot spacing.
-7. Add deterministic tests proving owner readiness is scene-independent while overlay visibility remains scene-gated, and proving the Build-411 ring/dot baseline.
-8. Run Fast CI + signed Canary, then freeze runtime for one combined device pass: panel transitions, notification/HUN behavior, and ring/endpoint/dot visual coordination.
+1. Run PR #138 Fast CI for Build 411; executable source `aaaaf0810b114b1e90a3de3f1520721a420da2d0`.
+2. Verify all existing Build-410 scene-gate tests plus the new owner-readiness separation test and Build-411 outer-geometry baseline.
+3. After Fast success, run/accept the trusted signed Work Branch Canary and freeze runtime.
+4. One combined device pass:
+   - Control Center shallow pull / return;
+   - notification-shade shallow pull / return;
+   - repeated down/up cycles to check native status-icon entrance animation no longer restarts;
+   - one heads-up/notification popup to verify Home Combined Status does not permanently fall back to native;
+   - ring thickness, ROUND endpoint curvature and lower four-dot spacing/visual balance.
+5. Expected visual baseline: ring 8.0, dots unchanged, center unchanged; the opening solver recomputes edge gaps automatically.
+6. Do not split further unless device evidence shows the scene and visual results diverge.
 
 ## Reference priority
 
