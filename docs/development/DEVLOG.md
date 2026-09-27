@@ -4,6 +4,43 @@ This is the chronological engineering diary for Combined Status. It complements,
 
 ## 2026-09-28 — Build 413 stable promotion to main
 
+**Type:** validated runtime promotion / stable-baseline closure
+**Display version:** 0.0.2
+**Build:** 413 / `20260927-413`
+**Promotion PR:** #147
+**Exact promoted dev candidate:** `36ce04011f0a1fb2c5dd185d911b639bb1787408`
+**Stable merge commit:** `3114ade06bcb4846a5654a70f38ea572f5b47b37`
+
+### Promotion evidence
+
+- Build 413 had already passed focused maintainer device validation for the HUN disappearance while preserving the accepted shallow-pull handoff.
+- PR #142 integrated the runtime checkpoint into `dev` as `2aa6833cfca69a59af5027a7855b7d8282dbade9`.
+- Trusted dev Integration Build #1200 / run `36337302873` passed.
+- The only commits after the integrated runtime commit and before promotion candidate `36ce04011f0a1fb2c5dd185d911b639bb1787408` changed only `CURRENT.md` and `DEVLOG.md`; no APK/runtime path changed.
+- `validation/dev` was moved to the exact candidate only after the maintainer accepted the required device scenarios.
+- Promotion readiness then reported **READY: dev is CI-green and device-validated**.
+- Promotion PR #147 contained the exact validated candidate and no Build-414 diagnostic work.
+- Stable-boundary Full Build #1213 passed before merge.
+- PR #147 was merged with an explicit merge commit, preserving the stable-baseline boundary.
+- Post-merge Full Build #1214 passed, including pinned target-profile verification, tests/build, Modern Xposed metadata, Haple signatures, non-debuggable Canary validation, and artifact preparation/upload.
+- Push on main #59 completed successfully, including CodeQL analysis.
+
+### 审查 / review
+
+- **Promotion scope:** exact validated dev state only; no new runtime edit on `promote/build-413`.
+- **Ownership/lifecycle:** unchanged from the already device-accepted Build-413 model.
+- **Single writer / cleanup:** unchanged.
+- **Compatibility:** exact HyperOS target profile remained green at promotion and post-merge Full validation.
+- **Stable isolation:** PR #146 / Build 414 remained on its separate work branch and was not included in the promotion.
+- **Rollback clarity:** stable boundary is the explicit merge commit `3114ade06bcb4846a5654a70f38ea572f5b47b37`.
+
+### Outcome
+
+Build 413 is now the stable `main` runtime baseline and remains the integrated `dev` baseline. Ongoing Phase-2B panel-projection diagnostics continue separately on PR #146 / Build 414.
+
+
+## 2026-09-28 — Build 413 stable promotion to main
+
 **Type:** stable-baseline promotion closure
 **Display version:** 0.0.2
 **Runtime build:** 413 / `20260927-413`
