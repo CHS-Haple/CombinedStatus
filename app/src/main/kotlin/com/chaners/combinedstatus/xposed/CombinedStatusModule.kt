@@ -17,6 +17,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 class CombinedStatusModule : XposedModule() {
     private var islandMotionSourceInstalled = false
+    private var notificationHeaderProbeInstalled = false
     private var panelTransitionSourceInstalled = false
     private var notificationStateProbeBucket = -1
     private var controlCenterGeometryProbeBucket = -1
@@ -128,6 +129,10 @@ class CombinedStatusModule : XposedModule() {
                     classLoader = param.classLoader,
                     source = "coldStart",
                 )
+                installNotificationHeaderProbe(
+                    classLoader = param.classLoader,
+                    source = "coldStart",
+                )
             }
         }
     }
@@ -162,6 +167,11 @@ class CombinedStatusModule : XposedModule() {
                 SystemUiNativeNetworkSuppressionOwner.installedHookCount +
                 if (islandMotionSourceInstalled) {
                     SystemUiIslandMotionSource.HOOK_COUNT
+                } else {
+                    0
+                } +
+                if (notificationHeaderProbeInstalled) {
+                    SystemUiNotificationHeaderProbe.HOOK_COUNT
                 } else {
                     0
                 } +
@@ -265,7 +275,9 @@ class CombinedStatusModule : XposedModule() {
             SystemUiBatteryRuntimeOwner.resetRuntimeState()
             SystemUiNetworkRuntimeOwner.resetRuntimeState()
             islandMotionSourceInstalled = false
+            notificationHeaderProbeInstalled = false
             panelTransitionSourceInstalled = false
+            SystemUiNotificationHeaderProbe.resetRuntimeState()
             notificationStateProbeBucket = -1
             controlCenterGeometryProbeBucket = -1
             SystemUiPresentationRuntimeOwner.resetRuntimeState()
@@ -326,6 +338,10 @@ class CombinedStatusModule : XposedModule() {
             )
             if (BuildConfig.RUNTIME_DIAGNOSTICS) {
                 installIslandMotionSource(
+                    classLoader = classLoader,
+                    source = "hotReload",
+                )
+                installNotificationHeaderProbe(
                     classLoader = classLoader,
                     source = "hotReload",
                 )
@@ -949,6 +965,64 @@ class CombinedStatusModule : XposedModule() {
         }
     }
 
+    private fun installNotificationHeaderProbe(
+        classLoader: ClassLoader,
+        source: String,
+    ) {
+        runCatching {
+            SystemUiNotificationHeaderProbe.install(
+                module = this,
+                classLoader = classLoader,
+                onEvent = ::onPanelTransitionEvent,
+                isProbeEnabled = {
+                    BuildConfig.DEVELOPMENT_PROBES || detailedDiagnosticsEnabled
+                },
+            )
+        }.onSuccess { handles ->
+            notificationHeaderProbeInstalled =
+                handles.size == SystemUiNotificationHeaderProbe.HOOK_COUNT
+            logDiagnostic(
+                level =
+                    if (notificationHeaderProbeInstalled) {
+                        Log.INFO
+                    } else {
+                        Log.WARN
+                    },
+                event = "source.install",
+                component = "notificationHeaderProbe",
+                state =
+                    if (notificationHeaderProbeInstalled) {
+                        "ready"
+                    } else {
+                        "partial"
+                    },
+                "hooks" to handles.size,
+                "expectedHooks" to SystemUiNotificationHeaderProbe.HOOK_COUNT,
+                "source" to source,
+                "mode" to "bounded-read-only",
+                "nativeGeometryWrites" to 0,
+            )
+        }.onFailure { error ->
+            notificationHeaderProbeInstalled = false
+            SystemUiNotificationHeaderProbe.resetRuntimeState()
+            logDiagnostic(
+                level = Log.WARN,
+                event = "source.install",
+                component = "notificationHeaderProbe",
+                state = "unavailable",
+                "reason" to (error.message ?: error.javaClass.simpleName),
+                "source" to source,
+                "runtimeAuthorityAffected" to false,
+            )
+            log(
+                Log.WARN,
+                TAG,
+                "Notification header diagnostic probe unavailable",
+                error,
+            )
+        }
+    }
+
     private fun installPanelTransitionSource(
         classLoader: ClassLoader,
         source: String,
@@ -1372,6 +1446,7 @@ class CombinedStatusModule : XposedModule() {
         SystemUiPresentationRuntimeOwner.resetRuntimeState()
         CombinedStatusPresentationStateStore.reset()
         SystemUiIslandMotionSource.resetRuntimeState()
+        SystemUiNotificationHeaderProbe.resetRuntimeState()
         SystemUiPanelTransitionSource.resetRuntimeState()
 
         logDiagnostic(
