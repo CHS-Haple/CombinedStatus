@@ -465,6 +465,9 @@ class CombinedStatusModule : XposedModule() {
             SystemUiPanelTransitionSource.restoreNotificationShadeHomeEligibility(
                 restored.notificationShadeHomeEligible,
             )
+            SystemUiPanelTransitionSource.restoreControlCenterHomeEligibility(
+                restored.controlCenterHomeEligible,
+            )
             attachHostRuntime(
                 host = capture.host,
                 source = "hotReloadRestore",
@@ -483,6 +486,8 @@ class CombinedStatusModule : XposedModule() {
                 "homePresentation" to "readiness-gated",
                 "shadeHomeEligible" to
                     (restored.notificationShadeHomeEligible ?: "unknown"),
+                "controlCenterHomeEligible" to
+                    (restored.controlCenterHomeEligible ?: "unknown"),
                 "mainThread" to true,
             )
             logDiagnostic(
@@ -968,6 +973,9 @@ class CombinedStatusModule : XposedModule() {
             CombinedStatusHomeRenderSession.onNotificationShadeAuthorityChanged(
                 SystemUiPanelTransitionSource.currentNotificationShadeHomeEligibility() == true,
             )
+            CombinedStatusHomeRenderSession.onControlCenterAuthorityChanged(
+                SystemUiPanelTransitionSource.currentControlCenterHomeEligibility() == true,
+            )
             logDiagnostic(
                 level = if (panelTransitionSourceInstalled) Log.INFO else Log.WARN,
                 event = "source.install",
@@ -976,7 +984,8 @@ class CombinedStatusModule : XposedModule() {
                 "hooks" to handles.size,
                 "expectedHooks" to expectedHooks,
                 "notificationRuntimeHook" to true,
-                "controlCenterDiagnosticHooks" to BuildConfig.RUNTIME_DIAGNOSTICS,
+                "controlCenterVisibilityRuntimeHook" to true,
+                "controlCenterExpansionDiagnosticHook" to BuildConfig.RUNTIME_DIAGNOSTICS,
                 "source" to source,
                 "nativeGeometryWrites" to 0,
             )
@@ -985,6 +994,7 @@ class CombinedStatusModule : XposedModule() {
             notificationStateProbeBucket = -1
             controlCenterGeometryProbeBucket = -1
             CombinedStatusHomeRenderSession.onNotificationShadeAuthorityChanged(false)
+            CombinedStatusHomeRenderSession.onControlCenterAuthorityChanged(false)
             logDiagnostic(
                 level = Log.ERROR,
                 event = "source.install",
@@ -1000,9 +1010,7 @@ class CombinedStatusModule : XposedModule() {
     private fun onPanelTransitionUpdate(
         update: SystemUiPanelTransitionSource.Update,
     ) {
-        if (update.source == SystemUiPanelTransitionSource.Source.NOTIFICATION_SHADE) {
-            CombinedStatusHomeRenderSession.onPanelTransitionUpdate(update)
-        }
+        CombinedStatusHomeRenderSession.onPanelTransitionUpdate(update)
 
         if (!detailedDiagnosticsEnabled) {
             return
