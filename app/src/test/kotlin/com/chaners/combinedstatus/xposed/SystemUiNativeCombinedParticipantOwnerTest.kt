@@ -18,7 +18,7 @@ class SystemUiNativeCombinedParticipantOwnerTest {
                 expectedVisualHeight = 108,
                 parentClipsChildren = false,
                 rootScreenX = 1242,
-                batteryScreenX = 1242,
+                slotAnchorScreenX = 1242,
                 renderLeft = 0,
                 renderRight = 105,
             ),
@@ -37,7 +37,7 @@ class SystemUiNativeCombinedParticipantOwnerTest {
                 expectedVisualHeight = 108,
                 parentClipsChildren = false,
                 rootScreenX = 1242,
-                batteryScreenX = 1242,
+                slotAnchorScreenX = 1242,
                 renderLeft = 0,
                 renderRight = 105,
             ),
@@ -56,7 +56,7 @@ class SystemUiNativeCombinedParticipantOwnerTest {
                 expectedVisualHeight = 108,
                 parentClipsChildren = false,
                 rootScreenX = 1242,
-                batteryScreenX = 1242,
+                slotAnchorScreenX = 1242,
                 renderLeft = -52,
                 renderRight = 53,
             ),
@@ -75,7 +75,7 @@ class SystemUiNativeCombinedParticipantOwnerTest {
                 expectedVisualHeight = 108,
                 parentClipsChildren = true,
                 rootScreenX = 1242,
-                batteryScreenX = 1242,
+                slotAnchorScreenX = 1242,
                 renderLeft = 0,
                 renderRight = 105,
             ),
@@ -90,7 +90,7 @@ class SystemUiNativeCombinedParticipantOwnerTest {
                 expectedVisualHeight = 108,
                 parentClipsChildren = false,
                 rootScreenX = 1238,
-                batteryScreenX = 1242,
+                slotAnchorScreenX = 1242,
                 renderLeft = 0,
                 renderRight = 105,
             ),
@@ -147,14 +147,18 @@ class SystemUiNativeCombinedParticipantOwnerTest {
 
 
     @Test
-    fun activeNativeSlotAcceptsFullVisualWidthAfterBatteryRelease() {
+    fun activeNativeSlotKeepsZeroWidthShellAlignedToBatterySlot() {
         assertTrue(
             SystemUiNativeCombinedParticipantOwner.isActiveSlotHandoffReady(
-                rootLayoutWidth = 105,
+                rootLayoutWidth = 0,
                 rootLayoutHeight = 108,
                 renderMeasuredWidth = 105,
                 renderMeasuredHeight = 108,
+                expectedVisualWidth = 105,
+                expectedVisualHeight = 108,
                 parentClipsChildren = false,
+                rootScreenX = 1242,
+                slotAnchorScreenX = 1242,
                 renderLeft = 0,
                 renderRight = 105,
             ),
@@ -162,31 +166,205 @@ class SystemUiNativeCombinedParticipantOwnerTest {
     }
 
     @Test
-    fun activeNativeSlotRejectsLegacyZeroWidthShell() {
+    fun activeNativeSlotRejectsDuplicateShellOccupancy() {
+        assertFalse(
+            SystemUiNativeCombinedParticipantOwner.isActiveSlotHandoffReady(
+                rootLayoutWidth = 105,
+                rootLayoutHeight = 108,
+                renderMeasuredWidth = 105,
+                renderMeasuredHeight = 108,
+                expectedVisualWidth = 105,
+                expectedVisualHeight = 108,
+                parentClipsChildren = false,
+                rootScreenX = 1137,
+                slotAnchorScreenX = 1242,
+                renderLeft = 0,
+                renderRight = 105,
+            ),
+        )
+    }
+
+    @Test
+    fun activeNativeSlotRejectsAnchorOrVisualMismatch() {
         assertFalse(
             SystemUiNativeCombinedParticipantOwner.isActiveSlotHandoffReady(
                 rootLayoutWidth = 0,
                 rootLayoutHeight = 108,
                 renderMeasuredWidth = 105,
                 renderMeasuredHeight = 108,
+                expectedVisualWidth = 105,
+                expectedVisualHeight = 108,
                 parentClipsChildren = false,
+                rootScreenX = 1238,
+                slotAnchorScreenX = 1242,
                 renderLeft = 0,
                 renderRight = 105,
+            ),
+        )
+        assertFalse(
+            SystemUiNativeCombinedParticipantOwner.isActiveSlotHandoffReady(
+                rootLayoutWidth = 0,
+                rootLayoutHeight = 108,
+                renderMeasuredWidth = 135,
+                renderMeasuredHeight = 108,
+                expectedVisualWidth = 105,
+                expectedVisualHeight = 108,
+                parentClipsChildren = false,
+                rootScreenX = 1242,
+                slotAnchorScreenX = 1242,
+                renderLeft = 0,
+                renderRight = 135,
             ),
         )
     }
 
     @Test
-    fun activeNativeSlotRejectsRenderGeometryMismatch() {
+    fun zeroOccupancyShellResolvesRealVisualBounds() {
+        assertEquals(
+            105,
+            SystemUiNativeCombinedParticipantOwner.resolvePostLayoutVisualWidth(
+                layoutWidth = 0,
+                measuredWidth = 0,
+                visualWidth = 105,
+            ),
+        )
+    }
+
+    @Test
+    fun nativeBatteryHideClaimsOnlyReleasedSlotWidth() {
+        assertEquals(
+            0,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeSlotOccupancyWidth(
+                nativeBatteryHidden = false,
+                visualWidth = 105,
+            ),
+        )
+        assertEquals(
+            105,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeSlotOccupancyWidth(
+                nativeBatteryHidden = true,
+                visualWidth = 105,
+            ),
+        )
+        assertEquals(
+            null,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeSlotOccupancyWidth(
+                nativeBatteryHidden = true,
+                visualWidth = 0,
+            ),
+        )
+    }
+
+    @Test
+    fun releasedBatterySlotAcceptsNativeMeasuredVisualWidth() {
+        assertEquals(
+            105,
+            SystemUiNativeCombinedParticipantOwner.resolvePostLayoutVisualWidth(
+                layoutWidth = 105,
+                measuredWidth = 105,
+                visualWidth = 105,
+                nativeBatteryHidden = true,
+            ),
+        )
+    }
+
+    @Test
+    fun visualBoundsRejectNonZeroOccupancyOrInvalidVisualWidth() {
+        assertEquals(
+            null,
+            SystemUiNativeCombinedParticipantOwner.resolvePostLayoutVisualWidth(
+                layoutWidth = 105,
+                measuredWidth = 105,
+                visualWidth = 105,
+            ),
+        )
+        assertEquals(
+            null,
+            SystemUiNativeCombinedParticipantOwner.resolvePostLayoutVisualWidth(
+                layoutWidth = 0,
+                measuredWidth = 0,
+                visualWidth = 0,
+            ),
+        )
+    }
+
+    @Test
+    fun chargingPresentationDoesNotChangeStableSlotTranslation() {
+        val stableBoundary = 478
+        val chargingLiveBoundary = 448
+
+        assertEquals(
+            478f,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeSlotTranslationX(
+                statusIconsWidth = stableBoundary,
+                rootLeft = 0,
+            ),
+        )
+        assertEquals(
+            448f,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeSlotTranslationX(
+                statusIconsWidth = chargingLiveBoundary,
+                rootLeft = 0,
+            ),
+        )
+        assertEquals(30, stableBoundary - chargingLiveBoundary)
+    }
+
+    @Test
+    fun nativeSlotTranslationUsesStableStatusIconBoundary() {
+        assertEquals(
+            478f,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeSlotTranslationX(
+                statusIconsWidth = 478,
+                rootLeft = 0,
+            ),
+        )
+        assertEquals(
+            478f,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeSlotTranslationX(
+                statusIconsWidth = 478,
+                rootLeft = 0,
+            ),
+        )
+        assertEquals(
+            null,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeSlotTranslationX(
+                statusIconsWidth = 0,
+                rootLeft = 1,
+            ),
+        )
+    }
+
+    @Test
+    fun activeHandoffUsesSlotAnchorInsteadOfEvictedBatteryContent() {
+        assertTrue(
+            SystemUiNativeCombinedParticipantOwner.isActiveSlotHandoffReady(
+                rootLayoutWidth = 0,
+                rootLayoutHeight = 108,
+                renderMeasuredWidth = 105,
+                renderMeasuredHeight = 108,
+                expectedVisualWidth = 105,
+                expectedVisualHeight = 108,
+                parentClipsChildren = false,
+                rootScreenX = 1257,
+                slotAnchorScreenX = 1257,
+                renderLeft = 0,
+                renderRight = 105,
+            ),
+        )
         assertFalse(
             SystemUiNativeCombinedParticipantOwner.isActiveSlotHandoffReady(
-                rootLayoutWidth = 105,
+                rootLayoutWidth = 0,
                 rootLayoutHeight = 108,
-                renderMeasuredWidth = 135,
+                renderMeasuredWidth = 105,
                 renderMeasuredHeight = 108,
+                expectedVisualWidth = 105,
+                expectedVisualHeight = 108,
                 parentClipsChildren = false,
+                rootScreenX = 1362,
+                slotAnchorScreenX = 1257,
                 renderLeft = 0,
-                renderRight = 135,
+                renderRight = 105,
             ),
         )
     }

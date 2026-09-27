@@ -1,5 +1,6 @@
 package com.chaners.combinedstatus.xposed
 
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -51,6 +52,28 @@ class CombinedStatusStateStoreTest {
 
         assertNull(completed)
         assertTrue(CombinedStatusStateStore.snapshot().mobileRecoveryPending)
+    }
+
+    @Test
+    fun batterySnapshotRetainsNativeSemanticStateAndColor() {
+        CombinedStatusStateStore.restoreHotReloadState(null)
+        CombinedStatusStateStore.updateBattery(
+            CombinedStatusStateStore.BatteryState(
+                percent = 61,
+                charging = false,
+                semanticState = CombinedStatusBatterySemanticState.PERFORMANCE,
+                systemSemanticColor = 0xff3482ff.toInt(),
+            ),
+        )
+
+        val restored =
+            CombinedStatusStateStore.snapshot().battery
+                ?: error("expected battery state")
+
+        assertEquals(61, restored.percent)
+        assertFalse(restored.charging)
+        assertEquals(CombinedStatusBatterySemanticState.PERFORMANCE, restored.semanticState)
+        assertEquals(0xff3482ff.toInt(), restored.systemSemanticColor)
     }
 
     @Test

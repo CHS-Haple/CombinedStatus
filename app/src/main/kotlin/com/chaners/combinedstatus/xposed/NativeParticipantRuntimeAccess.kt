@@ -31,6 +31,9 @@ internal object NativeParticipantRuntimeAccess {
         return statusBarView.readField("mDarkIconManager")
     }
 
+    fun groupFor(host: Any): ViewGroup? =
+        managerFor(host)?.readField("mGroup") as? ViewGroup
+
     fun resolve(host: Any): ResolveResult {
         val hostView = host as? View
             ?: return ResolveResult.Failure("host-not-view")

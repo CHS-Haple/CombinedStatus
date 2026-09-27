@@ -2,11 +2,13 @@ package com.chaners.combinedstatus.xposed
 
 import android.os.SystemClock
 import android.view.View
+import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import io.github.libxposed.api.XposedInterface.HookHandle
 import io.github.libxposed.api.XposedInterface.Hooker
 import io.github.libxposed.api.XposedModule
 import java.lang.ref.WeakReference
+import java.lang.reflect.Field
 
 internal object SystemUiIslandMotionSource {
     const val HOOK_COUNT = 1
@@ -29,6 +31,9 @@ internal object SystemUiIslandMotionSource {
             BATTERY_VIEW_FIELD,
         )
 
+    private var injectorRef = WeakReference<Any>(null)
+    private var diagnosticFields: List<Pair<String, Field>> = emptyList()
+
     fun install(
         module: XposedModule,
         classLoader: ClassLoader,
@@ -48,16 +53,15 @@ internal object SystemUiIslandMotionSource {
             listenerClass.declaredFields
                 .firstOrNull { it.type == injectorClass }
                 ?.apply { isAccessible = true }
-        val diagnosticFields =
-            if (onEvent == null) {
-                emptyList()
-            } else {
-                diagnosticTrackedNames.mapNotNull { name ->
-                    runCatching {
-                        injectorClass.getDeclaredField(name).apply { isAccessible = true }
-                    }.getOrNull()?.let { name to it }
-                }
+        val resolvedDiagnosticFields =
+            diagnosticTrackedNames.mapNotNull { name ->
+                runCatching {
+                    injectorClass.getDeclaredField(name).apply { isAccessible = true }
+                }.getOrNull()?.let { name to it }
             }
+        synchronized(this) {
+            diagnosticFields = resolvedDiagnosticFields
+        }
 
         val handle =
             module
@@ -78,8 +82,11 @@ internal object SystemUiIslandMotionSource {
                                 runCatching { field.get(chain.thisObject) }.getOrNull()
                             }
                         if (injector != null) {
+                            synchronized(this) {
+                                injectorRef = WeakReference(injector)
+                            }
                             val views =
-                                diagnosticFields.mapNotNull { (name, field) ->
+                                resolvedDiagnosticFields.mapNotNull { (name, field) ->
                                     (runCatching { field.get(injector) as? View }.getOrNull())
                                         ?.let { name to it }
                                 }.toMap()
@@ -93,6 +100,10 @@ internal object SystemUiIslandMotionSource {
                             if (views.isNotEmpty()) {
                                 DiagnosticProbe.start(
                                     views = views,
+                                    statusChildren =
+                                        collectStatusChildren(
+                                            views["mStatusContainer"] as? ViewGroup,
+                                        ),
                                     onEvent = onEvent,
                                     isProbeEnabled = isProbeEnabled,
                                 )
@@ -106,8 +117,148 @@ internal object SystemUiIslandMotionSource {
 
     fun matches(handle: HookHandle): Boolean = handle.id == HOOK_ID
 
+    @Synchronized
+    fun currentOwnerSnapshot(): OwnerSnapshot? {
+        val injector = injectorRef.get() ?: return null
+        val views =
+            diagnosticFields.mapNotNull { (name, field) ->
+                (runCatching { field.get(injector) as? View }.getOrNull())
+                    ?.let { name to viewSnapshot(it) }
+            }.toMap()
+        if (views.isEmpty()) {
+            return null
+        }
+        return OwnerSnapshot(views)
+    }
+
     fun resetRuntimeState() {
+        synchronized(this) {
+            injectorRef = WeakReference(null)
+            diagnosticFields = emptyList()
+        }
         DiagnosticProbe.reset()
+    }
+
+    internal data class OwnerSnapshot(
+        val views: Map<String, MotionViewSnapshot>,
+    ) {
+        val summary: String
+            get() =
+                "{" +
+                    diagnosticTrackedNames
+                        .mapNotNull { name ->
+                            views[name]?.let { snapshot ->
+                                name + "=" + snapshot.summary
+                            }
+                        }
+                        .joinToString(",") +
+                    "}"
+    }
+
+    internal data class MotionViewSnapshot(
+        val className: String,
+        val screenX: Int,
+        val width: Int,
+        val translationX: Float,
+        val alpha: Float,
+        val visibility: Int,
+    ) {
+        val summary: String
+            get() =
+                className +
+                    "(x=" + screenX +
+                    ",w=" + width +
+                    ",tx=" + translationX +
+                    ",a=" + alpha +
+                    ",v=" + visibility +
+                    ")"
+    }
+
+    private fun viewSnapshot(view: View): MotionViewSnapshot {
+        val location = IntArray(2)
+        view.getLocationOnScreen(location)
+        return MotionViewSnapshot(
+            className = view.javaClass.simpleName,
+            screenX = location[0],
+            width = view.width,
+            translationX = view.translationX,
+            alpha = view.alpha,
+            visibility = view.visibility,
+        )
+    }
+
+    private fun collectStatusChildren(
+        group: ViewGroup?,
+    ): List<TrackedStatusChild> {
+        if (group == null) {
+            return emptyList()
+        }
+        return (0 until group.childCount)
+            .mapNotNull { index ->
+                val child = group.getChildAt(index) ?: return@mapNotNull null
+                val slot =
+                    runCatching {
+                        child.javaClass.methods
+                            .firstOrNull { method ->
+                                method.name == "getSlot" &&
+                                    method.parameterCount == 0 &&
+                                    method.returnType == String::class.java
+                            }
+                            ?.invoke(child) as? String
+                    }.getOrNull()
+                        ?: child.resources
+                            ?.let { resources ->
+                                runCatching {
+                                    if (child.id != View.NO_ID) {
+                                        resources.getResourceEntryName(child.id)
+                                    } else {
+                                        null
+                                    }
+                                }.getOrNull()
+                            }
+                        ?: child.javaClass.simpleName
+                if (
+                    child.visibility != View.VISIBLE &&
+                    slot != SystemUiNativeCombinedParticipantOwner.SLOT
+                ) {
+                    return@mapNotNull null
+                }
+                TrackedStatusChild(
+                    index = index,
+                    slot = slot,
+                    view = WeakReference(child),
+                )
+            }
+            .sortedByDescending { item ->
+                item.view.get()?.let { view ->
+                    val location = IntArray(2)
+                    view.getLocationOnScreen(location)
+                    location[0]
+                } ?: Int.MIN_VALUE
+            }
+            .take(MAX_TRACKED_STATUS_CHILDREN)
+    }
+
+    private data class TrackedStatusChild(
+        val index: Int,
+        val slot: String,
+        val view: WeakReference<View>,
+    ) {
+        fun snapshot(): String {
+            val target = view.get()
+                ?: return index.toString() + ":" + slot + "={released}"
+            val location = IntArray(2)
+            target.getLocationOnScreen(location)
+            return index.toString() + ":" + slot + "={" +
+                "left=" + target.left +
+                ",screenX=" + location[0] +
+                ",w=" + target.width +
+                ",mw=" + target.measuredWidth +
+                ",tx=" + target.translationX +
+                ",a=" + target.alpha +
+                ",v=" + target.visibility +
+                "}"
+        }
     }
 
     private object DiagnosticProbe {
@@ -118,6 +269,7 @@ internal object SystemUiIslandMotionSource {
 
         fun start(
             views: Map<String, View>,
+            statusChildren: List<TrackedStatusChild>,
             onEvent: (String) -> Unit,
             isProbeEnabled: () -> Boolean,
         ) {
@@ -139,10 +291,21 @@ internal object SystemUiIslandMotionSource {
                         return@OnPreDrawListener true
                     }
                     frame += 1
-                    val snapshot =
+                    val ownerSnapshot =
                         views.entries.joinToString(" ") { (name, view) ->
                             name + "=" + motion(view)
                         }
+                    val childSnapshot =
+                        if (statusChildren.isEmpty()) {
+                            "statusChildren=none"
+                        } else {
+                            "statusChildren=[" +
+                                statusChildren.joinToString(";") { item ->
+                                    item.snapshot()
+                                } +
+                                "]"
+                        }
+                    val snapshot = ownerSnapshot + " " + childSnapshot
                     if (snapshot != previous && samples < MAX_SAMPLES) {
                         previous = snapshot
                         samples += 1
@@ -196,15 +359,14 @@ internal object SystemUiIslandMotionSource {
         }
 
         private fun motion(view: View): String {
-            val location = IntArray(2)
-            view.getLocationOnScreen(location)
-            return view.javaClass.simpleName +
+            val snapshot = viewSnapshot(view)
+            return snapshot.className +
                 "{x=" + view.x +
-                ",screenX=" + location[0] +
-                ",tx=" + view.translationX +
-                ",a=" + view.alpha +
-                ",v=" + view.visibility +
-                ",w=" + view.width +
+                ",screenX=" + snapshot.screenX +
+                ",tx=" + snapshot.translationX +
+                ",a=" + snapshot.alpha +
+                ",v=" + snapshot.visibility +
+                ",w=" + snapshot.width +
                 "}"
         }
 
@@ -212,4 +374,5 @@ internal object SystemUiIslandMotionSource {
     }
 
     private const val FOLLOW_DURATION_MS = 900L
+    private const val MAX_TRACKED_STATUS_CHILDREN = 10
 }

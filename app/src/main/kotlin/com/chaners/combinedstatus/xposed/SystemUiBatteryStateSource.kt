@@ -1,16 +1,27 @@
 package com.chaners.combinedstatus.xposed
 
+import android.view.View
 import io.github.libxposed.api.XposedInterface.HookHandle
 import io.github.libxposed.api.XposedInterface.Hooker
 import io.github.libxposed.api.XposedModule
+import java.lang.reflect.Field
+import java.lang.reflect.Method
 
 internal object SystemUiBatteryStateSource {
-    const val BATTERY_VIEW_CLASS_NAME =
-        "com.android.systemui.statusbar.views.MiuiBatteryMeterView"
+    const val BATTERY_ICON_VIEW_CLASS_NAME =
+        "com.android.systemui.statusbar.views.MiuiBatteryMeterIconView"
     const val BATTERY_LEVEL_METHOD_NAME = "onBatteryLevelChanged"
-    const val HOOK_COUNT = 1
+    const val CHARGE_STATE_METHOD_NAME = "onChargeStateChanged"
+    const val POWER_SAVE_METHOD_NAME = "onPowerSaveChanged"
+    const val PERFORMANCE_METHOD_NAME = "onPerformanceModeChanged"
+    const val MIUI_OPTIMIZATION_METHOD_NAME = "setMiuiOptimizationEnabled"
+    const val HOOK_COUNT = 5
 
-    private const val HOOK_ID = "combinedstatus.battery.level"
+    private const val LEVEL_HOOK_ID = "combinedstatus.battery.level"
+    private const val CHARGE_HOOK_ID = "combinedstatus.battery.charge"
+    private const val POWER_SAVE_HOOK_ID = "combinedstatus.battery.power-save"
+    private const val PERFORMANCE_HOOK_ID = "combinedstatus.battery.performance"
+    private const val MIUI_OPTIMIZATION_HOOK_ID = "combinedstatus.battery.miui-optimization"
 
     @Volatile
     private var lastState: CombinedStatusStateStore.BatteryState? = null
@@ -21,69 +32,187 @@ internal object SystemUiBatteryStateSource {
         onBatteryState: (CombinedStatusStateStore.BatteryState) -> Unit,
         onEvent: ((String) -> Unit)?,
     ): List<HookHandle> {
-        val batteryClass =
-            Class.forName(BATTERY_VIEW_CLASS_NAME, false, classLoader)
+        val iconClass =
+            Class.forName(BATTERY_ICON_VIEW_CLASS_NAME, false, classLoader)
+        val levelField = iconClass.requiredField("mLevel")
+        val chargingField = iconClass.requiredField("mCharging")
+        val progressStatusMethod =
+            iconClass.getDeclaredMethod("getProgressStatus")
+                .apply { isAccessible = true }
+        val chargingColorField = iconClass.requiredField("mBatteryChargingColor")
+        val powerSaveColorField = iconClass.requiredField("mBatteryPowerSaveColor")
+        val performanceColorField =
+            iconClass.requiredField("mBatteryPerformanceModeColor")
+        val lowColorField = iconClass.requiredField("mBatteryLowColor")
+        val miuiOptimizationField =
+            iconClass.requiredField("mMiuiOptimizationEnabled")
+
+        fun readState(iconView: View): CombinedStatusStateStore.BatteryState? {
+            val level =
+                runCatching { levelField.getInt(iconView) }
+                    .getOrNull()
+                    ?.coerceIn(0, 100)
+                    ?: return null
+            val charging =
+                runCatching { chargingField.getBoolean(iconView) }
+                    .getOrNull()
+                    ?: return null
+            val nativeStatusName =
+                runCatching {
+                    (progressStatusMethod.invoke(iconView) as? Enum<*>)?.name
+                }.getOrNull()
+            val semanticState =
+                SystemUiBatterySemanticPolicy.fromNativeProgressStatus(
+                    nativeStatusName,
+                )
+            val miuiOptimizationEnabled =
+                runCatching { miuiOptimizationField.getBoolean(iconView) }
+                    .getOrDefault(false)
+            val systemSemanticColor =
+                if (miuiOptimizationEnabled) {
+                    semanticState?.let { state ->
+                        semanticColor(
+                            icon = iconView,
+                            state = state,
+                            chargingColorField = chargingColorField,
+                            powerSaveColorField = powerSaveColorField,
+                            performanceColorField = performanceColorField,
+                            lowColorField = lowColorField,
+                        )
+                    }
+                } else {
+                    null
+                }
+
+            return CombinedStatusStateStore.BatteryState(
+                percent = level,
+                charging = charging,
+                semanticState = semanticState,
+                systemSemanticColor = systemSemanticColor,
+            )
+        }
+
+        fun publish(
+            iconView: View,
+            sourceMethod: String,
+        ) {
+            val state = readState(iconView) ?: return
+            val changed =
+                synchronized(this) {
+                    if (lastState == state) {
+                        false
+                    } else {
+                        lastState = state
+                        true
+                    }
+                }
+            if (!changed) {
+                return
+            }
+            onBatteryState(state)
+            onEvent?.invoke(
+                "batteryState source=MiuiBatteryMeterIconView." + sourceMethod +
+                    " percent=" + state.percent +
+                    " charging=" + state.charging +
+                    " semantic=" + (state.semanticState?.name ?: "unavailable") +
+                    " systemColor=" +
+                    (state.systemSemanticColor?.let(::colorHex) ?: "status-icon") +
+                    " semanticAuthority=MiuiBatteryMeterIconView.getProgressStatus()" +
+                    " eventDriven=true",
+            )
+        }
+
+        fun hook(
+            method: Method,
+            hookId: String,
+        ): HookHandle =
+            module
+                .hook(method)
+                .setId(hookId)
+                .intercept(
+                    Hooker { chain ->
+                        val result = chain.proceed()
+                        val iconView = chain.thisObject as? View
+                            ?: return@Hooker result
+                        publish(
+                            iconView = iconView,
+                            sourceMethod = method.name,
+                        )
+                        result
+                    },
+                )
+
         val levelMethod =
-            batteryClass.getDeclaredMethod(
+            iconClass.getDeclaredMethod(
                 BATTERY_LEVEL_METHOD_NAME,
                 Int::class.javaPrimitiveType,
                 Boolean::class.javaPrimitiveType,
                 Boolean::class.javaPrimitiveType,
             ).apply { isAccessible = true }
+        val chargeMethod =
+            iconClass.getDeclaredMethod(
+                CHARGE_STATE_METHOD_NAME,
+                Boolean::class.javaPrimitiveType,
+                Boolean::class.javaPrimitiveType,
+            ).apply { isAccessible = true }
+        val powerSaveMethod =
+            iconClass.getDeclaredMethod(
+                POWER_SAVE_METHOD_NAME,
+                Boolean::class.javaPrimitiveType,
+            ).apply { isAccessible = true }
+        val performanceMethod =
+            iconClass.getDeclaredMethod(
+                PERFORMANCE_METHOD_NAME,
+                Boolean::class.javaPrimitiveType,
+            ).apply { isAccessible = true }
+        val miuiOptimizationMethod =
+            iconClass.getDeclaredMethod(
+                MIUI_OPTIMIZATION_METHOD_NAME,
+                Boolean::class.javaPrimitiveType,
+            ).apply { isAccessible = true }
 
-        val handle =
-            module
-                .hook(levelMethod)
-                .setId(HOOK_ID)
-                .intercept(
-                    Hooker { chain ->
-                        val result = chain.proceed()
-                        val level =
-                            (chain.getArg(0) as? Number)
-                                ?.toInt()
-                                ?.coerceIn(0, 100)
-                                ?: return@Hooker result
-                        val pluggedIn =
-                            chain.getArg(1) as? Boolean
-                                ?: return@Hooker result
-                        val charging =
-                            chain.getArg(2) as? Boolean
-                                ?: return@Hooker result
-                        val state =
-                            CombinedStatusStateStore.BatteryState(
-                                percent = level,
-                                charging = charging,
-                            )
-
-                        val changed =
-                            synchronized(this) {
-                                if (lastState == state) {
-                                    false
-                                } else {
-                                    lastState = state
-                                    true
-                                }
-                            }
-                        if (changed) {
-                            onBatteryState(state)
-                            onEvent?.invoke(
-                                "batteryState source=MiuiBatteryMeterView." +
-                                    BATTERY_LEVEL_METHOD_NAME +
-                                    " percent=" + level +
-                                    " pluggedIn=" + pluggedIn +
-                                    " charging=" + charging +
-                                    " eventDriven=true",
-                            )
-                        }
-
-                        result
-                    },
-                )
-
-        return listOf(handle)
+        return listOf(
+            hook(levelMethod, LEVEL_HOOK_ID),
+            hook(chargeMethod, CHARGE_HOOK_ID),
+            hook(powerSaveMethod, POWER_SAVE_HOOK_ID),
+            hook(performanceMethod, PERFORMANCE_HOOK_ID),
+            hook(miuiOptimizationMethod, MIUI_OPTIMIZATION_HOOK_ID),
+        )
     }
 
-    fun matches(handle: HookHandle): Boolean = handle.id == HOOK_ID
+    private fun semanticColor(
+        icon: Any,
+        state: CombinedStatusBatterySemanticState,
+        chargingColorField: Field,
+        powerSaveColorField: Field,
+        performanceColorField: Field,
+        lowColorField: Field,
+    ): Int? {
+        val field =
+            when (state) {
+                CombinedStatusBatterySemanticState.NORMAL -> return null
+                CombinedStatusBatterySemanticState.CHARGING -> chargingColorField
+                CombinedStatusBatterySemanticState.POWER_SAVE -> powerSaveColorField
+                CombinedStatusBatterySemanticState.PERFORMANCE -> performanceColorField
+                CombinedStatusBatterySemanticState.LOW -> lowColorField
+            }
+        return runCatching { field.getInt(icon) }
+            .getOrNull()
+            ?.takeIf { color -> color ushr 24 != 0 }
+    }
+
+    private fun Class<*>.requiredField(name: String): Field =
+        getDeclaredField(name).apply { isAccessible = true }
+
+    private fun colorHex(color: Int): String =
+        "#" + color.toUInt().toString(16).padStart(8, '0')
+
+    fun matches(handle: HookHandle): Boolean =
+        handle.id == LEVEL_HOOK_ID ||
+            handle.id == CHARGE_HOOK_ID ||
+            handle.id == POWER_SAVE_HOOK_ID ||
+            handle.id == PERFORMANCE_HOOK_ID ||
+            handle.id == MIUI_OPTIMIZATION_HOOK_ID
 
     @Synchronized
     fun resetRuntimeState() {

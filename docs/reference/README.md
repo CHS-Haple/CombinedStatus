@@ -1,19 +1,27 @@
 # Runtime Reference Library
 
-This directory stores generalized implementation/platform evidence that may inform future Combined Status work.
+This directory stores generalized runtime-integration patterns that have been verified from mature Android/SystemUI implementations or exact target-platform behavior and may inform future Combined Status work.
 
-It is an engineering reference, not a dependency declaration, implementation lineage, or automatic permission to mutate SystemUI.
+It is an **engineering reference**, not a dependency declaration, implementation lineage, or permission to copy another project's code.
 
 ## Rules
 
-- Record reusable ownership, lifecycle, geometry, restoration, state-source, or sizing evidence.
-- Separate observed evidence from Combined Status design decisions.
-- Revalidate a pattern against the exact target before adopting it.
-- Do not copy unrelated third-party source code, proprietary assets, or implementation-specific constants merely to document a concept.
-- Keep contradictory or superseded evidence when it remains useful, and state its confidence/current applicability explicitly.
+- Record reusable behavior and ownership patterns, not third-party product/package/class names.
+- Do not copy third-party source code, proprietary assets, or implementation-specific constants into this repository.
+- Keep platform-specific identifiers only when they are necessary to describe a verified target-SystemUI contract.
+- Separate **observed behavior** from **Combined Status design decisions**.
+- A reference pattern is not automatically valid on the current target. Revalidate the host, lifecycle, writer, fallback, and device behavior before adopting it.
+- Prefer the smallest reusable concept: ownership, lifecycle, geometry, restoration, projection, or sizing contract.
+- Keep contradictory or superseded evidence rather than converting it into an unqualified rule.
 
-## Relationship to current architecture
+## Current entries
 
-`docs/development/CURRENT.md` and `docs/architecture/` define what the project currently selects. Reference evidence can support or challenge that selection, but does not override ownership, lifecycle, compatibility, or fail-native rules in `CONTRIBUTING.md`.
+- [Status-bar composition and scene-projection patterns](statusbar-composition-patterns.md) — existing-host composition, scoped slot suppression, reversible visual masking, host-scoped state, sizing separation, native-progress projection, and cleanup/fail-native behavior.
+- [Native status-icon resource rendering](native-icon-rendering.md) — native resource/tint/alpha-mask evidence and the Combined Status reuse boundary.
 
-Specific reusable reference entries may be added as their evidence is reviewed and generalized.
+## Confidence language
+
+- **Observed** — directly evidenced in the inspected implementation/runtime.
+- **Strong inference** — supported by several independent observations but not directly exposed as one explicit contract.
+- **Candidate for Combined Status** — potentially useful architecture; still requires target-specific validation.
+- **Not established** — insufficient evidence to use as a design premise.

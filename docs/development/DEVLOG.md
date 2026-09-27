@@ -605,7 +605,17 @@ The defect is therefore not a missing animation callback, preference delay, or r
 
 ### CI / testing
 
-Fast Build and signed Work Branch Canary are pending at source commit creation.
+- Fast Build #1031: **success**.
+- Work Branch Canary #290: **success**.
+- Canary checkout log confirms exact tested work-branch SHA `d3533828e82a335eab0b3e661cfadd4e70ebee27`.
+- Modern Xposed metadata verification: success.
+- Haple signature verification: success; APK signature verifies with v3.
+- Canary non-debuggable verification: success.
+- Artifact ID: `10907652284`.
+- Artifact archive digest: `sha256:6074e71cf5640ac5fd8d4e3d21d76a5f0603d733cba8479856ee0c756e3185fc`.
+- Extracted APK: `CombinedStatus-0.0.1-HyperOS-20260926-385-canary.apk`.
+- Extracted APK SHA-256: `c1c084b2a6b79924bcc2c2e801d3f2c1050f597bff107cbddacbcbea619e3259`.
+- Extracted APK size: `3375134` bytes.
 
 Required focused device test after CI:
 1. OFF -> ON centered APPEAR with no flash/reappearance;
@@ -616,7 +626,7 @@ Required focused device test after CI:
 
 ### Outcome / residual risk
 
-Pending CI and device evidence. If Build 385 still fails, do not add timing retries or repeated writes; reopen native end-side ownership.
+CI and signed-Canary validation passed. Device evidence remains the gate. If Build 385 still fails any focused scenario, do not add timing retries or repeated writes; reopen native end-side ownership.
 
 
 
@@ -688,3 +698,3543 @@ The review separates four categories that future sessions must not conflate:
 ### Outcome
 
 The macro roadmap is restored above the Build-level route, and the Home page now has enough durable design intent to be reconstructed later without relying on chat memory.
+---
+
+## 2026-09-26 — Build 385 validation history synchronization
+
+**Type:** repository history / CI gate recovery
+**APK build:** unchanged (`20260926-385`)
+**Runtime impact:** none
+
+### Problem
+
+After the Build 385 runtime checkpoint was committed, PR #100 stopped producing `pull_request` validation runs. Repeated PR state events (`ready_for_review`, `reopened`) were recorded by GitHub but no Build workflow was created.
+
+### Root cause
+
+Repository review confirmed PR #100 was `mergeable=false` with `mergeable_state=dirty`. The work branch and `dev` had independently received equivalent development-memory / roadmap updates, so Git history diverged even though the relevant documentation content had already been synchronized semantically. GitHub therefore could not create the PR test-merge ref required for `pull_request` validation.
+
+### Evidence / review
+
+- Latest `CONTRIBUTING.md` and current `CURRENT.md`, `DEVLOG.md`, and `ROADMAP.md` were re-read before changing history.
+- The latest `dev` delta from the prior common base was reviewed and contained repository-development documentation/history updates rather than APK/runtime code.
+- Previously compared development-document blobs were byte-identical where the same sync had landed on both lines; later macro-roadmap/Home-design restoration was also retrieved from the latest repository state before proceeding.
+- PR #100 reported `mergeable=false`, `mergeable_state=dirty`, while its current head remained the Build 385 runtime line.
+
+### Resolution
+
+Create a history-preserving merge commit on `feat/native-panel-transition` with:
+- first parent = the current work-branch head;
+- second parent = the latest `dev` head;
+- current Build 385 work tree retained as the content basis, plus this CI-history note.
+
+This is intentionally **not** a runtime change and does not increment the external version, internal versionCode, or buildId. The merge commit is also intentionally not marked `[skip ci]`, because the purpose is to restore a valid PR merge base and allow trusted Build 385 validation to run against the exact current runtime tree.
+
+### Review boundary
+
+- No app/SystemUI source, Gradle runtime property, dependency, signing, or workflow logic changes are introduced by this history synchronization.
+- Build 385 runtime ownership and acceptance criteria remain unchanged.
+- CI success after the merge is validation of Build 385; it is not a new Build 386 checkpoint.
+### Validation-history resolution result
+
+The history-only merge restored PR #100 to `mergeable=true` and immediately produced Fast Build #1031. That Fast gate succeeded and triggered Work Branch Canary #290.
+
+Canary #290 explicitly checked out `d3533828e82a335eab0b3e661cfadd4e70ebee27`, completed tests/build, Modern Xposed metadata validation, Haple signing verification, non-debuggable verification, and artifact upload successfully.
+
+This confirms the earlier missing-run condition was a PR dirty/test-merge-ref problem rather than a Build 385 source or workflow-classification failure.
+### Device validation update — Build 385
+
+Device feedback: **the same flash / missing visible entry animation remains**.
+
+#### What Build 385 did prove
+
+- The exact APPEAR pivot adapter is active.
+- Sampled enable frames retain `pivotX=52.5` while root alpha/scale progress through the native Folme APPEAR curve.
+- Therefore the Build 384 pivot reset was a real defect, but correcting it is **not sufficient** to restore the visible entry animation.
+
+#### Root-cause correction
+
+The user's symptom is specifically the disappearance of the Combined Status **entry animation**, not an overlap flash between Combined Status and restored native network/battery icons.
+
+A direct 381 -> 382 code/device comparison identifies the decisive boundary: Build 381 promoted the active `ModernStatusBarView` shell to the resolved visual width and had a visible native entry animation; Build 382 removed `promoteActiveShellGeometry()` and kept the active shell at zero width, after which the entry animation disappeared again. Builds 384/385 modified only pivot handling and did not restore the real active shell extent.
+
+**Confirmed conclusion:** pivot is no longer the primary root cause. The remaining problem is that HyperOS native APPEAR owns alpha/scale on the status-icon root, while the actual 105px Combined Status renderer is intentionally laid out outside a zero-width root. Logs can therefore show a valid native animation state without proving that the overflow renderer participates in a visually animated transition.
+
+#### Rejected next moves
+
+- More pivot callbacks / timing retries: rejected by Build 385 device result.
+- Returning permanently to full-width active shell while preserving the native battery slot: rejected because Build 381 caused steady left shift.
+- Hiding the native battery slot to make room for a full-width shell: rejected because Builds 380/381 tied that topology to non-steady first/last-frame anchor shift.
+
+#### Selected investigation
+
+Inspect the Android/SystemUI render boundary for `ModernStatusBarView` to determine whether a zero-width root can provide native animated visual bounds for an overflowing 105px child. The next solution must separate **transition bounds** from **layout occupancy**: real bounds for APPEAR, zero additional steady slot consumption.
+
+Build 386 is blocked until this boundary is source-justified.
+---
+
+## 2026-09-26 — Build 386: separate native layout occupancy from actual transition bounds
+
+**Type:** runtime geometry/transition ownership correction
+**APK build:** 20260926-386
+**CI:** pending at commit creation
+**Device validation:** pending
+
+### Problem / objective
+
+Build 385 kept the native APPEAR pivot centered but the user still observed the same missing entry animation. The previously working visible APPEAR existed when Build 381 promoted the custom `ModernStatusBarView` root to a real 105px width. Build 382 removed that promotion to fix duplicate steady occupancy, and the visible entry animation disappeared again.
+
+Build 386 aims to preserve the two independently validated requirements simultaneously:
+- zero extra measured/layout occupancy so the native battery slot remains the only 105px end-side slot;
+- real 105px View/RenderNode bounds so HyperOS APPEAR/DISAPPEAR has a real visual animation surface.
+
+### Root cause / source analysis
+
+**Confirmed device/code boundary:** the visible entry animation tracks the presence of real participant bounds, not pivot alone.
+
+**Confirmed exact SystemUI ordering:** `MiuiStatusIconContainer.onMeasure()` measures selected child views and uses child measured widths for its occupancy calculations. `MiuiStatusIconContainer.onLayout()` first lays every child from `getMeasuredWidth()/getMeasuredHeight()`, then performs its `NewStatusIconState` / `layoutTranslationX` calculations. Therefore a custom child can remain measured as 0px during native layout/state computation and receive different actual bounds only after the container's native `onLayout()` completes.
+
+Android's View/ViewGroup contract also distinguishes child clipping/layout from subtree rendering; `clipChildren=false` allows descendants to draw outside parent bounds, but it does not create non-zero bounds for a zero-width animation target. Build 385 runtime evidence showed native alpha/scale state alone was insufficient for the overflowing renderer.
+
+### Alternatives considered
+
+1. More pivot/timing work — rejected by Build 385 device result.
+2. Redirect native Folme animation directly to `CombinedStatusRenderView` — deferred because `MiuiStatusBarFolmeViewState.animateTo()` also owns translation and other properties; redirecting the whole target risks applying root layout translation to the child and would require a larger native-animation fork.
+3. Return to permanent 105px measured shell — rejected because Build 381 produced duplicate steady occupancy / left shift.
+4. Post-native-layout visual bounds — selected. Keep measured/layout width 0 for native occupancy, then expand only the module-owned root's actual bounds to the renderer width after native layout/state calculations.
+
+### Measures implemented
+
+- Removed Build 385's exact APPEAR pivot hook and callback contract.
+- Added one hook on exact `MiuiStatusIconContainer.onLayout(boolean,int,int,int,int)`.
+- The hook always executes native layout first. After native layout returns, it checks only the current Combined Status root and expands its actual bounds from 0x108 to the resolved renderer dimensions while leaving `layoutParams.width=0` and `measuredWidth=0` unchanged.
+- The same visual-bounds preparation runs before `ModernStatusBarView.setRemove(...)` so APPEAR/DISAPPEAR begins with real root bounds.
+- No native peer View, container bounds, translation, margin, padding, or Control Center anchor is modified.
+- The existing renderer stays a direct child of the custom root; the root now owns a real 105px visual/transition surface rather than relying on child overflow from a zero-width parent.
+- Added bounded diagnostic `nativeCombinedParticipant visualBounds` that logs only the first successful application per runtime generation.
+- Internal build advances to `20260926-386`; display version remains `0.0.1`.
+
+### Review
+
+- **Single writer:** HyperOS remains the only writer for container measurement, slot ordering, `NewStatusIconState`, translation, alpha/scale curve and peer geometry. The module owns only its custom root's post-layout visual bounds.
+- **Ordering:** native parent measurement and layout-state calculation see 0px; module visual bounds are applied only after native `onLayout()` returns.
+- **Performance:** one constant-time post-layout identity check on the status-icon container; no tree traversal, polling, per-frame animation copying, or persistent pre-draw listener.
+- **Lifecycle:** visual bounds are also prepared synchronously before `setRemove(...)`, avoiding a race where APPEAR begins on 0px bounds.
+- **Future sizing:** actual transition width derives from renderer measured width, not a fixed 105px constant.
+- **Fallback:** if layout/measured width is not zero or resolved visual geometry is unavailable, the visual-bounds operation fails instead of mutating native peers.
+
+### CI / testing
+
+Fast Build and signed Work Branch Canary are pending.
+
+Focused device acceptance after CI:
+1. OFF -> ON: native entry animation is visibly restored, not a flash/direct appearance;
+2. ON -> OFF remains animated;
+3. steady Combined Status remains aligned with the battery slot, with no left shift;
+4. pull-down first frame / return last frame remain aligned, with no right shift;
+5. diagnostic confirms `layoutWidth=0`, `measuredWidth=0`, `actualWidth=105` and Control Center anchor remains `statusIconsWidth=478`, `batteryWidth=105`.
+
+### Outcome / residual risk
+
+Pending CI and device validation. If real post-layout bounds still do not restore visible APPEAR, stop and reopen the animation-target architecture rather than adding another offset or timing layer.
+### CI update — Build 386
+
+- Fast Build #1032: **success**.
+- Work Branch Canary #291: **success**.
+- Canary verified tested work-branch SHA checkout, unit/Canary build, pinned HyperOS target profile, Modern Xposed metadata, Haple APK signature, non-debuggable status, and artifact upload.
+- This CI update does not create a new runtime build. Device validation remains the acceptance gate.
+---
+
+## 2026-09-26 — Build 387: preserve battery-slot translation during charging-island eviction
+
+**Type:** runtime charging/island transition-target correction
+**APK build:** 20260926-387
+**CI:** pending at commit creation
+**Device validation:** pending
+
+### Build 386 device result
+
+Build 386 is the first checkpoint to break the original three-symptom loop on device: steady placement is correct, the Combined Status entry animation is visible, and the previously reported non-steady first/last-frame shift is not observed.
+
+A separate charging Super Island defect remains: while HyperOS evicts native battery presentation, Combined Status is pushed beyond the right display boundary.
+
+### Root cause
+
+Build 386 correctly separates zero measured/layout occupancy from real 105x108 visual bounds. The remaining defect is the translation-target semantic of the zero-width custom participant during charging island.
+
+Runtime evidence shows normal Home uses Combined Status `layoutTranslationX=478`. During charging island, HyperOS translates/fades native battery content out and the custom participant's native target advances to 583, causing the real Build 386 visual surface to start at the battery-eviction endpoint and extend beyond the right edge.
+
+Exact SystemUI review confirms `MiuiStatusIconContainer` / `NewStatusIconState` owns translation-state calculation and `MiuiStatusBarFolmeViewState.applyToView(View, boolean)` consumes that resolved state while HyperOS remains the actual View/Folme writer.
+
+The native battery slot target is directly available from sibling layout coordinates under `MiuiStatusBatteryContainer`: `desiredTranslationX = battery.left - statusIcons.left - root.left`. This excludes battery-only motion translation by construction while retaining native parent/end-side movement.
+
+### Evidence / references consulted
+
+- Latest repository `CONTRIBUTING.md`: root-cause order, authoritative native source hierarchy, one-live-writer rule, geometry separation, fail-native compatibility, bounded diagnostics.
+- Build 386 device screenshot and detailed diagnostic from Xiaomi 15 Pro / SystemUI 17.03.260226.r.
+- Build 386 runtime geometry: normal target 478; charging-island custom target 583; native battery content translated/faded by HyperOS.
+- Exact target DEX: `MiuiStatusIconContainer`, `NewStatusIconState`, `MiuiStatusBarFolmeViewState.applyToView(View, boolean)`, and native Folme state application.
+- Build 386 actual-bounds implementation and successful device result.
+
+### Alternatives considered
+
+1. Hard-code -105px while charging — rejected; observed delta is evidence, not architecture, and battery geometry can vary.
+2. Write `root.translationX` from the module — rejected; HyperOS already owns the live property and Folme animation.
+3. Move actual bounds left outside the native animation — rejected after review because it can fix an endpoint while introducing a start-frame jump.
+4. Hide Combined Status with native battery — rejected because Combined Status still carries Wi-Fi/mobile information.
+5. Adapt the custom `NewStatusIconState` target before native apply — selected. HyperOS continues to execute the live property update/animation.
+
+### Measures implemented
+
+- Preserved Build 386's `MiuiStatusIconContainer.onLayout(...)` post-layout visual-bounds hook unchanged.
+- Added one exact hook on `MiuiStatusBarFolmeViewState.applyToView(View, boolean)`.
+- Every non-CombinedStatus View and every non-`NewStatusIconState` proceeds untouched.
+- For the Combined Status root only, the adapter resolves the native battery-slot target from sibling layout coordinates and updates the state object's `translationX` and `layoutTranslationX` before original native apply.
+- The module never writes the root View's live `translationX`; HyperOS/Folme remains the sole live property writer.
+- Handoff readiness now compares against the same native battery-slot screen anchor rather than raw motion-translated battery content.
+- Added one bounded `nativeCombinedParticipant slotTranslation` diagnostic only when native and slot-layout targets differ materially.
+- Hook accounting becomes three owned hooks; partial installation fails closed and constructor-install rollback unhooks both previously installed integration hooks.
+- Internal build advances to `20260926-387`; display version remains `0.0.1`.
+
+### Review
+
+- **Single writer:** HyperOS remains sole writer of live translation, timing, curve, island state and peer geometry.
+- **Module ownership:** only custom state-target adaptation plus Build 386 actual bounds.
+- **Native source:** sibling layout coordinates are authoritative slot geometry; no local charging/island state machine.
+- **Normal invariance:** when native target already equals battery-slot target, the adapter is effectively a no-op.
+- **Dynamic geometry:** no 105px compensation constant; current native layout handles 105/135 and future width changes.
+- **Performance:** one constant-time identity/class check in existing state application; no polling, frame loop, tree traversal or persistent listener.
+- **Fail-native:** missing exact class/method/fields prevents a partial native participant installation.
+- **Hot reload:** third hook participates in hook counting/reset and constructor failure rollback.
+
+### CI / test gate
+
+Fast Build and signed Work Branch Canary are pending.
+
+Focused device acceptance after CI:
+1. charging Super Island enter/steady/exit keeps Combined Status inside the right boundary;
+2. native motion is continuous with no module-side jump;
+3. non-charging steady placement remains correct;
+4. OFF -> ON entry animation remains visible;
+5. shade/Control Center first/last-frame alignment remains correct;
+6. diagnostic reports target correction only when necessary and `moduleViewTranslationWrites=0`.
+
+### Route impact
+
+Build 386 remains the structural solution to the original three-symptom loop. Build 387 narrows translation semantics so Combined Status follows the battery slot rather than battery-only Super Island eviction. If this regresses Build 386, revert the adapter and reopen the state-target owner instead of adding offsets or live translation writes.
+### CI validation update — Build 387
+
+- Fast Build #1033: **success** on runtime commit `9cce4d2ea1e8ddf2512b1db5df4ac55dd9ff235c`.
+- Work Branch Canary #292: **success**.
+- Canary exact tested work-branch SHA checkout: success.
+- Pinned HyperOS target-profile verification: success.
+- Modern Xposed metadata verification: success.
+- Haple APK signature verification: success.
+- Canary non-debuggable verification: success.
+- Artifact upload: success.
+- Artifact ID: `10908269727`.
+- Artifact archive digest: `sha256:bf91bb40923264f2a76aa6b9be8000373af5f71f0d4331a19695f6d46be02a40`.
+- Extracted APK SHA-256: `2788a27aa64dc6c1495f71aaaafc1037b39310a95fab55db89341c3697209dec`.
+- Extracted APK size: `3375134` bytes.
+
+### Validation state
+
+Build 387 has cleared repository Fast and signed-Canary gates. Device evidence remains the acceptance gate. The focused device check is charging Super Island enter/steady/exit plus one regression pass of the Build 386 steady/entry/non-steady behavior.
+
+
+
+---
+
+## 2026-09-26 — Build 388: reserve the released native battery slot during island hide
+
+**Type:** runtime island/layout-occupancy ownership correction  
+**APK build:** 20260926-388  
+**CI:** pending at commit creation  
+**Device validation:** pending
+
+### Problem / device evidence
+
+Build 387 is rejected as a complete charging-island fix. The supplied screen recording shows that the Combined Status visual remains inside the right edge, but native peer status icons move into and overlap the Combined Status visual while the charging Super Island is active.
+
+The matching Build 387 diagnostic provides the structural evidence: the normal status-icon region is 478px beside a 105px battery slot; when native battery hide is activated for the charging island, `MiuiStatusIconContainer` expands to 583px. The Combined Status renderer remains visually 105px wide while its native shell is measured at 0px, so the native layout has no reason to reserve the released battery region for it.
+
+### Root cause
+
+Build 387 corrected the participant translation target, but its steady-state assumption was too broad: the native battery is the single 105px end-side occupancy owner only while HyperOS keeps that battery slot in layout. Once HyperOS itself applies `MiuiStatusBatteryContainer.setIsHideBattery(true)`, that region is released to the status-icon container. Keeping Combined Status at 0px measured occupancy then allows peer icons to share the same native region as the module-owned 105px visual.
+
+### References consulted
+
+- latest `CONTRIBUTING.md`: root-cause-first flow, native state-source hierarchy, one-live-writer rule, geometry separation, fail-native behavior, lightweight/event-driven implementation, development-log requirements;
+- Build 387 maintainer screen recording and detailed device diagnostic;
+- `SystemUI-Reference/findings/statusbar.md`: `MiuiStatusIconContainer.onMeasure()` consumes child measured width and status-icon slot geometry must remain distinct from visual/motion geometry;
+- `SystemUI-Reference/findings/charging.md`: `MiuiStatusBatteryContainer.setIsHideBattery(Boolean)` is the exact native layout-level battery-hide authority used by HyperOS island behavior.
+
+### Alternatives reviewed
+
+- Move Combined Status farther right: rejected; that reintroduces the Build 386 right-edge eviction.
+- Move peer native icons from the module: rejected; peer geometry remains SystemUI-owned and this would create competing writers.
+- Hard-code a 105px compensation: rejected; current 105px is runtime evidence, not a future sizing contract.
+- Hide Combined Status with the battery: rejected; the combined icon still carries network state.
+- Copy/replay island animation: rejected; HyperOS already owns the animation.
+- **Selected:** reserve only the native region that HyperOS itself releases, using the already-hooked native battery-hide semantic as the authority.
+
+### Implementation
+
+- No new SystemUI hook or polling source.
+- `SystemUiNativeBatterySuppressionOwner` now forwards the verified native `setIsHideBattery(Boolean)` result to the Combined Status participant owner.
+- The module-owned `ModernStatusBarView` shell uses width 0 while native battery layout is present.
+- While native battery layout is hidden, the shell width becomes the current resolved Combined Status visual/native-slot width.
+- On native battery return, shell width returns to 0.
+- Width changes are event-driven and request a native layout pass.
+- Build 386 post-layout real visual bounds remain for the zero-occupancy mode.
+- Build 387's native `NewStatusIconState` translation-target adapter remains.
+- No peer translation, live View translation write, fixed pixel offset, frame listener, polling loop, or separate charging/island state machine is added.
+- Internal build advances to `20260926-388`; display version remains `0.0.1`.
+
+### Review
+
+- **Authority review:** `MiuiStatusBatteryContainer.setIsHideBattery(Boolean)` remains the single semantic owner for whether the battery region is released.
+- **Geometry review:** Combined Status changes only its own slot occupancy; peer measurement/layout and live motion remain HyperOS-owned.
+- **Normal-state review:** battery present keeps Build 386's zero additional occupancy.
+- **Island review:** battery hidden lets Combined Status claim its own resolved visual width, preventing native peers from using the same released region.
+- **Performance review:** no new hook count and no per-frame work; only a layout-width update on a native hide-state change.
+- **Future sizing review:** the reserved width comes from the resolved visual width instead of a hard-coded 105px constant.
+- **Fallback review:** invalid/unknown visual width does not create speculative occupancy.
+
+### CI / test gate
+
+Fast Build and signed Work Branch Canary are pending.
+
+After CI, validate:
+1. charging Super Island enter / steady / exit keeps Combined Status fully inside the right edge;
+2. native peer icons do not overlap Combined Status at any island phase;
+3. HyperOS motion remains continuous without a module translation jump;
+4. non-charging steady placement remains unchanged;
+5. OFF -> ON native entry animation remains visible;
+6. shade / Control Center first and last frames remain aligned;
+7. detailed diagnostics show `slotOccupancy nativeBatteryHidden=true targetLayoutWidth=<visualWidth>` on island entry and restoration to 0 on exit.
+
+If Build 388 fails, reopen native measurement/order ownership. Do not add offsets or peer-translation patches.
+
+### Device validation and final work-branch review update — Build 387
+
+The focused Build 387 device gate is now accepted from the supplied screen recording and the matching detailed diagnostic session.
+
+#### Device evidence
+
+- Charging Super Island enter/steady/exit keeps the Combined Status visual fully within the right status-bar boundary; the previous Build 386 right-edge eviction is not reproduced.
+- Motion remains continuous with SystemUI; no project-owned translation jump is visible in the supplied recording.
+- The same diagnostic session preserves the restored native OFF -> ON APPEAR from Build 386. The Combined Status root has real 105x108 visual bounds, centered pivot geometry, and native alpha/scale progression.
+- Home -> shade / Control Center samples keep the Combined Status state target at `layoutTranslationX=478.0` while the native battery is separately translated/faded by HyperOS during charging/island behavior.
+- The state adapter continues to report `moduleViewTranslationWrites=0`, so HyperOS remains the only live View translation/Folme writer.
+
+#### Root-cause conclusion
+
+Build 387 confirms the remaining Build 386 charging defect was a **state-target semantic mismatch**, not a need for another live View writer or charging-specific offset. A zero-occupancy Combined Status participant must resolve its native state target to the battery slot's layout coordinate while leaving battery-only Super Island eviction to the native battery presentation.
+
+#### Review
+
+Final work-branch review rechecked the active implementation against the latest `CONTRIBUTING.md`, the exact target SystemUI contracts, and `SystemUI-Reference/findings/statusbar.md`, `control-center.md`, and `charging.md`.
+
+- **Scope:** PR #100 remains within the Home slot / native transition geometry boundary.
+- **Ownership:** HyperOS owns native measurement/state calculation, live translation, alpha/scale/Folme timing, island state, and peer geometry. Combined Status owns only its custom post-layout visual bounds and its custom state target adaptation.
+- **Lifecycle:** all three participant hooks are counted and reset together; partial installation rolls back installed hooks; host/battery/root references remain weak or generation-scoped.
+- **Performance:** event-driven constant-time hook work only; no polling, per-frame project animation writer, repeated tree traversal, or unbounded diagnostics were introduced.
+- **Fallback/compatibility:** exact target-contract failure keeps the native participant from partially activating. No hard-coded 105px translation compensation is used.
+- **Alternative review:** direct `View.translationX` writes, charging-state offsets, reintroducing full measured slot occupancy, and hiding Combined Status with the battery remain rejected because they violate one-writer, geometry-separation, or product-semantics boundaries.
+
+#### Validation continuity
+
+The tested runtime commit is `9cce4d2ea1e8ddf2512b1db5df4ac55dd9ff235c`. The later branch-head delta before this record contains only `CURRENT.md` / `DEVLOG.md` development-document updates, so it does not change APK/runtime behavior. Build 387 Fast #1033 and Work Branch Canary #292 remain the applicable automated validation for the runtime tree.
+
+#### Outcome / next step
+
+Build 387 passes the focused work-branch device gate and closes the original three-symptom loop plus the charging-island right-edge regression. PR #100 is ready for squash merge into `dev`, followed by trusted Integration CI on the resulting integrated baseline. Promotion to `main` remains a separate maintainer decision after the integrated baseline is validated.
+
+### Correction — Build 387 device gate was not accepted
+
+The immediately preceding Build 387 validation note is superseded by a closer review of the supplied recording and the repository state that had already advanced to Build 388.
+
+#### Corrected visual interpretation
+
+- Build 387 **does** keep the Combined Status visual inside the right screen boundary during charging Super Island.
+- However, the recording clearly shows native peer status icons moving into the same released battery region and overlapping the Combined Status visual.
+- Therefore Build 387 does **not** pass the charging-island coexistence gate and PR #100 is not ready to merge to `dev`.
+
+#### Diagnostic confirmation
+
+The matching diagnostic explains the overlap structurally: normal Home has a 478px status-icon region beside a 105px battery slot; when HyperOS applies native battery hide, `MiuiStatusIconContainer` expands to 583px. Build 387 still contributes 0px measured occupancy while drawing a 105px visual, so peers are allowed to occupy that region. The maintained `layoutTranslationX=478.0` and `moduleViewTranslationWrites=0` show that right-edge translation ownership is no longer the remaining defect.
+
+#### Active correction
+
+Build 388 is the current runtime checkpoint. It uses the existing authoritative `MiuiStatusBatteryContainer.setIsHideBattery(Boolean)` event to switch only the module-owned participant occupancy: 0px while the native battery slot is present, resolved visual/native-slot width while HyperOS has released that battery slot, then back to 0px on return. HyperOS remains owner of peer geometry and live Folme translation.
+
+#### Process correction
+
+This correction is intentionally appended rather than rewriting the earlier note. The earlier acceptance statement was made from an incomplete interpretation of the recording and became inconsistent with the already-present Build 388 repository evidence. `CURRENT.md` has been corrected immediately; Build 388 CI/device validation is now the active gate.
+
+### CI validation update — Build 388
+
+- Runtime commit: `bb840c96a9d7ea2376dfb6b02048e91a9976e1fa`.
+- Fast Build #1038: **success**.
+- Work Branch Canary #297: **success**.
+- Canary checked out trusted work-branch SHA `d57f35664e435722025809d3acba456f44ee3883`; the delta after the Build 388 runtime commit is development documentation only.
+- Pinned HyperOS target profile: success.
+- Modern Xposed metadata: success.
+- Haple APK signature verification: success.
+- Canary non-debuggable verification: success.
+- Artifact ID: `10910080114`.
+- Artifact archive digest: `sha256:a18273b7f35646174db9181079b40ad0bd4027bd68238b38c2942006b894baaa`.
+- Extracted APK SHA-256: `d737521d285fdc35433c1e5b852db2063ef637362c45e0ff2ebfc9a0fece57f8`.
+- Extracted APK size: `3375134` bytes.
+
+### Post-CI review
+
+- **Authority:** the occupancy handoff is driven only by the verified native `MiuiStatusBatteryContainer.setIsHideBattery(Boolean)` result; no duplicate charging/island semantic source was added.
+- **Ownership:** while the native battery slot exists, Combined Status keeps 0px additional measured occupancy. Only after HyperOS releases that slot does the module-owned participant claim its own resolved visual width; peer geometry and live translation remain HyperOS-owned.
+- **Lifecycle:** activation seeds the current native hide value, verified hide callbacks update it, and participant reset/hot reload clears the state. No persistent polling or frame listener was added.
+- **Performance:** the new work occurs only on native hide-state changes and the resulting normal layout traversal.
+- **Fallback:** an invalid visual width does not create speculative occupancy; exact native hook/participant readiness remains fail-closed.
+
+### Remaining device gate
+
+CI proves source/build/signing/metadata correctness, not SystemUI runtime behavior. Device validation is still required for charging Super Island peer separation, right-edge containment, motion continuity, non-charging steady placement, OFF -> ON APPEAR, and shade / Control Center first/last-frame alignment. PR #100 remains unmerged until this gate passes.
+
+
+---
+
+## 2026-09-26 — Build 389: keep Combined Status on the stable end-side slot anchor
+
+**Type:** runtime island/motion-anchor correction  
+**APK build:** 20260926-389  
+**CI:** pending at commit creation  
+**Device validation:** pending
+
+### Build 388 device result
+
+Build 388 fixes the Build 387 overlap boundary by claiming module-owned participant occupancy while HyperOS releases the native battery region. The supplied Build 388 screen recording nevertheless shows a remaining visual mismatch: the native peer icons do not move with the Combined Status visual during charging Super Island entry/exit.
+
+The matching detailed diagnostic confirms this is not a missing peer-translation writer. In the captured charging baseline, `MiuiBatteryMeterView` is 135px wide and starts at layout x=452 with a 30px battery motion translation, while the stable status-icon/battery boundary remains at x=482. The existing state-target adapter resolves Combined Status from the battery view's `left`, producing an initial target of 448. Later native charging/island layout returns the custom target to 478 while Wi-Fi/mobile peer targets remain 373/281. The recording shows the corresponding roughly 30px relative-motion split.
+
+### Root cause
+
+`MiuiBatteryMeterView.left` is not the native battery-slot boundary under charging. It is presentation/motion geometry and can change with the 105/135 battery presentation path. Build 387 therefore reused the wrong geometry authority even though it correctly left live `View.translationX` to HyperOS.
+
+This directly reaffirms the repository's earlier confirmed rule: native slot geometry, Combined Status visual geometry, and battery/transition motion geometry must remain separate.
+
+### References consulted
+
+- latest `CONTRIBUTING.md` sections 3.1-3.4, 4.1-4.4, 5.1, 10 and 11;
+- current `CURRENT.md`, `ROADMAP.md`, and recent `DEVLOG.md`;
+- Build 388 maintainer screen recording and detailed diagnostic;
+- `SystemUI-Reference/findings/statusbar.md`: `MiuiStatusIconContainer` owns native participant measurement/state transitions and slot geometry must remain distinct from motion geometry;
+- `SystemUI-Reference/findings/charging.md`: native battery hide remains `MiuiStatusBatteryContainer.setIsHideBattery(Boolean)`; no project charging/island state machine is needed.
+
+### Alternatives reviewed
+
+1. Move native peer icons explicitly — rejected; peer geometry and live motion remain SystemUI-owned.
+2. Copy the battery view's 30px charging delta to peers — rejected; this is a transient presentation artifact and would create a second motion writer.
+3. Animate the Build 388 occupancy width per frame — rejected; it introduces a project-owned animation path and is unnecessary if the custom target uses the correct stable boundary.
+4. **Selected:** keep Build 388 occupancy logic unchanged, but source the custom `NewStatusIconState` translation target from the stable laid-out end-side status-icon boundary captured while the native battery slot is present. Preserve that anchor while native battery layout is hidden.
+
+### Implementation
+
+- Add one generation-scoped cached slot translation anchor owned by the native Combined Status participant.
+- Seed it from the laid-out `MiuiStatusIconContainer` width/boundary at attach.
+- Refresh it only after native `MiuiStatusIconContainer.onLayout(...)` while the native battery slot is present.
+- Freeze the last verified anchor while `setIsHideBattery(true)` releases the battery region.
+- Use the same anchor for custom `NewStatusIconState.translationX/layoutTranslationX` adaptation and handoff-readiness screen coordinates.
+- Battery `left`, width and translation remain diagnostic evidence only; they no longer define the Combined Status target.
+- Build 388 occupancy handoff remains unchanged.
+- No new hook, observer, polling loop, frame listener, peer geometry write or live `View.translationX` write is added.
+- Internal build advances to `20260926-389`; display version remains `0.0.1`.
+
+### Review
+
+- **Authority review:** stable end-side layout boundary replaces battery presentation geometry as the translation target source.
+- **One-writer review:** HyperOS remains the sole live translation/Folme writer for Combined Status and all peers.
+- **Lifecycle review:** the cached anchor is generation-scoped and cleared on Hot Reload/runtime reset.
+- **Performance review:** one constant-time boundary refresh inside the already-owned post-layout hook; no new high-frequency source.
+- **Fallback review:** missing/invalid positive layout boundary fails the native participant path instead of guessing an offset.
+- **Regression boundary:** occupancy behavior from Build 388, visual-bounds behavior from Build 386, and native state application remain otherwise unchanged.
+
+### CI / device gate
+
+Fast Build and signed Work Branch Canary are pending.
+
+Focused device acceptance:
+1. charging-island entry/exit no longer shows a CombinedStatus-only ~30px shift relative to native peers;
+2. Build 388 peer separation remains;
+3. Build 387 right-edge containment remains;
+4. non-charging steady placement and native OFF -> ON APPEAR remain;
+5. shade / Control Center first/last-frame alignment remains;
+6. diagnostic uses `authority=native-end-side-slot-boundary` and continues to report `moduleViewTranslationWrites=0`.
+
+If this still fails, reopen the native `NewStatusIconState` / island-state ordering boundary rather than moving peers or adding per-frame compensation.
+
+
+### CI validation update — Build 389
+
+- Runtime commit / exact tested work-branch SHA: `3ab0944abaf585f8afc79f483de8d9f08ca11906`.
+- Fast Build #1039: **success**.
+- Work Branch Canary #298: **success**.
+- Pinned HyperOS target profile: success.
+- Modern Xposed metadata verification: success.
+- Haple APK signature verification: success.
+- Canary non-debuggable verification: success.
+- Artifact ID: `10910190177`.
+- Artifact archive digest: `sha256:2a1964d5bc4231a9c398684ccfcbe470faad044e9b15b58aed1864eba440f788`.
+- Extracted APK SHA-256: `22fc81d38a5552ff50bf91e6e1b5c0ec9dd755eac7f76baf86a53b4a56984a22`.
+- Extracted APK size: `3375134` bytes.
+
+### Post-CI review
+
+The Fast and signed-Canary gates validate the source/build/signing/metadata boundary for Build 389. The runtime delta remains limited to the module-owned stable slot translation anchor; Build 388 occupancy handoff, peer geometry ownership, native live Folme translation, and existing lifecycle/fallback paths remain unchanged. No additional hook, observer, polling source, frame writer, peer translation or hard-coded pixel compensation was introduced.
+
+Device evidence remains the acceptance authority for the motion fix. PR #100 stays unmerged until the focused charging-island and non-charging regression gate passes.
+
+
+---
+
+## 2026-09-27 — Build 390: read-only per-participant island motion trace
+
+**Type:** focused runtime diagnostic; no intended feature-behavior change  
+**APK build:** 20260927-390  
+**Reason:** Build 389 device feedback reports the same relative-motion mismatch.
+
+### Problem / evidence
+
+The Build 389 detailed session confirms the new target authority is active, but it also exposes a stronger structural fact: during authoritative charging-island entry the native `MiuiStatusIconContainer` expands to 583px and its screen X changes only by roughly 10px over the bounded sample, while `MiuiBatteryMeterView` moves more than 100px and fades. The module still reports no native peer geometry writes.
+
+The existing diagnostic does not capture the live screen X / translation of the actual `combined_status` child and the visible peer status-icon children in those same frames. Therefore two materially different hypotheses remain:
+1. Combined Status is receiving an extra child-level native motion that peers do not receive.
+2. Combined Status is visually stationary relative to the container, while the perceived mismatch comes from occupancy/order or another container/state transition.
+
+Changing geometry again before distinguishing these would violate the root-cause-first and evidence-change rules.
+
+### References reviewed
+
+- latest `CONTRIBUTING.md` sections 3.1-3.4, 4.1-4.4 and 5.1;
+- Build 389 detailed diagnostic and maintainer visual feedback;
+- current `CURRENT.md`, `ROADMAP.md`, and recent `DEVLOG.md`;
+- `SystemUI-Reference/findings/statusbar.md`: native `MiuiStatusIconContainer` owns bindable participant measurement and APPEAR/DISAPPEAR/MOVE/ISLAND transitions;
+- `SystemUI-Reference/findings/scene-host-motion.md`: the Home island listener owns `mStatusContainer`, `mEndSideContent`, `mStatusBarIcons`, `mBatteryContainer`, and `mBatteryView`; battery presentation motion must not be copied blindly.
+
+### Review / selected approach
+
+**Selected:** extend only the already-existing, detailed-diagnostics-only island pre-draw probe. At island callback start, snapshot up to ten visible direct children of `MiuiStatusIconContainer` plus `combined_status`, resolving each child's slot once. Each bounded sample records child left, screen X, actual/measured width, live translation X, alpha and visibility.
+
+**Rejected for Build 390:** peer translation writes, Combined Status compensation, another slot-width change, battery-trajectory copying, or a new island state machine. None is justified until the same-frame child motion is measured.
+
+### Runtime cost / lifecycle review
+
+- no new hook;
+- no new persistent listener;
+- no polling;
+- no new writer;
+- no native geometry mutation;
+- child discovery occurs once per authoritative island callback only when detailed diagnostics are enabled;
+- sampling reuses the existing 16-sample / 900ms bounded pre-draw probe and is disposed by the same generation/timeout path;
+- tracked views remain weak references.
+
+### Acceptance
+
+One short device capture must show `statusChildren=[...]` for island enter/exit. The next implementation decision will be based on same-frame Combined Status vs peer screen-X/translation deltas, not visual guessing.
+
+PR #100 remains unmerged.
+
+
+### CI validation update — Build 390
+
+- Exact tested work-branch SHA: `7531a43bbaac7d1d68c649f84a67224fb4f186ce`.
+- Fast Build #1040: **success**.
+- Work Branch Canary #299: **success**.
+- Artifact ID: `10910261548`.
+- Artifact archive digest: `sha256:7ac12e94efd4a769046da44f80b0eb9d0cd1dfc4e8b18d79be0ba994d65fcd00`.
+- Extracted APK SHA-256: `76e82cd0fb5d9e4e8330987e26aba2353e64e8e274cd35818c889cd79c38b699`.
+- Extracted APK size: `3375134` bytes.
+- The Canary workflow checked out the exact work-branch SHA above and completed successfully.
+
+### Current gate
+
+Build 390 remains diagnostic-only. No motion/geometry behavior has been intentionally changed from Build 389. The next evidence required is one detailed-diagnostics charging-island enter/steady/exit capture containing the new `statusChildren=[...]` samples. That same-frame child data will decide whether the next runtime change belongs to Combined Status child state, participant occupancy/order, or a higher native owner.
+
+PR #100 remains unmerged.
+
+
+### Build 390 visual A/B finding — attach state may be the missing variable
+
+A new Build 390 recording does **not** reproduce the earlier Build 389 relative-motion split. Frame comparison shows the visible peer cluster and Combined Status maintain constant horizontal separation through both charging-island entry and exit.
+
+This cannot be attributed to Build 390 code: the 389 -> 390 runtime delta is diagnostic-only in `SystemUiIslandMotionSource`; it adds read-only child snapshots and does not alter geometry, motion, occupancy, state targets, or writers.
+
+The earlier Build 389 detailed session did, however, start with charging already active. At attach, the native battery measured 135px and Combined Status resolved `activeSlotWidth=135` / render width 135 from that battery-container measurement. The current good recording visibly starts from an uncharged steady state before charging begins.
+
+**Leading hypothesis:** the participant's slot/visual width is attach-state dependent. `activeSlotWidth` is seeded once from `NativeStatusBarSlotGeometry.resolve(...)` during attach; island occupancy later consumes the renderer's measured width or that cached slot width. Attaching while the battery is already in the 135px charging presentation can therefore create a different persistent participant geometry than attaching in the ordinary battery state.
+
+This is a stronger explanation than another translation offset because Build 390 behavior is otherwise identical to Build 389.
+
+Next gate is one same-build single-variable A/B:
+1. attach/reload while uncharged -> then charge;
+2. attach/reload while already charging -> then repeat the island cycle.
+
+Export a fresh detailed diagnostic for each case. If only case 2 reproduces the split and shows a 135px attach-time slot/render width, the fix should normalize participant slot identity against the stable native battery slot contract rather than the transient charging presentation width.
+
+
+---
+
+## 2026-09-27 — Build 391: normalize attach-time native slot identity
+
+**Type:** root-cause runtime geometry correction  
+**APK build:** 20260927-391  
+**Device evidence source:** Build 390 charging-attached A/B case
+
+### Confirmed root cause
+
+The Build 390 A/B closes the attach-state hypothesis.
+
+In the failing charging-attached session:
+- battery state is already `pluggedIn=true charging=true` during runtime attach;
+- the laid-out native status-icon region remains 478px wide, preserving the stable 105px end-side slot in the 587px container with 4px start padding;
+- the same status-icon container reports a transient measured width of 448px while the charging battery presentation is 135px;
+- participant attach used `statusIcons.measuredWidth`, so `587 - 4 - 448 = 135` became `activeSlotWidth`;
+- renderer width and later released-slot occupancy consequently became 135px;
+- the new same-frame child trace confirms Combined Status then follows a different child-level motion trajectory from fixed native peers such as Wi-Fi/mobile.
+
+This is not an island interpolation defect. It is an attach-time slot-identity defect caused by treating transient measurement geometry as the stable layout boundary.
+
+### Problem execution flow
+
+1. User visual report identified inconsistent peer motion.
+2. Build 389/390 code review proved 390 did not change runtime behavior.
+3. Single-variable A/B isolated attach-while-charging as the reproducer.
+4. Build 390 bounded child trace measured the exact native child trajectories.
+5. Slot-resolution review located the source mismatch: translation already preferred `statusIcons.width`, but slot width still consumed `statusIcons.measuredWidth`.
+6. The stable laid-out boundary and transient charging measurement differ by exactly the previously observed 30px.
+7. Correct the source boundary instead of adding animation compensation.
+
+### References / rules reviewed
+
+- latest `CONTRIBUTING.md`: root-cause-first, evidence-change, one live writer, geometry separation, lightweight diagnostics, device evidence gate;
+- current `CURRENT.md`, `ROADMAP.md`, recent `DEVLOG.md`;
+- `SystemUI-Reference/findings/statusbar.md`: native slot/layout geometry must remain separate from battery presentation/motion geometry;
+- `SystemUI-Reference/findings/charging.md`: native battery hide remains the authoritative layout-release event;
+- Build 390 detailed diagnostic and maintainer recording.
+
+### Selected correction
+
+At participant attach:
+- prefer each already-laid-out native sibling's `width` as its stable occupancy;
+- use `measuredWidth` only as a pre-layout fallback;
+- feed that resolved stable width into `NativeStatusBarSlotGeometry.resolve(...)`;
+- log layout, measured, and resolved widths separately.
+
+For the failing observed geometry this changes only the source:
+- before: `statusIconsMeasuredWidth=448 -> resolvedSlot=135`;
+- after: `statusIconsLayoutWidth=478 -> resolvedStatusIconsWidth=478 -> resolvedSlot=105`.
+
+### Review
+
+- **Geometry review:** fixes slot identity at its source; no offset or interpolation patch.
+- **One-writer review:** HyperOS remains the sole live translation/Folme writer.
+- **Peer review:** no peer native geometry write.
+- **Island review:** Build 388 occupancy release contract remains unchanged; it now consumes the normalized stable visual/slot width.
+- **Lifecycle review:** no new persistent state or listener.
+- **Performance review:** constant-time width selection at participant attach only.
+- **Fallback review:** measured width remains available only when no positive laid-out width exists; invalid geometry still fails closed.
+- **Diagnostic review:** Build 390 bounded child trace remains detailed-only while this regression is validated.
+
+### Device gate
+
+Both attach orders must converge:
+1. uncharged attach -> charge Super Island enter/steady/exit;
+2. already-charging attach -> unplug/replug -> Super Island enter/steady/exit.
+
+Acceptance requires:
+- resolved stable slot 105px in both paths;
+- no CombinedStatus-only relative-motion split;
+- no peer overlap;
+- no right-edge escape;
+- non-charging steady placement unchanged;
+- OFF -> ON APPEAR preserved;
+- shade / Control Center first/last-frame alignment preserved.
+
+PR #100 remains unmerged.
+
+
+### CI validation update — Build 391
+
+- Exact tested work-branch SHA: `b4d8bb7f6aee567dc131a983c9e9323af7bdd1af`.
+- Fast Build #1041: **success**.
+- Work Branch Canary #300: **success**.
+- Pinned HyperOS target profile: success.
+- Modern Xposed metadata verification: success.
+- Haple APK signature verification: success.
+- Canary non-debuggable verification: success.
+- Artifact ID: `10910308834`.
+- Artifact archive digest: `sha256:3d7bac217ca55909e8a5f7b3ea4de0c61ee1487d8015144f9cd0e32262a8f86e`.
+- Extracted APK SHA-256: `63ac90e44d50c54220723ce518c53eacac81e19edebfd3db6eed019233de1a06`.
+- Extracted APK size: `3375134` bytes.
+
+### Post-CI review
+
+The runtime delta is restricted to attach-time sibling-width authority selection plus its regression tests. No island callback behavior, animation curve, live translation writer, peer geometry write, or occupancy lifecycle has changed. Device validation remains the authority for confirming that charging-attached and uncharged-attached sessions now converge to the same stable 105px participant identity.
+
+PR #100 remains unmerged.
+
+
+---
+
+## 2026-09-27 — Build 392: consume the stable host slot snapshot
+
+**Type:** root-cause lifecycle/geometry correction  
+**APK build:** 20260927-392  
+**Predecessor result:** Build 391 rejected on device
+
+### New evidence
+
+Build 391 proves the previous source correction was still too late.
+
+In the charging-attached session:
+- at host capture, the native topology reports `MiuiStatusIconContainer=478px` and native battery `105px`;
+- the existing `StatusBarStableSession` then records `statusIconsWidth=478` while charging battery presentation becomes 135px;
+- before the native Combined Status participant attaches, HyperOS performs another charging layout and the same status-icon container becomes `layoutWidth=448`, `measuredWidth=448`;
+- Build 391 correctly prefers layout over measured width, but both are already transient by that lifecycle point, so it still resolves `587 - 4 - 448 = 135px`.
+
+The failure therefore moves the responsible boundary again: stable-vs-transient geometry is a lifecycle timing issue, not a property-type issue.
+
+### Root cause
+
+A valid stable end-side occupancy snapshot already exists earlier in the host lifecycle, owned by `StatusBarStableSession`. Native participant attach resampled the live container later instead of consuming that host-scoped snapshot.
+
+This creates an avoidable second geometry authority and allows charging presentation timing to change participant identity.
+
+### Selected correction
+
+- keep `StatusBarStableSession` as the one-shot owner of the early stable host geometry;
+- retain its captured `SlotMetrics` in the session and expose it only for the matching host;
+- native participant attach prefers captured `statusIconsWidth`;
+- live `View.width` then `measuredWidth` remain fallback sources only if a matching captured value is unavailable;
+- keep current privacy handling unchanged;
+- log captured, live-layout, live-measured, and resolved widths independently.
+
+Expected failing-path conversion:
+- capture: 478;
+- later live layout/measure: 448/448;
+- resolved occupancy source: 478;
+- stable participant slot: 105px.
+
+### Review
+
+- **Root-cause review:** fixes the lifecycle authority mismatch; no translation compensation.
+- **Ownership review:** one host-scoped stable geometry owner; native participant becomes a consumer instead of resampling a competing stable fact.
+- **Writer review:** HyperOS remains sole live layout/translation animation writer outside the already accepted custom participant occupancy boundary.
+- **Hook review:** no new hook.
+- **Performance review:** one in-memory host-scoped snapshot read at participant attach.
+- **Lifecycle review:** snapshot dies with `StatusBarStableSession` on detach/host replacement; host identity must match.
+- **Fallback review:** absent/invalid captured width falls back to current layout then measured width; invalid final geometry still fails closed.
+- **Regression review:** Build 388 occupancy handoff, Build 389 state target adapter, Build 390 bounded diagnostic trace, tint/network suppression, and panel transition behavior are otherwise unchanged.
+
+### Device gate
+
+Test charging-attached first. Required diagnostic:
+`stableCaptureStatusIconsWidth=478 statusIconsLayoutWidth=448 statusIconsMeasuredWidth=448 resolvedStatusIconsWidth=478 ... resolvedSlot=105x108`.
+
+Then verify:
+1. charging-attached -> unplug/replug has coherent peer spacing;
+2. uncharged-attached -> charge remains coherent;
+3. no peer overlap or right-edge escape;
+4. OFF -> ON APPEAR remains visible;
+5. shade / Control Center first/last frames remain aligned.
+
+PR #100 remains unmerged.
+
+
+### CI validation update — Build 392
+
+- Exact tested work-branch SHA: `18c563b318cf53f68f51f95a079ff6edd0b4186e`.
+- Fast Build #1042: **success**.
+- Work Branch Canary #301: **success**.
+- Pinned HyperOS target profile: success.
+- Modern Xposed metadata verification: success.
+- Haple APK signature verification: success.
+- Canary non-debuggable verification: success.
+- Artifact ID: `10911296876`.
+- Artifact archive digest: `sha256:99674450d14cf206255e06b7d599705d6c87a470bb2d6556172b865564f4867b`.
+- Extracted APK SHA-256: `777fc688ad8290197ee176d795b5842e8a754d248f85069a5cfb1154d9e24285`.
+- Extracted APK size: `3375134` bytes.
+
+### Post-CI review
+
+The runtime change remains limited to consuming an already-owned host-scoped stable geometry snapshot at participant attach. No new SystemUI hook, listener, poller, animation/state machine, peer write, or live translation writer was added. Build 390's bounded same-frame diagnostics remain available to verify the resulting child motion.
+
+Device evidence remains the acceptance authority. PR #100 stays unmerged.
+
+
+---
+
+## 2026-09-27 — Build 393: pin width and translation to one stable slot boundary
+
+**Type:** root-cause geometry-authority correction  
+**APK build:** 20260927-393  
+**Predecessor result:** Build 392 rejected for charging-state left shift in both A/B attach orders
+
+### New device evidence
+
+Build 392 successfully proves and consumes the stable host slot snapshot for **width**:
+`stableCaptureStatusIconsWidth=478`, live charging width `448`, `resolvedStatusIconsWidth=478`, `resolvedSlot=105x108`.
+
+However the same line records `slotTranslationX=448.0`, and the later state adapter also corrects the custom participant to the 448px live boundary. The video shows the resulting charging-state left shift.
+
+The geometry is therefore internally inconsistent:
+- visual/slot width = 105px from stable boundary;
+- position = 448px from transient charging boundary;
+- expected stable end-side slot = 478..583;
+- actual custom visual = 448..553;
+- error = 30px left.
+
+The island trace independently supports this: when the native status-icon container expands during battery-slot release, Combined Status reaches a 478px target while several peer targets remain native-owned, producing the previously observed relative movement.
+
+### Root cause
+
+Build 392 corrected only one half of slot identity. `activeSlotWidth` consumes the host-scoped stable snapshot, but `activeSlotTranslationX` and its post-layout refresh still consume live `MiuiStatusIconContainer.width`. Charging presentation shrinks that live width from 478 to 448, so the same conceptual slot has two authorities.
+
+### Selected correction
+
+- introduce a generation-scoped `activeSlotBoundaryWidth`;
+- seed it from the same resolved stable status-icon width that feeds slot-width resolution;
+- derive `activeSlotTranslationX` from that stable boundary;
+- post-layout refresh keeps using the stable boundary, recomputing only against current root-local `left`;
+- live status-icon width remains fallback only if no stable boundary exists;
+- clear the boundary on normal teardown and Hot Reload reset.
+
+### Review
+
+- **Geometry review:** native slot width and custom slot position now share one authority.
+- **Animation review:** no animation curve/progress change.
+- **Writer review:** HyperOS remains sole live `View.translationX` / Folme writer; the module still adapts only its custom state target.
+- **Peer review:** no peer geometry write.
+- **Lifecycle review:** stable boundary is generation-scoped and cleared with the participant.
+- **Performance review:** no new hook/listener/poller or per-frame work.
+- **Fallback review:** live width is used only when the stable boundary is unavailable; invalid geometry still fails closed.
+- **Regression boundary:** Build 392 stable slot width, Build 388 released-slot occupancy, Build 390 diagnostics, network/battery suppression, and panel integration remain otherwise unchanged.
+
+### Device gate
+
+Charging steady state must first show:
+`stableSlotBoundaryWidth=478 ... statusIconsLayoutWidth=448 ... resolvedSlot=105x108 slotTranslationX=478.0`.
+
+Then verify:
+1. no 30px left shift in either A or B attach order;
+2. island enter/exit preserves peer-relative spacing;
+3. no peer overlap / right-edge escape;
+4. OFF -> ON APPEAR remains;
+5. shade / Control Center first and last frames remain aligned.
+
+PR #100 remains unmerged.
+
+
+### CI validation update — Build 393
+
+- Exact tested work-branch SHA: `ee76d8d5319fff4efcc640314318881fecd716ba`.
+- Fast Build #1043: **success**.
+- Work Branch Canary #302: **success**.
+- Pinned HyperOS target profile: success.
+- Modern Xposed metadata verification: success.
+- Haple APK signature verification: success.
+- Canary non-debuggable verification: success.
+- Artifact ID: `10911242961`.
+- Artifact archive digest: `sha256:cb8d1e8bd2c5b7e4f580553b4331b296db6afa4598c420ea7506c3f9751a4818`.
+- Extracted APK SHA-256: `da6e55434dceb81cdaf746a9d725011795105bc346e2242e9c508e8cda674623`.
+- Extracted APK size: `3375134` bytes.
+
+### Post-CI review
+
+The runtime delta is restricted to pinning the module-owned slot translation target to the same stable host boundary already used for the normalized slot width. No island animation curve, peer geometry, live View translation, occupancy lifecycle, network/battery suppression, or panel transition owner changed. Build 390's bounded child-motion diagnostics remain enabled for device confirmation.
+
+PR #100 remains unmerged pending device evidence.
+
+
+---
+
+## 2026-09-27 — 0.0.2 development line opened: unify Combined Status geometry
+
+**Type:** version-boundary / architecture decision  
+**Display version:** 0.0.2  
+**Runtime build:** not created by this documentation/version checkpoint
+
+### Why the display version advances
+
+The maintainer explicitly approved advancing from 0.0.1 to 0.0.2 because the current work has crossed from a narrow charging/island defect fix into a structural geometry redesign.
+
+The 0.0.2 runtime direction is to make one resolved layout contract authoritative for:
+- native end-side slot semantics;
+- Combined Status drawing/visual geometry;
+- optical neighbor spacing;
+- requested/adaptive occupancy;
+- transition / projection geometry.
+
+User-facing size and spacing controls are still a later product/UI task, but their underlying geometry contract is pulled forward now so future controls only change layout parameters and do not require another SystemUI hook/animation redesign.
+
+### Acceptance standard
+
+Internal implementation may change substantially, but the installed SystemUI result must behave as one coherent native participant:
+- stable visual placement;
+- consistent optical spacing to neighboring icons;
+- coherent native APPEAR/DISAPPEAR;
+- coherent charging/Super Island motion;
+- coherent Home <-> shade / Control Center first/last frames;
+- future scaling must preserve the same rules rather than adding scene-specific offsets.
+
+### Governance
+
+The existing 0.0.1 Build 386-393 experiments remain evidence, not architecture. The unfinished pre-0.0.2 Build-394 battery-slot experiment is provisional and must be either reconciled with the unified resolved-layout model or reverted before the first real 0.0.2 runtime checkpoint.
+
+The display-version change itself does not claim a validated runtime build and intentionally does not advance the Build ID.
+
+
+---
+
+## 2026-09-27 — 0.0.2 architecture reference review and reference-library baseline
+
+**Type:** architecture investigation / reference-library preparation  
+**Runtime build:** none  
+**Display line:** 0.0.2  
+**Runtime behavior changed:** no; the earlier provisional battery-slot override experiment was removed before this record was finalized.
+
+### Problem / objective
+
+Builds 386-393 repeatedly solved one geometry boundary while exposing another around steady occupancy, native APPEAR, charging presentation width, battery-slot release, peer motion, and panel handoff.
+
+The objective was to stop extending the existing participant model by assumption and inspect a mature implementation of the same class of compact status composition before defining Build 394.
+
+The review was intentionally performed before another runtime change.
+
+### Problem execution flow
+
+1. Build 393 device feedback showed that both tested attach orders still have a charging-state visual-spacing defect.
+2. The current participant route was classified as an architecture question rather than another offset defect.
+3. The 0.0.2 display line was opened.
+4. A mature Android/SystemUI implementation was inspected at bytecode/runtime-contract level.
+5. Host ownership, measure/layout participation, native-view masking, scene progress, projection, sizing, and cleanup were traced.
+6. The findings were generalized and stripped of source-specific product/internal naming before being stored in the repository.
+7. The provisional experiment that overrode native battery-hide layout behavior was reverted because the completed review did not support taking that platform-owned scene responsibility.
+8. No Build 394 was created; exact target-SystemUI proof remains required.
+
+### Observed reusable patterns
+
+#### Existing native host as the compact carrier
+
+The compact representation reuses an existing native end-side host rather than registering a second permanent status-icon participant.
+
+This avoids the need for two independent layout identities to exchange occupancy during scene changes.
+
+#### Scoped represented-slot suppression
+
+Represented native slots are temporarily added to the platform's existing ignored-slot collection only around native measure/layout.
+
+Only entries newly added by the replacement path are recorded. A restoration token removes exactly those entries after the native call and on exceptional exit.
+
+The platform collection is not globally cleared or replaced.
+
+#### Reversible native-view visual masking
+
+Native Views remain attached and state-capable while their drawing is suppressed through a reversible clip boundary.
+
+The pre-existing clip state is saved once and restored exactly when the compact presentation is no longer active.
+
+This separates visual replacement from layout/lifecycle removal.
+
+#### Host-scoped state and cleanup
+
+Runtime composition state is owned per native host. Host state includes native references, resolved sizing, represented slots, overlay presentation, scene state, and cleanup.
+
+Detached hosts are cleaned and removed rather than leaving geometry or references globally reusable.
+
+#### Independent sizing dimensions
+
+Layout slot size, visible glyph size, per-glyph scale, and optical adjustment are modeled independently.
+
+User scaling resolves a sizing/layout object; it does not rewrite integration hooks.
+
+#### Native scene/hide semantics as input
+
+Platform scene/hide state is read as an authoritative fact for presentation eligibility. No evidence was found that the implementation preserves its compact host by overriding the platform's battery-hide request.
+
+This is important negative evidence against the provisional forced-slot experiment.
+
+#### Native progress and real endpoints for projection
+
+Cross-surface transition progress is consumed from a native expansion callback.
+
+Source and target endpoints are derived from real screen geometry. The projection itself is drawn with canvas translation, scale, and alpha rather than taking ownership of native target View translation or introducing an independent timing curve.
+
+#### Layered restoration
+
+The implementation separates:
+- temporary layout mutation lifetime;
+- steady compact visual-mask lifetime;
+- transition projection lifetime.
+
+Each layer restores only its owned state. Global cleanup removes overlays/listeners, restores tracked visual state, cleans host sessions, and returns to native behavior.
+
+### Architecture review
+
+**Review conclusion:** the existing extra-participant architecture is no longer assumed to be the required final 0.0.2 integration.
+
+This does not invalidate the evidence collected by Builds 386-393. Those builds remain valuable proof about the target's APPEAR geometry, battery-slot release, peer occupancy, charging geometry and panel anchors.
+
+The new evidence changes the preferred question from:
+
+`How should the custom participant take over a disappearing native slot?`
+
+to:
+
+`Can Combined Status compose inside an existing native host for steady state, then hand off presentation through target-proven scene projection when that host is no longer available?`
+
+### Product-specific difference that prevents mechanical copying
+
+Combined Status carries network information in addition to battery state.
+
+A platform scene may legitimately remove a battery-oriented host, but Combined Status must not automatically disappear with it if that would discard required network information.
+
+Therefore the reference scene policy is not copied. The 0.0.2 target must prove either:
+- a valid island-time carrier; or
+- a draw-only island projection/handoff.
+
+Native peer layout/motion should remain SystemUI-owned in either case.
+
+### Repository reference library
+
+Created:
+- `docs/reference/README.md`
+- `docs/reference/statusbar-composition-patterns.md`
+
+The reference library intentionally contains:
+- generalized architecture patterns;
+- evidence/confidence boundaries;
+- target-validation requirements.
+
+It intentionally excludes:
+- third-party product/package/internal names;
+- copied source;
+- proprietary assets;
+- source-specific constants as architecture;
+- claims that Home evidence proves keyguard/AOD behavior.
+
+### Provisional experiment rollback
+
+The pre-0.0.2 experiment that forced native battery layout hide to remain false was removed before Build 394.
+
+Rollback commit:
+`ccfbb2d0f3efa0c6646afa7ff80b4d592c9de74e`.
+
+Reason:
+- it takes ownership of a platform scene decision;
+- it can alter island/end-side layout semantics;
+- the completed reference review shows a mature alternative pattern that consumes native hide/scene state rather than rewriting it;
+- keeping an unvalidated runtime experiment would contaminate the new architecture baseline.
+
+### 0.0.2 next gate
+
+No runtime Build 394 exists yet.
+
+Before coding it:
+1. verify an exact-target existing Home carrier;
+2. verify the target ignored-slot / native measure-layout scope;
+3. verify reversible masking;
+4. map the island-time carrier or projection needed to retain network information;
+5. map Home -> shade / Control Center native progress and real endpoints;
+6. define the shared `ResolvedLayout` / sizing contract;
+7. complete an ownership, lifecycle, cleanup, performance, compatibility and fail-native review.
+
+PR #100 remains unmerged.
+
+
+---
+
+## 2026-09-27 — Roadmap split for 0.0.2 architecture and 1.0.0 release qualification
+
+**Type:** roadmap / release-planning decision  
+**Runtime build:** none  
+**Runtime impact:** none
+
+### Maintainer decision
+
+The active macro route is refined without rewriting prior Build history.
+
+- Current development display version remains `0.0.2`.
+- The first planned formal release target is `1.0.0`.
+- Development may continue through `0.0.x` versions until the 1.0.0 acceptance boundary is satisfied and the maintainer explicitly authorizes the formal version transition.
+
+### Roadmap refinement
+
+The previous Phase 2 combined two different engineering problems: selecting a stable Home presentation carrier and implementing Home -> shade / Control Center transition behavior.
+
+It is now split into:
+
+- **Phase 2A — 0.0.2 Home carrier / presentation architecture**
+  - target host/carrier proof;
+  - scoped represented-slot handling;
+  - reversible native-view masking;
+  - HostSession ownership and cleanup;
+  - shared ResolvedLayout/sizing contract;
+  - island-time carrier/handoff preserving network information.
+
+- **Phase 2B — Home -> shade / Control Center projection**
+  - native progress authority;
+  - real source/target endpoints;
+  - draw-only projection;
+  - transition-specific masking/overlay lifetime and cleanup;
+  - no custom timing or endpoint compensation.
+
+Keyguard/AOD remains after Phase 2B. App Home/Preview Sandbox remains after scene-contract stabilization.
+
+### Sizing boundary
+
+The runtime sizing/layout contract is now a Phase-2A requirement.
+
+Phase 5 remains the user-facing adaptive size/spacing/visual-controls phase and should expose already-stable resolved-layout inputs rather than redesigning runtime SystemUI integration.
+
+### Superseded default route
+
+The permanent extra status participant / occupancy-handoff route explored by Builds 386-393 is now explicitly **superseded as the default 0.0.2 architecture**.
+
+Those builds remain valid historical evidence for individual target-SystemUI behaviors. They are not deleted, rewritten, or retroactively relabeled.
+
+The route may be reconsidered only if later exact-target evidence invalidates the preferred existing-host composition direction and a new ownership review proves a safer participant contract.
+
+### Formal release qualification
+
+The final pre-release macro phase is now **1.0.0 release qualification**, including full supported-scene/device-state regression, cleanup/fail-native behavior, adaptive sizing/spacing, performance/energy boundaries, Release/signing/metadata checks, and public-document consistency.
+
+Completing an earlier architecture phase does not itself advance the display version to `1.0.0`.
+
+---
+
+## 2026-09-27 — Phase 2A exact-target carrier review before Build 394
+
+**Type:** architecture / exact-target evidence review  
+**Runtime build:** none  
+**Display line:** 0.0.2  
+**Runtime impact:** none
+
+### Problem / objective
+
+The 0.0.2 line must select a Home carrier and island handoff without reviving the permanent extra-participant / occupancy-handoff architecture rejected after Build 393.
+
+The immediate objective was to determine what the pinned target and existing runtime evidence already prove, what remains only generalized reference evidence, and what can be specified safely before any APK-affecting source change creates Build 394.
+
+### Problem execution flow
+
+1. Re-read the latest `CONTRIBUTING.md`, `CURRENT.md`, `ROADMAP.md`, recent `DEVLOG.md`, architecture policy and reference library on the active work branch.
+2. Re-read the exact-fingerprint SystemUI Reference for Home status-bar ownership, battery/charging, scene/island motion and Control Center.
+3. Re-inspect the Build-393 diagnostic instead of extending the prior slot correction.
+4. Compare the exact-target evidence with the generalized existing-host / ignored-slot / reversible-mask pattern.
+5. Separate facts already proven on the target from contracts that remain unverified.
+6. Define the design-level shared `ResolvedLayout` input/output boundary without changing Kotlin/runtime code.
+7. Keep Build 394 blocked until the missing target contracts are closed.
+
+### Evidence / references actually consulted
+
+Project sources:
+- latest `CONTRIBUTING.md`;
+- `docs/development/CURRENT.md`;
+- `docs/development/ROADMAP.md`;
+- recent Build-386–393 and 0.0.2 entries in this `DEVLOG.md`;
+- `docs/architecture/README.md`, `layout-policy.md`, and `scene-policy.md`;
+- `docs/reference/README.md` and `statusbar-composition-patterns.md`;
+- current `CombinedStatusHomeRenderSession` and layout-policy source/tests.
+
+Exact target reference:
+- SystemUI `17.03.260226.r`, SHA-256 `a0e738e41fe599b97950cbf52a9e2ddc6ae2ceff986efbacb1c9840bea78768d`;
+- SystemUI-Reference `findings/statusbar.md`, `findings/charging.md`, `findings/scene-host-motion.md`, and `findings/control-center.md`;
+- `CombinedStatus-Diagnostic-20260927-393-20260927-012041.txt`.
+
+Established-pattern comparison:
+- the repository's generalized mature composition reference;
+- AOSP `StatusIconContainer` ignored-slot behavior and older public Xiaomi/MIUI examples were checked only as non-target implementation evidence. They do not establish the contract on the pinned HyperOS artifact.
+
+### Exact-target findings
+
+**Confirmed — Home attachment/lifecycle candidate.**  
+The existing Home render session attaches the real Combined Status renderer through the `MiuiNotificationStatusContainer` overlay and resolves its bounds from the live `MiuiBatteryMeterView`. Build-393 diagnostics record that candidate with `ancestorVisibilityIndependent=true` and `nativeGeometryWrites=0`. This proves a viable module-owned drawing lifetime on the real Home host, but not yet production acceptance across slot suppression and island transitions.
+
+**Confirmed — island has separate occupancy and battery-presentation owners.**  
+During charging-island entry, the diagnostic shows `MiuiStatusIconContainer` expanding to 583 px while `MiuiBatteryMeterView` independently translates and fades. The custom `combined_status` participant simultaneously retains its own 105 px occupancy/translation identity. One custom participant was therefore being asked to reconcile platform status-icon occupancy with a different battery presentation trajectory.
+
+**Root-cause conclusion — high confidence.**  
+The remaining Build-393 charging defect is architectural: the permanent custom participant couples responsibilities that the target SystemUI owns separately. Another fixed boundary, width difference, or translation correction would continue the same ownership error rather than fix it.
+
+**Not established — exact ignored-slot contract.**  
+The mature reference and AOSP/older MIUI implementations demonstrate an ignored-slot pattern, but the pinned target reference does not yet verify the concrete field/method, mutation boundary, restoration semantics, or interaction with the active HyperOS icon pipeline. No 0.0.2 runtime implementation may assume that contract yet.
+
+### Design-level `ResolvedLayout` decision
+
+The target contract is now specified in `docs/architecture/layout-policy.md` without changing runtime source.
+
+It keeps independent:
+- composite visual size and user scale;
+- requested neighbor gap;
+- requested occupancy;
+- host-applied/native occupancy;
+- per-glyph relative scales;
+- optical adjustment;
+- source visual bounds for future projection.
+
+Scene adapters provide verified host/capability facts only. Native progress/timing/target-View motion remain outside the layout resolver.
+
+### Review
+
+- **Ownership review:** HyperOS remains owner of peer layout, status-container occupancy, battery scene state and live motion. Combined Status owns only its composition/drawing and, later, explicitly proven draw-only projection.
+- **Lifecycle review:** the Home overlay candidate is host-scoped and removable through the existing render session. A future island projection must have its own shorter lifetime and must not become global state.
+- **Single-writer review:** no new native width, layout, translation, alpha, visibility or scene-state writer is introduced by this checkpoint. The old custom-participant correction chain remains superseded.
+- **Cleanup review:** no runtime resource is added here. The target architecture still requires exact restoration tokens for any future layout suppression, reversible visual masks, and separate transition cleanup.
+- **Fail-native review:** native Wi-Fi/mobile/battery presentation must remain available until replacement readiness and exact-target suppression contracts are proven for the current session.
+- **Performance review:** this checkpoint adds no hook, listener, pre-draw loop, polling, reflection hot path, wakeup or per-frame diagnostic.
+- **Compatibility review:** conclusions that claim target behavior are scoped to the exact SystemUI SHA-256. Generalized/AOSP/older-MIUI ignored-slot evidence is explicitly not promoted to an exact-target contract.
+- **Future-extension review:** size, gap, per-glyph scale and optical adjustment are centralized as shared layout intent so later Home, Keyguard/AOD and user controls do not require scene-specific offsets or new geometry writers.
+
+### Validation / CI
+
+Documentation and architecture-contract update only. No APK-affecting source changed, no Build ID advanced, and no Build 394 was created. Per repository rules, device validation is not required for this checkpoint.
+
+### Outcome / next gate
+
+The Home overlay is now a verified attachment/lifecycle **candidate**, not yet a fully selected production carrier.
+
+Build 394 remains blocked on:
+1. exact-target ignored-slot / native measure-layout proof;
+2. reversible native-view masking proof;
+3. island-time placement/carrier or draw-only handoff that preserves network information without peer overlap;
+4. final ownership/lifecycle/single-writer/cleanup/fail-native/performance/compatibility review.
+
+The next investigation must close those contracts rather than modify runtime behavior speculatively.
+
+---
+
+## 2026-09-27 — Exact-target ignored-slot and clip-mask proof
+
+**Type:** exact-target static contract / architecture review  
+**Runtime build:** none  
+**Display line:** 0.0.2  
+**Runtime impact:** none
+
+### Problem / objective
+
+The previous Phase-2A review still treated ignored-slot handling and a non-competing visual mask as unverified target contracts. The retained original target SystemUI APK was recovered from the file library and verified against the pinned SHA-256, allowing the missing contracts to be checked directly instead of inferred from AOSP/older MIUI behavior.
+
+### Problem execution flow
+
+1. Recover the retained original `SystemUI 17.03.260226.r` APK and verify the exact SHA-256.
+2. Inspect `MiuiStatusIconContainer` fields/methods and the exact `onMeasure()` / `onLayout()` call path.
+3. Verify the behavior of `setIgnoredSlots(...)` / `addIgnoredSlots(...)` rather than assuming AOSP `mIgnoredSlots` semantics.
+4. Audit `View.setClipBounds(...)` writers across the exact target DEX set.
+5. Re-run the ownership/single-writer/cleanup/fail-native review before granting either mechanism to a future runtime implementation.
+
+### Exact-target findings
+
+- `MiuiStatusIconContainer` defines its own `ignoredSlots: List` and public final `addIgnoredSlots(...)` / `setIgnoredSlots(...)` methods.
+- `onMeasure()` excludes a child from the measured set when its slot is in `ignoredSlots`; `onLayout()` also checks the same list.
+- the add path requests layout, so this is a native container layout contract rather than a peer-child width workaround.
+- the target Home Wi-Fi/mobile/battery implementations were not found writing `clipBounds` in the directed DEX writer audit.
+
+### Architecture consequence
+
+The preferred steady Home composition can now be expressed as:
+
+`MiuiNotificationStatusContainer.overlay carrier + host-scoped represented-slot exclusion + reversible clip-only native visual mask + shared ResolvedLayout`
+
+This does not authorize a global ignored-slot replacement. Combined Status must snapshot/restore only the slot exclusions it owns for the current host session, preserve unrelated ignored entries, and fail native if the active target views/contracts are incomplete.
+
+The clip candidate must save and restore each target View's pre-existing clip state. It must not replace native `alpha`, `visibility`, `translation`, or measured/layout geometry writers.
+
+### Review
+
+- **Ownership review:** `MiuiStatusIconContainer` remains the native layout owner; Combined Status may only use its exposed ignored-slot contract within the active Home session. Combined Status owns only its overlay drawing and its restoration tokens.
+- **Lifecycle review:** ignored-slot additions and clip snapshots are HostSession-scoped and invalid on host replacement.
+- **Single-writer review:** the new candidate avoids peer width/translation writes and avoids competing with native alpha/visibility animation writers.
+- **Cleanup review:** restore only Combined Status-owned ignored entries and the exact saved clip state; cleanup must run on feature disable, host detach/replacement, hot reload, partial activation failure, and module/session reset.
+- **Fail-native review:** native Views are not masked until the overlay renderer, target slot set, ignored-slot contract, and restoration tokens are all ready for the current session.
+- **Performance review:** no polling, no production pre-draw follower, no per-frame reflection, and no additional background work is required for this steady-state mechanism.
+- **Compatibility review:** this contract is proven only for the pinned target SHA-256. Other HyperOS builds must re-prove the class/method contract or remain native.
+- **Future-extension review:** represented-slot handling stays independent from `ResolvedLayout`; future visual size/gap controls change layout intent, not suppression hooks.
+
+### Remaining gate
+
+Build 394 is still not created. The primary unresolved Phase-2A question is charging/island presentation: Combined Status must consume verified native motion/geometry while preserving network information instead of inheriting the battery view's fade/hide semantics. Notification-shade endpoint mapping also remains less mature than the Control Center anchor contract.
+
+---
+
+## 2026-09-27 — Phase-boundary and carrier-cutover review
+
+**Type:** architecture consistency review  
+**Runtime build:** none  
+**Runtime impact:** none
+
+### Review finding
+
+The latest ROADMAP intentionally places Home -> shade / Control Center projection in Phase 2B after the Phase-2A Home carrier is stable. Treating full notification/control-center endpoint implementation as a Build-394 prerequisite would incorrectly expand the first 0.0.2 runtime boundary.
+
+Code review also confirms that the active work branch still routes Hot Reload, feature handoff and native suppression through the superseded `SystemUiNativeCombinedParticipantOwner`, `SystemUiNativeNetworkSuppressionOwner`, and `SystemUiNativeBatterySuppressionOwner` chain.
+
+### Decision
+
+- Phase 2A may retain existing read-only panel-transition evidence, but full projection/endpoints remain Phase 2B.
+- The first 0.0.2 runtime must establish an explicit carrier ownership cutover; the old participant/suppression carrier and the new Home overlay/ignored-slot/clip-mask carrier must not operate as concurrent writers.
+- Migration should reuse the accepted domain state, renderer, tint/resource pipeline, diagnostics, settings and Hot Reload infrastructure while replacing only presentation-carrier ownership.
+- Old participant code may remain temporarily for rollback/history during the checkpoint, but it must be inactive when the new carrier owns the session and should be retired after the new path is device-validated.
+
+### Review dimensions
+
+Ownership: one active carrier per Home session.  
+Lifecycle: carrier selection belongs to HostSession and must be re-evaluated on host replacement/hot reload.  
+Single writer: no overlapping native participant suppression and ignored-slot/clip-mask mutation.  
+Cleanup: carrier deactivation must restore its own state before another carrier can activate.  
+Fail native: if the new carrier cannot acquire all target contracts, do not fall through into a partially active mixture; restore native SystemUI.  
+Performance: reuse existing event-driven domain state; do not duplicate state observers for the new carrier.  
+Compatibility: the new target-specific slot/mask contract stays fingerprint-gated.  
+Future extension: Phase 2B consumes the stable Phase-2A source bounds rather than reopening Home carrier ownership.
+
+---
+
+## 2026-09-27 — Home island carrier contract closed; Build 394 gate opened
+
+**Type:** exact-target architecture closure / gate review  
+**Runtime build:** none  
+**Runtime impact:** none
+
+### Problem execution flow
+
+1. Inspect exact `StatusBarIslandControllerImpl` method bodies rather than relying on member existence.
+2. Trace `translationFlow`, `refreshTranslation()`, `HomeStatusBarViewBinderInjector`, and `IslandStretchAnimation` ownership.
+3. Resolve `IslandStretchAnimation.rightContainer` through the exact target resource table.
+4. Cross-check the resolved host against Build-393 runtime topology and island-frame geometry.
+5. Re-run ownership, lifecycle, single-writer, cleanup, fail-native, performance, compatibility and future-extension review.
+
+### Exact-target closure
+
+- `translationFlow` carries the target translation distance refreshed by SystemUI; it is not a per-frame progress source.
+- `IslandStretchAnimation` applies SystemUI-owned Folme island show/hide animation to its `rightContainer.translationX`.
+- `rightContainer` resolves to the exact target resource `system_icon_area`.
+- Build-393 topology identifies `system_icon_area` as the `MiuiNotificationStatusContainer` used by the Home overlay session.
+- Runtime island samples show inner status/battery containers keeping zero local translation while their screen coordinates move, confirming ancestor-owned motion.
+
+### Architecture consequence
+
+The Home overlay inherits native charging/Super-Island translation directly from its animated host. No production pre-draw follower, battery-translation copier, custom duration/interpolator, or participant width handoff is required.
+
+The battery view's alpha/hide semantics remain separate and are not inherited by Combined Status, which must continue to preserve network information.
+
+### Final gate review
+
+- **Ownership:** SystemUI owns `system_icon_area` motion and peer layout; Combined Status owns only overlay composition plus its scoped slot/mask restoration state.
+- **Lifecycle:** overlay, ignored-slot restoration and clip snapshots are bound to one Home HostSession.
+- **Single writer:** no native translation/alpha/visibility writer is added for island motion; old participant/suppression ownership must be inactive during the new carrier session.
+- **Cleanup:** deactivate in reverse ownership order and restore exact clip/slot state on feature disable, host replacement, hot reload and partial activation failure.
+- **Fail native:** do not mask any native representation until the new Home session has acquired every required target contract and renderer state.
+- **Performance:** steady state remains event-driven; island movement is inherited through parent transformation with no module per-frame work.
+- **Compatibility:** all new contracts are scoped to the pinned SystemUI SHA-256; unmatched profiles remain native.
+- **Future extension:** Phase 2B can consume the stable Home source bounds without reopening carrier ownership.
+
+### Decision
+
+The Build-394 architecture gate is open. The first 0.0.2 runtime checkpoint may implement only the Home carrier cutover, shared ResolvedLayout, target ignored-slot exclusion, reversible clip masking and inherited native island motion. Home -> shade/Control Center projection, Keyguard/AOD and user-facing sizing controls remain out of scope.
+
+---
+
+## 2026-09-27 — Exact Home island carrier contract closed
+
+**Type:** exact-target architecture proof  
+**Runtime build:** none  
+**Runtime impact:** none
+
+### Problem execution flow
+
+1. Use the maintainer-provided JADX 1.5.6 against the retained original SystemUI APK.
+2. Re-verify the target APK SHA-256 before decompilation.
+3. Decompile `StatusBarIslandControllerImpl`, `HomeStatusBarViewBinderInjector/HomeStatusBarViewBinderImpl`, `IslandStretchAnimation`, `IslandMonitor`, and decode `res/layout/status_bar.xml`.
+4. Trace the actual island endpoint, native animation writer, right-side target View and occupancy flow.
+5. Compare the result with the existing Combined Status Home overlay host and the Build-393 split-ownership evidence.
+
+### Findings
+
+- `translationFlow` is a configuration-derived endpoint containing `status_bar_island_translation`; it is refreshed for density/font-scale, layout direction and max-bounds changes and is not a per-frame animation stream.
+- `IslandStretchAnimation` consumes that endpoint and uses the native `MiuiStatusBarIconAnimatorController` ISLAND_SHOW/ISLAND_HIDE Folme configuration to animate the phone Home `rightContainer.translationX`.
+- `HomeStatusBarViewBinderImpl` passes `R.id.system_icon_area` as `rightContainer`.
+- exact `status_bar.xml` declares `system_icon_area` as `MiuiNotificationStatusContainer` — the same host already used by `CombinedStatusHomeRenderSession.overlay`.
+- `statusContainerSpace` is written by `IslandMonitor.RealContainerIslandMonitor.updateContainerSize()` from real island/container geometry and is consumed as layout occupancy by fake/mirrored status-icon containers; it is not animation progress.
+
+### Architecture consequence
+
+The preferred Home overlay is also the native island moving host. Keeping the Combined Status View in that overlay means native parent translation moves the replacement automatically, while the battery child's own fade/hide remains independent. No production pre-draw follower, duplicate animator, endpoint compensation, or Combined Status translation writer is required.
+
+### Review
+
+- **Ownership:** SystemUI exclusively owns island translation and animation configuration; Combined Status owns only overlay drawing.
+- **Lifecycle:** the carrier is already bound to the Home `MiuiNotificationStatusContainer` host lifetime.
+- **Single writer:** no native translation/alpha/visibility writer is added.
+- **Cleanup:** removing the overlay/session is sufficient for motion cleanup; no animation observer must outlive the host.
+- **Fail native:** if the exact host/slot/mask contracts cannot be acquired, leave native views visible and do not activate the replacement.
+- **Performance:** zero production frame polling/following is required.
+- **Compatibility:** the conclusion is scoped to the pinned SHA-256; other builds must re-prove the host/motion contract.
+- **Future extension:** Phase 2B can project from stable Home bounds without reopening island motion ownership.
+
+### Gate consequence
+
+The previous island-carrier architecture blocker is closed. The remaining pre-Build-394 work is implementation-boundary review: host-scoped ignored-slot restoration, clip-mask restoration, ResolvedLayout source shape, and explicit cutover from the superseded participant/suppression path.
+
+
+---
+
+## 2026-09-27 — Repository consistency review after Build-394 architecture gate
+
+**Type:** documentation / architecture-state consistency review  
+**Runtime build:** none  
+**Display line:** 0.0.2  
+**Runtime impact:** none
+
+### Problem / objective
+
+The exact-target Phase-2A investigation advanced faster than several current-facing repository surfaces. `CURRENT.md` had already opened the Build-394 gate, while the ROADMAP active route, architecture/reference status text, PR #100, CHANGELOG implementation wording, and bug-report example still described older checkpoints or superseded carrier mechanics.
+
+The objective was to restore one current repository narrative without rewriting historical Build/DEVLOG evidence.
+
+### Problem execution flow
+
+1. Re-read the latest `CONTRIBUTING.md`, `CURRENT.md`, `ROADMAP.md`, and relevant recent `DEVLOG.md`.
+2. Cross-check architecture/reference documents, README/CHANGELOG, issue/PR surfaces, version metadata, and CI/release configuration.
+3. Separate genuine historical records from current/future/general descriptions.
+4. Mark the Build-394 pre-runtime architecture gate as open everywhere that describes current state.
+5. Remove or neutralize superseded participant/occupancy-handoff details from the current `[Unreleased]` net-state changelog.
+6. Update PR #100 so its current purpose/acceptance boundary matches Phase 2A rather than the original Build-378 slot-geometry checkpoint.
+7. Add an explicit contributor rule mapping meaningful checkpoint outcomes to the documents that must be synchronized.
+8. Run a final consistency review without creating an APK/runtime checkpoint.
+
+### Documents / references reviewed
+
+- latest `CONTRIBUTING.md`;
+- `docs/development/CURRENT.md`, `ROADMAP.md`, recent `DEVLOG.md`, and `VERSIONING.md`;
+- `docs/architecture/README.md`, `layout-policy.md`, and `scene-policy.md`;
+- `docs/reference/README.md` and `statusbar-composition-patterns.md`;
+- public `README.md`, `CHANGELOG.md`, bug-report template, PR #100;
+- `gradle.properties`, app build configuration, target profile, and release/build workflows.
+
+### Corrections
+
+- `CURRENT.md` now describes Build 394 as scope-defined, gate-open, and not yet built.
+- ROADMAP active work now begins at the Build-394 Home carrier runtime cutover instead of repeating already-closed static prerequisites.
+- architecture/reference status now distinguishes selected pre-runtime direction from runtime acceptance.
+- the shared `ResolvedLayout` source implementation is explicitly authorized only inside the bounded Build-394 checkpoint.
+- PR #100 is retitled/reframed around the 0.0.2 Home carrier architecture and its current validation gate.
+- `CHANGELOG.md` no longer presents the superseded permanent participant / battery-occupancy handoff and related participant-specific suppression/Hot-Reload details as the intended current net state.
+- the bug-report version example now uses the current 0.0.2 development line.
+- `CONTRIBUTING.md` now requires documentation synchronization after each meaningful engineering checkpoint and defines which document changes for which kind of state change.
+
+### Review
+
+- **History review:** existing historical DEVLOG/Build entries were not rewritten. New conclusions are appended only.
+- **Architecture review:** current-facing documents consistently treat the permanent extra participant / occupancy-handoff route as superseded by default and Build 394 as the first runtime proof of the selected Home carrier direction.
+- **Ownership review:** no documentation correction grants new runtime write ownership; Build 394 remains responsible for runtime proof.
+- **Lifecycle/cleanup review:** current acceptance wording keeps HostSession-scoped restoration and fail-native cleanup explicit.
+- **Version review:** current development line remains 0.0.2; historical 0.0.1 Build identities remain unchanged; first formal release target remains 1.0.0.
+- **CI/runtime review:** documentation/governance only; no Build ID, APK, runtime code, or Canary checkpoint is created.
+
+### Outcome
+
+Repository current-state surfaces are aligned for the Build-394 implementation stage. Future meaningful checkpoints must synchronize repository memory before the checkpoint is treated as complete, using the new `CONTRIBUTING.md` mapping.
+
+
+---
+
+## 2026-09-27 — Repository consistency review and stepwise documentation synchronization
+
+**Type:** documentation / governance consistency review  
+**Runtime build:** none  
+**Display line:** 0.0.2  
+**Runtime impact:** none
+
+### Problem / objective
+
+The Phase-2A architecture evidence advanced faster than several current-facing repository surfaces. Some files still described Build 394 as blocked, the permanent participant/occupancy-handoff route as an active candidate, or PR #100 as a Build-378 native-slot/panel-geometry change.
+
+A second process gap was identified: the contribution rules required CURRENT/DEVLOG/ROADMAP maintenance, but did not state clearly enough that repository memory must be synchronized **after each meaningful engineering step that changes the next action**, rather than only at the end of a long task.
+
+### Problem execution flow
+
+1. Re-read the latest `CONTRIBUTING.md`, `CURRENT.md`, `ROADMAP.md`, relevant recent `DEVLOG.md`, architecture/reference documents, README/CHANGELOG, Issue template, build/version metadata and PR #100.
+2. Separate true historical Build/CI records from current/future/net-state descriptions.
+3. Cross-check the current Phase-2A decision against the Build-394 gate, 0.0.2 development line and 1.0.0 first-release target.
+4. Correct only current-facing surfaces; preserve historical DEVLOG/Build facts.
+5. Update contribution governance so each meaningful step explicitly maps to the repository documents that must be synchronized before continuing.
+6. Update PR #100 metadata to the branch's current objective.
+7. Re-run an architecture/documentation **review** for ownership, lifecycle, single-writer, cleanup, fail-native, compatibility, future-phase boundaries and historical integrity.
+
+### Repository updates
+
+- `CONTRIBUTING.md` now requires stepwise repository-memory synchronization and explicitly maps:
+  - investigation/evidence -> CURRENT and, when durable, DEVLOG;
+  - architecture/ownership changes -> architecture docs + CURRENT/ROADMAP + DEVLOG;
+  - reusable evidence -> reference library;
+  - runtime checkpoint -> CURRENT + DEVLOG;
+  - CI/device result -> immediate CURRENT + DEVLOG correction;
+  - phase/version/release changes -> ROADMAP/VERSIONING plus affected public/net-state docs;
+  - durable net behavior -> CHANGELOG;
+  - changed PR objective/acceptance boundary -> PR title/body.
+- Mechanical sub-steps that do not change engineering meaning do not require their own log entry.
+- Current architecture/reference/layout documents now describe the Build-394 pre-runtime gate as open for the pinned target and keep the old participant route as superseded historical evidence.
+- `CHANGELOG.md` no longer presents superseded participant/occupancy-handoff mechanics as the intended current net state; durable capabilities are phrased independently of that rejected carrier.
+- the bug-report version example follows the current 0.0.2 development line.
+- PR #100 is now titled `refactor: establish 0.0.2 Home carrier architecture` and its body describes the Phase-2A carrier cutover, Build-394 validation boundary, historical evidence, and explicit Phase-2B/Keyguard/AOD/UI exclusions.
+
+### Review
+
+- **Historical-integrity review:** previous DEVLOG Build records remain unchanged. Later conclusions are appended rather than retroactively rewriting what was actually implemented or believed.
+- **Ownership review:** documentation consistently leaves native peer layout/island motion with SystemUI and gives Combined Status only the selected overlay composition plus scoped restoration state.
+- **Lifecycle/cleanup review:** the current path remains HostSession-scoped and requires exact slot/mask restoration on disable, replacement, Hot Reload and partial activation failure.
+- **Single-writer review:** current-facing documentation no longer recommends concurrent permanent-participant and existing-host carriers.
+- **Fail-native review:** unmatched/incomplete contracts continue to restore or retain native presentation.
+- **Phase-boundary review:** Build 394 is Phase 2A only; Home -> shade / Control Center remains Phase 2B, followed by Keyguard/AOD and later user-facing sizing controls.
+- **Version review:** current development line remains 0.0.2; the first formal release target remains 1.0.0; historical 0.0.1 Build records remain historical facts.
+- **Validation review:** documentation/governance only; no APK/runtime change, Build ID change, Canary or device validation is required.
+
+### Outcome / next step
+
+Repository-facing development state is aligned around the open Build-394 gate. The next engineering step is the first bounded 0.0.2 runtime implementation of the Phase-2A Home carrier cutover. After that implementation step, CURRENT and DEVLOG must be synchronized immediately before CI/device validation proceeds.
+
+---
+
+## 2026-09-27 — Exact Home island carrier contract closed; Build 394 authorized
+
+**Type:** exact-target architecture closure / runtime gate  
+**Runtime build:** none yet  
+**Display line:** 0.0.2  
+**Runtime impact:** none
+
+### Exact method-body findings
+
+- `StatusBarIslandControllerImpl.translationFlow` stores the signed `status_bar_island_translation` resource endpoint and is refreshed by configuration/layout-direction/max-bounds changes; it is not per-frame animation progress.
+- `IslandMonitor.RealContainerIslandMonitor.updateContainerSize(...)` writes `statusContainerSpace` from island rectangle + live container location + padding + layout direction + supported native endpoint; fake containers consume it as `islandWidth` and request native layout. It is a layout-space/avoidance contract, not motion progress.
+- `HomeStatusBarViewBinderImpl` passes `R.id.system_icon_area` as `IslandStretchAnimation.rightContainer`.
+- `IslandStretchAnimation` uses SystemUI's `MiuiStatusBarIconAnimatorController` ISLAND_SHOW/HIDE `AnimConfig` to animate the right container to the controller endpoint; direct `setTranslationX(...)` is the non-animated path.
+- exact `status_bar.xml` defines `R.id.system_icon_area` as `MiuiNotificationStatusContainer`; its `system_icons` child is `MiuiStatusBatteryContainer`.
+
+### Root-cause / architecture consequence
+
+The already-proven Home overlay candidate is attached to the exact View that SystemUI itself translates for island avoidance. Therefore native carrier transformation, not a duplicate Combined Status motion source, is the correct Phase-2A contract.
+
+The overlay can inherit `system_icon_area` motion while remaining independent from the battery child's separate `alpha`/hide behavior. This directly satisfies the product requirement to retain network information during charging-island presentation.
+
+### Final review before runtime implementation
+
+- **Ownership:** SystemUI owns `system_icon_area.translationX` and animation configuration; Combined Status owns only overlay content, ResolvedLayout and reversible suppression tokens.
+- **Lifecycle:** the overlay, ignored-slot token and clip snapshots belong to one `MiuiNotificationStatusContainer` HostSession.
+- **Single writer:** no Combined Status island translation writer is needed. Existing custom-participant motion/occupancy ownership must be inactive under the new carrier.
+- **Cleanup:** session teardown restores owned ignored-slot entries and exact clip states, removes overlay content and drops host references.
+- **Fail native:** native visual suppression starts only after the complete new Home session is ready; partial activation rolls back to native.
+- **Performance:** the design eliminates production pre-draw island following and duplicate animation; native View transform carries the overlay for free.
+- **Compatibility:** this closure is scoped to the pinned exact SystemUI fingerprint and must fail native when the host/class/member contract is unavailable.
+- **Future extension:** Phase 2B can project from the stable Home source bounds without changing Home carrier ownership.
+
+### Decision
+
+The pre-Build-394 static architecture gate is satisfied. Build 394 is authorized as the first 0.0.2 runtime checkpoint, scoped only to Home carrier ownership cutover + ResolvedLayout + represented-slot exclusion + reversible clip masking. Phase 2B, Keyguard/AOD and user-facing sizing controls remain out of scope.
+---
+
+## 2026-09-27 — Build 394 source checkpoint: Home carrier ownership cutover
+
+**Type:** runtime architecture checkpoint  
+**Display version:** 0.0.2  
+**Build:** 394 / 20260927-394  
+**Validation:** Fast CI pending; device validation pending
+
+### Problem / objective
+
+Exact-target evidence now proves the Home overlay host, ignored-slot measure/layout contract, reversible clip-mask candidate and native island-motion inheritance. Build 394 implements that architecture without reviving the permanent custom participant used by Builds 386-393.
+
+### Problem execution flow
+
+1. Re-read the latest CONTRIBUTING, CURRENT, ROADMAP and relevant DEVLOG/architecture/reference evidence.
+2. Re-verify the retained exact SystemUI APK with the maintainer-provided JADX 1.5.6.
+3. Confirm translationFlow is a target offset rather than frame progress and that IslandStretchAnimation animates system_icon_area / MiuiNotificationStatusContainer.
+4. Review current module wiring for ownership, lifecycle, single-writer, cleanup, fail-native, performance, compatibility and future extension.
+5. Cut over only the Home presentation carrier; leave Phase 2B, Keyguard/AOD and user-facing sizing controls unchanged.
+
+### Implementation
+
+- Added SystemUiHomePresentationOwner with target-verified MiuiStatusIconContainer onMeasure/onLayout hooks.
+- represented slots are temporary owned ignoredSlots entries scoped to the native call and restored in finally;
+- Wi-Fi/mobile/stacked-mobile/airplane/no-SIM roots plus MiuiBatteryMeterView are masked with reversible clipBounds state;
+- CombinedStatusHomeRenderSession now publishes model+tint+layout+scene+feature readiness before native replacement may activate;
+- CombinedStatusModule no longer installs/activates the legacy native Combined Status participant or battery suppression path for Home;
+- the old network suppression owner runs in observation-only mode so its suppression writers remain disabled while no-SIM/status-icon presentation evidence is retained;
+- pre-0.0.2 Hot Reload migration removes any legacy participant then requests one SystemUI restart instead of guessing restoration of old mask state;
+- deterministic unit coverage verifies owned ignored-slot restoration and exceptional cleanup.
+
+### Review
+
+- **Ownership:** HyperOS owns peer layout, scene state and island animation; Combined Status owns overlay drawing, temporary ignored-slot tokens and clip masks.
+- **Lifecycle:** presentation state is Home-host scoped and restored on readiness loss, host detach/replacement, feature disable and Hot Reload teardown.
+- **Single writer:** native translation/alpha/visibility/geometry writers are not replaced; the superseded participant/suppression carrier is inactive.
+- **Cleanup:** ignored entries restore in finally; clip state restores only while the current value still equals the module-applied empty clip; relayout is requested after deactivation.
+- **Fail native:** native visuals remain authoritative until renderer model, tint and layout are ready and the exact target owner can activate.
+- **Performance:** no polling, frame follower or duplicate animation was added; the two layout hooks do bounded list work and clip refresh occurs after native layout.
+- **Compatibility:** missing target class/method/field/group contracts leave native SystemUI active.
+- **Future extension:** Phase 2B can use stable Home source bounds without reopening Home carrier ownership.
+
+### Validation boundary
+
+Local Gradle execution is unavailable in the current execution environment because external Git/DNS access is blocked. The existing Fast work-branch CI is therefore the compile/unit/Debug-APK gate. A successful CI run will not count as runtime proof; normal Home, feature disable/enable, charging/Super-Island enter/steady/exit, cold start while charging, cleanup/fail-native and subsequent same-architecture Hot Reload still require focused device validation.
+
+### CI / Canary result
+
+- Source commit: `96fbb97e5d08280fee3c93e8091a61538b3bffcd`.
+- Fast PR Build workflow #1044 (`36270093725`): **success**.
+- Signed Work Branch Canary #303 (`36270307814`): **success**.
+- Unit tests and Canary assembly passed.
+- pinned HyperOS target-profile verification passed.
+- Modern Xposed metadata/API/scope/Hot Reload metadata verification passed.
+- Haple signing certificate verification passed.
+- Canary non-debuggable verification passed.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260927-394-canary.apk`.
+- Device validation remains pending; Build 394 is not promoted to `dev`.
+---
+
+## 2026-09-27 — Build 394 device rejection; Build 395 carrier reservation correction
+
+**Type:** device contradiction / root-cause correction / runtime checkpoint  
+**Display version:** 0.0.2  
+**Rejected build:** 394 / 20260927-394  
+**Next build:** 395 / 20260927-395  
+**Validation:** CI pending; device validation pending
+
+### Device feedback
+
+Build 394 does not pass the Phase-2A device gate:
+- charging-island entry can move the Combined Status visual left and then immediately right;
+- charging state does not retain a stable occupied end-side region;
+- cold SystemUI start while already charging still has a larger neighbor gap than normal Home;
+- partial shade pull / final held return still shows the Home representation, but this is classified as deferred Phase-2B projection behavior rather than the Phase-2A blocker.
+
+The attached 394 diagnostic reports a healthy Home cutover, represented-slot masking and transformed-host inheritance, but it is a Hot Reload session and the renderer snapshot is `charging=false`. It does not capture the failing charging transition/cold-start geometry.
+
+### Problem execution flow
+
+1. Treat the device contradiction as invalidating the assumption that transformed-host inheritance alone closes the island carrier problem.
+2. Re-read the exact target `MiuiStatusBatteryContainer.onMeasure/onLayout/setIsHideBattery` and `MiuiBatteryMeterView.updateIslandChanged` method bodies.
+3. Separate native motion ownership from the end-side occupancy contract.
+4. Keep the verified native motion owner and remove the battery descendant from Combined Status local-position ownership.
+5. Introduce the narrowest reversible layout reservation; do not restore the superseded custom participant or fixed compensation chain.
+
+### Exact root cause
+
+On the pinned target:
+- island battery addition sets `mIsHideBattery=true`;
+- `MiuiStatusBatteryContainer.onLayout` then allows `MiuiStatusIconContainer` to extend into the battery end-side region;
+- the Battery View separately animates to its own width and fades/hides;
+- Build 394 overlay is draw-only and still resolves its local rectangle from that Battery descendant.
+
+This creates two independent geometry changes around one overlay: native peer occupancy is released while the overlay's local anchor is tied to a child with its own island presentation lifecycle.
+
+### Build 395 implementation
+
+- Home overlay slot bounds now resolve from the stable `MiuiNotificationStatusContainer` end edge plus measured native battery carrier width instead of `offsetDescendantRectToMyCoords(battery,...)`.
+- The shared `CombinedStatusLayoutPolicy` is now consumed for this Home end-anchor/slot calculation.
+- `SystemUiHomePresentationOwner` verifies the exact target `MiuiStatusBatteryContainer.mIsHideBattery` and `onLayout` contracts and adds one scoped layout hook.
+- When the replacement session is active and native hide is true, only that native `onLayout` invocation temporarily observes hide=false; the exact native value is restored in `finally`.
+- The module still does not block `setIsHideBattery`, force Battery visibility, or write Battery translation/alpha.
+- Parent layout is requested on activation/deactivation so native peer layout recomputes through the owned reservation boundary.
+- Unit coverage records the reservation policy while existing ignored-slot restoration tests remain unchanged.
+
+### Review
+
+- **Ownership:** SystemUI still owns island motion and Battery visual state. Combined Status newly owns only the replacement's end-side carrier reservation during the native parent layout call.
+- **Lifecycle:** reservation exists only while the Home presentation session is active; the native field is restored before the hook returns.
+- **Single writer:** no competing translation/alpha/visibility writer is added. The native layout method remains the geometry writer; Combined Status temporarily supplies the carrier-preservation input.
+- **Cleanup:** native hide state restores in `finally`; session stop requests parent relayout and restores clip masks.
+- **Fail native:** missing field/method/container contracts prevent activation; reservation apply/restore failures trigger native fallback.
+- **Performance:** one existing-layout-event hook, no polling, no pre-draw follower, no per-frame diagnostics.
+- **Compatibility:** exact-target only; no same-version-public-APK inference.
+- **Future extension:** Phase 2B still owns Home -> shade / Control Center projection; this checkpoint does not add transition formulas.
+
+### Acceptance gate
+
+Build 395 requires focused device validation of stable Home, island enter/steady/exit, cold start while charging, feature disable/enable and same-architecture Hot Reload before any promotion.
+
+---
+
+## 2026-09-27 — Build 394 device rejection: charging geometry
+
+**Type:** device feedback / root-cause correction  
+**Display version:** 0.0.2  
+**Build:** 394 / 20260927-394  
+**Promotion:** rejected; remains work-branch evidence
+
+### Device feedback
+
+- brief shade pull-down and final held return still show the Home Combined Status visual;
+- charging/Super-Island entry shows a visible two-step/twitch motion;
+- cold SystemUI start while already charging shows a larger Combined Status-to-neighbor gap than the non-charging state.
+
+### Evidence
+
+The Build-394 diagnostic reports a healthy runtime, `homePresentation=combined`, carrier `MiuiNotificationStatusContainer.overlay`, `representedSlots=5`, `maskedViews=6`, and `islandMotion=inherited-from-system_icon_area`, with zero Combined Status native translation/alpha/visibility writes.
+
+Static source review then found a mismatch between the documented architecture and runtime wiring: `CombinedStatusLayoutPolicy.resolve()` is not called by the Home renderer path. `CombinedStatusHomeRenderSession` still derives the overlay rectangle directly from `MiuiBatteryMeterView` descendant bounds.
+
+Exact target JADX confirms `MiuiBatteryMeterView.updateIslandChanged(...)` drives `MiuiStatusBatteryContainer.setIsHideBattery(...)`; the container's layout then allows `MiuiStatusIconContainer` to expand into the battery region while the battery child independently animates translation/alpha/scale. That makes the battery descendant unsuitable as the stable Combined Status layout anchor during island presentation.
+
+### Problem execution flow
+
+1. classify shade-held visibility separately as Phase 2B projection/handoff;
+2. keep Phase 2A focused on charging steady geometry and island enter/exit;
+3. remove Battery-child geometry from the steady Home overlay anchor;
+4. make the shared resolved-layout contract the actual runtime geometry source;
+5. establish a reversible end-side reservation only when native battery layout releases its region;
+6. preserve native `mIsHideBattery`, native host Folme translation, and fail-native cleanup.
+
+### Review boundary for Build 395
+
+- **Ownership:** SystemUI keeps battery hide and island translation; Combined Status owns only overlay bounds plus its narrow reversible end reservation.
+- **Lifecycle:** reservation state is Home HostSession-scoped and restored on every teardown/failure path.
+- **Single writer:** no battery translation/alpha/visibility writes; any reservation property requires an exact writer audit before use.
+- **Cleanup:** restore the exact pre-session value only when the live property still matches the module-applied value.
+- **Fail native:** if reservation capability or resolved geometry is unavailable, restore native visuals rather than render an overlapping overlay.
+- **Performance:** event/layout-driven only; no permanent pre-draw follower.
+- **Compatibility:** exact target only until the new reservation contract is re-proven elsewhere.
+- **Future extension:** width/gap inputs must flow through resolved layout rather than scene-specific offsets.
+
+---
+
+## 2026-09-27 — Build 395 pre-CI rejection; Build 396 end reservation
+
+**Type:** architecture review / source correction  
+**Display version:** 0.0.2  
+**Rejected source checkpoint:** Build 395  
+**Next checkpoint:** Build 396 / 20260927-396  
+**Source commit:** `f4c20db514d6767eb027d38cc5b1a800f58a130c`  
+**Validation:** CI pending; device validation pending
+
+### Review finding
+
+Build 395 temporarily changed `MiuiStatusBatteryContainer.mIsHideBattery` to false only while native `onLayout(...)` executed, restoring it in `finally`. Although this preserved carrier width without writing translation/alpha/visibility, it still changed a HyperOS scene/layout input and matched an approach already rejected by the ROADMAP.
+
+### Exact-target alternative
+
+- `system_icons.xml` authors no padding on `MiuiStatusIconContainer`;
+- exact `onMeasure(...)` includes horizontal padding in content width;
+- exact `onLayout(...)` uses `getPaddingEnd()` as the end-side placement boundary;
+- directed writer audit of the decompiled `com.android.systemui.statusbar` source set found no competing status-icon padding writer.
+
+### Build 396 implementation
+
+- native `mIsHideBattery` remains unchanged and read-only;
+- the native battery-hide setter is observed only as a low-frequency event source;
+- while native battery layout has released its region, `resolved.requestedSlotWidthPx` is reserved through `statusIcons.paddingEnd`;
+- existing relative padding is snapshotted per Home HostSession and restored only if the live value still equals the module-applied value;
+- unexpected padding-writer conflict fails native;
+- renderer slot bounds and reservation width share `CombinedStatusHomeLayoutResolver`;
+- the 395 host-end anchor correction is retained, so Battery descendant translation/visibility no longer defines Combined Status local position.
+
+### Review
+
+- **Ownership:** HyperOS retains battery hide, peer layout behavior and island motion; Combined Status owns only its explicit replacement-space reservation.
+- **Lifecycle:** reservation is Home HostSession-scoped and event-driven from native hide-state changes.
+- **Single writer:** exact-target audit finds no competing status-icon padding writer; runtime conflict detection remains.
+- **Cleanup:** restore only the exact module-applied relative padding state.
+- **Fail native:** missing hide/layout/host contracts or writer conflicts restore native presentation.
+- **Performance:** one low-frequency native hide-state hook; no polling or frame follower.
+- **Compatibility:** exact target fingerprint only.
+- **Future extension:** requested width continues through shared resolved-layout input rather than scene offsets.
+
+### Acceptance gate
+
+Build 396 must validate normal Home spacing, charging-island enter/steady/exit, cold SystemUI start while already charging, feature disable/enable and same-architecture Hot Reload. Partial shade-held visibility remains Phase 2B.
+
+### Build 395 CI / Canary result
+
+- Source commit: `632812ba4bbaedca3d42b26c937537479c2a6626`.
+- Fast PR Build workflow #1045 (`36271668949`): **success**.
+- Signed Work Branch Canary #304 (`36271854940`): **success**.
+- Unit tests and Canary assembly passed.
+- pinned HyperOS target-profile verification passed.
+- Modern Xposed metadata/API/scope/Hot Reload metadata verification passed.
+- Haple signing certificate verification passed.
+- Canary non-debuggable verification passed.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260927-395-canary.apk`.
+- Device validation remains pending; Build 395 is not promoted to `dev`.
+
+---
+
+## 2026-09-27 — Build 396 pre-device rejection; Build 397 stable charging boundary
+
+**Type:** device clarification / exact-resource proof / runtime checkpoint  
+**Display version:** 0.0.2  
+**Rejected checkpoint:** Build 396 / 20260927-396  
+**Next build:** 397 / 20260927-397  
+**Validation:** CI pending; device validation pending
+
+### Device clarification
+
+The charging spacing defect is present after restarting SystemUI while already plugged in even when no subsequent user interaction occurs. This classifies the large neighbor gap as a steady charging-layout defect in addition to the separately observed island transition twitch.
+
+### Problem execution flow
+
+1. Separate steady charging geometry from island transition motion.
+2. Re-check the exact Battery width resources and live 105/135 runtime evidence.
+3. Reject live `MiuiBatteryMeterView.measuredWidth` as the replacement's width authority.
+4. Preserve the verified `system_icon_area` motion carrier.
+5. Derive one end boundary from the shared requested slot width while treating live Battery width and hide state as native environment inputs.
+6. Keep the correction host-scoped, reversible, event-driven and conflict-detected.
+
+### Exact target evidence
+
+The retained exact SystemUI artifact exposes:
+- `battery_meter_width = 28dp`;
+- `hollow_battery_meter_charge_width = 8dp`.
+
+On the current device these map to the already observed ~105px stable base Battery width and ~30px charging addition; the live charging Battery therefore reaches ~135px. The extra charging width is native presentation content, not Combined Status replacement-slot intent.
+
+### Build 397 implementation
+
+- Added a one-shot SystemUI Home carrier metric resolver for runtime `battery_meter_width`.
+- `CombinedStatusHomeLayoutResolver` now receives the stable base carrier width instead of live Battery measured width.
+- The Home overlay is therefore host-end anchored to the same resolved slot in charging and non-charging states.
+- `EndReservationPolicy` now derives a signed status-icon end adjustment:
+  - native Battery present: `requestedSlotWidth - actualBatteryWidth`;
+  - native Battery released: `requestedSlotWidth`.
+- This produces no adjustment for 105/105 normal Home, reclaims only the charging addition for 135/105 steady charging, and reserves the complete replacement slot when HyperOS releases Battery layout.
+- Battery layout changes and `setIsHideBattery` remain low-frequency synchronization triggers; no polling or frame follower is introduced.
+- The exact pre-session status-icon padding remains the restoration token and unexpected competing writers still fail native.
+
+### Review
+
+- **Ownership:** HyperOS owns Battery measured width, charging presentation, hide state and island motion. Combined Status owns only its resolved replacement slot and the proven status-icon end-boundary input.
+- **Lifecycle:** base width is resolved per Home session; live-width changes are observed through the Battery View's existing layout lifecycle; cleanup removes the listener and restores exact padding/clip state.
+- **Single writer:** no Battery width/translation/alpha/visibility write is added. The status-icon padding property has one verified module writer with runtime conflict detection.
+- **Cleanup:** teardown restores only the exact module-applied padding and clip snapshots and requests native relayout.
+- **Fail native:** missing `battery_meter_width`, unavailable live Battery width, missing hide state, or padding conflict restores native presentation.
+- **Performance:** one resource lookup per session plus low-frequency native layout/hide events; no polling or per-frame diagnostics.
+- **Compatibility:** resource/class/member claims remain scoped to the pinned exact SystemUI fingerprint.
+- **Future extension:** future user size/gap changes alter requested slot width through `ResolvedLayout`; the same signed boundary formula remains valid without charging-specific constants.
+
+### Device gate
+
+Build 397 must first prove normal Home vs plugged-in cold-start steady spacing with no user interaction. Only after that passes should island enter/steady/exit, feature disable/enable and same-architecture Hot Reload be evaluated.
+
+---
+
+## 2026-09-27 — Build 397 statically superseded; Build 398 binds the live battery-body carrier
+
+**Type:** root-cause refinement / higher-authority native contract / runtime checkpoint  
+**Display version:** 0.0.2  
+**Last device-rejected build:** 395 / 20260927-395  
+**Superseded without device validation:** 396, 397  
+**Next build:** 398 / 20260927-398  
+**Validation:** CI pending; device validation pending
+
+### Problem execution flow
+
+1. Accept the device clarification that plugged-in cold start has excessive spacing without user interaction.
+2. Use the Build-395 geometry samples to separate the 135 px Battery presentation from the stable 105 px battery body.
+3. Inspect exact `battery_digital_view.xml`: `battery_icon_container` is the battery-body container; `battery_charge_out_image` is a sibling charging-only View.
+4. Reject Build 396 before device testing because it still used live Battery root width as replacement width.
+5. Review Build 397 before CI: its signed reservation math is correct, but `battery_meter_width` is still a resource proxy for a fact exposed by a stronger live native View.
+6. Move both renderer geometry and reservation intent to the real `battery_icon_container` instance.
+
+### Build 398 implementation
+
+- `SystemUiHomeCarrierMetrics` now resolves the concrete `battery_icon_container` under the active native Battery View and reads its live layout/measured width.
+- Home renderer bounds use that carrier directly; charging-only Battery root expansion cannot resize/center-shift the overlay.
+- Home presentation reservation stores the same carrier identity and re-resolves its live width.
+- Full Battery root width remains observation-only native occupancy input.
+- Reservation policy stays signed and native-derived: requested stable carrier minus native already-reserved presentation width, or the full stable carrier when HyperOS releases Battery layout.
+- Battery-root width changes and carrier-width changes are event-driven synchronization points only.
+- Diagnostics identify `battery_icon_container` as carrier authority and declare the owned status-icon layout reservation separately from native motion/alpha/visibility ownership.
+
+### Review
+
+- **Ownership:** SystemUI owns Battery composition and island animation. Combined Status owns overlay drawing and one reversible statusIcons end-boundary reservation.
+- **Lifecycle:** Battery root, core carrier, padding token, clips and listeners are scoped to one Home HostSession.
+- **Single writer:** Combined Status writes only its statusIcons relative padding reservation; target source has no competing runtime padding writer and runtime conflict detection remains active.
+- **Cleanup:** exact padding/clip state is restored and both Battery/core layout listeners are removed.
+- **Fail native:** missing `battery_icon_container`, invalid live widths, stale carrier identity, or writer conflict falls back to native.
+- **Performance:** layout-event driven; no polling, no production pre-draw follower, no custom island animator.
+- **Compatibility:** the carrier ID/layout relationship is exact-target evidence and remains fingerprint-gated.
+- **Future extension:** later size/gap settings may alter requested replacement width without confusing charging-only Battery presentation with carrier capacity.
+
+### Acceptance gate
+
+After Fast CI and signed Canary pass, device validation must begin with charger-connected SystemUI cold start and **no interaction**. Normal neighbor spacing must match non-charging Home before testing island enter/steady/exit, post-island charging steady state, feature disable/enable and same-build Hot Reload.
+
+### Build 397 CI / Canary result
+
+- Source commit: `90c7337443af771435fe2ec0b56837402b44517f`.
+- Fast PR Build workflow #1048 (`36273364006`): **success**.
+- Signed Work Branch Canary #307 (`36273538705`): core validation and artifact upload **success**.
+- Unit tests and Canary assembly passed.
+- pinned HyperOS target-profile verification passed.
+- Modern Xposed metadata/API/scope/Hot Reload metadata verification passed.
+- Haple signing certificate verification passed.
+- Canary non-debuggable verification passed.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260927-397-canary.apk`.
+- Device validation remains pending; Build 397 is not promoted to `dev`.
+
+
+### Build 398 CI / Canary result
+
+- Source commit: `e0cf4ffa523480f2221f710df0563e5346fc0914`.
+- Fast PR Build workflow #1049 (`36273586837`): **success**.
+- Signed Work Branch Canary #308 (`36273770652`): **success** through build, metadata, certificate, non-debuggable and artifact-upload gates.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260927-398-canary.apk`.
+- APK SHA-256: `e856a3216d60cb4ccc8b239a91102162e83369951c8409a0c77c29133ae97131`.
+- Device validation remains pending; Build 398 is not promoted to `dev`.
+
+---
+
+## 2026-09-27 — Build 397 accepted charging carrier; Build 399 battery-intensity checkpoint
+
+**Type:** device acceptance correction / visual root-cause analysis / runtime checkpoint  
+**Display version:** 0.0.2  
+**Accepted device checkpoint:** Build 397 / 20260927-397  
+**Structural refinement carried forward:** Build 398 / 20260927-398  
+**Next build:** 399 / 20260927-399  
+**Validation:** CI pending; focused visual device validation pending
+
+### Device correction
+
+The previous repository statement that Build 397 was superseded without device validation was incorrect. Build 397 was installed and tested on the pinned target. User feedback confirms:
+- charger-connected SystemUI cold start with no interaction has normal neighbor spacing;
+- the previous charging/Super-Island left-then-right twitch is gone;
+- charging steady-state placement is normal.
+
+A brief native Battery flash during same-architecture Hot Reload was also reported, but the user clarified that this behavior existed from the earliest implementation. It is therefore not classified as a Build-397 regression and remains a separate Hot Reload handoff-polish item.
+
+### New visual issue
+
+Two same-device screenshots were supplied for color/intensity review. Approximate JPEG-screen sampling shows:
+- adjacent native status icons: high-coverage grayscale roughly 58-64;
+- Combined Status center Wi-Fi: roughly 59-60;
+- active mobile dots: roughly 58-61;
+- battery ring: roughly 50 in the same normal gray scene.
+
+The screenshots therefore support a battery-ring intensity mismatch rather than a center/mobile tint-authority mismatch. The charging-green screenshot likewise shows closely matching core green values but a heavier overall ring coverage.
+
+### Root cause
+
+**High confidence / source-confirmed compositing difference:** `drawBattery()` paints the entire ring once with semantic alpha 48, then paints the active battery arc again with semantic alpha 255 over the same pixels. Center/native resources and mobile dots do not use this two-layer steady-state coverage. The overlap increases effective edge coverage and makes the battery ring read darker/heavier even when the resolved tint is identical.
+
+### Build 399 implementation
+
+- Keep `CombinedStatusColorPolicy`, tint source, native-center mask normalization and center/mobile paint paths unchanged.
+- Partition battery rendering into:
+  - full-strength active segment;
+  - dim inactive remainder;
+  - no full-length dim underlay below the active segment.
+- Preserve start angle, maximum sweep, degrees-per-percent, stroke geometry and semantic alpha values.
+- Add a JVM-pure `CombinedStatusBatteryArcPolicy` and tests proving 0/50/100% partitioning, clamping and total sweep preservation.
+- No per-glyph brightness multiplier, screenshot-derived alpha correction, native geometry change or animation change is introduced.
+
+### Review boundary
+
+- **Ownership:** unchanged; SystemUI remains tint/scene/motion authority.
+- **Lifecycle:** no new listeners, hooks or runtime owner.
+- **Single writer:** unchanged painter-only output.
+- **Cleanup/fail-native:** unaffected.
+- **Performance:** one constant-time arc partition per draw; no allocation-heavy probing or polling.
+- **Compatibility:** no new target member/resource dependency.
+- **Future extension:** visual-weight/user-size work can remain separate from color/intensity semantics.
+
+---
+
+## 2026-09-27 — Build 400 HyperOS battery semantic color source
+
+**Type:** bounded feature / native semantic-state reuse  
+**Branch:** `feat/battery-semantic-colors`  
+**Display version:** 0.0.2  
+**Build:** 400 / 20260927-400  
+**Parent source:** Build 399 checkpoint `00e819f6d2c3ad518982016a8bf22d1524fece57`  
+**Validation:** Fast CI pending; device validation pending
+
+### Requirement
+
+Extend the battery ring beyond charging-only color: follow HyperOS built-in battery semantic modes (power save, performance, low battery, charging) while normal state follows the same status-icon inversion tint as neighboring icons. Keep an architecture seam so every semantic state can later choose either HyperOS System default, the black/white/gray status-icon tint, or a user-selected custom color.
+
+### Exact-target evidence
+
+JADX 1.5.6 inspection of the pinned SystemUI target confirms:
+- `MiuiBatteryMeterIconView.getProgressStatus()` owns final progress-color semantics.
+- priority: quick/normal charging (including performance + charging) -> power save -> performance -> low -> normal.
+- low state threshold is <= 19.
+- SystemUI loads `status_bar_battery_charging`, `status_bar_battery_power_save`, `status_bar_battery_performance`, and `status_bar_battery_low` into icon-view fields.
+- decoded exact resources currently resolve to #1DCD3A, #FF9F05, #3482FF, and #FA382E respectively; runtime code does not copy these values and instead reads the colors already loaded by SystemUI.
+- this exact status-bar battery path has no separate super-power-save progress color.
+
+### Implementation
+
+- Expanded the existing battery source from the level callback to the exact level / charge / power-save / performance callback family.
+- After native callback completion, read the native icon's private `getProgressStatus()` semantic result; a field-based priority mirror exists only as a fallback.
+- Read the corresponding already-loaded native semantic color field; normal stores no semantic color and resolves against status-icon tint.
+- Extend `BatteryState` and `CombinedStatusRenderModel` with semantic state and optional SystemUI semantic color.
+- Preserve both across Hot Reload.
+- Replace the hard-coded charging green in `CombinedStatusColorPolicy` with `CombinedStatusBatteryColorPolicy`.
+- Define per-state future color sources: `SystemDefault`, `FollowStatusIcon`, or `Custom(color)`; current runtime uses `SystemDefault` only.
+- Add tests for native semantic mapping/priority, all-state future source support, fallback behavior, color-link behavior, and Hot Reload preservation.
+
+### Review
+
+- **Ownership:** SystemUI remains the only battery-mode/state/color owner; Combined Status is read-only.
+- **Lifecycle:** no polling/background service; callbacks stay in the existing battery runtime owner.
+- **Single writer:** no native tint/mode/state field is written.
+- **Cleanup / Hot Reload:** semantic state/color transfer uses the existing battery snapshot.
+- **Fail-native:** unavailable semantic color falls back to current status-icon tint.
+- **Performance:** four low-frequency native battery callbacks; no repeated View-tree traversal or per-frame reflection.
+- **Compatibility:** reflected method/field contract is exact-target scoped and target-profile CI remains mandatory.
+- **Future extension:** settings only need to supply per-state color-source preferences; state acquisition and painter ownership do not change.
+
+
+
+---
+
+## 2026-09-27 — Build 401 battery semantic source consolidation
+
+**Type:** pre-device architecture correction / color authority  
+**Display version:** 0.0.2  
+**Build:** 401 / 20260927-401  
+**Supersedes before device validation:** Build 400  
+**Validation:** CI pending; focused device color validation pending
+
+### Why Build 400 was not sent to device
+
+Review of the first semantic-color implementation found two avoidable ownership costs:
+- four separate Battery callbacks were hooked even though the native icon already funnels semantic changes through `MiuiBatteryMeterIconView.onDarkChangeInternal()`;
+- a project-local fallback mode-priority mirror remained even though `getProgressStatus()` is available on the pinned target.
+
+Those choices would work functionally but would duplicate native semantics and increase maintenance surface.
+
+### Build 401 correction
+
+- Battery percent/charging continues to use the existing `MiuiBatteryMeterView.onBatteryLevelChanged(...)` source.
+- Semantic state/color changes use one additional exact-target hook on `MiuiBatteryMeterIconView.onDarkChangeInternal()`.
+- After the native method completes, Combined Status reads the final `getProgressStatus()` enum and maps only its names into the project presentation enum.
+- No local charging/power-save/performance/low priority reconstruction remains.
+- Native semantic colors come from the already-loaded SystemUI fields; no RGB palette is copied.
+- `mMiuiOptimizationEnabled=false` suppresses semantic color usage and falls back to the resolved status-icon tint, matching native SystemUI behavior.
+- The native status-icon tint already observed by the status-icon presentation owner is now merged into Battery-derived tint updates before they reach the Home renderer. This closes the 0.0.2 overlay cutover gap where peer tint was observed but discarded.
+- Future color-source policy remains available for NORMAL / CHARGING / POWER_SAVE / PERFORMANCE / LOW: System default, Follow status icon, Custom. Current runtime still uses System default only.
+- Invalid/missing custom color falls back to that state's System default rather than forcibly falling back to monochrome.
+
+### Review
+
+- **Ownership:** HyperOS owns battery semantic state and built-in colors.
+- **Lifecycle:** two battery hooks total for this owner: the existing level callback plus one native semantic callback.
+- **Single writer:** Combined Status writes no native mode/tint/Drawable state.
+- **Cleanup:** no new listener or observer registration; hook bookkeeping stays under the existing runtime owner.
+- **Fail-native:** missing semantic color degrades only that ring state to native status-icon tint.
+- **Performance:** event-driven, no polling, no frame callback, no duplicate mode observers.
+- **Compatibility:** exact private method/fields remain target-profile gated.
+- **Future extension:** settings can bind directly to the pure per-state color-source policy without new SystemUI integration.
+
+The shallow shade-pull Home-overlay leak remains next after this color checkpoint is device-validated.
+
+
+---
+
+## 2026-09-27 — Build 403 battery color gate
+
+**Type:** native semantic-color completion / CI checkpoint  
+**Display version:** 0.0.2  
+**Build:** 403 / 20260927-403  
+**Runtime source:** `97ef67e648906a4b9bb2ce4d7dd390e955831189`  
+**Validation:** Fast CI passed; signed Canary passed; focused device color validation pending
+
+### Final pre-device correction
+
+Review of Build 402 identified one remaining native gate: HyperOS conditionally applies its semantic battery colors through `mMiuiOptimizationEnabled`. Build 403 adds that exact target field and its setter to the verified compatibility contract. Semantic status still comes only from native `getProgressStatus()`; the gate controls only whether the native semantic color is consumed.
+
+### Resulting behavior
+
+- NORMAL -> resolved native status-icon tint.
+- CHARGING / POWER_SAVE / PERFORMANCE / LOW -> native SystemUI semantic color when HyperOS optimization is enabled.
+- When HyperOS disables semantic color optimization or the native semantic color is unavailable -> resolved native status-icon tint.
+- The existing center/mobile “follow battery color” options consume the final resolved battery color exactly as before.
+- All five states have the same future source choices: System default / Follow status icon / Custom, but no new user-facing settings are persisted yet.
+
+### Review
+
+- **Ownership:** HyperOS owns semantic state, priority, optimization gate and built-in colors.
+- **Lifecycle:** event-driven BatteryIcon callbacks only; no polling or background observer.
+- **Single writer:** no native field, Drawable, tint or mode state is written.
+- **Cleanup:** no registered listener/observer lifecycle is added beyond hook generation ownership.
+- **Fail-native/fallback:** unavailable semantic color degrades to the native status-icon tint.
+- **Performance:** bounded low-frequency callbacks; no frame or pre-draw work.
+- **Compatibility:** BatteryIcon methods/fields and optimization gate are pinned in the target profile and CI verifier.
+- **Future extension:** user color preferences can bind to the pure color-source policy without reopening SystemUI state acquisition.
+
+### CI / Canary
+
+- Fast Build #1063: success.
+- Signed Work Branch Canary #322: success.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260927-403-canary.apk`.
+- Artifact ZIP digest: `sha256:55535e2c5208e930142b0a4a5256a3740cf9748070a2710520921cde13032b34`.
+- Extracted APK SHA-256: `0715c2961264677e95bf96efe80b045cda91c07e02f34e588dba88df39c0d487`.
+
+### Next
+
+After focused device color validation, investigate the supplied shallow panel-pull video. The Home overlay must leave the Home presentation boundary as the shade begins taking ownership; future shade/Control Center Combined Status must move with its own target surface rather than rely on the stationary Home overlay.
+
+---
+
+## 2026-09-27 — Build 403 device visual feedback: grayscale parity remains open
+
+**Type:** device visual-validation feedback / acceptance correction  
+**Display version:** 0.0.2  
+**Build:** 403 / 20260927-403  
+**Runtime source:** `97ef67e648906a4b9bb2ce4d7dd390e955831189`  
+**Validation:** Fast CI passed; signed Canary passed; visual-intensity acceptance remains open
+
+### Device feedback
+
+Latest target-device screenshots on the active Build-403 color/intensity line still show an apparent grayscale / visual-weight difference between Combined Status and neighboring native status icons.
+
+This feedback changes the acceptance state: the visual-intensity work must not be treated as closed merely because Build 399 removed overlapping battery-arc compositing and Build 403 completed native semantic-color integration.
+
+### Current interpretation
+
+- Build 399's active/inactive battery-arc partition remains valid and stays in force.
+- Build 403's semantic-state/color authority remains HyperOS-owned and is not rejected by this grayscale observation.
+- Native status-icon tint remains the intended monochrome authority.
+- Native drawable alpha normalization remains shared rather than resource-specific.
+- The remaining difference has not yet been attributed to one confirmed final compositing/tint/alpha cause.
+
+### Rejected shortcuts
+
+Do not add:
+- per-glyph gray multipliers;
+- replacement gray constants;
+- screenshot-derived magic values;
+- source-asset recoloring/preprocessing solely to force a visual match.
+
+Those would hide the remaining cause instead of fixing the shared final-rendering boundary.
+
+### Review
+
+- **Ownership:** unchanged; HyperOS remains tint/semantic-color authority and Combined Status owns only its compact rendering.
+- **Lifecycle:** unchanged; no new hook/listener/polling path is justified by this feedback.
+- **Single writer:** unchanged; no native tint/Drawable state is written.
+- **Cleanup:** unchanged.
+- **Fail native:** unchanged.
+- **Performance:** no new per-frame or repeated correction is authorized.
+- **Compatibility:** any next correction must remain target-profile compatible and avoid resource-specific hard-coded visual policy.
+- **Future extension:** user color-source controls remain a later presentation-policy feature and must not be used to mask baseline parity defects.
+
+### Next
+
+1. Quantify and attribute the final rendered difference across battery ring, native center drawable, mobile layer, and neighboring SystemUI icons.
+2. Re-open only the demonstrated compositing/tint/alpha cause.
+3. Keep Build 403 semantic-color device validation open until the relevant native states and grayscale baseline are both acceptable.
+4. After color/intensity closure, continue with the already-identified shallow shade-pull Home-overlay scene-boundary issue in Phase 2B.
+
+### Quantitative screenshot follow-up
+
+A follow-up pixel sample of the target-device gray screenshot compared the dark stroke pixels of Combined Status with adjacent native VPN / headset / mute icons.
+
+The core dark-tone distributions are already closely aligned. The observed mismatch is therefore no longer best described as a simple base-gray/tint mismatch. The stronger current interpretation is **optical intensity / coverage**: stroke geometry, filled-pixel density, antialiasing, and final compositing can still make Combined Status look heavier or lighter even when the underlying dark tone is effectively the same.
+
+This narrows the next review:
+- keep the native status-icon tint authority unchanged;
+- keep Build 399's non-overlapping battery-arc partition;
+- compare final rendered coverage/antialiasing across battery ring, center glyph, and mobile dots;
+- do not introduce gray multipliers or screenshot-fitted constants unless later evidence disproves the shared-tint conclusion.
+
+The green screenshot is a separate semantic-color state and is not evidence of monochrome tint mismatch.
+
+---
+
+## 2026-09-27 — Post-Build 403 visual-intensity root-cause review: authored alpha mask becomes the next A/B boundary
+
+**Type:** root-cause review / historical correction / pre-runtime validation gate  
+**Display version:** 0.0.2  
+**Current runtime source:** Build 403 / `97ef67e648906a4b9bb2ce4d7dd390e955831189`  
+**Validation state:** source-level root cause narrowed; next executable checkpoint not yet created
+
+### Problem execution flow
+
+**Phenomenon and evidence**
+
+Target-device screenshots still show an optical-weight mismatch even though sampled core dark tones of the Combined Status center/mobile layers and adjacent native status icons are already close. Build 399 removed overlapping Battery-arc compositing, but the residual visual-parity issue remained open.
+
+**Root cause / responsibility source**
+
+Current painter review found a second project-owned compositing step in the native center path. `resolveNativeVisualProbe()` renders the HyperOS drawable into a bitmap, chooses an 85th-percentile visible-alpha ceiling, and linearly rescales every source-alpha pixel against that ceiling before the native status-icon tint is applied.
+
+This changes the authored alpha mask itself. It can increase edge coverage, saturate the upper part of the mask, and therefore alter the apparent stroke/antialias weight even when the final tint authority is otherwise correct. This does not yet prove that alpha rescaling is the sole remaining visual cause; it does establish an additional non-native coverage transformation at exactly the boundary implicated by the latest screenshots.
+
+**Repository and official platform rules**
+
+- `CONTRIBUTING.md` requires authoritative native resources/semantics to be reused rather than reconstructed when a verified source exists and keeps optical adjustment separate from tint/layout ownership.
+- Android `ImageView` applies image tint through the drawable; under SRC_IN semantics the tint is masked by the drawable alpha rather than by a project-derived percentile ceiling.
+- The exact target SystemUI Wi-Fi path exposes `Icon.Resource` through its native ImageView-based pipeline, and Combined Status already treats the resource identity and status-icon tint as authoritative.
+
+**HyperOS/SystemUI native implementation**
+
+No exact-target evidence currently shows HyperOS rescaling a Wi-Fi/airplane/no-SIM resource's internal alpha mask to a project-defined percentile ceiling before status-bar rendering.
+
+**Mature implementation comparison**
+
+The standard Android drawable/ImageView contract keeps the drawable's authored alpha mask as part of the asset and composes tint/overall image alpha around it. The Combined Status percentile-normalization layer is additional behavior rather than a reuse of that mature native rendering contract.
+
+### Historical correction
+
+Build 356 introduced shared native alpha-mask / visual-intensity normalization, but its own device feedback still reported a visual-intensity mismatch. The durable conclusion from that investigation is not that percentile normalization itself is proven correct; the durable conclusions are that native tint authority should remain shared and per-resource gray multipliers / hand-edited replacement assets are not justified.
+
+Historical Build-356 facts remain unchanged. This entry narrows the present interpretation using later device evidence and current source review.
+
+### Selected single-variable correction
+
+For the next runtime checkpoint:
+
+- preserve the HyperOS drawable's authored per-pixel alpha mask;
+- keep native resource identity, optical-bound measurement, final-pixel alignment and resolved native tint;
+- keep center sizing, outer weight, mobile-dot geometry and Build-399 Battery arc partition unchanged;
+- remove only the percentile source-alpha ceiling/rescaling path and its obsolete tests.
+
+No gray multiplier, replacement tint, per-resource exception, source-asset preprocessing, new hook, polling path, or geometry writer is authorized.
+
+### Review
+
+- **Ownership:** HyperOS/SystemUI remains resource and tint authority; Combined Status stops rewriting native asset coverage.
+- **Lifecycle:** unchanged; no new owner/listener/hook.
+- **Single writer:** unchanged for tint/layout/visibility; one project-side alpha-mask transformation is removed.
+- **Cleanup:** simpler; cached center assets remain session-local and recyclable.
+- **Fail native / recovery:** resource-resolution failure behavior is unchanged.
+- **Performance:** removes histogram/percentile normalization work from first-use center-asset preparation.
+- **Compatibility:** no new reflected target member/resource contract.
+- **Exception recovery:** malformed/unresolvable resources keep the existing native-center fallback.
+- **Future extension:** remains independent from later user color-source and size/spacing controls.
+
+### Next
+
+Create the next executable checkpoint with this one rendering-boundary change, run Fast CI plus signed Work Branch Canary, then stop runtime changes for focused device A/B validation of monochrome optical parity and Build-403 semantic battery colors.
+
+---
+
+## 2026-09-27 — Build 404: preserve authored native center alpha mask
+
+**Type:** single-variable runtime rendering correction  
+**Display version:** 0.0.2  
+**APK build:** 20260927-404  
+**Runtime source:** `614c6ae96f1753088e21ce3568d969b900852081`  
+**CI:** pending at documentation checkpoint  
+**Device validation:** pending
+
+### Change
+
+Removed the project-side 85th-percentile source-alpha ceiling and per-pixel alpha rescaling from native center resources. The resource is still rendered once for cached optical measurement/composition, but its authored alpha mask is retained and the resolved status-icon tint is applied later through the existing SRC_IN path.
+
+The obsolete normalization helpers and normalization-specific tests were removed. Existing canvas tint-alpha / semantic dimming / transition-opacity tests remain.
+
+### Single-variable boundary
+
+Unchanged:
+- HyperOS native resource identity;
+- center optical-bound measurement;
+- steady final-pixel alignment;
+- center size;
+- native status-icon tint authority;
+- mobile-dot geometry / outer visual weight;
+- Build-399 active/inactive Battery arc partition;
+- Build-403 battery semantic state/color authority;
+- Home carrier, suppression, lifecycle, cleanup, and fail-native behavior.
+
+### Review
+
+- **Ownership:** resource and tint authority stay with HyperOS/SystemUI; Combined Status now owns only placement/scale/composition rather than rewriting asset coverage.
+- **Lifecycle:** no change.
+- **Single writer:** no additional writer; one visual transformation was deleted.
+- **Cleanup:** cached bitmaps continue to be recycled on eviction; no new retained object.
+- **Fail native:** unchanged.
+- **Performance:** first-use center preparation is cheaper because alpha histogram/quantile/remap work is gone.
+- **Compatibility:** no new target-profile dependency.
+- **Exception recovery:** unchanged.
+- **Future extension:** no coupling added to future per-state colors or user size/spacing controls.
+
+### Validation gate
+
+Run Fast CI and signed Work Branch Canary for Build 404. If both pass, runtime changes stop until target-device A/B evidence answers whether authored-alpha preservation improves optical parity while preserving all Build-403 semantic-color states.
+
+### CI request
+
+The established `dev`-based validation carrier PR #104 was reopened for Build 404 and its body was updated to mark it validation-only / do-not-merge. Stacked PR #105 remains the product PR. This preserves the repository's existing Fast Build -> signed Work Branch Canary path without changing CI workflow logic or retargeting PR #105.
+
+### CI trigger-path note
+
+Reopen and Draft -> Ready mutations on validation carrier PR #104 were recorded by GitHub but did not create an Actions run for the current head. No runtime or workflow change was made in response. A documentation-only Contents-API commit is used as the next minimal trigger attempt so the open `dev`-based carrier receives a normal synchronize event while Build 404 executable source remains `614c6ae96f1753088e21ce3568d969b900852081`.
+
+### Validation-carrier correction
+
+The reopened historical validation PR #104 triggered Build #1087 and signed Work Branch Canary #323, but GitHub associated that run with the PR's historical executable head `97ef67e648906a4b9bb2ce4d7dd390e955831189` (Build 403), not the current Build-404 source. Those green runs are therefore **Build-403 evidence only** and must not be cited for Build 404.
+
+A fresh ephemeral `fix/*` validation branch/PR based on the current Build-404 branch head is the selected CI path. This changes no executable source or workflow logic; it exists only to obtain an unambiguous `opened` PR event against `dev` so the repository's existing Fast Build -> signed Work Branch Canary chain validates the current candidate.
+
+
+
+---
+
+## 2026-09-27 — Build 404 CI / signed Canary gate passed
+
+**Type:** CI acceptance / pre-device validation gate  
+**Display version:** 0.0.2  
+**Build:** 404 / 20260927-404  
+**Runtime source:** `614c6ae96f1753088e21ce3568d969b900852081`  
+**Validation carrier tested head:** `ad55baa47eecadfa7fe1968556d5c7f13a1be460`  
+**Device validation:** pending
+
+### CI evidence
+
+A fresh validation-only PR #130 (`fix/build-404-validation-carrier -> dev`) produced an unambiguous normal `pull_request` Build event for the Build-404 line.
+
+- Fast Build #1088: **success**.
+- Build #1088 tested head: `ad55baa47eecadfa7fe1968556d5c7f13a1be460`.
+- Signed Work Branch Canary #324: **success**.
+- Canary job explicitly checked out `ad55baa47eecadfa7fe1968556d5c7f13a1be460`.
+- Target-profile verification: passed.
+- Unit/build checks: passed.
+- Modern Xposed API metadata verification: passed.
+- Haple signature verification: passed.
+- Non-debuggable Canary verification: passed.
+- Artifact upload: passed.
+
+The tested validation head is 16 commits ahead of runtime source `614c6ae96f1753088e21ce3568d969b900852081`, and repository compare shows the only file differences after that runtime source are `docs/development/CURRENT.md` and `docs/development/DEVLOG.md`. Therefore the validated executable runtime is still exactly Build 404; no later runtime delta is hidden in the validation carrier.
+
+### Artifact
+
+- `CombinedStatus-0.0.2-HyperOS-20260927-404-canary.apk`
+- Workflow run: Work Branch Canary #324 / run id `36281397598`
+- Artifact id: `10919007288`
+- Artifact ZIP digest: `sha256:694c81c37b5dc8227f0da076211ae538ac9250770da2eb97003be0727734c79f`
+- Extracted APK SHA-256: `eb16169738f3e16bcd208463ae4fc638898c3c46f2ca3b43efea3bda625519f1`
+
+### Validation-carrier cleanup
+
+PR #129 and PR #130 were validation-only carriers and are now closed. Neither is product work and neither should be merged. Temporary branches may remain until branch deletion is performed through a GitHub path that exposes ref deletion.
+
+### Review
+
+- **Ownership:** unchanged; HyperOS/SystemUI still owns native resource/tint/semantic state.
+- **Lifecycle:** unchanged.
+- **Single writer:** unchanged; Build 404 removes one project-side alpha-mask rewrite rather than adding another writer.
+- **Cleanup:** validation carriers are closed; runtime cleanup contract is unchanged.
+- **Fail native / recovery:** unchanged.
+- **Performance:** no new runtime work; Build 404 still removes percentile alpha-remap work.
+- **Compatibility:** exact target profile and Modern Xposed metadata passed CI.
+- **Future extension:** no coupling added to future color-source or size/spacing settings.
+
+### Device gate
+
+Runtime modification stops here. The exact signed Build-404 Canary must now be tested on the target device for:
+1. monochrome optical parity / native center antialiasing and apparent stroke weight;
+2. unchanged center size, centering, outer ring/mobile geometry and Home spacing;
+3. unchanged HyperOS battery semantic colors for NORMAL / CHARGING / POWER_SAVE / PERFORMANCE / LOW;
+4. absence of regressions in Wi-Fi, hotspot, airplane and no-SIM native-resource presentation.
+
+The shallow Home-overlay leak during notification-shade pull remains a separate Phase-2B issue and must not be mixed into this Build-404 A/B gate.
+
+
+---
+
+## 2026-09-27 — Build 404 device rejection and native Wi-Fi rendering-path closure
+
+**Type:** device rejection / root-cause correction / exact-target rendering review  
+**Display version:** 0.0.2  
+**Build under test:** 404 / 20260927-404  
+**Runtime source:** `614c6ae96f1753088e21ce3568d969b900852081`  
+**Result:** optical-parity A/B rejected; next root-cause boundary moved upstream
+
+### Device feedback
+
+The target-device Build-404 result was reported as visually worse than the preceding version rather than closer to neighboring native status icons. The supplied screenshots confirm that the optical-parity issue remains open.
+
+The screenshots include different battery semantic-color states, so they are not treated as a pixel-controlled Build-403-vs-404 pair. The reliable acceptance conclusion is narrower: Build 404 did not close parity and must not be promoted as the visual baseline.
+
+### Problem execution flow
+
+**Phenomenon and evidence**
+
+Build 404 removed percentile source-alpha normalization but retained the pre-existing native-center bitmap pipeline. The visual mismatch remained.
+
+Previous screenshot sampling had already shown that core monochrome tint values were close to native peers, pointing toward coverage/antialiasing rather than a simple gray-value mismatch.
+
+**Root cause / responsibility source**
+
+Exact target inspection shows that the previous A/B changed the wrong layer. Preserving alpha values inside an intermediate 96px bitmap does not reproduce the native rendering path because native antialias coverage is created when the VectorDrawable is rasterized at its final bounds.
+
+Combined Status currently rasterizes the native resource at one resolution and resamples those already-rasterized pixels at another resolution before final presentation. That second sampling stage is project-owned and absent from the verified native Wi-Fi steady path.
+
+### Exact HyperOS/SystemUI Wi-Fi path
+
+Verified semantic/binder chain:
+
+`WifiIcon.Visible.icon (Icon.Resource)`
+→ `MiuiWifiViewBinder`
+→ `MiuiStatusBarIconViewHelper.transformResId(resId, useTint, light)`
+→ `ImageView.setImageResource(transformedResId)`
+
+`transformResId(...)` selects the tint/light/dark mapped resource according to the native presentation state. The base semantic resource remains stored in the ImageView tag so UI-mode changes can transform it again.
+
+Tint behavior:
+- when `useTint=true`, the ImageView receives `ColorStateList.valueOf(tint)`;
+- when `useTint=false`, image tint is cleared and the chosen light/dark resource owns its fill color.
+
+The verified `stat_sys_wifi_signal_3` resource family uses the same vector path geometry for normal/dark/tint variants:
+- XML size: 20dp × 20dp;
+- viewport: 20 × 20;
+- normal fill: light single-tone resource;
+- dark fill: dark single-tone resource;
+- tint variant: opaque black mask for ImageView tinting.
+
+Native Home layout:
+- `AlphaOptimizedImageView`;
+- `WRAP_CONTENT × MATCH_PARENT`;
+- `adjustViewBounds=true`;
+- parent icon height: `status_bar_icon_height=20dp`.
+
+Retained target-device diagnostics verify final native Wi-Fi presentation:
+- `VectorDrawable`;
+- intrinsic 75 × 75 px;
+- drawable bounds `0,0,75,75`;
+- ImageView measured 75 × 75 px;
+- drawable alpha 255;
+- image alpha 255;
+- `FIT_CENTER`;
+- identity image matrix;
+- zero padding;
+- observed native tints include `0xBF000000` and `0xE6FFFFFF` on the corresponding surfaces.
+
+Therefore the native steady path is effectively:
+
+`20dp vector resource -> final 75×75 drawable bounds -> one VectorDrawable rasterization -> screen`
+
+There is no verified intermediate bitmap resize.
+
+### Current Build-404 path
+
+`native base Drawable`
+→ force-white Drawable into a probe bitmap
+→ rasterize at up to 96px
+→ inspect bitmap alpha for optical bounds
+→ retain that 96px bitmap
+→ scale bitmap to Combined Status final center destination with `FILTER_BITMAP_FLAG`
+→ apply final tint through `SRC_IN`
+→ screen
+
+For the current 105×108 Combined Status visual and existing Wi-Fi geometry, the final center image is roughly in the low-60px range, so the final presentation is a downsample of the 96px intermediate bitmap.
+
+### Controlled coverage comparison
+
+Using the exact Wi-Fi vector path, the same representative 63px target was compared:
+
+Direct vector raster at 63px:
+- total alpha sum: 184397;
+- visible pixels: 860;
+- fully covered pixels: 585;
+- partial-edge pixels: 275;
+- mean partial-edge alpha: 128.08.
+
+96px raster followed by bilinear reduction to 63px:
+- total alpha sum: 184277;
+- visible pixels: 1004;
+- fully covered pixels: 474;
+- partial-edge pixels: 530;
+- mean partial-edge alpha: 119.64.
+
+Total alpha mass stays close, but the two-stage path converts many fully covered pixels into semi-transparent edge coverage. This directly explains how a resource can have the correct tint and broadly similar total coverage while still look softer / lighter / optically inconsistent.
+
+### Historical correction
+
+The Build-403 → Build-404 hypothesis was too downstream. The previous conclusion correctly rejected arbitrary gray multipliers and source-asset editing, but it overestimated the value of preserving alpha inside the already-rasterized 96px bitmap.
+
+For the opaque `stat_sys_wifi_signal_3` path, the 85th-percentile alpha ceiling is already effectively 255, so the old normalization can be a no-op for normal Wi-Fi. Build 404 therefore does **not** prove that removing normalization itself caused the reported regression in every Wi-Fi state.
+
+The durable new conclusion is:
+- percentile alpha remapping is not native and should remain removed;
+- authored vector/drawable semantics must survive until the final resolved draw bounds;
+- intermediate bitmap resampling is the next demonstrated project-owned visual transformation.
+
+### Selected next A/B boundary
+
+Keep unchanged:
+- semantic/base resource selection currently consumed by Combined Status;
+- native tint authority and Build-403 semantic battery colors;
+- optical target size and center position;
+- outer ring/mobile geometry;
+- Build-399 Battery arc policy;
+- Home carrier/suppression/lifecycle/scene behavior.
+
+Change only final native-center presentation:
+- use a module-owned Drawable clone/ConstantState instance as the final source;
+- set/apply the resolved tint/opacity without editing source pixels;
+- draw the Drawable directly at the resolved final bounds;
+- keep a bitmap probe only if bounded optical measurement still requires it;
+- do not feed probe pixels into final rendering.
+
+### Review
+
+- **Ownership:** HyperOS remains semantic resource/tint authority; Combined Status owns only its composition bounds and its clone, not the native ImageView/Drawable instance.
+- **Lifecycle:** the renderer/session owns recreated/cached Drawable clones; no new SystemUI listener or owner is introduced.
+- **Single writer:** no native View/tint/geometry writer is added.
+- **Cleanup:** final presentation no longer needs a retained raster bitmap; any measurement bitmap remains bounded and recyclable.
+- **Fail native / recovery:** unresolved/invalid resources keep the existing fallback behavior.
+- **Performance:** removes final bitmap resampling; direct VectorDrawable drawing occurs only when the Combined Status View redraws and does not require polling.
+- **Compatibility:** no new private member/hook is required for the first A/B.
+- **Exception recovery:** Drawable resolution/clone failure remains local to the native-center resource path.
+- **Future extension:** direct Drawable tinting is compatible with later per-state custom color policy and adaptive center sizing without regenerating source assets.
+
+### Next
+
+Implement this single rendering-boundary A/B as the next runtime checkpoint, run Fast CI and signed Canary, then stop for target-device comparison. Do not combine the shallow shade-scene fix, new geometry values, or new color policy with this checkpoint.
+
+
+---
+
+## 2026-09-27 — Build 404 device regression and exact native icon-rendering root cause
+
+**Type:** device A/B rejection / exact-target rendering-path review / historical correction  
+**Display version:** 0.0.2  
+**Rejected checkpoint:** Build 404 / 20260927-404  
+**Runtime source:** `614c6ae96f1753088e21ce3568d969b900852081`  
+**Device result:** center visual parity regressed versus Build 403
+
+### Problem execution flow
+
+**Phenomenon and evidence**
+
+The target-device Build-404 screenshot shows the center Wi-Fi presentation looking worse than the immediately preceding Build-403 line. Build 404 changed only the center native-resource alpha preparation: it removed the 85th-percentile alpha-ceiling/remap and retained the resource's authored alpha mask. Geometry, native tint authority, outer ring/mobile weight, Battery arc policy, battery semantic colors and Home carrier were unchanged by that runtime commit.
+
+This device A/B therefore rejects the claim that authored-alpha preservation **within the existing bitmap path** is sufficient to fix visual parity.
+
+**Root cause / responsibility source**
+
+A fresh directed reverse engineering pass was performed against the exact retained target SystemUI APK:
+
+- SystemUI `17.03.260226.r`;
+- SHA-256 `a0e738e41fe599b97950cbf52a9e2ddc6ae2ceff986efbacb1c9840bea78768d`.
+
+The earlier Build-404 premise compared only alpha-mask semantics, but the native pipeline differs at an earlier rendering boundary.
+
+Verified HyperOS Home Wi-Fi path:
+
+`WifiIcon.Visible.icon / Icon.Resource`
+-> `MiuiWifiViewBinder`
+-> `MiuiStatusBarIconViewHelper.transformResId(rawResId, useTint, isLight)`
+-> Light / Dark / Tint VectorDrawable variant
+-> `ImageView.setImageResource(...)`
+-> optional `ImageView.setImageTintList(...)`
+-> direct VectorDrawable rendering in the final native ImageView.
+
+Exact geometry/resource facts:
+- modern Home Wi-Fi slot height: `R.dimen.status_bar_icon_height = 20dp`;
+- Wi-Fi root: `WRAP_CONTENT x MATCH_PARENT`;
+- main `AlphaOptimizedImageView`: `WRAP_CONTENT x MATCH_PARENT`, `adjustViewBounds=true`;
+- `stat_sys_wifi_signal_3*`: `20dp x 20dp`, viewport `20 x 20`;
+- `AlphaOptimizedImageView` does not replace ImageView drawing with a custom bitmap path.
+
+Verified level-3 presentation variants:
+- Light/base `0x7f081b3e`: path fill `#FFFFFFFF`;
+- Dark `0x7f081b3f`: path fill `#BF000000`;
+- Tint `0x7f081b40`: opaque black mask plus ImageView tint.
+
+By contrast, Build 404 still performs:
+
+`raw semantic resource`
+-> clone Drawable
+-> tint white
+-> rasterize to an ARGB bitmap up to 96px
+-> scan bitmap alpha for optical bounds
+-> retain that bitmap as the cached rendered asset
+-> compute Combined Status size from optical bounds
+-> resample the bitmap into final physical bounds
+-> apply final native tint through SRC_IN.
+
+The project therefore performs at least one intermediate rasterization plus a later bitmap resample that the verified native Wi-Fi/status-icon draw path does not perform.
+
+**Repository / native guidance**
+
+The current `CONTRIBUTING.md` native-visual rule is already aligned with this newer evidence: preserve authored drawable/vector semantics through the final resolved bounds where practical and do not introduce intermediate rasterization/resampling or project alpha normalization unless exact-target evidence proves the native path does the same.
+
+The new exact-target evidence also narrows the role of optical measurement. Combined Status may still need a bounded optical probe because its compact center is not the native 20dp status-icon slot, but that probe is a measurement implementation detail and should not automatically become the final visual asset.
+
+**Mature implementation comparison**
+
+Both the exact HyperOS Wi-Fi path and the neighboring traditional `StatusBarIconView` path retain Drawable/ImageView rendering. HyperOS changes resource variants and tint state, then lets the Drawable rasterize at the final presentation bounds. No equivalent 96px cached-resource bitmap -> final bitmap-resample stage was found in the directed target audit.
+
+### Historical correction
+
+Build 403's percentile normalization is **not reinstated as a native requirement** merely because Build 404 looks worse.
+
+The more consistent interpretation is:
+
+- Build 403: non-native bitmap/resample path + additional alpha compensation;
+- Build 404: same non-native bitmap/resample path without that compensation;
+- Build 404 regression: evidence that the alpha compensation had been masking part of the larger rendering-path mismatch.
+
+This correction preserves the valid historical conclusion that per-resource gray constants and hand-edited assets are not justified.
+
+### Selected next A/B boundary
+
+Keep the test single-variable:
+
+- preserve the current raw semantic resource ID;
+- preserve current status-icon tint authority;
+- preserve current optical-bound measurement and final center dimensions;
+- preserve center placement, outer weight, Battery arc policy, battery semantic colors and Home carrier;
+- stop using the probe bitmap as the rendered asset;
+- cache/clone the native Drawable and draw it directly into the final resolved bounds so VectorDrawable rasterization happens at the final presentation size;
+- a bounded bitmap probe may remain **measurement-only** and should be recycled after optical bounds are extracted.
+
+The HyperOS Light / Dark / Tint `transformResId` presentation transformation is a second verified difference. It must remain a separate follow-up boundary unless new evidence proves it is inseparable from direct Drawable rendering.
+
+### Review
+
+- **Ownership:** HyperOS remains semantic resource and tint authority; Combined Status owns only compact placement/scale and its own final Drawable instance.
+- **Lifecycle:** resource assets remain painter/session scoped; no new listener, observer or SystemUI owner is introduced.
+- **Single writer:** no native View/Drawable property is written; only module-owned cloned Drawable state is changed before draw.
+- **Cleanup:** removing cached rendered bitmaps reduces retained bitmap ownership; any measurement bitmap must be recycled immediately.
+- **Fail native / recovery:** unresolved/malformed native resources keep the existing fallback behavior.
+- **Performance:** direct VectorDrawable draw removes bitmap resampling and persistent bitmap cache cost. Resource cloning/cache policy must avoid allocation per frame.
+- **Compatibility:** no new private member/hook is required for the first A/B.
+- **Exception recovery:** resource-resolution failure remains bounded to the center native-resource path.
+- **Future extension:** direct final-bounds Drawable rendering is compatible with later user size controls because the vector rasterizes at each resolved final size instead of stretching a pre-rasterized source.
+
+### Next
+
+Implement the direct-final-Drawable A/B as the next executable checkpoint, run source review + Fast CI + signed Work Branch Canary, then stop runtime changes for focused target-device comparison against Build 403 and Build 404. Do not mix the later Light / Dark / Tint resource-transform integration or Phase-2B shade work into that checkpoint.
+
+
+---
+
+## 2026-09-27 — Build 405: direct final-bounds native Drawable rendering
+
+**Type:** single-variable runtime rendering correction / post-review checkpoint  
+**Display version:** 0.0.2  
+**Build:** 405 / 20260927-405  
+**Runtime source:** `bf8091c8680dec7b85c58afded7f476ec95ca49d`  
+**CI:** pending  
+**Device validation:** pending
+
+### Change
+
+Build 405 removes the 96px optical-probe bitmap from the **final native-center presentation path** while preserving the rest of the Build-404 geometry/state contract.
+
+The native center asset cache now stores the module-owned cloned `Drawable` instead of a raster bitmap. The existing bounded raster probe remains only to extract optical bounds. Its pixels are never drawn to the status bar and the temporary bitmap is released in `finally` on success, invalid-resource exit, or exception.
+
+Final native-center drawing now:
+- applies the existing resolved center tint and opacity to the module-owned Drawable clone;
+- uses the same optical ratios, center position and resolved draw width/height as Build 404;
+- preserves the existing steady-state final-pixel bounds calculation;
+- draws the Drawable directly through Canvas transforms so VectorDrawable rasterization occurs at the final presentation transform rather than at a 96px source followed by bitmap resampling.
+
+### Intentionally unchanged
+
+- raw semantic resource ID consumed by Combined Status;
+- HyperOS Light / Dark / Tint `transformResId` integration is **not** added in this build;
+- center optical measurement algorithm and threshold;
+- center size and centering;
+- status-icon tint authority;
+- center-family transition contract;
+- outer ring/mobile geometry and weight;
+- Build-399 Battery arc partition;
+- Build-403 battery semantic state/color authority;
+- Home carrier, native suppression, reservation, lifecycle and fail-native behavior;
+- Phase-2B shade behavior.
+
+### Review
+
+- **Ownership:** cached Drawable is created from SystemUI resource `ConstantState` and `mutate()`d as a module-owned instance. No live native ImageView/Drawable is modified.
+- **Lifecycle:** cache remains painter-scoped and bounded to eight center assets. No hook/listener/observer ownership is added.
+- **Single writer:** only the module-owned clone receives tint/alpha/bounds writes; native View geometry, tint and visibility writers are unchanged.
+- **Cleanup:** the persistent rendered bitmap is removed. The measurement bitmap is unconditionally recycled through `try/finally`; cache eviction no longer owns bitmap recycling.
+- **Fail native / recovery:** existing resource-resolution failure returns the same native-center failure/fallback behavior. An exception during probe creation remains confined by the existing `runCatching` asset construction.
+- **Performance:** removes filtered bitmap resampling and retained bitmap memory for center assets. Drawable cloning happens only on cache miss; drawing reuses the cached clone rather than allocating per frame.
+- **Compatibility:** no new SystemUI private member, hook, resource identifier, reflection dependency or target-profile contract is introduced.
+- **Exception recovery:** probe bitmap cleanup is deterministic even if Drawable drawing or pixel extraction fails.
+- **Future extension:** direct final-bounds Drawable rendering naturally supports later center-size changes without stretching a pre-rasterized source; current custom-color seam can continue to tint the module-owned clone.
+
+### Validation gate
+
+Run Fast CI and signed Work Branch Canary for Build 405. If both pass, stop runtime changes and compare the exact Canary against Builds 403 and 404 on the target device.
+
+Primary acceptance question: does removing the intermediate raster/resample stage restore native-like edge coverage / antialiasing and apparent stroke weight **without** changing size, centering, tint, outer geometry or semantic battery colors?
+
+The verified HyperOS Light / Dark / Tint resource transformation remains the next separate rendering boundary only if Build 405 still leaves a state-dependent difference.
+
+
+---
+
+## 2026-09-27 — Build 405 CI event-delivery blocker
+
+**Type:** CI infrastructure / validation-carrier status  
+**Runtime source:** `bf8091c8680dec7b85c58afded7f476ec95ca49d`  
+**Build:** 405 / 20260927-405  
+**Runtime state:** frozen; no further runtime mutation
+
+Two validation-only carriers were attempted against the unchanged `dev` base SHA `6de78d7257c6bd376c57834a052fe51325fbfc1f`:
+
+- PR #131: `fix/build-405-validation-carrier -> dev`;
+- PR #132: `fix/build-405-validation-carrier-2 -> dev`.
+
+For #132, the docs-only carrier commit `9b90286499574ec142be302ff1a426e0f7fcf29a` contains no executable delta after the frozen Build-405 runtime line.
+
+The active base workflow remains unchanged and listens to `pull_request` types `opened`, `synchronize`, `reopened`, `ready_for_review`, and `converted_to_draft`. Connector-originated opened, docs-only synchronize, Draft -> Ready, and close -> reopen events produced **zero Actions workflow runs and zero check-runs** for the carrier SHA.
+
+Historical comparison:
+- Build-404 validation PR #130 used the same `dev` base SHA and produced Build #1088 within seconds of PR creation.
+- Build #1088 actor / triggering_actor were both `CHS-Haple`.
+
+Current conclusion: this is an event-delivery failure before Actions execution, not evidence of a Build-405 compile/test failure and not a repository workflow-condition mismatch.
+
+Validation rule:
+- keep Build 405 frozen;
+- keep PR #132 as the active validation carrier;
+- obtain one normal user-originated `pull_request synchronize` event from GitHub web/local git;
+- do not cite Build 405 as CI-passed until a run explicitly tests the carrier head and the downstream signed Work Branch Canary succeeds;
+- workflow_dispatch alone is insufficient for the full signed Canary chain because Work Branch Canary requires the upstream Build event to be `pull_request`.
+
+
+---
+
+## 2026-09-27 — Build 405 trusted Canary validation complete
+
+**Type:** CI validation / device-test handoff  
+**Display version:** 0.0.2  
+**Build:** 405 / 20260927-405  
+**Runtime source:** `bf8091c8680dec7b85c58afded7f476ec95ca49d`  
+**Validated PR head:** `3cdfcc4db4bd5cd350e17400f2ed71d818b9c8d9`  
+**Validation:** passed; device A/B pending
+
+### CI-flow resolution
+
+The earlier connector-originated pull-request event-delivery failure was resolved at the repository-process layer rather than by mutating Build 405 runtime code.
+
+PR #134 installed the trusted default-branch Canary fallback and passed:
+- Full Build #1095: success on final process head `6c08962914b3af204cf2e94701cd28dc5084f357`;
+- signed Work Branch Canary #331: success;
+- merge to `main`: `5ca1029bb8383da793b69f81370df2760d4389dc`;
+- post-merge main Build #1096: success.
+
+The fallback adds an owner-only exact `/canary` PR-comment admission path plus a manual-dispatch fallback while preserving the normal automatic PR-Build follow-up.
+
+### Build 405 trusted validation
+
+Repository owner posted exact `/canary` on PR #105. Work Branch Canary #332 then:
+- resolved the live same-repository PR head;
+- resolved branch `feat/battery-semantic-colors`;
+- resolved source SHA `3cdfcc4db4bd5cd350e17400f2ed71d818b9c8d9`;
+- verified checkout equals the resolved trusted source;
+- restored/verified Haple signing;
+- verified the pinned HyperOS target profile;
+- passed unit tests and Canary build;
+- passed Modern Xposed metadata validation;
+- passed Haple APK signature verification;
+- passed non-debuggable verification;
+- uploaded the signed Canary artifact.
+
+Comparison from runtime source `bf8091c8680dec7b85c58afded7f476ec95ca49d` to validated PR head `3cdfcc4db4bd5cd350e17400f2ed71d818b9c8d9` contains only:
+- `docs/development/CURRENT.md`;
+- `docs/development/DEVLOG.md`.
+
+Therefore the validated executable content remains exactly the frozen Build-405 runtime checkpoint.
+
+### Artifact identity
+
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260927-405-canary.apk`
+- Actions artifact ID: `10929226454`
+- Artifact ZIP SHA-256: `4d0a9b45bd1ec3cc9ab921226adca8ca6897188468393a4d65137c4fd7843137`
+- Extracted APK SHA-256: `106fbfebe88a9e386f00f61271e38cc8f5999e5f43e086627c42d66985310203`
+
+### Review / outcome
+
+- **Ownership/lifecycle/single writer:** unchanged from the Build-405 source review; no runtime mutation was made while resolving CI.
+- **Cleanup:** CI carrier PRs are no longer needed for Build 405.
+- **Fail native / compatibility / performance:** unchanged from the frozen Build-405 runtime checkpoint.
+- **Validation meaning:** CI proves source/build/signing/metadata contract only; optical parity still requires focused target-device comparison.
+- **Next:** stop runtime changes and compare Build 405 against Builds 403 and 404 for native center edge coverage/antialiasing, apparent weight, size/centering, and unchanged outer geometry/tint. HyperOS Light/Dark/Tint resource-variant transformation remains a separate follow-up boundary only if a state-dependent mismatch survives.
+
+
+---
+
+## 2026-09-27 — Build 405 final Canary revalidation after summary escaping fix
+
+**Type:** CI process follow-up / final device-test artifact identity  
+**Display version:** 0.0.2  
+**Build:** 405 / 20260927-405  
+**Runtime source:** `bf8091c8680dec7b85c58afded7f476ec95ca49d`  
+**Validation:** passed; device A/B pending
+
+### Process follow-up
+
+After the first successful owner-comment validation (#332), PR #135 corrected Markdown backtick escaping in the Work Branch Canary source-summary output:
+
+- changed summary writes from interpolated `echo` lines containing raw backticks to `printf` with escaped Markdown backticks;
+- no source-resolution, trust, checkout, signing, test, metadata, non-debuggable, artifact, or runtime behavior changed;
+- `main` commit after the fix: `bddf1cff3deb4989d8fabfbeeec28440849d6a7d`;
+- PR #137 history-preserving back-synced the fix into `dev`.
+
+### Final Build 405 owner-comment revalidation
+
+A second exact `/canary` comment on PR #105 started Work Branch Canary #334 with the corrected default-branch workflow.
+
+#334:
+- resolved the live same-repository PR #105 source;
+- verified the checked-out source;
+- restored and verified Haple signing;
+- passed pinned HyperOS target-profile verification;
+- passed unit tests and Canary build;
+- passed Modern Xposed metadata checks;
+- passed Haple APK signature verification;
+- passed non-debuggable verification;
+- uploaded the signed Build-405 Canary artifact.
+
+Validated PR #105 head for #334: `b3092d42e428acb6d00a4e0c752459dc8ea64152`.
+
+Comparison from frozen runtime source `bf8091c8680dec7b85c58afded7f476ec95ca49d` to that validated head still contains only:
+- `docs/development/CURRENT.md`;
+- `docs/development/DEVLOG.md`.
+
+### Final artifact identity
+
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260927-405-canary.apk`
+- Actions artifact ID: `10929556081`
+- Artifact ZIP SHA-256: `4b3a37d9c83901743122294fa436380769a6c0f9cb5aba84e64632237a3771a9`
+- Extracted APK SHA-256: `17b8ed5783373ab37c4bf2ae3e8fda55ddff965e59a9c42d7c2ccb18efb4c566`
+
+The earlier #332 APK had SHA-256 `106fbfebe88a9e386f00f61271e38cc8f5999e5f43e086627c42d66985310203`. A ZIP-entry content comparison between #332 and #334 found:
+- identical entry set: 95 entries;
+- identical uncompressed content: 94 entries;
+- only differing entry: `META-INF/version-control-info.textproto`;
+- the only changed payload is the embedded Git revision, from `3cdfcc4db4bd5cd350e17400f2ed71d818b9c8d9` to `b3092d42e428acb6d00a4e0c752459dc8ea64152`.
+
+Therefore the overall APK/signature bytes differ because build provenance metadata differs, while classes/resources/runtime ZIP entries are unchanged.
+
+### Outcome
+
+Use the #334 artifact as the final Build-405 device-test package. Runtime remains frozen. No Light/Dark/Tint `transformResId` integration, Phase-2B scene work, or other runtime modification should occur until the focused device A/B result is returned.
+
+
+---
+
+## 2026-09-27 — Build 405 device rejection: final presentation-resource contract remains
+
+**Type:** device rejection / root-cause refinement  
+**Display version:** 0.0.2  
+**Build under test:** 405 / 20260927-405  
+**Runtime source:** `bf8091c8680dec7b85c58afded7f476ec95ca49d`  
+**Result:** optical-parity A/B rejected; direct-Drawable baseline retained
+
+### Problem / objective
+
+Determine whether removing the project-owned 96px bitmap from the final native-center presentation path is sufficient to match neighboring HyperOS status-icon opacity/weight.
+
+### Problem execution flow
+
+**Phenomenon and evidence**
+
+Target-device screenshots on both a light Settings surface and a dark Home/recents surface show the Combined Status center Wi-Fi glyph still materially lighter / lower-opacity than neighboring native status icons. The difference is visible inside the same Combined Status composition: the outer ring remains visually strong while the center native glyph is comparatively faint.
+
+**Root cause / responsibility source**
+
+Build 405 successfully removed the intermediate final-presentation bitmap/resample stage, so that stage is no longer sufficient to explain the remaining mismatch.
+
+Exact-target reference evidence already establishes a second presentation difference that Build 405 intentionally left unchanged: HyperOS transforms the raw semantic resource through `MiuiStatusBarIconViewHelper.transformResId(rawResId, useTint, isLight)` and then follows distinct Tint versus Light/Dark drawing branches. Build 405 still resolves the raw resource and uniformly applies the Combined Status center tint.
+
+**Root-cause status:** high confidence that final presentation-resource/tint-branch mismatch is now the next responsible boundary. It is not yet confirmed as the complete final cause until a single-variable A/B is device-tested.
+
+### Evidence / references consulted
+
+- Latest repository `CONTRIBUTING.md`, especially native visual-resource integration, root-cause order, single-writer and fail-native rules.
+- `docs/reference/native-icon-rendering.md`.
+- `docs/architecture/layout-policy.md` and `scene-policy.md`.
+- Exact target SystemUI reference for Wi-Fi Light / Dark / Tint transformation and final ImageView/VectorDrawable rendering.
+- Build 405 source/CI record and the maintainer-provided target-device screenshots.
+
+### Alternatives considered
+
+1. Increase center alpha or apply a per-resource opacity multiplier — rejected as screenshot-fitted symptom compensation and contrary to native-resource rules.
+2. Return to Build 403 percentile alpha remapping — rejected; it partially compensated a non-native bitmap pipeline and is not an authoritative HyperOS contract.
+3. Restore the bitmap final-render path — rejected; Build 405 removed a verified non-native resampling responsibility and the direct final-bounds Drawable path remains the cleaner baseline.
+4. Reproduce the verified HyperOS presentation variant + tint/no-tint branch for native center resources only — selected for the next bounded A/B.
+
+### Decision / next implementation boundary
+
+Build 406 may change only native center presentation selection:
+- resolve the final Light / Dark / Tint resource variant using the exact target HyperOS contract;
+- in Tint mode, apply the resolved native status-icon tint to the Tint resource;
+- in non-Tint Light/Dark modes, draw the selected authored resource without imposing the Combined Status tint;
+- retain Build 405 direct final-bounds Drawable rendering and measurement-only optical probe.
+
+Do not change center size/position, outer geometry, Home carrier/spacing, battery semantic-color logic, or Phase-2B scene behavior in the same checkpoint.
+
+### Review
+
+- **Ownership:** presentation-resource choice remains Combined Status-owned only for the module-owned native center clone; no native View is mutated.
+- **Lifecycle:** no new observer/listener is justified if the already-resolved native tint/light state can be carried through the existing presentation state.
+- **Single writer:** no alpha/tint compensation writer may be layered on top of the selected branch.
+- **Cleanup:** no new long-lived resource owner is required beyond the bounded center asset cache.
+- **Fail native:** if exact transformation state/resource resolution is unavailable, preserve the existing safe fallback rather than inventing a color.
+- **Performance:** resource transformation should be event/state-driven and cacheable; no polling or per-frame reflection.
+- **Compatibility:** exact target private helper/member use must remain fingerprint-scoped and optional.
+- **Future extension:** preserving semantic resource identity separately from presentation resource selection supports later custom-color policy without duplicating HyperOS state semantics.
+
+### Validation / outcome
+
+Build 405 is **rejected for optical-parity acceptance**. Battery semantic-color acceptance remains a separate gate.
+
+The next executable checkpoint is Build 406. Runtime changes should stop again as soon as its signed Canary is ready for focused light/dark device comparison.
+
+
+---
+
+## 2026-09-27 — Build 406: use native tint-mask variants for battery-colored center glyphs
+
+**Type:** bounded native-center presentation correction  
+**Display version:** 0.0.2  
+**Build:** 406 / 20260927-406  
+**Runtime source:** `3d5e9d2339824c6d19e50dda170917559369135b`  
+**Validation:** source review complete; CI/Canary pending
+
+### Problem / objective
+
+Build 405 direct-Drawable rendering still produced a visibly lower-opacity center glyph while the user-facing **center follows battery color** option was enabled. The objective is to match HyperOS's tint-resource contract without changing geometry, state semantics, or Home carrier ownership.
+
+### Problem execution flow
+
+**Phenomenon and evidence**
+
+The supplied light/dark screenshots show a strong battery ring and a visibly fainter green Wi-Fi center under the same intended semantic color.
+
+**Root cause / responsibility source**
+
+The exact-target native Wi-Fi family provides separate Light / Dark / Tint resources. The Tint variant is the opaque mask intended to receive a runtime tint. Build 405 instead loaded the raw semantic resource and called `Drawable.setTint(...)`, which preserves authored alpha/coverage from whichever raw variant was loaded.
+
+Because this failing scenario intentionally recolors the center to the battery semantic color, selecting the native Tint mask is a stronger and narrower correction than reconstructing the entire SystemUI Light/Dark state machine.
+
+**Root-cause status:** high confidence; device validation is still required before calling it confirmed.
+
+### Implementation
+
+- Added an explicit `centerUsesBatteryTint` presentation flag to the resolved color policy.
+- Native center rendering keeps the Build-405 direct final-bounds Drawable path.
+- When `centerUsesBatteryTint=true`, SystemUI native center resources resolve a cached `_tint` sibling resource when available, after normalizing an input `_darkmode` or `_tint` suffix.
+- The existing resolved center color is then applied to that native tint mask.
+- Missing/non-SystemUI tint variants fall back to the existing resource path rather than inventing a replacement.
+- Added deterministic tests for base, dark, existing-tint, unavailable and hotspot-style resource-name transformation.
+- Advanced internal identity to `20260927-406`; display version remains 0.0.2.
+
+### Intentionally unchanged
+
+- no new Hook, callback, listener, observer, polling loop or View-tree traversal;
+- default `centerFollowsBatteryColor=false` behavior;
+- center size/position and optical probe;
+- battery ring/mobile geometry;
+- battery semantic-state/color authority;
+- Home overlay/carrier/spacing ownership;
+- native Battery visibility/translation/alpha/island motion;
+- Phase-2B shade behavior.
+
+### Review
+
+- **Ownership:** only module-owned presentation-resource selection changes; native Views/resources are read-only.
+- **Lifecycle:** no new lifecycle owner.
+- **Single writer:** the module still writes tint only to its cloned Drawable; no competing native View writer is introduced.
+- **Cleanup:** bounded resource-ID cache only; no new listener/handle cleanup.
+- **Fail native:** missing tint sibling falls back to the existing resource rather than hiding native behavior or inventing a color.
+- **Performance:** `Resources.getIdentifier` occurs only on first resolution per cached resource ID; steady drawing uses cached IDs/assets.
+- **Compatibility:** the suffix contract is limited to a verified SystemUI resource family and degrades safely when a sibling does not exist.
+- **Exception recovery:** resource lookup is guarded; failure does not crash SystemUI.
+- **Future extension:** this separates “custom semantic recolor uses native tint mask” from later default Light/Dark presentation mirroring, avoiding a duplicate state machine.
+
+### CI / device gate
+
+Run CI and signed Canary for this exact runtime source. After a signed Build-406 artifact exists, stop runtime changes.
+
+Focused device acceptance:
+1. keep **center follows battery color** enabled;
+2. compare center glyph vs battery ring/native peers on a light surface;
+3. repeat on a dark surface;
+4. verify center size/centering, ring/mobile geometry and Home spacing are unchanged;
+5. verify charging/power-mode semantic color still propagates to the center when enabled.
+
+
+---
+
+## 2026-09-27 — Build 406 trusted Canary validation complete
+
+**Type:** CI validation / device-test handoff  
+**Display version:** 0.0.2  
+**Build:** 406 / 20260927-406  
+**Runtime source:** `3d5e9d2339824c6d19e50dda170917559369135b`  
+**Validation:** passed; focused device A/B pending
+
+### CI path
+
+The normal connector-originated pull-request synchronize event again produced no Build workflow run for either the runtime source or the documentation-only PR head. This matches the already-documented GitHub event-delivery failure and is not a compile/test failure.
+
+The repository-owner exact `/canary` fallback on PR #105 started Work Branch Canary #335 (run `36312717485`).
+
+The trusted workflow:
+- resolved the live same-repository PR source;
+- checked out and verified the tested source identity;
+- validated the Gradle Wrapper and JDK/API environment;
+- restored and verified Haple signing;
+- passed the pinned HyperOS target-profile check;
+- passed unit tests and Canary build;
+- passed Modern Xposed metadata validation;
+- passed Haple APK signature verification;
+- passed non-debuggable verification;
+- prepared and uploaded the signed Canary artifact.
+
+### Source identity
+
+Validated PR head: `80f371784ffaee406dd6ea5728219eeee5913318`.
+
+Comparison from frozen runtime source `3d5e9d2339824c6d19e50dda170917559369135b` to that validated head contains only:
+- `docs/development/CURRENT.md`;
+- `docs/development/DEVLOG.md`.
+
+Therefore the validated executable/runtime content is exactly Build 406.
+
+### Artifact identity
+
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260927-406-canary.apk`
+- Actions artifact ID: `10929711688`
+- Artifact ZIP digest: `sha256:c7af997217acd171c66beb860d7212c0d72fd672a38978f7b5c2eb5a524f11ba`
+- Extracted APK SHA-256: `e086d8914fece7ba8ea86200756f4a6366d56dadaa5510846618a4077e6ddd80`
+
+### Review / outcome
+
+- **Ownership / lifecycle / single writer:** unchanged from source review; no new runtime owner or competing writer was introduced.
+- **Cleanup / recovery:** unchanged; the added resource-ID cache is painter-local and bounded by encountered center resources.
+- **Fail native:** missing tint siblings fall back to the prior resource path.
+- **Performance:** no new callback or polling path; tint sibling lookup is cached.
+- **Compatibility:** exact-target resource-family behavior is used only when the sibling exists.
+- **Runtime state:** frozen pending device acceptance.
+
+### Focused device test
+
+1. Keep **center follows battery color** enabled.
+2. On a light surface, compare the center glyph with the battery ring and neighboring native icons.
+3. Repeat on a dark surface.
+4. Check that center size/centering, ring/mobile geometry and Home spacing did not move.
+5. Switch a semantic battery state when practical and confirm the center still follows the final battery color.
+
+No Phase-2B, opacity multiplier, grayscale compensation, geometry tuning or additional runtime feature work should be added until this A/B result is returned.
+
+
+### Build 406 CI / Canary result
+
+- Work Branch Canary run: **#335** / run ID `36312717485`.
+- Trigger: owner-only PR `/canary` fallback because connector-authored branch updates again produced no PR synchronize workflow run.
+- Result: **success**.
+- Passed gates:
+  - trusted source resolution and exact checkout verification;
+  - Gradle Wrapper validation;
+  - Java / Android API 37 setup;
+  - Haple signing restore/verification;
+  - pinned HyperOS target-profile verification;
+  - tests and Canary build;
+  - modern Xposed metadata verification;
+  - Haple APK signature verification;
+  - non-debuggable verification;
+  - artifact upload.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260927-406-canary.apk`
+- GitHub artifact ID: `10929711688`.
+- Extracted APK SHA-256: `e086d8914fece7ba8ea86200756f4a6366d56dadaa5510846618a4077e6ddd80`.
+- Extracted APK size: `3293214` bytes.
+- Runtime source remains `3d5e9d2339824c6d19e50dda170917559369135b`; subsequent commits are documentation-only.
+
+### Gate
+
+**Runtime is frozen at Build 406.** The next required evidence is maintainer device A/B with `centerFollowsBatteryColor=true` on both light and dark surfaces. No Phase-2B or further center-rendering runtime change should be layered before that result.
+
+
+---
+
+## 2026-09-27 — Build 406 device rejection: default center branch is also optically light
+
+**Type:** device rejection / hypothesis correction  
+**Display version:** 0.0.2  
+**Build under test:** 406 / 20260927-406  
+**Runtime source:** `3d5e9d2339824c6d19e50dda170917559369135b`  
+**Result:** optical parity rejected; custom-tint-only hypothesis disproved
+
+### Problem / objective
+
+Build 406 tested whether the remaining low-opacity/low-weight center was primarily caused by recoloring a raw native resource instead of the verified HyperOS `_tint` mask variant.
+
+### Device evidence
+
+The maintainer supplied a new screenshot with **center follows battery color disabled**. The center Wi-Fi glyph remains visibly lighter / less solid than the outer battery ring and native peers.
+
+A direct pixel inspection of that screenshot gives supporting evidence:
+- light embedded status-bar crop: ring dark pixels reach approximately gray 53 while center dark pixels reach approximately 56, but the center's dark-pixel median is approximately 96 versus ring approximately 80, indicating less effective optical coverage even when the darkest core is similar;
+- live dark status-bar crop: ring bright pixels reach approximately 239 while center reaches approximately 216, indicating a real presentation-alpha/coverage difference on that surface.
+
+These values are screenshot observations, not runtime constants and must **not** be copied into rendering policy.
+
+### Problem execution flow
+
+**Phenomenon and evidence -> root-cause correction**
+
+Because the defect persists with `centerFollowsBatteryColor=false`, Build 406's selected custom-color-only responsibility boundary is too narrow.
+
+**Build-403 comparison**
+
+The exact Build-403 source (`97ef67e648906a4b9bb2ce4d7dd390e955831189`) rasterized the native center into a bounded probe, computed an 85th-percentile visible-alpha ceiling, normalized source alpha against that ceiling, retained the normalized bitmap, then applied the final resolved tint with SRC_IN.
+
+Build 404 removed that source-alpha normalization while retaining the same bitmap path and regressed on device. This establishes that the normalization materially increased apparent center coverage/weight, but does **not** establish that percentile normalization is a native SystemUI contract.
+
+Build 405 moved final rendering back to a direct module-owned Drawable clone and kept the bitmap only for optical measurement. Build 406 added a native `_tint` sibling only for the custom/battery-color branch. Neither closed parity.
+
+**Current root-cause interpretation**
+
+Build 403 was compensating a mismatch in the final presentation/coverage boundary. The remaining issue is broader than custom recolor and narrower than Home layout/geometry. The next native authority to inspect is the already-rendered Home Wi-Fi ImageView after HyperOS has applied its own resource transformation, tint list/mode, drawable alpha and ImageView alpha.
+
+### Selected investigation direction
+
+Prefer reusing the existing `MiuiWifiViewBinder` / Wi-Fi emitter hook lifecycle:
+- it already exposes the bound native `ImageView`;
+- after `chain.proceed()`, HyperOS has applied the current final drawable/tint presentation;
+- the native Wi-Fi View remains alive even when Combined Status masks its pixels, so its presentation can remain authoritative;
+- capture only read-only final presentation data and create a module-owned Drawable clone before rendering;
+- do not mutate the live native ImageView/Drawable;
+- do not add a second Light/Dark/Tint state machine, polling loop or extra lifecycle owner.
+
+### Review boundary
+
+- **Ownership:** native ImageView remains SystemUI-owned; Combined Status may mirror only a module-owned clone.
+- **Lifecycle:** reuse the existing Wi-Fi binder/emitter hook instead of installing a new observer.
+- **Single writer:** no native View tint/alpha/resource write.
+- **Cleanup:** any mirrored Drawable state must stay bounded to the existing runtime/painter lifecycle and Hot Reload cleanup.
+- **Fail native:** if final presentation cannot be captured safely, preserve the existing native/fallback behavior.
+- **Performance:** update only on existing Wi-Fi presentation events; no per-frame reflection/tree traversal.
+- **Compatibility:** use exact-target verified binder/ImageView contracts and degrade safely.
+- **Exception recovery:** capture/clone failure must not affect the native Wi-Fi pipeline.
+- **Future extension:** a generic final-native-presentation seam may later support other center resources, but the next A/B should remain Wi-Fi-focused.
+
+### Gate
+
+No runtime change is accepted yet from this correction. Complete the final-native-presentation review first, then implement one bounded next A/B and stop for signed-Canary device validation.
+
+
+### Root-cause refinement before Build 407
+
+A direct source review of the Build-406 Painter found a simpler contract mismatch than the provisional live-ImageView mirroring direction:
+
+- `drawNativeCenterResource(...)` unconditionally calls `drawable.setTint(tint)` for native center assets;
+- this is true in both the normal center-color path and the optional battery-follow path;
+- therefore Combined Status is effectively always using an **externally tinted native-center presentation**;
+- exact-target HyperOS evidence already establishes that the external-tint branch first transforms the semantic resource to its `*_tint` presentation variant, whose authored mask is intended for ImageView tinting;
+- Build 406 selected that `_tint` sibling only when `centerFollowsBatteryColor=true`, leaving the default externally-tinted path on the raw authored resource.
+
+This explains the new device evidence without reintroducing percentile normalization:
+- raw authored resources can retain their own alpha/coverage when `setTint` is applied;
+- the project battery ring is painted at the resolved tint's full active alpha;
+- Build 403's source-alpha normalization artificially removed much of that residual authored-alpha difference, which is why it could look more uniform even though its bitmap pipeline was not the native mechanism.
+
+**Selected Build-407 boundary:** use the verified native `_tint` mask for every native center resource that Combined Status externally tints. This is narrower than mirroring a live ImageView, requires no new Hook/lifecycle owner, and directly matches the existing Painter's presentation mode.
+
+The live native-ImageView presentation mirror remains a fallback investigation route only if this exact contract correction still fails on device.
+
+
+---
+
+## 2026-09-27 — Build 407: apply native tint-mask contract to every tinted center glyph
+
+**Type:** bounded root-cause correction / source review  
+**Display version:** 0.0.2  
+**Build:** 407 / 20260927-407  
+**Runtime source:** `ffe746b24252f974db05e1fa4381ed5c56f0e73e`  
+**Validation:** source review complete; signed Canary pending
+
+### Problem / objective
+
+Build 406 proved that selecting the native `_tint` mask only for the optional battery-follow color branch was insufficient because the default center branch remained optically light.
+
+### Root cause
+
+Source review establishes that `drawNativeCenterResource(...)` always applies `Drawable.setTint(tint)`, regardless of the source of `tint`.
+
+Therefore both:
+- default center color from resolved native status-icon tint; and
+- optional battery-follow/custom semantic color
+
+are **external-tint presentation paths**.
+
+Exact-target HyperOS uses the `*_tint` presentation resource for its external-tint branch. Applying `setTint` directly to a raw authored semantic resource preserves that resource's authored alpha/coverage and can make the compact center look lighter than the fully opaque project-painted outer ring.
+
+### Implementation
+
+- Removed the Build-406-only `centerUsesBatteryTint` presentation flag.
+- `drawNativeCenterResource(...)` now always resolves `resolveNativeTintVariant(resource) ?: resource` before loading/caching the native center asset.
+- The already-authoritative resolved center tint is then applied exactly once through `Drawable.setTint(...)`.
+- Resource resolution remains cached and fail-soft.
+- Added/retained deterministic tests for base, darkmode, existing-tint, unavailable and hotspot naming.
+- Build identity advanced to `20260927-407`.
+
+### Intentionally unchanged
+
+- no new Hook/listener/observer/polling;
+- no live native View mutation;
+- no center size/position or optical-probe change;
+- no percentile/source-alpha normalization;
+- no ring/mobile geometry change;
+- no battery semantic-state/color change;
+- no Home carrier/spacing/suppression change;
+- no Phase-2B scene change.
+
+### Review
+
+- **Ownership:** SystemUI remains semantic-resource/tint authority; Combined Status owns only its cloned center Drawable.
+- **Lifecycle:** unchanged; no new owner.
+- **Single writer:** one tint writer on the module-owned clone.
+- **Cleanup:** existing bounded resource/asset caches only.
+- **Fail native:** missing `_tint` sibling falls back to the existing resource path; no guessed color/resource.
+- **Performance:** one cached resource-name lookup per native resource identity; no per-frame reflection.
+- **Compatibility:** uses the already-verified HyperOS tint-resource naming contract and degrades safely.
+- **Exception recovery:** guarded resource resolution remains local to the center path.
+- **Future extension:** custom semantic colors and default status-icon colors now share one presentation mechanism rather than branching into divergent alpha behavior.
+
+### Validation gate
+
+Run trusted signed Canary for this exact runtime source. After the artifact exists, freeze runtime and test:
+1. center-follow-battery **off**, light surface;
+2. center-follow-battery **off**, dark surface;
+3. center-follow-battery **on**, light surface;
+4. center-follow-battery **on**, dark surface;
+5. one available semantic color transition.
+
+No further runtime change before those device results.
+
+
+---
+
+## 2026-09-27 — Build 407: use native tint masks for every externally tinted center glyph
+
+**Type:** bounded root-cause correction / source review  
+**Display version:** 0.0.2  
+**Build:** 407 / 20260927-407  
+**Implementation commit:** `bbb421ef0354ad60e7d046e38c643d16d61504c7`  
+**Final executable source:** `ffe746b24252f974db05e1fa4381ed5c56f0e73e`  
+**CI / device validation:** pending
+
+### Problem / objective
+
+Build 406 incorrectly tied HyperOS `_tint` resource selection to whether the center color came from the battery semantic-color option. Device evidence shows the default/unlinked branch is also visually underweight.
+
+### Root cause
+
+`CombinedStatusPainter.drawNativeCenterResource(...)` applies `Drawable.setTint(centerTint)` for native center assets in **all** color-source modes. Therefore the renderer's presentation mode is externally tinted regardless of whether `centerTint` comes from:
+- native/status-icon tint; or
+- battery semantic color.
+
+Exact-target HyperOS evidence establishes that the externally tinted branch uses the dedicated `*_tint` presentation resource. Build 406 only selected that mask in one color-source mode, leaving the default branch on the raw semantic resource and preserving its authored alpha/coverage.
+
+### Implementation
+
+- Remove the Build-406-only `centerUsesBatteryTint` / `forceNativeTintVariant` presentation flag.
+- Every native center resource entering the existing external-tint draw path now attempts to resolve the verified SystemUI `_tint` sibling first.
+- Continue applying the already-authoritative resolved center tint through the existing module-owned Drawable clone.
+- Keep resource-ID lookup cached.
+- If no verified sibling exists, fall back to the original resource path.
+- Build identity advances to `20260927-407`.
+- Commit `ffe746b...` only fixes indentation introduced by the functional commit and does not change runtime semantics.
+
+### Intentionally unchanged
+
+- Build-405 direct final-bounds Drawable rendering;
+- measurement-only optical raster probe;
+- center size/position and pixel-aligned final bounds;
+- outer ring/mobile geometry;
+- battery semantic-state/color authority and user link behavior;
+- Home overlay/carrier/spacing ownership;
+- native suppression and scene behavior;
+- no Build-403 percentile source-alpha normalization;
+- no alpha multiplier, gray constant, asset edit or screenshot-derived tuning.
+
+### Review
+
+- **Ownership:** HyperOS remains semantic-resource/tint authority; Combined Status only selects a verified presentation sibling and mutates its own Drawable clone.
+- **Lifecycle:** no new Hook, observer, listener, coroutine or lifecycle owner.
+- **Single writer:** one existing Drawable tint writer; the removed boolean gate reduces presentation branching.
+- **Cleanup:** existing painter-scoped bounded resource caches only.
+- **Fail native:** missing/unresolvable `_tint` sibling falls back to the prior resource without affecting SystemUI.
+- **Performance:** no additional steady-state work beyond existing cached lookup; no polling/per-frame reflection.
+- **Compatibility:** suffix normalization is limited to the exact verified SystemUI resource family and is existence-checked.
+- **Exception recovery:** package/resource lookup remains guarded.
+- **Future extension:** rendering mode is now separated from color-source policy, so future custom colors reuse the same native tint-mask seam.
+
+### Validation gate
+
+Run signed Canary for the exact Build-407 executable source, then freeze runtime.
+
+Device test must explicitly compare:
+1. center-color link OFF on a light surface;
+2. center-color link ON on the same light surface;
+3. at least one dark surface;
+4. unchanged center geometry, outer geometry and Home spacing;
+5. semantic-color transition still recolors linked center correctly.
+
+If optical parity still fails, the next investigation returns to the final native Wi-Fi ImageView presentation after HyperOS applies its own transform/tint state. Do not restore Build-403 percentile normalization without that evidence.
+
+
+### Build 407 CI / Canary result
+
+- First owner-only fallback run: Work Branch Canary #336 / run `36313792930`.
+  - It passed source/checkout/wrapper/Java/API/signing/target-profile setup.
+  - It was **cancelled during Test and build Canary because a newer Canary run (#337) superseded it**. This is not a compile/test failure.
+- Effective validation run: Work Branch Canary **#337** / run `36313837646`.
+- Result: **success**.
+- Passed gates:
+  - trusted source resolution and exact tested-work-branch checkout;
+  - Gradle Wrapper validation;
+  - Java / Android API 37 setup;
+  - Haple signing restore/verification;
+  - pinned HyperOS target-profile verification;
+  - tests and Canary build;
+  - modern Xposed metadata verification;
+  - Haple APK signature verification;
+  - non-debuggable verification;
+  - artifact upload and final summary.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260927-407-canary.apk`
+- GitHub artifact ID: `10929728522`.
+- Extracted APK SHA-256: `b3bf76727f1fa5defe0b76d71fb090b5135ab713e9629260a12ec03b3867824a`.
+- Extracted APK size: `3293218` bytes.
+- Runtime source remains `ffe746b24252f974db05e1fa4381ed5c56f0e73e`; subsequent commits are documentation-only.
+
+### Gate
+
+**Runtime is frozen at Build 407.** The next required evidence is maintainer device A/B with center-follow-battery both disabled and enabled across light/dark surfaces. No Phase-2B or further center-rendering runtime change should be layered before that result.
+
+
+### Build 407 CI / Canary result
+
+- Work Branch Canary: **#337** / run ID `36313837646`.
+- Result: **success**.
+- Earlier duplicate Canary #336 was cancelled by workflow concurrency after #337 superseded it; this is not a test failure.
+- Passed gates:
+  - trusted PR source resolution;
+  - exact checked-out source verification;
+  - Gradle Wrapper validation;
+  - Java / Android API 37 setup;
+  - Haple signing restore/verification;
+  - pinned HyperOS target-profile verification;
+  - tests and Canary build;
+  - modern Xposed metadata verification;
+  - Haple APK signature verification;
+  - non-debuggable verification;
+  - artifact preparation/upload.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260927-407-canary.apk`
+- GitHub artifact ID: `10929728522`
+- Extracted APK size: `3293218` bytes
+- Extracted APK SHA-256: `b3bf76727f1fa5defe0b76d71fb090b5135ab713e9629260a12ec03b3867824a`
+- Final executable source remains `ffe746b24252f974db05e1fa4381ed5c56f0e73e`; subsequent commits are documentation-only.
+
+### Gate
+
+**Runtime is frozen at Build 407.** The next required evidence is maintainer device A/B with center-color link both OFF and ON. No Phase-2B, alpha normalization, geometry tuning or additional runtime change should be layered before that result.
+
+
+---
+
+## 2026-09-27 — Build 407 device result: opacity fixed; residual ring optical-weight mismatch
+
+**Type:** device acceptance correction / visual root-cause refinement  
+**Build:** 407 / 20260927-407  
+**Runtime source:** `ffe746b24252f974db05e1fa4381ed5c56f0e73e`  
+**Result:** native-center opacity correction accepted; overall optical balance still open
+
+### Device evidence
+
+The maintainer reports that the center transparency defect is resolved in Build 407.
+
+New same-device screenshots in the charging-green state still make the battery ring appear darker/heavier than the native Wi-Fi center and the four mobile dots.
+
+### Quantitative interpretation
+
+Same-image sampling was used only to distinguish tint mismatch from coverage mismatch.
+
+On both light and dark screenshots:
+- high-coverage ring and center core pixels converge to essentially the same green RGB;
+- the ring's overall pixel distribution is darker/more saturated because a wide continuous stroke creates a larger proportion of fully covered pixels;
+- the native center mask contains more antialiased edge coverage;
+- the small circular mobile dots contain still more edge coverage at their final physical size.
+
+Therefore the remaining defect is **optical weight / raster coverage**, not a second semantic-color or tint-source defect. The sampled values are evidence only and must not become rendering constants.
+
+### Problem execution flow
+
+**Phenomenon and evidence -> responsibility source**
+
+1. Build 407 fixed the raw-resource/tint-mask responsibility and the reported center-transparency problem.
+2. Source review confirms active battery ring, linked center and active dots all receive the same resolved tint and full semantic alpha.
+3. The ring is a project-owned continuous `Paint.Style.STROKE`; the dots are small project-owned fills; the center is the authoritative HyperOS vector mask.
+4. Current outer geometry still carries the Build-332 1.10x shared boldening. The ring therefore remains a wider continuous custom element even though the center should now be treated as native visual authority.
+
+**Repository / historical basis**
+
+Build 332 changed both the original 7.5 canonical ring stroke and 4.9 dot radius through a shared 1.10x default scale. The user accepted the bolder outer geometry at that stage. After native center presentation was corrected in Build 407, the continuous ring now reads optically dominant while the existing dot size remains in the same perceived-weight band as the center.
+
+### Alternatives reviewed
+
+1. Darken center/dots or lighten the ring color — rejected; the actual resolved tint is already shared.
+2. Add per-element alpha multipliers — rejected as a visual compensation layer with no native authority.
+3. Reintroduce Build-403 alpha normalization — rejected; Build 407 already fixed the native center resource path and the residual issue is broader geometry/coverage.
+4. Enlarge the native center — rejected; HyperOS native glyph geometry is now the stronger visual authority.
+5. Enlarge dots — rejected for the first A/B; they already read close to the center and their current size was previously accepted.
+6. Reduce only the custom ring to the known pre-Build-332 base stroke while keeping dot size stable — selected as the smallest attributable A/B.
+
+### Selected Build-408 boundary
+
+Rebase the outer geometry so the current default resolves to:
+- battery ring stroke: historical base 7.5 canonical units;
+- mobile dot radius: current accepted 5.39 canonical units;
+- shared future weight scale: 1.0 at this newly balanced default, scaling both values proportionally from there.
+
+This preserves a single future thickness-control seam without retaining the assumption that ring and dot require the same historical 1.10 calibration.
+
+### Review
+
+- **Ownership:** only project-owned geometry changes; native center/SystemUI geometry is untouched.
+- **Lifecycle:** no new observer/hook/listener.
+- **Single writer:** painter geometry remains the only writer.
+- **Cleanup:** no new runtime state.
+- **Fail native:** unaffected.
+- **Performance:** arithmetic/constants only; no new allocation, raster pass or callback.
+- **Compatibility:** removes reliance on screenshot/device-specific RGB/alpha compensation.
+- **Exception recovery:** unaffected.
+- **Future extension:** a future user thickness control can still scale the balanced ring/dot baseline proportionally.
+
+### Gate
+
+Implement one Build-408 geometry-only A/B, run CI/Canary, then stop for device comparison. Do not mix shade/Control Center, tint, alpha or center-resource work into the same candidate.
+
+
+---
+
+## 2026-09-27 — Build 408: ring-only optical baseline rebalance
+
+**Type:** bounded visual-geometry A/B / source review  
+**Display version:** 0.0.2  
+**Build:** 408 / 20260927-408  
+**Runtime source:** `8a7a39d8297fe926387d56cc8ff5be4b08405f4a`  
+**Validation:** source review passed; CI/Canary pending
+
+### Objective
+
+Test the residual Build-407 visual mismatch without changing color authority or alpha. Same-image evidence shows ring and center core tint is already effectively identical; the ring appears darker because the project-owned continuous stroke has more full-coverage pixels.
+
+### Implementation
+
+Rebase `CombinedStatusOuterGeometry` default dimensions:
+- ring stroke: 7.5 canonical units (historical pre-Build-332 base);
+- mobile dot radius: preserve the Build-407 default exactly at `4.9 * 1.10 = 5.39`;
+- unavailable-mark stroke/extent: preserve Build-407 defaults exactly;
+- default outer weight scale: rebase from 1.10 to 1.00;
+- future weight scaling still multiplies ring, dots and unavailable mark proportionally from the new default baseline.
+
+The lower-opening gap solver remains unchanged and recomputes spacing from the resolved ring/dot geometry.
+
+### Intentionally unchanged
+
+- battery/center/mobile tint values;
+- active/inactive semantic alpha values;
+- native center `_tint` resource selection;
+- native center size and optical bounds;
+- mobile dot physical default size;
+- unavailable-mark physical default size;
+- battery arc angles/sweep;
+- Home carrier/spacing/suppression;
+- scene lifecycle and Phase-2B behavior.
+
+### Tests
+
+Added a deterministic default-baseline test asserting:
+- ring resolves to 7.5;
+- dot radius remains 5.39;
+- unavailable-mark dimensions remain Build-407-equivalent.
+
+Existing tests continue to require proportional scaling, mirror symmetry, balanced five-edge gaps and safe scale clamping.
+
+### Review
+
+- **Ownership:** only module-owned outer geometry changes; native resources/Views remain untouched.
+- **Lifecycle:** no change.
+- **Single writer:** unchanged painter-only geometry.
+- **Cleanup:** no change.
+- **Fail native:** no change.
+- **Performance:** constants plus the existing bounded geometry solver only.
+- **Compatibility:** no target-specific RGB/alpha/physical-pixel constants are introduced.
+- **Exception recovery:** no change.
+- **Future extension:** one outer weight scale remains available for a future user-facing thickness control while the default baseline can carry an optical ring/dot calibration.
+
+### Gate
+
+Run CI and signed Canary, then freeze runtime for a Build-407 vs Build-408 device A/B. Do not mix any further center-resource, tint, alpha or Phase-2B change into the same candidate.
+
+
+### Build 408 CI / Canary result
+
+- Work Branch Canary: **#338** / run ID `36315043013`.
+- Result: **success**.
+- Passed gates:
+  - trusted PR source resolution and exact checkout verification;
+  - Gradle Wrapper validation;
+  - Java / Android API 37 setup;
+  - Haple signing restore/verification;
+  - pinned HyperOS target-profile verification;
+  - tests and Canary build;
+  - Modern Xposed metadata verification;
+  - Haple APK signature verification;
+  - non-debuggable verification;
+  - artifact preparation/upload and final summary.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260927-408-canary.apk`
+- GitHub artifact ID: `10930143406`
+- Extracted APK size: `3293218` bytes
+- Extracted APK SHA-256: `2a5ed37e52ffcae71139bf006e025559192fb3ed3e15e089bc3841ba6bf3efb3`
+- Runtime source remains `8a7a39d8297fe926387d56cc8ff5be4b08405f4a`; later commits are documentation-only.
+
+### Gate
+
+**Runtime is frozen at Build 408.** The next required evidence is a Build-407 vs Build-408 device A/B focused on ring optical weight. No tint/alpha compensation, center-resource change or Phase-2B runtime work should be layered before that result.
+
+---
+
+## 2026-09-27 — Build 408 maintainer acceptance for dev integration
+
+**Type:** maintainer acceptance / phase gate / integration authorization  
+**Display version:** 0.0.2  
+**Accepted runtime source:** `8a7a39d8297fe926387d56cc8ff5be4b08405f4a`  
+**Validated Canary:** Work Branch Canary #338 / run `36315043013` / artifact `10930143406`
+
+### Maintainer decision
+
+The maintainer accepts the current color/native-center result for integration into `dev`.
+
+The result is considered **basically compliant with the intended requirement**, with one explicitly recorded limitation: a small residual optical-weight difference between the battery ring, native center and four mobile dots may still be visible.
+
+This acceptance does **not** claim perfect pixel/optical parity. The residual difference is deferred visual polish and is no longer a Phase-2A integration blocker.
+
+### Durable accepted conclusions
+
+- HyperOS remains the semantic battery-state and built-in color authority.
+- Build 407's use of the verified native `_tint` presentation sibling for externally tinted native center resources resolves the previously blocking center-opacity defect.
+- Build 408 is the accepted working outer-geometry baseline carried into `dev`.
+- No per-glyph gray/RGB multiplier, alpha compensation, percentile normalization, source-asset edit or screenshot-derived constant is accepted.
+- The current Home existing-host carrier, reversible native masking/reservation, charging/Super-Island ownership and cleanup/fail-native boundaries remain the accepted Phase-2A architecture.
+- The slight remaining optical-weight difference may be revisited under later visual/thickness controls without blocking scene-transition work.
+
+### Phase consequence
+
+Phase 2A is accepted for the current `dev` integration baseline. Phase 2B becomes active next, beginning with the shallow notification-shade pull / held-return Home-overlay leak.
+
+The Phase-2B investigation must start from native scene/progress ownership and must not reopen steady Home geometry or introduce threshold/delay/translation compensation as a first response.

@@ -15,6 +15,51 @@ class SystemUiPanelTransitionSourceTest {
     }
 
     @Test
+    fun controlAnchorProbeOnlyUsesTransitionBoundaryBuckets() {
+        assertEquals(true, SystemUiPanelTransitionSource.isBoundaryDiagnosticBucket(0))
+        assertEquals(true, SystemUiPanelTransitionSource.isBoundaryDiagnosticBucket(1))
+        assertEquals(false, SystemUiPanelTransitionSource.isBoundaryDiagnosticBucket(2))
+        assertEquals(false, SystemUiPanelTransitionSource.isBoundaryDiagnosticBucket(6))
+        assertEquals(true, SystemUiPanelTransitionSource.isBoundaryDiagnosticBucket(7))
+        assertEquals(true, SystemUiPanelTransitionSource.isBoundaryDiagnosticBucket(8))
+        assertEquals(false, SystemUiPanelTransitionSource.isBoundaryDiagnosticBucket(null))
+    }
+
+    @Test
+    fun homeMotionSnapshotKeepsBatteryWrapperAndBatteryDistinct() {
+        val snapshot =
+            SystemUiIslandMotionSource.OwnerSnapshot(
+                views =
+                    mapOf(
+                        "mBatteryContainer" to
+                            SystemUiIslandMotionSource.MotionViewSnapshot(
+                                className = "FrameLayout",
+                                screenX = 1242,
+                                width = 105,
+                                translationX = 0f,
+                                alpha = 1f,
+                                visibility = 0,
+                            ),
+                        "mBatteryView" to
+                            SystemUiIslandMotionSource.MotionViewSnapshot(
+                                className = "MiuiBatteryMeterView",
+                                screenX = 1242,
+                                width = 105,
+                                translationX = 0f,
+                                alpha = 1f,
+                                visibility = 0,
+                            ),
+                    ),
+            )
+
+        assertEquals(
+            "{mBatteryContainer=FrameLayout(x=1242,w=105,tx=0.0,a=1.0,v=0)," +
+                "mBatteryView=MiuiBatteryMeterView(x=1242,w=105,tx=0.0,a=1.0,v=0)}",
+            snapshot.summary,
+        )
+    }
+
+    @Test
     fun diagnosticsUseBoundedExpansionBuckets() {
         assertEquals(0, SystemUiPanelTransitionSource.diagnosticBucket(0f))
         assertEquals(1, SystemUiPanelTransitionSource.diagnosticBucket(0.125f))

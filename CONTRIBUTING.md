@@ -445,13 +445,9 @@ Merged short-lived branches should be removed automatically when role and target
 
 The display version changes only when the formal external version is explicitly advanced.
 
-The active development display-version line is **0.0.2**. The first planned formal release target is **1.0.0**. Current `0.0.x` versions are pre-release development checkpoints and do not become formal releases merely because their display version advances.
-
 Normal APK-affecting iterations advance internal `versionCode` / `buildId` according to project rules. Documentation-only changes do not require an APK build-number bump.
 
 GitHub Actions run numbers are CI execution metadata, not application version identifiers.
-
-Detailed current version semantics and the formal-release boundary are maintained in `docs/development/VERSIONING.md`. Historical Build/CI records keep the display version that actually existed at the time.
 
 ### 7.2 Changelog
 
@@ -475,7 +471,11 @@ Before keeping an entry, ask: would it still be true and useful to someone who s
 
 ### 7.3 Release boundary
 
-Before the first formal release, `[Unreleased]` describes the current net state intended for that release.
+The first planned formal release target is **1.0.0**. Current `0.0.x` display versions are pre-release development lines and continue to advance only through explicit maintainer-approved development-version changes.
+
+Before the first formal release, `[Unreleased]` describes the current net state progressing toward the 1.0.0 release boundary. Do not rewrite historical Build/CI records when the future release target changes; historical records retain the version that actually existed at the time.
+
+The detailed current version plan is recorded in `docs/development/VERSIONING.md`.
 
 For a formal release:
 
@@ -682,13 +682,20 @@ Before implementation, diagnosis, review, or continuation of an existing Combine
 3. `docs/development/ROADMAP.md`;
 4. the recent and historically relevant entries in `docs/development/DEVLOG.md`.
 
+Keep that four-step startup path intact. Then add task-specific repository evidence when applicable:
+- for architecture, host, geometry, scene, transition, or sizing work, read `docs/architecture/README.md` and `docs/reference/README.md` plus the relevant entries they index;
+- for display-version, release-target, or release-preparation work, read `docs/development/VERSIONING.md`;
+- `docs/README.md` is the repository documentation map when the correct document class is unclear.
+
+Reference-library material is evidence, not automatic implementation authority. A historical architecture documented elsewhere remains historical evidence even when `CURRENT.md` or `docs/architecture/README.md` marks that route superseded for new work.
+
 Repository state is authoritative over remembered conversation context. When the repository and an older discussion disagree, re-establish the task from the latest repository evidence before changing code.
 
 Do not treat this startup read as ceremonial. The active task must be checked against the current baseline, confirmed engineering conclusions, known invalidated hypotheses, remaining validation, and planned design boundaries before implementation continues.
 
-For development-record maintenance, also read `docs/development/RECORDING.md`. For display-version, release-target, or release-preparation work, also read `docs/development/VERSIONING.md`.
-
 ### 11.2 Development log requirement
+
+The normative trigger/ownership rules are defined here. File-level structure, evidence wording, templates, duplication boundaries, and cross-file writing conventions are defined in `docs/development/RECORDING.md` and MUST be followed when maintaining engineering records.
 
 Every APK-affecting CI/build checkpoint created for engineering work MUST have a corresponding development-log record. A record should capture, in proportion to the change:
 
@@ -720,9 +727,20 @@ Use the three files for different purposes:
 
 Update `CURRENT.md` whenever the effective development baseline, active problem, confirmed conclusion, validation state, or immediate next step changes. Update `ROADMAP.md` when a planned direction, prerequisite, trigger, or intentionally reserved design boundary changes.
 
-`CHANGELOG.md` remains the durable net project-state record defined in section 7.2. Do not turn it into the development diary.
+Do not postpone repository-memory updates until the end of a long task. After each **meaningful engineering step** that changes what the next step should be, synchronize the affected record before continuing:
 
-File-level writing structure, evidence language, duplication boundaries, and cross-file synchronization are defined in `docs/development/RECORDING.md`. That guide standardizes how records are written; this `CONTRIBUTING.md` remains the normative source for when a record is required and which engineering rules apply.
+- **Investigation/evidence changes the active hypothesis, blocker, or next action:** update `CURRENT.md`; append `DEVLOG.md` when the finding is a durable root-cause/architecture/compatibility conclusion.
+- **Architecture or ownership contract changes:** update the applicable `docs/architecture/` policy, `CURRENT.md`, and `ROADMAP.md` when future sequencing changes; append the decision to `DEVLOG.md`.
+- **Reusable reference evidence is added or invalidated:** update `docs/reference/`; update current/roadmap documents only when that evidence changes the active project decision.
+- **A runtime implementation checkpoint is created:** update `CURRENT.md` and create/extend the attributable `DEVLOG.md` entry before presenting the checkpoint as current.
+- **CI/device validation changes acceptance status:** update `CURRENT.md` immediately and append the actual validation result/correction to `DEVLOG.md`; never leave the previous status as the current truth.
+- **A planned phase, prerequisite, or release target changes:** update `ROADMAP.md` and, for version/release semantics, `VERSIONING.md`; synchronize README/CHANGELOG wording when their current public/net-state description is affected.
+- **A durable user-visible/net project behavior changes:** update `CHANGELOG.md`; do not add temporary probes, failed experiments, or superseded mechanisms as final net state.
+- **The active PR's real objective or acceptance boundary changes:** update the PR title/body so it describes the current branch purpose rather than an earlier checkpoint.
+
+Mechanical sub-steps that do not change engineering meaning do not require a separate log entry.
+
+`CHANGELOG.md` remains the durable net project-state record defined in section 7.2. Do not turn it into the development diary.
 
 ### 11.4 CI/build linkage and corrections
 
@@ -733,3 +751,20 @@ A rerun of the same source SHA for a transient CI failure may be appended to the
 When device evidence contradicts the current entry, update `CURRENT.md` immediately if the active conclusion changed, then append the contradiction and revised conclusion to `DEVLOG.md`. Never leave an invalidated hypothesis presented as the current source of truth.
 
 Development-log maintenance is repository text/governance work under section 6.1A when it has no executable effect. If a log update travels with runtime work because it records that same checkpoint, it may be committed with the owning work branch rather than creating unrelated CI solely for documentation.
+
+### 11.5 Documentation synchronization after meaningful checkpoints
+
+Repository memory must move with the engineering state. After each **meaningful checkpoint**—a step that changes the active problem, evidence, root-cause conclusion, implementation boundary, validation state, roadmap direction, or durable project behavior—synchronize the applicable documents before treating that checkpoint as complete.
+
+Use this mapping:
+
+- **Active problem / confirmed conclusion / blocker / validation state / immediate next step changed** -> update `docs/development/CURRENT.md`.
+- **Architecture route, future phase, prerequisite, trigger, or reserved design seam changed** -> update `docs/development/ROADMAP.md` and the relevant `docs/architecture/` policy/status document.
+- **Reusable implementation evidence or generalized reference conclusion changed** -> update the relevant `docs/reference/` entry without importing third-party-specific naming or code.
+- **Major investigation or architecture conclusion completed, with or without code** -> append a `DEVLOG.md` entry; do not rewrite the historical entry it supersedes.
+- **APK/runtime checkpoint created** -> record the Build/CI identity, review, required device gate, and resulting feedback in `DEVLOG.md`, and update `CURRENT.md` to the new validation state.
+- **Durable user-visible/project-state behavior changed** -> update `CHANGELOG.md` in present-state wording; remove or neutralize superseded implementation details from `[Unreleased]` rather than turning it into a historical diary.
+- **Display-version or formal-release target/boundary changed** -> update `docs/development/VERSIONING.md` and any public README/release wording that depends on it.
+- **Open PR purpose or acceptance boundary materially changed** -> update the PR title/body so it describes the current work rather than an earlier checkpoint.
+
+Mechanical sub-steps that do not change engineering state do not require separate records. The goal is continuous, accurate recovery context, not logging every file read or line edit.

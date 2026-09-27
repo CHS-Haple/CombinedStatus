@@ -11,6 +11,7 @@ STATUS_HOST_CAPTURE_PATH = ROOT / "app" / "src" / "main" / "kotlin" / "com" / "c
 NATIVE_STATUS_INVENTORY_PATH = ROOT / "app" / "src" / "main" / "kotlin" / "com" / "chaners" / "combinedstatus" / "xposed" / "SystemUiNativeStatusInventory.kt"
 NETWORK_STATE_SOURCE_PATH = ROOT / "app" / "src" / "main" / "kotlin" / "com" / "chaners" / "combinedstatus" / "xposed" / "SystemUiNetworkStateSource.kt"
 SCENE_STATE_SOURCE_PATH = ROOT / "app" / "src" / "main" / "kotlin" / "com" / "chaners" / "combinedstatus" / "xposed" / "SystemUiSceneStateSource.kt"
+BATTERY_STATE_SOURCE_PATH = ROOT / "app" / "src" / "main" / "kotlin" / "com" / "chaners" / "combinedstatus" / "xposed" / "SystemUiBatteryStateSource.kt"
 
 HEX_LENGTHS = {"md5": 32, "sha1": 40, "sha256": 64}
 
@@ -148,6 +149,79 @@ if scene_field.group(1) not in set(verified_fields.get(scene_class.group(1), [])
     fail("scene state source field is not verified in the SystemUI APK")
 
 
+
+battery_source_text = BATTERY_STATE_SOURCE_PATH.read_text(encoding="utf-8")
+battery_source_class = re.search(
+    r'BATTERY_ICON_VIEW_CLASS_NAME\s*=\s*\n?\s*"([^"]+)"',
+    battery_source_text,
+)
+if not battery_source_class:
+    fail("battery semantic source class constant is missing")
+
+battery_hook_constants = {
+    "batteryIconLevelChanged": "BATTERY_LEVEL_METHOD_NAME",
+    "batteryIconChargeStateChanged": "CHARGE_STATE_METHOD_NAME",
+    "batteryIconPowerSaveChanged": "POWER_SAVE_METHOD_NAME",
+    "batteryIconPerformanceModeChanged": "PERFORMANCE_METHOD_NAME",
+    "batteryIconMiuiOptimizationChanged": "MIUI_OPTIMIZATION_METHOD_NAME",
+}
+for hook_name, method_constant in battery_hook_constants.items():
+    hook_point = hook_points.get(hook_name)
+    if not isinstance(hook_point, dict):
+        fail(f"missing battery semantic hook point: {hook_name}")
+    if battery_source_class.group(1) != hook_point.get("className"):
+        fail(f"battery semantic source class drifted from profile: {hook_name}")
+    method_match = re.search(
+        rf'{method_constant}\s*=\s*"([^"]+)"',
+        battery_source_text,
+    )
+    if not method_match:
+        fail(f"battery semantic method constant is missing: {hook_name}")
+    if method_match.group(1) != hook_point.get("methodName"):
+        fail(f"battery semantic method drifted from profile: {hook_name}")
+
+battery_semantic_contract = profile.get("batterySemanticContract")
+if not isinstance(battery_semantic_contract, dict):
+    fail("missing batterySemanticContract")
+battery_semantic_class = battery_semantic_contract.get("className")
+if battery_semantic_class != battery_source_class.group(1):
+    fail("battery semantic contract class drifted from source")
+if battery_semantic_class not in verified_systemui:
+    fail("battery semantic contract class is not verified in the SystemUI APK")
+
+progress_status = battery_semantic_contract.get("progressStatusMethod")
+if not isinstance(progress_status, dict):
+    fail("battery semantic progressStatusMethod is missing")
+progress_signature = (
+    f"{progress_status.get('methodName', '')}"
+    f"{progress_status.get('descriptor', '')}"
+)
+if progress_signature not in set(verified_methods.get(battery_semantic_class, [])):
+    fail("battery semantic progress method is not verified in the SystemUI APK")
+if (
+    'getDeclaredMethod("getProgressStatus")'
+    not in battery_source_text.replace("\n", " ")
+):
+    # The source is formatted across lines; use a whitespace-tolerant check below.
+    if not re.search(
+        r'getDeclaredMethod\(\s*"getProgressStatus"\s*\)',
+        battery_source_text,
+    ):
+        fail("battery semantic source no longer reflects getProgressStatus")
+
+battery_semantic_fields = set(battery_semantic_contract.get("fields", []))
+verified_battery_fields = set(verified_fields.get(battery_semantic_class, []))
+if not battery_semantic_fields or not battery_semantic_fields.issubset(verified_battery_fields):
+    fail("battery semantic fields are not all verified in the SystemUI APK")
+source_required_fields = set(
+    re.findall(r'requiredField\("([^"]+)"\)', battery_source_text)
+)
+if not battery_semantic_fields.issubset(source_required_fields):
+    fail(
+        "battery semantic source fields drifted from profile: " +
+        ", ".join(sorted(battery_semantic_fields - source_required_fields))
+    )
+
 native_status_views = profile.get("nativeStatusViews", {})
 expected_native_roles = {"mobileNetwork", "wifi", "battery"}
 if set(native_status_views) != expected_native_roles:
@@ -215,5 +289,10 @@ print(
 )
 print(f"Runtime markers: {len(runtime_markers)}/{len(runtime_markers)}")
 print(f"Verified hook points: {len(hook_points)}/{len(hook_points)}")
+print(
+    "Battery semantic contract: "
+    f"{len(battery_semantic_fields)}/{len(battery_semantic_fields)} fields, "
+    "progress-status verified"
+)
 print(f"Native status views: {len(native_status_views)}/{len(native_status_views)}")
 print(f"Native status containers: {len(native_status_containers)}/{len(native_status_containers)}")
