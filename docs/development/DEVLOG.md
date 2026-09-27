@@ -3309,3 +3309,61 @@ The HyperOS Light / Dark / Tint `transformResId` presentation transformation is 
 ### Next
 
 Implement the direct-final-Drawable A/B as the next executable checkpoint, run source review + Fast CI + signed Work Branch Canary, then stop runtime changes for focused target-device comparison against Build 403 and Build 404. Do not mix the later Light / Dark / Tint resource-transform integration or Phase-2B shade work into that checkpoint.
+
+
+---
+
+## 2026-09-27 — Build 405: direct final-bounds native Drawable rendering
+
+**Type:** single-variable runtime rendering correction / post-review checkpoint  
+**Display version:** 0.0.2  
+**Build:** 405 / 20260927-405  
+**Runtime source:** `bf8091c8680dec7b85c58afded7f476ec95ca49d`  
+**CI:** pending  
+**Device validation:** pending
+
+### Change
+
+Build 405 removes the 96px optical-probe bitmap from the **final native-center presentation path** while preserving the rest of the Build-404 geometry/state contract.
+
+The native center asset cache now stores the module-owned cloned `Drawable` instead of a raster bitmap. The existing bounded raster probe remains only to extract optical bounds. Its pixels are never drawn to the status bar and the temporary bitmap is released in `finally` on success, invalid-resource exit, or exception.
+
+Final native-center drawing now:
+- applies the existing resolved center tint and opacity to the module-owned Drawable clone;
+- uses the same optical ratios, center position and resolved draw width/height as Build 404;
+- preserves the existing steady-state final-pixel bounds calculation;
+- draws the Drawable directly through Canvas transforms so VectorDrawable rasterization occurs at the final presentation transform rather than at a 96px source followed by bitmap resampling.
+
+### Intentionally unchanged
+
+- raw semantic resource ID consumed by Combined Status;
+- HyperOS Light / Dark / Tint `transformResId` integration is **not** added in this build;
+- center optical measurement algorithm and threshold;
+- center size and centering;
+- status-icon tint authority;
+- center-family transition contract;
+- outer ring/mobile geometry and weight;
+- Build-399 Battery arc partition;
+- Build-403 battery semantic state/color authority;
+- Home carrier, native suppression, reservation, lifecycle and fail-native behavior;
+- Phase-2B shade behavior.
+
+### Review
+
+- **Ownership:** cached Drawable is created from SystemUI resource `ConstantState` and `mutate()`d as a module-owned instance. No live native ImageView/Drawable is modified.
+- **Lifecycle:** cache remains painter-scoped and bounded to eight center assets. No hook/listener/observer ownership is added.
+- **Single writer:** only the module-owned clone receives tint/alpha/bounds writes; native View geometry, tint and visibility writers are unchanged.
+- **Cleanup:** the persistent rendered bitmap is removed. The measurement bitmap is unconditionally recycled through `try/finally`; cache eviction no longer owns bitmap recycling.
+- **Fail native / recovery:** existing resource-resolution failure returns the same native-center failure/fallback behavior. An exception during probe creation remains confined by the existing `runCatching` asset construction.
+- **Performance:** removes filtered bitmap resampling and retained bitmap memory for center assets. Drawable cloning happens only on cache miss; drawing reuses the cached clone rather than allocating per frame.
+- **Compatibility:** no new SystemUI private member, hook, resource identifier, reflection dependency or target-profile contract is introduced.
+- **Exception recovery:** probe bitmap cleanup is deterministic even if Drawable drawing or pixel extraction fails.
+- **Future extension:** direct final-bounds Drawable rendering naturally supports later center-size changes without stretching a pre-rasterized source; current custom-color seam can continue to tint the module-owned clone.
+
+### Validation gate
+
+Run Fast CI and signed Work Branch Canary for Build 405. If both pass, stop runtime changes and compare the exact Canary against Builds 403 and 404 on the target device.
+
+Primary acceptance question: does removing the intermediate raster/resample stage restore native-like edge coverage / antialiasing and apparent stroke weight **without** changing size, centering, tint, outer geometry or semantic battery colors?
+
+The verified HyperOS Light / Dark / Tint resource transformation remains the next separate rendering boundary only if Build 405 still leaves a state-dependent difference.
