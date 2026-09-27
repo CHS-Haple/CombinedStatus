@@ -3459,3 +3459,63 @@ Therefore the validated executable content remains exactly the frozen Build-405 
 - **Fail native / compatibility / performance:** unchanged from the frozen Build-405 runtime checkpoint.
 - **Validation meaning:** CI proves source/build/signing/metadata contract only; optical parity still requires focused target-device comparison.
 - **Next:** stop runtime changes and compare Build 405 against Builds 403 and 404 for native center edge coverage/antialiasing, apparent weight, size/centering, and unchanged outer geometry/tint. HyperOS Light/Dark/Tint resource-variant transformation remains a separate follow-up boundary only if a state-dependent mismatch survives.
+
+
+---
+
+## 2026-09-27 — Build 405 final Canary revalidation after summary escaping fix
+
+**Type:** CI process follow-up / final device-test artifact identity  
+**Display version:** 0.0.2  
+**Build:** 405 / 20260927-405  
+**Runtime source:** `bf8091c8680dec7b85c58afded7f476ec95ca49d`  
+**Validation:** passed; device A/B pending
+
+### Process follow-up
+
+After the first successful owner-comment validation (#332), PR #135 corrected Markdown backtick escaping in the Work Branch Canary source-summary output:
+
+- changed summary writes from interpolated `echo` lines containing raw backticks to `printf` with escaped Markdown backticks;
+- no source-resolution, trust, checkout, signing, test, metadata, non-debuggable, artifact, or runtime behavior changed;
+- `main` commit after the fix: `bddf1cff3deb4989d8fabfbeeec28440849d6a7d`;
+- PR #137 history-preserving back-synced the fix into `dev`.
+
+### Final Build 405 owner-comment revalidation
+
+A second exact `/canary` comment on PR #105 started Work Branch Canary #334 with the corrected default-branch workflow.
+
+#334:
+- resolved the live same-repository PR #105 source;
+- verified the checked-out source;
+- restored and verified Haple signing;
+- passed pinned HyperOS target-profile verification;
+- passed unit tests and Canary build;
+- passed Modern Xposed metadata checks;
+- passed Haple APK signature verification;
+- passed non-debuggable verification;
+- uploaded the signed Build-405 Canary artifact.
+
+Validated PR #105 head for #334: `b3092d42e428acb6d00a4e0c752459dc8ea64152`.
+
+Comparison from frozen runtime source `bf8091c8680dec7b85c58afded7f476ec95ca49d` to that validated head still contains only:
+- `docs/development/CURRENT.md`;
+- `docs/development/DEVLOG.md`.
+
+### Final artifact identity
+
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260927-405-canary.apk`
+- Actions artifact ID: `10929556081`
+- Artifact ZIP SHA-256: `4b3a37d9c83901743122294fa436380769a6c0f9cb5aba84e64632237a3771a9`
+- Extracted APK SHA-256: `17b8ed5783373ab37c4bf2ae3e8fda55ddff965e59a9c42d7c2ccb18efb4c566`
+
+The earlier #332 APK had SHA-256 `106fbfebe88a9e386f00f61271e38cc8f5999e5f43e086627c42d66985310203`. A ZIP-entry content comparison between #332 and #334 found:
+- identical entry set: 95 entries;
+- identical uncompressed content: 94 entries;
+- only differing entry: `META-INF/version-control-info.textproto`;
+- the only changed payload is the embedded Git revision, from `3cdfcc4db4bd5cd350e17400f2ed71d818b9c8d9` to `b3092d42e428acb6d00a4e0c752459dc8ea64152`.
+
+Therefore the overall APK/signature bytes differ because build provenance metadata differs, while classes/resources/runtime ZIP entries are unchanged.
+
+### Outcome
+
+Use the #334 artifact as the final Build-405 device-test package. Runtime remains frozen. No Light/Dark/Tint `transformResId` integration, Phase-2B scene work, or other runtime modification should occur until the focused device A/B result is returned.
