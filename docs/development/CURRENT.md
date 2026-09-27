@@ -132,14 +132,16 @@ Build 409's notification-shade implementation remains intact and is not reopened
 
 ## Immediate next step
 
-1. **Runtime freeze:** Build 410 / `20260927-410`, executable source `6e2fc55944753c6cb9ef22f537008c97217f17e1`.
-2. Use signed Work Branch Canary #377 artifact `10932655599`.
-3. Reproduce the exact Control Center gesture from the Build-409 video: begin from steady Home, shallow-pull Control Center, hold, return toward zero while still in transition, then fully release.
-4. Expected Control Center behavior: native `visible=true` immediately removes Home Combined Status and restores native presentation; Combined Status stays absent throughout outward/return motion and may return only after native `visible=false`.
-5. Separately verify notification-shade shallow pull/return still follows Build 409's semantic `expanded=false && tracking=false` boundary.
-6. Watch for any one-frame overlap, native+Combined Status double display, stale end reservation, delayed Home restoration, Hot Reload flash, or color/geometry regression.
-7. Do not modify runtime again until maintainer device feedback is recorded.
-8. After the Phase-2B scene gate is accepted, revisit the deferred battery-ring optical weight as a **separate ring-only A/B**; do not mix it into this candidate.
+1. Build one combined **Build 411** device candidate rather than splitting scene and visual work again.
+2. Keep Build-410 notification-shade + Control Center lifetime authorities unchanged.
+3. Split Home **owner structural readiness** from **overlay scene eligibility**:
+   - owner structural readiness: feature + model + tint + layout + attached host;
+   - overlay scene eligibility: unlocked Home + notification shade settled + Control Center not visible + no native handoff.
+4. Scene transitions must no longer deactivate/reactivate `SystemUiHomePresentationOwner`; they only hide/show the Home overlay while the Home owner keeps its mask/reservation session stable.
+5. Full owner teardown remains reserved for real structural failure, feature disable, host replacement/detach, fail-native, and Hot Reload cleanup.
+6. Visual A/B in the same Build 411: battery ring default stroke `7.5 -> 8.0`; keep the accepted mobile-dot radius and center geometry unchanged; let the existing lower-opening solver recompute ring-to-dot/dot-to-dot spacing.
+7. Add deterministic tests proving owner readiness is scene-independent while overlay visibility remains scene-gated, and proving the Build-411 ring/dot baseline.
+8. Run Fast CI + signed Canary, then freeze runtime for one combined device pass: panel transitions, notification/HUN behavior, and ring/endpoint/dot visual coordination.
 
 ## Reference priority
 
