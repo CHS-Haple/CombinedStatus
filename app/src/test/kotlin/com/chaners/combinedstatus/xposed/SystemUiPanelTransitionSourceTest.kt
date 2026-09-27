@@ -15,6 +15,22 @@ class SystemUiPanelTransitionSourceTest {
     }
 
     @Test
+    fun notificationShadeHomeEligibilityRequiresNativeClosedSemantics() {
+        assertEquals(true, SystemUiPanelTransitionSource.notificationShadeAllowsHome(false, false))
+        assertEquals(false, SystemUiPanelTransitionSource.notificationShadeAllowsHome(false, true))
+        assertEquals(false, SystemUiPanelTransitionSource.notificationShadeAllowsHome(true, false))
+        assertEquals(false, SystemUiPanelTransitionSource.notificationShadeAllowsHome(true, true))
+        assertEquals(false, SystemUiPanelTransitionSource.notificationShadeAllowsHome(null, false))
+        assertEquals(false, SystemUiPanelTransitionSource.notificationShadeAllowsHome(false, null))
+    }
+
+    @Test
+    fun runtimeHookCountKeepsControlCenterDiagnosticsOptional() {
+        assertEquals(1, SystemUiPanelTransitionSource.expectedHookCount(false))
+        assertEquals(3, SystemUiPanelTransitionSource.expectedHookCount(true))
+    }
+
+    @Test
     fun controlAnchorProbeOnlyUsesTransitionBoundaryBuckets() {
         assertEquals(true, SystemUiPanelTransitionSource.isBoundaryDiagnosticBucket(0))
         assertEquals(true, SystemUiPanelTransitionSource.isBoundaryDiagnosticBucket(1))
