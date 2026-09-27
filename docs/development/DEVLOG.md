@@ -4362,3 +4362,51 @@ Review:
 - **performance:** one Boolean snapshot, no additional callback or polling;
 - **compatibility:** no new reflection/private-field dependency;
 - **future extension:** Control Center remains separate and diagnostics-only in this checkpoint.
+
+
+---
+
+## 2026-09-27 — Build 409 source review: native notification-shade Home eligibility
+
+**Type:** Phase-2B runtime checkpoint / source review  
+**Display version:** 0.0.2  
+**Build:** 409 / 20260927-409  
+**Runtime source:** `08574da0abcf192ff59b0eb8fa94c818ca1221b9`  
+**Validation:** source review passed; CI/Canary and device acceptance pending
+
+### Runtime delta
+
+- Promote exactly one `ShadeExpansionStateManager.onPanelExpansionChanged(FZZ)V` hook from diagnostics-only use into the production runtime.
+- Keep the two Control Center expansion/visibility hooks diagnostics-only.
+- Derive Home notification-shade eligibility only from native `expanded=false && tracking=false`.
+- Route the eligibility into the existing Home render/readiness gate.
+- Keep fraction as read-only diagnostic/future projection progress; no numeric threshold is used.
+- Extend the classloader-neutral Hot Reload payload from v4 to v5 with one nullable Boolean containing the last observed native shade eligibility.
+- Restore that snapshot before the new-generation Home runtime attaches.
+- Promote the exact ShadeExpansionStateManager method into the pinned HyperOS compatibility profile.
+- Advance build identity to `20260927-409`.
+
+### Review
+
+- **Ownership:** SystemUI shade state manager remains scene/gesture authority; Combined Status consumes only native callback facts.
+- **Lifecycle:** one event-driven production callback; no new observer, timer or polling loop.
+- **Single writer:** the live callback owns eligibility updates; Hot Reload restoration is a one-time generation seed.
+- **Cleanup:** source reset clears the snapshot and existing Home presentation cleanup restores only module-owned masks/reservation.
+- **Fail native:** malformed/missing expanded/tracking values resolve Home-ineligible; unsupported surfaces remain native.
+- **Performance:** Boolean comparison + existing readiness transition only; no per-frame reflection or custom animation.
+- **Compatibility:** runtime dependency is now declared in the exact-target profile and SystemUI-Reference contract index.
+- **Exception recovery:** existing panel install failure path leaves Home replacement unable to rely on an unverified transition source rather than introducing fallback timing logic.
+- **Future extension:** native fraction remains available for a later real Home-to-shade projection without coupling this leak fix to geometry or animation.
+
+### Intentionally unchanged
+
+- Control Center presentation/projection;
+- shade Combined Status rendering;
+- steady Home carrier, masks, reservation and island inheritance;
+- Battery semantic-color policy and Build-408 visual baseline;
+- deferred ring/center/dot optical-weight polish;
+- keyguard/AOD behavior.
+
+### Validation gate
+
+Fast CI + signed Canary are required before device testing. Once a signed Build-409 Canary exists, runtime must freeze for the focused shade-lifetime scenarios.
