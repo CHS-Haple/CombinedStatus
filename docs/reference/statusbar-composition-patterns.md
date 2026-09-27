@@ -389,3 +389,22 @@ For Home monochrome tint resolution:
 - when no eligible visible peer exists, fall back to the native manager/global/cached authority rather than forcing a dark-mode refresh or inventing a color.
 
 This rule is especially important across module Hot Reload: represented native Views can temporarily retain presentation state that a full SystemUI recreation would rebuild, while neighboring visible SystemUI icons already reflect the current surface tint.
+
+
+## 14. Tint event trigger and visible Tint authority must share one snapshot
+
+Builds 415-417 establish that Home monochrome Tint has two distinct concepts that must not be conflated:
+
+- a **native event trigger** such as Battery `onDarkChangedInternal`;
+- the **visible Home status-icon authority** used to decide the monochrome direction of the composition.
+
+A trigger may be timely while a cached authority value is stale. Likewise, a valid status-icon authority observation can occur before a new renderer generation is attached. Combining values from different event generations produces a mixed-scene snapshot even when each individual value is valid.
+
+For Combined Status:
+- resolve the current visible Home status-icon Tint synchronously when committing a Battery-triggered renderer Tint update;
+- a status-icon observation updates only status-icon authority and must not replay unrelated Battery state;
+- after Hot Reload, transfer is a temporary visual-continuity seed only; fresh new-generation native authority supersedes transferred status Tint before visible ownership begins;
+- if live status-icon authority is unavailable, fail toward the current native Battery applied tint rather than reuse a stale embedded status-icon field;
+- do not add polling, delayed retries, forced DarkIcon refreshes, or a second native Tint writer to compensate for ordering.
+
+The exact-target SystemUI-Reference currently verifies the Home host/status-icon/Battery/scene contracts used by this path, but does **not** establish a stable `DarkIconDispatcher.addDarkReceiver/removeDarkReceiver` registration contract for this artifact. Therefore direct receiver registration is not introduced without separate DEX/runtime verification.

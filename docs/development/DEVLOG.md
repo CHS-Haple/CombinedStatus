@@ -57,6 +57,8 @@ Deterministic tests cover:
 - Deterministic test coverage was extended for this stale-embedded-status rejection.
 - Draft Light #1255 passed on runtime head `dda51a7efa93131ab9fe0203f3b4f42d6ee8f161`.
 - Final cleanup removes an unused one-shot Tint-log flag; Detailed diagnostics intentionally log each **changed** renderer Tint state because scene transitions are low-frequency, event-driven checkpoints rather than frame events.
+- Draft Light #1256 and #1257 both passed after the single-event/single-commit cleanup. Exact runtime/source head before this record-only closure: `c05d2ee3c094b3331135d66565771b67e7faf6cb`.
+- Exact-target SystemUI-Reference review found no verified stable `DarkIconDispatcher.addDarkReceiver/removeDarkReceiver` registration contract. Build 418 therefore deliberately reuses already-validated native events and live Home status-icon reads rather than widening the Hook/registration surface.
 
 ### Gate
 
