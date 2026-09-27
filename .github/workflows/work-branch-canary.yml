@@ -20,7 +20,7 @@ permissions:
   packages: read
 
 concurrency:
-  group: work-canary-${{ github.event.workflow_run.head_branch }}
+  group: work-canary-${{ github.event_name == 'workflow_dispatch' && inputs.source_branch || github.event.workflow_run.head_branch }}
   cancel-in-progress: true
 
 jobs:
