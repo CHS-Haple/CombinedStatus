@@ -40,7 +40,7 @@ Home -> shade / Control Center projection is **Phase 2B**. Keyguard / lockscreen
 - **Build 403 / `20260927-403`** established the current HyperOS battery semantic-color implementation. Runtime source: `97ef67e648906a4b9bb2ce4d7dd390e955831189`.
 - **Build 404 / `20260927-404`** is a completed but **device-rejected optical-parity A/B checkpoint**. Runtime source: `614c6ae96f1753088e21ce3568d969b900852081`. It removed percentile alpha remapping while retaining the existing bitmap-probe rendering path; target-device feedback shows the center presentation is visually worse than Build 403, so authored-alpha preservation alone is not an accepted fix.
 - **Build 405 / `20260927-405`** is a completed but **device-rejected direct-final-Drawable optical-parity A/B checkpoint**. Runtime source: `bf8091c8680dec7b85c58afded7f476ec95ca49d`. It removed the intermediate final-presentation bitmap/resample stage, but target-device screenshots still show the native center glyph materially lighter/lower-opacity than neighboring native status icons across light and dark surfaces. The direct-Drawable mechanism remains preferable to the superseded bitmap presentation path, but it is not sufficient for parity by itself.
-- **Build 406 / `20260927-406`** is the current signed device-test candidate. Runtime source: `3d5e9d2339824c6d19e50dda170917559369135b`. When the user explicitly makes the center follow the battery color, native center resources now resolve the verified HyperOS `_tint` mask variant when available before applying that custom/semantic color. Work Branch Canary #335 passed all gates and produced artifact `10929711688`; runtime is now frozen pending focused device A/B. The ordinary center-follow-status-icon path is intentionally unchanged in this checkpoint.
+- **Build 406 / `20260927-406`** is a completed but **device-rejected tint-variant A/B checkpoint**. Runtime source: `3d5e9d2339824c6d19e50dda170917559369135b`. Work Branch Canary #335 passed all CI/signing gates, but target-device evidence shows the center Wi-Fi glyph remains optically lighter/lower-coverage than the outer ring **even when `centerFollowsBatteryColor=false`**. Therefore the Build-406 hypothesis that the remaining defect was confined to the custom/battery-color tint branch is rejected.
 - Build 406 trusted validation: owner `/canary` Work Branch Canary #335 **succeeded**. Validated PR head `80f371784ffaee406dd6ea5728219eeee5913318` differs from the frozen runtime source only in `CURRENT.md` and `DEVLOG.md`, so executable content remains exactly Build 406. Artifact `10929711688`; artifact ZIP digest `sha256:c7af997217acd171c66beb860d7212c0d72fd672a38978f7b5c2eb5a524f11ba`; extracted APK SHA-256 `e086d8914fece7ba8ea86200756f4a6366d56dadaa5510846618a4077e6ddd80`.
 - Documentation-only commits may advance PR #105 beyond the Build-405 runtime source without creating a new runtime Build; runtime identity remains the Build/source pair above until executable source changes.
 
@@ -64,21 +64,21 @@ Build 404 validation:
 
 ### Visual intensity / optical parity — open
 
-Build 405 target-device feedback is **negative**: removing the final bitmap/resample stage did not close parity. Across the supplied light and dark screenshots, the Combined Status center Wi-Fi glyph remains visibly lower-opacity/lighter than neighboring native status icons. This is strong device evidence that the remaining mismatch is not explained solely by the former 96px intermediate raster path.
+Build 406 target-device feedback is **negative** and corrects the previous narrow diagnosis. The center native Wi-Fi glyph remains visibly lighter / lower-coverage than the outer ring and neighboring native status icons even with **center follows battery color disabled**. Therefore the remaining mismatch is not confined to the custom semantic-color branch and cannot be closed by selecting the native `_tint` sibling only when custom coloring is enabled.
 
-The verified native presentation contract now becomes the next root-cause boundary:
-- HyperOS keeps the raw semantic resource ID separate from the final presentation resource;
-- `MiuiStatusBarIconViewHelper.transformResId(rawResId, useTint, isLight)` selects Tint / Light / Dark resource variants;
-- tint mode applies the current ImageView tint to the Tint variant;
-- non-tint Light/Dark modes clear image tint and let the selected authored resource own its color/alpha;
-- Build 405 still resolves the raw native resource and applies the Combined Status center tint uniformly, so it does not yet reproduce that full presentation branch.
+Pixel inspection of the supplied screenshot supports two separate observations:
+- on the light embedded Settings surface, the darkest center and ring pixels are similar, but the center's overall gray distribution is lighter, consistent with lower optical coverage / antialias weight rather than only a different flat tint value;
+- on the live dark status bar, the center's brightest core is materially dimmer than the outer ring, so source/presentation alpha remains state-dependent as well.
+
+Build-403 history is therefore relevant again as evidence, not as an implementation to restore blindly. Build 403 used an 85th-percentile source-alpha ceiling and normalized the rasterized native-center mask before final tint. Build 404 removed that normalization and visibly regressed. Builds 405/406 removed the final bitmap-resample path / added one tint-resource branch, but did not recover parity. The current interpretation is that Build 403's normalization was compensating a real **final native presentation / optical-coverage mismatch** that still exists in the direct-Drawable path.
 
 Current boundary:
-- keep Build 405's direct final-bounds Drawable rendering and measurement-only raster probe; do **not** return to the rejected bitmap-as-final-asset path;
-- keep native status-icon tint/state authority; do not add opacity multipliers, replacement grays, source alpha edits, percentile remaps, or screenshot-fitted constants;
-- Build 406 narrows the next A/B to the exact failing configuration shown by device evidence: when the center is intentionally recolored to follow the battery, use the native opaque `_tint` mask variant before applying that color;
-- do not infer a complete Light/Dark state machine from incomplete Battery tint fields. The default center-follow-status-icon branch remains unchanged until a later A/B is justified;
-- center size/position, ring/mobile geometry, semantic battery colors, Home carrier and Phase-2B scene behavior remain unchanged for this A/B.
+- do **not** reinstate Build-403 percentile normalization as the final solution without locating the native responsibility it was compensating;
+- do **not** add opacity multipliers, per-glyph gray constants, screenshot-fitted thresholds or source-asset edits;
+- do **not** treat `centerFollowsBatteryColor` as the root boundary; both enabled and disabled states are affected;
+- next investigation must compare the module's current center Drawable against the **already-rendered native Wi-Fi ImageView presentation after HyperOS has selected its final resource/tint branch**, so the module does not infer Light/Dark/Tint state independently;
+- preserve Build-405 direct final-bounds Drawable rendering as the cleaner rendering baseline while investigating the presentation source;
+- center geometry, battery semantic colors, Home carrier/spacing and Phase-2B behavior remain out of scope for this root-cause pass.
 
 ### Battery semantic colors — implemented, device acceptance still open
 
@@ -111,13 +111,12 @@ A shallow notification-shade pull / final held-return frame can still leave the 
 
 ## Immediate next step
 
-1. **Runtime freeze:** Build 406 / `20260927-406` source `3d5e9d2339824c6d19e50dda170917559369135b`. Do not add runtime changes before maintainer device feedback.
-2. Use Work Branch Canary #335 artifact `10929711688` for the focused A/B. CI passed source checkout verification, wrapper/API setup, target-profile validation, tests/build, Xposed metadata, Haple signature and non-debuggable checks.
-3. Test with **center follows battery color enabled**, first on a light surface and then on a dark surface.
-4. Acceptance question: does the center glyph now match the apparent opacity/weight of the battery ring/native peers without changing size, centering, outer geometry or Home spacing?
-5. Also verify one battery-semantic transition (for example charging or another available mode) still recolors the center and ring together.
-6. If Build 406 still fails, record the device evidence before touching runtime; investigate the remaining final native presentation state rather than adding alpha/grayscale compensation.
-7. Only after optical/color closure move to the Phase-2B shallow-shade scene-boundary leak.
+1. Record Build 406 as device-rejected for optical parity; CI success remains valid process evidence only.
+2. Re-read the exact Build-403 alpha-normalization implementation and compare it against Builds 404-406 to identify what visual property it compensated.
+3. Prefer the already-existing native Wi-Fi binder/ImageView lifecycle as the next evidence source: inspect/capture the final native drawable/tint presentation **after** HyperOS applies its own resource transformation, without adding a parallel Light/Dark state machine.
+4. Review whether that final native presentation can be mirrored into a module-owned clone through the existing Wi-Fi event hook, with no new polling/listener and no mutation of the native View.
+5. Only after that review, implement one bounded next A/B. Do not change geometry, Home ownership, battery semantic policy or Phase-2B scene handling in the same checkpoint.
+6. Stop again for device validation as soon as a signed Canary exists.
 
 ## Reference priority
 
