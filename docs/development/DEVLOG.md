@@ -6857,3 +6857,49 @@ CI is now **checkpoint-driven rather than commit-driven**:
 Repository memory remains mandatory. A later documentation-only closure commit records the completed checkpoint but does not advance application Build identity merely because GitHub executes a Light repository check for that commit.
 
 The current runtime development baseline remains **Build 412**. This automation/governance change does not resolve or alter the separate notification/HUN native-status fallback investigation.
+
+
+---
+
+## 2026-09-28 — Build 422 device rejection — Notification Shade edge persists
+
+**Type:** device feedback / rejected runtime checkpoint  
+**Build:** 422 / `20260928-422`  
+**Signed Canary:** Work Branch Canary #412 / run `36357295818`  
+**Exact tested runtime head:** `f5cfbc87c819a776a5476f3ea1e5817b9c776d86`  
+**Runtime code after this record:** unchanged
+
+### Device feedback
+
+The maintainer reports that the Notification Shade problem still reproduces on Build 422 and supplied:
+- `1000034090.mp4`;
+- `CombinedStatus-Diagnostic-20260928-422-20260928-070916.txt`;
+- `LSPosed_20260928_071003.zip`.
+
+The Detailed report identifies `version=0.0.2`, `build=20260928-422`, `buildType=canary`, and `channel=canary`. Runtime health is healthy. The `panelTransition` source reports `expectedHooks=3 hooks=3`, with Notification runtime and Control Center hooks installed. Therefore the reproduction is not classified as a stale-install or missing-hook failure.
+
+### Previous hypothesis status
+
+Build 422 removed Battery scene state / `KeyguardManager` from Home visibility authority so Home visibility would be controlled by the native host plus panel coordinator. Device evidence now shows that this correction is **not sufficient** to remove the remaining Notification-Shade first/last-frame defect.
+
+This does not reinstate the rejected Build-421 Battery/Keyguard inference. That path remains rejected.
+
+### Root-cause boundary reopened
+
+Before another runtime edit:
+1. correlate screen-recording frames with Detailed + LSPosed event ordering;
+2. inspect the exact-target SystemUI reference for every writer that can affect Home host/native status presentation around shade open/close;
+3. determine whether the project shade callback is late relative to a different native owner, or whether Home overlay visibility is correct but the underlying host/native masking lifecycle changes independently;
+4. preserve accepted Build-420 Control Center projection unless evidence proves a regression.
+
+### Review / constraints
+
+- **Ownership:** unresolved; do not add another visibility writer until the remaining native/project writer is identified.
+- **Lifecycle:** no new listener/hook in this record.
+- **Single writer:** Build 422 remains evidence; no competing writer is reintroduced.
+- **Cleanup:** unchanged.
+- **Fail-native:** unchanged.
+- **Performance:** no runtime change.
+- **Compatibility:** pinned target remains SystemUI `17.03.260226.r`.
+- **Forbidden workaround path:** no delays, epsilon thresholds, timers, polling, per-frame followers, or geometry compensation.
+- **Build identity:** remains Build 422 because this commit is record-only.
