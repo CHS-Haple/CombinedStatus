@@ -13,20 +13,34 @@ on:
         description: 'Trusted same-repository feat/* or fix/* branch to validate'
         required: true
         type: string
+  issue_comment:
+    types: [created]
 
 permissions:
   actions: read
   contents: read
+  issues: read
   packages: read
+  pull-requests: read
 
 concurrency:
-  group: work-canary-${{ github.event_name == 'workflow_dispatch' && inputs.source_branch || github.event.workflow_run.head_branch }}
+  group: >-
+    work-canary-${{
+      github.event_name == 'workflow_dispatch' && inputs.source_branch ||
+      github.event_name == 'issue_comment' && github.event.issue.number ||
+      github.event.workflow_run.head_branch
+    }}
   cancel-in-progress: true
 
 jobs:
   canary:
     if: >-
-      (github.event_name == 'workflow_dispatch' && github.actor == github.repository_owner) ||
+      (github.event_name == 'workflow_dispatch' &&
+       github.actor == github.repository_owner) ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       github.event.comment.body == '/canary' &&
+       github.actor == github.repository_owner) ||
       (github.event_name == 'workflow_run' &&
        github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.event == 'pull_request' &&
@@ -41,55 +55,100 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
-      - name: Checkout tested work-branch SHA
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-        with:
-          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.source_branch || github.event.workflow_run.head_sha }}
-          fetch-depth: 0
-          persist-credentials: false
-
       - name: Resolve trusted source
+        id: source
         shell: bash
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           EVENT_NAME: ${{ github.event_name }}
           AUTO_SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
           AUTO_SOURCE_BRANCH: ${{ github.event.workflow_run.head_branch }}
           MANUAL_SOURCE_BRANCH: ${{ inputs.source_branch }}
+          COMMENT_PR_NUMBER: ${{ github.event.issue.number }}
         run: |
           set -euo pipefail
-          resolved_sha="$(git rev-parse HEAD)"
 
-          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
-            branch="$MANUAL_SOURCE_BRANCH"
-            if [[ "$branch" != feat/* && "$branch" != fix/* ]]; then
-              echo "::error::Manual Canary source must be a feat/* or fix/* branch, got: $branch"
+          case "$EVENT_NAME" in
+            workflow_run)
+              branch="$AUTO_SOURCE_BRANCH"
+              source_sha="$AUTO_SOURCE_SHA"
+              ;;
+            workflow_dispatch)
+              branch="$MANUAL_SOURCE_BRANCH"
+              if [[ "$branch" != feat/* && "$branch" != fix/* ]]; then
+                echo "::error::Manual Canary source must be a feat/* or fix/* branch, got: $branch"
+                exit 1
+              fi
+              source_sha="$(
+                git ls-remote "https://github.com/$GITHUB_REPOSITORY.git" "refs/heads/$branch" |
+                  awk 'NR == 1 { print $1 }'
+              )"
+              if [[ -z "$source_sha" ]]; then
+                echo "::error::Requested source branch does not exist in this repository: $branch"
+                exit 1
+              fi
+              ;;
+            issue_comment)
+              pr_json="$(gh api "repos/$GITHUB_REPOSITORY/pulls/$COMMENT_PR_NUMBER")"
+              pr_state="$(jq -r '.state' <<<"$pr_json")"
+              head_repo="$(jq -r '.head.repo.full_name // empty' <<<"$pr_json")"
+              branch="$(jq -r '.head.ref // empty' <<<"$pr_json")"
+              source_sha="$(jq -r '.head.sha // empty' <<<"$pr_json")"
+
+              if [[ "$pr_state" != "open" ]]; then
+                echo "::error::Comment-triggered Canary requires an open pull request."
+                exit 1
+              fi
+              if [[ "$head_repo" != "$GITHUB_REPOSITORY" ]]; then
+                echo "::error::Comment-triggered Canary accepts same-repository pull requests only."
+                exit 1
+              fi
+              ;;
+            *)
+              echo "::error::Unsupported trigger: $EVENT_NAME"
               exit 1
-            fi
-            remote_sha="$(git rev-parse "origin/$branch")"
-            if [[ "$resolved_sha" != "$remote_sha" ]]; then
-              echo "::error::Checked-out SHA does not match the requested remote branch head."
-              exit 1
-            fi
-          else
-            branch="$AUTO_SOURCE_BRANCH"
-            if [[ "$branch" != feat/* && "$branch" != fix/* ]]; then
-              echo "::error::Automatic Canary source must be a feat/* or fix/* branch, got: $branch"
-              exit 1
-            fi
-            if [[ "$resolved_sha" != "$AUTO_SOURCE_SHA" ]]; then
-              echo "::error::Checked-out SHA does not match successful upstream Build SHA."
-              exit 1
-            fi
+              ;;
+          esac
+
+          if [[ "$branch" != feat/* && "$branch" != fix/* ]]; then
+            echo "::error::Canary source must be a feat/* or fix/* branch, got: $branch"
+            exit 1
+          fi
+          if [[ ! "$source_sha" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Could not resolve a valid source SHA."
+            exit 1
           fi
 
-          echo "TRUSTED_SOURCE_SHA=$resolved_sha" >> "$GITHUB_ENV"
-          echo "TRUSTED_SOURCE_BRANCH=$branch" >> "$GITHUB_ENV"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          echo "sha=$source_sha" >> "$GITHUB_OUTPUT"
           {
             echo "### Trusted source"
             echo "- Trigger: `$EVENT_NAME`"
             echo "- Source branch: `$branch`"
-            echo "- Resolved SHA: `$resolved_sha`"
+            echo "- Resolved SHA: `$source_sha`"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Checkout tested work-branch SHA
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ steps.source.outputs.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify checked-out source
+        shell: bash
+        env:
+          EXPECTED_SOURCE_SHA: ${{ steps.source.outputs.sha }}
+          EXPECTED_SOURCE_BRANCH: ${{ steps.source.outputs.branch }}
+        run: |
+          set -euo pipefail
+          resolved_sha="$(git rev-parse HEAD)"
+          if [[ "$resolved_sha" != "$EXPECTED_SOURCE_SHA" ]]; then
+            echo "::error::Checked-out SHA does not match the resolved trusted source."
+            exit 1
+          fi
+          echo "TRUSTED_SOURCE_SHA=$resolved_sha" >> "$GITHUB_ENV"
+          echo "TRUSTED_SOURCE_BRANCH=$EXPECTED_SOURCE_BRANCH" >> "$GITHUB_ENV"
 
       - name: Validate Gradle Wrapper
         uses: gradle/actions/wrapper-validation@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.3
