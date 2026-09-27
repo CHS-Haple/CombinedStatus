@@ -119,6 +119,13 @@ Build 422 selects a narrower ownership model:
 - Control Center handoff remains coordinator-owned and unchanged from accepted Build 420;
 - Keyguard/AOD remain separate native surfaces for Phase 3 and are not inferred from the Home Battery state.
 
+**Build 422 device rejection — Notification Shade edge persists:**
+- Maintainer device validation on Xiaomi 15 Pro / HyperOS SystemUI `17.03.260226.r` reports that the Notification Shade first/last-frame problem still reproduces on the signed Build 422 Canary.
+- Supplied Build-422 Detailed diagnostics confirm the expected Canary identity and that `panelTransition` installed all 3 expected hooks; this is therefore not treated as a stale APK or hook-install failure.
+- The Build-422 hypothesis that removing Battery scene-state as the extra Home visibility writer would eliminate the remaining edge defect is rejected as sufficient.
+- Build 420 Control Center projection remains independently accepted unless the new evidence demonstrates a regression.
+- Runtime work is reopened at the ownership/ordering investigation boundary. Do not add delay/epsilon/timer/polling/geometry compensation; correlate the supplied video, Detailed diagnostics, and LSPosed log against the native shade callback ordering before choosing the next change.
+
 ## Non-negotiable boundaries
 
 - Home and the Build-420 Control Center projection are the currently runtime-verified Combined Status rendering surfaces; Notification Shade, Keyguard, and AOD remain native-only.
@@ -149,12 +156,11 @@ Build 422 selects a narrower ownership model:
 
 ## Immediate next step
 
-1. Runtime is frozen at Build 422 / `20260928-422`; do not modify production code while device validation is pending.
-2. Install signed Canary `CombinedStatus-0.0.2-HyperOS-20260928-422-canary.apk` built from exact tested head `f5cfbc87c819a776a5476f3ea1e5817b9c776d86`.
-3. Validate Notification-Shade first/last-frame continuity with one normal pull-down and return-up cycle.
-4. Perform a quick Control Center open/close regression check; accepted Build-420 projection behavior should remain unchanged.
-5. Lock and unlock once to confirm the Home-host-scoped overlay does not leak into the separate Keyguard host. This is a smoke test only; Phase 3 Keyguard/AOD implementation is not started.
-6. Export Detailed diagnostics and, if the edge issue is visible, a short screen recording. Record maintainer feedback in CURRENT/DEVLOG before any further runtime change.
+1. Build 422 / `20260928-422` is device-rejected for the remaining Notification-Shade first/last-frame continuity defect; keep its runtime source frozen as evidence.
+2. Correlate the maintainer's Build-422 screen recording, Detailed diagnostics, and LSPosed log on one timeline to identify the remaining Home/shade ownership or ordering source.
+3. Re-check the exact-target SystemUI reference around `ShadeExpansionStateManager`, status-bar host visibility/alpha, and any callback that can change Home/native icon presentation before or after the project shade fraction callback.
+4. Preserve accepted Build-420 Control Center projection unless the new evidence proves a Control Center regression.
+5. Only after the responsible source is identified, implement one bounded runtime change, perform explicit ownership/lifecycle/single-writer/cleanup/fail-native/performance/compatibility review, then create the next Build checkpoint.
 
 Signed checkpoint: Ready Full #1301 / run `36357104464` succeeded. Work Branch Canary #412 / run `36357295818` succeeded with trusted source SHA `f5cfbc87c819a776a5476f3ea1e5817b9c776d86`, artifact `10944007922`, ZIP digest `sha256:78df112998aa2d38b4b4b24e93b78e2c7d90480d44ba89912d825f593418dd01`, APK size `3309602` bytes, and extracted APK SHA-256 `6d1bcab45ccf01ba3d0110eae2e7b9be5e00a3dc04ae994e308645d144cf5e7e`.
 ## Reference priority
