@@ -4572,3 +4572,74 @@ Re-run Fast CI after the assertion correction. A signed Canary remains required 
 **Runtime is frozen at Build 409.**
 
 The next required evidence is maintainer device validation of the notification-shade lifetime boundary. Do not add Control Center projection, shade rendering, timing compensation, geometry/color changes, or any other runtime change before that result.
+
+
+---
+
+## 2026-09-27 — Build 409 device rejection: unresolved path is Control Center
+
+**Type:** device evidence / root-cause correction  
+**Build under test:** 409 / 20260927-409  
+**Executable source:** `4ab7b490617757e34c0ea8e0b59e3d7a16bae9ad`  
+**Result:** notification-shade gate observed working; overall shallow-pull issue not solved
+
+### Evidence
+
+The maintainer supplied:
+- a six-second device recording reproducing the visible overlap/leak;
+- `CombinedStatus-Diagnostic-20260927-409-20260927-202347.txt`.
+
+The recording shows a transition interval where native Wi-Fi/mobile/battery presentation has already entered while the Home Combined Status remains visible.
+
+The matching diagnostics identify that transition as Control Center:
+- `panelTransition source=control-center ... visible=true` begins before fraction progress and persists through the outward/return motion;
+- fractions traverse roughly 0.12 -> 0.50 -> 0.12 while `visible=true`;
+- the native callback finally emits `visible=false` only after the Control Center transition has settled;
+- Build 409 emits no Home readiness/eligibility change for those Control Center updates because both callbacks were deliberately diagnostics-only.
+
+Separately, later notification-shade evidence shows Build 409 can drive:
+`homeRenderShadeEligibility ... homeEligible=false` ->
+`homeRenderReadiness ... ready=false` ->
+`homeRenderHandoff nativeActive=true overlayVisible=false` ->
+Home presentation cleanup/restoration.
+
+Therefore the remaining failure is **not** that the Home cleanup transaction ignores a false eligibility. The missing responsibility is the Control Center lifetime fact.
+
+### Root cause / responsibility source
+
+Build 409 modeled:
+
+`Home eligibility = unlocked surface && notification shade settled`
+
+but the actual SystemUI has another independent end-side transition owner:
+
+`ControlCenterExpandControllerDelegate.onVisibleChanged(boolean)`.
+
+Because that fact was diagnostics-only, Control Center could own the status-bar transition while Combined Status still considered Home eligible.
+
+### Selected Build-410 correction
+
+- production runtime authorities:
+  1. notification shade semantic CLOSED: `expanded=false && tracking=false`;
+  2. Control Center not visible: `visible=false`;
+- keep Control Center `onExpansionChanged(float)` diagnostics/read-only only;
+- no fraction threshold;
+- route both booleans into the existing Home readiness / cleanup transaction;
+- Hot Reload transfers both last-known nullable eligibility facts;
+- exact-target profile must verify `ControlCenterExpandControllerDelegate.onVisibleChanged(Z)V`;
+- if either required runtime authority fails installation, Home Combined Status fails native.
+
+### Review
+
+- **Ownership:** each SystemUI scene callback owns its own lifetime fact; Combined Status composes them, it does not invent progress state.
+- **Lifecycle:** one additional existing event callback becomes production-relevant; no observer/poll/timer is added.
+- **Single writer:** notification callback writes notification eligibility; Control Center visibility callback writes Control Center eligibility; the Home session only consumes both.
+- **Cleanup:** unchanged existing Home cleanup restores exact module-owned mask/reservation state.
+- **Fail native:** missing runtime scene authority disables Home replacement rather than leaving a stationary overlay across an unknown transition.
+- **Performance:** Boolean event gate only.
+- **Compatibility:** exact-target method moves from diagnostic evidence to declared runtime profile contract.
+- **Future extension:** Control Center fraction remains available for later draw-only projection without being repurposed as an eligibility threshold.
+
+### Gate
+
+Implement and validate Build 410 before any projection or animation work.
