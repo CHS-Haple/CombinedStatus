@@ -27,12 +27,29 @@ class SystemUiSceneStateSourceTest {
     }
 
     @Test
-    fun homeOverlayFailsClosedOutsideUnlockedStatusBar() {
-        assertTrue(
-            SystemUiSceneStateSource.allowsHomeOverlay(
-                SystemUiSceneStateSource.Surface.UNLOCKED_STATUS_BAR,
-            ),
+    fun runtimeKeyguardRequiresPlatformKeyguardProof() {
+        assertEquals(
+            SystemUiSceneStateSource.Surface.KEYGUARD,
+            SystemUiSceneStateSource.resolveSurface(1, true),
         )
+        assertEquals(
+            SystemUiSceneStateSource.Surface.TRANSIENT_PANEL,
+            SystemUiSceneStateSource.resolveSurface(1, false),
+        )
+        assertEquals(
+            SystemUiSceneStateSource.Surface.UNKNOWN,
+            SystemUiSceneStateSource.resolveSurface(1, null),
+        )
+    }
+
+    @Test
+    fun homeOverlayAllowsUnlockedAndTransientPanelOnly() {
+        listOf(
+            SystemUiSceneStateSource.Surface.UNLOCKED_STATUS_BAR,
+            SystemUiSceneStateSource.Surface.TRANSIENT_PANEL,
+        ).forEach { surface ->
+            assertTrue(SystemUiSceneStateSource.allowsHomeOverlay(surface))
+        }
         listOf(
             SystemUiSceneStateSource.Surface.KEYGUARD,
             SystemUiSceneStateSource.Surface.SHADE_LOCKED,
