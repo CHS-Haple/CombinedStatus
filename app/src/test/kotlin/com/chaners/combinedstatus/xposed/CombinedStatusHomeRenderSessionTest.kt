@@ -12,6 +12,7 @@ class CombinedStatusHomeRenderSessionTest {
                 featureEnabled = true,
                 sceneAllowsOverlay = true,
                 notificationShadeAllowsHome = true,
+                controlCenterAllowsHome = true,
                 nativeHandoffActive = false,
             ),
         )
@@ -21,6 +22,7 @@ class CombinedStatusHomeRenderSessionTest {
                 featureEnabled = true,
                 sceneAllowsOverlay = true,
                 notificationShadeAllowsHome = false,
+                controlCenterAllowsHome = true,
                 nativeHandoffActive = false,
             ),
         )
@@ -33,6 +35,7 @@ class CombinedStatusHomeRenderSessionTest {
                 featureEnabled = false,
                 sceneAllowsOverlay = true,
                 notificationShadeAllowsHome = true,
+                controlCenterAllowsHome = true,
                 nativeHandoffActive = false,
             ),
         )
@@ -41,6 +44,7 @@ class CombinedStatusHomeRenderSessionTest {
                 featureEnabled = true,
                 sceneAllowsOverlay = false,
                 notificationShadeAllowsHome = true,
+                controlCenterAllowsHome = true,
                 nativeHandoffActive = false,
             ),
         )
@@ -49,6 +53,7 @@ class CombinedStatusHomeRenderSessionTest {
                 featureEnabled = true,
                 sceneAllowsOverlay = true,
                 notificationShadeAllowsHome = true,
+                controlCenterAllowsHome = true,
                 nativeHandoffActive = true,
             ),
         )
