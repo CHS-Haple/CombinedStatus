@@ -10,7 +10,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Integration branch: `dev`
 - Integration runtime baseline: Build 413, commit `2aa6833cfca69a59af5027a7855b7d8282dbade9`
 - Build 413 / `20260927-413` is the current device-accepted, Integration-validated, and `main`-promoted runtime baseline.
-- Active corrective work: `fix/hot-reload-tint-continuity`. Build 414 device diagnostics exposed a Hot Reload-only inversion/tint continuity defect; full SystemUI restart restores correct tint. No fix Build has been created yet.
+- Active corrective work / PR: `fix/hot-reload-tint-continuity` / Draft #148. Build 415 / `20260928-415` is the runtime fix candidate for the Hot Reload-only inversion/tint continuity defect exposed by Build 414.
 - Repository-automation baseline: checkpoint-driven CI from PR #139 remains active; Canary admission hardening and bounded automation-only merge delegation were accepted on `main` via PR #143 (`a1aed8b6451d1018f46e252166545d67f48fe8e4`) and history-preserving back-synced into `dev` via PR #144 (`faaa12b1c8e955138d2ce8d51fb481263b4d7570`). These automation changes do **not** create a new runtime Build.
 - Phase-2A integration: PR #105 merged to `dev` as `2f584c3b393dc5ee606284426aa95a9d6beae5d5`; former stacked PR #100 is closed as superseded.
 - Phase-2B panel/scene-owner integration: PR #138 merged to `dev` as `a25cb5ce2aeab235cfaed579474df70596f03a63`.
@@ -154,11 +154,11 @@ Build 409's notification-shade implementation remains intact and is not reopened
 ## Immediate next step
 
 1. Keep Build 413 / `20260927-413` as the stable/runtime baseline on `main` and `dev`.
-2. Resolve the Hot Reload-only tint continuity defect on `fix/hot-reload-tint-continuity` before resuming panel-projection runtime work.
-3. Preserve the last accepted native-derived Combined Status tint across the classloader-generation handoff using primitive/classloader-neutral transfer data. The transferred tint is continuity state only; the first new native tint event must supersede it.
-4. Do not use delays, polling, forced dark-mode refresh, synthetic colors, or a second tint authority.
-5. Keep cold-start behavior unchanged and keep older Hot Reload payload versions backward-compatible; missing/invalid transferred tint falls back to current native re-observation.
-6. After the tint fix is device-accepted and integrated, refresh Draft PR #146 from the new `dev` baseline and continue bounded panel target-host discovery.
+2. Validate **Build 415 / `20260928-415`** on Draft PR #148. It preserves the last accepted native-derived Combined Status tint across same/new Hot Reload generations using primitive transfer state.
+3. For legacy payloads such as the current Build-414 -> Build-415 first upgrade, where the old generation cannot transfer tint, the new generation must **not** seed from the handoff-time live Battery TextView. Keep native presentation active until the first new native tint event establishes `tintReady`.
+4. Cold-start behavior remains unchanged. No delay, polling, forced dark-mode refresh, synthetic color, or second tint authority is allowed.
+5. After automated validation, request one signed Canary and reproduce the exact device path: install over Build 414 -> Hot Reload only -> observe tint without restarting SystemUI -> export Detailed diagnostics.
+6. Only after Build 415 is device-accepted and integrated should Draft PR #146 be refreshed from `dev` and panel-projection work resume.
 
 ## Reference priority
 
