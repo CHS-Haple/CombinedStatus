@@ -2,6 +2,41 @@
 
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
+## 2026-09-28 — Build 413 stable promotion to main
+
+**Type:** stable-baseline promotion closure
+**Display version:** 0.0.2
+**Runtime build:** 413 / `20260927-413`
+**Promotion PR:** #147
+**Validated dev candidate:** `36ce04011f0a1fb2c5dd185d911b639bb1787408`
+**Main promotion merge:** `3114ade06bcb4846a5654a70f38ea572f5b47b37`
+
+### Promotion evidence
+
+- Build 413 was already focused-device accepted for the HUN disappearance and the preserved shallow-pull scene boundary.
+- PR #142 integrated the accepted runtime into `dev` as `2aa6833cfca69a59af5027a7855b7d8282dbade9`.
+- Trusted Integration Build #1200 / run `36337302873` passed.
+- The two commits after that runtime integration point changed only `CURRENT.md` and `DEVLOG.md`; no APK/runtime path changed before promotion.
+- `validation/dev` was advanced to the exact dev candidate only after maintainer device acceptance. Promotion readiness then reported **READY: dev is CI-green and device-validated**.
+- Promotion PR #147 was created from that exact candidate and contained no new engineering delta.
+- Stable-boundary Full Build #1213 passed before merge.
+- PR #147 was merged to `main` with the required merge commit.
+- Post-merge `Push on main` #59 and main Full Build #1214 both passed.
+
+### 审查 / review
+
+- **Scope:** promotion contains the accepted Build-413 dev state only.
+- **Runtime:** no new runtime code was introduced on the promotion branch.
+- **Device evidence:** current and exact for the runtime candidate; no runtime-affecting delta existed after the accepted Build-413 integration.
+- **Ownership/lifecycle/single writer/cleanup:** unchanged from the accepted Build-413 architecture.
+- **Compatibility/signing:** stable-boundary Full validation passed after merge.
+- **Separation from next work:** PR #146 / Build 414 notification-header diagnostics are not part of this promotion and remain a separate Phase-2B work branch.
+
+### Outcome
+
+Build 413 is now the stable `main` runtime baseline. Continue Phase 2B panel-projection investigation on PR #146 without changing the stable baseline until its own evidence and validation gates are satisfied.
+
+
 ## 2026-09-27 — Canary admission gate hardening and bounded automation merge delegation
 
 **Type:** repository automation / CI governance
