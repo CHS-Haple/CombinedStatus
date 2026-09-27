@@ -10,7 +10,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Integration branch: `dev`
 - Integration runtime baseline: Build 418 / `20260928-418`, merge commit `11bc4ff741869e3311d2be697d4dcfb66f5cb39c`
 - Build 418 / `20260928-418` is the current device-accepted and Integration-validated `dev` runtime baseline. Build 413 remains the current `main`-promoted stable runtime baseline.
-- Active Phase-2B work / PR: `feat/panel-projection` / Draft #146. Build 420 / `20260928-420` remains **device-accepted for Control Center projection**. Builds 421 and 422 are **device-rejected for Notification-Shade edge continuity**. Build 423 / `20260928-423` replaces the incorrect global `ShadeExpansionStateManager` Home-handoff source with HyperOS's own `NotificationHeaderExpandController$notificationCallback$1.onExpansionChanged(float)` path. Runtime source: `81deafdb3b25e1d34f4cb57ee57de09c9f1fa5e0`. CI/device validation is pending.
+- Active Phase-2B work / PR: `feat/panel-projection` / Draft #146. Build 420 / `20260928-420` remains **device-accepted for Control Center projection**. Builds 421 and 422 are **device-rejected for Notification-Shade edge continuity**. Build 423 / `20260928-423` replaces the incorrect global `ShadeExpansionStateManager` Home-handoff source with HyperOS's own `NotificationHeaderExpandController$notificationCallback$1.onExpansionChanged(float)` path. Runtime source: `81deafdb3b25e1d34f4cb57ee57de09c9f1fa5e0`. Ready Full #1307 / run `36359395894` passed on tested head `5d982a74f80d157bfcfd543e7d1706099dd46e64`; trusted Work Branch Canary #413 / run `36359604981`, attempt 2, passed on the same exact source after attempt 1 was platform-cancelled during Gradle execution. Build 423 is frozen pending focused device validation.
 - Repository-automation baseline: checkpoint-driven CI from PR #139 remains active; Canary admission hardening and bounded automation-only merge delegation were accepted on `main` via PR #143 (`a1aed8b6451d1018f46e252166545d67f48fe8e4`) and history-preserving back-synced into `dev` via PR #144 (`faaa12b1c8e955138d2ce8d51fb481263b4d7570`). These automation changes do **not** create a new runtime Build.
 - Phase-2A integration: PR #105 merged to `dev` as `2f584c3b393dc5ee606284426aa95a9d6beae5d5`; former stacked PR #100 is closed as superseded.
 - Phase-2B panel/scene-owner integration: PR #138 merged to `dev` as `a25cb5ce2aeab235cfaed579474df70596f03a63`.
@@ -162,11 +162,11 @@ Build 423 corrects the remaining Notification-Shade source:
 
 ## Immediate next step
 
-1. Keep Build 423 / `20260928-423` runtime fixed while repository validation runs.
-2. Draft validation first checks repository consistency; because the pinned compatibility profile changed, the meaningful Ready checkpoint must pass the repository's required Full validation.
-3. If Full passes, request one signed Canary for focused device validation.
-4. Device test scope: Notification-Shade first/last-frame continuity over repeated open/close gestures, plus one quick Control Center regression check. Build-420 Control Center projection must remain unchanged.
-5. If the edge defect persists, use the new `authority=hyperos-notification-header-callback` diagnostics to compare exact Header progress against the visible frame; do not reintroduce Battery/Keyguard inference or timing compensation.
+1. Build 423 / `20260928-423` is frozen at the signed device-validation boundary; do not layer another runtime change before maintainer feedback.
+2. Install the signed Build-423 Canary and Hot Reload once.
+3. Repeat Notification-Shade open/close gestures 2-3 times, focusing on the first departure frame and final Home return frame.
+4. Perform one Control Center open/close regression pass and one lock/unlock smoke pass; accepted Build-420 Control Center projection must remain unchanged and Home overlay must not leak onto Keyguard.
+5. If the edge defect persists, capture a short video plus Detailed diagnostics so `authority=hyperos-notification-header-callback` progress can be correlated directly with the visible frame. Do not reintroduce Battery/Keyguard inference or timing compensation.
 
 Signed checkpoint: Ready Full #1301 / run `36357104464` succeeded. Work Branch Canary #412 / run `36357295818` succeeded with trusted source SHA `f5cfbc87c819a776a5476f3ea1e5817b9c776d86`, artifact `10944007922`, ZIP digest `sha256:78df112998aa2d38b4b4b24e93b78e2c7d90480d44ba89912d825f593418dd01`, APK size `3309602` bytes, and extracted APK SHA-256 `6d1bcab45ccf01ba3d0110eae2e7b9be5e00a3dc04ae994e308645d144cf5e7e`.
 ## Reference priority

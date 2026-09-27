@@ -6974,3 +6974,18 @@ After repository Full validation and a signed Canary:
 - confirm Combined Status no longer disappears/restores out of phase with the native top-area transition;
 - perform one Control Center open/close regression pass;
 - if any edge remains, export Detailed diagnostics so the new Header-progress authority can be correlated directly with the video.
+
+
+### Build-423 signed checkpoint
+
+- Ready Full #1307 / run `36359395894`: **success** on PR head `5d982a74f80d157bfcfd543e7d1706099dd46e64`.
+- Trusted Work Branch Canary #413 / run `36359604981`, attempt 1: platform-cancelled during Gradle execution after exact-source, signing restore and target-profile checks; no Kotlin/Gradle failure was reported.
+- Canary #413 attempt 2: **success** on exact trusted source `5d982a74f80d157bfcfd543e7d1706099dd46e64`.
+- Passed: trusted source resolution, exact checkout, Wrapper/JDK/API37, Haple signing restore, pinned HyperOS target profile, unit tests + Canary build, Modern Xposed metadata, Haple APK signature, non-debuggable verification, artifact upload.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260928-423-canary.apk`
+- Artifact ID: `10945257544`
+- Artifact ZIP digest: `sha256:d04859b9ec595d43f599174d61fa80fb169a509517b873b309189e418de13d20`
+- Extracted APK size: `3309602` bytes
+- Extracted APK SHA-256: `9830f24a36d55c5c38914a2b2c23f3cf52a49babfda26572a96420e79138597d`
+
+Runtime is frozen at Build 423 pending focused maintainer device validation.
