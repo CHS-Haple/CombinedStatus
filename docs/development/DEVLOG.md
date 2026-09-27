@@ -3844,3 +3844,73 @@ This explains the new device evidence without reintroducing percentile normaliza
 **Selected Build-407 boundary:** use the verified native `_tint` mask for every native center resource that Combined Status externally tints. This is narrower than mirroring a live ImageView, requires no new Hook/lifecycle owner, and directly matches the existing Painter's presentation mode.
 
 The live native-ImageView presentation mirror remains a fallback investigation route only if this exact contract correction still fails on device.
+
+
+---
+
+## 2026-09-27 — Build 407: apply native tint-mask contract to every tinted center glyph
+
+**Type:** bounded root-cause correction / source review  
+**Display version:** 0.0.2  
+**Build:** 407 / 20260927-407  
+**Runtime source:** `ffe746b24252f974db05e1fa4381ed5c56f0e73e`  
+**Validation:** source review complete; signed Canary pending
+
+### Problem / objective
+
+Build 406 proved that selecting the native `_tint` mask only for the optional battery-follow color branch was insufficient because the default center branch remained optically light.
+
+### Root cause
+
+Source review establishes that `drawNativeCenterResource(...)` always applies `Drawable.setTint(tint)`, regardless of the source of `tint`.
+
+Therefore both:
+- default center color from resolved native status-icon tint; and
+- optional battery-follow/custom semantic color
+
+are **external-tint presentation paths**.
+
+Exact-target HyperOS uses the `*_tint` presentation resource for its external-tint branch. Applying `setTint` directly to a raw authored semantic resource preserves that resource's authored alpha/coverage and can make the compact center look lighter than the fully opaque project-painted outer ring.
+
+### Implementation
+
+- Removed the Build-406-only `centerUsesBatteryTint` presentation flag.
+- `drawNativeCenterResource(...)` now always resolves `resolveNativeTintVariant(resource) ?: resource` before loading/caching the native center asset.
+- The already-authoritative resolved center tint is then applied exactly once through `Drawable.setTint(...)`.
+- Resource resolution remains cached and fail-soft.
+- Added/retained deterministic tests for base, darkmode, existing-tint, unavailable and hotspot naming.
+- Build identity advanced to `20260927-407`.
+
+### Intentionally unchanged
+
+- no new Hook/listener/observer/polling;
+- no live native View mutation;
+- no center size/position or optical-probe change;
+- no percentile/source-alpha normalization;
+- no ring/mobile geometry change;
+- no battery semantic-state/color change;
+- no Home carrier/spacing/suppression change;
+- no Phase-2B scene change.
+
+### Review
+
+- **Ownership:** SystemUI remains semantic-resource/tint authority; Combined Status owns only its cloned center Drawable.
+- **Lifecycle:** unchanged; no new owner.
+- **Single writer:** one tint writer on the module-owned clone.
+- **Cleanup:** existing bounded resource/asset caches only.
+- **Fail native:** missing `_tint` sibling falls back to the existing resource path; no guessed color/resource.
+- **Performance:** one cached resource-name lookup per native resource identity; no per-frame reflection.
+- **Compatibility:** uses the already-verified HyperOS tint-resource naming contract and degrades safely.
+- **Exception recovery:** guarded resource resolution remains local to the center path.
+- **Future extension:** custom semantic colors and default status-icon colors now share one presentation mechanism rather than branching into divergent alpha behavior.
+
+### Validation gate
+
+Run trusted signed Canary for this exact runtime source. After the artifact exists, freeze runtime and test:
+1. center-follow-battery **off**, light surface;
+2. center-follow-battery **off**, dark surface;
+3. center-follow-battery **on**, light surface;
+4. center-follow-battery **on**, dark surface;
+5. one available semantic color transition.
+
+No further runtime change before those device results.
