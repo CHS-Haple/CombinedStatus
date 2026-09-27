@@ -10,6 +10,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Integration branch: `dev`
 - Integration runtime baseline: Build 413, commit `2aa6833cfca69a59af5027a7855b7d8282dbade9`
 - Build 413 / `20260927-413` is the current device-accepted and Integration-validated `dev` runtime baseline.
+- Active Phase-2B work branch: `feat/panel-projection`; analysis-only checkpoint, no Build 414 runtime delta yet.
 - Repository-automation baseline: checkpoint-driven CI from PR #139 remains active; Canary admission hardening and bounded automation-only merge delegation were accepted on `main` via PR #143 (`a1aed8b6451d1018f46e252166545d67f48fe8e4`) and history-preserving back-synced into `dev` via PR #144 (`faaa12b1c8e955138d2ce8d51fb481263b4d7570`). These automation changes do **not** create a new runtime Build.
 - Phase-2A integration: PR #105 merged to `dev` as `2f584c3b393dc5ee606284426aa95a9d6beae5d5`; former stacked PR #100 is closed as superseded.
 - Phase-2B panel/scene-owner integration: PR #138 merged to `dev` as `a25cb5ce2aeab235cfaed579474df70596f03a63`.
@@ -150,11 +151,12 @@ Build 409's notification-shade implementation remains intact and is not reopened
 
 ## Immediate next step
 
-1. Treat Build 413 / `20260927-413` at dev commit `2aa6833cfca69a59af5027a7855b7d8282dbade9` as the integrated Phase-2B scene-lifetime baseline. HUN disappearance and the previously accepted shallow-pull leak are closed unless contradictory device evidence appears.
-2. Continue the remaining **Phase 2B** objective on a new bounded feature branch: implement an actual Combined Status projection for notification shade / Control Center rather than leaking or reusing the Home overlay.
-3. Before runtime mutation, verify the exact target's separate notification-shade and Control Center hosts, lifecycle, tint source, native progress/end anchors, and native icon surfaces. Existing evidence already establishes `NotificationHeaderExpandController`, `ControlCenterHeaderExpandController`, `StatusBarAnchorBounds`, and the distinct Control Center fake/status-icon surfaces as high-value owners.
-4. Keep SystemUI as the transition-motion writer. The new projection may consume native progress/geometry but must not add a parallel translation formula, arbitrary fraction threshold, timing patch, per-frame native-geometry writer, or destructive Home-owner teardown.
-5. Keyguard / lockscreen / AOD remains Phase 3 and stays out of the Phase-2B projection branch.
+1. Keep Build 413 / `20260927-413` at dev commit `2aa6833cfca69a59af5027a7855b7d8282dbade9` as the closed scene-lifetime baseline.
+2. On `feat/panel-projection`, resolve the remaining **notification-shade target-host / target-geometry evidence gap** before changing projection behavior. Control Center already has a verified `StatusBarAnchorBounds` diagnostic seam; notification shade currently has only lifetime/progress facts plus static `NotificationHeaderExpandController` ownership evidence.
+3. Verify whether the exact target exposes a stable notification-header controller/view boundary that can supply target bounds/tint/translation without a project-owned motion formula. If static reference is insufficient, add one bounded Detailed-only diagnostic probe rather than speculative projection logic.
+4. Reuse the existing shared render model/controller for any later scene projection; do not reuse the Home overlay as the shade/Control Center surface and do not create a second network/battery state machine.
+5. Keep SystemUI as the transition-motion writer. No arbitrary fraction threshold, delay, polling, per-frame native-geometry write, peer translation, or Home-owner teardown.
+6. Keyguard / lockscreen / AOD remains Phase 3 and stays out of this branch.
 
 ## Reference priority
 
