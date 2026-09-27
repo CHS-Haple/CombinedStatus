@@ -4238,3 +4238,36 @@ This acceptance does **not** claim perfect pixel/optical parity. The residual di
 Phase 2A is accepted for the current `dev` integration baseline. Phase 2B becomes active next, beginning with the shallow notification-shade pull / held-return Home-overlay leak.
 
 The Phase-2B investigation must start from native scene/progress ownership and must not reopen steady Home geometry or introduce threshold/delay/translation compensation as a first response.
+
+---
+
+## 2026-09-27 — Phase 2A merged to dev and Integration validation passed
+
+**Type:** dev integration / CI validation / phase transition  
+**Display version:** 0.0.2  
+**Dev merge:** `2f584c3b393dc5ee606284426aa95a9d6beae5d5`  
+**Integrated build:** 408 / 20260927-408
+
+### Integration
+
+- PR #105 was history-synchronized with the latest `dev` governance, retargeted to `dev`, passed Fast Build #1104, and was squash-merged after explicit maintainer acceptance.
+- PR #100 was closed as superseded because #105 carried the final accepted Phase-2A Home architecture plus the semantic-color/native-center work into the single integration boundary.
+- Build 408 remains the accepted working runtime baseline; the minor ring/center/dot optical-weight difference remains deferred polish and is not promoted as perfect parity.
+
+### Dev Integration CI
+
+- Build workflow: **#1105** / run `36316290255`.
+- Result: **success**.
+- Scope: trusted `dev` Integration.
+- Passed target-profile verification, unit tests, signed Canary assembly, Modern Xposed metadata, Haple signature validation, non-debuggable verification, and artifact publication.
+- Canary artifact ID: `10930783210`.
+- Canary APK size: `3293218` bytes.
+- Canary APK SHA-256: `44d6b6295b17c016c8af5ddcb28c44a5ac7e37b14a66e44d438f4e2f8ae40a52`.
+
+### Review / phase consequence
+
+- **Ownership:** accepted existing-host Home architecture remains unchanged by integration.
+- **Lifecycle / cleanup / single writer / fail-native:** accepted Phase-2A boundaries remain intact.
+- **Performance / compatibility:** no new runtime mechanism was introduced during integration/back-sync.
+- **Residual:** slight outer optical-weight variance is deferred and does not block subsequent scene work.
+- **Next:** Phase 2B is active. Start from a new work branch based on this dev baseline and address the shallow shade-pull Home-overlay leak from native scene/progress ownership rather than geometry or timing compensation.
