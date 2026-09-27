@@ -48,8 +48,13 @@ Build 403 validation already established:
 
 Build 404 validation:
 - source review: **passed**;
-- Fast Build / signed Work Branch Canary: **pending on a fresh Build-404 validation carrier**; reopened PR #104 rebuilt its historical Build-403 head and is not valid evidence for Build 404.
+- Fast Build #1088 on validation PR #130: **success** at tested head `ad55baa47eecadfa7fe1968556d5c7f13a1be460`;
+- signed Work Branch Canary #324: **success**; the Canary job explicitly checked out the same tested head and passed target-profile, unit/build, Modern Xposed metadata, Haple signature, non-debuggable, and artifact checks;
+- compare evidence from runtime source `614c6ae96f1753088e21ce3568d969b900852081` to tested head `ad55baa47eecadfa7fe1968556d5c7f13a1be460` shows only `CURRENT.md` / `DEVLOG.md` documentation changes, so the validated executable runtime remains Build 404;
+- signed artifact: `CombinedStatus-0.0.2-HyperOS-20260927-404-canary.apk`;
+- artifact ZIP digest: `sha256:694c81c37b5dc8227f0da076211ae538ac9250770da2eb97003be0727734c79f`;
 - device optical-parity and semantic-color acceptance: **pending**.
+- validation-only PRs #129 and #130 are closed after evidence capture; neither is mergeable product work.
 
 ## Active runtime issues / validation
 
@@ -96,11 +101,12 @@ A shallow notification-shade pull / final held-return frame can still leave the 
 
 ## Immediate next step
 
-1. Run required Fast CI and signed Work Branch Canary for Build 404.
-2. Stop runtime changes at the resulting Canary and validate both monochrome optical parity and the Build-403 semantic battery-color states on device.
-3. Do not change center geometry, outer weight, tint, Battery arc policy, or Home carrier while this A/B checkpoint is awaiting device evidence.
-4. Update `CURRENT.md` and append `DEVLOG.md` immediately when that device result changes acceptance.
-5. After color/intensity closure, move to the already-identified Phase-2B shallow-shade scene-boundary leak without reopening steady Home carrier ownership.
+1. Runtime changes are stopped at the validated Build-404 Canary. Install that exact Canary and perform focused target-device A/B validation against Build 403 / prior screenshots.
+2. Validate monochrome optical parity first: center Wi-Fi / hotspot / airplane / no-SIM resources should keep native visual weight and antialiasing without any geometry, spacing, or tint regression.
+3. Validate Build-403 semantic battery-color behavior remains intact for NORMAL / CHARGING / POWER_SAVE / PERFORMANCE / LOW when those states are available.
+4. Do not change center geometry, outer weight, tint, Battery arc policy, Home carrier, or shade behavior while this Build-404 device gate is open.
+5. Update `CURRENT.md` and append `DEVLOG.md` immediately when device evidence changes acceptance.
+6. After color/intensity closure, move to the already-identified Phase-2B shallow-shade scene-boundary leak without reopening steady Home carrier ownership.
 
 ## Reference priority
 
