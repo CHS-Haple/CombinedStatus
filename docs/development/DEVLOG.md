@@ -3039,3 +3039,157 @@ Runtime modification stops here. The exact signed Build-404 Canary must now be t
 4. absence of regressions in Wi-Fi, hotspot, airplane and no-SIM native-resource presentation.
 
 The shallow Home-overlay leak during notification-shade pull remains a separate Phase-2B issue and must not be mixed into this Build-404 A/B gate.
+
+
+---
+
+## 2026-09-27 — Build 404 device rejection and native Wi-Fi rendering-path closure
+
+**Type:** device rejection / root-cause correction / exact-target rendering review  
+**Display version:** 0.0.2  
+**Build under test:** 404 / 20260927-404  
+**Runtime source:** `614c6ae96f1753088e21ce3568d969b900852081`  
+**Result:** optical-parity A/B rejected; next root-cause boundary moved upstream
+
+### Device feedback
+
+The target-device Build-404 result was reported as visually worse than the preceding version rather than closer to neighboring native status icons. The supplied screenshots confirm that the optical-parity issue remains open.
+
+The screenshots include different battery semantic-color states, so they are not treated as a pixel-controlled Build-403-vs-404 pair. The reliable acceptance conclusion is narrower: Build 404 did not close parity and must not be promoted as the visual baseline.
+
+### Problem execution flow
+
+**Phenomenon and evidence**
+
+Build 404 removed percentile source-alpha normalization but retained the pre-existing native-center bitmap pipeline. The visual mismatch remained.
+
+Previous screenshot sampling had already shown that core monochrome tint values were close to native peers, pointing toward coverage/antialiasing rather than a simple gray-value mismatch.
+
+**Root cause / responsibility source**
+
+Exact target inspection shows that the previous A/B changed the wrong layer. Preserving alpha values inside an intermediate 96px bitmap does not reproduce the native rendering path because native antialias coverage is created when the VectorDrawable is rasterized at its final bounds.
+
+Combined Status currently rasterizes the native resource at one resolution and resamples those already-rasterized pixels at another resolution before final presentation. That second sampling stage is project-owned and absent from the verified native Wi-Fi steady path.
+
+### Exact HyperOS/SystemUI Wi-Fi path
+
+Verified semantic/binder chain:
+
+`WifiIcon.Visible.icon (Icon.Resource)`
+→ `MiuiWifiViewBinder`
+→ `MiuiStatusBarIconViewHelper.transformResId(resId, useTint, light)`
+→ `ImageView.setImageResource(transformedResId)`
+
+`transformResId(...)` selects the tint/light/dark mapped resource according to the native presentation state. The base semantic resource remains stored in the ImageView tag so UI-mode changes can transform it again.
+
+Tint behavior:
+- when `useTint=true`, the ImageView receives `ColorStateList.valueOf(tint)`;
+- when `useTint=false`, image tint is cleared and the chosen light/dark resource owns its fill color.
+
+The verified `stat_sys_wifi_signal_3` resource family uses the same vector path geometry for normal/dark/tint variants:
+- XML size: 20dp × 20dp;
+- viewport: 20 × 20;
+- normal fill: light single-tone resource;
+- dark fill: dark single-tone resource;
+- tint variant: opaque black mask for ImageView tinting.
+
+Native Home layout:
+- `AlphaOptimizedImageView`;
+- `WRAP_CONTENT × MATCH_PARENT`;
+- `adjustViewBounds=true`;
+- parent icon height: `status_bar_icon_height=20dp`.
+
+Retained target-device diagnostics verify final native Wi-Fi presentation:
+- `VectorDrawable`;
+- intrinsic 75 × 75 px;
+- drawable bounds `0,0,75,75`;
+- ImageView measured 75 × 75 px;
+- drawable alpha 255;
+- image alpha 255;
+- `FIT_CENTER`;
+- identity image matrix;
+- zero padding;
+- observed native tints include `0xBF000000` and `0xE6FFFFFF` on the corresponding surfaces.
+
+Therefore the native steady path is effectively:
+
+`20dp vector resource -> final 75×75 drawable bounds -> one VectorDrawable rasterization -> screen`
+
+There is no verified intermediate bitmap resize.
+
+### Current Build-404 path
+
+`native base Drawable`
+→ force-white Drawable into a probe bitmap
+→ rasterize at up to 96px
+→ inspect bitmap alpha for optical bounds
+→ retain that 96px bitmap
+→ scale bitmap to Combined Status final center destination with `FILTER_BITMAP_FLAG`
+→ apply final tint through `SRC_IN`
+→ screen
+
+For the current 105×108 Combined Status visual and existing Wi-Fi geometry, the final center image is roughly in the low-60px range, so the final presentation is a downsample of the 96px intermediate bitmap.
+
+### Controlled coverage comparison
+
+Using the exact Wi-Fi vector path, the same representative 63px target was compared:
+
+Direct vector raster at 63px:
+- total alpha sum: 184397;
+- visible pixels: 860;
+- fully covered pixels: 585;
+- partial-edge pixels: 275;
+- mean partial-edge alpha: 128.08.
+
+96px raster followed by bilinear reduction to 63px:
+- total alpha sum: 184277;
+- visible pixels: 1004;
+- fully covered pixels: 474;
+- partial-edge pixels: 530;
+- mean partial-edge alpha: 119.64.
+
+Total alpha mass stays close, but the two-stage path converts many fully covered pixels into semi-transparent edge coverage. This directly explains how a resource can have the correct tint and broadly similar total coverage while still look softer / lighter / optically inconsistent.
+
+### Historical correction
+
+The Build-403 → Build-404 hypothesis was too downstream. The previous conclusion correctly rejected arbitrary gray multipliers and source-asset editing, but it overestimated the value of preserving alpha inside the already-rasterized 96px bitmap.
+
+For the opaque `stat_sys_wifi_signal_3` path, the 85th-percentile alpha ceiling is already effectively 255, so the old normalization can be a no-op for normal Wi-Fi. Build 404 therefore does **not** prove that removing normalization itself caused the reported regression in every Wi-Fi state.
+
+The durable new conclusion is:
+- percentile alpha remapping is not native and should remain removed;
+- authored vector/drawable semantics must survive until the final resolved draw bounds;
+- intermediate bitmap resampling is the next demonstrated project-owned visual transformation.
+
+### Selected next A/B boundary
+
+Keep unchanged:
+- semantic/base resource selection currently consumed by Combined Status;
+- native tint authority and Build-403 semantic battery colors;
+- optical target size and center position;
+- outer ring/mobile geometry;
+- Build-399 Battery arc policy;
+- Home carrier/suppression/lifecycle/scene behavior.
+
+Change only final native-center presentation:
+- use a module-owned Drawable clone/ConstantState instance as the final source;
+- set/apply the resolved tint/opacity without editing source pixels;
+- draw the Drawable directly at the resolved final bounds;
+- keep a bitmap probe only if bounded optical measurement still requires it;
+- do not feed probe pixels into final rendering.
+
+### Review
+
+- **Ownership:** HyperOS remains semantic resource/tint authority; Combined Status owns only its composition bounds and its clone, not the native ImageView/Drawable instance.
+- **Lifecycle:** the renderer/session owns recreated/cached Drawable clones; no new SystemUI listener or owner is introduced.
+- **Single writer:** no native View/tint/geometry writer is added.
+- **Cleanup:** final presentation no longer needs a retained raster bitmap; any measurement bitmap remains bounded and recyclable.
+- **Fail native / recovery:** unresolved/invalid resources keep the existing fallback behavior.
+- **Performance:** removes final bitmap resampling; direct VectorDrawable drawing occurs only when the Combined Status View redraws and does not require polling.
+- **Compatibility:** no new private member/hook is required for the first A/B.
+- **Exception recovery:** Drawable resolution/clone failure remains local to the native-center resource path.
+- **Future extension:** direct Drawable tinting is compatible with later per-state custom color policy and adaptive center sizing without regenerating source assets.
+
+### Next
+
+Implement this single rendering-boundary A/B as the next runtime checkpoint, run Fast CI and signed Canary, then stop for target-device comparison. Do not combine the shallow shade-scene fix, new geometry values, or new color policy with this checkpoint.
