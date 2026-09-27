@@ -1083,13 +1083,15 @@ internal object CombinedStatusCenterGeometry {
 }
 
 internal object CombinedStatusOuterGeometry {
+    private const val PREVIOUS_DEFAULT_WEIGHT_SCALE = 1.10f
+
     const val RING_RADIUS = 50f
     const val BASE_RING_STROKE = 7.5f
     const val MOBILE_ORBIT_RADIUS = 51f
-    const val BASE_MOBILE_DOT_RADIUS = 4.9f
-    const val BASE_UNAVAILABLE_MARK_STROKE = 3.2f
-    const val BASE_UNAVAILABLE_MARK_HALF_EXTENT = 3.7f
-    const val DEFAULT_WEIGHT_SCALE = 1.10f
+    const val BASE_MOBILE_DOT_RADIUS = 4.9f * PREVIOUS_DEFAULT_WEIGHT_SCALE
+    const val BASE_UNAVAILABLE_MARK_STROKE = 3.2f * PREVIOUS_DEFAULT_WEIGHT_SCALE
+    const val BASE_UNAVAILABLE_MARK_HALF_EXTENT = 3.7f * PREVIOUS_DEFAULT_WEIGHT_SCALE
+    const val DEFAULT_WEIGHT_SCALE = 1.00f
     const val MIN_WEIGHT_SCALE = 0.60f
     const val MAX_WEIGHT_SCALE = 2.00f
 
