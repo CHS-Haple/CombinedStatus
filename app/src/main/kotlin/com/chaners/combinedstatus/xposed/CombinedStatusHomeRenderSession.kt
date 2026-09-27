@@ -24,6 +24,7 @@ internal object CombinedStatusHomeRenderSession {
         isDetailedDiagnosticsEnabled: () -> Boolean = { true },
         initialNativeHandoffActive: Boolean = false,
         initialTintState: CombinedStatusTintState? = null,
+        allowLiveTintSeed: Boolean = true,
         onPresentationReadinessChanged: ((Boolean) -> Unit)? = null,
     ): AttachResult {
         val hostView = host as? ViewGroup
@@ -53,6 +54,7 @@ internal object CombinedStatusHomeRenderSession {
             isDetailedDiagnosticsEnabled = isDetailedDiagnosticsEnabled,
             initialNativeHandoffActive = initialNativeHandoffActive,
             initialTintState = initialTintState,
+            allowLiveTintSeed = allowLiveTintSeed,
             initialFeatureEnabled =
                 RuntimeFeaturePreferencesOwner.currentSettings().enabled,
             onPresentationReadinessChanged = onPresentationReadinessChanged,
@@ -164,6 +166,7 @@ internal object CombinedStatusHomeRenderSession {
 
     internal fun resolveInitialTintSeed(
         transferred: CombinedStatusTintState?,
+        allowLiveSeed: Boolean,
         liveState: () -> CombinedStatusTintState?,
     ): InitialTintSeed? {
         val transferredValid =
@@ -173,6 +176,9 @@ internal object CombinedStatusHomeRenderSession {
                 state = transferredValid,
                 source = "hotReloadTransfer",
             )
+        }
+        if (!allowLiveSeed) {
+            return null
         }
 
         val liveValid =
@@ -205,6 +211,7 @@ internal object CombinedStatusHomeRenderSession {
         private val isDetailedDiagnosticsEnabled: () -> Boolean,
         initialNativeHandoffActive: Boolean,
         private val initialTintState: CombinedStatusTintState?,
+        private val allowLiveTintSeed: Boolean,
         initialFeatureEnabled: Boolean,
         private val onPresentationReadinessChanged: ((Boolean) -> Unit)?,
     ) : View.OnAttachStateChangeListener {
@@ -303,6 +310,7 @@ internal object CombinedStatusHomeRenderSession {
             }
             resolveInitialTintSeed(
                 transferred = initialTintState,
+                allowLiveSeed = allowLiveTintSeed,
                 liveState = {
                     SystemUiTintStateSource.currentState(battery)
                 },
