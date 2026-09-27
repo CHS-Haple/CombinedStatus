@@ -61,6 +61,14 @@ The supplied video matches that ordering visually: Combined Status leaves before
 
 Keep PR #146 Draft for Light repository validation and source review. This is a meaningful runtime checkpoint; after review, move Ready for the prescribed runtime validation. A signed Canary is required because the correction changes scene ownership and must be tested for Notification-Shade continuity plus lock/unlock regression before integration.
 
+### Automated validation follow-up
+
+- Draft Light #1297 passed after a record-format-only trailing-whitespace correction; Build identity remained 422.
+- Ready validation #1298 was automatically classified **Full** because the PR-wide diff still contains an earlier `tools/verify_target_profile.py` change. This stronger scope is retained rather than overridden.
+- Full #1298 passed wrapper/JDK/API-37/pinned-target verification and reached Kotlin test compilation, then failed because `SystemUiNativeCombinedParticipantOwnerTest` still supplied the removed `sceneAllowsOverlay` test parameter at six historical call sites.
+- The failure is test-call-site drift, not a runtime/profile failure. The correction removes those stale arguments, renames the affected tests to panel/handoff semantics, and converts the former scene-false assertion into Notification-Shade ownership denial.
+- No executable production source, Hook contract, build identity, geometry, tint, Control Center behavior, or ownership decision changes in this correction.
+
 ---
 
 ## 2026-09-28 — Build 419: narrow NotificationShadeWrapper target probe
