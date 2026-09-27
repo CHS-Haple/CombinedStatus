@@ -4,8 +4,8 @@ This is the chronological engineering diary for Combined Status. It complements,
 
 ## 2026-09-27 — Build 412 HUN device evidence and motion-semantic gate fix
 
-**Type:** maintainer device evidence / root-cause confirmation / runtime fix candidate  
-**Input build:** Build 412 / `20260927-412`  
+**Type:** maintainer device evidence / root-cause confirmation / runtime fix candidate
+**Input build:** Build 412 / `20260927-412`
 **Work branch / PR:** `fix/home-hun-ownership` / Draft #142
 
 ### Problem execution flow
