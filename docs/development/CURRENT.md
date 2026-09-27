@@ -21,7 +21,7 @@ This file is the concise recovery point for active Combined Status development. 
 
 ## Current phase
 
-The project remains in **Phase 2A — 0.0.2 Home carrier / presentation architecture**.
+The project has completed the current **Phase 2A — 0.0.2 Home carrier / presentation architecture** gate for `dev` integration and is moving into **Phase 2B — Home -> shade / Control Center scene boundary/projection**.
 
 The selected Home direction is an existing-host composition rather than the superseded permanent extra-participant / occupancy-handoff route:
 
@@ -29,7 +29,7 @@ The selected Home direction is an existing-host composition rather than the supe
 
 SystemUI remains authoritative for surrounding native layout, Battery scene/hide behavior, native tint semantics, and charging/Super-Island motion. Combined Status owns its compact composition plus only narrowly scoped, reversible Home presentation state.
 
-Home -> shade / Control Center projection is **Phase 2B**. Keyguard / lockscreen / AOD follows after Phase 2B.
+Home -> shade / Control Center projection is now the active Phase 2B direction. Keyguard / lockscreen / AOD follows after Phase 2B.
 
 ## Current runtime checkpoints
 
@@ -42,7 +42,7 @@ Home -> shade / Control Center projection is **Phase 2B**. Keyguard / lockscreen
 - **Build 405 / `20260927-405`** is a completed but **device-rejected direct-final-Drawable optical-parity A/B checkpoint**. Runtime source: `bf8091c8680dec7b85c58afded7f476ec95ca49d`. It removed the intermediate final-presentation bitmap/resample stage, but target-device screenshots still show the native center glyph materially lighter/lower-opacity than neighboring native status icons across light and dark surfaces. The direct-Drawable mechanism remains preferable to the superseded bitmap presentation path, but it is not sufficient for parity by itself.
 - **Build 406 / `20260927-406`** is a completed but **device-rejected tint-variant A/B checkpoint**. Runtime source: `3d5e9d2339824c6d19e50dda170917559369135b`. Work Branch Canary #335 passed all CI/signing gates, but target-device evidence shows the center Wi-Fi glyph remains optically lighter/lower-coverage than the outer ring **even when `centerFollowsBatteryColor=false`**. Therefore the Build-406 hypothesis that the remaining defect was confined to the custom/battery-color tint branch is rejected.
 - **Build 407 / `20260927-407`** is **device-accepted for the native-center opacity/resource-mask correction**, but overall optical balance remains open. Runtime source: `ffe746b24252f974db05e1fa4381ed5c56f0e73e`. The maintainer reports that the prior center-transparency defect is resolved. New same-device screenshots show the battery ring still reads darker/heavier than the native center and four mobile dots even when all three consume the same green semantic tint. Work Branch Canary #337 / run `36313837646` passed all gates and produced artifact `10929728522`.
-- **Build 408 / `20260927-408`** is the current signed outer optical-weight device-test candidate. Runtime source: `8a7a39d8297fe926387d56cc8ff5be4b08405f4a`. It changes no tint or alpha: the battery ring default stroke returns from 8.25 to the historical 7.5 canonical units while the four-dot radius and unavailable-mark geometry remain exactly at their Build-407 physical defaults. The shared future outer-weight scale is rebased to 1.0 around that balanced baseline. Work Branch Canary #338 / run `36315043013` passed all gates and produced artifact `10930143406`; runtime is frozen pending device A/B.
+- **Build 408 / `20260927-408`** is the maintainer-accepted Phase-2A working baseline for `dev` integration. Runtime source: `8a7a39d8297fe926387d56cc8ff5be4b08405f4a`. Work Branch Canary #338 / run `36315043013` passed all gates and produced artifact `10930143406`. The maintainer considers the current color/native-center result basically compliant with the intended design. A small residual ring/center/dot optical-weight difference may remain and is explicitly deferred as visual polish rather than treated as a blocker.
 - Build 406 trusted validation: owner `/canary` Work Branch Canary #335 **succeeded**. Validated PR head `80f371784ffaee406dd6ea5728219eeee5913318` differs from the frozen runtime source only in `CURRENT.md` and `DEVLOG.md`, so executable content remains exactly Build 406. Artifact `10929711688`; artifact ZIP digest `sha256:c7af997217acd171c66beb860d7212c0d72fd672a38978f7b5c2eb5a524f11ba`; extracted APK SHA-256 `e086d8914fece7ba8ea86200756f4a6366d56dadaa5510846618a4077e6ddd80`.
 - Documentation-only commits may advance PR #105 beyond the frozen Build-408 runtime source without creating a new runtime Build; runtime identity remains `20260927-408` / `8a7a39d8297fe926387d56cc8ff5be4b08405f4a` until executable source changes.
 
@@ -64,35 +64,25 @@ Build 404 validation:
 
 ## Active runtime issues / validation
 
-### Visual intensity / optical parity — open
+### Visual intensity / optical parity — accepted for dev with deferred minor polish
 
-Build 407 closes the previous native-center transparency/resource-mask defect: the maintainer reports that center opacity is now correct after routing every externally tinted native center asset through the verified HyperOS `_tint` mask.
+Build 407 resolved the blocking native-center opacity/resource-mask defect. Build 408 retained the native tint/resource fix and rebalanced the custom outer ring without changing semantic color authority.
 
-A residual **optical-weight** mismatch remains. In the new charging-green screenshots, the continuous battery ring reads darker/heavier while the center Wi-Fi and four mobile dots read lighter.
+Maintainer acceptance:
+- current color behavior and center opacity are **accepted for `dev` integration**;
+- the result is considered basically compliant with the intended visual design;
+- a small residual optical-weight difference between ring, center and dots may still be visible;
+- that residual is recorded as deferred polish, **not** as perfect parity and **not** as a Phase-2B blocker.
 
-Same-image sampling is useful only as diagnosis, not as a render constant:
-- ring and center **core** green pixels converge to effectively the same RGB/tint on both light and dark screenshots;
-- the ring has a much larger proportion of fully covered pixels because it is a wide continuous stroke;
-- the native center mask has more antialiased edge coverage;
-- the small mobile dots have the highest edge-to-core ratio at the final physical size.
+Do not reopen this with per-glyph RGB/alpha multipliers or screenshot-derived compensation during Phase 2B.
 
-This means the remaining difference is no longer a color-source or alpha-authority bug. The renderer is already feeding the same tint/semantic alpha to active ring, linked center and active mobile dots; the perceived difference comes from custom outer geometry / raster coverage.
-
-Current boundary:
-- do **not** introduce a darker center/mobile tint, lighter battery tint, per-glyph alpha multiplier, screenshot-fitted RGB, or resurrect Build-403 source-alpha normalization;
-- keep the native center resource/geometry as the visual authority;
-- preserve the current mobile-dot size because the dots and native center are now in the same perceived-weight band;
-- the next bounded A/B may reduce only the custom continuous ring's base optical stroke while leaving tint, semantic alpha, dot size, center size and host geometry unchanged;
-- use the known pre-Build-332 base ring stroke as the A/B anchor rather than inventing a screenshot-derived thickness;
-- retain one shared future outer-weight scale by rebasing the default geometry, not by adding a device-specific runtime multiplier.
-
-### Battery semantic colors — implemented, device acceptance still open
+### Battery semantic colors — implemented and accepted for dev
 
 Build 403 uses HyperOS `MiuiBatteryMeterIconView.getProgressStatus()` as semantic-state authority. Charging, power-save, performance, and low-battery colors come from SystemUI's already-loaded native color fields when HyperOS optimization allows them; normal state and unavailable semantic colors fall back to the resolved native status-icon tint.
 
 No user-facing per-state color picker/source selector is exposed yet. The future policy seam remains: **System default / Follow status icon / Custom** for NORMAL / CHARGING / POWER_SAVE / PERFORMANCE / LOW.
 
-### Home -> shade scene boundary — next separate issue
+### Home -> shade / Control Center scene boundary — active next issue
 
 A shallow notification-shade pull / final held-return frame can still leave the Home Combined Status overlay visible. This is **not intended final behavior** and is classified as the next Phase-2B scene-boundary/handoff problem, not as a reason to reopen the accepted steady Home carrier.
 
@@ -117,12 +107,11 @@ A shallow notification-shade pull / final held-return frame can still leave the 
 
 ## Immediate next step
 
-1. **Runtime freeze:** Build 408 / `20260927-408`, runtime source `8a7a39d8297fe926387d56cc8ff5be4b08405f4a`.
-2. Use Work Branch Canary #338 / run `36315043013`, artifact `10930143406`. Trusted source, tests/build, target profile, Xposed metadata, Haple signature and non-debuggable checks all passed.
-3. Device A/B: compare Build 407 vs 408 in the same semantic-green state. The desired change is only that the ring no longer reads darker/heavier; center/dot opacity, color and geometry should remain unchanged.
-4. If practical, also check one normal monochrome state.
-5. If the ring becomes visibly too thin, reject Build 408 and retain Build 407 rather than adding alpha/RGB compensation.
-6. If Build 408 balances the visual weight, close this optical checkpoint and move to the Phase-2B shallow-shade scene boundary next.
+1. Integrate the accepted Phase-2A / Build-408 work into `dev` while preserving the latest shared CI/documentation governance from `dev`.
+2. Treat the small residual ring/center/dot optical-weight mismatch as deferred visual polish; do not block integration on it.
+3. Start Phase 2B from the resulting integrated `dev` baseline on a new bounded scene-transition branch.
+4. First Phase-2B target: eliminate the shallow shade-pull / held-return Home-overlay leak by identifying the native scene/progress ownership boundary before introducing any projection or animation.
+5. Keep unsupported shade/Control Center rendering fail-native until its own host/lifecycle/projection contract is validated.
 
 ## Reference priority
 
