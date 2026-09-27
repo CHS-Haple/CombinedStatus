@@ -3590,3 +3590,76 @@ Do not change center size/position, outer geometry, Home carrier/spacing, batter
 Build 405 is **rejected for optical-parity acceptance**. Battery semantic-color acceptance remains a separate gate.
 
 The next executable checkpoint is Build 406. Runtime changes should stop again as soon as its signed Canary is ready for focused light/dark device comparison.
+
+
+---
+
+## 2026-09-27 — Build 406: use native tint-mask variants for battery-colored center glyphs
+
+**Type:** bounded native-center presentation correction  
+**Display version:** 0.0.2  
+**Build:** 406 / 20260927-406  
+**Runtime source:** `3d5e9d2339824c6d19e50dda170917559369135b`  
+**Validation:** source review complete; CI/Canary pending
+
+### Problem / objective
+
+Build 405 direct-Drawable rendering still produced a visibly lower-opacity center glyph while the user-facing **center follows battery color** option was enabled. The objective is to match HyperOS's tint-resource contract without changing geometry, state semantics, or Home carrier ownership.
+
+### Problem execution flow
+
+**Phenomenon and evidence**
+
+The supplied light/dark screenshots show a strong battery ring and a visibly fainter green Wi-Fi center under the same intended semantic color.
+
+**Root cause / responsibility source**
+
+The exact-target native Wi-Fi family provides separate Light / Dark / Tint resources. The Tint variant is the opaque mask intended to receive a runtime tint. Build 405 instead loaded the raw semantic resource and called `Drawable.setTint(...)`, which preserves authored alpha/coverage from whichever raw variant was loaded.
+
+Because this failing scenario intentionally recolors the center to the battery semantic color, selecting the native Tint mask is a stronger and narrower correction than reconstructing the entire SystemUI Light/Dark state machine.
+
+**Root-cause status:** high confidence; device validation is still required before calling it confirmed.
+
+### Implementation
+
+- Added an explicit `centerUsesBatteryTint` presentation flag to the resolved color policy.
+- Native center rendering keeps the Build-405 direct final-bounds Drawable path.
+- When `centerUsesBatteryTint=true`, SystemUI native center resources resolve a cached `_tint` sibling resource when available, after normalizing an input `_darkmode` or `_tint` suffix.
+- The existing resolved center color is then applied to that native tint mask.
+- Missing/non-SystemUI tint variants fall back to the existing resource path rather than inventing a replacement.
+- Added deterministic tests for base, dark, existing-tint, unavailable and hotspot-style resource-name transformation.
+- Advanced internal identity to `20260927-406`; display version remains 0.0.2.
+
+### Intentionally unchanged
+
+- no new Hook, callback, listener, observer, polling loop or View-tree traversal;
+- default `centerFollowsBatteryColor=false` behavior;
+- center size/position and optical probe;
+- battery ring/mobile geometry;
+- battery semantic-state/color authority;
+- Home overlay/carrier/spacing ownership;
+- native Battery visibility/translation/alpha/island motion;
+- Phase-2B shade behavior.
+
+### Review
+
+- **Ownership:** only module-owned presentation-resource selection changes; native Views/resources are read-only.
+- **Lifecycle:** no new lifecycle owner.
+- **Single writer:** the module still writes tint only to its cloned Drawable; no competing native View writer is introduced.
+- **Cleanup:** bounded resource-ID cache only; no new listener/handle cleanup.
+- **Fail native:** missing tint sibling falls back to the existing resource rather than hiding native behavior or inventing a color.
+- **Performance:** `Resources.getIdentifier` occurs only on first resolution per cached resource ID; steady drawing uses cached IDs/assets.
+- **Compatibility:** the suffix contract is limited to a verified SystemUI resource family and degrades safely when a sibling does not exist.
+- **Exception recovery:** resource lookup is guarded; failure does not crash SystemUI.
+- **Future extension:** this separates “custom semantic recolor uses native tint mask” from later default Light/Dark presentation mirroring, avoiding a duplicate state machine.
+
+### CI / device gate
+
+Run CI and signed Canary for this exact runtime source. After a signed Build-406 artifact exists, stop runtime changes.
+
+Focused device acceptance:
+1. keep **center follows battery color** enabled;
+2. compare center glyph vs battery ring/native peers on a light surface;
+3. repeat on a dark surface;
+4. verify center size/centering, ring/mobile geometry and Home spacing are unchanged;
+5. verify charging/power-mode semantic color still propagates to the center when enabled.
