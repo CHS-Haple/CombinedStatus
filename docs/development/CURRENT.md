@@ -39,7 +39,7 @@ Home -> shade / Control Center projection is **Phase 2B**. Keyguard / lockscreen
 - **Build 399** separates active/inactive battery-ring arc compositing without reopening Home carrier ownership.
 - **Build 403 / `20260927-403`** established the current HyperOS battery semantic-color implementation. Runtime source: `97ef67e648906a4b9bb2ce4d7dd390e955831189`.
 - **Build 404 / `20260927-404`** is a completed but **device-rejected optical-parity A/B checkpoint**. Runtime source: `614c6ae96f1753088e21ce3568d969b900852081`. It removed percentile alpha remapping while retaining the existing bitmap-probe rendering path; target-device feedback shows the center presentation is visually worse than Build 403, so authored-alpha preservation alone is not an accepted fix.
-- **Build 405 / `20260927-405`** is the current direct-final-Drawable optical-parity A/B candidate. Runtime source: `bf8091c8680dec7b85c58afded7f476ec95ca49d`. The existing raster probe is measurement-only and unconditionally recycled; the module-owned cloned native Drawable is rendered directly into the same final resolved bounds. HyperOS resource-variant selection remains deliberately unchanged for this checkpoint.
+- **Build 405 / `20260927-405`** is a completed but **device-rejected direct-final-Drawable optical-parity A/B checkpoint**. Runtime source: `bf8091c8680dec7b85c58afded7f476ec95ca49d`. It removed the intermediate final-presentation bitmap/resample stage, but target-device screenshots still show the native center glyph materially lighter/lower-opacity than neighboring native status icons across light and dark surfaces. The direct-Drawable mechanism remains preferable to the superseded bitmap presentation path, but it is not sufficient for parity by itself.
 - Documentation-only commits may advance PR #105 beyond the Build-405 runtime source without creating a new runtime Build; runtime identity remains the Build/source pair above until executable source changes.
 
 Build 403 validation already established:
@@ -62,37 +62,20 @@ Build 404 validation:
 
 ### Visual intensity / optical parity — open
 
-Build 404 device feedback is **negative**: preserving the alpha values of the existing 96px native-center bitmap did not improve parity and is reported to look worse than the previous checkpoint. Do not treat Build 404 as an accepted rendering baseline.
+Build 405 target-device feedback is **negative**: removing the final bitmap/resample stage did not close parity. Across the supplied light and dark screenshots, the Combined Status center Wi-Fi glyph remains visibly lower-opacity/lighter than neighboring native status icons. This is strong device evidence that the remaining mismatch is not explained solely by the former 96px intermediate raster path.
 
-The root-cause boundary has moved upstream after exact-target SystemUI inspection.
-
-Verified native Home Wi-Fi path on the pinned target:
-- semantic state carries a base `Icon.Resource`;
-- `MiuiWifiViewBinder` resolves the current native resource variant through `MiuiStatusBarIconViewHelper.transformResId(resId, useTint, light)`;
-- the native ImageView receives the resulting resource with `setImageResource(...)`;
-- tint mode either applies the current `ColorStateList` or clears image tint so the selected light/dark resource owns its color;
-- the target resource is a 20dp × 20dp VectorDrawable;
-- target-device diagnostics show the final native Wi-Fi ImageView/Drawable at 75 × 75 px, `FIT_CENTER`, identity matrix, zero padding, drawable alpha 255 and image alpha 255;
-- the vector is therefore rasterized once at its final native drawable bounds.
-
-Build 404 still uses a different rendering pipeline:
-- load the base native Drawable;
-- rasterize it first into a 96px ARGB bitmap;
-- measure optical bounds from that bitmap;
-- scale that bitmap again into the smaller Combined Status center destination using filtered bitmap sampling;
-- apply the final tint through SRC_IN.
-
-The earlier assumption that preserving the 96px bitmap's authored alpha values would sufficiently match native rendering is therefore **superseded**. The remaining non-native responsibility is the intermediate bitmap / second resampling stage itself: antialias/coverage is generated at the probe resolution and then redistributed when the bitmap is reduced to the final center size.
-
-A controlled same-path comparison supports that mechanism. At a representative 63px final center size, direct vector rasterization kept 585 fully covered pixels and 275 partial-edge pixels; rendering at 96px then bilinear-downsampling to 63px kept only 474 fully covered pixels and produced 530 partial-edge pixels. Total alpha mass remained close, but edge coverage became materially softer.
+The verified native presentation contract now becomes the next root-cause boundary:
+- HyperOS keeps the raw semantic resource ID separate from the final presentation resource;
+- `MiuiStatusBarIconViewHelper.transformResId(rawResId, useTint, isLight)` selects Tint / Light / Dark resource variants;
+- tint mode applies the current ImageView tint to the Tint variant;
+- non-tint Light/Dark modes clear image tint and let the selected authored resource own its color/alpha;
+- Build 405 still resolves the raw native resource and applies the Combined Status center tint uniformly, so it does not yet reproduce that full presentation branch.
 
 Current boundary:
-- native status-icon tint remains authoritative; do not tune gray values;
-- Build 399's non-overlapping Battery arc partition remains valid;
-- do not add per-glyph gray multipliers, percentile alpha remaps, source-asset edits or screenshot-derived compensation;
-- the next bounded rendering A/B should remove the intermediate bitmap from the **final presentation path** and draw a module-owned clone of the native Drawable directly at the resolved final bounds;
-- a bitmap probe may remain measurement-only if optical bounds are still needed;
-- center size, center position, outer ring/mobile geometry, Battery semantic colors, Home carrier and scene behavior must remain unchanged for that A/B.
+- keep Build 405's direct final-bounds Drawable rendering and measurement-only raster probe; do **not** return to the rejected bitmap-as-final-asset path;
+- keep native status-icon tint/state authority; do not add opacity multipliers, replacement grays, source alpha edits, percentile remaps, or screenshot-fitted constants;
+- the next bounded A/B should reproduce the verified HyperOS final presentation-resource selection and tint/no-tint branch for native center resources only;
+- center size/position, ring/mobile geometry, semantic battery colors, Home carrier and Phase-2B scene behavior remain unchanged for that A/B.
 
 ### Battery semantic colors — implemented, device acceptance still open
 
@@ -125,14 +108,11 @@ A shallow notification-shade pull / final held-return frame can still leave the 
 
 ## Immediate next step
 
-1. Build 405 source review and trusted Canary validation are complete; keep runtime frozen at `bf8091c8680dec7b85c58afded7f476ec95ca49d`.
-2. The CI event-delivery blocker is resolved at the repository-process level. PR #134 installed the owner `/canary` + manual-dispatch fallback, PR #136 synchronized it into `dev`, and PR #135/#137 corrected and synchronized summary escaping without changing the trust/build contract.
-3. Build 405 passed the owner-comment Canary path twice. #332 validated PR #105 head `3cdfcc4db4bd5cd350e17400f2ed71d818b9c8d9`; after the summary-escaping fix, #334 validated head `b3092d42e428acb6d00a4e0c752459dc8ea64152`. Both passed exact-source checkout, target profile, tests, Xposed metadata, Haple signature and non-debuggable checks.
-4. The final #334 artifact is `CombinedStatus-0.0.2-HyperOS-20260927-405-canary.apk`, Actions artifact `10929556081`, ZIP SHA-256 `4b3a37d9c83901743122294fa436380769a6c0f9cb5aba84e64632237a3771a9`, APK SHA-256 `17b8ed5783373ab37c4bf2ae3e8fda55ddff965e59a9c42d7c2ccb18efb4c566`.
-5. Byte-level comparison of #332 and #334 found 94/95 APK ZIP entries identical. The only content difference is `META-INF/version-control-info.textproto`, whose revision changed from the earlier docs-only head to the later docs-only head; classes/resources/runtime entries are unchanged. The differing APK/signature hashes therefore do not represent a runtime delta.
-6. Stop runtime changes now and perform the focused target-device A/B against Builds 403 and 404: center edge quality/antialiasing, apparent stroke weight, size/centering, and unchanged outer geometry/tint.
-7. Keep HyperOS Light / Dark / Tint `transformResId` resource-variant alignment out of Build 405 so the direct-draw result remains attributable. Keep Build-403 battery semantic-color acceptance separate.
-8. Only after optical/color closure move to the already-identified Phase-2B shallow-shade scene-boundary leak.
+1. Record Build 405 as device-rejected for optical parity; retain its direct-Drawable final rendering as the cleaner rendering baseline rather than reviving the bitmap presentation path.
+2. Implement one bounded Build-406 A/B for native center presentation only: resolve the exact target HyperOS Light / Dark / Tint resource variant through the verified `transformResId` contract and mirror its tint/no-tint behavior.
+3. Do not change center geometry, Home carrier/spacing, battery semantic-color logic, or Phase-2B scene behavior in the same checkpoint.
+4. Run source review and Fast/Canary validation. Once a signed Build-406 Canary is available, stop runtime changes and request focused device comparison on both light and dark surfaces.
+5. Only after optical/color closure move to the already-identified Phase-2B shallow-shade scene-boundary leak.
 
 ## Reference priority
 
