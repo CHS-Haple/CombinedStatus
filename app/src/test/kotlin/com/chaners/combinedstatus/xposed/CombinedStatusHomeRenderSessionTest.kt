@@ -42,7 +42,6 @@ class CombinedStatusHomeRenderSessionTest {
         assertTrue(
             CombinedStatusHomeRenderSession.resolveOverlayVisible(
                 featureEnabled = true,
-                sceneAllowsOverlay = true,
                 notificationShadeAllowsHome = true,
                 controlCenterAllowsHome = true,
                 nativeHandoffActive = false,
@@ -52,7 +51,6 @@ class CombinedStatusHomeRenderSessionTest {
         assertFalse(
             CombinedStatusHomeRenderSession.resolveOverlayVisible(
                 featureEnabled = true,
-                sceneAllowsOverlay = true,
                 notificationShadeAllowsHome = false,
                 controlCenterAllowsHome = true,
                 nativeHandoffActive = false,
@@ -61,11 +59,10 @@ class CombinedStatusHomeRenderSessionTest {
     }
 
     @Test
-    fun overlayVisibilityStillHonorsExistingFeatureSceneAndHandoffGates() {
+    fun overlayVisibilityHonorsFeatureAndHandoffGates() {
         assertFalse(
             CombinedStatusHomeRenderSession.resolveOverlayVisible(
                 featureEnabled = false,
-                sceneAllowsOverlay = true,
                 notificationShadeAllowsHome = true,
                 controlCenterAllowsHome = true,
                 nativeHandoffActive = false,
@@ -74,16 +71,14 @@ class CombinedStatusHomeRenderSessionTest {
         assertFalse(
             CombinedStatusHomeRenderSession.resolveOverlayVisible(
                 featureEnabled = true,
-                sceneAllowsOverlay = false,
                 notificationShadeAllowsHome = true,
-                controlCenterAllowsHome = true,
+                controlCenterAllowsHome = false,
                 nativeHandoffActive = false,
             ),
         )
         assertFalse(
             CombinedStatusHomeRenderSession.resolveOverlayVisible(
                 featureEnabled = true,
-                sceneAllowsOverlay = true,
                 notificationShadeAllowsHome = true,
                 controlCenterAllowsHome = true,
                 nativeHandoffActive = true,

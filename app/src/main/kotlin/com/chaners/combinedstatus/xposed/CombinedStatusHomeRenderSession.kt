@@ -99,11 +99,6 @@ internal object CombinedStatusHomeRenderSession {
     }
 
     @Synchronized
-    fun onSceneUpdate(update: SystemUiSceneStateSource.SceneUpdate) {
-        current?.updateScene(update)
-    }
-
-    @Synchronized
     fun onPanelTransitionUpdate(update: SystemUiPanelTransitionSource.Update) {
         current?.updatePanelTransition(update)
     }
@@ -140,13 +135,11 @@ internal object CombinedStatusHomeRenderSession {
 
     internal fun resolveOverlayVisible(
         featureEnabled: Boolean,
-        sceneAllowsOverlay: Boolean,
         notificationShadeAllowsHome: Boolean,
         controlCenterAllowsHome: Boolean,
         nativeHandoffActive: Boolean,
     ): Boolean =
         featureEnabled &&
-            sceneAllowsOverlay &&
             notificationShadeAllowsHome &&
             controlCenterAllowsHome &&
             !nativeHandoffActive
@@ -241,7 +234,6 @@ internal object CombinedStatusHomeRenderSession {
         private var layoutLogged = false
         private var deferredStateLogged = false
         private var rejectedTintLogged = false
-        private var sceneSurface = SystemUiSceneStateSource.Surface.UNKNOWN
         private var notificationShadeAllowsHome =
             SystemUiPanelTransitionSource.currentNotificationShadeHomeEligibility() ?: false
         // Control Center handoff is coordinator-owned. Source visibility is
@@ -310,9 +302,6 @@ internal object CombinedStatusHomeRenderSession {
             renderController.updateVisualSettings(
                 RuntimeVisualPreferencesOwner.currentSettings(),
             )
-            SystemUiSceneStateSource.currentState(battery)?.let {
-                applySceneState(it, "seed")
-            }
             resolveInitialTintSeed(
                 transferred = initialTintState,
                 allowLiveSeed = allowLiveTintSeed,
@@ -337,14 +326,6 @@ internal object CombinedStatusHomeRenderSession {
             if (removeVisual) {
                 host.get()?.overlay?.remove(probeView)
             }
-        }
-
-        fun updateScene(update: SystemUiSceneStateSource.SceneUpdate) {
-            val battery = batteryView.get() ?: return
-            if (update.sourceView !== battery) {
-                return
-            }
-            applySceneState(update, "updateState")
         }
 
         fun updatePanelTransition(update: SystemUiPanelTransitionSource.Update) {
@@ -445,30 +426,6 @@ internal object CombinedStatusHomeRenderSession {
             dispatchPresentationReadiness("control-center:" + source)
         }
 
-        private fun applySceneState(
-            update: SystemUiSceneStateSource.SceneUpdate,
-            source: String,
-        ) {
-            if (sceneSurface == update.surface) {
-                return
-            }
-
-            sceneSurface = update.surface
-            val visible = applyResolvedVisibility()
-
-            emitEvent {
-                "homeRenderScene source=" + source +
-                    " raw=" + update.rawState +
-                    " surface=" + update.surface.name +
-                    " shadeHomeEligible=" + notificationShadeAllowsHome +
-                    " controlCenterHomeEligible=" + controlCenterAllowsHome +
-                    " visible=" + visible +
-                    " policy=failClosedOutsideUnlockedStatusBarAndSettledShade " +
-                    " nativeGeometryWrites=0"
-            }
-            dispatchPresentationReadiness("scene:" + source)
-        }
-
         fun setFeatureEnabled(enabled: Boolean) {
             if (Looper.myLooper() !== Looper.getMainLooper()) {
                 host.get()?.post {
@@ -484,7 +441,6 @@ internal object CombinedStatusHomeRenderSession {
             emitEvent {
                 "homeRenderFeature enabled=" + featureEnabled +
                     " overlayVisible=" + visible +
-                    " scene=" + sceneSurface.name +
                     " nativeHandoffActive=" + nativeHandoffActive +
                     " nativeGeometryWrites=0"
             }
@@ -500,7 +456,6 @@ internal object CombinedStatusHomeRenderSession {
             emitEvent {
                 "homeRenderHandoff nativeActive=" + nativeHandoffActive +
                     " overlayVisible=" + visible +
-                    " scene=" + sceneSurface.name +
                     " nativeGeometryWrites=0"
             }
         }
@@ -574,7 +529,6 @@ internal object CombinedStatusHomeRenderSession {
             val visibleTrace =
                 trace?.takeIf {
                     layoutLogged &&
-                        SystemUiSceneStateSource.allowsHomeOverlay(sceneSurface) &&
                         notificationShadeAllowsHome &&
                         controlCenterAllowsHome
                 }
@@ -615,11 +569,6 @@ internal object CombinedStatusHomeRenderSession {
         }
 
         override fun onViewAttachedToWindow(view: View) {
-            batteryView.get()?.let { battery ->
-                SystemUiSceneStateSource.currentState(battery)?.let {
-                    applySceneState(it, "reattach")
-                }
-            }
             layoutProbe()
         }
 
@@ -662,8 +611,6 @@ internal object CombinedStatusHomeRenderSession {
             val visible =
                 resolveOverlayVisible(
                     featureEnabled = featureEnabled,
-                    sceneAllowsOverlay =
-                        SystemUiSceneStateSource.allowsHomeOverlay(sceneSurface),
                     notificationShadeAllowsHome = notificationShadeAllowsHome,
                     controlCenterAllowsHome = controlCenterAllowsHome,
                     nativeHandoffActive = nativeHandoffActive,
@@ -695,14 +642,12 @@ internal object CombinedStatusHomeRenderSession {
                     " ownerReady=" + ownerReady +
                     " overlayEligible=" +
                     (
-                        SystemUiSceneStateSource.allowsHomeOverlay(sceneSurface) &&
-                            notificationShadeAllowsHome &&
+                        notificationShadeAllowsHome &&
                             controlCenterAllowsHome
                     ) +
                     " modelReady=" + modelReady +
                     " tintReady=" + tintReady +
                     " layoutReady=" + layoutReady +
-                    " scene=" + sceneSurface.name +
                     " shadeHomeEligible=" + notificationShadeAllowsHome +
                     " controlCenterHomeEligible=" + controlCenterAllowsHome +
                     " featureEnabled=" + featureEnabled +

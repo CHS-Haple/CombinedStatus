@@ -1458,7 +1458,6 @@ class CombinedStatusModule : XposedModule() {
                 ),
             )
         }
-        CombinedStatusHomeRenderSession.onSceneUpdate(update)
         if (
             update.surface ==
                 SystemUiSceneStateSource.Surface.UNLOCKED_STATUS_BAR

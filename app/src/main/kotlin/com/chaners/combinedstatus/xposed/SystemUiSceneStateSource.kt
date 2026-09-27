@@ -1,6 +1,5 @@
 package com.chaners.combinedstatus.xposed
 
-import android.app.KeyguardManager
 import android.view.View
 import io.github.libxposed.api.XposedInterface.HookHandle
 import io.github.libxposed.api.XposedInterface.Hooker
@@ -77,12 +76,10 @@ internal object SystemUiSceneStateSource {
             runCatching { field.getInt(sourceView) }
                 .getOrNull()
                 ?: return null
-        val keyguardLocked = readKeyguardLocked(sourceView)
         return SceneUpdate(
             sourceView = sourceView,
-            surface = resolveSurface(rawState, keyguardLocked),
+            surface = classifyRawState(rawState),
             rawState = rawState,
-            keyguardLocked = keyguardLocked,
         ).also { states[sourceView] = it }
     }
 
@@ -100,33 +97,6 @@ internal object SystemUiSceneStateSource {
             else -> Surface.UNKNOWN
         }
 
-    internal fun resolveSurface(
-        rawState: Int,
-        keyguardLocked: Boolean?,
-    ): Surface =
-        when (rawState) {
-            STATUS_BAR_STATE_SHADE -> Surface.UNLOCKED_STATUS_BAR
-            STATUS_BAR_STATE_KEYGUARD ->
-                when (keyguardLocked) {
-                    true -> Surface.KEYGUARD
-                    false -> Surface.TRANSIENT_PANEL
-                    null -> Surface.UNKNOWN
-                }
-            STATUS_BAR_STATE_SHADE_LOCKED -> Surface.SHADE_LOCKED
-            else -> Surface.UNKNOWN
-        }
-
-    internal fun allowsHomeOverlay(surface: Surface): Boolean =
-        surface == Surface.UNLOCKED_STATUS_BAR ||
-            surface == Surface.TRANSIENT_PANEL
-
-    private fun readKeyguardLocked(sourceView: View): Boolean? =
-        runCatching {
-            sourceView.context
-                .getSystemService(KeyguardManager::class.java)
-                ?.isKeyguardLocked
-        }.getOrNull()
-
     private fun publish(
         sourceView: View,
         rawState: Int,
@@ -134,13 +104,11 @@ internal object SystemUiSceneStateSource {
         onSceneState: (SceneUpdate) -> Unit,
         onEvent: ((String) -> Unit)?,
     ) {
-        val keyguardLocked = readKeyguardLocked(sourceView)
         val update =
             SceneUpdate(
                 sourceView = sourceView,
-                surface = resolveSurface(rawState, keyguardLocked),
+                surface = classifyRawState(rawState),
                 rawState = rawState,
-                keyguardLocked = keyguardLocked,
             )
         val changed =
             synchronized(this) {
@@ -154,17 +122,15 @@ internal object SystemUiSceneStateSource {
         onEvent?.invoke(
             "sceneState source=" + source +
                 " raw=" + rawState +
-                " surface=" + update.surface.name +
-                " keyguardLocked=" + (update.keyguardLocked ?: "unknown") +
-                " homeOverlay=" + allowsHomeOverlay(update.surface) +
-                " authority=battery-status-state+platform-keyguard" +
+                " batteryState=" + update.surface.name +
+                " authority=battery-status-state-readonly" +
+                " homeVisibilityAuthority=host+panel-coordinator" +
                 " geometryWrites=0",
         )
     }
 
     internal enum class Surface {
         UNLOCKED_STATUS_BAR,
-        TRANSIENT_PANEL,
         KEYGUARD,
         SHADE_LOCKED,
         UNKNOWN,
@@ -174,7 +140,6 @@ internal object SystemUiSceneStateSource {
         val sourceView: View,
         val surface: Surface,
         val rawState: Int,
-        val keyguardLocked: Boolean?,
     )
 
     private const val STATUS_BAR_STATE_SHADE = 0
