@@ -5045,3 +5045,54 @@ Earlier Build-407 notes recorded that 8.25 could read optically heavy relative t
 No scene lifecycle, Hook, Home ownership, notification/HUN behavior, center/dot geometry, tint, alpha or animation change is authorized in this follow-up.
 
 Because 8.25 is already a previously observed device geometry and the change is a one-variable restoration using the existing ROUND cap and gap solver, CI/review is sufficient for this follow-up unless an unexpected delta appears.
+
+
+---
+
+## 2026-09-27 — Build 412 source review: restore preferred 8.25 ring
+
+**Type:** deterministic visual restoration / source review  
+**Build:** 412 / 20260927-412  
+**Executable source:** `f794a7c01513364eefc726316fcaf4058d581683`  
+**Validation:** source review passed; Fast/Canary pending
+
+### Executable delta from Build 411
+
+- `CombinedStatusPainter.kt`: default ring stroke `8.0 -> 8.25`.
+- `CombinedStatusOuterGeometryTest.kt`: default baseline assertion updated to 8.25.
+- build identity: `20260927-412`.
+
+No other runtime behavior changes.
+
+### Geometry / endpoint review
+
+The renderer continues to use:
+- `Paint.Style.STROKE`;
+- `Paint.Cap.ROUND`;
+- `Paint.Join.ROUND`.
+
+Therefore restoring the stroke from 8.0 to 8.25 naturally restores endpoint radius from 4.0 to 4.125 canonical units. No custom cap path or separate curvature constant is introduced.
+
+The lower-opening solver remains the sole spacing authority. It recomputes dot angles from:
+- current ring stroke;
+- current dot radius;
+- fixed ring/dot orbit radii;
+- the existing lower-opening angular contract.
+
+There is no hard-coded 8.0 gap value left behind.
+
+### Review
+
+- **Ownership:** visual-only module geometry; scene/SystemUI ownership unchanged.
+- **Lifecycle:** no Hook/listener/session change.
+- **Single writer:** painter remains the sole ring geometry writer.
+- **Cleanup / fail-native:** unchanged.
+- **Performance:** constant change plus existing bounded solver only.
+- **Compatibility:** no new private API or device-pixel constant.
+- **Exception recovery:** unchanged.
+- **Future extension:** shared outer-weight scale continues to scale the restored 8.25 baseline proportionally.
+- **Visual consistency:** mobile dots, center geometry, tint/alpha and opening-angle contract remain unchanged; ROUND endpoint curvature returns with the preferred stroke rather than through a custom cap workaround.
+
+### Gate
+
+Fast CI + signed Canary. No separate maintainer thickness A/B is required before integration because the maintainer explicitly prefers the previously experienced 8.25 baseline over both 7.5 and 8.0.
