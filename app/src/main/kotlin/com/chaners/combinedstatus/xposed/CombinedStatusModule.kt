@@ -965,6 +965,9 @@ class CombinedStatusModule : XposedModule() {
                     BuildConfig.RUNTIME_DIAGNOSTICS,
                 )
             panelTransitionSourceInstalled = handles.size == expectedHooks
+            CombinedStatusHomeRenderSession.onNotificationShadeAuthorityChanged(
+                SystemUiPanelTransitionSource.currentNotificationShadeHomeEligibility() == true,
+            )
             logDiagnostic(
                 level = if (panelTransitionSourceInstalled) Log.INFO else Log.WARN,
                 event = "source.install",
@@ -981,6 +984,7 @@ class CombinedStatusModule : XposedModule() {
             panelTransitionSourceInstalled = false
             notificationStateProbeBucket = -1
             controlCenterGeometryProbeBucket = -1
+            CombinedStatusHomeRenderSession.onNotificationShadeAuthorityChanged(false)
             logDiagnostic(
                 level = Log.ERROR,
                 event = "source.install",
