@@ -123,6 +123,11 @@ internal object CombinedStatusStateStore {
                 putBoolean(KEY_BATTERY_PRESENT, true)
                 putInt(KEY_BATTERY_PERCENT, battery.percent)
                 putBoolean(KEY_BATTERY_CHARGING, battery.charging)
+                battery.semanticState?.let { putString(KEY_BATTERY_SEMANTIC, it.name) }
+                battery.systemSemanticColor?.let { color ->
+                    putBoolean(KEY_BATTERY_SYSTEM_COLOR_PRESENT, true)
+                    putInt(KEY_BATTERY_SYSTEM_COLOR, color)
+                }
             }
             when (val wifi = current.wifi) {
                 WifiState.Unknown -> putInt(KEY_WIFI_KIND, WIFI_KIND_UNKNOWN)
@@ -175,6 +180,16 @@ internal object CombinedStatusStateStore {
                 BatteryState(
                     percent = bundle.getInt(KEY_BATTERY_PERCENT),
                     charging = bundle.getBoolean(KEY_BATTERY_CHARGING),
+                    semanticState =
+                        bundle.getString(KEY_BATTERY_SEMANTIC)?.let { name ->
+                            runCatching {
+                                CombinedStatusBatterySemanticState.valueOf(name)
+                            }.getOrNull()
+                        },
+                    systemSemanticColor =
+                        if (bundle.getBoolean(KEY_BATTERY_SYSTEM_COLOR_PRESENT, false)) {
+                            bundle.getInt(KEY_BATTERY_SYSTEM_COLOR)
+                        } else null,
                 )
             } else {
                 null
@@ -301,6 +316,8 @@ internal object CombinedStatusStateStore {
     internal data class BatteryState(
         val percent: Int,
         val charging: Boolean,
+        val semanticState: CombinedStatusBatterySemanticState? = null,
+        val systemSemanticColor: Int? = null,
     )
 
     internal sealed interface WifiState {
@@ -337,6 +354,9 @@ internal object CombinedStatusStateStore {
     private const val KEY_BATTERY_PRESENT = "batteryPresent"
     private const val KEY_BATTERY_PERCENT = "batteryPercent"
     private const val KEY_BATTERY_CHARGING = "batteryCharging"
+    private const val KEY_BATTERY_SEMANTIC = "batterySemantic"
+    private const val KEY_BATTERY_SYSTEM_COLOR_PRESENT = "batterySystemColorPresent"
+    private const val KEY_BATTERY_SYSTEM_COLOR = "batterySystemColor"
     private const val KEY_WIFI_KIND = "wifiKind"
     private const val KEY_WIFI_RES_ID = "wifiResId"
     private const val KEY_WIFI_SIGNAL = "wifiSignal"

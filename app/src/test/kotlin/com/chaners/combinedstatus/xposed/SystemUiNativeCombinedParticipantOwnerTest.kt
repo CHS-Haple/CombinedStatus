@@ -18,7 +18,7 @@ class SystemUiNativeCombinedParticipantOwnerTest {
                 expectedVisualHeight = 108,
                 parentClipsChildren = false,
                 rootScreenX = 1242,
-                batteryScreenX = 1242,
+                slotAnchorScreenX = 1242,
                 renderLeft = 0,
                 renderRight = 105,
             ),
@@ -37,7 +37,7 @@ class SystemUiNativeCombinedParticipantOwnerTest {
                 expectedVisualHeight = 108,
                 parentClipsChildren = false,
                 rootScreenX = 1242,
-                batteryScreenX = 1242,
+                slotAnchorScreenX = 1242,
                 renderLeft = 0,
                 renderRight = 105,
             ),
@@ -56,7 +56,7 @@ class SystemUiNativeCombinedParticipantOwnerTest {
                 expectedVisualHeight = 108,
                 parentClipsChildren = false,
                 rootScreenX = 1242,
-                batteryScreenX = 1242,
+                slotAnchorScreenX = 1242,
                 renderLeft = -52,
                 renderRight = 53,
             ),
@@ -75,7 +75,7 @@ class SystemUiNativeCombinedParticipantOwnerTest {
                 expectedVisualHeight = 108,
                 parentClipsChildren = true,
                 rootScreenX = 1242,
-                batteryScreenX = 1242,
+                slotAnchorScreenX = 1242,
                 renderLeft = 0,
                 renderRight = 105,
             ),
@@ -90,7 +90,7 @@ class SystemUiNativeCombinedParticipantOwnerTest {
                 expectedVisualHeight = 108,
                 parentClipsChildren = false,
                 rootScreenX = 1238,
-                batteryScreenX = 1242,
+                slotAnchorScreenX = 1242,
                 renderLeft = 0,
                 renderRight = 105,
             ),
@@ -147,30 +147,224 @@ class SystemUiNativeCombinedParticipantOwnerTest {
 
 
     @Test
-    fun islandSlotTakesOverBatteryOccupancyOnlyWhileNativeBatteryIsHidden() {
-        assertEquals(
-            105,
-            SystemUiNativeCombinedParticipantOwner.resolveIslandSlotWidth(
-                nativeBatteryHidden = true,
-                visualWidth = 105,
+    fun activeNativeSlotKeepsZeroWidthShellAlignedToBatterySlot() {
+        assertTrue(
+            SystemUiNativeCombinedParticipantOwner.isActiveSlotHandoffReady(
+                rootLayoutWidth = 0,
+                rootLayoutHeight = 108,
+                renderMeasuredWidth = 105,
+                renderMeasuredHeight = 108,
+                expectedVisualWidth = 105,
+                expectedVisualHeight = 108,
+                parentClipsChildren = false,
+                rootScreenX = 1242,
+                slotAnchorScreenX = 1242,
+                renderLeft = 0,
+                renderRight = 105,
             ),
         )
+    }
+
+    @Test
+    fun activeNativeSlotRejectsDuplicateShellOccupancy() {
+        assertFalse(
+            SystemUiNativeCombinedParticipantOwner.isActiveSlotHandoffReady(
+                rootLayoutWidth = 105,
+                rootLayoutHeight = 108,
+                renderMeasuredWidth = 105,
+                renderMeasuredHeight = 108,
+                expectedVisualWidth = 105,
+                expectedVisualHeight = 108,
+                parentClipsChildren = false,
+                rootScreenX = 1137,
+                slotAnchorScreenX = 1242,
+                renderLeft = 0,
+                renderRight = 105,
+            ),
+        )
+    }
+
+    @Test
+    fun activeNativeSlotRejectsAnchorOrVisualMismatch() {
+        assertFalse(
+            SystemUiNativeCombinedParticipantOwner.isActiveSlotHandoffReady(
+                rootLayoutWidth = 0,
+                rootLayoutHeight = 108,
+                renderMeasuredWidth = 105,
+                renderMeasuredHeight = 108,
+                expectedVisualWidth = 105,
+                expectedVisualHeight = 108,
+                parentClipsChildren = false,
+                rootScreenX = 1238,
+                slotAnchorScreenX = 1242,
+                renderLeft = 0,
+                renderRight = 105,
+            ),
+        )
+        assertFalse(
+            SystemUiNativeCombinedParticipantOwner.isActiveSlotHandoffReady(
+                rootLayoutWidth = 0,
+                rootLayoutHeight = 108,
+                renderMeasuredWidth = 135,
+                renderMeasuredHeight = 108,
+                expectedVisualWidth = 105,
+                expectedVisualHeight = 108,
+                parentClipsChildren = false,
+                rootScreenX = 1242,
+                slotAnchorScreenX = 1242,
+                renderLeft = 0,
+                renderRight = 135,
+            ),
+        )
+    }
+
+    @Test
+    fun zeroOccupancyShellResolvesRealVisualBounds() {
         assertEquals(
-            0,
-            SystemUiNativeCombinedParticipantOwner.resolveIslandSlotWidth(
-                nativeBatteryHidden = false,
+            105,
+            SystemUiNativeCombinedParticipantOwner.resolvePostLayoutVisualWidth(
+                layoutWidth = 0,
+                measuredWidth = 0,
                 visualWidth = 105,
             ),
         )
     }
 
     @Test
-    fun islandSlotFailsClosedWhenVisualWidthIsUnavailable() {
+    fun nativeBatteryHideClaimsOnlyReleasedSlotWidth() {
         assertEquals(
             0,
-            SystemUiNativeCombinedParticipantOwner.resolveIslandSlotWidth(
+            SystemUiNativeCombinedParticipantOwner.resolveNativeSlotOccupancyWidth(
+                nativeBatteryHidden = false,
+                visualWidth = 105,
+            ),
+        )
+        assertEquals(
+            105,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeSlotOccupancyWidth(
+                nativeBatteryHidden = true,
+                visualWidth = 105,
+            ),
+        )
+        assertEquals(
+            null,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeSlotOccupancyWidth(
                 nativeBatteryHidden = true,
                 visualWidth = 0,
+            ),
+        )
+    }
+
+    @Test
+    fun releasedBatterySlotAcceptsNativeMeasuredVisualWidth() {
+        assertEquals(
+            105,
+            SystemUiNativeCombinedParticipantOwner.resolvePostLayoutVisualWidth(
+                layoutWidth = 105,
+                measuredWidth = 105,
+                visualWidth = 105,
+                nativeBatteryHidden = true,
+            ),
+        )
+    }
+
+    @Test
+    fun visualBoundsRejectNonZeroOccupancyOrInvalidVisualWidth() {
+        assertEquals(
+            null,
+            SystemUiNativeCombinedParticipantOwner.resolvePostLayoutVisualWidth(
+                layoutWidth = 105,
+                measuredWidth = 105,
+                visualWidth = 105,
+            ),
+        )
+        assertEquals(
+            null,
+            SystemUiNativeCombinedParticipantOwner.resolvePostLayoutVisualWidth(
+                layoutWidth = 0,
+                measuredWidth = 0,
+                visualWidth = 0,
+            ),
+        )
+    }
+
+    @Test
+    fun chargingPresentationDoesNotChangeStableSlotTranslation() {
+        val stableBoundary = 478
+        val chargingLiveBoundary = 448
+
+        assertEquals(
+            478f,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeSlotTranslationX(
+                statusIconsWidth = stableBoundary,
+                rootLeft = 0,
+            ),
+        )
+        assertEquals(
+            448f,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeSlotTranslationX(
+                statusIconsWidth = chargingLiveBoundary,
+                rootLeft = 0,
+            ),
+        )
+        assertEquals(30, stableBoundary - chargingLiveBoundary)
+    }
+
+    @Test
+    fun nativeSlotTranslationUsesStableStatusIconBoundary() {
+        assertEquals(
+            478f,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeSlotTranslationX(
+                statusIconsWidth = 478,
+                rootLeft = 0,
+            ),
+        )
+        assertEquals(
+            478f,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeSlotTranslationX(
+                statusIconsWidth = 478,
+                rootLeft = 0,
+            ),
+        )
+        assertEquals(
+            null,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeSlotTranslationX(
+                statusIconsWidth = 0,
+                rootLeft = 1,
+            ),
+        )
+    }
+
+    @Test
+    fun activeHandoffUsesSlotAnchorInsteadOfEvictedBatteryContent() {
+        assertTrue(
+            SystemUiNativeCombinedParticipantOwner.isActiveSlotHandoffReady(
+                rootLayoutWidth = 0,
+                rootLayoutHeight = 108,
+                renderMeasuredWidth = 105,
+                renderMeasuredHeight = 108,
+                expectedVisualWidth = 105,
+                expectedVisualHeight = 108,
+                parentClipsChildren = false,
+                rootScreenX = 1257,
+                slotAnchorScreenX = 1257,
+                renderLeft = 0,
+                renderRight = 105,
+            ),
+        )
+        assertFalse(
+            SystemUiNativeCombinedParticipantOwner.isActiveSlotHandoffReady(
+                rootLayoutWidth = 0,
+                rootLayoutHeight = 108,
+                renderMeasuredWidth = 105,
+                renderMeasuredHeight = 108,
+                expectedVisualWidth = 105,
+                expectedVisualHeight = 108,
+                parentClipsChildren = false,
+                rootScreenX = 1362,
+                slotAnchorScreenX = 1257,
+                renderLeft = 0,
+                renderRight = 105,
             ),
         )
     }
@@ -237,4 +431,186 @@ class SystemUiNativeCombinedParticipantOwnerTest {
         assertEquals(null, merged.statusIconTint)
     }
 
+    @Test
+    fun masterSwitchBlocksHomeOverlayRegardlessOfSceneOrHandoffState() {
+        assertFalse(
+            CombinedStatusHomeRenderSession.resolveOverlayVisible(
+                featureEnabled = false,
+                sceneAllowsOverlay = true,
+                notificationShadeAllowsHome = true,
+                controlCenterAllowsHome = true,
+                nativeHandoffActive = false,
+            ),
+        )
+        assertFalse(
+            CombinedStatusHomeRenderSession.resolveOverlayVisible(
+                featureEnabled = false,
+                sceneAllowsOverlay = true,
+                notificationShadeAllowsHome = true,
+                controlCenterAllowsHome = true,
+                nativeHandoffActive = true,
+            ),
+        )
+    }
+
+    @Test
+    fun controlCenterOwnershipBlocksHomeOverlay() {
+        assertFalse(
+            CombinedStatusHomeRenderSession.resolveOverlayVisible(
+                featureEnabled = true,
+                sceneAllowsOverlay = true,
+                notificationShadeAllowsHome = true,
+                controlCenterAllowsHome = false,
+                nativeHandoffActive = false,
+            ),
+        )
+    }
+
+    @Test
+    fun enabledMasterSwitchStillDefersToSceneAndNativeHandoff() {
+        assertTrue(
+            CombinedStatusHomeRenderSession.resolveOverlayVisible(
+                featureEnabled = true,
+                sceneAllowsOverlay = true,
+                notificationShadeAllowsHome = true,
+                controlCenterAllowsHome = true,
+                nativeHandoffActive = false,
+            ),
+        )
+        assertFalse(
+            CombinedStatusHomeRenderSession.resolveOverlayVisible(
+                featureEnabled = true,
+                sceneAllowsOverlay = false,
+                notificationShadeAllowsHome = true,
+                controlCenterAllowsHome = true,
+                nativeHandoffActive = false,
+            ),
+        )
+        assertFalse(
+            CombinedStatusHomeRenderSession.resolveOverlayVisible(
+                featureEnabled = true,
+                sceneAllowsOverlay = true,
+                notificationShadeAllowsHome = true,
+                controlCenterAllowsHome = true,
+                nativeHandoffActive = true,
+            ),
+        )
+    }
+
+
+    @Test
+    fun nativeIconStateShowsCombinedRendererAndHidesDot() {
+        val visibility =
+            SystemUiNativeCombinedParticipantOwner.resolveNativeContentVisibility(
+                state = 7,
+                iconState = 7,
+                dotState = 8,
+                hiddenState = 9,
+            )
+
+        assertEquals(android.view.View.VISIBLE, visibility?.renderVisibility)
+        assertEquals(android.view.View.GONE, visibility?.dotVisibility)
+    }
+
+    @Test
+    fun nativeDotStateUsesSystemDotWithoutCombinedRenderer() {
+        val visibility =
+            SystemUiNativeCombinedParticipantOwner.resolveNativeContentVisibility(
+                state = 8,
+                iconState = 7,
+                dotState = 8,
+                hiddenState = 9,
+            )
+
+        assertEquals(android.view.View.INVISIBLE, visibility?.renderVisibility)
+        assertEquals(android.view.View.VISIBLE, visibility?.dotVisibility)
+    }
+
+    @Test
+    fun nativeHiddenStateKeepsShellButDrawsNoCombinedContent() {
+        val visibility =
+            SystemUiNativeCombinedParticipantOwner.resolveNativeContentVisibility(
+                state = 9,
+                iconState = 7,
+                dotState = 8,
+                hiddenState = 9,
+            )
+
+        assertEquals(android.view.View.INVISIBLE, visibility?.renderVisibility)
+        assertEquals(android.view.View.INVISIBLE, visibility?.dotVisibility)
+    }
+
+    @Test
+    fun unknownNativeVisibleStateFailsClosed() {
+        assertEquals(
+            null,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeContentVisibility(
+                state = 99,
+                iconState = 7,
+                dotState = 8,
+                hiddenState = 9,
+            ),
+        )
+    }
+
+
+    @Test
+    fun validatedMasterSwitchUsesNativeRemoveLifecycle() {
+        assertEquals(
+            false,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeFeatureRemoveFlag(
+                featureEnabled = true,
+                handoffValidated = true,
+            ),
+        )
+        assertEquals(
+            true,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeFeatureRemoveFlag(
+                featureEnabled = false,
+                handoffValidated = true,
+            ),
+        )
+    }
+
+    @Test
+    fun unvalidatedMasterSwitchStaysOnBootstrapFallback() {
+        assertEquals(
+            null,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeFeatureRemoveFlag(
+                featureEnabled = false,
+                handoffValidated = false,
+            ),
+        )
+    }
+
+    @Test
+    fun nativeVisibleStateNamesResolveWithoutAssumingNumericOrder() {
+        val states =
+            SystemUiNativeCombinedParticipantOwner.resolveNativeVisibilityStates { candidate ->
+                when (candidate) {
+                    2 -> "ICON"
+                    4 -> "DOT"
+                    7 -> "HIDDEN"
+                    else -> "UNKNOWN"
+                }
+            }
+
+        assertEquals(2, states?.icon)
+        assertEquals(4, states?.dot)
+        assertEquals(7, states?.hidden)
+    }
+
+    @Test
+    fun missingNativeVisibleStateFailsClosed() {
+        assertEquals(
+            null,
+            SystemUiNativeCombinedParticipantOwner.resolveNativeVisibilityStates { candidate ->
+                when (candidate) {
+                    0 -> "ICON"
+                    1 -> "DOT"
+                    else -> "UNKNOWN"
+                }
+            },
+        )
+    }
 }

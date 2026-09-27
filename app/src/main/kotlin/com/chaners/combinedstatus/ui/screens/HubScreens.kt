@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.chaners.combinedstatus.R
 import com.chaners.combinedstatus.settings.AppLanguage
+import com.chaners.combinedstatus.settings.CombinedStatusFeatureSettingsRepository
 import com.chaners.combinedstatus.settings.CombinedStatusVisualSettingsRepository
 import com.chaners.combinedstatus.system.SystemUiScopeController
 import com.chaners.combinedstatus.ui.components.MiuixBlurredTopBar
@@ -53,6 +54,14 @@ internal fun FeaturesScreen(
     onNavigate: (AppRoute) -> Unit,
 ) {
     val context = LocalContext.current
+    val featureRepository =
+        remember(context.applicationContext) {
+            CombinedStatusFeatureSettingsRepository(context.applicationContext)
+        }
+    val featureSettings by
+        featureRepository.settings.collectAsState(
+            initial = featureRepository.current(),
+        )
     val visualRepository =
         remember(context.applicationContext) {
             CombinedStatusVisualSettingsRepository(context.applicationContext)
@@ -67,20 +76,24 @@ internal fun FeaturesScreen(
         sectionTitle = stringResource(R.string.section_hyperos_display),
         bottomContentPadding = bottomContentPadding,
     ) {
-        BasicComponent(
+        SwitchPreference(
             title = stringResource(R.string.combined_status_feature_title),
             summary = stringResource(R.string.combined_status_feature_summary),
+            checked = featureSettings.enabled,
+            onCheckedChange = featureRepository::setEnabled,
         )
         SwitchPreference(
             title = stringResource(R.string.mobile_follow_battery_color),
             summary = stringResource(R.string.mobile_follow_battery_color_summary),
             checked = visualSettings.mobileFollowsBatteryColor,
+            enabled = featureSettings.enabled,
             onCheckedChange = visualRepository::setMobileFollowsBatteryColor,
         )
         SwitchPreference(
             title = stringResource(R.string.center_follow_battery_color),
             summary = stringResource(R.string.center_follow_battery_color_summary),
             checked = visualSettings.centerFollowsBatteryColor,
+            enabled = featureSettings.enabled,
             onCheckedChange = visualRepository::setCenterFollowsBatteryColor,
         )
     }

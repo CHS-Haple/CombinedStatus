@@ -57,6 +57,42 @@ class CombinedStatusLayoutPolicyTest {
         assertTrue(projected.renderCombined)
     }
 
+    @Test
+    fun homeResolverKeepsCurrentCarrierWidthAndHostHeightSeparated() {
+        val layout =
+            requireNotNull(
+                CombinedStatusHomeLayoutResolver.resolve(
+                    hostWidthPx = 587,
+                    hostHeightPx = 108,
+                    baseCarrierWidthPx = 105,
+                    isRtl = false,
+                ),
+            )
+
+        assertEquals(105f, layout.requestedSlotWidthPx, 0.001f)
+        assertEquals(105f, layout.appliedSlotWidthPx, 0.001f)
+        assertEquals(482f, layout.slotLeftPx, 0.001f)
+        assertEquals(587f, layout.slotRightPx, 0.001f)
+        assertEquals(CombinedStatusMotionOwnership.SYSTEM_UI, layout.motionOwnership)
+    }
+
+    @Test
+    fun homeResolverUsesStableBaseSlotInsteadOfChargingInflatedWidth() {
+        val layout =
+            requireNotNull(
+                CombinedStatusHomeLayoutResolver.resolve(
+                    hostWidthPx = 587,
+                    hostHeightPx = 108,
+                    baseCarrierWidthPx = 105,
+                    isRtl = false,
+                ),
+            )
+
+        assertEquals(105f, layout.requestedSlotWidthPx, 0.001f)
+        assertEquals(482f, layout.slotLeftPx, 0.001f)
+        assertEquals(587f, layout.slotRightPx, 0.001f)
+    }
+
     private fun resolve(
         scale: Float,
         renderMode: CombinedStatusRenderMode = CombinedStatusRenderMode.PROJECTED,

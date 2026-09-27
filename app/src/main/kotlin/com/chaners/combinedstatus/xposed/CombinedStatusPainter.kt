@@ -23,12 +23,8 @@ internal class CombinedStatusPainter(
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private var airplaneDrawableResolved = false
     private var cachedAirplaneResourceId: Int = 0
-    private val nativeCenterAssets =
-        object : LinkedHashMap<String, NativeCenterAsset>(NATIVE_CENTER_CACHE_SIZE, 0.75f, true) {
-            override fun removeEldestEntry(
-                eldest: MutableMap.MutableEntry<String, NativeCenterAsset>?,
-            ): Boolean = size > NATIVE_CENTER_CACHE_SIZE
-        }
+    private val nativeCenterAssets = LinkedHashMap<String, NativeCenterAsset>(NATIVE_CENTER_CACHE_SIZE, 0.75f, true)
+    private val nativeTintVariantIds = HashMap<String, Int>()
     private var cachedMobileTypeWeight: Int = Int.MIN_VALUE
     private var cachedMobileTypeTypeface: Typeface = Typeface.DEFAULT
     private val mobileTypeMainBounds = Rect()
@@ -130,13 +126,33 @@ internal class CombinedStatusPainter(
         opacity: Float,
         geometry: CombinedStatusOuterGeometry.Resolved,
     ) {
-        stroke(batteryTint, 48, geometry.ringStroke, opacity)
-        canvas.drawArc(batteryRing, BATTERY_START_DEGREES, BATTERY_MAX_SWEEP, false, paint)
+        val segments =
+            CombinedStatusBatteryArcPolicy.resolve(
+                batteryPercent = model.batteryPercent,
+                startDegrees = BATTERY_START_DEGREES,
+                maxSweep = BATTERY_MAX_SWEEP,
+                degreesPerPercent = BATTERY_DEGREES_PER_PERCENT,
+            )
 
-        val sweep = model.batteryPercent * BATTERY_DEGREES_PER_PERCENT
-        if (sweep > 0f) {
+        if (segments.inactiveSweep > 0f) {
+            stroke(batteryTint, 48, geometry.ringStroke, opacity)
+            canvas.drawArc(
+                batteryRing,
+                segments.inactiveStart,
+                segments.inactiveSweep,
+                false,
+                paint,
+            )
+        }
+        if (segments.activeSweep > 0f) {
             stroke(batteryTint, 255, geometry.ringStroke, opacity)
-            canvas.drawArc(batteryRing, BATTERY_START_DEGREES, sweep, false, paint)
+            canvas.drawArc(
+                batteryRing,
+                BATTERY_START_DEGREES,
+                segments.activeSweep,
+                false,
+                paint,
+            )
         }
     }
 
@@ -312,6 +328,35 @@ internal class CombinedStatusPainter(
         canvas.restoreToCount(save)
     }
 
+    private fun resolveNativeTintVariant(
+        resource: CombinedStatusPresentationStateStore.NativeIconResource,
+    ): CombinedStatusPresentationStateStore.NativeIconResource? {
+        if (resource.packageName != SYSTEM_UI_PACKAGE) {
+            return null
+        }
+
+        val key = resource.packageName + ":" + resource.resourceId
+        val tintResourceId =
+            nativeTintVariantIds.getOrPut(key) {
+                runCatching {
+                    val drawableContext =
+                        context.createPackageContext(resource.packageName, 0)
+                    val entryName =
+                        drawableContext.resources.getResourceEntryName(resource.resourceId)
+                    val tintEntryName =
+                        NativeCenterResourceVariantPolicy.tintEntryName(entryName)
+                    drawableContext.resources.getIdentifier(
+                        tintEntryName,
+                        "drawable",
+                        resource.packageName,
+                    )
+                }.getOrDefault(0)
+            }
+        return tintResourceId
+            .takeIf { it != 0 }
+            ?.let { resource.copy(resourceId = it) }
+    }
+
     private fun nativeCenterAsset(
         resource: CombinedStatusPresentationStateStore.NativeIconResource,
     ): NativeCenterAsset? {
@@ -337,73 +382,65 @@ internal class CombinedStatusPainter(
                     resolveNativeVisualProbe(
                         drawable = drawable,
                         resources = drawableContext.resources,
-                    )
+                    ) ?: return@runCatching null
                 NativeCenterAsset(
                     drawable = drawable,
+                    intrinsicWidth = drawable.intrinsicWidth,
+                    intrinsicHeight = drawable.intrinsicHeight,
                     opticalBounds = visualProbe.opticalBounds,
-                    intrinsicMaxAlpha = visualProbe.maxAlpha,
                 )
             }.getOrNull()
                 ?: return null
 
         nativeCenterAssets[key] = asset
+        if (nativeCenterAssets.size > NATIVE_CENTER_CACHE_SIZE) {
+            val eldest = nativeCenterAssets.entries.iterator().next()
+            nativeCenterAssets.remove(eldest.key)
+        }
         return asset
     }
 
     private fun resolveNativeVisualProbe(
         drawable: Drawable,
         resources: android.content.res.Resources,
-    ): NativeVisualProbe {
+    ): NativeVisualProbe? {
         val intrinsicWidth = drawable.intrinsicWidth
         val intrinsicHeight = drawable.intrinsicHeight
         if (intrinsicWidth <= 0 || intrinsicHeight <= 0) {
-            return NativeVisualProbe.FULL
+            return null
         }
 
         val probeScale =
             NATIVE_OPTICAL_PROBE_MAX /
                 max(intrinsicWidth, intrinsicHeight).toFloat()
-        val probeWidth =
-            max(1, (intrinsicWidth * probeScale).roundToInt())
-        val probeHeight =
-            max(1, (intrinsicHeight * probeScale).roundToInt())
+        val probeWidth = max(1, (intrinsicWidth * probeScale).roundToInt())
+        val probeHeight = max(1, (intrinsicHeight * probeScale).roundToInt())
         val probeDrawable =
             drawable.constantState
                 ?.newDrawable(resources)
                 ?.mutate()
-                ?: return NativeVisualProbe.FULL
+                ?: drawable
         val bitmap =
             Bitmap.createBitmap(
                 probeWidth,
                 probeHeight,
                 Bitmap.Config.ARGB_8888,
             )
-
-        return try {
+        try {
             probeDrawable.setTint(Color.WHITE)
             probeDrawable.alpha = 255
             probeDrawable.setBounds(0, 0, probeWidth, probeHeight)
             probeDrawable.draw(Canvas(bitmap))
 
             val pixels = IntArray(probeWidth * probeHeight)
-            bitmap.getPixels(
-                pixels,
-                0,
-                probeWidth,
-                0,
-                0,
-                probeWidth,
-                probeHeight,
-            )
+            bitmap.getPixels(pixels, 0, probeWidth, 0, 0, probeWidth, probeHeight)
 
             var minX = probeWidth
             var minY = probeHeight
             var maxX = -1
             var maxY = -1
-            var maxAlpha = 0
             pixels.forEachIndexed { index, color ->
                 val alpha = Color.alpha(color)
-                if (alpha > maxAlpha) maxAlpha = alpha
                 if (alpha > NATIVE_OPTICAL_ALPHA_THRESHOLD) {
                     val x = index % probeWidth
                     val y = index / probeWidth
@@ -415,19 +452,19 @@ internal class CombinedStatusPainter(
             }
 
             if (maxX < minX || maxY < minY) {
-                NativeVisualProbe.FULL
-            } else {
-                NativeVisualProbe(
-                    opticalBounds =
-                        OpticalBounds(
-                            left = minX / probeWidth.toFloat(),
-                            top = minY / probeHeight.toFloat(),
-                            right = (maxX + 1) / probeWidth.toFloat(),
-                            bottom = (maxY + 1) / probeHeight.toFloat(),
-                        ),
-                    maxAlpha = maxAlpha,
-                )
+                return null
             }
+
+            val opticalBounds =
+                OpticalBounds(
+                    left = minX / probeWidth.toFloat(),
+                    top = minY / probeHeight.toFloat(),
+                    right = (maxX + 1) / probeWidth.toFloat(),
+                    bottom = (maxY + 1) / probeHeight.toFloat(),
+                )
+            // Keep the raster probe measurement-only. The native Drawable is
+            // rendered directly at the final presentation bounds below.
+            return NativeVisualProbe(opticalBounds = opticalBounds)
         } finally {
             bitmap.recycle()
         }
@@ -445,10 +482,13 @@ internal class CombinedStatusPainter(
         nativeTransform: NativeRenderTransform,
         pixelAligned: Boolean,
     ): Boolean {
-        val asset = nativeCenterAsset(resource) ?: return false
-        val drawable = asset.drawable
-        val intrinsicWidth = drawable.intrinsicWidth
-        val intrinsicHeight = drawable.intrinsicHeight
+        // This renderer always applies an external tint below. Match HyperOS's
+        // useTint=true presentation contract by resolving the native opaque
+        // *_tint mask first, then apply the already-authoritative resolved tint.
+        val presentationResource = resolveNativeTintVariant(resource) ?: resource
+        val asset = nativeCenterAsset(presentationResource) ?: return false
+        val intrinsicWidth = asset.intrinsicWidth
+        val intrinsicHeight = asset.intrinsicHeight
         if (intrinsicWidth <= 0 || intrinsicHeight <= 0) {
             return false
         }
@@ -468,12 +508,8 @@ internal class CombinedStatusPainter(
         val drawWidth = intrinsicWidth * drawableScale
         val drawHeight = intrinsicHeight * drawableScale
 
-        drawable.setTint(
-            CombinedStatusVisualIntensity.resolveNativeFullStrengthTint(
-                tint = tint,
-                intrinsicMaxAlpha = asset.intrinsicMaxAlpha,
-            ),
-        )
+        val drawable = asset.drawable
+        drawable.setTint(tint)
         drawable.alpha =
             CombinedStatusVisualIntensity.resolveDrawableAlpha(opacity)
 
@@ -495,27 +531,60 @@ internal class CombinedStatusPainter(
                 -nativeTransform.offsetX,
                 -nativeTransform.offsetY,
             )
-            drawable.setBounds(
-                bounds.left,
-                bounds.top,
-                bounds.right,
-                bounds.bottom,
+            drawNativeDrawable(
+                canvas = canvas,
+                drawable = drawable,
+                left = bounds.left.toFloat(),
+                top = bounds.top.toFloat(),
+                width = (bounds.right - bounds.left).toFloat(),
+                height = (bounds.bottom - bounds.top).toFloat(),
+                intrinsicWidth = intrinsicWidth,
+                intrinsicHeight = intrinsicHeight,
             )
-            drawable.draw(canvas)
             canvas.restoreToCount(save)
         } else {
-            // Transition frames keep the existing canonical-space scale contract.
-            val left = centerX - drawWidth / 2f
-            val top = centerY - drawHeight / 2f
-            drawable.setBounds(
-                left.roundToInt(),
-                top.roundToInt(),
-                (left + drawWidth).roundToInt(),
-                (top + drawHeight).roundToInt(),
+            drawNativeDrawable(
+                canvas = canvas,
+                drawable = drawable,
+                left = centerX - drawWidth / 2f,
+                top = centerY - drawHeight / 2f,
+                width = drawWidth,
+                height = drawHeight,
+                intrinsicWidth = intrinsicWidth,
+                intrinsicHeight = intrinsicHeight,
             )
-            drawable.draw(canvas)
         }
         return true
+    }
+
+    private fun drawNativeDrawable(
+        canvas: Canvas,
+        drawable: Drawable,
+        left: Float,
+        top: Float,
+        width: Float,
+        height: Float,
+        intrinsicWidth: Int,
+        intrinsicHeight: Int,
+    ) {
+        if (
+            width <= 0f ||
+            height <= 0f ||
+            intrinsicWidth <= 0 ||
+            intrinsicHeight <= 0
+        ) {
+            return
+        }
+
+        val save = canvas.save()
+        canvas.translate(left, top)
+        canvas.scale(
+            width / intrinsicWidth.toFloat(),
+            height / intrinsicHeight.toFloat(),
+        )
+        drawable.setBounds(0, 0, intrinsicWidth, intrinsicHeight)
+        drawable.draw(canvas)
+        canvas.restoreToCount(save)
     }
 
     private fun airplaneResourceId(): Int? {
@@ -870,22 +939,14 @@ internal class CombinedStatusPainter(
 
     private data class NativeCenterAsset(
         val drawable: Drawable,
+        val intrinsicWidth: Int,
+        val intrinsicHeight: Int,
         val opticalBounds: OpticalBounds,
-        val intrinsicMaxAlpha: Int,
     )
 
     private data class NativeVisualProbe(
         val opticalBounds: OpticalBounds,
-        val maxAlpha: Int,
-    ) {
-        companion object {
-            val FULL =
-                NativeVisualProbe(
-                    opticalBounds = OpticalBounds.FULL,
-                    maxAlpha = 255,
-                )
-        }
-    }
+    )
 
     private data class OpticalBounds(
         val left: Float,
@@ -905,6 +966,17 @@ internal class CombinedStatusPainter(
     }
 }
 
+
+
+internal object NativeCenterResourceVariantPolicy {
+    fun tintEntryName(entryName: String): String {
+        val base =
+            entryName
+                .removeSuffix("_darkmode")
+                .removeSuffix("_tint")
+        return base + "_tint"
+    }
+}
 
 
 internal data class NativeRenderTransform(
@@ -1011,13 +1083,15 @@ internal object CombinedStatusCenterGeometry {
 }
 
 internal object CombinedStatusOuterGeometry {
+    private const val PREVIOUS_DEFAULT_WEIGHT_SCALE = 1.10f
+
     const val RING_RADIUS = 50f
-    const val BASE_RING_STROKE = 7.5f
+    const val BASE_RING_STROKE = 8.25f
     const val MOBILE_ORBIT_RADIUS = 51f
-    const val BASE_MOBILE_DOT_RADIUS = 4.9f
-    const val BASE_UNAVAILABLE_MARK_STROKE = 3.2f
-    const val BASE_UNAVAILABLE_MARK_HALF_EXTENT = 3.7f
-    const val DEFAULT_WEIGHT_SCALE = 1.10f
+    const val BASE_MOBILE_DOT_RADIUS = 4.9f * PREVIOUS_DEFAULT_WEIGHT_SCALE
+    const val BASE_UNAVAILABLE_MARK_STROKE = 3.2f * PREVIOUS_DEFAULT_WEIGHT_SCALE
+    const val BASE_UNAVAILABLE_MARK_HALF_EXTENT = 3.7f * PREVIOUS_DEFAULT_WEIGHT_SCALE
+    const val DEFAULT_WEIGHT_SCALE = 1.00f
     const val MIN_WEIGHT_SCALE = 0.60f
     const val MAX_WEIGHT_SCALE = 2.00f
 
@@ -1157,20 +1231,4 @@ internal object CombinedStatusVisualIntensity {
         (255f * opacity.coerceIn(0f, 1f))
             .roundToInt()
             .coerceIn(0, 255)
-
-    fun resolveNativeFullStrengthTint(
-        tint: Int,
-        intrinsicMaxAlpha: Int,
-    ): Int {
-        val sourceAlpha = intrinsicMaxAlpha.coerceIn(1, 255)
-        if (sourceAlpha == 255) {
-            return tint
-        }
-        val targetAlpha = tint ushr 24
-        val normalizedAlpha =
-            (targetAlpha * 255f / sourceAlpha)
-                .roundToInt()
-                .coerceIn(0, 255)
-        return (normalizedAlpha shl 24) or (tint and 0x00ffffff)
-    }
 }

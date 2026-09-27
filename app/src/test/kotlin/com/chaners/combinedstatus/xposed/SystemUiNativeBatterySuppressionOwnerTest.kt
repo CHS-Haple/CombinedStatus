@@ -2,9 +2,29 @@ package com.chaners.combinedstatus.xposed
 
 import android.view.View
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SystemUiNativeBatterySuppressionOwnerTest {
+    @Test
+    fun replacementDoesNotOverrideNativeVisibleLayout() {
+        assertFalse(
+            SystemUiNativeBatterySuppressionOwner.resolveNativeLayoutHide(
+                nativeRequestedHide = false,
+            ),
+        )
+    }
+
+    @Test
+    fun nativeHideRemainsAuthoritativeWhileReplacementIsActive() {
+        assertTrue(
+            SystemUiNativeBatterySuppressionOwner.resolveNativeLayoutHide(
+                nativeRequestedHide = true,
+            ),
+        )
+    }
+
     @Test
     fun activeSuppressionKeepsChargingSlotButRemovesGlyph() {
         assertEquals(

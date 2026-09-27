@@ -9,6 +9,35 @@ import org.junit.Test
 
 class CombinedStatusOuterGeometryTest {
     @Test
+    fun defaultOpticalBaselineRestoresPreferred825Ring() {
+        val geometry =
+            CombinedStatusOuterGeometry.resolve(
+                CombinedStatusOuterGeometry.DEFAULT_WEIGHT_SCALE,
+            )
+
+        assertEquals(
+            8.25f,
+            geometry.ringStroke,
+            0.0001f,
+        )
+        assertEquals(
+            4.9f * 1.10f,
+            geometry.mobileDotRadius,
+            0.0001f,
+        )
+        assertEquals(
+            3.2f * 1.10f,
+            geometry.unavailableMarkStroke,
+            0.0001f,
+        )
+        assertEquals(
+            3.7f * 1.10f,
+            geometry.unavailableMarkHalfExtent,
+            0.0001f,
+        )
+    }
+
+    @Test
     fun ringAndDotsScaleProportionally() {
         for (scale in TEST_SCALES) {
             val geometry = CombinedStatusOuterGeometry.resolve(scale)
