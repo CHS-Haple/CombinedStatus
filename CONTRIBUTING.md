@@ -530,9 +530,11 @@ Routing:
 
 This keeps validation proportional to the lifecycle stage: pull requests prove bounded source/build correctness without signing secrets; an owner-maintained work branch can receive an automatic signed Canary only after that unprivileged Build succeeds; `dev` still produces the integrated Canary baseline; Full is reserved for changes that can alter the build system or stable artifact contract.
 
-The automatic work-branch Canary is a privileged follow-up workflow defined on the default branch. It checks out the exact successful Build SHA, reruns the applicable tests/profile checks, produces only the signed non-debuggable Canary, and publishes that APK for focused device validation. It must remain gated to same-repository `feat/**` / `fix/**` work owned by the repository owner. The work branch itself does not gain a privileged push-triggered workflow.
+The work-branch Canary is a privileged default-branch workflow. Its normal path follows a successful unprivileged `pull_request` Build for same-repository `feat/**` / `fix/**` work owned by the repository owner, checks out the exact tested SHA, reruns the applicable tests/profile checks, produces only the signed non-debuggable Canary, and publishes that APK for focused device validation. The work branch itself does not gain a privileged push-triggered workflow.
 
-A work-branch Canary is a test artifact, not merge approval, not a `dev` integration baseline, and not a release. It exists to remove unnecessary manual workflow dispatch before focused device testing.
+If GitHub fails to deliver the normal pull-request event into Actions, the same default-branch workflow may be started through its maintainer-only manual fallback. That fallback must accept only an explicit same-repository `feat/**` / `fix/**` branch, resolve and record its exact remote head SHA before validation, run the same target-profile/tests/metadata/signature/non-debuggable checks, and publish the same class of Canary artifact. It is an infrastructure fallback, not a way to bypass failed CI, branch trust, source attribution, signing verification, device validation, or merge review. Prefer the automatic PR path whenever it is functioning.
+
+A work-branch Canary is a test artifact, not merge approval, not a `dev` integration baseline, and not a release. Automatic and maintainer-fallback invocations have the same runtime-validation meaning once the exact source SHA and required checks are recorded.
 
 A CI-workflow change is itself CI-affecting and requires Full validation.
 
