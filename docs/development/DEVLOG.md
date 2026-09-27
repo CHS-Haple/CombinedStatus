@@ -4707,3 +4707,40 @@ The matching SystemUI-Reference contract index records the same callback as sema
 ### Gate
 
 Fast CI and a signed Canary are required before another device test. Runtime changes stop once the signed Build-410 Canary exists.
+
+
+---
+
+## 2026-09-27 — Build 410 Fast #1141: stale Home-session test call sites
+
+**Type:** CI failure / test-maintenance correction  
+**Fast run:** #1141 / `36319627573`  
+**Runtime source:** `6e2fc55944753c6cb9ef22f537008c97217f17e1`  
+**Runtime conclusion:** unchanged
+
+### CI evidence
+
+Fast #1141:
+- correctly classified as Fast;
+- passed Gradle Wrapper / Java / API 37 setup;
+- passed the pinned HyperOS target-profile verification, including `ControlCenterExpandControllerDelegate.onVisibleChanged(Z)V`;
+- production `compileDebugKotlin` succeeded;
+- `compileDebugUnitTestKotlin` failed at five pre-existing `CombinedStatusHomeRenderSessionTest.kt` calls to `resolveOverlayVisible(...)` because they did not yet supply the new `controlCenterAllowsHome` parameter.
+
+### Root cause
+
+Build 410 extends the pure Home visibility policy with a second native scene-lifetime gate. The participant-owner tests were updated during source review, but the separate Home-session policy test file contains five additional legacy calls.
+
+Those tests cover pre-existing feature/scene/notification/handoff semantics. They should hold the new Control Center gate neutral/allowing with `controlCenterAllowsHome=true`.
+
+This is a test-maintenance omission, not a production compilation, target-contract or runtime design failure.
+
+### Selected correction
+
+Update only the five legacy policy-test calls with `controlCenterAllowsHome=true`.
+
+No runtime code, Hook contract, Hot Reload payload, build identity, color, geometry, animation or scene policy changes.
+
+### Gate
+
+Re-run Fast CI after the test-only correction. Build 410 remains the same executable candidate and still requires a signed Canary before device validation.
