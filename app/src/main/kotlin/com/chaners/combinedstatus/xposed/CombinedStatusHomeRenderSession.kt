@@ -139,6 +139,19 @@ internal object CombinedStatusHomeRenderSession {
             controlCenterAllowsHome &&
             !nativeHandoffActive
 
+    internal fun resolveOwnerReady(
+        featureEnabled: Boolean,
+        modelReady: Boolean,
+        tintReady: Boolean,
+        layoutReady: Boolean,
+        hostAttached: Boolean,
+    ): Boolean =
+        featureEnabled &&
+            modelReady &&
+            tintReady &&
+            layoutReady &&
+            hostAttached
+
     private fun ViewGroup.directChild(className: String): ViewGroup? {
         for (index in 0 until childCount) {
             val child = getChildAt(index)
@@ -594,22 +607,27 @@ internal object CombinedStatusHomeRenderSession {
         }
 
         private fun dispatchPresentationReadiness(source: String) {
-            val ready =
-                featureEnabled &&
-                    SystemUiSceneStateSource.allowsHomeOverlay(sceneSurface) &&
-                    notificationShadeAllowsHome &&
-                    controlCenterAllowsHome &&
-                    modelReady &&
-                    tintReady &&
-                    layoutReady &&
-                    host.get()?.isAttachedToWindow == true
-            if (ready == lastPresentationReady) {
+            val ownerReady =
+                resolveOwnerReady(
+                    featureEnabled = featureEnabled,
+                    modelReady = modelReady,
+                    tintReady = tintReady,
+                    layoutReady = layoutReady,
+                    hostAttached = host.get()?.isAttachedToWindow == true,
+                )
+            if (ownerReady == lastPresentationReady) {
                 return
             }
-            lastPresentationReady = ready
+            lastPresentationReady = ownerReady
             emitEvent {
                 "homeRenderReadiness source=" + source +
-                    " ready=" + ready +
+                    " ownerReady=" + ownerReady +
+                    " overlayEligible=" +
+                    (
+                        SystemUiSceneStateSource.allowsHomeOverlay(sceneSurface) &&
+                            notificationShadeAllowsHome &&
+                            controlCenterAllowsHome
+                    ) +
                     " modelReady=" + modelReady +
                     " tintReady=" + tintReady +
                     " layoutReady=" + layoutReady +
@@ -619,7 +637,7 @@ internal object CombinedStatusHomeRenderSession {
                     " featureEnabled=" + featureEnabled +
                     " nativeGeometryWrites=0"
             }
-            onPresentationReadinessChanged?.invoke(ready)
+            onPresentationReadinessChanged?.invoke(ownerReady)
         }
 
         private inline fun emitEvent(message: () -> String) {
