@@ -18,9 +18,9 @@ internal object SystemUiPanelTransitionSource {
             CONTROL_CENTER_RUNTIME_HOOK_COUNT +
             CONTROL_CENTER_DIAGNOSTIC_HOOK_COUNT
 
-    private const val SHADE_MANAGER_CLASS =
-        "com.android.systemui.shade.ShadeExpansionStateManager"
-    private const val SHADE_METHOD = "onPanelExpansionChanged"
+    private const val NOTIFICATION_HEADER_CALLBACK_CLASS =
+        "com.android.systemui.controlcenter.shade.NotificationHeaderExpandController\$notificationCallback\$1"
+    private const val NOTIFICATION_HEADER_EXPANSION_METHOD = "onExpansionChanged"
     private const val CONTROL_CENTER_CLASS =
         "com.miui.systemui.controlcenter.container.ControlCenterExpandControllerDelegate"
     private const val CONTROL_CENTER_EXPANSION_METHOD = "onExpansionChanged"
@@ -32,7 +32,8 @@ internal object SystemUiPanelTransitionSource {
     private const val STATUS_BAR_ANCHOR_CLASS =
         "com.android.systemui.controlcenter.shade.StatusBarAnchorBounds"
 
-    private const val SHADE_HOOK_ID = "combinedstatus.panel.notification.expansion"
+    private const val NOTIFICATION_HEADER_HOOK_ID =
+        "combinedstatus.panel.notification.header-expansion"
     private const val CONTROL_CENTER_EXPANSION_HOOK_ID =
         "combinedstatus.panel.control-center.expansion"
     private const val CONTROL_CENTER_VISIBLE_HOOK_ID =
@@ -55,14 +56,19 @@ internal object SystemUiPanelTransitionSource {
         isProbeEnabled: () -> Boolean = { false },
         includeControlCenterDiagnostics: Boolean = true,
     ): List<HookHandle> {
-        val shadeClass = Class.forName(SHADE_MANAGER_CLASS, false, classLoader)
-        val shadeMethod =
-            shadeClass.getDeclaredMethod(
-                SHADE_METHOD,
-                Float::class.javaPrimitiveType,
-                Boolean::class.javaPrimitiveType,
-                Boolean::class.javaPrimitiveType,
-            ).apply { isAccessible = true }
+        val notificationHeaderCallbackClass =
+            Class.forName(
+                NOTIFICATION_HEADER_CALLBACK_CLASS,
+                false,
+                classLoader,
+            )
+        val notificationHeaderExpansionMethod =
+            notificationHeaderCallbackClass
+                .getDeclaredMethod(
+                    NOTIFICATION_HEADER_EXPANSION_METHOD,
+                    Float::class.javaPrimitiveType,
+                )
+                .apply { isAccessible = true }
 
         val controlClass =
             Class.forName(CONTROL_CENTER_CLASS, false, classLoader)
@@ -98,29 +104,26 @@ internal object SystemUiPanelTransitionSource {
         try {
             handles +=
                 module
-                    .hook(shadeMethod)
-                    .setId(SHADE_HOOK_ID)
+                    .hook(notificationHeaderExpansionMethod)
+                    .setId(NOTIFICATION_HEADER_HOOK_ID)
                     .intercept(
                         Hooker { chain ->
                             val fraction =
                                 nativeFraction(
                                     (chain.getArg(0) as? Number)?.toFloat(),
                                 )
-                            val expanded = chain.getArg(1) as? Boolean
-                            val tracking = chain.getArg(2) as? Boolean
+                            // Observe the same callback HyperOS uses to update the
+                            // Notification Header. Proceed first so native state
+                            // remains authoritative if its own callback fails.
                             val result = chain.proceed()
-                            val homeEligible =
-                                notificationShadeAllowsHome(
-                                    fraction = fraction,
-                                    tracking = tracking,
-                                )
-                            notificationShadeHomeEligible = homeEligible
+                            notificationShadeHomeEligible =
+                                notificationShadeAllowsHome(fraction)
                             val update =
                                 Update(
                                     source = Source.NOTIFICATION_SHADE,
                                     fraction = fraction,
-                                    expanded = expanded,
-                                    tracking = tracking,
+                                    expanded = null,
+                                    tracking = null,
                                     visible = null,
                                     homeMotion =
                                         if (
@@ -270,14 +273,8 @@ internal object SystemUiPanelTransitionSource {
             CONTROL_CENTER_RUNTIME_HOOK_COUNT +
             if (includeControlCenterDiagnostics) CONTROL_CENTER_DIAGNOSTIC_HOOK_COUNT else 0
 
-    internal fun notificationShadeAllowsHome(
-        fraction: Float?,
-        tracking: Boolean?,
-    ): Boolean {
-        @Suppress("UNUSED_VARIABLE")
-        val nativeTrackingContext = tracking
-        return fraction != null && fraction <= 0f
-    }
+    internal fun notificationShadeAllowsHome(fraction: Float?): Boolean =
+        fraction != null && fraction <= 0f
 
     fun currentNotificationShadeHomeEligibility(): Boolean? =
         notificationShadeHomeEligible
@@ -393,7 +390,12 @@ internal object SystemUiPanelTransitionSource {
                 " visible=" + (update.visible ?: probe.visible ?: "none") +
                 anchorSummary +
                 homeMotionSummary +
-                " authority=hyperos-native-callback nativeGeometryWrites=0",
+                " authority=" +
+                when (update.source) {
+                    Source.NOTIFICATION_SHADE -> "hyperos-notification-header-callback"
+                    Source.CONTROL_CENTER -> "hyperos-native-callback"
+                } +
+                " nativeGeometryWrites=0",
         )
     }
 

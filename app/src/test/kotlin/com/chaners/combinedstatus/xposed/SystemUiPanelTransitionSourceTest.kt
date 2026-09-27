@@ -15,14 +15,12 @@ class SystemUiPanelTransitionSourceTest {
     }
 
     @Test
-    fun notificationShadeHomeEligibilityUsesRealMotionNotTrackingEdge() {
-        assertEquals(true, SystemUiPanelTransitionSource.notificationShadeAllowsHome(0f, false))
-        assertEquals(true, SystemUiPanelTransitionSource.notificationShadeAllowsHome(0f, true))
-        assertEquals(true, SystemUiPanelTransitionSource.notificationShadeAllowsHome(0f, null))
-        assertEquals(true, SystemUiPanelTransitionSource.notificationShadeAllowsHome(-0.1f, true))
-        assertEquals(false, SystemUiPanelTransitionSource.notificationShadeAllowsHome(0.01f, false))
-        assertEquals(false, SystemUiPanelTransitionSource.notificationShadeAllowsHome(1f, false))
-        assertEquals(false, SystemUiPanelTransitionSource.notificationShadeAllowsHome(null, false))
+    fun notificationHeaderProgressControlsHomeEligibility() {
+        assertEquals(true, SystemUiPanelTransitionSource.notificationShadeAllowsHome(0f))
+        assertEquals(true, SystemUiPanelTransitionSource.notificationShadeAllowsHome(-0.1f))
+        assertEquals(false, SystemUiPanelTransitionSource.notificationShadeAllowsHome(0.01f))
+        assertEquals(false, SystemUiPanelTransitionSource.notificationShadeAllowsHome(1f))
+        assertEquals(false, SystemUiPanelTransitionSource.notificationShadeAllowsHome(null))
     }
 
     @Test

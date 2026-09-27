@@ -340,15 +340,13 @@ internal object CombinedStatusHomeRenderSession {
                     val allowsHome =
                         SystemUiPanelTransitionSource.notificationShadeAllowsHome(
                             fraction = update.fraction,
-                            tracking = update.tracking,
                         )
                     updateNotificationShadeHomeEligibility(
                         homeEligible = allowsHome,
                         source = "notification-shade",
                         detail =
-                            " expanded=" + (update.expanded ?: "unknown") +
-                                " tracking=" + (update.tracking ?: "unknown") +
-                                " fraction=" + (update.fraction ?: "unknown"),
+                            " fraction=" + (update.fraction ?: "unknown") +
+                                " authority=notification-header-callback",
                     )
                 }
 
