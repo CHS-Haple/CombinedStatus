@@ -57,9 +57,16 @@ Fast Build #1179 / run `36328523953` reached the exact-target verification succe
 
 This is an implementation-completeness failure, not evidence against the motion-semantic root cause. The PR was immediately returned to Draft. The missed call site is corrected to pass the same native `update.fraction` consumed by the source owner, and the executable identity is advanced to **Build 413 / `20260927-413`** (`versionCode=260927213`) because the runtime tree has changed.
 
+### Draft validation after correction
+
+- Draft Light #1182 / run `36328726733` failed only `git diff --check` because two newly added DEVLOG metadata lines carried trailing whitespace.
+- PR #142 remained/returned Draft while that repository-only issue was corrected.
+- Draft Light #1185 / run `36328796244` then **passed** on the corrected Build-413 branch state.
+- No Android/Gradle/signing/APK work was required for this Draft documentation closure.
+
 ### Gate
 
-Return PR #142 to Ready only after the Build-413 source/call-site correction and records are complete. Run Fast CI at the exact final PR HEAD. If Fast passes, request one signed Canary because the fix changes the HUN/shade runtime visibility boundary and needs focused maintainer validation before integration.
+Return PR #142 to Ready now that the Build-413 source/call-site correction and required records are complete. Run Fast CI at the exact final PR HEAD. If Fast passes, request one signed Canary because the fix changes the HUN/shade runtime visibility boundary and needs focused maintainer validation before integration.
 
 
 ## 2026-09-27 — Post-Build 412 HUN ownership source review
