@@ -17,6 +17,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 class CombinedStatusModule : XposedModule() {
     private var islandMotionSourceInstalled = false
+    private var notificationShadeTargetProbeInstalled = false
     private var panelTransitionSourceInstalled = false
     private var notificationStateProbeBucket = -1
     private var controlCenterGeometryProbeBucket = -1
@@ -124,6 +125,10 @@ class CombinedStatusModule : XposedModule() {
                 source = "coldStart",
             )
             if (BuildConfig.RUNTIME_DIAGNOSTICS) {
+                installNotificationShadeTargetProbe(
+                    classLoader = param.classLoader,
+                    source = "coldStart",
+                )
                 installIslandMotionSource(
                     classLoader = param.classLoader,
                     source = "coldStart",
@@ -162,6 +167,11 @@ class CombinedStatusModule : XposedModule() {
                 SystemUiNativeNetworkSuppressionOwner.installedHookCount +
                 if (islandMotionSourceInstalled) {
                     SystemUiIslandMotionSource.HOOK_COUNT
+                } else {
+                    0
+                } +
+                if (notificationShadeTargetProbeInstalled) {
+                    SystemUiNotificationShadeTargetProbe.HOOK_COUNT
                 } else {
                     0
                 } +
@@ -266,10 +276,12 @@ class CombinedStatusModule : XposedModule() {
             SystemUiBatteryRuntimeOwner.resetRuntimeState()
             SystemUiNetworkRuntimeOwner.resetRuntimeState()
             islandMotionSourceInstalled = false
+            notificationShadeTargetProbeInstalled = false
             panelTransitionSourceInstalled = false
             notificationStateProbeBucket = -1
             controlCenterGeometryProbeBucket = -1
             SystemUiPresentationRuntimeOwner.resetRuntimeState()
+            SystemUiNotificationShadeTargetProbe.resetRuntimeState()
             SystemUiHomePresentationOwner.resetRuntimeState("hotReload")
             SystemUiNativeNetworkSuppressionOwner.resetRuntimeState("hotReload")
             bindRuntimeDiagnostics()
@@ -326,6 +338,10 @@ class CombinedStatusModule : XposedModule() {
                 source = "hotReload",
             )
             if (BuildConfig.RUNTIME_DIAGNOSTICS) {
+                installNotificationShadeTargetProbe(
+                    classLoader = classLoader,
+                    source = "hotReload",
+                )
                 installIslandMotionSource(
                     classLoader = classLoader,
                     source = "hotReload",
@@ -960,6 +976,65 @@ class CombinedStatusModule : XposedModule() {
         }
     }
 
+
+    private fun installNotificationShadeTargetProbe(
+        classLoader: ClassLoader,
+        source: String,
+    ) {
+        runCatching {
+            SystemUiNotificationShadeTargetProbe.install(
+                module = this,
+                classLoader = classLoader,
+                onEvent = ::onPanelTransitionEvent,
+                isProbeEnabled = {
+                    BuildConfig.DEVELOPMENT_PROBES || detailedDiagnosticsEnabled
+                },
+            )
+        }.onSuccess { handles ->
+            notificationShadeTargetProbeInstalled =
+                handles.size == SystemUiNotificationShadeTargetProbe.HOOK_COUNT
+            logDiagnostic(
+                level =
+                    if (notificationShadeTargetProbeInstalled) {
+                        Log.INFO
+                    } else {
+                        Log.WARN
+                    },
+                event = "source.install",
+                component = "notificationShadeTargetProbe",
+                state =
+                    if (notificationShadeTargetProbeInstalled) {
+                        "ready"
+                    } else {
+                        "partial"
+                    },
+                "hooks" to handles.size,
+                "expectedHooks" to SystemUiNotificationShadeTargetProbe.HOOK_COUNT,
+                "source" to source,
+                "mode" to "bounded-read-only",
+                "nativeGeometryWrites" to 0,
+            )
+        }.onFailure { error ->
+            notificationShadeTargetProbeInstalled = false
+            SystemUiNotificationShadeTargetProbe.resetRuntimeState()
+            logDiagnostic(
+                level = Log.WARN,
+                event = "source.install",
+                component = "notificationShadeTargetProbe",
+                state = "unavailable",
+                "reason" to (error.message ?: error.javaClass.simpleName),
+                "source" to source,
+                "runtimeAuthorityAffected" to false,
+            )
+            log(
+                Log.WARN,
+                TAG,
+                "Notification shade target diagnostic probe unavailable",
+                error,
+            )
+        }
+    }
+
     private fun installPanelTransitionSource(
         classLoader: ClassLoader,
         source: String,
@@ -1397,6 +1472,7 @@ class CombinedStatusModule : XposedModule() {
         SystemUiPresentationRuntimeOwner.resetRuntimeState()
         CombinedStatusPresentationStateStore.reset()
         SystemUiIslandMotionSource.resetRuntimeState()
+        SystemUiNotificationShadeTargetProbe.resetRuntimeState()
         SystemUiPanelTransitionSource.resetRuntimeState()
 
         logDiagnostic(

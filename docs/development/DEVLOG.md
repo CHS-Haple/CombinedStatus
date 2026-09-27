@@ -2,6 +2,54 @@
 
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
+## 2026-09-28 — Build 419: narrow NotificationShadeWrapper target probe
+
+**Type:** Phase-2B bounded runtime diagnostics
+**Build:** 419 / `20260928-419`
+**Work branch / PR:** `feat/panel-projection` / Draft #146
+**Device validation:** pending
+
+### Problem execution flow
+
+**Phenomenon / evidence:** Build 414 proved that `NotificationHeaderExpandController` is on the native notification-header expansion path, but its direct Android View inventory exposed only `realClockIcons`; the controller translations remained constant and are not a verified status-icon endpoint. The same exact runtime inventory exposed two narrower ownership seams: `notification: NotificationShadeWrapper` and `headerController: Lazy`.
+
+**Root cause / missing fact:** notification-shade lifetime/progress is already verified, but the actual shade status-icon target host/bounds/tint owner remains unknown. Implementing projection without that fact would invent geometry.
+
+**Repository / exact-target evidence:** current SystemUI-Reference has high-level `NotificationHeaderExpandController` motion contracts and Control Center `StatusBarAnchorBounds`, but its selective source cache does not contain `NotificationShadeWrapper`; the original 52 MB APK is intentionally not stored in the repository. Public source search did not produce a matching source snapshot. Build-414 runtime field inventory is therefore the narrowest exact-target evidence available.
+
+**Mature/native comparison:** Control Center already exposes an explicit anchor-bounds object and distinct fake/status-icon surface. Notification shade should likewise be resolved through its native wrapper/header ownership chain rather than by copying Control Center geometry or inventing an offset.
+
+### Selected diagnostic
+
+Add `SystemUiNotificationShadeTargetProbe`:
+- hook the already-known notification-header expansion callback;
+- call native first;
+- no work unless Detailed diagnostics / development probes are enabled;
+- capture only boundary buckets 0/1/7/8;
+- resolve the callback's `NotificationHeaderExpandController`;
+- read exact controller fields `notification` and `headerController`;
+- resolve the Lazy holder without storing cross-generation objects;
+- summarize only each owner’s direct View fields plus a bounded one-level set of semantically named candidate owners;
+- log a capped field/type inventory once;
+- no root traversal, polling, frame listener, layout write, tint write, visibility write, or projection rendering.
+
+### 审查 / review
+
+- **ownership:** SystemUI remains sole shade layout/motion/tint owner; project reads only.
+- **lifecycle:** one diagnostics-build hook, generation-scoped; reset on Hot Reload.
+- **single writer:** zero new presentation writers.
+- **cleanup:** only primitive bucket/inventory flags are retained; reset during teardown.
+- **fail-native:** install/read failure leaves the accepted Build-418 Home + panel lifetime behavior untouched.
+- **performance:** one callback hook; bounded reflection only at four diagnostic buckets and only while Detailed is enabled.
+- **compatibility:** callback/controller/fields are pinned in the exact-target profile and checked by the profile verifier.
+- **exception recovery:** reflective owner/value/view reads are guarded and report unavailable/null instead of changing behavior.
+- **future extension:** probe should be deleted from active runtime after the real shade target contract is identified.
+
+### Validation gate
+
+Executable diagnostics plus target-profile/verifier change advance the next runtime identity to Build 419. Draft Light -> source review -> Ready Full -> one signed Canary only if device evidence is required.
+
+
 ## 2026-09-28 — PR #146 refreshed from accepted Build 418 dev baseline
 
 **Type:** history-preserving feature-branch recovery / documentation checkpoint
