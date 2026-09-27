@@ -38,7 +38,7 @@ Home -> shade / Control Center projection is **Phase 2B**. Keyguard / lockscreen
 - **Build 398** strengthens stable width authority by using the live native `battery_icon_container`; it is carried forward but was not separately device-promoted before the next checkpoints.
 - **Build 399** separates active/inactive battery-ring arc compositing without reopening Home carrier ownership.
 - **Build 403 / `20260927-403`** established the current HyperOS battery semantic-color implementation. Runtime source: `97ef67e648906a4b9bb2ce4d7dd390e955831189`.
-- **Build 404 / `20260927-404`** is the current optical-parity A/B runtime candidate. Runtime source: `614c6ae96f1753088e21ce3568d969b900852081`. Its only intended visual delta from Build 403 is preserving the HyperOS center resource's authored alpha mask instead of percentile-rescaling that mask before tinting.
+- **Build 404 / `20260927-404`** is a completed but **device-rejected optical-parity A/B checkpoint**. Runtime source: `614c6ae96f1753088e21ce3568d969b900852081`. It removed percentile alpha remapping while retaining the existing bitmap-probe rendering path; target-device feedback shows the center presentation is visually worse than Build 403, so authored-alpha preservation alone is not an accepted fix.
 - Documentation-only commits may advance PR #105 beyond the Build-404 runtime source without creating a new runtime Build; runtime identity remains the Build/source pair above until executable source changes.
 
 Build 403 validation already established:
@@ -54,7 +54,7 @@ Build 404 validation:
 - signed artifact: `CombinedStatus-0.0.2-HyperOS-20260927-404-canary.apk`;
 - artifact ZIP digest: `sha256:694c81c37b5dc8227f0da076211ae538ac9250770da2eb97003be0727734c79f`;
 - extracted APK SHA-256: `eb16169738f3e16bcd208463ae4fc638898c3c46f2ca3b43efea3bda625519f1`;
-- device optical-parity and semantic-color acceptance: **pending**.
+- device optical-parity acceptance: **rejected / regressed versus Build 403**; battery semantic-color acceptance remains a separate open device gate.
 - validation-only PRs #129 and #130 are closed after evidence capture; neither is mergeable product work.
 
 ## Active runtime issues / validation
@@ -68,10 +68,12 @@ Screenshot pixel sampling narrows the problem: the core dark grayscale levels ar
 Current boundary:
 - Build 399's non-overlapping battery-arc compositing remains the active correction;
 - native status-icon tint remains the intended monochrome authority and should not be replaced with a project gray;
-- the earlier shared native alpha-mask normalization assumption is now **reopened**: current source review shows that Combined Status rescales the HyperOS-authored per-pixel alpha mask to an 85th-percentile ceiling before tinting, while the native ImageView/SRC_IN path uses the drawable's authored alpha as the tint mask;
-- Build 356 already showed that the normalization path did not close the device visual-intensity mismatch, so it must not be treated as final parity evidence merely because it is shared;
-- Build 404 implements one bounded A/B correction: preserve the native drawable's authored alpha mask while keeping resource identity, optical bounds, final-pixel alignment, resolved native tint, center size, outer geometry, and Battery arc policy unchanged;
-- do **not** add per-glyph gray multipliers, replacement gray constants, screenshot-derived magic numbers, or source-asset recoloring merely to force a visual match;
+- Build 404 disproves the narrower assumption that removing percentile alpha remapping is sufficient: preserving authored alpha while keeping the existing raster-probe pipeline makes the target-device center presentation worse than Build 403;
+- exact-target SystemUI reverse engineering now establishes a more fundamental rendering-path difference. Native Home Wi-Fi resolves the semantic `Icon.Resource`, transforms it through HyperOS Light / Dark / Tint resource maps, assigns the resulting VectorDrawable with `ImageView.setImageResource()`, optionally applies `ImageTintList`, and lets the VectorDrawable rasterize directly at the final 20dp ImageView/slot size;
+- Combined Status instead takes the raw semantic resource, renders it into an intermediate bitmap up to 96px, measures optical bounds from that bitmap, then rescales the bitmap into the final Combined Status bounds and applies another SRC_IN tint. That intermediate raster/resample stage is absent from the verified native path and is now the primary root-cause candidate for the remaining optical-weight/antialiasing mismatch;
+- the native resource-variant transformation is a second verified difference and must remain distinct from the rasterization hypothesis so A/B evidence stays attributable;
+- the next bounded runtime A/B should remove the bitmap as the **rendered asset** while keeping the existing raw semantic resource, final tint authority, center size, optical measurement, outer geometry, Battery arc policy, and Home carrier unchanged. A small probe may remain measurement-only and must not be drawn;
+- do **not** add per-glyph gray multipliers, replacement gray constants, screenshot-derived magic numbers, source-asset recoloring, or another coverage remap merely to force a visual match;
 - the green screenshot is a semantic-color state and is not evidence of a monochrome tint mismatch.
 
 ### Battery semantic colors — implemented, device acceptance still open
@@ -102,11 +104,11 @@ A shallow notification-shade pull / final held-return frame can still leave the 
 
 ## Immediate next step
 
-1. Runtime changes are stopped at the validated Build-404 Canary. Install that exact Canary and perform focused target-device A/B validation against Build 403 / prior screenshots.
-2. Validate monochrome optical parity first: center Wi-Fi / hotspot / airplane / no-SIM resources should keep native visual weight and antialiasing without any geometry, spacing, or tint regression.
-3. Validate Build-403 semantic battery-color behavior remains intact for NORMAL / CHARGING / POWER_SAVE / PERFORMANCE / LOW when those states are available.
-4. Do not change center geometry, outer weight, tint, Battery arc policy, Home carrier, or shade behavior while this Build-404 device gate is open.
-5. Update `CURRENT.md` and append `DEVLOG.md` immediately when device evidence changes acceptance.
+1. Treat Build 404 as a rejected visual A/B and keep its CI evidence only as build/compatibility evidence.
+2. Implement one new rendering-boundary A/B: keep the existing optical measurement and geometry contract, but stop drawing the cached probe bitmap; draw the cloned HyperOS Drawable / VectorDrawable directly into the final resolved bounds so it rasterizes once at the final canvas size.
+3. Keep the raw semantic resource ID, current native tint authority, center size/centering, outer weight, Battery arc policy, battery semantic colors, Home carrier, and shade behavior unchanged in that checkpoint.
+4. Run source review, Fast CI and signed Work Branch Canary. Then stop runtime changes for target-device comparison against Builds 403 and 404.
+5. If direct final Drawable rendering fixes coverage/antialiasing but a remaining state-dependent difference persists, evaluate the separately verified HyperOS Light / Dark / Tint `transformResId` contract as the next independent boundary rather than folding both changes into one test.
 6. After color/intensity closure, move to the already-identified Phase-2B shallow-shade scene-boundary leak without reopening steady Home carrier ownership.
 
 ## Reference priority
