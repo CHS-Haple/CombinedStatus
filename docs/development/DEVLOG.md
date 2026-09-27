@@ -5096,3 +5096,60 @@ There is no hard-coded 8.0 gap value left behind.
 ### Gate
 
 Fast CI + signed Canary. No separate maintainer thickness A/B is required before integration because the maintainer explicitly prefers the previously experienced 8.25 baseline over both 7.5 and 8.0.
+
+
+---
+
+## 2026-09-27 — Build 412 source review: restore preferred 8.25 ring
+
+**Type:** low-risk visual restoration / source review  
+**Build:** 412 / 20260927-412  
+**Final executable source:** `f794a7c01513364eefc726316fcaf4058d581683`  
+**Validation:** source review passed; Fast/Canary pending
+
+### Executable delta from Build 411
+
+Only the visual ring baseline and build identity change:
+
+1. `CombinedStatusPainter.kt`
+   - `BASE_RING_STROKE: 8.0f -> 8.25f`.
+2. `gradle.properties`
+   - Build 411 -> Build 412.
+
+No scene/owner/HUN runtime file changes after the device-accepted Build-411 executable source.
+
+### Geometry review
+
+- ring radius: unchanged at 50 canonical units;
+- ring cap: unchanged `Paint.Cap.ROUND`;
+- endpoint cap radius therefore becomes 4.125 canonical units at the restored 8.25 stroke;
+- mobile-dot radius: unchanged;
+- center geometry: unchanged;
+- lower opening angles: unchanged;
+- existing binary-search gap solver remains the sole authority for ring-end/dot and dot/dot edge spacing and recomputes from the restored stroke width.
+
+This restores the previously experienced geometry rather than introducing a new cap, magic pixel value, or screenshot-fitted parameter.
+
+### Call-site / regression review
+
+- the deterministic outer-geometry test now pins 8.25;
+- proportional scaling, symmetry, balanced five-edge gaps and clamp tests remain intact;
+- no Home scene gate, owner readiness, Hot Reload, Hook contract, color, alpha, center resource or animation code changes.
+
+### Review
+
+- **Ownership:** unchanged.
+- **Lifecycle:** unchanged.
+- **Single writer:** unchanged Painter geometry ownership.
+- **Cleanup:** unchanged.
+- **Fail native:** unchanged.
+- **Performance:** one constant change; solver complexity unchanged.
+- **Compatibility:** no new platform/private contract.
+- **Exception recovery:** unchanged.
+- **Future extension:** the shared outer-weight scale still applies proportionally from the restored 8.25 default.
+
+### Device-gate decision
+
+The maintainer explicitly prefers the historical 8.25 geometry over 8.0/7.5 and asks to restore it. Because this is a single-variable return to a previously device-seen baseline using the same ROUND cap and solver, Fast CI + signed Canary are sufficient; no dedicated thickness-only maintainer test is required unless validation exposes an unexpected difference.
+
+The Build-411 panel/scene-owner acceptance is retained. The earlier HUN/notification-popup report is not silently marked resolved by this visual change.
