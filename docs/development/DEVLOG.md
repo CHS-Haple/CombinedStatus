@@ -4206,3 +4206,35 @@ Run CI and signed Canary, then freeze runtime for a Build-407 vs Build-408 devic
 ### Gate
 
 **Runtime is frozen at Build 408.** The next required evidence is a Build-407 vs Build-408 device A/B focused on ring optical weight. No tint/alpha compensation, center-resource change or Phase-2B runtime work should be layered before that result.
+
+---
+
+## 2026-09-27 — Build 408 maintainer acceptance for dev integration
+
+**Type:** maintainer acceptance / phase gate / integration authorization  
+**Display version:** 0.0.2  
+**Accepted runtime source:** `8a7a39d8297fe926387d56cc8ff5be4b08405f4a`  
+**Validated Canary:** Work Branch Canary #338 / run `36315043013` / artifact `10930143406`
+
+### Maintainer decision
+
+The maintainer accepts the current color/native-center result for integration into `dev`.
+
+The result is considered **basically compliant with the intended requirement**, with one explicitly recorded limitation: a small residual optical-weight difference between the battery ring, native center and four mobile dots may still be visible.
+
+This acceptance does **not** claim perfect pixel/optical parity. The residual difference is deferred visual polish and is no longer a Phase-2A integration blocker.
+
+### Durable accepted conclusions
+
+- HyperOS remains the semantic battery-state and built-in color authority.
+- Build 407's use of the verified native `_tint` presentation sibling for externally tinted native center resources resolves the previously blocking center-opacity defect.
+- Build 408 is the accepted working outer-geometry baseline carried into `dev`.
+- No per-glyph gray/RGB multiplier, alpha compensation, percentile normalization, source-asset edit or screenshot-derived constant is accepted.
+- The current Home existing-host carrier, reversible native masking/reservation, charging/Super-Island ownership and cleanup/fail-native boundaries remain the accepted Phase-2A architecture.
+- The slight remaining optical-weight difference may be revisited under later visual/thickness controls without blocking scene-transition work.
+
+### Phase consequence
+
+Phase 2A is accepted for the current `dev` integration baseline. Phase 2B becomes active next, beginning with the shallow notification-shade pull / held-return Home-overlay leak.
+
+The Phase-2B investigation must start from native scene/progress ownership and must not reopen steady Home geometry or introduce threshold/delay/translation compensation as a first response.
