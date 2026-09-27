@@ -117,17 +117,20 @@ A shallow notification-shade pull / final held-return frame can still leave the 
 
 - PR #100 remains the architecture work branch based on `dev`.
 - PR #105 is intentionally stacked on PR #100.
+- PR #134 installed the trusted work-branch Canary fallback into `main`; a history-preserving back-sync into `dev` is required so development and stable workflow/process policy remain aligned.
+- Validation-only PRs #131/#132 and the dev-based automation review PR #133 are superseded once their evidence is recorded; they must not be merged as product/runtime work.
 - The documentation-governance baseline is already accepted into `main` and back-synced into `dev`; active runtime branches must preserve it when they are updated/merged rather than restoring their older README/CURRENT/ROADMAP variants.
 - PR #99 remains separate open historical work and is not an accepted baseline; any useful delta must be reconciled against the current line before reuse.
 
 ## Immediate next step
 
-1. Build 405 source review is complete; freeze its direct-final-Drawable boundary.
-2. CI is currently blocked **before workflow execution**: validation PRs #131 and #132 were created/updated against the same `dev` base SHA and the unchanged `build.yml`, but connector-originated opened/synchronize/reopened/ready events produced zero Actions runs/check-runs. This is an event-delivery blocker, not a compile/test failure.
-3. Keep validation-only PR #132 open as the active carrier. The next required trigger is a normal user-originated GitHub `pull_request synchronize` event on `fix/build-405-validation-carrier-2` (for example, a harmless docs-only commit made from GitHub web/local git). Do not use workflow_dispatch as a substitute for the signed Work Branch Canary chain because that workflow requires an upstream Build whose event is `pull_request`.
-4. Once Fast CI and signed Work Branch Canary pass, stop runtime changes and perform focused target-device A/B against Builds 403 and 404: center edge quality/antialiasing, apparent stroke weight, size/centering, and unchanged outer geometry/tint.
-5. Keep HyperOS Light / Dark / Tint `transformResId` resource-variant alignment out of Build 405 so the direct-draw result remains attributable. Keep Build-403 battery semantic-color acceptance separate.
-6. Only after optical/color closure move to the already-identified Phase-2B shallow-shade scene-boundary leak.
+1. Build 405 source review and trusted Canary validation are complete; keep runtime frozen at `bf8091c8680dec7b85c58afded7f476ec95ca49d`.
+2. The CI event-delivery blocker is resolved at the repository-process level. PR #134 installed the default-branch trusted Canary fallback and passed Full Build #1095 plus signed Work Branch Canary #331; `main` merge commit is `5ca1029bb8383da793b69f81370df2760d4389dc`.
+3. Build 405 was then validated through the new owner `/canary` PR-comment path on PR #105. Work Branch Canary #332 resolved PR #105 head `3cdfcc4db4bd5cd350e17400f2ed71d818b9c8d9`, verified its exact checkout, passed target-profile/tests/Xposed metadata/Haple signature/non-debuggable checks, and published `CombinedStatus-0.0.2-HyperOS-20260927-405-canary.apk`.
+4. The validated PR #105 head differs from runtime source `bf8091c...` only in `CURRENT.md` and `DEVLOG.md`; executable Build 405 content is unchanged.
+5. Stop runtime changes now and perform the focused target-device A/B against Builds 403 and 404: center edge quality/antialiasing, apparent stroke weight, size/centering, and unchanged outer geometry/tint.
+6. Keep HyperOS Light / Dark / Tint `transformResId` resource-variant alignment out of Build 405 so the direct-draw result remains attributable. Keep Build-403 battery semantic-color acceptance separate.
+7. Only after optical/color closure move to the already-identified Phase-2B shallow-shade scene-boundary leak.
 
 ## Reference priority
 
