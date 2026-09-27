@@ -2,6 +2,39 @@
 
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
+## 2026-09-27 — Canary admission gate hardening and bounded automation merge delegation
+
+**Type:** repository automation / CI governance
+**APK build:** none
+**Runtime impact:** none
+
+### Problem / evidence
+
+Work Branch Canary #395 failed in `Resolve trusted source` with exit 141 after runtime PR #142 had both a successful Draft Light run and a successful Ready Fast run for the same SHA. Review of the default-branch workflow showed a `gh api ... | head -n 1` pipeline under `set -o pipefail`, creating a deterministic SIGPIPE path. The query also filtered to successful runs before choosing a result, so an older Light success could remain admissible while a newer Ready checkpoint was queued, running, or failed.
+
+### Root cause and implementation
+
+The gate now retrieves PR Build runs without a success filter, selects the newest exact-SHA run by `run_number` inside `jq`, and requires that newest run to be `completed/success`. This removes the shell SIGPIPE condition and preserves the intended Fast-before-Canary checkpoint semantics.
+
+An initial edit was rejected during review because shell-tab escaping corrupted the workflow diff. That unmerged state was replaced from the clean `main` workflow before validation.
+
+### 审查 / review
+
+- **Runtime/APK:** no installed/runtime source, dependency resolution, APK contents, signing identity, or target profile change.
+- **Security/trust:** no secret scope, actor rule, same-repository rule, or signing permission is broadened.
+- **Publication:** Canary remains explicit and owner-triggered; the fix only hardens admission to the existing path.
+- **Failure semantics:** newest exact-SHA PR Build must be completed/success; older success cannot mask a newer unfinished or failed checkpoint.
+- **Maintenance:** removes pipeline-order ambiguity and keeps the decision in one bounded JSON selection.
+
+### Validation
+
+Full Build #1189 / run `36329234898` passed on `3aee0d206b0c966afed9d30d7921abb07a409f19`, including target-profile verification, tests, Debug + Canary build, Xposed metadata, and non-debuggable validation.
+
+### Governance
+
+The maintainer explicitly delegated future merge judgment for bounded automation-only changes. CONTRIBUTING now allows the active development operator to merge and synchronize such changes without a second maintainer confirmation only when Full/self-validation and review pass and there is no runtime/APK/dependency/signing/release/trust-boundary effect. Uncertain or broader changes still require explicit maintainer approval.
+
+
 ## Entry requirements
 
 For each engineering checkpoint, record the problem/goal, observed evidence, analysis, root-cause status, references consulted, alternatives, implementation, review, CI/build identity, validation/device feedback, result, durable conclusions, residual risk, and future-design consequences as applicable.
