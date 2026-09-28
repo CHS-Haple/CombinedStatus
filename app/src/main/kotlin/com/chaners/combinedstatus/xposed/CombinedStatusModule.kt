@@ -19,7 +19,6 @@ class CombinedStatusModule : XposedModule() {
     private var islandMotionSourceInstalled = false
     private var panelTransitionSourceInstalled = false
     private var controlCenterSceneVisible = false
-    private var notificationStateProbeBucket = -1
     private var controlCenterGeometryProbeBucket = -1
     private var runtimeSessionId = newRuntimeSessionId()
     private val diagnosticSequence = AtomicLong(0L)
@@ -268,7 +267,6 @@ class CombinedStatusModule : XposedModule() {
             SystemUiNetworkRuntimeOwner.resetRuntimeState()
             islandMotionSourceInstalled = false
             panelTransitionSourceInstalled = false
-            notificationStateProbeBucket = -1
             controlCenterGeometryProbeBucket = -1
             SystemUiPresentationRuntimeOwner.resetRuntimeState()
             SystemUiHomePresentationOwner.resetRuntimeState("hotReload")
@@ -464,9 +462,6 @@ class CombinedStatusModule : XposedModule() {
                 }
             }
 
-            SystemUiPanelTransitionSource.restoreNotificationShadeHomeEligibility(
-                restored.notificationShadeHomeEligible,
-            )
             SystemUiPanelTransitionSource.restoreControlCenterHomeEligibility(
                 restored.controlCenterHomeEligible,
             )
@@ -494,9 +489,7 @@ class CombinedStatusModule : XposedModule() {
                 "wifiRoots" to bindings.wifiRoots,
                 "mobileRoots" to bindings.mobileRoots,
                 "state" to restoredSnapshot.logLine,
-                "homePresentation" to "readiness-gated",
-                "shadeHomeEligible" to
-                    (restored.notificationShadeHomeEligible ?: "unknown"),
+                "homePresentation" to "native-carrier-lifecycle",
                 "controlCenterHomeEligible" to
                     (restored.controlCenterHomeEligible ?: "unknown"),
                 "tintTransfer" to if (transferredTint != null) "restored" else "native-fallback",
@@ -983,9 +976,6 @@ class CombinedStatusModule : XposedModule() {
                     BuildConfig.RUNTIME_DIAGNOSTICS,
                 )
             panelTransitionSourceInstalled = handles.size == expectedHooks
-            CombinedStatusHomeRenderSession.onNotificationShadeAuthorityChanged(
-                SystemUiPanelTransitionSource.currentNotificationShadeHomeEligibility() == true,
-            )
             // Home yields Control Center only after the projected native
             // carrier is structurally ready.
             CombinedStatusHomeRenderSession.onControlCenterAuthorityChanged(true)
@@ -996,7 +986,8 @@ class CombinedStatusModule : XposedModule() {
                 state = if (panelTransitionSourceInstalled) "ready" else "partial",
                 "hooks" to handles.size,
                 "expectedHooks" to expectedHooks,
-                "notificationRuntimeHook" to true,
+                "notificationRuntimeHook" to false,
+                "notificationHomeLifecycle" to "system-icons-carrier",
                 "controlCenterVisibilityRuntimeHook" to true,
                 "controlCenterExpansionDiagnosticHook" to BuildConfig.RUNTIME_DIAGNOSTICS,
                 "source" to source,
@@ -1004,9 +995,7 @@ class CombinedStatusModule : XposedModule() {
             )
         }.onFailure { error ->
             panelTransitionSourceInstalled = false
-            notificationStateProbeBucket = -1
             controlCenterGeometryProbeBucket = -1
-            CombinedStatusHomeRenderSession.onNotificationShadeAuthorityChanged(false)
             CombinedStatusHomeRenderSession.onControlCenterAuthorityChanged(true)
             logDiagnostic(
                 level = Log.ERROR,
@@ -1023,13 +1012,7 @@ class CombinedStatusModule : XposedModule() {
     private fun onPanelTransitionUpdate(
         update: SystemUiPanelTransitionSource.Update,
     ) {
-        when (update.source) {
-            SystemUiPanelTransitionSource.Source.NOTIFICATION_SHADE ->
-                CombinedStatusHomeRenderSession.onPanelTransitionUpdate(update)
-
-            SystemUiPanelTransitionSource.Source.CONTROL_CENTER ->
-                handleControlCenterPanelUpdate(update)
-        }
+        handleControlCenterPanelUpdate(update)
 
         if (!detailedDiagnosticsEnabled) {
             return
@@ -1038,55 +1021,28 @@ class CombinedStatusModule : XposedModule() {
         val bucket =
             SystemUiPanelTransitionSource.diagnosticBucket(update.fraction)
                 ?: return
+        if (update.visible == false) {
+            controlCenterGeometryProbeBucket = -1
+            return
+        }
+        if (bucket == controlCenterGeometryProbeBucket) {
+            return
+        }
+        controlCenterGeometryProbeBucket = bucket
+        val geometry =
+            SystemUiNativeNetworkSuppressionOwner.currentTransitionTargetGeometry()
         val state =
             SystemUiNativeNetworkSuppressionOwner.currentTransitionStateSnapshot()
-
-        when (update.source) {
-            SystemUiPanelTransitionSource.Source.NOTIFICATION_SHADE -> {
-                val shouldLog =
-                    bucket != notificationStateProbeBucket ||
-                        update.expanded == false
-                if (!shouldLog) {
-                    return
-                }
-                notificationStateProbeBucket = bucket
-                log(
-                    Log.INFO,
-                    TAG,
-                    "notificationTransitionState " +
-                        "fraction=" + update.fraction +
-                        " bucket=" + bucket + "/8 " +
-                        (state?.summary ?: "state=unavailable") +
-                        " readOnly=true nativeGeometryWrites=0",
-                )
-                if (update.expanded == false && bucket == 0) {
-                    notificationStateProbeBucket = -1
-                }
-            }
-
-            SystemUiPanelTransitionSource.Source.CONTROL_CENTER -> {
-                if (update.visible == false) {
-                    controlCenterGeometryProbeBucket = -1
-                    return
-                }
-                if (bucket == controlCenterGeometryProbeBucket) {
-                    return
-                }
-                controlCenterGeometryProbeBucket = bucket
-                val geometry =
-                    SystemUiNativeNetworkSuppressionOwner.currentTransitionTargetGeometry()
-                log(
-                    Log.INFO,
-                    TAG,
-                    "controlCenterTransitionGeometry " +
-                        "fraction=" + update.fraction +
-                        " bucket=" + bucket + "/8 " +
-                        (geometry?.summary ?: "geometry=unavailable") +
-                        " " + (state?.summary ?: "state=unavailable") +
-                        " readOnly=true nativeGeometryWrites=0",
-                )
-            }
-        }
+        log(
+            Log.INFO,
+            TAG,
+            "controlCenterTransitionGeometry " +
+                "fraction=" + update.fraction +
+                " bucket=" + bucket + "/8 " +
+                (geometry?.summary ?: "geometry=unavailable") +
+                " " + (state?.summary ?: "state=unavailable") +
+                " readOnly=true nativeGeometryWrites=0",
+        )
     }
 
     private fun handleControlCenterPanelUpdate(
