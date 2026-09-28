@@ -19,6 +19,7 @@ import java.util.concurrent.atomic.AtomicLong
 class CombinedStatusModule : XposedModule() {
     private var islandMotionSourceInstalled = false
     private var panelTransitionSourceInstalled = false
+    private var keyguardSceneSourceInstalled = false
     private var controlCenterSceneVisible = false
     private var controlCenterGeometryProbeBucket = -1
     private var runtimeSessionId = newRuntimeSessionId()
@@ -125,6 +126,10 @@ class CombinedStatusModule : XposedModule() {
                 source = "coldStart",
             )
             if (BuildConfig.RUNTIME_DIAGNOSTICS) {
+                installKeyguardSceneSource(
+                    classLoader = param.classLoader,
+                    source = "coldStart",
+                )
                 installIslandMotionSource(
                     classLoader = param.classLoader,
                     source = "coldStart",
@@ -176,6 +181,11 @@ class CombinedStatusModule : XposedModule() {
                     SystemUiPanelTransitionSource.expectedHookCount(
                         BuildConfig.RUNTIME_DIAGNOSTICS,
                     )
+                } else {
+                    0
+                } +
+                if (keyguardSceneSourceInstalled) {
+                    SystemUiKeyguardSceneSource.HOOK_COUNT
                 } else {
                     0
                 }
@@ -248,6 +258,7 @@ class CombinedStatusModule : XposedModule() {
             SystemUiNetworkRuntimeOwner.resetRuntimeState()
             islandMotionSourceInstalled = false
             panelTransitionSourceInstalled = false
+            keyguardSceneSourceInstalled = false
             controlCenterGeometryProbeBucket = -1
             SystemUiPresentationRuntimeOwner.resetRuntimeState()
             SystemUiHomePresentationOwner.resetRuntimeState("hotReload")
@@ -306,6 +317,10 @@ class CombinedStatusModule : XposedModule() {
                 source = "hotReload",
             )
             if (BuildConfig.RUNTIME_DIAGNOSTICS) {
+                installKeyguardSceneSource(
+                    classLoader = classLoader,
+                    source = "hotReload",
+                )
                 installIslandMotionSource(
                     classLoader = classLoader,
                     source = "hotReload",
@@ -911,6 +926,53 @@ class CombinedStatusModule : XposedModule() {
                 "source" to source,
             )
             log(Log.ERROR, TAG, "Network state source installation failed", error)
+        }
+    }
+
+    private fun installKeyguardSceneSource(
+        classLoader: ClassLoader,
+        source: String,
+    ) {
+        runCatching {
+            SystemUiKeyguardSceneSource.install(
+                module = this,
+                classLoader = classLoader,
+                onEvent = ::onKeyguardSceneEvent,
+                isProbeEnabled = { detailedDiagnosticsEnabled },
+            )
+        }.onSuccess { handles ->
+            keyguardSceneSourceInstalled =
+                handles.size == SystemUiKeyguardSceneSource.HOOK_COUNT
+            logDiagnostic(
+                level = if (keyguardSceneSourceInstalled) Log.INFO else Log.WARN,
+                event = "source.install",
+                component = "keyguardScene",
+                state = if (keyguardSceneSourceInstalled) "ready" else "partial",
+                "hooks" to handles.size,
+                "expectedHooks" to SystemUiKeyguardSceneSource.HOOK_COUNT,
+                "source" to source,
+                "mode" to "read-only-host-lifecycle-probe",
+                "rendering" to "disabled",
+                "nativeGeometryWrites" to 0,
+            )
+        }.onFailure { error ->
+            keyguardSceneSourceInstalled = false
+            logDiagnostic(
+                level = Log.ERROR,
+                event = "source.install",
+                component = "keyguardScene",
+                state = "error",
+                "reason" to (error.message ?: error.javaClass.simpleName),
+                "source" to source,
+                "rendering" to "disabled",
+            )
+            log(Log.ERROR, TAG, "Keyguard scene source installation failed", error)
+        }
+    }
+
+    private fun onKeyguardSceneEvent(event: String) {
+        if (detailedDiagnosticsEnabled) {
+            log(Log.INFO, TAG, event)
         }
     }
 
