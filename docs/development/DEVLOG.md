@@ -9072,3 +9072,62 @@ Normal Fast validation should cover resource compilation and Debug APK packaging
 ### Outcome / next step
 
 Run Fast on the exact branch head. If the compiled adaptive icon preserves the approved mark under the device launcher masks and themed-icon mode, integrate the resource checkpoint into `dev`.
+
+
+---
+
+## 2026-09-29 — Build 449 HyperOS adaptive-icon fit correction
+
+**Type:** companion-app visual resource  
+**Display version:** 0.0.2  
+**Build:** 449 / `20260929-449`  
+**Branch:** `feat/guiyuan-app-icon`  
+**Validation:** pending exact-head Fast
+
+### Problem / objective
+
+Build 446 compiled and packaged correctly, but maintainer device review in HyperOS App info showed the foreground mark visually too large. The warm off-white background also read less clean than intended. The objective is to keep the selected `归元` geometry unchanged while adapting its presentation to the platform launcher contract instead of hand-tuning against one screenshot.
+
+### Problem execution flow
+
+1. Use the maintainer-selected source image as the geometry authority.
+2. Verify that the existing vector trace matches the source mark's measured bounds and relative geometry; no redesign is required.
+3. Re-check Xiaomi launcher guidance: HyperOS/MIUI reads the package icon and applies system crop/scale behavior, so application artwork must not bake a competing launcher mask.
+4. Re-check Android adaptive-icon rules: foreground/background layers remain 108 × 108 dp, logo artwork should stay inside the 48–66 dp range, and the artwork itself should not contain an outer icon mask or outline shadow.
+5. Preserve the source's intentionally generous negative space by using the lower 48 dp bound for this approximately circular mark.
+6. Keep the clean full-bleed background separate from the foreground geometry.
+
+### Evidence / findings
+
+- The selected source mark's dark symbol measures approximately 920 × 933 px on a 1536 px canvas; the previously traced vector occupies 64.593 × 65.541 dp in the 108 dp viewport, matching that geometry.
+- Build 446 used that near-65.5 dp mark directly and therefore filled most of the adaptive safe area; the maintainer rejected the resulting HyperOS presentation as oversized.
+- Uniform scale `48 / 65.541 = 0.7324` preserves every internal proportion while bringing the longest dimension to 48 dp.
+- The background is now full-bleed `#FFFFFF`; HyperOS supplies the visible launcher mask instead of receiving a pre-rounded tile.
+
+### Implementation / decision
+
+- Keep the exact approved orbit/circle/dot vector path.
+- Apply one centered uniform `0.7324` transform to the complete mark; do not edit individual paths, gaps, dot sizes, arc thicknesses, or relative placement.
+- Use ink-black `#24272B` on clean white `#FFFFFF`.
+- Keep adaptive foreground/background/monochrome as separate resource roles.
+- Keep `android:roundIcon` pointing to the same adaptive icon; do not maintain a duplicate round asset.
+- Builds 447-448 are superseded pre-acceptance sizing/background adjustments and are not candidate baselines.
+
+### 审查 / review
+
+- **Ownership:** HyperOS/Android launcher owns final mask/crop/themed tint; app owns one foreground mark plus one background color.
+- **Lifecycle:** static resource only.
+- **Single writer:** one vector source for normal/round/monochrome presentation.
+- **Cleanup:** no bitmap export, no density copies, no baked rounded rectangle or drop shadow.
+- **Fail native:** launcher receives a standard AdaptiveIconDrawable contract.
+- **Performance:** static vector/color resources only.
+- **Compatibility:** the 108 dp adaptive layers and 48 dp mark remain within the Android adaptive-icon design range; Xiaomi launcher behavior remains free to apply its own mask/scale.
+- **Future extension:** color can change without changing geometry; themed icons continue to use the same silhouette.
+
+### CI / device validation
+
+Exact-head Fast must pass resource compilation and Debug packaging before any new signed Canary request. If a focused Canary is produced, device review is limited to HyperOS launcher/App info scale, common launcher masks, and themed/monochrome presentation. No SystemUI regression matrix is required.
+
+### Outcome / next step
+
+Freeze the Build-449 geometry if exact-head CI passes. Device acceptance should judge only final launcher scale/whitespace and themed-icon rendering; do not reopen the mark's internal design unless the maintainer explicitly changes the selected source.
