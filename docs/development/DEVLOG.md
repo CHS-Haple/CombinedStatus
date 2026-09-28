@@ -7905,6 +7905,35 @@ A deeper exact-target trace corrects an intermediate investigation hypothesis.
 
 `IconManager.setBlockList()` is instance-local and calls `StatusBarIconControllerImpl.refreshIconGroup()`. Although that refresh calls `setBlocked()` on `StatusIconDisplayable` children, `ModernStatusBarView.setBlocked(boolean)` is an empty override on this target. Both `ModernStatusBarWifiView` and `ModernStatusBarMobileView` inherit that behavior.
 
-Therefore native block-list mutation is **not** a viable Wi-Fi/mobile suppression mechanism for QS_FAKE. The durable direction is to reuse/generalize the existing binding-identity suppression plus bounded visual-mask approach, with surface-scoped sessions and shared low-frequency/global hooks rather than a second network-state machine.
+Therefore native block-list mutation is **not** a viable Wi-Fi/mobile suppression mechanism for QS_FAKE. A further review of the active Build-424 architecture narrows the preferred route: generalize the **current Home presentation-layer** mechanism (temporary represented-slot exclusion during native measure/layout plus reversible clip masks) into host-scoped carrier sessions. The older binding-identity suppression owner is not the default QS_FAKE route.
+
+Exact-target `MiuiStatusBatteryContainer.onMeasure/onLayout` also shows that Battery continues to consume width even when visually masked. HyperOS synchronizing fake `statusBarArea.width` from the current source therefore does not by itself prove that local end reservation can be omitted. Any future fake adapter must verify its own reservation contract; parent Control Center translation remains SystemUI-owned.
 
 No runtime code or Build identity changes in this correction.
+
+
+### Build 424 automated validation update
+
+Ready validation Build #1328 / run `36418043111` completed successfully on PR head `3cbf8523cfafeb99a58dcd213053e9a2e020f71f`.
+
+Passed:
+- Gradle wrapper validation;
+- Android API 37 / JDK setup;
+- pinned HyperOS target-profile verification;
+- unit tests and Debug APK build;
+- Modern Xposed metadata verification;
+- non-debuggable check.
+
+As expected for the pull-request Fast path, project signing and Canary artifact publication were not executed.
+
+This successful checkpoint does not change runtime identity: executable source remains Build 424 / `2556a098d35c202e1c5645a06e73757744f721e1`. Documentation corrections after that head require one final exact-head pull-request Build before owner `/canary` admission.
+
+### Build 424 ViewOverlay lifecycle verification
+
+AOSP framework review confirms that a View overlay is rendered from its host View's own draw path after host content/children. The internal overlay group is not an independent window/surface; it redirects invalidation to the host.
+
+This supports the Build-424 carrier correction:
+- parent `MiuiNotificationStatusContainer.overlay` does not inherit child-only `system_icons` alpha/visibility writes;
+- `MiuiStatusBatteryContainer(system_icons).overlay` participates in the exact host's draw/transform lifecycle, so moving the visual there is a lifecycle correction rather than a coordinate-only change.
+
+The finding resolves the static concern that `ViewGroupOverlay` might remain visually independent from its own host's visibility/alpha. Build 424 remains suitable for focused device validation after the final exact-head CI gate.
