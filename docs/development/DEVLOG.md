@@ -9131,3 +9131,45 @@ Exact-head Fast must pass resource compilation and Debug packaging before any ne
 ### Outcome / next step
 
 Freeze the Build-449 geometry if exact-head CI passes. Device acceptance should judge only final launcher scale/whitespace and themed-icon rendering; do not reopen the mark's internal design unless the maintainer explicitly changes the selected source.
+
+
+---
+
+## 2026-09-29 — Build 450 launcher scale refinement
+
+**Type:** companion-app visual resource  
+**Display version:** 0.0.2  
+**Build:** 450 / `20260929-450`  
+**Branch:** `feat/guiyuan-app-icon`  
+**Validation:** pending exact-head Fast
+
+### Device feedback
+
+Build 449 corrected the previous oversized presentation and clean-background issue. Maintainer desktop review accepts the overall adaptive-icon direction but finds the 48 dp foreground slightly too small relative to neighboring HyperOS launcher icons.
+
+### Decision
+
+- Preserve the selected `归元` mark's internal geometry exactly.
+- Change only the complete foreground group's uniform scale from `0.7324` to `0.7781`.
+- With the traced mark's longest unscaled dimension of 65.541 dp, the new presented dimension is approximately 51 dp.
+- Retain pure white `#FFFFFF` background and ink-black `#24272B` foreground.
+- Retain one adaptive resource for default, round and monochrome/themed presentation.
+- No mask, shadow, raster export, per-density asset or alternate geometry is introduced.
+
+### 审查 / review
+
+- **Ownership:** launcher mask/crop remains Android/HyperOS-owned.
+- **Lifecycle:** static resource only.
+- **Single writer:** one vector geometry source and one uniform scale owner.
+- **Cleanup:** no duplicate icon assets.
+- **Performance:** unchanged static vector resource.
+- **Compatibility:** 51 dp remains inside the Android adaptive-icon 48–66 dp logo range while better matching the target HyperOS visual density.
+- **Runtime boundary:** no SystemUI, Xposed, Hook, state or renderer changes.
+
+### Validation
+
+Run exact-head Fast. If successful, request one signed Canary for focused visual validation only. Device review needs only the launcher/App info scale and themed-icon presentation; no SystemUI regression matrix is required.
+
+### Outcome / next step
+
+Build 450 is the current icon candidate. If its desktop scale is accepted, close the visual checkpoint and integrate the branch without further geometry changes.
