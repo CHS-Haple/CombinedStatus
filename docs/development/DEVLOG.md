@@ -51,9 +51,18 @@ The Build-428 appearance probe is stable enough to show a native fake/final owne
 - **Charging island:** Battery/statusBarArea hide state is observed but not inherited as Combined Status visibility policy.
 - **Future extension:** only a successful device result may justify moving a later Combined Status overlay to the fake root.
 
+### Automated validation
+
+- Draft Light #1388 / run `36442234361`: success.
+- Ready Fast #1389 / run `36442278475`: success on exact executable SHA `d12db71a25ce2671e7deb41bf4b3636dc62c1881`, including target-profile verification, unit tests/build, and Modern Xposed metadata checks.
+- Signed Work Branch Canary #424 / run `36442559462`: success on the same exact executable SHA.
+- Canary artifact: `CombinedStatus-0.0.2-HyperOS-20260928-430-canary.apk`; artifact id `10978264293`; artifact ZIP digest `sha256:575c0815c6aa559320ec90fa9d0de974b58fa502af2bdbe2290ed9908ba7229c`; extracted APK SHA-256 `83feeabf7c5fac6a038e91fa4e5ea4d55aec8169303fd83232008457a7db0ad6`; extracted APK size 3,309,598 bytes.
+- Haple signature, Modern Xposed metadata, and Canary non-debuggable verification passed.
+- PR #156 is returned to Draft and executable runtime is frozen pending focused device evidence.
+
 ### Device gate
 
-After Fast + signed Canary, one normal Control Center pull/return and one charging-island pull/return are sufficient if Detailed diagnostics include the new `fakePresentation={...}` snapshots.
+One normal Control Center pull/return and one charging-island pull/return are sufficient if Detailed diagnostics include the new `fakePresentation={...}` snapshots.
 
 
 ## 2026-09-28 — Build 428 device evidence closes realSystemIcons display-host hypothesis
