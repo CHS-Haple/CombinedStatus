@@ -3,6 +3,59 @@
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
 
+## 2026-09-29 — Build 437: retain compact QS_FAKE across transient live Battery-width loss
+
+**Type:** Phase-2B lifecycle ownership correction / executable checkpoint  
+**Build:** 437 / `20260929-437`  
+**Work branch / PR:** `fix/control-center-fake-root` / #156
+
+### Build 435 device result
+
+Build 435 is rejected for non-charging QS_FAKE determinism. The maintainer still observes probabilistic raw native Fake.
+
+The Detailed report makes the remaining writer conflict explicit. The Fake root reaches `prearm state=prepared` / `armed`, native `layoutReady` activates the compact `QS_FAKE.system_icon_area` presentation, and `controlCenterProjection compact ready=true`. During the later startup/layout disturbance, the Build-435 render-session correction correctly logs `layoutUnavailable action=pause-render compactPresentationRetained=true hostAttached=true`. Immediately afterward, `SystemUiHomePresentationOwner` independently reports `battery-live-width-unavailable`, stops the control-center presentation, restores clip bounds/end reservation, and drives compact readiness back to false.
+
+**Root cause:** two independent invalidation writers existed for the same prepared QS_FAKE lifetime. Build 435 fixed the projection-side writer but the shared end-reservation owner still treated a transient zero live Battery width as a structural incompatibility after compact cutover.
+
+### 问题执行流程
+
+1. Keep the validated Fake-root attach -> first-native-layout prearm and Build-435 projection-side retention.
+2. Do not add another trigger, retry, delay, visibility gate, or geometry compensation.
+3. Distinguish transient live Battery geometry loss after compact cutover from structural presentation failure.
+4. Preserve the existing compact owner/reservation/masks through that transient only.
+5. Recompute from the next native Battery/carrier layout; retain Fail native everywhere the contract was never established or becomes structurally invalid.
+
+### Implementation
+
+- Advance runtime identity to Build 437 / `20260929-437`; Build 436 remains allocated to parallel PR #158.
+- Add one explicit Session policy bit: Home disables transient-width retention; QS_FAKE enables it.
+- A live Battery width of zero may be deferred only when that policy is enabled **and** `compactLayoutReady=true`.
+- During deferral, keep current padding/masks and return without invoking the control-center Fail-native sink.
+- On the next valid live Battery width, clear the deferred state and run the existing end-reservation calculation normally.
+- Add bounded diagnostic events for first defer and resume only; repeated unavailable callbacks do not spam.
+- Add a pure policy unit test covering allowed QS_FAKE post-cutover deferral plus pre-cutover and Home rejection.
+- No new Hook/listener/requestLayout/timer/polling/animation/native geometry writer/QS-real mutation.
+
+### 审查 / review
+
+- **Ownership:** `SystemUiHomePresentationOwner` remains the sole compact occupancy/reservation writer; the fix removes a conflicting destruction path rather than adding a writer.
+- **Lifecycle:** transient retention is legal only after native compact layout established the current exact Fake-root session.
+- **Home isolation:** Home keeps the previous strict Fail-native semantics.
+- **Cleanup:** root detach, feature disable, host replacement, Hot Reload and structural contract failures remain restoration boundaries.
+- **Fail native:** unavailable width before cutover still fails; released/mismatched structures, writer conflict and invalid stable geometry still fail.
+- **Performance:** no additional runtime callback. One Boolean state prevents duplicate defer diagnostics and native layout callbacks already owned by the session perform recovery.
+- **Scope:** fully-expanded endpoint motion and charging-island Battery alignment remain unchanged.
+
+### Validation plan
+
+Use the existing base-to-HEAD routing. Runtime + tests + build identity require the normal Fast checkpoint after Draft iteration checks. If Fast is green, a signed Canary is required because the acceptance criterion is a target-device lifecycle race.
+
+### Device gate
+
+Restart SystemUI and make the first non-charging Control Center pull the first test. Raw native QS_FAKE must not reappear. Then repeat several non-charging pulls. Charging-no-island and charging-island are regression-only in this checkpoint; endpoint-motion and island Battery-alignment findings remain separate.
+
+---
+
 ## 2026-09-29 — Build 435: retain prepared QS_FAKE through transient startup layout loss
 
 **Type:** Phase-2B cold-start lifecycle correction / executable checkpoint

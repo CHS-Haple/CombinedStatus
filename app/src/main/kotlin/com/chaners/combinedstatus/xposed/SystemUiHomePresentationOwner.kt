@@ -256,6 +256,7 @@ internal object SystemUiHomePresentationOwner {
                 batteryHideField = hideField,
                 surfaceName = "home",
                 eventPrefix = "homePresentation",
+                retainReservationOnTransientLiveWidthLoss = false,
                 onEvent = { event -> eventSink?.invoke(event) },
                 onFailNative = ::onSessionFailure,
             )
@@ -373,6 +374,7 @@ internal object SystemUiHomePresentationOwner {
                 batteryHideField = hideField,
                 surfaceName = "control-center-fake",
                 eventPrefix = "controlCenterPresentation",
+                retainReservationOnTransientLiveWidthLoss = true,
                 onEvent = { event -> controlCenterEventSink?.invoke(event) },
                 onFailNative = ::onControlCenterSessionFailure,
             )
@@ -613,6 +615,7 @@ internal object SystemUiHomePresentationOwner {
         private val batteryHideField: Field,
         private val surfaceName: String,
         private val eventPrefix: String,
+        private val retainReservationOnTransientLiveWidthLoss: Boolean,
         private val onEvent: (String) -> Unit,
         private val onFailNative: (String) -> Unit,
     ) : View.OnAttachStateChangeListener {
@@ -629,6 +632,7 @@ internal object SystemUiHomePresentationOwner {
         private var lastReservationDelta: Int? = null
         private var nativePadding: PaddingState? = null
         private var appliedPadding: PaddingState? = null
+        private var transientLiveBatteryWidthUnavailable = false
         private val clipStates = mutableListOf<ClipState>()
         private val batteryLayoutListener =
             View.OnLayoutChangeListener {
@@ -795,7 +799,33 @@ internal object SystemUiHomePresentationOwner {
             val actualBatteryWidthPx =
                 (if (batteryView.measuredWidth > 0) batteryView.measuredWidth else batteryView.width)
                     .takeIf { width -> width > 0 }
-                    ?: run { onFailNative("battery-live-width-unavailable"); return false }
+                    ?: run {
+                        if (
+                            EndReservationPolicy.shouldDeferLiveBatteryWidthUnavailable(
+                                retainOnTransientLoss = retainReservationOnTransientLiveWidthLoss,
+                                compactLayoutReady = compactLayoutReady,
+                            )
+                        ) {
+                            if (!transientLiveBatteryWidthUnavailable) {
+                                transientLiveBatteryWidthUnavailable = true
+                                onEvent(
+                                    eventPrefix +
+                                        " endReservation deferred reason=battery-live-width-unavailable" +
+                                        " compactLayoutReady=true",
+                                )
+                            }
+                            return true
+                        }
+                        onFailNative("battery-live-width-unavailable")
+                        return false
+                    }
+            if (transientLiveBatteryWidthUnavailable) {
+                transientLiveBatteryWidthUnavailable = false
+                onEvent(
+                    eventPrefix +
+                        " endReservation resumed reason=battery-live-width-restored",
+                )
+            }
             val carrier =
                 batteryCarrier.get()
                     ?: run { onFailNative("battery-core-carrier-released"); return false }
@@ -991,6 +1021,12 @@ internal object SystemUiHomePresentationOwner {
     }
 
     internal object EndReservationPolicy {
+        fun shouldDeferLiveBatteryWidthUnavailable(
+            retainOnTransientLoss: Boolean,
+            compactLayoutReady: Boolean,
+        ): Boolean =
+            retainOnTransientLoss && compactLayoutReady
+
         fun resolvePaddingEndDelta(
             nativeHide: Boolean,
             actualBatteryWidthPx: Int,
