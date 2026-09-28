@@ -234,6 +234,87 @@ internal object CombinedStatusControlCenterRenderSession {
             return projectionReady()
         }
 
+        fun prepareNativePresentation(reused: Boolean): AttachResult {
+            if (!featureEnabled) {
+                return AttachResult.Ready
+            }
+            val statusArea =
+                statusBarArea.get()
+                    ?: return AttachResult.Failure("fake-status-bar-area-released")
+            val statusIconGroup =
+                statusIcons.get()
+                    ?: return AttachResult.Failure("status-icons-released")
+            val batteryView =
+                battery.get()
+                    ?: return AttachResult.Failure("battery-view-released")
+            val carrierView =
+                carrier.get()
+                    ?: return AttachResult.Failure("battery-core-carrier-released")
+
+            return when (
+                val result =
+                    SystemUiHomePresentationOwner.activateControlCenter(
+                        host = statusArea,
+                        statusIcons = statusIconGroup,
+                        batteryContainer = statusArea,
+                        battery = batteryView,
+                        batteryCarrier = carrierView,
+                        onEvent = onEvent,
+                        onFailNative = { reason ->
+                            setNativePresentationReady(
+                                ready = false,
+                                maskedViews = 0,
+                                source = "fail-native:" + reason,
+                            )
+                        },
+                        onReady = { active ->
+                            setNativePresentationReady(
+                                ready = true,
+                                maskedViews = active.maskedViews,
+                                source = "native-layout",
+                            )
+                        },
+                    )
+            ) {
+                is SystemUiHomePresentationOwner.ControlCenterStateResult.Active -> {
+                    setNativePresentationReady(
+                        ready = true,
+                        maskedViews = result.maskedViews,
+                        source = if (reused) "prearm-reuse" else "prearm-activation",
+                    )
+                    AttachResult.Ready
+                }
+
+                is SystemUiHomePresentationOwner.ControlCenterStateResult.Prepared -> {
+                    emitEvent {
+                        "controlCenterProjection prearm state=prepared " +
+                            "reused=" + reused +
+                            " requestedVisible=" + requestedVisible +
+                            " nativeGeometryWrites=0"
+                    }
+                    AttachResult.Ready
+                }
+
+                is SystemUiHomePresentationOwner.ControlCenterStateResult.Failure -> {
+                    setNativePresentationReady(
+                        ready = false,
+                        maskedViews = 0,
+                        source = "prepare-failed:" + result.reason,
+                    )
+                    AttachResult.Failure(result.reason)
+                }
+
+                is SystemUiHomePresentationOwner.ControlCenterStateResult.Inactive -> {
+                    setNativePresentationReady(
+                        ready = false,
+                        maskedViews = 0,
+                        source = "prepare-inactive",
+                    )
+                    AttachResult.Failure("compact-presentation-inactive")
+                }
+            }
+        }
+
         fun setNativePresentationReady(
             ready: Boolean,
             maskedViews: Int,
@@ -431,6 +512,7 @@ internal object CombinedStatusControlCenterRenderSession {
         }
 
         override fun onViewDetachedFromWindow(view: View) {
+            requestedVisible = false
             layoutReady = false
             nativePresentationReady = false
             renderView.visibility = View.GONE
