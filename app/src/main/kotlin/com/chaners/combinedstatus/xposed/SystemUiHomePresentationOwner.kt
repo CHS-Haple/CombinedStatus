@@ -36,6 +36,10 @@ internal object SystemUiHomePresentationOwner {
     private var ignoredSlotsField: Field? = null
     private var batteryHideField: Field? = null
     private var current: Session? = null
+    private var controlCenterCurrent: Session? = null
+    private var controlCenterEventSink: ((String) -> Unit)? = null
+    private var controlCenterFailNativeSink: ((String) -> Unit)? = null
+    private var controlCenterReadySink: ((ControlCenterStateResult.Active) -> Unit)? = null
     private var eventSink: ((String) -> Unit)? = null
     private var failNativeSink: ((String) -> Unit)? = null
 
