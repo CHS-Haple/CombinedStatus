@@ -9,8 +9,9 @@ import java.lang.reflect.Field
  * Build-442 bounded diagnostic probe for the steady Keyguard source host.
  *
  * No Hook/listener/observer is installed here. The probe only consumes the
- * existing MiuiBatteryMeterView.updateState() scene event and snapshots the
- * topology once per concrete Keyguard host instance.
+ * existing MiuiBatteryMeterView.updateState() scene event. A positive-ready
+ * topology freezes one concrete host; partial/negative samples remain retryable
+ * on later native Keyguard scene transitions.
  */
 internal object SystemUiKeyguardHostProbe {
     private const val KEYGUARD_HOST_CLASS =
@@ -175,7 +176,7 @@ internal object SystemUiKeyguardHostProbe {
     ): View? {
         var current: View? = start
         while (current != null) {
-            if (isKeyguardHostClassName(current.javaClass.name) && className == KEYGUARD_HOST_CLASS) {
+            if (current.javaClass.name == className) {
                 return current
             }
             current = current.parent as? View

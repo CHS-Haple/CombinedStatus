@@ -22,7 +22,23 @@ class SystemUiKeyguardHostProbeTest {
                 SystemUiSceneStateSource.Surface.SHADE_LOCKED,
             ),
         )
-        @Test
+    }
+
+    @Test
+    fun hostGuardAcceptsOnlyPinnedMiuiKeyguardHost() {
+        assertTrue(
+            SystemUiKeyguardHostProbe.isKeyguardHostClassName(
+                "com.android.systemui.statusbar.phone.MiuiKeyguardStatusBarView",
+            ),
+        )
+        assertFalse(
+            SystemUiKeyguardHostProbe.isKeyguardHostClassName(
+                "com.android.systemui.statusbar.phone.MiuiPhoneStatusBarView",
+            ),
+        )
+    }
+
+    @Test
     fun sampleFreezesOnlyAfterPositiveReadyTopology() {
         assertTrue(
             SystemUiKeyguardHostProbe.shouldFreezeSample(
@@ -64,19 +80,14 @@ class SystemUiKeyguardHostProbeTest {
                 selectedAsRealSystemIcons = true,
             ),
         )
-    }
-}
-
-    @Test
-    fun hostGuardAcceptsOnlyPinnedMiuiKeyguardHost() {
-        assertTrue(
-            SystemUiKeyguardHostProbe.isKeyguardHostClassName(
-                "com.android.systemui.statusbar.phone.MiuiKeyguardStatusBarView",
-            ),
-        )
         assertFalse(
-            SystemUiKeyguardHostProbe.isKeyguardHostClassName(
-                "com.android.systemui.statusbar.phone.MiuiPhoneStatusBarView",
+            SystemUiKeyguardHostProbe.shouldFreezeSample(
+                hostAttached = true,
+                systemIconsAttached = true,
+                systemIconsWidth = 105,
+                batteryMatchesSceneSource = true,
+                batteryCarrierWidthPx = 0,
+                selectedAsRealSystemIcons = true,
             ),
         )
     }
