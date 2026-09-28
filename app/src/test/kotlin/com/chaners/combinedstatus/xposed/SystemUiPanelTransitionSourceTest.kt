@@ -39,9 +39,23 @@ class SystemUiPanelTransitionSourceTest {
     }
 
     @Test
-    fun runtimeHookCountKeepsOnlyControlCenterProgressDiagnosticOptional() {
+    fun runtimeHookCountKeepsControlCenterDiagnosticsOptional() {
         assertEquals(1, SystemUiPanelTransitionSource.expectedHookCount(false))
-        assertEquals(2, SystemUiPanelTransitionSource.expectedHookCount(true))
+        assertEquals(3, SystemUiPanelTransitionSource.expectedHookCount(true))
+    }
+
+    @Test
+    fun appearanceDiagnosticPreservesNativeBooleanPayloadWithoutInterpretation() {
+        assertEquals(
+            "controlCenterAppearance first=true second=false expanding=unknown " +
+                "addBatteryIsland=unknown batteryWidthDiff=unknown " +
+                "readOnly=true nativeGeometryWrites=0",
+            SystemUiPanelTransitionSource.appearanceDiagnostic(
+                first = true,
+                second = false,
+                snapshot = null,
+            ),
+        )
     }
 
     @Test
