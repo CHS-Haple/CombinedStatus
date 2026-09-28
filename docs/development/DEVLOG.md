@@ -3,6 +3,56 @@
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
 
+## 2026-09-29 — Build 438: keep Appearance preview geometry stable
+
+**Type:** companion-app UI correction
+**Build:** 438 / `20260929-438`
+**Work branch:** `feat/floating-navigation-options`
+**Executable source:** `62e9c48703db7158568e44a737a3996c1b59f32e`
+**Ready PR Build:** #1479 / run `36464596210` — success
+**Signed Work Branch Canary:** #443 / run `36464868817` — success
+**Artifact:** `CombinedStatus-0.0.2-HyperOS-20260929-438-canary.apk` / id `10989102633`
+**Artifact ZIP digest:** `sha256:a75089e7d00abe2f4309966caffb1f109a66588a0e8440f0d5fcf27f510b1852`
+**Extracted APK SHA-256:** `106421050b3e55fd2e21ace0028cf6e31996f0733c797df669770d00bb4eef9d`
+**Validation:** device-accepted and integrated; final exact-head PR Build #1486 and post-merge dev Build #1487 passed
+
+### Problem / objective
+
+Maintainer device feedback on Build 436 showed the Appearance style-preview card moving vertically when switching floating-navigation content from icon-only to icon-with-label.
+
+### Root cause
+
+The preview viewport itself was conditionally sized: icon-only used 64 dp while icon-with-label used 76 dp. Because the mini preview participates in the enclosing Column's measured height, the preference change changed the outer preview geometry instead of only changing the rendered navigation content. The preview also placed the navigation child at the top of its viewport, unlike the real Scaffold bottom bar.
+
+### Implementation / decision
+
+- Keep one fixed 76 dp navigation preview viewport, sized for the taller icon-with-label mode.
+- Bottom-anchor the navigation preview inside that viewport so content-height changes grow upward as a real bottom bar does.
+- Leave the live bottom navigation sizing and the persisted content option unchanged.
+
+### 审查 / review
+
+- **ownership:** preview-only geometry; production navigation ownership is unchanged.
+- **state:** no new state or preference.
+- **single writer:** the existing mini-navigation preview remains the only preview geometry owner.
+- **lifecycle/performance:** pure Compose layout; no listener, observer, polling, or runtime background work.
+- **fidelity:** the preview now keeps stable outer bounds and models the bottom anchoring of the production Scaffold more accurately.
+
+### CI / device validation
+
+PR Build #1479 / run `36464596210` passed on exact Build-438 executable source. Signed Work Branch Canary #443 / run `36464868817` then passed trusted-source resolution, exact checkout, pinned HyperOS target profile, tests/Canary build, Modern Xposed metadata, Haple signature, non-debuggable verification, and artifact upload.
+
+Focused maintainer check remains: switch repeatedly between Icons only and Icons & labels; the outer style-preview card and following settings rows must remain stationary while only the navigation content changes. Also confirm the live bottom bar and preview remain synchronized and light/dark Glass has no regression.
+
+### Maintainer device feedback
+
+Maintainer validation reports the original issue is resolved: switching between **Icons only** and **Icons & labels** no longer moves the style-preview card or the following settings. No new visual issue was reported in the focused pass.
+
+### Outcome / next step
+
+Build 438 is device-accepted and integrated into `dev` through PR #158 as squash commit `6ba4a8179808cdf858176882901aa3787c11b6c1`. Final exact-head PR Build #1486 succeeded after documentation closure. Post-merge `dev` Integration Build #1487 / run `36466720314` also succeeded, including target-profile validation, tests/build, Modern Xposed metadata, Haple signature verification, Canary non-debuggable verification and artifact upload. Integrated Canary artifact: `CombinedStatus-0.0.2-HyperOS-20260929-438-canary.apk`, artifact id `10989858681`, ZIP digest `sha256:6bf7e1eadbf0775fc98ca892c1efd31bfb63a999cdeb9cbe0d0e131c08ecfebc`. This closes the app-UI checkpoint; no further executable change is required.
+
+
 ## 2026-09-29 — Build 437: retain compact QS_FAKE across transient live Battery-width loss
 
 **Type:** Phase-2B lifecycle ownership correction / executable checkpoint
@@ -453,6 +503,52 @@ One normal Control Center pull/return and one charging-island pull/return are su
 Maintainer feedback: partial pull remained visually native; with charging island active the native Battery disappeared as expected from HyperOS, but Combined Status must not disappear with Battery because it also carries network state.
 
 Detailed diagnostics confirm the projected source carrier was structurally ready while the source `MiuiStatusBatteryContainer` itself was hidden by native Control Center lifecycle. This invalidates the source-overlay display-host assumption and provides the evidence required to close the frozen Build-428 diagnostic line. The next executable work must start from current `dev`, preserving the later MIUIX Build-429 integration rather than rebasing the old frozen checkpoint in place.
+
+
+## 2026-09-29 — Build 436: align Floating Navigation material and content options
+
+**Type:** companion-app UI / MIUIX conformance
+**Build:** 436 / `20260929-436`
+**Work branch:** `feat/floating-navigation-options`
+**MIUIX baseline:** `0.9.4-5c91d5e5-SNAPSHOT` / `5c91d5e5ce1a2fc7e8bdc1258a881c555102bbca`
+**Validation:** pending PR CI and focused app-UI smoke
+
+### Problem / objective
+
+The production floating bottom bar used the pinned MIUIX `FloatingNavigationBar` but its project-owned Glass material had drifted from the same-revision upstream example: Combined Status used 22f blur, 0.45 surface-container blend, and Small glass highlight while the upstream example uses 25f, 0.6, and Middle. The maintainer also requested an Appearance option for icon-only versus icon-with-label floating navigation, with the live UI and Appearance preview staying synchronized.
+
+### Problem execution flow
+
+- Re-read the current app/MIUIX contribution rules and the pinned dependency identity.
+- Compared `MainHub.kt`, `FloatingNavigationGlass.kt`, and the Appearance preview against the exact pinned MIUIX `AppContent.kt` / `NavigationBar.kt`.
+- Confirmed that the native MIUIX `FloatingNavigationBarItem` remains icon-only; icon-with-label therefore needs a narrow project composition while retaining the upstream bar shell, dimensions, icon size, typography size, colors, state opacity, shape, shadow and blur material.
+- Kept the existing preference migration behavior and made icon-only the default so existing installations retain the current presentation.
+
+### Implementation / decision
+
+- Align Glass material with the pinned MIUIX example: 25f blur, 0.6 `surfaceContainer` blend, and `GlassStrokeMiddle`.
+- Add persisted `FloatingNavigationContent.IconOnly / IconAndText`; default and unknown values resolve to `IconOnly`.
+- Keep `FloatingNavigationBar` as the shell. The icon-only path delegates directly to `FloatingNavigationBarItem`; the label path adds only the item composition needed to display the existing localized label while reusing MIUIX public navigation defaults.
+- Add the content selector beside material style under Appearance.
+- Feed the same persisted content/material settings into the Appearance mini preview rather than maintaining a separate preview-only choice.
+
+### 审查 / review
+
+- **Ownership:** companion-app presentation only; no SystemUI Hook/runtime ownership changes.
+- **State:** one persisted appearance preference is the single source for both production bottom navigation and preview.
+- **Lifecycle:** DataStore/Compose flow follows the existing Appearance settings path; changes apply through recomposition without app/SystemUI restart.
+- **Single writer:** Glass material remains centralized in `floatingNavigationMaterial`; item content mode is centralized in `FloatingNavigationContentItem`.
+- **Performance:** no polling/listeners/background work; one additional enum preference and normal Compose state.
+- **Compatibility:** icon-only preserves upstream MIUIX behavior; icon-with-label is a project extension isolated behind the option.
+- **Future extension:** material and content remain orthogonal, so selected-label-only or alignment controls can be added later without changing the material contract.
+
+### CI / device validation
+
+Pending. Required focused smoke: Appearance selector/value persistence, live icon-only/icon-with-label switching, preview synchronization, light/dark Glass rendering, Home/Features/Settings navigation, and no regression in standard non-floating navigation.
+
+### Outcome / next step
+
+Run repository CI. If source/build checks pass, use one focused companion-app smoke checkpoint; no SystemUI runtime/device matrix is required for this app-only change.
 
 
 ## 2026-09-28 — Build 429: update MIUIX main-canary to 5c91d5e5

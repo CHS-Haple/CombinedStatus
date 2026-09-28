@@ -25,6 +25,7 @@ import androidx.navigationevent.compose.rememberNavigationEventState
 import com.chaners.combinedstatus.R
 import com.chaners.combinedstatus.settings.AppLanguage
 import com.chaners.combinedstatus.settings.AppearanceSettings
+import com.chaners.combinedstatus.ui.components.FloatingNavigationContentItem
 import com.chaners.combinedstatus.ui.components.floatingNavigationMaterial
 import com.chaners.combinedstatus.ui.components.requiresTextureBackdrop
 import com.chaners.combinedstatus.ui.navigation.AppRoute
@@ -33,7 +34,6 @@ import com.chaners.combinedstatus.ui.screens.HomeScreen
 import com.chaners.combinedstatus.ui.screens.SettingsHubScreen
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.FloatingNavigationBar
-import top.yukonga.miuix.kmp.basic.FloatingNavigationBarItem
 import top.yukonga.miuix.kmp.basic.NavigationBar
 import top.yukonga.miuix.kmp.basic.NavigationBarItem
 import top.yukonga.miuix.kmp.basic.Scaffold
@@ -144,7 +144,8 @@ internal fun MainHub(
                 ) {
                     items.forEachIndexed { index, item ->
                         val selected = pagerState.currentPage == index
-                        FloatingNavigationBarItem(
+                        FloatingNavigationContentItem(
+                            content = settings.floatingNavigationContent,
                             selected = selected,
                             onClick = { selectPage(index) },
                             icon = if (selected) item.selectedIcon else item.icon,

@@ -20,6 +20,7 @@ import com.chaners.combinedstatus.settings.AppPlatformSettings
 import com.chaners.combinedstatus.settings.AppThemeMode
 import com.chaners.combinedstatus.settings.AppearanceSettings
 import com.chaners.combinedstatus.settings.AppearanceSettingsRepository
+import com.chaners.combinedstatus.settings.FloatingNavigationContent
 import com.chaners.combinedstatus.settings.FloatingNavigationStyle
 import com.chaners.combinedstatus.ui.CombinedStatusApp
 import kotlinx.coroutines.launch
@@ -88,6 +89,9 @@ class MainActivity : ComponentActivity() {
                 },
                 onFloatingNavigationStyleChange = { style: FloatingNavigationStyle ->
                     scope.launch { repository.setFloatingNavigationStyle(style) }
+                },
+                onFloatingNavigationContentChange = { content: FloatingNavigationContent ->
+                    scope.launch { repository.setFloatingNavigationContent(content) }
                 },
                 onSwipeBackEnabledChange = { enabled ->
                     scope.launch { repository.setSwipeBackEnabled(enabled) }

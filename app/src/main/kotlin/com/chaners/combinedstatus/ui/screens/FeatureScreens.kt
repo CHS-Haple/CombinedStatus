@@ -48,12 +48,14 @@ import com.chaners.combinedstatus.R
 import com.chaners.combinedstatus.settings.AppThemeMode
 import com.chaners.combinedstatus.settings.AppearanceSettings
 import com.chaners.combinedstatus.settings.DiagnosticsLevel
+import com.chaners.combinedstatus.settings.FloatingNavigationContent
 import com.chaners.combinedstatus.settings.FloatingNavigationStyle
 import com.chaners.combinedstatus.settings.DiagnosticsSettings
 import com.chaners.combinedstatus.settings.DiagnosticsSettingsRepository
 import com.chaners.combinedstatus.system.DiagnosticsReportBuilder
 import com.chaners.combinedstatus.system.DiagnosticsReportFiles
 import com.chaners.combinedstatus.system.RuntimeEnvironmentInfo
+import com.chaners.combinedstatus.ui.components.FloatingNavigationContentItem
 import com.chaners.combinedstatus.ui.components.MiuixBlurredTopBar
 import com.chaners.combinedstatus.ui.components.floatingNavigationMaterial
 import com.chaners.combinedstatus.ui.components.rememberTopBarBackdrop
@@ -65,7 +67,6 @@ import kotlin.math.roundToInt
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.FloatingNavigationBar
-import top.yukonga.miuix.kmp.basic.FloatingNavigationBarItem
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
@@ -103,6 +104,7 @@ internal fun AppearanceScreen(
     onDynamicColorEnabledChange: (Boolean) -> Unit,
     onFloatingNavigationBarEnabledChange: (Boolean) -> Unit,
     onFloatingNavigationStyleChange: (FloatingNavigationStyle) -> Unit,
+    onFloatingNavigationContentChange: (FloatingNavigationContent) -> Unit,
     onBack: () -> Unit,
 ) {
     val themeOptions =
@@ -116,6 +118,11 @@ internal fun AppearanceScreen(
             stringResource(R.string.floating_navigation_style_standard),
             stringResource(R.string.floating_navigation_style_blur),
             stringResource(R.string.floating_navigation_style_glass),
+        )
+    val floatingContentOptions =
+        listOf(
+            stringResource(R.string.floating_navigation_content_icon_only),
+            stringResource(R.string.floating_navigation_content_icon_and_text),
         )
 
     SettingsPage(title = stringResource(R.string.appearance_title), onBack = onBack) {
@@ -157,20 +164,36 @@ internal fun AppearanceScreen(
                 onCheckedChange = onFloatingNavigationBarEnabledChange,
             )
             AnimatedVisibility(visible = settings.floatingNavigationBarEnabled) {
-                OverlayDropdownPreference(
-                    items = floatingStyleOptions,
-                    selectedIndex = settings.floatingNavigationStyle.ordinal,
-                    title = stringResource(R.string.floating_navigation_style),
-                    summary = stringResource(R.string.floating_navigation_style_summary),
-                    showValue = true,
-                    onSelectedIndexChange = { index ->
-                        FloatingNavigationStyle.entries.getOrNull(index)?.let { style ->
-                            if (style != settings.floatingNavigationStyle) {
-                                onFloatingNavigationStyleChange(style)
+                Column {
+                    OverlayDropdownPreference(
+                        items = floatingStyleOptions,
+                        selectedIndex = settings.floatingNavigationStyle.ordinal,
+                        title = stringResource(R.string.floating_navigation_style),
+                        summary = stringResource(R.string.floating_navigation_style_summary),
+                        showValue = true,
+                        onSelectedIndexChange = { index ->
+                            FloatingNavigationStyle.entries.getOrNull(index)?.let { style ->
+                                if (style != settings.floatingNavigationStyle) {
+                                    onFloatingNavigationStyleChange(style)
+                                }
                             }
-                        }
-                    },
-                )
+                        },
+                    )
+                    OverlayDropdownPreference(
+                        items = floatingContentOptions,
+                        selectedIndex = settings.floatingNavigationContent.ordinal,
+                        title = stringResource(R.string.floating_navigation_content),
+                        summary = stringResource(R.string.floating_navigation_content_summary),
+                        showValue = true,
+                        onSelectedIndexChange = { index ->
+                            FloatingNavigationContent.entries.getOrNull(index)?.let { content ->
+                                if (content != settings.floatingNavigationContent) {
+                                    onFloatingNavigationContentChange(content)
+                                }
+                            }
+                        },
+                    )
+                }
             }
         }
     }
@@ -245,6 +268,7 @@ private fun AppearanceMiniPreview(
                 MiniNavigationPreview(
                     floating = settings.floatingNavigationBarEnabled,
                     style = settings.floatingNavigationStyle,
+                    content = settings.floatingNavigationContent,
                     darkMode = darkMode,
                 )
             }
@@ -388,7 +412,7 @@ private fun MiniThemeSwatch(color: Color) {
 }
 
 private const val MiniPreviewScale = 0.82f
-private val MiniNavigationViewportHeight = 64.dp
+private val MiniNavigationViewportHeight = 76.dp
 
 @Composable
 private fun ScaledPreviewContent(
@@ -436,6 +460,7 @@ private fun ScaledPreviewContent(
 private fun MiniNavigationPreview(
     floating: Boolean,
     style: FloatingNavigationStyle,
+    content: FloatingNavigationContent,
     darkMode: Boolean,
 ) {
     val materialActive =
@@ -510,19 +535,22 @@ private fun MiniNavigationPreview(
                         },
                     defaultWindowInsetsPadding = false,
                 ) {
-                    FloatingNavigationBarItem(
+                    FloatingNavigationContentItem(
+                        content = content,
                         selected = false,
                         onClick = {},
                         icon = MiuixIcons.Normal.Home,
                         label = stringResource(R.string.nav_home),
                     )
-                    FloatingNavigationBarItem(
+                    FloatingNavigationContentItem(
+                        content = content,
                         selected = false,
                         onClick = {},
                         icon = MiuixIcons.Normal.Tune,
                         label = stringResource(R.string.nav_features),
                     )
-                    FloatingNavigationBarItem(
+                    FloatingNavigationContentItem(
+                        content = content,
                         selected = true,
                         onClick = {},
                         icon = MiuixIcons.Medium.Settings,
@@ -564,7 +592,7 @@ private fun MiniNavigationViewportContent(
         layout(constraints.maxWidth, constraints.maxHeight) {
             placeable.placeRelative(
                 x = ((constraints.maxWidth - placeable.width) / 2).coerceAtLeast(0),
-                y = 0,
+                y = (constraints.maxHeight - placeable.height).coerceAtLeast(0),
             )
         }
     }
