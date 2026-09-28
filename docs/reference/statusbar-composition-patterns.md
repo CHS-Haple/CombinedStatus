@@ -716,9 +716,10 @@ Use the existing native axes rather than a project-owned scene machine:
    - resolve through the existing Header object chain:
      `ControlCenterHeaderExpandController.headerController -> CombinedHeaderController.controlCenterFakeStatusBar -> delegate.statusBarArea`;
    - render in the native fake `MiuiStatusBatteryContainer.overlay`;
-   - keep native layout occupancy unchanged;
-   - mask represented native Wi-Fi/mobile/airplane/no-SIM/Battery Views with the same reversible clip-state principle used by Home;
-   - do not copy Home `ignoredSlots` or end-padding reservation because HyperOS already synchronizes fake `statusBarArea` width from `realSystemIcons`.
+   - preserve the parent fake-status-bar translation/alpha lifecycle as SystemUI-owned;
+   - use the same bounded presentation-layer mechanism proven on Home: temporary represented-slot exclusion only during the exact target `MiuiStatusIconContainer.onMeasure/onLayout` call plus reversible View clip masks;
+   - do **not** rely on `MiuiLightDarkIconManager` block-list entries for modern Wi-Fi/mobile: the target `ModernStatusBarView.setBlocked(boolean)` implementation is a no-op;
+   - do **not** assume end reservation is unnecessary merely because HyperOS synchronizes fake `statusBarArea` width from `realSystemIcons`: `MiuiStatusBatteryContainer` still measures Battery separately and subtracts its width from `statusIcons`. A future fake-carrier adapter must verify a local reservation contract against exact target geometry before writing it.
 
 4. **Native motion / visual ownership**
    - native expansion code continues to own fake-bar translation;
@@ -727,8 +728,8 @@ Use the existing native axes rather than a project-owned scene machine:
 
 5. **Existing hook reuse**
    - no new tint hook is needed: `SystemUiTintStateSource` already receives all `MiuiBatteryMeterView` tint events and the fake session can filter by its own Battery instance;
-   - no second status-icon layout hook is needed: the existing `MiuiStatusIconContainer.onMeasure/onLayout` interception can route a fake mask-only policy by target identity;
-   - do not revive the legacy binding-level network suppression path.
+   - no second status-icon layout hook is needed: the existing `MiuiStatusIconContainer.onMeasure/onLayout` interception can route explicitly registered host-scoped presentation sessions by target identity;
+   - prefer extracting the current Home presentation-layer slot-exclusion / clip-mask mechanism over reviving the older binding-level network suppression owner as the default transition implementation.
 
 The transition cutover should remain readiness ordered locally:
 - entry: fake compact renderer ready -> apply fake native clip masks;
@@ -754,5 +755,6 @@ Further exact-target review closes an important false lead.
 
 Implication:
 - do not use the QS_FAKE block list as the Combined Status network replacement mechanism;
-- any future QS_FAKE compact presentation must reuse/generalize the existing binding-identity suppression and bounded visual-mask mechanism, scoped to the fake status-icon group;
-- keep one global hook set where possible and route only explicitly registered host-scoped sessions; do not duplicate network state machines.
+- the leading lightweight route is to generalize the **current presentation-layer** mechanism already used by Home: temporary `ignoredSlots` ownership around native measure/layout plus reversible clip masks for represented Wi-Fi/mobile/airplane/no-SIM/Battery Views;
+- the older binding-identity suppression path remains historical/fallback evidence, not the default QS_FAKE design;
+- keep one global status-icon/Battery hook set where possible and route only explicitly registered host-scoped presentation sessions; do not duplicate network state machines.
