@@ -121,7 +121,7 @@ Builds 421-423 are rejected for Notification-Shade first/last-frame continuity. 
 - the legacy Hot Reload payload slot is retained as a null compatibility field only; it is not an active runtime authority;
 - Build-420 Control Center carrier/handoff mechanics are unchanged inside Build 424; their future scope is now explicitly transition-only, with native-only ownership at the fully expanded endpoint.
 
-Build 424 is the current runtime checkpoint (`20260928-424`). Exact executable source: `2556a098d35c202e1c5645a06e73757744f721e1`. Later branch commits remain test/documentation/governance-only as of the current review. Static review confirms no active Notification-Shade visibility Hook/gate remains and the active target-profile panel Hook is only Control Center `onVisibleChanged(Z)` (plus optional bounded expansion diagnostics). A history-preserving refresh merged current `dev` into the work branch at `ca1bbf7e10c485f34846add633c34d06a163e7e8`, after which Full Build #1321 / run `36413531047` succeeded. Final exact-head validation is pending only because repository-cleanup commits follow that successful checkpoint. No device acceptance is claimed yet.
+Build 424 is the current runtime checkpoint (`20260928-424`). Exact executable source: `2556a098d35c202e1c5645a06e73757744f721e1`. Later branch commits remain test/documentation/governance-only as of the current review. Static review confirms no active Notification-Shade visibility Hook/gate remains and the active target-profile panel Hook is only Control Center `onVisibleChanged(Z)` (plus optional bounded expansion diagnostics). A history-preserving refresh merged current `dev` into the work branch at `ca1bbf7e10c485f34846add633c34d06a163e7e8`. Full Build #1321 / run `36413531047` succeeded after that refresh, and Ready Build #1328 / run `36418043111` subsequently succeeded on PR head `3cbf8523cfafeb99a58dcd213053e9a2e020f71f`, passing target-profile verification, unit tests, Debug build and Modern Xposed metadata checks. A final exact-head pull-request Build is required after the current documentation correction before owner `/canary` admission. No device acceptance is claimed yet.
 
 **Maintainer working scene concept — planning input, not yet a verified lifecycle contract:**
 - The maintainer's current conceptual split is: unlocked/Home steady, locked/Keyguard steady, partial Control Center pull with HyperOS transition continuity, and fully expanded Control Center native-only.
@@ -181,7 +181,7 @@ After conflict resolution, PR #146 became mergeable and Full Build #1321 / run `
 ## Immediate next step
 
 1. Keep Build 424 executable source `2556a098d35c202e1c5645a06e73757744f721e1` frozen.
-2. Complete repository-text cleanup and obtain one successful Full validation on the final exact PR head.
-3. Request one exact-head signed Canary only after that successful pull-request Build.
+2. Obtain one successful pull-request Build on the final documentation-synchronized exact PR head.
+3. Request one exact-head signed Canary only after that successful exact-head Build.
 4. Device-test Notification-Shade first/last-frame continuity, Control Center regression, Hot Reload, and one lock/unlock smoke pass.
 5. Do not mix the post-424 QS_FAKE Control Center redesign into Build 424; discuss/select that follow-up only after Build 424 device evidence.
