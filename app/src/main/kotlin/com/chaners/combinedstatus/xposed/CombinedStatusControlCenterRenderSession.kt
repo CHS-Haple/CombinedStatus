@@ -87,6 +87,10 @@ internal object CombinedStatusControlCenterRenderSession {
         current?.setRequestedVisible(visible) ?: false
 
     @Synchronized
+    fun currentAttachedHostForHotReload(): ViewGroup? =
+        current?.attachedHost()
+
+    @Synchronized
     fun onState(snapshot: CombinedStatusStateStore.Snapshot) {
         current?.update(snapshot)
     }
@@ -191,6 +195,9 @@ internal object CombinedStatusControlCenterRenderSession {
                 this.statusIcons.get() === statusIcons &&
                 this.battery.get() === battery &&
                 this.carrier.get() === carrier
+
+        fun attachedHost(): ViewGroup? =
+            host.get()?.takeIf { candidate -> candidate.isAttachedToWindow }
 
         fun start() {
             val hostView = host.get() ?: return
