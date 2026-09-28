@@ -744,3 +744,15 @@ Exact-target `ControlCenterHeaderExpandController` computes `batteryWidthDiff` f
 The calculation does **not** read QS_FAKE `ignoredSlots`, local `statusIcons.paddingEnd`, or a Combined Status compact reservation. Therefore a future carrier-local QS_FAKE exclusion/reservation policy does not feed back into the native parent translation formula, provided Combined Status never writes/cancels the fake parent translation.
 
 This narrows the future island/charging device gate to local compact-edge/layout continuity; native Control Center motion ownership remains structurally independent.
+
+
+### QS_FAKE modern-network suppression constraint
+
+Further exact-target review closes an important false lead.
+
+`MiuiLightDarkIconManager.setBlockList(...)` copies its input into an instance-local block list and calls `StatusBarIconControllerImpl.refreshIconGroup(...)`. That refresh does invoke `StatusIconDisplayable.setBlocked(...)` for matching children. However the target's modern Wi-Fi/mobile views inherit from `ModernStatusBarView`, whose `setBlocked(boolean)` override is an empty implementation. Therefore the icon-manager block list does **not** suppress the modern Wi-Fi/mobile pipeline used on this target.
+
+Implication:
+- do not use the QS_FAKE block list as the Combined Status network replacement mechanism;
+- any future QS_FAKE compact presentation must reuse/generalize the existing binding-identity suppression and bounded visual-mask mechanism, scoped to the fake status-icon group;
+- keep one global hook set where possible and route only explicitly registered host-scoped sessions; do not duplicate network state machines.
