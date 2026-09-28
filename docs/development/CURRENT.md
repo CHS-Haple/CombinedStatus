@@ -10,7 +10,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Integration branch: `dev`
 - Integration runtime baseline: Build 424 / `20260928-424`, `dev` squash integration `a6ba0ddc843d3e8d2fbca6c15786d99b8c0b2826`
 - Build 424 / `20260928-424` is the current device-accepted and Integration-validated `dev` runtime baseline. Integration Build #1338 / run `36420376141` passed on exact `dev` SHA `a6ba0ddc843d3e8d2fbca6c15786d99b8c0b2826`, including signed Canary, target-profile, unit/build, Xposed metadata, signature, and non-debuggable checks. Build 413 remains the current `main`-promoted stable runtime baseline.
-- Phase-2B Home / Notification-Shade checkpoint PR #146 is merged. Build 424 is **accepted/integrated** for the native Home `system_icons` carrier correction. Active work has moved to `feat/control-center-native-transition`. Build 425 / `20260928-425` is the first internal checkpoint: it extracts the existing three Home presentation Hooks into an identity-routed compact-presentation registry while registering only the existing Home session. No QS_FAKE runtime surface is enabled yet; fully expanded Control Center remains native-only, and Keyguard/AOD remain native-only until separately verified.
+- Phase-2B Home / Notification-Shade checkpoint PR #146 is merged. Build 424 is **accepted/integrated** for the native Home `system_icons` carrier correction. Active work is PR #152 / `feat/control-center-native-transition`. Build 425 / `20260928-425` completed the behavior-preserving compact-presentation registry extraction; runtime Fast Build #1344 passed and no separate device test was required. Build 426 / `20260928-426` is the current **unvalidated runtime checkpoint**: the Control Center transition renderer moves from the Build-420 source-anchor overlay to the native `QS_FAKE` carrier, project-owned Control Center Home visibility gating is removed, and the fully expanded native `QS` status bar remains SystemUI-owned. Keyguard/AOD remain native-only until separately verified.
 - Repository-automation baseline: checkpoint-driven CI from PR #139 remains active; Canary admission hardening and bounded automation-only merge delegation were accepted through PR #143/#144. PR #149 (`497be75c1754e49cb7a49b6abd73dcbd3bc010b3`) adds base-to-head validation-surface reporting, mixed runtime/build/CI/tooling warnings, and readable routing reasons without weakening Full gates; history-preserving `main -> dev` sync `2e9b1716849d6709342a446f63e5b886c0aed9ae` passed dev Full #1317. These automation changes do **not** create a new runtime Build; Build 418 remains the integrated runtime baseline.
 - Phase-2A integration: PR #105 merged to `dev` as `2f584c3b393dc5ee606284426aa95a9d6beae5d5`; former stacked PR #100 is closed as superseded.
 - Phase-2B panel/scene-owner integration: PR #138 merged to `dev` as `a25cb5ce2aeab235cfaed579474df70596f03a63`.
@@ -130,6 +130,22 @@ Build 424 is the current runtime checkpoint (`20260928-424`). Exact executable s
 - This makes `source steady adapter -> native QS_FAKE transition carrier -> native QS destination` the leading low-maintenance candidate, but it is **not yet an implementation decision**. First-frame readiness, suppression/masking, Hot Reload and device behavior still require review.
 - Home and future Keyguard must not be forced into one View ownership model merely to match the conceptual split.
 - This investigation does not widen Build 424: Build 424 remains the Home-carrier/Notification-writer correction only.
+
+
+### Build 426 — native QS_FAKE transition owner
+
+Build 426 is the first executable checkpoint for the post-424 Control Center ownership redesign.
+
+- Existing `ControlCenterExpandControllerDelegate.onVisibleChanged(boolean)` remains the **only normal-production Control Center runtime Hook**. It now resolves HyperOS's current `realSystemIcons` source plus the native `QS_FAKE` `statusBarArea`; it no longer writes or stores Home visibility eligibility.
+- The exact transition carrier chain is pinned as:
+  `ControlCenterHeaderExpandController.headerController -> dagger.Lazy.get() -> CombinedHeaderController.controlCenterFakeStatusBar -> ControlCenterFakeStatusIcons.delegate -> CcFakeStatusBarIcons.statusBarArea`.
+- QS_FAKE registers one host-scoped session in the Build-425 `SystemUiCompactPresentationRegistry`; the existing three global presentation Hooks remain shared and identity-routed.
+- Entry order is renderer-prepared -> fake presentation ownership acquired -> project overlay visible. Failure leaves/restores native QS_FAKE.
+- Exit/Hot Reload order is native fake restoration first -> project overlay hidden/detached.
+- Home no longer contains a project-local Control Center eligibility gate. It continues to inherit native `system_icons` visibility/alpha as accepted in Build 424.
+- HyperOS remains sole writer for Control Center translation, alpha, source selection and fake-to-real appearance. No appearance/fraction Hook, timer, polling loop, frame follower or project geometry writer is added.
+- Only a currently verified Home compact source may activate the fake compact session. A Keyguard-selected source fails native until Phase 3 establishes its own steady compact owner.
+- Exact-target compatibility now pins the private QS_FAKE field/method chain. Build 426 requires Ready Full plus one signed Canary and focused device validation before acceptance.
 
 ## Non-negotiable boundaries
 
