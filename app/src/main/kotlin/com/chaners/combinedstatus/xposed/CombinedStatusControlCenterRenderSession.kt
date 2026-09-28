@@ -64,7 +64,6 @@ internal object CombinedStatusControlCenterRenderSession {
         onEvent: (String) -> Unit,
         isDetailedDiagnosticsEnabled: () -> Boolean,
         onProjectionReadinessChanged: (Boolean) -> Unit,
-        transferredCompactReady: Boolean = false,
     ): AttachResult {
         if (Looper.myLooper() !== Looper.getMainLooper()) {
             return AttachResult.Failure("main-thread-required")
@@ -139,6 +138,7 @@ internal object CombinedStatusControlCenterRenderSession {
         onEvent: (String) -> Unit,
         isDetailedDiagnosticsEnabled: () -> Boolean,
         onProjectionReadinessChanged: (Boolean) -> Unit,
+        transferredCompactReady: Boolean = false,
     ): AttachResult {
         if (Looper.myLooper() !== Looper.getMainLooper()) {
             return AttachResult.Failure("main-thread-required")

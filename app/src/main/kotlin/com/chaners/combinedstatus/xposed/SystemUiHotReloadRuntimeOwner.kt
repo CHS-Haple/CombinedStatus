@@ -52,6 +52,10 @@ internal object SystemUiHotReloadRuntimeOwner {
             )
         }
 
+        val controlCenterCompactReady =
+            CombinedStatusControlCenterRenderSession
+                .currentNativePresentationReadyForHotReload()
+
         val transfer =
             CombinedStatusHotReloadTransfer.capture(
                 host = host,
@@ -66,9 +70,7 @@ internal object SystemUiHotReloadRuntimeOwner {
                 statusIconTint = stableTint?.statusIconTint,
                 controlCenterFakeHost =
                     CombinedStatusControlCenterRenderSession.currentAttachedHostForHotReload(),
-                controlCenterCompactReady =
-                    CombinedStatusControlCenterRenderSession
-                        .currentNativePresentationReadyForHotReload(),
+                controlCenterCompactReady = controlCenterCompactReady,
                 generationHandoff = generationHandoff,
             ) ?: return PrepareResult.Unavailable(
                 reason = "state-transfer-capture-failed",
@@ -91,9 +93,7 @@ internal object SystemUiHotReloadRuntimeOwner {
             wifiRoots = bindingCounts.first,
             mobileRoots = bindingCounts.second,
             tintTransferred = stableTint != null,
-            controlCenterCompactReady =
-                CombinedStatusControlCenterRenderSession
-                    .currentNativePresentationReadyForHotReload(),
+            controlCenterCompactReady = controlCenterCompactReady,
         )
     }
 

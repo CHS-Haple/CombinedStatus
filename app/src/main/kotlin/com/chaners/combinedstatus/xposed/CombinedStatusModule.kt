@@ -1126,18 +1126,27 @@ class CombinedStatusModule : XposedModule() {
                 )
         ) {
             CombinedStatusControlCenterRenderSession.AttachResult.Ready -> {
+                val compactReady =
+                    CombinedStatusControlCenterRenderSession
+                        .currentNativePresentationReadyForHotReload()
                 logDiagnostic(
                     level = Log.INFO,
                     event = "projection.restore",
                     component = "controlCenterProjection",
-                    state = "prepared",
+                    state = if (compactReady) "ready" else "prepared",
                     "source" to "hot-reload-transfer",
                     "boundary" to "outside-native-layout",
-                    "next" to "native-status-icons-layout",
+                    "transferredCompactReady" to transferredCompactReady,
+                    "next" to
+                        if (compactReady) {
+                            "native-status-icons-layout-refresh"
+                        } else {
+                            "native-status-icons-layout"
+                        },
                     "nativeGeometryWrites" to 0,
                 )
-                if (transferredCompactReady) {
-                    "restored-laid-out-compact-adopted"
+                if (compactReady) {
+                    "restored-laid-out-compact-ready"
                 } else {
                     "restored-laid-out-native-layout-pending"
                 }
