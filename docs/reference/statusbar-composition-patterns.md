@@ -552,3 +552,49 @@ Consequences:
 5. Keyguard/AOD remain separate native surfaces.
 
 Reusable principle: when SystemUI already exposes the rendered owner that receives the authoritative visibility decision, place project-owned visual composition inside that owner rather than observing a lower-level animation signal and recreating the visibility decision.
+
+## Exact-target Control Center source / transition / destination ownership evidence
+
+**Status:** verified reference evidence for HyperOS SystemUI `17.03.260226.r`; not yet a production Combined Status contract.
+
+Exact-target decompilation shows that HyperOS separates three different roles rather than treating Control Center as one status-bar surface:
+
+1. **Source status-bar owner**
+   - `MiuiPhoneStatusBarView` registers its `MiuiStatusBatteryContainer` as `ControlCenterFakeViewController.statusBarSystemIcons`.
+   - `MiuiKeyguardStatusBarView` registers its lockscreen `mSystemIconsContainer` as `keyguardSystemIcons`.
+   - `ControlCenterFakeViewController.adjustRealSystemIcons()` selects the current source from `StatusBarState`; Combined Status should not duplicate that unlocked/keyguard routing logic.
+
+2. **Control Center transition owner**
+   - `ControlCenterFakeStatusIcons` is a complete native status-bar presentation, not only an anchor.
+   - It owns an independent `StatusBarLocation.QS_FAKE` icon group, `MiuiStatusIconContainer`, `MiuiBatteryMeterView`, and `MiuiStatusBatteryContainer(system_icon_area)`.
+   - It registers native dark/tint/config/island lifecycle on attach and removes the corresponding callbacks/icon group on detach.
+   - Its width is synchronized from the selected real source by `ControlCenterFakeViewController.updateFakeStatusIconsSize()`.
+   - `setStatusBarState()` and `setKeyguardStatusBarColors()` give the fake presentation native unlocked/keyguard tint semantics.
+
+3. **Fully expanded Control Center owner**
+   - `CombinedHeaderController.controlCenterStatusBar` / `controlCenterSystemIcons` is the independent native Control Center status-bar presentation.
+   - `ControlCenterHeaderExpandController.controlCenterCallback.onExpansionChanged(float)` applies native translation to both fake and real Control Center status-bar presentations.
+   - `onAppearanceChanged(boolean, boolean)` is the native visual-ownership switch: appearance=true shows the real Control Center status bar and fades the fake bar out; appearance=false does the inverse.
+   - `PanelExpandController` exposes `getAppearance()`, so the current native ownership value is queryable without reconstructing it from a local expansion threshold.
+
+Additional Home evidence:
+- `ControlCenterContainerController.expandStateForStatusBar` drives `HomeStatusBarViewBinderInjector.mControlPanelExpand`.
+- While that value is true, `updateSystemInfoIconVisibilities()` calls `hideEndSideContent(false)`; when false, it calls `showEndSideContent(false)`.
+- Therefore a Combined Status visual placed inside the native Home `system_icons` carrier can inherit Home departure/return without a project-local Control Center visibility writer.
+
+### Candidate implication for later review
+
+A lower-maintenance transition architecture may be possible:
+
+`source steady carrier -> native QS_FAKE transition carrier -> native QS destination`
+
+with Combined Status rendering only inside verified source/fake carriers and inheriting native translation/alpha/tint, instead of maintaining a project-owned Control Center motion/appearance state machine.
+
+This is **not yet an implementation decision**. Before promotion, review:
+- first-frame readiness if the fake carrier is prepared before gesture start;
+- exact ownership/masking of represented native Wi-Fi/mobile/Battery inside `QS_FAKE`;
+- Hot Reload / recreation behavior;
+- whether one low-frequency fake-view lifecycle attachment is preferable to the current Build-420 visible-event projection;
+- interaction with the later lockscreen steady adapter.
+
+Do not derive the fake-to-real switch from fraction/epsilon/timer logic when the native appearance lifecycle is available.
