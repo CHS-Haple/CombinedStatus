@@ -15,7 +15,7 @@ internal object SystemUiKeyguardHostResolver {
     private const val BATTERY_VIEW_CLASS =
         "com.android.systemui.statusbar.views.MiuiBatteryMeterView"
 
-    private var lastSourceView = WeakReference<View>(null)
+    private var lastSourceView: WeakReference<View>? = null
     private var lastSurface = SystemUiSceneStateSource.Surface.UNKNOWN
     private var lastRawState = Int.MIN_VALUE
 
@@ -41,7 +41,7 @@ internal object SystemUiKeyguardHostResolver {
 
     @Synchronized
     fun current(): ResolveResult? {
-        val sourceView = lastSourceView.get() ?: return null
+        val sourceView = lastSourceView?.get() ?: return null
         return resolve(
             sourceView = sourceView,
             surface = lastSurface,
@@ -60,7 +60,7 @@ internal object SystemUiKeyguardHostResolver {
 
     @Synchronized
     fun resetRuntimeState() {
-        lastSourceView = WeakReference(null)
+        lastSourceView = null
         lastSurface = SystemUiSceneStateSource.Surface.UNKNOWN
         lastRawState = Int.MIN_VALUE
     }
