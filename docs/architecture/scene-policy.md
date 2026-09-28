@@ -104,16 +104,17 @@ No project-owned timing threshold, custom animation, polling/frame follower, pee
 
 Keyguard and AOD currently remain NATIVE_ONLY in the implemented runtime.
 
-The maintainer's current product concept gives **Keyguard its own steady Combined Status source role**, parallel to Home, but the exact adapter/lifecycle structure remains to be derived from SystemUI evidence:
-- Keyguard steady is not implemented by reusing the Home View/host;
-- it reuses shared renderer/domain semantics but resolves its own native carrier, tint, lifecycle, cleanup and fail-native contract;
-- HyperOS already registers Home and Keyguard system-icon containers separately into `ControlCenterFakeViewController` and selects the active source from native `StatusBarState`; Combined Status should not duplicate that transition-source router;
-- the exact project adapter boundary for a Keyguard-originated pull remains under review rather than being forced into a preselected coordinator abstraction;
-- native-only fully expanded Control Center remains the maintainer's current product preference, with adoption pending final lifecycle/device review.
+Exact-target review now narrows the Keyguard candidate without yet promoting it:
+- `MiuiKeyguardStatusBarView.mSystemIconsContainer` / `@id/system_icons_container` is the native Keyguard end-side `MiuiStatusBatteryContainer` registered into `ControlCenterFakeViewController.keyguardSystemIcons`;
+- HyperOS itself selects `statusBarSystemIcons` for status-bar state 0 and `keyguardSystemIcons` for state 1, then feeds the selected `realSystemIcons` into Control Center Header geometry. Combined Status must reuse that native router rather than duplicate it;
+- Keyguard steady must use a **separate host/session adapter** from Home. Shared renderer/domain semantics are reusable, but mutable Home View/session ownership is not;
+- `MiuiKeyguardStatusBarView.updateIconsAndTextColors()` is the native Keyguard tint authority and also forwards the same Keyguard tint semantics to QS_FAKE;
+- the base Keyguard status-bar visibility lifecycle resets `mSystemIconsContainer` translation when hidden, while Keyguard-specific status-icon animations target the child `mStatusIconContainer`; these are distinct ownership layers and must not be collapsed;
+- Build 442 observes these contracts only. It does not draw, hide, compact, reserve, or translate Keyguard content.
 
-AOD remains a separate future surface and is not implied by Keyguard support.
+AOD remains a separate future surface and is not implied by Keyguard support. Exact-target `KeyguardStatusBarViewControllerInject.animateFullAod()` separately drives Battery alpha/AOD mode plus status-icon alpha/visibility/`setIsAodAnimate()`, proving that a steady Keyguard adapter cannot silently own AOD as a boolean sub-state.
 
-Historical behavior or static knowledge of these hosts is not sufficient to enable rendering. Promotion still requires runtime verification of host identity, lifecycle, state, tint, geometry, transition ownership, cleanup, and fallback.
+Historical/static evidence is therefore sufficient to define the **candidate boundary**, but not to enable rendering. Promotion still requires Build-442 runtime verification of host identity, attach/visibility lifecycle, geometry, native source selection, tint, Keyguard-originated Control Center handoff, and AOD separation.
 
 ## Charging
 

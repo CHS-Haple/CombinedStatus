@@ -3,6 +3,90 @@
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
 
+## 2026-09-29 — Build 442: Keyguard host/lifecycle read-only probe
+
+**Type:** Phase-3 host/lifecycle evidence checkpoint
+**Build:** 442 / `20260929-442`
+**Work branch:** `feat/keyguard-scene-adapter`
+**Executable commits:** `3178b5017ec57c5f294f5577c8d9749330d0b9f5`, wiring correction `3fe73ae116562f6d3bc50ddf11b5283da5dcdda9`
+**Rendering:** disabled on Keyguard and AOD
+**Validation:** pending Draft Light -> exact-head Fast -> signed Canary / focused device evidence
+
+### Goal
+
+Begin Phase 3 without guessing the lockscreen owner. Build 442 verifies the exact native Keyguard carrier, lifecycle, tint, Control Center source selection and AOD boundary before any Combined Status visual or native suppression is allowed on Keyguard.
+
+### Exact-target evidence before implementation
+
+Direct JADX review of SystemUI `17.03.260226.r` confirms:
+
+1. `MiuiKeyguardStatusBarView.mSystemIconsContainer` is `@id/system_icons_container` / `MiuiStatusBatteryContainer`; Battery uses Keyguard layout-from semantics.
+2. Keyguard attach/init registers `mSystemIconsContainer` as `ControlCenterFakeViewController.keyguardSystemIcons`.
+3. `ControlCenterFakeViewController.adjustRealSystemIcons()` selects Home for status-bar state 0, Keyguard for state 1, and none otherwise. Native state/bouncer callbacks re-run that router.
+4. `MiuiKeyguardStatusBarView.updateIconsAndTextColors()` is a Keyguard-specific tint authority and forwards matching colors to QS_FAKE.
+5. Base Keyguard visibility owns the root lifecycle and resets system-icons translation on exit; child icon animation separately targets `mStatusIconContainer`.
+6. `KeyguardStatusBarViewControllerInject.animateFullAod()` separately controls Battery AOD mode/alpha and status-icon alpha/visibility/animation state. AOD is therefore not a steady-Keyguard boolean sub-mode.
+
+### Implementation
+
+Add `SystemUiKeyguardSceneSource` only when `BuildConfig.RUNTIME_DIAGNOSTICS=true` (Debug/Canary; Release=false).
+
+Five low-frequency read-only Hooks:
+- `MiuiKeyguardStatusBarView.onAttachedToWindow()`;
+- `onDetachedFromWindow()`;
+- base `KeyguardStatusBarView.setVisibility(int)`;
+- `MiuiKeyguardStatusBarView.updateIconsAndTextColors()`;
+- `KeyguardStatusBarViewControllerInject.animateFullAod(boolean, boolean)`.
+
+Each event snapshots:
+- Keyguard root;
+- `mSystemIconsContainer`;
+- `mStatusIconContainer`;
+- Battery View;
+- `mToLockScreen` / light-wallpaper tint context;
+- optional Battery AOD flags;
+- whether `ControlCenterFakeViewController.realSystemIcons === mSystemIconsContainer`.
+
+No renderer, overlay, native masking, ignored-slot mutation, end reservation, alpha/visibility/translation write, layout listener, timer, polling or frame callback is introduced.
+
+The source installs in the existing cold-start / Hot Reload diagnostics pipeline. Existing Hot Reload takeover already unhooks every non-status-host old-generation Hook before reinstalling current-generation sources; the Keyguard probe requires no separate transfer or cleanup state.
+
+### 审查 / review
+
+- **ownership:** Build 442 observes native ownership only; it owns no Keyguard presentation fact.
+- **single writer:** zero native geometry/alpha/visibility writes.
+- **lifecycle:** attach/detach/visibility come from the native Keyguard host rather than Battery-state inference.
+- **source routing:** Home-vs-Keyguard selection remains HyperOS-owned through `ControlCenterFakeViewController`.
+- **tint:** native Keyguard tint is observed, not reconstructed.
+- **AOD:** explicitly remains NATIVE_ONLY and distinct from steady Keyguard.
+- **performance:** five event-driven, low-frequency diagnostic Hooks; no per-frame work.
+- **release boundary:** Release builds install none of these probe Hooks because `RUNTIME_DIAGNOSTICS=false`.
+
+### Focused device gate
+
+After automated validation, a signed Canary is required because the checkpoint exists specifically to verify target-device lifecycle evidence.
+
+1. Restart SystemUI with Build 442 and confirm there is **no visual behavior change**.
+2. Lock/wake into Keyguard and remain there briefly.
+3. Pull Control Center once from Keyguard (partial/full/return).
+4. If Full AOD is enabled, enter AOD once and wake back to Keyguard.
+5. Unlock to Home and export the diagnostic.
+
+Expected evidence:
+- `source.install component=keyguardScene state=ready hooks=5/5`;
+- attached/visible Keyguard root with valid `mSystemIconsContainer` geometry;
+- `selectedAsRealSystemIcons=true` while Keyguard is the native Control Center source;
+- Keyguard tint events without project writes;
+- Full-AOD events remain a separate native lifecycle;
+- no crash, layout shift, icon suppression, tint change or other visible effect.
+
+Any visible change is a hard failure because Build 442 is read-only.
+
+### Next decision
+
+Only after device evidence validates the host/lifecycle contract may the branch advance to a Keyguard-specific render/presentation session. That later session may share renderer/domain semantics with Home but must not share Home mutable host/session ownership. AOD stays deferred.
+
+
 ## 2026-09-29 — Control Center fully-expanded endpoint investigation: native appearance handoff verified
 
 **Type:** Phase-2B exact-target endpoint review / no executable build
@@ -88,9 +172,9 @@ Build-441 diagnostics repeatedly showed normal Control Center motion `normalStat
 
 The larger charging-island leftward trajectory is **native HyperOS QS_FAKE behavior**, not an independent Combined Status 30 px alignment bug. The stable 105 px Combined carrier and the full native Battery presentation width used by island motion are two valid, different geometry semantics.
 
-### Rejected hypothesis / abandoned Build-442 attempt
+### Rejected hypothesis / abandoned local-normalization draft
 
-Before the exact-target chain was fully closed, an unmerged local-normalization attempt was briefly written on this work branch (commits `d1814d00b4c81f0d2d03ffb103e1ec6bc7cbea23`, `72254dd4d1e39fbdc6508d8ed97a0fd191635354`, record commit `5c1dc3f46061711678dfed58495721e062f8cd38`). It proposed canceling the Battery-island part of the inherited QS_FAKE root motion on the Combined overlay.
+Before the exact-target chain was fully closed, an unmerged local-normalization draft was briefly written on that work branch (commits `d1814d00b4c81f0d2d03ffb103e1ec6bc7cbea23`, `72254dd4d1e39fbdc6508d8ed97a0fd191635354`, record commit `5c1dc3f46061711678dfed58495721e062f8cd38`). It temporarily used the then-prospective next build identity while proposing cancellation of the Battery-island part of inherited QS_FAKE motion, but it never entered an accepted PR/CI/device checkpoint and therefore **did not reserve or become Build 442**. Formal Build 442 is the later Phase-3 Keyguard lifecycle probe.
 
 Exact-target review rejects that premise: the `-batteryWidth` term is part of HyperOS's intended QS_FAKE transition contract, and Combined currently inherits the same native root surface. The attempt had no PR, no accepted CI checkpoint and no device validation; the work branch was reset to the validated Build-441 baseline before continuing. **Do not revive this route without new frame-level evidence that Combined diverges from native QS_FAKE peers.**
 

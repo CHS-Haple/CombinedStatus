@@ -302,6 +302,31 @@ For Home, Build-424 exact-target review distinguishes the parent `system_icon_ar
 
 ---
 
+## Keyguard steady-source contract on the pinned target
+
+**Static exact-target evidence; runtime verification pending Build 442.**
+
+The Keyguard source is not the Home carrier reused under a different global flag. HyperOS exposes a distinct native source:
+
+- `MiuiKeyguardStatusBarView.mSystemIconsContainer` resolves `@id/system_icons_container` as a `MiuiStatusBatteryContainer`;
+- `MiuiKeyguardStatusBarView.initCallback()` registers that View into `ControlCenterFakeViewController.keyguardSystemIcons`;
+- `ControlCenterFakeViewController.adjustRealSystemIcons()` selects Home `statusBarSystemIcons` for status-bar state 0, Keyguard `keyguardSystemIcons` for state 1, and no source for other states;
+- native status-bar-state and bouncer callbacks re-run the same selection, so Combined Status must not reconstruct a second Home/Keyguard router;
+- Control Center Header consumes the selected `realSystemIcons` as its source geometry reference.
+
+Keyguard also has independent lifecycle and tint authority:
+
+- `onAttachedToWindow()/onDetachedFromWindow()` register and release Keyguard callbacks/icon groups;
+- base `KeyguardStatusBarView.setVisibility()` owns root visibility and resets the system-icons translation on exit;
+- `updateIconsAndTextColors()` derives Keyguard light/dark colors and applies them to Keyguard icon/battery presentation while forwarding the same source tint to QS_FAKE;
+- child `animateIconContainer()` targets `mStatusIconContainer`, not the whole system-icons carrier.
+
+AOD is separate. `KeyguardStatusBarViewControllerInject.animateFullAod()` independently changes Battery alpha/AOD mode and status-icon alpha/visibility/animation flags. A future Keyguard Combined adapter must therefore remain inactive for AOD until a distinct AOD contract is verified.
+
+**Project implication:** the strongest steady Keyguard carrier candidate is the native `mSystemIconsContainer` host with a Keyguard-specific session, sharing only renderer/domain semantics with Home. Build 442 exists solely to verify this candidate on-device before any Keyguard visual or native suppression is enabled.
+
+---
+
 ## 8. Transition masking and cleanup are separate from steady layout ownership
 
 **Observed.**
