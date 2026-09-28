@@ -302,10 +302,12 @@ internal object SystemUiPanelTransitionSource {
             }
     }
 
-    private fun resolveControlCenterRealSystemIcons(delegate: Any?): ViewGroup? {
+    private fun resolveControlCenterFakePresentationHost(
+        delegate: Any?,
+    ): ControlCenterPresentationHost? {
         val contract = controlAnchorContract ?: return null
         val header = resolveControlCenterHeader(delegate) ?: return null
-        return contract.realSystemIcons(header)
+        return contract.fakePresentationHost(header)
     }
 
     private fun captureControlCenterAnchor(delegate: Any?): ControlCenterAnchorSnapshot? {
