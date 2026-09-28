@@ -535,6 +535,49 @@ internal object SystemUiHomePresentationOwner {
         failNativeSink?.invoke(reason)
     }
 
+    @Synchronized
+    private fun onControlCenterSessionLayoutReady(
+        session: Session,
+        maskedViews: Int,
+        reused: Boolean,
+    ) {
+        if (controlCenterCurrent !== session) {
+            return
+        }
+        val active =
+            ControlCenterStateResult.Active(
+                representedSlots = representedSlots.size,
+                maskedViews = maskedViews,
+                reused = reused,
+            )
+        controlCenterEventSink?.invoke(
+            "controlCenterPresentation active carrier=QS_FAKE.system_icon_area " +
+                "representedSlots=" + representedSlots.joinToString(",") +
+                " maskedViews=" + maskedViews +
+                " slotExclusion=scoped-native-measure-layout " +
+                "carrierReservation=stable-battery-slot " +
+                "carrierAuthority=battery_icon_container visualMask=clipBounds " +
+                "cutover=native-layout-ready nativeTranslationWrites=0 " +
+                "nativeAlphaWrites=0 nativeVisibilityWrites=0",
+        )
+        controlCenterReadySink?.invoke(active)
+    }
+
+    @Synchronized
+    private fun onControlCenterSessionFailure(reason: String) {
+        val session = controlCenterCurrent ?: return
+        controlCenterCurrent = null
+        session.stop("fail-native:" + reason)
+        controlCenterEventSink?.invoke(
+            "controlCenterPresentation failNative reason=" + reason +
+                " restoredNative=true",
+        )
+        controlCenterFailNativeSink?.invoke(reason)
+        controlCenterEventSink = null
+        controlCenterFailNativeSink = null
+        controlCenterReadySink = null
+    }
+
     private fun clearInstallState() {
         measureHook = null
         layoutHook = null
