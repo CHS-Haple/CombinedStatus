@@ -58,7 +58,7 @@ internal object CombinedStatusControlCenterRenderSession {
             ) == true
         ) {
             existing.refresh()
-            return AttachResult.Ready
+            return existing.prepareNativePresentation(reused = true)
         }
 
         if (existing != null) {
@@ -79,52 +79,7 @@ internal object CombinedStatusControlCenterRenderSession {
             )
         current = session
         session.start()
-
-        return when (
-            val result =
-                SystemUiHomePresentationOwner.activateControlCenter(
-                    host = statusBarArea,
-                    statusIcons = statusIcons,
-                    batteryContainer = statusBarArea,
-                    battery = battery,
-                    batteryCarrier = carrier,
-                    onEvent = onEvent,
-                    onFailNative = { reason ->
-                        onNativePresentationFailure(session, reason)
-                    },
-                    onReady = { active ->
-                        onNativePresentationReady(
-                            session = session,
-                            maskedViews = active.maskedViews,
-                        )
-                    },
-                )
-        ) {
-            is SystemUiHomePresentationOwner.ControlCenterStateResult.Active -> {
-                session.setNativePresentationReady(
-                    ready = true,
-                    maskedViews = result.maskedViews,
-                    source = "activation",
-                )
-                AttachResult.Ready
-            }
-
-            is SystemUiHomePresentationOwner.ControlCenterStateResult.Prepared ->
-                AttachResult.Ready
-
-            is SystemUiHomePresentationOwner.ControlCenterStateResult.Failure -> {
-                SystemUiHomePresentationOwner.deactivateControlCenter("activation-failed")
-                session.stop("activation-failed")
-                current = null
-                AttachResult.Failure(result.reason)
-            }
-
-            is SystemUiHomePresentationOwner.ControlCenterStateResult.Inactive -> {
-                session.stop("activation-inactive")
-                current = null
-                AttachResult.Failure("compact-presentation-inactive")
-            }
-        }
+        return session.prepareNativePresentation(reused = false)
     }
 
     @Synchronized
@@ -148,9 +103,12 @@ internal object CombinedStatusControlCenterRenderSession {
 
     @Synchronized
     fun onFeatureSettingsChanged(settings: CombinedStatusFeatureSettings) {
-        current?.setFeatureEnabled(settings.enabled)
+        val session = current
+        session?.setFeatureEnabled(settings.enabled)
         if (!settings.enabled) {
             SystemUiHomePresentationOwner.deactivateControlCenter("feature-disabled")
+        } else {
+            session?.prepareNativePresentation(reused = true)
         }
     }
 
@@ -164,32 +122,6 @@ internal object CombinedStatusControlCenterRenderSession {
         SystemUiHomePresentationOwner.deactivateControlCenter(source)
         current?.stop(source)
         current = null
-    }
-
-    @Synchronized
-    private fun onNativePresentationReady(
-        session: Session,
-        maskedViews: Int,
-    ) {
-        if (current !== session) return
-        session.setNativePresentationReady(
-            ready = true,
-            maskedViews = maskedViews,
-            source = "native-layout",
-        )
-    }
-
-    @Synchronized
-    private fun onNativePresentationFailure(
-        session: Session,
-        reason: String,
-    ) {
-        if (current !== session) return
-        session.setNativePresentationReady(
-            ready = false,
-            maskedViews = 0,
-            source = "fail-native:" + reason,
-        )
     }
 
     internal fun resolveProjectionReady(
