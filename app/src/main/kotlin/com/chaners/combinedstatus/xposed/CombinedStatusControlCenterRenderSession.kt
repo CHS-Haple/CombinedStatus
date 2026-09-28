@@ -19,9 +19,6 @@ internal object CombinedStatusControlCenterRenderSession {
     private const val BATTERY_VIEW_CLASS_NAME =
         "com.android.systemui.statusbar.views.MiuiBatteryMeterView"
 
-    private val representedSlots =
-        setOf("wifi", "mobile", "stacked_mobile", "airplane", "no_sim")
-
     private var current: Session? = null
 
     @Synchronized
@@ -64,8 +61,12 @@ internal object CombinedStatusControlCenterRenderSession {
             return AttachResult.Ready
         }
 
-        existing?.stop("host-replaced")
-        current =
+        if (existing != null) {
+            SystemUiHomePresentationOwner.deactivateControlCenter("host-replaced")
+            existing.stop("host-replaced")
+        }
+
+        val session =
             Session(
                 host = host,
                 statusBarArea = statusBarArea,
@@ -75,8 +76,55 @@ internal object CombinedStatusControlCenterRenderSession {
                 onEvent = onEvent,
                 isDetailedDiagnosticsEnabled = isDetailedDiagnosticsEnabled,
                 onProjectionReadinessChanged = onProjectionReadinessChanged,
-            ).also { it.start() }
-        return AttachResult.Ready
+            )
+        current = session
+        session.start()
+
+        return when (
+            val result =
+                SystemUiHomePresentationOwner.activateControlCenter(
+                    host = statusBarArea,
+                    statusIcons = statusIcons,
+                    batteryContainer = statusBarArea,
+                    battery = battery,
+                    batteryCarrier = carrier,
+                    onEvent = onEvent,
+                    onFailNative = { reason ->
+                        onNativePresentationFailure(session, reason)
+                    },
+                    onReady = { active ->
+                        onNativePresentationReady(
+                            session = session,
+                            maskedViews = active.maskedViews,
+                        )
+                    },
+                )
+        ) {
+            is SystemUiHomePresentationOwner.ControlCenterStateResult.Active -> {
+                session.setNativePresentationReady(
+                    ready = true,
+                    maskedViews = result.maskedViews,
+                    source = "activation",
+                )
+                AttachResult.Ready
+            }
+
+            is SystemUiHomePresentationOwner.ControlCenterStateResult.Prepared ->
+                AttachResult.Ready
+
+            is SystemUiHomePresentationOwner.ControlCenterStateResult.Failure -> {
+                SystemUiHomePresentationOwner.deactivateControlCenter("activation-failed")
+                session.stop("activation-failed")
+                current = null
+                AttachResult.Failure(result.reason)
+            }
+
+            is SystemUiHomePresentationOwner.ControlCenterStateResult.Inactive -> {
+                session.stop("activation-inactive")
+                current = null
+                AttachResult.Failure("compact-presentation-inactive")
+            }
+        }
     }
 
     @Synchronized
@@ -101,6 +149,9 @@ internal object CombinedStatusControlCenterRenderSession {
     @Synchronized
     fun onFeatureSettingsChanged(settings: CombinedStatusFeatureSettings) {
         current?.setFeatureEnabled(settings.enabled)
+        if (!settings.enabled) {
+            SystemUiHomePresentationOwner.deactivateControlCenter("feature-disabled")
+        }
     }
 
     @Synchronized
@@ -110,8 +161,35 @@ internal object CombinedStatusControlCenterRenderSession {
 
     @Synchronized
     fun detach(source: String = "detach") {
+        SystemUiHomePresentationOwner.deactivateControlCenter(source)
         current?.stop(source)
         current = null
+    }
+
+    @Synchronized
+    private fun onNativePresentationReady(
+        session: Session,
+        maskedViews: Int,
+    ) {
+        if (current !== session) return
+        session.setNativePresentationReady(
+            ready = true,
+            maskedViews = maskedViews,
+            source = "native-layout",
+        )
+    }
+
+    @Synchronized
+    private fun onNativePresentationFailure(
+        session: Session,
+        reason: String,
+    ) {
+        if (current !== session) return
+        session.setNativePresentationReady(
+            ready = false,
+            maskedViews = 0,
+            source = "fail-native:" + reason,
+        )
     }
 
     internal fun resolveProjectionReady(
@@ -120,14 +198,14 @@ internal object CombinedStatusControlCenterRenderSession {
         tintReady: Boolean,
         layoutReady: Boolean,
         hostAttached: Boolean,
-        maskReady: Boolean,
+        nativePresentationReady: Boolean,
     ): Boolean =
         featureEnabled &&
             modelReady &&
             tintReady &&
             layoutReady &&
             hostAttached &&
-            maskReady
+            nativePresentationReady
 
     private class Session(
         host: ViewGroup,
@@ -147,14 +225,13 @@ internal object CombinedStatusControlCenterRenderSession {
         private val renderView = CombinedStatusRenderView(host.context)
         private val renderController = CombinedStatusRenderController(renderView)
         private val anchorRect = Rect()
-        private val clipStates = mutableListOf<ClipState>()
 
         private var requestedVisible = false
         private var featureEnabled = RuntimeFeaturePreferencesOwner.currentSettings().enabled
         private var modelReady = false
         private var tintReady = false
         private var layoutReady = false
-        private var maskReady = false
+        private var nativePresentationReady = false
         private var lastProjectionReady: Boolean? = null
 
         private val hostLayoutListener =
@@ -168,14 +245,6 @@ internal object CombinedStatusControlCenterRenderSession {
         private val carrierLayoutListener =
             View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
                 layoutProjection()
-            }
-        private val statusIconsLayoutListener =
-            View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
-                if (requestedVisible && baseReady()) {
-                    maskReady = refreshClipMasks()
-                    applyVisibility()
-                    dispatchReadiness("native-layout")
-                }
             }
 
         fun matches(
@@ -197,7 +266,6 @@ internal object CombinedStatusControlCenterRenderSession {
             hostView.addOnLayoutChangeListener(hostLayoutListener)
             statusBarArea.get()?.addOnLayoutChangeListener(statusAreaLayoutListener)
             carrier.get()?.addOnLayoutChangeListener(carrierLayoutListener)
-            statusIcons.get()?.addOnLayoutChangeListener(statusIconsLayoutListener)
             renderView.visibility = View.GONE
             hostView.overlay.add(renderView)
             renderController.updateVisualSettings(RuntimeVisualPreferencesOwner.currentSettings())
@@ -209,23 +277,21 @@ internal object CombinedStatusControlCenterRenderSession {
 
         fun stop(source: String) {
             val hostView = host.get()
-            restoreClipMasks()
             hostView?.removeOnAttachStateChangeListener(this)
             hostView?.removeOnLayoutChangeListener(hostLayoutListener)
             statusBarArea.get()?.removeOnLayoutChangeListener(statusAreaLayoutListener)
             carrier.get()?.removeOnLayoutChangeListener(carrierLayoutListener)
-            statusIcons.get()?.removeOnLayoutChangeListener(statusIconsLayoutListener)
             hostView?.overlay?.remove(renderView)
             requestedVisible = false
             layoutReady = false
-            maskReady = false
+            nativePresentationReady = false
             if (lastProjectionReady == true) {
                 lastProjectionReady = false
                 onProjectionReadinessChanged(false)
             }
             emitEvent {
                 "controlCenterProjection cleanup source=" + source +
-                    " restoredClipBounds=true nativeGeometryWrites=0 " +
+                    " nativeCompactRestored=true nativeGeometryWrites=0 " +
                     "nativeAlphaWrites=0 nativeVisibilityWrites=0"
             }
         }
@@ -234,6 +300,25 @@ internal object CombinedStatusControlCenterRenderSession {
             requestedVisible = visible
             syncPresentation("visibility")
             return projectionReady()
+        }
+
+        fun setNativePresentationReady(
+            ready: Boolean,
+            maskedViews: Int,
+            source: String,
+        ) {
+            nativePresentationReady = ready
+            if (ready) {
+                layoutProjection()
+            }
+            applyVisibility()
+            emitEvent {
+                "controlCenterProjection compact ready=" + ready +
+                    " source=" + source +
+                    " maskedViews=" + maskedViews +
+                    " stableBatterySlot=true batteryWidthDiffConsumed=false"
+            }
+            dispatchReadiness("compact:" + source)
         }
 
         fun update(snapshot: CombinedStatusStateStore.Snapshot) {
@@ -253,6 +338,9 @@ internal object CombinedStatusControlCenterRenderSession {
 
         fun setFeatureEnabled(enabled: Boolean) {
             featureEnabled = enabled
+            if (!enabled) {
+                nativePresentationReady = false
+            }
             syncPresentation("feature")
         }
 
@@ -345,28 +433,21 @@ internal object CombinedStatusControlCenterRenderSession {
                         "geometrySource=MiuiStatusBatteryContainer bounds=" +
                         anchorRect.left + "," + anchorRect.top + "-" +
                         anchorRect.right + "," + anchorRect.bottom +
-                        " motion=root-alpha-translation-inherited " +
+                        " target=stable-battery-slot motion=root-alpha-translation-inherited " +
                         "nativeGeometryWrites=0 nativeAlphaWrites=0 nativeVisibilityWrites=0"
                 }
             }
         }
 
         private fun markLayoutUnavailable() {
-            if (!layoutReady && !maskReady) return
+            if (!layoutReady) return
             layoutReady = false
-            restoreClipMasks()
-            maskReady = false
+            nativePresentationReady = false
             renderView.visibility = View.GONE
+            SystemUiHomePresentationOwner.deactivateControlCenter(
+                "projection-layout-unavailable",
+            )
             dispatchReadiness("layout-unavailable")
-        }
-
-        private fun baseReady(): Boolean {
-            val hostView = host.get()
-            return featureEnabled &&
-                modelReady &&
-                tintReady &&
-                layoutReady &&
-                hostView?.isAttachedToWindow == true
         }
 
         private fun projectionReady(): Boolean =
@@ -376,16 +457,10 @@ internal object CombinedStatusControlCenterRenderSession {
                 tintReady = tintReady,
                 layoutReady = layoutReady,
                 hostAttached = host.get()?.isAttachedToWindow == true,
-                maskReady = maskReady,
+                nativePresentationReady = nativePresentationReady,
             )
 
         private fun syncPresentation(source: String) {
-            if (requestedVisible && baseReady()) {
-                maskReady = refreshClipMasks()
-            } else {
-                restoreClipMasks()
-                maskReady = false
-            }
             applyVisibility()
             dispatchReadiness(source)
         }
@@ -400,85 +475,6 @@ internal object CombinedStatusControlCenterRenderSession {
             }
         }
 
-        private fun refreshClipMasks(): Boolean {
-            val group = statusIcons.get() ?: return failMasks("status-icons-released")
-            val batteryView = battery.get() ?: return failMasks("battery-released")
-
-            val targets = linkedSetOf<View>()
-            targets += batteryView
-            for (index in 0 until group.childCount) {
-                val child = group.getChildAt(index)
-                if (NativeParticipantRuntimeAccess.slotOf(child) in representedSlots) {
-                    targets += child
-                }
-            }
-
-            val iterator = clipStates.iterator()
-            while (iterator.hasNext()) {
-                val state = iterator.next()
-                val view = state.view.get()
-                if (view == null || view !in targets) {
-                    if (view != null && view.clipBounds == state.appliedClip) {
-                        view.clipBounds = state.nativeClip?.let(::Rect)
-                    }
-                    iterator.remove()
-                } else if (view.clipBounds != state.appliedClip) {
-                    return failMasks("clip-writer-conflict")
-                }
-            }
-
-            targets.forEach { view ->
-                if (clipStates.none { state -> state.view.get() === view }) {
-                    val nativeClip = view.clipBounds?.let(::Rect)
-                    val applied = Rect(0, 0, 0, 0)
-                    view.clipBounds = applied
-                    clipStates +=
-                        ClipState(
-                            view = WeakReference(view),
-                            nativeClip = nativeClip,
-                            appliedClip = applied,
-                        )
-                }
-            }
-
-            val ready =
-                clipStates.any { state -> state.view.get() === batteryView } &&
-                    clipStates.all { state ->
-                        state.view.get()?.clipBounds == state.appliedClip
-                    }
-            if (ready) {
-                emitEvent {
-                    "controlCenterProjection mask active maskedViews=" + clipStates.size +
-                        " owner=fake-status-area-clipBounds " +
-                        "nativeLayoutWrites=0 nativeAlphaWrites=0 nativeVisibilityWrites=0"
-                }
-            }
-            return ready
-        }
-
-        private fun failMasks(reason: String): Boolean {
-            restoreClipMasks()
-            emitEvent {
-                "controlCenterProjection mask failNative reason=" + reason +
-                    " restoredNative=true"
-            }
-            return false
-        }
-
-        private fun restoreClipMasks(): Int {
-            val states = clipStates.toList()
-            clipStates.clear()
-            var restored = 0
-            states.forEach { state ->
-                val view = state.view.get() ?: return@forEach
-                if (view.clipBounds == state.appliedClip) {
-                    view.clipBounds = state.nativeClip?.let(::Rect)
-                    restored += 1
-                }
-            }
-            return restored
-        }
-
         private fun dispatchReadiness(source: String) {
             val ready = requestedVisible && projectionReady()
             if (ready == lastProjectionReady) return
@@ -490,7 +486,7 @@ internal object CombinedStatusControlCenterRenderSession {
                     " modelReady=" + modelReady +
                     " tintReady=" + tintReady +
                     " layoutReady=" + layoutReady +
-                    " maskReady=" + maskReady +
+                    " nativePresentationReady=" + nativePresentationReady +
                     " rootAlphaInherited=true nativeGeometryWrites=0"
             }
             onProjectionReadinessChanged(ready)
@@ -504,9 +500,11 @@ internal object CombinedStatusControlCenterRenderSession {
 
         override fun onViewDetachedFromWindow(view: View) {
             layoutReady = false
-            restoreClipMasks()
-            maskReady = false
+            nativePresentationReady = false
             renderView.visibility = View.GONE
+            SystemUiHomePresentationOwner.deactivateControlCenter(
+                "fake-root-detached",
+            )
             dispatchReadiness("detach")
         }
 
@@ -542,12 +540,6 @@ internal object CombinedStatusControlCenterRenderSession {
         }
         return found
     }
-
-    private data class ClipState(
-        val view: WeakReference<View>,
-        val nativeClip: Rect?,
-        val appliedClip: Rect,
-    )
 
     internal sealed interface AttachResult {
         data object Ready : AttachResult
