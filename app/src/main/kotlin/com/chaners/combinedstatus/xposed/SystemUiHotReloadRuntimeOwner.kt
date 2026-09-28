@@ -58,8 +58,9 @@ internal object SystemUiHotReloadRuntimeOwner {
                 // Legacy transfer slot remains null for compatibility. Notification
                 // Shade now follows the native system_icons carrier lifecycle.
                 notificationShadeHomeEligible = null,
-                controlCenterHomeEligible =
-                    SystemUiPanelTransitionSource.currentControlCenterHomeEligibility(),
+                // Legacy transfer slot remains null for compatibility. Control Center
+                // transition ownership is transient and follows native QS_FAKE lifecycle.
+                controlCenterHomeEligible = null,
                 appliedTint = stableTint?.appliedTint,
                 statusIconTint = stableTint?.statusIconTint,
             ) ?: return PrepareResult.Unavailable(
