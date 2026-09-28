@@ -62,12 +62,19 @@ Observed:
 - **Charging island:** `mIsHideBattery` only decides whether the stable logical Battery slot must be reserved; `batteryWidthDiff` does not move the Combined endpoint.
 - **Final QS:** unchanged; native fake-root alpha still performs fake->final yield.
 
-### Validation gate
+### Automated validation
 
-- Draft Light #1422 / run `36448591032` passed on the in-progress Build-432 branch before the documentation-only follow-up commits.
-- Ready Fast is required on the final executable/doc head.
-- Signed Canary is required before focused device validation.
-- Device test: normal pull/return + charging-island pull/return; verify compact spacing throughout the transition, same logical Battery endpoint in both states, native-only final QS, and clean Home restoration.
+- Frozen executable SHA: `f5efbaebedabc2deaae7c45ad84a07f0d0433d61`.
+- Draft Light #1425 / run `36448817816`: success.
+- Ready Fast #1426 / run `36448904739`: success, including target-profile verification, unit tests/build, and Modern Xposed metadata.
+- Signed Work Branch Canary #428 / run `36449162900`: success on the same exact trusted-source SHA.
+- Canary artifact: `CombinedStatus-0.0.2-HyperOS-20260928-432-canary.apk`; artifact id `10982242768`; ZIP digest `sha256:3c812f4bb0c0aa20903d62a501e85aa5e4116798f376c43f05d8546d7f1182d7`; extracted APK SHA-256 `6b652a102dab66fdc3c3b65706388b238d5b8647bf82e7f61739778469aa2763`; extracted size 3,309,602 bytes.
+- Haple signature, Modern Xposed metadata, and Canary non-debuggable checks passed.
+- PR #156 is returned to Draft and executable runtime is frozen pending focused device evidence.
+
+### Device gate
+
+Normal pull/return + charging-island pull/return; verify compact spacing throughout the transition, the same logical Battery endpoint in both states, native-only final QS, and clean Home restoration.
 
 
 
