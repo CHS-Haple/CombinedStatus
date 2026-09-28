@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="section_home_runtime">运行状态</string>
+    <string name="home_version_line">版本  %1$s</string>
+    <string name="home_build_line">构建  %1$s</string>
+
+    <string name="home_runtime_running">运行中</string>
+    <string name="home_runtime_running_summary">当前使用三合一状态图标</string>
+    <string name="home_runtime_unhooked">未 Hook</string>
+    <string name="home_runtime_unhooked_summary">SystemUI 作用域未启用</string>
+    <string name="home_runtime_pending">待生效</string>
+    <string name="home_runtime_pending_summary">等待 SystemUI 重新加载</string>
+    <string name="home_runtime_disabled">已关闭</string>
+    <string name="home_runtime_disabled_summary">当前使用系统原生状态栏图标</string>
+    <string name="home_runtime_framework_unavailable">未连接</string>
+    <string name="home_runtime_framework_unavailable_summary">未连接 Xposed 框架服务</string>
+    <string name="home_runtime_unknown">状态未知</string>
+    <string name="home_runtime_unknown_summary">暂时无法确认 SystemUI 运行状态</string>
+    <string name="home_runtime_checking">正在检查</string>
+    <string name="home_runtime_checking_summary">正在确认 SystemUI 运行状态</string>
+    <string name="home_runtime_reloading">正在重载</string>
+    <string name="home_runtime_reloading_summary">正在刷新 SystemUI 模块运行状态</string>
+
+    <string name="section_home_preview_sandbox">预览沙盒</string>
+    <string name="home_preview_sandbox_title">预览沙盒</string>
+    <string name="home_preview_sandbox_summary">仅模拟显示，不会修改真实系统。</string>
+    <string name="home_preview_open_title">调整预览</string>
+    <string name="home_preview_state_format">%1$s · %2$s · %3$s</string>
+    <string name="home_preview_section_preview">预览</string>
+    <string name="home_preview_section_state">模拟状态</string>
+
+    <string name="home_preview_center_title">中心内容</string>
+    <string name="home_preview_center_summary">选择预览中的中心状态</string>
+    <string name="home_preview_center_wifi">Wi‑Fi</string>
+    <string name="home_preview_center_5g">5G</string>
+    <string name="home_preview_center_empty">空白</string>
+
+    <string name="home_preview_signal_title">移动信号</string>
+    <string name="home_preview_signal_summary">选择模拟的移动网络信号强度</string>
+    <string name="home_preview_signal_strong">强</string>
+    <string name="home_preview_signal_medium">中</string>
+    <string name="home_preview_signal_weak">弱</string>
+    <string name="home_preview_signal_unavailable">不可用</string>
+
+    <string name="home_preview_battery_title">电池状态</string>
+    <string name="home_preview_battery_summary">选择模拟的电池显示状态</string>
+    <string name="home_preview_battery_normal">正常 · 87%</string>
+    <string name="home_preview_battery_charging">充电 · 68%</string>
+    <string name="home_preview_battery_power_save">省电 · 42%</string>
+</resources>

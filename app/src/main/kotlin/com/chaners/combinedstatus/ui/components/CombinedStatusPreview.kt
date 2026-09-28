@@ -1,43 +1,44 @@
 package com.chaners.combinedstatus.ui.components
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
-import com.chaners.combinedstatus.R
-import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.Text
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.viewinterop.AndroidView
+import com.chaners.combinedstatus.xposed.CombinedStatusRenderModel
+import com.chaners.combinedstatus.xposed.CombinedStatusRenderView
+import com.chaners.combinedstatus.xposed.CombinedStatusTintState
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 @Composable
-internal fun CombinedStatusPreview(modifier: Modifier = Modifier) {
-    Card(modifier = modifier) {
-        BasicComponent(
-            title = stringResource(R.string.preview_title),
-            bottomAction = {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = stringResource(R.string.preview_value),
-                        style = MiuixTheme.textStyles.title3,
-                    )
-                    Text(
-                        text = stringResource(R.string.preview_label),
-                        modifier = Modifier.padding(start = 12.dp),
-                        style = MiuixTheme.textStyles.body2,
-                        color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
-                    )
-                }
-            },
-        )
-    }
+internal fun CombinedStatusPreview(
+    model: CombinedStatusRenderModel,
+    modifier: Modifier = Modifier,
+) {
+    val tint = MiuixTheme.colorScheme.onSurfaceContainer.toArgb()
+
+    AndroidView(
+        factory = { context ->
+            CombinedStatusRenderView(context).apply {
+                setScaleMobileTypeWithCanvas(true)
+                setTintState(
+                    CombinedStatusTintState(
+                        appliedTint = tint,
+                        statusIconTint = tint,
+                    ),
+                )
+                setModel(model)
+            }
+        },
+        modifier = modifier,
+        update = { view ->
+            view.setScaleMobileTypeWithCanvas(true)
+            view.setTintState(
+                CombinedStatusTintState(
+                    appliedTint = tint,
+                    statusIconTint = tint,
+                ),
+            )
+            view.setModel(model)
+        },
+    )
 }

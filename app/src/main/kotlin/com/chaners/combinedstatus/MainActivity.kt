@@ -26,6 +26,11 @@ import com.chaners.combinedstatus.ui.CombinedStatusApp
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
+    override fun onResume() {
+        super.onResume()
+        (application as CombinedStatusApplication).refreshXposedRuntimeStatus()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 

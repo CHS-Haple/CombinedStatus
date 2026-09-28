@@ -3,6 +3,8 @@ package com.chaners.combinedstatus
 import android.app.Application
 import android.content.Context
 import android.content.SharedPreferences
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import com.chaners.combinedstatus.settings.CENTER_FOLLOWS_BATTERY_COLOR_KEY
 import com.chaners.combinedstatus.settings.COMBINED_STATUS_ENABLED_KEY
@@ -14,8 +16,12 @@ import com.chaners.combinedstatus.settings.DIAGNOSTICS_PREFS_NAME
 import com.chaners.combinedstatus.settings.DiagnosticsLevel
 import com.chaners.combinedstatus.settings.MOBILE_FOLLOWS_BATTERY_COLOR_KEY
 import com.chaners.combinedstatus.settings.RUNTIME_REMOTE_PREFS_NAME
+import com.chaners.combinedstatus.system.XposedRuntimeStatus
 import io.github.libxposed.service.XposedService
 import io.github.libxposed.service.XposedServiceHelper
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 class CombinedStatusApplication :
     Application(),
@@ -35,6 +41,22 @@ class CombinedStatusApplication :
 
     @Volatile
     private var xposedService: XposedService? = null
+
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val _xposedRuntimeStatus =
+        MutableStateFlow<XposedRuntimeStatus>(XposedRuntimeStatus.Checking)
+    internal val xposedRuntimeStatus: StateFlow<XposedRuntimeStatus> =
+        _xposedRuntimeStatus.asStateFlow()
+
+    private val xposedServiceBindTimeout =
+        Runnable {
+            if (
+                xposedService == null &&
+                _xposedRuntimeStatus.value == XposedRuntimeStatus.Checking
+            ) {
+                _xposedRuntimeStatus.value = XposedRuntimeStatus.FrameworkUnavailable
+            }
+        }
 
     private val diagnosticsListener =
         SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
@@ -66,16 +88,23 @@ class CombinedStatusApplication :
         featurePreferences.registerOnSharedPreferenceChangeListener(featureListener)
         visualPreferences.registerOnSharedPreferenceChangeListener(visualListener)
         XposedServiceHelper.registerListener(this)
+        mainHandler.postDelayed(
+            xposedServiceBindTimeout,
+            XPOSED_SERVICE_BIND_TIMEOUT_MS,
+        )
     }
 
     override fun onServiceBind(service: XposedService) {
+        mainHandler.removeCallbacks(xposedServiceBindTimeout)
         xposedService = service
         syncRuntimeConfig(service)
+        refreshXposedRuntimeStatus(service)
     }
 
     override fun onServiceDied(service: XposedService) {
         if (xposedService === service) {
             xposedService = null
+            _xposedRuntimeStatus.value = XposedRuntimeStatus.FrameworkUnavailable
         }
     }
 
@@ -83,8 +112,13 @@ class CombinedStatusApplication :
         diagnosticsPreferences.unregisterOnSharedPreferenceChangeListener(diagnosticsListener)
         featurePreferences.unregisterOnSharedPreferenceChangeListener(featureListener)
         visualPreferences.unregisterOnSharedPreferenceChangeListener(visualListener)
+        mainHandler.removeCallbacks(xposedServiceBindTimeout)
         xposedService = null
         super.onTerminate()
+    }
+
+    internal fun refreshXposedRuntimeStatus() {
+        xposedService?.let(::refreshXposedRuntimeStatus)
     }
 
     fun hotReloadSystemUi(onComplete: () -> Unit = {}): Boolean {
@@ -105,13 +139,41 @@ class CombinedStatusApplication :
                     TAG,
                     "Hot reload completed process=" + process.processName + " result=" + result,
                 )
-                mainExecutor.execute(onComplete)
+                mainExecutor.execute {
+                    refreshXposedRuntimeStatus()
+                    onComplete()
+                }
             }
             true
         }.getOrElse { throwable ->
             Log.w(TAG, "Unable to request hot reload: " + throwable.message)
             false
         }
+    }
+
+    private fun refreshXposedRuntimeStatus(service: XposedService) {
+        _xposedRuntimeStatus.value =
+            runCatching {
+                val running =
+                    service.runningTargets.any { target ->
+                        target.processName == SYSTEM_UI_PROCESS
+                    }
+                val inScope =
+                    service.scope.any { packageName ->
+                        packageName == SYSTEM_UI_PROCESS
+                    }
+
+                XposedRuntimeStatus.Connected(
+                    systemUiInScope = inScope,
+                    systemUiRunning = running,
+                )
+            }.getOrElse { throwable ->
+                Log.w(
+                    TAG,
+                    "Unable to query Xposed runtime status: " + throwable.message,
+                )
+                XposedRuntimeStatus.QueryUnavailable
+            }
     }
 
     private fun syncRuntimeConfig(service: XposedService) {
@@ -174,5 +236,6 @@ class CombinedStatusApplication :
     private companion object {
         const val TAG = "CombinedStatus[App]"
         const val SYSTEM_UI_PROCESS = "com.android.systemui"
+        const val XPOSED_SERVICE_BIND_TIMEOUT_MS = 1_000L
     }
 }

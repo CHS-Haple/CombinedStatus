@@ -3,6 +3,61 @@
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
 
+## 2026-09-29 — Build 453: Home status polish and secondary Preview Sandbox
+
+**Type:** companion-app Home UI / preview architecture refinement
+**Display version:** 0.0.2
+**Build / source:** 453 / `20260929-453` / `feat/home-ui-shell`
+**Runtime baseline:** validated `dev` Build 441; companion-app base includes accepted Build-452 icon work
+**SystemUI runtime change:** none
+
+### Context / numbering
+
+The Home work was drafted on Build 447 and an unvalidated local branch identity briefly advanced through 448 while the separate app-icon line integrated Builds 449-452 into `dev`. Before any Build-448 Fast/Canary artifact was produced, this branch was rebased/squashed onto latest `dev` and renumbered to Build 453. Build 448 therefore has no test artifact and is not a device checkpoint.
+
+### Maintainer feedback / objective
+
+Build 447 established the correct runtime-state source, but device review requested stronger and cleaner status decoration, a less developer-looking version block, tighter Home density, and proportional mobile-type scaling in app previews. Detailed Preview Sandbox selectors should not permanently occupy Home as more simulated states are added.
+
+### Problem execution flow
+
+1. Keep the accepted status-card background intensity and change only ring/symbol weight and contrast.
+2. Keep status color tied to actual runtime state, not to the master Switch.
+3. Preserve fixed card geometry while replacing the long combined version string with two short product-identity lines.
+4. Keep Home as an overview by moving detailed Sandbox selectors to a secondary MIUIX page.
+5. Preserve production SystemUI mobile-type sizing; make app previews scale the entire `5G` glyph with the viewport instead of assigning a second literal preview text size.
+
+### Implementation
+
+- Runtime card remains fixed at 160 dp.
+- Decorative mark grows to 88 dp; ring stroke is 5.0 dp and inner symbol stroke 5.6 dp.
+- Ring and symbol use separate semantic alpha, making the symbol visually distinct without weakening the card background.
+- The check uses one continuous rounded path, removing the darker two-line overlap at the elbow; alert and minus retain the same outer-ring geometry and rounded stroke language.
+- Version identity is split into `版本  0.0.2` / `构建  20260929-453` (English: `Version` / `Build`) using restrained MIUIX body typography.
+- Home Preview Sandbox now shows one compact production-rendered preview plus a MIUIX `ArrowPreference` with a one-line simulated-state summary.
+- `AppRoute.PreviewSandbox` opens a dedicated page with the detailed center/signal/battery selectors; those rows use compact inner padding and omit redundant row summaries.
+- Sandbox state is hoisted to `CombinedStatusApp` so Home and the secondary page share one non-persistent simulation state.
+- App previews enable a new opt-in `scaleMobileTypeWithCanvas` path. `5G` / enhanced labels, including their apparent stroke thickness, now scale through the same canvas transform as the rest of the preview. The flag defaults off, so SystemUI rendering retains the previously accepted physical-size contract.
+
+### 审查 / review
+
+- **Upstream / MIUIX:** Home uses standard `Card`, `Switch`, `ArrowPreference`, typography and navigation transitions; detail selectors remain MIUIX preferences.
+- **Visual grammar:** every runtime state uses the same ring location, size, stroke caps and corner/line language; only semantic symbol/tone changes.
+- **Overlap artifact:** the check elbow is one path join rather than overlapping translucent strokes.
+- **Renderer reuse:** app preview continues to use the production render model/painter; only an opt-in preview scaling policy differs.
+- **SystemUI safety:** preview scaling defaults off and does not alter SystemUI host sessions, Hook ownership, suppression, scene logic or accepted 5G physical sizing.
+- **Ownership:** preview state is app-local/saveable; runtime truth remains the official libxposed service source from Build 447.
+- **Performance:** no polling, frame loop, new process owner or SystemUI listener is added.
+
+### Validation
+
+Exact-head Fast and a signed Canary are required after the Build-452 rebase. Device review should cover: all runtime-card states, ring/symbol contrast and joint rendering, fixed card height, two-line version/build typography, Home density, secondary-page navigation/back behavior, and Wi-Fi/5G preview proportions.
+
+### Outcome / next step
+
+Pending CI and maintainer device acceptance. If accepted, integrate the companion-app Home shell independently of the Phase-3 SystemUI runtime line.
+
+
 ## 2026-09-29 — Control Center fully-expanded endpoint investigation: native appearance handoff verified
 
 **Type:** Phase-2B exact-target endpoint review / no executable build
