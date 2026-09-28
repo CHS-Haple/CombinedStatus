@@ -21,6 +21,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Target profile: HyperOS SystemUI `17.03.260226.r`
 - Modern Xposed API: 102
 - Application ID: `com.chaners.combinedstatus`
+- App-icon checkpoint: Build 446 / `feat/guiyuan-app-icon` replaces the previous literal status glyph with the selected abstract converging-orbit mark. The approved geometry/proportions are preserved in a 108 dp vector foreground; default colors are ink-black `#24272B` on warm off-white `#F7F6F2`. The existing adaptive background/foreground/monochrome contract remains launcher-controlled, and `roundIcon` points to the same adaptive resource. No SystemUI/Xposed runtime behavior changes. Validation is pending the normal app/resource Fast gate.
 
 `main` remains on the Build-413 stable runtime line. `dev` now carries device-accepted Build 441 plus the previously accepted Build-438 app-UI checkpoint, retaining MIUIX `0.9.4-5c91d5e5-SNAPSHOT`. Later record-only `dev` commits may inherit Build-441 integration validation only when their non-runtime diff is proven.
 
