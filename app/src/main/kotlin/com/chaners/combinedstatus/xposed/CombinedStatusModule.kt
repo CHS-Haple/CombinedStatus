@@ -486,8 +486,6 @@ class CombinedStatusModule : XposedModule() {
                 "mobileRoots" to bindings.mobileRoots,
                 "state" to restoredSnapshot.logLine,
                 "homePresentation" to "native-carrier-lifecycle",
-                "controlCenterHomeEligible" to
-                    (restored.controlCenterHomeEligible ?: "unknown"),
                 "tintTransfer" to if (transferredTint != null) "restored" else "native-fallback",
                 "mainThread" to true,
             )
