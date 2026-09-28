@@ -238,15 +238,24 @@ private fun HomeRuntimeStatusCard(
                         stringResource(
                             R.string.home_version_line,
                             BuildConfig.VERSION_NAME,
-                            BuildConfig.BUILD_ID.substringAfterLast('-'),
                         ),
                     modifier = Modifier.padding(top = 4.dp),
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.onSurfaceContainer,
+                )
+                Text(
+                    text =
+                        stringResource(
+                            R.string.home_build_line,
+                            BuildConfig.BUILD_ID,
+                        ),
+                    modifier = Modifier.padding(top = 1.dp),
                     style = MiuixTheme.textStyles.body2,
                     color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
                 )
                 Text(
                     text = stringResource(state.summaryRes),
-                    modifier = Modifier.padding(top = 18.dp),
+                    modifier = Modifier.padding(top = 12.dp),
                     style = MiuixTheme.textStyles.body2,
                     color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
                     maxLines = 2,
