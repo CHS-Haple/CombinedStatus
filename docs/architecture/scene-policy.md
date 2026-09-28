@@ -31,8 +31,8 @@ Classification is not permission to mutate SystemUI. Runtime integration still r
 | --- | --- | --- | --- |
 | Home stable | PROJECTED | NONE | Runtime verified |
 | Notification-shade transition | NATIVE_ONLY | SYSTEM_UI | Runtime lifetime verified |
-| Control Center transition bridge | PROJECTED | SYSTEM_UI | Build-420 carrier/handoff evidence; native QS_FAKE ownership candidate under review |
-| Control Center fully expanded | NATIVE_ONLY candidate | SYSTEM_UI | Maintainer concept + native fake/real appearance evidence; product adoption pending review |
+| Control Center transition bridge | PROJECTED | SYSTEM_UI | Build-420 source projection device-accepted; QS_FAKE route device-rejected by Build 427; native appearance boundary under direct probe |
+| Control Center fully expanded | NATIVE_ONLY candidate | SYSTEM_UI | Native fake/real appearance contract verified; exact endpoint boolean semantics pending Build 428 device evidence |
 | Keyguard | NATIVE_ONLY | SYSTEM_UI | Static ownership verified |
 | AOD | NATIVE_ONLY | SYSTEM_UI | Static ownership verified |
 
@@ -76,18 +76,19 @@ Control Center is split into two ownership phases.
 
 **Partial pull / transition bridge — PROJECTED**
 - the source steady scene may be Home now and Keyguard later;
-- Build 420 proves that a bounded projection can preserve continuity, but its `realSystemIcons.overlay` carrier is not assumed to be the final architecture;
-- exact-target review now shows a separate native `QS_FAKE` status-bar presentation with its own `MiuiStatusBatteryContainer`, native source-size synchronization, unlocked/keyguard tint handling, and SystemUI-owned translation/alpha;
-- using that native fake carrier is the leading low-overhead candidate because it may inherit the transition without a project-owned appearance/geometry state machine;
-- this candidate remains under review until first-frame readiness, native suppression/masking, Hot Reload, and device behavior are verified;
-- SystemUI remains the sole motion/geometry owner.
+- Build 420 proves on device that a readiness-ordered `realSystemIcons.overlay` source projection can preserve Control Center transition continuity;
+- Builds 425-427 attempted to move the compact visual into native `QS_FAKE`; Build 427 device evidence rejects that route as the current production carrier because Combined Status can disappear or overlap the independent final QS native icons, and charging-island pull geometry can diverge;
+- the active route therefore reuses the Build-420 source projection and will bound it at HyperOS's native fake/final appearance ownership transition;
+- exact-target `onAppearanceChanged(boolean, boolean)` is verified, but its plugin-side boolean producer semantics are not present in the reviewed APK, so Build 428 observes them read-only before any gate is implemented;
+- SystemUI remains the sole motion/geometry/alpha/appearance owner; no local fraction threshold, timer, interpolation, or island offset is permitted.
 
 **Fully expanded endpoint — current design candidate**
 - the maintainer currently prefers a native-only fully expanded Control Center state;
-- this is a product-intent hypothesis, not yet a verified endpoint/lifecycle contract;
-- exact source/runtime review must determine the true ownership boundary and whether a cleaner native handoff abstraction exists before this becomes implementation policy.
+- exact-target source verifies that HyperOS switches visual ownership between QS_FAKE and the independent final QS status bar through native `appearance`;
+- the remaining missing fact is the target-device meaning/order of the two `onAppearanceChanged` booleans, not a need for a project threshold;
+- Build 428 is the bounded probe for that fact; only after it is mapped may the transition projection yield at the native endpoint.
 
-Build 420 proved the carrier/handoff mechanism and kept projection alive through the expanded Control Center lifetime. That remains valuable runtime evidence. Whether the final endpoint should be native-only is still under architecture review.
+Build 420's source carrier/handoff remains device-proven evidence. Build 427 invalidates only the later QS_FAKE replacement architecture; it does not invalidate the Build-420 source projection.
 
 No project-owned timing threshold, custom animation, polling/frame follower, peer geometry write, or second native suppression owner is permitted.
 
