@@ -7770,3 +7770,36 @@ remains a required focused device gate for any B implementation.
 ### Decision boundary
 
 Do not implement route B in Build 424. Build 424 remains the single-variable Home carrier correction. After its required repository validation and focused device result, present route B plus its remaining island/charging gate to the maintainer before creating the next executable checkpoint.
+
+
+---
+
+## 2026-09-28 — QS_FAKE battery translation independence
+
+**Type:** exact-target architecture evidence / no runtime change  
+**Runtime Build:** unchanged — Build 424 / `20260928-424`
+
+### Finding
+
+Exact `ControlCenterHeaderExpandController` source shows:
+- `batteryWidthDiff` is calculated from the selected source `StatusBarAnchorBounds.batteryWidth` and the real Control Center `controlCenterSystemIcons` Battery width;
+- island handling may replace it with the negative real-QS Battery width;
+- `onExpansionChanged(float)` adds `batteryWidthDiff` to the **parent QS_FAKE status-bar translationX**;
+- QS_FAKE internal ignored-slot or padding state is not an input to that formula.
+
+### Consequence
+
+A future QS_FAKE compact session may evaluate carrier-local slot exclusion and end reservation without rewriting or feeding back into HyperOS's parent transition translation. Combined Status must still leave `batteryWidthDiff` and fake-parent translation untouched.
+
+The remaining device gate is local: charging/island compact edge alignment, first/last-frame continuity, and restoration. It is no longer treated as a possible shared-motion ownership conflict.
+
+### 审查 / review
+
+- **Ownership:** parent transition translation remains HyperOS-only.
+- **Lifecycle:** no runtime change.
+- **Single writer:** compact session may own only fake-local exclusion/mask/reservation tokens.
+- **Cleanup:** local state must restore before fake session disposal.
+- **Fail-native:** reservation conflict or unresolved local geometry keeps QS_FAKE native.
+- **Performance:** no new Hook, listener, polling, or per-frame project work.
+- **Compatibility:** exact-target SystemUI `17.03.260226.r` only.
+- **Future extension:** the same principle can be revalidated for a future Keyguard transition source without copying source motion state.
