@@ -121,7 +121,7 @@ Builds 421-423 are rejected for Notification-Shade first/last-frame continuity. 
 - the legacy Hot Reload payload slot is retained as a null compatibility field only; it is not an active runtime authority;
 - Build-420 Control Center carrier/handoff mechanics are unchanged inside Build 424; their future scope is now explicitly transition-only, with native-only ownership at the fully expanded endpoint.
 
-Build 424 is the current runtime checkpoint (`20260928-424`). Automated validation is pending; no device acceptance is claimed yet.
+Build 424 is the current runtime checkpoint (`20260928-424`). Exact executable source: `2556a098d35c202e1c5645a06e73757744f721e1`. Later branch commits are test/documentation-only as of the current review. Automated GitHub validation is still pending; no device acceptance is claimed yet.
 
 **Maintainer working scene concept — planning input, not yet a verified lifecycle contract:**
 - The maintainer's current conceptual split is: unlocked/Home steady, locked/Keyguard steady, partial Control Center pull with HyperOS transition continuity, and fully expanded Control Center native-only.
