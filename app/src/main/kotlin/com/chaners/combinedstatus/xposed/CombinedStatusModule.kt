@@ -4,6 +4,7 @@ import android.graphics.drawable.Drawable
 import android.os.Process
 import android.os.SystemClock
 import android.util.Log
+import android.view.ViewGroup
 import com.chaners.combinedstatus.BuildConfig
 import com.chaners.combinedstatus.settings.CombinedStatusFeatureSettings
 import com.chaners.combinedstatus.settings.RUNTIME_REMOTE_PREFS_NAME
