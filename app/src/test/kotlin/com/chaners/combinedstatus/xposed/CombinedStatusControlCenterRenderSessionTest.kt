@@ -6,7 +6,7 @@ import org.junit.Test
 
 class CombinedStatusControlCenterRenderSessionTest {
     @Test
-    fun projectionReadinessRequiresPreparedFakeRootAndNativeMask() {
+    fun projectionReadinessRequiresPreparedFakeRootAndCompactPresentation() {
         assertTrue(
             CombinedStatusControlCenterRenderSession.resolveProjectionReady(
                 featureEnabled = true,
@@ -14,7 +14,7 @@ class CombinedStatusControlCenterRenderSessionTest {
                 tintReady = true,
                 layoutReady = true,
                 hostAttached = true,
-                maskReady = true,
+                nativePresentationReady = true,
             ),
         )
         assertFalse(
@@ -24,7 +24,7 @@ class CombinedStatusControlCenterRenderSessionTest {
                 tintReady = true,
                 layoutReady = true,
                 hostAttached = true,
-                maskReady = false,
+                nativePresentationReady = false,
             ),
         )
         assertFalse(
@@ -34,7 +34,7 @@ class CombinedStatusControlCenterRenderSessionTest {
                 tintReady = false,
                 layoutReady = true,
                 hostAttached = true,
-                maskReady = true,
+                nativePresentationReady = true,
             ),
         )
     }
