@@ -407,6 +407,8 @@ internal object SystemUiHomePresentationOwner {
         batteryCarrier: View,
         private val ignoredSlotsField: Field,
         private val batteryHideField: Field,
+        private val surfaceName: String,
+        private val eventPrefix: String,
         private val onEvent: (String) -> Unit,
         private val onFailNative: (String) -> Unit,
     ) : View.OnAttachStateChangeListener {
@@ -416,6 +418,10 @@ internal object SystemUiHomePresentationOwner {
         private val battery = WeakReference(battery)
         private val batteryCarrier = WeakReference(batteryCarrier)
         private var active = true
+        private var started = false
+        private var deferVisualMaskUntilLayout = false
+        private var compactLayoutReady = false
+        private var layoutReadyCallback: ((Int) -> Unit)? = null
         private var lastReservationDelta: Int? = null
         private var nativePadding: PaddingState? = null
         private var appliedPadding: PaddingState? = null
