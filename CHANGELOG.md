@@ -29,7 +29,7 @@ The project follows a Keep a Changelog-style structure. During pre-release devel
 
 ### Changed
 
-- Floating-navigation Glass follows the pinned MIUIX example material baseline, and the Appearance preview consumes the same production material and content settings as the live bottom navigation.
+- Floating-navigation Glass follows the pinned MIUIX example material baseline, and the Appearance preview consumes the same production material and content settings as the live bottom navigation. The preview keeps fixed outer bounds and bottom-anchors the navigation sample so switching label modes does not move surrounding settings.
 - Home status-icon tint now remains synchronized with the live HyperOS/SystemUI status-icon authority across module Hot Reload and repeated light/dark app/Home transitions, avoiding stale cross-scene tint snapshots while preserving native Battery semantic colors and fail-native behavior.
 
 
