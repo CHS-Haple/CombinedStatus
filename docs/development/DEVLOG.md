@@ -7937,3 +7937,27 @@ This supports the Build-424 carrier correction:
 - `MiuiStatusBatteryContainer(system_icons).overlay` participates in the exact host's draw/transform lifecycle, so moving the visual there is a lifecycle correction rather than a coordinate-only change.
 
 The finding resolves the static concern that `ViewGroupOverlay` might remain visually independent from its own host's visibility/alpha. Build 424 remains suitable for focused device validation after the final exact-head CI gate.
+
+
+### Build-424 signed Canary checkpoint
+
+- Ready Full Build #1328 / run `36418043111`: **success** on exact PR head `3cbf8523cfafeb99a58dcd213053e9a2e020f71f`.
+- Owner `/canary` admission created Work Branch Canary #417 / run `36418655598`.
+- Canary trusted-source resolution selected branch `feat/panel-projection` and exact SHA `3cbf8523cfafeb99a58dcd213053e9a2e020f71f`; checkout/source verification passed.
+- Passed: pinned HyperOS target profile, unit tests + Canary build, Modern Xposed metadata, Haple APK signature, non-debuggable verification, artifact preparation and upload.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260928-424-canary.apk`.
+- Artifact ID: `10968671147`.
+- Artifact ZIP digest: `sha256:450d387fbf8819e51e8401d9d925fa9a10ad36ab8e6d664b552968d726817fb7`.
+- Extracted APK size: `3309602` bytes.
+- Extracted APK SHA-256: `7e1a7bf035207718de3d74c580b87c3d5f20df648a98a78ef8f560d25c95e778`.
+- PR returned to Draft. Runtime remains Build 424 and is frozen pending focused maintainer device validation.
+
+#### Device gate
+
+1. Reproduce Notification Shade pull-down / return and inspect the first departure frame plus final Home return frame.
+2. Perform one Control Center open/close regression pass; Build-420 behavior must not regress.
+3. Perform one Hot Reload pass.
+4. Perform one lock/unlock smoke pass for Home-overlay leakage.
+5. If any discontinuity remains, export Detailed diagnostics before further runtime mutation.
+
+This record-only closure does not create a new runtime Build.
