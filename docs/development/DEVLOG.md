@@ -8182,3 +8182,48 @@ Build 425's behavior-preserving extraction passed runtime Fast Build #1344. Buil
 - charging/Super-Island interaction when practical, especially right-edge reservation/translation continuity;
 - one lockscreen-originated Control Center pull remains native-only/fail-native;
 - Hot Reload while Control Center is visible must restore native fake state with no leaked masks/blank area; seamless transient preservation is not required.
+
+
+---
+
+## 2026-09-28 — Build 426 signed Canary checkpoint
+
+**Build:** 426 / `20260928-426`  
+**PR:** #152 / `feat/control-center-native-transition`  
+**Exact tested runtime head:** `55f266cd8585d78c65c564d363c8f5979c908292`
+
+### Validation
+
+- Ready Full #1361 / run `36426713595`: **success**.
+- Work Branch Canary #418 / run `36427022964`: **success**.
+- Canary trusted-source resolution checked out the same exact runtime SHA `55f266cd8585d78c65c564d363c8f5979c908292`.
+- Passed: pinned HyperOS target profile, unit tests + Canary build, Modern Xposed metadata, Haple APK signature, non-debuggable check, artifact upload.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260928-426-canary.apk`.
+- Artifact id: `10971741657`.
+- Artifact ZIP digest: `sha256:8aa756be4bdd1c953454000448bd1baea00f0334a6ecfea19649e3e5f0a84f58`.
+- Extracted APK size: `3309602` bytes.
+- Extracted APK SHA-256: `43f9e1b65351f5a5725f489ab75b2b04a5fe0064ba11de18f46a85216e4e3658`.
+
+### 审查 / review
+
+- **Ownership:** Combined Status transition presentation now owns only the native QS_FAKE compact carrier; source selection, parent transition geometry, fake/real appearance and final QS destination remain HyperOS-owned.
+- **Lifecycle:** one low-frequency Control Center visibility callback creates/releases the QS_FAKE session; Home continues to inherit its accepted Build-424 native carrier lifecycle.
+- **Single writer:** old `realSystemIcons.overlay` projection and `controlCenterAllowsHome` writer are absent from active runtime.
+- **Cleanup:** exit/failure/Hot Reload restores QS_FAKE native clip/padding state before removing the project overlay.
+- **Fail-native:** unresolved carrier/source, renderer readiness failure, session conflict, Keyguard source, detach or Hot Reload falls back to native Control Center.
+- **Performance:** no additional normal-production Control Center Hook, polling, timer, frame follower, custom animator or per-frame project geometry writer.
+- **Compatibility:** private carrier chain is pinned to exact target SystemUI `17.03.260226.r`.
+- **Exception recovery:** old-generation Hot Reload explicitly releases the transient QS_FAKE presentation session before Home/runtime teardown.
+- **Future extension:** Keyguard remains native-only; its steady compact ownership must be independently verified before it becomes an eligible source.
+
+### Device gate
+
+Runtime is frozen. Focused device validation should cover:
+1. unlocked Home -> partial Control Center pull -> reverse first/last-frame continuity;
+2. repeated partial pulls and full expansions;
+3. fully expanded Control Center remains native-only;
+4. charging / Super-Island edge alignment when practical;
+5. lockscreen-originated Control Center pull remains native-only / fail-native;
+6. Hot Reload while Control Center is visible restores native QS_FAKE without blank state, duplicated icons, stale masks or spacing residue.
+
+Do not stack runtime changes before maintainer feedback.
