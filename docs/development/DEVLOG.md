@@ -9082,7 +9082,7 @@ Run Fast on the exact branch head. If the compiled adaptive icon preserves the a
 **Display version:** 0.0.2  
 **Build:** 449 / `20260929-449`  
 **Branch:** `feat/guiyuan-app-icon`  
-**Validation:** pending exact-head Fast
+**Validation:** Fast #1588 passed; Work Branch Canary #471 passed; device visual acceptance pending
 
 ### Problem / objective
 
@@ -9365,3 +9365,15 @@ No SystemUI regression matrix is required.
 ### Outcome / next step
 
 Build 452 is the current visual-geometry candidate. If device feedback accepts the optical rhythm, freeze the icon geometry and close the branding checkpoint.
+
+
+### CI closure
+
+- Fast #1588 passed on exact executable source `c0e05afb2f186cac89bc2c6d542edb0978e2e6e9`.
+- Signed Work Branch Canary #471 passed trusted-source resolution, target-profile verification, tests/build, Modern Xposed metadata, Haple signature verification, non-debuggable verification and artifact upload.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260929-452-canary.apk`, id `11004186800`.
+- Artifact ZIP digest: `sha256:7ab0608e2abac503225d3a14bc87ff468f2bd6cec331cbe51944a33479e70486`.
+- Extracted APK SHA-256: `c97518218f20a40662d6cbaf92ca7bd7d2f8df6858c2553cba1ab63004d7c925`.
+- Remaining gate is maintainer visual acceptance only: overall scale, roundness/fullness, six node-to-arc clearances, and themed/monochrome rendering.
+
+This validation-record update is documentation-only and does not create Build 453.
