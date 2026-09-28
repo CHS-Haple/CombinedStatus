@@ -11,7 +11,7 @@ import kotlin.math.floor
 
 internal object SystemUiPanelTransitionSource {
     const val CONTROL_CENTER_RUNTIME_HOOK_COUNT = 1
-    const val CONTROL_CENTER_DIAGNOSTIC_HOOK_COUNT = 1
+    const val CONTROL_CENTER_DIAGNOSTIC_HOOK_COUNT = 2
     const val HOOK_COUNT =
         CONTROL_CENTER_RUNTIME_HOOK_COUNT +
             CONTROL_CENTER_DIAGNOSTIC_HOOK_COUNT
@@ -19,6 +19,7 @@ internal object SystemUiPanelTransitionSource {
     private const val CONTROL_CENTER_CLASS =
         "com.miui.systemui.controlcenter.container.ControlCenterExpandControllerDelegate"
     private const val CONTROL_CENTER_EXPANSION_METHOD = "onExpansionChanged"
+    private const val CONTROL_CENTER_APPEARANCE_METHOD = "onAppearanceChanged"
     private const val CONTROL_CENTER_VISIBLE_METHOD = "onVisibleChanged"
     private const val CONTROL_CENTER_HEADER_CALLBACK_CLASS =
         "com.android.systemui.controlcenter.shade.ControlCenterHeaderExpandController\$controlCenterCallback\$1"
@@ -29,6 +30,8 @@ internal object SystemUiPanelTransitionSource {
 
     private const val CONTROL_CENTER_EXPANSION_HOOK_ID =
         "combinedstatus.panel.control-center.expansion"
+    private const val CONTROL_CENTER_APPEARANCE_HOOK_ID =
+        "combinedstatus.panel.control-center.appearance"
     private const val CONTROL_CENTER_VISIBLE_HOOK_ID =
         "combinedstatus.panel.control-center.visible"
 
@@ -63,6 +66,20 @@ internal object SystemUiPanelTransitionSource {
                         Float::class.javaPrimitiveType,
                     )
                     .apply { isAccessible = true }
+            } else {
+                null
+            }
+        val controlAppearanceMethod =
+            if (includeControlCenterDiagnostics) {
+                Class.forName(
+                    CONTROL_CENTER_HEADER_CALLBACK_CLASS,
+                    false,
+                    classLoader,
+                ).getDeclaredMethod(
+                    CONTROL_CENTER_APPEARANCE_METHOD,
+                    Boolean::class.javaPrimitiveType,
+                    Boolean::class.javaPrimitiveType,
+                ).apply { isAccessible = true }
             } else {
                 null
             }
@@ -121,6 +138,7 @@ internal object SystemUiPanelTransitionSource {
 
             if (includeControlCenterDiagnostics) {
                 val expansionMethod = checkNotNull(controlExpansionMethod)
+                val appearanceMethod = checkNotNull(controlAppearanceMethod)
 
                 handles +=
                     module
@@ -167,6 +185,30 @@ internal object SystemUiPanelTransitionSource {
                                 result
                             },
                         )
+
+                handles +=
+                    module
+                        .hook(appearanceMethod)
+                        .setId(CONTROL_CENTER_APPEARANCE_HOOK_ID)
+                        .intercept(
+                            Hooker { chain ->
+                                val first = chain.getArg(0) as? Boolean
+                                val second = chain.getArg(1) as? Boolean
+                                val result = chain.proceed()
+                                if (onEvent != null && isProbeEnabled()) {
+                                    onEvent(
+                                        appearanceDiagnostic(
+                                            first = first,
+                                            second = second,
+                                            snapshot =
+                                                controlAnchorContract
+                                                    ?.snapshotFromCallback(chain.thisObject),
+                                        ),
+                                    )
+                                }
+                                result
+                            },
+                        )
             }
 
             return handles
@@ -194,6 +236,18 @@ internal object SystemUiPanelTransitionSource {
     internal fun expectedHookCount(includeControlCenterDiagnostics: Boolean): Int =
         CONTROL_CENTER_RUNTIME_HOOK_COUNT +
             if (includeControlCenterDiagnostics) CONTROL_CENTER_DIAGNOSTIC_HOOK_COUNT else 0
+
+    internal fun appearanceDiagnostic(
+        first: Boolean?,
+        second: Boolean?,
+        snapshot: ControlCenterAnchorSnapshot?,
+    ): String =
+        "controlCenterAppearance first=" + (first ?: "unknown") +
+            " second=" + (second ?: "unknown") +
+            " expanding=" + (snapshot?.controlCenterExpanding ?: "unknown") +
+            " addBatteryIsland=" + (snapshot?.addBatteryIsland ?: "unknown") +
+            " batteryWidthDiff=" + (snapshot?.batteryWidthDiff ?: "unknown") +
+            " readOnly=true nativeGeometryWrites=0"
 
     fun currentControlCenterHomeEligibility(): Boolean? =
         controlCenterHomeEligible
@@ -379,6 +433,17 @@ internal object SystemUiPanelTransitionSource {
         fun realSystemIcons(header: Any): ViewGroup? =
             runCatching { realSystemIconsField.get(header) as? ViewGroup }
                 .getOrNull()
+
+        fun snapshotFromCallback(callback: Any?): ControlCenterAnchorSnapshot? {
+            val header =
+                callback
+                    ?.let { candidate ->
+                        runCatching { callbackOuterField.get(candidate) }
+                            .getOrNull()
+                    }
+                    ?: return null
+            return snapshot(header)
+        }
 
         fun snapshot(header: Any): ControlCenterAnchorSnapshot? {
             val anchor =
