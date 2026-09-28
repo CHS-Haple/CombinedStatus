@@ -3,6 +3,70 @@
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
 
+## 2026-09-28 — Build 430: probe top-level Control Center fake presentation
+
+**Type:** Phase-2B bounded diagnostic checkpoint
+**Build:** 430 / `20260928-430`
+**Base:** current `dev` Build 429 / MIUIX `0.9.4-5c91d5e5-SNAPSHOT`
+**Work branch:** `fix/control-center-fake-root`
+
+### Build 428 device result
+
+Build 428 device evidence closes two assumptions.
+
+1. `ControlCenterHeaderExpandController.realSystemIcons` is the selected Home/Keyguard source reference, not the visible Control Center status-bar presentation. The projection can report attached/ready while that source `MiuiStatusBatteryContainer` is natively `alpha=0`, `visibility=INVISIBLE`; the maintainer therefore sees native Control Center icons throughout partial pull.
+2. Charging-island samples show `isAddBatteryIsland=true`, `batteryWidthDiff=-135`, and native Battery hide/fade. That is a Battery-specific HyperOS presentation rule. Combined Status must not inherit whole-view disappearance because it still represents Wi-Fi/mobile state.
+
+The Build-428 appearance probe is stable enough to show a native fake/final ownership transition, but no local fraction threshold or guessed boolean semantic is promoted.
+
+### Route correction
+
+- Keep Build 420 as source-geometry/readiness evidence only.
+- Retire `realSystemIcons.overlay` as the active transition display host under the Build-424 Home lifecycle.
+- Keep Builds 425-427 rejected: they place compact ownership/rendering inside child `QS_FAKE.system_icon_area` and couple the visual to Battery/island child behavior.
+- Next candidate: the **top-level `ControlCenterFakeStatusIcons` View**, which SystemUI owns as the fake transition presentation above the child statusBarArea.
+
+### Build 430 implementation
+
+- Reuse the already runtime-verified reflection chain:
+  `ControlCenterHeaderExpandController.headerController -> dagger.Lazy.get() -> CombinedHeaderController.controlCenterFakeStatusBar`.
+- Stop at the top-level fake View and record:
+  - class;
+  - visibility;
+  - alpha;
+  - width/height.
+- Read the child `statusBarArea` state alongside it for comparison.
+- Append the snapshot to the existing `controlCenterAppearance` diagnostic.
+- Carry forward Build-428 appearance observation.
+- Preserve the current dev MIUIX pin and advance runtime identity to Build 430.
+
+### 审查 / review
+
+- **Ownership:** HyperOS remains sole owner of fake/final selection, Header translation, alpha, and island behavior.
+- **Single writer:** Build 430 is read-only; no presentation/geometry writer is added.
+- **Lifecycle:** observation runs only on the existing native appearance callback.
+- **Cleanup:** no View/session resource is created.
+- **Fail native:** unresolved exact reflection contracts do not trigger fallback geometry or guessed hosts.
+- **Performance:** low-frequency reflection only on native appearance events; no polling/frame follower.
+- **Charging island:** Battery/statusBarArea hide state is observed but not inherited as Combined Status visibility policy.
+- **Future extension:** only a successful device result may justify moving a later Combined Status overlay to the fake root.
+
+### Device gate
+
+After Fast + signed Canary, one normal Control Center pull/return and one charging-island pull/return are sufficient if Detailed diagnostics include the new `fakePresentation={...}` snapshots.
+
+
+## 2026-09-28 — Build 428 device evidence closes realSystemIcons display-host hypothesis
+
+**Type:** Phase-2B device evidence
+**Build:** 428 / `20260928-428`
+**Historical PR:** #154 `fix/control-center-appearance-boundary`
+
+Maintainer feedback: partial pull remained visually native; with charging island active the native Battery disappeared as expected from HyperOS, but Combined Status must not disappear with Battery because it also carries network state.
+
+Detailed diagnostics confirm the projected source carrier was structurally ready while the source `MiuiStatusBatteryContainer` itself was hidden by native Control Center lifecycle. This invalidates the source-overlay display-host assumption and provides the evidence required to close the frozen Build-428 diagnostic line. The next executable work must start from current `dev`, preserving the later MIUIX Build-429 integration rather than rebasing the old frozen checkpoint in place.
+
+
 ## 2026-09-28 — Build 429: update MIUIX main-canary to 5c91d5e5
 
 **Type:** app UI dependency canary / upstream integration
