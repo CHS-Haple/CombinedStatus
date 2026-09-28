@@ -466,6 +466,9 @@ class CombinedStatusModule : XposedModule() {
             SystemUiPanelTransitionSource.restoreControlCenterHomeEligibility(
                 restored.controlCenterHomeEligible,
             )
+            restored.controlCenterFakeHost?.let { fakeHost ->
+                onControlCenterFakePresentationAttached(fakeHost)
+            }
             val transferredTint =
                 restored.appliedTint?.let { appliedTint ->
                     CombinedStatusTintState(
@@ -493,6 +496,8 @@ class CombinedStatusModule : XposedModule() {
                 "homePresentation" to "native-carrier-lifecycle",
                 "controlCenterHomeEligible" to
                     (restored.controlCenterHomeEligible ?: "unknown"),
+                "controlCenterFakePrearm" to
+                    if (restored.controlCenterFakeHost != null) "restored" else "late-fallback",
                 "tintTransfer" to if (transferredTint != null) "restored" else "native-fallback",
                 "mainThread" to true,
             )
