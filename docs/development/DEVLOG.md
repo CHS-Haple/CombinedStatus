@@ -7254,3 +7254,28 @@ The maintainer clarified that the Home/Keyguard/partial-pull/full-Control-Center
 Therefore the architecture consequence in this entry is downgraded from a confirmed target model to a working hypothesis. The next exact-target lifecycle review may discover a simpler or more native grouping. If it does, the evidence and candidate lifecycle structures must be reviewed with the maintainer before the repository promotes one into architecture policy or runtime code.
 
 Build 424 remains unchanged by this clarification.
+
+---
+
+## 2026-09-28 — Build 424 static checkpoint review
+
+**Type:** pre-CI static review / test correction
+**Runtime Build:** 424 / `20260928-424`
+**Exact executable source:** `2556a098d35c202e1c5645a06e73757744f721e1`
+**Runtime after this record:** unchanged
+
+### Review result
+
+Repository-wide targeted scanning found one stale test call site in `SystemUiNativeCombinedParticipantOwnerTest`: it still passed the retired `notificationShadeAllowsHome` argument to `CombinedStatusHomeRenderSession.resolveOverlayVisible(...)`.
+
+The stale argument and the obsolete assertion that a Notification gate directly hides Home were removed. This is test-only adaptation to the Build-424 ownership model and does not create a new runtime Build.
+
+A commit comparison from executable source `2556a098...` to the post-fix branch head confirms only tests and documentation differ; no later `app/src/main` or build metadata delta is present.
+
+### 审查 / review
+
+- **Ownership:** unchanged; Notification Shade has no Combined Status visibility writer.
+- **Lifecycle:** unchanged.
+- **Single writer:** the test no longer encodes the rejected shade visibility writer.
+- **Cleanup / fail-native / performance / compatibility:** unchanged from Build 424.
+- **Validation limitation:** the current GitHub connector can mutate PR state and repository files but its PR mutations are not producing a new Actions run for the Build-424 head; the local container cannot resolve github.com. Static review therefore does not substitute for required repository CI.
