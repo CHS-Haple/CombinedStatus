@@ -20,6 +20,42 @@ internal object CombinedStatusControlCenterRenderSession {
         "com.android.systemui.statusbar.views.MiuiBatteryMeterView"
 
     private var current: Session? = null
+    private var pendingPrearm: PendingPrearm? = null
+
+    @Synchronized
+    fun prearmAfterNextNativeLayout(
+        host: ViewGroup,
+        onEvent: (String) -> Unit,
+        isDetailedDiagnosticsEnabled: () -> Boolean,
+        onProjectionReadinessChanged: (Boolean) -> Unit,
+    ): PrearmResult {
+        if (Looper.myLooper() !== Looper.getMainLooper()) {
+            return PrearmResult.Failure("main-thread-required")
+        }
+        if (host.javaClass.name != FAKE_ROOT_CLASS_NAME) {
+            return PrearmResult.Failure("fake-root-type-mismatch")
+        }
+        if (!host.isAttachedToWindow) {
+            return PrearmResult.Failure("fake-root-not-attached")
+        }
+
+        val existing = pendingPrearm
+        if (existing?.matches(host) == true) {
+            return PrearmResult.Scheduled(reused = true)
+        }
+
+        existing?.cancel()
+        val pending =
+            PendingPrearm(
+                host = host,
+                onEvent = onEvent,
+                isDetailedDiagnosticsEnabled = isDetailedDiagnosticsEnabled,
+                onProjectionReadinessChanged = onProjectionReadinessChanged,
+            )
+        pendingPrearm = pending
+        pending.start()
+        return PrearmResult.Scheduled(reused = false)
+    }
 
     @Synchronized
     fun attach(
@@ -123,9 +159,145 @@ internal object CombinedStatusControlCenterRenderSession {
 
     @Synchronized
     fun detach(source: String = "detach") {
+        pendingPrearm?.cancel()
+        pendingPrearm = null
         SystemUiHomePresentationOwner.deactivateControlCenter(source)
         current?.stop(source)
         current = null
+    }
+
+    @Synchronized
+    private fun onPendingPrearmLayout(pending: PendingPrearm) {
+        if (pendingPrearm !== pending) return
+        val host = pending.host()
+        if (host == null || !host.isAttachedToWindow) {
+            pending.cancel()
+            pendingPrearm = null
+            return
+        }
+
+        when (
+            val result =
+                attach(
+                    host = host,
+                    onEvent = pending.onEvent,
+                    isDetailedDiagnosticsEnabled = pending.isDetailedDiagnosticsEnabled,
+                    onProjectionReadinessChanged = pending.onProjectionReadinessChanged,
+                )
+        ) {
+            AttachResult.Ready -> {
+                pending.cancel()
+                pendingPrearm = null
+                pending.emit(
+                    "controlCenterProjection prearm state=armed " +
+                        "source=fake-root-first-layout nativeGeometryWrites=0",
+                )
+            }
+
+            is AttachResult.Failure -> {
+                if (isFirstLayoutRetryable(result.reason)) {
+                    pending.emit(
+                        "controlCenterProjection prearm state=deferred " +
+                            "source=fake-root-first-layout reason=" + result.reason +
+                            " nativeGeometryWrites=0",
+                    )
+                    host.requestLayout()
+                } else {
+                    pending.cancel()
+                    pendingPrearm = null
+                    pending.emit(
+                        "controlCenterProjection prearm state=failed " +
+                            "source=fake-root-first-layout reason=" + result.reason +
+                            " fallback=native-qs-fake nativeGeometryWrites=0",
+                    )
+                }
+            }
+        }
+    }
+
+    @Synchronized
+    private fun onPendingPrearmDetached(pending: PendingPrearm) {
+        if (pendingPrearm !== pending) return
+        pending.cancel()
+        pendingPrearm = null
+    }
+
+    internal fun isFirstLayoutRetryable(reason: String): Boolean =
+        reason in
+            setOf(
+                "fake-status-bar-area-unresolved",
+                "status-icons-missing",
+                "battery-view-missing",
+                "battery-core-carrier-missing",
+                "battery-core-width-unavailable",
+                "ignored-slots-list-unavailable",
+                "hooks-not-ready",
+            )
+
+    private class PendingPrearm(
+        host: ViewGroup,
+        val onEvent: (String) -> Unit,
+        val isDetailedDiagnosticsEnabled: () -> Boolean,
+        val onProjectionReadinessChanged: (Boolean) -> Unit,
+    ) : View.OnLayoutChangeListener,
+        View.OnAttachStateChangeListener {
+        private val host = WeakReference(host)
+        private var started = false
+
+        fun host(): ViewGroup? = host.get()
+
+        fun matches(candidate: ViewGroup): Boolean =
+            host.get() === candidate
+
+        fun start() {
+            if (started) return
+            started = true
+            val root = host.get() ?: return
+            root.addOnLayoutChangeListener(this)
+            root.addOnAttachStateChangeListener(this)
+            // Cold start will normally hit the initial native layout naturally.
+            // Hot Reload may restore an already-laid-out root, so request exactly
+            // one native layout cycle through the same lifecycle boundary.
+            root.requestLayout()
+            emit(
+                "controlCenterProjection prearm state=scheduled " +
+                    "source=fake-root-attached next=native-root-layout " +
+                    "nativeGeometryWrites=0",
+            )
+        }
+
+        fun cancel() {
+            if (!started) return
+            started = false
+            host.get()?.let { root ->
+                root.removeOnLayoutChangeListener(this)
+                root.removeOnAttachStateChangeListener(this)
+            }
+        }
+
+        fun emit(message: String) {
+            if (isDetailedDiagnosticsEnabled()) onEvent(message)
+        }
+
+        override fun onLayoutChange(
+            view: View,
+            left: Int,
+            top: Int,
+            right: Int,
+            bottom: Int,
+            oldLeft: Int,
+            oldTop: Int,
+            oldRight: Int,
+            oldBottom: Int,
+        ) {
+            onPendingPrearmLayout(this)
+        }
+
+        override fun onViewAttachedToWindow(view: View) = Unit
+
+        override fun onViewDetachedFromWindow(view: View) {
+            onPendingPrearmDetached(this)
+        }
     }
 
     internal fun resolveProjectionReady(
@@ -560,6 +732,16 @@ internal object CombinedStatusControlCenterRenderSession {
             }
         }
         return found
+    }
+
+    internal sealed interface PrearmResult {
+        data class Scheduled(
+            val reused: Boolean,
+        ) : PrearmResult
+
+        data class Failure(
+            val reason: String,
+        ) : PrearmResult
     }
 
     internal sealed interface AttachResult {
