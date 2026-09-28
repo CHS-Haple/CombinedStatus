@@ -89,12 +89,13 @@ Control Center is split into two ownership phases.
 - no additional status-icon measure/layout/battery-hide Hook set, project alpha/visibility/translation writer, interpolation, timer, polling/frame follower, or final-QS mutation is permitted; one low-frequency Fake-root attach Hook plus a temporary root layout listener may own bootstrap/readiness because they follow the native host/layout lifetime, and that listener must be removed after success/final failure/detach;
 - SystemUI remains the sole motion/geometry/appearance owner.
 
-**Fully expanded endpoint — current design candidate**
-- the maintainer currently prefers a native-only fully expanded Control Center state;
-- this is a product-intent hypothesis, not yet a verified endpoint/lifecycle contract;
-- exact source/runtime review must determine the true ownership boundary and whether a cleaner native handoff abstraction exists before this becomes implementation policy.
-
-Build 420 proved the carrier/handoff mechanism and kept projection alive through the expanded Control Center lifetime. That remains valuable runtime evidence. Whether the final endpoint should be native-only is still under architecture review.
+**Fully expanded endpoint — NATIVE_ONLY / verified**
+- exact-target `ControlCenterHeaderExpandController$controlCenterCallback$1.onAppearanceChanged(appearance, animate)` owns the fake/final alpha handoff;
+- `appearance=true` drives final `ControlCenterStatusBarIcon` alpha to 1 and `ControlCenterFakeStatusIcons` alpha to 0; `appearance=false` reverses that ownership;
+- `onExpansionChanged(progress)` owns translation only and must not be repurposed as a project visibility threshold;
+- Build-441 device diagnostics reach fraction 1.0 and observe the QS_FAKE root at alpha 0 before the return transition, matching the exact-target source contract;
+- Combined Status is attached only to `ControlCenterFakeStatusIcons.overlay`, inherits root alpha/translation, and never masks or writes the final `ControlCenterStatusBarIcon` surface;
+- therefore the bridge naturally yields to the native final surface without a project-owned endpoint fade, fraction threshold, or final-QS mutation.
 
 No project-owned timing threshold, custom animation, polling/frame follower, peer geometry write, or second native suppression owner is permitted.
 
