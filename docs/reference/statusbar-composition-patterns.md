@@ -681,3 +681,15 @@ This is **evidence, not yet a production decision**. Before replacing the curren
 - review whether attaching Combined Status inside the fake carrier can inherit native translation/alpha/tint without adding a second appearance/fraction writer.
 
 No project-local six-state scene machine is justified by the current evidence.
+
+
+### Android ViewOverlay inheritance note
+
+AOSP `ViewOverlay` / `ViewGroupOverlay` is rendered from the host View's own draw path after the host content/children. The internal overlay group redirects invalidation to the host rather than acting as an independent window/surface.
+
+Architecture implication for the pinned target:
+- an overlay attached to `MiuiStatusBatteryContainer(system_icons)` participates in that host's render-node visibility/alpha/translation lifecycle;
+- an overlay attached one level above, on `MiuiNotificationStatusContainer`, does **not** automatically inherit child-specific animations applied only to `system_icons`;
+- this supports Build 424's carrier correction and explains why moving the same visual between those two overlays changes lifecycle behavior without adding a new scene writer.
+
+This Android framework behavior is supporting platform evidence; exact HyperOS ownership still comes from the target SystemUI binder/source chain.
