@@ -9291,3 +9291,77 @@ Run exact-head Fast, then request one signed Canary if Fast passes. Device valid
 ### Outcome / next step
 
 Build 452 is the current visual candidate. If the 53 dp scale and normalized node clearances are accepted on device, freeze the icon geometry and close this visual checkpoint.
+
+
+---
+
+## 2026-09-29 — Build 452 visually unified orbit geometry
+
+**Type:** companion-app branding / visual resource  
+**Display version:** 0.0.2  
+**Build:** 452 / `20260929-452`  
+**Branch:** `feat/guiyuan-app-icon`  
+**Validation:** pending exact-head Fast
+
+### Device feedback
+
+Build 451 is accepted directionally for the “归元” name, clean white background and adaptive-icon structure, but the maintainer identifies two remaining visual issues:
+
+1. the mark can still be slightly larger relative to surrounding HyperOS icons;
+2. the small node-to-arc “head/tail” gaps do not read uniformly enough, even though the prior traced raster happened to produce similar numerical distances.
+
+The required target is explicitly **visual unity, roundness and fullness**, not preservation of raster-trace irregularities.
+
+### Root cause
+
+The previous foreground was a point-by-point raster trace. Its three nodes had slightly different bounding boxes, while the three orbit segments had independently traced endpoint shapes. That means numerical gap similarity did not guarantee optical equality: cap curvature, node radius and local tangent differed around the three junctions.
+
+### Implementation / decision
+
+Replace only the orbit geometry with a construction that is rotationally symmetric around the existing 108 dp adaptive center:
+
+- center: `54,54`;
+- orbit centerline radius: `28.2 dp`;
+- three equal node centers: `-90° / 30° / 150°`;
+- three equal node radii: `5.15 dp`;
+- three equal arc sweeps: `74°`;
+- equal angular clearance around each node: `23°` per side;
+- orbit stroke: `7.6 dp`, true round line caps and joins;
+- center disc: `12 dp` radius;
+- whole-mark uniform scale: `0.8110`, producing approximately 53 dp visible height.
+
+This removes the traced “tail” asymmetry while keeping the selected concept, three-node/orbit topology, center disc, monochrome palette and adaptive-icon ownership unchanged.
+
+### Problem execution flow
+
+1. Re-check the exact Build-451 foreground path and measure each traced node/arc relationship.
+2. Confirm that all six nearest raster-trace gaps were numerically close (~2.2 dp) yet still visually inconsistent because node sizes and endpoint contours differed.
+3. Replace the traced orbit perimeter with one mathematical orbit system rather than hand-adjusting six independent endpoints.
+4. Keep one radius/stroke/sweep and use `round` caps so all endpoints have identical curvature.
+5. Increase the complete mark to the agreed ~53 dp target without changing Android/HyperOS mask ownership.
+
+### 审查 / review
+
+- **Ownership:** Android/HyperOS still owns launcher mask, crop and themed tint.
+- **Lifecycle:** static resource only.
+- **Single writer:** one symmetric geometry source replaces six independently traced junctions.
+- **Cleanup:** no bitmap exports, duplicate density assets, mask artwork or shadow layers.
+- **Performance:** static vector only; no runtime effect.
+- **Compatibility:** VectorDrawable paths/strokes only, within the existing adaptive foreground contract.
+- **Visual consistency:** node sizes, arc thickness, cap roundness, sweep and clearances are now intentionally identical by construction instead of merely similar by tracing.
+- **Runtime boundary:** no Hook, SystemUI, Xposed, state source or renderer change.
+
+### Validation
+
+Run exact-head Fast. If successful, request one signed Canary for focused device validation of only:
+- overall launcher/App info scale;
+- perceived equality of all three node-to-arc clearances;
+- roundness/fullness;
+- themed/monochrome rendering;
+- Chinese display name `归元`.
+
+No SystemUI regression matrix is required.
+
+### Outcome / next step
+
+Build 452 is the current visual-geometry candidate. If device feedback accepts the optical rhythm, freeze the icon geometry and close the branding checkpoint.
