@@ -598,3 +598,27 @@ This is **not yet an implementation decision**. Before promotion, review:
 - interaction with the later lockscreen steady adapter.
 
 Do not derive the fake-to-real switch from fraction/epsilon/timer logic when the native appearance lifecycle is available.
+
+
+### QS_FAKE readiness and suppression refinement
+
+Existing Build-423 device diagnostics provide a useful ordering sample for the current target:
+- Control Center `visible=true` reached the project at 07:51:32.034; the current projection completed attach/readiness in that same timestamp.
+- The first later captured Control Center expansion sample at 07:51:32.205 already shows native Home `mEndSideContent` at alpha 0 / INVISIBLE.
+- This is evidence that the existing low-frequency Control Center visibility seam can become ready before the native Home end-side carrier leaves in this observed sequence. It weakens the case for adding a separate fake-view lifecycle Hook solely for first-frame readiness.
+- The ordering, not the measured millisecond gap, is the reusable fact; reverse/close ordering still requires focused validation for any future QS_FAKE implementation.
+
+QS_FAKE does not block Wi-Fi/mobile/Battery through its native `RIGHT_BLOCK_LIST`. Its `system_icons.xml` is the same `MiuiStatusBatteryContainer + MiuiStatusIconContainer + MiuiBatteryMeterView` structure used by Home.
+
+Exact `MiuiStatusIconContainer.onMeasure()` confirms that `ignoredSlots`, not visual clipping, determines whether represented slots participate in native measurement/underflow. Therefore a future compact QS_FAKE carrier must use scoped/reversible slot exclusion in addition to visual masking.
+
+The existing Home suppression mechanism already installs one global set of three class Hooks:
+- `MiuiStatusIconContainer.onMeasure`;
+- `MiuiStatusIconContainer.onLayout`;
+- `MiuiStatusBatteryContainer.setIsHideBattery`.
+
+A lower-overhead generalization candidate is to retain those same Hooks and route only owned carrier instances through an identity-keyed session registry, rather than installing a second Hook set for QS_FAKE.
+
+The Home end-reservation formula is also structurally carrier-local: it replaces the native Battery end reservation with the compact requested slot width. Build-423 normal-state evidence had stable carrier width = actual Battery width = requested compact width = 105, yielding zero padding delta. For charging/island variants, `MiuiBatteryMeterView` writes island hide state to its own associated `MiuiStatusBatteryContainer`; QS_FAKE binds its Battery to its own container. This supports evaluating the same reservation policy from each carrier's local native state rather than copying Home state into QS_FAKE.
+
+These are architecture candidates, not authorization to refactor Build 424.
