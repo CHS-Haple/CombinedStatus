@@ -8284,3 +8284,59 @@ Build 427 should make compact cutover depend on a completed **native compact mea
 - **Compatibility:** use the already-verified `MiuiStatusIconContainer.onMeasure/onLayout` seam rather than adding a new private animation Hook.
 - **Exception recovery:** Hot Reload/exit must cancel pending readiness before restoring native state.
 - **Future extension:** the same readiness contract can support a future verified Keyguard source without changing transition motion ownership.
+
+
+---
+
+## 2026-09-28 — Build 427 native-layout-gated QS_FAKE cutover
+
+**Build:** 427 / `20260928-427`
+**PR:** #152 / `feat/control-center-native-transition`
+**Exact runtime source:** `46b9cbb238ec34ae106a79823360e9d187df551b`
+**Device state:** pending
+**Automated validation:** pending Ready checkpoint
+
+### Problem execution flow
+
+Build 426 device evidence retained the native QS_FAKE carrier direction but rejected partial-pull internal layout continuity. The root cause was a cutover-order race: represented Wi-Fi/mobile/Battery could be visually masked before the first native compact measure/layout pass had removed their old slot widths, allowing native peer icons to remain one represented-slot width farther left for a frame or more.
+
+Build 427 corrects readiness ordering rather than motion geometry.
+
+### Implementation
+
+- `SystemUiCompactPresentationRegistry.Session` can now start in a prepared state with `deferVisualMaskUntilLayout=true`.
+- QS_FAKE requests one bounded native relayout.
+- Existing hooked `MiuiStatusIconContainer.onMeasure/onLayout` applies represented-slot exclusion.
+- Clip masks and presentation cutover become eligible only after the corresponding native layout completes.
+- The layout-ready callback is one-shot and is cleared on stop/failure.
+- The Control Center renderer may prepare model/tint/layout first, but remains invisible until QS_FAKE compact presentation ownership is confirmed.
+- Exit/Hot Reload still restores native fake presentation before project overlay removal.
+- Build identity advances to 427; no display-version change.
+
+### 审查 / review
+
+- **Ownership:** QS_FAKE remains the only Combined Status transition carrier; HyperOS remains sole owner of root translation, alpha, source selection and fake/real appearance.
+- **Lifecycle:** prepared -> native compact layout -> presentation-owned cutover; no panel-fraction state is introduced.
+- **Single writer:** represented-slot exclusion, clip masks and local end reservation remain one host-scoped compact session.
+- **Cleanup:** stop/failure clears pending layout readiness and restores only session-owned clip/padding state.
+- **Fail-native:** no compact-layout completion means no project visual cutover; native QS_FAKE remains/restores.
+- **Performance:** one bounded `requestLayout()` per activation; no polling, timer, frame follower, custom animator or new normal-production Hook.
+- **Compatibility:** reuses the already-verified `MiuiStatusIconContainer.onMeasure/onLayout` seam and exact QS_FAKE carrier contract.
+- **Exception recovery:** Hot Reload releases the transient compact session before renderer/Home/runtime teardown.
+- **Future extension:** the same readiness contract can support a future verified Keyguard source without duplicating transition motion ownership.
+
+### Residual review item
+
+A non-blocking cleanup edge remains for a future checkpoint: if an already-active QS_FAKE compact session exists and, within the same visible Control Center lifetime, native source selection changes from the verified Home source to an unsupported source, an early activation failure can return before explicitly releasing the prior compact session. The normal initial Keyguard path still fails native because no prior session exists, and Build 427 device validation should remain single-variable around layout cutover. Revisit this edge after the 427 result rather than widening the current A/B.
+
+### Validation gate
+
+Move the documentation-closed exact head Ready. Because PR #152 includes runtime and exact-target compatibility changes, CI must run the applicable Full scope. After exact-head success, request one signed Canary.
+
+Focused device validation:
+1. unlocked Home -> partial Control Center pull -> reverse first/last-frame continuity;
+2. repeated partial pulls and full expansions;
+3. fully expanded Control Center remains native-only;
+4. charging/Super-Island edge alignment when practical;
+5. lockscreen-originated pull remains native-only/fail-native;
+6. Hot Reload while Control Center is visible restores native QS_FAKE without blank state, duplicate icons, stale masks or spacing residue.
