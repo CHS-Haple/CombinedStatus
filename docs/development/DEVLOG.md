@@ -2,6 +2,52 @@
 
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
+
+## 2026-09-28 — Validation-surface routing automation
+
+**Type:** repository automation / CI governance
+**Runtime Build:** unchanged
+**PR:** #149 `ci: explain validation surface routing`
+**main commit:** `497be75c1754e49cb7a49b6abd73dcbd3bc010b3`
+
+### Problem / goal
+
+Long-lived work PRs can legitimately accumulate a build/CI/tooling change early and later continue with ordinary runtime fixes. Because validation is correctly based on the current base-to-head diff, those PRs remain Full while the high-risk surface is still present. The previous Build summary exposed the selected scope but not the surface mix that caused it, making repeated Full runs easy to misread as a branch-name or latest-commit rule.
+
+### Implementation
+
+- keep the existing Light / Fast / Integration / Full safety model unchanged;
+- keep base-to-head diff classification as the authority rather than latest-commit-only or a mutable "last successful Full" checkpoint;
+- detect runtime, build, CI, tooling and documentation surface families from the same diff;
+- report the selected scope, routing reason and detected surfaces in the Build summary;
+- emit a warning when runtime work is mixed with build/CI/tooling changes that keep the current diff on Full;
+- make the warning advisory only: it cannot downgrade validation or automatically split an inseparable change;
+- retain routine `combinedStatus.versionCode` / `combinedStatus.buildId` handling through one shared Gradle-property risk helper;
+- keep signed work-branch Canary explicit and demand-driven rather than inferred from changed paths.
+
+### 审查 / review
+
+- **Safety authority:** unchanged; existing Full-triggering paths still force Full.
+- **Trust boundary:** unchanged; pull-request validation still receives no project signing secrets.
+- **State ownership:** no new CI checkpoint database, mutable trust marker or parallel classifier authority is introduced.
+- **Branch hygiene:** mixed-surface output is guidance for independently mergeable/reversible boundaries only.
+- **Runtime/APK:** no application/SystemUI code, dependency resolution, signing identity, target profile semantics or release permissions changed.
+- **Device validation:** not applicable; this is repository automation only.
+
+### Validation
+
+- Source review found and corrected an initial duplicated Gradle-property regex path before PR validation; the final implementation uses one shared helper.
+- PR #149 Full Build #1311 / run `36360225987` passed on exact head `3c4d14886a674160ae615d39165c9fdb40532225`.
+- The run selected **Full** because `.github/workflows/build.yml` changed and completed wrapper, JDK/API 37, target-profile verification, unit tests, Debug + Canary builds, Modern Xposed metadata and non-debuggable checks successfully.
+- PR-safe signing restore/signature/artifact publication remained skipped as designed.
+- Surface classification for the automation PR was `runtime=false, build=false, CI=true, tooling=false, docs=true`; therefore no mixed runtime surface was reported.
+- PR #149 was squash-merged into `main` as `497be75c1754e49cb7a49b6abd73dcbd3bc010b3`.
+- The accepted automation is history-preserving back-synced into `dev`; this synchronization does not create a new runtime Build.
+
+### Consequence
+
+Future Build summaries make the reason for Fast/Full routing visible. A runtime PR that still carries an independently mergeable high-risk surface can be separated and refreshed deliberately; an inseparable change remains Full. Device evidence and final product acceptance stay manual maintainer decisions.
+
 ## 2026-09-28 — Build 418 integrated into dev
 
 **Type:** device-accepted runtime integration closure
