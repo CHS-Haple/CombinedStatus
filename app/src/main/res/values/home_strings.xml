@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="section_home_runtime">Runtime</string>
-    <string name="home_version_line">Version  %1$s</string>
-    <string name="home_build_line">Build  %1$s</string>
+    <string name="home_version_line">%1$s · %2$s</string>
 
     <string name="home_runtime_running">Running</string>
     <string name="home_runtime_running_summary">Combined Status is active</string>
@@ -23,28 +22,29 @@
 
     <string name="section_home_preview_sandbox">Preview sandbox</string>
     <string name="home_preview_sandbox_title">Preview sandbox</string>
-    <string name="home_preview_sandbox_summary">Simulated display only. Nothing here changes the real system.</string>
+    <string name="home_preview_sandbox_summary">Simulation only. Real system state is not changed.</string>
     <string name="home_preview_open_title">Adjust preview</string>
     <string name="home_preview_state_format">%1$s · %2$s · %3$s</string>
     <string name="home_preview_section_preview">Preview</string>
     <string name="home_preview_section_state">Simulated state</string>
 
     <string name="home_preview_center_title">Center content</string>
-    <string name="home_preview_center_summary">Choose the center state shown in the preview</string>
     <string name="home_preview_center_wifi">Wi‑Fi</string>
     <string name="home_preview_center_5g">5G</string>
     <string name="home_preview_center_empty">Empty</string>
 
     <string name="home_preview_signal_title">Mobile signal</string>
-    <string name="home_preview_signal_summary">Choose the simulated signal strength</string>
     <string name="home_preview_signal_strong">Strong</string>
     <string name="home_preview_signal_medium">Medium</string>
     <string name="home_preview_signal_weak">Weak</string>
     <string name="home_preview_signal_unavailable">Unavailable</string>
+    <string name="home_preview_signal_unavailable_short">None</string>
 
     <string name="home_preview_battery_title">Battery state</string>
-    <string name="home_preview_battery_summary">Choose the simulated battery presentation</string>
     <string name="home_preview_battery_normal">Normal · 87%</string>
     <string name="home_preview_battery_charging">Charging · 68%</string>
     <string name="home_preview_battery_power_save">Power save · 42%</string>
+    <string name="home_preview_battery_normal_short">Normal</string>
+    <string name="home_preview_battery_charging_short">Charging</string>
+    <string name="home_preview_battery_power_save_short">Power save</string>
 </resources>

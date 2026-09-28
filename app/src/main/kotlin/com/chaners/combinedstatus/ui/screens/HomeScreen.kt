@@ -4,7 +4,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -41,10 +40,8 @@ import com.chaners.combinedstatus.ui.components.MiuixBlurredTopBar
 import com.chaners.combinedstatus.ui.components.rememberTopBarBackdrop
 import com.chaners.combinedstatus.ui.components.topBarBackdropSource
 import com.chaners.combinedstatus.ui.layout.pageContentPadding
-import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
-import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
@@ -241,24 +238,15 @@ private fun HomeRuntimeStatusCard(
                         stringResource(
                             R.string.home_version_line,
                             BuildConfig.VERSION_NAME,
+                            BuildConfig.BUILD_ID.substringAfterLast('-'),
                         ),
-                    modifier = Modifier.padding(top = 5.dp),
-                    style = MiuixTheme.textStyles.body2,
-                    color = MiuixTheme.colorScheme.onSurfaceContainer,
-                )
-                Text(
-                    text =
-                        stringResource(
-                            R.string.home_build_line,
-                            BuildConfig.BUILD_ID,
-                        ),
-                    modifier = Modifier.padding(top = 1.dp),
+                    modifier = Modifier.padding(top = 4.dp),
                     style = MiuixTheme.textStyles.body2,
                     color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
                 )
-                Spacer(modifier = Modifier.weight(1f))
                 Text(
                     text = stringResource(state.summaryRes),
+                    modifier = Modifier.padding(top = 18.dp),
                     style = MiuixTheme.textStyles.body2,
                     color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
                     maxLines = 2,
@@ -308,26 +296,16 @@ private fun HomePreviewSandboxCard(
         )
 
     Card(modifier = modifier) {
-        BasicComponent(
-            title = stringResource(R.string.home_preview_sandbox_title),
-            summary = stringResource(R.string.home_preview_sandbox_summary),
-            insideMargin = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-        )
-        CombinedStatusPreview(
-            model = state.toRenderModel(),
-            modifier =
-                Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .size(92.dp)
-                    .padding(vertical = 2.dp),
-        )
-        HorizontalDivider(
-            modifier = Modifier.padding(horizontal = 18.dp),
-        )
         ArrowPreference(
             title = stringResource(R.string.home_preview_open_title),
             summary = stateSummary,
             insideMargin = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+            startAction = {
+                CombinedStatusPreview(
+                    model = state.toRenderModel(),
+                    modifier = Modifier.size(58.dp),
+                )
+            },
             onClick = onOpen,
         )
     }
@@ -340,8 +318,8 @@ private fun RuntimeStatusMark(
     modifier: Modifier = Modifier,
 ) {
     Canvas(modifier = modifier) {
-        val ringColor = color.copy(alpha = 0.34f)
-        val symbolColor = color.copy(alpha = 0.52f)
+        val ringColor = color.copy(alpha = 0.38f)
+        val symbolColor = color.copy(alpha = 0.64f)
         val ringStrokeWidth = 5.0.dp.toPx()
         val symbolStrokeWidth = 5.6.dp.toPx()
         val center = Offset(size.width / 2f, size.height / 2f)

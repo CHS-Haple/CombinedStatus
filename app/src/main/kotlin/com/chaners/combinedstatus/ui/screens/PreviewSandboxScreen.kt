@@ -1,8 +1,9 @@
 package com.chaners.combinedstatus.ui.screens
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -22,17 +23,19 @@ import com.chaners.combinedstatus.xposed.CenterIndicator
 import com.chaners.combinedstatus.xposed.CombinedStatusBatterySemanticState
 import com.chaners.combinedstatus.xposed.CombinedStatusRenderModel
 import com.chaners.combinedstatus.xposed.InternetState
-import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
+import top.yukonga.miuix.kmp.basic.TabRowWithContour
+import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
-import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 internal data class PreviewSandboxUiState(
     val centerIndex: Int = 0,
@@ -59,13 +62,13 @@ internal fun PreviewSandboxScreen(
             stringResource(R.string.home_preview_signal_strong),
             stringResource(R.string.home_preview_signal_medium),
             stringResource(R.string.home_preview_signal_weak),
-            stringResource(R.string.home_preview_signal_unavailable),
+            stringResource(R.string.home_preview_signal_unavailable_short),
         )
     val batteryOptions =
         listOf(
-            stringResource(R.string.home_preview_battery_normal),
-            stringResource(R.string.home_preview_battery_charging),
-            stringResource(R.string.home_preview_battery_power_save),
+            stringResource(R.string.home_preview_battery_normal_short),
+            stringResource(R.string.home_preview_battery_charging_short),
+            stringResource(R.string.home_preview_battery_power_save_short),
         )
 
     val scrollBehavior = MiuixScrollBehavior()
@@ -118,19 +121,24 @@ internal fun PreviewSandboxScreen(
                                 .padding(horizontal = 12.dp)
                                 .padding(bottom = 12.dp),
                     ) {
-                        BasicComponent(
-                            title = stringResource(R.string.home_preview_sandbox_title),
-                            summary = stringResource(R.string.home_preview_sandbox_summary),
-                            insideMargin = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-                        )
-                        CombinedStatusPreview(
-                            model = state.toRenderModel(),
+                        Column(
                             modifier =
                                 Modifier
-                                    .align(Alignment.CenterHorizontally)
-                                    .size(116.dp)
-                                    .padding(bottom = 12.dp),
-                        )
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 18.dp, vertical = 12.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                        ) {
+                            CombinedStatusPreview(
+                                model = state.toRenderModel(),
+                                modifier = Modifier.size(112.dp),
+                            )
+                            Text(
+                                text = stringResource(R.string.home_preview_sandbox_summary),
+                                modifier = Modifier.padding(top = 2.dp),
+                                style = MiuixTheme.textStyles.body2,
+                                color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
+                            )
+                        }
                     }
                 }
 
@@ -142,34 +150,57 @@ internal fun PreviewSandboxScreen(
                                 .padding(horizontal = 12.dp)
                                 .padding(bottom = 12.dp),
                     ) {
-                        OverlayDropdownPreference(
-                            items = centerOptions,
-                            selectedIndex = state.centerIndex,
+                        PreviewSandboxSelector(
                             title = stringResource(R.string.home_preview_center_title),
-                            showValue = true,
-                            insideMargin = CompactPreferencePadding,
-                            onSelectedIndexChange = onCenterIndexChange,
+                            options = centerOptions,
+                            selectedIndex = state.centerIndex,
+                            onSelected = onCenterIndexChange,
                         )
-                        OverlayDropdownPreference(
-                            items = signalOptions,
-                            selectedIndex = state.signalIndex,
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 18.dp))
+                        PreviewSandboxSelector(
                             title = stringResource(R.string.home_preview_signal_title),
-                            showValue = true,
-                            insideMargin = CompactPreferencePadding,
-                            onSelectedIndexChange = onSignalIndexChange,
+                            options = signalOptions,
+                            selectedIndex = state.signalIndex,
+                            onSelected = onSignalIndexChange,
                         )
-                        OverlayDropdownPreference(
-                            items = batteryOptions,
-                            selectedIndex = state.batteryIndex,
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 18.dp))
+                        PreviewSandboxSelector(
                             title = stringResource(R.string.home_preview_battery_title),
-                            showValue = true,
-                            insideMargin = CompactPreferencePadding,
-                            onSelectedIndexChange = onBatteryIndexChange,
+                            options = batteryOptions,
+                            selectedIndex = state.batteryIndex,
+                            onSelected = onBatteryIndexChange,
                         )
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun PreviewSandboxSelector(
+    title: String,
+    options: List<String>,
+    selectedIndex: Int,
+    onSelected: (Int) -> Unit,
+) {
+    Column(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 18.dp, vertical = 10.dp),
+    ) {
+        Text(
+            text = title,
+            style = MiuixTheme.textStyles.body1,
+            color = MiuixTheme.colorScheme.onSurfaceContainer,
+        )
+        TabRowWithContour(
+            tabs = options,
+            selectedTabIndex = selectedIndex,
+            onTabSelected = onSelected,
+            modifier = Modifier.padding(top = 8.dp),
+        )
     }
 }
 
@@ -219,9 +250,3 @@ internal fun PreviewSandboxUiState.toRenderModel(): CombinedStatusRenderModel {
         batterySemanticState = semanticState,
     )
 }
-
-private val CompactPreferencePadding =
-    PaddingValues(
-        horizontal = 16.dp,
-        vertical = 10.dp,
-    )
