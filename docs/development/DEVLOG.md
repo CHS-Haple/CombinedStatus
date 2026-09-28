@@ -9,7 +9,7 @@ This is the chronological engineering diary for Combined Status. It complements,
 **Build:** 429 / `20260928-429`
 **Work branch:** `feat/miuix-main-canary`
 **Upstream:** compose-miuix-ui/miuix `5c91d5e5ce1a2fc7e8bdc1258a881c555102bbca`
-**Validation:** repository CI pending
+**Validation:** PR Build #1385 / run `36439112843` passed; post-merge `dev` Build #1386 / run `36439661810` passed
 
 ### Problem / objective
 
@@ -47,11 +47,16 @@ This is not a workaround for a current Combined Status defect. It is a B-value u
 
 ### CI / device validation
 
-Repository CI is the first gate. If dependency resolution and build/test validation pass, no dedicated SystemUI device run is required solely for this dependency bump; app-UI smoke coverage should include Home/Features/Settings navigation, horizontal Slider drag versus page swipe, predictive/system back, and pages using blur/backdrop during the next convenient app-UI validation.
+- PR Build #1385 / run `36439112843` completed successfully on exact PR head `652bb7cc6bbde6ed71cf37219df44c9ca850bdb6`: the commit-specific SNAPSHOT resolved, target-profile validation passed, tests/build passed, Modern Xposed metadata passed, and Canary non-debuggable validation passed. PR signing/artifact upload steps were skipped as designed.
+- PR #155 squash-merged into `dev` as `fcf05da17cb6f315eb45f3325e45da9013f16bdd`.
+- Post-merge `dev` Build #1386 / run `36439661810` completed successfully on that exact merge SHA: signing restore, target-profile, tests/build, Modern Xposed metadata, APK signatures, Canary non-debuggable validation, preparation and artifact upload all passed.
+- Debug artifact: `CombinedStatus-0.0.2-HyperOS-20260928-429-debug.apk`, artifact id `10978320240`, ZIP digest `sha256:2f27af31d3ad90e02f56b4aae570a71dc71fa6cce2d6c41f57cf3500d885fe09`.
+- Canary artifact: `CombinedStatus-0.0.2-HyperOS-20260928-429-canary.apk`, artifact id `10978165325`, ZIP digest `sha256:0a805ab9404a576f9cc5c74fa0cb495b585b77743e19b45db92f1d8625b95c95`.
+- No dedicated SystemUI device run is required solely for this dependency bump. The next convenient app-UI smoke pass should cover Home/Features/Settings navigation, horizontal Slider drag versus page swipe, predictive/system back, and pages using blur/backdrop.
 
 ### Outcome / next step
 
-Open a focused PR to `dev`. Merge only after repository validation passes. A failure to resolve the exact SNAPSHOT or a UI/build regression rejects this Build-429 dependency checkpoint without affecting Build 428 or the accepted Build-424 `dev` runtime baseline.
+Build 429 is accepted as the current `dev` integration build baseline after PR and post-merge validation both passed. `main` is intentionally unchanged. Upstream PR #423 / OS4 `miuix-glass` remains excluded because it is still experimental/open. The active Build-428 Control Center diagnostic branch is intentionally left frozen on its original dependency baseline while device evidence is pending; later executable work must refresh from current `dev` rather than downgrade the MIUIX pin.
 
 ## 2026-09-28 — CI validation-surface routing and main/dev synchronization
 

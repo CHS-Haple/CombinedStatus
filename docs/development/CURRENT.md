@@ -8,8 +8,8 @@ This file is the concise recovery point for active Combined Status development. 
 - Stable branch: `main`
 - Stable runtime baseline: Build 413 / `20260927-413`, promotion merge commit `3114ade06bcb4846a5654a70f38ea572f5b47b37`
 - Integration branch: `dev`
-- Integration runtime baseline: Build 424 / `20260928-424`, `dev` squash integration `a6ba0ddc843d3e8d2fbca6c15786d99b8c0b2826`
-- Build 424 / `20260928-424` is the current device-accepted and Integration-validated `dev` runtime baseline. Integration Build #1338 / run `36420376141` passed on exact `dev` SHA `a6ba0ddc843d3e8d2fbca6c15786d99b8c0b2826`, including signed Canary, target-profile, unit/build, Xposed metadata, signature, and non-debuggable checks. Build 413 remains the current `main`-promoted stable runtime baseline.
+- Integration build baseline: Build 429 / `20260928-429`, `dev` squash integration `fcf05da17cb6f315eb45f3325e45da9013f16bdd`
+- Build 429 is the current Integration-validated `dev` build baseline. PR Build #1385 / run `36439112843` and post-merge `dev` Build #1386 / run `36439661810` passed dependency resolution, target-profile, tests/build, Modern Xposed metadata and non-debuggable checks; the `dev` run additionally passed Haple signing/signature verification and uploaded signed Debug/Canary artifacts. The SystemUI runtime/ownership code is unchanged by Build 429, so Build 424 remains the current device-accepted SystemUI runtime baseline. Build 413 remains the current `main`-promoted stable runtime baseline.
 - Phase-2B Home / Notification-Shade checkpoint PR #146 is merged. Build 420 remains **device-accepted historical evidence for source-anchor Control Center handoff**, Builds 421-423 are **device-rejected Notification-Shade experiments**, and Build 424 is **accepted/integrated** for the native Home `system_icons` carrier correction. The next bounded objective is a separate Control Center transition-owner checkpoint using the exact-target native `QS_FAKE` carrier; fully expanded Control Center remains native-only, and Keyguard/AOD remain native-only until separately verified.
 - Repository-automation baseline: checkpoint-driven CI from PR #139 remains active; Canary admission hardening and bounded automation-only merge delegation were accepted through PR #143/#144. PR #149 (`497be75c1754e49cb7a49b6abd73dcbd3bc010b3`) adds base-to-head validation-surface reporting, mixed runtime/build/CI/tooling warnings, and readable routing reasons without weakening Full gates; history-preserving `main -> dev` sync `2e9b1716849d6709342a446f63e5b886c0aed9ae` passed dev Full #1317. These automation changes do **not** create a new runtime Build; Build 418 remains the integrated runtime baseline.
 - Phase-2A integration: PR #105 merged to `dev` as `2f584c3b393dc5ee606284426aa95a9d6beae5d5`; former stacked PR #100 is closed as superseded.
@@ -21,7 +21,9 @@ This file is the concise recovery point for active Combined Status development. 
 - Modern Xposed API: 102
 - Application ID: `com.chaners.combinedstatus`
 
-`main` and `dev` runtime baselines remain unchanged by documentation-only commits. Build 424 is now the accepted `dev` runtime baseline; later record-only `dev` commits may inherit that runtime validation only when their non-runtime diff is proven.
+`main` remains on the Build-413 stable runtime line. `dev` now carries Build 429 because the MIUIX main-canary dependency pin advanced to `0.9.4-5c91d5e5-SNAPSHOT`; this changes the app-UI dependency/build identity but does not change the accepted SystemUI ownership/runtime mechanism from Build 424. Later record-only `dev` commits may inherit Build-429 integration validation only when their non-runtime diff is proven.
+
+- Active runtime PR #154 / `fix/control-center-appearance-boundary` remains the frozen Build-428 native-appearance diagnostic. It intentionally retains its pre-Build-429 dependency baseline while device evidence is pending; do not rebase or merge the MIUIX update into that frozen diagnostic checkpoint. Before the next executable correction after Build-428 evidence, refresh from current `dev` without downgrading the Build-429 MIUIX pin.
 
 ## Current phase
 
@@ -180,8 +182,8 @@ After conflict resolution, PR #146 became mergeable and Full Build #1321 / run `
 
 ## Immediate next step
 
-1. Keep Build 424 executable source `2556a098d35c202e1c5645a06e73757744f721e1` frozen.
-2. Obtain one successful pull-request Build on the final documentation-synchronized exact PR head.
-3. Request one exact-head signed Canary only after that successful exact-head Build.
-4. Device-test Notification-Shade first/last-frame continuity, Control Center regression, Hot Reload, and one lock/unlock smoke pass.
-5. Do not mix the post-424 QS_FAKE Control Center redesign into Build 424; discuss/select that follow-up only after Build 424 device evidence.
+1. Keep the Build-429 `dev` MIUIX pin at `0.9.4-5c91d5e5-SNAPSHOT`; #423 / OS4 `miuix-glass` remains excluded while it is still an open experimental upstream PR.
+2. Keep PR #154 Build 428 frozen and obtain the required device evidence for the exact native `onAppearanceChanged(boolean, boolean)` semantics without rebasing the diagnostic checkpoint.
+3. After Build-428 evidence is closed, history-preserving refresh the next executable Control Center correction from current `dev`; retain the Build-429 dependency baseline and allocate the next build identity rather than restoring the older `2afdbb39` pin.
+4. During the next convenient app-UI smoke pass, cover Home/Features/Settings navigation, Slider horizontal drag versus page swipe, predictive/system back, and blur/backdrop pages.
+5. Keep `main` unchanged until the integrated line meets the existing promotion criteria.
