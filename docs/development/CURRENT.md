@@ -24,11 +24,11 @@ This file is the concise recovery point for active Combined Status development. 
 
 `main` remains on the Build-413 stable runtime line. `dev` now carries device-accepted Build 441 plus the previously accepted Build-438 app-UI checkpoint, retaining MIUIX `0.9.4-5c91d5e5-SNAPSHOT`. Later record-only `dev` commits may inherit Build-441 integration validation only when their non-runtime diff is proven.
 
-- Build 428 device evidence is complete and PR #154 is superseded as a frozen diagnostic line. PR #156 (`fix/control-center-fake-root`) is merged and closed; Builds 430-441 now form the accepted evidence chain for top-level QS_FAKE ownership, deterministic compact cutover and continuous Hot Reload generation handoff. The next runtime investigation is the already-reserved endpoint-motion / charging-island Battery-alignment gate, starting from the Build-441 `dev` baseline rather than extending the closed PR.
+- Build 428 device evidence is complete and PR #154 is superseded as a frozen diagnostic line. PR #156 (`fix/control-center-fake-root`) is merged and closed; Builds 430-441 now form the accepted evidence chain for top-level QS_FAKE ownership, deterministic compact cutover and continuous Hot Reload generation handoff. Exact-target review has also closed the charging-island trajectory question and the fully-expanded endpoint ownership boundary: QS_FAKE root motion/alpha remain SystemUI-owned, and native `appearance` yields to the separate `QS` status bar at the final endpoint. The next runtime architecture investigation is Phase 3 Keyguard/lockscreen ownership from the validated Build-441 `dev` baseline.
 
 ## Current phase
 
-The project has completed the current **Phase 2A — 0.0.2 Home carrier / presentation architecture** gate for `dev` integration and is moving into **Phase 2B — unlocked Home ownership continuity + bounded Control Center transition bridge**.
+The project has completed **Phase 2A — 0.0.2 Home carrier / presentation architecture** and **Phase 2B — unlocked Home ownership continuity + bounded Control Center transition bridge** for the current validated `dev` baseline. The next active architecture review is **Phase 3 — Keyguard / lockscreen / AOD scene completion**, beginning with exact Keyguard host/lifecycle evidence rather than implementation.
 
 The selected Home direction is an existing-host composition rather than the superseded permanent extra-participant / occupancy-handoff route:
 
@@ -58,6 +58,7 @@ For the pinned HyperOS target, Notification Shade itself does not present the st
 - **Compatibility gate:** the first transition from an already-running Build 440 generation into Build 441 still originates from old Build-440 code and therefore cannot supply the new v9 handoff callback. Focused validation of the new no-flash protocol must be performed after Build 441 is already active, then Hot Reload again (441 -> 441).
 - **Device result: accepted.** After Build 441 is active, repeated 441 -> 441 Hot Reload no longer shows the previous Combined Status flash / peer-icon horizontal layout pulse, and immediate Control Center pull no longer exhibits the temporary Combined Status blank. The earlier Build-440 raw-native / native+Combined overlap correction also remains stable, including after SystemUI restart.
 - Build 441 is therefore the current device-accepted and Integration-validated `dev` runtime checkpoint for the Home -> bounded QS_FAKE transition and Hot Reload generation handoff.
+- **Fully-expanded endpoint contract — verified:** exact-target `ControlCenterHeaderExpandController.controlCenterCallback.onAppearanceChanged(appearance, animate)` makes `appearance=true` fade the native final `ControlCenterStatusBarIcon` / `StatusBarLocation.QS` to alpha 1 while fading `ControlCenterFakeStatusIcons` / `StatusBarLocation.QS_FAKE` to alpha 0; `appearance=false` does the inverse. Build-441 device diagnostics independently show the Fake root reaching alpha 0 at the fully-expanded endpoint, including Battery-island state. Combined renders inside `ControlCenterFakeStatusIcons.overlay`, so it inherits this native fake->final alpha handoff. The project intentionally keeps the compact Fake session prearmed while Control Center remains visible; it is visually absent at the final endpoint because the parent root is alpha 0, then returns through the same native appearance owner on reverse motion. **Do not add a project appearance writer, fraction==1 visibility gate, epsilon threshold, or endpoint timer.**
 - **Charging-island geometry review — exact-target investigation closed the 30 px compensation hypothesis:** HyperOS SystemUI `17.03.260226.r` (APK SHA-256 `a0e738e41fe599b97950cbf52a9e2ddc6ae2ceff986efbacb1c9840bea78768d`) was recovered together with JADX 1.5.6 and reviewed directly. `ControlCenterHeaderExpandController.updateLocation()` forces `batteryWidthDiff=-controlCenterBattery.width` when Battery Island is active, and `controlCenterCallback.onExpansionChanged()` adds that **unscaled** term only to the QS_FAKE root while the ordinary status-icon translation remains progress-scaled. With observed `normalStatusIconsTx=181` / `batteryWidthDiff=-135`, QS_FAKE therefore moves from `46` at progress 0 to `-135` at progress 1; non-island `46/0` moves `46 -> 0`. `MiuiBatteryMeterView.updateIslandChanged()` also hides/removes native Battery occupancy through `MiuiStatusBatteryContainer.setIsHideBattery(true)` and uses the full Battery View width for its island motion. Combined Status is already end-anchored to the stable 105 px slot inside `ControlCenterFakeStatusIcons.overlay` and inherits the root translation. No independent 30 px local-anchor defect is established. **Do not add a 30 px compensation or feed `batteryWidthDiff` into Combined translation.** Reopen only with frame-level evidence that Combined diverges from native QS_FAKE peer geometry, not merely because island and non-island trajectories differ.
 
 ## Current runtime checkpoints
@@ -186,11 +187,15 @@ Build 424 is the current runtime checkpoint (`20260928-424`). Exact executable s
 
 
 
-### Control Center lifecycle review — exact-target evidence, no runtime change
+### Control Center lifecycle review — accepted Phase-2B contract, no runtime change
 
-The current lifecycle investigation now verifies that HyperOS itself registers both source containers with `ControlCenterFakeViewController`: unlocked `MiuiPhoneStatusBarView.mStatusBatteryContainer` becomes `statusBarSystemIcons`, while `MiuiKeyguardStatusBarView.mSystemIconsContainer` becomes `keyguardSystemIcons`. Native status-bar state selects the current `realSystemIcons` source. The Control Center fake status bar is a complete `QS_FAKE` status representation with native tint/attach/island lifecycle, while the fully expanded Control Center has a separate `QS` native status bar. Native `appearance` selects fake-vs-real visual ownership independently of expansion motion.
+Exact-target review verifies that HyperOS registers both source containers with `ControlCenterFakeViewController`: unlocked `MiuiPhoneStatusBarView.mStatusBatteryContainer` becomes `statusBarSystemIcons`, while `MiuiKeyguardStatusBarView.mSystemIconsContainer` becomes `keyguardSystemIcons`. Native status-bar state selects the current `realSystemIcons` source. The Control Center fake status bar is a complete `QS_FAKE` status representation with native tint/attach/island lifecycle, while the fully expanded Control Center has a separate `QS` native status bar.
 
-This supports a candidate source -> native fake transition -> native real destination topology and argues against a project-owned six-state scene machine. It is evidence only; Build 424 remains unchanged and must be validated first. The plugin-side producer semantics for `appearance` remain outside the reviewed SystemUI APK and must not be guessed.
+The destination boundary is now also closed. Exact-target `onAppearanceChanged(appearance, animate)` selects native fake-vs-real visual ownership: `appearance=true` shows the real QS status bar and fades QS_FAKE out; `appearance=false` does the inverse. Build-441 device diagnostics confirm the Fake root actually reaches alpha 0 at the fully-expanded endpoint. Because Combined Status renders in the Fake root overlay and writes no independent alpha/endpoint state, the accepted topology is:
+
+`source steady carrier -> native QS_FAKE transition carrier -> native QS destination`.
+
+The plugin-side producer threshold for `appearance` remains outside the reviewed SystemUI APK and is intentionally irrelevant to project policy: Combined Status consumes the native result by inheriting the Fake root. No fraction threshold or reconstructed appearance state is permitted.
 
 
 
@@ -205,8 +210,8 @@ After conflict resolution, PR #146 became mergeable and Full Build #1321 / run `
 
 ## Immediate next step
 
-1. Keep the Build-429 `dev` MIUIX pin at `0.9.4-5c91d5e5-SNAPSHOT`; #423 / OS4 `miuix-glass` remains excluded while it is still an open experimental upstream PR.
-2. Keep PR #154 Build 428 frozen and obtain the required device evidence for the exact native `onAppearanceChanged(boolean, boolean)` semantics without rebasing the diagnostic checkpoint.
-3. After Build-428 evidence is closed, history-preserving refresh the next executable Control Center correction from current `dev`; retain the Build-429 dependency baseline and allocate the next build identity rather than restoring the older `2afdbb39` pin.
+1. Preserve validated Build 441 / `dev` as the Phase-2B runtime baseline; no additional endpoint or charging-island motion patch is required.
+2. Begin **Phase 3 Keyguard / lockscreen exact-host review** from current `dev`: trace `MiuiKeyguardStatusBarView.mSystemIconsContainer`, its native visibility/tint/lifecycle owner, `ControlCenterFakeViewController.keyguardSystemIcons`, and status-bar-state source selection before choosing any project adapter.
+3. Keep Keyguard and AOD native-only until their own host/lifecycle contracts are separately verified. Do not infer AOD from Keyguard.
 4. During the next convenient app-UI smoke pass, cover Home/Features/Settings navigation, Slider horizontal drag versus page swipe, predictive/system back, and blur/backdrop pages.
 5. Keep `main` unchanged until the integrated line meets the existing promotion criteria.

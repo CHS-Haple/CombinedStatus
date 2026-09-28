@@ -3,6 +3,55 @@
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
 
+## 2026-09-29 — Phase-2B endpoint ownership closure: native appearance handoff verified
+
+**Type:** exact-target lifecycle + accepted-device evidence review / no executable build
+**Runtime baseline:** validated Build 441
+**Executable change:** none
+
+### Remaining question
+
+After Build 441 closed QS_FAKE determinism and Hot Reload continuity, the last Phase-2B architecture question was whether the maintainer-preferred fully-expanded native-only Control Center endpoint required a project visibility threshold, or whether HyperOS already exposes the exact fake-to-final ownership boundary.
+
+### Exact-target source evidence
+
+`ControlCenterHeaderExpandController$controlCenterCallback$1.onAppearanceChanged(appearance, animate)` is the native visual-ownership switch:
+- `appearance=true`: final `ControlCenterStatusBarIcon` / `StatusBarLocation.QS` is animated/set to alpha 1; `ControlCenterFakeStatusIcons` / `StatusBarLocation.QS_FAKE` is animated/set to alpha 0.
+- `appearance=false`: final QS is driven to alpha 0 and QS_FAKE to alpha 1.
+- `startFolmeAnimationAlpha()` owns both animated and immediate paths and forces the final alpha on cancel/complete.
+- Expansion progress continues to own translation independently; appearance is therefore a separate native axis rather than a threshold that should be reconstructed from `fraction`.
+
+### Project ownership review
+
+Build 441:
+- attaches Combined Status to `ControlCenterFakeStatusIcons.overlay`;
+- writes no project alpha on the Fake root;
+- keeps `requestedVisible=true` for the Control Center **visible lifetime**, not only until `fraction=1`;
+- leaves the compact QS_FAKE session prepared while the native parent is alpha 0;
+- restores Home and disables projected visibility only when native Control Center `visible=false`.
+
+This means the final endpoint is native-only without destroying the bridge. Reverse motion can reveal the same prepared Fake root through native `appearance=false` without a second compact bootstrap.
+
+### Device evidence
+
+The accepted Build-441 diagnostic records fully-expanded samples with Control Center still visible and the Fake root at alpha 0. The same behavior is observed in normal and Battery-island scenarios. This is consistent with the exact source contract and with the maintainer's accepted visual behavior.
+
+### 审查 / review
+
+- **appearance single writer:** SystemUI remains the only fake/final alpha owner.
+- **lifetime:** project visibility follows Control Center lifetime; native appearance owns the internal fake/final sub-lifetime.
+- **reverse continuity:** retaining the invisible prepared Fake session avoids a second first-frame readiness problem on close.
+- **no threshold:** do not add `fraction==1`, epsilon, timer, delayed hide, or project-owned appearance state.
+- **no final-QS mutation:** Combined Status never renders into or mutates `StatusBarLocation.QS`.
+- **charging island:** the previously investigated island root translation remains native and orthogonal to appearance ownership.
+
+### Outcome
+
+The fully-expanded native-only endpoint is promoted from maintainer preference/candidate to a verified Phase-2B contract. Together with accepted Build 441 behavior, the current Phase-2B exit criteria are satisfied for the pinned target. No new Build or APK is required.
+
+Next architecture phase: Keyguard/lockscreen steady-source ownership review, with AOD remaining separately native-only until verified.
+
+
 ## 2026-09-29 — Charging-island trajectory investigation: native QS_FAKE contract confirmed
 
 **Type:** post-integration exact-target investigation / no executable build

@@ -32,7 +32,7 @@ Classification is not permission to mutate SystemUI. Runtime integration still r
 | Home stable | PROJECTED | NONE | Runtime verified |
 | Notification-shade transition | NATIVE_ONLY | SYSTEM_UI | Runtime lifetime verified |
 | Control Center transition bridge | PROJECTED | SYSTEM_UI | Build 430 device-verifies top-level ControlCenterFakeStatusIcons fake/final ownership; Build 431 projects on its overlay |
-| Control Center fully expanded | NATIVE_ONLY candidate | SYSTEM_UI | Maintainer concept + native fake/real appearance evidence; product adoption pending review |
+| Control Center fully expanded | NATIVE_ONLY | SYSTEM_UI | Exact-target `onAppearanceChanged` fake->final alpha ownership + Build-441 device evidence |
 | Keyguard | NATIVE_ONLY | SYSTEM_UI | Static ownership verified |
 | AOD | NATIVE_ONLY | SYSTEM_UI | Static ownership verified |
 
@@ -89,12 +89,14 @@ Control Center is split into two ownership phases.
 - no additional status-icon measure/layout/battery-hide Hook set, project alpha/visibility/translation writer, interpolation, timer, polling/frame follower, or final-QS mutation is permitted; one low-frequency Fake-root attach Hook plus a temporary root layout listener may own bootstrap/readiness because they follow the native host/layout lifetime, and that listener must be removed after success/final failure/detach;
 - SystemUI remains the sole motion/geometry/appearance owner.
 
-**Fully expanded endpoint — current design candidate**
-- the maintainer currently prefers a native-only fully expanded Control Center state;
-- this is a product-intent hypothesis, not yet a verified endpoint/lifecycle contract;
-- exact source/runtime review must determine the true ownership boundary and whether a cleaner native handoff abstraction exists before this becomes implementation policy.
+**Fully expanded endpoint — verified native contract**
+- exact-target `ControlCenterHeaderExpandController.controlCenterCallback.onAppearanceChanged(appearance, animate)` owns the fake-vs-real Control Center visual handoff;
+- `appearance=true` drives final `ControlCenterStatusBarIcon` / `StatusBarLocation.QS` alpha to 1 and QS_FAKE alpha to 0; `appearance=false` does the inverse;
+- the native Folme helper owns animation/cancel/complete convergence; Combined Status does not write either root alpha;
+- Build-441 device diagnostics show `ControlCenterFakeStatusIcons` reaching alpha 0 at the fully-expanded endpoint, including Battery-island state;
+- Combined Status remains attached/prearmed inside the Fake root while Control Center is visible, but is visually absent at the final endpoint because the native parent is alpha 0; this retained session enables reverse motion without a second bootstrap.
 
-Build 420 proved the carrier/handoff mechanism and kept projection alive through the expanded Control Center lifetime. That remains valuable runtime evidence. Whether the final endpoint should be native-only is still under architecture review.
+Therefore the final endpoint is **native-only by inherited native appearance ownership**, not by a project-local fraction/visibility gate. Do not add `fraction == 1`, epsilon, timer, or duplicate appearance logic.
 
 No project-owned timing threshold, custom animation, polling/frame follower, peer geometry write, or second native suppression owner is permitted.
 
@@ -108,7 +110,7 @@ The maintainer's current product concept gives **Keyguard its own steady Combine
 - it reuses shared renderer/domain semantics but resolves its own native carrier, tint, lifecycle, cleanup and fail-native contract;
 - HyperOS already registers Home and Keyguard system-icon containers separately into `ControlCenterFakeViewController` and selects the active source from native `StatusBarState`; Combined Status should not duplicate that transition-source router;
 - the exact project adapter boundary for a Keyguard-originated pull remains under review rather than being forced into a preselected coordinator abstraction;
-- native-only fully expanded Control Center remains the maintainer's current product preference, with adoption pending final lifecycle/device review.
+- native-only fully expanded Control Center is now the verified shared destination contract for both future Home- and Keyguard-originated pulls; Keyguard steady ownership itself still requires Phase-3 validation.
 
 AOD remains a separate future surface and is not implied by Keyguard support.
 
@@ -156,6 +158,6 @@ Design consequences:
 - source-scene ownership and transition ownership should be evaluated separately;
 - Home/Keyguard may end up as separate adapters, a shared higher-level lifecycle, or another exact-target structure; do not decide this from the conceptual table alone;
 - a shared transition coordinator is a candidate only if source/runtime evidence supports it without creating a third state machine;
-- the maintainer currently prefers a native-only fully expanded Control Center endpoint, pending verification;
+- fully expanded Control Center is native-only through the verified native appearance owner;
 - reverse motion restores the correct source scene before bridge cleanup;
 - no source adapter may infer the other source scene from Battery state, global Keyguard booleans, or timing.

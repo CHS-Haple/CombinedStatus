@@ -49,7 +49,7 @@ Exit criteria:
 
 Current acceptance note: Build 408 is accepted for `dev` as the Phase-2A working baseline. Minor residual ring/center/dot optical-weight variance is deferred to later visual polish and does not reopen Home carrier ownership or block Phase 2B.
 
-## Phase 2B — Home ownership continuity + Control Center transition bridge — active
+## Phase 2B — Home ownership continuity + Control Center transition bridge — completed for current dev baseline
 
 Extend the accepted Phase-2A Home visual into panel transitions without reopening steady Home ownership.
 
@@ -59,7 +59,7 @@ Direction:
 - keep Notification Shade native-only and inherit Home departure/return from the verified native `system_icons` end-side carrier lifecycle rather than maintaining a project-local shade visibility gate;
 - current maintainer design concept treats Control Center as a **transition destination**, not a persistent Combined Status scene; verify this against the exact lifecycle chain before promoting it to final architecture;
 - during a partial pull, bridge the source Combined Status presentation through verified native Control Center transition geometry/progress so the gesture visually connects to HyperOS;
-- the maintainer currently prefers a fully expanded native-only Control Center endpoint; treat that as a target hypothesis until exact endpoint ownership is verified;
+- fully expanded Control Center is verified native-only on the pinned target: native `appearance` crossfades the `QS_FAKE` root to alpha 0 and the separate `QS` status bar to alpha 1, while Combined Status inherits the Fake root and adds no endpoint writer;
 - use verified native transition progress/endpoints only for that bounded bridge lifetime;
 - separate transition bridge lifetime/masking from the steady Home session;
 - preserve native peer animation and Control Center geometry ownership;
@@ -69,7 +69,7 @@ Accepted prerequisite: Build 413 closes the HUN/scene-lifetime boundary on the p
 
 Build-419 diagnostics plus maintainer clarification refine the remaining Phase-2B scope: Notification Shade is a **Home ownership boundary only**, while Control Center is the actual projection surface. The Build-419 bounded Notification-Shade probe is therefore retired rather than promoted into production.
 
-Build 420 establishes useful Control Center source geometry and readiness-ordered handoff evidence. Build 428 now narrows that conclusion: `realSystemIcons` is the selected Home/Keyguard source reference, not the visible Control Center presentation, and the source container can be natively hidden throughout current Control Center ownership. Builds 425-427 reject placing the Combined visual carrier inside child `QS_FAKE.system_icon_area`. Build 430 device evidence validates the **top-level `ControlCenterFakeStatusIcons` presentation carrier** independently from the child Battery/system-icon-area hide lifecycle: the root owns native fake/final alpha while the child remains visible. Build 431 keeps that root host but is device-rejected for clip-only occupancy because represented Wi-Fi/mobile widths remain in native layout. Build 432 retains the root overlay and reuses the existing presentation Hook substrate for fake `MiuiStatusIconContainer` compact layout, but device evidence rejects its visible-time transient-session lifecycle: the same QS_FAKE surface can nondeterministically appear native, partially compact/masked, or Combined because native layout readiness may arrive after expansion/appearance. Build 433 moves QS_FAKE compact preparation out of the visible cycle and into the native `ControlCenterFakeStatusIcons` host lifetime, but cold-start evidence shows bare `onAttachedToWindow()` can still precede usable child/Battery geometry. Build 434 therefore keeps attach as the bootstrap lifetime boundary while establishing compact readiness only after the root's first native layout, with at most one additional native-layout retry for explicit early-geometry failures. Build-434 device diagnostics then show that prearm succeeds but a transient startup layout-unavailable event incorrectly tears the compact owner back down; Build 435 separates render-geometry readiness from compact-presentation lifetime so an attached, already-prepared QS_FAKE owner survives that transient loss. Endpoint motion and charging-island Battery alignment remain separate evidence gates after Fake determinism. Build 424 separately remains the accepted Home/Notification-Shade carrier correction.
+Build 420 establishes useful Control Center source geometry and readiness-ordered handoff evidence. Build 428 narrows that conclusion: `realSystemIcons` is the selected Home/Keyguard source reference, not the visible Control Center presentation. Builds 425-427 reject the child `QS_FAKE.system_icon_area` carrier. Builds 430-441 then establish and device-accept the top-level `ControlCenterFakeStatusIcons.overlay` bridge, compact presentation lifetime, deterministic first-pull behavior and continuous Hot Reload handoff. Post-acceptance exact-target review closes the remaining geometry questions: Battery-island `batteryWidthDiff` is native QS_FAKE root motion and must not be compensated locally; `onAppearanceChanged(...)` is the native fake-to-final visual ownership switch, and Build-441 diagnostics confirm the Fake root reaches alpha 0 at the fully-expanded endpoint. Build 424 remains the accepted Home/Notification-Shade carrier correction.
 
 Exit criteria:
 - clean Home departure and return;
@@ -77,11 +77,11 @@ Exit criteria:
 - clean partial-pull transition into Control Center and exact yield to native status icons at the fully expanded endpoint; Notification Shade remains native/no-status-icon by design;
 - no regression in steady Home or charging/island behavior.
 
-## Phase 3 — Keyguard / lockscreen / AOD scene completion
+## Phase 3 — Keyguard / lockscreen / AOD scene completion — active architecture review
 
 Reuse the stabilized domain state, renderer semantics, ownership rules, and fail-native behavior while giving each scene its own verified host/lifecycle adapter.
 
-The maintainer's current scene concept is intentionally symmetric, but remains a planning hypothesis until the exact Keyguard/Control Center lifecycle review:
+Phase 2B now verifies the shared Control Center transition/destination contract. Phase 3 begins by verifying each locked-source steady host independently rather than assuming symmetry:
 - **Unlocked concept:** Home steady Combined Status -> partial-pull transition continuity -> fully expanded Control Center native-only.
 - **Locked concept:** Keyguard steady Combined Status -> partial-pull transition continuity -> fully expanded Control Center native-only.
 - Notification Shade remains native-only on the pinned target.

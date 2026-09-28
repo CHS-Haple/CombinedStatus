@@ -618,22 +618,17 @@ Additional Home evidence:
 - While that value is true, `updateSystemInfoIconVisibilities()` calls `hideEndSideContent(false)`; when false, it calls `showEndSideContent(false)`.
 - Therefore a Combined Status visual placed inside the native Home `system_icons` carrier can inherit Home departure/return without a project-local Control Center visibility writer.
 
-### Candidate implication for later review
+### Accepted Phase-2B implication
 
-A lower-maintenance transition architecture may be possible:
+The validated current topology is:
 
 `source steady carrier -> native QS_FAKE transition carrier -> native QS destination`
 
-with Combined Status rendering only inside verified source/fake carriers and inheriting native translation/alpha/tint, instead of maintaining a project-owned Control Center motion/appearance state machine.
+Builds 430-441 close the previously open readiness, suppression, compact-occupancy and Hot Reload questions for the unlocked/Home source. Combined Status renders only inside the verified Home and QS_FAKE carriers and inherits native translation/alpha/tint rather than maintaining a project-owned Control Center motion/appearance state machine.
 
-This is **not yet an implementation decision**. Before promotion, review:
-- first-frame readiness if the fake carrier is prepared before gesture start;
-- exact ownership/masking of represented native Wi-Fi/mobile/Battery inside `QS_FAKE`;
-- Hot Reload / recreation behavior;
-- whether one low-frequency fake-view lifecycle attachment is preferable to the current Build-420 visible-event projection;
-- interaction with the later lockscreen steady adapter.
+The fully-expanded handoff is specifically **not** derived from fraction. Exact target `onAppearanceChanged(appearance, animate)` selects final-vs-fake alpha, and Build-441 device evidence confirms the Fake root reaches alpha 0 at the endpoint while the project session remains prearmed for reverse motion.
 
-Do not derive the fake-to-real switch from fraction/epsilon/timer logic when the native appearance lifecycle is available.
+Do not derive the fake-to-real switch from fraction/epsilon/timer logic, and do not hide/destroy the QS_FAKE session merely because progress reaches 1.0.
 
 
 ### QS_FAKE readiness and suppression refinement
@@ -705,18 +700,15 @@ The concrete plugin-side producer of `appearance` is outside the SystemUI APK re
 
 ### Reusable architecture implication
 
-A strong candidate lifecycle is:
+The accepted shared transition/destination lifecycle is:
 
-`source native carrier (Home or Keyguard)`
+`source native carrier (Home now, Keyguard after Phase-3 steady-host validation)`
 → `native QS_FAKE transition carrier`
 → `native QS destination carrier`.
 
-This is **evidence, not yet a production decision**. Before replacing the current Build-420 transition mechanism:
-- verify the fake carrier at runtime on the pinned device;
-- verify first/last-frame continuity and Hot Reload/bootstrap behavior;
-- review whether attaching Combined Status inside the fake carrier can inherit native translation/alpha/tint without adding a second appearance/fraction writer.
+Builds 430-441 verify the Fake carrier at runtime on the pinned device, including first-pull determinism, reversible compact occupancy, Hot Reload/recreation behavior and inherited native translation/alpha. Build-441 endpoint evidence closes the final fake-to-real boundary without adding a second appearance/fraction writer.
 
-No project-local six-state scene machine is justified by the current evidence.
+Phase 3 must therefore add only a verified Keyguard **source steady adapter** if required; it must not replace the accepted QS_FAKE/QS transition-destination ownership or introduce a project-local six-state scene machine.
 
 
 ### Android ViewOverlay inheritance note
