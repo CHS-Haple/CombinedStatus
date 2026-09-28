@@ -257,7 +257,7 @@ internal object SystemUiHomePresentationOwner {
         val masked = session.start()
         batteryContainer.requestLayout()
         eventSink?.invoke(
-            "homePresentation active carrier=MiuiNotificationStatusContainer.overlay " +
+            "homePresentation active carrier=MiuiStatusBatteryContainer.overlay " +
                 "representedSlots=" + representedSlots.joinToString(",") +
                 " maskedViews=" + masked +
                 " slotExclusion=scoped-native-measure-layout " +
