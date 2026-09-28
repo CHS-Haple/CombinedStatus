@@ -622,3 +622,62 @@ A lower-overhead generalization candidate is to retain those same Hooks and rout
 The Home end-reservation formula is also structurally carrier-local: it replaces the native Battery end reservation with the compact requested slot width. Build-423 normal-state evidence had stable carrier width = actual Battery width = requested compact width = 105, yielding zero padding delta. For charging/island variants, `MiuiBatteryMeterView` writes island hide state to its own associated `MiuiStatusBatteryContainer`; QS_FAKE binds its Battery to its own container. This supports evaluating the same reservation policy from each carrier's local native state rather than copying Home state into QS_FAKE.
 
 These are architecture candidates, not authorization to refactor Build 424.
+
+
+---
+
+## HyperOS Control Center source / transition / destination ownership
+
+**Exact-target evidence — SystemUI 17.03.260226.r.**
+
+The pinned target already separates the Control Center status-bar lifecycle into distinct native responsibilities. This is stronger evidence than deriving scene state from panel fraction.
+
+### Source registration
+
+Unlocked source:
+- `MiuiPhoneStatusBarView.onFinishInflate()` resolves `R.id.system_icons` as `mStatusBatteryContainer`.
+- `MiuiPhoneStatusBarView.initDependence(...)` assigns that exact `MiuiStatusBatteryContainer` to `ControlCenterFakeViewController.statusBarSystemIcons`.
+- The assignment is followed by `adjustRealSystemIcons()`.
+
+Keyguard source:
+- `MiuiKeyguardStatusBarView` registers its `mSystemIconsContainer` as `ControlCenterFakeViewController.keyguardSystemIcons`.
+- That assignment is also followed by `adjustRealSystemIcons()`.
+- Keyguard color changes are forwarded to `controlCenterFakeStatusBar.setKeyguardStatusBarColors(...)`.
+
+`ControlCenterFakeViewController` therefore owns the native source selection for Control Center transitions; Combined Status should not duplicate an unlocked-vs-keyguard routing state machine.
+
+### Transition representation
+
+The Control Center fake status bar is a complete native status-bar representation rather than a geometry-only shell:
+- it owns a `MiuiStatusBatteryContainer`, status-icon container and Battery View;
+- it uses the native `StatusBarLocation.QS_FAKE` icon group;
+- it participates in native tint, island and attach/detach lifecycle;
+- the source status-bar state is used to select unlocked/keyguard presentation semantics.
+
+`ControlCenterHeaderExpandController.onExpansionChanged(...)` applies native transition geometry to the Control Center-side fake/real status-bar representations while reading the current source `realSystemIcons` as the anchor.
+
+### Destination ownership
+
+The fully expanded Control Center has its own native status-bar representation (`StatusBarLocation.QS`), distinct from the source Home/Keyguard `realSystemIcons`.
+
+Native `appearance` is a separate semantic from `visible`, `expansion`, and `tracking`:
+- `appearance=false` selects the fake Control Center status bar visually;
+- `appearance=true` selects the real Control Center status bar visually;
+- expansion motion and visual ownership are therefore separate native axes.
+
+The concrete plugin-side producer of `appearance` is outside the SystemUI APK reviewed here. Do not infer its internal threshold or reproduce it from fraction. The verified SystemUI consumer contract is sufficient to establish that fake/real visual ownership already exists natively.
+
+### Reusable architecture implication
+
+A strong candidate lifecycle is:
+
+`source native carrier (Home or Keyguard)`
+→ `native QS_FAKE transition carrier`
+→ `native QS destination carrier`.
+
+This is **evidence, not yet a production decision**. Before replacing the current Build-420 transition mechanism:
+- verify the fake carrier at runtime on the pinned device;
+- verify first/last-frame continuity and Hot Reload/bootstrap behavior;
+- review whether attaching Combined Status inside the fake carrier can inherit native translation/alpha/tint without adding a second appearance/fraction writer.
+
+No project-local six-state scene machine is justified by the current evidence.
