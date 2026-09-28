@@ -7279,3 +7279,42 @@ A commit comparison from executable source `2556a098...` to the post-fix branch 
 - **Single writer:** the test no longer encodes the rejected shade visibility writer.
 - **Cleanup / fail-native / performance / compatibility:** unchanged from Build 424.
 - **Validation limitation:** the current GitHub connector can mutate PR state and repository files but its PR mutations are not producing a new Actions run for the Build-424 head; the local container cannot resolve github.com. Static review therefore does not substitute for required repository CI.
+
+
+---
+
+## 2026-09-28 — Build 424 static review and CI event recovery
+
+**Type:** static review / CI checkpoint recovery  
+**Runtime Build:** unchanged — 424 / `20260928-424`  
+**Exact executable source:** `2556a098d35c202e1c5645a06e73757744f721e1`  
+**PR:** #146
+
+### Static review result
+
+Build 424 runtime review is complete and no further executable change is required before automated validation:
+
+- Home visual is attached to `MiuiStatusBatteryContainer(system_icons).overlay`;
+- no active Notification-Shade runtime Hook, Home-eligibility state, restore/query path, or per-drag visibility writer remains;
+- `SystemUiPanelTransitionSource` retains only the Control Center visibility runtime Hook plus the optional bounded expansion diagnostic Hook;
+- the exact-target profile retains Notification Header class/method evidence only as verified reference data, not as an active Hook point;
+- unit-test expectations match one Control Center runtime Hook and one optional diagnostic Hook;
+- later branch changes after the exact Build-424 executable source are test/documentation-only.
+
+### 审查 / review
+
+- **Ownership:** Home end-side alpha/visibility/translation remain HyperOS-owned.
+- **Lifecycle:** the Home render session follows the native `system_icons` carrier; no new observer/service is introduced.
+- **Single writer:** the rejected Notification fraction visibility writer is removed.
+- **Cleanup:** overlay/listener cleanup remains symmetric and host-scoped.
+- **Fail-native:** unresolved carrier contracts do not fall back to timing/geometry compensation.
+- **Performance:** one gesture-time Notification Hook/path is removed; no polling/frame loop is added.
+- **Compatibility:** active target profile Hook points match the remaining runtime integration.
+- **Exception recovery:** existing host replacement, Hot Reload teardown, and native restoration remain unchanged.
+- **Future extension:** Control Center/Keyguard lifecycle research remains analysis-only and is not mixed into Build 424.
+
+### CI event observation
+
+PR #146 was marked Ready at GitHub event time `2026-09-28T08:04:05Z`. The repository `.github/workflows/build.yml` explicitly subscribes to `pull_request.ready_for_review` for `dev`-based PRs, but no workflow run or commit status was created for that Ready event.
+
+This record-only checkpoint intentionally creates a normal PR `synchronize` event so repository validation can resume without toggling Draft/Ready repeatedly. It does not change executable content or Build identity.
