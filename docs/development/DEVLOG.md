@@ -7318,3 +7318,72 @@ Build 424 runtime review is complete and no further executable change is require
 PR #146 was marked Ready at GitHub event time `2026-09-28T08:04:05Z`. The repository `.github/workflows/build.yml` explicitly subscribes to `pull_request.ready_for_review` for `dev`-based PRs, but no workflow run or commit status was created for that Ready event.
 
 This record-only checkpoint intentionally creates a normal PR `synchronize` event so repository validation can resume without toggling Draft/Ready repeatedly. It does not change executable content or Build identity.
+
+---
+
+## 2026-09-28 — Exact-target Control Center ownership topology review
+
+**Type:** architecture investigation / no runtime change  
+**Runtime Build:** unchanged; Build 424 remains the active executable checkpoint  
+**Branch / PR:** `feat/panel-projection` / Draft #146
+
+### Objective
+
+Review the maintainer's conceptual unlocked/locked/partial-pull/fully-expanded split against the actual HyperOS SystemUI ownership chain before committing to a follow-up architecture.
+
+### Exact-target findings
+
+The target does not expose one monolithic Control Center status-bar owner.
+
+**Source authority**
+- `MiuiPhoneStatusBarView.initDependence()` registers Home `mStatusBatteryContainer` as `ControlCenterFakeViewController.statusBarSystemIcons`.
+- `MiuiKeyguardStatusBarView.initCallback()` registers lockscreen `mSystemIconsContainer` as `keyguardSystemIcons`.
+- `ControlCenterFakeViewController.adjustRealSystemIcons()` selects the active source from native `StatusBarState`.
+- This makes a project-local unlocked/keyguard transition router unnecessary in principle.
+
+**Transition authority**
+- `ControlCenterFakeStatusIcons` is a complete native `QS_FAKE` status-bar presentation with its own status-icon group, Battery, `MiuiStatusBatteryContainer`, tint/dark receiver, island owner, and attach/detach cleanup.
+- Its width is synchronized from the currently selected source.
+- Its tint policy already follows unlocked vs keyguard native authority.
+
+**Destination authority**
+- Control Center has a separate real native status-bar presentation.
+- Native `onExpansionChanged(float)` moves fake and real presentations.
+- Native `onAppearanceChanged(boolean, boolean)` switches alpha/visual ownership between fake and real.
+- `PanelExpandController.getAppearance()` exposes the current ownership value; no local fraction threshold is required.
+
+**Home departure**
+- `expandStateForStatusBar` feeds `HomeStatusBarViewBinderInjector.mControlPanelExpand`.
+- When true, Home binder calls `hideEndSideContent(false)`; when false, it restores with `showEndSideContent(false)`.
+- Build 424 therefore places the Home compact visual on the correct carrier to inherit this departure/return naturally.
+
+### Revised candidate model
+
+The strongest current candidate is not “two project-owned three-state machines”. It is native-owner composition:
+
+`steady source adapter (Home / future Keyguard)`
+→ `HyperOS QS_FAKE transition presentation`
+→ `HyperOS QS real destination`
+
+The project would share renderer/domain semantics, but each rendered carrier would remain scoped to the native View lifecycle that owns its phase.
+
+### 审查 / review
+
+- **Ownership:** HyperOS already owns source selection, transition motion, fake/real appearance, and final Control Center destination. Combined Status should avoid duplicating any of those facts.
+- **Lifecycle:** source adapters bind their own native Views; a future transition adapter should bind the fake View lifecycle, not hold source references as its lifecycle authority.
+- **Single writer:** candidate route could remove the current project-local Control Center Home visibility gate and avoid any new appearance writer by inheriting native carrier alpha.
+- **Cleanup:** `QS_FAKE` already has symmetric native attach/detach registration; any Combined Status overlay must add/remove only its own View/listeners.
+- **Fail-native:** if the fake carrier contract cannot be resolved, leave native Control Center untouched.
+- **Performance:** candidate requires no polling, timer, per-frame reflection, or local animation; only low-frequency lifecycle/event integration is acceptable.
+- **Compatibility:** all findings are exact-target evidence for SystemUI `17.03.260226.r`; plugin-side appearance producer conditions are not visible in this APK and must not be guessed.
+- **Exception recovery:** source references can outlive a detached source View until a replacement registers, so Combined Status must not use `realSystemIcons` reference lifetime as its own HostSession lifetime.
+- **Future extension:** native source selection already covers Home vs Keyguard and may substantially simplify Phase 3.
+
+### Decision boundary
+
+No follow-up runtime implementation is authorized by this record. Build 424 remains a single-variable Home-carrier correction. After Build 424's automated/device result, compare:
+1. retain the Build-420 source-anchor projection;
+2. migrate the transition render to the native `QS_FAKE` carrier;
+3. any evidence-backed alternative.
+
+Discuss the lifecycle/maintenance tradeoff with the maintainer before selecting the follow-up route.
