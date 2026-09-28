@@ -7186,3 +7186,62 @@ Mixing the new fully-expanded-native Control Center endpoint into the same execu
 - **Performance:** shared event-driven coordinator; no polling or duplicated per-scene state machine.
 - **Compatibility:** source host adapters remain target-verified independently.
 - **Future extension:** Keyguard can be added without changing Home ownership or creating a second transition engine.
+
+
+---
+
+## 2026-09-28 — Scene-family boundary clarified before lockscreen work
+
+**Type:** product architecture clarification / future-compatibility review  
+**Runtime Build:** unchanged; Build 424 remains the active executable checkpoint  
+**Branch / PR:** `feat/panel-projection` / Draft #146
+
+### Maintainer requirement
+
+The long-term status-bar behavior is defined as two source-scene families:
+
+- **Unlocked:** unlocked steady Combined Status -> HyperOS-owned partial Control Center pull transition -> fully expanded Control Center native-only.
+- **Locked:** lockscreen steady Combined Status -> HyperOS-owned partial Control Center pull transition -> fully expanded Control Center native-only.
+
+Notification Shade remains native-only on the pinned target. AOD remains separate until its own host/lifecycle contract is proven.
+
+### Consequence for current work
+
+This clarification does **not** reject Build 424's Home carrier correction. Build 424 is explicitly an unlocked/Home source-adapter fix: it places the visual inside the native `system_icons` carrier and removes the incorrect project-local Notification-Shade visibility writer.
+
+It **does** narrow how Build 420 should be interpreted. The device-accepted `realSystemIcons` carrier and readiness-ordered handoff remain valid transition evidence, but keeping Combined Status projected for the entire fully expanded Control Center lifetime is no longer the final product requirement.
+
+### Architecture decision
+
+Model scene behavior as:
+
+`source surface adapter -> native transition bridge -> native expanded endpoint`
+
+with separate mutable source adapters for unlocked and lockscreen surfaces.
+
+Shared across adapters:
+- domain/network/battery state;
+- renderer semantics and visual policy;
+- immutable transition policy helpers where they are genuinely common.
+
+Not shared:
+- host/View references;
+- lifecycle/session state;
+- scene-specific geometry/tint anchors;
+- cleanup tokens;
+- transition carrier ownership.
+
+### 审查 / review
+
+- **Ownership:** unlocked and lockscreen each require their own verified source owner; fully expanded Control Center remains SystemUI/native-owned.
+- **Lifecycle:** no lockscreen runtime object is created during Phase 2B.
+- **Single writer:** do not add a global scene-state writer spanning Home and Keyguard; scene transfer is adapter ownership transfer.
+- **Cleanup:** each adapter must clean only its own host/session resources.
+- **Fail-native:** unsupported or unresolved lockscreen/transition contracts stay native.
+- **Performance:** planning adds zero runtime observers/hooks/services; future adapters must remain event-driven.
+- **Compatibility:** exact-target evidence is required independently for unlocked, lockscreen, and the native fully-expanded boundary.
+- **Future extension:** Build 424 remains valid as the unlocked source-carrier foundation; Phase 3 can add a lockscreen adapter without rewriting the renderer/domain layer.
+
+### Immediate follow-up
+
+Trace the exact HyperOS semantic that distinguishes **Control Center transition** from **settled fully expanded Control Center**. Do not use a local progress epsilon or timer. Only after that authority is verified should the Build-420 projection lifetime be narrowed.
