@@ -3,6 +3,60 @@
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
 
+## 2026-09-29 — Build 434: move QS_FAKE prearm from attach to first native layout
+
+**Type:** Phase-2B cold-start lifecycle correction / executable checkpoint  
+**Build:** 434 / `20260929-434`  
+**Work branch / PR:** `fix/control-center-fake-root` / #156
+
+### Build 433 device result
+
+Build 433 improves repeated-pull stability but is rejected for cold-start determinism. After SystemUI restart, the first non-charging Control Center pull can still expose native QS_FAKE. Maintainer evidence also confirms charging-no-island is stable enough for this lifecycle gate, while charging-island retains the already-known larger horizontal trajectory and Battery mismatch.
+
+Detailed diagnostics close the cold-start cause:
+- Fake-root attach prearm is recorded as `unavailable`;
+- the panel-transition Hook set itself is installed and healthy;
+- later visibility cycles on the same runtime reach `controlCenterProjection compact ready=true source=prearm-reuse` with model/tint/layout/native presentation all ready.
+
+Therefore the remaining 433 race is not host identity or repeated visibility ownership. It is the **geometry-ready boundary between root attach and first native layout**.
+
+### 问题执行流程
+
+1. Retain Fake-root lifetime ownership from Build 433.
+2. Reject `onAttachedToWindow()` as sufficient proof of child/Battery geometry readiness.
+3. Use the root's first native layout as the prearm boundary.
+4. Keep visible-time preparation only as an exceptional fallback, not the normal lifecycle.
+5. Bound any early-layout retry and fail native on structural incompatibility.
+
+### Implementation
+
+- Advance runtime identity to Build 434 / `20260929-434`.
+- `ControlCenterFakeStatusIcons.onAttachedToWindow()` now schedules a temporary `OnLayoutChangeListener` instead of directly establishing compact presentation.
+- On first root layout, the existing `attach()/prepareNativePresentation()` path resolves the Fake status area, status icon group, Battery and stable carrier using already-laid-out native geometry.
+- Hot Reload transfers either the active or pending attached Fake root; an already-laid-out restored root requests one native layout cycle and uses the same bootstrap path.
+- Explicit early-readiness failures may retry on at most one additional native layout; total attempts are capped at two.
+- Success/final failure/detach/runtime teardown removes the listener.
+- No new SystemUI measure/layout/battery-hide Hook is added; this listener is lifecycle-only.
+
+### 审查 / review
+
+- **Ownership:** Fake root attach owns bootstrap lifetime; first native layout establishes compact readiness; visibility only requests Combined rendering/Home handoff.
+- **Single writer:** native slot exclusion/padding/clip state remains exclusively in `SystemUiHomePresentationOwner`.
+- **Performance:** at most two root layout callbacks; no timer, polling, Choreographer/frame follower, or persistent layout observer.
+- **Cleanup:** pending bootstrap is included in detach and Hot Reload cleanup; pending attached root can be transferred across generations.
+- **Fail native:** retry is limited to known early-readiness failures such as unavailable Battery carrier width/hierarchy; type/field contract failures are not retried.
+- **Geometry scope:** fully expanded endpoint motion and charging-island Battery mapping remain deliberately unchanged.
+
+### Charging-island evidence retained for follow-up
+
+Non-island Control Center samples report approximately `normalStatusBarTx=46`, `normalStatusIconsTx=46`, `batteryWidthDiff=0`. Island samples report approximately `normalStatusBarTx=61`, `normalStatusIconsTx=181`, `batteryWidthDiff=-135`. The maintainer's observed extra leftward island trajectory is therefore treated as real native geometry evidence, not visual noise. Build 434 does not compensate it before lifecycle determinism is closed.
+
+### Device gate
+
+Restart SystemUI and perform the **first non-charging pull first**. It must present deterministic Combined QS_FAKE rather than raw native Fake. Then repeat several non-charging pulls and one charging-no-island / charging-island regression pass. Endpoint motion and island Battery alignment remain separate next-step gates.
+
+
+
 ## 2026-09-29 — Build 433: prearm QS_FAKE on native root lifecycle
 
 **Type:** Phase-2B lifecycle root-cause correction / executable checkpoint
