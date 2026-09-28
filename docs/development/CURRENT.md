@@ -121,14 +121,15 @@ Builds 421-423 are rejected for Notification-Shade first/last-frame continuity. 
 - the legacy Hot Reload payload slot is retained as a null compatibility field only; it is not an active runtime authority;
 - Build-420 Control Center carrier/handoff mechanics are unchanged inside Build 424; their future scope is now explicitly transition-only, with native-only ownership at the fully expanded endpoint.
 
-Build 424 is the current runtime checkpoint (`20260928-424`). Exact executable source: `2556a098d35c202e1c5645a06e73757744f721e1`. Later branch commits are test/documentation-only as of the current review. Automated GitHub validation is still pending; no device acceptance is claimed yet.
+Build 424 is the current runtime checkpoint (`20260928-424`). Exact executable source: `2556a098d35c202e1c5645a06e73757744f721e1`. Later branch commits remain test/documentation-only as of the current review. Static review confirms no active Notification-Shade visibility Hook/gate remains and the active target-profile panel Hook is only Control Center `onVisibleChanged(Z)` (plus optional bounded expansion diagnostics). A Ready checkpoint was attempted, but GitHub produced no pull-request Build/check for the exact head despite `.github/workflows/build.yml` explicitly handling `ready_for_review` and `synchronize`; PR #146 is back in Draft while investigation continues. No device acceptance is claimed yet.
 
 **Maintainer working scene concept — planning input, not yet a verified lifecycle contract:**
 - The maintainer's current conceptual split is: unlocked/Home steady, locked/Keyguard steady, partial Control Center pull with HyperOS transition continuity, and fully expanded Control Center native-only.
 - Treat that split as a product-intent input, not as proof of the underlying SystemUI lifecycle topology.
-- Exact-target source/runtime evidence may support a simpler or differently grouped ownership model; if so, present the evidence and lifecycle alternatives for review before changing architecture policy.
+- Exact-target review now establishes a cleaner native ownership topology: Home and Keyguard register separate real source carriers into `ControlCenterFakeViewController`; native `StatusBarState` selects the source; `ControlCenterFakeStatusIcons` provides a complete `QS_FAKE` transition status bar with native tint/island/lifecycle; `onAppearanceChanged` switches fake/real Control Center visual ownership.
+- This makes `source steady adapter -> native QS_FAKE transition carrier -> native QS destination` the leading low-maintenance candidate, but it is **not yet an implementation decision**. First-frame readiness, suppression/masking, Hot Reload and device behavior still require review.
 - Home and future Keyguard must not be forced into one View ownership model merely to match the conceptual split.
-- This planning input does not widen Build 424: Build 424 remains the Home-carrier/Notification-writer correction only.
+- This investigation does not widen Build 424: Build 424 remains the Home-carrier/Notification-writer correction only.
 
 ## Non-negotiable boundaries
 
@@ -160,12 +161,12 @@ Build 424 is the current runtime checkpoint (`20260928-424`). Exact executable s
 
 ## Immediate next step
 
-1. Complete static/source review for Build 424 and ensure no active Notification-Shade Home visibility writer remains.
-2. Validate the exact-target profile and unit/build checks on the final Draft checkpoint.
-3. Keep PR #146 Draft during iteration; once the complete checkpoint is clean, move it Ready for the required repository validation.
-4. Preserve Build-420 carrier/handoff mechanics as regression evidence during Build 424; do not yet mix in the new fully-expanded-native endpoint change.
-5. Only after automated validation passes, request one exact-head signed Canary for focused device validation of the Build-424 Home-carrier correction plus Control Center regression and Hot Reload/lock smoke behavior.
-6. After Build 424 is accepted or rejected, first review the exact Control Center + Keyguard lifecycle/endpoint chain. Compare the maintainer's conceptual split against source/runtime evidence and discuss the resulting candidate architecture before any follow-up runtime checkpoint.
+1. Build 424 static/source review is complete; keep its executable source frozen.
+2. Retry the Ready repository-validation checkpoint without changing runtime once GitHub pull-request event delivery is available; the expected route is the repository's normal Fast/Full classifier, not a Canary bypass.
+3. Only after automated validation passes, request one exact-head signed Canary for focused device validation of the Build-424 Home-carrier correction plus Control Center regression and Hot Reload/lock smoke behavior.
+4. Preserve Build-420 carrier/handoff mechanics as regression evidence during Build 424; do not mix the candidate `QS_FAKE` transition architecture into this runtime checkpoint.
+5. Continue exact-target lifecycle review in parallel, especially first-frame readiness, fake-carrier native suppression/masking, and Hot Reload/recreation cost.
+6. After Build 424 is accepted or rejected, present the verified source/QS_FAKE/QS ownership model and alternatives to the maintainer before selecting any follow-up runtime architecture.
 
 ## Reference priority
 
