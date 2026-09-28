@@ -5,10 +5,10 @@ This is the chronological engineering diary for Combined Status. It complements,
 
 ## 2026-09-28 — Build 427 rejected; Build 428 maps native Control Center appearance boundary
 
-**Type:** Phase-2B device-result correction / bounded diagnostic checkpoint  
-**Rejected Build:** 427 / `20260928-427`  
-**New diagnostic Build:** 428 / `20260928-428`  
-**Rejected PR:** #152 `feat/control-center-native-transition` — closed  
+**Type:** Phase-2B device-result correction / bounded diagnostic checkpoint
+**Rejected Build:** 427 / `20260928-427`
+**New diagnostic Build:** 428 / `20260928-428`
+**Rejected PR:** #152 `feat/control-center-native-transition` — closed
 **Work branch:** `fix/control-center-appearance-boundary`
 
 ### Device evidence
