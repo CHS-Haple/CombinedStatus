@@ -2,6 +2,79 @@
 
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
+
+## 2026-09-28 — Build 427 rejected; Build 428 maps native Control Center appearance boundary
+
+**Type:** Phase-2B device-result correction / bounded diagnostic checkpoint  
+**Rejected Build:** 427 / `20260928-427`  
+**New diagnostic Build:** 428 / `20260928-428`  
+**Rejected PR:** #152 `feat/control-center-native-transition` — closed  
+**Work branch:** `fix/control-center-appearance-boundary`
+
+### Device evidence
+
+Build 427 is rejected on the target device.
+
+Maintainer evidence shows:
+- non-charging Control Center pulls are nondeterministic: Combined Status can disappear, native Wi-Fi/mobile/Battery can reappear, and native/project presentations can overlap;
+- charging is visually more stable, but with the charging island active the steady Home compact visual is displaced to the native right-side position while the pull transition appears left-shifted;
+- the Detailed report repeatedly reaches `native-layout-ready -> presentation.cutover state=combined -> projection owned=true`;
+- no matching `presentation.failNative` or `host-replaced` failure explains the visible defect.
+
+Therefore Build 427 disproves the hypothesis that the remaining problem is only the QS_FAKE first-layout cutover race fixed after Build 426.
+
+### Root cause / responsibility update
+
+Exact-target SystemUI evidence already establishes two separate Control Center status-bar presentations:
+1. `QS_FAKE` / `ControlCenterFakeStatusIcons`;
+2. the independent final `QS` status bar.
+
+`ControlCenterHeaderExpandController.onExpansionChanged(...)` moves both native presentations, while `onAppearanceChanged(boolean, boolean)` switches fake/final visual ownership through HyperOS-owned alpha behavior.
+
+Builds 425-427 replace represented content only inside QS_FAKE. Device evidence now shows that this does not define a stable complete transition when the final QS presentation remains independent. The intermittent disappearance/native overlap is therefore treated as a carrier/ownership-boundary mismatch, not as justification for another clip, delay, local fraction threshold, or geometry correction.
+
+The charging-island horizontal difference is also left SystemUI-owned. Build 427 diagnostics expose non-zero native `batteryWidthDiff` / island state during that path; Combined Status must not cancel it with a project offset.
+
+### Route correction
+
+The earlier architecture comparison explicitly retained route C — **Build-420 source projection + native `appearance` endpoint gating** — as the fallback if device evidence invalidated route B / QS_FAKE. Build 427 satisfies that fallback condition.
+
+This does not restore a disproven implementation:
+- Build 420's `realSystemIcons.overlay` Control Center projection was device-accepted;
+- Build 424's Home `system_icons` carrier remains the accepted source-side baseline;
+- only the later QS_FAKE replacement route is rejected here.
+
+### Build 428 implementation
+
+Build 428 starts directly from accepted `dev` Build 424 and adds one bounded, diagnostics-only observation:
+- Hook exact-target `ControlCenterHeaderExpandController$controlCenterCallback$1.onAppearanceChanged(boolean, boolean)` only when Control Center runtime diagnostics are included;
+- preserve both boolean arguments verbatim as `first` / `second`; do not assign semantic names before device evidence;
+- after the native callback proceeds, log the two booleans plus existing read-only `isControlCenterExpanding`, `isAddBatteryIsland`, and `batteryWidthDiff` context;
+- normal production runtime Hook count remains one; diagnostics Hook count becomes two (expansion + appearance);
+- no visibility, alpha, translation, geometry, slot, padding, appearance, animation, timer, polling, or frame-follower write is added.
+
+### 审查 / review
+
+- **Ownership:** HyperOS remains sole owner of source selection, transition geometry, QS_FAKE/QS appearance and charging-island motion.
+- **Lifecycle:** the added callback exists only in Detailed/Canary diagnostics; Build 424 runtime presentation behavior is otherwise unchanged.
+- **Single writer:** the new path is read-only and does not become a presentation writer.
+- **Cleanup:** Xposed hook cleanup follows the existing generation/takeover lifecycle; no View/session object is added.
+- **Fail native:** missing exact callback contract causes the diagnostic checkpoint to fail compatibility validation rather than inventing a fallback meaning.
+- **Performance:** low-frequency native appearance callback only; no polling or per-frame work.
+- **Compatibility:** evidence and Hook are pinned to SystemUI `17.03.260226.r`.
+- **Exception recovery:** no persistent state is derived from the two booleans in Build 428.
+- **Future extension:** only after target-device evidence maps the native endpoint semantics may route C use that fact to bound the already proven source projection.
+
+### Device gate
+
+Build 428 requires one focused target-device run. The purpose is **semantic evidence**, not visual acceptance of a final fix:
+- partial pull and reverse;
+- full expansion and reverse;
+- repeat with charging island active;
+- capture Detailed diagnostics containing `controlCenterAppearance`.
+
+Runtime must remain frozen after Canary until this evidence is returned.
+
 ## 2026-09-28 — CI validation-surface routing and main/dev synchronization
 
 **Type:** repository automation / CI governance
