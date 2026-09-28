@@ -23,11 +23,10 @@ internal object CombinedStatusControlCenterRenderSession {
         host: ViewGroup,
         onEvent: (String) -> Unit,
         isDetailedDiagnosticsEnabled: () -> Boolean,
-        onProjectionReadinessChanged: (Boolean) -> Unit,
+        onRenderReadinessChanged: (Boolean) -> Unit,
     ): AttachResult {
         if (Looper.myLooper() !== Looper.getMainLooper()) return AttachResult.Failure("main-thread-required")
-        if (host.javaClass.name != BATTERY_CONTAINER_CLASS_NAME) return AttachResult.Failure("real-system-icons-type-mismatch")
-        if (!SystemUiHomePresentationOwner.ownsBatteryContainer(host)) return AttachResult.Failure("real-system-icons-not-home-owned-container")
+        if (host.javaClass.name != BATTERY_CONTAINER_CLASS_NAME) return AttachResult.Failure("qs-fake-carrier-type-mismatch")
         val statusIcons = host.directChild(STATUS_ICON_CONTAINER_CLASS_NAME) as? ViewGroup
             ?: return AttachResult.Failure("status-icons-missing")
         val battery = host.directChild(BATTERY_VIEW_CLASS_NAME) as? ViewGroup
@@ -48,13 +47,15 @@ internal object CombinedStatusControlCenterRenderSession {
             carrier = carrier,
             onEvent = onEvent,
             isDetailedDiagnosticsEnabled = isDetailedDiagnosticsEnabled,
-            onProjectionReadinessChanged = onProjectionReadinessChanged,
+            onRenderReadinessChanged = onRenderReadinessChanged,
         ).also { it.start() }
         return AttachResult.Ready
     }
 
     @Synchronized fun setRequestedVisible(visible: Boolean): Boolean =
         current?.setRequestedVisible(visible) ?: false
+    @Synchronized fun setPresentationOwned(owned: Boolean): Boolean =
+        current?.setPresentationOwned(owned) ?: false
     @Synchronized fun onState(snapshot: CombinedStatusStateStore.Snapshot) { current?.update(snapshot) }
     @Synchronized fun onPresentationStateChanged() { current?.refresh() }
     @Synchronized fun onTintUpdate(update: SystemUiTintStateSource.TintUpdate) { current?.updateTint(update) }
@@ -68,9 +69,18 @@ internal object CombinedStatusControlCenterRenderSession {
         tintReady: Boolean,
         layoutReady: Boolean,
         hostAttached: Boolean,
-        homePresentationOwnsCarrier: Boolean,
+        presentationOwned: Boolean,
     ): Boolean =
-        featureEnabled && modelReady && tintReady && layoutReady && hostAttached && homePresentationOwnsCarrier
+        featureEnabled && modelReady && tintReady && layoutReady && hostAttached && presentationOwned
+
+    internal fun resolveRenderReady(
+        featureEnabled: Boolean,
+        modelReady: Boolean,
+        tintReady: Boolean,
+        layoutReady: Boolean,
+        hostAttached: Boolean,
+    ): Boolean =
+        featureEnabled && modelReady && tintReady && layoutReady && hostAttached
 
     private class Session(
         host: ViewGroup,
@@ -79,7 +89,7 @@ internal object CombinedStatusControlCenterRenderSession {
         carrier: View,
         private val onEvent: (String) -> Unit,
         private val isDetailedDiagnosticsEnabled: () -> Boolean,
-        private val onProjectionReadinessChanged: (Boolean) -> Unit,
+        private val onRenderReadinessChanged: (Boolean) -> Unit,
     ) : View.OnAttachStateChangeListener {
         private val host = WeakReference(host)
         private val statusIcons = WeakReference(statusIcons)
@@ -89,11 +99,12 @@ internal object CombinedStatusControlCenterRenderSession {
         private val renderController = CombinedStatusRenderController(renderView)
         private val anchorRect = Rect()
         private var requestedVisible = false
+        private var presentationOwned = false
         private var featureEnabled = RuntimeFeaturePreferencesOwner.currentSettings().enabled
         private var modelReady = false
         private var tintReady = false
         private var layoutReady = false
-        private var lastProjectionReady: Boolean? = null
+        private var lastRenderReady: Boolean? = null
 
         private val hostLayoutListener = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> layoutProjection() }
         private val carrierLayoutListener = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> layoutProjection() }
@@ -124,9 +135,10 @@ internal object CombinedStatusControlCenterRenderSession {
             hostView?.overlay?.remove(renderView)
             requestedVisible = false
             layoutReady = false
-            if (lastProjectionReady == true) {
-                lastProjectionReady = false
-                onProjectionReadinessChanged(false)
+            presentationOwned = false
+            if (lastRenderReady == true) {
+                lastRenderReady = false
+                onRenderReadinessChanged(false)
             }
             emitEvent { "controlCenterProjection cleanup source=" + source + " nativeGeometryWrites=0 nativeVisibilityWrites=0" }
         }
@@ -134,16 +146,27 @@ internal object CombinedStatusControlCenterRenderSession {
         fun setRequestedVisible(visible: Boolean): Boolean {
             requestedVisible = visible
             val ready = projectionReady()
-            applyVisibility(ready)
+            applyVisibility()
             dispatchReadiness("visibility")
+            return ready
+        }
+
+        fun setPresentationOwned(owned: Boolean): Boolean {
+            presentationOwned = owned
+            val ready = projectionReady()
+            applyVisibility()
+            emitEvent {
+                "controlCenterProjection ownership owned=" + presentationOwned +
+                    " visible=" + (renderView.visibility == View.VISIBLE) +
+                    " nativeGeometryWrites=0 nativeVisibilityWrites=0"
+            }
             return ready
         }
 
         fun update(snapshot: CombinedStatusStateStore.Snapshot) {
             modelReady = renderController.update(snapshot).model != null
             refreshTint()
-            val ready = projectionReady()
-            applyVisibility(ready)
+            applyVisibility()
             dispatchReadiness("state")
         }
 
@@ -157,8 +180,7 @@ internal object CombinedStatusControlCenterRenderSession {
 
         fun setFeatureEnabled(enabled: Boolean) {
             featureEnabled = enabled
-            val ready = projectionReady()
-            applyVisibility(ready)
+            applyVisibility()
             dispatchReadiness("feature")
         }
 
@@ -176,8 +198,7 @@ internal object CombinedStatusControlCenterRenderSession {
             val peerTint = statusIcons.get()?.let(SystemUiNativeNetworkSuppressionOwner::currentAppliedStatusIconTintForGroup)
             val resolved = CombinedStatusTintAuthority.resolveBatteryEvent(batteryState, peerTint)
             tintReady = renderController.updateTint(resolved).resolved != null
-            val ready = projectionReady()
-            applyVisibility(ready)
+            applyVisibility()
             dispatchReadiness("tint:" + source)
         }
 
@@ -205,13 +226,12 @@ internal object CombinedStatusControlCenterRenderSession {
             renderView.layout(anchorRect.left, anchorRect.top, anchorRect.right, anchorRect.bottom)
             val firstReady = !layoutReady
             layoutReady = true
-            val ready = projectionReady()
-            applyVisibility(ready)
+            applyVisibility()
             if (firstReady) {
                 emitEvent {
-                    "controlCenterProjection attached carrier=realSystemIcons.overlay bounds=" +
+                    "controlCenterProjection attached carrier=QS_FAKE.system_icon_area.overlay bounds=" +
                         anchorRect.left + "," + anchorRect.top + "-" + anchorRect.right + "," + anchorRect.bottom +
-                        " owner=ControlCenterHeaderExpandController.realSystemIcons motion=system-ui-inherited nativeGeometryWrites=0"
+                        " owner=ControlCenterFakeStatusIcons.statusBarArea motion=system-ui-inherited nativeGeometryWrites=0"
                 }
             }
             dispatchReadiness("layout")
@@ -224,6 +244,17 @@ internal object CombinedStatusControlCenterRenderSession {
             dispatchReadiness("layout-unavailable")
         }
 
+        private fun renderReady(): Boolean {
+            val hostView = host.get()
+            return resolveRenderReady(
+                featureEnabled = featureEnabled,
+                modelReady = modelReady,
+                tintReady = tintReady,
+                layoutReady = layoutReady,
+                hostAttached = hostView?.isAttachedToWindow == true,
+            )
+        }
+
         private fun projectionReady(): Boolean {
             val hostView = host.get()
             return resolveProjectionReady(
@@ -232,26 +263,30 @@ internal object CombinedStatusControlCenterRenderSession {
                 tintReady = tintReady,
                 layoutReady = layoutReady,
                 hostAttached = hostView?.isAttachedToWindow == true,
-                homePresentationOwnsCarrier = hostView?.let(SystemUiHomePresentationOwner::ownsBatteryContainer) == true,
+                presentationOwned = presentationOwned,
             )
         }
 
-        private fun applyVisibility(ready: Boolean) {
-            renderView.visibility = if (requestedVisible && ready) View.VISIBLE else View.GONE
-            if (renderView.visibility == View.VISIBLE) renderView.invalidate() else renderView.clearPendingLatency()
+        private fun applyVisibility() {
+            val visible = requestedVisible && projectionReady()
+            renderView.visibility = if (visible) View.VISIBLE else View.GONE
+            if (visible) renderView.invalidate() else renderView.clearPendingLatency()
         }
 
         private fun dispatchReadiness(source: String) {
-            val ready = requestedVisible && projectionReady()
-            if (ready == lastProjectionReady) return
-            lastProjectionReady = ready
-            applyVisibility(ready)
+            val ready = requestedVisible && renderReady()
+            if (ready == lastRenderReady) return
+            lastRenderReady = ready
+            applyVisibility()
             emitEvent {
                 "controlCenterProjection readiness source=" + source + " ready=" + ready +
-                    " requestedVisible=" + requestedVisible + " modelReady=" + modelReady +
-                    " tintReady=" + tintReady + " layoutReady=" + layoutReady + " nativeGeometryWrites=0"
+                    " requestedVisible=" + requestedVisible +
+                    " presentationOwned=" + presentationOwned +
+                    " modelReady=" + modelReady +
+                    " tintReady=" + tintReady + " layoutReady=" + layoutReady +
+                    " nativeGeometryWrites=0"
             }
-            onProjectionReadinessChanged(ready)
+            onRenderReadinessChanged(ready)
         }
 
         override fun onViewAttachedToWindow(view: View) {
@@ -262,6 +297,7 @@ internal object CombinedStatusControlCenterRenderSession {
 
         override fun onViewDetachedFromWindow(view: View) {
             layoutReady = false
+            presentationOwned = false
             renderView.visibility = View.GONE
             dispatchReadiness("detach")
         }
