@@ -150,6 +150,31 @@ class SystemUiPanelTransitionSourceTest {
     }
 
     @Test
+    fun controlCenterSourceUsesHomeCarrierIdentityBeforeStructuralFallback() {
+        assertEquals(
+            CombinedStatusSourceScene.HOME,
+            SystemUiPanelTransitionSource.classifyControlCenterSourceScene(
+                homeIdentityMatches = true,
+                structuralScene = CombinedStatusSourceScene.UNKNOWN,
+            ),
+        )
+        assertEquals(
+            CombinedStatusSourceScene.KEYGUARD,
+            SystemUiPanelTransitionSource.classifyControlCenterSourceScene(
+                homeIdentityMatches = false,
+                structuralScene = CombinedStatusSourceScene.KEYGUARD,
+            ),
+        )
+        assertEquals(
+            CombinedStatusSourceScene.UNKNOWN,
+            SystemUiPanelTransitionSource.classifyControlCenterSourceScene(
+                homeIdentityMatches = false,
+                structuralScene = CombinedStatusSourceScene.UNKNOWN,
+            ),
+        )
+    }
+
+    @Test
     fun controlCenterUpdateCarriesNativeSelectedSourceScene() {
         val update =
             SystemUiPanelTransitionSource.Update(

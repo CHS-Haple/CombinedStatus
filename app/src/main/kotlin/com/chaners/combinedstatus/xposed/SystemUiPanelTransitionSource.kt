@@ -371,8 +371,23 @@ internal object SystemUiPanelTransitionSource {
         val realSystemIcons =
             contract.realSystemIcons(header)
                 ?: return CombinedStatusSourceScene.UNKNOWN
-        return SystemUiSceneStateSource.steadySourceScene(realSystemIcons)
+        return classifyControlCenterSourceScene(
+            homeIdentityMatches =
+                SystemUiHomePresentationOwner.ownsBatteryContainer(realSystemIcons),
+            structuralScene =
+                SystemUiSceneStateSource.steadySourceScene(realSystemIcons),
+        )
     }
+
+    internal fun classifyControlCenterSourceScene(
+        homeIdentityMatches: Boolean,
+        structuralScene: CombinedStatusSourceScene,
+    ): CombinedStatusSourceScene =
+        if (homeIdentityMatches) {
+            CombinedStatusSourceScene.HOME
+        } else {
+            structuralScene
+        }
 
     @Synchronized
     private fun emitDiagnostic(

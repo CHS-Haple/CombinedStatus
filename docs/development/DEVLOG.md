@@ -3,6 +3,62 @@
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
 
+## 2026-09-29 — Build 445: Home source identity correction for QS_FAKE
+
+**Type:** device-evidence-driven source-classifier correction
+**Build:** 445 / `20260929-445`
+**Work branch:** `feat/keyguard-scene-adapter`
+**Base:** Build-444 exact head `a9f7eb2d1997fd8ac0abcc1a8d3729b85264c2ce`
+**Hook delta:** 0
+**Keyguard steady rendering:** still disabled
+**AOD:** untouched
+
+### Build-444 device evidence
+
+The maintainer reports that the desktop/Home QS_FAKE Combined Status disappeared. The supplied Build-444 detailed diagnostic makes the failure deterministic:
+
+- unlocked/Home Control Center visibility callbacks repeatedly report `sourceScene=UNKNOWN`;
+- there is no `sourceScene=HOME` in the session;
+- Keyguard-originated Control Center callbacks report `sourceScene=KEYGUARD`, so the Keyguard branch of the classifier is working;
+- Home steady Combined Status itself remains active, proving the underlying Home carrier/session still exists.
+
+### Root cause
+
+Build 444 correctly chose HyperOS `ControlCenterHeaderExpandController.realSystemIcons` as the final selected source endpoint, but then classified that endpoint through its **current View ancestry**.
+
+For the selected Home `MiuiStatusBatteryContainer`, Control Center ownership no longer preserves the steady `MiuiNotificationStatusContainer` parent chain required by `SystemUiSceneStateSource.steadySourceScene(View)`. The source therefore falls through to `UNKNOWN`, and the intentionally fail-native scene policy suppresses the desktop QS_FAKE Combined projection.
+
+Keyguard happens to retain enough structural ancestry in the observed target to classify correctly; that does not make ancestry a valid Home identity contract.
+
+### Corrected execution flow
+
+HyperOS `realSystemIcons`
+-> compare object identity with the Home `MiuiStatusBatteryContainer` already owned by `SystemUiHomePresentationOwner`
+-> identity match = HOME
+-> otherwise use the existing structural classifier (verified Keyguard fallback)
+-> unresolved = UNKNOWN/native
+-> existing `CombinedStatusScenePolicy`
+-> shared QS_FAKE eligibility + compact mask ownership.
+
+### 审查 / review
+
+- **root cause first:** fixes the failing Home classifier, not the scene gate.
+- **native authority:** `realSystemIcons` remains the HyperOS-selected source endpoint.
+- **reuse:** Home identity reuses the existing HomePresentationOwner session; no duplicate carrier cache is introduced.
+- **single writer:** no presentation writer changes; existing mask/overlay ownership remains unchanged.
+- **fail native:** an unproven source still resolves UNKNOWN/native.
+- **Keyguard:** already-working structural Keyguard classification is preserved.
+- **performance:** one synchronized identity comparison at the native visibility boundary; no new Hook/listener/reflection/timer/polling.
+- **compatibility:** exact-target contract remains SystemUI `17.03.260226.r`.
+
+### Validation plan
+
+Run exact-head Fast and trusted Canary. Device validation must confirm:
+1. unlocked Home -> Control Center restores Combined QS_FAKE and diagnostics report `sourceScene=HOME`;
+2. Keyguard -> Control Center remains native and reports `sourceScene=KEYGUARD`;
+3. unlock -> Control Center restores Home Combined QS_FAKE without SystemUI restart.
+
+
 ## 2026-09-29 — Build 444: source-scene-gated QS_FAKE
 
 **Type:** Phase-3 scene-policy correction
