@@ -518,6 +518,9 @@ internal object SystemUiHomePresentationOwner {
                 return 0
             }
             active = false
+            layoutReadyCallback = null
+            compactLayoutReady = false
+            deferVisualMaskUntilLayout = false
             host.get()?.removeOnAttachStateChangeListener(this)
             battery.get()?.removeOnLayoutChangeListener(batteryLayoutListener)
             batteryCarrier.get()?.removeOnLayoutChangeListener(carrierLayoutListener)
@@ -525,7 +528,7 @@ internal object SystemUiHomePresentationOwner {
             val restored = restoreClipMasks()
             batteryContainer.get()?.requestLayout()
             onEvent(
-                "homePresentation cleanup source=" + source +
+                eventPrefix + " cleanup source=" + source +
                     " restoredClipBounds=" + restored +
                     " restoredEndReservation=" + reservationRestored,
             )
@@ -574,7 +577,7 @@ internal object SystemUiHomePresentationOwner {
             val group = statusIcons.get() ?: run { onFailNative("status-icon-group-released"); return false }
             val container = batteryContainer.get() ?: run { onFailNative("battery-container-released"); return false }
             val batteryView = battery.get() ?: run { onFailNative("battery-view-released"); return false }
-            val hostView = host.get() ?: run { onFailNative("home-host-released"); return false }
+            val hostView = host.get() ?: run { onFailNative(surfaceName + "-host-released"); return false }
             val baseline = nativePadding ?: PaddingState.from(group).also { nativePadding = it }
             val live = PaddingState.from(group)
             val previousApplied = appliedPadding
@@ -631,7 +634,7 @@ internal object SystemUiHomePresentationOwner {
             if (lastReservationDelta != reservationDelta) {
                 lastReservationDelta = reservationDelta
                 onEvent(
-                    "homePresentation endReservation nativeHide=" + nativeHide +
+                    eventPrefix + " endReservation nativeHide=" + nativeHide +
                         " stableCarrierWidth=" + stableCarrierWidthPx +
                         " actualBatteryWidth=" + actualBatteryWidthPx +
                         " requestedSlotWidth=" + requestedSlotWidthPx +
@@ -652,7 +655,7 @@ internal object SystemUiHomePresentationOwner {
             val live = PaddingState.from(group)
             if (live != applied) {
                 onEvent(
-                    "homePresentation endReservation restore=skipped reason=writer-changed " +
+                    eventPrefix + " endReservation restore=skipped reason=writer-changed " +
                         "livePaddingEnd=" + live.end + " appliedPaddingEnd=" + applied.end,
                 )
                 appliedPadding = null
@@ -662,6 +665,30 @@ internal object SystemUiHomePresentationOwner {
             val restored = PaddingState.from(group) == baseline
             appliedPadding = null
             return restored
+        }
+
+        fun isLayoutCutoverReady(): Boolean =
+            active &&
+                started &&
+                (!deferVisualMaskUntilLayout || compactLayoutReady)
+
+        fun onNativeLayoutCompleted(maskedViews: Int) {
+            if (
+                !active ||
+                !started ||
+                !deferVisualMaskUntilLayout ||
+                compactLayoutReady
+            ) {
+                return
+            }
+            compactLayoutReady = true
+            val callback = layoutReadyCallback
+            layoutReadyCallback = null
+            onEvent(
+                eventPrefix + " layoutReady source=native-status-icons-onLayout" +
+                    " maskedViews=" + maskedViews,
+            )
+            callback?.invoke(maskedViews)
         }
 
         fun refreshClipMasks(): Int {
