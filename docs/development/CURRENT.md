@@ -178,6 +178,18 @@ The work branch was history-preserving refreshed from exact dev tip `947c13956f2
 After conflict resolution, PR #146 became mergeable and Full Build #1321 / run `36413531047` succeeded on `ca1bbf7e10c485f34846add633c34d06a163e7e8`. Draft Light #1320 exposed only trailing whitespace in DEVLOG; that repository-text defect is being cleaned before the final exact-head Full checkpoint.
 
 
+### Active work branch — QS_FAKE transition owner
+
+Active branch: `feat/control-center-qs-fake`. Build 424 remains the device-accepted / Integration-validated `dev` runtime baseline; this branch has not created a new executable Build yet.
+
+Bounded objective:
+- replace the historical Build-420 source-anchor Control Center projection with the exact-target native `QS_FAKE` transition owner;
+- keep Build-424 unlocked/Home carrier behavior unchanged;
+- keep fully expanded Control Center native-only;
+- keep Keyguard steady/AOD native-only;
+- reuse native transition translation/alpha/tint/source selection;
+- generalize only the minimum host-scoped presentation/suppression mechanism required by Home + QS_FAKE.
+
 ## Immediate next step
 
 1. Keep Build 424 executable source `2556a098d35c202e1c5645a06e73757744f721e1` frozen.
