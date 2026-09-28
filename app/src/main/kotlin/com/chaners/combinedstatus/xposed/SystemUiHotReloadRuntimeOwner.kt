@@ -55,8 +55,9 @@ internal object SystemUiHotReloadRuntimeOwner {
                 host = host,
                 state = CombinedStatusStateStore.exportHotReloadState(),
                 bindings = SystemUiNetworkStateSource.exportHotReloadBindings(),
-                notificationShadeHomeEligible =
-                    SystemUiPanelTransitionSource.currentNotificationShadeHomeEligibility(),
+                // Legacy transfer slot remains null for compatibility. Notification
+                // Shade now follows the native system_icons carrier lifecycle.
+                notificationShadeHomeEligible = null,
                 controlCenterHomeEligible =
                     SystemUiPanelTransitionSource.currentControlCenterHomeEligibility(),
                 appliedTint = stableTint?.appliedTint,
