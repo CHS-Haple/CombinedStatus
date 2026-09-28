@@ -217,7 +217,7 @@ Scene transition progress is consumed from an existing native expansion callback
 
 For Notification Shade on the pinned HyperOS target, Build-422 root-cause review supersedes the earlier reliance on generic `ShadeExpansionStateManager.onPanelExpansionChanged(...)` for Home handoff timing. Exact-target source shows that the native Notification Header is driven from `NotificationPanelExpansionAnimator.expansion`, exposed through `NotificationPanelExpandController.expansionState`, then delivered to `NotificationHeaderExpandController$notificationCallback$1.onExpansionChanged(float)`.
 
-Combined Status consequence: observe the same target-specific Header progress callback HyperOS already uses for its top-area transition. Do not reconstruct Header ownership from Battery status state, global Keyguard state, generic Shade expanded/tracking flags, or a local timing threshold.
+Build-423 device evidence later established that this Header callback is valid **motion context**, but not the Combined Status Home-visibility authority. Do not reconstruct Home ownership from Header fraction, Battery status state, global Keyguard state, generic Shade expanded/tracking flags, or a local timing threshold.
 
 Exact-target device diagnostics also verify a separate Control Center lifetime contract on `com.miui.systemui.controlcenter.container.ControlCenterExpandControllerDelegate`:
 - `onVisibleChanged(boolean)` brackets Control Center ownership and remains true throughout the outward/return transition;
@@ -245,7 +245,7 @@ is preferable to:
 
 This aligns with the project requirement that SystemUI own transition timing and target placement while Combined Status owns only its composed visual projection.
 
-For the current Home charging/Super-Island path, a separate projection is unnecessary: exact-target review shows the Combined Status overlay already rides the native animated `system_icon_area` host. The real-endpoint/native-progress principle remains the preferred candidate for Phase 2B Home -> shade / Control Center projection.
+For Home, Build-424 exact-target review distinguishes the parent `system_icon_area` HostSession from the actual animated end-side child `system_icons`. The Home visual belongs on the latter carrier so it inherits native end-side motion directly. The real-endpoint/native-progress principle remains applicable to a genuine second projected surface such as Control Center, not to Notification Shade where no status-icon projection target exists.
 
 ---
 
@@ -458,17 +458,59 @@ Later Phase-2B device evidence supersedes the open Notification-Shade continuati
 - Build 420 device validation accepts Control Center projection through the native `realSystemIcons` / `MiuiStatusBatteryContainer` carrier and its readiness-ordered handoff.
 - Build 421 device diagnostics show `MiuiBatteryMeterView.updateState()` can emit raw status-bar state `1` at a Notification-Shade boundary while `KeyguardManager.isKeyguardLocked` is also `true`.
 - That Battery/global-Keyguard combination fires before the verified shade-fraction owner and therefore cannot be used as a second Home-visibility authority.
-- Home Combined Status is already drawn in `MiuiNotificationStatusContainer.overlay`; Android's overlay contract makes it a visual layer of that host rather than an independent global surface.
+- Build 423 still drew Home Combined Status in the parent `MiuiNotificationStatusContainer.overlay`; Build-424 exact-target review shows the native end-side visibility animation is instead applied to child `R.id.system_icons`, so the parent overlay does not inherit that child-specific transition.
 
 ### Reusable principle
 
 Do not reconstruct a global scene state machine from a retained native presentation carrier when the real host and panel owners already expose their lifecycles.
 
 For the current target:
-1. **Home surface drawing:** native `MiuiNotificationStatusContainer / system_icon_area` HostSession.
-2. **Notification-Shade handoff:** native Notification Header expansion callback used by `NotificationPanelExpandController`.
-3. **Control Center:** verified projected carrier + coordinator handoff.
-4. **Battery status state:** read-only presentation/tint event context; not Home visibility.
-5. **Keyguard/AOD:** separate native hosts/adapters; no inference from Home Battery state.
+1. **Home HostSession:** native `MiuiNotificationStatusContainer / system_icon_area`.
+2. **Home visual carrier:** child `R.id.system_icons` / `MiuiStatusBatteryContainer.overlay`, which is the exact `mEndSideContent` animated by the native Home binder.
+3. **Notification Shade:** no Combined Status projection or project-local visibility writer; Home departure/return is inherited from the native end-side carrier.
+4. **Control Center:** verified projected carrier + coordinator handoff.
+5. **Battery status state:** read-only presentation/tint event context; not Home visibility.
+6. **Keyguard/AOD:** separate native hosts/adapters; no inference from Home Battery state.
 
 This removes a competing writer instead of refining it with another boolean. It also keeps future Keyguard/AOD support explicit and host-scoped rather than coupling those scenes to Home's Battery presentation internals.
+
+
+---
+
+## 17. Build-424 exact-target Home end-side carrier correction
+
+**Observed evidence.**
+
+Exact SystemUI `17.03.260226.r` source/resources establish the Home visibility chain:
+
+`StatusBarVisibilityInteractor.shouldHomeStatusBarBeVisible`
+→ `HomeStatusBarViewModelImpl.isSystemInfoVisible`
+→ `systemInfoCombinedVis`
+→ `HomeStatusBarViewBinderInjector`
+→ `mEndSideContent`.
+
+`HomeStatusBarViewBinderImpl.bind()` resolves `mEndSideContent` from `R.id.system_icons`. In the exact `status_bar.xml`, `MiuiNotificationStatusContainer @id/system_icon_area` includes `@layout/system_icons`; the exact `system_icons.xml` root is `MiuiStatusBatteryContainer @id/system_icons` and contains the native status-icon group and Battery.
+
+`HomeStatusBarViewBinderInjector.showEndSideContent()/hideEndSideContent()` drives that end-side carrier through native alpha / visibility / translation animation. The Build-423 Combined Status Home visual was attached one level above it in `MiuiNotificationStatusContainer.overlay`, so it could not naturally inherit a transition written specifically to the child `system_icons` View. The project-local Header-fraction gate therefore became a competing visibility decision and exposed first/last-frame ordering differences.
+
+**Reusable principle.**
+
+When a native View subtree already owns presentation visibility and transition motion, place a draw-only replacement inside that exact animated carrier when its geometry/lifecycle contract is verified. Prefer:
+
+`native visibility semantic -> native animated carrier -> module-owned overlay child`
+
+over:
+
+`native motion callback -> project-local visibility state -> parent overlay`.
+
+Observing a native animation callback does not grant ownership of the visibility property it helps animate.
+
+**Combined Status adoption.**
+
+Build 424 moves only the Home render overlay to `MiuiStatusBatteryContainer(system_icons).overlay` and removes the Notification Header runtime Hook and Home eligibility state. Slot reservation, native represented-slot masking, Control Center projection, domain state, tint, and native geometry ownership remain separate and unchanged.
+
+The legacy Hot Reload shade-eligibility payload field may remain null for transfer-format compatibility; it is not an active state source.
+
+**Not established.**
+
+This exact Home carrier contract does not establish Keyguard/AOD support and does not authorize reusing the Home carrier for those surfaces. Control Center remains a real second-host projection and keeps its accepted readiness-ordered handoff.
