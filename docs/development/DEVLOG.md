@@ -7674,3 +7674,99 @@ The preferred minimal Phase-2B follow-up remains the existing low-frequency
 - **Compatibility:** exact-target only until the fake carrier/exclusion contract is verified on other targets.
 - **Exception recovery:** Hot Reload must restore an active fake session explicitly rather than waiting for another visible event.
 - **Future extension:** Keyguard becomes a compact-capable source only after its own steady owner is verified; native source routing remains HyperOS-owned.
+
+
+---
+
+## 2026-09-28 — Post-424 Control Center architecture comparison closure
+
+**Type:** architecture review / no runtime change  
+**Runtime Build:** unchanged — Build 424 / `20260928-424`  
+**Decision status:** preferred follow-up candidate only; implementation remains blocked on Build-424 automated/device result
+
+### Routes compared
+
+**A — retain Build-420 `realSystemIcons.overlay` projection**
+- Proven device-capable as a transition/handoff mechanism.
+- Uses the source status-bar carrier as the project projection surface rather than HyperOS's dedicated Control Center transition presentation.
+- Requires project-level projection readiness and Home handoff coordination.
+- A native-only fully expanded endpoint would require additional endpoint ownership handling.
+- Future Keyguard source support is less natural because the current runtime contract is explicitly Home-owned.
+
+**B — render compact presentation inside native `QS_FAKE` carrier**
+- Uses HyperOS's dedicated transition status-bar presentation.
+- Source identity is read from the already-selected native `realSystemIcons`; no project unlocked/keyguard state machine is required.
+- Native fake parent owns translation, alpha, source width, unlocked/keyguard tint, island participation and fake->real Control Center appearance.
+- Fully expanded Control Center remains the independent native `QS` status bar automatically.
+- Home departure/return is inherited from Build-424's native `system_icons` carrier.
+- Retains the existing low-frequency `ControlCenterExpandControllerDelegate.onVisibleChanged(boolean)` Hook only as transition-session lifetime; no fraction or appearance Hook is required.
+- This is the preferred post-424 candidate.
+
+**C — retain Build-420 source projection and add native `appearance` endpoint gating**
+- Smaller immediate delta than B.
+- Keeps the source-anchor projection and project handoff choreography, then adds another observed ownership fact.
+- Reduces neither conceptual duplication nor future Keyguard complexity.
+- Rejected as the preferred long-term route unless device evidence invalidates B.
+
+### QS_FAKE compact-presentation contract
+
+A future B implementation must use a host-scoped session on the fake `MiuiStatusBatteryContainer`.
+
+Required local behavior:
+- use the existing native `MiuiStatusIconContainer.ignoredSlots` measure/layout contract for represented-slot exclusion;
+- reversibly mask represented native roots and Battery;
+- place the Combined Status renderer in the fake carrier overlay;
+- derive requested compact width from the shared layout semantics;
+- use only the fake carrier's own Battery width / hide state / padding baseline for any local end reservation;
+- preserve HyperOS translation, alpha, width and appearance writers untouched.
+
+The earlier mask-only QS_FAKE idea is rejected: clipping does not remove native layout participation.
+
+### Runtime Hook / update cost
+
+No additional normal-production Hook is currently justified:
+- reuse the existing `onVisibleChanged(boolean)` runtime Hook for `visible=true -> visible=false` fake-session lifetime;
+- resolve current source + fake carrier through the already-resolved `ControlCenterHeaderExpandController` object;
+- reuse the already-installed global `MiuiStatusIconContainer.onMeasure/onLayout` and `MiuiStatusBatteryContainer.setIsHideBattery` Hooks through a bounded identity-keyed carrier-session registry rather than installing another Hook set;
+- existing Battery/tint event sources are already per-View and can feed the fake carrier without a new tint observer.
+
+`ControlCenterFakeViewController.adjustRealSystemIcons()` remains a verified native source-authority seam, but do **not** add a second Hook unless later device evidence proves source can change during one Control Center visible lifetime in a way the entry snapshot cannot cover.
+
+### Hot Reload / recreation policy
+
+QS_FAKE is a transient transition surface, not a steady source surface.
+
+Preferred fail-native default:
+- old-generation teardown restores fake-owned native slot/mask/reservation state;
+- if Hot Reload occurs while Control Center is already visible, native QS_FAKE/QS remains authoritative until the next normal visible lifecycle;
+- do not expand Hot Reload payload solely to preserve a transient compact transition unless later maintainer/device evidence requires seamless continuity for that developer action.
+
+SystemUI recreation naturally reconstructs the native fake View/source registration; the next visible lifecycle resolves the live objects again.
+
+### Remaining device-risk boundary
+
+Exact target source confirms `ControlCenterHeaderExpandController` applies native `batteryWidthDiff` to the fake status-bar X translation. That value can be non-zero in real island/Battery scenarios and is intentionally SystemUI-owned.
+
+Combined Status must never rewrite/cancel that value. However, the interaction between:
+- QS_FAKE local compact reservation,
+- tag-5 Battery behavior,
+- charging / Battery island,
+- and final source-edge visual continuity
+
+remains a required focused device gate for any B implementation.
+
+### 审查 / review
+
+- **Ownership:** B maps each project visual to the native carrier that owns its phase; HyperOS retains source selection, transition motion and final destination.
+- **Lifecycle:** Home steady and future Keyguard steady remain separate adapters; QS_FAKE session is bounded to Control Center visible lifetime.
+- **Single writer:** no project translation/alpha/appearance/Home-visibility writer; per-carrier exclusion/reservation state is identity-scoped.
+- **Cleanup:** fake session restores only its own ignored-slot additions, clip states and verified local padding write before disposal.
+- **Fail-native:** unsupported/null source, unresolved fake carrier, writer conflict, invalid layout/tint/model, host detach or Hot Reload leaves/restores native QS_FAKE.
+- **Performance:** no polling/timer/frame follower; normal Control Center Hook count does not increase; already-installed layout/Battery Hooks use bounded identity lookup.
+- **Compatibility:** exact-target field/resource contracts are pinned to SystemUI `17.03.260226.r`; other targets fail native until separately verified.
+- **Exception recovery:** session re-resolves live source/carrier each visible lifecycle; transient Hot Reload falls back to native rather than retaining stale View ownership.
+- **Future extension:** once Keyguard steady compact ownership is verified, native `realSystemIcons` source selection can make it transition-capable without introducing a project scene router.
+
+### Decision boundary
+
+Do not implement route B in Build 424. Build 424 remains the single-variable Home carrier correction. After its required repository validation and focused device result, present route B plus its remaining island/charging gate to the maintainer before creating the next executable checkpoint.
