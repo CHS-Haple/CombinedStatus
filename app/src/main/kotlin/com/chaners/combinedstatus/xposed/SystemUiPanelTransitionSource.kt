@@ -11,7 +11,7 @@ import java.lang.reflect.Method
 import kotlin.math.floor
 
 internal object SystemUiPanelTransitionSource {
-    const val CONTROL_CENTER_RUNTIME_HOOK_COUNT = 1
+    const val CONTROL_CENTER_RUNTIME_HOOK_COUNT = 2
     const val CONTROL_CENTER_DIAGNOSTIC_HOOK_COUNT = 2
     const val HOOK_COUNT =
         CONTROL_CENTER_RUNTIME_HOOK_COUNT +
@@ -42,6 +42,8 @@ internal object SystemUiPanelTransitionSource {
         "combinedstatus.panel.control-center.appearance"
     private const val CONTROL_CENTER_VISIBLE_HOOK_ID =
         "combinedstatus.panel.control-center.visible"
+    private const val CONTROL_CENTER_FAKE_ATTACHED_HOOK_ID =
+        "combinedstatus.panel.control-center.fake-attached"
 
     private var controlProbe = ProbeState()
     @Volatile
@@ -53,6 +55,7 @@ internal object SystemUiPanelTransitionSource {
         module: XposedModule,
         classLoader: ClassLoader,
         onUpdate: ((Update) -> Unit)? = null,
+        onFakePresentationAttached: ((ViewGroup) -> Unit)? = null,
         onEvent: ((String) -> Unit)? = null,
         isProbeEnabled: () -> Boolean = { false },
         includeControlCenterDiagnostics: Boolean = true,
@@ -66,6 +69,20 @@ internal object SystemUiPanelTransitionSource {
                     Boolean::class.javaPrimitiveType,
                 )
                 .apply { isAccessible = true }
+        val fakeStatusBarClass =
+            Class.forName(
+                CONTROL_CENTER_FAKE_STATUS_BAR_CLASS,
+                false,
+                classLoader,
+            )
+        val fakeAttachedMethod =
+            fakeStatusBarClass.declaredMethods
+                .firstOrNull { method ->
+                    method.name == "onAttachedToWindow" &&
+                        method.parameterCount == 0
+                }
+                ?.apply { isAccessible = true }
+                ?: error("control-center-fake-attached-method-missing")
         val controlExpansionMethod =
             if (includeControlCenterDiagnostics) {
                 controlClass
@@ -134,6 +151,29 @@ internal object SystemUiPanelTransitionSource {
                                 onEvent = onEvent,
                                 isProbeEnabled = isProbeEnabled,
                             )
+                            result
+                        },
+                    )
+
+            handles +=
+                module
+                    .hook(fakeAttachedMethod)
+                    .setId(CONTROL_CENTER_FAKE_ATTACHED_HOOK_ID)
+                    .intercept(
+                        Hooker { chain ->
+                            val result = chain.proceed()
+                            val root = chain.thisObject as? ViewGroup
+                            if (root != null) {
+                                onFakePresentationAttached?.invoke(root)
+                                if (onEvent != null && isProbeEnabled()) {
+                                    onEvent(
+                                        "controlCenterFakeLifecycle attached=true " +
+                                            "root=" + root.javaClass.name +
+                                            " attachedToWindow=" + root.isAttachedToWindow +
+                                            " readOnly=true nativeGeometryWrites=0",
+                                    )
+                                }
+                            }
                             result
                         },
                     )
