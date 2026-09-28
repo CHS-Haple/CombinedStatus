@@ -964,6 +964,7 @@ class CombinedStatusModule : XposedModule() {
                 module = this,
                 classLoader = classLoader,
                 onUpdate = ::onPanelTransitionUpdate,
+                onFakePresentationAttached = ::onControlCenterFakePresentationAttached,
                 onEvent = ::onPanelTransitionEvent,
                 isProbeEnabled = {
                     BuildConfig.DEVELOPMENT_PROBES || detailedDiagnosticsEnabled
@@ -1051,11 +1052,11 @@ class CombinedStatusModule : XposedModule() {
         val visible = update.visible ?: return
         if (!visible) {
             controlCenterSceneVisible = false
-            // Restore Home first; projection cleanup is second so the closing
-            // tail frame always has a visible owner.
+            // Restore Home first. QS_FAKE compact presentation remains prearmed
+            // for the lifetime of the native fake root; only the Combined
+            // overlay visibility changes with Control Center visibility.
             CombinedStatusHomeRenderSession.onControlCenterAuthorityChanged(true)
             CombinedStatusControlCenterRenderSession.setRequestedVisible(false)
-            CombinedStatusControlCenterRenderSession.detach("control-center-hidden")
             return
         }
 
@@ -1074,15 +1075,7 @@ class CombinedStatusModule : XposedModule() {
             return
         }
 
-        when (
-            val result =
-                CombinedStatusControlCenterRenderSession.attach(
-                    host = carrier,
-                    onEvent = ::onPanelTransitionEvent,
-                    isDetailedDiagnosticsEnabled = { detailedDiagnosticsEnabled },
-                    onProjectionReadinessChanged = ::onControlCenterProjectionReadinessChanged,
-                )
-        ) {
+        when (prepareControlCenterFakePresentation(carrier, "visible-fallback")) {
             CombinedStatusControlCenterRenderSession.AttachResult.Ready -> {
                 val ready =
                     CombinedStatusControlCenterRenderSession.setRequestedVisible(true)
@@ -1098,11 +1091,63 @@ class CombinedStatusModule : XposedModule() {
                     event = "projection.attach",
                     component = "controlCenterProjection",
                     state = "unavailable",
-                    "reason" to result.reason,
+                    "reason" to "fake-presentation-prepare-failed",
                     "fallback" to "home-visible",
                 )
             }
         }
+    }
+
+    private fun onControlCenterFakePresentationAttached(host: ViewGroup) {
+        when (prepareControlCenterFakePresentation(host, "fake-root-attached")) {
+            CombinedStatusControlCenterRenderSession.AttachResult.Ready -> {
+                logDiagnostic(
+                    level = Log.INFO,
+                    event = "projection.prearm",
+                    component = "controlCenterProjection",
+                    state = "prepared",
+                    "source" to "fake-root-attached",
+                    "requestedVisible" to controlCenterSceneVisible,
+                    "nativeGeometryWrites" to 0,
+                )
+            }
+
+            is CombinedStatusControlCenterRenderSession.AttachResult.Failure -> {
+                logDiagnostic(
+                    level = Log.WARN,
+                    event = "projection.prearm",
+                    component = "controlCenterProjection",
+                    state = "unavailable",
+                    "source" to "fake-root-attached",
+                    "fallback" to "native-qs-fake",
+                )
+            }
+        }
+    }
+
+    private fun prepareControlCenterFakePresentation(
+        host: ViewGroup,
+        source: String,
+    ): CombinedStatusControlCenterRenderSession.AttachResult {
+        val result =
+            CombinedStatusControlCenterRenderSession.attach(
+                host = host,
+                onEvent = ::onPanelTransitionEvent,
+                isDetailedDiagnosticsEnabled = { detailedDiagnosticsEnabled },
+                onProjectionReadinessChanged = ::onControlCenterProjectionReadinessChanged,
+            )
+        if (result is CombinedStatusControlCenterRenderSession.AttachResult.Failure) {
+            logDiagnostic(
+                level = Log.WARN,
+                event = "projection.prepare",
+                component = "controlCenterProjection",
+                state = "unavailable",
+                "source" to source,
+                "reason" to result.reason,
+                "fallback" to "native-qs-fake",
+            )
+        }
+        return result
     }
 
     private fun onControlCenterProjectionReadinessChanged(ready: Boolean) {
