@@ -7629,3 +7629,48 @@ Existing global `MiuiStatusIconContainer.onMeasure/onLayout` Hooks can route a m
 ### Decision boundary
 
 This candidate is preferred for the **post-Build-424** Control Center follow-up, but it is not implemented now. Build 424 remains frozen for its single-variable Home carrier validation.
+
+
+---
+
+## 2026-09-28 — Correction: reject the earlier QS_FAKE mask-only candidate
+
+**Type:** architecture correction / no runtime change  
+**Runtime Build:** unchanged — Build 424 / `20260928-424`
+
+A prior post-424 candidate entry proposed that QS_FAKE could preserve transition occupancy without represented-slot `ignoredSlots`, using only reversible visual clipping. **That specific mask-only conclusion is rejected by later exact-target evidence.**
+
+Exact `MiuiStatusIconContainer.onMeasure()/onLayout()` review confirms:
+- represented Wi-Fi/mobile children continue to participate in native measurement/layout unless their slots are excluded through the container's `ignoredSlots` contract;
+- `clipBounds` hides pixels only and does not release their measured occupancy;
+- QS_FAKE's native block list does not remove Wi-Fi/mobile/Battery.
+
+Therefore any future QS_FAKE compact replacement must combine:
+- host-scoped/reversible represented-slot exclusion for layout participation;
+- reversible visual masking for attached native roots/Battery;
+- a scene-specific reservation decision based on the fake carrier's own verified geometry.
+
+The Home `paddingEnd` reservation remains Home-scoped and is **not** automatically promoted to QS_FAKE.
+
+### Lifecycle seam refinement
+
+The preferred minimal Phase-2B follow-up remains the existing low-frequency
+`ControlCenterExpandControllerDelegate.onVisibleChanged(boolean)` Hook:
+- `visible=true`: read HyperOS's already-selected `realSystemIcons` as source capability, resolve the native QS_FAKE carrier, then activate the fake compact session only if the source is a verified compact owner;
+- `visible=false`: restore fake-owned slot/mask state and clean up the transition session;
+- Home visibility is not written by this callback; Build 424's native Home carrier lifecycle remains authoritative;
+- no `appearance` or fraction Hook is required.
+
+`ControlCenterFakeViewController.adjustRealSystemIcons()` remains a verified source-authority seam, but a second Hook is **not** justified pre-emptively. Add it only if later device evidence proves that source can change while Control Center remains visible in a way the visible-lifetime snapshot cannot safely cover.
+
+### 审查 / review
+
+- **Ownership:** native layout remains `MiuiStatusIconContainer`-owned; Combined Status owns only scoped exclusion/mask tokens for the fake session.
+- **Lifecycle:** transition session remains bounded to native Control Center visible lifetime.
+- **Single writer:** no project alpha/translation/appearance/Home-visibility writer.
+- **Cleanup:** restore only the fake session's owned ignored-slot additions, clip states and any later verified local reservation.
+- **Fail-native:** unsupported/null source or unresolved fake carrier leaves QS_FAKE fully native.
+- **Performance:** normal production retains one low-frequency Control Center runtime Hook; no new polling/frame callback.
+- **Compatibility:** exact-target only until the fake carrier/exclusion contract is verified on other targets.
+- **Exception recovery:** Hot Reload must restore an active fake session explicitly rather than waiting for another visible event.
+- **Future extension:** Keyguard becomes a compact-capable source only after its own steady owner is verified; native source routing remains HyperOS-owned.
