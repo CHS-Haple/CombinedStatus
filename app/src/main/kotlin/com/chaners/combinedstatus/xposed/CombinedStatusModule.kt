@@ -1060,7 +1060,7 @@ class CombinedStatusModule : XposedModule() {
         }
 
         controlCenterSceneVisible = true
-        val carrier = update.controlCenterCarrier
+        val carrier = update.controlCenterPresentationHost
         if (carrier == null) {
             CombinedStatusHomeRenderSession.onControlCenterAuthorityChanged(true)
             logDiagnostic(
@@ -1068,8 +1068,8 @@ class CombinedStatusModule : XposedModule() {
                 event = "projection.attach",
                 component = "controlCenterProjection",
                 state = "unavailable",
-                "reason" to "real-system-icons-unresolved",
-                "fallback" to "home-visible",
+                "reason" to "fake-presentation-root-unresolved",
+                "fallback" to "native-control-center",
             )
             return
         }
