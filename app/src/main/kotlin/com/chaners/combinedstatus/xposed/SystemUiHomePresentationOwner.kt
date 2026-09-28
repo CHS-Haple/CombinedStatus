@@ -1072,6 +1072,27 @@ internal object SystemUiHomePresentationOwner {
         data class Failure(val reason: String) : StateResult
     }
 
+    internal sealed interface ControlCenterStateResult {
+        data class Active(
+            val representedSlots: Int,
+            val maskedViews: Int,
+            val reused: Boolean,
+        ) : ControlCenterStateResult
+
+        data class Prepared(
+            val representedSlots: Int,
+            val reused: Boolean,
+        ) : ControlCenterStateResult
+
+        data class Inactive(
+            val restoredViews: Int,
+        ) : ControlCenterStateResult
+
+        data class Failure(
+            val reason: String,
+        ) : ControlCenterStateResult
+    }
+
     internal sealed interface LegacyCleanupResult {
         data object NotPresent : LegacyCleanupResult
         data object Removed : LegacyCleanupResult
