@@ -5,12 +5,12 @@ This is the chronological engineering diary for Combined Status. It complements,
 
 ## 2026-09-29 — Build 443: atomic QS_FAKE cold-start cutover
 
-**Type:** device-evidence-driven transition ownership correction  
-**Build:** 443 / `20260929-443`  
-**Work branch:** `feat/keyguard-scene-adapter`  
-**Base:** Build-442 PR head `02e028172cb2700767df5190aaefe43a11dcb4d1`  
-**Hook delta:** 0  
-**Keyguard steady rendering:** still disabled  
+**Type:** device-evidence-driven transition ownership correction
+**Build:** 443 / `20260929-443`
+**Work branch:** `feat/keyguard-scene-adapter`
+**Base:** Build-442 PR head `02e028172cb2700767df5190aaefe43a11dcb4d1`
+**Hook delta:** 0
+**Keyguard steady rendering:** still disabled
 **AOD:** untouched
 
 ### Device evidence from Build 442
