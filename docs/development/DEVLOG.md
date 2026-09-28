@@ -5,8 +5,8 @@ This is the chronological engineering diary for Combined Status. It complements,
 
 ## 2026-09-29 — Build 437: retain compact QS_FAKE across transient live Battery-width loss
 
-**Type:** Phase-2B lifecycle ownership correction / executable checkpoint  
-**Build:** 437 / `20260929-437`  
+**Type:** Phase-2B lifecycle ownership correction / executable checkpoint
+**Build:** 437 / `20260929-437`
 **Work branch / PR:** `fix/control-center-fake-root` / #156
 
 ### Build 435 device result
