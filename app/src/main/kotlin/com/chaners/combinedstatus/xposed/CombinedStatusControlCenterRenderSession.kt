@@ -305,13 +305,13 @@ internal object CombinedStatusControlCenterRenderSession {
             oldRight: Int,
             oldBottom: Int,
         ) {
-            onPendingPrearmLayout(this)
+            CombinedStatusControlCenterRenderSession.onPendingPrearmLayout(this)
         }
 
         override fun onViewAttachedToWindow(view: View) = Unit
 
         override fun onViewDetachedFromWindow(view: View) {
-            onPendingPrearmDetached(this)
+            CombinedStatusControlCenterRenderSession.onPendingPrearmDetached(this)
         }
     }
 
