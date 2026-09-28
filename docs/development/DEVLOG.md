@@ -14,7 +14,7 @@ This is the chronological engineering diary for Combined Status. It complements,
 **Artifact:** `CombinedStatus-0.0.2-HyperOS-20260929-438-canary.apk` / id `10989102633`
 **Artifact ZIP digest:** `sha256:a75089e7d00abe2f4309966caffb1f109a66588a0e8440f0d5fcf27f510b1852`
 **Extracted APK SHA-256:** `106421050b3e55fd2e21ace0028cf6e31996f0733c797df669770d00bb4eef9d`
-**Validation:** automated validation passed; focused app-UI smoke pending
+**Validation:** automated validation passed; focused maintainer app-UI validation passed; final documentation-closed exact-head PR validation pending
 
 ### Problem / objective
 
