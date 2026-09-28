@@ -18,7 +18,6 @@ import java.util.concurrent.atomic.AtomicLong
 class CombinedStatusModule : XposedModule() {
     private var islandMotionSourceInstalled = false
     private var panelTransitionSourceInstalled = false
-    private var controlCenterSceneVisible = false
     private var controlCenterGeometryProbeBucket = -1
     private var runtimeSessionId = newRuntimeSessionId()
     private val diagnosticSequence = AtomicLong(0L)
@@ -462,9 +461,6 @@ class CombinedStatusModule : XposedModule() {
                 }
             }
 
-            SystemUiPanelTransitionSource.restoreControlCenterHomeEligibility(
-                restored.controlCenterHomeEligible,
-            )
             val transferredTint =
                 restored.appliedTint?.let { appliedTint ->
                     CombinedStatusTintState(
@@ -976,9 +972,6 @@ class CombinedStatusModule : XposedModule() {
                     BuildConfig.RUNTIME_DIAGNOSTICS,
                 )
             panelTransitionSourceInstalled = handles.size == expectedHooks
-            // Home yields Control Center only after the projected native
-            // carrier is structurally ready.
-            CombinedStatusHomeRenderSession.onControlCenterAuthorityChanged(true)
             logDiagnostic(
                 level = if (panelTransitionSourceInstalled) Log.INFO else Log.WARN,
                 event = "source.install",
@@ -996,7 +989,6 @@ class CombinedStatusModule : XposedModule() {
         }.onFailure { error ->
             panelTransitionSourceInstalled = false
             controlCenterGeometryProbeBucket = -1
-            CombinedStatusHomeRenderSession.onControlCenterAuthorityChanged(true)
             logDiagnostic(
                 level = Log.ERROR,
                 event = "source.install",
@@ -1050,68 +1042,139 @@ class CombinedStatusModule : XposedModule() {
     ) {
         val visible = update.visible ?: return
         if (!visible) {
-            controlCenterSceneVisible = false
-            // Restore Home first; projection cleanup is second so the closing
-            // tail frame always has a visible owner.
-            CombinedStatusHomeRenderSession.onControlCenterAuthorityChanged(true)
+            // Restore native QS_FAKE first, then remove the project overlay.
+            SystemUiControlCenterPresentationOwner.deactivate("control-center-hidden")
+            CombinedStatusControlCenterRenderSession.setPresentationOwned(false)
             CombinedStatusControlCenterRenderSession.setRequestedVisible(false)
             CombinedStatusControlCenterRenderSession.detach("control-center-hidden")
             return
         }
 
-        controlCenterSceneVisible = true
         val carrier = update.controlCenterCarrier
-        if (carrier == null) {
-            CombinedStatusHomeRenderSession.onControlCenterAuthorityChanged(true)
+        val sourceCarrier = update.controlCenterSourceCarrier
+        if (carrier == null || sourceCarrier == null) {
+            SystemUiControlCenterPresentationOwner.deactivate("carrier-unavailable")
+            CombinedStatusControlCenterRenderSession.setPresentationOwned(false)
+            CombinedStatusControlCenterRenderSession.detach("carrier-unavailable")
             logDiagnostic(
                 level = Log.WARN,
                 event = "projection.attach",
                 component = "controlCenterProjection",
                 state = "unavailable",
-                "reason" to "real-system-icons-unresolved",
-                "fallback" to "home-visible",
+                "reason" to
+                    if (carrier == null) {
+                        "qs-fake-carrier-unresolved"
+                    } else {
+                        "source-carrier-unresolved"
+                    },
+                "fallback" to "native-control-center",
             )
             return
         }
 
+        val carrierRef = java.lang.ref.WeakReference(carrier)
+        val sourceCarrierRef = java.lang.ref.WeakReference(sourceCarrier)
         when (
             val result =
                 CombinedStatusControlCenterRenderSession.attach(
                     host = carrier,
                     onEvent = ::onPanelTransitionEvent,
                     isDetailedDiagnosticsEnabled = { detailedDiagnosticsEnabled },
-                    onProjectionReadinessChanged = ::onControlCenterProjectionReadinessChanged,
+                    onRenderReadinessChanged = { ready ->
+                        onControlCenterRenderReadinessChanged(
+                            ready = ready,
+                            carrier = carrierRef.get(),
+                            sourceCarrier = sourceCarrierRef.get(),
+                        )
+                    },
                 )
         ) {
             CombinedStatusControlCenterRenderSession.AttachResult.Ready -> {
-                val ready =
-                    CombinedStatusControlCenterRenderSession.setRequestedVisible(true)
-                if (!ready) {
-                    CombinedStatusHomeRenderSession.onControlCenterAuthorityChanged(true)
-                }
+                CombinedStatusControlCenterRenderSession.setRequestedVisible(true)
             }
 
             is CombinedStatusControlCenterRenderSession.AttachResult.Failure -> {
-                CombinedStatusHomeRenderSession.onControlCenterAuthorityChanged(true)
+                SystemUiControlCenterPresentationOwner.deactivate("renderer-attach-failed")
+                CombinedStatusControlCenterRenderSession.setPresentationOwned(false)
                 logDiagnostic(
                     level = Log.WARN,
                     event = "projection.attach",
                     component = "controlCenterProjection",
                     state = "unavailable",
                     "reason" to result.reason,
-                    "fallback" to "home-visible",
+                    "fallback" to "native-control-center",
                 )
             }
         }
     }
 
-    private fun onControlCenterProjectionReadinessChanged(ready: Boolean) {
-        if (!controlCenterSceneVisible) {
+    private fun onControlCenterRenderReadinessChanged(
+        ready: Boolean,
+        carrier: android.view.ViewGroup?,
+        sourceCarrier: android.view.ViewGroup?,
+    ) {
+        if (!ready) {
+            SystemUiControlCenterPresentationOwner.deactivate("renderer-not-ready")
+            CombinedStatusControlCenterRenderSession.setPresentationOwned(false)
             return
         }
-        // Projected owner is already visible when ready=true. On the reverse
-        // edge Home is restored before the projected owner is removed.
-        CombinedStatusHomeRenderSession.onControlCenterAuthorityChanged(!ready)
+        if (carrier == null || sourceCarrier == null) {
+            SystemUiControlCenterPresentationOwner.deactivate("carrier-released")
+            CombinedStatusControlCenterRenderSession.setPresentationOwned(false)
+            return
+        }
+
+        when (
+            val result =
+                SystemUiControlCenterPresentationOwner.activate(
+                    host = carrier,
+                    sourceCarrier = sourceCarrier,
+                    onEvent = ::onPanelTransitionEvent,
+                    onFailNative = ::onControlCenterPresentationRuntimeFailure,
+                )
+        ) {
+            is SystemUiControlCenterPresentationOwner.StateResult.Active -> {
+                val visible =
+                    CombinedStatusControlCenterRenderSession.setPresentationOwned(true)
+                logDiagnostic(
+                    level = Log.INFO,
+                    event = "presentation.cutover",
+                    component = "controlCenterProjection",
+                    state = if (visible) "combined" else "prepared",
+                    "carrier" to "QS_FAKE",
+                    "representedSlots" to result.representedSlots,
+                    "maskedViews" to result.maskedViews,
+                    "motion" to "system-ui-inherited",
+                    "nativeGeometryWrites" to 0,
+                )
+            }
+
+            is SystemUiControlCenterPresentationOwner.StateResult.Failure -> {
+                CombinedStatusControlCenterRenderSession.setPresentationOwned(false)
+                logDiagnostic(
+                    level = Log.WARN,
+                    event = "projection.attach",
+                    component = "controlCenterProjection",
+                    state = "unavailable",
+                    "reason" to result.reason,
+                    "fallback" to "native-control-center",
+                )
+            }
+
+            is SystemUiControlCenterPresentationOwner.StateResult.Inactive -> Unit
+        }
+    }
+
+    private fun onControlCenterPresentationRuntimeFailure(reason: String) {
+        CombinedStatusControlCenterRenderSession.setPresentationOwned(false)
+        logDiagnostic(
+            level = Log.WARN,
+            event = "presentation.failNative",
+            component = "controlCenterProjection",
+            state = "native",
+            "reason" to reason,
+            "fallback" to "native-control-center",
+        )
     }
 
     private fun onPanelTransitionEvent(event: String) {
@@ -1423,7 +1486,8 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun teardownOldGenerationForHotReload() {
-        controlCenterSceneVisible = false
+        SystemUiControlCenterPresentationOwner.deactivate("hotReload-oldGeneration")
+        CombinedStatusControlCenterRenderSession.setPresentationOwned(false)
         CombinedStatusControlCenterRenderSession.detach("hotReload-oldGeneration")
         CombinedStatusHomeRenderSession.detach()
         val restoredPresentationViews =
