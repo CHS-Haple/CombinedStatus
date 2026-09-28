@@ -649,11 +649,13 @@ internal object CombinedStatusControlCenterRenderSession {
         private fun markLayoutUnavailable() {
             if (!layoutReady) return
             layoutReady = false
-            nativePresentationReady = false
             renderView.visibility = View.GONE
-            SystemUiHomePresentationOwner.deactivateControlCenter(
-                "projection-layout-unavailable",
-            )
+            emitEvent {
+                "controlCenterProjection layoutUnavailable action=pause-render " +
+                    "compactPresentationRetained=" + nativePresentationReady +
+                    " hostAttached=" + (host.get()?.isAttachedToWindow == true) +
+                    " nativeGeometryWrites=0"
+            }
             dispatchReadiness("layout-unavailable")
         }
 
