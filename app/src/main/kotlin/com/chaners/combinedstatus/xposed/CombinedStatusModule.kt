@@ -1594,14 +1594,20 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun onSceneStateUpdate(update: SystemUiSceneStateSource.SceneUpdate) {
-        val sourceScene = SystemUiSceneStateSource.steadySourceScene(update)
-        if (sourceScene == CombinedStatusSourceScene.KEYGUARD) {
+        val structuralSourceScene =
+            SystemUiSceneStateSource.steadySourceScene(update.sourceView)
+        if (structuralSourceScene == CombinedStatusSourceScene.KEYGUARD) {
             SystemUiKeyguardHostResolver.observe(update)?.let { resolution ->
                 onKeyguardHostResolution(
                     resolution = resolution,
                     source = "scene-state",
                 )
             }
+        }
+
+        val sourceScene = SystemUiSceneStateSource.steadySourceScene(update)
+        if (sourceScene == CombinedStatusSourceScene.HOME) {
+            deactivateKeyguardRuntime("home-source-active")
         }
         if (sourceScene != CombinedStatusSourceScene.UNKNOWN) {
             updateControlCenterSourceSceneEligibility(
@@ -1829,8 +1835,13 @@ class CombinedStatusModule : XposedModule() {
             "complete" to snapshot.complete,
             "retryPolicy" to "later-keyguard-scene-event-until-positive-ready",
             "hookDelta" to 0,
-            "rendering" to "disabled",
-            "suppression" to "disabled",
+            "rendering" to
+                if (RuntimeFeaturePreferencesOwner.currentSettings().keyguardEnabled) {
+                    "candidate"
+                } else {
+                    "disabled"
+                },
+            "suppression" to if (keyguardRuntimeReady) "active" else "native",
             "aodProbe" to false,
             "nativeGeometryWrites" to 0,
             "healthSnapshot" to false,
