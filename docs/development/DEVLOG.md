@@ -8233,9 +8233,9 @@ Do not stack runtime changes before maintainer feedback.
 
 ## 2026-09-28 — Build 426 device rejection: QS_FAKE compact cutover precedes native compact layout
 
-**Build:** 426 / `20260928-426`  
-**PR:** #152 / `feat/control-center-native-transition`  
-**Exact tested runtime head:** `55f266cd8585d78c65c564d363c8f5979c908292`  
+**Build:** 426 / `20260928-426`
+**PR:** #152 / `feat/control-center-native-transition`
+**Exact tested runtime head:** `55f266cd8585d78c65c564d363c8f5979c908292`
 **Device result:** transition carrier direction retained; partial-pull continuity rejected
 
 ### Maintainer evidence
