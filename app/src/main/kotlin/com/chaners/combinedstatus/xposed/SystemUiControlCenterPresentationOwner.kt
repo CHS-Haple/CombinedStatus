@@ -25,6 +25,7 @@ internal object SystemUiControlCenterPresentationOwner {
     private var current: SystemUiCompactPresentationRegistry.Session? = null
     private var eventSink: ((String) -> Unit)? = null
     private var failNativeSink: ((String) -> Unit)? = null
+    private var readySink: ((StateResult.Active) -> Unit)? = null
 
     @Synchronized
     fun activate(
@@ -32,6 +33,7 @@ internal object SystemUiControlCenterPresentationOwner {
         sourceCarrier: ViewGroup,
         onEvent: ((String) -> Unit)? = null,
         onFailNative: ((String) -> Unit)? = null,
+        onReady: ((StateResult.Active) -> Unit)? = null,
     ): StateResult {
         if (Looper.myLooper() !== Looper.getMainLooper()) {
             return StateResult.Failure("main-thread-required")
@@ -55,6 +57,7 @@ internal object SystemUiControlCenterPresentationOwner {
 
         eventSink = onEvent
         failNativeSink = onFailNative
+        readySink = onReady
 
         val existing = current
         if (
@@ -67,16 +70,30 @@ internal object SystemUiControlCenterPresentationOwner {
             ) == true
         ) {
             existing.syncEndReservation()
-            val masked = existing.refreshClipMasks()
+            val masked =
+                SystemUiCompactPresentationRegistry.activate(
+                    session = existing,
+                    deferVisualMaskUntilLayout = true,
+                    onLayoutReady = { maskedViews ->
+                        onSessionLayoutReady(
+                            session = existing,
+                            maskedViews = maskedViews,
+                            reused = true,
+                        )
+                    },
+                )
             if (current !== existing) {
                 return StateResult.Failure("session-reuse-failed-native-restored")
             }
             host.requestLayout()
-            return StateResult.Active(
-                representedSlots = representedSlots.size,
-                maskedViews = masked,
-                reused = true,
-            )
+            return if (existing.isLayoutCutoverReady()) {
+                activeResult(maskedViews = masked, reused = true)
+            } else {
+                StateResult.Prepared(
+                    representedSlots = representedSlots.size,
+                    reused = true,
+                )
+            }
         }
 
         existing?.let { session ->
@@ -108,25 +125,30 @@ internal object SystemUiControlCenterPresentationOwner {
             }
 
         current = session
-        val masked = SystemUiCompactPresentationRegistry.activate(session)
+        val masked =
+            SystemUiCompactPresentationRegistry.activate(
+                session = session,
+                deferVisualMaskUntilLayout = true,
+                onLayoutReady = { maskedViews ->
+                    onSessionLayoutReady(
+                        session = session,
+                        maskedViews = maskedViews,
+                        reused = false,
+                    )
+                },
+            )
         if (current !== session) {
             return StateResult.Failure("session-activation-failed-native-restored")
         }
         host.requestLayout()
-        eventSink?.invoke(
-            "controlCenterPresentation active carrier=QS_FAKE.system_icon_area " +
-                "representedSlots=" + representedSlots.joinToString(",") +
-                " maskedViews=" + masked +
-                " slotExclusion=scoped-native-measure-layout " +
-                "carrierReservation=status-icons-end-padding " +
-                "carrierAuthority=battery_icon_container visualMask=clipBounds " +
-                "nativeTranslationWrites=0 nativeAlphaWrites=0 nativeVisibilityWrites=0",
-        )
-        return StateResult.Active(
-            representedSlots = representedSlots.size,
-            maskedViews = masked,
-            reused = false,
-        )
+        return if (session.isLayoutCutoverReady()) {
+            activeResult(maskedViews = masked, reused = false)
+        } else {
+            StateResult.Prepared(
+                representedSlots = representedSlots.size,
+                reused = false,
+            )
+        }
     }
 
     @Synchronized
@@ -149,6 +171,7 @@ internal object SystemUiControlCenterPresentationOwner {
         )
         eventSink = null
         failNativeSink = null
+        readySink = null
         return StateResult.Inactive(restored)
     }
 
@@ -167,6 +190,41 @@ internal object SystemUiControlCenterPresentationOwner {
         failNativeSink?.invoke(reason)
         eventSink = null
         failNativeSink = null
+        readySink = null
+    }
+
+    @Synchronized
+    private fun onSessionLayoutReady(
+        session: SystemUiCompactPresentationRegistry.Session,
+        maskedViews: Int,
+        reused: Boolean,
+    ) {
+        if (current !== session) {
+            return
+        }
+        val active = activeResult(maskedViews = maskedViews, reused = reused)
+        readySink?.invoke(active)
+    }
+
+    private fun activeResult(
+        maskedViews: Int,
+        reused: Boolean,
+    ): StateResult.Active {
+        eventSink?.invoke(
+            "controlCenterPresentation active carrier=QS_FAKE.system_icon_area " +
+                "representedSlots=" + representedSlots.joinToString(",") +
+                " maskedViews=" + maskedViews +
+                " slotExclusion=scoped-native-measure-layout " +
+                "carrierReservation=status-icons-end-padding " +
+                "carrierAuthority=battery_icon_container visualMask=clipBounds " +
+                "cutover=native-layout-ready " +
+                "nativeTranslationWrites=0 nativeAlphaWrites=0 nativeVisibilityWrites=0",
+        )
+        return StateResult.Active(
+            representedSlots = representedSlots.size,
+            maskedViews = maskedViews,
+            reused = reused,
+        )
     }
 
     private fun ViewGroup.directChild(className: String): View? {
@@ -183,6 +241,11 @@ internal object SystemUiControlCenterPresentationOwner {
         data class Active(
             val representedSlots: Int,
             val maskedViews: Int,
+            val reused: Boolean,
+        ) : StateResult
+
+        data class Prepared(
+            val representedSlots: Int,
             val reused: Boolean,
         ) : StateResult
 
