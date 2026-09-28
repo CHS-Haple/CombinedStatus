@@ -412,7 +412,7 @@ private fun MiniThemeSwatch(color: Color) {
 }
 
 private const val MiniPreviewScale = 0.82f
-private val MiniNavigationViewportHeight = 64.dp
+private val MiniNavigationViewportHeight = 76.dp
 
 @Composable
 private fun ScaledPreviewContent(
@@ -492,13 +492,7 @@ private fun MiniNavigationPreview(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .height(
-                    if (floating && content == FloatingNavigationContent.IconAndText) {
-                        76.dp
-                    } else {
-                        MiniNavigationViewportHeight
-                    },
-                ),
+                .height(MiniNavigationViewportHeight),
         contentAlignment = Alignment.TopCenter,
     ) {
         Box(
@@ -598,7 +592,7 @@ private fun MiniNavigationViewportContent(
         layout(constraints.maxWidth, constraints.maxHeight) {
             placeable.placeRelative(
                 x = ((constraints.maxWidth - placeable.width) / 2).coerceAtLeast(0),
-                y = 0,
+                y = (constraints.maxHeight - placeable.height).coerceAtLeast(0),
             )
         }
     }
