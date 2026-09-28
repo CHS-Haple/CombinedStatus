@@ -280,6 +280,148 @@ internal object SystemUiHomePresentationOwner {
         current?.ownsBatteryContainer(candidate) == true
 
     @Synchronized
+    fun activateControlCenter(
+        host: ViewGroup,
+        statusIcons: ViewGroup,
+        batteryContainer: ViewGroup,
+        battery: View,
+        batteryCarrier: View,
+        onEvent: (String) -> Unit,
+        onFailNative: (String) -> Unit,
+        onReady: (ControlCenterStateResult.Active) -> Unit,
+    ): ControlCenterStateResult {
+        if (Looper.myLooper() !== Looper.getMainLooper()) {
+            return ControlCenterStateResult.Failure("main-thread-required")
+        }
+        if (installedHookCount != 3) {
+            return ControlCenterStateResult.Failure("hooks-not-ready")
+        }
+        if (host !== batteryContainer || host.javaClass.name != BATTERY_CONTAINER) {
+            return ControlCenterStateResult.Failure("fake-status-bar-area-mismatch")
+        }
+        if (statusIcons.javaClass.name != STATUS_ICON_CONTAINER) {
+            return ControlCenterStateResult.Failure("status-icon-group-type-mismatch")
+        }
+        if (battery.javaClass.name != BATTERY_VIEW) {
+            return ControlCenterStateResult.Failure("battery-view-type-mismatch")
+        }
+
+        val field =
+            ignoredSlotsField
+                ?: return ControlCenterStateResult.Failure("ignored-slots-field-unavailable")
+        val hideField =
+            batteryHideField
+                ?: return ControlCenterStateResult.Failure("battery-hide-field-unavailable")
+        SystemUiHomeCarrierMetrics.resolveCarrierWidthPx(batteryCarrier)
+            ?: return ControlCenterStateResult.Failure("battery-core-width-unavailable")
+
+        @Suppress("UNCHECKED_CAST")
+        val list =
+            runCatching { field.get(statusIcons) as? MutableList<String> }.getOrNull()
+                ?: return ControlCenterStateResult.Failure("ignored-slots-list-unavailable")
+        list.size
+
+        controlCenterEventSink = onEvent
+        controlCenterFailNativeSink = onFailNative
+        controlCenterReadySink = onReady
+
+        val existing = controlCenterCurrent
+        if (
+            existing?.matches(
+                host = host,
+                statusIcons = statusIcons,
+                batteryContainer = batteryContainer,
+                battery = battery,
+                batteryCarrier = batteryCarrier,
+            ) == true
+        ) {
+            val masked =
+                existing.start(
+                    deferVisualMaskUntilLayout = true,
+                    onLayoutReady = { maskedViews ->
+                        onControlCenterSessionLayoutReady(
+                            session = existing,
+                            maskedViews = maskedViews,
+                            reused = true,
+                        )
+                    },
+                )
+            batteryContainer.requestLayout()
+            return if (existing.isLayoutCutoverReady()) {
+                ControlCenterStateResult.Active(
+                    representedSlots = representedSlots.size,
+                    maskedViews = masked,
+                    reused = true,
+                )
+            } else {
+                ControlCenterStateResult.Prepared(
+                    representedSlots = representedSlots.size,
+                    reused = true,
+                )
+            }
+        }
+
+        existing?.stop("host-replaced")
+        val session =
+            Session(
+                host = host,
+                statusIcons = statusIcons,
+                batteryContainer = batteryContainer,
+                battery = battery,
+                batteryCarrier = batteryCarrier,
+                ignoredSlotsField = field,
+                batteryHideField = hideField,
+                surfaceName = "control-center-fake",
+                eventPrefix = "controlCenterPresentation",
+                onEvent = { event -> controlCenterEventSink?.invoke(event) },
+                onFailNative = ::onControlCenterSessionFailure,
+            )
+        controlCenterCurrent = session
+        val masked =
+            session.start(
+                deferVisualMaskUntilLayout = true,
+                onLayoutReady = { maskedViews ->
+                    onControlCenterSessionLayoutReady(
+                        session = session,
+                        maskedViews = maskedViews,
+                        reused = false,
+                    )
+                },
+            )
+        batteryContainer.requestLayout()
+        return if (session.isLayoutCutoverReady()) {
+            ControlCenterStateResult.Active(
+                representedSlots = representedSlots.size,
+                maskedViews = masked,
+                reused = false,
+            )
+        } else {
+            ControlCenterStateResult.Prepared(
+                representedSlots = representedSlots.size,
+                reused = false,
+            )
+        }
+    }
+
+    @Synchronized
+    fun deactivateControlCenter(source: String): ControlCenterStateResult {
+        val session =
+            controlCenterCurrent
+                ?: return ControlCenterStateResult.Inactive(0)
+        controlCenterCurrent = null
+        val restored = session.stop(source)
+        controlCenterEventSink?.invoke(
+            "controlCenterPresentation inactive source=" + source +
+                " restoredViews=" + restored +
+                " nativeTranslationWrites=0 nativeAlphaWrites=0 nativeVisibilityWrites=0",
+        )
+        controlCenterEventSink = null
+        controlCenterFailNativeSink = null
+        controlCenterReadySink = null
+        return ControlCenterStateResult.Inactive(restored)
+    }
+
+    @Synchronized
     fun deactivate(source: String): StateResult {
         val session = current ?: return StateResult.Inactive(0)
         current = null
