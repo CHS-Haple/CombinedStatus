@@ -1,6 +1,7 @@
 package com.chaners.combinedstatus.xposed
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -60,4 +61,34 @@ class CombinedStatusScenePolicyTest {
             )
         }
     }
+
+    @Test
+    fun controlCenterProjectionInheritsVerifiedSourceSceneCapability() {
+        assertTrue(
+            CombinedStatusScenePolicy.controlCenterProjectionEligible(
+                sourceScene = CombinedStatusSourceScene.HOME,
+                keyguardEnabled = false,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.controlCenterProjectionEligible(
+                sourceScene = CombinedStatusSourceScene.KEYGUARD,
+                keyguardEnabled = false,
+            ),
+        )
+        // The setting alone cannot promote an unverified Keyguard capability.
+        assertFalse(
+            CombinedStatusScenePolicy.controlCenterProjectionEligible(
+                sourceScene = CombinedStatusSourceScene.KEYGUARD,
+                keyguardEnabled = true,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.controlCenterProjectionEligible(
+                sourceScene = CombinedStatusSourceScene.UNKNOWN,
+                keyguardEnabled = true,
+            ),
+        )
+    }
 }
+

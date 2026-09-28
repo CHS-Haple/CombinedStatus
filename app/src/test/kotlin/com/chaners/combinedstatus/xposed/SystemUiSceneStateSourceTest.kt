@@ -1,8 +1,6 @@
 package com.chaners.combinedstatus.xposed
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SystemUiSceneStateSourceTest {
@@ -27,37 +25,33 @@ class SystemUiSceneStateSourceTest {
     }
 
     @Test
-    fun controlCenterProjectionFollowsSourceScenePolicy() {
-        assertTrue(
-            CombinedStatusScenePolicy.controlCenterProjectionEligible(
-                surface = SystemUiSceneStateSource.Surface.UNLOCKED_STATUS_BAR,
-                keyguardEnabled = false,
+    fun steadySourceAuthorityRequiresMatchingStructuralHost() {
+        assertEquals(
+            CombinedStatusSourceScene.HOME,
+            SystemUiSceneStateSource.classifySteadySourceAncestors(
+                listOf(
+                    "com.android.systemui.statusbar.views.MiuiBatteryMeterView",
+                    "com.android.systemui.statusbar.phone.MiuiNotificationStatusContainer",
+                ),
             ),
         )
-        assertFalse(
-            CombinedStatusScenePolicy.controlCenterProjectionEligible(
-                surface = SystemUiSceneStateSource.Surface.KEYGUARD,
-                keyguardEnabled = false,
+        assertEquals(
+            CombinedStatusSourceScene.KEYGUARD,
+            SystemUiSceneStateSource.classifySteadySourceAncestors(
+                listOf(
+                    "com.android.systemui.statusbar.views.MiuiBatteryMeterView",
+                    "com.android.systemui.statusbar.phone.MiuiKeyguardStatusBarView",
+                ),
             ),
         )
-        assertTrue(
-            CombinedStatusScenePolicy.controlCenterProjectionEligible(
-                surface = SystemUiSceneStateSource.Surface.KEYGUARD,
-                keyguardEnabled = true,
-            ),
-        )
-        assertFalse(
-            CombinedStatusScenePolicy.controlCenterProjectionEligible(
-                surface = SystemUiSceneStateSource.Surface.SHADE_LOCKED,
-                keyguardEnabled = true,
-            ),
-        )
-        assertFalse(
-            CombinedStatusScenePolicy.controlCenterProjectionEligible(
-                surface = SystemUiSceneStateSource.Surface.UNKNOWN,
-                keyguardEnabled = true,
+        assertEquals(
+            CombinedStatusSourceScene.UNKNOWN,
+            SystemUiSceneStateSource.classifySteadySourceAncestors(
+                listOf(
+                    "com.android.systemui.statusbar.views.MiuiBatteryMeterView",
+                    "com.android.systemui.controlcenter.phone.widget.ControlCenterFakeStatusIcons",
+                ),
             ),
         )
     }
 }
-

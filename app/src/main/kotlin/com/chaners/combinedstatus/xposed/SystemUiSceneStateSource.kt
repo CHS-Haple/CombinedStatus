@@ -67,6 +67,51 @@ internal object SystemUiSceneStateSource {
 
     fun matches(handle: HookHandle): Boolean = handle.id == HOOK_ID
 
+    fun steadySourceScene(update: SceneUpdate): CombinedStatusSourceScene {
+        val structural = steadySourceScene(update.sourceView)
+        return when (structural) {
+            CombinedStatusSourceScene.HOME ->
+                if (update.surface == Surface.UNLOCKED_STATUS_BAR) {
+                    CombinedStatusSourceScene.HOME
+                } else {
+                    CombinedStatusSourceScene.UNKNOWN
+                }
+
+            CombinedStatusSourceScene.KEYGUARD ->
+                if (
+                    update.surface == Surface.KEYGUARD ||
+                    update.surface == Surface.SHADE_LOCKED
+                ) {
+                    CombinedStatusSourceScene.KEYGUARD
+                } else {
+                    CombinedStatusSourceScene.UNKNOWN
+                }
+
+            CombinedStatusSourceScene.UNKNOWN -> CombinedStatusSourceScene.UNKNOWN
+        }
+    }
+
+    fun steadySourceScene(sourceView: View): CombinedStatusSourceScene {
+        var current: View? = sourceView
+        while (current != null) {
+            when (current.javaClass.name) {
+                KEYGUARD_HOST_CLASS_NAME -> return CombinedStatusSourceScene.KEYGUARD
+                HOME_HOST_CLASS_NAME -> return CombinedStatusSourceScene.HOME
+            }
+            current = current.parent as? View
+        }
+        return CombinedStatusSourceScene.UNKNOWN
+    }
+
+    internal fun classifySteadySourceAncestors(
+        classNames: List<String>,
+    ): CombinedStatusSourceScene =
+        when {
+            KEYGUARD_HOST_CLASS_NAME in classNames -> CombinedStatusSourceScene.KEYGUARD
+            HOME_HOST_CLASS_NAME in classNames -> CombinedStatusSourceScene.HOME
+            else -> CombinedStatusSourceScene.UNKNOWN
+        }
+
     @Synchronized
     fun currentState(sourceView: View): SceneUpdate? {
         states[sourceView]?.let { return it }
@@ -142,22 +187,12 @@ internal object SystemUiSceneStateSource {
         val rawState: Int,
     )
 
+    private const val HOME_HOST_CLASS_NAME =
+        "com.android.systemui.statusbar.phone.MiuiNotificationStatusContainer"
+    private const val KEYGUARD_HOST_CLASS_NAME =
+        "com.android.systemui.statusbar.phone.MiuiKeyguardStatusBarView"
+
     private const val STATUS_BAR_STATE_SHADE = 0
     private const val STATUS_BAR_STATE_KEYGUARD = 1
     private const val STATUS_BAR_STATE_SHADE_LOCKED = 2
-}
-
-
-internal object CombinedStatusScenePolicy {
-    fun controlCenterProjectionEligible(
-        surface: SystemUiSceneStateSource.Surface,
-        keyguardEnabled: Boolean,
-    ): Boolean =
-        when (surface) {
-            SystemUiSceneStateSource.Surface.UNLOCKED_STATUS_BAR -> true
-            SystemUiSceneStateSource.Surface.KEYGUARD -> keyguardEnabled
-            SystemUiSceneStateSource.Surface.SHADE_LOCKED,
-            SystemUiSceneStateSource.Surface.UNKNOWN,
-            -> false
-        }
 }

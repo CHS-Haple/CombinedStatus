@@ -30,17 +30,18 @@ That makes a Keyguard-originated pull indistinguishable from a Home-originated p
 
 ### Corrected execution flow
 
-Existing native `MiuiBatteryMeterView.mStatusBarState`
--> `SystemUiSceneStateSource.Surface`
--> `CombinedStatusScenePolicy`
+Structurally verified steady Battery host (pre-seed) / HyperOS `ControlCenterHeaderExpandController.realSystemIcons` (final pull authority)
+-> `CombinedStatusSourceScene`
+-> existing `CombinedStatusScenePolicy`
 -> source-scene eligibility
 -> QS_FAKE compact presentation + overlay readiness.
 
 Current Build-444 policy:
-- `UNLOCKED_STATUS_BAR`: Combined QS_FAKE allowed.
-- `KEYGUARD`: native QS_FAKE while `keyguardEnabled=false`.
-- `SHADE_LOCKED`: native.
-- `UNKNOWN`: native.
+- native-selected Home source: Combined QS_FAKE allowed because the verified Home capability is projected;
+- native-selected Keyguard source: native QS_FAKE because the Keyguard capability is still `NATIVE_ONLY` (and `keyguardEnabled=false`);
+- unknown/unresolved source: native.
+
+A steady Battery callback may pre-seed the source only when its actual View ancestry is `MiuiNotificationStatusContainer` or `MiuiKeyguardStatusBarView` and its state is structurally consistent. Fake/QS Battery instances are ignored as source authority. On `onVisibleChanged(true)`, HyperOS `realSystemIcons` ancestry becomes the final authority for that pull.
 
 When eligibility becomes false, the overlay readiness gate closes and the existing compact native presentation is deactivated/restored in the same main-thread event. The gate therefore does not leave a hidden Combined overlay paired with masked native slots.
 
@@ -49,7 +50,7 @@ At fake-session attach, the current fake Battery scene is read through the alrea
 ### 审查 / review
 
 - **root cause first:** fixes missing source-scene policy rather than adding gesture timing checks.
-- **native authority:** scene classification reuses the existing native StatusBarState source already used by HyperOS for Home/Keyguard source selection.
+- **native authority:** pre-seed accepts only structurally verified steady hosts; final pull classification reads HyperOS's own `realSystemIcons` selection from the already-resolved Control Center header contract.
 - **single writer:** existing HomePresentationOwner remains the only compact-mask writer.
 - **fail native:** KEYGUARD / SHADE_LOCKED / UNKNOWN default to native until a verified Keyguard feature policy exists.
 - **future setting:** the policy already accepts `keyguardEnabled`; wiring that setting is deferred until steady Keyguard rendering exists so one switch can govern steady Keyguard + Keyguard-originated QS_FAKE together.
@@ -58,7 +59,9 @@ At fake-session attach, the current fake Battery scene is read through the alrea
 
 ### Validation plan
 
-Run exact-head Fast and trusted Canary. Device check then compares:
+Fast #1537 / run `36487954963` passed environment/target-profile gates but failed `compileDebugKotlin`: the first draft duplicated the already-existing `CombinedStatusScenePolicy` object in `SystemUiSceneStateSource.kt`, making the draft method unresolved through the redeclaration. This was a repository-reuse error, not a runtime hypothesis failure. The correction removes the duplicate object, extends the existing policy, and uses native `realSystemIcons` as final pull authority.
+
+Re-run exact-head Fast and trusted Canary. Device check then compares:
 1. unlocked Home -> Control Center: existing Combined QS_FAKE remains;
 2. Keyguard -> Control Center: native QS_FAKE only;
 3. return/unlock -> Control Center: Combined QS_FAKE resumes without SystemUI restart.

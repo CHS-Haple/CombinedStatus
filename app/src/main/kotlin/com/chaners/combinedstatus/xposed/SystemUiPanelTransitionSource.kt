@@ -136,6 +136,12 @@ internal object SystemUiPanelTransitionSource {
                                 } else {
                                     null
                                 }
+                            val controlCenterSourceScene =
+                                if (visible == true) {
+                                    resolveControlCenterSourceScene(chain.thisObject)
+                                } else {
+                                    null
+                                }
                             val update =
                                 Update(
                                     source = Source.CONTROL_CENTER,
@@ -144,6 +150,7 @@ internal object SystemUiPanelTransitionSource {
                                     tracking = null,
                                     visible = visible,
                                     controlCenterPresentationHost = controlCenterPresentationHost,
+                                    controlCenterSourceScene = controlCenterSourceScene,
                                 )
                             onUpdate?.invoke(update)
                             emitDiagnostic(
@@ -356,6 +363,17 @@ internal object SystemUiPanelTransitionSource {
         return contract.snapshot(header)
     }
 
+    private fun resolveControlCenterSourceScene(delegate: Any?): CombinedStatusSourceScene {
+        val contract = controlAnchorContract ?: return CombinedStatusSourceScene.UNKNOWN
+        val header =
+            resolveControlCenterHeader(delegate)
+                ?: return CombinedStatusSourceScene.UNKNOWN
+        val realSystemIcons =
+            contract.realSystemIcons(header)
+                ?: return CombinedStatusSourceScene.UNKNOWN
+        return SystemUiSceneStateSource.steadySourceScene(realSystemIcons)
+    }
+
     @Synchronized
     private fun emitDiagnostic(
         update: Update,
@@ -395,6 +413,10 @@ internal object SystemUiPanelTransitionSource {
             update.homeMotion?.let { snapshot ->
                 " homeMotion=" + snapshot.summary
             }.orEmpty()
+        val sourceSceneSummary =
+            update.controlCenterSourceScene?.let { sourceScene ->
+                " sourceScene=" + sourceScene.name
+            }.orEmpty()
         onEvent(
             "panelTransition source=" + update.source.logName +
                 " fraction=" + (update.fraction ?: "none") +
@@ -404,6 +426,7 @@ internal object SystemUiPanelTransitionSource {
                 " visible=" + (update.visible ?: probe.visible ?: "none") +
                 anchorSummary +
                 homeMotionSummary +
+                sourceSceneSummary +
                 " authority=hyperos-native-callback" +
                 " nativeGeometryWrites=0",
         )
@@ -416,6 +439,7 @@ internal object SystemUiPanelTransitionSource {
         val tracking: Boolean?,
         val visible: Boolean?,
         val controlCenterPresentationHost: ViewGroup? = null,
+        val controlCenterSourceScene: CombinedStatusSourceScene? = null,
         val controlCenterAnchor: ControlCenterAnchorSnapshot? = null,
         val homeMotion: SystemUiIslandMotionSource.OwnerSnapshot? = null,
     )

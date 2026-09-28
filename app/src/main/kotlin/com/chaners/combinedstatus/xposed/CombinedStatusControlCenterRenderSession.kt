@@ -23,7 +23,6 @@ internal object CombinedStatusControlCenterRenderSession {
     private var current: Session? = null
     private var pendingPrearm: PendingPrearm? = null
     private var sceneEligible = false
-    private var sceneEligibilityKnown = false
 
     @Synchronized
     fun prearmAfterNextNativeLayout(
@@ -85,19 +84,6 @@ internal object CombinedStatusControlCenterRenderSession {
         val carrier =
             SystemUiHomeCarrierMetrics.resolveCarrierView(battery)
                 ?: return AttachResult.Failure("battery-core-carrier-missing")
-        if (!sceneEligibilityKnown) {
-            val resolvedSurface =
-                SystemUiSceneStateSource.currentState(battery)?.surface
-                    ?: SystemUiSceneStateSource.Surface.UNKNOWN
-            sceneEligible =
-                CombinedStatusScenePolicy.controlCenterProjectionEligible(
-                    surface = resolvedSurface,
-                    keyguardEnabled = false,
-                )
-            sceneEligibilityKnown =
-                resolvedSurface != SystemUiSceneStateSource.Surface.UNKNOWN
-        }
-
         val existing = current
         if (
             existing?.matches(
@@ -141,7 +127,6 @@ internal object CombinedStatusControlCenterRenderSession {
 
     @Synchronized
     fun setSceneEligible(eligible: Boolean) {
-        sceneEligibilityKnown = true
         sceneEligible = eligible
         val session = current
         session?.setSceneEligible(eligible)

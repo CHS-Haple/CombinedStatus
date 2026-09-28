@@ -148,4 +148,19 @@ class SystemUiPanelTransitionSourceTest {
         assertEquals(8, SystemUiPanelTransitionSource.diagnosticBucket(1.4f))
         assertNull(SystemUiPanelTransitionSource.diagnosticBucket(null))
     }
+
+    @Test
+    fun controlCenterUpdateCarriesNativeSelectedSourceScene() {
+        val update =
+            SystemUiPanelTransitionSource.Update(
+                source = SystemUiPanelTransitionSource.Source.CONTROL_CENTER,
+                fraction = null,
+                expanded = null,
+                tracking = null,
+                visible = true,
+                controlCenterSourceScene = CombinedStatusSourceScene.KEYGUARD,
+            )
+        assertEquals(CombinedStatusSourceScene.KEYGUARD, update.controlCenterSourceScene)
+    }
 }
+

@@ -13,6 +13,12 @@ internal enum class CombinedStatusSceneEvidence {
     STATIC_VERIFIED,
 }
 
+internal enum class CombinedStatusSourceScene {
+    HOME,
+    KEYGUARD,
+    UNKNOWN,
+}
+
 internal data class CombinedStatusSceneCapability(
     val scene: CombinedStatusScene,
     val renderMode: CombinedStatusRenderMode,
@@ -67,4 +73,21 @@ internal object CombinedStatusScenePolicy {
 
     fun all(): List<CombinedStatusSceneCapability> =
         CombinedStatusScene.entries.map(::capability)
+
+    fun controlCenterProjectionEligible(
+        sourceScene: CombinedStatusSourceScene,
+        keyguardEnabled: Boolean,
+    ): Boolean =
+        when (sourceScene) {
+            CombinedStatusSourceScene.HOME ->
+                capability(CombinedStatusScene.HOME_STABLE).renderMode ==
+                    CombinedStatusRenderMode.PROJECTED
+
+            CombinedStatusSourceScene.KEYGUARD ->
+                keyguardEnabled &&
+                    capability(CombinedStatusScene.KEYGUARD).renderMode ==
+                    CombinedStatusRenderMode.PROJECTED
+
+            CombinedStatusSourceScene.UNKNOWN -> false
+        }
 }

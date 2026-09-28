@@ -1075,6 +1075,12 @@ class CombinedStatusModule : XposedModule() {
         }
 
         controlCenterSceneVisible = true
+        updateControlCenterSourceSceneEligibility(
+            sourceScene =
+                update.controlCenterSourceScene
+                    ?: CombinedStatusSourceScene.UNKNOWN,
+            authority = "hyperos-realSystemIcons",
+        )
         val carrier = update.controlCenterPresentationHost
         if (carrier == null) {
             CombinedStatusHomeRenderSession.onControlCenterAuthorityChanged(true)
@@ -1110,6 +1116,35 @@ class CombinedStatusModule : XposedModule() {
                 )
             }
         }
+    }
+
+    private fun updateControlCenterSourceSceneEligibility(
+        sourceScene: CombinedStatusSourceScene,
+        authority: String,
+    ) {
+        val nextEligible =
+            CombinedStatusScenePolicy.controlCenterProjectionEligible(
+                sourceScene = sourceScene,
+                keyguardEnabled = false,
+            )
+        if (nextEligible == controlCenterSceneEligible) {
+            return
+        }
+
+        controlCenterSceneEligible = nextEligible
+        CombinedStatusControlCenterRenderSession.setSceneEligible(nextEligible)
+        logDiagnostic(
+            level = Log.INFO,
+            event = "scene.eligibility",
+            component = "controlCenterProjection",
+            state = if (nextEligible) "eligible" else "native",
+            "sourceScene" to sourceScene.name,
+            "authority" to authority,
+            "keyguardEnabled" to false,
+            "controlCenterVisible" to controlCenterSceneVisible,
+            "fallback" to if (nextEligible) "combined-qs-fake" else "native-qs-fake",
+            "nativeGeometryWrites" to 0,
+        )
     }
 
     private fun restoreControlCenterFakePresentationAfterHotReload(
@@ -1534,27 +1569,11 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun onSceneStateUpdate(update: SystemUiSceneStateSource.SceneUpdate) {
-        val nextControlCenterSceneEligible =
-            CombinedStatusScenePolicy.controlCenterProjectionEligible(
-                surface = update.surface,
-                keyguardEnabled = false,
-            )
-        if (nextControlCenterSceneEligible != controlCenterSceneEligible) {
-            controlCenterSceneEligible = nextControlCenterSceneEligible
-            CombinedStatusControlCenterRenderSession.setSceneEligible(
-                nextControlCenterSceneEligible,
-            )
-            logDiagnostic(
-                level = Log.INFO,
-                event = "scene.eligibility",
-                component = "controlCenterProjection",
-                state = if (nextControlCenterSceneEligible) "eligible" else "native",
-                "surface" to update.surface.name,
-                "keyguardEnabled" to false,
-                "controlCenterVisible" to controlCenterSceneVisible,
-                "fallback" to
-                    if (nextControlCenterSceneEligible) "combined-qs-fake" else "native-qs-fake",
-                "nativeGeometryWrites" to 0,
+        val sourceScene = SystemUiSceneStateSource.steadySourceScene(update)
+        if (sourceScene != CombinedStatusSourceScene.UNKNOWN) {
+            updateControlCenterSourceSceneEligibility(
+                sourceScene = sourceScene,
+                authority = "steady-source-view",
             )
         }
 
