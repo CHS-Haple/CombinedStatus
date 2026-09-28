@@ -46,14 +46,18 @@ For the pinned HyperOS target, Notification Shade itself does not present the st
 - Keyguard-originated Control Center remains native while `keyguardEnabled=false`; scene transition cleanup restores the compact QS_FAKE presentation before the native Keyguard route is used.
 - Build 446 therefore closes the Phase-3 prerequisite bug exposed by source-scene gating without reopening Home/QS_FAKE ownership.
 
-## Active checkpoint — Keyguard steady adapter
+## Active checkpoint — Build 447 steady Keyguard adapter candidate
 
-- Next runtime objective: promote **steady Keyguard only** from NATIVE_ONLY to a separately owned Combined Status adapter while preserving the accepted Home and shared QS_FAKE behavior.
-- Home and Keyguard must remain separate mutable host/session owners. They may share renderer/domain semantics and the already-installed class-wide status-icon layout Hook substrate, but must not share a concrete View/session instance.
-- The verified Keyguard carrier is `MiuiKeyguardStatusBarView.mSystemIconsContainer` (`MiuiStatusBatteryContainer`); its own parent visibility/alpha/translation and `updateIconsAndTextColors()` tint semantics remain HyperOS-owned.
-- Future feature policy is one global Combined Status enable plus a Keyguard-specific enable. The Keyguard switch governs both steady Keyguard and Keyguard-originated QS_FAKE eligibility; Home remains governed only by the global feature.
-- AOD remains NATIVE_ONLY and is not implied by steady Keyguard support.
-- First implementation review must reuse the existing scene callback / structurally verified Keyguard host instead of adding a duplicate Keyguard lifecycle state machine, and must preserve Fail-native cleanup when host/presentation contracts are incomplete.
+- Work branch remains `feat/keyguard-scene-adapter`; runtime identity advances to Build 447 / `20260929-447`.
+- Build 446 remains the accepted Home/QS_FAKE behavioral baseline. Build 447 must not reopen its source-scene classification, late-layout cutover, or Home carrier identity.
+- Build 447 introduces a **separate steady Keyguard resolver/render/presentation session**. Home and Keyguard share state/model/painter/layout semantics and the already-installed class-wide status-icon presentation Hook substrate, but never share a mutable View/session owner.
+- Keyguard host resolution is driven by the existing `MiuiBatteryMeterView.updateState(I)` scene callback plus verified `MiuiKeyguardStatusBarView` ancestry. Steady-host readiness deliberately does not depend on `ControlCenterFakeViewController.realSystemIcons` already selecting Keyguard; that is transition-router timing, not steady-host identity.
+- The presentation layer reuses the existing three `MiuiStatusIconContainer.onMeasure/onLayout` + `MiuiStatusBatteryContainer.setIsHideBattery` Hooks by exact View identity. **Hook delta remains 0.** No Keyguard lifecycle Hook, timer, polling loop, delay, pre-draw follower, alpha writer, visibility writer, or translation writer is added.
+- Feature policy adds `keyguardEnabled=false` by default. The Features page exposes **锁屏显示三合一 / Show on lock screen**, disabled when the global master feature is off.
+- Keyguard-originated QS_FAKE becomes eligible only when the preference is enabled **and** the steady Keyguard presentation has actually reached ready. A resolver/presentation failure therefore restores native Keyguard and keeps the transition bridge native.
+- Keyguard tint is sourced from the Keyguard Battery itself; Home status-icon tint is not reused as Keyguard authority.
+- **AOD is outside Build 447 support scope.** The candidate makes no AOD-specific alpha/visibility/animation write and adds no AOD Hook. Because exact AOD enter/exit behavior is not yet runtime-verified, AOD leakage is a blocker rather than something this checkpoint claims solved.
+- Validation gate: exact-head Fast -> trusted Canary -> focused steady Keyguard / Keyguard-originated QS_FAKE / unlock Home / switch-off / AOD enter-exit / cold-start checks.
 
 ## Device evidence — Build 445 Home source identity correction
 

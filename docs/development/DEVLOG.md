@@ -3,6 +3,83 @@
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
 
+## 2026-09-29 — Build 447: opt-in steady Keyguard adapter candidate
+
+**Type:** Phase-3 runtime capability candidate
+**Build:** 447 / `20260929-447`
+**Work branch:** `feat/keyguard-scene-adapter`
+**Base:** device-accepted Build 446 + docs closure
+**Hook delta:** 0
+**AOD:** outside supported scope; device blocker
+
+### Objective
+
+Build 446 closes the Home/QS_FAKE prerequisite regressions. The next task is the actual steady lockscreen adapter without turning Keyguard into a Home flag or creating a second Control Center transition engine.
+
+### Architecture
+
+`SystemUiKeyguardHostResolver`
+-> structurally verified `MiuiKeyguardStatusBarView`
+-> native `mSystemIconsContainer / mStatusIconContainer / mBatteryView`
+-> independent `CombinedStatusKeyguardRenderSession`
+-> independent identity-scoped Keyguard presentation session
+-> shared semantic renderer/layout policies.
+
+The resolver is triggered by the already-installed Battery scene callback. It accepts the concrete Keyguard View ancestry first, then uses the raw surface only to decide steady Keyguard vs exit. This closes the unlock cleanup hole where a Keyguard Battery can emit an unlocked raw state that the higher-level scene classifier intentionally maps to UNKNOWN.
+
+### Feature policy
+
+- global `enabled` continues to govern the product globally;
+- `keyguardEnabled` is added to the same feature-domain repository and remote preference transport;
+- default is **false**;
+- the Features UI exposes one Keyguard switch and disables it while the global feature is off;
+- Keyguard-originated QS_FAKE is allowed only when `enabled && keyguardEnabled && keyguardRuntimeReady`;
+- Home-originated QS_FAKE continues to use the accepted Build-445/446 Home source identity path.
+
+### Presentation ownership
+
+The existing class-wide presentation Hook substrate remains exactly three Hooks. A new `keyguardCurrent` session is selected only by exact View identity. Home carrier identity remains Home-only so the Build-445 `realSystemIcons` classifier cannot misclassify the Keyguard carrier as Home.
+
+The Keyguard renderer is mounted in the native Keyguard `MiuiStatusBatteryContainer.overlay`. Native carrier visibility/alpha/translation are inherited; Combined Status does not write them. Native represented-slot masking/reservation is installed only after render model, Keyguard Battery tint, layout and attachment are ready.
+
+### AOD boundary
+
+Exact-target static evidence proves AOD has a distinct lifecycle (`fullAodFlow`, `animateFullAod()`, Battery AOD state/methods). Build 447 deliberately does not claim that lifecycle and adds no AOD Hook.
+
+Therefore:
+- the Keyguard switch is an opt-in candidate, not a promoted runtime-verified capability;
+- AOD enter/exit is a required device blocker;
+- if Combined Status leaks into AOD or native Keyguard/AOD restoration is incomplete, the candidate is rejected and the next change must introduce a dedicated AOD boundary instead of an alpha/timing heuristic.
+
+### 审查 / review
+
+- **root cause / ownership:** separate mutable Keyguard owner; no Home session reuse.
+- **native authority:** structural Keyguard host and Keyguard Battery tint.
+- **single writer:** Home, Keyguard and QS_FAKE sessions are disjoint by exact View identity.
+- **cleanup:** Keyguard Battery unlocked-state and verified Home source both release Keyguard presentation; preference disable and Hot Reload also restore native state.
+- **QS_FAKE:** native HyperOS `realSystemIcons` remains the source router; Keyguard readiness only supplies permission.
+- **Home regression guard:** `ownsBatteryContainer()` stays Home-only.
+- **performance:** Hook delta 0; no polling/timer/frame follower.
+- **AOD:** not inferred from Keyguard state.
+
+### Validation plan
+
+Automated:
+1. exact-head Fast;
+2. pinned target profile;
+3. feature default / scene-policy / resolver / render-readiness unit tests;
+4. Modern Xposed metadata.
+
+If Fast passes, trusted Canary. Device:
+1. enable **锁屏显示三合一** and enter steady lockscreen;
+2. confirm native represented Wi-Fi/mobile/Battery are replaced by one Combined visual with no duplicate/gap;
+3. Keyguard -> partial Control Center pull -> bridge follows Keyguard source; fully expanded endpoint remains native;
+4. unlock -> accepted Home behavior remains unchanged;
+5. disable Keyguard switch -> steady Keyguard + Keyguard-originated QS_FAKE return native without SystemUI restart;
+6. AOD enter/exit -> report any Combined leak, duplicate, blank state, wrong alpha/motion, or failed restoration as a blocker;
+7. restart SystemUI and repeat the first Keyguard entry.
+
+
 ## 2026-09-29 — Build 446: late-eligibility compact cutover
 
 **Type:** device-evidence-driven cutover lifecycle correction

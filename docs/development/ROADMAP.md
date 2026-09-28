@@ -79,6 +79,8 @@ Exit criteria:
 
 ## Phase 3 — Keyguard / lockscreen / AOD scene completion — active
 
+Build 447 is the first opt-in steady-Keyguard runtime candidate. It adds a separate Keyguard host/render/presentation adapter and a default-off feature switch while reusing the existing three class-wide presentation Hooks (Hook delta 0). Keyguard-originated QS_FAKE is enabled only after the steady adapter reaches ready. AOD remains outside the candidate's supported scope and is a focused real-device blocker before Keyguard can be promoted to runtime-verified evidence.
+
 Build 446 is device-accepted and closes the late-eligibility QS_FAKE cutover prerequisite. Phase 3 may now advance to the independent steady Keyguard adapter; AOD remains a later, separate gate.
 
 Build 446 preserves the source-scene gate and closes its late-entry lifecycle hole: when Home eligibility is learned after QS_FAKE has already completed native layout, the existing laid-out status-icons state may serve as the compact cutover proof only if no layout request is pending and geometry is valid. Otherwise the existing native `onLayout` path remains mandatory. This keeps the fail-native/atomic handoff contract while allowing scene-gated Home projection to become ready.
