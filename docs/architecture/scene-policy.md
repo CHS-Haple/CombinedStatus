@@ -32,7 +32,7 @@ Classification is not permission to mutate SystemUI. Runtime integration still r
 | Home stable | PROJECTED | NONE | Runtime verified |
 | Notification-shade transition | NATIVE_ONLY | SYSTEM_UI | Runtime lifetime verified |
 | Control Center transition bridge | PROJECTED | SYSTEM_UI | Build-420 carrier/handoff evidence |
-| Control Center fully expanded | NATIVE_ONLY | SYSTEM_UI | Product target; endpoint implementation pending |
+| Control Center fully expanded | NATIVE_ONLY candidate | SYSTEM_UI | Maintainer concept; exact endpoint ownership pending |
 | Keyguard | NATIVE_ONLY | SYSTEM_UI | Static ownership verified |
 | AOD | NATIVE_ONLY | SYSTEM_UI | Static ownership verified |
 
@@ -81,12 +81,12 @@ Control Center is split into two ownership phases.
 - the bridge is readiness-ordered so no frame is left without a valid visual owner;
 - SystemUI remains the sole motion/geometry owner.
 
-**Fully expanded endpoint — NATIVE_ONLY**
-- once HyperOS reaches the native fully expanded Control Center state, Combined Status yields completely;
-- the native status-bar presentation is shown without a persistent Combined Status projection;
-- the bridge must clean up its own overlay/listeners/masks at the exact native endpoint and restore correctly on reverse motion.
+**Fully expanded endpoint — current design candidate**
+- the maintainer currently prefers a native-only fully expanded Control Center state;
+- this is a product-intent hypothesis, not yet a verified endpoint/lifecycle contract;
+- exact source/runtime review must determine the true ownership boundary and whether a cleaner native handoff abstraction exists before this becomes implementation policy.
 
-Build 420 proved the carrier/handoff mechanism but kept projection alive through the expanded Control Center lifetime. That remains valuable runtime evidence, not the final product contract.
+Build 420 proved the carrier/handoff mechanism and kept projection alive through the expanded Control Center lifetime. That remains valuable runtime evidence. Whether the final endpoint should be native-only is still under architecture review.
 
 No project-owned timing threshold, custom animation, polling/frame follower, peer geometry write, or second native suppression owner is permitted.
 
@@ -95,7 +95,7 @@ No project-owned timing threshold, custom animation, polling/frame follower, pee
 
 Keyguard and AOD currently remain NATIVE_ONLY in the implemented runtime.
 
-The confirmed future product target gives **Keyguard its own steady Combined Status source adapter**, parallel to Home:
+The maintainer's current product concept gives **Keyguard its own steady Combined Status source role**, parallel to Home, but the exact adapter/lifecycle structure remains to be derived from SystemUI evidence:
 - Keyguard steady is not implemented by reusing the Home View/host;
 - it reuses shared renderer/domain semantics but resolves its own native carrier, tint, lifecycle, cleanup and fail-native contract;
 - a partial Control Center pull from Keyguard uses the same transition-coordinator policy as Home, but starts from the verified Keyguard source geometry/lifecycle;
@@ -134,9 +134,9 @@ Changing a scene from NATIVE_ONLY to PROJECTED or introducing any new geometry/m
 If any of those are missing, the scene stays NATIVE_ONLY.
 
 
-## Target scene matrix
+## Working scene concept matrix
 
-This target matrix is a product/architecture contract, not a statement that every row is implemented today.
+This matrix records the maintainer's current product-intent partition. It is **not** yet an architecture contract. Exact-target lifecycle/source review may produce a better grouping; any such change should be reviewed and discussed before implementation.
 
 | Source context | Steady state | Partial Control Center pull | Fully expanded Control Center |
 | --- | --- | --- | --- |
@@ -144,10 +144,9 @@ This target matrix is a product/architecture contract, not a statement that ever
 | Locked / Keyguard | Combined Status on future verified Keyguard carrier | Combined Status transition bridge follows native HyperOS motion from the Keyguard source | Native SystemUI status bar only |
 
 Design consequences:
-- source-scene ownership and transition ownership are separate facts;
-- Home and Keyguard each own only their steady adapter;
-- one shared transition coordinator may consume source geometry/readiness and native Control Center transition authority;
-- the coordinator never becomes a third persistent state machine or steady scene;
-- the fully expanded Control Center endpoint is always native-only;
+- source-scene ownership and transition ownership should be evaluated separately;
+- Home/Keyguard may end up as separate adapters, a shared higher-level lifecycle, or another exact-target structure; do not decide this from the conceptual table alone;
+- a shared transition coordinator is a candidate only if source/runtime evidence supports it without creating a third state machine;
+- the maintainer currently prefers a native-only fully expanded Control Center endpoint, pending verification;
 - reverse motion restores the correct source scene before bridge cleanup;
 - no source adapter may infer the other source scene from Battery state, global Keyguard booleans, or timing.
