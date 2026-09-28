@@ -64,9 +64,17 @@ Charging-island pull:
 - **Charging island:** Combined projection no longer inherits child Battery alpha/visibility; island motion remains native.
 - **Final QS:** untouched; root alpha naturally hides both native fake content and the Combined root overlay when HyperOS switches to final QS.
 
+### Automated validation
+
+- Draft Light #1403 / run `36444967549`: success.
+- Ready Fast #1404 / run `36445016937`: success on exact executable SHA `eb0aac6104ce51e1cdbabfdfc00dc34d17fb3a6a`, including target-profile verification, unit tests/build, and Modern Xposed metadata checks.
+- Signed Work Branch Canary #426 / run `36445319566`: success on the same exact executable SHA.
+- Canary artifact: `CombinedStatus-0.0.2-HyperOS-20260928-431-canary.apk`; artifact id `10980247565`; artifact ZIP digest `sha256:0c10c4783a5e49d56e91f64ae420bcf34b0fcfea500a83c4739bf4ee9af2f15b`; extracted APK SHA-256 `8947c44af9adb83ea0f26fd36b7ec572ecb477a89b319d1cd338cadaae63a804`; extracted APK size 3,309,602 bytes.
+- Haple signature, Modern Xposed metadata, and Canary non-debuggable verification passed.
+- PR #156 is returned to Draft; Build-431 executable source is frozen pending focused device evidence.
+
 ### Device test
 
-After Fast + signed Canary:
 1. normal pull/return;
 2. charging-island pull/return;
 3. verify Combined Status is visible during partial pull and disappears exactly with native fake root at final QS;
