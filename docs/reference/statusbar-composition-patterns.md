@@ -735,3 +735,12 @@ The transition cutover should remain readiness ordered locally:
 - exit/failure: restore fake native clips -> stop/hide compact renderer.
 
 A QS_FAKE failure therefore degrades only that transition surface to native SystemUI and does not deactivate the Home compact owner.
+
+
+### QS_FAKE batteryWidthDiff independence
+
+Exact-target `ControlCenterHeaderExpandController` computes `batteryWidthDiff` from the selected source anchor Battery width and the **real QS destination Battery** width. During island handling it may replace that difference with the negative real-QS Battery width. `onExpansionChanged(float)` then adds the resulting value to the whole `controlCenterFakeStatusBar.translationX`.
+
+The calculation does **not** read QS_FAKE `ignoredSlots`, local `statusIcons.paddingEnd`, or a Combined Status compact reservation. Therefore a future carrier-local QS_FAKE exclusion/reservation policy does not feed back into the native parent translation formula, provided Combined Status never writes/cancels the fake parent translation.
+
+This narrows the future island/charging device gate to local compact-edge/layout continuity; native Control Center motion ownership remains structurally independent.
