@@ -8340,3 +8340,55 @@ Focused device validation:
 4. charging/Super-Island edge alignment when practical;
 5. lockscreen-originated pull remains native-only/fail-native;
 6. Hot Reload while Control Center is visible restores native QS_FAKE without blank state, duplicate icons, stale masks or spacing residue.
+
+
+---
+
+## 2026-09-28 — Build 427 signed Canary checkpoint
+
+**Build:** 427 / `20260928-427`  
+**Exact runtime source:** `46b9cbb238ec34ae106a79823360e9d187df551b`  
+**Exact tested PR head:** `eaeb8c0bf1f20e15eb0f6af59c954c09c568742a`  
+**Ready Full:** #1374 / run `36431663108` — success  
+**Work Branch Canary:** #419 / run `36431966358` — success  
+**Artifact:** `CombinedStatus-0.0.2-HyperOS-20260928-427-canary.apk`  
+**Artifact ID:** `10974287546`  
+**Artifact ZIP digest:** `sha256:25155cd6e5bbddb488ffcd6314db42e92008511f4a911be8d8984aea4b25dfc3`  
+**Extracted APK size:** `3309602` bytes  
+**Extracted APK SHA-256:** `ddf8e07dcd24ab8db84a9bc864e1687d317d4ede38248289df1bbad4821e116e`
+
+### Automated validation
+
+Passed on the exact trusted source:
+- trusted source resolution and checkout verification;
+- Gradle wrapper / JDK / Android API 37;
+- pinned HyperOS target profile;
+- tests and Canary build;
+- Modern Xposed metadata;
+- Haple APK signature;
+- Canary non-debuggable verification;
+- artifact publication.
+
+### 审查 / review
+
+- **Ownership:** QS_FAKE owns transition presentation; Home remains Build-424 native-carrier owned; fully expanded QS remains native.
+- **Lifecycle:** compact cutover is gated by the first native QS_FAKE status-icons layout; renderer may prepare earlier but stays hidden until ownership is confirmed.
+- **Single writer:** HyperOS remains sole translation/alpha/appearance writer; no project fraction or appearance writer is added.
+- **Cleanup:** exit/failure/Hot Reload restores the native QS_FAKE presentation before overlay detach.
+- **Fail-native:** unresolved carrier, non-Home source (including current Keyguard path), or writer conflict restores/retains native Control Center.
+- **Performance:** no new production Hook, polling loop, timer, frame follower or project transition animation; at most one bounded requestLayout per activation.
+- **Compatibility:** exact-target chain is pinned to SystemUI 17.03.260226.r.
+- **Exception recovery:** host detach/session failure releases registry ownership and restores reversible masks/reservation.
+- **Future extension:** Keyguard transition support remains deferred until its steady compact owner is independently verified.
+
+### Device gate
+
+Runtime is frozen. Validate:
+1. Home -> partial Control Center pull -> reverse, especially first/last frames.
+2. Repeated partial pulls and fully expanded pulls.
+3. Fully expanded Control Center shows the native QS status bar, not Combined Status.
+4. Charging/Super-Island edge alignment when practical.
+5. Lockscreen-originated pull remains native-only/fail-native.
+6. Hot Reload while Control Center is visible restores native QS_FAKE without blank state or leaked masks.
+
+This record-only closure does not create Build 428.
