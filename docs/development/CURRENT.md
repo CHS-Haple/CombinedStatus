@@ -165,7 +165,7 @@ Build 424 is the current runtime checkpoint (`20260928-424`). Exact executable s
 2. Retry the Ready repository-validation checkpoint without changing runtime once GitHub pull-request event delivery is available; the expected route is the repository's normal Fast/Full classifier, not a Canary bypass.
 3. Only after automated validation passes, request one exact-head signed Canary for focused device validation of the Build-424 Home-carrier correction plus Control Center regression and Hot Reload/lock smoke behavior.
 4. Preserve Build-420 carrier/handoff mechanics as regression evidence during Build 424; do not mix the candidate `QS_FAKE` transition architecture into this runtime checkpoint.
-5. Continue exact-target lifecycle review in parallel, especially first-frame readiness, fake-carrier native suppression/masking, and Hot Reload/recreation cost.
+5. Exact-target lifecycle review now supports the existing `onVisibleChanged` seam for entry readiness, carrier-local QS_FAKE suppression via a shared Hook registry, and surface-local tint without new observers. Continue only the remaining reverse-edge/Hot Reload/recreation review; do not implement it in Build 424.
 6. After Build 424 is accepted or rejected, present the verified source/QS_FAKE/QS ownership model and alternatives to the maintainer before selecting any follow-up runtime architecture.
 
 ## Reference priority
