@@ -8,9 +8,9 @@ This file is the concise recovery point for active Combined Status development. 
 - Stable branch: `main`
 - Stable runtime baseline: Build 413 / `20260927-413`, promotion merge commit `3114ade06bcb4846a5654a70f38ea572f5b47b37`
 - Integration branch: `dev`
-- Integration runtime baseline: Build 418 / `20260928-418`, merge commit `11bc4ff741869e3311d2be697d4dcfb66f5cb39c`
-- Build 418 / `20260928-418` is the current device-accepted and Integration-validated `dev` runtime baseline. Build 413 remains the current `main`-promoted stable runtime baseline.
-- Active Phase-2B work / PR: `feat/panel-projection` / Draft #146 during final repository cleanup. Build 420 / `20260928-420` remains **device-accepted evidence for the Control Center transition carrier and readiness-ordered handoff**, but the fully expanded Control Center target is native-only. Builds 421-423 are **device-rejected for Notification-Shade edge continuity**. Build 424 / `20260928-424` is the current unvalidated runtime checkpoint: unlocked/Home drawing now lives in the native `MiuiStatusBatteryContainer(system_icons).overlay` and the project-local Notification Header visibility Hook/gate is retired. Static review is complete. After resolving the PR/dev history conflict, Full Build #1321 / run `36413531047` succeeded on head `ca1bbf7e10c485f34846add633c34d06a163e7e8`; final exact-head validation remains pending after documentation/governance cleanup. No device acceptance is claimed yet.
+- Integration runtime baseline: Build 424 / `20260928-424`, `dev` squash integration `a6ba0ddc843d3e8d2fbca6c15786d99b8c0b2826`
+- Build 424 / `20260928-424` is the current device-accepted and Integration-validated `dev` runtime baseline. Integration Build #1338 / run `36420376141` passed on exact `dev` SHA `a6ba0ddc843d3e8d2fbca6c15786d99b8c0b2826`, including signed Canary, target-profile, unit/build, Xposed metadata, signature, and non-debuggable checks. Build 413 remains the current `main`-promoted stable runtime baseline.
+- Phase-2B Home / Notification-Shade checkpoint PR #146 is merged. Build 420 remains **device-accepted historical evidence for source-anchor Control Center handoff**, Builds 421-423 are **device-rejected Notification-Shade experiments**, and Build 424 is **accepted/integrated** for the native Home `system_icons` carrier correction. The next bounded objective is a separate Control Center transition-owner checkpoint using the exact-target native `QS_FAKE` carrier; fully expanded Control Center remains native-only, and Keyguard/AOD remain native-only until separately verified.
 - Repository-automation baseline: checkpoint-driven CI from PR #139 remains active; Canary admission hardening and bounded automation-only merge delegation were accepted through PR #143/#144. PR #149 (`497be75c1754e49cb7a49b6abd73dcbd3bc010b3`) adds base-to-head validation-surface reporting, mixed runtime/build/CI/tooling warnings, and readable routing reasons without weakening Full gates; history-preserving `main -> dev` sync `2e9b1716849d6709342a446f63e5b886c0aed9ae` passed dev Full #1317. These automation changes do **not** create a new runtime Build; Build 418 remains the integrated runtime baseline.
 - Phase-2A integration: PR #105 merged to `dev` as `2f584c3b393dc5ee606284426aa95a9d6beae5d5`; former stacked PR #100 is closed as superseded.
 - Phase-2B panel/scene-owner integration: PR #138 merged to `dev` as `a25cb5ce2aeab235cfaed579474df70596f03a63`.
@@ -21,7 +21,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Modern Xposed API: 102
 - Application ID: `com.chaners.combinedstatus`
 
-`main` and `dev` runtime baselines remain unchanged by documentation-only commits. Work-branch checkpoints are development evidence until their required validation and maintainer acceptance are complete.
+`main` and `dev` runtime baselines remain unchanged by documentation-only commits. Build 424 is now the accepted `dev` runtime baseline; later record-only `dev` commits may inherit that runtime validation only when their non-runtime diff is proven.
 
 ## Current phase
 
