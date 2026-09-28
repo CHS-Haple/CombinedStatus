@@ -46,6 +46,15 @@ Detailed diagnostics record eight projection attaches but only five compact `lay
 - **Geometry:** endpoint motion and charging-island Battery endpoint mapping are intentionally unchanged in Build 433.
 - **QS real:** untouched.
 
+### Automated validation
+
+- Frozen executable SHA: `1e8ab3da8feede27c103155dbe371963833df755`.
+- Ready Fast #1447 / run `36454542206`: success; target profile, unit tests/build, APK resolution and Modern Xposed metadata passed.
+- Signed Work Branch Canary #431 / run `36454959236`: success on the same trusted source SHA.
+- Canary artifact: `CombinedStatus-0.0.2-HyperOS-20260929-433-canary.apk`; artifact id `10984648346`; ZIP digest `sha256:b875d3e35e5db9f5406f8a6c2780cdc2e7284dd94010bcf632825d044c8c4685`; extracted APK SHA-256 `fc356f91d4cc2cb8ed25d883263c7dd8a06680bfcb89aa13f164ac2e59a91095`; size 3,325,986 bytes.
+- Haple signature, Modern Xposed metadata, and non-debuggable checks passed.
+- PR #156 is returned to Draft; executable runtime is frozen for device evidence.
+
 ### Device gate
 
 Repeat many normal non-charging pulls first. Every pull should produce the same QS_FAKE presentation; the prior random switch among native / partially compact / Combined Fake must disappear. Then repeat charging-no-island and charging-island for regression only. Endpoint motion and island Battery alignment remain observable open issues after this gate.
