@@ -66,5 +66,6 @@ internal object SystemUiPresentationRuntimeOwner {
         current = null
         SystemUiTintStateSource.resetRuntimeState()
         SystemUiSceneStateSource.resetRuntimeState()
+        SystemUiKeyguardHostProbe.resetRuntimeState()
     }
 }

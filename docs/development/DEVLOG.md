@@ -3,88 +3,74 @@
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
 
-## 2026-09-29 — Build 442: Keyguard host/lifecycle read-only probe
+## 2026-09-29 — Build 442: Keyguard steady-host read-only probe
 
-**Type:** Phase-3 host/lifecycle evidence checkpoint
-**Build:** 442 / `20260929-442`
-**Work branch:** `feat/keyguard-scene-adapter`
-**Executable commits:** `3178b5017ec57c5f294f5577c8d9749330d0b9f5`, wiring correction `3fe73ae116562f6d3bc50ddf11b5283da5dcdda9`
-**Rendering:** disabled on Keyguard and AOD
+**Type:** Phase-3 host/source evidence checkpoint  
+**Build:** 442 / `20260929-442`  
+**Work branch:** `feat/keyguard-scene-adapter`  
+**Base:** `dev@0235d1ae20bc96f733e510547ec659d2377e0516`  
+**Rendering:** disabled on Keyguard and AOD  
 **Validation:** pending Draft Light -> exact-head Fast -> signed Canary / focused device evidence
 
 ### Goal
 
-Begin Phase 3 without guessing the lockscreen owner. Build 442 verifies the exact native Keyguard carrier, lifecycle, tint, Control Center source selection and AOD boundary before any Combined Status visual or native suppression is allowed on Keyguard.
+Begin Phase 3 without guessing the lockscreen owner. Before any Combined Status visual or native suppression is allowed on Keyguard, verify the exact steady Keyguard carrier, its local geometry/padding, and whether HyperOS has selected that same source for the shared Control Center transition route.
 
-### Exact-target evidence before implementation
+### Exact-target evidence
 
-Direct JADX review of SystemUI `17.03.260226.r` confirms:
+SystemUI Reference/JADX evidence for `17.03.260226.r` establishes:
+1. `MiuiKeyguardStatusBarView.mSystemIconsContainer` is the native Keyguard system-icons carrier registered as `ControlCenterFakeViewController.keyguardSystemIcons`.
+2. `adjustRealSystemIcons()` selects Home for native status-bar state 0 and Keyguard for state 1.
+3. Keyguard has its own tint/visibility/icon-animation owners; those owners must not be copied into a project scene state machine.
+4. AOD has a distinct controller/lifecycle and must not be inferred from steady Keyguard.
 
-1. `MiuiKeyguardStatusBarView.mSystemIconsContainer` is `@id/system_icons_container` / `MiuiStatusBatteryContainer`; Battery uses Keyguard layout-from semantics.
-2. Keyguard attach/init registers `mSystemIconsContainer` as `ControlCenterFakeViewController.keyguardSystemIcons`.
-3. `ControlCenterFakeViewController.adjustRealSystemIcons()` selects Home for status-bar state 0, Keyguard for state 1, and none otherwise. Native state/bouncer callbacks re-run that router.
-4. `MiuiKeyguardStatusBarView.updateIconsAndTextColors()` is a Keyguard-specific tint authority and forwards matching colors to QS_FAKE.
-5. Base Keyguard visibility owns the root lifecycle and resets system-icons translation on exit; child icon animation separately targets `mStatusIconContainer`.
-6. `KeyguardStatusBarViewControllerInject.animateFullAod()` separately controls Battery AOD mode/alpha and status-icon alpha/visibility/animation state. AOD is therefore not a steady-Keyguard boolean sub-mode.
+### Rejected first branch draft
 
-### Implementation
+Commits `3178b5017ec57c5f294f5577c8d9749330d0b9f5` and `3fe73ae116562f6d3bc50ddf11b5283da5dcdda9` initially added five read-only hooks for Keyguard attach/detach, base visibility, tint update and full-AOD animation. Review rejected that design **before CI/device validation**: although it did not write native properties, it duplicated native lifecycle observation, increased Hot Reload hook ownership, mixed AOD into the first Keyguard checkpoint, and violated the already-selected Build-442 boundary of reusing the existing scene Hook. Those commits are retained only as rejected development history; their 5-Hook route is not an accepted architecture premise.
 
-Add `SystemUiKeyguardSceneSource` only when `BuildConfig.RUNTIME_DIAGNOSTICS=true` (Debug/Canary; Release=false).
+### Corrected implementation
 
-Five low-frequency read-only Hooks:
-- `MiuiKeyguardStatusBarView.onAttachedToWindow()`;
-- `onDetachedFromWindow()`;
-- base `KeyguardStatusBarView.setVisibility(int)`;
-- `MiuiKeyguardStatusBarView.updateIconsAndTextColors()`;
-- `KeyguardStatusBarViewControllerInject.animateFullAod(boolean, boolean)`.
+- Hook delta: **0**. Reuse the existing `SystemUiSceneStateSource` / `MiuiBatteryMeterView.updateState(I)` callback.
+- Raw `KEYGUARD` classification is only a trigger. The Battery must actually descend from `MiuiKeyguardStatusBarView`; this prevents unrelated Battery views reporting raw state 1 from being misidentified as the Keyguard host.
+- Once per concrete Keyguard host instance, snapshot only:
+  - Keyguard host;
+  - `mSystemIconsContainer`;
+  - `mStatusIconContainer`;
+  - `mBatteryView` and its `battery_icon_container`;
+  - local size/padding/alpha/translation state;
+  - native `mDep.ccFake.realSystemIcons` identity.
+- Probe state resets with the existing presentation-runtime generation reset so Hot Reload cannot retain a stale host identity.
+- Missing optional reflective fields produce partial diagnostic evidence only; they do not change the live SystemUI state.
+- No Keyguard renderer, overlay, suppression, ignored-slot mutation, mask, end reservation, alpha/visibility/translation write, layout listener, timer, polling, retry or frame callback is introduced.
+- AOD runtime is **not observed or modified** in Build 442.
 
-Each event snapshots:
-- Keyguard root;
-- `mSystemIconsContainer`;
-- `mStatusIconContainer`;
-- Battery View;
-- `mToLockScreen` / light-wallpaper tint context;
-- optional Battery AOD flags;
-- whether `ControlCenterFakeViewController.realSystemIcons === mSystemIconsContainer`.
+### Problem execution flow
 
-No renderer, overlay, native masking, ignored-slot mutation, end reservation, alpha/visibility/translation write, layout listener, timer, polling or frame callback is introduced.
+`MiuiBatteryMeterView.updateState(1)`
+-> existing `SystemUiSceneStateSource`
+-> verify actual Battery ancestor is `MiuiKeyguardStatusBarView`
+-> one-shot host/source snapshot
+-> diagnostic record only
+-> no presentation mutation.
 
-The source installs in the existing cold-start / Hot Reload diagnostics pipeline. Existing Hot Reload takeover already unhooks every non-status-host old-generation Hook before reinstalling current-generation sources; the Keyguard probe requires no separate transfer or cleanup state.
+This intentionally avoids the invalid shortcut `raw state 1 == Keyguard host`, which prior Phase-2 evidence already showed can be false at other panel boundaries.
 
 ### 审查 / review
 
-- **ownership:** Build 442 observes native ownership only; it owns no Keyguard presentation fact.
-- **single writer:** zero native geometry/alpha/visibility writes.
-- **lifecycle:** attach/detach/visibility come from the native Keyguard host rather than Battery-state inference.
-- **source routing:** Home-vs-Keyguard selection remains HyperOS-owned through `ControlCenterFakeViewController`.
-- **tint:** native Keyguard tint is observed, not reconstructed.
-- **AOD:** explicitly remains NATIVE_ONLY and distinct from steady Keyguard.
-- **performance:** five event-driven, low-frequency diagnostic Hooks; no per-frame work.
-- **release boundary:** Release builds install none of these probe Hooks because `RUNTIME_DIAGNOSTICS=false`.
+- **root cause/state authority:** Battery status state is global context, not host identity; structural View ancestry is the gate.
+- **ownership/single writer:** SystemUI remains sole writer for Keyguard visibility, tint, animation, geometry and Control Center source selection.
+- **lifecycle:** one snapshot per concrete host instance; no new lifecycle observer exists.
+- **cleanup:** only a weak host identity is cached and is cleared by existing presentation-runtime reset.
+- **performance:** bounded ancestor walk + one-shot reflection; no hot-path repeated traversal.
+- **fail-native:** no verified Keyguard ancestor -> no probe action; unresolved fields -> partial diagnostics only.
+- **compatibility:** evidence is exact-target only for HyperOS SystemUI `17.03.260226.r`.
+- **future extension:** positive host/source evidence can authorize a later separate Keyguard presentation adapter. AOD remains a separate subsequent contract.
 
-### Focused device gate
+### Validation gate
 
-After automated validation, a signed Canary is required because the checkpoint exists specifically to verify target-device lifecycle evidence.
+First run Draft Light and exact-head Fast. Only after Fast should a signed Canary be generated because the unresolved questions require real-device View identity/geometry evidence.
 
-1. Restart SystemUI with Build 442 and confirm there is **no visual behavior change**.
-2. Lock/wake into Keyguard and remain there briefly.
-3. Pull Control Center once from Keyguard (partial/full/return).
-4. If Full AOD is enabled, enter AOD once and wake back to Keyguard.
-5. Unlock to Home and export the diagnostic.
-
-Expected evidence:
-- `source.install component=keyguardScene state=ready hooks=5/5`;
-- attached/visible Keyguard root with valid `mSystemIconsContainer` geometry;
-- `selectedAsRealSystemIcons=true` while Keyguard is the native Control Center source;
-- Keyguard tint events without project writes;
-- Full-AOD events remain a separate native lifecycle;
-- no crash, layout shift, icon suppression, tint change or other visible effect.
-
-Any visible change is a hard failure because Build 442 is read-only.
-
-### Next decision
-
-Only after device evidence validates the host/lifecycle contract may the branch advance to a Keyguard-specific render/presentation session. That later session may share renderer/domain semantics with Home but must not share Home mutable host/session ownership. AOD stays deferred.
+Focused device evidence will require: restart SystemUI, enter steady Keyguard, perform one Keyguard-originated Control Center pull/return, unlock, then export diagnostics. Any visible UI change is a hard failure because Build 442 is read-only.
 
 
 ## 2026-09-29 — Control Center fully-expanded endpoint investigation: native appearance handoff verified

@@ -110,11 +110,11 @@ Exact-target review now narrows the Keyguard candidate without yet promoting it:
 - Keyguard steady must use a **separate host/session adapter** from Home. Shared renderer/domain semantics are reusable, but mutable Home View/session ownership is not;
 - `MiuiKeyguardStatusBarView.updateIconsAndTextColors()` is the native Keyguard tint authority and also forwards the same Keyguard tint semantics to QS_FAKE;
 - the base Keyguard status-bar visibility lifecycle resets `mSystemIconsContainer` translation when hidden, while Keyguard-specific status-icon animations target the child `mStatusIconContainer`; these are distinct ownership layers and must not be collapsed;
-- Build 442 observes these contracts only. It does not draw, hide, compact, reserve, or translate Keyguard content.
+- Build 442 observes only the steady Keyguard host/source identity through the already-installed Battery scene callback. It does not install Keyguard lifecycle/tint/AOD hooks and does not draw, hide, compact, reserve, or translate Keyguard content.
 
 AOD remains a separate future surface and is not implied by Keyguard support. Exact-target `KeyguardStatusBarViewControllerInject.animateFullAod()` separately drives Battery alpha/AOD mode plus status-icon alpha/visibility/`setIsAodAnimate()`, proving that a steady Keyguard adapter cannot silently own AOD as a boolean sub-state.
 
-Historical/static evidence is therefore sufficient to define the **candidate boundary**, but not to enable rendering. Promotion still requires Build-442 runtime verification of host identity, attach/visibility lifecycle, geometry, native source selection, tint, Keyguard-originated Control Center handoff, and AOD separation.
+Historical/static evidence is therefore sufficient to define the **candidate boundary**, but not to enable rendering. Build 442 verifies only the steady host/source identity and local geometry. Native attach/visibility/tint lifecycle and AOD remain separate later gates rather than being widened into this first checkpoint.
 
 ## Charging
 

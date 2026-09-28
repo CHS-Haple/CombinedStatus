@@ -38,18 +38,17 @@ SystemUI remains authoritative for surrounding native layout, Battery presentati
 
 For the pinned HyperOS target, Notification Shade itself does not present the status-icon row; therefore Phase 2B does **not** project Combined Status into Notification Shade. Build-423 device evidence proves Notification Header progress is motion context rather than the complete Home visibility authority. Exact-target source instead traces `StatusBarVisibilityInteractor.shouldHomeStatusBarBeVisible -> HomeStatusBarViewModelImpl.systemInfoCombinedVis -> HomeStatusBarViewBinderInjector -> mEndSideContent = R.id.system_icons`. Build 424 therefore places the unlocked/Home render overlay on that exact `MiuiStatusBatteryContainer(system_icons)` owner so native alpha/visibility/transition lifecycle is inherited without a project-local shade gate. Control Center projection is now a bounded transition bridge only: the fully expanded endpoint must return to native status-bar presentation. Keyguard/lockscreen follows as a separate source adapter after Phase 2B, reusing shared domain/render semantics without sharing mutable Home host/session ownership.
 
-## Active checkpoint — Build 442 Keyguard host/lifecycle read-only probe
+## Active checkpoint — Build 442 Keyguard steady-host read-only probe
 
-- Work branch: `feat/keyguard-scene-adapter`.
-- Runtime identity: Build 442 / `20260929-442`; executable commits `3178b5017ec57c5f294f5577c8d9749330d0b9f5` + wiring correction `3fe73ae116562f6d3bc50ddf11b5283da5dcdda9`.
-- **Rendering remains disabled on Keyguard and AOD.** This checkpoint adds only a diagnostic source under `BuildConfig.RUNTIME_DIAGNOSTICS`; Release does not install it.
-- Exact-target SystemUI review identifies `MiuiKeyguardStatusBarView.mSystemIconsContainer` (`@id/system_icons_container`, a `MiuiStatusBatteryContainer`) as the native Keyguard end-side system-icons carrier registered into `ControlCenterFakeViewController.keyguardSystemIcons`.
-- HyperOS already routes Control Center source ownership: `StatusBarState=0` selects Home `statusBarSystemIcons`, state `1` selects Keyguard `keyguardSystemIcons`, other states select none. Combined Status must not reconstruct a second Home/Keyguard source-state machine.
-- Keyguard owns independent lifecycle/tint semantics: `onAttachedToWindow()/onDetachedFromWindow()`, base `setVisibility()`, and `updateIconsAndTextColors()`. The latter derives Keyguard light/dark tint and forwards matching colors to QS_FAKE.
-- AOD is explicitly **not** folded into Keyguard steady ownership. `KeyguardStatusBarViewControllerInject.animateFullAod()` independently controls Battery alpha/AOD mode and status-icon alpha/visibility/animation state, so AOD remains NATIVE_ONLY pending a separate adapter.
-- Build 442 adds five bounded, low-frequency, read-only diagnostic Hooks: Keyguard attach, detach, visibility, tint update, and Full-AOD transition. They snapshot the Keyguard root, `mSystemIconsContainer`, status-icons group, Battery, native source selection, tint/AOD context, and write **no** native geometry/alpha/visibility state.
-- No layout listener, timer, polling, frame follower, renderer, native suppression, or presentation session is added. Existing Hot Reload hook takeover removes the old-generation probe Hooks and reinstalls them with the new generation.
-- **Device gate:** verify the exact Keyguard host/lifecycle contract on the pinned target before any Keyguard Combined rendering is implemented. Required evidence is attach/visible geometry, `selectedAsRealSystemIcons=true` while Keyguard owns the source, tint events, Keyguard -> Control Center source continuity, and AOD transitions remaining distinct. Any visible UI change from Build 442 is a hard failure because the probe is read-only.
+- Work branch: `feat/keyguard-scene-adapter`; base: latest `dev@0235d1ae20bc96f733e510547ec659d2377e0516`; runtime identity: Build 442 / `20260929-442`.
+- **Rendering remains disabled on Keyguard and AOD.** Build 442 does not install a new Keyguard lifecycle source. It reuses the already-installed `MiuiBatteryMeterView.updateState(I)` scene Hook and adds **zero Hooks**.
+- Raw status-bar state `1` is not treated as proof of Keyguard ownership. A sample is accepted only when the emitting Battery's real View ancestry contains the pinned `MiuiKeyguardStatusBarView`; other Battery instances reporting state 1 are ignored.
+- Once per concrete Keyguard host instance, the probe reads only the host, `mSystemIconsContainer`, `mStatusIconContainer`, `mBatteryView`, native `battery_icon_container`, local padding/size/alpha/translation, and `mDep.ccFake.realSystemIcons` identity.
+- HyperOS remains the sole Home-vs-Keyguard Control Center source selector. The probe only verifies whether the selected native `realSystemIcons` is the Keyguard `mSystemIconsContainer`; it does not reconstruct that router.
+- No native slot suppression, mask, reservation, visibility, alpha, translation, layout, geometry, animation or tint property is written. No listener, timer, polling, retry or frame callback is added.
+- **AOD is untouched in Build 442.** Exact-target static evidence confirms AOD has a distinct lifecycle, but runtime AOD probing is deferred until the steady Keyguard host/source contract is established.
+- Review rejected the branch's first 5-Hook attach/detach/visibility/tint/full-AOD draft before CI because it widened the first Phase-3 checkpoint and duplicated native lifecycle observation unnecessarily.
+- Automated validation: pending Draft Light -> exact-head Fast. A signed Canary is expected only after Fast because the remaining evidence is target-device host/source identity and live geometry.
 
 ## Integrated checkpoint — Build 441 continuous Hot Reload presentation handoff
 

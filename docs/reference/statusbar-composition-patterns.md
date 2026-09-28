@@ -304,7 +304,7 @@ For Home, Build-424 exact-target review distinguishes the parent `system_icon_ar
 
 ## Keyguard steady-source contract on the pinned target
 
-**Static exact-target evidence; runtime verification pending Build 442.**
+**Static exact-target evidence; Build 442 performs only the first steady-host/source runtime verification.**
 
 The Keyguard source is not the Home carrier reused under a different global flag. HyperOS exposes a distinct native source:
 
@@ -323,7 +323,7 @@ Keyguard also has independent lifecycle and tint authority:
 
 AOD is separate. `KeyguardStatusBarViewControllerInject.animateFullAod()` independently changes Battery alpha/AOD mode and status-icon alpha/visibility/animation flags. A future Keyguard Combined adapter must therefore remain inactive for AOD until a distinct AOD contract is verified.
 
-**Project implication:** the strongest steady Keyguard carrier candidate is the native `mSystemIconsContainer` host with a Keyguard-specific session, sharing only renderer/domain semantics with Home. Build 442 exists solely to verify this candidate on-device before any Keyguard visual or native suppression is enabled.
+**Project implication:** the strongest steady Keyguard carrier candidate is the native `mSystemIconsContainer` host with a Keyguard-specific session, sharing only renderer/domain semantics with Home. Build 442 verifies only that steady carrier/source identity using the existing scene callback; lifecycle/tint/AOD runtime observation remains deferred until this first gate is positive.
 
 ---
 

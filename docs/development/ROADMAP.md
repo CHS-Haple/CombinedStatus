@@ -81,6 +81,8 @@ Exit criteria:
 
 Reuse the stabilized domain state, renderer semantics, ownership rules, and fail-native behavior while giving each scene its own verified host/lifecycle adapter.
 
+Build 442 is the first Phase-3 executable checkpoint and is intentionally narrower than a lifecycle adapter: it reuses the existing Battery scene callback only as a trigger, requires actual `MiuiKeyguardStatusBarView` ancestry, and takes one read-only steady-host/source snapshot. Hook delta is zero; no Keyguard rendering/suppression and no AOD runtime probe is introduced. Positive device evidence from this checkpoint is a prerequisite for choosing the later Keyguard presentation/lifecycle seam.
+
 The unlocked side of the scene concept is now verified through Phase 2B. The locked side remains a planning hypothesis until exact Keyguard lifecycle review:
 - **Unlocked concept:** Home steady Combined Status -> partial-pull transition continuity -> fully expanded Control Center native-only.
 - **Locked concept:** Keyguard steady Combined Status -> partial-pull transition continuity -> fully expanded Control Center native-only.
