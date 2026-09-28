@@ -113,9 +113,9 @@ They must not create a second scene geometry policy or a separate slot-width rul
 
 ## Motion ownership
 
-Home stable currently uses `NONE`: Combined Status has no independent motion requirement there. Its end-side visual inherits native `system_icons` motion when SystemUI transitions that carrier.
+Unlocked steady currently uses `NONE`: Combined Status has no independent motion requirement there. Its end-side visual inherits native `system_icons` motion when SystemUI transitions that carrier.
 
-Notification Shade and the projected Control Center both keep transition motion under `SYSTEM_UI`; inheritance/projection does not transfer motion ownership to Combined Status.
+Notification Shade, unlocked/lockscreen Control Center transitions, and fully expanded Control Center all keep motion under `SYSTEM_UI`; inheritance/projection does not transfer motion ownership to Combined Status. Fully expanded Control Center is native-only.
 
 `COMBINED_STATUS` remains reserved for a future transition that is demonstrated to be genuinely owned by Combined Status from start state through cleanup.
 
