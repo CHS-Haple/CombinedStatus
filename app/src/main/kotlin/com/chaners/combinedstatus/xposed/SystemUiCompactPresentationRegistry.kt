@@ -228,12 +228,25 @@ internal object SystemUiCompactPresentationRegistry {
     }
 
     @Synchronized
-    fun activate(session: Session): Int {
+    fun activate(
+        session: Session,
+        deferVisualMaskUntilLayout: Boolean = false,
+        onLayoutReady: ((Int) -> Unit)? = null,
+    ): Int {
         if (sessions.none { candidate -> candidate === session }) {
             sessions = sessions + session
         }
-        return session.start()
+        return session.start(
+            deferVisualMaskUntilLayout = deferVisualMaskUntilLayout,
+            onLayoutReady = onLayoutReady,
+        )
     }
+
+    internal fun resolveCutoverReady(
+        deferVisualMaskUntilLayout: Boolean,
+        compactLayoutReady: Boolean,
+    ): Boolean =
+        !deferVisualMaskUntilLayout || compactLayoutReady
 
     @Synchronized
     fun release(
@@ -268,7 +281,8 @@ internal object SystemUiCompactPresentationRegistry {
 
             val result = session.withRepresentedSlotsIgnored { chain.proceed() }
             if (refreshMasksAfter) {
-                session.refreshClipMasks()
+                val maskedViews = session.refreshClipMasks()
+                session.onNativeLayoutCompleted(maskedViews)
             }
             result
         }
@@ -321,6 +335,9 @@ internal object SystemUiCompactPresentationRegistry {
         private var nativePadding: PaddingState? = null
         private var appliedPadding: PaddingState? = null
         private val clipStates = mutableListOf<ClipState>()
+        private var deferVisualMaskUntilLayout = false
+        private var compactLayoutReady = false
+        private var layoutReadyCallback: ((Int) -> Unit)? = null
 
         private val batteryLayoutListener =
             View.OnLayoutChangeListener {
@@ -376,10 +393,26 @@ internal object SystemUiCompactPresentationRegistry {
         fun ownsBatteryContainer(candidate: ViewGroup): Boolean =
             active && batteryContainer.get() === candidate
 
-        fun start(): Int {
+        fun start(
+            deferVisualMaskUntilLayout: Boolean = false,
+            onLayoutReady: ((Int) -> Unit)? = null,
+        ): Int {
+            this.deferVisualMaskUntilLayout = deferVisualMaskUntilLayout
+            layoutReadyCallback = onLayoutReady
+
             if (started) {
-                return refreshClipMasks()
+                return if (
+                    resolveCutoverReady(
+                        deferVisualMaskUntilLayout = deferVisualMaskUntilLayout,
+                        compactLayoutReady = compactLayoutReady,
+                    )
+                ) {
+                    refreshClipMasks()
+                } else {
+                    0
+                }
             }
+
             started = true
             host.get()?.addOnAttachStateChangeListener(this)
             val group =
@@ -392,6 +425,13 @@ internal object SystemUiCompactPresentationRegistry {
             battery.get()?.addOnLayoutChangeListener(batteryLayoutListener)
             batteryCarrier.get()?.addOnLayoutChangeListener(carrierLayoutListener)
             syncEndReservation()
+
+            if (deferVisualMaskUntilLayout) {
+                compactLayoutReady = false
+                return 0
+            }
+
+            compactLayoutReady = true
             return refreshClipMasks()
         }
 
@@ -400,6 +440,9 @@ internal object SystemUiCompactPresentationRegistry {
                 return 0
             }
             active = false
+            layoutReadyCallback = null
+            compactLayoutReady = false
+            deferVisualMaskUntilLayout = false
             host.get()?.removeOnAttachStateChangeListener(this)
             battery.get()?.removeOnLayoutChangeListener(batteryLayoutListener)
             batteryCarrier.get()?.removeOnLayoutChangeListener(carrierLayoutListener)
@@ -560,6 +603,33 @@ internal object SystemUiCompactPresentationRegistry {
                 )
             }
             return true
+        }
+
+        fun isLayoutCutoverReady(): Boolean =
+            active &&
+                started &&
+                resolveCutoverReady(
+                    deferVisualMaskUntilLayout = deferVisualMaskUntilLayout,
+                    compactLayoutReady = compactLayoutReady,
+                )
+
+        fun onNativeLayoutCompleted(maskedViews: Int) {
+            if (
+                !active ||
+                !started ||
+                !deferVisualMaskUntilLayout ||
+                compactLayoutReady
+            ) {
+                return
+            }
+            compactLayoutReady = true
+            val callback = layoutReadyCallback
+            layoutReadyCallback = null
+            onEvent(
+                eventPrefix + " layoutReady source=native-status-icons-onLayout" +
+                    " maskedViews=" + maskedViews,
+            )
+            callback?.invoke(maskedViews)
         }
 
         fun refreshClipMasks(): Int {
