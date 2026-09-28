@@ -51,19 +51,23 @@ The pinned target separates these two panel paths.
 
 Notification Shade remains **NATIVE_ONLY**: this target does not present the status-icon row there, so Combined Status must not invent one.
 
-Home departure/return is governed by the verified Notification Header expansion path used by HyperOS itself:
-`NotificationPanelExpansionAnimator.expansion -> NotificationPanelExpandController.expansionState -> NotificationHeaderExpandController.notificationCallback.onExpansionChanged(float)`.
+The Home render must inherit the native Home end-side presentation lifecycle instead of deriving its own visibility from panel motion. Exact-target source verifies:
 
-Build-422 device/runtime evidence supersedes the earlier assumption that generic `ShadeExpansionStateManager.onPanelExpansionChanged(...)` is the correct Home handoff seam on this target. The generic callback remains useful scene context, but it is not the active Combined Status visibility authority.
+`StatusBarVisibilityInteractor.shouldHomeStatusBarBeVisible`
+→ `HomeStatusBarViewModelImpl.isSystemInfoVisible`
+→ `systemInfoCombinedVis`
+→ `HomeStatusBarViewBinderInjector`
+→ `mEndSideContent = R.id.system_icons`.
+
+`showEndSideContent()/hideEndSideContent()` owns the native alpha / visibility / translation transition of `system_icons`. The exact `system_icons` root is `MiuiStatusBatteryContainer`.
 
 Current rules:
-- Header progress at the native zero boundary keeps Home eligible;
-- positive Header progress transfers Combined Status away from Home;
-- Battery `MiuiBatteryMeterView.mStatusBarState` is **not** a Home-visibility authority;
-- `KeyguardManager.isKeyguardLocked` is not a valid discriminator for the transient Battery state;
-- no local timing threshold, delay, polling loop, or reconstructed panel state machine is permitted.
+- Home Combined Status renders in `MiuiStatusBatteryContainer(system_icons).overlay`, so native end-side alpha/visibility/translation apply naturally;
+- Notification Header expansion remains useful motion evidence but is **not** a Combined Status Home-visibility authority;
+- Battery `MiuiBatteryMeterView.mStatusBarState`, global Keyguard state, generic Shade expansion state, and local fraction thresholds are not Home-visibility authorities;
+- no project-local Notification-Shade visibility Hook, timing threshold, delay, polling loop, or reconstructed panel state machine is permitted;
+- the parent `MiuiNotificationStatusContainer / system_icon_area` remains the HostSession discovery/ownership boundary, while the visual carrier is the verified animated `system_icons` child.
 
-The Home overlay is hosted in `MiuiNotificationStatusContainer / system_icon_area`. Its HostSession and host drawing lifecycle stay SystemUI-owned; Combined Status must not duplicate that lifecycle with a second global surface gate.
 
 ### Control Center
 
@@ -93,9 +97,9 @@ They must not create a second scene geometry policy or a separate slot-width rul
 
 ## Motion ownership
 
-Home stable currently uses `NONE`: Combined Status has no independent motion requirement there.
+Home stable currently uses `NONE`: Combined Status has no independent motion requirement there. Its end-side visual inherits native `system_icons` motion when SystemUI transitions that carrier.
 
-Notification Shade and the projected Control Center both keep transition motion under `SYSTEM_UI`; projection does not transfer motion ownership to Combined Status.
+Notification Shade and the projected Control Center both keep transition motion under `SYSTEM_UI`; inheritance/projection does not transfer motion ownership to Combined Status.
 
 `COMBINED_STATUS` remains reserved for a future transition that is demonstrated to be genuinely owned by Combined Status from start state through cleanup.
 
