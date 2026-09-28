@@ -9021,3 +9021,54 @@ Integrated Canary artifact:
 - **Future extension:** continue the Control Center transition redesign in a new short-lived feature branch from this exact integrated baseline; do not reuse merged PR #146.
 
 This record-only closure does not create Build 425.
+
+
+---
+
+## 2026-09-29 — Build 446 adaptive launcher mark
+
+**Type:** companion-app visual resource  
+**Display version:** 0.0.2  
+**Build:** 446 / `20260929-446`  
+**Branch:** `feat/guiyuan-app-icon`  
+**Validation:** pending Fast
+
+### Problem / objective
+
+Replace the previous literal Wi-Fi/status launcher graphic with the selected abstract “归元” orbit mark while preserving the approved mark's size relationships and geometry. The launcher asset should remain understated rather than pure black and should participate correctly in Android adaptive masks and themed/monochrome icon rendering.
+
+### Problem execution flow
+
+1. Re-read the current contribution, development-recording and app/resource rules.
+2. Inspect the existing launcher contract: `mipmap-anydpi-v26/ic_launcher.xml` already owns adaptive background + foreground + monochrome layers.
+3. Preserve that platform contract rather than baking a rounded-square mask into the artwork.
+4. Trace the approved mark at its original canvas proportions into the existing 108 dp vector viewport; keep the foreground bounds at approximately 21.53–86.12 × 19.98–85.52 so the selected composition is not rescaled or re-laid out.
+5. Use a restrained ink-black `#24272B` instead of absolute black and a warm off-white `#F7F6F2` background.
+6. Point `android:roundIcon` at the same adaptive resource rather than maintaining a second icon asset.
+
+### Implementation / decision
+
+- `ic_launcher_foreground.xml` now contains only the approved abstract orbit silhouette; there is no baked launcher tile, gradient, shadow, text, Wi-Fi glyph, battery glyph, or second decorative layer.
+- Adaptive masking remains owned by Android/HyperOS through the existing `<adaptive-icon>` resource.
+- The existing `monochrome` layer continues to reuse the same foreground geometry so Android 13+ themed icons retain the mark.
+- The default launcher palette is intentionally near-black ink rather than pure `#000000`; it reads black at launcher size while avoiding the harsher digital-black appearance.
+- No app navigation, settings, SystemUI hooks, runtime state, renderer behavior, or module ownership changes.
+
+### 审查 / review
+
+- **Ownership:** Android launcher remains the mask/themed-icon owner; the app owns only foreground geometry and default background/foreground colors.
+- **Lifecycle:** resource-only; no runtime listener/session lifecycle.
+- **Single writer:** one foreground vector and one background color source; no duplicate round-icon artwork.
+- **Cleanup:** no generated raster or alternate density-specific launcher assets are added.
+- **Fail native:** not applicable to SystemUI; launcher falls back to normal adaptive rendering.
+- **Performance:** vector/static color resources only.
+- **Compatibility:** minSdk 33 already satisfies the adaptive + monochrome contract used by the existing launcher resource.
+- **Future extension:** product naming can change independently without redrawing or changing the launcher geometry.
+
+### CI / device validation
+
+Normal Fast validation should cover resource compilation and Debug APK packaging. Focused device review only needs launcher presentation across the launcher's available masks plus one themed-icon/monochrome check; no SystemUI runtime matrix is required.
+
+### Outcome / next step
+
+Run Fast on the exact branch head. If the compiled adaptive icon preserves the approved mark under the device launcher masks and themed-icon mode, integrate the resource checkpoint into `dev`.
