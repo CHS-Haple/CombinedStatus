@@ -436,16 +436,27 @@ internal object SystemUiHomePresentationOwner {
 
     @Synchronized
     fun releaseGenerationForHotReload(): Int {
-        val session = current ?: return 0
-        current = null
-        val restored = session.stop("hotReload-oldGeneration")
+        val controlCenterRestored =
+            controlCenterCurrent?.let { session ->
+                controlCenterCurrent = null
+                session.stop("hotReload-oldGeneration")
+            } ?: 0
+        val homeRestored =
+            current?.let { session ->
+                current = null
+                session.stop("hotReload-oldGeneration")
+            } ?: 0
+        controlCenterEventSink = null
+        controlCenterFailNativeSink = null
+        controlCenterReadySink = null
         eventSink = null
         failNativeSink = null
-        return restored
+        return homeRestored + controlCenterRestored
     }
 
     @Synchronized
     fun resetRuntimeState(source: String) {
+        deactivateControlCenter(source)
         deactivate(source)
         runCatching { measureHook?.unhook() }
         runCatching { layoutHook?.unhook() }
@@ -584,6 +595,10 @@ internal object SystemUiHomePresentationOwner {
         batteryHideHook = null
         ignoredSlotsField = null
         batteryHideField = null
+        controlCenterCurrent = null
+        controlCenterEventSink = null
+        controlCenterFailNativeSink = null
+        controlCenterReadySink = null
         eventSink = null
         failNativeSink = null
     }
