@@ -38,10 +38,11 @@ For the pinned HyperOS target, Notification Shade itself does not present the st
 ## Active work checkpoint — Build 428 native appearance probe
 
 - Work branch: `fix/control-center-appearance-boundary`, based directly on accepted `dev` Build 424.
-- Runtime identity: Build 428 / `20260928-428` once CI validates the branch head.
+- Runtime identity: Build 428 / `20260928-428`, frozen executable SHA `71ece9cafca890e1fa123a57bccf5ec3aa67f579`.
 - Scope: add one optional Detailed/Canary diagnostic Hook for exact-target `ControlCenterHeaderExpandController$controlCenterCallback$1.onAppearanceChanged(boolean, boolean)`; record both native booleans verbatim plus existing read-only Header/island context.
 - Production behavior: unchanged from Build 424. The probe writes no visibility, alpha, translation, geometry, appearance, slot, or animation state.
-- Device gate: required. The exact target proves that `appearance` owns QS_FAKE/QS visual handoff, but the plugin-side boolean producer semantics are not present in the reviewed SystemUI APK and must not be guessed.
+- Automated validation: Fast Build #1381 / run `36437945610` passed; signed Work Branch Canary #420 / run `36438230744` passed on the exact executable SHA. Artifact `CombinedStatus-0.0.2-HyperOS-20260928-428-canary.apk`, artifact id `10976383422`, extracted APK SHA-256 `1b2b33c304802859bb8d32137bc20923cba20e2c8b63cb40b5493902e6ee32eb`; signature, Modern Xposed metadata and non-debuggable checks passed.
+- Device gate: required and runtime is frozen. The exact target proves that `appearance` owns QS_FAKE/QS visual handoff, but the plugin-side boolean producer semantics are not present in the reviewed SystemUI APK and must not be guessed.
 - Next executable correction after evidence: if the native semantics are stable, restore the device-accepted Build-420 source projection and end it at the verified native appearance boundary; otherwise fail native and continue source review.
 
 ## Current runtime checkpoints
