@@ -101,11 +101,12 @@ No user-facing per-state color picker/source selector is exposed yet. The future
 
 ### Home -> panel scene boundary / Control Center projection — Build 424 active
 
-Build 420 remains the device-accepted Control Center architecture:
+Build 420 remains device-accepted evidence for the Control Center carrier and readiness-ordered handoff:
 - Notification Shade has no Combined Status projection surface on this pinned target.
-- Control Center projects through the verified `realSystemIcons` / `MiuiStatusBatteryContainer` carrier.
-- Entry remains projection-ready before Home yields; exit remains Home restored before projection cleanup.
+- `realSystemIcons` / `MiuiStatusBatteryContainer` is a verified native Control Center transition carrier.
+- Entry remains projection-ready before the source steady scene yields; reverse motion restores the source before bridge cleanup.
 - Control Center geometry, transition motion, and native peer animation remain SystemUI-owned.
+- New product boundary: this projection is a **partial-pull transition bridge only**. Fully expanded Control Center must be native SystemUI status-bar presentation, not a persistent Combined Status scene.
 
 Builds 421-423 are rejected for Notification-Shade first/last-frame continuity. Build 423 established that the exact Notification Header callback supplies valid continuous motion progress, but device evidence proves that progress is not the native Home-status-bar visibility authority.
 
@@ -118,13 +119,20 @@ Builds 421-423 are rejected for Notification-Shade first/last-frame continuity. 
 - Build 424 moves only the Combined Status Home render overlay to the exact native `MiuiStatusBatteryContainer(system_icons).overlay`;
 - the Notification Header runtime Hook, Notification Home-eligibility state, Hot Reload query, and per-drag Home visibility writes are removed;
 - the legacy Hot Reload payload slot is retained as a null compatibility field only; it is not an active runtime authority;
-- accepted Build-420 Control Center projection/handoff is unchanged.
+- Build-420 Control Center carrier/handoff mechanics are unchanged inside Build 424; their future scope is now explicitly transition-only, with native-only ownership at the fully expanded endpoint.
 
 Build 424 is the current runtime checkpoint (`20260928-424`). Automated validation is pending; no device acceptance is claimed yet.
 
+**Confirmed future scene model — plan now, implement in bounded stages:**
+- Unlocked: Home steady Combined Status -> partial Control Center pull uses native HyperOS transition bridge -> fully expanded Control Center native-only.
+- Locked: future Keyguard steady Combined Status -> partial Control Center pull uses the same transition-coordinator policy from Keyguard source geometry -> fully expanded Control Center native-only.
+- Home and Keyguard share renderer/domain semantics, not View ownership; each requires its own verified steady host adapter.
+- The transition bridge is not a third steady scene and must cleanly restore the correct source on reverse motion.
+- This future model does not widen Build 424: Build 424 remains the Home-carrier/Notification-writer correction only.
+
 ## Non-negotiable boundaries
 
-- Home and the Build-420 Control Center projection are the currently runtime-verified Combined Status rendering surfaces; Notification Shade, Keyguard, and AOD remain native-only.
+- Home is the currently implemented persistent Combined Status source surface. Build 420 verifies a Control Center carrier/handoff mechanism, but the final product contract scopes it to partial-pull transition bridging only; fully expanded Control Center is native-only. Keyguard and AOD remain native-only in current runtime.
 - Unsupported/unverified surfaces remain native until their own host/lifecycle/handoff contract is validated.
 - Reuse authoritative HyperOS/SystemUI state and resources when a verified source exists.
 - Native peer geometry, Battery translation/alpha/visibility, and island animation remain SystemUI-owned.
@@ -155,8 +163,9 @@ Build 424 is the current runtime checkpoint (`20260928-424`). Automated validati
 1. Complete static/source review for Build 424 and ensure no active Notification-Shade Home visibility writer remains.
 2. Validate the exact-target profile and unit/build checks on the final Draft checkpoint.
 3. Keep PR #146 Draft during iteration; once the complete checkpoint is clean, move it Ready for the required repository validation.
-4. Preserve the accepted Build-420 Control Center path and verify its regression tests/checks alongside the Home carrier change.
-5. Only after automated validation passes, request one exact-head signed Canary for focused device validation of Notification-Shade first/last-frame continuity, Control Center regression, and Hot Reload/lock smoke behavior.
+4. Preserve Build-420 carrier/handoff mechanics as regression evidence during Build 424; do not yet mix in the new fully-expanded-native endpoint change.
+5. Only after automated validation passes, request one exact-head signed Canary for focused device validation of the Build-424 Home-carrier correction plus Control Center regression and Hot Reload/lock smoke behavior.
+6. After Build 424 is accepted or rejected, use a separate runtime checkpoint to narrow Control Center projection to the partial-pull bridge and yield to native SystemUI at the exact fully expanded endpoint.
 
 ## Reference priority
 
