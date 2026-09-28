@@ -80,8 +80,10 @@ Control Center is split into two ownership phases.
 - Builds 425-427 place the compact presentation inside child `QS_FAKE.system_icon_area`; device evidence rejects that child-carrier implementation;
 - exact-target review still verifies the distinct top-level `ControlCenterFakeStatusIcons` presentation and SystemUI-owned Header translation/fake-to-final alpha;
 - Build 430 device evidence verifies that the top-level fake View remains visible in normal and charging-island transitions and that HyperOS performs fake->final handoff by changing the root alpha while the child statusBarArea stays visible;
-- Build 431 uses `ControlCenterFakeStatusIcons.overlay` as the transition visual host, resolves the child `MiuiStatusBatteryContainer` only for geometry/tint/native-icon masking, and never uses the child as the Combined Status carrier;
-- represented fake Wi-Fi/mobile/Battery may receive reversible clip masks only after render readiness; no padding reservation, slot-exclusion hook, alpha/visibility writer, translation writer, project animation or final-QS mutation is permitted;
+- Build 431 uses `ControlCenterFakeStatusIcons.overlay` as the transition visual host but device evidence rejects clip-only suppression because represented Wi-Fi/mobile layout occupancy remains and creates a large gap;
+- Build 432 keeps the **root overlay** as the Combined visual carrier while the child fake `MiuiStatusIconContainer` participates only in reversible compact layout: represented slots are temporarily excluded during its existing native measure/layout Hook path, native layout completion gates cutover, and clip masks are applied only after that compact layout is ready;
+- when fake Battery is natively hidden, the compact session reserves the same stable Battery logical slot width used in the non-island case; `batteryWidthDiff` is not a Combined endpoint/translation input;
+- no additional status-icon measure/layout/battery-hide Hook set, project alpha/visibility/translation writer, interpolation, timer, polling/frame follower, or final-QS mutation is permitted;
 - SystemUI remains the sole motion/geometry/appearance owner.
 
 **Fully expanded endpoint — current design candidate**
