@@ -15,7 +15,7 @@ A value from one responsibility must not silently become the control value for a
 
 The current work-branch Home path uses the existing native Home host rather than a permanent extra status participant:
 
-`MiuiNotificationStatusContainer / system_icon_area -> HostSession overlay -> CombinedStatusHomeLayoutResolver -> Combined Status renderer`
+`MiuiNotificationStatusContainer / system_icon_area (HostSession) -> MiuiStatusBatteryContainer / system_icons.overlay (visual carrier) -> CombinedStatusHomeLayoutResolver -> Combined Status renderer`
 
 Build 397 is the first device-accepted charging-carrier checkpoint for this route. Build 398 refines the carrier-width authority to the live `battery_icon_container`; Build 399 changes only battery-ring compositing and does not alter this layout contract.
 
@@ -31,13 +31,13 @@ Build 397 is the first device-accepted charging-carrier checkpoint for this rout
 
 Combined Status renders against verified native host geometry while SystemUI remains authoritative for surrounding layout and motion.
 
-Home currently uses this mode.
+Home currently uses this mode. Build 424 places the visual inside the native `system_icons` carrier while keeping the outer `system_icon_area` as the HostSession/ancestor-motion boundary.
 
 ### NATIVE_ONLY
 
 Combined Status does not render on the surface. Native SystemUI content and motion remain authoritative.
 
-Notification-shade / Control Center transitions, keyguard and AOD currently use this mode.
+Notification Shade, keyguard and AOD currently use this mode. Control Center has a separately verified Build-420 projection path in the active Phase-2B branch; its longer-term transition carrier is under exact-target review and is not promoted here as a new settled layout contract.
 
 ## Shared `ResolvedLayout` contract
 
@@ -153,7 +153,7 @@ Motion ownership is independent from layout size:
 - `SYSTEM_UI` — SystemUI owns positioning/transition motion;
 - `COMBINED_STATUS` — reserved for a future transition proven to be fully module-owned.
 
-Home island motion is `SYSTEM_UI`: the overlay rides the native `system_icon_area` host transform. Combined Status must not add a battery-translation follower, duplicate animator or custom timing curve.
+Home island motion is `SYSTEM_UI`: the visual overlay lives in native `system_icons` and therefore inherits that carrier's own alpha/visibility/translation while also remaining under the ancestor `system_icon_area` island transform. Combined Status must not add a battery-translation follower, duplicate animator or custom timing curve.
 
 Phase 2B may combine stable Home source bounds with verified native expansion progress and real target geometry, but it must not reopen Home carrier ownership.
 
