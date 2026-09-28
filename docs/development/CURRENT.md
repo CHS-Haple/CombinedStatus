@@ -179,12 +179,14 @@ Do not bypass the required exact-head Build by requesting Canary early. Runtime 
 
 ## Immediate next step
 
-1. Build 424 static/source review is complete; keep its executable source frozen.
-2. Retry the Ready repository-validation checkpoint without changing runtime once GitHub pull-request event delivery is available; the expected route is the repository's normal Fast/Full classifier, not a Canary bypass.
-3. Only after automated validation passes, request one exact-head signed Canary for focused device validation of the Build-424 Home-carrier correction plus Control Center regression and Hot Reload/lock smoke behavior.
-4. Preserve Build-420 carrier/handoff mechanics as regression evidence during Build 424; do not mix the candidate `QS_FAKE` transition architecture into this runtime checkpoint.
-5. Exact-target lifecycle review currently favors retaining the existing low-frequency `onVisibleChanged` Hook only for QS_FAKE transition-session lifetime: read the already-selected native source at entry, use host-scoped `ignoredSlots` + reversible masks inside the fake carrier, and leave Home visibility/motion/appearance to HyperOS. Do not add an `adjustRealSystemIcons()` Hook unless later device evidence proves source changes during one visible session require it. Finish Hot Reload/recreation review only; do not implement this in Build 424.
-6. After Build 424 is accepted or rejected, present the verified source/QS_FAKE/QS ownership model and alternatives to the maintainer before selecting any follow-up runtime architecture.
+1. Keep Build 424 executable source `2556a098d35c202e1c5645a06e73757744f721e1` frozen; later branch changes remain test/documentation-only.
+2. Restore automated validation through the repository's trusted fallback path because repeated ready-for-review / synchronize events are producing no `Build` workflow run. Do not create another runtime Build merely to provoke CI.
+3. After an accepted exact-source automated validation, produce one signed Canary and perform the focused Build-424 device gate: Notification-Shade first/last-frame continuity, Control Center regression, Hot Reload, and lock/unlock smoke behavior.
+4. Do not mix the post-424 Control Center redesign into Build 424.
+5. The preferred follow-up candidate, subject to Build-424 acceptance and maintainer review, is `compact-capable source -> native QS_FAKE transition carrier -> native QS destination`. Retain `onVisibleChanged` only as transition-session lifetime; let HyperOS own Home departure, fake translation/alpha/tint and final fake->real appearance.
+6. Any future QS_FAKE compact session must use host-scoped `ignoredSlots` plus reversible visual masks; clip-only replacement is rejected. Reuse the existing global layout/Battery Hooks through identity-scoped sessions rather than installing a duplicate Hook set.
+7. Treat charging/Battery-island interaction with native `batteryWidthDiff` and tag-5 Battery behavior as a required future device gate; Combined Status must never rewrite that native transition value.
+8. Keep Keyguard/AOD runtime-native until their own steady host contracts are validated. HyperOS's native `realSystemIcons` source selection is reference authority, not permission to render on an unsupported source.
 
 ## Reference priority
 
