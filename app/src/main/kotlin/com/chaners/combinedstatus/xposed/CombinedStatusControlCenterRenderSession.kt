@@ -129,6 +129,55 @@ internal object CombinedStatusControlCenterRenderSession {
             ?: pendingPrearm?.host()?.takeIf { candidate -> candidate.isAttachedToWindow }
 
     @Synchronized
+    fun restoreLaidOutHostAfterHotReload(
+        host: ViewGroup,
+        onEvent: (String) -> Unit,
+        isDetailedDiagnosticsEnabled: () -> Boolean,
+        onProjectionReadinessChanged: (Boolean) -> Unit,
+    ): AttachResult {
+        if (Looper.myLooper() !== Looper.getMainLooper()) {
+            return AttachResult.Failure("main-thread-required")
+        }
+        if (
+            !shouldRestoreLaidOutHostAfterHotReload(
+                attached = host.isAttachedToWindow,
+                inLayout = host.isInLayout,
+                width = host.width,
+                height = host.height,
+            )
+        ) {
+            return AttachResult.Failure("fake-root-hot-reload-layout-unavailable")
+        }
+
+        pendingPrearm?.cancel()
+        pendingPrearm = null
+        val result =
+            attach(
+                host = host,
+                onEvent = onEvent,
+                isDetailedDiagnosticsEnabled = isDetailedDiagnosticsEnabled,
+                onProjectionReadinessChanged = onProjectionReadinessChanged,
+            )
+        if (result == AttachResult.Ready && isDetailedDiagnosticsEnabled()) {
+            onEvent(
+                "controlCenterProjection hotReloadRestore state=prepared " +
+                    "source=transferred-laid-out-fake-root " +
+                    "layoutRequestBoundary=outside-native-layout " +
+                    "next=native-status-icons-layout nativeGeometryWrites=0",
+            )
+        }
+        return result
+    }
+
+    internal fun shouldRestoreLaidOutHostAfterHotReload(
+        attached: Boolean,
+        inLayout: Boolean,
+        width: Int,
+        height: Int,
+    ): Boolean =
+        attached && !inLayout && width > 0 && height > 0
+
+    @Synchronized
     fun onState(snapshot: CombinedStatusStateStore.Snapshot) {
         current?.update(snapshot)
     }

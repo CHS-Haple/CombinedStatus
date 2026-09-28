@@ -64,6 +64,46 @@ class CombinedStatusControlCenterRenderSessionTest {
 
 
     @Test
+    fun hotReloadRestoreRequiresAttachedLaidOutHostOutsideNativeLayout() {
+        assertTrue(
+            CombinedStatusControlCenterRenderSession
+                .shouldRestoreLaidOutHostAfterHotReload(
+                    attached = true,
+                    inLayout = false,
+                    width = 829,
+                    height = 169,
+                ),
+        )
+        assertFalse(
+            CombinedStatusControlCenterRenderSession
+                .shouldRestoreLaidOutHostAfterHotReload(
+                    attached = true,
+                    inLayout = true,
+                    width = 829,
+                    height = 169,
+                ),
+        )
+        assertFalse(
+            CombinedStatusControlCenterRenderSession
+                .shouldRestoreLaidOutHostAfterHotReload(
+                    attached = true,
+                    inLayout = false,
+                    width = 0,
+                    height = 169,
+                ),
+        )
+        assertFalse(
+            CombinedStatusControlCenterRenderSession
+                .shouldRestoreLaidOutHostAfterHotReload(
+                    attached = false,
+                    inLayout = false,
+                    width = 829,
+                    height = 169,
+                ),
+        )
+    }
+
+    @Test
     fun transientLayoutLossRetainsPreparedFakePresentationWhileRootStaysAttached() {
         assertTrue(
             CombinedStatusControlCenterRenderSession

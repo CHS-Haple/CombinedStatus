@@ -466,9 +466,10 @@ class CombinedStatusModule : XposedModule() {
             SystemUiPanelTransitionSource.restoreControlCenterHomeEligibility(
                 restored.controlCenterHomeEligible,
             )
-            restored.controlCenterFakeHost?.let { fakeHost ->
-                onControlCenterFakePresentationAttached(fakeHost)
-            }
+            val controlCenterFakeRestore =
+                restored.controlCenterFakeHost?.let { fakeHost ->
+                    restoreControlCenterFakePresentationAfterHotReload(fakeHost)
+                } ?: "late-fallback"
             val transferredTint =
                 restored.appliedTint?.let { appliedTint ->
                     CombinedStatusTintState(
@@ -496,8 +497,7 @@ class CombinedStatusModule : XposedModule() {
                 "homePresentation" to "native-carrier-lifecycle",
                 "controlCenterHomeEligible" to
                     (restored.controlCenterHomeEligible ?: "unknown"),
-                "controlCenterFakePrearm" to
-                    if (restored.controlCenterFakeHost != null) "restored" else "late-fallback",
+                "controlCenterFakePrearm" to controlCenterFakeRestore,
                 "tintTransfer" to if (transferredTint != null) "restored" else "native-fallback",
                 "mainThread" to true,
             )
@@ -509,6 +509,7 @@ class CombinedStatusModule : XposedModule() {
                 "build" to BuildConfig.BUILD_ID,
                 "statusHostHook" to "replaced",
                 "staleHooks" to removedHooks,
+                "controlCenterFakePrearm" to controlCenterFakeRestore,
                 "restartScope" to false,
             )
         }.onFailure { error ->
@@ -1100,6 +1101,47 @@ class CombinedStatusModule : XposedModule() {
                     "reason" to "fake-presentation-prepare-failed",
                     "fallback" to "home-visible",
                 )
+            }
+        }
+    }
+
+    private fun restoreControlCenterFakePresentationAfterHotReload(host: ViewGroup): String {
+        return when (
+            val result =
+                CombinedStatusControlCenterRenderSession.restoreLaidOutHostAfterHotReload(
+                    host = host,
+                    onEvent = ::onPanelTransitionEvent,
+                    isDetailedDiagnosticsEnabled = { detailedDiagnosticsEnabled },
+                    onProjectionReadinessChanged = ::onControlCenterProjectionReadinessChanged,
+                )
+        ) {
+            CombinedStatusControlCenterRenderSession.AttachResult.Ready -> {
+                logDiagnostic(
+                    level = Log.INFO,
+                    event = "projection.restore",
+                    component = "controlCenterProjection",
+                    state = "prepared",
+                    "source" to "hot-reload-transfer",
+                    "boundary" to "outside-native-layout",
+                    "next" to "native-status-icons-layout",
+                    "nativeGeometryWrites" to 0,
+                )
+                "restored-laid-out-native-layout-pending"
+            }
+
+            is CombinedStatusControlCenterRenderSession.AttachResult.Failure -> {
+                logDiagnostic(
+                    level = Log.WARN,
+                    event = "projection.restore",
+                    component = "controlCenterProjection",
+                    state = "fallback",
+                    "source" to "hot-reload-transfer",
+                    "reason" to result.reason,
+                    "next" to "first-native-layout-prearm",
+                    "nativeGeometryWrites" to 0,
+                )
+                onControlCenterFakePresentationAttached(host)
+                "fallback-first-native-layout:" + result.reason
             }
         }
     }
