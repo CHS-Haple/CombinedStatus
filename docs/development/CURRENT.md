@@ -159,6 +159,14 @@ Build 424 is the current runtime checkpoint (`20260928-424`). Exact executable s
 - CI self-validation for the policy change passed at PR Build #1168, `main` push #1169, sync PR Build #1170, and trusted `dev` push #1171. The generated artifacts retain stable runtime build identities (`main` Build 351 / `dev` Build 412), so these automation checks are not new application Builds.
 - PR #99 remains separate open historical work and is not an accepted baseline; any useful delta must be reconciled against the current line before reuse.
 
+
+
+### Control Center lifecycle review — exact-target evidence, no runtime change
+
+The current lifecycle investigation now verifies that HyperOS itself registers both source containers with `ControlCenterFakeViewController`: unlocked `MiuiPhoneStatusBarView.mStatusBatteryContainer` becomes `statusBarSystemIcons`, while `MiuiKeyguardStatusBarView.mSystemIconsContainer` becomes `keyguardSystemIcons`. Native status-bar state selects the current `realSystemIcons` source. The Control Center fake status bar is a complete `QS_FAKE` status representation with native tint/attach/island lifecycle, while the fully expanded Control Center has a separate `QS` native status bar. Native `appearance` selects fake-vs-real visual ownership independently of expansion motion.
+
+This supports a candidate source -> native fake transition -> native real destination topology and argues against a project-owned six-state scene machine. It is evidence only; Build 424 remains unchanged and must be validated first. The plugin-side producer semantics for `appearance` remain outside the reviewed SystemUI APK and must not be guessed.
+
 ## Immediate next step
 
 1. Build 424 static/source review is complete; keep its executable source frozen.
