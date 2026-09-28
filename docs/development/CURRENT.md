@@ -41,11 +41,13 @@ For the pinned HyperOS target, Notification Shade itself does not present the st
 
 - Base: current Integration-validated `dev` Build 429 / MIUIX `5c91d5e5`.
 - Work branch: `fix/control-center-fake-root`.
-- Runtime identity: Build 430 / `20260928-430`.
+- Runtime identity: Build 430 / `20260928-430`; frozen executable SHA `d12db71a25ce2671e7deb41bf4b3636dc62c1881`.
+- Automated validation: Draft Light #1388 passed; Ready Fast #1389 / run `36442278475` passed on the frozen executable SHA; signed Work Branch Canary #424 / run `36442559462` passed on the same exact SHA, including Haple signature and non-debuggable checks.
+- Signed Canary artifact: `CombinedStatus-0.0.2-HyperOS-20260928-430-canary.apk`, artifact id `10978264293`, artifact ZIP digest `sha256:575c0815c6aa559320ec90fa9d0de974b58fa502af2bdbe2290ed9908ba7229c`, extracted APK SHA-256 `83feeabf7c5fac6a038e91fa4e5ea4d55aec8169303fd83232008457a7db0ad6`.
 - Build 428 evidence: during Control Center ownership the selected source `realSystemIcons / MiuiStatusBatteryContainer` can be `alpha=0`, `visibility=INVISIBLE` even without the charging island, so a source-overlay can report ready while remaining visually absent. Charging-island samples additionally show `isAddBatteryIsland=true`, `batteryWidthDiff=-135`, and native Battery hide/fade; that Battery-specific rule must not hide the whole Combined Status visual.
 - Build 430 scope: reuse the exact reflection chain already proven in Builds 425-427 but stop at the top-level `ControlCenterFakeStatusIcons`; record root and child `statusBarArea` alpha/visibility/size at native appearance callbacks.
 - No compact registry, slot exclusion, padding reservation, clip mask, translation, alpha/visibility writer, timer, polling, or final-QS mutation is introduced.
-- Device gate after Fast + signed Canary: one normal pull and one charging-island pull are sufficient if the report contains the new `fakePresentation` snapshot.
+- Device gate is now active and runtime is frozen. One normal pull/return and one charging-island pull/return are sufficient if Detailed diagnostics contain the new `fakePresentation={...}` snapshot.
 
 ## Current runtime checkpoints
 
