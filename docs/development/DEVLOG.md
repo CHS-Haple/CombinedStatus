@@ -7387,3 +7387,54 @@ No follow-up runtime implementation is authorized by this record. Build 424 rema
 3. any evidence-backed alternative.
 
 Discuss the lifecycle/maintenance tradeoff with the maintainer before selecting the follow-up route.
+
+
+---
+
+## 2026-09-28 — QS_FAKE first-frame and suppression review
+
+**Type:** architecture investigation / no runtime change  
+**Runtime Build:** unchanged; Build 424 exact executable remains `2556a098d35c202e1c5645a06e73757744f721e1`
+
+### First-frame evidence
+
+Build-423 device diagnostics show:
+- `visible=true` at 07:51:32.034;
+- the existing Control Center projection attached and became ready in the same timestamp;
+- by the 07:51:32.205 sampled expansion frame, native Home `mEndSideContent` was already alpha 0 / INVISIBLE.
+
+This supports reusing the existing low-frequency visibility seam to prepare a future QS_FAKE session instead of adding a new lifecycle Hook only for entry readiness. The exact time delta is not treated as a contract. Reverse/close ordering remains an explicit future device gate.
+
+### Native suppression evidence
+
+QS_FAKE uses the shared `system_icons.xml` hierarchy. Its native `RIGHT_BLOCK_LIST` does not remove Wi-Fi/mobile/Battery.
+
+`MiuiStatusIconContainer.onMeasure()` uses `ignoredSlots` to exclude represented children from native measurement/underflow. A clip-only implementation would hide pixels but leave layout participation and is rejected.
+
+The current Home owner already globally Hooks the relevant classes once and then filters by owned View identity. A follow-up architecture can therefore generalize the owner from one `current` session to a bounded identity-keyed session registry instead of installing a duplicate Hook set.
+
+### End-reservation evidence
+
+Build-423 normal-state device evidence:
+- stable Battery carrier width = 105;
+- actual Battery width = 105;
+- requested compact slot width = 105;
+- resulting Home padding-end delta = 0.
+
+The policy remains necessary for states where those widths differ or native Battery is hidden. Exact Battery source confirms island state is written to the Battery's own associated `MiuiStatusBatteryContainer`, including QS_FAKE's local container. This favors carrier-local reservation state rather than cross-surface copying.
+
+### 审查 / review
+
+- **Ownership:** source anchors remain read-only geometry authority; future QS_FAKE suppression may mutate only the fake carrier it owns.
+- **Lifecycle:** candidate session lifetime is `visible=true -> visible=false`; no additional view lifecycle Hook is currently justified by entry evidence.
+- **Single writer:** reuse one compact-presentation suppression registry; do not keep independent Home/Fake suppression writers for the same View.
+- **Cleanup:** every registry session must restore only its own ignored-slot additions, clip masks and padding baseline.
+- **Fail-native:** unresolved fake hierarchy or writer conflict leaves native QS_FAKE untouched.
+- **Performance:** no new measure/layout Hook set; O(1) identity lookup on the already-Hooked methods is the preferred bound.
+- **Compatibility:** exact target uses the same `MiuiStatusBatteryContainer / MiuiStatusIconContainer / MiuiBatteryMeterView` hierarchy in Home and QS_FAKE.
+- **Exception recovery:** stale source references are not session owners; registry lifetime follows actual owned carrier/session cleanup.
+- **Future extension:** the same registry pattern may later support a verified Keyguard compact carrier without multiplying Hook sets.
+
+### Decision boundary
+
+No runtime refactor is made before Build 424 automated/device validation and maintainer review of the candidate lifecycle.
