@@ -7,11 +7,12 @@ import io.github.libxposed.api.XposedInterface.Hooker
 import io.github.libxposed.api.XposedModule
 import java.lang.ref.WeakReference
 import java.lang.reflect.Field
+import java.lang.reflect.Method
 import kotlin.math.floor
 
 internal object SystemUiPanelTransitionSource {
     const val CONTROL_CENTER_RUNTIME_HOOK_COUNT = 1
-    const val CONTROL_CENTER_DIAGNOSTIC_HOOK_COUNT = 1
+    const val CONTROL_CENTER_DIAGNOSTIC_HOOK_COUNT = 2
     const val HOOK_COUNT =
         CONTROL_CENTER_RUNTIME_HOOK_COUNT +
             CONTROL_CENTER_DIAGNOSTIC_HOOK_COUNT
@@ -19,16 +20,26 @@ internal object SystemUiPanelTransitionSource {
     private const val CONTROL_CENTER_CLASS =
         "com.miui.systemui.controlcenter.container.ControlCenterExpandControllerDelegate"
     private const val CONTROL_CENTER_EXPANSION_METHOD = "onExpansionChanged"
+    private const val CONTROL_CENTER_APPEARANCE_METHOD = "onAppearanceChanged"
     private const val CONTROL_CENTER_VISIBLE_METHOD = "onVisibleChanged"
     private const val CONTROL_CENTER_HEADER_CALLBACK_CLASS =
         "com.android.systemui.controlcenter.shade.ControlCenterHeaderExpandController\$controlCenterCallback\$1"
     private const val CONTROL_CENTER_HEADER_CLASS =
         "com.android.systemui.controlcenter.shade.ControlCenterHeaderExpandController"
+    private const val COMBINED_HEADER_CLASS =
+        "com.android.systemui.controlcenter.shade.CombinedHeaderController"
+    private const val CONTROL_CENTER_FAKE_STATUS_BAR_CLASS =
+        "com.android.systemui.controlcenter.phone.widget.ControlCenterFakeStatusIcons"
+    private const val CC_FAKE_STATUS_BAR_ICONS_CLASS =
+        "com.android.systemui.controlcenter.header.CcFakeStatusBarIcons"
+    private const val DAGGER_LAZY_CLASS = "dagger.Lazy"
     private const val STATUS_BAR_ANCHOR_CLASS =
         "com.android.systemui.controlcenter.shade.StatusBarAnchorBounds"
 
     private const val CONTROL_CENTER_EXPANSION_HOOK_ID =
         "combinedstatus.panel.control-center.expansion"
+    private const val CONTROL_CENTER_APPEARANCE_HOOK_ID =
+        "combinedstatus.panel.control-center.appearance"
     private const val CONTROL_CENTER_VISIBLE_HOOK_ID =
         "combinedstatus.panel.control-center.visible"
 
@@ -63,6 +74,20 @@ internal object SystemUiPanelTransitionSource {
                         Float::class.javaPrimitiveType,
                     )
                     .apply { isAccessible = true }
+            } else {
+                null
+            }
+        val controlAppearanceMethod =
+            if (includeControlCenterDiagnostics) {
+                Class.forName(
+                    CONTROL_CENTER_HEADER_CALLBACK_CLASS,
+                    false,
+                    classLoader,
+                ).getDeclaredMethod(
+                    CONTROL_CENTER_APPEARANCE_METHOD,
+                    Boolean::class.javaPrimitiveType,
+                    Boolean::class.javaPrimitiveType,
+                ).apply { isAccessible = true }
             } else {
                 null
             }
@@ -121,6 +146,7 @@ internal object SystemUiPanelTransitionSource {
 
             if (includeControlCenterDiagnostics) {
                 val expansionMethod = checkNotNull(controlExpansionMethod)
+                val appearanceMethod = checkNotNull(controlAppearanceMethod)
 
                 handles +=
                     module
@@ -167,6 +193,33 @@ internal object SystemUiPanelTransitionSource {
                                 result
                             },
                         )
+
+                handles +=
+                    module
+                        .hook(appearanceMethod)
+                        .setId(CONTROL_CENTER_APPEARANCE_HOOK_ID)
+                        .intercept(
+                            Hooker { chain ->
+                                val first = chain.getArg(0) as? Boolean
+                                val second = chain.getArg(1) as? Boolean
+                                val result = chain.proceed()
+                                if (onEvent != null && isProbeEnabled()) {
+                                    onEvent(
+                                        appearanceDiagnostic(
+                                            first = first,
+                                            second = second,
+                                            snapshot =
+                                                controlAnchorContract
+                                                    ?.snapshotFromCallback(chain.thisObject),
+                                            fakePresentation =
+                                                controlAnchorContract
+                                                    ?.fakePresentationFromCallback(chain.thisObject),
+                                        ),
+                                    )
+                                }
+                                result
+                            },
+                        )
             }
 
             return handles
@@ -194,6 +247,20 @@ internal object SystemUiPanelTransitionSource {
     internal fun expectedHookCount(includeControlCenterDiagnostics: Boolean): Int =
         CONTROL_CENTER_RUNTIME_HOOK_COUNT +
             if (includeControlCenterDiagnostics) CONTROL_CENTER_DIAGNOSTIC_HOOK_COUNT else 0
+
+    internal fun appearanceDiagnostic(
+        first: Boolean?,
+        second: Boolean?,
+        snapshot: ControlCenterAnchorSnapshot?,
+        fakePresentation: ControlCenterFakePresentationSnapshot? = null,
+    ): String =
+        "controlCenterAppearance first=" + (first ?: "unknown") +
+            " second=" + (second ?: "unknown") +
+            " expanding=" + (snapshot?.controlCenterExpanding ?: "unknown") +
+            " addBatteryIsland=" + (snapshot?.addBatteryIsland ?: "unknown") +
+            " batteryWidthDiff=" + (snapshot?.batteryWidthDiff ?: "unknown") +
+            " fakePresentation=" + (fakePresentation?.summary ?: "unknown") +
+            " readOnly=true nativeGeometryWrites=0"
 
     fun currentControlCenterHomeEligibility(): Boolean? =
         controlCenterHomeEligible
@@ -317,6 +384,33 @@ internal object SystemUiPanelTransitionSource {
         CONTROL_CENTER("control-center"),
     }
 
+    internal data class ControlCenterFakePresentationSnapshot(
+        val rootClassName: String?,
+        val rootVisibility: Int?,
+        val rootAlpha: Float?,
+        val rootWidth: Int?,
+        val rootHeight: Int?,
+        val statusBarAreaClassName: String?,
+        val statusBarAreaVisibility: Int?,
+        val statusBarAreaAlpha: Float?,
+        val statusBarAreaWidth: Int?,
+        val statusBarAreaHeight: Int?,
+    ) {
+        val summary: String
+            get() =
+                "{root=" + (rootClassName ?: "unknown") +
+                    "(v=" + (rootVisibility ?: "unknown") +
+                    ",a=" + (rootAlpha ?: "unknown") +
+                    ",w=" + (rootWidth ?: "unknown") +
+                    ",h=" + (rootHeight ?: "unknown") +
+                    "),statusBarArea=" + (statusBarAreaClassName ?: "unknown") +
+                    "(v=" + (statusBarAreaVisibility ?: "unknown") +
+                    ",a=" + (statusBarAreaAlpha ?: "unknown") +
+                    ",w=" + (statusBarAreaWidth ?: "unknown") +
+                    ",h=" + (statusBarAreaHeight ?: "unknown") +
+                    ")}"
+    }
+
     internal data class ControlCenterAnchorSnapshot(
         val systemIconsX: Int?,
         val systemIconsWidth: Int?,
@@ -358,6 +452,11 @@ internal object SystemUiPanelTransitionSource {
         private val addBatteryIslandField: Field,
         private val controlCenterExpandingField: Field,
         private val realSystemIconsField: Field,
+        private val headerControllerField: Field,
+        private val lazyGetMethod: Method,
+        private val controlCenterFakeStatusBarField: Field,
+        private val fakeDelegateField: Field,
+        private val fakeStatusBarAreaField: Field,
         private val systemIconsLocationField: Field,
         private val systemIconsWidthField: Field,
         private val statusIconsLocationField: Field,
@@ -379,6 +478,58 @@ internal object SystemUiPanelTransitionSource {
         fun realSystemIcons(header: Any): ViewGroup? =
             runCatching { realSystemIconsField.get(header) as? ViewGroup }
                 .getOrNull()
+
+        fun snapshotFromCallback(callback: Any?): ControlCenterAnchorSnapshot? {
+            val header = headerFromCallback(callback) ?: return null
+            return snapshot(header)
+        }
+
+        fun fakePresentationFromCallback(
+            callback: Any?,
+        ): ControlCenterFakePresentationSnapshot? {
+            val header = headerFromCallback(callback) ?: return null
+            val fakeRoot = fakeStatusBar(header) ?: return null
+            val delegate =
+                runCatching { fakeDelegateField.get(fakeRoot) }
+                    .getOrNull()
+                    ?: return null
+            val statusBarArea =
+                runCatching { fakeStatusBarAreaField.get(delegate) as? View }
+                    .getOrNull()
+            return ControlCenterFakePresentationSnapshot(
+                rootClassName = fakeRoot.javaClass.name,
+                rootVisibility = fakeRoot.visibility,
+                rootAlpha = fakeRoot.alpha,
+                rootWidth = fakeRoot.width,
+                rootHeight = fakeRoot.height,
+                statusBarAreaClassName = statusBarArea?.javaClass?.name,
+                statusBarAreaVisibility = statusBarArea?.visibility,
+                statusBarAreaAlpha = statusBarArea?.alpha,
+                statusBarAreaWidth = statusBarArea?.width,
+                statusBarAreaHeight = statusBarArea?.height,
+            )
+        }
+
+        private fun headerFromCallback(callback: Any?): Any? =
+            callback
+                ?.let { candidate ->
+                    runCatching { callbackOuterField.get(candidate) }
+                        .getOrNull()
+                }
+
+        private fun fakeStatusBar(header: Any): ViewGroup? {
+            val lazy =
+                runCatching { headerControllerField.get(header) }
+                    .getOrNull()
+                    ?: return null
+            val combinedHeader =
+                runCatching { lazyGetMethod.invoke(lazy) }
+                    .getOrNull()
+                    ?: return null
+            return runCatching {
+                controlCenterFakeStatusBarField.get(combinedHeader) as? ViewGroup
+            }.getOrNull()
+        }
 
         fun snapshot(header: Any): ControlCenterAnchorSnapshot? {
             val anchor =
@@ -436,6 +587,30 @@ internal object SystemUiPanelTransitionSource {
                             false,
                             classLoader,
                         )
+                    val combinedHeaderClass =
+                        Class.forName(
+                            COMBINED_HEADER_CLASS,
+                            false,
+                            classLoader,
+                        )
+                    val fakeStatusBarClass =
+                        Class.forName(
+                            CONTROL_CENTER_FAKE_STATUS_BAR_CLASS,
+                            false,
+                            classLoader,
+                        )
+                    val fakeStatusBarIconsClass =
+                        Class.forName(
+                            CC_FAKE_STATUS_BAR_ICONS_CLASS,
+                            false,
+                            classLoader,
+                        )
+                    val lazyClass =
+                        Class.forName(
+                            DAGGER_LAZY_CLASS,
+                            false,
+                            classLoader,
+                        )
                     val anchorClass =
                         Class.forName(
                             STATUS_BAR_ANCHOR_CLASS,
@@ -468,6 +643,20 @@ internal object SystemUiPanelTransitionSource {
                                 .accessible(),
                         realSystemIconsField =
                             headerClass.getDeclaredField("realSystemIcons").accessible(),
+                        headerControllerField =
+                            headerClass.getDeclaredField("headerController").accessible(),
+                        lazyGetMethod =
+                            lazyClass.getDeclaredMethod("get").apply {
+                                isAccessible = true
+                            },
+                        controlCenterFakeStatusBarField =
+                            combinedHeaderClass
+                                .getDeclaredField("controlCenterFakeStatusBar")
+                                .accessible(),
+                        fakeDelegateField =
+                            fakeStatusBarClass.getDeclaredField("delegate").accessible(),
+                        fakeStatusBarAreaField =
+                            fakeStatusBarIconsClass.getDeclaredField("statusBarArea").accessible(),
                         systemIconsLocationField =
                             anchorClass
                                 .getDeclaredField("systemIconsLocationOnScreen")
