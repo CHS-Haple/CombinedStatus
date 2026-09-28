@@ -7537,3 +7537,31 @@ This is not yet an implementation decision. The current Build-424 device checkpo
 ### Next step
 
 Do not change Build 424. Complete its automated/device validation first. In parallel, continue static/runtime review of the fake Control Center carrier bootstrap/readiness and compare it with the current Build-420 `realSystemIcons.overlay` projection before proposing a follow-up runtime checkpoint.
+
+
+---
+
+## 2026-09-28 — Build 424 Ready validation event not emitted
+
+**Type:** CI infrastructure blocker  
+**Runtime Build:** 424 / `20260928-424` unchanged  
+**Executable source:** `2556a098d35c202e1c5645a06e73757744f721e1`
+
+### Evidence
+
+- PR #146 was moved to ready-for-review.
+- Additional documentation/test synchronization commits were pushed while the PR remained ready.
+- No `Build` workflow run is associated with any of those current heads.
+- `.github/workflows/build.yml` on `dev` explicitly listens for `pull_request` events `ready_for_review` and `synchronize`.
+- The GitHub workflow-run connector returns the historical Build-423 runs (#1306/#1307/#1308) normally, ruling out a read-side connector failure.
+
+### Conclusion
+
+The current blocker is classified as GitHub Actions event delivery / trigger admission for operations performed through the connected GitHub app, not a Build-424 source failure and not an incorrect validation-scope rule.
+
+### Boundary
+
+- Do not create a replacement runtime Build merely to provoke CI.
+- Do not request `/canary` without the required successful exact-head pull-request Build.
+- Keep Build 424 runtime frozen.
+- Continue static/source review independently; when automated validation becomes reachable, run the normal exact-head checkpoint before device testing.
