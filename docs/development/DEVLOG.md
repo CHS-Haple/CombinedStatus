@@ -3,13 +3,105 @@
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
 
+## 2026-09-29 — Build 441: continuous presentation ownership across Hot Reload generations
+
+**Type:** Hot Reload lifecycle / visual continuity correction
+**Build:** 441 / `20260929-441`
+**Work branch / PR:** `fix/control-center-fake-root` / #156
+**Runtime commits:** `500ae425c5fbe0e9156eefd76c6968aee6e79ca7`, wiring correction `bd224ef39b1f15c4b3f057b14b9835b21dbc5dde`, diagnostic wording cleanup `7a3c1cd9f5708c91cd5eddf1b004da6eeddad016`
+**Validation:** pending Draft Light -> exact-head Fast -> signed Canary
+
+### Build 440 device result
+
+Build 440 fixes the previously reported raw native QS_FAKE / native+Combined overlap. The maintainer reports that after recovery the defect no longer returns, including after SystemUI restart.
+
+Two Hot Reload-specific regressions remain:
+1. Hot Reload followed by an immediate Control Center pull can temporarily lose Combined Status, then recover and remain stable.
+2. Pressing Hot Reload itself makes Combined Status flash and neighboring system icons visibly move left and then return.
+
+The supplied video confirms the second symptom is a real layout pulse rather than only a render alpha/tint flash.
+
+### Evidence / problem execution flow
+
+Build-440 Detailed diagnostics show:
+- Hot Reload restore is scheduled at roughly 03:23:39.512.
+- The transferred QS_FAKE is immediately pre-masked and prepared around 03:23:39.540.
+- Home renderer/presentation is active again around 03:23:39.548.
+- `hotReload.complete` is emitted around 03:23:39.554.
+- QS_FAKE `layoutReady` / compact readiness does not arrive until roughly 03:23:42.824.
+
+Therefore Build 440 correctly prevents raw native Fake from drawing, but an immediate pull can move the Home carrier out before the projected Fake has become ready, producing a temporary blank.
+
+Source review identifies the separate Home/peer-icon pulse:
+- old `onHotReloading` posts `teardownOldGenerationForHotReload()` before new-generation restore;
+- teardown removes the old Home render visual;
+- `SystemUiHomePresentationOwner.releaseGenerationForHotReload()` stops Home and QS_FAKE sessions;
+- Session `stop()` restores native clip/reservation state and explicitly calls `batteryContainer.requestLayout()`;
+- only afterward does the new generation install/restore its presentation.
+
+The intermediate requestLayout is enough to let the native represented slots participate in one layout pass, moving neighboring status icons even when the raw glyphs do not visibly finish drawing.
+
+### Root cause
+
+Hot Reload was modeled as **two independent lifecycles separated by a native fallback interval**. That is correct for hard teardown, but wrong for an in-process generation replacement where the same SystemUI View hierarchy remains alive.
+
+This produced two visible intermediate states:
+- a Home visual gap while the old overlay had been removed and the new overlay was not yet attached;
+- a native-layout ownership gap while old compact/mask state had been restored and the new owner had not yet re-established slot exclusion.
+
+Build 440 then intentionally masks pending QS_FAKE native visuals, so the same generation gap can manifest as an immediate-pull blank instead of the older raw-native leak.
+
+### Implementation / decision
+
+- Bump Hot Reload transfer protocol from v8 to v9 while retaining v8 compatibility.
+- Transfer two new classloader-neutral facts:
+  - whether the existing QS_FAKE session is already native-presentation/compact-ready;
+  - a Java `Runnable` owned by the old generation that performs its cleanup only when invoked by the new generation.
+- `onHotReloading` no longer posts teardown. It captures transfer state and keeps the old visual/presentation alive.
+- New-generation `onHotReloaded` installs the new hooks/runtime sources first.
+- In the main-thread restore transaction, invoke the old-generation cleanup callback and immediately attach the new generation in the **same main-thread turn**.
+- During this continuous handoff, old presentation cleanup restores clip/reservation state but suppresses the intermediate `requestLayout()`.
+- The new generation then becomes the only writer and performs the normal next layout under its own hooks.
+- When v9 transfer says QS_FAKE was already compact-ready, adopt that proven compact geometry immediately; the subsequent native layout is a refresh rather than a readiness gate.
+- Legacy v8 transfer remains accepted as `legacy-pre-cleaned` for the first 440 -> 441 transition.
+- Diagnostics now distinguish `hotReload.generationHandoff`, continuous vs legacy mode, transferred compact readiness, and whether an intermediate layout request was suppressed.
+
+### 审查 / review
+
+- **ownership:** at no point are two generations allowed to write presentation state concurrently. The old generation stays owner until the new generation invokes its cleanup callback; the new generation takes over immediately afterward in the same main-thread transaction.
+- **single writer:** no new mask, padding, geometry, alpha, visibility or translation writer is added.
+- **lifecycle:** Hot Reload now has explicit transfer/handoff semantics; normal detach, feature disable, host replacement and Fail-native still restore native state normally.
+- **render continuity:** old visual removal and new visual attachment occur inside one main-thread turn, so no committed frame should contain neither visual.
+- **layout continuity:** continuous handoff restores old presentation state without requesting an intermediate native layout; the next requested layout occurs only after new hooks are installed.
+- **QS_FAKE continuity:** previously proven compact readiness can be inherited only from an attached old session and only through the v9 transfer.
+- **compatibility:** v8 remains readable. The first transition from running Build 440 to 441 cannot use v9 because the old generation is still Build 440; focused no-flash testing therefore requires a second Hot Reload after 441 is active.
+- **Fail native:** transfer restore/handoff failure is surfaced as Hot Reload error/restart-required; normal native-restoration paths remain unchanged.
+- **performance:** no timer, delay, polling, frame callback or additional persistent listener.
+
+### Validation plan
+
+Draft Light first validates protocol/docs consistency and formatting. Then exact-head Fast must pass unit/build/target/Xposed checks. A signed Canary is required because success depends on frame/layout ordering on the pinned HyperOS target.
+
+Focused device gate:
+1. Install/activate Build 441 once. The first 440 -> 441 Hot Reload may still exhibit the old transition because Build 440 produced the transfer.
+2. With Build 441 now active, press Hot Reload again (441 -> 441) while watching Home: Combined Status must not blink and neighboring status icons must not shift horizontally.
+3. Immediately pull Control Center after that Hot Reload: Combined Status must remain represented without a temporary blank.
+4. Repeat Hot Reload several times to verify the handoff is deterministic.
+5. Restart SystemUI once and repeat normal first/repeated Control Center pulls to ensure Build-440 raw-native/overlap fix remains intact.
+6. Any stale duplicate overlay, permanently hidden native icon, layout drift, crash or LSPosed safe mode is a hard failure.
+
+### Outcome / next step
+
+Pending CI and target-device validation. Freeze runtime after the signed Canary.
+
+
 ## 2026-09-29 — Build 440: mask native QS_FAKE during the pre-compact handoff window
 
 **Type:** Phase-2B visual-ownership correction / executable checkpoint
 **Build:** 440 / `20260929-440`
 **Work branch / PR:** `fix/control-center-fake-root` / #156
 **Executable source:** `a7ee3e9b06760167a6461d05d9bd20b699a1f249`
-**Validation:** pending Draft Light -> exact-head Fast -> signed Canary
+**Validation:** Draft Light #1496 passed; exact-head Fast #1497 passed; signed Work Branch Canary #449 / run `36471160837` built and uploaded the Build-440 artifact successfully (the workflow UI later remained in a post-Gradle cleanup state).
 
 ### Build 439 device result
 

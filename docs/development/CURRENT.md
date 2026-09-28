@@ -38,19 +38,29 @@ SystemUI remains authoritative for surrounding native layout, Battery presentati
 
 For the pinned HyperOS target, Notification Shade itself does not present the status-icon row; therefore Phase 2B does **not** project Combined Status into Notification Shade. Build-423 device evidence proves Notification Header progress is motion context rather than the complete Home visibility authority. Exact-target source instead traces `StatusBarVisibilityInteractor.shouldHomeStatusBarBeVisible -> HomeStatusBarViewModelImpl.systemInfoCombinedVis -> HomeStatusBarViewBinderInjector -> mEndSideContent = R.id.system_icons`. Build 424 therefore places the unlocked/Home render overlay on that exact `MiuiStatusBatteryContainer(system_icons)` owner so native alpha/visibility/transition lifecycle is inherited without a project-local shade gate. Control Center projection is now a bounded transition bridge only: the fully expanded endpoint must return to native status-bar presentation. Keyguard/lockscreen follows as a separate source adapter after Phase 2B, reusing shared domain/render semantics without sharing mutable Home host/session ownership.
 
-## Active work checkpoint — Build 440 mask native QS_FAKE before compact cutover
+## Active work checkpoint — Build 441 continuous Hot Reload presentation handoff
 
-- Base: current `dev` Build 438 / MIUIX `5c91d5e5`; work branch remains history-synchronized with `dev`.
+- Base: current `dev` Build 438 / MIUIX `5c91d5e5`; work branch remains ahead of and synchronized with `dev`.
 - Work branch / PR: `fix/control-center-fake-root` / #156.
-- Runtime identity: Build 440 / `20260929-440`; executable source `a7ee3e9b06760167a6461d05d9bd20b699a1f249`.
-- Build 439 is **device-rejected for visual ownership determinism**. Hot Reload -> immediate Control Center pull still shows either native QS_FAKE alone or native QS_FAKE overlapping Combined Status. Video evidence matches the Detailed trace.
-- The Build-439 trace proves the remaining gap is not another Fail-native writer: Hot Reload finishes with a prepared transferred Fake root, Control Center becomes visible while `nativePresentationReady=false`, and only much later does `controlCenterPresentation layoutReady/active` make compact readiness true. Until that native layout, existing code intentionally kept Home Combined Status as fallback **without visually masking native QS_FAKE**.
-- Root cause: presentation preparation incorrectly coupled **native visual suppression** to **compact measure/layout cutover**. That made the pre-compact fallback capable of showing two visual owners; if HyperOS moved/faded the Home carrier during the transition, only raw native QS_FAKE remained.
-- Build 440 separates those responsibilities inside the existing presentation owner. When a Control Center session starts with deferred compact cutover, it immediately applies the existing reversible `clipBounds` masks to the represented native QS_FAKE views, while `compactLayoutReady` remains false. Home Combined Status continues as the only Combined visual until native measure/layout completes slot exclusion; only then does the QS_FAKE Combined overlay become ready and Home yield.
-- This is intentionally different from rejected Build 431 clip-only presentation: pre-layout QS_FAKE Combined remains hidden, so stale native occupancy is never exposed as the visible projected layout. The early mask is only a temporary visual firewall until the existing native measure/layout Hook establishes compact occupancy.
-- Home presentation (`defer=false`) is unchanged. Build-437 transient Battery-width retention, Build-439 Hot Reload restore entry, QS-real endpoint, Notification Shade policy and charging-island geometry remain unchanged.
-- No new Hook, listener, timer, delay, polling, frame callback, translation/alpha/visibility writer, or geometry hack is added.
-- Device gate after CI: Hot Reload -> immediate pull several times, then SystemUI restart -> first non-charging pull -> repeats. There must be neither raw native QS_FAKE nor native/Combined overlap before compact handoff.
+- Runtime identity: Build 441 / `20260929-441`; executable source begins at `500ae425c5fbe0e9156eefd76c6968aee6e79ca7` with wiring correction `bd224ef39b1f15c4b3f057b14b9835b21dbc5dde` and diagnostic wording cleanup `7a3c1cd9f5708c91cd5eddf1b004da6eeddad016`.
+- Build 440 device feedback **accepts the original raw-native/overlap correction**: after settling, repeated Control Center pulls and SystemUI restart no longer reproduce the previous native QS_FAKE leak. Two Hot Reload-only defects remain:
+  1. Hot Reload -> immediate Control Center pull can temporarily show no Combined Status until the transferred QS_FAKE owner becomes compact-ready.
+  2. Pressing Hot Reload visibly flashes Combined Status and makes neighboring status icons shift left then return.
+- Build-440 diagnostics show Hot Reload schedules restore at 03:23:39.512 and reactivates Home presentation around 03:23:39.548, but transferred QS_FAKE compact readiness does not arrive until 03:23:42.824. This explains the immediate-pull blank interval even though native QS_FAKE is correctly pre-masked.
+- Source review identifies the layout pulse root cause: old-generation teardown removes the Home render visual, restores native presentation clip/reservation state and explicitly requests layout **before** the new generation reattaches. Even if the raw Wi-Fi/mobile/Battery glyphs do not have time to draw, restoring their layout ownership is sufficient to make adjacent icons reflow for one frame.
+- Build 441 replaces the old **tear down -> native intermediate frame -> restore** sequence with a classloader-neutral generation handoff:
+  - `onHotReloading` captures state, the attached Fake root, whether its compact presentation is already ready, and a Java `Runnable` old-generation cleanup callback; it no longer posts teardown in advance.
+  - The new generation first installs its hooks/runtime sources, then invokes the old-generation handoff callback from the same main-thread restore task.
+  - Old presentation state is restored without an intermediate `requestLayout()`; old renderer/listeners are released and the new renderer/presentation is attached in the same main-thread turn.
+  - If the transferred QS_FAKE was already compact-ready, the new generation adopts that existing compact geometry immediately and treats the following native layout only as refresh, instead of regressing to pending readiness.
+- Fail-native semantics remain: if the new generation cannot restore the transfer/handoff, the reload is reported as incomplete/restart-required rather than leaving an unowned mixed presentation.
+- No delay, timer, polling, frame callback, animation patch, translation/alpha writer, second mask writer or QS-real mutation is added.
+- **Compatibility gate:** the first transition from an already-running Build 440 generation into Build 441 still originates from old Build-440 code and therefore cannot supply the new v9 handoff callback. Focused validation of the new no-flash protocol must be performed after Build 441 is already active, then Hot Reload again (441 -> 441).
+- Device gate after CI:
+  1. ensure Build 441 is active once;
+  2. press Hot Reload repeatedly while watching Combined Status and neighboring icons — no Combined flash and no horizontal layout pulse;
+  3. after a 441 -> 441 Hot Reload, immediately pull Control Center — Combined Status must remain continuously represented;
+  4. repeat Control Center pulls and one SystemUI restart to confirm Build-440 raw-native/overlap correction remains intact.
 
 ## Current runtime checkpoints
 
