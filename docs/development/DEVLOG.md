@@ -3,6 +3,74 @@
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
 
+## 2026-09-29 — Build 440: mask native QS_FAKE during the pre-compact handoff window
+
+**Type:** Phase-2B visual-ownership correction / executable checkpoint
+**Build:** 440 / `20260929-440`
+**Work branch / PR:** `fix/control-center-fake-root` / #156
+**Executable source:** `a7ee3e9b06760167a6461d05d9bd20b699a1f249`
+**Validation:** pending Draft Light -> exact-head Fast -> signed Canary
+
+### Build 439 device result
+
+Build 439 is rejected for visual ownership determinism. The maintainer can still reproduce both:
+- native QS_FAKE appearing by itself during Control Center transition;
+- native QS_FAKE and Combined Status appearing together.
+
+The supplied video matches the Detailed runtime ordering. Hot Reload restores the transferred Fake root and reports a prepared pending compact owner. Control Center then becomes visible while the projection is not yet native-presentation-ready. Only a later `MiuiStatusIconContainer` native layout finally reports `controlCenterPresentation layoutReady`, activates compact presentation, and drives projection readiness true. No new `controlCenterPresentation failNative` or cleanup occurs in that window.
+
+### Root cause
+
+The fallback policy was internally inconsistent:
+
+1. While QS_FAKE compact layout was not ready, the module intentionally kept Home Combined Status eligible to avoid a blank/gapped handoff.
+2. But the shared presentation owner deferred **both** compact occupancy and the native `clipBounds` visual masks until that same future layout.
+3. HyperOS was therefore free to render native QS_FAKE during the whole pending interval.
+4. If Home remained visible, the user saw native + Combined overlap. If HyperOS moved/faded the Home carrier as part of its normal transition, the user saw native QS_FAKE alone.
+
+The underlying mistake was treating visual suppression and compact measure/layout cutover as one readiness event.
+
+### Implementation / decision
+
+- Keep the existing deferred compact session and existing native measure/layout Hook.
+- At deferred-session start, immediately call the existing reversible `refreshClipMasks()` and record `preLayoutVisualMask`.
+- Keep `compactLayoutReady=false`; do **not** show the QS_FAKE Combined overlay yet.
+- Continue to let Home Combined Status provide the user-visible fallback until native status-icon layout completes.
+- On native layout, the existing ignored-slot measure/layout path establishes compact occupancy, refreshes the same masks, marks compact ready, shows QS_FAKE Combined and then lets Home yield.
+- Home uses `deferVisualMaskUntilLayout=false`, so its behavior is unchanged.
+- Add a pure policy test proving only deferred compact cutover uses the pre-layout mask path.
+- Keep Build-437 transient Battery-width retention and Build-439 transferred-host restore logic unchanged.
+
+### Why this is not Build 431 again
+
+Build 431 exposed a **clip-only QS_FAKE presentation** as the visible owner, so the un-compacted represented-slot occupancy produced a large visible gap. Build 440 does not do that. Before compact native layout, QS_FAKE's native represented visuals are masked but the QS_FAKE Combined overlay remains hidden; Home Combined remains the visible fallback. The stale Fake occupancy is therefore not presented as the active Combined layout.
+
+### 审查 / review
+
+- **ownership:** `SystemUiHomePresentationOwner.Session` remains the sole compact/mask owner.
+- **single writer:** the same existing `clipBounds` writer is invoked earlier; no second native visual writer exists.
+- **lifecycle:** visual native suppression begins at prepare; compact layout ownership begins only at verified native layout.
+- **Fail native:** cleanup/restoration semantics are unchanged; session stop restores clip masks and reservation.
+- **performance:** no new Hook, listener, timer, polling, frame callback or animation.
+- **compatibility:** Home, Notification Shade, QS-real, charging-island endpoint geometry and Build-437 width retention are unchanged.
+- **future maintenance:** diagnostics explicitly separate `preLayoutVisualMask` from `layoutReady` so future regressions can identify which phase failed.
+
+### Validation plan
+
+Run Draft Light on the documentation-closed Build-440 head, then exact-head Fast. If Fast succeeds, generate a signed Canary.
+
+Focused device gate:
+1. Hot Reload -> immediately pull Control Center several times.
+2. There must be no raw native QS_FAKE and no native/Combined overlap.
+3. Restart SystemUI and make the first non-charging pull the first action.
+4. Repeat several non-charging pulls.
+5. Charging-no-island / charging-island remain regression-only for this checkpoint.
+
+### Outcome / next step
+
+Pending CI and focused device validation. Freeze runtime after the signed Canary.
+
+
 ## 2026-09-29 — Build 439: restore transferred QS_FAKE from its already-laid-out lifecycle
 
 **Type:** Phase-2B Hot Reload lifecycle correction / executable checkpoint
