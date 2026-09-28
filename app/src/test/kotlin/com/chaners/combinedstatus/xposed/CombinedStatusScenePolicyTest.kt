@@ -48,18 +48,15 @@ class CombinedStatusScenePolicyTest {
     }
 
     @Test
-    fun keyguardAndAodRemainNativeOnlyUntilDedicatedAdaptersAreVerified() {
-        listOf(
-            CombinedStatusScene.KEYGUARD,
-            CombinedStatusScene.AOD,
-        ).forEach { scene ->
-            val capability = CombinedStatusScenePolicy.capability(scene)
-            assertEquals(CombinedStatusRenderMode.NATIVE_ONLY, capability.renderMode)
-            assertEquals(
-                CombinedStatusMotionOwnership.SYSTEM_UI,
-                capability.motionOwnership,
-            )
-        }
+    fun keyguardIsProjectedCandidateWhileAodRemainsNativeOnly() {
+        val keyguard = CombinedStatusScenePolicy.capability(CombinedStatusScene.KEYGUARD)
+        assertEquals(CombinedStatusRenderMode.PROJECTED, keyguard.renderMode)
+        assertEquals(CombinedStatusMotionOwnership.SYSTEM_UI, keyguard.motionOwnership)
+        assertEquals(CombinedStatusSceneEvidence.STATIC_VERIFIED, keyguard.evidence)
+
+        val aod = CombinedStatusScenePolicy.capability(CombinedStatusScene.AOD)
+        assertEquals(CombinedStatusRenderMode.NATIVE_ONLY, aod.renderMode)
+        assertEquals(CombinedStatusMotionOwnership.SYSTEM_UI, aod.motionOwnership)
     }
 
     @Test
@@ -76,8 +73,7 @@ class CombinedStatusScenePolicyTest {
                 keyguardEnabled = false,
             ),
         )
-        // The setting alone cannot promote an unverified Keyguard capability.
-        assertFalse(
+        assertTrue(
             CombinedStatusScenePolicy.controlCenterProjectionEligible(
                 sourceScene = CombinedStatusSourceScene.KEYGUARD,
                 keyguardEnabled = true,

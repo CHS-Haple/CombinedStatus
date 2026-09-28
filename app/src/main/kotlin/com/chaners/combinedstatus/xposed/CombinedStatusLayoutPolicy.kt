@@ -93,6 +93,21 @@ internal object CombinedStatusHomeLayoutResolver {
         hostHeightPx: Int,
         baseCarrierWidthPx: Int,
         isRtl: Boolean,
+    ): CombinedStatusResolvedLayout? =
+        CombinedStatusSteadyLayoutResolver.resolve(
+            hostWidthPx = hostWidthPx,
+            hostHeightPx = hostHeightPx,
+            baseCarrierWidthPx = baseCarrierWidthPx,
+            isRtl = isRtl,
+        )
+}
+
+internal object CombinedStatusSteadyLayoutResolver {
+    fun resolve(
+        hostWidthPx: Int,
+        hostHeightPx: Int,
+        baseCarrierWidthPx: Int,
+        isRtl: Boolean,
     ): CombinedStatusResolvedLayout? {
         if (hostWidthPx <= 0 || hostHeightPx <= 0 || baseCarrierWidthPx <= 0) {
             return null

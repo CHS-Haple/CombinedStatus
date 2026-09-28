@@ -53,7 +53,7 @@ internal object CombinedStatusScenePolicy {
             CombinedStatusScene.KEYGUARD to
                 CombinedStatusSceneCapability(
                     scene = CombinedStatusScene.KEYGUARD,
-                    renderMode = CombinedStatusRenderMode.NATIVE_ONLY,
+                    renderMode = CombinedStatusRenderMode.PROJECTED,
                     motionOwnership = CombinedStatusMotionOwnership.SYSTEM_UI,
                     evidence = CombinedStatusSceneEvidence.STATIC_VERIFIED,
                 ),
