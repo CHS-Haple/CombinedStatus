@@ -99,46 +99,28 @@ Build 403 uses HyperOS `MiuiBatteryMeterIconView.getProgressStatus()` as semanti
 
 No user-facing per-state color picker/source selector is exposed yet. The future policy seam remains: **System default / Follow status icon / Custom** for NORMAL / CHARGING / POWER_SAVE / PERFORMANCE / LOW.
 
-### Home -> panel scene boundary / Control Center projection — Build 423 device-rejected
+### Home -> panel scene boundary / Control Center projection — Build 424 active
 
-Build 420 established the accepted panel architecture:
-- Notification Shade has no status-icon projection target on this pinned configuration; it only transfers Home ownership.
-- Control Center projection is accepted through the verified `realSystemIcons` / `MiuiStatusBatteryContainer` carrier.
-- Open handoff remains projection-ready before Home yields; close handoff remains Home restored before projection cleanup.
-- No second suppression writer, custom animation, timer, polling loop, or geometry compensation is introduced.
+Build 420 remains the device-accepted Control Center architecture:
+- Notification Shade has no Combined Status projection surface on this pinned target.
+- Control Center projects through the verified `realSystemIcons` / `MiuiStatusBatteryContainer` carrier.
+- Entry remains projection-ready before Home yields; exit remains Home restored before projection cleanup.
+- Control Center geometry, transition motion, and native peer animation remain SystemUI-owned.
 
-Build 421 is rejected by device evidence:
-- `MiuiBatteryMeterView.updateState()` still emitted raw state 1 at the Notification-Shade edge.
-- `KeyguardManager.isKeyguardLocked` returned `true` in that same transition, so the attempted platform discriminator still classified the Battery signal as global Keyguard and hid Home before the shade fraction callback.
-- Therefore Battery `mStatusBarState` plus a global Keyguard boolean is not a valid Home-surface ownership authority on this target.
+Builds 421-423 are rejected for Notification-Shade first/last-frame continuity. Build 423 established that the exact Notification Header callback supplies valid continuous motion progress, but device evidence proves that progress is not the native Home-status-bar visibility authority.
 
-Build 422 selects a narrower ownership model:
-- the Home overlay remains attached to `MiuiNotificationStatusContainer / system_icon_area`;
-- the Battery status-state hook remains only as a read-only presentation/tint event source and no longer writes Home visibility;
-- Control Center handoff remains coordinator-owned and unchanged from accepted Build 420;
-- Keyguard/AOD remain separate native surfaces for Phase 3 and are not inferred from the Home Battery state.
+**Build 424 root-cause correction — inherit the native Home end-side carrier lifecycle:**
+- exact-target source traces `StatusBarVisibilityInteractor.shouldHomeStatusBarBeVisible` into `HomeStatusBarViewModelImpl.isSystemInfoVisible -> systemInfoCombinedVis`;
+- `HomeStatusBarViewBinderImpl` binds `mEndSideContent` to `R.id.system_icons`;
+- exact `system_icons.xml` shows that `system_icons` is the root `MiuiStatusBatteryContainer` containing status icons and Battery;
+- `HomeStatusBarViewBinderInjector.showEndSideContent()/hideEndSideContent()` applies native alpha / visibility / translation animation to that `mEndSideContent`;
+- the pre-424 Combined Status visual was instead attached to the parent `MiuiNotificationStatusContainer.overlay`, outside the child `system_icons` animation owner, which is why a project-local Notification fraction gate was needed and could go out of phase at the first/last frame;
+- Build 424 moves only the Combined Status Home render overlay to the exact native `MiuiStatusBatteryContainer(system_icons).overlay`;
+- the Notification Header runtime Hook, Notification Home-eligibility state, Hot Reload query, and per-drag Home visibility writes are removed;
+- the legacy Hot Reload payload slot is retained as a null compatibility field only; it is not an active runtime authority;
+- accepted Build-420 Control Center projection/handoff is unchanged.
 
-Build 423 corrects the remaining Notification-Shade source:
-- Build-422 diagnostics show the generic `ShadeExpansionStateManager` payload on this target behaves as an unsuitable 0/1 edge signal for the observed Header handoff, while Control Center exposes continuous progress independently;
-- exact-target jadx review shows `CombinedHeaderController.start()` registers `NotificationHeaderExpandController.notificationCallback` on `NotificationPanelExpandController`;
-- `NotificationPanelExpandController` collects `NotificationPanelExpansionAnimator.expansion` and directly dispatches each float to registered `PanelExpandController.Callback.onExpansionChanged(float)`;
-- the native Notification Header callback consumes that same float for Header translation/scale/alpha;
-- Combined Status now observes that already-native callback and uses only its progress to drive the existing Home visibility gate. No new state machine, listener, timer, threshold, geometry writer, or panel projection is introduced.
-
-**Build 422 device rejection — Notification Shade edge persists:**
-- Maintainer device validation on Xiaomi 15 Pro / HyperOS SystemUI `17.03.260226.r` reports that the Notification Shade first/last-frame problem still reproduces on the signed Build 422 Canary.
-- Supplied Build-422 Detailed diagnostics confirm the expected Canary identity and that `panelTransition` installed all 3 expected hooks; this is therefore not treated as a stale APK or hook-install failure.
-- The Build-422 hypothesis that removing Battery scene-state as the extra Home visibility writer would eliminate the remaining edge defect is rejected as sufficient.
-- Build 420 Control Center projection remains independently accepted unless the new evidence demonstrates a regression.
-- Runtime work is reopened at the ownership/ordering investigation boundary. Do not add delay/epsilon/timer/polling/geometry compensation; correlate the supplied video, Detailed diagnostics, and LSPosed log against the native shade callback ordering before choosing the next change.
-
-**Build 423 device rejection — Header progress alone is not the ownership gate:**
-- Maintainer device validation reports that the Notification-Shade first/last-frame problem still reproduces on the signed Build 423 Canary.
-- Detailed diagnostics confirm the expected Build 423 Canary and healthy panel-hook installation.
-- The maintainer-provided LogFox system log proves `NotificationHeaderExpandController.notificationCallback` does emit continuous native progress; the earlier suspicion that only endpoint values were delivered is rejected.
-- During panel opening, HyperOS logs `StatusBar##isHomeStatusBarAllowed: newValue: false` before the first tiny positive Header progress that causes Build 423 to hide the Home overlay.
-- During collapse, Build 423 restores the overlay at Header progress zero before HyperOS logs `isHomeStatusBarAllowed: newValue: true`.
-- Therefore Header progress is valid motion context but is not, by itself, the native Home-status-bar ownership decision. The next root-cause step is exact-target source review of `isHomeStatusBarAllowed` and its consumers; do not replace this with an epsilon threshold.
+Build 424 is the current runtime checkpoint (`20260928-424`). Automated validation is pending; no device acceptance is claimed yet.
 
 ## Non-negotiable boundaries
 
@@ -170,11 +152,11 @@ Build 423 corrects the remaining Notification-Shade source:
 
 ## Immediate next step
 
-1. Build 423 / `20260928-423` is device-rejected for Notification-Shade edge continuity; keep its executable frozen as evidence.
-2. Use the maintainer-provided LogFox system timeline to trace the exact-target `StatusBar##isHomeStatusBarAllowed` producer and every native consumer that controls Home status-bar presentation.
-3. Compare that native ownership signal against the current Header-progress gate and Home overlay carrier lifecycle.
-4. Preserve accepted Build-420 Control Center projection unless new evidence demonstrates a regression.
-5. Do not add an epsilon threshold, timer, polling loop, delay, or geometry compensation. Only after the actual native Home ownership contract is verified should Build 424 change runtime behavior.
+1. Complete static/source review for Build 424 and ensure no active Notification-Shade Home visibility writer remains.
+2. Validate the exact-target profile and unit/build checks on the final Draft checkpoint.
+3. Keep PR #146 Draft during iteration; once the complete checkpoint is clean, move it Ready for the required repository validation.
+4. Preserve the accepted Build-420 Control Center path and verify its regression tests/checks alongside the Home carrier change.
+5. Only after automated validation passes, request one exact-head signed Canary for focused device validation of Notification-Shade first/last-frame continuity, Control Center regression, and Hot Reload/lock smoke behavior.
 
 ## Reference priority
 
