@@ -37,19 +37,19 @@ SystemUI remains authoritative for surrounding native layout, Battery presentati
 
 For the pinned HyperOS target, Notification Shade itself does not present the status-icon row; therefore Phase 2B does **not** project Combined Status into Notification Shade. Build-423 device evidence proves Notification Header progress is motion context rather than the complete Home visibility authority. Exact-target source instead traces `StatusBarVisibilityInteractor.shouldHomeStatusBarBeVisible -> HomeStatusBarViewModelImpl.systemInfoCombinedVis -> HomeStatusBarViewBinderInjector -> mEndSideContent = R.id.system_icons`. Build 424 therefore places the unlocked/Home render overlay on that exact `MiuiStatusBatteryContainer(system_icons)` owner so native alpha/visibility/transition lifecycle is inherited without a project-local shade gate. Control Center projection is now a bounded transition bridge only: the fully expanded endpoint must return to native status-bar presentation. Keyguard/lockscreen follows as a separate source adapter after Phase 2B, reusing shared domain/render semantics without sharing mutable Home host/session ownership.
 
-## Active work checkpoint — Build 431 top-level fake-root projection
+## Active work checkpoint — Build 432 native compact-layout handoff
 
 - Base: current Integration-validated `dev` Build 429 / MIUIX `5c91d5e5`.
-- Work branch: `fix/control-center-fake-root`.
-- Runtime identity: Build 431 / `20260928-431`; frozen executable SHA `eb0aac6104ce51e1cdbabfdfc00dc34d17fb3a6a`.
-- Automated validation: Draft Light #1403 / run `36444967549` passed; Ready Fast #1404 / run `36445016937` passed on the frozen executable SHA; signed Work Branch Canary #426 / run `36445319566` passed on the same exact SHA, including Haple signature and non-debuggable checks.
-- Signed Canary artifact: `CombinedStatus-0.0.2-HyperOS-20260928-431-canary.apk`, artifact id `10980247565`, artifact ZIP digest `sha256:0c10c4783a5e49d56e91f64ae420bcf34b0fcfea500a83c4739bf4ee9af2f15b`, extracted APK SHA-256 `8947c44af9adb83ea0f26fd36b7ec572ecb477a89b319d1cd338cadaae63a804`, extracted APK size 3,309,602 bytes.
-- Build 430 device evidence is accepted for the carrier contract: in both normal and charging-island pulls, top-level `ControlCenterFakeStatusIcons` stays `visibility=VISIBLE`, is `alpha=1` during the fake transition presentation, and HyperOS switches only the root to `alpha=0` at the native fake->final handoff while child `statusBarArea` remains visible/alpha=1.
-- Build 431 therefore attaches the Combined Status render View to `ControlCenterFakeStatusIcons.overlay`. Its geometry/tint source is the unique descendant `MiuiStatusBatteryContainer`; root alpha/translation/visibility are inherited without project animation or appearance thresholds.
-- Native fake Wi-Fi/mobile/Battery are hidden only through reversible `clipBounds` masks while the projection is ready. No native alpha/visibility writes, no translation writes, no padding reservation, no compact registry, no slot-exclusion hook, no polling/frame follower, and no final-QS mutation are introduced.
-- Readiness is ordered: model + tint + layout + attached root must be ready, then the native masks are applied, then the Combined overlay becomes visible, and only then may Home yield. Any host/area/mask failure restores native fake icons and fails native.
-- Charging island remains a SystemUI-owned Battery presentation detail. The Combined overlay is hosted above the child Battery lifecycle, so Battery hide/fade cannot erase Wi-Fi/mobile state.
-- Device gate is active and runtime is frozen. Verify normal and charging-island pull/return, root-alpha fake->final handoff, no overlap/blank native network icons, and clean Home restoration.
+- Work branch / PR: `fix/control-center-fake-root` / #156.
+- Runtime identity: Build 432 / `20260928-432`.
+- Build 430 remains device-accepted for the **top-level `ControlCenterFakeStatusIcons` appearance-owner contract**.
+- Build 431 is **device-rejected for fake-surface occupancy**, not for the root host: the Combined overlay is correctly attached to the top-level fake root, but represented fake Wi-Fi/mobile/Battery are only visually clipped. Their native layout occupancy remains, so the Combined visual is already at the stable Battery endpoint while preceding native icons retain Wi-Fi/mobile width, producing the large pull-down gap.
+- Build 431 diagnostics show the Combined root-overlay bounds remain `722..827` while native Control Center fraction advances, and charging-island samples report `batteryWidthDiff=-135` / `addBatteryIsland=true` while the desired Combined endpoint remains the same stable Battery logical slot.
+- Build 432 keeps the Build-431 root overlay and **does not add a project interpolation/translation**. Instead it reuses the already installed Home presentation Hook substrate for a second transient Control Center compact session keyed by the fake `MiuiStatusIconContainer`.
+- The transient session temporarily excludes represented slots only during native `onMeasure/onLayout`, applies reversible clip masks after that native layout, and uses the existing stable end-reservation policy: normal Battery visible -> no extra reservation; Battery hidden -> reserve the stable requested Battery slot width. `batteryWidthDiff` is not consumed as a Combined Status endpoint offset.
+- Readiness is now ordered: root/model/tint geometry prepared -> transient native compact session prepared -> native fake status-icons `onLayout` completes -> masks + stable Battery reservation active -> root overlay visible -> Home yields.
+- Hook count is unchanged: no second measure/layout/battery-hide Hook set, no polling/frame follower, no custom animator, no native alpha/visibility/translation writer, and final QS remains untouched.
+- Draft Light validation is running/recorded on the current Build-432 branch; Ready Fast and signed Canary are required before device validation.
 
 ## Current runtime checkpoints
 
