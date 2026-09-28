@@ -33,7 +33,7 @@ Build 447 established the correct runtime-state source, but device review reques
 - Decorative mark grows to 88 dp; ring stroke is 5.0 dp and inner symbol stroke 5.6 dp.
 - Ring and symbol use separate semantic alpha, making the symbol visually distinct without weakening the card background.
 - The check uses one continuous rounded path, removing the darker two-line overlap at the elbow; alert and minus retain the same outer-ring geometry and rounded stroke language.
-- Version identity is reduced to one restrained line, `0.0.2 · 453`; the full `20260929-453` build identity remains available in Diagnostics and engineering records.
+- Version identity remains on two restrained lines as requested: `版本  0.0.2` / `构建  20260929-453` (English: `Version` / `Build`), avoiding one long developer-style string while keeping the full build identity visible.
 - Home Preview Sandbox is one compact MIUIX `ArrowPreference`; its leading content is the production-rendered preview and its summary is the current simulated state.
 - `AppRoute.PreviewSandbox` opens a dedicated page whose center/signal/battery choices use upstream `TabRowWithContour` selectors. These are immediate preview modes rather than persisted settings, so the previous settings-dropdown affordance is removed.
 - Sandbox state is hoisted to `CombinedStatusApp` so Home and the secondary page share one non-persistent simulation state.
@@ -53,7 +53,7 @@ Build 447 established the correct runtime-state source, but device review reques
 
 Draft Light #1599 passed after the Build-452 rebase. The first ready exact-head Fast #1600 reached Kotlin compilation and failed before producing an APK because three obsolete preview-mutation parameters remained on the private `TopLevelPager` signature after preview ownership moved to `CombinedStatusApp`. The call site had already stopped passing them. The stale private parameters were removed as a compile-only cleanup; no behavior or Build-453 design changed.
 
-Corrected exact-head Fast and a signed Canary are still required. Device review should cover: all runtime-card states, ring/symbol contrast and joint rendering, fixed card height, single-line version/build typography, compact Home density, secondary-page navigation/back behavior, contour-tab interaction, and Wi-Fi/5G preview proportions.
+Corrected exact-head Fast and a signed Canary are still required. Device review should cover: all runtime-card states, ring/symbol contrast and joint rendering, fixed card height, two-line version/build typography, compact Home density, secondary-page navigation/back behavior, contour-tab interaction, and Wi-Fi/5G preview proportions.
 
 ### Outcome / next step
 
