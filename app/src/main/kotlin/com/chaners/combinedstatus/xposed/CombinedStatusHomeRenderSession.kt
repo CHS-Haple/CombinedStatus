@@ -99,14 +99,6 @@ internal object CombinedStatusHomeRenderSession {
     }
 
     @Synchronized
-    fun onControlCenterAuthorityChanged(homeEligible: Boolean) {
-        current?.updateControlCenterHomeEligibility(
-            homeEligible = homeEligible,
-            source = "source-availability",
-        )
-    }
-
-    @Synchronized
     fun setNativeHandoffActive(active: Boolean) {
         current?.setNativeHandoffActive(active)
     }
@@ -122,12 +114,9 @@ internal object CombinedStatusHomeRenderSession {
 
     internal fun resolveOverlayVisible(
         featureEnabled: Boolean,
-        controlCenterAllowsHome: Boolean,
         nativeHandoffActive: Boolean,
     ): Boolean =
-        featureEnabled &&
-            controlCenterAllowsHome &&
-            !nativeHandoffActive
+        featureEnabled && !nativeHandoffActive
 
     internal fun resolveOwnerReady(
         featureEnabled: Boolean,
@@ -219,9 +208,6 @@ internal object CombinedStatusHomeRenderSession {
         private var layoutLogged = false
         private var deferredStateLogged = false
         private var rejectedTintLogged = false
-        // Control Center handoff is coordinator-owned. Source visibility is
-        // diagnostic context only until a projected carrier is ready.
-        private var controlCenterAllowsHome = true
         private var nativeHandoffActive = initialNativeHandoffActive
         private var featureEnabled = initialFeatureEnabled
         private var modelReady = false
@@ -309,37 +295,6 @@ internal object CombinedStatusHomeRenderSession {
             if (removeVisual) {
                 batteryContainer.get()?.overlay?.remove(probeView)
             }
-        }
-
-        fun updateControlCenterHomeEligibility(
-            homeEligible: Boolean,
-            source: String,
-            detail: String = "",
-        ) {
-            if (Looper.myLooper() !== Looper.getMainLooper()) {
-                host.get()?.post {
-                    updateControlCenterHomeEligibility(
-                        homeEligible = homeEligible,
-                        source = source,
-                        detail = detail,
-                    )
-                }
-                return
-            }
-            if (controlCenterAllowsHome == homeEligible) {
-                return
-            }
-            controlCenterAllowsHome = homeEligible
-            val visible = applyResolvedVisibility()
-            emitEvent {
-                "homeRenderControlCenterEligibility" +
-                    " source=" + source +
-                    detail +
-                    " homeEligible=" + controlCenterAllowsHome +
-                    " visible=" + visible +
-                    " nativeGeometryWrites=0"
-            }
-            dispatchPresentationReadiness("control-center:" + source)
         }
 
         fun setFeatureEnabled(enabled: Boolean) {
@@ -444,8 +399,7 @@ internal object CombinedStatusHomeRenderSession {
         ) {
             val visibleTrace =
                 trace?.takeIf {
-                    layoutLogged &&
-                        controlCenterAllowsHome
+                    layoutLogged
                 }
             val update =
                 renderController.update(
@@ -528,7 +482,6 @@ internal object CombinedStatusHomeRenderSession {
             val visible =
                 resolveOverlayVisible(
                     featureEnabled = featureEnabled,
-                    controlCenterAllowsHome = controlCenterAllowsHome,
                     nativeHandoffActive = nativeHandoffActive,
                 )
             probeView.visibility = if (visible) View.VISIBLE else View.GONE
@@ -556,13 +509,11 @@ internal object CombinedStatusHomeRenderSession {
             emitEvent {
                 "homeRenderReadiness source=" + source +
                     " ownerReady=" + ownerReady +
-                    " overlayEligible=" +
-                    controlCenterAllowsHome +
                     " modelReady=" + modelReady +
                     " tintReady=" + tintReady +
                     " layoutReady=" + layoutReady +
-                    " controlCenterHomeEligible=" + controlCenterAllowsHome +
                     " featureEnabled=" + featureEnabled +
+                    " nativeVisibilityAuthority=system-icons-carrier" +
                     " nativeGeometryWrites=0"
             }
             onPresentationReadinessChanged?.invoke(ownerReady)
