@@ -7967,12 +7967,12 @@ This record-only closure does not create a new runtime Build.
 
 ## 2026-09-28 — Build 424 device acceptance
 
-**Build:** 424 / `20260928-424`  
-**Exact executable source:** `2556a098d35c202e1c5645a06e73757744f721e1`  
-**Exact tested PR head:** `3cbf8523cfafeb99a58dcd213053e9a2e020f71f`  
-**Ready Full:** #1328 / run `36418043111` — success  
-**Signed Canary:** #417 / run `36418655598` — success  
-**Artifact:** `CombinedStatus-0.0.2-HyperOS-20260928-424-canary.apk` / id `10968671147`  
+**Build:** 424 / `20260928-424`
+**Exact executable source:** `2556a098d35c202e1c5645a06e73757744f721e1`
+**Exact tested PR head:** `3cbf8523cfafeb99a58dcd213053e9a2e020f71f`
+**Ready Full:** #1328 / run `36418043111` — success
+**Signed Canary:** #417 / run `36418655598` — success
+**Artifact:** `CombinedStatus-0.0.2-HyperOS-20260928-424-canary.apk` / id `10968671147`
 **APK SHA-256:** `7e1a7bf035207718de3d74c580b87c3d5f20df648a98a78ef8f560d25c95e778`
 
 ### Maintainer feedback
