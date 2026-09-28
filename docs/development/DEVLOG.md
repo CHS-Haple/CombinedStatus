@@ -7045,3 +7045,93 @@ The exact-target source for `isHomeStatusBarAllowed` must be traced before Build
 - **Compatibility:** exact target remains SystemUI `17.03.260226.r`.
 - **Rejected workaround:** no epsilon threshold around zero progress; the new evidence is about ownership ordering, not float noise.
 - **Build identity:** remains Build 423.
+
+
+---
+
+## 2026-09-28 — Build 424: inherit native Home end-side lifecycle
+
+**Type:** runtime root-cause correction / Phase 2B
+**Display version:** 0.0.2
+**Build:** 424 / `20260928-424`
+**Branch / PR:** `feat/panel-projection` / #146
+**Target:** HyperOS SystemUI `17.03.260226.r`
+**Validation:** implementation complete; automated checkpoint pending; device acceptance not yet claimed
+
+### Problem / objective
+
+Build 423 still reproduces the Notification-Shade first/last-frame disappearance. Its exact Notification Header callback is live and continuously reports progress, so the remaining issue is not callback availability. The objective is to identify the native Home status-bar presentation owner and remove the project-local visibility decision rather than refine its timing.
+
+### Problem execution flow
+
+1. Replayed the maintainer LogFox timeline and retained the Build-423 rejection before changing runtime code.
+2. Traced `StatusBar##isHomeStatusBarAllowed` into the exact-target `StatusBarVisibilityInteractor` / Home status-bar ViewModel flow.
+3. Traced `shouldHomeStatusBarBeVisible -> isSystemInfoVisible -> systemInfoCombinedVis` into `HomeStatusBarViewBinderInjector`.
+4. Verified that `HomeStatusBarViewBinderImpl.bind()` resolves `mEndSideContent = R.id.system_icons`.
+5. Decoded exact-target `status_bar.xml` and `system_icons.xml`: `system_icon_area` is the parent `MiuiNotificationStatusContainer`; `system_icons` is the child root `MiuiStatusBatteryContainer`.
+6. Verified `showEndSideContent()/hideEndSideContent()` animate `mEndSideContent` with native alpha / visibility / translation.
+7. Compared this native carrier to Combined Status: Build 423 attached its visual to `MiuiNotificationStatusContainer.overlay`, one level above the animated child.
+8. Selected a carrier-ownership correction instead of adding an `isHomeStatusBarAllowed` Hook, threshold, delay, frame listener, or second state machine.
+
+### Evidence / findings
+
+- The Notification Header callback remains valid motion evidence but is not the native Home-system-info visibility owner.
+- HyperOS already has a complete Home visibility semantic pipeline and writes the resulting transition to `system_icons`.
+- A parent `MiuiNotificationStatusContainer.overlay` does not acquire a child-specific alpha/visibility/translation animation merely because the child resides below the same HostSession.
+- `MiuiStatusBatteryContainer` is the exact `system_icons` root and is already a verified carrier class used by the accepted Control Center projection.
+- Therefore the pre-424 Notification fraction visibility gate was compensating for a visual carrier that sat outside the native animated end-side layer.
+
+### Root-cause status
+
+**Confirmed for the Build-424 implementation boundary.**
+
+The project-owned Home overlay was attached above the View that HyperOS actually animates for Home end-side visibility. The project then added a second visibility writer based on Notification Header progress. The two lifecycles were not identical at the first/last frame, producing the observed discontinuity.
+
+Device validation is still required to accept the corrected runtime behavior.
+
+### Alternatives considered
+
+- **Epsilon / fraction threshold:** rejected; changes timing without correcting ownership.
+- **Delay / one-frame wait / timer:** rejected; introduces scheduling compensation.
+- **Observe `isHomeStatusBarAllowed` with another Hook/Flow bridge:** rejected for the current fix because it would duplicate a semantic already applied to the exact native carrier.
+- **Custom alpha/translation follower:** rejected; creates a second motion writer.
+- **Move the Home visual into the native animated carrier and delete the duplicate shade writer:** selected as the smallest native-lifecycle correction.
+
+### Implementation / decision
+
+- Home HostSession discovery remains `MiuiNotificationStatusContainer / system_icon_area`.
+- Home visual overlay moves from the parent host overlay to the direct `MiuiStatusBatteryContainer(system_icons).overlay`.
+- Layout/listener/attach readiness for the visual follows that carrier.
+- Notification Header runtime Hook is removed from `SystemUiPanelTransitionSource`.
+- Notification shade Home-eligibility state, Home callback, restore/query path, and per-drag diagnostic state are removed.
+- `SystemUiPanelTransitionSource` now owns only Control Center runtime visibility plus optional bounded Control Center diagnostics.
+- Hot Reload stops querying/transferring live Notification eligibility; the legacy transfer slot remains null for payload compatibility.
+- Target profile retires `notificationHeaderExpansion` as an active Hook point while retaining verified source/method evidence.
+- Accepted Build-420 Control Center readiness-ordered projection is intentionally unchanged.
+- Display version remains `0.0.2`; internal identity advances to Build 424.
+
+### 审查 / review
+
+- **Ownership:** HyperOS remains sole writer of Home end-side alpha/visibility/translation; Combined Status owns only its overlay content.
+- **Lifecycle:** Home visual now lives inside the same native `system_icons` carrier lifecycle it visually replaces. No new long-lived observer, service, timer, or coroutine is added.
+- **Single writer:** the project-local Notification Home visibility writer is deleted. Control Center remains a separate real-host handoff with one coordinator.
+- **Cleanup:** carrier overlay add/remove and attach/layout listeners remain symmetric inside the Home session. Existing represented-slot and native restoration owners remain separate.
+- **Fail native:** missing/invalid verified Home carrier prevents Combined Status presentation rather than creating a fallback transition approximation.
+- **Performance:** one runtime Notification Header Hook and its gesture-time update path are removed; no polling/frame loop is introduced.
+- **Compatibility:** exact target resources/source verify `R.id.system_icons -> MiuiStatusBatteryContainer`; the active compatibility profile no longer requires the retired Notification Hook.
+- **Exception recovery:** existing host replacement, Hot Reload teardown, HookHandle cleanup, and native restoration paths remain in force; legacy transfer compatibility is retained without reviving the retired state.
+- **Future extension:** Notification Shade stays native-only; Control Center stays a verified second-host projection; Keyguard/AOD remain separate Phase-3 host contracts.
+
+### CI / device validation
+
+Pending. The final Build-424 checkpoint must pass repository validation before one exact-head signed Canary is requested.
+
+Focused device gate after automated validation:
+- Notification Shade open/close first and last frame;
+- Control Center open/close regression;
+- one Hot Reload pass;
+- one lock/unlock smoke pass for Home leakage.
+
+### Outcome / next step
+
+Build 424 is the active implementation checkpoint. Finish repository/static validation, update the active PR description, then run the normal Ready validation path. Freeze runtime at the signed-Canary device boundary.
