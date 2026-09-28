@@ -3,6 +3,44 @@
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
 
+## 2026-09-29 — Build 437: keep Appearance preview geometry stable
+
+**Type:** companion-app UI correction
+**Build:** 437 / `20260929-437`
+**Work branch:** `feat/floating-navigation-options`
+**Validation:** pending PR CI and focused app-UI smoke
+
+### Problem / objective
+
+Maintainer device feedback on Build 436 showed the Appearance style-preview card moving vertically when switching floating-navigation content from icon-only to icon-with-label.
+
+### Root cause
+
+The preview viewport itself was conditionally sized: icon-only used 64 dp while icon-with-label used 76 dp. Because the mini preview participates in the enclosing Column's measured height, the preference change changed the outer preview geometry instead of only changing the rendered navigation content. The preview also placed the navigation child at the top of its viewport, unlike the real Scaffold bottom bar.
+
+### Implementation / decision
+
+- Keep one fixed 76 dp navigation preview viewport, sized for the taller icon-with-label mode.
+- Bottom-anchor the navigation preview inside that viewport so content-height changes grow upward as a real bottom bar does.
+- Leave the live bottom navigation sizing and the persisted content option unchanged.
+
+### 审查 / review
+
+- **ownership:** preview-only geometry; production navigation ownership is unchanged.
+- **state:** no new state or preference.
+- **single writer:** the existing mini-navigation preview remains the only preview geometry owner.
+- **lifecycle/performance:** pure Compose layout; no listener, observer, polling, or runtime background work.
+- **fidelity:** the preview now keeps stable outer bounds and models the bottom anchoring of the production Scaffold more accurately.
+
+### CI / device validation
+
+Pending. Focused check: switch repeatedly between Icons only and Icons & labels; the outer style-preview card and following settings rows must remain stationary while only the navigation content changes.
+
+### Outcome / next step
+
+Run PR CI, then re-test the Appearance preview together with the existing Build-436 Glass/content checks.
+
+
 ## 2026-09-29 — Build 436: align Floating Navigation material and content options
 
 **Type:** companion-app UI / MIUIX conformance
