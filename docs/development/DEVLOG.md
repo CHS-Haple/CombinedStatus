@@ -44,9 +44,13 @@ PR Build #1479 / run `36464596210` passed on exact Build-438 executable source. 
 
 Focused maintainer check remains: switch repeatedly between Icons only and Icons & labels; the outer style-preview card and following settings rows must remain stationary while only the navigation content changes. Also confirm the live bottom bar and preview remain synchronized and light/dark Glass has no regression.
 
+### Maintainer device feedback
+
+Maintainer validation reports the original issue is resolved: switching between **Icons only** and **Icons & labels** no longer moves the style-preview card or the following settings. No new visual issue was reported in the focused pass.
+
 ### Outcome / next step
 
-Build 438 is the signed test candidate for the fixed-bounds preview correction. Keep executable source frozen pending maintainer UI feedback. Documentation-only closure after this checkpoint does not create another runtime Build.
+Build 438 is device-accepted for the fixed-bounds preview correction. The executable source remains frozen; run one final exact-head PR validation for the documentation-closed head, then integrate PR #158 into `dev`. Documentation-only closure does not create another runtime Build.
 
 
 ## 2026-09-29 — Build 436: align Floating Navigation material and content options
