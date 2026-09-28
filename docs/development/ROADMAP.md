@@ -79,6 +79,8 @@ Exit criteria:
 
 ## Phase 3 — Keyguard / lockscreen / AOD scene completion — active
 
+Build 446 is device-accepted and closes the late-eligibility QS_FAKE cutover prerequisite. Phase 3 may now advance to the independent steady Keyguard adapter; AOD remains a later, separate gate.
+
 Build 446 preserves the source-scene gate and closes its late-entry lifecycle hole: when Home eligibility is learned after QS_FAKE has already completed native layout, the existing laid-out status-icons state may serve as the compact cutover proof only if no layout request is pending and geometry is valid. Otherwise the existing native `onLayout` path remains mandatory. This keeps the fail-native/atomic handoff contract while allowing scene-gated Home projection to become ready.
 
 Build 445 tightens the Build-444 source-scene gate without changing its policy: HyperOS `realSystemIcons` remains the selected source endpoint, but Home is identified by object identity against the existing HomePresentationOwner carrier rather than transient View ancestry. Keyguard retains the already device-proven structural fallback. This preserves fail-native behavior while restoring Home-originated QS_FAKE.

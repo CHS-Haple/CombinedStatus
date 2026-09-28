@@ -63,6 +63,19 @@ Exact-head Fast, then trusted Canary. Device validation:
 3. unlock -> Home pull restores Combined without SystemUI restart.
 
 
+### Device acceptance
+
+Build 446 is accepted by the maintainer with no visible issue in the requested Home / Keyguard / return checks.
+
+Detailed diagnostic `CombinedStatus-Diagnostic-20260929-446-20260929-063035.txt` verifies:
+- Home-originated Control Center reaches `sourceScene=HOME`, then `layoutReady source=existing-native-status-icons-layout`, `compact ready=true`, and final projection readiness with every gate true;
+- a later Home pull enters with a pending layout, keeps native visuals during preparation, then receives `layoutReady source=native-status-icons-onLayout`, activates the compact presentation, and reaches projection ready;
+- Keyguard scene updates deactivate/restore the compact QS_FAKE owner and keep `sourceScene=KEYGUARD / state=native / keyguardEnabled=false`;
+- runtime health remains healthy and no additional geometry/alpha/visibility writer is introduced by the Build-446 correction.
+
+**Outcome:** accepted. The late-eligibility cutover blocker is closed. Phase-3 work can proceed to the independent steady Keyguard adapter without reopening the Home/QS_FAKE fix.
+
+
 ## 2026-09-29 — Build 445: Home source identity correction for QS_FAKE
 
 **Type:** device-evidence-driven source-classifier correction

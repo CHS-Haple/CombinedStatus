@@ -38,17 +38,22 @@ SystemUI remains authoritative for surrounding native layout, Battery presentati
 
 For the pinned HyperOS target, Notification Shade itself does not present the status-icon row; therefore Phase 2B does **not** project Combined Status into Notification Shade. Build-423 device evidence proves Notification Header progress is motion context rather than the complete Home visibility authority. Exact-target source instead traces `StatusBarVisibilityInteractor.shouldHomeStatusBarBeVisible -> HomeStatusBarViewModelImpl.systemInfoCombinedVis -> HomeStatusBarViewBinderInjector -> mEndSideContent = R.id.system_icons`. Build 424 therefore places the unlocked/Home render overlay on that exact `MiuiStatusBatteryContainer(system_icons)` owner so native alpha/visibility/transition lifecycle is inherited without a project-local shade gate. Control Center projection is now a bounded transition bridge only: the fully expanded endpoint must return to native status-bar presentation. Keyguard/lockscreen follows as a separate source adapter after Phase 2B, reusing shared domain/render semantics without sharing mutable Home host/session ownership.
 
-## Active checkpoint — Build 446 late-eligibility compact cutover
+## Accepted checkpoint — Build 446 late-eligibility compact cutover
 
-- Work branch remains `feat/keyguard-scene-adapter`; runtime identity advances to Build 446 / `20260929-446`.
-- Build-445 device evidence accepts the Home source identity correction: the unlocked Control Center pull now reports `sourceScene=HOME` and `scene.eligibility state=eligible authority=hyperos-realSystemIcons`.
-- The remaining failure is downstream of scene classification. On the same pull, compact presentation starts with `preLayoutVisualMask active=false / compactLayoutReady=false` but no later `controlCenterPresentation active` or `layoutReady source=native-status-icons-onLayout` is observed, so the projected owner never reaches ready.
-- Root cause: after Build 444 introduced scene gating, Home compact ownership may begin only when Control Center becomes visible. At that point the fake `MiuiStatusIconContainer` can already have completed its native layout. Build 443 intentionally waits for a native `onLayout` before masking, but a late-started session may never receive another layout callback and remains Prepared forever.
-- Build 446 keeps Build-443's atomic rule and adds a bounded late-entry path: if the existing native status-icons group is already `isLaidOut=true`, has no pending layout request, and has positive geometry, that completed native layout is accepted as the cutover boundary. Otherwise the session still waits for the existing native `onLayout` Hook.
-- The late-entry path applies the existing clip mask only after that proof, marks compact layout ready synchronously, and lets the current render-session readiness equation perform the overlay handoff. No geometry, alpha, or visibility ownership is added.
-- Hook delta remains **0**; no listener, timer, retry loop, polling, or frame callback is added.
-- Home/Keyguard scene policy is unchanged: verified Home may project Combined Status; Keyguard/unknown remain native until the separate Keyguard capability is enabled.
-- Validation gate: exact-head Fast -> trusted Canary -> repeat Home pull + Keyguard pull + unlock-return.
+- Build 446 / `20260929-446` source `7d43c4308d1af542a424156f99f5b43421cd7c09` is device-accepted on the pinned Xiaomi 15 Pro / HyperOS SystemUI `17.03.260226.r`.
+- Fast #1557 / run `36492013275` passed, and Work Branch Canary #465 / run `36492240369` verified the exact trusted source, signed/non-debuggable Canary, and uploaded artifact `11002645594`.
+- Maintainer feedback reports no visible regression. Detailed runtime evidence verifies both supported compact cutover paths: an already-completed native status-icons layout is reused synchronously when valid, while a pending layout preserves native visuals until the existing native `MiuiStatusIconContainer.onLayout` completes; both reach `requestedVisible=true / sceneEligible=true / layoutReady=true / nativePresentationReady=true`.
+- Keyguard-originated Control Center remains native while `keyguardEnabled=false`; scene transition cleanup restores the compact QS_FAKE presentation before the native Keyguard route is used.
+- Build 446 therefore closes the Phase-3 prerequisite bug exposed by source-scene gating without reopening Home/QS_FAKE ownership.
+
+## Active checkpoint — Keyguard steady adapter
+
+- Next runtime objective: promote **steady Keyguard only** from NATIVE_ONLY to a separately owned Combined Status adapter while preserving the accepted Home and shared QS_FAKE behavior.
+- Home and Keyguard must remain separate mutable host/session owners. They may share renderer/domain semantics and the already-installed class-wide status-icon layout Hook substrate, but must not share a concrete View/session instance.
+- The verified Keyguard carrier is `MiuiKeyguardStatusBarView.mSystemIconsContainer` (`MiuiStatusBatteryContainer`); its own parent visibility/alpha/translation and `updateIconsAndTextColors()` tint semantics remain HyperOS-owned.
+- Future feature policy is one global Combined Status enable plus a Keyguard-specific enable. The Keyguard switch governs both steady Keyguard and Keyguard-originated QS_FAKE eligibility; Home remains governed only by the global feature.
+- AOD remains NATIVE_ONLY and is not implied by steady Keyguard support.
+- First implementation review must reuse the existing scene callback / structurally verified Keyguard host instead of adding a duplicate Keyguard lifecycle state machine, and must preserve Fail-native cleanup when host/presentation contracts are incomplete.
 
 ## Device evidence — Build 445 Home source identity correction
 
