@@ -376,8 +376,11 @@ internal object SystemUiHomePresentationOwner {
 
     @Synchronized
     fun ownsBatteryContainer(candidate: ViewGroup): Boolean =
-        current?.ownsBatteryContainer(candidate) == true ||
-            keyguardCurrent?.ownsBatteryContainer(candidate) == true
+        current?.ownsBatteryContainer(candidate) == true
+
+    @Synchronized
+    fun ownsKeyguardBatteryContainer(candidate: ViewGroup): Boolean =
+        keyguardCurrent?.ownsBatteryContainer(candidate) == true
 
     @Synchronized
     fun activateControlCenter(
