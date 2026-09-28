@@ -1105,26 +1105,37 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun onControlCenterFakePresentationAttached(host: ViewGroup) {
-        when (prepareControlCenterFakePresentation(host, "fake-root-attached")) {
-            CombinedStatusControlCenterRenderSession.AttachResult.Ready -> {
+        when (
+            val result =
+                CombinedStatusControlCenterRenderSession.prearmAfterNextNativeLayout(
+                    host = host,
+                    onEvent = ::onPanelTransitionEvent,
+                    isDetailedDiagnosticsEnabled = { detailedDiagnosticsEnabled },
+                    onProjectionReadinessChanged = ::onControlCenterProjectionReadinessChanged,
+                )
+        ) {
+            is CombinedStatusControlCenterRenderSession.PrearmResult.Scheduled -> {
                 logDiagnostic(
                     level = Log.INFO,
                     event = "projection.prearm",
                     component = "controlCenterProjection",
-                    state = "prepared",
+                    state = "scheduled",
                     "source" to "fake-root-attached",
+                    "boundary" to "first-native-layout",
+                    "reused" to result.reused,
                     "requestedVisible" to controlCenterSceneVisible,
                     "nativeGeometryWrites" to 0,
                 )
             }
 
-            is CombinedStatusControlCenterRenderSession.AttachResult.Failure -> {
+            is CombinedStatusControlCenterRenderSession.PrearmResult.Failure -> {
                 logDiagnostic(
                     level = Log.WARN,
                     event = "projection.prearm",
                     component = "controlCenterProjection",
                     state = "unavailable",
                     "source" to "fake-root-attached",
+                    "reason" to result.reason,
                     "fallback" to "native-qs-fake",
                 )
             }
