@@ -31,7 +31,7 @@ Classification is not permission to mutate SystemUI. Runtime integration still r
 | --- | --- | --- | --- |
 | Home stable | PROJECTED | NONE | Runtime verified |
 | Notification-shade transition | NATIVE_ONLY | SYSTEM_UI | Runtime lifetime verified |
-| Control Center transition bridge | PROJECTED | SYSTEM_UI | Build-420 carrier/handoff evidence; native QS_FAKE ownership candidate under review |
+| Control Center transition bridge | PROJECTED | SYSTEM_UI | Build 428 rejects hidden realSystemIcons source as active host; Build 430 probes top-level ControlCenterFakeStatusIcons |
 | Control Center fully expanded | NATIVE_ONLY candidate | SYSTEM_UI | Maintainer concept + native fake/real appearance evidence; product adoption pending review |
 | Keyguard | NATIVE_ONLY | SYSTEM_UI | Static ownership verified |
 | AOD | NATIVE_ONLY | SYSTEM_UI | Static ownership verified |
@@ -76,11 +76,11 @@ Control Center is split into two ownership phases.
 
 **Partial pull / transition bridge — PROJECTED**
 - the source steady scene may be Home now and Keyguard later;
-- Build 420 proves that a bounded projection can preserve continuity, but its `realSystemIcons.overlay` carrier is not assumed to be the final architecture;
-- exact-target review now shows a separate native `QS_FAKE` status-bar presentation with its own `MiuiStatusBatteryContainer`, native source-size synchronization, unlocked/keyguard tint handling, and SystemUI-owned translation/alpha;
-- using that native fake carrier is the leading low-overhead candidate because it may inherit the transition without a project-owned appearance/geometry state machine;
-- this candidate remains under review until first-frame readiness, native suppression/masking, Hot Reload, and device behavior are verified;
-- SystemUI remains the sole motion/geometry owner.
+- Build 420 proves that source geometry plus readiness-ordered handoff can preserve continuity, but Build 428 proves the selected `realSystemIcons` source itself is hidden during current Control Center ownership and cannot be the active display host;
+- Builds 425-427 place the compact presentation inside child `QS_FAKE.system_icon_area`; device evidence rejects that child-carrier implementation;
+- exact-target review still verifies the distinct top-level `ControlCenterFakeStatusIcons` presentation and SystemUI-owned Header translation/fake-to-final alpha;
+- Build 430 therefore probes that top-level fake View separately from its child Battery/system-icon-area hide lifecycle before any new rendering/suppression implementation;
+- SystemUI remains the sole motion/geometry/appearance owner.
 
 **Fully expanded endpoint — current design candidate**
 - the maintainer currently prefers a native-only fully expanded Control Center state;
