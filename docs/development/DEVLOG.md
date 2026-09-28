@@ -7438,3 +7438,41 @@ The policy remains necessary for states where those widths differ or native Batt
 ### Decision boundary
 
 No runtime refactor is made before Build 424 automated/device validation and maintainer review of the candidate lifecycle.
+
+
+---
+
+## 2026-09-28 — QS_FAKE tint and update-cost closure
+
+**Type:** architecture investigation / no runtime change  
+**Runtime Build:** unchanged; Build 424 exact executable remains `2556a098d35c202e1c5645a06e73757744f721e1`
+
+### Tint authority
+
+The existing tint pipeline is already surface-local enough for a future QS_FAKE carrier:
+
+- `SystemUiTintStateSource` Hooks `MiuiBatteryMeterView` class methods globally, but caches/dispatches state by concrete Battery View identity in weak maps.
+- `CombinedStatusControlCenterRenderSession.updateTint()` ignores Battery events that do not originate from its own carrier Battery.
+- session refresh reads `SystemUiTintStateSource.currentState(localBattery)`.
+- `SystemUiNativeNetworkSuppressionOwner.currentAppliedStatusIconTintForGroup(group)` resolves tint from the supplied group directly; it does not require that group to be the active Home group.
+- `CombinedStatusTintAuthority.resolveBatteryEvent()` can therefore combine the local fake Battery state with the local fake status-icon peer tint.
+
+The exact native QS_FAKE View already switches its Battery/icon tint between unlocked and Keyguard semantics. No additional tint Hook, observer, scene boolean, or polling path is justified.
+
+### Update cost
+
+The current Control Center render session receives only existing event-driven domain/presentation/tint/settings updates. It is not driven from expansion progress. When no session exists, calls are no-ops.
+
+A future QS_FAKE session bounded to `visible=true -> visible=false` therefore does not require a continuously resident second renderer and does not add a per-frame render path.
+
+### 审查 / review
+
+- **Ownership:** fake native tint remains SystemUI-owned; Combined Status reads the already-applied local Battery/peer result.
+- **Lifecycle:** transition renderer exists only for the Control Center visible lifecycle candidate.
+- **Single writer:** no new tint writer or global scene tint cache.
+- **Cleanup:** session removal discards only its renderer/listeners; weak tint cache entries follow View lifetime.
+- **Fail-native:** missing local tint authority leaves the transition renderer unready/native.
+- **Performance:** no new Hook or polling; updates remain event-driven.
+- **Compatibility:** exact QS_FAKE hierarchy uses the same Battery/status-icon classes consumed by current sources.
+- **Exception recovery:** a stale Home tint cannot become fake authority because fake session filters source View identity and resolves its own peer group.
+- **Future extension:** the same per-carrier tint semantics are compatible with a separately verified Keyguard steady adapter.
