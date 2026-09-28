@@ -68,6 +68,9 @@ internal object SystemUiControlCenterPresentationOwner {
         ) {
             existing.syncEndReservation()
             val masked = existing.refreshClipMasks()
+            if (current !== existing) {
+                return StateResult.Failure("session-reuse-failed-native-restored")
+            }
             host.requestLayout()
             return StateResult.Active(
                 representedSlots = representedSlots.size,
@@ -106,6 +109,9 @@ internal object SystemUiControlCenterPresentationOwner {
 
         current = session
         val masked = SystemUiCompactPresentationRegistry.activate(session)
+        if (current !== session) {
+            return StateResult.Failure("session-activation-failed-native-restored")
+        }
         host.requestLayout()
         eventSink?.invoke(
             "controlCenterPresentation active carrier=QS_FAKE.system_icon_area " +
