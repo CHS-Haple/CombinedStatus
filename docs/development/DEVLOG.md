@@ -65,15 +65,23 @@ Build 428 starts directly from accepted `dev` Build 424 and adds one bounded, di
 - **Exception recovery:** no persistent state is derived from the two booleans in Build 428.
 - **Future extension:** only after target-device evidence maps the native endpoint semantics may route C use that fact to bound the already proven source projection.
 
+### Automated validation
+
+- Draft Light #1380 / run `36437875966`: passed after correcting repository-only trailing whitespace.
+- Ready Fast Build #1381 / run `36437945610`: passed on exact executable SHA `71ece9cafca890e1fa123a57bccf5ec3aa67f579`, including target-profile verification, unit tests, Debug build, and Modern Xposed metadata checks.
+- Signed Work Branch Canary #420 / run `36438230744`: passed on the same exact executable SHA.
+- Canary artifact: `CombinedStatus-0.0.2-HyperOS-20260928-428-canary.apk`; artifact id `10976383422`; artifact ZIP digest `sha256:6cc4246f4aab2b0eb4b33d20df4e036b7d6996d20e6bd241bf1a0656417efe58`; extracted APK SHA-256 `1b2b33c304802859bb8d32137bc20923cba20e2c8b63cb40b5493902e6ee32eb`.
+- Signature, Modern Xposed metadata, and Canary non-debuggable checks passed.
+
 ### Device gate
 
-Build 428 requires one focused target-device run. The purpose is **semantic evidence**, not visual acceptance of a final fix:
+Build 428 now requires one focused target-device run. The purpose is **semantic evidence**, not visual acceptance of a final fix:
 - partial pull and reverse;
 - full expansion and reverse;
 - repeat with charging island active;
 - capture Detailed diagnostics containing `controlCenterAppearance`.
 
-Runtime must remain frozen after Canary until this evidence is returned.
+Runtime is frozen at executable SHA `71ece9cafca890e1fa123a57bccf5ec3aa67f579` until this evidence is returned. PR #154 is Draft while awaiting that device evidence; record-only documentation may advance the PR head without changing the Build-428 runtime identity.
 
 ## 2026-09-28 — CI validation-surface routing and main/dev synchronization
 
