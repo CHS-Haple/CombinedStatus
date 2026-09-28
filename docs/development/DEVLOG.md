@@ -51,7 +51,9 @@ Build 447 established the correct runtime-state source, but device review reques
 
 ### Validation
 
-Exact-head Fast and a signed Canary are required after the Build-452 rebase. Device review should cover: all runtime-card states, ring/symbol contrast and joint rendering, fixed card height, two-line version/build typography, Home density, secondary-page navigation/back behavior, and Wi-Fi/5G preview proportions.
+Draft Light #1599 passed after the Build-452 rebase. The first ready exact-head Fast #1600 reached Kotlin compilation and failed before producing an APK because three obsolete preview-mutation parameters remained on the private `TopLevelPager` signature after preview ownership moved to `CombinedStatusApp`. The call site had already stopped passing them. The stale private parameters were removed as a compile-only cleanup; no behavior or Build-453 design changed.
+
+Corrected exact-head Fast and a signed Canary are still required. Device review should cover: all runtime-card states, ring/symbol contrast and joint rendering, fixed card height, two-line version/build typography, Home density, secondary-page navigation/back behavior, and Wi-Fi/5G preview proportions.
 
 ### Outcome / next step
 
