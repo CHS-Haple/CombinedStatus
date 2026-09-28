@@ -3,6 +3,55 @@
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
 
+## 2026-09-29 — Build 433: prearm QS_FAKE on native root lifecycle
+
+**Type:** Phase-2B lifecycle root-cause correction / executable checkpoint
+**Build:** 433 / `20260929-433`
+**Work branch / PR:** `fix/control-center-fake-root` / #156
+**Base:** current `dev` Build 429 / MIUIX `0.9.4-5c91d5e5-SNAPSHOT`
+
+### Build 432 device result
+
+Build 432 is rejected for QS_FAKE lifecycle determinism. Maintainer screenshots/video clarify that three visibly different outcomes are all the same current-version QS_FAKE surface: native Fake, partially compact/masked native Fake, or Combined Status Fake. Which one appears varies between pulls.
+
+Detailed diagnostics record eight projection attaches but only five compact `layoutReady/active` transitions. In one capture native expansion reaches `fraction=1.0` and the Fake root is already switched to `alpha=0.0`; only later, during reverse motion, does the module receive the native Fake `onLayout` that marks the compact presentation ready.
+
+**Root cause:** tying Fake compact-session creation/destruction to `ControlCenterExpandControllerDelegate.onVisibleChanged` is too late. `requestLayout()` after `visible=true` does not guarantee the required native measure/layout finishes before expansion/appearance starts.
+
+### 问题执行流程
+
+1. Keep the accepted owner split: top-level `ControlCenterFakeStatusIcons` owns Fake appearance/motion; child `MiuiStatusIconContainer` owns native peer layout.
+2. Stop adding geometry compensation while the same Fake surface is nondeterministic.
+3. Prepare the compact presentation from the native Fake-root attach lifecycle.
+4. Keep that preparation alive across repeated visibility cycles; `visible` controls only Combined render visibility/Home handoff.
+5. Preserve fail-native restoration on root detach, host replacement, feature disable, and Hot Reload.
+
+### Implementation
+
+- Advance runtime identity to Build 433 / `20260929-433`.
+- Add one low-frequency Hook on `ControlCenterFakeStatusIcons.onAttachedToWindow()`.
+- On native Fake-root attach, resolve the existing Fake status area and prearm the shared compact presentation owner.
+- Continue using the existing three presentation Hooks for `MiuiStatusIconContainer.onMeasure`, `onLayout`, and `MiuiStatusBatteryContainer.setIsHideBattery`; no duplicate layout Hook set is added.
+- `visible=false` restores Home and hides Combined but no longer tears down the QS_FAKE compact session.
+- Repeated Fake-root attach and feature re-enable use the same idempotent prepare path.
+- Visible-time host resolution remains a fail-safe fallback for Hot Reload/late bootstrap when the native attach event predates the current generation.
+
+### 审查 / review
+
+- **Ownership:** Fake-root attach lifetime owns QS_FAKE preparation; Control Center visibility owns only Combined visibility/Home authority.
+- **Single writer:** slot exclusion/padding/clip state remains centralized in `SystemUiHomePresentationOwner`.
+- **Hook cost:** one additional low-frequency lifecycle Hook; no polling/frame observer/per-frame geometry writer.
+- **Cleanup:** feature disable, Fake-root detach, host replacement, and Hot Reload restore module-owned state.
+- **Fail native:** unresolved/failed prearm leaves native QS_FAKE available and prevents Home from yielding to an unready Combined owner.
+- **Geometry:** endpoint motion and charging-island Battery endpoint mapping are intentionally unchanged in Build 433.
+- **QS real:** untouched.
+
+### Device gate
+
+Repeat many normal non-charging pulls first. Every pull should produce the same QS_FAKE presentation; the prior random switch among native / partially compact / Combined Fake must disappear. Then repeat charging-no-island and charging-island for regression only. Endpoint motion and island Battery alignment remain observable open issues after this gate.
+
+
+
 ## 2026-09-28 — Build 432: native compact-layout handoff on fake root
 
 **Type:** Phase-2B root-cause correction / executable checkpoint
