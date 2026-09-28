@@ -123,16 +123,16 @@ Builds 421-423 are rejected for Notification-Shade first/last-frame continuity. 
 
 Build 424 is the current runtime checkpoint (`20260928-424`). Automated validation is pending; no device acceptance is claimed yet.
 
-**Confirmed future scene model — plan now, implement in bounded stages:**
-- Unlocked: Home steady Combined Status -> partial Control Center pull uses native HyperOS transition bridge -> fully expanded Control Center native-only.
-- Locked: future Keyguard steady Combined Status -> partial Control Center pull uses the same transition-coordinator policy from Keyguard source geometry -> fully expanded Control Center native-only.
-- Home and Keyguard share renderer/domain semantics, not View ownership; each requires its own verified steady host adapter.
-- The transition bridge is not a third steady scene and must cleanly restore the correct source on reverse motion.
-- This future model does not widen Build 424: Build 424 remains the Home-carrier/Notification-writer correction only.
+**Maintainer working scene concept — planning input, not yet a verified lifecycle contract:**
+- The maintainer's current conceptual split is: unlocked/Home steady, locked/Keyguard steady, partial Control Center pull with HyperOS transition continuity, and fully expanded Control Center native-only.
+- Treat that split as a product-intent input, not as proof of the underlying SystemUI lifecycle topology.
+- Exact-target source/runtime evidence may support a simpler or differently grouped ownership model; if so, present the evidence and lifecycle alternatives for review before changing architecture policy.
+- Home and future Keyguard must not be forced into one View ownership model merely to match the conceptual split.
+- This planning input does not widen Build 424: Build 424 remains the Home-carrier/Notification-writer correction only.
 
 ## Non-negotiable boundaries
 
-- Home is the currently implemented persistent Combined Status source surface. Build 420 verifies a Control Center carrier/handoff mechanism, but the final product contract scopes it to partial-pull transition bridging only; fully expanded Control Center is native-only. Keyguard and AOD remain native-only in current runtime.
+- Home is the currently implemented persistent Combined Status source surface. Build 420 verifies a Control Center carrier/handoff mechanism. The maintainer currently prefers partial-pull transition continuity with a native-only fully expanded endpoint, but that remains a design hypothesis pending exact lifecycle review. Keyguard and AOD remain native-only in current runtime.
 - Unsupported/unverified surfaces remain native until their own host/lifecycle/handoff contract is validated.
 - Reuse authoritative HyperOS/SystemUI state and resources when a verified source exists.
 - Native peer geometry, Battery translation/alpha/visibility, and island animation remain SystemUI-owned.
@@ -165,7 +165,7 @@ Build 424 is the current runtime checkpoint (`20260928-424`). Automated validati
 3. Keep PR #146 Draft during iteration; once the complete checkpoint is clean, move it Ready for the required repository validation.
 4. Preserve Build-420 carrier/handoff mechanics as regression evidence during Build 424; do not yet mix in the new fully-expanded-native endpoint change.
 5. Only after automated validation passes, request one exact-head signed Canary for focused device validation of the Build-424 Home-carrier correction plus Control Center regression and Hot Reload/lock smoke behavior.
-6. After Build 424 is accepted or rejected, use a separate runtime checkpoint to narrow Control Center projection to the partial-pull bridge and yield to native SystemUI at the exact fully expanded endpoint.
+6. After Build 424 is accepted or rejected, first review the exact Control Center + Keyguard lifecycle/endpoint chain. Compare the maintainer's conceptual split against source/runtime evidence and discuss the resulting candidate architecture before any follow-up runtime checkpoint.
 
 ## Reference priority
 
