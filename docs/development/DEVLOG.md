@@ -8125,3 +8125,60 @@ Prepare the accepted Build-424 Home presentation layer for a second native carri
 ### Validation
 
 Draft Light first. After source review, move Ready for the normal runtime checkpoint build. This internal extraction does not need a signed Canary/device pass if automated validation shows no behavior drift; continue directly to the QS_FAKE checkpoint.
+
+
+---
+
+## 2026-09-28 — Build 426 native QS_FAKE transition checkpoint
+
+**Build:** 426 / `20260928-426`
+**Branch / PR:** `feat/control-center-native-transition` / #152
+**Device validation:** required after exact-head Full + signed Canary
+
+### Problem execution flow
+
+**Phenomenon and evidence:** Build 424 is device-accepted for Home/Notification ownership. Its Detailed device report still exposes the structural limit of the Build-420 Control Center source-anchor projection: when HyperOS selects a non-Home `realSystemIcons` source, the projection correctly fails native with `real-system-icons-not-home-owned-container`. Exact-target source review independently identifies a dedicated native `QS_FAKE` transition status bar and an independent native `QS` fully-expanded destination.
+
+**Root cause / responsible owner:** Build 420 renders the transition visual on the source anchor and therefore requires project-level readiness/Home handoff coordination. HyperOS already owns a dedicated transition presentation whose translation, alpha, source width/tint and fake-to-real endpoint lifecycle are independent from the source anchor.
+
+**Native implementation:** `ControlCenterFakeViewController` selects Home/Keyguard `realSystemIcons`; `CombinedHeaderController.controlCenterFakeStatusBar` owns the transition representation; `CcFakeStatusBarIcons.statusBarArea` is the fake `MiuiStatusBatteryContainer`; Header expansion owns fake motion and native appearance owns fake/real alpha switching.
+
+**Selected solution:** move Combined Status transition composition onto the native QS_FAKE carrier and remove the project Control Center Home-visibility writer. Retain one low-frequency `onVisibleChanged(boolean)` Hook only for transient session activation.
+
+**Workaround:** none.
+
+### Implementation
+
+- Build 425's `SystemUiCompactPresentationRegistry` remains the single installer for the three presentation Hooks. Build 426 adds one independent QS_FAKE session to that registry; no duplicate Hook set is installed.
+- `SystemUiPanelTransitionSource` now resolves both the current native source `realSystemIcons` and the QS_FAKE `statusBarArea` from the existing Header callback chain.
+- The exact private field/method chain is pinned in the target compatibility profile.
+- `SystemUiControlCenterPresentationOwner` validates that the current source is the already-verified Home compact owner before masking/excluding fake native represented slots. Keyguard therefore remains fail-native.
+- `CombinedStatusControlCenterRenderSession` separates structural render readiness from native-presentation ownership. The project overlay cannot become visible before fake native state has been safely replaced.
+- Home's former `controlCenterAllowsHome` state and module callbacks are removed. Home visibility returns entirely to the Build-424 native `system_icons` carrier lifecycle.
+- Legacy Hot Reload payload slots remain schema-compatible but the Control Center Home-eligibility slot is now always null.
+- Hot Reload / exit restores QS_FAKE native state before project renderer cleanup.
+
+### 审查 / review
+
+- **Ownership:** HyperOS owns source selection, QS_FAKE/QS transition motion and native fake/real appearance. Combined Status owns only the fake overlay plus reversible fake-local exclusion/mask/reservation tokens.
+- **Lifecycle:** QS_FAKE project state is bounded to native Control Center visible lifetime. Home remains a separate steady session.
+- **Single writer:** project Control Center Home visibility state is deleted; no project translation, alpha, appearance or panel-fraction writer is added.
+- **Cleanup:** exit, failure and old-generation Hot Reload restore fake native state before hiding/detaching the project overlay.
+- **Fail-native:** unresolved fake/source carrier, non-Home source, tint/layout/reservation/writer conflict, host release or registry failure keeps/restores native Control Center.
+- **Performance:** normal Control Center Hook count does not increase. Existing three presentation Hooks route by bounded identity snapshot. No polling, timer, frame follower, extra tint observer or per-frame project work is introduced.
+- **Compatibility:** the exact `callbacks -> Header -> Lazy -> CombinedHeader -> ControlCenterFakeStatusIcons -> CcFakeStatusBarIcons.statusBarArea` contract is pinned only for SystemUI `17.03.260226.r`.
+- **Exception recovery:** transient Control Center state is deliberately not transferred across Hot Reload; native fake/QS remains authoritative until the next normal visible lifecycle.
+- **Future extension:** after Phase 3 verifies a Keyguard steady compact owner, the native source router can permit Keyguard-originated transition without creating a project unlocked/keyguard state machine.
+
+### Automated validation boundary
+
+Build 425's behavior-preserving extraction passed runtime Fast Build #1344. Build 426's Draft synchronize runs are lightweight only; they do not constitute runtime validation. Move PR #152 Ready after documentation closure so the PR-wide runtime + compatibility diff receives the required Full validation. Only after exact-head Full success may a signed Canary be requested.
+
+### Required device gate
+
+- unlocked Home -> shallow/partial Control Center pull -> reverse, with first/last-frame continuity;
+- repeated partial and fully expanded pulls;
+- fully expanded Control Center shows only native QS status bar;
+- charging/Super-Island interaction when practical, especially right-edge reservation/translation continuity;
+- one lockscreen-originated Control Center pull remains native-only/fail-native;
+- Hot Reload while Control Center is visible must restore native fake state with no leaked masks/blank area; seamless transient preservation is not required.
