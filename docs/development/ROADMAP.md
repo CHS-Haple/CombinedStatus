@@ -56,10 +56,10 @@ Extend the accepted Phase-2A Home visual into panel transitions without reopenin
 Direction:
 - treat steady Home geometry as the source contract;
 - do **not** create a Notification-Shade Combined Status surface on the pinned target because the native Notification Shade does not expose the status-icon row there;
-- use Notification-Shade motion only to transfer Home ownership cleanly at the real motion boundary;
+- keep Notification Shade native-only and inherit Home departure/return from the verified native `system_icons` end-side carrier lifecycle rather than maintaining a project-local shade visibility gate;
 - project Combined Status only into Control Center, using a verified native transformed carrier;
-- use verified native transition progress/endpoints where available;
-- separate transition lifetime/masking from the steady Home session;
+- use verified native transition progress/endpoints only where a real projected surface requires them;
+- separate Control Center projection lifetime/masking from the steady Home session;
 - preserve native peer animation and Control Center geometry ownership;
 - avoid first-frame shift, last-frame snap, duplicate occupancy, or a second animation system.
 
@@ -67,7 +67,7 @@ Accepted prerequisite: Build 413 closes the HUN/scene-lifetime boundary on the p
 
 Build-419 diagnostics plus maintainer clarification refine the remaining Phase-2B scope: Notification Shade is a **Home ownership boundary only**, while Control Center is the actual projection surface. The Build-419 bounded Notification-Shade probe is therefore retired rather than promoted into production.
 
-Build 420 is the first implementation checkpoint for this corrected boundary. It keeps Home visible at `fraction=0` regardless of `tracking`, yields only on positive shade motion, and introduces a readiness-gated Control Center projection attached to the exact `realSystemIcons` carrier already owned/masked by the Home presentation owner.
+Build 420 establishes the accepted readiness-gated Control Center projection. Build 424 corrects the remaining Home/Notification-Shade boundary by moving the Home render overlay into the exact native `system_icons` / `MiuiStatusBatteryContainer` end-side carrier and removing the project-local Notification progress visibility writer.
 
 Exit criteria:
 - clean Home departure and return;
