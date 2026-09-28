@@ -38,19 +38,10 @@ class CombinedStatusHomeRenderSessionTest {
     }
 
     @Test
-    fun overlayVisibilityRequiresControlCenterOwnership() {
+    fun overlayVisibilityDoesNotDependOnControlCenterSceneState() {
         assertTrue(
             CombinedStatusHomeRenderSession.resolveOverlayVisible(
                 featureEnabled = true,
-                controlCenterAllowsHome = true,
-                nativeHandoffActive = false,
-            ),
-        )
-
-        assertFalse(
-            CombinedStatusHomeRenderSession.resolveOverlayVisible(
-                featureEnabled = true,
-                controlCenterAllowsHome = false,
                 nativeHandoffActive = false,
             ),
         )
@@ -61,21 +52,12 @@ class CombinedStatusHomeRenderSessionTest {
         assertFalse(
             CombinedStatusHomeRenderSession.resolveOverlayVisible(
                 featureEnabled = false,
-                controlCenterAllowsHome = true,
                 nativeHandoffActive = false,
             ),
         )
         assertFalse(
             CombinedStatusHomeRenderSession.resolveOverlayVisible(
                 featureEnabled = true,
-                controlCenterAllowsHome = false,
-                nativeHandoffActive = false,
-            ),
-        )
-        assertFalse(
-            CombinedStatusHomeRenderSession.resolveOverlayVisible(
-                featureEnabled = true,
-                controlCenterAllowsHome = true,
                 nativeHandoffActive = true,
             ),
         )
