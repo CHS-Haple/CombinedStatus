@@ -41,13 +41,15 @@ For the pinned HyperOS target, Notification Shade itself does not present the st
 
 - Base: current Integration-validated `dev` Build 429 / MIUIX `5c91d5e5`.
 - Work branch: `fix/control-center-fake-root`.
-- Runtime identity: Build 431 / `20260928-431`.
+- Runtime identity: Build 431 / `20260928-431`; frozen executable SHA `eb0aac6104ce51e1cdbabfdfc00dc34d17fb3a6a`.
+- Automated validation: Draft Light #1403 / run `36444967549` passed; Ready Fast #1404 / run `36445016937` passed on the frozen executable SHA; signed Work Branch Canary #426 / run `36445319566` passed on the same exact SHA, including Haple signature and non-debuggable checks.
+- Signed Canary artifact: `CombinedStatus-0.0.2-HyperOS-20260928-431-canary.apk`, artifact id `10980247565`, artifact ZIP digest `sha256:0c10c4783a5e49d56e91f64ae420bcf34b0fcfea500a83c4739bf4ee9af2f15b`, extracted APK SHA-256 `8947c44af9adb83ea0f26fd36b7ec572ecb477a89b319d1cd338cadaae63a804`, extracted APK size 3,309,602 bytes.
 - Build 430 device evidence is accepted for the carrier contract: in both normal and charging-island pulls, top-level `ControlCenterFakeStatusIcons` stays `visibility=VISIBLE`, is `alpha=1` during the fake transition presentation, and HyperOS switches only the root to `alpha=0` at the native fake->final handoff while child `statusBarArea` remains visible/alpha=1.
 - Build 431 therefore attaches the Combined Status render View to `ControlCenterFakeStatusIcons.overlay`. Its geometry/tint source is the unique descendant `MiuiStatusBatteryContainer`; root alpha/translation/visibility are inherited without project animation or appearance thresholds.
 - Native fake Wi-Fi/mobile/Battery are hidden only through reversible `clipBounds` masks while the projection is ready. No native alpha/visibility writes, no translation writes, no padding reservation, no compact registry, no slot-exclusion hook, no polling/frame follower, and no final-QS mutation are introduced.
 - Readiness is ordered: model + tint + layout + attached root must be ready, then the native masks are applied, then the Combined overlay becomes visible, and only then may Home yield. Any host/area/mask failure restores native fake icons and fails native.
 - Charging island remains a SystemUI-owned Battery presentation detail. The Combined overlay is hosted above the child Battery lifecycle, so Battery hide/fade cannot erase Wi-Fi/mobile state.
-- Device gate after Fast + signed Canary: verify normal and charging-island pull/return, root-alpha fake->final handoff, no overlap/blank native network icons, and clean Home restoration.
+- Device gate is active and runtime is frozen. Verify normal and charging-island pull/return, root-alpha fake->final handoff, no overlap/blank native network icons, and clean Home restoration.
 
 ## Current runtime checkpoints
 
