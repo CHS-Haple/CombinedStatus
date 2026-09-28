@@ -31,7 +31,7 @@ Classification is not permission to mutate SystemUI. Runtime integration still r
 | --- | --- | --- | --- |
 | Home stable | PROJECTED | NONE | Runtime verified |
 | Notification-shade transition | NATIVE_ONLY | SYSTEM_UI | Runtime lifetime verified |
-| Control Center transition bridge | PROJECTED | SYSTEM_UI | Build-420 carrier/handoff evidence; native QS_FAKE ownership candidate under review |
+| Control Center transition bridge | PROJECTED | SYSTEM_UI | Build 430 device-verifies top-level ControlCenterFakeStatusIcons fake/final ownership; Build 431 projects on its overlay |
 | Control Center fully expanded | NATIVE_ONLY candidate | SYSTEM_UI | Maintainer concept + native fake/real appearance evidence; product adoption pending review |
 | Keyguard | NATIVE_ONLY | SYSTEM_UI | Static ownership verified |
 | AOD | NATIVE_ONLY | SYSTEM_UI | Static ownership verified |
@@ -76,11 +76,18 @@ Control Center is split into two ownership phases.
 
 **Partial pull / transition bridge — PROJECTED**
 - the source steady scene may be Home now and Keyguard later;
-- Build 420 proves that a bounded projection can preserve continuity, but its `realSystemIcons.overlay` carrier is not assumed to be the final architecture;
-- exact-target review now shows a separate native `QS_FAKE` status-bar presentation with its own `MiuiStatusBatteryContainer`, native source-size synchronization, unlocked/keyguard tint handling, and SystemUI-owned translation/alpha;
-- using that native fake carrier is the leading low-overhead candidate because it may inherit the transition without a project-owned appearance/geometry state machine;
-- this candidate remains under review until first-frame readiness, native suppression/masking, Hot Reload, and device behavior are verified;
-- SystemUI remains the sole motion/geometry owner.
+- Build 420 proves that source geometry plus readiness-ordered handoff can preserve continuity, but Build 428 proves the selected `realSystemIcons` source itself is hidden during current Control Center ownership and cannot be the active display host;
+- Builds 425-427 place the compact presentation inside child `QS_FAKE.system_icon_area`; device evidence rejects that child-carrier implementation;
+- exact-target review still verifies the distinct top-level `ControlCenterFakeStatusIcons` presentation and SystemUI-owned Header translation/fake-to-final alpha;
+- Build 430 device evidence verifies that the top-level fake View remains visible in normal and charging-island transitions and that HyperOS performs fake->final handoff by changing the root alpha while the child statusBarArea stays visible;
+- Build 431 uses `ControlCenterFakeStatusIcons.overlay` as the transition visual host but device evidence rejects clip-only suppression because represented Wi-Fi/mobile layout occupancy remains and creates a large gap;
+- Build 432 keeps the **root overlay** as the Combined visual carrier and proves the fake child can use the shared reversible compact-layout owner, but device evidence rejects preparing that owner from each Control Center visible cycle; Build 433 moves preparation into the Fake-root lifetime, Build 434 establishes compact readiness after first native root layout, and Build 435 separates render readiness from compact lifetime so transient layout loss on an attached, already-prepared Fake root may hide the Combined overlay but must not restore raw native Fake; cleanup remains Fake-root detach, feature disable, host replacement, Hot Reload, or a genuinely unprepared failure state;
+- Build 439 separates Hot Reload restoration from cold-start prearm: a transferred Fake root that is already attached and laid out is restored directly from the main-thread Hot Reload task while outside native layout, so the existing compact owner can request its native status-icon layout from a valid scheduling boundary. Hosts without that lifecycle contract fall back to the existing first-native-layout prearm; no timing threshold or extra presentation writer is introduced.
+- Build 440 separates pre-compact **visual suppression** from compact **layout ownership**. A deferred QS_FAKE session immediately applies its existing reversible native clip masks while keeping the projected Combined overlay not-ready; Home remains the visual fallback until the next native status-icon measure/layout establishes compact slot exclusion, after which ownership hands off to the QS_FAKE Combined overlay. This avoids raw/mixed native visuals without exposing the stale-occupancy clip-only layout rejected in Build 431.
+- Build 441 makes Hot Reload a **generation-to-generation presentation handoff** rather than a native fallback cycle. The old generation remains presentation owner until the new generation has installed its hooks and reaches the main-thread restore transaction; old visual/mask/reservation state is then released without an intermediate layout request, the new owner attaches in the same main-thread turn, and transferred QS_FAKE compact readiness may be adopted when it was already proven before reload. This removes the deliberate native/layout intermediate state that caused Home flashing, peer-icon reflow and immediate-pull blanking, while preserving normal detach/Fail-native restoration outside Hot Reload.
+- when fake Battery is natively hidden, the compact session reserves the same stable Battery logical slot width used in the non-island case; `batteryWidthDiff` is not a Combined endpoint/translation input;
+- no additional status-icon measure/layout/battery-hide Hook set, project alpha/visibility/translation writer, interpolation, timer, polling/frame follower, or final-QS mutation is permitted; one low-frequency Fake-root attach Hook plus a temporary root layout listener may own bootstrap/readiness because they follow the native host/layout lifetime, and that listener must be removed after success/final failure/detach;
+- SystemUI remains the sole motion/geometry/appearance owner.
 
 **Fully expanded endpoint — current design candidate**
 - the maintainer currently prefers a native-only fully expanded Control Center state;

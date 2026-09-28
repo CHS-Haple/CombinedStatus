@@ -1,6 +1,7 @@
 package com.chaners.combinedstatus.xposed
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -45,6 +46,63 @@ class SystemUiHomePresentationOwnerTest {
                 actualBatteryWidthPx = 135,
                 requestedSlotWidthPx = 105,
             ),
+        )
+    }
+
+    @Test
+    fun deferredControlCenterCutoverMasksNativeVisualsBeforeCompactLayout() {
+        assertTrue(
+            SystemUiHomePresentationOwner.VisualMaskPolicy
+                .shouldMaskBeforeCompactCutover(
+                    deferVisualMaskUntilLayout = true,
+                ),
+        )
+        assertFalse(
+            SystemUiHomePresentationOwner.VisualMaskPolicy
+                .shouldMaskBeforeCompactCutover(
+                    deferVisualMaskUntilLayout = false,
+                ),
+        )
+    }
+
+    @Test
+    fun continuousHotReloadHandoffSuppressesIntermediateLayoutRequest() {
+        assertFalse(
+            SystemUiHomePresentationOwner.HotReloadHandoffPolicy
+                .shouldRequestLayoutOnRelease(
+                    continuousHandoff = true,
+                ),
+        )
+        assertTrue(
+            SystemUiHomePresentationOwner.HotReloadHandoffPolicy
+                .shouldRequestLayoutOnRelease(
+                    continuousHandoff = false,
+                ),
+        )
+    }
+
+    @Test
+    fun transientLiveBatteryWidthLossIsDeferredOnlyAfterControlCenterCutover() {
+        assertTrue(
+            SystemUiHomePresentationOwner.EndReservationPolicy
+                .shouldDeferLiveBatteryWidthUnavailable(
+                    retainOnTransientLoss = true,
+                    compactLayoutReady = true,
+                ),
+        )
+        assertFalse(
+            SystemUiHomePresentationOwner.EndReservationPolicy
+                .shouldDeferLiveBatteryWidthUnavailable(
+                    retainOnTransientLoss = true,
+                    compactLayoutReady = false,
+                ),
+        )
+        assertFalse(
+            SystemUiHomePresentationOwner.EndReservationPolicy
+                .shouldDeferLiveBatteryWidthUnavailable(
+                    retainOnTransientLoss = false,
+                    compactLayoutReady = true,
+                ),
         )
     }
 

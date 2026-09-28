@@ -11,6 +11,7 @@ internal object SystemUiHotReloadRuntimeOwner {
             val wifiRoots: Int,
             val mobileRoots: Int,
             val tintTransferred: Boolean,
+            val controlCenterCompactReady: Boolean,
         ) : PrepareResult
 
         data class Unavailable(
@@ -28,6 +29,7 @@ internal object SystemUiHotReloadRuntimeOwner {
 
     fun prepare(
         param: HotReloadingParam,
+        generationHandoff: Runnable,
     ): PrepareResult {
         if (!SystemUiHostRuntimeOwner.isReady) {
             return PrepareResult.Unavailable("status-host-hook-not-ready")
@@ -50,6 +52,10 @@ internal object SystemUiHotReloadRuntimeOwner {
             )
         }
 
+        val controlCenterCompactReady =
+            CombinedStatusControlCenterRenderSession
+                .currentNativePresentationReadyForHotReload()
+
         val transfer =
             CombinedStatusHotReloadTransfer.capture(
                 host = host,
@@ -62,6 +68,10 @@ internal object SystemUiHotReloadRuntimeOwner {
                     SystemUiPanelTransitionSource.currentControlCenterHomeEligibility(),
                 appliedTint = stableTint?.appliedTint,
                 statusIconTint = stableTint?.statusIconTint,
+                controlCenterFakeHost =
+                    CombinedStatusControlCenterRenderSession.currentAttachedHostForHotReload(),
+                controlCenterCompactReady = controlCenterCompactReady,
+                generationHandoff = generationHandoff,
             ) ?: return PrepareResult.Unavailable(
                 reason = "state-transfer-capture-failed",
                 wifiRoots = bindingCounts.first,
@@ -83,6 +93,7 @@ internal object SystemUiHotReloadRuntimeOwner {
             wifiRoots = bindingCounts.first,
             mobileRoots = bindingCounts.second,
             tintTransferred = stableTint != null,
+            controlCenterCompactReady = controlCenterCompactReady,
         )
     }
 

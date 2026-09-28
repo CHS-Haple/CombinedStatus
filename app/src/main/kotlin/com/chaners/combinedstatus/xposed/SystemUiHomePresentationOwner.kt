@@ -36,6 +36,10 @@ internal object SystemUiHomePresentationOwner {
     private var ignoredSlotsField: Field? = null
     private var batteryHideField: Field? = null
     private var current: Session? = null
+    private var controlCenterCurrent: Session? = null
+    private var controlCenterEventSink: ((String) -> Unit)? = null
+    private var controlCenterFailNativeSink: ((String) -> Unit)? = null
+    private var controlCenterReadySink: ((ControlCenterStateResult.Active) -> Unit)? = null
     private var eventSink: ((String) -> Unit)? = null
     private var failNativeSink: ((String) -> Unit)? = null
 
@@ -250,6 +254,9 @@ internal object SystemUiHomePresentationOwner {
                 batteryCarrier = batteryCarrier,
                 ignoredSlotsField = field,
                 batteryHideField = hideField,
+                surfaceName = "home",
+                eventPrefix = "homePresentation",
+                retainReservationOnTransientLiveWidthLoss = false,
                 onEvent = { event -> eventSink?.invoke(event) },
                 onFailNative = ::onSessionFailure,
             )
@@ -274,6 +281,166 @@ internal object SystemUiHomePresentationOwner {
         current?.ownsBatteryContainer(candidate) == true
 
     @Synchronized
+    fun activateControlCenter(
+        host: ViewGroup,
+        statusIcons: ViewGroup,
+        batteryContainer: ViewGroup,
+        battery: View,
+        batteryCarrier: View,
+        onEvent: (String) -> Unit,
+        onFailNative: (String) -> Unit,
+        onReady: (ControlCenterStateResult.Active) -> Unit,
+    ): ControlCenterStateResult {
+        if (Looper.myLooper() !== Looper.getMainLooper()) {
+            return ControlCenterStateResult.Failure("main-thread-required")
+        }
+        if (installedHookCount != 3) {
+            return ControlCenterStateResult.Failure("hooks-not-ready")
+        }
+        if (host !== batteryContainer || host.javaClass.name != BATTERY_CONTAINER) {
+            return ControlCenterStateResult.Failure("fake-status-bar-area-mismatch")
+        }
+        if (statusIcons.javaClass.name != STATUS_ICON_CONTAINER) {
+            return ControlCenterStateResult.Failure("status-icon-group-type-mismatch")
+        }
+        if (battery.javaClass.name != BATTERY_VIEW) {
+            return ControlCenterStateResult.Failure("battery-view-type-mismatch")
+        }
+
+        val field =
+            ignoredSlotsField
+                ?: return ControlCenterStateResult.Failure("ignored-slots-field-unavailable")
+        val hideField =
+            batteryHideField
+                ?: return ControlCenterStateResult.Failure("battery-hide-field-unavailable")
+        SystemUiHomeCarrierMetrics.resolveCarrierWidthPx(batteryCarrier)
+            ?: return ControlCenterStateResult.Failure("battery-core-width-unavailable")
+
+        @Suppress("UNCHECKED_CAST")
+        val list =
+            runCatching { field.get(statusIcons) as? MutableList<String> }.getOrNull()
+                ?: return ControlCenterStateResult.Failure("ignored-slots-list-unavailable")
+        list.size
+
+        controlCenterEventSink = onEvent
+        controlCenterFailNativeSink = onFailNative
+        controlCenterReadySink = onReady
+
+        val existing = controlCenterCurrent
+        if (
+            existing?.matches(
+                host = host,
+                statusIcons = statusIcons,
+                batteryContainer = batteryContainer,
+                battery = battery,
+                batteryCarrier = batteryCarrier,
+            ) == true
+        ) {
+            val masked =
+                existing.start(
+                    deferVisualMaskUntilLayout = true,
+                    onLayoutReady = { maskedViews ->
+                        onControlCenterSessionLayoutReady(
+                            session = existing,
+                            maskedViews = maskedViews,
+                            reused = true,
+                        )
+                    },
+                )
+            batteryContainer.requestLayout()
+            return if (existing.isLayoutCutoverReady()) {
+                ControlCenterStateResult.Active(
+                    representedSlots = representedSlots.size,
+                    maskedViews = masked,
+                    reused = true,
+                )
+            } else {
+                ControlCenterStateResult.Prepared(
+                    representedSlots = representedSlots.size,
+                    reused = true,
+                )
+            }
+        }
+
+        existing?.stop("host-replaced")
+        val session =
+            Session(
+                host = host,
+                statusIcons = statusIcons,
+                batteryContainer = batteryContainer,
+                battery = battery,
+                batteryCarrier = batteryCarrier,
+                ignoredSlotsField = field,
+                batteryHideField = hideField,
+                surfaceName = "control-center-fake",
+                eventPrefix = "controlCenterPresentation",
+                retainReservationOnTransientLiveWidthLoss = true,
+                onEvent = { event -> controlCenterEventSink?.invoke(event) },
+                onFailNative = ::onControlCenterSessionFailure,
+            )
+        controlCenterCurrent = session
+        val masked =
+            session.start(
+                deferVisualMaskUntilLayout = true,
+                onLayoutReady = { maskedViews ->
+                    onControlCenterSessionLayoutReady(
+                        session = session,
+                        maskedViews = maskedViews,
+                        reused = false,
+                    )
+                },
+            )
+        batteryContainer.requestLayout()
+        return if (session.isLayoutCutoverReady()) {
+            ControlCenterStateResult.Active(
+                representedSlots = representedSlots.size,
+                maskedViews = masked,
+                reused = false,
+            )
+        } else {
+            ControlCenterStateResult.Prepared(
+                representedSlots = representedSlots.size,
+                reused = false,
+            )
+        }
+    }
+
+    @Synchronized
+    fun adoptControlCenterLayoutCutoverFromHotReload(): ControlCenterStateResult {
+        val session =
+            controlCenterCurrent
+                ?: return ControlCenterStateResult.Inactive(0)
+        val masked =
+            session.adoptTransferredCompactLayout()
+                ?: return ControlCenterStateResult.Failure(
+                    "transferred-compact-layout-adoption-failed",
+                )
+        return ControlCenterStateResult.Active(
+            representedSlots = representedSlots.size,
+            maskedViews = masked,
+            reused = true,
+        )
+    }
+
+    @Synchronized
+    fun deactivateControlCenter(source: String): ControlCenterStateResult {
+        val session =
+            controlCenterCurrent
+                ?: return ControlCenterStateResult.Inactive(0)
+        controlCenterCurrent = null
+        val restored = session.stop(source)
+        controlCenterEventSink?.invoke(
+            "controlCenterPresentation inactive source=" + source +
+                " restoredViews=" + restored +
+                " nativeTranslationWrites=0 nativeAlphaWrites=0 nativeVisibilityWrites=0",
+        )
+        controlCenterEventSink = null
+        controlCenterFailNativeSink = null
+        controlCenterReadySink = null
+        return ControlCenterStateResult.Inactive(restored)
+    }
+
+    @Synchronized
     fun deactivate(source: String): StateResult {
         val session = current ?: return StateResult.Inactive(0)
         current = null
@@ -287,17 +454,36 @@ internal object SystemUiHomePresentationOwner {
     }
 
     @Synchronized
-    fun releaseGenerationForHotReload(): Int {
-        val session = current ?: return 0
-        current = null
-        val restored = session.stop("hotReload-oldGeneration")
+    fun releaseGenerationForHotReload(
+        requestLayout: Boolean = true,
+    ): Int {
+        val controlCenterRestored =
+            controlCenterCurrent?.let { session ->
+                controlCenterCurrent = null
+                session.stop(
+                    source = "hotReload-oldGeneration",
+                    requestLayout = requestLayout,
+                )
+            } ?: 0
+        val homeRestored =
+            current?.let { session ->
+                current = null
+                session.stop(
+                    source = "hotReload-oldGeneration",
+                    requestLayout = requestLayout,
+                )
+            } ?: 0
+        controlCenterEventSink = null
+        controlCenterFailNativeSink = null
+        controlCenterReadySink = null
         eventSink = null
         failNativeSink = null
-        return restored
+        return homeRestored + controlCenterRestored
     }
 
     @Synchronized
     fun resetRuntimeState(source: String) {
+        deactivateControlCenter(source)
         deactivate(source)
         runCatching { measureHook?.unhook() }
         runCatching { layoutHook?.unhook() }
@@ -349,12 +535,14 @@ internal object SystemUiHomePresentationOwner {
                 ?: return@Hooker chain.proceed()
             val session =
                 synchronized(this) {
-                    current?.takeIf { candidate -> candidate.owns(target) }
+                    controlCenterCurrent?.takeIf { candidate -> candidate.owns(target) }
+                        ?: current?.takeIf { candidate -> candidate.owns(target) }
                 } ?: return@Hooker chain.proceed()
 
             val result = session.withRepresentedSlotsIgnored { chain.proceed() }
             if (refreshMasksAfter) {
-                session.refreshClipMasks()
+                val masked = session.refreshClipMasks()
+                session.onNativeLayoutCompleted(masked)
             }
             result
         }
@@ -366,7 +554,9 @@ internal object SystemUiHomePresentationOwner {
             val result = chain.proceed()
             val session =
                 synchronized(this) {
-                    current?.takeIf { candidate -> candidate.ownsBatteryContainer(target) }
+                    controlCenterCurrent
+                        ?.takeIf { candidate -> candidate.ownsBatteryContainer(target) }
+                        ?: current?.takeIf { candidate -> candidate.ownsBatteryContainer(target) }
                 }
             session?.syncEndReservation()
             result
@@ -383,12 +573,59 @@ internal object SystemUiHomePresentationOwner {
         failNativeSink?.invoke(reason)
     }
 
+    @Synchronized
+    private fun onControlCenterSessionLayoutReady(
+        session: Session,
+        maskedViews: Int,
+        reused: Boolean,
+    ) {
+        if (controlCenterCurrent !== session) {
+            return
+        }
+        val active =
+            ControlCenterStateResult.Active(
+                representedSlots = representedSlots.size,
+                maskedViews = maskedViews,
+                reused = reused,
+            )
+        controlCenterEventSink?.invoke(
+            "controlCenterPresentation active carrier=QS_FAKE.system_icon_area " +
+                "representedSlots=" + representedSlots.joinToString(",") +
+                " maskedViews=" + maskedViews +
+                " slotExclusion=scoped-native-measure-layout " +
+                "carrierReservation=stable-battery-slot " +
+                "carrierAuthority=battery_icon_container visualMask=clipBounds " +
+                "cutover=compact-layout-ready nativeTranslationWrites=0 " +
+                "nativeAlphaWrites=0 nativeVisibilityWrites=0",
+        )
+        controlCenterReadySink?.invoke(active)
+    }
+
+    @Synchronized
+    private fun onControlCenterSessionFailure(reason: String) {
+        val session = controlCenterCurrent ?: return
+        controlCenterCurrent = null
+        session.stop("fail-native:" + reason)
+        controlCenterEventSink?.invoke(
+            "controlCenterPresentation failNative reason=" + reason +
+                " restoredNative=true",
+        )
+        controlCenterFailNativeSink?.invoke(reason)
+        controlCenterEventSink = null
+        controlCenterFailNativeSink = null
+        controlCenterReadySink = null
+    }
+
     private fun clearInstallState() {
         measureHook = null
         layoutHook = null
         batteryHideHook = null
         ignoredSlotsField = null
         batteryHideField = null
+        controlCenterCurrent = null
+        controlCenterEventSink = null
+        controlCenterFailNativeSink = null
+        controlCenterReadySink = null
         eventSink = null
         failNativeSink = null
     }
@@ -401,6 +638,9 @@ internal object SystemUiHomePresentationOwner {
         batteryCarrier: View,
         private val ignoredSlotsField: Field,
         private val batteryHideField: Field,
+        private val surfaceName: String,
+        private val eventPrefix: String,
+        private val retainReservationOnTransientLiveWidthLoss: Boolean,
         private val onEvent: (String) -> Unit,
         private val onFailNative: (String) -> Unit,
     ) : View.OnAttachStateChangeListener {
@@ -410,9 +650,14 @@ internal object SystemUiHomePresentationOwner {
         private val battery = WeakReference(battery)
         private val batteryCarrier = WeakReference(batteryCarrier)
         private var active = true
+        private var started = false
+        private var deferVisualMaskUntilLayout = false
+        private var compactLayoutReady = false
+        private var layoutReadyCallback: ((Int) -> Unit)? = null
         private var lastReservationDelta: Int? = null
         private var nativePadding: PaddingState? = null
         private var appliedPadding: PaddingState? = null
+        private var transientLiveBatteryWidthUnavailable = false
         private val clipStates = mutableListOf<ClipState>()
         private val batteryLayoutListener =
             View.OnLayoutChangeListener {
@@ -468,7 +713,18 @@ internal object SystemUiHomePresentationOwner {
         fun ownsBatteryContainer(candidate: ViewGroup): Boolean =
             active && batteryContainer.get() === candidate
 
-        fun start(): Int {
+        fun start(
+            deferVisualMaskUntilLayout: Boolean = false,
+            onLayoutReady: ((Int) -> Unit)? = null,
+        ): Int {
+            this.deferVisualMaskUntilLayout = deferVisualMaskUntilLayout
+            this.layoutReadyCallback = onLayoutReady
+            if (started) {
+                syncEndReservation()
+                return if (isLayoutCutoverReady()) refreshClipMasks() else 0
+            }
+
+            started = true
             host.get()?.addOnAttachStateChangeListener(this)
             val group =
                 statusIcons.get()
@@ -479,25 +735,52 @@ internal object SystemUiHomePresentationOwner {
             nativePadding = PaddingState.from(group)
             battery.get()?.addOnLayoutChangeListener(batteryLayoutListener)
             batteryCarrier.get()?.addOnLayoutChangeListener(carrierLayoutListener)
-            syncEndReservation()
+            if (!syncEndReservation()) return 0
+
+            if (
+                VisualMaskPolicy.shouldMaskBeforeCompactCutover(
+                    deferVisualMaskUntilLayout,
+                )
+            ) {
+                compactLayoutReady = false
+                val masked = refreshClipMasks()
+                onEvent(
+                    eventPrefix + " preLayoutVisualMask active=true" +
+                        " maskedViews=" + masked +
+                        " compactLayoutReady=false" +
+                        " fallbackVisual=home-until-native-layout",
+                )
+                return masked
+            }
+
+            compactLayoutReady = true
             return refreshClipMasks()
         }
 
-        fun stop(source: String): Int {
+        fun stop(
+            source: String,
+            requestLayout: Boolean = true,
+        ): Int {
             if (!active && clipStates.isEmpty() && appliedPadding == null) {
                 return 0
             }
             active = false
+            layoutReadyCallback = null
+            compactLayoutReady = false
+            deferVisualMaskUntilLayout = false
             host.get()?.removeOnAttachStateChangeListener(this)
             battery.get()?.removeOnLayoutChangeListener(batteryLayoutListener)
             batteryCarrier.get()?.removeOnLayoutChangeListener(carrierLayoutListener)
             val reservationRestored = restoreEndReservation()
             val restored = restoreClipMasks()
-            batteryContainer.get()?.requestLayout()
+            if (requestLayout) {
+                batteryContainer.get()?.requestLayout()
+            }
             onEvent(
-                "homePresentation cleanup source=" + source +
+                eventPrefix + " cleanup source=" + source +
                     " restoredClipBounds=" + restored +
-                    " restoredEndReservation=" + reservationRestored,
+                    " restoredEndReservation=" + reservationRestored +
+                    " requestLayout=" + requestLayout,
             )
             return restored
         }
@@ -544,7 +827,7 @@ internal object SystemUiHomePresentationOwner {
             val group = statusIcons.get() ?: run { onFailNative("status-icon-group-released"); return false }
             val container = batteryContainer.get() ?: run { onFailNative("battery-container-released"); return false }
             val batteryView = battery.get() ?: run { onFailNative("battery-view-released"); return false }
-            val hostView = host.get() ?: run { onFailNative("home-host-released"); return false }
+            val hostView = host.get() ?: run { onFailNative(surfaceName + "-host-released"); return false }
             val baseline = nativePadding ?: PaddingState.from(group).also { nativePadding = it }
             val live = PaddingState.from(group)
             val previousApplied = appliedPadding
@@ -558,7 +841,33 @@ internal object SystemUiHomePresentationOwner {
             val actualBatteryWidthPx =
                 (if (batteryView.measuredWidth > 0) batteryView.measuredWidth else batteryView.width)
                     .takeIf { width -> width > 0 }
-                    ?: run { onFailNative("battery-live-width-unavailable"); return false }
+                    ?: run {
+                        if (
+                            EndReservationPolicy.shouldDeferLiveBatteryWidthUnavailable(
+                                retainOnTransientLoss = retainReservationOnTransientLiveWidthLoss,
+                                compactLayoutReady = compactLayoutReady,
+                            )
+                        ) {
+                            if (!transientLiveBatteryWidthUnavailable) {
+                                transientLiveBatteryWidthUnavailable = true
+                                onEvent(
+                                    eventPrefix +
+                                        " endReservation deferred reason=battery-live-width-unavailable" +
+                                        " compactLayoutReady=true",
+                                )
+                            }
+                            return true
+                        }
+                        onFailNative("battery-live-width-unavailable")
+                        return false
+                    }
+            if (transientLiveBatteryWidthUnavailable) {
+                transientLiveBatteryWidthUnavailable = false
+                onEvent(
+                    eventPrefix +
+                        " endReservation resumed reason=battery-live-width-restored",
+                )
+            }
             val carrier =
                 batteryCarrier.get()
                     ?: run { onFailNative("battery-core-carrier-released"); return false }
@@ -575,7 +884,7 @@ internal object SystemUiHomePresentationOwner {
                     hostHeightPx = hostView.height,
                     baseCarrierWidthPx = stableCarrierWidthPx,
                     isRtl = hostView.layoutDirection == View.LAYOUT_DIRECTION_RTL,
-                ) ?: run { onFailNative("home-layout-unavailable"); return false }
+                ) ?: run { onFailNative(surfaceName + "-layout-unavailable"); return false }
             val requestedSlotWidthPx = resolved.requestedSlotWidthPx.toInt()
             val reservationDelta =
                 EndReservationPolicy.resolvePaddingEndDelta(
@@ -601,7 +910,7 @@ internal object SystemUiHomePresentationOwner {
             if (lastReservationDelta != reservationDelta) {
                 lastReservationDelta = reservationDelta
                 onEvent(
-                    "homePresentation endReservation nativeHide=" + nativeHide +
+                    eventPrefix + " endReservation nativeHide=" + nativeHide +
                         " stableCarrierWidth=" + stableCarrierWidthPx +
                         " actualBatteryWidth=" + actualBatteryWidthPx +
                         " requestedSlotWidth=" + requestedSlotWidthPx +
@@ -622,7 +931,7 @@ internal object SystemUiHomePresentationOwner {
             val live = PaddingState.from(group)
             if (live != applied) {
                 onEvent(
-                    "homePresentation endReservation restore=skipped reason=writer-changed " +
+                    eventPrefix + " endReservation restore=skipped reason=writer-changed " +
                         "livePaddingEnd=" + live.end + " appliedPaddingEnd=" + applied.end,
                 )
                 appliedPadding = null
@@ -632,6 +941,56 @@ internal object SystemUiHomePresentationOwner {
             val restored = PaddingState.from(group) == baseline
             appliedPadding = null
             return restored
+        }
+
+        fun isLayoutCutoverReady(): Boolean =
+            active &&
+                started &&
+                (!deferVisualMaskUntilLayout || compactLayoutReady)
+
+        fun adoptTransferredCompactLayout(): Int? {
+            if (
+                !active ||
+                !started ||
+                !deferVisualMaskUntilLayout
+            ) {
+                return null
+            }
+            if (!syncEndReservation()) {
+                return null
+            }
+            val masked = refreshClipMasks()
+            if (compactLayoutReady) {
+                return masked
+            }
+            compactLayoutReady = true
+            val callback = layoutReadyCallback
+            layoutReadyCallback = null
+            onEvent(
+                eventPrefix + " layoutReady source=hot-reload-transfer" +
+                    " maskedViews=" + masked,
+            )
+            callback?.invoke(masked)
+            return masked
+        }
+
+        fun onNativeLayoutCompleted(maskedViews: Int) {
+            if (
+                !active ||
+                !started ||
+                !deferVisualMaskUntilLayout ||
+                compactLayoutReady
+            ) {
+                return
+            }
+            compactLayoutReady = true
+            val callback = layoutReadyCallback
+            layoutReadyCallback = null
+            onEvent(
+                eventPrefix + " layoutReady source=native-status-icons-onLayout" +
+                    " maskedViews=" + maskedViews,
+            )
+            callback?.invoke(maskedViews)
         }
 
         fun refreshClipMasks(): Int {
@@ -685,7 +1044,7 @@ internal object SystemUiHomePresentationOwner {
 
         override fun onViewDetachedFromWindow(view: View) {
             if (active) {
-                onFailNative("home-host-detached")
+                onFailNative(surfaceName + "-host-detached")
             }
         }
 
@@ -729,7 +1088,25 @@ internal object SystemUiHomePresentationOwner {
         }
     }
 
+    internal object HotReloadHandoffPolicy {
+        fun shouldRequestLayoutOnRelease(
+            continuousHandoff: Boolean,
+        ): Boolean = !continuousHandoff
+    }
+
+    internal object VisualMaskPolicy {
+        fun shouldMaskBeforeCompactCutover(
+            deferVisualMaskUntilLayout: Boolean,
+        ): Boolean = deferVisualMaskUntilLayout
+    }
+
     internal object EndReservationPolicy {
+        fun shouldDeferLiveBatteryWidthUnavailable(
+            retainOnTransientLoss: Boolean,
+            compactLayoutReady: Boolean,
+        ): Boolean =
+            retainOnTransientLoss && compactLayoutReady
+
         fun resolvePaddingEndDelta(
             nativeHide: Boolean,
             actualBatteryWidthPx: Int,
@@ -809,6 +1186,27 @@ internal object SystemUiHomePresentationOwner {
         ) : StateResult
         data class Inactive(val restoredViews: Int) : StateResult
         data class Failure(val reason: String) : StateResult
+    }
+
+    internal sealed interface ControlCenterStateResult {
+        data class Active(
+            val representedSlots: Int,
+            val maskedViews: Int,
+            val reused: Boolean,
+        ) : ControlCenterStateResult
+
+        data class Prepared(
+            val representedSlots: Int,
+            val reused: Boolean,
+        ) : ControlCenterStateResult
+
+        data class Inactive(
+            val restoredViews: Int,
+        ) : ControlCenterStateResult
+
+        data class Failure(
+            val reason: String,
+        ) : ControlCenterStateResult
     }
 
     internal sealed interface LegacyCleanupResult {

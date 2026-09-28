@@ -3,6 +3,242 @@
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
 
+## 2026-09-29 — Build 441: continuous presentation ownership across Hot Reload generations
+
+**Type:** Hot Reload lifecycle / visual continuity correction
+**Build:** 441 / `20260929-441`
+**Work branch / PR:** `fix/control-center-fake-root` / #156
+**Runtime commits:** `500ae425c5fbe0e9156eefd76c6968aee6e79ca7`, wiring correction `bd224ef39b1f15c4b3f057b14b9835b21dbc5dde`, diagnostic wording cleanup `7a3c1cd9f5708c91cd5eddf1b004da6eeddad016`
+**Validation:** Draft Light #1502 passed; exact-head Fast #1503 passed; signed Work Branch Canary #451 / run `36474188973` passed trusted-source checkout, target profile, tests/build, Modern Xposed metadata, Haple signature verification, Canary non-debuggable validation and artifact upload.
+
+### Build 440 device result
+
+Build 440 fixes the previously reported raw native QS_FAKE / native+Combined overlap. The maintainer reports that after recovery the defect no longer returns, including after SystemUI restart.
+
+Two Hot Reload-specific regressions remain:
+1. Hot Reload followed by an immediate Control Center pull can temporarily lose Combined Status, then recover and remain stable.
+2. Pressing Hot Reload itself makes Combined Status flash and neighboring system icons visibly move left and then return.
+
+The supplied video confirms the second symptom is a real layout pulse rather than only a render alpha/tint flash.
+
+### Evidence / problem execution flow
+
+Build-440 Detailed diagnostics show:
+- Hot Reload restore is scheduled at roughly 03:23:39.512.
+- The transferred QS_FAKE is immediately pre-masked and prepared around 03:23:39.540.
+- Home renderer/presentation is active again around 03:23:39.548.
+- `hotReload.complete` is emitted around 03:23:39.554.
+- QS_FAKE `layoutReady` / compact readiness does not arrive until roughly 03:23:42.824.
+
+Therefore Build 440 correctly prevents raw native Fake from drawing, but an immediate pull can move the Home carrier out before the projected Fake has become ready, producing a temporary blank.
+
+Source review identifies the separate Home/peer-icon pulse:
+- old `onHotReloading` posts `teardownOldGenerationForHotReload()` before new-generation restore;
+- teardown removes the old Home render visual;
+- `SystemUiHomePresentationOwner.releaseGenerationForHotReload()` stops Home and QS_FAKE sessions;
+- Session `stop()` restores native clip/reservation state and explicitly calls `batteryContainer.requestLayout()`;
+- only afterward does the new generation install/restore its presentation.
+
+The intermediate requestLayout is enough to let the native represented slots participate in one layout pass, moving neighboring status icons even when the raw glyphs do not visibly finish drawing.
+
+### Root cause
+
+Hot Reload was modeled as **two independent lifecycles separated by a native fallback interval**. That is correct for hard teardown, but wrong for an in-process generation replacement where the same SystemUI View hierarchy remains alive.
+
+This produced two visible intermediate states:
+- a Home visual gap while the old overlay had been removed and the new overlay was not yet attached;
+- a native-layout ownership gap while old compact/mask state had been restored and the new owner had not yet re-established slot exclusion.
+
+Build 440 then intentionally masks pending QS_FAKE native visuals, so the same generation gap can manifest as an immediate-pull blank instead of the older raw-native leak.
+
+### Implementation / decision
+
+- Bump Hot Reload transfer protocol from v8 to v9 while retaining v8 compatibility.
+- Transfer two new classloader-neutral facts:
+  - whether the existing QS_FAKE session is already native-presentation/compact-ready;
+  - a Java `Runnable` owned by the old generation that performs its cleanup only when invoked by the new generation.
+- `onHotReloading` no longer posts teardown. It captures transfer state and keeps the old visual/presentation alive.
+- New-generation `onHotReloaded` installs the new hooks/runtime sources first.
+- In the main-thread restore transaction, invoke the old-generation cleanup callback and immediately attach the new generation in the **same main-thread turn**.
+- During this continuous handoff, old presentation cleanup restores clip/reservation state but suppresses the intermediate `requestLayout()`.
+- The new generation then becomes the only writer and performs the normal next layout under its own hooks.
+- When v9 transfer says QS_FAKE was already compact-ready, adopt that proven compact geometry immediately; the subsequent native layout is a refresh rather than a readiness gate.
+- Legacy v8 transfer remains accepted as `legacy-pre-cleaned` for the first 440 -> 441 transition.
+- Diagnostics now distinguish `hotReload.generationHandoff`, continuous vs legacy mode, transferred compact readiness, and whether an intermediate layout request was suppressed.
+
+### 审查 / review
+
+- **ownership:** at no point are two generations allowed to write presentation state concurrently. The old generation stays owner until the new generation invokes its cleanup callback; the new generation takes over immediately afterward in the same main-thread transaction.
+- **single writer:** no new mask, padding, geometry, alpha, visibility or translation writer is added.
+- **lifecycle:** Hot Reload now has explicit transfer/handoff semantics; normal detach, feature disable, host replacement and Fail-native still restore native state normally.
+- **render continuity:** old visual removal and new visual attachment occur inside one main-thread turn, so no committed frame should contain neither visual.
+- **layout continuity:** continuous handoff restores old presentation state without requesting an intermediate native layout; the next requested layout occurs only after new hooks are installed.
+- **QS_FAKE continuity:** previously proven compact readiness can be inherited only from an attached old session and only through the v9 transfer.
+- **compatibility:** v8 remains readable. The first transition from running Build 440 to 441 cannot use v9 because the old generation is still Build 440; focused no-flash testing therefore requires a second Hot Reload after 441 is active.
+- **Fail native:** transfer restore/handoff failure is surfaced as Hot Reload error/restart-required; normal native-restoration paths remain unchanged.
+- **performance:** no timer, delay, polling, frame callback or additional persistent listener.
+
+### Validation plan
+
+Draft Light first validates protocol/docs consistency and formatting. Then exact-head Fast must pass unit/build/target/Xposed checks. A signed Canary is required because success depends on frame/layout ordering on the pinned HyperOS target.
+
+Focused device gate:
+1. Install/activate Build 441 once. The first 440 -> 441 Hot Reload may still exhibit the old transition because Build 440 produced the transfer.
+2. With Build 441 now active, press Hot Reload again (441 -> 441) while watching Home: Combined Status must not blink and neighboring status icons must not shift horizontally.
+3. Immediately pull Control Center after that Hot Reload: Combined Status must remain represented without a temporary blank.
+4. Repeat Hot Reload several times to verify the handoff is deterministic.
+5. Restart SystemUI once and repeat normal first/repeated Control Center pulls to ensure Build-440 raw-native/overlap fix remains intact.
+6. Any stale duplicate overlay, permanently hidden native icon, layout drift, crash or LSPosed safe mode is a hard failure.
+
+### Maintainer device feedback / outcome
+
+The maintainer reports the Build-441 target behavior is successful after Build 441 is active:
+- repeated 441 -> 441 Hot Reload no longer exhibits the previous Combined Status flash / disappearance behavior;
+- neighboring native status icons no longer perform the left-then-return layout pulse caused by the old intermediate native `requestLayout()`;
+- immediate Control Center pull after Hot Reload no longer reproduces the temporary Combined Status blank;
+- the Build-440 correction for raw native QS_FAKE / native+Combined overlap remains stable, including after SystemUI restart.
+
+Build 441 is therefore **device accepted** for the Hot Reload generation-handoff checkpoint. The runtime is frozen; only record/merge closure may follow before integration into `dev`.
+
+### Post-acceptance hidden-anomaly review
+
+The maintainer supplied the final Build-441 Detailed diagnostic after visual acceptance. A full review found no Error/Warn entries, no `failNative`, no unexpected presentation cleanup/rebuild loop, and no Hook-count mismatch. Runtime health remains `overall=healthy`; Hot Reload finishes with `controlCenterFakePrearm=restored-laid-out-compact-ready`, `transferredCompactReady=true`, and the expected network/battery/panel hook counts.
+
+One **non-blocking, independent geometry signal** is retained for later investigation:
+- ordinary Control Center geometry reports `normalStatusIconsTx=46`;
+- charging / Super Island geometry reports `normalStatusIconsTx=181` with `addBatteryIsland=true`, a 135 px delta;
+- the stable compact Battery carrier remains 105 px;
+- when the island branch clears and live Battery width returns from 105 to 135, the existing reservation owner compensates with `paddingEndDelta=-30`.
+
+The resulting 30 px difference is consistent with the previously observed “charging island trajectory / Battery alignment feels more left-shifted” follow-up, but the current diagnostic is observation-only (`readOnly=true`, `nativeGeometryWrites=0`) and does not show a Build-441 ownership failure. It must remain separate from #156 and be investigated from a fresh branch after integration.
+
+
+
+## 2026-09-29 — Build 440: mask native QS_FAKE during the pre-compact handoff window
+
+**Type:** Phase-2B visual-ownership correction / executable checkpoint
+**Build:** 440 / `20260929-440`
+**Work branch / PR:** `fix/control-center-fake-root` / #156
+**Executable source:** `a7ee3e9b06760167a6461d05d9bd20b699a1f249`
+**Validation:** Draft Light #1496 passed; exact-head Fast #1497 passed; signed Work Branch Canary #449 / run `36471160837` built and uploaded the Build-440 artifact successfully (the workflow UI later remained in a post-Gradle cleanup state).
+
+### Build 439 device result
+
+Build 439 is rejected for visual ownership determinism. The maintainer can still reproduce both:
+- native QS_FAKE appearing by itself during Control Center transition;
+- native QS_FAKE and Combined Status appearing together.
+
+The supplied video matches the Detailed runtime ordering. Hot Reload restores the transferred Fake root and reports a prepared pending compact owner. Control Center then becomes visible while the projection is not yet native-presentation-ready. Only a later `MiuiStatusIconContainer` native layout finally reports `controlCenterPresentation layoutReady`, activates compact presentation, and drives projection readiness true. No new `controlCenterPresentation failNative` or cleanup occurs in that window.
+
+### Root cause
+
+The fallback policy was internally inconsistent:
+
+1. While QS_FAKE compact layout was not ready, the module intentionally kept Home Combined Status eligible to avoid a blank/gapped handoff.
+2. But the shared presentation owner deferred **both** compact occupancy and the native `clipBounds` visual masks until that same future layout.
+3. HyperOS was therefore free to render native QS_FAKE during the whole pending interval.
+4. If Home remained visible, the user saw native + Combined overlap. If HyperOS moved/faded the Home carrier as part of its normal transition, the user saw native QS_FAKE alone.
+
+The underlying mistake was treating visual suppression and compact measure/layout cutover as one readiness event.
+
+### Implementation / decision
+
+- Keep the existing deferred compact session and existing native measure/layout Hook.
+- At deferred-session start, immediately call the existing reversible `refreshClipMasks()` and record `preLayoutVisualMask`.
+- Keep `compactLayoutReady=false`; do **not** show the QS_FAKE Combined overlay yet.
+- Continue to let Home Combined Status provide the user-visible fallback until native status-icon layout completes.
+- On native layout, the existing ignored-slot measure/layout path establishes compact occupancy, refreshes the same masks, marks compact ready, shows QS_FAKE Combined and then lets Home yield.
+- Home uses `deferVisualMaskUntilLayout=false`, so its behavior is unchanged.
+- Add a pure policy test proving only deferred compact cutover uses the pre-layout mask path.
+- Keep Build-437 transient Battery-width retention and Build-439 transferred-host restore logic unchanged.
+
+### Why this is not Build 431 again
+
+Build 431 exposed a **clip-only QS_FAKE presentation** as the visible owner, so the un-compacted represented-slot occupancy produced a large visible gap. Build 440 does not do that. Before compact native layout, QS_FAKE's native represented visuals are masked but the QS_FAKE Combined overlay remains hidden; Home Combined remains the visible fallback. The stale Fake occupancy is therefore not presented as the active Combined layout.
+
+### 审查 / review
+
+- **ownership:** `SystemUiHomePresentationOwner.Session` remains the sole compact/mask owner.
+- **single writer:** the same existing `clipBounds` writer is invoked earlier; no second native visual writer exists.
+- **lifecycle:** visual native suppression begins at prepare; compact layout ownership begins only at verified native layout.
+- **Fail native:** cleanup/restoration semantics are unchanged; session stop restores clip masks and reservation.
+- **performance:** no new Hook, listener, timer, polling, frame callback or animation.
+- **compatibility:** Home, Notification Shade, QS-real, charging-island endpoint geometry and Build-437 width retention are unchanged.
+- **future maintenance:** diagnostics explicitly separate `preLayoutVisualMask` from `layoutReady` so future regressions can identify which phase failed.
+
+### Validation plan
+
+Run Draft Light on the documentation-closed Build-440 head, then exact-head Fast. If Fast succeeds, generate a signed Canary.
+
+Focused device gate:
+1. Hot Reload -> immediately pull Control Center several times.
+2. There must be no raw native QS_FAKE and no native/Combined overlap.
+3. Restart SystemUI and make the first non-charging pull the first action.
+4. Repeat several non-charging pulls.
+5. Charging-no-island / charging-island remain regression-only for this checkpoint.
+
+### Outcome / next step
+
+Pending CI and focused device validation. Freeze runtime after the signed Canary.
+
+
+## 2026-09-29 — Build 439: restore transferred QS_FAKE from its already-laid-out lifecycle
+
+**Type:** Phase-2B Hot Reload lifecycle correction / executable checkpoint
+**Build:** 439 / `20260929-439`
+**Work branch / PR:** `fix/control-center-fake-root` / #156
+**Base integration:** Build 438 / `dev` `6ba4a8179808cdf858176882901aa3787c11b6c1`
+**Executable source:** `8a5e6670cad42ac9138b42417f54e47a3dabd28f`
+**Validation:** pending Draft Light -> exact-head Fast -> signed Canary
+
+### Device evidence / problem execution flow
+
+Build 437 reduces the earlier probabilistic raw-QS_FAKE symptom, but maintainer testing exposes a strong reproducer: press module Hot Reload and immediately pull Control Center. The screen can show native status icons and Combined Status at the same time.
+
+The detailed trace shows Hot Reload restores the transferred Fake root, marks runtime restore complete, schedules/arms the normal first-layout prearm, and only much later reaches `controlCenterPresentation layoutReady` / compact `ready=true`. There is no intervening compact `failNative` or cleanup.
+
+### Root cause
+
+The transferred Hot Reload Fake root is not a cold-start host: it is already attached and already laid out. Re-entering `prearmAfterNextNativeLayout` waits for another root layout and then creates the compact owner from the root `OnLayoutChange` callback. That callback runs after descendant status-icon layout for the current traversal, so the newly activated compact owner cannot participate in that already-finished measure/layout. Its native re-layout request is issued from the tail of the same traversal and compact readiness remains pending until a later status-icon layout.
+
+This creates a real ownership window in which Control Center can become visible before the projected compact owner is ready. Hot Reload makes the window easy to hit; it does not prove Build 437's post-cutover Battery-width retention is wrong.
+
+### Implementation / decision
+
+- Keep cold-start Fake-root attachment on the existing first-native-layout prearm.
+- Add a dedicated Hot Reload restore entry that accepts only an attached, laid-out Fake root while the root is not currently inside a layout traversal.
+- Restore the existing render/compact session immediately from the transferred host on the main-thread Hot Reload restore task.
+- Let the existing compact owner request its normal native layout from this outside-layout boundary; do not directly mutate native geometry or force a clip-only cutover after layout.
+- If the transferred host does not satisfy the laid-out/outside-layout contract, fall back to the existing cold-start prearm and log the exact reason.
+- Keep Build 437's transient live Battery-width retention unchanged.
+- Add a pure eligibility test covering attached/laid-out/outside-layout success and rejecting in-layout, zero-geometry, and detached hosts.
+
+### 审查 / review
+
+- **ownership:** the existing Fake-root session and `SystemUiHomePresentationOwner` remain the only projection/compact owners.
+- **single writer:** no second occupancy, translation, alpha, visibility, or geometry writer is introduced.
+- **lifecycle:** Hot Reload now restores according to the transferred host's actual lifecycle state instead of replaying the cold-start lifecycle.
+- **Fail native:** invalid transferred-host state falls back to the existing native-layout prearm rather than forcing partially trusted geometry.
+- **performance:** no new Hook, observer, persistent listener, timer, delay, polling, or frame callback.
+- **scope:** Home, Notification Shade, QS-real endpoint, cold-start prearm, charging-island endpoint geometry, and Build-437 width-retention semantics remain unchanged.
+
+### Validation plan
+
+Draft Light validates the Build-438 branch sync and repository consistency. Exact-head Fast follows once the PR is Ready. A signed Canary is required because the fix depends on target-device Hot Reload/layout scheduling.
+
+Focused device gate:
+1. Hot Reload -> immediately pull Control Center; repeat several times.
+2. Native/Combined overlap must not appear.
+3. Restart SystemUI -> first non-charging Control Center pull -> several repeated pulls.
+4. Raw native QS_FAKE must not reappear.
+5. Charging-no-island / charging-island are regression-only for this checkpoint.
+6. Any SystemUI/LSPosed crash or safe-mode event is a hard failure.
+
+### Outcome / next step
+
+Pending CI and target-device validation. Runtime freezes after the signed Canary until the maintainer returns the focused result.
+
+
 ## 2026-09-29 — Build 438: keep Appearance preview geometry stable
 
 **Type:** companion-app UI correction
@@ -51,6 +287,458 @@ Maintainer validation reports the original issue is resolved: switching between 
 ### Outcome / next step
 
 Build 438 is device-accepted and integrated into `dev` through PR #158 as squash commit `6ba4a8179808cdf858176882901aa3787c11b6c1`. Final exact-head PR Build #1486 succeeded after documentation closure. Post-merge `dev` Integration Build #1487 / run `36466720314` also succeeded, including target-profile validation, tests/build, Modern Xposed metadata, Haple signature verification, Canary non-debuggable verification and artifact upload. Integrated Canary artifact: `CombinedStatus-0.0.2-HyperOS-20260929-438-canary.apk`, artifact id `10989858681`, ZIP digest `sha256:6bf7e1eadbf0775fc98ca892c1efd31bfb63a999cdeb9cbe0d0e131c08ecfebc`. This closes the app-UI checkpoint; no further executable change is required.
+
+
+## 2026-09-29 — Build 437: retain compact QS_FAKE across transient live Battery-width loss
+
+**Type:** Phase-2B lifecycle ownership correction / executable checkpoint
+**Build:** 437 / `20260929-437`
+**Work branch / PR:** `fix/control-center-fake-root` / #156
+
+### Build 435 device result
+
+Build 435 is rejected for non-charging QS_FAKE determinism. The maintainer still observes probabilistic raw native Fake.
+
+The Detailed report makes the remaining writer conflict explicit. The Fake root reaches `prearm state=prepared` / `armed`, native `layoutReady` activates the compact `QS_FAKE.system_icon_area` presentation, and `controlCenterProjection compact ready=true`. During the later startup/layout disturbance, the Build-435 render-session correction correctly logs `layoutUnavailable action=pause-render compactPresentationRetained=true hostAttached=true`. Immediately afterward, `SystemUiHomePresentationOwner` independently reports `battery-live-width-unavailable`, stops the control-center presentation, restores clip bounds/end reservation, and drives compact readiness back to false.
+
+**Root cause:** two independent invalidation writers existed for the same prepared QS_FAKE lifetime. Build 435 fixed the projection-side writer but the shared end-reservation owner still treated a transient zero live Battery width as a structural incompatibility after compact cutover.
+
+### 问题执行流程
+
+1. Keep the validated Fake-root attach -> first-native-layout prearm and Build-435 projection-side retention.
+2. Do not add another trigger, retry, delay, visibility gate, or geometry compensation.
+3. Distinguish transient live Battery geometry loss after compact cutover from structural presentation failure.
+4. Preserve the existing compact owner/reservation/masks through that transient only.
+5. Recompute from the next native Battery/carrier layout; retain Fail native everywhere the contract was never established or becomes structurally invalid.
+
+### Implementation
+
+- Advance runtime identity to Build 437 / `20260929-437`; Build 436 remains allocated to parallel PR #158.
+- Add one explicit Session policy bit: Home disables transient-width retention; QS_FAKE enables it.
+- A live Battery width of zero may be deferred only when that policy is enabled **and** `compactLayoutReady=true`.
+- During deferral, keep current padding/masks and return without invoking the control-center Fail-native sink.
+- On the next valid live Battery width, clear the deferred state and run the existing end-reservation calculation normally.
+- Add bounded diagnostic events for first defer and resume only; repeated unavailable callbacks do not spam.
+- Add a pure policy unit test covering allowed QS_FAKE post-cutover deferral plus pre-cutover and Home rejection.
+- No new Hook/listener/requestLayout/timer/polling/animation/native geometry writer/QS-real mutation.
+
+### 审查 / review
+
+- **Ownership:** `SystemUiHomePresentationOwner` remains the sole compact occupancy/reservation writer; the fix removes a conflicting destruction path rather than adding a writer.
+- **Lifecycle:** transient retention is legal only after native compact layout established the current exact Fake-root session.
+- **Home isolation:** Home keeps the previous strict Fail-native semantics.
+- **Cleanup:** root detach, feature disable, host replacement, Hot Reload and structural contract failures remain restoration boundaries.
+- **Fail native:** unavailable width before cutover still fails; released/mismatched structures, writer conflict and invalid stable geometry still fail.
+- **Performance:** no additional runtime callback. One Boolean state prevents duplicate defer diagnostics and native layout callbacks already owned by the session perform recovery.
+- **Scope:** fully-expanded endpoint motion and charging-island Battery alignment remain unchanged.
+
+### Validation plan
+
+Use the existing base-to-HEAD routing. Runtime + tests + build identity require the normal Fast checkpoint after Draft iteration checks. If Fast is green, a signed Canary is required because the acceptance criterion is a target-device lifecycle race.
+
+### Device gate
+
+Restart SystemUI and make the first non-charging Control Center pull the first test. Raw native QS_FAKE must not reappear. Then repeat several non-charging pulls. Charging-no-island and charging-island are regression-only in this checkpoint; endpoint-motion and island Battery-alignment findings remain separate.
+
+---
+
+## 2026-09-29 — Build 435: retain prepared QS_FAKE through transient startup layout loss
+
+**Type:** Phase-2B cold-start lifecycle correction / executable checkpoint
+**Build:** 435 / `20260929-435`
+**Work branch / PR:** `fix/control-center-fake-root` / #156
+
+### Build 434 device result
+
+Build 434 is rejected for the first non-charging pull after manual SystemUI restart. Raw native QS_FAKE remains nearly deterministic on that first pull, while later pulls may recover.
+
+The Detailed diagnostic closes the remaining lifecycle cause: Fake-root attach schedules the bootstrap, first native layout succeeds and arms compact presentation, then a short-lived startup layout state becomes unavailable. Build 434 incorrectly treats that render-geometry loss as a full compact-presentation failure and tears the prepared owner down. Fake geometry becomes valid again soon afterward, but compact ownership is already gone until a later visible-time `prearm-reuse`.
+
+### 问题执行流程
+
+1. Retain the accepted attach -> first-native-layout prearm boundary.
+2. Do not add another prearm trigger, timing delay, visibility workaround, or retry loop.
+3. Split transient Combined render-geometry readiness from native compact-presentation lifetime.
+4. Retain compact ownership while the exact Fake root is still attached and native compact presentation was already ready.
+5. Restore native Fake only on actual lifetime/failure boundaries.
+
+### Implementation
+
+- Advance runtime identity to Build 435 / `20260929-435`.
+- `markLayoutUnavailable()` still clears `layoutReady` and hides the Combined overlay.
+- Attached + already-prepared Fake roots retain `nativePresentationReady` and the shared compact owner.
+- Detached/unprepared states retain fail-native cleanup behavior.
+- Add a pure unit-tested retention contract for attached+prepared vs detached/unprepared cases.
+- No new SystemUI Hook, listener, requestLayout, timer, polling, interpolation, animator, per-frame geometry writer, or QS-real mutation.
+
+### 审查 / review
+
+- **Ownership:** compact presentation follows Fake-root lifetime; Combined overlay geometry follows current layout readiness.
+- **Single writer:** `SystemUiHomePresentationOwner` remains the sole writer of QS_FAKE ignoredSlots/padding/clip state.
+- **Cleanup:** transient layout loss no longer restores raw native Fake; root detach/feature disable/host replacement/Hot Reload remain restoration boundaries.
+- **Fail native:** an unprepared or detached Fake root never claims Combined readiness.
+- **Performance:** the correction removes a destructive cleanup path and adds no ongoing work.
+- **Compatibility:** existing exact-target Fake root/status-area contracts are unchanged.
+- **Geometry scope:** fully-expanded endpoint motion and charging-island Battery mapping are unchanged.
+
+### LSPosed safe-mode note
+
+The supplied LSPosed package records `System UI crashed too many times, stop all modules and enter safe mode`, but the supplied evidence does not contain a matching fatal SystemUI stack that attributes the crash loop to Combined Status. The maintainer subsequently restarted once without recurrence. This remains watch-only unless reproducible crash evidence appears.
+
+### Device gate
+
+Restart SystemUI and immediately perform the first non-charging Control Center pull. It must no longer expose raw native QS_FAKE. If that passes, repeat several non-charging pulls, then do only a light charging-no-island / charging-island regression check. Endpoint motion and island Battery alignment remain separate next-step geometry work.
+
+
+
+## 2026-09-29 — Build 434: move QS_FAKE prearm from attach to first native layout
+
+**Type:** Phase-2B cold-start lifecycle correction / executable checkpoint
+**Build:** 434 / `20260929-434`
+**Work branch / PR:** `fix/control-center-fake-root` / #156
+
+### Build 433 device result
+
+Build 433 improves repeated-pull stability but is rejected for cold-start determinism. After SystemUI restart, the first non-charging Control Center pull can still expose native QS_FAKE. Maintainer evidence also confirms charging-no-island is stable enough for this lifecycle gate, while charging-island retains the already-known larger horizontal trajectory and Battery mismatch.
+
+Detailed diagnostics close the cold-start cause:
+- Fake-root attach prearm is recorded as `unavailable`;
+- the panel-transition Hook set itself is installed and healthy;
+- later visibility cycles on the same runtime reach `controlCenterProjection compact ready=true source=prearm-reuse` with model/tint/layout/native presentation all ready.
+
+Therefore the remaining 433 race is not host identity or repeated visibility ownership. It is the **geometry-ready boundary between root attach and first native layout**.
+
+### 问题执行流程
+
+1. Retain Fake-root lifetime ownership from Build 433.
+2. Reject `onAttachedToWindow()` as sufficient proof of child/Battery geometry readiness.
+3. Use the root's first native layout as the prearm boundary.
+4. Keep visible-time preparation only as an exceptional fallback, not the normal lifecycle.
+5. Bound any early-layout retry and fail native on structural incompatibility.
+
+### Implementation
+
+- Advance runtime identity to Build 434 / `20260929-434`.
+- `ControlCenterFakeStatusIcons.onAttachedToWindow()` now schedules a temporary `OnLayoutChangeListener` instead of directly establishing compact presentation.
+- On first root layout, the existing `attach()/prepareNativePresentation()` path resolves the Fake status area, status icon group, Battery and stable carrier using already-laid-out native geometry.
+- Hot Reload transfers either the active or pending attached Fake root; an already-laid-out restored root requests one native layout cycle and uses the same bootstrap path.
+- Explicit early-readiness failures may retry on at most one additional native layout; total attempts are capped at two.
+- Success/final failure/detach/runtime teardown removes the listener.
+- No new SystemUI measure/layout/battery-hide Hook is added; this listener is lifecycle-only.
+
+### 审查 / review
+
+- **Ownership:** Fake root attach owns bootstrap lifetime; first native layout establishes compact readiness; visibility only requests Combined rendering/Home handoff.
+- **Single writer:** native slot exclusion/padding/clip state remains exclusively in `SystemUiHomePresentationOwner`.
+- **Performance:** at most two root layout callbacks; no timer, polling, Choreographer/frame follower, or persistent layout observer.
+- **Cleanup:** pending bootstrap is included in detach and Hot Reload cleanup; pending attached root can be transferred across generations.
+- **Fail native:** retry is limited to known early-readiness failures such as unavailable Battery carrier width/hierarchy; type/field contract failures are not retried.
+- **Geometry scope:** fully expanded endpoint motion and charging-island Battery mapping remain deliberately unchanged.
+
+### Charging-island evidence retained for follow-up
+
+Non-island Control Center samples report approximately `normalStatusBarTx=46`, `normalStatusIconsTx=46`, `batteryWidthDiff=0`. Island samples report approximately `normalStatusBarTx=61`, `normalStatusIconsTx=181`, `batteryWidthDiff=-135`. The maintainer's observed extra leftward island trajectory is therefore treated as real native geometry evidence, not visual noise. Build 434 does not compensate it before lifecycle determinism is closed.
+
+### Automated validation
+
+- Frozen executable SHA: `2c206ec5b1dc69b0789fdffdbdf0419aafd2b2f8`.
+- Ready Fast #1459 / run `36457181582`: success on that exact PR HEAD; target profile, unit tests/build, APK resolution and Modern Xposed metadata passed.
+- Work Branch Canary #433 was superseded/cancelled by the newer same-PR Canary #434 during post-cleanup; all its core validation steps had already passed, so it is not treated as a runtime rejection.
+- Signed Work Branch Canary #434 / run `36457595937`: completed/success on the same trusted source SHA, including exact checkout, target profile, Canary tests/build, Modern Xposed metadata, Haple signature, non-debuggable verification, artifact upload and post-cleanup.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260929-434-canary.apk`; artifact id `10985702866`; ZIP digest `sha256:4cfc425718bda8e4eb8d99b50836c33cb4fb4dd3a0adecfa434e76cd627b2df3`; extracted APK SHA-256 `59f87520e07af0ca40397633acc327ab80251c0b2347d67217667aa97af585ec`; size 3,325,986 bytes.
+- PR #156 is returned to Draft; executable runtime is frozen pending device evidence.
+
+### Device gate
+
+Restart SystemUI and perform the **first non-charging pull first**. It must present deterministic Combined QS_FAKE rather than raw native Fake. Then repeat several non-charging pulls and one charging-no-island / charging-island regression pass. Endpoint motion and island Battery alignment remain separate next-step gates.
+
+
+
+## 2026-09-29 — Build 433: prearm QS_FAKE on native root lifecycle
+
+**Type:** Phase-2B lifecycle root-cause correction / executable checkpoint
+**Build:** 433 / `20260929-433`
+**Work branch / PR:** `fix/control-center-fake-root` / #156
+**Base:** current `dev` Build 429 / MIUIX `0.9.4-5c91d5e5-SNAPSHOT`
+
+### Build 432 device result
+
+Build 432 is rejected for QS_FAKE lifecycle determinism. Maintainer screenshots/video clarify that three visibly different outcomes are all the same current-version QS_FAKE surface: native Fake, partially compact/masked native Fake, or Combined Status Fake. Which one appears varies between pulls.
+
+Detailed diagnostics record eight projection attaches but only five compact `layoutReady/active` transitions. In one capture native expansion reaches `fraction=1.0` and the Fake root is already switched to `alpha=0.0`; only later, during reverse motion, does the module receive the native Fake `onLayout` that marks the compact presentation ready.
+
+**Root cause:** tying Fake compact-session creation/destruction to `ControlCenterExpandControllerDelegate.onVisibleChanged` is too late. `requestLayout()` after `visible=true` does not guarantee the required native measure/layout finishes before expansion/appearance starts.
+
+### 问题执行流程
+
+1. Keep the accepted owner split: top-level `ControlCenterFakeStatusIcons` owns Fake appearance/motion; child `MiuiStatusIconContainer` owns native peer layout.
+2. Stop adding geometry compensation while the same Fake surface is nondeterministic.
+3. Prepare the compact presentation from the native Fake-root attach lifecycle.
+4. Keep that preparation alive across repeated visibility cycles; `visible` controls only Combined render visibility/Home handoff.
+5. Preserve fail-native restoration on root detach, host replacement, feature disable, and Hot Reload.
+
+### Implementation
+
+- Advance runtime identity to Build 433 / `20260929-433`.
+- Add one low-frequency Hook on `ControlCenterFakeStatusIcons.onAttachedToWindow()`.
+- On native Fake-root attach, resolve the existing Fake status area and prearm the shared compact presentation owner.
+- Continue using the existing three presentation Hooks for `MiuiStatusIconContainer.onMeasure`, `onLayout`, and `MiuiStatusBatteryContainer.setIsHideBattery`; no duplicate layout Hook set is added.
+- `visible=false` restores Home and hides Combined but no longer tears down the QS_FAKE compact session.
+- Repeated Fake-root attach and feature re-enable use the same idempotent prepare path.
+- Hot Reload transfer carries the currently attached native Fake root View reference; after new-generation Hook installation, main-thread restore immediately invokes the same prearm path. Visible-time host resolution remains only a late-bootstrap fallback.
+
+### 审查 / review
+
+- **Ownership:** Fake-root attach lifetime owns QS_FAKE preparation; Control Center visibility owns only Combined visibility/Home authority.
+- **Single writer:** slot exclusion/padding/clip state remains centralized in `SystemUiHomePresentationOwner`.
+- **Hook cost:** one additional low-frequency lifecycle Hook; no polling/frame observer/per-frame geometry writer.
+- **Cleanup:** feature disable, Fake-root detach, host replacement, and Hot Reload restore module-owned state.
+- **Fail native:** unresolved/failed prearm leaves native QS_FAKE available and prevents Home from yielding to an unready Combined owner.
+- **Geometry:** endpoint motion and charging-island Battery endpoint mapping are intentionally unchanged in Build 433.
+- **QS real:** untouched.
+
+### Automated validation
+
+- Frozen executable SHA: `1e8ab3da8feede27c103155dbe371963833df755`.
+- Ready Fast #1447 / run `36454542206`: success; target profile, unit tests/build, APK resolution and Modern Xposed metadata passed.
+- Signed Work Branch Canary #431 / run `36454959236`: success on the same trusted source SHA.
+- Canary artifact: `CombinedStatus-0.0.2-HyperOS-20260929-433-canary.apk`; artifact id `10984648346`; ZIP digest `sha256:b875d3e35e5db9f5406f8a6c2780cdc2e7284dd94010bcf632825d044c8c4685`; extracted APK SHA-256 `fc356f91d4cc2cb8ed25d883263c7dd8a06680bfcb89aa13f164ac2e59a91095`; size 3,325,986 bytes.
+- Haple signature, Modern Xposed metadata, and non-debuggable checks passed.
+- PR #156 is returned to Draft; executable runtime is frozen for device evidence.
+
+### Device gate
+
+Repeat many normal non-charging pulls first. Every pull should produce the same QS_FAKE presentation; the prior random switch among native / partially compact / Combined Fake must disappear. Then repeat charging-no-island and charging-island for regression only. Endpoint motion and island Battery alignment remain observable open issues after this gate.
+
+
+
+## 2026-09-28 — Build 432: native compact-layout handoff on fake root
+
+**Type:** Phase-2B root-cause correction / executable checkpoint
+**Build:** 432 / `20260928-432`
+**Work branch / PR:** `fix/control-center-fake-root` / #156
+**Base:** current `dev` Build 429 / MIUIX `0.9.4-5c91d5e5-SNAPSHOT`
+
+### Build 431 device result
+
+Maintainer video + Detailed diagnostics reject Build 431's fake-surface **occupancy** behavior while retaining the top-level fake-root host decision.
+
+Observed:
+- the Combined render attaches at fixed root-overlay bounds `722,0-827,169`;
+- the same bounds are used in normal and charging-island pulls;
+- native Control Center fraction then advances through the transition while the Combined visual is already located at the stable Battery endpoint;
+- represented fake Wi-Fi/mobile/Battery are visually clipped, but their native layout occupancy is not removed;
+- the result is a large empty gap between preceding native status icons and Combined Status during pull-down;
+- charging-island samples additionally report `addBatteryIsland=true` and `batteryWidthDiff=-135`, but the desired Combined endpoint remains the same logical Battery slot as the non-island case.
+
+**Root cause:** Build 431 solved appearance ownership but not occupancy ownership. A root overlay correctly inherits HyperOS fake/final alpha and root motion, yet clip-only suppression cannot compact the fake `MiuiStatusIconContainer`.
+
+### 问题执行流程
+
+1. Preserve Build-430/431 evidence that `ControlCenterFakeStatusIcons` is the correct visual/appearance carrier.
+2. Reject a project-owned interpolation or `batteryWidthDiff` compensation: neither addresses the retained Wi-Fi/mobile slot widths.
+3. Reuse HyperOS's own status-icon measure/layout path so remaining native icons are reflowed by the native container.
+4. Keep one stable Battery logical slot for Combined Status across Battery-visible and Battery-hidden charging-island states.
+5. Delay visual cutover until the native compact layout has completed to avoid a first-frame blank/overlap.
+
+### Implementation
+
+- Keep `CombinedStatusRenderView` on `ControlCenterFakeStatusIcons.overlay`.
+- Extend the existing `SystemUiHomePresentationOwner` Hook substrate to host a second **transient Control Center session**:
+  - no additional `MiuiStatusIconContainer.onMeasure/onLayout` Hook;
+  - no additional `MiuiStatusBatteryContainer.setIsHideBattery` Hook;
+  - session routing is by exact target View identity.
+- During fake native measure/layout, temporarily add represented slots to the target container's native `ignoredSlots`; restore only module-owned entries after the native method returns.
+- Reuse the existing stable end-reservation policy:
+  - native Battery visible and actual width equals requested stable slot -> padding delta 0;
+  - native Battery hidden -> reserve requested stable Battery slot width;
+  - a wider native Battery presentation does not redefine the Combined logical endpoint.
+- Defer clip masks until the first native fake `onLayout` after requestLayout.
+- Only after that layout reports ready does the root overlay become visible and Home yield.
+- Move native fake clip-mask ownership into the shared compact session; remove duplicate clip-mask ownership from `CombinedStatusControlCenterRenderSession`.
+- Keep `batteryWidthDiff` diagnostic-only for this path; Build 432 does not consume it as a Combined Status translation or endpoint.
+- Hot Reload and detach cleanup restore transient fake padding + clip state before releasing the session.
+
+### 审查 / review
+
+- **Ownership:** top-level fake root remains the visual/appearance owner; child `MiuiStatusIconContainer` owns native peer layout; Combined owns only its overlay and reversible compact presentation state.
+- **Single writer:** the already installed three presentation Hooks are shared; no second measure/layout/hide Hook set is introduced.
+- **Lifecycle:** Home and transient Control Center sessions coexist only on distinct native target Views and are routed by identity.
+- **Readiness:** `Prepared -> native onMeasure/onLayout -> masks/reservation ready -> Combined visible -> Home yield`.
+- **Cleanup:** owned ignored-slot entries are temporary; clip bounds and padding restore only module-owned values; transient session is stopped on hide, host replacement, layout failure, feature disable, and Hot Reload.
+- **Fail native:** unresolved/mismatched native structures, padding writer conflicts, layout failure, or mask failure restore native presentation and keep Home/native SystemUI available.
+- **Performance:** event/layout driven; Hook count unchanged; no polling, delay, frame follower, or custom animation.
+- **Charging island:** `mIsHideBattery` only decides whether the stable logical Battery slot must be reserved; `batteryWidthDiff` does not move the Combined endpoint.
+- **Final QS:** unchanged; native fake-root alpha still performs fake->final yield.
+
+### Automated validation
+
+- Frozen executable SHA: `f5efbaebedabc2deaae7c45ad84a07f0d0433d61`.
+- Draft Light #1425 / run `36448817816`: success.
+- Ready Fast #1426 / run `36448904739`: success, including target-profile verification, unit tests/build, and Modern Xposed metadata.
+- Signed Work Branch Canary #428 / run `36449162900`: success on the same exact trusted-source SHA.
+- Canary artifact: `CombinedStatus-0.0.2-HyperOS-20260928-432-canary.apk`; artifact id `10982242768`; ZIP digest `sha256:3c812f4bb0c0aa20903d62a501e85aa5e4116798f376c43f05d8546d7f1182d7`; extracted APK SHA-256 `6b652a102dab66fdc3c3b65706388b238d5b8647bf82e7f61739778469aa2763`; extracted size 3,309,602 bytes.
+- Haple signature, Modern Xposed metadata, and Canary non-debuggable checks passed.
+- PR #156 is returned to Draft and executable runtime is frozen pending focused device evidence.
+
+### Device gate
+
+Normal pull/return + charging-island pull/return; verify compact spacing throughout the transition, the same logical Battery endpoint in both states, native-only final QS, and clean Home restoration.
+
+
+
+## 2026-09-28 — Build 431: move Control Center projection onto native fake root
+
+**Type:** Phase-2B root-cause correction / executable device checkpoint
+**Build:** 431 / `20260928-431`
+**Work branch / PR:** `fix/control-center-fake-root` / #156
+**Base:** current `dev` Build 429 / MIUIX `0.9.4-5c91d5e5-SNAPSHOT`
+
+### Build 430 device result
+
+The Build-430 Detailed report closes the top-level fake-carrier gate.
+
+Normal pull:
+- `ControlCenterFakeStatusIcons` root is `visibility=VISIBLE`, `alpha=1.0`, size `827x169` while native fake presentation is active;
+- at the native fake->final handoff the same root remains visible but HyperOS changes only its alpha to `0.0`;
+- child `MiuiStatusBatteryContainer statusBarArea` remains `visibility=VISIBLE`, `alpha=1.0`, size `587x169`.
+
+Charging-island pull:
+- the same root behavior repeats unchanged;
+- `addBatteryIsland=true` and `batteryWidthDiff=-135` affect Home/Battery presentation;
+- Home Battery is hidden/faded, but the top-level fake root remains `alpha=1.0` until the native fake->final handoff, then becomes `alpha=0.0`.
+
+**Conclusion:** top-level `ControlCenterFakeStatusIcons` is the native transition appearance owner. The child `statusBarArea` is geometry/content, not appearance authority. This independently confirms that neither hidden source `realSystemIcons` nor child `QS_FAKE.system_icon_area` should host the Combined visual.
+
+### 问题执行流程
+
+**现象 -> 根因:** Build 428 attached a Combined overlay to the selected Home source carrier, but HyperOS hides that source during Control Center ownership. Builds 425-427 instead coupled the Combined visual to the child fake Battery/system-icon area. Build 430 proves the missing abstraction is the top-level fake presentation root.
+
+**SystemUI contract:** native root alpha already defines fake-vs-final ownership. Reusing that root removes the need for a project appearance threshold, timer, interpolation, or second alpha writer.
+
+**Implementation choice:** attach Combined Status to `ControlCenterFakeStatusIcons.overlay`; locate the unique descendant `MiuiStatusBatteryContainer` only as geometry/tint/native-content source; use reversible clip masks for represented fake Wi-Fi/mobile/Battery after render readiness.
+
+**Rejected alternatives:** do not restore `realSystemIcons.overlay`, child `statusBarArea.overlay`, compact registry, status-icon end padding, temporary slot-exclusion hooks, local expansion thresholds, island offsets, custom alpha, or final-QS mutation.
+
+### Implementation
+
+- `SystemUiPanelTransitionSource` now resolves the verified top-level fake presentation root on native `onVisibleChanged(true)`.
+- `CombinedStatusControlCenterRenderSession`:
+  - verifies exact root class `ControlCenterFakeStatusIcons`;
+  - resolves exactly one descendant `MiuiStatusBatteryContainer`;
+  - resolves fake `MiuiStatusIconContainer`, `MiuiBatteryMeterView`, and stable battery core width;
+  - attaches `CombinedStatusRenderView` to the **root overlay**;
+  - maps the child status-area end slot into root coordinates;
+  - inherits root translation/alpha/visibility from SystemUI;
+  - masks native fake Battery plus represented Wi-Fi/mobile/airplane/no-SIM views with reversible `clipBounds`;
+  - restores masks on loss of readiness, detach, replacement, or cleanup.
+- Readiness ordering is `model + tint + layout + attached root -> masks -> Combined visible -> Home yield`.
+- Mask failure restores native fake content and returns readiness false, preserving fail-native behavior.
+- Build identity advances from 430 to 431.
+
+### 审查 / review
+
+- **Ownership:** SystemUI remains sole fake/final appearance and motion owner.
+- **Single writer:** Combined Status writes only its own overlay plus owned reversible clip bounds on represented fake native views; no native alpha/visibility/translation/padding writer is introduced.
+- **Lifecycle:** one session per resolved fake root; attach/detach and root replacement are explicit.
+- **Cleanup:** every owned clip state stores the native value and restores only if the live value still equals the module-applied mask.
+- **Fail native:** unresolved root, non-unique child status area, missing Battery/status-icons/carrier, tint/layout loss, or clip-writer conflict keeps/restores native Control Center.
+- **Performance:** event/layout driven only; no polling, frame follower, delay, or per-frame reflection.
+- **Compatibility:** exact root class plus structural descendant checks fail closed on unsupported layouts.
+- **Charging island:** Combined projection no longer inherits child Battery alpha/visibility; island motion remains native.
+- **Final QS:** untouched; root alpha naturally hides both native fake content and the Combined root overlay when HyperOS switches to final QS.
+
+### Automated validation
+
+- Draft Light #1403 / run `36444967549`: success.
+- Ready Fast #1404 / run `36445016937`: success on exact executable SHA `eb0aac6104ce51e1cdbabfdfc00dc34d17fb3a6a`, including target-profile verification, unit tests/build, and Modern Xposed metadata checks.
+- Signed Work Branch Canary #426 / run `36445319566`: success on the same exact executable SHA.
+- Canary artifact: `CombinedStatus-0.0.2-HyperOS-20260928-431-canary.apk`; artifact id `10980247565`; artifact ZIP digest `sha256:0c10c4783a5e49d56e91f64ae420bcf34b0fcfea500a83c4739bf4ee9af2f15b`; extracted APK SHA-256 `8947c44af9adb83ea0f26fd36b7ec572ecb477a89b319d1cd338cadaae63a804`; extracted APK size 3,309,602 bytes.
+- Haple signature, Modern Xposed metadata, and Canary non-debuggable verification passed.
+- PR #156 is returned to Draft; Build-431 executable source is frozen pending focused device evidence.
+
+### Device test
+
+1. normal pull/return;
+2. charging-island pull/return;
+3. verify Combined Status is visible during partial pull and disappears exactly with native fake root at final QS;
+4. verify no native Wi-Fi/mobile/Battery overlap and no large spacing regression;
+5. verify Home returns cleanly on close;
+6. export Detailed diagnostics if any mismatch appears.
+
+
+
+## 2026-09-28 — Build 430: probe top-level Control Center fake presentation
+
+**Type:** Phase-2B bounded diagnostic checkpoint
+**Build:** 430 / `20260928-430`
+**Base:** current `dev` Build 429 / MIUIX `0.9.4-5c91d5e5-SNAPSHOT`
+**Work branch:** `fix/control-center-fake-root`
+
+### Build 428 device result
+
+Build 428 device evidence closes two assumptions.
+
+1. `ControlCenterHeaderExpandController.realSystemIcons` is the selected Home/Keyguard source reference, not the visible Control Center status-bar presentation. The projection can report attached/ready while that source `MiuiStatusBatteryContainer` is natively `alpha=0`, `visibility=INVISIBLE`; the maintainer therefore sees native Control Center icons throughout partial pull.
+2. Charging-island samples show `isAddBatteryIsland=true`, `batteryWidthDiff=-135`, and native Battery hide/fade. That is a Battery-specific HyperOS presentation rule. Combined Status must not inherit whole-view disappearance because it still represents Wi-Fi/mobile state.
+
+The Build-428 appearance probe is stable enough to show a native fake/final ownership transition, but no local fraction threshold or guessed boolean semantic is promoted.
+
+### Route correction
+
+- Keep Build 420 as source-geometry/readiness evidence only.
+- Retire `realSystemIcons.overlay` as the active transition display host under the Build-424 Home lifecycle.
+- Keep Builds 425-427 rejected: they place compact ownership/rendering inside child `QS_FAKE.system_icon_area` and couple the visual to Battery/island child behavior.
+- Next candidate: the **top-level `ControlCenterFakeStatusIcons` View**, which SystemUI owns as the fake transition presentation above the child statusBarArea.
+
+### Build 430 implementation
+
+- Reuse the already runtime-verified reflection chain:
+  `ControlCenterHeaderExpandController.headerController -> dagger.Lazy.get() -> CombinedHeaderController.controlCenterFakeStatusBar`.
+- Stop at the top-level fake View and record:
+  - class;
+  - visibility;
+  - alpha;
+  - width/height.
+- Read the child `statusBarArea` state alongside it for comparison.
+- Append the snapshot to the existing `controlCenterAppearance` diagnostic.
+- Carry forward Build-428 appearance observation.
+- Preserve the current dev MIUIX pin and advance runtime identity to Build 430.
+
+### 审查 / review
+
+- **Ownership:** HyperOS remains sole owner of fake/final selection, Header translation, alpha, and island behavior.
+- **Single writer:** Build 430 is read-only; no presentation/geometry writer is added.
+- **Lifecycle:** observation runs only on the existing native appearance callback.
+- **Cleanup:** no View/session resource is created.
+- **Fail native:** unresolved exact reflection contracts do not trigger fallback geometry or guessed hosts.
+- **Performance:** low-frequency reflection only on native appearance events; no polling/frame follower.
+- **Charging island:** Battery/statusBarArea hide state is observed but not inherited as Combined Status visibility policy.
+- **Future extension:** only a successful device result may justify moving a later Combined Status overlay to the fake root.
+
+### Automated validation
+
+- Draft Light #1388 / run `36442234361`: success.
+- Ready Fast #1389 / run `36442278475`: success on exact executable SHA `d12db71a25ce2671e7deb41bf4b3636dc62c1881`, including target-profile verification, unit tests/build, and Modern Xposed metadata checks.
+- Signed Work Branch Canary #424 / run `36442559462`: success on the same exact executable SHA.
+- Canary artifact: `CombinedStatus-0.0.2-HyperOS-20260928-430-canary.apk`; artifact id `10978264293`; artifact ZIP digest `sha256:575c0815c6aa559320ec90fa9d0de974b58fa502af2bdbe2290ed9908ba7229c`; extracted APK SHA-256 `83feeabf7c5fac6a038e91fa4e5ea4d55aec8169303fd83232008457a7db0ad6`; extracted APK size 3,309,598 bytes.
+- Haple signature, Modern Xposed metadata, and Canary non-debuggable verification passed.
+- PR #156 is returned to Draft and executable runtime is frozen pending focused device evidence.
+
+### Device gate
+
+One normal Control Center pull/return and one charging-island pull/return are sufficient if Detailed diagnostics include the new `fakePresentation={...}` snapshots.
+
+
+## 2026-09-28 — Build 428 device evidence closes realSystemIcons display-host hypothesis
+
+**Type:** Phase-2B device evidence
+**Build:** 428 / `20260928-428`
+**Historical PR:** #154 `fix/control-center-appearance-boundary`
+
+Maintainer feedback: partial pull remained visually native; with charging island active the native Battery disappeared as expected from HyperOS, but Combined Status must not disappear with Battery because it also carries network state.
+
+Detailed diagnostics confirm the projected source carrier was structurally ready while the source `MiuiStatusBatteryContainer` itself was hidden by native Control Center lifecycle. This invalidates the source-overlay display-host assumption and provides the evidence required to close the frozen Build-428 diagnostic line. The next executable work must start from current `dev`, preserving the later MIUIX Build-429 integration rather than rebasing the old frozen checkpoint in place.
 
 
 ## 2026-09-29 — Build 436: align Floating Navigation material and content options
