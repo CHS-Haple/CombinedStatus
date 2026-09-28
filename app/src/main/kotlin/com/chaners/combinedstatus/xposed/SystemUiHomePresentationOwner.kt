@@ -36,12 +36,15 @@ internal object SystemUiHomePresentationOwner {
     private var ignoredSlotsField: Field? = null
     private var batteryHideField: Field? = null
     private var current: Session? = null
+    private var keyguardCurrent: Session? = null
     private var controlCenterCurrent: Session? = null
     private var controlCenterEventSink: ((String) -> Unit)? = null
     private var controlCenterFailNativeSink: ((String) -> Unit)? = null
     private var controlCenterReadySink: ((ControlCenterStateResult.Active) -> Unit)? = null
     private var eventSink: ((String) -> Unit)? = null
     private var failNativeSink: ((String) -> Unit)? = null
+    private var keyguardEventSink: ((String) -> Unit)? = null
+    private var keyguardFailNativeSink: ((String) -> Unit)? = null
 
     val installedHookCount: Int
         @Synchronized get() = listOfNotNull(measureHook, layoutHook, batteryHideHook).size
@@ -277,8 +280,104 @@ internal object SystemUiHomePresentationOwner {
     }
 
     @Synchronized
+    fun activateKeyguard(
+        resolved: SystemUiKeyguardHostResolver.ResolvedHost,
+        onEvent: (String) -> Unit,
+        onFailNative: (String) -> Unit,
+    ): StateResult {
+        if (Looper.myLooper() !== Looper.getMainLooper()) {
+            return StateResult.Failure("main-thread-required")
+        }
+        if (installedHookCount != 3) {
+            return StateResult.Failure("hooks-not-ready")
+        }
+
+        val field =
+            ignoredSlotsField
+                ?: return StateResult.Failure("ignored-slots-field-unavailable")
+        val hideField =
+            batteryHideField
+                ?: return StateResult.Failure("battery-hide-field-unavailable")
+        SystemUiHomeCarrierMetrics.resolveCarrierWidthPx(resolved.batteryCarrier)
+            ?: return StateResult.Failure("keyguard-battery-core-width-unavailable")
+
+        @Suppress("UNCHECKED_CAST")
+        val list =
+            runCatching { field.get(resolved.statusIcons) as? MutableList<String> }.getOrNull()
+                ?: return StateResult.Failure("keyguard-ignored-slots-list-unavailable")
+        list.size
+
+        keyguardEventSink = onEvent
+        keyguardFailNativeSink = onFailNative
+
+        val existing = keyguardCurrent
+        if (
+            existing?.matches(
+                host = resolved.host,
+                statusIcons = resolved.statusIcons,
+                batteryContainer = resolved.systemIcons,
+                battery = resolved.battery,
+                batteryCarrier = resolved.batteryCarrier,
+            ) == true
+        ) {
+            existing.syncEndReservation()
+            val masked = existing.refreshClipMasks()
+            resolved.systemIcons.requestLayout()
+            return StateResult.Active(representedSlots.size, masked, true)
+        }
+
+        existing?.stop("keyguard-host-replaced")
+        val session =
+            Session(
+                host = resolved.host,
+                statusIcons = resolved.statusIcons,
+                batteryContainer = resolved.systemIcons,
+                battery = resolved.battery,
+                batteryCarrier = resolved.batteryCarrier,
+                ignoredSlotsField = field,
+                batteryHideField = hideField,
+                surfaceName = "keyguard",
+                eventPrefix = "keyguardPresentation",
+                retainReservationOnTransientLiveWidthLoss = false,
+                onEvent = { event -> keyguardEventSink?.invoke(event) },
+                onFailNative = ::onKeyguardSessionFailure,
+            )
+        keyguardCurrent = session
+        val masked = session.start()
+        resolved.systemIcons.requestLayout()
+        keyguardEventSink?.invoke(
+            "keyguardPresentation active carrier=MiuiStatusBatteryContainer.overlay " +
+                "representedSlots=" + representedSlots.joinToString(",") +
+                " maskedViews=" + masked +
+                " slotExclusion=scoped-native-measure-layout " +
+                "carrierReservation=status-icons-end-padding " +
+                "carrierAuthority=battery_icon_container visualMask=clipBounds " +
+                "motion=keyguard-system-icons-inherited " +
+                "nativeLayoutReservationWrites=1 nativeTranslationWrites=0 " +
+                "nativeAlphaWrites=0 nativeVisibilityWrites=0",
+        )
+        return StateResult.Active(representedSlots.size, masked, false)
+    }
+
+    @Synchronized
+    fun deactivateKeyguard(source: String): StateResult {
+        val session = keyguardCurrent ?: return StateResult.Inactive(0)
+        keyguardCurrent = null
+        val restored = session.stop(source)
+        keyguardEventSink?.invoke(
+            "keyguardPresentation inactive source=" + source +
+                " restoredViews=" + restored +
+                " nativeTranslationWrites=0 nativeAlphaWrites=0 nativeVisibilityWrites=0",
+        )
+        keyguardEventSink = null
+        keyguardFailNativeSink = null
+        return StateResult.Inactive(restored)
+    }
+
+    @Synchronized
     fun ownsBatteryContainer(candidate: ViewGroup): Boolean =
-        current?.ownsBatteryContainer(candidate) == true
+        current?.ownsBatteryContainer(candidate) == true ||
+            keyguardCurrent?.ownsBatteryContainer(candidate) == true
 
     @Synchronized
     fun activateControlCenter(
@@ -473,17 +572,28 @@ internal object SystemUiHomePresentationOwner {
                     requestLayout = requestLayout,
                 )
             } ?: 0
+        val keyguardRestored =
+            keyguardCurrent?.let { session ->
+                keyguardCurrent = null
+                session.stop(
+                    source = "hotReload-oldGeneration",
+                    requestLayout = requestLayout,
+                )
+            } ?: 0
         controlCenterEventSink = null
         controlCenterFailNativeSink = null
         controlCenterReadySink = null
         eventSink = null
         failNativeSink = null
-        return homeRestored + controlCenterRestored
+        keyguardEventSink = null
+        keyguardFailNativeSink = null
+        return homeRestored + keyguardRestored + controlCenterRestored
     }
 
     @Synchronized
     fun resetRuntimeState(source: String) {
         deactivateControlCenter(source)
+        deactivateKeyguard(source)
         deactivate(source)
         runCatching { measureHook?.unhook() }
         runCatching { layoutHook?.unhook() }
@@ -537,6 +647,7 @@ internal object SystemUiHomePresentationOwner {
                 synchronized(this) {
                     controlCenterCurrent?.takeIf { candidate -> candidate.owns(target) }
                         ?: current?.takeIf { candidate -> candidate.owns(target) }
+                        ?: keyguardCurrent?.takeIf { candidate -> candidate.owns(target) }
                 } ?: return@Hooker chain.proceed()
 
             val result = session.withRepresentedSlotsIgnored { chain.proceed() }
@@ -557,6 +668,8 @@ internal object SystemUiHomePresentationOwner {
                     controlCenterCurrent
                         ?.takeIf { candidate -> candidate.ownsBatteryContainer(target) }
                         ?: current?.takeIf { candidate -> candidate.ownsBatteryContainer(target) }
+                        ?: keyguardCurrent
+                            ?.takeIf { candidate -> candidate.ownsBatteryContainer(target) }
                 }
             session?.syncEndReservation()
             result
@@ -571,6 +684,20 @@ internal object SystemUiHomePresentationOwner {
             "homePresentation failNative reason=" + reason + " restoredNative=true",
         )
         failNativeSink?.invoke(reason)
+    }
+
+    @Synchronized
+    private fun onKeyguardSessionFailure(reason: String) {
+        val session = keyguardCurrent ?: return
+        keyguardCurrent = null
+        session.stop("fail-native:" + reason)
+        keyguardEventSink?.invoke(
+            "keyguardPresentation failNative reason=" + reason +
+                " restoredNative=true",
+        )
+        keyguardFailNativeSink?.invoke(reason)
+        keyguardEventSink = null
+        keyguardFailNativeSink = null
     }
 
     @Synchronized
@@ -623,11 +750,14 @@ internal object SystemUiHomePresentationOwner {
         ignoredSlotsField = null
         batteryHideField = null
         controlCenterCurrent = null
+        keyguardCurrent = null
         controlCenterEventSink = null
         controlCenterFailNativeSink = null
         controlCenterReadySink = null
         eventSink = null
         failNativeSink = null
+        keyguardEventSink = null
+        keyguardFailNativeSink = null
     }
 
     private class Session(
