@@ -304,10 +304,10 @@ internal object SystemUiPanelTransitionSource {
 
     private fun resolveControlCenterFakePresentationHost(
         delegate: Any?,
-    ): ControlCenterPresentationHost? {
+    ): ViewGroup? {
         val contract = controlAnchorContract ?: return null
         val header = resolveControlCenterHeader(delegate) ?: return null
-        return contract.fakePresentationHost(header)
+        return contract.fakePresentationRoot(header)
     }
 
     private fun captureControlCenterAnchor(delegate: Any?): ControlCenterAnchorSnapshot? {
@@ -375,7 +375,7 @@ internal object SystemUiPanelTransitionSource {
         val expanded: Boolean?,
         val tracking: Boolean?,
         val visible: Boolean?,
-        val controlCenterPresentationHost: ControlCenterPresentationHost? = null,
+        val controlCenterPresentationHost: ViewGroup? = null,
         val controlCenterAnchor: ControlCenterAnchorSnapshot? = null,
         val homeMotion: SystemUiIslandMotionSource.OwnerSnapshot? = null,
     )
@@ -385,11 +385,6 @@ internal object SystemUiPanelTransitionSource {
     ) {
         CONTROL_CENTER("control-center"),
     }
-
-    internal data class ControlCenterPresentationHost(
-        val root: ViewGroup,
-        val statusBarArea: ViewGroup,
-    )
 
     internal data class ControlCenterFakePresentationSnapshot(
         val rootClassName: String?,
@@ -485,6 +480,9 @@ internal object SystemUiPanelTransitionSource {
         fun realSystemIcons(header: Any): ViewGroup? =
             runCatching { realSystemIconsField.get(header) as? ViewGroup }
                 .getOrNull()
+
+        fun fakePresentationRoot(header: Any): ViewGroup? =
+            fakeStatusBar(header)
 
         fun snapshotFromCallback(callback: Any?): ControlCenterAnchorSnapshot? {
             val header = headerFromCallback(callback) ?: return null
