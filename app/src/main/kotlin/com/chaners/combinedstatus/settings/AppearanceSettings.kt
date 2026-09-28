@@ -25,11 +25,17 @@ internal enum class FloatingNavigationStyle {
     Glass,
 }
 
+internal enum class FloatingNavigationContent {
+    IconOnly,
+    IconAndText,
+}
+
 internal data class AppearanceSettings(
     val themeMode: AppThemeMode = AppThemeMode.System,
     val dynamicColorEnabled: Boolean = false,
     val floatingNavigationBarEnabled: Boolean = true,
     val floatingNavigationStyle: FloatingNavigationStyle = FloatingNavigationStyle.Glass,
+    val floatingNavigationContent: FloatingNavigationContent = FloatingNavigationContent.IconOnly,
     val swipeBackEnabled: Boolean = true,
 )
 
@@ -61,6 +67,11 @@ internal fun decodeFloatingNavigationStyle(
         FloatingNavigationStyle.Blur
     }
 }
+
+internal fun decodeFloatingNavigationContent(storedContent: String?): FloatingNavigationContent =
+    FloatingNavigationContent.entries
+        .firstOrNull { it.name == storedContent }
+        ?: FloatingNavigationContent.IconOnly
 
 internal fun decodeThemeSelection(
     storedMode: String?,
@@ -110,6 +121,10 @@ internal class AppearanceSettingsRepository(context: Context) {
                         legacyBlurEnabled = preferences[LegacyBlurEnabledKey],
                         legacyGlassEnabled = preferences[LegacyGlassBottomBarEnabledKey],
                     ),
+                floatingNavigationContent =
+                    decodeFloatingNavigationContent(
+                        preferences[FloatingNavigationContentKey],
+                    ),
                 swipeBackEnabled = preferences[SwipeBackEnabledKey] ?: true,
             )
         }
@@ -144,6 +159,12 @@ internal class AppearanceSettingsRepository(context: Context) {
         }
     }
 
+    suspend fun setFloatingNavigationContent(content: FloatingNavigationContent) {
+        dataStore.edit { preferences ->
+            preferences[FloatingNavigationContentKey] = content.name
+        }
+    }
+
     suspend fun setSwipeBackEnabled(enabled: Boolean) {
         dataStore.edit { preferences ->
             preferences[SwipeBackEnabledKey] = enabled
@@ -159,6 +180,8 @@ internal class AppearanceSettingsRepository(context: Context) {
             booleanPreferencesKey("floating_navigation_bar_enabled")
         val FloatingNavigationStyleKey =
             stringPreferencesKey("floating_navigation_style")
+        val FloatingNavigationContentKey =
+            stringPreferencesKey("floating_navigation_content")
         val LegacyFloatingNavigationBlurEnabledKey =
             booleanPreferencesKey("floating_navigation_blur_enabled")
         val SwipeBackEnabledKey = booleanPreferencesKey("swipe_back_enabled")

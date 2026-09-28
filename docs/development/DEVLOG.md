@@ -3,6 +3,52 @@
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
 
+## 2026-09-29 — Build 436: align Floating Navigation material and content options
+
+**Type:** companion-app UI / MIUIX conformance
+**Build:** 436 / `20260929-436`
+**Work branch:** `feat/floating-navigation-options`
+**MIUIX baseline:** `0.9.4-5c91d5e5-SNAPSHOT` / `5c91d5e5ce1a2fc7e8bdc1258a881c555102bbca`
+**Validation:** pending PR CI and focused app-UI smoke
+
+### Problem / objective
+
+The production floating bottom bar used the pinned MIUIX `FloatingNavigationBar` but its project-owned Glass material had drifted from the same-revision upstream example: Combined Status used 22f blur, 0.45 surface-container blend, and Small glass highlight while the upstream example uses 25f, 0.6, and Middle. The maintainer also requested an Appearance option for icon-only versus icon-with-label floating navigation, with the live UI and Appearance preview staying synchronized.
+
+### Problem execution flow
+
+- Re-read the current app/MIUIX contribution rules and the pinned dependency identity.
+- Compared `MainHub.kt`, `FloatingNavigationGlass.kt`, and the Appearance preview against the exact pinned MIUIX `AppContent.kt` / `NavigationBar.kt`.
+- Confirmed that the native MIUIX `FloatingNavigationBarItem` remains icon-only; icon-with-label therefore needs a narrow project composition while retaining the upstream bar shell, dimensions, icon size, typography size, colors, state opacity, shape, shadow and blur material.
+- Kept the existing preference migration behavior and made icon-only the default so existing installations retain the current presentation.
+
+### Implementation / decision
+
+- Align Glass material with the pinned MIUIX example: 25f blur, 0.6 `surfaceContainer` blend, and `GlassStrokeMiddle`.
+- Add persisted `FloatingNavigationContent.IconOnly / IconAndText`; default and unknown values resolve to `IconOnly`.
+- Keep `FloatingNavigationBar` as the shell. The icon-only path delegates directly to `FloatingNavigationBarItem`; the label path adds only the item composition needed to display the existing localized label while reusing MIUIX public navigation defaults.
+- Add the content selector beside material style under Appearance.
+- Feed the same persisted content/material settings into the Appearance mini preview rather than maintaining a separate preview-only choice.
+
+### 审查 / review
+
+- **Ownership:** companion-app presentation only; no SystemUI Hook/runtime ownership changes.
+- **State:** one persisted appearance preference is the single source for both production bottom navigation and preview.
+- **Lifecycle:** DataStore/Compose flow follows the existing Appearance settings path; changes apply through recomposition without app/SystemUI restart.
+- **Single writer:** Glass material remains centralized in `floatingNavigationMaterial`; item content mode is centralized in `FloatingNavigationContentItem`.
+- **Performance:** no polling/listeners/background work; one additional enum preference and normal Compose state.
+- **Compatibility:** icon-only preserves upstream MIUIX behavior; icon-with-label is a project extension isolated behind the option.
+- **Future extension:** material and content remain orthogonal, so selected-label-only or alignment controls can be added later without changing the material contract.
+
+### CI / device validation
+
+Pending. Required focused smoke: Appearance selector/value persistence, live icon-only/icon-with-label switching, preview synchronization, light/dark Glass rendering, Home/Features/Settings navigation, and no regression in standard non-floating navigation.
+
+### Outcome / next step
+
+Run repository CI. If source/build checks pass, use one focused companion-app smoke checkpoint; no SystemUI runtime/device matrix is required for this app-only change.
+
+
 ## 2026-09-28 — Build 429: update MIUIX main-canary to 5c91d5e5
 
 **Type:** app UI dependency canary / upstream integration

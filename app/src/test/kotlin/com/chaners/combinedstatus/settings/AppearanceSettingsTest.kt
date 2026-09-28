@@ -12,6 +12,7 @@ class AppearanceSettingsTest {
 
         assertTrue(settings.floatingNavigationBarEnabled)
         assertEquals(FloatingNavigationStyle.Glass, settings.floatingNavigationStyle)
+        assertEquals(FloatingNavigationContent.IconOnly, settings.floatingNavigationContent)
     }
 
     @Test
@@ -77,6 +78,22 @@ class AppearanceSettingsTest {
                 legacyBlurEnabled = false,
                 legacyGlassEnabled = true,
             ),
+        )
+    }
+
+    @Test
+    fun floatingNavigationContentDefaultsToIconsOnly() {
+        assertEquals(
+            FloatingNavigationContent.IconOnly,
+            decodeFloatingNavigationContent(null),
+        )
+        assertEquals(
+            FloatingNavigationContent.IconOnly,
+            decodeFloatingNavigationContent("Unknown"),
+        )
+        assertEquals(
+            FloatingNavigationContent.IconAndText,
+            decodeFloatingNavigationContent("IconAndText"),
         )
     }
 

@@ -21,7 +21,7 @@ The project follows a Keep a Changelog-style structure. During pre-release devel
 - Debug, Canary, and Release build channels with diagnostics depth separated from core feature behavior; Canary is non-debuggable and release-optimized while retaining bounded runtime diagnostics.
 - Manual, explicitly confirmed SystemUI restart using bounded Root execution without a resident Root service.
 - MIUIX application shell with Home, Features, and Settings navigation, predictive back, direction-aware swipe-back, and adaptive launcher icons.
-- Appearance settings for light/dark mode, dynamic color, standard/floating navigation, Blur/Glass floating-navigation material, and in-app swipe-back behavior.
+- Appearance settings for light/dark mode, dynamic color, standard/floating navigation, Blur/Glass floating-navigation material, icon-only or icon-with-label floating-navigation content, and in-app swipe-back behavior.
 - Android 13+ per-app language selection for system default, English, and Simplified Chinese.
 - Optional launcher-icon hiding while retaining a non-launcher app entry point.
 - Runtime diagnostics UI for app/build, device/system, module compatibility, diagnostics level, and report actions.
@@ -29,6 +29,7 @@ The project follows a Keep a Changelog-style structure. During pre-release devel
 
 ### Changed
 
+- Floating-navigation Glass follows the pinned MIUIX example material baseline, and the Appearance preview consumes the same production material and content settings as the live bottom navigation.
 - Home status-icon tint now remains synchronized with the live HyperOS/SystemUI status-icon authority across module Hot Reload and repeated light/dark app/Home transitions, avoiding stale cross-scene tint snapshots while preserving native Battery semantic colors and fail-native behavior.
 
 
