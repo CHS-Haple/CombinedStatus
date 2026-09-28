@@ -50,6 +50,22 @@ class SystemUiHomePresentationOwnerTest {
     }
 
     @Test
+    fun deferredControlCenterCutoverMasksNativeVisualsBeforeCompactLayout() {
+        assertTrue(
+            SystemUiHomePresentationOwner.VisualMaskPolicy
+                .shouldMaskBeforeCompactCutover(
+                    deferVisualMaskUntilLayout = true,
+                ),
+        )
+        assertFalse(
+            SystemUiHomePresentationOwner.VisualMaskPolicy
+                .shouldMaskBeforeCompactCutover(
+                    deferVisualMaskUntilLayout = false,
+                ),
+        )
+    }
+
+    @Test
     fun transientLiveBatteryWidthLossIsDeferredOnlyAfterControlCenterCutover() {
         assertTrue(
             SystemUiHomePresentationOwner.EndReservationPolicy

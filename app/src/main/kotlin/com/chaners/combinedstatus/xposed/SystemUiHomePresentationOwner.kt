@@ -712,9 +712,20 @@ internal object SystemUiHomePresentationOwner {
             batteryCarrier.get()?.addOnLayoutChangeListener(carrierLayoutListener)
             if (!syncEndReservation()) return 0
 
-            if (deferVisualMaskUntilLayout) {
+            if (
+                VisualMaskPolicy.shouldMaskBeforeCompactCutover(
+                    deferVisualMaskUntilLayout,
+                )
+            ) {
                 compactLayoutReady = false
-                return 0
+                val masked = refreshClipMasks()
+                onEvent(
+                    eventPrefix + " preLayoutVisualMask active=true" +
+                        " maskedViews=" + masked +
+                        " compactLayoutReady=false" +
+                        " fallbackVisual=home-until-native-layout",
+                )
+                return masked
             }
 
             compactLayoutReady = true
@@ -1018,6 +1029,12 @@ internal object SystemUiHomePresentationOwner {
             fun from(view: View): PaddingState =
                 PaddingState(view.paddingStart, view.paddingTop, view.paddingEnd, view.paddingBottom)
         }
+    }
+
+    internal object VisualMaskPolicy {
+        fun shouldMaskBeforeCompactCutover(
+            deferVisualMaskUntilLayout: Boolean,
+        ): Boolean = deferVisualMaskUntilLayout
     }
 
     internal object EndReservationPolicy {
