@@ -57,9 +57,9 @@ Direction:
 - treat steady Home geometry as the source contract;
 - do **not** create a Notification-Shade Combined Status surface on the pinned target because the native Notification Shade does not expose the status-icon row there;
 - keep Notification Shade native-only and inherit Home departure/return from the verified native `system_icons` end-side carrier lifecycle rather than maintaining a project-local shade visibility gate;
-- treat Control Center as a **transition destination**, not a persistent Combined Status scene;
+- current maintainer design concept treats Control Center as a **transition destination**, not a persistent Combined Status scene; verify this against the exact lifecycle chain before promoting it to final architecture;
 - during a partial pull, bridge the source Combined Status presentation through verified native Control Center transition geometry/progress so the gesture visually connects to HyperOS;
-- at the fully expanded Control Center endpoint, yield completely to the native status-bar presentation; no persistent Combined Status surface remains there;
+- the maintainer currently prefers a fully expanded native-only Control Center endpoint; treat that as a target hypothesis until exact endpoint ownership is verified;
 - use verified native transition progress/endpoints only for that bounded bridge lifetime;
 - separate transition bridge lifetime/masking from the steady Home session;
 - preserve native peer animation and Control Center geometry ownership;
@@ -69,7 +69,7 @@ Accepted prerequisite: Build 413 closes the HUN/scene-lifetime boundary on the p
 
 Build-419 diagnostics plus maintainer clarification refine the remaining Phase-2B scope: Notification Shade is a **Home ownership boundary only**, while Control Center is the actual projection surface. The Build-419 bounded Notification-Shade probe is therefore retired rather than promoted into production.
 
-Build 420 establishes that `realSystemIcons` is a viable native Control Center carrier and that readiness-ordered handoff can be made continuous. That runtime evidence is retained, but the product target is now narrower: the carrier is a **transition bridge only**, not the fully expanded Control Center steady surface. Build 424 separately corrects the Home/Notification-Shade boundary by moving the Home render overlay into the exact native `system_icons` / `MiuiStatusBatteryContainer` end-side carrier and removing the project-local Notification progress visibility writer.
+Build 420 establishes that `realSystemIcons` is a viable native Control Center carrier and that readiness-ordered handoff can be made continuous. That runtime evidence is retained. The maintainer's current design concept would scope the carrier to transition bridging rather than the fully expanded endpoint, but this is not yet a verified lifecycle conclusion. Build 424 separately corrects the Home/Notification-Shade boundary by moving the Home render overlay into the exact native `system_icons` / `MiuiStatusBatteryContainer` end-side carrier and removing the project-local Notification progress visibility writer.
 
 Exit criteria:
 - clean Home departure and return;
@@ -81,13 +81,13 @@ Exit criteria:
 
 Reuse the stabilized domain state, renderer semantics, ownership rules, and fail-native behavior while giving each scene its own verified host/lifecycle adapter.
 
-The long-term scene model is deliberately symmetric:
-- **Unlocked source scene:** Home steady Combined Status -> native HyperOS partial-pull transition bridge -> fully expanded Control Center native-only.
-- **Locked source scene:** Keyguard steady Combined Status -> native HyperOS partial-pull transition bridge -> fully expanded Control Center native-only.
+The maintainer's current scene concept is intentionally symmetric, but remains a planning hypothesis until the exact Keyguard/Control Center lifecycle review:
+- **Unlocked concept:** Home steady Combined Status -> partial-pull transition continuity -> fully expanded Control Center native-only.
+- **Locked concept:** Keyguard steady Combined Status -> partial-pull transition continuity -> fully expanded Control Center native-only.
 - Notification Shade remains native-only on the pinned target.
 - AOD keeps its own verified host/lifecycle contract and must not be inferred from either source scene.
 
-Home and Keyguard may share renderer/domain state and transition-coordinator policy, but they must keep separate verified host adapters and source ownership. Do not build a second lockscreen-specific state machine or revive historical motion/alignment patch chains.
+Exact-target review should determine whether Home/Keyguard truly map to separate steady adapters plus one transition coordinator, or whether HyperOS exposes a cleaner shared lifecycle abstraction. Discuss that evidence before locking the model. Do not build a second lockscreen-specific state machine or revive historical motion/alignment patch chains.
 
 ## Phase 4 — App Home + Preview Sandbox — design confirmed, implementation planned
 
