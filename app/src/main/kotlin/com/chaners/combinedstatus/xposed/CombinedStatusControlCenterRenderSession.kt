@@ -23,6 +23,7 @@ internal object CombinedStatusControlCenterRenderSession {
     private var current: Session? = null
     private var pendingPrearm: PendingPrearm? = null
     private var sceneEligible = false
+    private var sceneEligibilityKnown = false
 
     @Synchronized
     fun prearmAfterNextNativeLayout(
@@ -53,7 +54,7 @@ internal object CombinedStatusControlCenterRenderSession {
                 onEvent = onEvent,
                 isDetailedDiagnosticsEnabled = isDetailedDiagnosticsEnabled,
                 onProjectionReadinessChanged = onProjectionReadinessChanged,
-                sceneEligible = sceneEligible,
+                initialSceneEligible = sceneEligible,
             )
         pendingPrearm = pending
         pending.start()
@@ -85,14 +86,18 @@ internal object CombinedStatusControlCenterRenderSession {
         val carrier =
             SystemUiHomeCarrierMetrics.resolveCarrierView(battery)
                 ?: return AttachResult.Failure("battery-core-carrier-missing")
-        val resolvedSurface =
-            SystemUiSceneStateSource.currentState(battery)?.surface
-                ?: SystemUiSceneStateSource.Surface.UNKNOWN
-        sceneEligible =
-            CombinedStatusScenePolicy.controlCenterProjectionEligible(
-                surface = resolvedSurface,
-                keyguardEnabled = false,
-            )
+        if (!sceneEligibilityKnown) {
+            val resolvedSurface =
+                SystemUiSceneStateSource.currentState(battery)?.surface
+                    ?: SystemUiSceneStateSource.Surface.UNKNOWN
+            sceneEligible =
+                CombinedStatusScenePolicy.controlCenterProjectionEligible(
+                    surface = resolvedSurface,
+                    keyguardEnabled = false,
+                )
+            sceneEligibilityKnown =
+                resolvedSurface != SystemUiSceneStateSource.Surface.UNKNOWN
+        }
 
         val existing = current
         if (
@@ -104,6 +109,7 @@ internal object CombinedStatusControlCenterRenderSession {
                 carrier = carrier,
             ) == true
         ) {
+            existing.setSceneEligible(sceneEligible)
             existing.refresh()
             return existing.prepareNativePresentation(reused = true)
         }
@@ -135,6 +141,7 @@ internal object CombinedStatusControlCenterRenderSession {
 
     @Synchronized
     fun setSceneEligible(eligible: Boolean) {
+        sceneEligibilityKnown = true
         sceneEligible = eligible
         val session = current
         session?.setSceneEligible(eligible)
@@ -273,7 +280,6 @@ internal object CombinedStatusControlCenterRenderSession {
         }
         current?.stop(source)
         current = null
-        sceneEligible = false
     }
 
     @Synchronized
@@ -455,6 +461,7 @@ internal object CombinedStatusControlCenterRenderSession {
         private val onEvent: (String) -> Unit,
         private val isDetailedDiagnosticsEnabled: () -> Boolean,
         private val onProjectionReadinessChanged: (Boolean) -> Unit,
+        initialSceneEligible: Boolean,
     ) : View.OnAttachStateChangeListener {
         private val host = WeakReference(host)
         private val statusBarArea = WeakReference(statusBarArea)
@@ -467,7 +474,7 @@ internal object CombinedStatusControlCenterRenderSession {
 
         private var requestedVisible = false
         private var featureEnabled = RuntimeFeaturePreferencesOwner.currentSettings().enabled
-        private var sceneEligible = sceneEligible
+        private var sceneEligible = initialSceneEligible
         private var modelReady = false
         private var tintReady = false
         private var layoutReady = false
