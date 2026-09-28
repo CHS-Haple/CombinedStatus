@@ -209,6 +209,42 @@ Combined Status differs from a battery-only compact representation because netwo
 
 ---
 
+## 7. Exact-target QS_FAKE Battery-Island translation contract
+
+**Observed and statically verified on the pinned target.**
+
+Source artifact:
+- HyperOS SystemUI `17.03.260226.r`
+- versionCode `202602260`
+- SHA-256 `a0e738e41fe599b97950cbf52a9e2ddc6ae2ceff986efbacb1c9840bea78768d`
+- reviewed with JADX 1.5.6
+
+The target separates Control Center status presentation into:
+- `ControlCenterFakeStatusIcons` / `StatusBarLocation.QS_FAKE` / layout-from tag 5;
+- `ControlCenterStatusBarIcon` / `StatusBarLocation.QS` / layout-from tag 6.
+
+`ControlCenterHeaderExpandController.updateLocation()` computes ordinary status-icon translation from the real-status-bar and Control Center endpoints. For Battery Island it deliberately overrides the ordinary Battery width difference with the negative **full Control Center Battery View width**.
+
+The expansion callback then applies:
+- final QS surface: progress-scaled normal status-icon translation;
+- QS_FAKE surface: the same progress-scaled translation **plus the unscaled `batteryWidthDiff`**.
+
+Device evidence `normalStatusIconsTx=181`, `batteryWidthDiff=-135` is therefore internally consistent: at progress 0 the fake endpoint is `181 - 135 = 46`, while at progress 1 it becomes `-135`. The non-island `46/0` case moves `46 -> 0`. A visibly larger leftward Battery-island trajectory is native behavior, not proof of project-owned drift.
+
+`MiuiBatteryMeterView.updateIslandChanged()` independently confirms the same ownership model: Battery Island calls `MiuiStatusBatteryContainer.setIsHideBattery(true)`, makes the Battery view non-visible, and the Battery island animation uses the full `getWidth()`. `MiuiStatusBatteryContainer` then excludes hidden Battery width from normal occupied layout.
+
+### Reusable principle
+
+Treat native root motion and project-local replacement geometry as separate contracts:
+
+`native QS_FAKE root motion -> inherited by overlay`
+
+`stable logical replacement slot -> owned by Combined Status presentation`
+
+Do **not** turn the difference between full native Battery presentation width and stable Combined carrier width into a magic compensation. In particular, do not add `batteryWidthDiff` to Combined Status translation: the parent QS_FAKE root already carries it.
+
+---
+
 ## 7. Native progress + real endpoints for scene projection
 
 **Observed.**

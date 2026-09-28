@@ -3,6 +3,61 @@
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
 
+## 2026-09-29 — Charging-island trajectory investigation: native QS_FAKE contract confirmed
+
+**Type:** post-integration exact-target investigation / no executable build
+**Branch:** `fix/control-center-island-geometry`
+**Runtime baseline:** validated `dev` Build 441 / `149bbab091f7416fd116f0f9b986c348ba0cb6ff`
+**Executable change:** none
+
+### Trigger
+
+Build-441 diagnostics repeatedly showed normal Control Center motion `normalStatusIconsTx=46 / batteryWidthDiff=0`, versus charging Battery-island motion `normalStatusIconsTx=181 / batteryWidthDiff=-135 / addBatteryIsland=true`. The maintainer had also visually observed a larger leftward trajectory while charging with Super Island.
+
+### Evidence reviewed
+
+- Historical diagnostics across Builds 388, 427, 428, 430, 432, 433 and 441 show the same island tuple, so it is not a Build-441 transient.
+- Exact pinned SystemUI APK was recovered from Library: `系统界面_17.03.260226.r(6).apk`, size 52,321,431 bytes, matching SystemUI-Reference SHA-256 `a0e738e41fe599b97950cbf52a9e2ddc6ae2ceff986efbacb1c9840bea78768d`.
+- JADX 1.5.6 exact-target review covered `ControlCenterHeaderExpandController`, its expansion and island callbacks, `ControlCenterFakeStatusIcons` / `CcFakeStatusBarIcons`, `ControlCenterStatusBarIcon` / `CcStatusBarIcons`, `MiuiBatteryMeterView`, and `MiuiStatusBatteryContainer`.
+- Project review covered `CombinedStatusControlCenterRenderSession.layoutProjection()` and `CombinedStatusHomeLayoutResolver`.
+
+### Native execution flow
+
+1. QS_FAKE and final QS are distinct native surfaces. QS_FAKE uses status-bar location/tag 5; final QS uses location/tag 6.
+2. Header `updateLocation()` computes `normalControlStatusIconsTranslationX` from real-status-bar vs Control Center endpoints.
+3. The ordinary Battery difference is `realBatteryWidth - controlCenterBatteryWidth`.
+4. When Battery Island is active, HyperOS explicitly overrides it with `batteryWidthDiff = -controlCenterBattery.getWidth()`.
+5. During expansion, `baseTx = (normalControlStatusIconsTranslationX + landShowingTranX + burnShakeTranX) * (1-progress)`.
+6. Final QS receives `baseTx`; QS_FAKE receives `baseTx + batteryWidthDiff`. The Battery offset is intentionally unscaled.
+7. The observed island values therefore produce `181-135=46` at progress 0 and `-135` at progress 1. Non-island `46/0` produces `46 -> 0`.
+8. Island add/remove is deferred while Control Center is expanding, preventing mid-gesture endpoint mutation.
+9. `MiuiBatteryMeterView.updateIslandChanged()` hides native Battery occupancy through `MiuiStatusBatteryContainer.setIsHideBattery(true)`; its island animation uses the full Battery View width.
+10. Combined Status is placed in the stable 105 px end slot inside `ControlCenterFakeStatusIcons.overlay` and inherits root alpha/translation. It does not write root translation or consume `batteryWidthDiff`.
+
+### Root-cause conclusion
+
+The larger charging-island leftward trajectory is **native HyperOS QS_FAKE behavior**, not an independent Combined Status 30 px alignment bug. The stable 105 px Combined carrier and the full native Battery presentation width used by island motion are two valid, different geometry semantics.
+
+### Rejected hypothesis / abandoned Build-442 attempt
+
+Before the exact-target chain was fully closed, an unmerged local-normalization attempt was briefly written on this work branch (commits `d1814d00b4c81f0d2d03ffb103e1ec6bc7cbea23`, `72254dd4d1e39fbdc6508d8ed97a0fd191635354`, record commit `5c1dc3f46061711678dfed58495721e062f8cd38`). It proposed canceling the Battery-island part of the inherited QS_FAKE root motion on the Combined overlay.
+
+Exact-target review rejects that premise: the `-batteryWidth` term is part of HyperOS's intended QS_FAKE transition contract, and Combined currently inherits the same native root surface. The attempt had no PR, no accepted CI checkpoint and no device validation; the work branch was reset to the validated Build-441 baseline before continuing. **Do not revive this route without new frame-level evidence that Combined diverges from native QS_FAKE peers.**
+
+### 审查 / review
+
+- **No magic compensation:** +/-30 px would encode a snapshot difference rather than a native contract.
+- **No double application:** feeding `batteryWidthDiff` into Combined translation would duplicate a term already applied by the parent QS_FAKE root.
+- **Motion ownership:** SystemUI remains the sole root motion writer.
+- **Local geometry:** Combined remains end-anchored to the stable carrier slot; current evidence does not establish a local slot-anchor error.
+- **Future gate:** reopen only with frame-level evidence of Combined-vs-native-peer divergence. Merely observing a larger island trajectory is expected.
+- **Performance/compatibility:** no Hook, listener, timer, polling, frame callback, runtime code or new Build is added.
+
+### Outcome
+
+No executable change. Close the 30 px compensation hypothesis as rejected and preserve Build 441 as the validated runtime baseline.
+
+
 ## 2026-09-29 — Build 441: continuous presentation ownership across Hot Reload generations
 
 **Type:** Hot Reload lifecycle / visual continuity correction
