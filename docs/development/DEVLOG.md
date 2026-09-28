@@ -2,6 +2,50 @@
 
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
+## 2026-09-28 — CI validation-surface routing and main/dev synchronization
+
+**Type:** repository automation / CI governance
+**PR:** #149 `ci: explain validation surface routing`
+**main squash:** `497be75c1754e49cb7a49b6abd73dcbd3bc010b3`
+**dev history-preserving sync:** `2e9b1716849d6709342a446f63e5b886c0aed9ae`
+
+### Problem / goal
+
+Long-lived work PRs can remain on Full after an earlier build/CI/tooling change even when a later checkpoint is only an ordinary runtime bug fix. That behavior is safe because classification uses the current base-to-head diff, but the reason was not visible enough and could look like "feat always runs Full".
+
+The objective was to improve operator clarity and branch hygiene without introducing a mutable "last Full" trust state, latest-commit-only bypass, or automatic device-test decision.
+
+### Implementation
+
+- Build classification still uses the current base-to-head diff as the safety authority.
+- The workflow now reports detected runtime, build, CI, tooling and docs surfaces plus the routing reason.
+- A mixed-surface warning appears when runtime work still carries a Full-triggering build/CI/tooling surface.
+- The warning is advisory only: it cannot downgrade Full. Splitting is recommended only when the high-risk surface is independently mergeable/reversible.
+- Routine `combinedStatus.versionCode` / `combinedStatus.buildId` handling and surface detection share one Gradle-property helper so the two classifiers cannot silently drift.
+- Signed work-branch Canary remains explicit/demand-driven; path detection does not decide whether device evidence is required.
+- `CONTRIBUTING.md` and `docs/development/README.md` now document the same routing contract.
+
+### Review / 审查
+
+- **safety authority:** no "latest commit only" rule and no mutable successful-Full checkpoint were introduced.
+- **scope monotonicity:** mixed-surface detection can only explain an existing Full requirement; it cannot lower validation scope.
+- **trust/secrets:** pull-request signing behavior is unchanged; project signing secrets remain unavailable to PR jobs.
+- **runtime/APK:** no app/SystemUI source, dependency resolution, signing identity, target profile contract, or release publication permission changed.
+- **maintainability:** review caught an over-escaped `gradle.properties` regex before merge; the duplicate logic was replaced by a shared helper.
+- **device validation:** not required because this is automation-only and does not change installed behavior.
+
+### Validation
+
+- PR Full Build #1311 / run `36360225987`: **success**. Summary reported `full`, reason `.github/workflows/build.yml`, surfaces `runtime=false, build=false, CI=true, tooling=false, docs=true`, mixed-surface review not required.
+- Post-merge `main` Full Build #1313 / run `36360461776`: **success**, including signing restore, Debug + Canary build, metadata/signature checks, non-debuggable verification and artifact publication.
+- History-preserving `main -> dev` sync Full Build #1317 / run `36360713070`: **success** with the same CI/docs surface classification. The produced artifacts retained Build 418 identity; Canary artifact id `10944899896`.
+- The automation sync does not create Build 419 or change the accepted Build-418 runtime tree.
+
+### Result
+
+The repository now explains why a checkpoint is Light/Fast/Integration/Full and flags mixed validation surfaces early. Ordinary runtime PRs remain Fast when their base-to-head diff contains only ordinary runtime/compatibility plus routine build identity changes; a PR remains Full while it still owns build/CI/tooling risk.
+
+
 ## 2026-09-28 — Build 422: remove duplicate Home scene writer
 
 **Type:** Phase-2B runtime ownership correction
