@@ -167,6 +167,16 @@ The current lifecycle investigation now verifies that HyperOS itself registers b
 
 This supports a candidate source -> native fake transition -> native real destination topology and argues against a project-owned six-state scene machine. It is evidence only; Build 424 remains unchanged and must be validated first. The plugin-side producer semantics for `appearance` remain outside the reviewed SystemUI APK and must not be guessed.
 
+
+
+### Build 424 automated-validation blocker
+
+Build 424 executable source remains `2556a098d35c202e1c5645a06e73757744f721e1`; subsequent branch changes are tests/documentation only.
+
+PR #146 is ready-for-review, but GitHub has emitted no `Build` workflow run for the current head after both the ready transition and subsequent synchronize events. The accepted `.github/workflows/build.yml` on `dev` explicitly includes `pull_request` types `ready_for_review` and `synchronize`, and the same connector successfully retrieves historical Build-423 workflow runs, so this is currently classified as a GitHub Actions event-delivery/triggering blocker rather than a source or routing failure.
+
+Do not bypass the required exact-head Build by requesting Canary early. Runtime remains frozen while static review continues.
+
 ## Immediate next step
 
 1. Build 424 static/source review is complete; keep its executable source frozen.
