@@ -66,6 +66,22 @@ class SystemUiHomePresentationOwnerTest {
     }
 
     @Test
+    fun continuousHotReloadHandoffSuppressesIntermediateLayoutRequest() {
+        assertFalse(
+            SystemUiHomePresentationOwner.HotReloadHandoffPolicy
+                .shouldRequestLayoutOnRelease(
+                    continuousHandoff = true,
+                ),
+        )
+        assertTrue(
+            SystemUiHomePresentationOwner.HotReloadHandoffPolicy
+                .shouldRequestLayoutOnRelease(
+                    continuousHandoff = false,
+                ),
+        )
+    }
+
+    @Test
     fun transientLiveBatteryWidthLossIsDeferredOnlyAfterControlCenterCutover() {
         assertTrue(
             SystemUiHomePresentationOwner.EndReservationPolicy

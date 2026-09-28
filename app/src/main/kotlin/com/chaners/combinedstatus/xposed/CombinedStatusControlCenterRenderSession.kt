@@ -64,6 +64,7 @@ internal object CombinedStatusControlCenterRenderSession {
         onEvent: (String) -> Unit,
         isDetailedDiagnosticsEnabled: () -> Boolean,
         onProjectionReadinessChanged: (Boolean) -> Unit,
+        transferredCompactReady: Boolean = false,
     ): AttachResult {
         if (Looper.myLooper() !== Looper.getMainLooper()) {
             return AttachResult.Failure("main-thread-required")
@@ -129,6 +130,10 @@ internal object CombinedStatusControlCenterRenderSession {
             ?: pendingPrearm?.host()?.takeIf { candidate -> candidate.isAttachedToWindow }
 
     @Synchronized
+    fun currentNativePresentationReadyForHotReload(): Boolean =
+        current?.nativePresentationReadyForHotReload() == true
+
+    @Synchronized
     fun restoreLaidOutHostAfterHotReload(
         host: ViewGroup,
         onEvent: (String) -> Unit,
@@ -158,16 +163,40 @@ internal object CombinedStatusControlCenterRenderSession {
                 isDetailedDiagnosticsEnabled = isDetailedDiagnosticsEnabled,
                 onProjectionReadinessChanged = onProjectionReadinessChanged,
             )
+        if (
+            result == AttachResult.Ready &&
+            shouldAdoptTransferredCompactReadiness(transferredCompactReady)
+        ) {
+            when (SystemUiHomePresentationOwner.adoptControlCenterLayoutCutoverFromHotReload()) {
+                is SystemUiHomePresentationOwner.ControlCenterStateResult.Active -> {
+                    if (isDetailedDiagnosticsEnabled()) {
+                        onEvent(
+                            "controlCenterProjection hotReloadRestore state=adopted-compact " +
+                                "source=transferred-laid-out-fake-root " +
+                                "next=native-status-icons-layout-refresh nativeGeometryWrites=0",
+                        )
+                    }
+                    return AttachResult.Ready
+                }
+
+                else -> Unit
+            }
+        }
         if (result == AttachResult.Ready && isDetailedDiagnosticsEnabled()) {
             onEvent(
                 "controlCenterProjection hotReloadRestore state=prepared " +
                     "source=transferred-laid-out-fake-root " +
-                    "layoutRequestBoundary=outside-native-layout " +
+                    "transferredCompactReady=" + transferredCompactReady +
+                    " layoutRequestBoundary=outside-native-layout " +
                     "next=native-status-icons-layout nativeGeometryWrites=0",
             )
         }
         return result
     }
+
+    internal fun shouldAdoptTransferredCompactReadiness(
+        transferredCompactReady: Boolean,
+    ): Boolean = transferredCompactReady
 
     internal fun shouldRestoreLaidOutHostAfterHotReload(
         attached: Boolean,
@@ -209,10 +238,15 @@ internal object CombinedStatusControlCenterRenderSession {
     }
 
     @Synchronized
-    fun detach(source: String = "detach") {
+    fun detach(
+        source: String = "detach",
+        releaseNativePresentation: Boolean = true,
+    ) {
         pendingPrearm?.cancel()
         pendingPrearm = null
-        SystemUiHomePresentationOwner.deactivateControlCenter(source)
+        if (releaseNativePresentation) {
+            SystemUiHomePresentationOwner.deactivateControlCenter(source)
+        }
         current?.stop(source)
         current = null
     }
@@ -440,6 +474,9 @@ internal object CombinedStatusControlCenterRenderSession {
 
         fun attachedHost(): ViewGroup? =
             host.get()?.takeIf { candidate -> candidate.isAttachedToWindow }
+
+        fun nativePresentationReadyForHotReload(): Boolean =
+            nativePresentationReady && attachedHost() != null
 
         fun start() {
             val hostView = host.get() ?: return

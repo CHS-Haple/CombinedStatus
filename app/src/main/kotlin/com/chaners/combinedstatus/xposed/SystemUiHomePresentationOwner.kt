@@ -406,6 +406,23 @@ internal object SystemUiHomePresentationOwner {
     }
 
     @Synchronized
+    fun adoptControlCenterLayoutCutoverFromHotReload(): ControlCenterStateResult {
+        val session =
+            controlCenterCurrent
+                ?: return ControlCenterStateResult.Inactive(0)
+        val masked =
+            session.adoptTransferredCompactLayout()
+                ?: return ControlCenterStateResult.Failure(
+                    "transferred-compact-layout-adoption-failed",
+                )
+        return ControlCenterStateResult.Active(
+            representedSlots = representedSlots.size,
+            maskedViews = masked,
+            reused = true,
+        )
+    }
+
+    @Synchronized
     fun deactivateControlCenter(source: String): ControlCenterStateResult {
         val session =
             controlCenterCurrent
@@ -437,16 +454,24 @@ internal object SystemUiHomePresentationOwner {
     }
 
     @Synchronized
-    fun releaseGenerationForHotReload(): Int {
+    fun releaseGenerationForHotReload(
+        requestLayout: Boolean = true,
+    ): Int {
         val controlCenterRestored =
             controlCenterCurrent?.let { session ->
                 controlCenterCurrent = null
-                session.stop("hotReload-oldGeneration")
+                session.stop(
+                    source = "hotReload-oldGeneration",
+                    requestLayout = requestLayout,
+                )
             } ?: 0
         val homeRestored =
             current?.let { session ->
                 current = null
-                session.stop("hotReload-oldGeneration")
+                session.stop(
+                    source = "hotReload-oldGeneration",
+                    requestLayout = requestLayout,
+                )
             } ?: 0
         controlCenterEventSink = null
         controlCenterFailNativeSink = null
@@ -732,7 +757,10 @@ internal object SystemUiHomePresentationOwner {
             return refreshClipMasks()
         }
 
-        fun stop(source: String): Int {
+        fun stop(
+            source: String,
+            requestLayout: Boolean = true,
+        ): Int {
             if (!active && clipStates.isEmpty() && appliedPadding == null) {
                 return 0
             }
@@ -745,11 +773,14 @@ internal object SystemUiHomePresentationOwner {
             batteryCarrier.get()?.removeOnLayoutChangeListener(carrierLayoutListener)
             val reservationRestored = restoreEndReservation()
             val restored = restoreClipMasks()
-            batteryContainer.get()?.requestLayout()
+            if (requestLayout) {
+                batteryContainer.get()?.requestLayout()
+            }
             onEvent(
                 eventPrefix + " cleanup source=" + source +
                     " restoredClipBounds=" + restored +
-                    " restoredEndReservation=" + reservationRestored,
+                    " restoredEndReservation=" + reservationRestored +
+                    " requestLayout=" + requestLayout,
             )
             return restored
         }
@@ -917,6 +948,32 @@ internal object SystemUiHomePresentationOwner {
                 started &&
                 (!deferVisualMaskUntilLayout || compactLayoutReady)
 
+        fun adoptTransferredCompactLayout(): Int? {
+            if (
+                !active ||
+                !started ||
+                !deferVisualMaskUntilLayout
+            ) {
+                return null
+            }
+            if (!syncEndReservation()) {
+                return null
+            }
+            val masked = refreshClipMasks()
+            if (compactLayoutReady) {
+                return masked
+            }
+            compactLayoutReady = true
+            val callback = layoutReadyCallback
+            layoutReadyCallback = null
+            onEvent(
+                eventPrefix + " layoutReady source=hot-reload-transfer" +
+                    " maskedViews=" + masked,
+            )
+            callback?.invoke(masked)
+            return masked
+        }
+
         fun onNativeLayoutCompleted(maskedViews: Int) {
             if (
                 !active ||
@@ -1029,6 +1086,12 @@ internal object SystemUiHomePresentationOwner {
             fun from(view: View): PaddingState =
                 PaddingState(view.paddingStart, view.paddingTop, view.paddingEnd, view.paddingBottom)
         }
+    }
+
+    internal object HotReloadHandoffPolicy {
+        fun shouldRequestLayoutOnRelease(
+            continuousHandoff: Boolean,
+        ): Boolean = !continuousHandoff
     }
 
     internal object VisualMaskPolicy {

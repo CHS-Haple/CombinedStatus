@@ -137,6 +137,12 @@ class CombinedStatusModule : XposedModule() {
         val prepared =
             SystemUiHotReloadRuntimeOwner.prepare(
                 param = param,
+                generationHandoff =
+                    Runnable {
+                        teardownOldGenerationForHotReload(
+                            continuousHandoff = true,
+                        )
+                    },
             )
         if (prepared is SystemUiHotReloadRuntimeOwner.PrepareResult.Unavailable) {
             logDiagnostic(
@@ -185,6 +191,7 @@ class CombinedStatusModule : XposedModule() {
             "wifiRoots" to prepared.wifiRoots,
             "mobileRoots" to prepared.mobileRoots,
             "tintTransfer" to if (prepared.tintTransferred) "ready" else "native-fallback",
+            "controlCenterCompactReady" to prepared.controlCenterCompactReady,
         )
         log(
             Log.INFO,
@@ -194,41 +201,14 @@ class CombinedStatusModule : XposedModule() {
                 " transfer=classloader-neutral",
         )
 
-        val hostView =
-            prepared.host as? android.view.View
-                ?: return false
-        val cleanupScheduled =
-            hostView.post {
-                runCatching {
-                    teardownOldGenerationForHotReload()
-                }.onFailure { error ->
-                    log(
-                        Log.ERROR,
-                        TAG,
-                        "Old-generation Hot Reload cleanup failed",
-                        error,
-                    )
-                }
-            }
-        if (!cleanupScheduled) {
-            logDiagnostic(
-                level = Log.WARN,
-                event = "hotReload.prepare",
-                component = "hotReload",
-                state = "unavailable",
-                "reason" to "main-thread-cleanup-scheduling-failed",
-                "restartScope" to true,
-            )
-            return false
-        }
-
         logDiagnostic(
             level = Log.INFO,
             event = "hotReload.cleanup",
             component = "hotReload",
-            state = "scheduled",
-            "uiMutation" to "main-thread-only",
-            "homePresentation" to "restored-before-generation-handoff",
+            state = "deferred-to-new-generation",
+            "uiMutation" to "single-main-thread-handoff",
+            "homePresentation" to "retained-until-generation-handoff",
+            "controlCenterCompactReady" to prepared.controlCenterCompactReady,
         )
         return true
     }
@@ -463,12 +443,38 @@ class CombinedStatusModule : XposedModule() {
                 }
             }
 
+            val generationHandoff =
+                restored.generationHandoff?.let { handoff ->
+                    runCatching {
+                        handoff.run()
+                        "continuous"
+                    }.getOrElse { error ->
+                        throw IllegalStateException(
+                            "old-generation-handoff-failed",
+                            error,
+                        )
+                    }
+                } ?: "legacy-pre-cleaned"
+
+            logDiagnostic(
+                level = Log.INFO,
+                event = "hotReload.generationHandoff",
+                component = "hotReload",
+                state = "ready",
+                "mode" to generationHandoff,
+                "layoutCommit" to "single-main-thread-turn",
+                "intermediateRequestLayout" to false,
+            )
+
             SystemUiPanelTransitionSource.restoreControlCenterHomeEligibility(
                 restored.controlCenterHomeEligible,
             )
             val controlCenterFakeRestore =
                 restored.controlCenterFakeHost?.let { fakeHost ->
-                    restoreControlCenterFakePresentationAfterHotReload(fakeHost)
+                    restoreControlCenterFakePresentationAfterHotReload(
+                        host = fakeHost,
+                        transferredCompactReady = restored.controlCenterCompactReady,
+                    )
                 } ?: "late-fallback"
             val transferredTint =
                 restored.appliedTint?.let { appliedTint ->
@@ -1105,7 +1111,10 @@ class CombinedStatusModule : XposedModule() {
         }
     }
 
-    private fun restoreControlCenterFakePresentationAfterHotReload(host: ViewGroup): String {
+    private fun restoreControlCenterFakePresentationAfterHotReload(
+        host: ViewGroup,
+        transferredCompactReady: Boolean,
+    ): String {
         return when (
             val result =
                 CombinedStatusControlCenterRenderSession.restoreLaidOutHostAfterHotReload(
@@ -1113,6 +1122,7 @@ class CombinedStatusModule : XposedModule() {
                     onEvent = ::onPanelTransitionEvent,
                     isDetailedDiagnosticsEnabled = { detailedDiagnosticsEnabled },
                     onProjectionReadinessChanged = ::onControlCenterProjectionReadinessChanged,
+                    transferredCompactReady = transferredCompactReady,
                 )
         ) {
             CombinedStatusControlCenterRenderSession.AttachResult.Ready -> {
@@ -1126,7 +1136,11 @@ class CombinedStatusModule : XposedModule() {
                     "next" to "native-status-icons-layout",
                     "nativeGeometryWrites" to 0,
                 )
-                "restored-laid-out-native-layout-pending"
+                if (transferredCompactReady) {
+                    "restored-laid-out-compact-adopted"
+                } else {
+                    "restored-laid-out-native-layout-pending"
+                }
             }
 
             is CombinedStatusControlCenterRenderSession.AttachResult.Failure -> {
@@ -1526,12 +1540,21 @@ class CombinedStatusModule : XposedModule() {
         }
     }
 
-    private fun teardownOldGenerationForHotReload() {
+    private fun teardownOldGenerationForHotReload(
+        continuousHandoff: Boolean = false,
+    ) {
         controlCenterSceneVisible = false
-        CombinedStatusControlCenterRenderSession.detach("hotReload-oldGeneration")
+        CombinedStatusControlCenterRenderSession.detach(
+            source = "hotReload-oldGeneration",
+            releaseNativePresentation = !continuousHandoff,
+        )
         CombinedStatusHomeRenderSession.detach()
         val restoredPresentationViews =
-            SystemUiHomePresentationOwner.releaseGenerationForHotReload()
+            SystemUiHomePresentationOwner.releaseGenerationForHotReload(
+                requestLayout =
+                    SystemUiHomePresentationOwner.HotReloadHandoffPolicy
+                        .shouldRequestLayoutOnRelease(continuousHandoff),
+            )
         SystemUiNativeNetworkSuppressionOwner.deactivate("hotReload-oldGeneration")
         StatusBarStableSession.detach()
         SystemUiCoreRuntimeOwner.detach()
@@ -1548,6 +1571,10 @@ class CombinedStatusModule : XposedModule() {
             "source" to "hotReload.oldGeneration",
             "rendererDetached" to true,
             "homePresentationRestoredViews" to restoredPresentationViews,
+            "continuousHandoff" to continuousHandoff,
+            "intermediateRequestLayout" to
+                SystemUiHomePresentationOwner.HotReloadHandoffPolicy
+                    .shouldRequestLayoutOnRelease(continuousHandoff),
             "stableStatusDetached" to true,
             "airplaneObserverDetached" to true,
             "defaultDataSubscriptionObserverDetached" to true,

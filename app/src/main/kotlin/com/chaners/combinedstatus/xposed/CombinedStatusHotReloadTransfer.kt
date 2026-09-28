@@ -5,7 +5,8 @@ import android.view.View
 import android.view.ViewGroup
 
 internal object CombinedStatusHotReloadTransfer {
-    private const val VERSION = 8
+    private const val VERSION = 9
+    private const val PRESENTATION_TRANSFER_VERSION = 8
     private const val TINT_TRANSFER_VERSION = 7
     private const val CONTROL_CENTER_TRANSFER_VERSION = 6
     private const val SHADE_TRANSFER_VERSION = 5
@@ -22,7 +23,10 @@ internal object CombinedStatusHotReloadTransfer {
     private const val INDEX_APPLIED_TINT = 6
     private const val INDEX_STATUS_ICON_TINT = 7
     private const val INDEX_CONTROL_CENTER_FAKE_HOST = 8
-    private const val CURRENT_PAYLOAD_SIZE = 9
+    private const val INDEX_CONTROL_CENTER_COMPACT_READY = 9
+    private const val INDEX_GENERATION_HANDOFF = 10
+    private const val CURRENT_PAYLOAD_SIZE = 11
+    private const val PRESENTATION_PAYLOAD_SIZE = 9
     private const val TINT_PAYLOAD_SIZE = 8
     private const val CONTROL_CENTER_PAYLOAD_SIZE = 6
     private const val SHADE_PAYLOAD_SIZE = 5
@@ -43,6 +47,8 @@ internal object CombinedStatusHotReloadTransfer {
         appliedTint: Int?,
         statusIconTint: Int?,
         controlCenterFakeHost: ViewGroup?,
+        controlCenterCompactReady: Boolean,
+        generationHandoff: Runnable,
     ): Any? {
         val hostView = host as? View ?: return null
         if (hostView.javaClass.name != StatusBarHostCapture.HOST_CLASS_NAME) {
@@ -66,6 +72,8 @@ internal object CombinedStatusHotReloadTransfer {
             appliedTint,
             statusIconTint,
             fakeHost,
+            controlCenterCompactReady,
+            generationHandoff,
         )
     }
 
@@ -76,6 +84,7 @@ internal object CombinedStatusHotReloadTransfer {
         val expectedSize =
             when (version) {
                 VERSION -> CURRENT_PAYLOAD_SIZE
+                PRESENTATION_TRANSFER_VERSION -> PRESENTATION_PAYLOAD_SIZE
                 TINT_TRANSFER_VERSION -> TINT_PAYLOAD_SIZE
                 CONTROL_CENTER_TRANSFER_VERSION -> CONTROL_CENTER_PAYLOAD_SIZE
                 SHADE_TRANSFER_VERSION -> SHADE_PAYLOAD_SIZE
@@ -99,6 +108,7 @@ internal object CombinedStatusHotReloadTransfer {
         val notificationShadeHomeEligible =
             if (
                 version == VERSION ||
+                version == PRESENTATION_TRANSFER_VERSION ||
                 version == TINT_TRANSFER_VERSION ||
                 version == CONTROL_CENTER_TRANSFER_VERSION ||
                 version == SHADE_TRANSFER_VERSION
@@ -110,6 +120,7 @@ internal object CombinedStatusHotReloadTransfer {
         val controlCenterHomeEligible =
             if (
                 version == VERSION ||
+                version == PRESENTATION_TRANSFER_VERSION ||
                 version == TINT_TRANSFER_VERSION ||
                 version == CONTROL_CENTER_TRANSFER_VERSION
             ) {
@@ -118,7 +129,11 @@ internal object CombinedStatusHotReloadTransfer {
                 null
             }
         val appliedTint =
-            if (version == VERSION || version == TINT_TRANSFER_VERSION) {
+            if (
+                version == VERSION ||
+                version == PRESENTATION_TRANSFER_VERSION ||
+                version == TINT_TRANSFER_VERSION
+            ) {
                 (payload.getOrNull(INDEX_APPLIED_TINT) as? Number)
                     ?.toInt()
                     ?.takeIf(::isOpaqueEnoughForPresentation)
@@ -127,8 +142,12 @@ internal object CombinedStatusHotReloadTransfer {
             }
         val statusIconTint =
             if (
-                (version == VERSION || version == TINT_TRANSFER_VERSION) &&
-                appliedTint != null
+                (
+                    version == VERSION ||
+                        version == PRESENTATION_TRANSFER_VERSION ||
+                        version == TINT_TRANSFER_VERSION
+                ) &&
+                    appliedTint != null
             ) {
                 (payload.getOrNull(INDEX_STATUS_ICON_TINT) as? Number)
                     ?.toInt()
@@ -138,12 +157,25 @@ internal object CombinedStatusHotReloadTransfer {
             }
 
         val controlCenterFakeHost =
-            if (version == VERSION) {
+            if (version == VERSION || version == PRESENTATION_TRANSFER_VERSION) {
                 (payload.getOrNull(INDEX_CONTROL_CENTER_FAKE_HOST) as? ViewGroup)
                     ?.takeIf { candidate ->
                         candidate.isAttachedToWindow &&
                             candidate.javaClass.name == CONTROL_CENTER_FAKE_ROOT_CLASS_NAME
                     }
+            } else {
+                null
+            }
+
+        val controlCenterCompactReady =
+            if (version == VERSION) {
+                payload.getOrNull(INDEX_CONTROL_CENTER_COMPACT_READY) as? Boolean ?: false
+            } else {
+                false
+            }
+        val generationHandoff =
+            if (version == VERSION) {
+                payload.getOrNull(INDEX_GENERATION_HANDOFF) as? Runnable
             } else {
                 null
             }
@@ -157,6 +189,8 @@ internal object CombinedStatusHotReloadTransfer {
             appliedTint = appliedTint,
             statusIconTint = statusIconTint,
             controlCenterFakeHost = controlCenterFakeHost,
+            controlCenterCompactReady = controlCenterCompactReady,
+            generationHandoff = generationHandoff,
         )
     }
 
@@ -172,5 +206,7 @@ internal object CombinedStatusHotReloadTransfer {
         val appliedTint: Int?,
         val statusIconTint: Int?,
         val controlCenterFakeHost: ViewGroup?,
+        val controlCenterCompactReady: Boolean,
+        val generationHandoff: Runnable?,
     )
 }

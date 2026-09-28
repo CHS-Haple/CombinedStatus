@@ -104,6 +104,22 @@ class CombinedStatusControlCenterRenderSessionTest {
     }
 
     @Test
+    fun transferredCompactReadinessIsAdoptedOnlyWhenPreviouslyReady() {
+        assertTrue(
+            CombinedStatusControlCenterRenderSession
+                .shouldAdoptTransferredCompactReadiness(
+                    transferredCompactReady = true,
+                ),
+        )
+        assertFalse(
+            CombinedStatusControlCenterRenderSession
+                .shouldAdoptTransferredCompactReadiness(
+                    transferredCompactReady = false,
+                ),
+        )
+    }
+
+    @Test
     fun transientLayoutLossRetainsPreparedFakePresentationWhileRootStaysAttached() {
         assertTrue(
             CombinedStatusControlCenterRenderSession
