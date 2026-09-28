@@ -3,6 +3,64 @@
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
 
+## 2026-09-29 — Build 443: atomic QS_FAKE cold-start cutover
+
+**Type:** device-evidence-driven transition ownership correction  
+**Build:** 443 / `20260929-443`  
+**Work branch:** `feat/keyguard-scene-adapter`  
+**Base:** Build-442 PR head `02e028172cb2700767df5190aaefe43a11dcb4d1`  
+**Hook delta:** 0  
+**Keyguard steady rendering:** still disabled  
+**AOD:** untouched
+
+### Device evidence from Build 442
+
+The maintainer observed two distinct facts after installing Build 442:
+1. steady Keyguard still shows the native HyperOS status bar, while a Keyguard-originated Control Center pull can show the existing Combined Status QS_FAKE projection;
+2. after a SystemUI restart and a delay, the first Keyguard-originated pull appeared once to lose the fake Combined Status, but later pulls were not readily reproducible.
+
+The supplied diagnostic session supports a cold-start readiness race:
+- the first structurally valid Keyguard probe is `partial`: the `MiuiKeyguardStatusBarView`, its `mSystemIconsContainer` and Battery carrier are attached but 0-sized, while `realSystemIcons` still points at the 587x108 unlocked/Home `MiuiStatusBatteryContainer`;
+- immediately afterward the existing QS_FAKE presentation reports `projection-layout-unavailable-detached` / `pause-render`;
+- on the first later Control Center pull the session logs `preLayoutVisualMask active=true maskedViews=6 compactLayoutReady=false`;
+- only after native `MiuiStatusIconContainer.onLayout` does it log `layoutReady`, `controlCenterPresentation active`, and projection `ready=true`;
+- subsequent pulls reuse the compact-ready presentation, explaining why the defect becomes difficult to reproduce.
+
+### Root cause
+
+The implementation contradicted its own deferred-cutover contract. `Session.start(deferVisualMaskUntilLayout=true)` set `compactLayoutReady=false` but still called `refreshClipMasks()` immediately. Native represented slots and Battery could therefore be visually clipped before the Combined overlay had valid layout/readiness.
+
+This is a sequencing defect in the shared QS_FAKE bridge, not evidence that a Keyguard steady renderer already exists.
+
+### Corrected execution flow
+
+`QS_FAKE attach/prearm`
+-> keep native visuals intact
+-> request/use native layout
+-> existing `MiuiStatusIconContainer.onLayout` Hook completes native layout
+-> refresh visual masks
+-> mark compact layout ready
+-> existing ready callback marks native presentation ready
+-> lay out Combined overlay
+-> apply requested visibility in the same main-thread turn.
+
+Home steady ownership is unchanged. The fully expanded endpoint remains native-owned through HyperOS appearance alpha. No new scene heuristic is introduced.
+
+### 审查 / review
+
+- **root cause first:** fixes the pre-mask-before-readiness ordering rather than adding delay/retry behavior.
+- **single writer:** the existing HomePresentationOwner remains the sole visual-mask writer; no second mask owner is added.
+- **lifecycle:** the existing native `onLayout` Hook is reused as the cutover boundary.
+- **fail native:** until compact layout is ready, native QS_FAKE visuals remain visible. Failure therefore falls back to native instead of blank.
+- **performance:** no new Hook, listener, timer, polling, frame callback, or repeated traversal.
+- **compatibility:** exact-target behavior remains pinned to HyperOS SystemUI `17.03.260226.r`.
+- **Keyguard policy:** Keyguard steady Combined Status and its future enable/disable policy remain separate Phase-3 work. QS_FAKE must eventually inherit the currently selected Home/Keyguard scene policy rather than define it.
+
+### Validation plan
+
+Draft Light first, then exact-head Fast. If both pass, generate a signed Canary and verify: restart SystemUI -> wait on Keyguard -> first Control Center pull -> repeated pull/return. Expected result: the first pull never has a native-hidden/Combined-not-ready blank interval, and subsequent behavior remains unchanged.
+
+
 ## 2026-09-29 — Build 442: Keyguard steady-host read-only probe
 
 **Type:** Phase-3 host/source evidence checkpoint

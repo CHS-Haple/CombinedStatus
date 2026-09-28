@@ -38,7 +38,18 @@ SystemUI remains authoritative for surrounding native layout, Battery presentati
 
 For the pinned HyperOS target, Notification Shade itself does not present the status-icon row; therefore Phase 2B does **not** project Combined Status into Notification Shade. Build-423 device evidence proves Notification Header progress is motion context rather than the complete Home visibility authority. Exact-target source instead traces `StatusBarVisibilityInteractor.shouldHomeStatusBarBeVisible -> HomeStatusBarViewModelImpl.systemInfoCombinedVis -> HomeStatusBarViewBinderInjector -> mEndSideContent = R.id.system_icons`. Build 424 therefore places the unlocked/Home render overlay on that exact `MiuiStatusBatteryContainer(system_icons)` owner so native alpha/visibility/transition lifecycle is inherited without a project-local shade gate. Control Center projection is now a bounded transition bridge only: the fully expanded endpoint must return to native status-bar presentation. Keyguard/lockscreen follows as a separate source adapter after Phase 2B, reusing shared domain/render semantics without sharing mutable Home host/session ownership.
 
-## Active checkpoint — Build 442 Keyguard steady-host read-only probe
+## Active checkpoint — Build 443 atomic QS_FAKE cold-start cutover
+
+- Work branch remains `feat/keyguard-scene-adapter`; runtime identity advances to Build 443 / `20260929-443`.
+- Build-442 device evidence confirms Keyguard steady rendering is still native-only while the existing shared `ControlCenterFakeStatusIcons` projection can display Combined Status during a Keyguard-originated Control Center pull. This is not treated as a completed Keyguard scene adapter.
+- The same evidence captured a cold-start race after SystemUI restart: Keyguard/source topology was still partial, then the prepared QS_FAKE compact presentation became layout-unavailable; on the first later pull the existing control-center session logged `preLayoutVisualMask active=true` before native compact layout became ready.
+- Root cause: the control-center `Session.start(deferVisualMaskUntilLayout=true)` path performed `refreshClipMasks()` before the native `MiuiStatusIconContainer.onLayout` cutover boundary. Therefore native Wi-Fi/mobile/Battery visuals could already be clipped while the Combined overlay still reported `layoutReady=false/nativePresentationReady=false`, creating a blank window on the first cold-start pull.
+- Build 443 keeps native visuals intact before compact cutover. The existing native `onLayout` Hook remains the sole cutover boundary: after native layout completes, the same main-thread turn applies the visual mask, marks compact layout ready, lays out the Combined overlay, and makes it eligible for visibility.
+- Hook delta remains **0**; no delay, timer, retry loop, frame callback, extra visibility writer, or Keyguard-specific QS_FAKE patch is added.
+- Home steady rendering behavior is unchanged. Keyguard steady rendering is still not enabled. AOD remains untouched.
+- Validation gate: Draft Light -> Ready Fast; only if automated validation passes will Build 443 be offered for focused SystemUI-restart / first-Keyguard-pull device verification.
+
+## Device evidence — Build 442 Keyguard steady-host read-only probe
 
 - Work branch: `feat/keyguard-scene-adapter`; base: latest `dev@0235d1ae20bc96f733e510547ec659d2377e0516`; runtime identity: Build 442 / `20260929-442`.
 - **Rendering remains disabled on Keyguard and AOD.** Build 442 does not install a new Keyguard lifecycle source. It reuses the already-installed `MiuiBatteryMeterView.updateState(I)` scene Hook and adds **zero Hooks**.
@@ -48,7 +59,7 @@ For the pinned HyperOS target, Notification Shade itself does not present the st
 - No native slot suppression, mask, reservation, visibility, alpha, translation, layout, geometry, animation or tint property is written. No listener, timer, polling, retry or frame callback is added.
 - **AOD is untouched in Build 442.** Exact-target static evidence confirms AOD has a distinct lifecycle, but runtime AOD probing is deferred until the steady Keyguard host/source contract is established.
 - Review rejected the branch's first 5-Hook attach/detach/visibility/tint/full-AOD draft before CI because it widened the first Phase-3 checkpoint and duplicated native lifecycle observation unnecessarily.
-- Draft Light #1526 failed only `git diff --check` on trailing whitespace in the new DEVLOG metadata; no Android/Kotlin step ran. After correction and readiness-aware probe review, Draft Light #1528 / run `36484281474` passed on `a4df8e2e6a05e7f14d71be64dbe234f6d292105d`. Build 442 now advances to exact-head Fast. A signed Canary is expected only after Fast because the remaining evidence is target-device host/source identity and live geometry.
+- Draft Light #1526 failed only `git diff --check` on trailing whitespace in the new DEVLOG metadata; no Android/Kotlin step ran. After correction and readiness-aware probe review, Draft Light #1528 / run `36484281474` passed on `a4df8e2e6a05e7f14d71be64dbe234f6d292105d`; Light #1529, Fast #1530 and trusted Work Branch Canary #453 then passed exact PR head `02e028172cb2700767df5190aaefe43a11dcb4d1`. Device diagnostics produced one structurally valid but early `partial` Keyguard sample: the Keyguard host and local system-icons/Battery geometry were still 0-sized and HyperOS `realSystemIcons` still selected the unlocked/Home carrier. No later `complete=true` sample occurred in that session. This is useful timing evidence, not proof that the Keyguard steady carrier contract failed.
 
 ## Integrated checkpoint — Build 441 continuous Hot Reload presentation handoff
 

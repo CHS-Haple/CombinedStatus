@@ -738,19 +738,18 @@ internal object SystemUiHomePresentationOwner {
             if (!syncEndReservation()) return 0
 
             if (
-                VisualMaskPolicy.shouldMaskBeforeCompactCutover(
+                VisualMaskPolicy.shouldPreserveNativeBeforeCompactCutover(
                     deferVisualMaskUntilLayout,
                 )
             ) {
                 compactLayoutReady = false
-                val masked = refreshClipMasks()
                 onEvent(
-                    eventPrefix + " preLayoutVisualMask active=true" +
-                        " maskedViews=" + masked +
+                    eventPrefix + " preLayoutVisualMask active=false" +
+                        " maskedViews=0" +
                         " compactLayoutReady=false" +
-                        " fallbackVisual=home-until-native-layout",
+                        " fallbackVisual=native-until-native-layout",
                 )
-                return masked
+                return 0
             }
 
             compactLayoutReady = true
@@ -1095,7 +1094,7 @@ internal object SystemUiHomePresentationOwner {
     }
 
     internal object VisualMaskPolicy {
-        fun shouldMaskBeforeCompactCutover(
+        fun shouldPreserveNativeBeforeCompactCutover(
             deferVisualMaskUntilLayout: Boolean,
         ): Boolean = deferVisualMaskUntilLayout
     }

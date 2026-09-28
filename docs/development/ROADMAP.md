@@ -79,6 +79,8 @@ Exit criteria:
 
 ## Phase 3 — Keyguard / lockscreen / AOD scene completion — active
 
+Build 443 inserts a transition-safety checkpoint before enabling steady Keyguard rendering: the shared QS_FAKE bridge must preserve native visuals until its existing native-layout boundary can atomically commit mask + Combined projection readiness. This keeps fail-native semantics intact for cold-start Keyguard-originated pulls. The later scene-policy layer remains explicit: Home steady and Keyguard steady are separate adapters sharing domain/render semantics, and QS_FAKE must inherit the native-selected source scene rather than act as an independent user-facing scene.
+
 Reuse the stabilized domain state, renderer semantics, ownership rules, and fail-native behavior while giving each scene its own verified host/lifecycle adapter.
 
 Build 442 is the first Phase-3 executable checkpoint and is intentionally narrower than a lifecycle adapter: it reuses the existing Battery scene callback only as a trigger, requires actual `MiuiKeyguardStatusBarView` ancestry, and takes one read-only steady-host/source snapshot. Hook delta is zero; no Keyguard rendering/suppression and no AOD runtime probe is introduced. Positive device evidence from this checkpoint is a prerequisite for choosing the later Keyguard presentation/lifecycle seam.

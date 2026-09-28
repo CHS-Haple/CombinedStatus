@@ -50,16 +50,16 @@ class SystemUiHomePresentationOwnerTest {
     }
 
     @Test
-    fun deferredControlCenterCutoverMasksNativeVisualsBeforeCompactLayout() {
+    fun deferredControlCenterCutoverPreservesNativeVisualsUntilCompactLayout() {
         assertTrue(
             SystemUiHomePresentationOwner.VisualMaskPolicy
-                .shouldMaskBeforeCompactCutover(
+                .shouldPreserveNativeBeforeCompactCutover(
                     deferVisualMaskUntilLayout = true,
                 ),
         )
         assertFalse(
             SystemUiHomePresentationOwner.VisualMaskPolicy
-                .shouldMaskBeforeCompactCutover(
+                .shouldPreserveNativeBeforeCompactCutover(
                     deferVisualMaskUntilLayout = false,
                 ),
         )
