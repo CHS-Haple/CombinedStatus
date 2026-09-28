@@ -100,6 +100,19 @@ The maintainer reports the Build-441 target behavior is successful after Build 4
 
 Build 441 is therefore **device accepted** for the Hot Reload generation-handoff checkpoint. The runtime is frozen; only record/merge closure may follow before integration into `dev`.
 
+### Post-acceptance hidden-anomaly review
+
+The maintainer supplied the final Build-441 Detailed diagnostic after visual acceptance. A full review found no Error/Warn entries, no `failNative`, no unexpected presentation cleanup/rebuild loop, and no Hook-count mismatch. Runtime health remains `overall=healthy`; Hot Reload finishes with `controlCenterFakePrearm=restored-laid-out-compact-ready`, `transferredCompactReady=true`, and the expected network/battery/panel hook counts.
+
+One **non-blocking, independent geometry signal** is retained for later investigation:
+- ordinary Control Center geometry reports `normalStatusIconsTx=46`;
+- charging / Super Island geometry reports `normalStatusIconsTx=181` with `addBatteryIsland=true`, a 135 px delta;
+- the stable compact Battery carrier remains 105 px;
+- when the island branch clears and live Battery width returns from 105 to 135, the existing reservation owner compensates with `paddingEndDelta=-30`.
+
+The resulting 30 px difference is consistent with the previously observed “charging island trajectory / Battery alignment feels more left-shifted” follow-up, but the current diagnostic is observation-only (`readOnly=true`, `nativeGeometryWrites=0`) and does not show a Build-441 ownership failure. It must remain separate from #156 and be investigated from a fresh branch after integration.
+
+
 
 ## 2026-09-29 — Build 440: mask native QS_FAKE during the pre-compact handoff window
 
