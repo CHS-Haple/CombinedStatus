@@ -3,6 +3,56 @@
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
 
+## 2026-09-29 — Control Center fully-expanded endpoint investigation: native appearance handoff verified
+
+**Type:** Phase-2B exact-target endpoint review / no executable build
+**Branch:** `fix/control-center-endpoint-contract`
+**Runtime baseline:** validated `dev` Build 441 / `710fa1635e334aa99ed6bcd9f50ca38ecafa74ae`
+**Executable change:** none
+
+### Trigger
+
+After closing QS_FAKE determinism, Hot Reload continuity and charging-island trajectory ownership, the remaining Phase-2B architecture gate was whether the fully expanded Control Center should explicitly hide Combined Status or whether HyperOS already owns the fake-to-final endpoint.
+
+### Evidence reviewed
+
+- Exact-target JADX 1.5.6 review of SystemUI `17.03.260226.r`, including `ControlCenterHeaderExpandController$controlCenterCallback$1`, `ControlCenterFakeStatusIcons` and `ControlCenterStatusBarIcon`.
+- Build-441 target diagnostics around fraction 1.0 and native appearance callbacks.
+- Project `CombinedStatusControlCenterRenderSession` host/motion ownership.
+
+### Native execution flow
+
+1. HyperOS keeps distinct QS_FAKE and final QS status-bar surfaces.
+2. `onExpansionChanged(progress)` updates the surfaces' translation geometry.
+3. `onAppearanceChanged(appearance, animate)` separately owns fake/final alpha handoff.
+4. For `appearance=true`, final `ControlCenterStatusBarIcon` moves to alpha 1 while `ControlCenterFakeStatusIcons` moves to alpha 0.
+5. For `appearance=false`, the alpha ownership reverses.
+6. Build-441 diagnostics reach `fraction=1.0` and then observe QS_FAKE root alpha `0.0` before the return gesture.
+7. Combined Status is attached only to `ControlCenterFakeStatusIcons.overlay` and explicitly inherits root alpha/translation.
+8. The project does not own or suppress final `ControlCenterStatusBarIcon`.
+
+### Architecture conclusion
+
+The fully expanded endpoint does **not** need a project visibility rule. HyperOS already owns the endpoint through native appearance state. Combined naturally leaves the screen with the QS_FAKE root while the final native surface becomes visible.
+
+A local rule such as `fraction == 1`, `fraction >= 0.99`, a custom fade, or final-surface suppression would create a second endpoint authority and risk last-frame snap / alpha races.
+
+### 审查 / review
+
+- **ownership:** SystemUI remains the sole fake/final appearance writer.
+- **motion vs appearance:** native fraction is geometry/motion input only; native appearance is visibility authority.
+- **single writer:** Combined does not write fake-root alpha or final-surface alpha/visibility.
+- **cleanup:** no endpoint-specific project state or cleanup path is introduced.
+- **charging/island:** Battery Island changes QS_FAKE translation semantics only; endpoint appearance ownership is unchanged.
+- **performance:** no Hook, listener, timer, threshold, animator, polling or new Build is added.
+
+### Phase result
+
+Phase 2B exit criteria are satisfied on the pinned target: Home departure/return, bounded QS_FAKE partial-pull continuity, deterministic compact ownership, charging-island native motion inheritance, Hot Reload continuity, and exact native-only fully-expanded endpoint handoff are all verified.
+
+Phase 3 Keyguard / lockscreen / AOD scene completion becomes active.
+
+
 ## 2026-09-29 — Charging-island trajectory investigation: native QS_FAKE contract confirmed
 
 **Type:** post-integration exact-target investigation / no executable build

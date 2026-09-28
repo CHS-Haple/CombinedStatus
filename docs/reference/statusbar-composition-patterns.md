@@ -233,6 +233,23 @@ Device evidence `normalStatusIconsTx=181`, `batteryWidthDiff=-135` is therefore 
 
 `MiuiBatteryMeterView.updateIslandChanged()` independently confirms the same ownership model: Battery Island calls `MiuiStatusBatteryContainer.setIsHideBattery(true)`, makes the Battery view non-visible, and the Battery island animation uses the full `getWidth()`. `MiuiStatusBatteryContainer` then excludes hidden Battery width from normal occupied layout.
 
+### Fully expanded fake/final appearance endpoint
+
+Exact-target review also verifies that endpoint visibility is not owned by expansion fraction.
+
+`ControlCenterHeaderExpandController$controlCenterCallback$1.onAppearanceChanged(appearance, animate)` owns the alpha handoff between the two native Control Center status-bar surfaces:
+
+- `appearance=true`: final `ControlCenterStatusBarIcon` is driven to alpha `1`, while `ControlCenterFakeStatusIcons` is driven to alpha `0`;
+- `appearance=false`: final alpha returns to `0`, while QS_FAKE returns to `1`.
+
+By contrast, `onExpansionChanged(progress)` updates translation only. It is motion/geometry evidence, not a project visibility authority.
+
+Build-441 target diagnostics independently match that contract: native fraction reaches `1.0`, then the QS_FAKE root is observed at alpha `0.0` before the return transition. The same relationship is visible in ordinary and Battery-Island pulls.
+
+Combined Status attaches only to `ControlCenterFakeStatusIcons.overlay` and inherits the root alpha/translation. The project does not mask, hide, translate, or otherwise mutate final `ControlCenterStatusBarIcon`.
+
+Therefore the fully expanded Control Center endpoint is already native-only through HyperOS appearance ownership. Do **not** add a project `fraction >= x` hide threshold, custom fake-to-final fade, or final-QS suppression.
+
 ### Reusable principle
 
 Treat native root motion and project-local replacement geometry as separate contracts:
