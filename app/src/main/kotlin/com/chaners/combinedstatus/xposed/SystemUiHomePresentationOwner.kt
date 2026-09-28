@@ -480,7 +480,18 @@ internal object SystemUiHomePresentationOwner {
         fun ownsBatteryContainer(candidate: ViewGroup): Boolean =
             active && batteryContainer.get() === candidate
 
-        fun start(): Int {
+        fun start(
+            deferVisualMaskUntilLayout: Boolean = false,
+            onLayoutReady: ((Int) -> Unit)? = null,
+        ): Int {
+            this.deferVisualMaskUntilLayout = deferVisualMaskUntilLayout
+            this.layoutReadyCallback = onLayoutReady
+            if (started) {
+                syncEndReservation()
+                return if (isLayoutCutoverReady()) refreshClipMasks() else 0
+            }
+
+            started = true
             host.get()?.addOnAttachStateChangeListener(this)
             val group =
                 statusIcons.get()
@@ -491,7 +502,14 @@ internal object SystemUiHomePresentationOwner {
             nativePadding = PaddingState.from(group)
             battery.get()?.addOnLayoutChangeListener(batteryLayoutListener)
             batteryCarrier.get()?.addOnLayoutChangeListener(carrierLayoutListener)
-            syncEndReservation()
+            if (!syncEndReservation()) return 0
+
+            if (deferVisualMaskUntilLayout) {
+                compactLayoutReady = false
+                return 0
+            }
+
+            compactLayoutReady = true
             return refreshClipMasks()
         }
 
