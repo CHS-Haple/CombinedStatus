@@ -48,7 +48,7 @@ For the pinned HyperOS target, Notification Shade itself does not present the st
 - No native slot suppression, mask, reservation, visibility, alpha, translation, layout, geometry, animation or tint property is written. No listener, timer, polling, retry or frame callback is added.
 - **AOD is untouched in Build 442.** Exact-target static evidence confirms AOD has a distinct lifecycle, but runtime AOD probing is deferred until the steady Keyguard host/source contract is established.
 - Review rejected the branch's first 5-Hook attach/detach/visibility/tint/full-AOD draft before CI because it widened the first Phase-3 checkpoint and duplicated native lifecycle observation unnecessarily.
-- Draft Light #1526 failed only `git diff --check` on trailing whitespace in the new DEVLOG metadata; no Android/Kotlin step ran. The whitespace is corrected in the same Build-442 checkpoint. Automated validation remains Draft Light -> exact-head Fast. A signed Canary is expected only after Fast because the remaining evidence is target-device host/source identity and live geometry.
+- Draft Light #1526 failed only `git diff --check` on trailing whitespace in the new DEVLOG metadata; no Android/Kotlin step ran. After correction and readiness-aware probe review, Draft Light #1528 / run `36484281474` passed on `a4df8e2e6a05e7f14d71be64dbe234f6d292105d`. Build 442 now advances to exact-head Fast. A signed Canary is expected only after Fast because the remaining evidence is target-device host/source identity and live geometry.
 
 ## Integrated checkpoint — Build 441 continuous Hot Reload presentation handoff
 

@@ -68,7 +68,7 @@ This intentionally avoids the invalid shortcut `raw state 1 == Keyguard host`, w
 
 ### Validation gate
 
-Draft Light #1526 correctly classified the PR as Light but failed only `git diff --check` because five new DEVLOG metadata lines contained trailing whitespace; Android/Kotlin/build steps were skipped. The whitespace is corrected without changing Build identity. Re-run Draft Light, then exact-head Fast. Only after Fast should a signed Canary be generated because the unresolved questions require real-device View identity/geometry evidence.
+Draft Light #1526 correctly classified the PR as Light but failed only `git diff --check` because five new DEVLOG metadata lines contained trailing whitespace; Android/Kotlin/build steps were skipped. After correcting that record formatting and hardening the one-shot cache so partial/negative samples remain retryable, Draft Light #1528 / run `36484281474` passed on exact runtime head `a4df8e2e6a05e7f14d71be64dbe234f6d292105d`. Build identity remains 442. The next gate is exact-head Fast; only after Fast should a signed Canary be generated because the unresolved questions require real-device View identity/geometry evidence.
 
 Focused device evidence will require: restart SystemUI, enter steady Keyguard, perform one Keyguard-originated Control Center pull/return, unlock, then export diagnostics. Any visible UI change is a hard failure because Build 442 is read-only.
 
