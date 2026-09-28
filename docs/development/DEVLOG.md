@@ -7245,3 +7245,12 @@ Not shared:
 ### Immediate follow-up
 
 Trace the exact HyperOS semantic that distinguishes **Control Center transition** from **settled fully expanded Control Center**. Do not use a local progress epsilon or timer. Only after that authority is verified should the Build-420 projection lifetime be narrowed.
+
+
+### Clarification — design concept, not verified lifecycle contract
+
+The maintainer clarified that the Home/Keyguard/partial-pull/full-Control-Center split above is a **conceptual product partition**, not a demand that the implementation adopt those exact lifecycle objects or boundaries.
+
+Therefore the architecture consequence in this entry is downgraded from a confirmed target model to a working hypothesis. The next exact-target lifecycle review may discover a simpler or more native grouping. If it does, the evidence and candidate lifecycle structures must be reviewed with the maintainer before the repository promotes one into architecture policy or runtime code.
+
+Build 424 remains unchanged by this clarification.
