@@ -7565,3 +7565,67 @@ The current blocker is classified as GitHub Actions event delivery / trigger adm
 - Do not request `/canary` without the required successful exact-head pull-request Build.
 - Keep Build 424 runtime frozen.
 - Continue static/source review independently; when automated validation becomes reachable, run the normal exact-head checkpoint before device testing.
+
+
+---
+
+## 2026-09-28 — Post-424 QS_FAKE candidate passes static ownership review
+
+**Type:** architecture review / no runtime change  
+**Runtime Build:** 424 / `20260928-424` unchanged  
+**Validation:** candidate only; do not implement before Build 424 device result
+
+### Refined candidate
+
+The exact-target Control Center review supports a smaller follow-up architecture than the current Build-420 source-overlay projection:
+
+`compact-capable source -> native QS_FAKE compact transition -> native QS destination`.
+
+For the current Home-only implementation, source capability can remain the existing identity contract:
+`SystemUiHomePresentationOwner.ownsBatteryContainer(realSystemIcons)`.
+Do not introduce a generalized capability registry until Keyguard has its own verified compact owner.
+
+### Runtime surface
+
+Retain the existing low-frequency `ControlCenterExpandControllerDelegate.onVisibleChanged(boolean)` production Hook only as transition-surface activation. It must stop acting as a Home visibility writer.
+
+The native fake carrier is resolvable through direct exact-target fields:
+`ControlCenterHeaderExpandController.headerController`
+-> `CombinedHeaderController.controlCenterFakeStatusBar`
+-> `ControlCenterFakeStatusIcons.delegate`
+-> `CcFakeStatusBarIcons.statusBarArea`.
+
+A second low-frequency source-change seam at `ControlCenterFakeViewController.adjustRealSystemIcons()` is justified only if runtime/edge review requires source reevaluation while Control Center remains visible. Battery `mStatusBarState` is explicitly rejected for this role.
+
+### Presentation policy
+
+QS_FAKE must preserve native transition occupancy:
+- no represented-slot `ignoredSlots`;
+- no Home `paddingEnd` reservation;
+- no native width/translation/alpha write.
+
+Only the represented native visual roots and Battery are reversibly clipped while the compact fake renderer is ready. HyperOS keeps fake width synchronized from the selected source and remains sole transition geometry/appearance writer.
+
+Existing global `MiuiStatusIconContainer.onMeasure/onLayout` Hooks can route a mask-only fake session without adding a second layout Hook. Existing `MiuiBatteryMeterView` tint Hooks already cover the fake Battery. The legacy binding-level suppression path remains out of scope.
+
+### Entry / exit ordering
+
+- **Entry:** resolve source + fake carrier -> build model/tint/layout -> make compact fake renderer ready -> apply native fake visual masks.
+- **Exit or failure:** restore native fake visual masks first -> stop/hide compact fake renderer.
+- Native fake visuals therefore remain the fail-native substrate and no blank state is required.
+
+### 审查 / review
+
+- **Ownership:** HyperOS selects source and owns fake/real Control Center transition; Combined Status owns only its fake overlay and reversible fake clip tokens.
+- **Lifecycle:** production activity is bounded by native Control Center visibility; no polling, pre-draw follower, timer, or per-frame callback is added.
+- **Single writer:** no project geometry/alpha/appearance writer; Home visibility returns entirely to the native Home carrier.
+- **Cleanup:** fake masks/render state restore independently from Home. Host detach/replacement and feature disable restore only fake-owned clip state.
+- **Fail-native:** missing source capability, fake carrier, statusIcons, Battery, tint, layout, or restoration contract keeps/restores native QS_FAKE without disabling Home.
+- **Performance:** keep one low-frequency visible Hook; reuse existing tint/layout Hooks; renderer can be inactive while Control Center is hidden, avoiding offscreen center-indicator animation.
+- **Compatibility:** field chain and QS_FAKE/QS source roles are verified only for SystemUI `17.03.260226.r`; plugin-side appearance production remains unmodified and uninterpreted.
+- **Exception recovery:** source/host identity is revalidated on activation; an optional source-change seam is event-driven and low-frequency if later proven necessary.
+- **Future extension:** Keyguard can later become another compact-capable source without changing the native QS_FAKE/QS transition topology; do not implement that abstraction before Phase 3 evidence exists.
+
+### Decision boundary
+
+This candidate is preferred for the **post-Build-424** Control Center follow-up, but it is not implemented now. Build 424 remains frozen for its single-variable Home carrier validation.
