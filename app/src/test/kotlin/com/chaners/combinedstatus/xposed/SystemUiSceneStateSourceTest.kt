@@ -1,13 +1,11 @@
 package com.chaners.combinedstatus.xposed
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SystemUiSceneStateSourceTest {
     @Test
-    fun exactStatusBarStatesMapToExpectedSurfaces() {
+    fun batteryStatusStatesRemainReadOnlyClassifications() {
         assertEquals(
             SystemUiSceneStateSource.Surface.UNLOCKED_STATUS_BAR,
             SystemUiSceneStateSource.classifyRawState(0),
@@ -24,21 +22,5 @@ class SystemUiSceneStateSourceTest {
             SystemUiSceneStateSource.Surface.UNKNOWN,
             SystemUiSceneStateSource.classifyRawState(99),
         )
-    }
-
-    @Test
-    fun homeOverlayFailsClosedOutsideUnlockedStatusBar() {
-        assertTrue(
-            SystemUiSceneStateSource.allowsHomeOverlay(
-                SystemUiSceneStateSource.Surface.UNLOCKED_STATUS_BAR,
-            ),
-        )
-        listOf(
-            SystemUiSceneStateSource.Surface.KEYGUARD,
-            SystemUiSceneStateSource.Surface.SHADE_LOCKED,
-            SystemUiSceneStateSource.Surface.UNKNOWN,
-        ).forEach { surface ->
-            assertFalse(SystemUiSceneStateSource.allowsHomeOverlay(surface))
-        }
     }
 }

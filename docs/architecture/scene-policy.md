@@ -31,41 +31,81 @@ Classification is not permission to mutate SystemUI. Runtime integration still r
 | --- | --- | --- | --- |
 | Home stable | PROJECTED | NONE | Runtime verified |
 | Notification-shade transition | NATIVE_ONLY | SYSTEM_UI | Runtime lifetime verified |
-| Control Center | NATIVE_ONLY | SYSTEM_UI | Runtime lifetime verified |
+| Control Center transition bridge | PROJECTED | SYSTEM_UI | Build-420 carrier/handoff evidence; native QS_FAKE ownership candidate under review |
+| Control Center fully expanded | NATIVE_ONLY candidate | SYSTEM_UI | Maintainer concept + native fake/real appearance evidence; product adoption pending review |
 | Keyguard | NATIVE_ONLY | SYSTEM_UI | Static ownership verified |
 | AOD | NATIVE_ONLY | SYSTEM_UI | Static ownership verified |
 
-The map intentionally fails closed outside the verified Home path. Unsupported or not-yet-verified scenes remain native rather than receiving a partial Combined Status implementation.
+The map fails closed outside the verified Home path and the bounded Control Center transition evidence. Unsupported or not-yet-verified scenes remain native rather than receiving a partial Combined Status implementation. A verified transition carrier is not, by itself, permission to keep Combined Status visible as a fully expanded panel surface.
 
 ## Home stable
 
-Home stable is currently the only runtime-verified Combined Status rendering scene.
+Home stable remains the primary persistent rendering scene. Build 420 additionally runtime-verifies a usable Control Center carrier and readiness-ordered handoff mechanism; that evidence is now scoped to the transition bridge rather than the fully expanded endpoint.
 
 Its PROJECTED mode means the Combined Status visual is anchored from verified native geometry while the native slot, native motion, and surrounding layout remain SystemUI-owned.
 
 ## Notification shade and Control Center
 
-These surfaces remain NATIVE_ONLY because SystemUI owns their transition containers and motion.
+The pinned target separates these two panel paths.
 
-For the notification shade, the unlocked status-bar state by itself is **not** sufficient to prove steady Home eligibility. The native panel expansion contract is a separate scene-lifetime fact. On the pinned target Combined Status already observes `ShadeExpansionStateManager.onPanelExpansionChanged(fraction, expanded, tracking)`.
+### Notification Shade
 
-Until a real shade / Control Center projection is promoted:
-- the **Home overlay** is eligible only while the notification panel has no active native shade motion **and** Control Center reports not visible;
-- notification-shade Home eligibility is `tracking=false` with native `fraction<=0`; active tracking or any positive native shade fraction transfers presentation away from Home;
-- `expanded` is diagnostic context rather than an independent Home-ownership authority because the pinned target can assert `expanded=true` for a HUN while `fraction=0.0` and `tracking=false`;
-- Control Center Home eligibility is the native semantic visibility boundary, `visible=false`;
-- notification-shade fraction is a verified scene-lifetime input at the native closed/moving boundary; Control Center numeric fraction remains diagnostics/future-projection input. Neither may be turned into arbitrary project-owned thresholds or a parallel motion model;
-- transient scene ownership must hide the Home overlay without tearing down the structurally valid Home presentation owner;
-- the Home owner may keep its reversible Home-only mask/reservation session stable underneath, while the target Shade/Control Center surface remains fully native and authoritative;
-- full Home-owner teardown is reserved for structural invalidation, feature disable, host replacement/detach, fail-native, and Hot Reload cleanup.
+Notification Shade remains **NATIVE_ONLY**: this target does not present the status-icon row there, so Combined Status must not invent one.
 
-A future combined representation must first prove a stable host/lifecycle contract and must not be implemented as an offset correction layered over native animation.
+The Home render must inherit the native Home end-side presentation lifecycle instead of deriving its own visibility from panel motion. Exact-target source verifies:
+
+`StatusBarVisibilityInteractor.shouldHomeStatusBarBeVisible`
+→ `HomeStatusBarViewModelImpl.isSystemInfoVisible`
+→ `systemInfoCombinedVis`
+→ `HomeStatusBarViewBinderInjector`
+→ `mEndSideContent = R.id.system_icons`.
+
+`showEndSideContent()/hideEndSideContent()` owns the native alpha / visibility / translation transition of `system_icons`. The exact `system_icons` root is `MiuiStatusBatteryContainer`.
+
+Current rules:
+- Home Combined Status renders in `MiuiStatusBatteryContainer(system_icons).overlay`, so native end-side alpha/visibility/translation apply naturally;
+- Notification Header expansion remains useful motion evidence but is **not** a Combined Status Home-visibility authority;
+- Battery `MiuiBatteryMeterView.mStatusBarState`, global Keyguard state, generic Shade expansion state, and local fraction thresholds are not Home-visibility authorities;
+- no project-local Notification-Shade visibility Hook, timing threshold, delay, polling loop, or reconstructed panel state machine is permitted;
+- the parent `MiuiNotificationStatusContainer / system_icon_area` remains the HostSession discovery/ownership boundary, while the visual carrier is the verified animated `system_icons` child.
+
+
+### Control Center
+
+Control Center is split into two ownership phases.
+
+**Partial pull / transition bridge — PROJECTED**
+- the source steady scene may be Home now and Keyguard later;
+- Build 420 proves that a bounded projection can preserve continuity, but its `realSystemIcons.overlay` carrier is not assumed to be the final architecture;
+- exact-target review now shows a separate native `QS_FAKE` status-bar presentation with its own `MiuiStatusBatteryContainer`, native source-size synchronization, unlocked/keyguard tint handling, and SystemUI-owned translation/alpha;
+- using that native fake carrier is the leading low-overhead candidate because it may inherit the transition without a project-owned appearance/geometry state machine;
+- this candidate remains under review until first-frame readiness, native suppression/masking, Hot Reload, and device behavior are verified;
+- SystemUI remains the sole motion/geometry owner.
+
+**Fully expanded endpoint — current design candidate**
+- the maintainer currently prefers a native-only fully expanded Control Center state;
+- this is a product-intent hypothesis, not yet a verified endpoint/lifecycle contract;
+- exact source/runtime review must determine the true ownership boundary and whether a cleaner native handoff abstraction exists before this becomes implementation policy.
+
+Build 420 proved the carrier/handoff mechanism and kept projection alive through the expanded Control Center lifetime. That remains valuable runtime evidence. Whether the final endpoint should be native-only is still under architecture review.
+
+No project-owned timing threshold, custom animation, polling/frame follower, peer geometry write, or second native suppression owner is permitted.
+
 
 ## Keyguard and AOD
 
-Keyguard and AOD currently remain NATIVE_ONLY.
+Keyguard and AOD currently remain NATIVE_ONLY in the implemented runtime.
 
-Historical behavior or static knowledge of their hosts is not sufficient to enable Combined Status rendering. Promotion requires runtime verification of host identity, lifecycle, state, tint, geometry, transition ownership, cleanup, and fallback.
+The maintainer's current product concept gives **Keyguard its own steady Combined Status source role**, parallel to Home, but the exact adapter/lifecycle structure remains to be derived from SystemUI evidence:
+- Keyguard steady is not implemented by reusing the Home View/host;
+- it reuses shared renderer/domain semantics but resolves its own native carrier, tint, lifecycle, cleanup and fail-native contract;
+- HyperOS already registers Home and Keyguard system-icon containers separately into `ControlCenterFakeViewController` and selects the active source from native `StatusBarState`; Combined Status should not duplicate that transition-source router;
+- the exact project adapter boundary for a Keyguard-originated pull remains under review rather than being forced into a preselected coordinator abstraction;
+- native-only fully expanded Control Center remains the maintainer's current product preference, with adoption pending final lifecycle/device review.
+
+AOD remains a separate future surface and is not implied by Keyguard support.
+
+Historical behavior or static knowledge of these hosts is not sufficient to enable rendering. Promotion still requires runtime verification of host identity, lifecycle, state, tint, geometry, transition ownership, cleanup, and fallback.
 
 ## Charging
 
@@ -75,9 +115,9 @@ They must not create a second scene geometry policy or a separate slot-width rul
 
 ## Motion ownership
 
-Home stable currently uses `NONE`: Combined Status has no independent motion requirement there.
+Unlocked steady currently uses `NONE`: Combined Status has no independent motion requirement there. Its end-side visual inherits native `system_icons` motion when SystemUI transitions that carrier.
 
-SystemUI-owned transition scenes use `SYSTEM_UI`.
+Notification Shade and all Control Center transition/destination motion stay under `SYSTEM_UI`; inheritance/projection does not transfer motion ownership to Combined Status. Whether Combined Status renders on a given verified carrier is a separate capability decision from who owns motion.
 
 `COMBINED_STATUS` remains reserved for a future transition that is demonstrated to be genuinely owned by Combined Status from start state through cleanup.
 
@@ -94,3 +134,21 @@ Changing a scene from NATIVE_ONLY to PROJECTED or introducing any new geometry/m
 7. an updated capability table and changelog entry.
 
 If any of those are missing, the scene stays NATIVE_ONLY.
+
+
+## Working scene concept matrix
+
+This matrix records the maintainer's current product-intent partition. It is **not** yet an architecture contract. Exact-target lifecycle/source review may produce a better grouping; any such change should be reviewed and discussed before implementation.
+
+| Source context | Steady state | Partial Control Center pull | Fully expanded Control Center |
+| --- | --- | --- | --- |
+| Unlocked / Home | Combined Status on verified Home carrier | Combined Status transition bridge follows native HyperOS motion | Native SystemUI status bar only |
+| Locked / Keyguard | Combined Status on future verified Keyguard carrier | Combined Status transition bridge follows native HyperOS motion from the Keyguard source | Native SystemUI status bar only |
+
+Design consequences:
+- source-scene ownership and transition ownership should be evaluated separately;
+- Home/Keyguard may end up as separate adapters, a shared higher-level lifecycle, or another exact-target structure; do not decide this from the conceptual table alone;
+- a shared transition coordinator is a candidate only if source/runtime evidence supports it without creating a third state machine;
+- the maintainer currently prefers a native-only fully expanded Control Center endpoint, pending verification;
+- reverse motion restores the correct source scene before bridge cleanup;
+- no source adapter may infer the other source scene from Battery state, global Keyguard booleans, or timing.

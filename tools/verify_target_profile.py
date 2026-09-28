@@ -222,6 +222,7 @@ if not battery_semantic_fields.issubset(source_required_fields):
         ", ".join(sorted(battery_semantic_fields - source_required_fields))
     )
 
+
 native_status_views = profile.get("nativeStatusViews", {})
 expected_native_roles = {"mobileNetwork", "wifi", "battery"}
 if set(native_status_views) != expected_native_roles:

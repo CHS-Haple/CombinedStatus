@@ -450,6 +450,8 @@ Use squash merge for `feat/* -> dev` and `fix/* -> dev`. Internal branch commits
 
 Merged short-lived branches should be removed automatically when role and target are provably correct; otherwise clean them up manually. Never auto-delete `main`, `dev`, `validation/dev`, fork branches, or unknown branch roles.
 
+For history-preserving synchronization involving a long-lived branch, never use `main`, `dev`, or `validation/dev` itself as the head of a merge PR that may trigger GitHub's delete-head-branch behavior. Create a temporary `sync/*` branch from the long-lived source, use that temporary branch as the PR head, merge it with an explicit merge commit when history preservation is required, then delete only the temporary `sync/*` branch. The long-lived source branch must remain untouched.
+
 ## 7. Versioning, changelog, and release
 
 ### 7.1 Versioning

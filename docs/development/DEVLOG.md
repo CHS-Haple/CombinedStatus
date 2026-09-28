@@ -46,6 +46,403 @@ The objective was to improve operator clarity and branch hygiene without introdu
 The repository now explains why a checkpoint is Light/Fast/Integration/Full and flags mixed validation surfaces early. Ordinary runtime PRs remain Fast when their base-to-head diff contains only ordinary runtime/compatibility plus routine build identity changes; a PR remains Full while it still owns build/CI/tooling risk.
 
 
+## 2026-09-28 — Build 422: remove duplicate Home scene writer
+
+**Type:** Phase-2B runtime ownership correction
+**Build:** 422 / `20260928-422`
+**Work branch / PR:** `feat/panel-projection` / Draft #146
+**Device validation:** pending
+
+### Build-421 device result
+
+Build 421 is device-rejected for the remaining Notification-Shade first/last-frame gap. The supplied Detailed diagnostic shows the decisive ordering:
+
+- native notification state first reaches `fraction=0.0`;
+- `MiuiBatteryMeterView.updateState()` then emits raw status-bar state `1`;
+- the Build-421 platform discriminator reports `KeyguardManager.isKeyguardLocked=true`, producing `surface=KEYGUARD` and hiding the Home overlay;
+- only afterward does `ShadeExpansionStateManager` publish the positive shade fraction and take legitimate panel ownership.
+
+The supplied video matches that ordering visually: Combined Status leaves before the Notification Shade has taken over on open, and returns after native Home status icons on close. Build-420 Control Center projection/handoff remains normal in the same device evidence.
+
+**Rejected hypothesis:** platform `KeyguardManager.isKeyguardLocked` can disambiguate transient Battery raw state 1 from real Keyguard ownership. On this target it cannot.
+
+### 问题执行流程
+
+**现象与证据 -> 根因 / 责任源:** the edge gap is not an animation-speed or fraction-threshold defect. Home visibility has two asynchronous writers: the native Home host/panel coordinator and a second project-side Battery-status scene gate.
+
+**仓库规范与官方规范:** current architecture requires Host -> HostSession ownership, one live property / one writer, native motion/lifecycle reuse and root-cause-first correction. Android `ViewGroupOverlay` is a visual layer of its host ViewGroup; Combined Status is already attached to the verified Home host rather than a global window.
+
+**HyperOS / SystemUI 原生实现:** the pinned target has a distinct Home `MiuiNotificationStatusContainer / system_icon_area`, distinct `MiuiKeyguardStatusBarView`, verified Notification-Shade `ShadeExpansionStateManager`, and accepted Control Center carrier/coordinator. Battery `mStatusBarState` is a presentation input and is not sufficient proof of global surface ownership.
+
+**成熟实现对比:** the existing-host reference pattern scopes presentation lifetime to a HostSession and consumes platform scene/hide inputs without inventing a parallel global scene machine. No mature evidence justifies a second Battery-derived Home visibility writer.
+
+**方案选择:** remove Battery status state from Home visibility. Keep its existing hook only as read-only presentation/tint event context. Notification Shade remains the sole native fraction handoff for that panel; Control Center keeps the accepted Build-420 coordinator. Keyguard/AOD stay separate native surfaces for their later adapters.
+
+**workaround:** none. No delay, epsilon, retry, polling, pre-draw follower, custom animation, Keyguard boolean substitution, geometry compensation or extra Hook is added.
+
+### Implementation
+
+- `SystemUiSceneStateSource` no longer reads `KeyguardManager`, creates `TRANSIENT_PANEL`, or publishes a Home-visibility decision. Raw Battery status states are retained only as read-only classifications/diagnostics.
+- `CombinedStatusHomeRenderSession` no longer stores or seeds a Battery-derived `sceneSurface` and no longer includes it in overlay visibility/readiness diagnostics.
+- `CombinedStatusModule.onSceneStateUpdate()` retains the existing Battery-triggered tint refresh / unlocked observation trigger but no longer forwards that event as a Home visibility writer.
+- Home overlay eligibility is now the composition of feature enablement, verified Notification-Shade ownership, Control Center coordinator ownership, and existing native handoff state. Its actual drawing remains scoped to the Home host overlay.
+- Build identity advances to 422 because executable runtime behavior changes.
+- Unit coverage is updated so Battery states remain read-only classifications and Home visibility is governed by feature/panel/handoff gates only.
+
+### 审查 / review
+
+- **ownership:** Home surface drawing belongs to the native Home host; Notification Shade and Control Center retain their own verified authorities. Battery status state no longer owns Home visibility.
+- **lifecycle:** no new observer/listener is added; existing HostSession attach/detach and panel callbacks remain.
+- **single writer:** removes the conflicting scene writer instead of adding a third discriminator.
+- **cleanup:** no new mutable presentation token exists; current overlay/mask/reservation/Control Center cleanup remains unchanged.
+- **fail-native:** structural Home readiness and target-profile failure behavior remain unchanged; unsupported Keyguard/AOD surfaces stay native because they use separate SystemUI hosts.
+- **performance:** removes the per-scene-event platform Keyguard service read; adds no polling or frame work.
+- **compatibility:** no new private SystemUI class/member/Hook is required and the pinned Hook count is unchanged.
+- **exception recovery:** existing source-install, host detach, Hot Reload and fail-native paths remain intact.
+- **future extension:** Keyguard/AOD can add explicit host adapters without reusing or duplicating a Home Battery-state gate.
+
+### Validation gate
+
+Keep PR #146 Draft for Light repository validation and source review. This is a meaningful runtime checkpoint; after review, move Ready for the prescribed runtime validation. A signed Canary is required because the correction changes scene ownership and must be tested for Notification-Shade continuity plus lock/unlock regression before integration.
+
+### Automated validation follow-up
+
+- Draft Light #1297 passed after a record-format-only trailing-whitespace correction; Build identity remained 422.
+- Ready validation #1298 was automatically classified **Full** because the PR-wide diff still contains an earlier `tools/verify_target_profile.py` change. This stronger scope is retained rather than overridden.
+- Full #1298 passed wrapper/JDK/API-37/pinned-target verification and reached Kotlin test compilation, then failed because `SystemUiNativeCombinedParticipantOwnerTest` still supplied the removed `sceneAllowsOverlay` test parameter at six historical call sites.
+- The failure is test-call-site drift, not a runtime/profile failure. The correction removes those stale arguments, renames the affected tests to panel/handoff semantics, and converts the former scene-false assertion into Notification-Shade ownership denial.
+- No executable production source, Hook contract, build identity, geometry, tint, Control Center behavior, or ownership decision changes in this correction.
+
+### Build-422 signed checkpoint
+
+- Draft Light #1300 passed after the stale unit-test call sites were corrected; runtime production source remained unchanged.
+- Ready validation #1301 / run `36357104464` then passed under **Full** scope on exact PR head `f5cfbc87c819a776a5476f3ea1e5817b9c776d86`, including Gradle wrapper, JDK/API 37, pinned HyperOS target profile, Kotlin unit tests, Debug build, and Modern Xposed metadata checks.
+- Owner `/canary` triggered Work Branch Canary #412 / run `36357295818`.
+- Canary trusted-source resolution, exact checkout and source verification all resolved `f5cfbc87c819a776a5476f3ea1e5817b9c776d86`.
+- Haple signing restore and APK signature verification passed; signer certificate SHA-256: `7a64fc85325afe79439afb63369d832d7ddc20fd5b3935b4c28d7bcb85e92fc7`.
+- Modern Xposed metadata and non-debuggable checks passed.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260928-422-canary.apk`; artifact id `10944007922`; uploaded ZIP digest `sha256:78df112998aa2d38b4b4b24e93b78e2c7d90480d44ba89912d825f593418dd01`.
+- Extracted APK size: `3309602` bytes; APK SHA-256: `6d1bcab45ccf01ba3d0110eae2e7b9be5e00a3dc04ae994e308645d144cf5e7e`.
+- PR returns to Draft and runtime is frozen pending focused device validation of Notification-Shade edge continuity, quick Control Center regression, and one lock/unlock Home-overlay leak smoke test.
+
+---
+
+## 2026-09-28 — Build 419: narrow NotificationShadeWrapper target probe
+
+**Type:** Phase-2B bounded runtime diagnostics
+**Build:** 419 / `20260928-419`
+**Work branch / PR:** `feat/panel-projection` / Draft #146
+**Device validation:** pending
+
+### Problem execution flow
+
+**Phenomenon / evidence:** Build 414 proved that `NotificationHeaderExpandController` is on the native notification-header expansion path, but its direct Android View inventory exposed only `realClockIcons`; the controller translations remained constant and are not a verified status-icon endpoint. The same exact runtime inventory exposed two narrower ownership seams: `notification: NotificationShadeWrapper` and `headerController: Lazy`.
+
+**Root cause / missing fact:** notification-shade lifetime/progress is already verified, but the actual shade status-icon target host/bounds/tint owner remains unknown. Implementing projection without that fact would invent geometry.
+
+**Repository / exact-target evidence:** current SystemUI-Reference has high-level `NotificationHeaderExpandController` motion contracts and Control Center `StatusBarAnchorBounds`, but its selective source cache does not contain `NotificationShadeWrapper`; the original 52 MB APK is intentionally not stored in the repository. Public source search did not produce a matching source snapshot. Build-414 runtime field inventory is therefore the narrowest exact-target evidence available.
+
+**Mature/native comparison:** Control Center already exposes an explicit anchor-bounds object and distinct fake/status-icon surface. Notification shade should likewise be resolved through its native wrapper/header ownership chain rather than by copying Control Center geometry or inventing an offset.
+
+### Selected diagnostic
+
+Add `SystemUiNotificationShadeTargetProbe`:
+- hook the already-known notification-header expansion callback;
+- call native first;
+- no work unless Detailed diagnostics / development probes are enabled;
+- capture only boundary buckets 0/1/7/8;
+- resolve the callback's `NotificationHeaderExpandController`;
+- read exact controller fields `notification` and `headerController`;
+- resolve the Lazy holder without storing cross-generation objects;
+- summarize only each owner’s direct View fields plus a bounded one-level set of semantically named candidate owners;
+- log a capped field/type inventory once;
+- no root traversal, polling, frame listener, layout write, tint write, visibility write, or projection rendering.
+
+### 审查 / review
+
+- **ownership:** SystemUI remains sole shade layout/motion/tint owner; project reads only.
+- **lifecycle:** one diagnostics-build hook, generation-scoped; reset on Hot Reload.
+- **single writer:** zero new presentation writers.
+- **cleanup:** only primitive bucket/inventory flags are retained; reset during teardown.
+- **fail-native:** install/read failure leaves the accepted Build-418 Home + panel lifetime behavior untouched.
+- **performance:** one callback hook; bounded reflection only at four diagnostic buckets and only while Detailed is enabled.
+- **compatibility:** callback/controller/fields are pinned in the exact-target profile and checked by the profile verifier.
+- **exception recovery:** reflective owner/value/view reads are guarded and report unavailable/null instead of changing behavior.
+- **future extension:** probe should be deleted from active runtime after the real shade target contract is identified.
+
+### Draft validation / source review
+
+- Draft Light #1270 passed on the initial Build-419 implementation.
+- Review found the semantic candidate filter was matching the full package name, which could classify unrelated `ConfigurationController` values through the `statusbar` package segment.
+- The filter was tightened to field name + type `simpleName`, preserving intended status/icon/header/battery/system/shade/clock/container candidates while avoiding package-name false positives.
+- Draft Light #1271 passed on exact runtime head `1532cb33f9ebefc71ad361db226f0434e0de21b1`.
+- Ready Full #1274 correctly exercised the full unit/build gate and failed one new probe unit test at `candidateSelectionIsNarrowAndSemantic`. Root cause: the runtime caller had already switched to `Field.type.simpleName`, but the reusable helper still accepted arbitrary full type strings; its test intentionally supplied a fully qualified `ConfigurationController`, whose package path contains `statusbar`, exposing the inconsistent helper contract.
+- Fix: normalize `typeName` inside `isCandidateField()` with `substringAfterLast('.')` before semantic token matching. This preserves intended Header/Status/Icon candidates and makes package paths unable to widen the diagnostic scope. No Hook, lifecycle, target-profile, geometry, presentation, or writer behavior changes.
+- Build identity remains 419 because this is a correction within the same unaccepted diagnostic checkpoint.
+- Hot Reload takeover review confirms the status-host handle is the only preserved old handle; every other old-generation HookHandle is unhooked. The new probe therefore cannot accumulate across Hot Reload generations.
+- No additional runtime writer/listener/poller was introduced.
+
+### First device evidence — Build 419
+
+The first signed Build-419 diagnostic run is valid Canary evidence:
+
+- report identity is Build 419 Canary with Detailed diagnostics;
+- runtime health is healthy;
+- `notificationShadeTargetProbe` installs `1/1` hooks in bounded read-only mode with `nativeGeometryWrites=0`;
+- notification-shade buckets 0/1/7/8 are captured across the requested pull-down / return cycle;
+- controller field `notification` resolves to `com.miui.systemui.shade.NotificationShadeWrapper`;
+- the wrapper exposes real native shade ownership objects, including `NotificationHeaderClipHelper` with `SharedNotificationContainer`, and `StatusBarStateControllerImpl` with `NotificationPanelView`;
+- the shared notification/panel Views move from alpha/visibility inactive at the settled top state to active while the notification shade is expanded;
+- `headerController` does **not** resolve to the expected header owner and remains `dagger.internal.DoubleCheck`.
+
+### Root-cause correction of the diagnostic
+
+Review of the probe implementation shows `resolveLazyValue()` only searched for zero-arg `getValue()`. The device object is Dagger `DoubleCheck`, whose Lazy contract uses zero-arg `get()`. Therefore the missing header target is a **probe accessor defect**, not evidence that the header controller or status-icon host is absent.
+
+Selected correction within the same unaccepted Build 419:
+- recognize only Dagger Lazy/DoubleCheck holders before calling `get()`;
+- retain Kotlin Lazy `getValue()` support;
+- do not invoke generic `get()` on unrelated objects;
+- add deterministic unit coverage for Dagger, Kotlin, and unrelated-get cases;
+- leave Hook count, boundary buckets, reflection depth, native writers, profile contract, and projection state unchanged.
+
+**Review / 审查:** ownership remains read-only SystemUI discovery; lifecycle and Hook ownership are unchanged; single-writer boundary remains zero new presentation writers; fail-native returns the original holder if accessor resolution fails; performance remains four bounded boundary reads only; compatibility does not add another SystemUI Hook contract.
+
+### Validation gate
+
+Executable diagnostics plus target-profile/verifier change advance the next runtime identity to Build 419. Ready Full -> one signed Canary only because one focused device diagnostic is now required.
+
+
+## 2026-09-28 — PR #146 refreshed from accepted Build 418 dev baseline
+
+**Type:** history-preserving feature-branch recovery / documentation checkpoint
+**Runtime Build:** unchanged — 418 / `20260928-418`
+**Work branch / PR:** `feat/panel-projection` / Draft #146
+**dev source merged:** `2a0ddbac7daeeb4129042c1702773df0f47583a0`
+
+### Recovery decision
+
+PR #146 had diverged from `dev` while the independent Hot Reload/Tint defect was resolved through Builds 415-418. Build 418 is now device-accepted and Integration-validated, so the Phase-2B branch can resume.
+
+The branch refresh is deliberately history-preserving:
+- retain the old #146 commit history as the first-parent feature history;
+- merge the accepted current `dev` history as the second parent;
+- use the latest `dev` runtime tree as the resolved runtime baseline;
+- preserve Build-414 panel-probe findings in DEVLOG/reference only;
+- do **not** retain the completed `SystemUiNotificationHeaderProbe`, its diagnostic-only target-profile expansion, or its verifier/test scaffolding in the active runtime;
+- do not increment Build identity because this synchronization leaves executable runtime equal to accepted Build 418.
+
+### Build-414 evidence retained
+
+The bounded Build-414 notification-header probe completed its diagnostic purpose:
+- native expansion boundary buckets 0/1/7/8 were observed;
+- the only directly discovered Android `View` on `NotificationHeaderExpandController` was `realClockIcons`;
+- controller `notificationTranslationX=2` and `notificationTranslationY=-109` remained stable in the captured boundaries;
+- the field inventory identified `headerController: Lazy` and `notification: NotificationShadeWrapper` as narrower ownership seams for follow-up;
+- the probe was read-only and is not accepted as a production geometry source.
+
+The contemporaneous Hot Reload tint defect exposed during Build 414 is superseded by the accepted Build-418 lifecycle correction and must not be reintroduced while continuing projection work.
+
+### 审查 / review
+
+- **ownership:** latest `dev` Home/Tint/scene owners remain authoritative; no old diagnostic owner is restored.
+- **lifecycle:** synchronization adds no runtime lifecycle.
+- **single writer:** unchanged from Build 418.
+- **cleanup:** obsolete diagnostic hook state is absent from the resolved runtime tree.
+- **fail-native:** notification shade and Control Center remain native-only until a verified projection target contract exists.
+- **performance:** no runtime change.
+- **compatibility:** no extra Build-414 diagnostic contract is imposed on current runtime compatibility.
+- **exception recovery:** unchanged from Build 418.
+- **future extension:** continue static/reference discovery through `NotificationShadeWrapper` / `headerController`; add another diagnostic only if a specific fact remains unavailable.
+
+### Next
+
+Continue Phase 2B source/contract review before runtime mutation. The next application Build is created only when executable projection/diagnostic source genuinely changes.
+
+
+## 2026-09-28 — Build 414 device evidence: panel probe succeeds, Hot Reload tint continuity fails
+
+**Type:** maintainer device evidence / root-cause triage
+**Display version:** 0.0.2
+**Build:** 414 / `20260928-414`
+**Work branch / PR:** `feat/panel-projection` / Draft #146
+**Device:** Xiaomi 15 Pro / HyperOS 4.0.0.15.XOBCNXM.D01 / SystemUI 17.03.260226.r
+
+### Maintainer feedback
+
+After installing Build 414 and using module Hot Reload, Combined Status inversion/tint is visibly wrong. A full SystemUI restart restores correct behavior. The supplied diagnostic intentionally captures the pre-restart abnormal Hot Reload session; it does not contain the later normal cold/restarted session.
+
+### Diagnostic facts
+
+- Runtime health is otherwise healthy and all expected Build-414 sources install successfully.
+- Immediately after Hot Reload, structured health still reports `tint state=unknown event=not-observed` while the Home renderer/session is already restored.
+- Status-icon observation and Home renderer then seed `#bf000000`; Home reaches `ownerReady=true` and becomes visible from that seed.
+- Only after the Hot Reload restore is complete does `MiuiBatteryMeterView.onDarkChangedInternal` arrive and expose the native tint callback context.
+- The Build-414 `notificationHeaderProbe` is explicitly `bounded-read-only` with `nativeGeometryWrites=0`; no evidence shows it writing tint, alpha, visibility, or layout.
+- Notification-header target evidence was successfully captured at buckets 0/1/7/8. Direct controller View discovery yielded only `realClockIcons`; controller translations stayed `notificationTranslationX=2`, `notificationTranslationY=-109`. The one-time field inventory exposes `headerController: Lazy` and `notification: NotificationShadeWrapper` as narrower follow-up ownership seams.
+
+### Root-cause review
+
+Source review shows Hot Reload currently resets `SystemUiPresentationRuntimeOwner`, which clears `SystemUiTintStateSource` state, and also resets `CombinedStatusPresentationStateStore`. The classloader-neutral Hot Reload transfer carries model/network state plus shade/Control Center eligibility, but **does not carry stable tint continuity**.
+
+During reattach, `CombinedStatusHomeRenderSession.start()` immediately calls `SystemUiTintStateSource.currentState(battery)`, which refreshes directly from the live battery-percent TextView and can therefore accept a transient handoff color before the new generation receives its first authoritative dark/tint event. This matches the device symptom and the supplied event ordering. A full SystemUI restart rebuilds the native dark/tint lifecycle from cold state, matching the maintainer's report that restart restores correct behavior.
+
+The evidence does **not** support blaming the notification-header probe itself. Its additional hook may change timing enough to expose the pre-existing handoff weakness, but it is not a tint writer.
+
+### Selected direction
+
+Do not add a timer or force SystemUI to resend dark mode. Preserve presentation continuity explicitly:
+
+1. capture the last accepted stable tint before old-generation teardown using classloader-neutral primitive values;
+2. transfer it with the existing Hot Reload payload;
+3. seed the new Home renderer from that transferred stable tint instead of immediately trusting a possibly transient live View read during handoff;
+4. let the first new-generation native tint event replace the transferred seed naturally;
+5. keep cold-start behavior unchanged.
+
+Because this is a different runtime owner and independently shippable correction, implement it on a dedicated `fix/*` branch from the accepted `dev` baseline, then update #146 after integration.
+
+### 审查 / review
+
+- **Ownership:** native SystemUI remains tint authority; transfer only preserves the last already-accepted native-derived presentation state across module generations.
+- **Lifecycle:** continuity exists only across the bounded Hot Reload handoff and is superseded by the first new native tint event.
+- **Single writer:** no new color writer or dark-mode controller is introduced.
+- **Cleanup:** transferred primitives are generation-bounded; no View/classloader object needs to cross as tint state.
+- **Fail native:** missing/invalid transferred tint falls back to the existing native re-observation path.
+- **Performance:** no polling, delay, retry, or extra frame work.
+- **Compatibility:** uses existing native tint events and classloader-neutral primitive transfer.
+- **Exception recovery:** malformed/older transfer versions continue through backward-compatible restore or native fallback.
+- **Future extension:** panel projection remains paused until this shared Hot Reload presentation continuity is stable.
+
+### Panel-projection outcome
+
+Build 414 achieved its diagnostic objective but is not accepted as a mergeable projection checkpoint because of the Hot Reload tint regression. Keep PR #146 Draft. After the separate Hot Reload fix integrates, refresh the branch and continue target-host discovery through the verified notification header controller/wrapper chain.
+
+## 2026-09-28 — Build 414 notification-header target-geometry probe
+
+**Type:** Phase-2B bounded runtime diagnostics
+**Display version:** 0.0.2
+**Build:** 414 / `20260928-414`
+**Work branch / PR:** `feat/panel-projection` / Draft #146
+**Device validation:** pending
+
+### Problem / objective
+
+Static exact-target evidence identifies `NotificationHeaderExpandController` as the native notification-header translation owner and its `notificationCallback$1.onExpansionChanged(float)` callback as the expansion signal. The repository still lacks a verified runtime target-host/bounds snapshot comparable to Control Center's existing `StatusBarAnchorBounds` evidence.
+
+Implementing the panel renderer before that fact is known would require guessing a host or inventing a geometry formula.
+
+### Root cause / evidence gap
+
+**Confirmed evidence gap:** notification-shade lifetime/progress is verified, but the actual controller-owned View candidates and their native target geometry are not yet runtime-verified in Combined Status.
+
+This is not evidence that the Home overlay or legacy native participant should be reused. It is a request for one missing native target fact.
+
+### Exact-target contracts used
+
+- `com.android.systemui.controlcenter.shade.NotificationHeaderExpandController`;
+- `NotificationHeaderExpandController$notificationCallback$1.onExpansionChanged(F)V`;
+- controller scalar fields `notificationTranslationX` and `notificationTranslationY`;
+- existing Build-413 `ShadeExpansionStateManager.onPanelExpansionChanged(FZZ)V` remains the runtime Home-lifetime authority;
+- existing Control Center `StatusBarAnchorBounds` diagnostics remain unchanged.
+
+The new diagnostic callback contract is recorded in `compat/targets/hyperos-17.03.260226.r.json` and bound to source constants by `tools/verify_target_profile.py`.
+
+### Measures implemented
+
+Added `SystemUiNotificationHeaderProbe`:
+
+- installed only in runtime-diagnostics builds;
+- hooks the exact notification-header expansion callback;
+- calls the native callback first;
+- performs no work unless Detailed diagnostics / development probes are enabled;
+- samples only when entering native diagnostic boundary buckets 0, 1, 7, or 8;
+- resolves the callback's owning `NotificationHeaderExpandController`;
+- reads only the two verified translation scalar fields plus direct controller fields whose declared type is an Android `View`;
+- records field name, runtime View type, resource id, parent type, screen coordinates, laid-out/measured bounds, translation, alpha, visibility, and attachment state;
+- emits one capped controller field/type inventory to make absence of direct View fields diagnosable without repeated reflection;
+- writes no View/layout/translation state.
+
+Probe installation is isolated from `SystemUiPanelTransitionSource`. If the diagnostic contract cannot be installed, Build-413 notification-shade / Control Center runtime authority remains intact and the probe is reported unavailable.
+
+### 审查 / review
+
+- **Ownership:** SystemUI remains the sole notification-header motion/layout owner; the module only observes controller-owned state.
+- **Lifecycle:** one diagnostics-build Hook tied to the existing module generation; Hot Reload resets probe bookkeeping and old-generation hooks remain under the existing takeover lifecycle.
+- **Single writer:** zero new writers. No Home or panel visibility, layout, translation, alpha, tint, or peer state is changed.
+- **Cleanup:** bucket/inventory state is generation-scoped and reset during Hot Reload teardown.
+- **Fail native:** diagnostic install failure is fail-soft and explicitly does not affect runtime panel authority; actual panel projection remains native-only.
+- **Performance:** no polling, ViewTree traversal, frame listener, or continuous logging. Reflection metadata is resolved once at install and runtime snapshots occur only at four bounded progress buckets while Detailed diagnostics are enabled.
+- **Compatibility:** the callback/controller and translation fields are declared in the exact pinned target profile; source constants are CI-checked against that profile.
+- **Exception recovery:** all probe reads are guarded; missing optional direct View values report null/unavailable rather than changing behavior.
+- **Future extension:** runtime evidence from this probe will determine a surface-specific projection adapter/host. The probe is not itself intended to become the production geometry source.
+
+### Rejected alternatives
+
+- Interpolate from Home to a guessed notification translation: rejected; target host/bounds unverified.
+- Reuse the Home overlay in the expanded surface: rejected; wrong scene ownership.
+- Traverse the whole root View tree continuously: rejected; broader and more expensive than the controller-scoped probe.
+- Add a per-frame listener: rejected; unnecessary for host/anchor discovery.
+- Reuse old zero-width native-participant experiments: rejected; superseded architecture with known ownership/geometry conflicts.
+
+### Validation gate
+
+Because executable source and the pinned compatibility/tooling contract changed, this checkpoint advances to Build 414 and requires the applicable automated validation before a signed Canary. No panel-projection behavior should be implemented until the focused device diagnostic closes the target-host/geometry evidence gap.
+
+## 2026-09-28 — Phase 2B panel projection evidence boundary
+
+**Type:** architecture/source review / documentation-only checkpoint
+**APK build:** none; integrated runtime remains Build 413 / `20260927-413`
+**Work branch:** `feat/panel-projection`
+
+### Problem / objective
+
+Build 413 closes Home scene-lifetime ownership for HUN, notification-shade shallow pull, and Control Center visibility handoff. Phase 2B is still incomplete because Combined Status does not yet render as a verified projection on the notification-shade / Control Center surfaces; those surfaces remain native-only while the Home overlay is suppressed.
+
+### Problem execution flow
+
+**Phenomenon / current state**
+
+- Home rendering is runtime-verified and uses `MiuiNotificationStatusContainer.overlay`.
+- Notification shade and Control Center have verified native lifetime owners and progress callbacks.
+- Control Center already exposes bounded exact-target anchor evidence through `ControlCenterHeaderExpandController` + `StatusBarAnchorBounds`.
+- Notification shade currently exposes the accepted `ShadeExpansionStateManager` motion/lifetime facts, while exact target reference identifies `NotificationHeaderExpandController` as translation owner, but the current repository does not yet have an equivalent verified target-host / target-bounds snapshot for rendering.
+
+**Root-cause / evidence gap**
+
+The remaining Phase-2B blocker is not another Home visibility defect. It is missing evidence for the actual target-surface projection contract, especially notification shade. Without a verified target host/bounds/tint source, writing an interpolation formula would invent geometry ownership.
+
+### References consulted
+
+- latest `CONTRIBUTING.md`, `CURRENT.md`, `ROADMAP.md`, and Build-413 DEVLOG closure;
+- `docs/architecture/layout-policy.md` and `scene-policy.md`;
+- exact-target `SystemUI-Reference/findings/scene-host-motion.md`;
+- exact-target `SystemUI-Reference/findings/control-center.md`;
+- exact-target verified-contract index;
+- historical Builds 380-390 only as evidence, not as reusable architecture.
+
+### Selected direction
+
+1. Resolve notification-shade controller/host/target geometry first.
+2. Reuse existing Control Center anchor diagnostics unless a concrete missing fact is identified.
+3. If exact static evidence cannot close the notification target contract, add one bounded Detailed-only read-only probe at the existing native callback boundary.
+4. Only after target contracts are known may a scene-specific projection session be implemented using the shared Combined Status render model.
+
+### 审查 / review
+
+- **Ownership:** SystemUI remains owner of notification/Control Center translation, peer layout, and native surface lifecycle.
+- **Lifecycle:** no new runtime owner in this checkpoint.
+- **Single writer:** no geometry/visibility writer added.
+- **Cleanup:** no runtime resource added.
+- **Fail native:** both surfaces remain native-only until their projection contracts are established.
+- **Performance:** documentation/source review only.
+- **Compatibility:** exact pinned SystemUI fingerprint remains the evidence scope.
+- **Exception recovery:** unchanged.
+- **Future extension:** target-surface adapters should reuse one shared renderer/state model and remain independent from the Home overlay lifecycle.
+
+### Outcome / next step
+
+Open a Draft Phase-2B projection PR from this checkpoint. Continue exact-target notification-header source/contract review. Create Build 414 only if a bounded runtime diagnostic is actually needed to resolve the remaining target-host/geometry facts.
+
 ## 2026-09-28 — Build 418 integrated into dev
 
 **Type:** device-accepted runtime integration closure
@@ -930,7 +1327,165 @@ Use explicit confidence labels when root cause is not proven:
 
 Preserve failed hypotheses and append corrections. Do not rewrite history to hide an invalidated path. Historical entries before this log was introduced may be backfilled only from verifiable evidence.
 
+## 2026-09-28 — Build 420 device result: Control Center accepted, shade edge rejected
+
+**Type:** maintainer device evidence / root-cause update
+**Build:** 420 / `20260928-420`
+**PR:** #146 `feat/panel-projection`
+
+### Maintainer result
+
+- Control Center: no abnormal behavior observed. Keep the Build-420 projection architecture and handoff unchanged.
+- Notification Shade: first/last-frame Combined Status disappearance remains; the Build-420 `tracking/fraction=0` correction is insufficient.
+
+### Diagnostic evidence
+
+The Build-420 Detailed report is healthy and confirms the new panel source is installed normally. During Notification-Shade transition:
+
+- `homeRenderScene ... raw=1 surface=KEYGUARD ... visible=false` occurs before the notification fraction callback changes Home shade eligibility;
+- immediately afterward the panel callback reports `fraction=1.0` and `homeEligible=false`;
+- on return, scene state changes back to raw 0 / unlocked before the later `fraction=0.0` callback restores shade Home eligibility.
+
+This proves Home visibility still has two asynchronous writers for the same transition boundary. The earlier Build-420 change fixed the panel predicate, but `SystemUiSceneStateSource` can still evict Home independently.
+
+### Root cause
+
+`SystemUiSceneStateSource` currently maps the Battery view's `mStatusBarState` directly:
+- 0 -> unlocked;
+- 1 -> Keyguard;
+- 2 -> shade locked.
+
+On this target, Battery state 1 can occur as part of Notification-Shade presentation even while the user is not on the actual Keyguard surface. Therefore the Battery field is a presentation-state input, not sufficient proof of global Keyguard ownership.
+
+### Selected Build-421 correction
+
+Use the platform `KeyguardManager.isKeyguardLocked` authority as the additional Keyguard proof:
+- raw 1 + `true` -> real `KEYGUARD`, Home remains native-only;
+- raw 1 + `false` -> `TRANSIENT_PANEL`, which does not independently veto Home;
+- raw 1 + unavailable result -> `UNKNOWN`, fail-native;
+- raw 2 remains `SHADE_LOCKED`, native-only;
+- the read occurs only on the existing Battery scene event, with no polling, new Hook, reflection contract, or ViewTree traversal;
+- no Control Center code, geometry, tint, or handoff changes.
+
+This preserves the accepted Control Center result and addresses the actual remaining Notification-Shade writer conflict instead of adding another threshold or delay.
+
+### Build-421 implementation review
+
+- runtime source: `fb5bd499f01add37c12be8ee38668f0dc5270d52`;
+- Draft validation #1291 passed on the exact Build-421 head;
+- platform Keyguard state is read only from the existing `MiuiBatteryMeterView.updateState()` event;
+- `TRANSIENT_PANEL` is an explicit scene classification rather than pretending raw state 1 is unlocked;
+- only `UNLOCKED_STATUS_BAR` and `TRANSIENT_PANEL` allow Home; true Keyguard, Shade Locked, and Unknown remain native-only;
+- Control Center projection implementation is unchanged from the device-accepted Build-420 path;
+- no delay, threshold, timer, polling, extra SystemUI Hook, or geometry/tint writer is introduced.
+
+
+
 ---
+
+## 2026-09-28 — Build 420: Notification-Shade edge continuity + Control Center projection
+
+**Type:** Phase-2B runtime implementation / route correction
+**Build:** 420 / `20260928-420`
+**Exact runtime source after review:** `3635b52c3f3781db74a09ea6ab23a7e9dfcf40e5`
+**Stable dev baseline remains:** Build 418 / `20260928-418`
+
+### Problem / target correction
+
+Maintainer clarification corrected an implicit Phase-2B assumption: on the pinned HyperOS target, the Notification Shade does **not** present the native status-icon row. Only Control Center does. Therefore a Notification-Shade Combined Status projection would be non-native behavior and must not be implemented.
+
+One Notification-Shade bug remains in scope: the Home Combined Status can disappear for the first/last transition frame, matching the previously observed Control Center edge gap. The issue is not steady-state shade visibility; it is ownership timing at the exact zero-motion boundary.
+
+### Build-419 evidence and route closure
+
+Build 419 successfully unwrapped `NotificationHeaderExpandController.headerController` through Dagger `DoubleCheck.get()` and exposed `CombinedHeaderController`. The resulting runtime inventory showed:
+
+- Notification side: `normal_shade_header`, notification clock, and shade containers;
+- Control Center side: `controlCenterStatusBar`, `controlCenterStatusIcons`, `controlCenterSystemIcons`, and the dedicated Control Center header;
+- no evidence that Notification Shade should own a status-icon projection.
+
+Combined with the maintainer's native-behavior clarification, the Build-419 Notification-Shade target probe is retired. Its findings remain historical evidence; the probe source/test and active compatibility hook point are removed from Build 420.
+
+### Root cause — Notification-Shade first/last frame
+
+The existing Home eligibility predicate was:
+
+`tracking == false && fraction <= 0`
+
+At gesture start, HyperOS may report `tracking=true` while native fraction is still exactly `0`. That evicts Home before there is real shade motion. The inverse can occur on return, keeping Home hidden through the final zero-motion frame.
+
+Build 420 changes the ownership fact to the native motion boundary:
+
+- `fraction <= 0` -> Home remains eligible;
+- `fraction > 0` -> shade owns the transition;
+- `tracking` / `expanded` remain diagnostic context and do not independently hide Home.
+
+This does not make Combined Status visible in steady Notification Shade; once positive shade motion begins, Home yields as before.
+
+### Control Center projection architecture
+
+Build 420 does not invent a second animation path. It promotes the already-evidenced `ControlCenterHeaderExpandController.realSystemIcons` reference from diagnostic use to runtime carrier resolution.
+
+The Control Center projection session:
+
+- accepts only `MiuiStatusBatteryContainer`;
+- additionally requires object identity with the exact battery container already owned by `SystemUiHomePresentationOwner`;
+- resolves the existing native status-icon group, battery view, and `battery_icon_container`;
+- reuses `CombinedStatusHomeLayoutResolver`, the existing render model, visual settings, semantic battery colors, and renderer;
+- reads monochrome tint from the Control Center carrier's own visible non-represented status peers;
+- adds only a `ViewGroupOverlay` child to the native transformed carrier;
+- performs no custom `translationX/Y`, no progress interpolation, no timer, polling, frame follower, or peer alpha/visibility writer.
+
+Because `realSystemIcons` is identity-gated to the existing Home presentation container, Wi-Fi/mobile/battery masking and ignored-slot ownership remain single-writer under `SystemUiHomePresentationOwner`. Build 420 adds no second suppression owner.
+
+### Handoff sequencing
+
+Control Center open:
+1. native `onVisibleChanged(true)` completes;
+2. resolve and attach the projected surface while Home remains visible;
+3. require model + local tint + layout + attached host + carrier identity;
+4. make Control Center projection visible;
+5. only then mark Home Control Center eligibility false.
+
+Control Center close:
+1. restore Home eligibility first;
+2. hide/remove the Control Center projection second.
+
+This ordering prevents an intentionally empty ownership frame at either edge.
+
+### Hot Reload review
+
+Post-implementation review found HomeRenderSession still seeded its Control Center gate directly from `SystemUiPanelTransitionSource.currentControlCenterHomeEligibility()`. That could bypass the new readiness coordinator during Hot Reload. The final Build-420 runtime correction makes the Control Center Home gate coordinator-owned from initialization (`true` until the coordinator explicitly yields).
+
+The panel source still retains Control Center visibility as diagnostic/transfer context, but it is no longer a second Home visibility writer.
+
+### Review / 审查
+
+- **ownership:** Home and Control Center visual ownership are coordinated explicitly; native masking remains owned only by HomePresentationOwner.
+- **lifecycle:** projection is attached only for native Control Center visibility and cleaned on close/Hot Reload.
+- **single writer:** no duplicate suppression, translation, alpha, or visibility writer is introduced.
+- **cleanup:** overlay/listeners are removed; Home is restored before projection teardown.
+- **fail-native:** unresolved/wrong-identity carrier keeps Home visible and skips Control Center projection.
+- **performance:** event-driven only; no frame loop/polling/retry.
+- **compatibility:** runtime carrier comes from the already-verified Control Center callback owner; wrong type/identity fails closed.
+- **exception recovery:** partial projection readiness cannot evict Home.
+- **future extension:** surface adapter shares global render policy/model without creating a second network/battery state machine.
+
+### Validation state
+
+- core projection carrier commit `960131626992e9a149f512a38b6d75e201e61b9e`: Draft Light #1281 passed;
+- full Build-420 wiring commit `ccff32bc629b52487996c3ccbfc1525d4b41ed8b`: Draft Light #1282 passed;
+- final runtime review correction `3635b52c3f3781db74a09ea6ab23a7e9dfcf40e5`: pending final Draft validation at time of this record;
+- runtime remains frozen until that check passes and the checkpoint advances to Ready/Full.
+
+### Device gate
+
+One combined Build-420 device package will validate both requested behaviors:
+
+1. Notification Shade: first and last transition frames no longer show the one-frame Combined Status disappearance; steady shade remains without status icons.
+2. Control Center: Combined Status appears in the native status-icon surface, follows native motion without duplicate/blank edge frames, and returns cleanly to Home.
+
+No separate Notification-Shade projection test is required.
 
 ## 2026-09-26 — Development-memory system initialized
 
@@ -6346,3 +6901,1123 @@ CI is now **checkpoint-driven rather than commit-driven**:
 Repository memory remains mandatory. A later documentation-only closure commit records the completed checkpoint but does not advance application Build identity merely because GitHub executes a Light repository check for that commit.
 
 The current runtime development baseline remains **Build 412**. This automation/governance change does not resolve or alter the separate notification/HUN native-status fallback investigation.
+
+
+---
+
+## 2026-09-28 — Build 422 device rejection — Notification Shade edge persists
+
+**Type:** device feedback / rejected runtime checkpoint
+**Build:** 422 / `20260928-422`
+**Signed Canary:** Work Branch Canary #412 / run `36357295818`
+**Exact tested runtime head:** `f5cfbc87c819a776a5476f3ea1e5817b9c776d86`
+**Runtime code after this record:** unchanged
+
+### Device feedback
+
+The maintainer reports that the Notification Shade problem still reproduces on Build 422 and supplied:
+- `1000034090.mp4`;
+- `CombinedStatus-Diagnostic-20260928-422-20260928-070916.txt`;
+- `LSPosed_20260928_071003.zip`.
+
+The Detailed report identifies `version=0.0.2`, `build=20260928-422`, `buildType=canary`, and `channel=canary`. Runtime health is healthy. The `panelTransition` source reports `expectedHooks=3 hooks=3`, with Notification runtime and Control Center hooks installed. Therefore the reproduction is not classified as a stale-install or missing-hook failure.
+
+### Previous hypothesis status
+
+Build 422 removed Battery scene state / `KeyguardManager` from Home visibility authority so Home visibility would be controlled by the native host plus panel coordinator. Device evidence now shows that this correction is **not sufficient** to remove the remaining Notification-Shade first/last-frame defect.
+
+This does not reinstate the rejected Build-421 Battery/Keyguard inference. That path remains rejected.
+
+### Root-cause boundary reopened
+
+Before another runtime edit:
+1. correlate screen-recording frames with Detailed + LSPosed event ordering;
+2. inspect the exact-target SystemUI reference for every writer that can affect Home host/native status presentation around shade open/close;
+3. determine whether the project shade callback is late relative to a different native owner, or whether Home overlay visibility is correct but the underlying host/native masking lifecycle changes independently;
+4. preserve accepted Build-420 Control Center projection unless evidence proves a regression.
+
+### Review / constraints
+
+- **Ownership:** unresolved; do not add another visibility writer until the remaining native/project writer is identified.
+- **Lifecycle:** no new listener/hook in this record.
+- **Single writer:** Build 422 remains evidence; no competing writer is reintroduced.
+- **Cleanup:** unchanged.
+- **Fail-native:** unchanged.
+- **Performance:** no runtime change.
+- **Compatibility:** pinned target remains SystemUI `17.03.260226.r`.
+- **Forbidden workaround path:** no delays, epsilon thresholds, timers, polling, per-frame followers, or geometry compensation.
+- **Build identity:** remains Build 422 because this commit is record-only.
+
+
+---
+
+## 2026-09-28 — Build 423: follow native Notification Header expansion
+
+**Type:** Phase-2B root-cause correction
+**Build:** 423 / `20260928-423`
+**Work branch / PR:** `feat/panel-projection` / Draft #146
+**Runtime source:** `81deafdb3b25e1d34f4cb57ee57de09c9f1fa5e0`
+**Device validation:** pending
+
+### Problem / Build-422 evidence
+
+The maintainer reports that Build 422 still reproduces the Notification-Shade first/last-frame continuity defect. The supplied Detailed report confirms the signed Build-422 Canary was active and all three panel hooks were installed, so stale installation / missing hook is rejected as the cause.
+
+Timeline inspection shows the project's current Notification-Shade source, `ShadeExpansionStateManager.onPanelExpansionChanged(float, boolean, boolean)`, is not exposing the continuous Header transition needed for this handoff on the pinned target: captured Notification-Shade values jump between the closed/open boundaries while Control Center diagnostics expose normal intermediate progress values.
+
+This rejects the Build-422 assumption that the generic Shade expansion callback is the correct Home-vs-Notification-Header handoff authority.
+
+### Exact-target source review
+
+Using maintainer-provided jadx 1.5.6 against the exact SystemUI APK
+`17.03.260226.r` / SHA-256 `a0e738e41fe599b97950cbf52a9e2ddc6ae2ceff986efbacb1c9840bea78768d`:
+
+1. `CombinedHeaderController.start()` registers
+   `NotificationHeaderExpandController.notificationCallback` through
+   `NotificationPanelExpandController.addCallback(...)`.
+2. `NotificationPanelExpandController.expansionState` is the read-only projection of
+   `NotificationPanelExpansionAnimator.expansion`.
+3. `NotificationPanelExpandController$2$1` collects that expansion StateFlow and, for each float,
+   directly calls every registered `PanelExpandController.Callback.onExpansionChanged(float)`.
+4. `NotificationHeaderExpandController$notificationCallback$1.onExpansionChanged(float)`
+   consumes that same progress to update native Notification Header color fraction,
+   translation, scale and alpha.
+
+Therefore the Notification Header callback is the verified target-specific visual transition seam Combined Status needs; the generic `ShadeExpansionStateManager` broadcast is not used as the Home handoff source in Build 423.
+
+### Implementation
+
+- Replaced the Notification-Shade runtime Hook with
+  `NotificationHeaderExpandController$notificationCallback$1.onExpansionChanged(float)`.
+- The Hook observes after `chain.proceed()`, so native HyperOS remains authoritative and a native callback failure cannot leave Combined Status ahead of SystemUI state.
+- Existing Home visibility ownership is unchanged: the callback only supplies native progress to the existing `notificationShadeAllowsHome` gate.
+- Removed stale tracking dependence from that gate; Header progress alone is used.
+- Kept Build-420 Control Center visibility/projection path unchanged.
+- Updated the pinned target profile hookPoint from generic Shade expansion to the already-verified Notification Header callback.
+- Added diagnostic authority `hyperos-notification-header-callback`.
+
+### 审查 / review
+
+- **Ownership:** native Notification Header transition remains SystemUI-owned; Combined Status only observes its already-used callback and controls its own Home overlay visibility.
+- **Lifecycle:** no new observer/listener/service. One existing Notification hook is replaced one-for-one; installed hook count remains unchanged.
+- **Single writer:** Home overlay visibility still has one project gate; Battery/Keyguard scene inference remains removed.
+- **Cleanup:** existing HookHandle teardown / Hot Reload generation cleanup is unchanged.
+- **Fail-native:** native callback executes first; reflection/contract failure rejects panel-source installation rather than inventing fallback scene semantics.
+- **Performance:** event-driven native callback only; no polling, timer, per-frame tree scan, or added reflection hot path.
+- **Compatibility:** callback class/method is already verified in the pinned exact-target profile; the profile hookPoint is updated to match actual runtime integration.
+- **Future extension:** Notification Shade remains native-only with no Combined Status projection; Keyguard/AOD remain separate Phase-3 surfaces.
+
+### CI status
+
+Draft Light #1305 on the first Build-423 runtime commit failed only at `git diff --check` because the preceding Build-422 DEVLOG record contained four trailing-space Markdown lines. Runtime code, Kotlin compilation and target-profile validation were not reached by that Light run. The whitespace is corrected in the subsequent record-only commit without changing Build identity.
+
+### Device acceptance boundary
+
+After repository Full validation and a signed Canary:
+- repeat Notification-Shade open/close gestures and inspect the very first departure frame plus final Home return frame;
+- confirm Combined Status no longer disappears/restores out of phase with the native top-area transition;
+- perform one Control Center open/close regression pass;
+- if any edge remains, export Detailed diagnostics so the new Header-progress authority can be correlated directly with the video.
+
+
+### Build-423 signed checkpoint
+
+- Ready Full #1307 / run `36359395894`: **success** on PR head `5d982a74f80d157bfcfd543e7d1706099dd46e64`.
+- Trusted Work Branch Canary #413 / run `36359604981`, attempt 1: platform-cancelled during Gradle execution after exact-source, signing restore and target-profile checks; no Kotlin/Gradle failure was reported.
+- Canary #413 attempt 2: **success** on exact trusted source `5d982a74f80d157bfcfd543e7d1706099dd46e64`.
+- Passed: trusted source resolution, exact checkout, Wrapper/JDK/API37, Haple signing restore, pinned HyperOS target profile, unit tests + Canary build, Modern Xposed metadata, Haple APK signature, non-debuggable verification, artifact upload.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260928-423-canary.apk`
+- Artifact ID: `10945257544`
+- Artifact ZIP digest: `sha256:d04859b9ec595d43f599174d61fa80fb169a509517b873b309189e418de13d20`
+- Extracted APK size: `3309602` bytes
+- Extracted APK SHA-256: `9830f24a36d55c5c38914a2b2c23f3cf52a49babfda26572a96420e79138597d`
+
+Runtime is frozen at Build 423 pending focused maintainer device validation.
+
+
+---
+
+## 2026-09-28 — Build 423 device rejection: Header progress is motion, not ownership
+
+**Type:** device feedback / root-cause refinement
+**Build:** 423 / `20260928-423`
+**Signed Canary:** Work Branch Canary #413 / run `36359604981`, successful attempt 2
+**Runtime source:** `81deafdb3b25e1d34f4cb57ee57de09c9f1fa5e0`
+**Runtime after this record:** unchanged
+
+### Device result
+
+The maintainer reports that the Notification-Shade first/last-frame defect still reproduces on Build 423.
+
+The supplied Detailed report confirms the tested package is the expected `0.0.2` Build `20260928-423` Canary and reports `panelTransition` ready with all expected hooks installed. This rejects stale installation or missing Hook as an explanation.
+
+The separate file `28_09-07-52-49_225.log` is a LogFox whole-system capture, not an LSPosed-only export. That distinction matters because it places native HyperOS SystemUI logs and Combined Status events on the same clock.
+
+### New evidence
+
+Build 423's Header callback is valid and continuous. The LogFox capture includes intermediate
+`NotificationHeaderExpandController` progress values across the gesture, so the temporary hypothesis that Combined Status was attached to an endpoint-only callback instance is rejected.
+
+The remaining problem is the ownership interpretation:
+
+- Opening sequence:
+  - native `StatusBar##isHomeStatusBarAllowed` changes to `false`;
+  - `NotificationPanelExpandController` begins increasing panel height;
+  - Build 423 then receives a tiny positive Header progress and immediately sets Home overlay eligibility false.
+- Closing sequence:
+  - Header progress reaches zero and Build 423 restores the overlay;
+  - only after that does native `StatusBar##isHomeStatusBarAllowed` change back to `true`.
+
+This establishes that Header progress is native motion context but not the complete native Home-status-bar ownership decision.
+
+### Root-cause direction
+
+The exact-target source for `isHomeStatusBarAllowed` must be traced before Build 424:
+1. identify its defining state / Flow and producer;
+2. identify the native status-bar presentation consumers;
+3. determine whether Combined Status can observe the same authority without creating a second state machine;
+4. keep Notification Shade native-only and Control Center on the accepted Build-420 projection path.
+
+### 审查 / review boundary
+
+- **Ownership:** unresolved but now narrowed to the native Home-status-bar allowed contract.
+- **Lifecycle:** no runtime change in this record.
+- **Single writer:** do not combine Header progress and a new boolean as independent writers; select one verified authority or compose through an existing native contract.
+- **Cleanup:** unchanged.
+- **Fail-native:** unchanged.
+- **Performance:** no polling or frame-loop instrumentation.
+- **Compatibility:** exact target remains SystemUI `17.03.260226.r`.
+- **Rejected workaround:** no epsilon threshold around zero progress; the new evidence is about ownership ordering, not float noise.
+- **Build identity:** remains Build 423.
+
+
+---
+
+## 2026-09-28 — Build 424: inherit native Home end-side lifecycle
+
+**Type:** runtime root-cause correction / Phase 2B
+**Display version:** 0.0.2
+**Build:** 424 / `20260928-424`
+**Branch / PR:** `feat/panel-projection` / #146
+**Target:** HyperOS SystemUI `17.03.260226.r`
+**Validation:** implementation complete; automated checkpoint pending; device acceptance not yet claimed
+
+### Problem / objective
+
+Build 423 still reproduces the Notification-Shade first/last-frame disappearance. Its exact Notification Header callback is live and continuously reports progress, so the remaining issue is not callback availability. The objective is to identify the native Home status-bar presentation owner and remove the project-local visibility decision rather than refine its timing.
+
+### Problem execution flow
+
+1. Replayed the maintainer LogFox timeline and retained the Build-423 rejection before changing runtime code.
+2. Traced `StatusBar##isHomeStatusBarAllowed` into the exact-target `StatusBarVisibilityInteractor` / Home status-bar ViewModel flow.
+3. Traced `shouldHomeStatusBarBeVisible -> isSystemInfoVisible -> systemInfoCombinedVis` into `HomeStatusBarViewBinderInjector`.
+4. Verified that `HomeStatusBarViewBinderImpl.bind()` resolves `mEndSideContent = R.id.system_icons`.
+5. Decoded exact-target `status_bar.xml` and `system_icons.xml`: `system_icon_area` is the parent `MiuiNotificationStatusContainer`; `system_icons` is the child root `MiuiStatusBatteryContainer`.
+6. Verified `showEndSideContent()/hideEndSideContent()` animate `mEndSideContent` with native alpha / visibility / translation.
+7. Compared this native carrier to Combined Status: Build 423 attached its visual to `MiuiNotificationStatusContainer.overlay`, one level above the animated child.
+8. Selected a carrier-ownership correction instead of adding an `isHomeStatusBarAllowed` Hook, threshold, delay, frame listener, or second state machine.
+
+### Evidence / findings
+
+- The Notification Header callback remains valid motion evidence but is not the native Home-system-info visibility owner.
+- HyperOS already has a complete Home visibility semantic pipeline and writes the resulting transition to `system_icons`.
+- A parent `MiuiNotificationStatusContainer.overlay` does not acquire a child-specific alpha/visibility/translation animation merely because the child resides below the same HostSession.
+- `MiuiStatusBatteryContainer` is the exact `system_icons` root and is already a verified carrier class used by the accepted Control Center projection.
+- Therefore the pre-424 Notification fraction visibility gate was compensating for a visual carrier that sat outside the native animated end-side layer.
+
+### Root-cause status
+
+**Confirmed for the Build-424 implementation boundary.**
+
+The project-owned Home overlay was attached above the View that HyperOS actually animates for Home end-side visibility. The project then added a second visibility writer based on Notification Header progress. The two lifecycles were not identical at the first/last frame, producing the observed discontinuity.
+
+Device validation is still required to accept the corrected runtime behavior.
+
+### Alternatives considered
+
+- **Epsilon / fraction threshold:** rejected; changes timing without correcting ownership.
+- **Delay / one-frame wait / timer:** rejected; introduces scheduling compensation.
+- **Observe `isHomeStatusBarAllowed` with another Hook/Flow bridge:** rejected for the current fix because it would duplicate a semantic already applied to the exact native carrier.
+- **Custom alpha/translation follower:** rejected; creates a second motion writer.
+- **Move the Home visual into the native animated carrier and delete the duplicate shade writer:** selected as the smallest native-lifecycle correction.
+
+### Implementation / decision
+
+- Home HostSession discovery remains `MiuiNotificationStatusContainer / system_icon_area`.
+- Home visual overlay moves from the parent host overlay to the direct `MiuiStatusBatteryContainer(system_icons).overlay`.
+- Layout/listener/attach readiness for the visual follows that carrier.
+- Notification Header runtime Hook is removed from `SystemUiPanelTransitionSource`.
+- Notification shade Home-eligibility state, Home callback, restore/query path, and per-drag diagnostic state are removed.
+- `SystemUiPanelTransitionSource` now owns only Control Center runtime visibility plus optional bounded Control Center diagnostics.
+- Hot Reload stops querying/transferring live Notification eligibility; the legacy transfer slot remains null for payload compatibility.
+- Target profile retires `notificationHeaderExpansion` as an active Hook point while retaining verified source/method evidence.
+- Accepted Build-420 Control Center readiness-ordered projection is intentionally unchanged.
+- Display version remains `0.0.2`; internal identity advances to Build 424.
+
+### 审查 / review
+
+- **Ownership:** HyperOS remains sole writer of Home end-side alpha/visibility/translation; Combined Status owns only its overlay content.
+- **Lifecycle:** Home visual now lives inside the same native `system_icons` carrier lifecycle it visually replaces. No new long-lived observer, service, timer, or coroutine is added.
+- **Single writer:** the project-local Notification Home visibility writer is deleted. Control Center remains a separate real-host handoff with one coordinator.
+- **Cleanup:** carrier overlay add/remove and attach/layout listeners remain symmetric inside the Home session. Existing represented-slot and native restoration owners remain separate.
+- **Fail native:** missing/invalid verified Home carrier prevents Combined Status presentation rather than creating a fallback transition approximation.
+- **Performance:** one runtime Notification Header Hook and its gesture-time update path are removed; no polling/frame loop is introduced.
+- **Compatibility:** exact target resources/source verify `R.id.system_icons -> MiuiStatusBatteryContainer`; the active compatibility profile no longer requires the retired Notification Hook.
+- **Exception recovery:** existing host replacement, Hot Reload teardown, HookHandle cleanup, and native restoration paths remain in force; legacy transfer compatibility is retained without reviving the retired state.
+- **Future extension:** Notification Shade stays native-only; Control Center stays a verified second-host projection; Keyguard/AOD remain separate Phase-3 host contracts.
+
+### CI / device validation
+
+Pending. The final Build-424 checkpoint must pass repository validation before one exact-head signed Canary is requested.
+
+Focused device gate after automated validation:
+- Notification Shade open/close first and last frame;
+- Control Center open/close regression;
+- one Hot Reload pass;
+- one lock/unlock smoke pass for Home leakage.
+
+### Outcome / next step
+
+Build 424 is the active implementation checkpoint. Finish repository/static validation, update the active PR description, then run the normal Ready validation path. Freeze runtime at the signed-Canary device boundary.
+
+
+---
+
+## 2026-09-28 — Scene target clarified: Home/Keyguard sources, native full Control Center
+
+**Type:** product-boundary / architecture planning
+**Runtime Build:** unchanged; Build 424 remains the active executable checkpoint
+
+### Requirement clarification
+
+The final scene model is not “Home Combined Status plus a persistent Combined Status Control Center surface.”
+
+There are two future source contexts:
+- unlocked / Home;
+- locked / Keyguard.
+
+Each source context has:
+1. a steady Combined Status state;
+2. a partial Control Center pull state that must visually follow the native HyperOS transition;
+3. a fully expanded Control Center endpoint that is **native SystemUI status-bar presentation only**.
+
+### Architecture consequence
+
+The stable architecture should separate:
+- **steady source adapters** — Home now, Keyguard later;
+- **one bounded transition coordinator/bridge** — consumes source readiness/geometry plus verified native Control Center motion;
+- **native expanded endpoint** — no persistent Combined Status owner.
+
+Home and Keyguard may reuse domain state, renderer semantics, sizing/tint policy and transition-coordinator logic, but must not share View ownership or infer each other through Battery/Keyguard heuristics.
+
+Build 420 remains valid evidence that `realSystemIcons` / `MiuiStatusBatteryContainer` and readiness-ordered handoff can support the bridge. Its persistent expanded-surface lifetime is no longer the final product target.
+
+### Impact on Build 424
+
+No runtime widening is made in Build 424.
+
+Build 424 still addresses one root cause only: the Home visual is moved into the native animated `system_icons` carrier and the duplicate Notification visibility writer is removed.
+
+Mixing the new fully-expanded-native Control Center endpoint into the same executable checkpoint would reduce attribution and violate the single-variable debugging boundary. A separate follow-up checkpoint should narrow the existing Control Center projection lifetime to the native partial-pull interval and hand off to native status icons at the exact fully expanded endpoint.
+
+### 审查 / review
+
+- **Ownership:** Home and future Keyguard are separate steady owners; fully expanded Control Center is always native.
+- **Lifecycle:** transition bridge exists only while native transition ownership is active.
+- **Single writer:** source adapter owns steady Combined Status; bridge owns only project overlay visibility during bounded handoff; native Control Center owns expanded endpoint.
+- **Cleanup:** reverse motion restores the correct source before bridge cleanup; full expansion removes bridge-owned presentation.
+- **Fail native:** unresolved source/endpoint contracts leave native SystemUI visible.
+- **Performance:** shared event-driven coordinator; no polling or duplicated per-scene state machine.
+- **Compatibility:** source host adapters remain target-verified independently.
+- **Future extension:** Keyguard can be added without changing Home ownership or creating a second transition engine.
+
+
+---
+
+## 2026-09-28 — Scene-family boundary clarified before lockscreen work
+
+**Type:** product architecture clarification / future-compatibility review
+**Runtime Build:** unchanged; Build 424 remains the active executable checkpoint
+**Branch / PR:** `feat/panel-projection` / Draft #146
+
+### Maintainer requirement
+
+The long-term status-bar behavior is defined as two source-scene families:
+
+- **Unlocked:** unlocked steady Combined Status -> HyperOS-owned partial Control Center pull transition -> fully expanded Control Center native-only.
+- **Locked:** lockscreen steady Combined Status -> HyperOS-owned partial Control Center pull transition -> fully expanded Control Center native-only.
+
+Notification Shade remains native-only on the pinned target. AOD remains separate until its own host/lifecycle contract is proven.
+
+### Consequence for current work
+
+This clarification does **not** reject Build 424's Home carrier correction. Build 424 is explicitly an unlocked/Home source-adapter fix: it places the visual inside the native `system_icons` carrier and removes the incorrect project-local Notification-Shade visibility writer.
+
+It **does** narrow how Build 420 should be interpreted. The device-accepted `realSystemIcons` carrier and readiness-ordered handoff remain valid transition evidence, but keeping Combined Status projected for the entire fully expanded Control Center lifetime is no longer the final product requirement.
+
+### Architecture decision
+
+Model scene behavior as:
+
+`source surface adapter -> native transition bridge -> native expanded endpoint`
+
+with separate mutable source adapters for unlocked and lockscreen surfaces.
+
+Shared across adapters:
+- domain/network/battery state;
+- renderer semantics and visual policy;
+- immutable transition policy helpers where they are genuinely common.
+
+Not shared:
+- host/View references;
+- lifecycle/session state;
+- scene-specific geometry/tint anchors;
+- cleanup tokens;
+- transition carrier ownership.
+
+### 审查 / review
+
+- **Ownership:** unlocked and lockscreen each require their own verified source owner; fully expanded Control Center remains SystemUI/native-owned.
+- **Lifecycle:** no lockscreen runtime object is created during Phase 2B.
+- **Single writer:** do not add a global scene-state writer spanning Home and Keyguard; scene transfer is adapter ownership transfer.
+- **Cleanup:** each adapter must clean only its own host/session resources.
+- **Fail-native:** unsupported or unresolved lockscreen/transition contracts stay native.
+- **Performance:** planning adds zero runtime observers/hooks/services; future adapters must remain event-driven.
+- **Compatibility:** exact-target evidence is required independently for unlocked, lockscreen, and the native fully-expanded boundary.
+- **Future extension:** Build 424 remains valid as the unlocked source-carrier foundation; Phase 3 can add a lockscreen adapter without rewriting the renderer/domain layer.
+
+### Immediate follow-up
+
+Trace the exact HyperOS semantic that distinguishes **Control Center transition** from **settled fully expanded Control Center**. Do not use a local progress epsilon or timer. Only after that authority is verified should the Build-420 projection lifetime be narrowed.
+
+
+### Clarification — design concept, not verified lifecycle contract
+
+The maintainer clarified that the Home/Keyguard/partial-pull/full-Control-Center split above is a **conceptual product partition**, not a demand that the implementation adopt those exact lifecycle objects or boundaries.
+
+Therefore the architecture consequence in this entry is downgraded from a confirmed target model to a working hypothesis. The next exact-target lifecycle review may discover a simpler or more native grouping. If it does, the evidence and candidate lifecycle structures must be reviewed with the maintainer before the repository promotes one into architecture policy or runtime code.
+
+Build 424 remains unchanged by this clarification.
+
+---
+
+## 2026-09-28 — Build 424 static checkpoint review
+
+**Type:** pre-CI static review / test correction
+**Runtime Build:** 424 / `20260928-424`
+**Exact executable source:** `2556a098d35c202e1c5645a06e73757744f721e1`
+**Runtime after this record:** unchanged
+
+### Review result
+
+Repository-wide targeted scanning found one stale test call site in `SystemUiNativeCombinedParticipantOwnerTest`: it still passed the retired `notificationShadeAllowsHome` argument to `CombinedStatusHomeRenderSession.resolveOverlayVisible(...)`.
+
+The stale argument and the obsolete assertion that a Notification gate directly hides Home were removed. This is test-only adaptation to the Build-424 ownership model and does not create a new runtime Build.
+
+A commit comparison from executable source `2556a098...` to the post-fix branch head confirms only tests and documentation differ; no later `app/src/main` or build metadata delta is present.
+
+### 审查 / review
+
+- **Ownership:** unchanged; Notification Shade has no Combined Status visibility writer.
+- **Lifecycle:** unchanged.
+- **Single writer:** the test no longer encodes the rejected shade visibility writer.
+- **Cleanup / fail-native / performance / compatibility:** unchanged from Build 424.
+- **Validation limitation:** the current GitHub connector can mutate PR state and repository files but its PR mutations are not producing a new Actions run for the Build-424 head; the local container cannot resolve github.com. Static review therefore does not substitute for required repository CI.
+
+
+---
+
+## 2026-09-28 — Build 424 static review and CI event recovery
+
+**Type:** static review / CI checkpoint recovery
+**Runtime Build:** unchanged — 424 / `20260928-424`
+**Exact executable source:** `2556a098d35c202e1c5645a06e73757744f721e1`
+**PR:** #146
+
+### Static review result
+
+Build 424 runtime review is complete and no further executable change is required before automated validation:
+
+- Home visual is attached to `MiuiStatusBatteryContainer(system_icons).overlay`;
+- no active Notification-Shade runtime Hook, Home-eligibility state, restore/query path, or per-drag visibility writer remains;
+- `SystemUiPanelTransitionSource` retains only the Control Center visibility runtime Hook plus the optional bounded expansion diagnostic Hook;
+- the exact-target profile retains Notification Header class/method evidence only as verified reference data, not as an active Hook point;
+- unit-test expectations match one Control Center runtime Hook and one optional diagnostic Hook;
+- later branch changes after the exact Build-424 executable source are test/documentation-only.
+
+### 审查 / review
+
+- **Ownership:** Home end-side alpha/visibility/translation remain HyperOS-owned.
+- **Lifecycle:** the Home render session follows the native `system_icons` carrier; no new observer/service is introduced.
+- **Single writer:** the rejected Notification fraction visibility writer is removed.
+- **Cleanup:** overlay/listener cleanup remains symmetric and host-scoped.
+- **Fail-native:** unresolved carrier contracts do not fall back to timing/geometry compensation.
+- **Performance:** one gesture-time Notification Hook/path is removed; no polling/frame loop is added.
+- **Compatibility:** active target profile Hook points match the remaining runtime integration.
+- **Exception recovery:** existing host replacement, Hot Reload teardown, and native restoration remain unchanged.
+- **Future extension:** Control Center/Keyguard lifecycle research remains analysis-only and is not mixed into Build 424.
+
+### CI event observation
+
+PR #146 was marked Ready at GitHub event time `2026-09-28T08:04:05Z`. The repository `.github/workflows/build.yml` explicitly subscribes to `pull_request.ready_for_review` for `dev`-based PRs, but no workflow run or commit status was created for that Ready event.
+
+This record-only checkpoint intentionally creates a normal PR `synchronize` event so repository validation can resume without toggling Draft/Ready repeatedly. It does not change executable content or Build identity.
+
+---
+
+## 2026-09-28 — Exact-target Control Center ownership topology review
+
+**Type:** architecture investigation / no runtime change
+**Runtime Build:** unchanged; Build 424 remains the active executable checkpoint
+**Branch / PR:** `feat/panel-projection` / Draft #146
+
+### Objective
+
+Review the maintainer's conceptual unlocked/locked/partial-pull/fully-expanded split against the actual HyperOS SystemUI ownership chain before committing to a follow-up architecture.
+
+### Exact-target findings
+
+The target does not expose one monolithic Control Center status-bar owner.
+
+**Source authority**
+- `MiuiPhoneStatusBarView.initDependence()` registers Home `mStatusBatteryContainer` as `ControlCenterFakeViewController.statusBarSystemIcons`.
+- `MiuiKeyguardStatusBarView.initCallback()` registers lockscreen `mSystemIconsContainer` as `keyguardSystemIcons`.
+- `ControlCenterFakeViewController.adjustRealSystemIcons()` selects the active source from native `StatusBarState`.
+- This makes a project-local unlocked/keyguard transition router unnecessary in principle.
+
+**Transition authority**
+- `ControlCenterFakeStatusIcons` is a complete native `QS_FAKE` status-bar presentation with its own status-icon group, Battery, `MiuiStatusBatteryContainer`, tint/dark receiver, island owner, and attach/detach cleanup.
+- Its width is synchronized from the currently selected source.
+- Its tint policy already follows unlocked vs keyguard native authority.
+
+**Destination authority**
+- Control Center has a separate real native status-bar presentation.
+- Native `onExpansionChanged(float)` moves fake and real presentations.
+- Native `onAppearanceChanged(boolean, boolean)` switches alpha/visual ownership between fake and real.
+- `PanelExpandController.getAppearance()` exposes the current ownership value; no local fraction threshold is required.
+
+**Home departure**
+- `expandStateForStatusBar` feeds `HomeStatusBarViewBinderInjector.mControlPanelExpand`.
+- When true, Home binder calls `hideEndSideContent(false)`; when false, it restores with `showEndSideContent(false)`.
+- Build 424 therefore places the Home compact visual on the correct carrier to inherit this departure/return naturally.
+
+### Revised candidate model
+
+The strongest current candidate is not “two project-owned three-state machines”. It is native-owner composition:
+
+`steady source adapter (Home / future Keyguard)`
+→ `HyperOS QS_FAKE transition presentation`
+→ `HyperOS QS real destination`
+
+The project would share renderer/domain semantics, but each rendered carrier would remain scoped to the native View lifecycle that owns its phase.
+
+### 审查 / review
+
+- **Ownership:** HyperOS already owns source selection, transition motion, fake/real appearance, and final Control Center destination. Combined Status should avoid duplicating any of those facts.
+- **Lifecycle:** source adapters bind their own native Views; a future transition adapter should bind the fake View lifecycle, not hold source references as its lifecycle authority.
+- **Single writer:** candidate route could remove the current project-local Control Center Home visibility gate and avoid any new appearance writer by inheriting native carrier alpha.
+- **Cleanup:** `QS_FAKE` already has symmetric native attach/detach registration; any Combined Status overlay must add/remove only its own View/listeners.
+- **Fail-native:** if the fake carrier contract cannot be resolved, leave native Control Center untouched.
+- **Performance:** candidate requires no polling, timer, per-frame reflection, or local animation; only low-frequency lifecycle/event integration is acceptable.
+- **Compatibility:** all findings are exact-target evidence for SystemUI `17.03.260226.r`; plugin-side appearance producer conditions are not visible in this APK and must not be guessed.
+- **Exception recovery:** source references can outlive a detached source View until a replacement registers, so Combined Status must not use `realSystemIcons` reference lifetime as its own HostSession lifetime.
+- **Future extension:** native source selection already covers Home vs Keyguard and may substantially simplify Phase 3.
+
+### Decision boundary
+
+No follow-up runtime implementation is authorized by this record. Build 424 remains a single-variable Home-carrier correction. After Build 424's automated/device result, compare:
+1. retain the Build-420 source-anchor projection;
+2. migrate the transition render to the native `QS_FAKE` carrier;
+3. any evidence-backed alternative.
+
+Discuss the lifecycle/maintenance tradeoff with the maintainer before selecting the follow-up route.
+
+
+---
+
+## 2026-09-28 — QS_FAKE first-frame and suppression review
+
+**Type:** architecture investigation / no runtime change
+**Runtime Build:** unchanged; Build 424 exact executable remains `2556a098d35c202e1c5645a06e73757744f721e1`
+
+### First-frame evidence
+
+Build-423 device diagnostics show:
+- `visible=true` at 07:51:32.034;
+- the existing Control Center projection attached and became ready in the same timestamp;
+- by the 07:51:32.205 sampled expansion frame, native Home `mEndSideContent` was already alpha 0 / INVISIBLE.
+
+This supports reusing the existing low-frequency visibility seam to prepare a future QS_FAKE session instead of adding a new lifecycle Hook only for entry readiness. The exact time delta is not treated as a contract. Reverse/close ordering remains an explicit future device gate.
+
+### Native suppression evidence
+
+QS_FAKE uses the shared `system_icons.xml` hierarchy. Its native `RIGHT_BLOCK_LIST` does not remove Wi-Fi/mobile/Battery.
+
+`MiuiStatusIconContainer.onMeasure()` uses `ignoredSlots` to exclude represented children from native measurement/underflow. A clip-only implementation would hide pixels but leave layout participation and is rejected.
+
+The current Home owner already globally Hooks the relevant classes once and then filters by owned View identity. A follow-up architecture can therefore generalize the owner from one `current` session to a bounded identity-keyed session registry instead of installing a duplicate Hook set.
+
+### End-reservation evidence
+
+Build-423 normal-state device evidence:
+- stable Battery carrier width = 105;
+- actual Battery width = 105;
+- requested compact slot width = 105;
+- resulting Home padding-end delta = 0.
+
+The policy remains necessary for states where those widths differ or native Battery is hidden. Exact Battery source confirms island state is written to the Battery's own associated `MiuiStatusBatteryContainer`, including QS_FAKE's local container. This favors carrier-local reservation state rather than cross-surface copying.
+
+### 审查 / review
+
+- **Ownership:** source anchors remain read-only geometry authority; future QS_FAKE suppression may mutate only the fake carrier it owns.
+- **Lifecycle:** candidate session lifetime is `visible=true -> visible=false`; no additional view lifecycle Hook is currently justified by entry evidence.
+- **Single writer:** reuse one compact-presentation suppression registry; do not keep independent Home/Fake suppression writers for the same View.
+- **Cleanup:** every registry session must restore only its own ignored-slot additions, clip masks and padding baseline.
+- **Fail-native:** unresolved fake hierarchy or writer conflict leaves native QS_FAKE untouched.
+- **Performance:** no new measure/layout Hook set; O(1) identity lookup on the already-Hooked methods is the preferred bound.
+- **Compatibility:** exact target uses the same `MiuiStatusBatteryContainer / MiuiStatusIconContainer / MiuiBatteryMeterView` hierarchy in Home and QS_FAKE.
+- **Exception recovery:** stale source references are not session owners; registry lifetime follows actual owned carrier/session cleanup.
+- **Future extension:** the same registry pattern may later support a verified Keyguard compact carrier without multiplying Hook sets.
+
+### Decision boundary
+
+No runtime refactor is made before Build 424 automated/device validation and maintainer review of the candidate lifecycle.
+
+
+---
+
+## 2026-09-28 — QS_FAKE tint and update-cost closure
+
+**Type:** architecture investigation / no runtime change
+**Runtime Build:** unchanged; Build 424 exact executable remains `2556a098d35c202e1c5645a06e73757744f721e1`
+
+### Tint authority
+
+The existing tint pipeline is already surface-local enough for a future QS_FAKE carrier:
+
+- `SystemUiTintStateSource` Hooks `MiuiBatteryMeterView` class methods globally, but caches/dispatches state by concrete Battery View identity in weak maps.
+- `CombinedStatusControlCenterRenderSession.updateTint()` ignores Battery events that do not originate from its own carrier Battery.
+- session refresh reads `SystemUiTintStateSource.currentState(localBattery)`.
+- `SystemUiNativeNetworkSuppressionOwner.currentAppliedStatusIconTintForGroup(group)` resolves tint from the supplied group directly; it does not require that group to be the active Home group.
+- `CombinedStatusTintAuthority.resolveBatteryEvent()` can therefore combine the local fake Battery state with the local fake status-icon peer tint.
+
+The exact native QS_FAKE View already switches its Battery/icon tint between unlocked and Keyguard semantics. No additional tint Hook, observer, scene boolean, or polling path is justified.
+
+### Update cost
+
+The current Control Center render session receives only existing event-driven domain/presentation/tint/settings updates. It is not driven from expansion progress. When no session exists, calls are no-ops.
+
+A future QS_FAKE session bounded to `visible=true -> visible=false` therefore does not require a continuously resident second renderer and does not add a per-frame render path.
+
+### 审查 / review
+
+- **Ownership:** fake native tint remains SystemUI-owned; Combined Status reads the already-applied local Battery/peer result.
+- **Lifecycle:** transition renderer exists only for the Control Center visible lifecycle candidate.
+- **Single writer:** no new tint writer or global scene tint cache.
+- **Cleanup:** session removal discards only its renderer/listeners; weak tint cache entries follow View lifetime.
+- **Fail-native:** missing local tint authority leaves the transition renderer unready/native.
+- **Performance:** no new Hook or polling; updates remain event-driven.
+- **Compatibility:** exact QS_FAKE hierarchy uses the same Battery/status-icon classes consumed by current sources.
+- **Exception recovery:** a stale Home tint cannot become fake authority because fake session filters source View identity and resolves its own peer group.
+- **Future extension:** the same per-carrier tint semantics are compatible with a separately verified Keyguard steady adapter.
+
+
+---
+
+## 2026-09-28 — Exact-target Control Center source / fake / real ownership chain
+
+**Type:** architecture investigation / exact-target evidence
+**Runtime Build:** unchanged; Build 424 remains the active executable checkpoint
+**Branch / PR:** `feat/panel-projection` / #146
+
+### Objective
+
+Evaluate the maintainer's unlocked/locked/partial-pull/fully-expanded product concept against the actual HyperOS lifecycle before implementing a new scene abstraction.
+
+### Exact-target evidence
+
+Target: SystemUI `17.03.260226.r`.
+
+1. **Unlocked source registration**
+   - `MiuiPhoneStatusBarView.onFinishInflate()` resolves `R.id.system_icons` to `mStatusBatteryContainer`.
+   - `initDependence(...)` assigns that exact container to `ControlCenterFakeViewController.statusBarSystemIcons` and calls `adjustRealSystemIcons()`.
+
+2. **Keyguard source registration**
+   - `MiuiKeyguardStatusBarView` assigns `mSystemIconsContainer` to `ControlCenterFakeViewController.keyguardSystemIcons` and calls `adjustRealSystemIcons()`.
+   - Keyguard tint changes are forwarded directly to `controlCenterFakeStatusBar.setKeyguardStatusBarColors(...)`.
+
+3. **Native source authority**
+   - `ControlCenterFakeViewController` selects `realSystemIcons` from those two registered source containers according to native status-bar state.
+   - Therefore Combined Status does not need a duplicate unlocked/keyguard transition router.
+
+4. **Native transition representation**
+   - the Control Center fake status bar owns a complete `QS_FAKE` status-icon/Battery representation with native attach/detach, tint and island participation;
+   - `ControlCenterHeaderExpandController` reads source `realSystemIcons` as an anchor and applies transition geometry to Control Center-side status-bar representations.
+
+5. **Native destination ownership**
+   - fully expanded Control Center uses its own `QS` native status-bar representation;
+   - `appearance` is independent from `visible`, `expansion`, and `tracking` and selects fake-vs-real visual ownership;
+   - the plugin-side producer of `appearance` is outside the reviewed SystemUI APK, so its internal threshold must not be guessed or recreated.
+
+### Candidate lifecycle
+
+The source evidence supports a simpler candidate topology than a project-owned `unlocked × lockscreen × three phases` state machine:
+
+`source adapter (Home or future Keyguard) -> native QS_FAKE transition owner -> native QS destination owner`.
+
+This is not yet an implementation decision. The current Build-424 device checkpoint remains single-variable and unchanged.
+
+### 审查 / review
+
+- **Ownership:** HyperOS already owns source selection and fake/real Control Center visual ownership.
+- **Lifecycle:** fake status-bar resources follow native View attach/detach; no project service/poller is required.
+- **Single writer:** a future implementation should inherit native fake-bar translation/alpha/tint rather than add fraction/appearance-derived writers where unnecessary.
+- **Cleanup:** candidate fake-carrier integration should be scoped to that carrier's attach/detach lifecycle.
+- **Fail-native:** if fake carrier identity/bootstrap cannot be verified, retain native SystemUI rather than fall back to local interpolation.
+- **Performance:** candidate route can remove project handoff work; no high-frequency new observer is justified.
+- **Compatibility:** evidence is pinned to SystemUI `17.03.260226.r`; plugin-side `appearance` production is not yet inspected.
+- **Future extension:** Home and Keyguard may keep separate steady HostSessions while sharing the native Control Center transition/destination path.
+
+### Next step
+
+Do not change Build 424. Complete its automated/device validation first. In parallel, continue static/runtime review of the fake Control Center carrier bootstrap/readiness and compare it with the current Build-420 `realSystemIcons.overlay` projection before proposing a follow-up runtime checkpoint.
+
+
+---
+
+## 2026-09-28 — Build 424 Ready validation event not emitted
+
+**Type:** CI infrastructure blocker
+**Runtime Build:** 424 / `20260928-424` unchanged
+**Executable source:** `2556a098d35c202e1c5645a06e73757744f721e1`
+
+### Evidence
+
+- PR #146 was moved to ready-for-review.
+- Additional documentation/test synchronization commits were pushed while the PR remained ready.
+- No `Build` workflow run is associated with any of those current heads.
+- `.github/workflows/build.yml` on `dev` explicitly listens for `pull_request` events `ready_for_review` and `synchronize`.
+- The GitHub workflow-run connector returns the historical Build-423 runs (#1306/#1307/#1308) normally, ruling out a read-side connector failure.
+
+### Conclusion
+
+The current blocker is classified as GitHub Actions event delivery / trigger admission for operations performed through the connected GitHub app, not a Build-424 source failure and not an incorrect validation-scope rule.
+
+### Boundary
+
+- Do not create a replacement runtime Build merely to provoke CI.
+- Do not request `/canary` without the required successful exact-head pull-request Build.
+- Keep Build 424 runtime frozen.
+- Continue static/source review independently; when automated validation becomes reachable, run the normal exact-head checkpoint before device testing.
+
+
+---
+
+## 2026-09-28 — Post-424 QS_FAKE candidate passes static ownership review
+
+**Type:** architecture review / no runtime change
+**Runtime Build:** 424 / `20260928-424` unchanged
+**Validation:** candidate only; do not implement before Build 424 device result
+
+### Refined candidate
+
+The exact-target Control Center review supports a smaller follow-up architecture than the current Build-420 source-overlay projection:
+
+`compact-capable source -> native QS_FAKE compact transition -> native QS destination`.
+
+For the current Home-only implementation, source capability can remain the existing identity contract:
+`SystemUiHomePresentationOwner.ownsBatteryContainer(realSystemIcons)`.
+Do not introduce a generalized capability registry until Keyguard has its own verified compact owner.
+
+### Runtime surface
+
+Retain the existing low-frequency `ControlCenterExpandControllerDelegate.onVisibleChanged(boolean)` production Hook only as transition-surface activation. It must stop acting as a Home visibility writer.
+
+The native fake carrier is resolvable through direct exact-target fields:
+`ControlCenterHeaderExpandController.headerController`
+-> `CombinedHeaderController.controlCenterFakeStatusBar`
+-> `ControlCenterFakeStatusIcons.delegate`
+-> `CcFakeStatusBarIcons.statusBarArea`.
+
+A second low-frequency source-change seam at `ControlCenterFakeViewController.adjustRealSystemIcons()` is justified only if runtime/edge review requires source reevaluation while Control Center remains visible. Battery `mStatusBarState` is explicitly rejected for this role.
+
+### Presentation policy
+
+QS_FAKE must preserve native transition occupancy:
+- no represented-slot `ignoredSlots`;
+- no Home `paddingEnd` reservation;
+- no native width/translation/alpha write.
+
+Only the represented native visual roots and Battery are reversibly clipped while the compact fake renderer is ready. HyperOS keeps fake width synchronized from the selected source and remains sole transition geometry/appearance writer.
+
+Existing global `MiuiStatusIconContainer.onMeasure/onLayout` Hooks can route a mask-only fake session without adding a second layout Hook. Existing `MiuiBatteryMeterView` tint Hooks already cover the fake Battery. The legacy binding-level suppression path remains out of scope.
+
+### Entry / exit ordering
+
+- **Entry:** resolve source + fake carrier -> build model/tint/layout -> make compact fake renderer ready -> apply native fake visual masks.
+- **Exit or failure:** restore native fake visual masks first -> stop/hide compact fake renderer.
+- Native fake visuals therefore remain the fail-native substrate and no blank state is required.
+
+### 审查 / review
+
+- **Ownership:** HyperOS selects source and owns fake/real Control Center transition; Combined Status owns only its fake overlay and reversible fake clip tokens.
+- **Lifecycle:** production activity is bounded by native Control Center visibility; no polling, pre-draw follower, timer, or per-frame callback is added.
+- **Single writer:** no project geometry/alpha/appearance writer; Home visibility returns entirely to the native Home carrier.
+- **Cleanup:** fake masks/render state restore independently from Home. Host detach/replacement and feature disable restore only fake-owned clip state.
+- **Fail-native:** missing source capability, fake carrier, statusIcons, Battery, tint, layout, or restoration contract keeps/restores native QS_FAKE without disabling Home.
+- **Performance:** keep one low-frequency visible Hook; reuse existing tint/layout Hooks; renderer can be inactive while Control Center is hidden, avoiding offscreen center-indicator animation.
+- **Compatibility:** field chain and QS_FAKE/QS source roles are verified only for SystemUI `17.03.260226.r`; plugin-side appearance production remains unmodified and uninterpreted.
+- **Exception recovery:** source/host identity is revalidated on activation; an optional source-change seam is event-driven and low-frequency if later proven necessary.
+- **Future extension:** Keyguard can later become another compact-capable source without changing the native QS_FAKE/QS transition topology; do not implement that abstraction before Phase 3 evidence exists.
+
+### Decision boundary
+
+This candidate is preferred for the **post-Build-424** Control Center follow-up, but it is not implemented now. Build 424 remains frozen for its single-variable Home carrier validation.
+
+
+---
+
+## 2026-09-28 — Correction: reject the earlier QS_FAKE mask-only candidate
+
+**Type:** architecture correction / no runtime change
+**Runtime Build:** unchanged — Build 424 / `20260928-424`
+
+A prior post-424 candidate entry proposed that QS_FAKE could preserve transition occupancy without represented-slot `ignoredSlots`, using only reversible visual clipping. **That specific mask-only conclusion is rejected by later exact-target evidence.**
+
+Exact `MiuiStatusIconContainer.onMeasure()/onLayout()` review confirms:
+- represented Wi-Fi/mobile children continue to participate in native measurement/layout unless their slots are excluded through the container's `ignoredSlots` contract;
+- `clipBounds` hides pixels only and does not release their measured occupancy;
+- QS_FAKE's native block list does not remove Wi-Fi/mobile/Battery.
+
+Therefore any future QS_FAKE compact replacement must combine:
+- host-scoped/reversible represented-slot exclusion for layout participation;
+- reversible visual masking for attached native roots/Battery;
+- a scene-specific reservation decision based on the fake carrier's own verified geometry.
+
+The Home `paddingEnd` reservation remains Home-scoped and is **not** automatically promoted to QS_FAKE.
+
+### Lifecycle seam refinement
+
+The preferred minimal Phase-2B follow-up remains the existing low-frequency
+`ControlCenterExpandControllerDelegate.onVisibleChanged(boolean)` Hook:
+- `visible=true`: read HyperOS's already-selected `realSystemIcons` as source capability, resolve the native QS_FAKE carrier, then activate the fake compact session only if the source is a verified compact owner;
+- `visible=false`: restore fake-owned slot/mask state and clean up the transition session;
+- Home visibility is not written by this callback; Build 424's native Home carrier lifecycle remains authoritative;
+- no `appearance` or fraction Hook is required.
+
+`ControlCenterFakeViewController.adjustRealSystemIcons()` remains a verified source-authority seam, but a second Hook is **not** justified pre-emptively. Add it only if later device evidence proves that source can change while Control Center remains visible in a way the visible-lifetime snapshot cannot safely cover.
+
+### 审查 / review
+
+- **Ownership:** native layout remains `MiuiStatusIconContainer`-owned; Combined Status owns only scoped exclusion/mask tokens for the fake session.
+- **Lifecycle:** transition session remains bounded to native Control Center visible lifetime.
+- **Single writer:** no project alpha/translation/appearance/Home-visibility writer.
+- **Cleanup:** restore only the fake session's owned ignored-slot additions, clip states and any later verified local reservation.
+- **Fail-native:** unsupported/null source or unresolved fake carrier leaves QS_FAKE fully native.
+- **Performance:** normal production retains one low-frequency Control Center runtime Hook; no new polling/frame callback.
+- **Compatibility:** exact-target only until the fake carrier/exclusion contract is verified on other targets.
+- **Exception recovery:** Hot Reload must restore an active fake session explicitly rather than waiting for another visible event.
+- **Future extension:** Keyguard becomes a compact-capable source only after its own steady owner is verified; native source routing remains HyperOS-owned.
+
+
+---
+
+## 2026-09-28 — Post-424 Control Center architecture comparison closure
+
+**Type:** architecture review / no runtime change
+**Runtime Build:** unchanged — Build 424 / `20260928-424`
+**Decision status:** preferred follow-up candidate only; implementation remains blocked on Build-424 automated/device result
+
+### Routes compared
+
+**A — retain Build-420 `realSystemIcons.overlay` projection**
+- Proven device-capable as a transition/handoff mechanism.
+- Uses the source status-bar carrier as the project projection surface rather than HyperOS's dedicated Control Center transition presentation.
+- Requires project-level projection readiness and Home handoff coordination.
+- A native-only fully expanded endpoint would require additional endpoint ownership handling.
+- Future Keyguard source support is less natural because the current runtime contract is explicitly Home-owned.
+
+**B — render compact presentation inside native `QS_FAKE` carrier**
+- Uses HyperOS's dedicated transition status-bar presentation.
+- Source identity is read from the already-selected native `realSystemIcons`; no project unlocked/keyguard state machine is required.
+- Native fake parent owns translation, alpha, source width, unlocked/keyguard tint, island participation and fake->real Control Center appearance.
+- Fully expanded Control Center remains the independent native `QS` status bar automatically.
+- Home departure/return is inherited from Build-424's native `system_icons` carrier.
+- Retains the existing low-frequency `ControlCenterExpandControllerDelegate.onVisibleChanged(boolean)` Hook only as transition-session lifetime; no fraction or appearance Hook is required.
+- This is the preferred post-424 candidate.
+
+**C — retain Build-420 source projection and add native `appearance` endpoint gating**
+- Smaller immediate delta than B.
+- Keeps the source-anchor projection and project handoff choreography, then adds another observed ownership fact.
+- Reduces neither conceptual duplication nor future Keyguard complexity.
+- Rejected as the preferred long-term route unless device evidence invalidates B.
+
+### QS_FAKE compact-presentation contract
+
+A future B implementation must use a host-scoped session on the fake `MiuiStatusBatteryContainer`.
+
+Required local behavior:
+- use the existing native `MiuiStatusIconContainer.ignoredSlots` measure/layout contract for represented-slot exclusion;
+- reversibly mask represented native roots and Battery;
+- place the Combined Status renderer in the fake carrier overlay;
+- derive requested compact width from the shared layout semantics;
+- use only the fake carrier's own Battery width / hide state / padding baseline for any local end reservation;
+- preserve HyperOS translation, alpha, width and appearance writers untouched.
+
+The earlier mask-only QS_FAKE idea is rejected: clipping does not remove native layout participation.
+
+### Runtime Hook / update cost
+
+No additional normal-production Hook is currently justified:
+- reuse the existing `onVisibleChanged(boolean)` runtime Hook for `visible=true -> visible=false` fake-session lifetime;
+- resolve current source + fake carrier through the already-resolved `ControlCenterHeaderExpandController` object;
+- reuse the already-installed global `MiuiStatusIconContainer.onMeasure/onLayout` and `MiuiStatusBatteryContainer.setIsHideBattery` Hooks through a bounded identity-keyed carrier-session registry rather than installing another Hook set;
+- existing Battery/tint event sources are already per-View and can feed the fake carrier without a new tint observer.
+
+`ControlCenterFakeViewController.adjustRealSystemIcons()` remains a verified native source-authority seam, but do **not** add a second Hook unless later device evidence proves source can change during one Control Center visible lifetime in a way the entry snapshot cannot cover.
+
+### Hot Reload / recreation policy
+
+QS_FAKE is a transient transition surface, not a steady source surface.
+
+Preferred fail-native default:
+- old-generation teardown restores fake-owned native slot/mask/reservation state;
+- if Hot Reload occurs while Control Center is already visible, native QS_FAKE/QS remains authoritative until the next normal visible lifecycle;
+- do not expand Hot Reload payload solely to preserve a transient compact transition unless later maintainer/device evidence requires seamless continuity for that developer action.
+
+SystemUI recreation naturally reconstructs the native fake View/source registration; the next visible lifecycle resolves the live objects again.
+
+### Remaining device-risk boundary
+
+Exact target source confirms `ControlCenterHeaderExpandController` applies native `batteryWidthDiff` to the fake status-bar X translation. That value can be non-zero in real island/Battery scenarios and is intentionally SystemUI-owned.
+
+Combined Status must never rewrite/cancel that value. However, the interaction between:
+- QS_FAKE local compact reservation,
+- tag-5 Battery behavior,
+- charging / Battery island,
+- and final source-edge visual continuity
+
+remains a required focused device gate for any B implementation.
+
+### 审查 / review
+
+- **Ownership:** B maps each project visual to the native carrier that owns its phase; HyperOS retains source selection, transition motion and final destination.
+- **Lifecycle:** Home steady and future Keyguard steady remain separate adapters; QS_FAKE session is bounded to Control Center visible lifetime.
+- **Single writer:** no project translation/alpha/appearance/Home-visibility writer; per-carrier exclusion/reservation state is identity-scoped.
+- **Cleanup:** fake session restores only its own ignored-slot additions, clip states and verified local padding write before disposal.
+- **Fail-native:** unsupported/null source, unresolved fake carrier, writer conflict, invalid layout/tint/model, host detach or Hot Reload leaves/restores native QS_FAKE.
+- **Performance:** no polling/timer/frame follower; normal Control Center Hook count does not increase; already-installed layout/Battery Hooks use bounded identity lookup.
+- **Compatibility:** exact-target field/resource contracts are pinned to SystemUI `17.03.260226.r`; other targets fail native until separately verified.
+- **Exception recovery:** session re-resolves live source/carrier each visible lifecycle; transient Hot Reload falls back to native rather than retaining stale View ownership.
+- **Future extension:** once Keyguard steady compact ownership is verified, native `realSystemIcons` source selection can make it transition-capable without introducing a project scene router.
+
+### Decision boundary
+
+Do not implement route B in Build 424. Build 424 remains the single-variable Home carrier correction. After its required repository validation and focused device result, present route B plus its remaining island/charging gate to the maintainer before creating the next executable checkpoint.
+
+
+---
+
+## 2026-09-28 — QS_FAKE battery translation independence
+
+**Type:** exact-target architecture evidence / no runtime change
+**Runtime Build:** unchanged — Build 424 / `20260928-424`
+
+### Finding
+
+Exact `ControlCenterHeaderExpandController` source shows:
+- `batteryWidthDiff` is calculated from the selected source `StatusBarAnchorBounds.batteryWidth` and the real Control Center `controlCenterSystemIcons` Battery width;
+- island handling may replace it with the negative real-QS Battery width;
+- `onExpansionChanged(float)` adds `batteryWidthDiff` to the **parent QS_FAKE status-bar translationX**;
+- QS_FAKE internal ignored-slot or padding state is not an input to that formula.
+
+### Consequence
+
+A future QS_FAKE compact session may evaluate carrier-local slot exclusion and end reservation without rewriting or feeding back into HyperOS's parent transition translation. Combined Status must still leave `batteryWidthDiff` and fake-parent translation untouched.
+
+The remaining device gate is local: charging/island compact edge alignment, first/last-frame continuity, and restoration. It is no longer treated as a possible shared-motion ownership conflict.
+
+### 审查 / review
+
+- **Ownership:** parent transition translation remains HyperOS-only.
+- **Lifecycle:** no runtime change.
+- **Single writer:** compact session may own only fake-local exclusion/mask/reservation tokens.
+- **Cleanup:** local state must restore before fake session disposal.
+- **Fail-native:** reservation conflict or unresolved local geometry keeps QS_FAKE native.
+- **Performance:** no new Hook, listener, polling, or per-frame project work.
+- **Compatibility:** exact-target SystemUI `17.03.260226.r` only.
+- **Future extension:** the same principle can be revalidated for a future Keyguard transition source without copying source motion state.
+
+
+---
+
+## 2026-09-28 — Build 424 validation conflict recovery
+
+**Type:** CI/repository-history recovery / no runtime change
+**Runtime Build:** unchanged — Build 424 / `20260928-424`
+**Exact executable source:** `2556a098d35c202e1c5645a06e73757744f721e1`
+
+### Problem
+
+PR #146 repeatedly produced no pull-request Build after ready/synchronize events. The workflow definition itself included those event types and GitHub's public service status was healthy.
+
+### Root cause
+
+The active branch had diverged from current `dev` and the PR was not mergeable. GitHub does not run `pull_request` workflows for PRs with merge conflicts. Current `dev` had three automation/governance commits not present in the work branch.
+
+### Recovery
+
+- Pre-resolved the dev-only CI/governance content into `feat/panel-projection` without touching App runtime code.
+- Created history-preserving merge commit `ca1bbf7e10c485f34846add633c34d06a163e7e8` with parents:
+  - feature history `a29d656a7a207645deb8c78ac04000553df48897`;
+  - dev tip `947c13956f2b4cbe08faf21de73b3a2f1b7a8b81`.
+- The merge tree preserved the already-resolved feature contents; Build 424 executable source remained unchanged.
+- A temporary sync PR used long-lived `dev` itself as its head. GitHub's delete-head-branch behavior consequently deleted `dev` after merge.
+- `dev` was immediately recreated at exact pre-delete tip `947c13956f2b4cbe08faf21de73b3a2f1b7a8b81`; no commit, runtime, or file content changed.
+- The synchronization rule is corrected: future long-lived branch sync uses a temporary `sync/*` head and deletes only that temporary branch.
+
+### Validation
+
+After history conflict resolution, PR #146 became mergeable and Full Build #1321 / run `36413531047` succeeded on exact head `ca1bbf7e10c485f34846add633c34d06a163e7e8`.
+
+The preceding Draft Light #1320 failed only because several newly added DEVLOG metadata lines contained trailing whitespace. It did not indicate an executable failure. This record also normalizes trailing whitespace across DEVLOG before the final exact-head checkpoint.
+
+### 审查 / review
+
+- **Ownership:** no SystemUI/runtime ownership changed.
+- **Lifecycle:** no installed behavior changed.
+- **Single writer:** unchanged.
+- **Cleanup:** repository history now contains both dev and feature parentage; long-lived branch deletion is explicitly prevented procedurally.
+- **Fail-native:** unchanged.
+- **Performance:** no runtime code or Hook changed.
+- **Compatibility:** Build 424 exact target/runtime source is unchanged.
+- **Exception recovery:** dev restoration was exact-SHA recreation, not a reconstructed or rebased branch.
+- **Future extension:** synchronization procedures must use disposable `sync/*` heads so repository auto-delete behavior cannot remove long-lived branches.
+
+### Next
+
+Run Draft Light on the cleaned repository state, then move PR #146 Ready for one final exact-head Full. Only after that exact head succeeds may the owner request `/canary`.
+
+
+### Follow-up correction — QS_FAKE block-list is ineffective for modern network Views
+
+A deeper exact-target trace corrects an intermediate investigation hypothesis.
+
+`IconManager.setBlockList()` is instance-local and calls `StatusBarIconControllerImpl.refreshIconGroup()`. Although that refresh calls `setBlocked()` on `StatusIconDisplayable` children, `ModernStatusBarView.setBlocked(boolean)` is an empty override on this target. Both `ModernStatusBarWifiView` and `ModernStatusBarMobileView` inherit that behavior.
+
+Therefore native block-list mutation is **not** a viable Wi-Fi/mobile suppression mechanism for QS_FAKE. A further review of the active Build-424 architecture narrows the preferred route: generalize the **current Home presentation-layer** mechanism (temporary represented-slot exclusion during native measure/layout plus reversible clip masks) into host-scoped carrier sessions. The older binding-identity suppression owner is not the default QS_FAKE route.
+
+Exact-target `MiuiStatusBatteryContainer.onMeasure/onLayout` also shows that Battery continues to consume width even when visually masked. HyperOS synchronizing fake `statusBarArea.width` from the current source therefore does not by itself prove that local end reservation can be omitted. Any future fake adapter must verify its own reservation contract; parent Control Center translation remains SystemUI-owned.
+
+No runtime code or Build identity changes in this correction.
+
+
+### Build 424 automated validation update
+
+Ready validation Build #1328 / run `36418043111` completed successfully on PR head `3cbf8523cfafeb99a58dcd213053e9a2e020f71f`.
+
+Passed:
+- Gradle wrapper validation;
+- Android API 37 / JDK setup;
+- pinned HyperOS target-profile verification;
+- unit tests and Debug APK build;
+- Modern Xposed metadata verification;
+- non-debuggable check.
+
+As expected for the pull-request Fast path, project signing and Canary artifact publication were not executed.
+
+This successful checkpoint does not change runtime identity: executable source remains Build 424 / `2556a098d35c202e1c5645a06e73757744f721e1`. Documentation corrections after that head require one final exact-head pull-request Build before owner `/canary` admission.
+
+### Build 424 ViewOverlay lifecycle verification
+
+AOSP framework review confirms that a View overlay is rendered from its host View's own draw path after host content/children. The internal overlay group is not an independent window/surface; it redirects invalidation to the host.
+
+This supports the Build-424 carrier correction:
+- parent `MiuiNotificationStatusContainer.overlay` does not inherit child-only `system_icons` alpha/visibility writes;
+- `MiuiStatusBatteryContainer(system_icons).overlay` participates in the exact host's draw/transform lifecycle, so moving the visual there is a lifecycle correction rather than a coordinate-only change.
+
+The finding resolves the static concern that `ViewGroupOverlay` might remain visually independent from its own host's visibility/alpha. Build 424 remains suitable for focused device validation after the final exact-head CI gate.
+
+
+### Build-424 signed Canary checkpoint
+
+- Ready Full Build #1328 / run `36418043111`: **success** on exact PR head `3cbf8523cfafeb99a58dcd213053e9a2e020f71f`.
+- Owner `/canary` admission created Work Branch Canary #417 / run `36418655598`.
+- Canary trusted-source resolution selected branch `feat/panel-projection` and exact SHA `3cbf8523cfafeb99a58dcd213053e9a2e020f71f`; checkout/source verification passed.
+- Passed: pinned HyperOS target profile, unit tests + Canary build, Modern Xposed metadata, Haple APK signature, non-debuggable verification, artifact preparation and upload.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260928-424-canary.apk`.
+- Artifact ID: `10968671147`.
+- Artifact ZIP digest: `sha256:450d387fbf8819e51e8401d9d925fa9a10ad36ab8e6d664b552968d726817fb7`.
+- Extracted APK size: `3309602` bytes.
+- Extracted APK SHA-256: `7e1a7bf035207718de3d74c580b87c3d5f20df648a98a78ef8f560d25c95e778`.
+- PR returned to Draft. Runtime remains Build 424 and is frozen pending focused maintainer device validation.
+
+#### Device gate
+
+1. Reproduce Notification Shade pull-down / return and inspect the first departure frame plus final Home return frame.
+2. Perform one Control Center open/close regression pass; Build-420 behavior must not regress.
+3. Perform one Hot Reload pass.
+4. Perform one lock/unlock smoke pass for Home-overlay leakage.
+5. If any discontinuity remains, export Detailed diagnostics before further runtime mutation.
+
+This record-only closure does not create a new runtime Build.
+
+
+---
+
+## 2026-09-28 — Build 424 device acceptance
+
+**Build:** 424 / `20260928-424`
+**Exact executable source:** `2556a098d35c202e1c5645a06e73757744f721e1`
+**Exact tested PR head:** `3cbf8523cfafeb99a58dcd213053e9a2e020f71f`
+**Ready Full:** #1328 / run `36418043111` — success
+**Signed Canary:** #417 / run `36418655598` — success
+**Artifact:** `CombinedStatus-0.0.2-HyperOS-20260928-424-canary.apk` / id `10968671147`
+**APK SHA-256:** `7e1a7bf035207718de3d74c580b87c3d5f20df648a98a78ef8f560d25c95e778`
+
+### Maintainer feedback
+
+Focused device validation reports **no visible abnormality**.
+
+Accepted behaviors include:
+- Notification Shade first departure / final Home return continuity;
+- quick Control Center regression pass;
+- Hot Reload;
+- lock/unlock smoke pass for Home-overlay leakage.
+
+### Diagnostic confirmation
+
+The supplied Detailed report confirms:
+- runtime health = `healthy`;
+- Build/channel = 424 Canary;
+- Home render carrier = native `MiuiStatusBatteryContainer(system_icons).overlay`;
+- `nativeVisibilityInherited=true` and `nativeAlphaInherited=true`;
+- Notification runtime Hook = false;
+- panel source remains event-driven with zero native geometry writes.
+
+One Control Center entry while the read-only Battery scene reports raw Keyguard state produces:
+`controlCenterProjection state=unavailable fallback=home-visible reason=real-system-icons-not-home-owned-container`.
+
+This is not accepted as a new defect because:
+- no visible anomaly was reported;
+- the fallback is bounded and fail-native;
+- later unlocked Control Center pulls in the same report attach `realSystemIcons.overlay` and reach projection readiness normally;
+- the condition matches the already-identified architectural weakness of Build-420 source-anchor projection when HyperOS selects a source other than the Home-owned carrier.
+
+It therefore strengthens, rather than blocks, the planned post-424 move toward the native QS_FAKE transition owner.
+
+### 审查 / review
+
+- **Ownership:** Build 424 correctly places unlocked/Home drawing inside the native Home end-side visibility owner.
+- **Lifecycle:** Notification Shade needs no project-local visibility state; device behavior confirms the inherited lifecycle.
+- **Single writer:** no Notification fraction/visibility writer remains.
+- **Cleanup:** Hot Reload and lock/unlock smoke pass show no visible carrier leakage.
+- **Fail-native:** the bounded Control Center source mismatch falls back native/Home-visible rather than forcing unsupported ownership.
+- **Performance:** event-driven; no polling/timer/frame follower added.
+- **Compatibility:** accepted on Xiaomi 15 Pro / haotian / Android 17 / SystemUI 17.03.260226.r.
+- **Exception recovery:** Hot Reload completed with healthy runtime state.
+- **Future extension:** freeze Build 424 as the accepted unlocked/Home source-carrier baseline; continue Control Center work as a separate QS_FAKE transition checkpoint.
+
+### Next
+
+Complete feature integration of the accepted Build-424 checkpoint into `dev`. Start the QS_FAKE transition-owner implementation from that integrated baseline rather than stacking it onto the already-accepted Build-424 runtime checkpoint.

@@ -10,7 +10,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Integration branch: `dev`
 - Integration runtime baseline: Build 418 / `20260928-418`, merge commit `11bc4ff741869e3311d2be697d4dcfb66f5cb39c`
 - Build 418 / `20260928-418` is the current device-accepted and Integration-validated `dev` runtime baseline. Build 413 remains the current `main`-promoted stable runtime baseline.
-- Active Phase-2B work / PR: `feat/panel-projection` / Draft #146. The Build-418 Tint/Hot Reload blocker is closed and integrated into `dev`; #146 is being refreshed from this baseline. The completed Build-414 notification-header probe is historical evidence only and must not be retained as unnecessary production/runtime baggage.
+- Active Phase-2B work / PR: `feat/panel-projection` / Draft #146 during final repository cleanup. Build 420 / `20260928-420` remains **device-accepted evidence for the Control Center transition carrier and readiness-ordered handoff**, but the fully expanded Control Center target is native-only. Builds 421-423 are **device-rejected for Notification-Shade edge continuity**. Build 424 / `20260928-424` is the current unvalidated runtime checkpoint: unlocked/Home drawing now lives in the native `MiuiStatusBatteryContainer(system_icons).overlay` and the project-local Notification Header visibility Hook/gate is retired. Static review is complete. After resolving the PR/dev history conflict, Full Build #1321 / run `36413531047` succeeded on head `ca1bbf7e10c485f34846add633c34d06a163e7e8`; final exact-head validation remains pending after documentation/governance cleanup. No device acceptance is claimed yet.
 - Repository-automation baseline: checkpoint-driven CI from PR #139 remains active; Canary admission hardening and bounded automation-only merge delegation were accepted through PR #143/#144. PR #149 (`497be75c1754e49cb7a49b6abd73dcbd3bc010b3`) adds base-to-head validation-surface reporting, mixed runtime/build/CI/tooling warnings, and readable routing reasons without weakening Full gates; history-preserving `main -> dev` sync `2e9b1716849d6709342a446f63e5b886c0aed9ae` passed dev Full #1317. These automation changes do **not** create a new runtime Build; Build 418 remains the integrated runtime baseline.
 - Phase-2A integration: PR #105 merged to `dev` as `2f584c3b393dc5ee606284426aa95a9d6beae5d5`; former stacked PR #100 is closed as superseded.
 - Phase-2B panel/scene-owner integration: PR #138 merged to `dev` as `a25cb5ce2aeab235cfaed579474df70596f03a63`.
@@ -25,15 +25,15 @@ This file is the concise recovery point for active Combined Status development. 
 
 ## Current phase
 
-The project has completed the current **Phase 2A — 0.0.2 Home carrier / presentation architecture** gate for `dev` integration and is moving into **Phase 2B — Home -> shade / Control Center scene boundary/projection**.
+The project has completed the current **Phase 2A — 0.0.2 Home carrier / presentation architecture** gate for `dev` integration and is moving into **Phase 2B — unlocked Home ownership continuity + bounded Control Center transition bridge**.
 
 The selected Home direction is an existing-host composition rather than the superseded permanent extra-participant / occupancy-handoff route:
 
-`MiuiNotificationStatusContainer / system_icon_area -> host-scoped overlay -> resolved Home layout -> Combined Status renderer`
+`MiuiNotificationStatusContainer / system_icon_area (HostSession) -> MiuiStatusBatteryContainer / system_icons.overlay (visual carrier) -> resolved Home layout -> Combined Status renderer`
 
-SystemUI remains authoritative for surrounding native layout, Battery scene/hide behavior, native tint semantics, and charging/Super-Island motion. Combined Status owns its compact composition plus only narrowly scoped, reversible Home presentation state.
+SystemUI remains authoritative for surrounding native layout, Battery presentation/hide behavior, native tint semantics, Home-host scene visibility, and charging/Super-Island motion. Combined Status owns its compact composition plus only narrowly scoped, reversible Home presentation state.
 
-Home -> shade / Control Center projection is now the active Phase 2B direction. Keyguard / lockscreen / AOD follows after Phase 2B.
+For the pinned HyperOS target, Notification Shade itself does not present the status-icon row; therefore Phase 2B does **not** project Combined Status into Notification Shade. Build-423 device evidence proves Notification Header progress is motion context rather than the complete Home visibility authority. Exact-target source instead traces `StatusBarVisibilityInteractor.shouldHomeStatusBarBeVisible -> HomeStatusBarViewModelImpl.systemInfoCombinedVis -> HomeStatusBarViewBinderInjector -> mEndSideContent = R.id.system_icons`. Build 424 therefore places the unlocked/Home render overlay on that exact `MiuiStatusBatteryContainer(system_icons)` owner so native alpha/visibility/transition lifecycle is inherited without a project-local shade gate. Control Center projection is now a bounded transition bridge only: the fully expanded endpoint must return to native status-bar presentation. Keyguard/lockscreen follows as a separate source adapter after Phase 2B, reusing shared domain/render semantics without sharing mutable Home host/session ownership.
 
 ## Current runtime checkpoints
 
@@ -55,7 +55,7 @@ Home -> shade / Control Center projection is now the active Phase 2B direction. 
 - **Build 416 / `20260928-416`** is **device-rejected for Hot Reload tint continuity**. Fast #1243 and signed Work Branch Canary #400 passed, but maintainer screenshots plus Detailed diagnostics show Combined Status can remain inverted relative to neighboring Home status icons after Hot Reload; a full SystemUI restart restores correct behavior. The location-aware dispatcher resolver itself changes between `#bf000000` and `#e6ffffff`, while the Hot Reload path initially restores `#bf000000`. The key discriminant is lifecycle: the same executable behaves correctly after SystemUI recreation, so steady cold-start tint policy is not reopened by default.
 - Build 406 trusted validation: owner `/canary` Work Branch Canary #335 **succeeded**. Validated PR head `80f371784ffaee406dd6ea5728219eeee5913318` differs from the frozen runtime source only in `CURRENT.md` and `DEVLOG.md`, so executable content remains exactly Build 406. Artifact `10929711688`; artifact ZIP digest `sha256:c7af997217acd171c66beb860d7212c0d72fd672a38978f7b5c2eb5a524f11ba`; extracted APK SHA-256 `e086d8914fece7ba8ea86200756f4a6366d56dadaa5510846618a4077e6ddd80`.
 - **Build 418 / `20260928-418`** is **device-accepted for Hot Reload Tint continuity and repeated app/Home scene switching**. Maintainer validation reports normal behavior after repeated light/dark transitions without a SystemUI restart. Detailed diagnostics show Hot Reload restoration with `statusIconTint` rebased to live SystemUI authority and subsequent event-driven renderer commits keeping `appliedTint`, `statusIconTint`, and `liveStatusIconTint` aligned. Exact tested PR head `42f350c2bb8d7338906469454fadabc5dcb629de`; Fast #1261 and Work Branch Canary #405 passed. This closes the shared Home Tint lifecycle blocker for Phase 2B.
-- Documentation/test-only commits may advance the Phase-2B work branch beyond Build-412 executable source `f794a7c01513364eefc726316fcaf4058d581683` without creating a new runtime Build; runtime identity remains `20260927-412` until executable source changes.
+- Documentation/test-only commits after a frozen executable checkpoint may advance the PR head without creating a new runtime Build; runtime identity changes only when executable/build metadata changes.
 
 Build 403 validation already established:
 - Fast Build #1063: **success**;
@@ -99,35 +99,41 @@ Build 403 uses HyperOS `MiuiBatteryMeterIconView.getProgressStatus()` as semanti
 
 No user-facing per-state color picker/source selector is exposed yet. The future policy seam remains: **System default / Follow status icon / Custom** for NORMAL / CHARGING / POWER_SAVE / PERFORMANCE / LOW.
 
-### Home -> shade / Control Center scene boundary — Build 413 accepted in stable main
+### Home -> panel scene boundary / Control Center projection — Build 424 active
 
-Build 409 corrected only the notification-shade half of the scene lifetime. Maintainer video and Build-409 diagnostics show the unresolved reproduction is a **Control Center** transition.
+Build 420 remains device-accepted evidence for the Control Center carrier and readiness-ordered handoff:
+- Notification Shade has no Combined Status projection surface on this pinned target.
+- `realSystemIcons` / `MiuiStatusBatteryContainer` is a verified native Control Center transition carrier.
+- Entry remains projection-ready before the source steady scene yields; reverse motion restores the source before bridge cleanup.
+- Control Center geometry, transition motion, and native peer animation remain SystemUI-owned.
+- New product boundary: this projection is a **partial-pull transition bridge only**. Fully expanded Control Center must be native SystemUI status-bar presentation, not a persistent Combined Status scene.
 
-Device evidence:
-- the exact-target Control Center callback reports `visible=true` before/through the fraction transition and remains true while the panel is returning toward zero;
-- during those Control Center callbacks Build 409 emits no Home-eligibility transition because both Control Center hooks are still diagnostics-only;
-- the video correspondingly shows native status icons entering while the Home Combined Status overlay remains visible;
-- only a later notification-shade update drives `homeEligible=false`, which is not the owner of the reproduced Control Center transition.
+Builds 421-423 are rejected for Notification-Shade first/last-frame continuity. Build 423 established that the exact Notification Header callback supplies valid continuous motion progress, but device evidence proves that progress is not the native Home-status-bar visibility authority.
 
-Root-cause conclusion:
-- Build 409's state source and cleanup mechanism are not the remaining problem;
-- the Home eligibility model is still incomplete because it does not consume Control Center visibility ownership.
+**Build 424 root-cause correction — inherit the native Home end-side carrier lifecycle:**
+- exact-target source traces `StatusBarVisibilityInteractor.shouldHomeStatusBarBeVisible` into `HomeStatusBarViewModelImpl.isSystemInfoVisible -> systemInfoCombinedVis`;
+- `HomeStatusBarViewBinderImpl` binds `mEndSideContent` to `R.id.system_icons`;
+- exact `system_icons.xml` shows that `system_icons` is the root `MiuiStatusBatteryContainer` containing status icons and Battery;
+- `HomeStatusBarViewBinderInjector.showEndSideContent()/hideEndSideContent()` applies native alpha / visibility / translation animation to that `mEndSideContent`;
+- the pre-424 Combined Status visual was instead attached to the parent `MiuiNotificationStatusContainer.overlay`, outside the child `system_icons` animation owner, which is why a project-local Notification fraction gate was needed and could go out of phase at the first/last frame;
+- Build 424 moves only the Combined Status Home render overlay to the exact native `MiuiStatusBatteryContainer(system_icons).overlay`;
+- the Notification Header runtime Hook, Notification Home-eligibility state, Hot Reload query, and per-drag Home visibility writes are removed;
+- the legacy Hot Reload payload slot is retained as a null compatibility field only; it is not an active runtime authority;
+- Build-420 Control Center carrier/handoff mechanics are unchanged inside Build 424; their future scope is now explicitly transition-only, with native-only ownership at the fully expanded endpoint.
 
-Selected Build-410 boundary:
-- promote only `ControlCenterExpandControllerDelegate.onVisibleChanged(boolean)` to runtime authority;
-- keep `onExpansionChanged(float)` diagnostics/read-only for future projection;
-- Control Center permits Home only while native `visible=false`;
-- final Home eligibility becomes: unlocked surface + notification shade settled + Control Center not visible;
-- transfer the last known Control Center eligibility through Hot Reload alongside the notification-shade fact;
-- declare the exact runtime callback in the pinned target profile;
-- fail Home-native if either required scene-lifetime authority cannot be installed;
-- no fraction threshold, delay, translation/alpha writer, geometry follower or custom animation.
+Build 424 is the current runtime checkpoint (`20260928-424`). Exact executable source: `2556a098d35c202e1c5645a06e73757744f721e1`. Later branch commits remain test/documentation/governance-only as of the current review. Static review confirms no active Notification-Shade visibility Hook/gate remains and the active target-profile panel Hook is only Control Center `onVisibleChanged(Z)` (plus optional bounded expansion diagnostics). A history-preserving refresh merged current `dev` into the work branch at `ca1bbf7e10c485f34846add633c34d06a163e7e8`. Ready Full Build #1328 / run `36418043111` succeeded on exact tested head `3cbf8523cfafeb99a58dcd213053e9a2e020f71f`. Owner-requested Work Branch Canary #417 / run `36418655598` then resolved and checked out that same exact SHA, passed target-profile/tests/build, Modern Xposed metadata, Haple signature and non-debuggable checks, and uploaded artifact `10968671147`. Extracted APK SHA-256 is `7e1a7bf035207718de3d74c580b87c3d5f20df648a98a78ef8f560d25c95e778`. PR is Draft and Build 424 runtime is frozen pending focused device validation; no device acceptance is claimed yet.
 
-Build 409's notification-shade implementation remains intact and is not reopened.
+**Maintainer working scene concept — planning input, not yet a verified lifecycle contract:**
+- The maintainer's current conceptual split is: unlocked/Home steady, locked/Keyguard steady, partial Control Center pull with HyperOS transition continuity, and fully expanded Control Center native-only.
+- Treat that split as a product-intent input, not as proof of the underlying SystemUI lifecycle topology.
+- Exact-target review now establishes a cleaner native ownership topology: Home and Keyguard register separate real source carriers into `ControlCenterFakeViewController`; native `StatusBarState` selects the source; `ControlCenterFakeStatusIcons` provides a complete `QS_FAKE` transition status bar with native tint/island/lifecycle; `onAppearanceChanged` switches fake/real Control Center visual ownership.
+- This makes `source steady adapter -> native QS_FAKE transition carrier -> native QS destination` the leading low-maintenance candidate, but it is **not yet an implementation decision**. First-frame readiness, suppression/masking, Hot Reload and device behavior still require review.
+- Home and future Keyguard must not be forced into one View ownership model merely to match the conceptual split.
+- This investigation does not widen Build 424: Build 424 remains the Home-carrier/Notification-writer correction only.
 
 ## Non-negotiable boundaries
 
-- Home is the only Combined Status rendering surface currently treated as runtime-verified.
+- Home is the currently implemented persistent Combined Status source surface. Build 420 verifies a Control Center carrier/handoff mechanism. The maintainer currently prefers partial-pull transition continuity with a native-only fully expanded endpoint, but that remains a design hypothesis pending exact lifecycle review. Keyguard and AOD remain native-only in current runtime.
 - Unsupported/unverified surfaces remain native until their own host/lifecycle/handoff contract is validated.
 - Reuse authoritative HyperOS/SystemUI state and resources when a verified source exists.
 - Native peer geometry, Battery translation/alpha/visibility, and island animation remain SystemUI-owned.
@@ -153,21 +159,29 @@ Build 409's notification-shade implementation remains intact and is not reopened
 - CI self-validation for the policy change passed at PR Build #1168, `main` push #1169, sync PR Build #1170, and trusted `dev` push #1171. The generated artifacts retain stable runtime build identities (`main` Build 351 / `dev` Build 412), so these automation checks are not new application Builds.
 - PR #99 remains separate open historical work and is not an accepted baseline; any useful delta must be reconciled against the current line before reuse.
 
+
+
+### Control Center lifecycle review — exact-target evidence, no runtime change
+
+The current lifecycle investigation now verifies that HyperOS itself registers both source containers with `ControlCenterFakeViewController`: unlocked `MiuiPhoneStatusBarView.mStatusBatteryContainer` becomes `statusBarSystemIcons`, while `MiuiKeyguardStatusBarView.mSystemIconsContainer` becomes `keyguardSystemIcons`. Native status-bar state selects the current `realSystemIcons` source. The Control Center fake status bar is a complete `QS_FAKE` status representation with native tint/attach/island lifecycle, while the fully expanded Control Center has a separate `QS` native status bar. Native `appearance` selects fake-vs-real visual ownership independently of expansion motion.
+
+This supports a candidate source -> native fake transition -> native real destination topology and argues against a project-owned six-state scene machine. It is evidence only; Build 424 remains unchanged and must be validated first. The plugin-side producer semantics for `appearance` remain outside the reviewed SystemUI APK and must not be guessed.
+
+
+
+### Build 424 validation recovery
+
+The earlier absence of pull-request Build runs was not a GitHub-wide Actions outage. PR #146 had diverged from current `dev` and was not mergeable; GitHub does not run `pull_request` workflows for conflicted PRs.
+
+The work branch was history-preserving refreshed from exact dev tip `947c13956f2b4cbe08faf21de73b3a2f1b7a8b81`. During the synchronization experiment, using long-lived `dev` directly as a sync-PR head triggered GitHub's delete-head-branch behavior when the sync PR merged. `dev` was immediately recreated at the exact same SHA, with no runtime/content change. The permanent process rule is now to use a temporary `sync/*` head for long-lived branch synchronization.
+
+After conflict resolution, PR #146 became mergeable and Full Build #1321 / run `36413531047` succeeded on `ca1bbf7e10c485f34846add633c34d06a163e7e8`. Draft Light #1320 exposed only trailing whitespace in DEVLOG; that repository-text defect is being cleaned before the final exact-head Full checkpoint.
+
+
 ## Immediate next step
 
-1. Treat Build 418 / `20260928-418` at dev merge commit `11bc4ff741869e3311d2be697d4dcfb66f5cb39c` as the current device-accepted, Integration-validated development baseline.
-2. Keep `main` on Build 413 until an explicit stable-promotion decision.
-3. Refresh Draft PR #146 from current `dev` using a history-preserving merge. Preserve its Build-414 diagnostic evidence, but remove the completed notification-header probe/runtime compatibility expansion from the resulting active runtime unless a new evidence gap explicitly requires it.
-4. Continue Phase 2B from the collected notification-header evidence: inspect the verified `headerController: Lazy` / `NotificationShadeWrapper` ownership chain and identify a real shade status-icon target host/bounds contract before implementing projection.
-5. Reuse the existing Control Center `StatusBarAnchorBounds` evidence; do not reopen Home Tint, Home scene lifetime, HUN/shallow-pull, 8.25 ring, or Battery semantic-color ownership.
-6. Create the next runtime Build only when executable Phase-2B source changes; branch synchronization/document recovery alone does not create Build 419.
-
-## Reference priority
-
-1. latest `CONTRIBUTING.md`;
-2. this `CURRENT.md`;
-3. `ROADMAP.md`;
-4. recent/relevant `DEVLOG.md` entries;
-5. applicable `docs/architecture/` policy;
-6. applicable `docs/reference/` evidence;
-7. `VERSIONING.md` for version/release semantics and `RECORDING.md` for documentation maintenance.
+1. Keep Build 424 executable source `2556a098d35c202e1c5645a06e73757744f721e1` frozen.
+2. Obtain one successful pull-request Build on the final documentation-synchronized exact PR head.
+3. Request one exact-head signed Canary only after that successful exact-head Build.
+4. Device-test Notification-Shade first/last-frame continuity, Control Center regression, Hot Reload, and one lock/unlock smoke pass.
+5. Do not mix the post-424 QS_FAKE Control Center redesign into Build 424; discuss/select that follow-up only after Build 424 device evidence.

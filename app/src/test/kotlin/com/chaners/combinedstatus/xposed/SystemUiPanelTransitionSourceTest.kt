@@ -15,34 +15,6 @@ class SystemUiPanelTransitionSourceTest {
     }
 
     @Test
-    fun notificationShadeHomeEligibilityUsesMotionInsteadOfExpandedHint() {
-        assertEquals(true, SystemUiPanelTransitionSource.notificationShadeAllowsHome(0f, false))
-        assertEquals(true, SystemUiPanelTransitionSource.notificationShadeAllowsHome(-0.1f, false))
-        assertEquals(false, SystemUiPanelTransitionSource.notificationShadeAllowsHome(0f, true))
-        assertEquals(false, SystemUiPanelTransitionSource.notificationShadeAllowsHome(0.01f, false))
-        assertEquals(false, SystemUiPanelTransitionSource.notificationShadeAllowsHome(1f, false))
-        assertEquals(false, SystemUiPanelTransitionSource.notificationShadeAllowsHome(null, false))
-        assertEquals(false, SystemUiPanelTransitionSource.notificationShadeAllowsHome(0f, null))
-    }
-
-    @Test
-    fun notificationShadeEligibilitySnapshotCanSeedHotReloadGeneration() {
-        SystemUiPanelTransitionSource.resetRuntimeState()
-        assertNull(SystemUiPanelTransitionSource.currentNotificationShadeHomeEligibility())
-
-        SystemUiPanelTransitionSource.restoreNotificationShadeHomeEligibility(false)
-        assertEquals(false, SystemUiPanelTransitionSource.currentNotificationShadeHomeEligibility())
-
-        SystemUiPanelTransitionSource.restoreNotificationShadeHomeEligibility(true)
-        assertEquals(true, SystemUiPanelTransitionSource.currentNotificationShadeHomeEligibility())
-
-        // A legacy payload has no shade field; it must not erase the
-        // successfully installed generation's current/bootstrap eligibility.
-        SystemUiPanelTransitionSource.restoreNotificationShadeHomeEligibility(null)
-        assertEquals(true, SystemUiPanelTransitionSource.currentNotificationShadeHomeEligibility())
-    }
-
-    @Test
     fun controlCenterHomeEligibilityRequiresNativeInvisibleSemantics() {
         assertEquals(true, SystemUiPanelTransitionSource.controlCenterAllowsHome(false))
         assertEquals(false, SystemUiPanelTransitionSource.controlCenterAllowsHome(true))
@@ -68,8 +40,8 @@ class SystemUiPanelTransitionSourceTest {
 
     @Test
     fun runtimeHookCountKeepsOnlyControlCenterProgressDiagnosticOptional() {
-        assertEquals(2, SystemUiPanelTransitionSource.expectedHookCount(false))
-        assertEquals(3, SystemUiPanelTransitionSource.expectedHookCount(true))
+        assertEquals(1, SystemUiPanelTransitionSource.expectedHookCount(false))
+        assertEquals(2, SystemUiPanelTransitionSource.expectedHookCount(true))
     }
 
     @Test

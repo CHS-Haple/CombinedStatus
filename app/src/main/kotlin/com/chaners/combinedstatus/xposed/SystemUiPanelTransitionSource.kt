@@ -1,6 +1,7 @@
 package com.chaners.combinedstatus.xposed
 
 import android.view.View
+import android.view.ViewGroup
 import io.github.libxposed.api.XposedInterface.HookHandle
 import io.github.libxposed.api.XposedInterface.Hooker
 import io.github.libxposed.api.XposedModule
@@ -9,17 +10,12 @@ import java.lang.reflect.Field
 import kotlin.math.floor
 
 internal object SystemUiPanelTransitionSource {
-    const val NOTIFICATION_HOOK_COUNT = 1
     const val CONTROL_CENTER_RUNTIME_HOOK_COUNT = 1
     const val CONTROL_CENTER_DIAGNOSTIC_HOOK_COUNT = 1
     const val HOOK_COUNT =
-        NOTIFICATION_HOOK_COUNT +
-            CONTROL_CENTER_RUNTIME_HOOK_COUNT +
+        CONTROL_CENTER_RUNTIME_HOOK_COUNT +
             CONTROL_CENTER_DIAGNOSTIC_HOOK_COUNT
 
-    private const val SHADE_MANAGER_CLASS =
-        "com.android.systemui.shade.ShadeExpansionStateManager"
-    private const val SHADE_METHOD = "onPanelExpansionChanged"
     private const val CONTROL_CENTER_CLASS =
         "com.miui.systemui.controlcenter.container.ControlCenterExpandControllerDelegate"
     private const val CONTROL_CENTER_EXPANSION_METHOD = "onExpansionChanged"
@@ -31,16 +27,12 @@ internal object SystemUiPanelTransitionSource {
     private const val STATUS_BAR_ANCHOR_CLASS =
         "com.android.systemui.controlcenter.shade.StatusBarAnchorBounds"
 
-    private const val SHADE_HOOK_ID = "combinedstatus.panel.notification.expansion"
     private const val CONTROL_CENTER_EXPANSION_HOOK_ID =
         "combinedstatus.panel.control-center.expansion"
     private const val CONTROL_CENTER_VISIBLE_HOOK_ID =
         "combinedstatus.panel.control-center.visible"
 
-    private var shadeProbe = ProbeState()
     private var controlProbe = ProbeState()
-    @Volatile
-    private var notificationShadeHomeEligible: Boolean? = null
     @Volatile
     private var controlCenterHomeEligible: Boolean? = null
     private var controlAnchorContract: ControlCenterAnchorContract? = null
@@ -54,15 +46,6 @@ internal object SystemUiPanelTransitionSource {
         isProbeEnabled: () -> Boolean = { false },
         includeControlCenterDiagnostics: Boolean = true,
     ): List<HookHandle> {
-        val shadeClass = Class.forName(SHADE_MANAGER_CLASS, false, classLoader)
-        val shadeMethod =
-            shadeClass.getDeclaredMethod(
-                SHADE_METHOD,
-                Float::class.javaPrimitiveType,
-                Boolean::class.javaPrimitiveType,
-                Boolean::class.javaPrimitiveType,
-            ).apply { isAccessible = true }
-
         val controlClass =
             Class.forName(CONTROL_CENTER_CLASS, false, classLoader)
         val controlVisibleMethod =
@@ -85,69 +68,16 @@ internal object SystemUiPanelTransitionSource {
             }
 
         controlAnchorContract =
-            if (includeControlCenterDiagnostics) {
-                ControlCenterAnchorContract.resolve(
-                    classLoader = classLoader,
-                    delegateClass = controlClass,
-                )
-            } else {
-                null
-            }
+            ControlCenterAnchorContract.resolve(
+                classLoader = classLoader,
+                delegateClass = controlClass,
+            )
 
         val handles =
             ArrayList<HookHandle>(
                 expectedHookCount(includeControlCenterDiagnostics),
             )
         try {
-            handles +=
-                module
-                    .hook(shadeMethod)
-                    .setId(SHADE_HOOK_ID)
-                    .intercept(
-                        Hooker { chain ->
-                            val fraction =
-                                nativeFraction(
-                                    (chain.getArg(0) as? Number)?.toFloat(),
-                                )
-                            val expanded = chain.getArg(1) as? Boolean
-                            val tracking = chain.getArg(2) as? Boolean
-                            val result = chain.proceed()
-                            val homeEligible =
-                                notificationShadeAllowsHome(
-                                    fraction = fraction,
-                                    tracking = tracking,
-                                )
-                            notificationShadeHomeEligible = homeEligible
-                            val update =
-                                Update(
-                                    source = Source.NOTIFICATION_SHADE,
-                                    fraction = fraction,
-                                    expanded = expanded,
-                                    tracking = tracking,
-                                    visible = null,
-                                    homeMotion =
-                                        if (
-                                            onEvent != null &&
-                                            isProbeEnabled() &&
-                                            isBoundaryDiagnosticBucket(
-                                                diagnosticBucket(fraction),
-                                            )
-                                        ) {
-                                            SystemUiIslandMotionSource.currentOwnerSnapshot()
-                                        } else {
-                                            null
-                                        },
-                                )
-                            onUpdate?.invoke(update)
-                            emitDiagnostic(
-                                update = update,
-                                onEvent = onEvent,
-                                isProbeEnabled = isProbeEnabled,
-                            )
-                            result
-                        },
-                    )
-
             handles +=
                 module
                     .hook(controlVisibleMethod)
@@ -158,6 +88,12 @@ internal object SystemUiPanelTransitionSource {
                             val result = chain.proceed()
                             controlCenterHomeEligible =
                                 controlCenterAllowsHome(visible)
+                            val controlCenterCarrier =
+                                if (visible == true) {
+                                    resolveControlCenterRealSystemIcons(chain.thisObject)
+                                } else {
+                                    null
+                                }
                             val update =
                                 Update(
                                     source = Source.CONTROL_CENTER,
@@ -165,6 +101,7 @@ internal object SystemUiPanelTransitionSource {
                                     expanded = null,
                                     tracking = null,
                                     visible = visible,
+                                    controlCenterCarrier = controlCenterCarrier,
                                 )
                             onUpdate?.invoke(update)
                             emitDiagnostic(
@@ -176,12 +113,8 @@ internal object SystemUiPanelTransitionSource {
                         },
                     )
 
-            // Both semantic scene callbacks are runtime authorities. A successful
-            // install means steady Home is a safe cold-start bootstrap until the
-            // first native callback for that scene owner.
-            if (notificationShadeHomeEligible == null) {
-                notificationShadeHomeEligible = true
-            }
+            // Control Center visibility is the only panel runtime authority.
+            // Notification Shade inherits the native Home carrier lifecycle.
             if (controlCenterHomeEligible == null) {
                 controlCenterHomeEligible = true
             }
@@ -241,7 +174,6 @@ internal object SystemUiPanelTransitionSource {
             handles.asReversed().forEach { handle ->
                 runCatching { handle.unhook() }
             }
-            notificationShadeHomeEligible = false
             controlCenterHomeEligible = false
             throw error
         }
@@ -249,9 +181,7 @@ internal object SystemUiPanelTransitionSource {
 
     fun resetRuntimeState() {
         synchronized(this) {
-            shadeProbe = ProbeState()
             controlProbe = ProbeState()
-            notificationShadeHomeEligible = null
             controlCenterHomeEligible = null
             controlAnchorContract = null
             controlHeaderRef = WeakReference(null)
@@ -262,30 +192,11 @@ internal object SystemUiPanelTransitionSource {
         value?.takeIf { it.isFinite() }
 
     internal fun expectedHookCount(includeControlCenterDiagnostics: Boolean): Int =
-        NOTIFICATION_HOOK_COUNT +
-            CONTROL_CENTER_RUNTIME_HOOK_COUNT +
+        CONTROL_CENTER_RUNTIME_HOOK_COUNT +
             if (includeControlCenterDiagnostics) CONTROL_CENTER_DIAGNOSTIC_HOOK_COUNT else 0
-
-    internal fun notificationShadeAllowsHome(
-        fraction: Float?,
-        tracking: Boolean?,
-    ): Boolean =
-        tracking == false &&
-            fraction != null &&
-            fraction <= 0f
-
-    fun currentNotificationShadeHomeEligibility(): Boolean? =
-        notificationShadeHomeEligible
 
     fun currentControlCenterHomeEligibility(): Boolean? =
         controlCenterHomeEligible
-
-    @Synchronized
-    fun restoreNotificationShadeHomeEligibility(eligible: Boolean?) {
-        if (eligible != null) {
-            notificationShadeHomeEligible = eligible
-        }
-    }
 
     @Synchronized
     fun restoreControlCenterHomeEligibility(eligible: Boolean?) {
@@ -315,15 +226,24 @@ internal object SystemUiPanelTransitionSource {
             bucket != controlProbe.bucket
     }
 
-    private fun captureControlCenterAnchor(delegate: Any?): ControlCenterAnchorSnapshot? {
+    private fun resolveControlCenterHeader(delegate: Any?): Any? {
         delegate ?: return null
         val contract = controlAnchorContract ?: return null
-        val header =
-            controlHeaderRef.get()
-                ?: contract.resolveHeader(delegate)?.also { resolved ->
-                    controlHeaderRef = WeakReference(resolved)
-                }
-                ?: return null
+        return controlHeaderRef.get()
+            ?: contract.resolveHeader(delegate)?.also { resolved ->
+                controlHeaderRef = WeakReference(resolved)
+            }
+    }
+
+    private fun resolveControlCenterRealSystemIcons(delegate: Any?): ViewGroup? {
+        val contract = controlAnchorContract ?: return null
+        val header = resolveControlCenterHeader(delegate) ?: return null
+        return contract.realSystemIcons(header)
+    }
+
+    private fun captureControlCenterAnchor(delegate: Any?): ControlCenterAnchorSnapshot? {
+        val contract = controlAnchorContract ?: return null
+        val header = resolveControlCenterHeader(delegate) ?: return null
         return contract.snapshot(header)
     }
 
@@ -336,11 +256,7 @@ internal object SystemUiPanelTransitionSource {
         if (onEvent == null || !isProbeEnabled()) {
             return
         }
-        val probe =
-            when (update.source) {
-                Source.NOTIFICATION_SHADE -> shadeProbe
-                Source.CONTROL_CENTER -> controlProbe
-            }
+        val probe = controlProbe
         val bucket = diagnosticBucket(update.fraction)
         val changed =
             (bucket != null && bucket != probe.bucket) ||
@@ -379,7 +295,8 @@ internal object SystemUiPanelTransitionSource {
                 " visible=" + (update.visible ?: probe.visible ?: "none") +
                 anchorSummary +
                 homeMotionSummary +
-                " authority=hyperos-native-callback nativeGeometryWrites=0",
+                " authority=hyperos-native-callback" +
+                " nativeGeometryWrites=0",
         )
     }
 
@@ -389,6 +306,7 @@ internal object SystemUiPanelTransitionSource {
         val expanded: Boolean?,
         val tracking: Boolean?,
         val visible: Boolean?,
+        val controlCenterCarrier: ViewGroup? = null,
         val controlCenterAnchor: ControlCenterAnchorSnapshot? = null,
         val homeMotion: SystemUiIslandMotionSource.OwnerSnapshot? = null,
     )
@@ -396,7 +314,6 @@ internal object SystemUiPanelTransitionSource {
     internal enum class Source(
         val logName: String,
     ) {
-        NOTIFICATION_SHADE("notification"),
         CONTROL_CENTER("control-center"),
     }
 
@@ -458,6 +375,10 @@ internal object SystemUiPanelTransitionSource {
                 } ?: return null
             return runCatching { callbackOuterField.get(callback) }.getOrNull()
         }
+
+        fun realSystemIcons(header: Any): ViewGroup? =
+            runCatching { realSystemIconsField.get(header) as? ViewGroup }
+                .getOrNull()
 
         fun snapshot(header: Any): ControlCenterAnchorSnapshot? {
             val anchor =

@@ -257,7 +257,7 @@ internal object SystemUiHomePresentationOwner {
         val masked = session.start()
         batteryContainer.requestLayout()
         eventSink?.invoke(
-            "homePresentation active carrier=MiuiNotificationStatusContainer.overlay " +
+            "homePresentation active carrier=MiuiStatusBatteryContainer.overlay " +
                 "representedSlots=" + representedSlots.joinToString(",") +
                 " maskedViews=" + masked +
                 " slotExclusion=scoped-native-measure-layout " +
@@ -268,6 +268,10 @@ internal object SystemUiHomePresentationOwner {
         )
         return StateResult.Active(representedSlots.size, masked, false)
     }
+
+    @Synchronized
+    fun ownsBatteryContainer(candidate: ViewGroup): Boolean =
+        current?.ownsBatteryContainer(candidate) == true
 
     @Synchronized
     fun deactivate(source: String): StateResult {

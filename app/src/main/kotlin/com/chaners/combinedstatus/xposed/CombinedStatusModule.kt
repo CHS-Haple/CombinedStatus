@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.AtomicLong
 class CombinedStatusModule : XposedModule() {
     private var islandMotionSourceInstalled = false
     private var panelTransitionSourceInstalled = false
-    private var notificationStateProbeBucket = -1
+    private var controlCenterSceneVisible = false
     private var controlCenterGeometryProbeBucket = -1
     private var runtimeSessionId = newRuntimeSessionId()
     private val diagnosticSequence = AtomicLong(0L)
@@ -267,7 +267,6 @@ class CombinedStatusModule : XposedModule() {
             SystemUiNetworkRuntimeOwner.resetRuntimeState()
             islandMotionSourceInstalled = false
             panelTransitionSourceInstalled = false
-            notificationStateProbeBucket = -1
             controlCenterGeometryProbeBucket = -1
             SystemUiPresentationRuntimeOwner.resetRuntimeState()
             SystemUiHomePresentationOwner.resetRuntimeState("hotReload")
@@ -463,9 +462,6 @@ class CombinedStatusModule : XposedModule() {
                 }
             }
 
-            SystemUiPanelTransitionSource.restoreNotificationShadeHomeEligibility(
-                restored.notificationShadeHomeEligible,
-            )
             SystemUiPanelTransitionSource.restoreControlCenterHomeEligibility(
                 restored.controlCenterHomeEligible,
             )
@@ -493,9 +489,7 @@ class CombinedStatusModule : XposedModule() {
                 "wifiRoots" to bindings.wifiRoots,
                 "mobileRoots" to bindings.mobileRoots,
                 "state" to restoredSnapshot.logLine,
-                "homePresentation" to "readiness-gated",
-                "shadeHomeEligible" to
-                    (restored.notificationShadeHomeEligible ?: "unknown"),
+                "homePresentation" to "native-carrier-lifecycle",
                 "controlCenterHomeEligible" to
                     (restored.controlCenterHomeEligible ?: "unknown"),
                 "tintTransfer" to if (transferredTint != null) "restored" else "native-fallback",
@@ -960,6 +954,7 @@ class CombinedStatusModule : XposedModule() {
         }
     }
 
+
     private fun installPanelTransitionSource(
         classLoader: ClassLoader,
         source: String,
@@ -981,12 +976,9 @@ class CombinedStatusModule : XposedModule() {
                     BuildConfig.RUNTIME_DIAGNOSTICS,
                 )
             panelTransitionSourceInstalled = handles.size == expectedHooks
-            CombinedStatusHomeRenderSession.onNotificationShadeAuthorityChanged(
-                SystemUiPanelTransitionSource.currentNotificationShadeHomeEligibility() == true,
-            )
-            CombinedStatusHomeRenderSession.onControlCenterAuthorityChanged(
-                SystemUiPanelTransitionSource.currentControlCenterHomeEligibility() == true,
-            )
+            // Home yields Control Center only after the projected native
+            // carrier is structurally ready.
+            CombinedStatusHomeRenderSession.onControlCenterAuthorityChanged(true)
             logDiagnostic(
                 level = if (panelTransitionSourceInstalled) Log.INFO else Log.WARN,
                 event = "source.install",
@@ -994,7 +986,8 @@ class CombinedStatusModule : XposedModule() {
                 state = if (panelTransitionSourceInstalled) "ready" else "partial",
                 "hooks" to handles.size,
                 "expectedHooks" to expectedHooks,
-                "notificationRuntimeHook" to true,
+                "notificationRuntimeHook" to false,
+                "notificationHomeLifecycle" to "system-icons-carrier",
                 "controlCenterVisibilityRuntimeHook" to true,
                 "controlCenterExpansionDiagnosticHook" to BuildConfig.RUNTIME_DIAGNOSTICS,
                 "source" to source,
@@ -1002,10 +995,8 @@ class CombinedStatusModule : XposedModule() {
             )
         }.onFailure { error ->
             panelTransitionSourceInstalled = false
-            notificationStateProbeBucket = -1
             controlCenterGeometryProbeBucket = -1
-            CombinedStatusHomeRenderSession.onNotificationShadeAuthorityChanged(false)
-            CombinedStatusHomeRenderSession.onControlCenterAuthorityChanged(false)
+            CombinedStatusHomeRenderSession.onControlCenterAuthorityChanged(true)
             logDiagnostic(
                 level = Log.ERROR,
                 event = "source.install",
@@ -1021,7 +1012,7 @@ class CombinedStatusModule : XposedModule() {
     private fun onPanelTransitionUpdate(
         update: SystemUiPanelTransitionSource.Update,
     ) {
-        CombinedStatusHomeRenderSession.onPanelTransitionUpdate(update)
+        handleControlCenterPanelUpdate(update)
 
         if (!detailedDiagnosticsEnabled) {
             return
@@ -1030,55 +1021,97 @@ class CombinedStatusModule : XposedModule() {
         val bucket =
             SystemUiPanelTransitionSource.diagnosticBucket(update.fraction)
                 ?: return
+        if (update.visible == false) {
+            controlCenterGeometryProbeBucket = -1
+            return
+        }
+        if (bucket == controlCenterGeometryProbeBucket) {
+            return
+        }
+        controlCenterGeometryProbeBucket = bucket
+        val geometry =
+            SystemUiNativeNetworkSuppressionOwner.currentTransitionTargetGeometry()
         val state =
             SystemUiNativeNetworkSuppressionOwner.currentTransitionStateSnapshot()
+        log(
+            Log.INFO,
+            TAG,
+            "controlCenterTransitionGeometry " +
+                "fraction=" + update.fraction +
+                " bucket=" + bucket + "/8 " +
+                (geometry?.summary ?: "geometry=unavailable") +
+                " " + (state?.summary ?: "state=unavailable") +
+                " readOnly=true nativeGeometryWrites=0",
+        )
+    }
 
-        when (update.source) {
-            SystemUiPanelTransitionSource.Source.NOTIFICATION_SHADE -> {
-                val shouldLog =
-                    bucket != notificationStateProbeBucket ||
-                        update.expanded == false
-                if (!shouldLog) {
-                    return
-                }
-                notificationStateProbeBucket = bucket
-                log(
-                    Log.INFO,
-                    TAG,
-                    "notificationTransitionState " +
-                        "fraction=" + update.fraction +
-                        " bucket=" + bucket + "/8 " +
-                        (state?.summary ?: "state=unavailable") +
-                        " readOnly=true nativeGeometryWrites=0",
+    private fun handleControlCenterPanelUpdate(
+        update: SystemUiPanelTransitionSource.Update,
+    ) {
+        val visible = update.visible ?: return
+        if (!visible) {
+            controlCenterSceneVisible = false
+            // Restore Home first; projection cleanup is second so the closing
+            // tail frame always has a visible owner.
+            CombinedStatusHomeRenderSession.onControlCenterAuthorityChanged(true)
+            CombinedStatusControlCenterRenderSession.setRequestedVisible(false)
+            CombinedStatusControlCenterRenderSession.detach("control-center-hidden")
+            return
+        }
+
+        controlCenterSceneVisible = true
+        val carrier = update.controlCenterCarrier
+        if (carrier == null) {
+            CombinedStatusHomeRenderSession.onControlCenterAuthorityChanged(true)
+            logDiagnostic(
+                level = Log.WARN,
+                event = "projection.attach",
+                component = "controlCenterProjection",
+                state = "unavailable",
+                "reason" to "real-system-icons-unresolved",
+                "fallback" to "home-visible",
+            )
+            return
+        }
+
+        when (
+            val result =
+                CombinedStatusControlCenterRenderSession.attach(
+                    host = carrier,
+                    onEvent = ::onPanelTransitionEvent,
+                    isDetailedDiagnosticsEnabled = { detailedDiagnosticsEnabled },
+                    onProjectionReadinessChanged = ::onControlCenterProjectionReadinessChanged,
                 )
-                if (update.expanded == false && bucket == 0) {
-                    notificationStateProbeBucket = -1
+        ) {
+            CombinedStatusControlCenterRenderSession.AttachResult.Ready -> {
+                val ready =
+                    CombinedStatusControlCenterRenderSession.setRequestedVisible(true)
+                if (!ready) {
+                    CombinedStatusHomeRenderSession.onControlCenterAuthorityChanged(true)
                 }
             }
 
-            SystemUiPanelTransitionSource.Source.CONTROL_CENTER -> {
-                if (update.visible == false) {
-                    controlCenterGeometryProbeBucket = -1
-                    return
-                }
-                if (bucket == controlCenterGeometryProbeBucket) {
-                    return
-                }
-                controlCenterGeometryProbeBucket = bucket
-                val geometry =
-                    SystemUiNativeNetworkSuppressionOwner.currentTransitionTargetGeometry()
-                log(
-                    Log.INFO,
-                    TAG,
-                    "controlCenterTransitionGeometry " +
-                        "fraction=" + update.fraction +
-                        " bucket=" + bucket + "/8 " +
-                        (geometry?.summary ?: "geometry=unavailable") +
-                        " " + (state?.summary ?: "state=unavailable") +
-                        " readOnly=true nativeGeometryWrites=0",
+            is CombinedStatusControlCenterRenderSession.AttachResult.Failure -> {
+                CombinedStatusHomeRenderSession.onControlCenterAuthorityChanged(true)
+                logDiagnostic(
+                    level = Log.WARN,
+                    event = "projection.attach",
+                    component = "controlCenterProjection",
+                    state = "unavailable",
+                    "reason" to result.reason,
+                    "fallback" to "home-visible",
                 )
             }
         }
+    }
+
+    private fun onControlCenterProjectionReadinessChanged(ready: Boolean) {
+        if (!controlCenterSceneVisible) {
+            return
+        }
+        // Projected owner is already visible when ready=true. On the reverse
+        // edge Home is restored before the projected owner is removed.
+        CombinedStatusHomeRenderSession.onControlCenterAuthorityChanged(!ready)
     }
 
     private fun onPanelTransitionEvent(event: String) {
@@ -1280,10 +1313,12 @@ class CombinedStatusModule : XposedModule() {
         trace: RuntimeRenderTrace? = null,
     ) {
         CombinedStatusHomeRenderSession.onState(snapshot, trace)
+        CombinedStatusControlCenterRenderSession.onState(snapshot)
     }
 
     private fun onPresentationStateChanged(trace: RuntimeRenderTrace? = null) {
         CombinedStatusHomeRenderSession.onPresentationStateChanged(trace)
+        CombinedStatusControlCenterRenderSession.onPresentationStateChanged()
         refreshStatusIconObservation("presentation")
     }
 
@@ -1301,6 +1336,7 @@ class CombinedStatusModule : XposedModule() {
         CombinedStatusHomeRenderSession.onStatusIconTintUpdate(
             state.appliedTint,
         )
+        CombinedStatusControlCenterRenderSession.onPresentationStateChanged()
 
         if (changed != null) {
             val presentationTrace = markPresentationCommitted(trace)
@@ -1338,9 +1374,9 @@ class CombinedStatusModule : XposedModule() {
                 batteryState = update.state,
                 liveStatusIconTint = liveStatusIconTint,
             )
-        CombinedStatusHomeRenderSession.onTintUpdate(
-            update.copy(state = resolvedState),
-        )
+        val resolvedUpdate = update.copy(state = resolvedState)
+        CombinedStatusHomeRenderSession.onTintUpdate(resolvedUpdate)
+        CombinedStatusControlCenterRenderSession.onTintUpdate(resolvedUpdate)
         if (detailedDiagnosticsEnabled) {
             log(
                 Log.INFO,
@@ -1378,7 +1414,6 @@ class CombinedStatusModule : XposedModule() {
                 ),
             )
         }
-        CombinedStatusHomeRenderSession.onSceneUpdate(update)
         if (
             update.surface ==
                 SystemUiSceneStateSource.Surface.UNLOCKED_STATUS_BAR
@@ -1388,6 +1423,8 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun teardownOldGenerationForHotReload() {
+        controlCenterSceneVisible = false
+        CombinedStatusControlCenterRenderSession.detach("hotReload-oldGeneration")
         CombinedStatusHomeRenderSession.detach()
         val restoredPresentationViews =
             SystemUiHomePresentationOwner.releaseGenerationForHotReload()
@@ -2223,6 +2260,7 @@ class CombinedStatusModule : XposedModule() {
         preferenceTransportLatencyNanos: Long?,
     ) {
         CombinedStatusHomeRenderSession.onFeatureSettingsChanged(settings)
+        CombinedStatusControlCenterRenderSession.onFeatureSettingsChanged(settings)
         logDiagnostic(
             level = Log.INFO,
             event = "featureSettings.changed",
@@ -2272,6 +2310,7 @@ class CombinedStatusModule : XposedModule() {
         settings: com.chaners.combinedstatus.settings.CombinedStatusVisualSettings,
     ) {
         CombinedStatusHomeRenderSession.onVisualSettingsChanged(settings)
+        CombinedStatusControlCenterRenderSession.onVisualSettingsChanged(settings)
         if (detailedDiagnosticsEnabled) {
             logDiagnostic(
                 level = Log.INFO,

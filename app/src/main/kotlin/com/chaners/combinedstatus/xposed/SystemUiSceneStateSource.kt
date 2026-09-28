@@ -97,9 +97,6 @@ internal object SystemUiSceneStateSource {
             else -> Surface.UNKNOWN
         }
 
-    internal fun allowsHomeOverlay(surface: Surface): Boolean =
-        surface == Surface.UNLOCKED_STATUS_BAR
-
     private fun publish(
         sourceView: View,
         rawState: Int,
@@ -125,8 +122,9 @@ internal object SystemUiSceneStateSource {
         onEvent?.invoke(
             "sceneState source=" + source +
                 " raw=" + rawState +
-                " surface=" + update.surface.name +
-                " homeOverlay=" + allowsHomeOverlay(update.surface) +
+                " batteryState=" + update.surface.name +
+                " authority=battery-status-state-readonly" +
+                " homeVisibilityAuthority=host+panel-coordinator" +
                 " geometryWrites=0",
         )
     }
