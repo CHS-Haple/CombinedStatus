@@ -3,6 +3,63 @@
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
 
+## 2026-09-29 — Build 439: restore transferred QS_FAKE from its already-laid-out lifecycle
+
+**Type:** Phase-2B Hot Reload lifecycle correction / executable checkpoint
+**Build:** 439 / `20260929-439`
+**Work branch / PR:** `fix/control-center-fake-root` / #156
+**Base integration:** Build 438 / `dev` `6ba4a8179808cdf858176882901aa3787c11b6c1`
+**Executable source:** `8a5e6670cad42ac9138b42417f54e47a3dabd28f`
+**Validation:** pending Draft Light -> exact-head Fast -> signed Canary
+
+### Device evidence / problem execution flow
+
+Build 437 reduces the earlier probabilistic raw-QS_FAKE symptom, but maintainer testing exposes a strong reproducer: press module Hot Reload and immediately pull Control Center. The screen can show native status icons and Combined Status at the same time.
+
+The detailed trace shows Hot Reload restores the transferred Fake root, marks runtime restore complete, schedules/arms the normal first-layout prearm, and only much later reaches `controlCenterPresentation layoutReady` / compact `ready=true`. There is no intervening compact `failNative` or cleanup.
+
+### Root cause
+
+The transferred Hot Reload Fake root is not a cold-start host: it is already attached and already laid out. Re-entering `prearmAfterNextNativeLayout` waits for another root layout and then creates the compact owner from the root `OnLayoutChange` callback. That callback runs after descendant status-icon layout for the current traversal, so the newly activated compact owner cannot participate in that already-finished measure/layout. Its native re-layout request is issued from the tail of the same traversal and compact readiness remains pending until a later status-icon layout.
+
+This creates a real ownership window in which Control Center can become visible before the projected compact owner is ready. Hot Reload makes the window easy to hit; it does not prove Build 437's post-cutover Battery-width retention is wrong.
+
+### Implementation / decision
+
+- Keep cold-start Fake-root attachment on the existing first-native-layout prearm.
+- Add a dedicated Hot Reload restore entry that accepts only an attached, laid-out Fake root while the root is not currently inside a layout traversal.
+- Restore the existing render/compact session immediately from the transferred host on the main-thread Hot Reload restore task.
+- Let the existing compact owner request its normal native layout from this outside-layout boundary; do not directly mutate native geometry or force a clip-only cutover after layout.
+- If the transferred host does not satisfy the laid-out/outside-layout contract, fall back to the existing cold-start prearm and log the exact reason.
+- Keep Build 437's transient live Battery-width retention unchanged.
+- Add a pure eligibility test covering attached/laid-out/outside-layout success and rejecting in-layout, zero-geometry, and detached hosts.
+
+### 审查 / review
+
+- **ownership:** the existing Fake-root session and `SystemUiHomePresentationOwner` remain the only projection/compact owners.
+- **single writer:** no second occupancy, translation, alpha, visibility, or geometry writer is introduced.
+- **lifecycle:** Hot Reload now restores according to the transferred host's actual lifecycle state instead of replaying the cold-start lifecycle.
+- **Fail native:** invalid transferred-host state falls back to the existing native-layout prearm rather than forcing partially trusted geometry.
+- **performance:** no new Hook, observer, persistent listener, timer, delay, polling, or frame callback.
+- **scope:** Home, Notification Shade, QS-real endpoint, cold-start prearm, charging-island endpoint geometry, and Build-437 width-retention semantics remain unchanged.
+
+### Validation plan
+
+Draft Light validates the Build-438 branch sync and repository consistency. Exact-head Fast follows once the PR is Ready. A signed Canary is required because the fix depends on target-device Hot Reload/layout scheduling.
+
+Focused device gate:
+1. Hot Reload -> immediately pull Control Center; repeat several times.
+2. Native/Combined overlap must not appear.
+3. Restart SystemUI -> first non-charging Control Center pull -> several repeated pulls.
+4. Raw native QS_FAKE must not reappear.
+5. Charging-no-island / charging-island are regression-only for this checkpoint.
+6. Any SystemUI/LSPosed crash or safe-mode event is a hard failure.
+
+### Outcome / next step
+
+Pending CI and target-device validation. Runtime freezes after the signed Canary until the maintainer returns the focused result.
+
+
 ## 2026-09-29 — Build 438: keep Appearance preview geometry stable
 
 **Type:** companion-app UI correction
