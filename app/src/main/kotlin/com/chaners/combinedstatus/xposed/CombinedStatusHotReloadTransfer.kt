@@ -2,9 +2,11 @@ package com.chaners.combinedstatus.xposed
 
 import android.os.Bundle
 import android.view.View
+import android.view.ViewGroup
 
 internal object CombinedStatusHotReloadTransfer {
-    private const val VERSION = 7
+    private const val VERSION = 8
+    private const val TINT_TRANSFER_VERSION = 7
     private const val CONTROL_CENTER_TRANSFER_VERSION = 6
     private const val SHADE_TRANSFER_VERSION = 5
     private const val PREVIOUS_VERSION = 4
@@ -19,13 +21,18 @@ internal object CombinedStatusHotReloadTransfer {
     private const val INDEX_CONTROL_CENTER_HOME_ELIGIBLE = 5
     private const val INDEX_APPLIED_TINT = 6
     private const val INDEX_STATUS_ICON_TINT = 7
-    private const val CURRENT_PAYLOAD_SIZE = 8
+    private const val INDEX_CONTROL_CENTER_FAKE_HOST = 8
+    private const val CURRENT_PAYLOAD_SIZE = 9
+    private const val TINT_PAYLOAD_SIZE = 8
     private const val CONTROL_CENTER_PAYLOAD_SIZE = 6
     private const val SHADE_PAYLOAD_SIZE = 5
     private const val PREVIOUS_PAYLOAD_SIZE = 4
     private const val LEGACY_PAYLOAD_SIZE = 4
     private const val VISUAL_PAYLOAD_SIZE = 5
     private const val NATIVE_PAYLOAD_SIZE = 6
+
+    private const val CONTROL_CENTER_FAKE_ROOT_CLASS_NAME =
+        "com.android.systemui.controlcenter.phone.widget.ControlCenterFakeStatusIcons"
 
     fun capture(
         host: Any?,
@@ -35,11 +42,19 @@ internal object CombinedStatusHotReloadTransfer {
         controlCenterHomeEligible: Boolean?,
         appliedTint: Int?,
         statusIconTint: Int?,
+        controlCenterFakeHost: ViewGroup?,
     ): Any? {
         val hostView = host as? View ?: return null
         if (hostView.javaClass.name != StatusBarHostCapture.HOST_CLASS_NAME) {
             return null
         }
+
+        val fakeHost =
+            controlCenterFakeHost
+                ?.takeIf { candidate ->
+                    candidate.isAttachedToWindow &&
+                        candidate.javaClass.name == CONTROL_CENTER_FAKE_ROOT_CLASS_NAME
+                }
 
         return arrayOf(
             VERSION,
@@ -50,6 +65,7 @@ internal object CombinedStatusHotReloadTransfer {
             controlCenterHomeEligible,
             appliedTint,
             statusIconTint,
+            fakeHost,
         )
     }
 
@@ -60,6 +76,7 @@ internal object CombinedStatusHotReloadTransfer {
         val expectedSize =
             when (version) {
                 VERSION -> CURRENT_PAYLOAD_SIZE
+                TINT_TRANSFER_VERSION -> TINT_PAYLOAD_SIZE
                 CONTROL_CENTER_TRANSFER_VERSION -> CONTROL_CENTER_PAYLOAD_SIZE
                 SHADE_TRANSFER_VERSION -> SHADE_PAYLOAD_SIZE
                 PREVIOUS_VERSION -> PREVIOUS_PAYLOAD_SIZE
@@ -82,6 +99,7 @@ internal object CombinedStatusHotReloadTransfer {
         val notificationShadeHomeEligible =
             if (
                 version == VERSION ||
+                version == TINT_TRANSFER_VERSION ||
                 version == CONTROL_CENTER_TRANSFER_VERSION ||
                 version == SHADE_TRANSFER_VERSION
             ) {
@@ -90,13 +108,17 @@ internal object CombinedStatusHotReloadTransfer {
                 null
             }
         val controlCenterHomeEligible =
-            if (version == VERSION || version == CONTROL_CENTER_TRANSFER_VERSION) {
+            if (
+                version == VERSION ||
+                version == TINT_TRANSFER_VERSION ||
+                version == CONTROL_CENTER_TRANSFER_VERSION
+            ) {
                 payload.getOrNull(INDEX_CONTROL_CENTER_HOME_ELIGIBLE) as? Boolean
             } else {
                 null
             }
         val appliedTint =
-            if (version == VERSION) {
+            if (version == VERSION || version == TINT_TRANSFER_VERSION) {
                 (payload.getOrNull(INDEX_APPLIED_TINT) as? Number)
                     ?.toInt()
                     ?.takeIf(::isOpaqueEnoughForPresentation)
@@ -104,10 +126,24 @@ internal object CombinedStatusHotReloadTransfer {
                 null
             }
         val statusIconTint =
-            if (version == VERSION && appliedTint != null) {
+            if (
+                (version == VERSION || version == TINT_TRANSFER_VERSION) &&
+                appliedTint != null
+            ) {
                 (payload.getOrNull(INDEX_STATUS_ICON_TINT) as? Number)
                     ?.toInt()
                     ?.takeIf(::isOpaqueEnoughForPresentation)
+            } else {
+                null
+            }
+
+        val controlCenterFakeHost =
+            if (version == VERSION) {
+                (payload.getOrNull(INDEX_CONTROL_CENTER_FAKE_HOST) as? ViewGroup)
+                    ?.takeIf { candidate ->
+                        candidate.isAttachedToWindow &&
+                            candidate.javaClass.name == CONTROL_CENTER_FAKE_ROOT_CLASS_NAME
+                    }
             } else {
                 null
             }
@@ -120,6 +156,7 @@ internal object CombinedStatusHotReloadTransfer {
             controlCenterHomeEligible = controlCenterHomeEligible,
             appliedTint = appliedTint,
             statusIconTint = statusIconTint,
+            controlCenterFakeHost = controlCenterFakeHost,
         )
     }
 
@@ -134,5 +171,6 @@ internal object CombinedStatusHotReloadTransfer {
         val controlCenterHomeEligible: Boolean?,
         val appliedTint: Int?,
         val statusIconTint: Int?,
+        val controlCenterFakeHost: ViewGroup?,
     )
 }
