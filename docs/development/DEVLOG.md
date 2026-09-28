@@ -8021,3 +8021,48 @@ It therefore strengthens, rather than blocks, the planned post-424 move toward t
 ### Next
 
 Complete feature integration of the accepted Build-424 checkpoint into `dev`. Start the QS_FAKE transition-owner implementation from that integrated baseline rather than stacking it onto the already-accepted Build-424 runtime checkpoint.
+
+
+---
+
+## 2026-09-28 — Build 424 integrated into dev
+
+**Runtime Build:** 424 / `20260928-424`
+**Feature PR:** #146
+**dev integration SHA:** `a6ba0ddc843d3e8d2fbca6c15786d99b8c0b2826`
+**Integration Build:** #1338 / run `36420376141` — success
+
+### Integration result
+
+PR #146 was squash-merged to `dev` only after:
+- Build 424 passed focused maintainer device validation;
+- final work-branch Ready Full #1337 succeeded;
+- the accepted runtime remained unchanged after the signed Canary checkpoint.
+
+The trusted `dev` push then passed Integration #1338:
+- signing restore;
+- pinned HyperOS target profile;
+- unit tests and required APK builds;
+- Modern Xposed metadata;
+- Haple APK signature;
+- Canary non-debuggable verification;
+- artifact publication.
+
+Integrated Canary artifact:
+- `CombinedStatus-0.0.2-HyperOS-20260928-424-canary.apk`
+- artifact id `10969481485`
+- artifact ZIP digest `sha256:ff910cd3c6112914cb1e301a3142a855b80def062247569cf90a11f13c058330`
+
+### 审查 / review
+
+- **Ownership:** accepted Home ownership remains the native `system_icons` carrier; no new runtime owner was introduced by integration.
+- **Lifecycle:** device-accepted Notification-Shade / Hot Reload / lock-unlock behavior is preserved.
+- **Single writer:** no project Notification visibility writer returns.
+- **Cleanup:** integration adds no new resource/session lifetime.
+- **Fail-native:** existing bounded Control Center source mismatch remains fail-native and is isolated to the superseded source-anchor transition mechanism.
+- **Performance:** runtime tree is the already-tested Build 424 tree; no additional Hook, observer, polling, or per-frame work.
+- **Compatibility:** exact target remains SystemUI `17.03.260226.r`.
+- **Exception recovery:** Integration validation includes signed artifact production from the merged `dev` source.
+- **Future extension:** continue the Control Center transition redesign in a new short-lived feature branch from this exact integrated baseline; do not reuse merged PR #146.
+
+This record-only closure does not create Build 425.
