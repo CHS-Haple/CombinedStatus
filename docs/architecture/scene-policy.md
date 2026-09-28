@@ -31,8 +31,8 @@ Classification is not permission to mutate SystemUI. Runtime integration still r
 | --- | --- | --- | --- |
 | Home stable | PROJECTED | NONE | Runtime verified |
 | Notification-shade transition | NATIVE_ONLY | SYSTEM_UI | Runtime lifetime verified |
-| Control Center transition bridge | PROJECTED | SYSTEM_UI | Build-420 carrier/handoff evidence |
-| Control Center fully expanded | NATIVE_ONLY candidate | SYSTEM_UI | Maintainer concept; exact endpoint ownership pending |
+| Control Center transition bridge | PROJECTED | SYSTEM_UI | Build-420 carrier/handoff evidence; native QS_FAKE ownership candidate under review |
+| Control Center fully expanded | NATIVE_ONLY candidate | SYSTEM_UI | Maintainer concept + native fake/real appearance evidence; product adoption pending review |
 | Keyguard | NATIVE_ONLY | SYSTEM_UI | Static ownership verified |
 | AOD | NATIVE_ONLY | SYSTEM_UI | Static ownership verified |
 
@@ -76,9 +76,10 @@ Control Center is split into two ownership phases.
 
 **Partial pull / transition bridge — PROJECTED**
 - the source steady scene may be Home now and Keyguard later;
-- a bounded Combined Status projection may use verified native transition progress/geometry to visually follow HyperOS during the gesture;
-- `ControlCenterHeaderExpandController.realSystemIcons` / `MiuiStatusBatteryContainer` remains verified evidence for that bridge;
-- the bridge is readiness-ordered so no frame is left without a valid visual owner;
+- Build 420 proves that a bounded projection can preserve continuity, but its `realSystemIcons.overlay` carrier is not assumed to be the final architecture;
+- exact-target review now shows a separate native `QS_FAKE` status-bar presentation with its own `MiuiStatusBatteryContainer`, native source-size synchronization, unlocked/keyguard tint handling, and SystemUI-owned translation/alpha;
+- using that native fake carrier is the leading low-overhead candidate because it may inherit the transition without a project-owned appearance/geometry state machine;
+- this candidate remains under review until first-frame readiness, native suppression/masking, Hot Reload, and device behavior are verified;
 - SystemUI remains the sole motion/geometry owner.
 
 **Fully expanded endpoint — current design candidate**
@@ -98,8 +99,9 @@ Keyguard and AOD currently remain NATIVE_ONLY in the implemented runtime.
 The maintainer's current product concept gives **Keyguard its own steady Combined Status source role**, parallel to Home, but the exact adapter/lifecycle structure remains to be derived from SystemUI evidence:
 - Keyguard steady is not implemented by reusing the Home View/host;
 - it reuses shared renderer/domain semantics but resolves its own native carrier, tint, lifecycle, cleanup and fail-native contract;
-- a partial Control Center pull from Keyguard uses the same transition-coordinator policy as Home, but starts from the verified Keyguard source geometry/lifecycle;
-- at fully expanded Control Center, ownership is native-only exactly as in the unlocked path.
+- HyperOS already registers Home and Keyguard system-icon containers separately into `ControlCenterFakeViewController` and selects the active source from native `StatusBarState`; Combined Status should not duplicate that transition-source router;
+- the exact project adapter boundary for a Keyguard-originated pull remains under review rather than being forced into a preselected coordinator abstraction;
+- native-only fully expanded Control Center remains the maintainer's current product preference, with adoption pending final lifecycle/device review.
 
 AOD remains a separate future surface and is not implied by Keyguard support.
 
@@ -115,7 +117,7 @@ They must not create a second scene geometry policy or a separate slot-width rul
 
 Unlocked steady currently uses `NONE`: Combined Status has no independent motion requirement there. Its end-side visual inherits native `system_icons` motion when SystemUI transitions that carrier.
 
-Notification Shade, unlocked/lockscreen Control Center transitions, and fully expanded Control Center all keep motion under `SYSTEM_UI`; inheritance/projection does not transfer motion ownership to Combined Status. Fully expanded Control Center is native-only.
+Notification Shade and all Control Center transition/destination motion stay under `SYSTEM_UI`; inheritance/projection does not transfer motion ownership to Combined Status. Whether Combined Status renders on a given verified carrier is a separate capability decision from who owns motion.
 
 `COMBINED_STATUS` remains reserved for a future transition that is demonstrated to be genuinely owned by Combined Status from start state through cleanup.
 
