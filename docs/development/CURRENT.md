@@ -41,7 +41,7 @@ For the pinned HyperOS target, Notification Shade itself does not present the st
 
 - Base: current Integration-validated `dev` Build 429 / MIUIX `5c91d5e5`.
 - Work branch / PR: `fix/control-center-fake-root` / #156.
-- Runtime identity: Build 432 / `20260928-432`.
+- Runtime identity: Build 432 / `20260928-432`; frozen executable SHA `f5efbaebedabc2deaae7c45ad84a07f0d0433d61`.
 - Build 430 remains device-accepted for the **top-level `ControlCenterFakeStatusIcons` appearance-owner contract**.
 - Build 431 is **device-rejected for fake-surface occupancy**, not for the root host: the Combined overlay is correctly attached to the top-level fake root, but represented fake Wi-Fi/mobile/Battery are only visually clipped. Their native layout occupancy remains, so the Combined visual is already at the stable Battery endpoint while preceding native icons retain Wi-Fi/mobile width, producing the large pull-down gap.
 - Build 431 diagnostics show the Combined root-overlay bounds remain `722..827` while native Control Center fraction advances, and charging-island samples report `batteryWidthDiff=-135` / `addBatteryIsland=true` while the desired Combined endpoint remains the same stable Battery logical slot.
@@ -49,7 +49,7 @@ For the pinned HyperOS target, Notification Shade itself does not present the st
 - The transient session temporarily excludes represented slots only during native `onMeasure/onLayout`, applies reversible clip masks after that native layout, and uses the existing stable end-reservation policy: normal Battery visible -> no extra reservation; Battery hidden -> reserve the stable requested Battery slot width. `batteryWidthDiff` is not consumed as a Combined Status endpoint offset.
 - Readiness is now ordered: root/model/tint geometry prepared -> transient native compact session prepared -> native fake status-icons `onLayout` completes -> masks + stable Battery reservation active -> root overlay visible -> Home yields.
 - Hook count is unchanged: no second measure/layout/battery-hide Hook set, no polling/frame follower, no custom animator, no native alpha/visibility/translation writer, and final QS remains untouched.
-- Draft Light validation is running/recorded on the current Build-432 branch; Ready Fast and signed Canary are required before device validation.
+- Validation complete on the frozen executable SHA: Draft Light #1425 / run `36448817816` passed; Ready Fast #1426 / run `36448904739` passed target profile, unit tests/build and Modern Xposed metadata; signed Work Branch Canary #428 / run `36449162900` passed exact trusted-source checkout, Haple signature, Modern Xposed metadata and non-debuggable checks. Artifact `CombinedStatus-0.0.2-HyperOS-20260928-432-canary.apk`, artifact id `10982242768`, ZIP digest `sha256:3c812f4bb0c0aa20903d62a501e85aa5e4116798f376c43f05d8546d7f1182d7`, extracted APK SHA-256 `6b652a102dab66fdc3c3b65706388b238d5b8647bf82e7f61739778469aa2763`, size 3,309,602 bytes. PR #156 is Draft and runtime is frozen for focused device validation.
 
 ## Current runtime checkpoints
 
