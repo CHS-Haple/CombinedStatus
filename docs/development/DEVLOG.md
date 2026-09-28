@@ -8188,8 +8188,8 @@ Build 425's behavior-preserving extraction passed runtime Fast Build #1344. Buil
 
 ## 2026-09-28 — Build 426 signed Canary checkpoint
 
-**Build:** 426 / `20260928-426`  
-**PR:** #152 / `feat/control-center-native-transition`  
+**Build:** 426 / `20260928-426`
+**PR:** #152 / `feat/control-center-native-transition`
 **Exact tested runtime head:** `55f266cd8585d78c65c564d363c8f5979c908292`
 
 ### Validation
