@@ -7236,8 +7236,8 @@ Mixing the new fully-expanded-native Control Center endpoint into the same execu
 
 ## 2026-09-28 — Scene-family boundary clarified before lockscreen work
 
-**Type:** product architecture clarification / future-compatibility review  
-**Runtime Build:** unchanged; Build 424 remains the active executable checkpoint  
+**Type:** product architecture clarification / future-compatibility review
+**Runtime Build:** unchanged; Build 424 remains the active executable checkpoint
 **Branch / PR:** `feat/panel-projection` / Draft #146
 
 ### Maintainer requirement
@@ -7329,9 +7329,9 @@ A commit comparison from executable source `2556a098...` to the post-fix branch 
 
 ## 2026-09-28 — Build 424 static review and CI event recovery
 
-**Type:** static review / CI checkpoint recovery  
-**Runtime Build:** unchanged — 424 / `20260928-424`  
-**Exact executable source:** `2556a098d35c202e1c5645a06e73757744f721e1`  
+**Type:** static review / CI checkpoint recovery
+**Runtime Build:** unchanged — 424 / `20260928-424`
+**Exact executable source:** `2556a098d35c202e1c5645a06e73757744f721e1`
 **PR:** #146
 
 ### Static review result
@@ -7367,8 +7367,8 @@ This record-only checkpoint intentionally creates a normal PR `synchronize` even
 
 ## 2026-09-28 — Exact-target Control Center ownership topology review
 
-**Type:** architecture investigation / no runtime change  
-**Runtime Build:** unchanged; Build 424 remains the active executable checkpoint  
+**Type:** architecture investigation / no runtime change
+**Runtime Build:** unchanged; Build 424 remains the active executable checkpoint
 **Branch / PR:** `feat/panel-projection` / Draft #146
 
 ### Objective
@@ -7437,7 +7437,7 @@ Discuss the lifecycle/maintenance tradeoff with the maintainer before selecting 
 
 ## 2026-09-28 — QS_FAKE first-frame and suppression review
 
-**Type:** architecture investigation / no runtime change  
+**Type:** architecture investigation / no runtime change
 **Runtime Build:** unchanged; Build 424 exact executable remains `2556a098d35c202e1c5645a06e73757744f721e1`
 
 ### First-frame evidence
@@ -7488,7 +7488,7 @@ No runtime refactor is made before Build 424 automated/device validation and mai
 
 ## 2026-09-28 — QS_FAKE tint and update-cost closure
 
-**Type:** architecture investigation / no runtime change  
+**Type:** architecture investigation / no runtime change
 **Runtime Build:** unchanged; Build 424 exact executable remains `2556a098d35c202e1c5645a06e73757744f721e1`
 
 ### Tint authority
@@ -7526,8 +7526,8 @@ A future QS_FAKE session bounded to `visible=true -> visible=false` therefore do
 
 ## 2026-09-28 — Exact-target Control Center source / fake / real ownership chain
 
-**Type:** architecture investigation / exact-target evidence  
-**Runtime Build:** unchanged; Build 424 remains the active executable checkpoint  
+**Type:** architecture investigation / exact-target evidence
+**Runtime Build:** unchanged; Build 424 remains the active executable checkpoint
 **Branch / PR:** `feat/panel-projection` / #146
 
 ### Objective
@@ -7587,8 +7587,8 @@ Do not change Build 424. Complete its automated/device validation first. In para
 
 ## 2026-09-28 — Build 424 Ready validation event not emitted
 
-**Type:** CI infrastructure blocker  
-**Runtime Build:** 424 / `20260928-424` unchanged  
+**Type:** CI infrastructure blocker
+**Runtime Build:** 424 / `20260928-424` unchanged
 **Executable source:** `2556a098d35c202e1c5645a06e73757744f721e1`
 
 ### Evidence
@@ -7615,8 +7615,8 @@ The current blocker is classified as GitHub Actions event delivery / trigger adm
 
 ## 2026-09-28 — Post-424 QS_FAKE candidate passes static ownership review
 
-**Type:** architecture review / no runtime change  
-**Runtime Build:** 424 / `20260928-424` unchanged  
+**Type:** architecture review / no runtime change
+**Runtime Build:** 424 / `20260928-424` unchanged
 **Validation:** candidate only; do not implement before Build 424 device result
 
 ### Refined candidate
@@ -7679,7 +7679,7 @@ This candidate is preferred for the **post-Build-424** Control Center follow-up,
 
 ## 2026-09-28 — Correction: reject the earlier QS_FAKE mask-only candidate
 
-**Type:** architecture correction / no runtime change  
+**Type:** architecture correction / no runtime change
 **Runtime Build:** unchanged — Build 424 / `20260928-424`
 
 A prior post-424 candidate entry proposed that QS_FAKE could preserve transition occupancy without represented-slot `ignoredSlots`, using only reversible visual clipping. **That specific mask-only conclusion is rejected by later exact-target evidence.**
@@ -7724,8 +7724,8 @@ The preferred minimal Phase-2B follow-up remains the existing low-frequency
 
 ## 2026-09-28 — Post-424 Control Center architecture comparison closure
 
-**Type:** architecture review / no runtime change  
-**Runtime Build:** unchanged — Build 424 / `20260928-424`  
+**Type:** architecture review / no runtime change
+**Runtime Build:** unchanged — Build 424 / `20260928-424`
 **Decision status:** preferred follow-up candidate only; implementation remains blocked on Build-424 automated/device result
 
 ### Routes compared
@@ -7820,7 +7820,7 @@ Do not implement route B in Build 424. Build 424 remains the single-variable Hom
 
 ## 2026-09-28 — QS_FAKE battery translation independence
 
-**Type:** exact-target architecture evidence / no runtime change  
+**Type:** exact-target architecture evidence / no runtime change
 **Runtime Build:** unchanged — Build 424 / `20260928-424`
 
 ### Finding
@@ -7847,3 +7847,53 @@ The remaining device gate is local: charging/island compact edge alignment, firs
 - **Performance:** no new Hook, listener, polling, or per-frame project work.
 - **Compatibility:** exact-target SystemUI `17.03.260226.r` only.
 - **Future extension:** the same principle can be revalidated for a future Keyguard transition source without copying source motion state.
+
+
+---
+
+## 2026-09-28 — Build 424 validation conflict recovery
+
+**Type:** CI/repository-history recovery / no runtime change
+**Runtime Build:** unchanged — Build 424 / `20260928-424`
+**Exact executable source:** `2556a098d35c202e1c5645a06e73757744f721e1`
+
+### Problem
+
+PR #146 repeatedly produced no pull-request Build after ready/synchronize events. The workflow definition itself included those event types and GitHub's public service status was healthy.
+
+### Root cause
+
+The active branch had diverged from current `dev` and the PR was not mergeable. GitHub does not run `pull_request` workflows for PRs with merge conflicts. Current `dev` had three automation/governance commits not present in the work branch.
+
+### Recovery
+
+- Pre-resolved the dev-only CI/governance content into `feat/panel-projection` without touching App runtime code.
+- Created history-preserving merge commit `ca1bbf7e10c485f34846add633c34d06a163e7e8` with parents:
+  - feature history `a29d656a7a207645deb8c78ac04000553df48897`;
+  - dev tip `947c13956f2b4cbe08faf21de73b3a2f1b7a8b81`.
+- The merge tree preserved the already-resolved feature contents; Build 424 executable source remained unchanged.
+- A temporary sync PR used long-lived `dev` itself as its head. GitHub's delete-head-branch behavior consequently deleted `dev` after merge.
+- `dev` was immediately recreated at exact pre-delete tip `947c13956f2b4cbe08faf21de73b3a2f1b7a8b81`; no commit, runtime, or file content changed.
+- The synchronization rule is corrected: future long-lived branch sync uses a temporary `sync/*` head and deletes only that temporary branch.
+
+### Validation
+
+After history conflict resolution, PR #146 became mergeable and Full Build #1321 / run `36413531047` succeeded on exact head `ca1bbf7e10c485f34846add633c34d06a163e7e8`.
+
+The preceding Draft Light #1320 failed only because several newly added DEVLOG metadata lines contained trailing whitespace. It did not indicate an executable failure. This record also normalizes trailing whitespace across DEVLOG before the final exact-head checkpoint.
+
+### 审查 / review
+
+- **Ownership:** no SystemUI/runtime ownership changed.
+- **Lifecycle:** no installed behavior changed.
+- **Single writer:** unchanged.
+- **Cleanup:** repository history now contains both dev and feature parentage; long-lived branch deletion is explicitly prevented procedurally.
+- **Fail-native:** unchanged.
+- **Performance:** no runtime code or Hook changed.
+- **Compatibility:** Build 424 exact target/runtime source is unchanged.
+- **Exception recovery:** dev restoration was exact-SHA recreation, not a reconstructed or rebased branch.
+- **Future extension:** synchronization procedures must use disposable `sync/*` heads so repository auto-delete behavior cannot remove long-lived branches.
+
+### Next
+
+Run Draft Light on the cleaned repository state, then move PR #146 Ready for one final exact-head Full. Only after that exact head succeeds may the owner request `/canary`.
