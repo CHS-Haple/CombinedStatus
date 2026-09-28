@@ -54,7 +54,6 @@ internal object CombinedStatusControlCenterRenderSession {
                 onEvent = onEvent,
                 isDetailedDiagnosticsEnabled = isDetailedDiagnosticsEnabled,
                 onProjectionReadinessChanged = onProjectionReadinessChanged,
-                initialSceneEligible = sceneEligible,
             )
         pendingPrearm = pending
         pending.start()
@@ -129,6 +128,7 @@ internal object CombinedStatusControlCenterRenderSession {
                 onEvent = onEvent,
                 isDetailedDiagnosticsEnabled = isDetailedDiagnosticsEnabled,
                 onProjectionReadinessChanged = onProjectionReadinessChanged,
+                initialSceneEligible = sceneEligible,
             )
         current = session
         session.start()
