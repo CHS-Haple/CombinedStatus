@@ -113,9 +113,9 @@ internal object SystemUiPanelTransitionSource {
                             val result = chain.proceed()
                             controlCenterHomeEligible =
                                 controlCenterAllowsHome(visible)
-                            val controlCenterCarrier =
+                            val controlCenterPresentationHost =
                                 if (visible == true) {
-                                    resolveControlCenterRealSystemIcons(chain.thisObject)
+                                    resolveControlCenterFakePresentationHost(chain.thisObject)
                                 } else {
                                     null
                                 }
@@ -126,7 +126,7 @@ internal object SystemUiPanelTransitionSource {
                                     expanded = null,
                                     tracking = null,
                                     visible = visible,
-                                    controlCenterCarrier = controlCenterCarrier,
+                                    controlCenterPresentationHost = controlCenterPresentationHost,
                                 )
                             onUpdate?.invoke(update)
                             emitDiagnostic(
