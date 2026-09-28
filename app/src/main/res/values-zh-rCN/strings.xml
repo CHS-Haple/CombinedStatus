@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">三合一状态图标</string>
+    <string name="app_name">归元</string>
     <string name="app_description">面向 HyperOS，将电量、移动网络和 Wi-Fi 状态整合为一个状态栏图标的 LSPosed 模块</string>
 
-    <string name="home_title">三合一状态图标</string>
+    <string name="home_title">归元</string>
     <string name="hot_reload">热重载 SystemUI 模块</string>
     <string name="nav_home">首页</string>
     <string name="nav_features">功能</string>
@@ -97,7 +97,7 @@
 
     <string name="section_current_build">版本信息</string>
     <string name="section_diagnostics_app">应用</string>
-    <string name="product_name">三合一状态图标</string>
+    <string name="product_name">归元</string>
     <string name="target_platform_value">HyperOS SystemUI 模块</string>
     <string name="version_value">版本：%1$s</string>
     <string name="build_value">构建：%1$s</string>

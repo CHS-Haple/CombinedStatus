@@ -21,6 +21,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Target profile: HyperOS SystemUI `17.03.260226.r`
 - Modern Xposed API: 102
 - Application ID: `com.chaners.combinedstatus`
+- App-icon checkpoint: Build 452 / `feat/guiyuan-app-icon` is device-accepted. The final `归元` mark uses rotationally symmetric geometry with equal nodes, one orbit radius/stroke/sweep, true round caps, identical node-to-arc clearance construction, and approximately 53 dp presentation inside the 108 dp adaptive layer (`scale=0.8110`). Palette remains clean white `#FFFFFF` + ink-black `#24272B`; Simplified Chinese app-facing name is `归元`, while English/public repository naming remains `Combined Status`. Fast #1588 and signed Work Branch Canary #471 passed on executable source `c0e05afb2f186cac89bc2c6d542edb0978e2e6e9`; maintainer device review accepts the final visual balance. No SystemUI/Xposed runtime behavior changes. Ready for `feat/* -> dev` squash integration.
 
 `main` remains on the Build-413 stable runtime line. `dev` now carries device-accepted Build 441 plus the previously accepted Build-438 app-UI checkpoint, retaining MIUIX `0.9.4-5c91d5e5-SNAPSHOT`. Later record-only `dev` commits may inherit Build-441 integration validation only when their non-runtime diff is proven.
 
