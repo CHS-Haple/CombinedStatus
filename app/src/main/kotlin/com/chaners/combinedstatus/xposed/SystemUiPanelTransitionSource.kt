@@ -375,7 +375,7 @@ internal object SystemUiPanelTransitionSource {
         val expanded: Boolean?,
         val tracking: Boolean?,
         val visible: Boolean?,
-        val controlCenterCarrier: ViewGroup? = null,
+        val controlCenterPresentationHost: ControlCenterPresentationHost? = null,
         val controlCenterAnchor: ControlCenterAnchorSnapshot? = null,
         val homeMotion: SystemUiIslandMotionSource.OwnerSnapshot? = null,
     )
@@ -385,6 +385,11 @@ internal object SystemUiPanelTransitionSource {
     ) {
         CONTROL_CENTER("control-center"),
     }
+
+    internal data class ControlCenterPresentationHost(
+        val root: ViewGroup,
+        val statusBarArea: ViewGroup,
+    )
 
     internal data class ControlCenterFakePresentationSnapshot(
         val rootClassName: String?,
