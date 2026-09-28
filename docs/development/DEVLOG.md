@@ -2,6 +2,57 @@
 
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
+
+## 2026-09-28 — Build 429: update MIUIX main-canary to 5c91d5e5
+
+**Type:** app UI dependency canary / upstream integration
+**Build:** 429 / `20260928-429`
+**Work branch:** `feat/miuix-main-canary`
+**Upstream:** compose-miuix-ui/miuix `5c91d5e5ce1a2fc7e8bdc1258a881c555102bbca`
+**Validation:** repository CI pending
+
+### Problem / objective
+
+Combined Status is pinned to the previously validated MIUIX main-canary `2afdbb39f1aac5747165cc354cafd4b918fa55a5`. Upstream main has since landed `5c91d5e5`, which optimizes progressive-blur shader updates. The goal is to validate that already-merged upstream change without adopting the still-open OS4 `miuix-glass` PR #423 or mixing the dependency change into the active Control Center ownership diagnostic.
+
+### Problem execution flow
+
+- Verified the current Combined Status pin and current `dev` baseline.
+- Verified upstream main still resolves to `5c91d5e5` as the latest meaningful non-Renovate Android-relevant commit after `2afdbb39`.
+- Reviewed the upstream diff: disable automatic invalidation for `DrawBackdropNode`, reuse precomputed progressive shader keys, and remove the unused zero-valued jitter/noise path.
+- Verified upstream `Publish to GitHub Packages` run #471 for the exact `5c91d5e5` SHA completed successfully, establishing publication of the commit-specific SNAPSHOT. The upstream example-app workflow for the same SHA also passed.
+- Confirmed PR #423 remains open/experimental and is not part of this main-canary pin.
+
+### Root-cause / adoption status
+
+This is not a workaround for a current Combined Status defect. It is a B-value upstream performance/maintainability improvement on code paths Combined Status may exercise through MIUIX blur/backdrop. Maturity is **merged-main-canary**, not stable release.
+
+### Implementation / decision
+
+- Advance all MIUIX modules together from `0.9.4-2afdbb39-SNAPSHOT` to `0.9.4-5c91d5e5-SNAPSHOT`.
+- Record the exact upstream revision in `miuix.revision`.
+- Advance the executable checkpoint identity to Build 429.
+- Do not add `miuix-glass`, change page structure, alter Pager/Slider policy, or modify any SystemUI hook/runtime owner.
+
+### 审查 / review
+
+- **Ownership:** dependency-only; no SystemUI ownership or writer changes.
+- **Lifecycle/state:** no project lifecycle/state-restoration logic changes.
+- **Single writer / cleanup:** unchanged.
+- **Fail native:** unchanged.
+- **Performance:** intended upstream benefit is reduced unnecessary progressive-blur invalidation/shader-key churn; Combined Status adds no new runtime work.
+- **Compatibility:** exact commit-specific SNAPSHOT publication is verified upstream; repository CI must still prove Combined Status dependency resolution/build compatibility.
+- **Isolation:** the active Build-428 Control Center appearance probe remains on its separate branch and is not rebased or modified by this checkpoint.
+- **Maturity:** #423 OS4 Glass remains experimental/open and is explicitly excluded.
+
+### CI / device validation
+
+Repository CI is the first gate. If dependency resolution and build/test validation pass, no dedicated SystemUI device run is required solely for this dependency bump; app-UI smoke coverage should include Home/Features/Settings navigation, horizontal Slider drag versus page swipe, predictive/system back, and pages using blur/backdrop during the next convenient app-UI validation.
+
+### Outcome / next step
+
+Open a focused PR to `dev`. Merge only after repository validation passes. A failure to resolve the exact SNAPSHOT or a UI/build regression rejects this Build-429 dependency checkpoint without affecting Build 428 or the accepted Build-424 `dev` runtime baseline.
+
 ## 2026-09-28 — CI validation-surface routing and main/dev synchronization
 
 **Type:** repository automation / CI governance
