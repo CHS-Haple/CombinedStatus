@@ -9,7 +9,7 @@ This is the chronological engineering diary for Combined Status. It complements,
 **Build:** 441 / `20260929-441`
 **Work branch / PR:** `fix/control-center-fake-root` / #156
 **Runtime commits:** `500ae425c5fbe0e9156eefd76c6968aee6e79ca7`, wiring correction `bd224ef39b1f15c4b3f057b14b9835b21dbc5dde`, diagnostic wording cleanup `7a3c1cd9f5708c91cd5eddf1b004da6eeddad016`
-**Validation:** pending Draft Light -> exact-head Fast -> signed Canary
+**Validation:** Draft Light #1502 passed; exact-head Fast #1503 passed; signed Work Branch Canary #451 / run `36474188973` passed trusted-source checkout, target profile, tests/build, Modern Xposed metadata, Haple signature verification, Canary non-debuggable validation and artifact upload.
 
 ### Build 440 device result
 
@@ -90,9 +90,15 @@ Focused device gate:
 5. Restart SystemUI once and repeat normal first/repeated Control Center pulls to ensure Build-440 raw-native/overlap fix remains intact.
 6. Any stale duplicate overlay, permanently hidden native icon, layout drift, crash or LSPosed safe mode is a hard failure.
 
-### Outcome / next step
+### Maintainer device feedback / outcome
 
-Pending CI and target-device validation. Freeze runtime after the signed Canary.
+The maintainer reports the Build-441 target behavior is successful after Build 441 is active:
+- repeated 441 -> 441 Hot Reload no longer exhibits the previous Combined Status flash / disappearance behavior;
+- neighboring native status icons no longer perform the left-then-return layout pulse caused by the old intermediate native `requestLayout()`;
+- immediate Control Center pull after Hot Reload no longer reproduces the temporary Combined Status blank;
+- the Build-440 correction for raw native QS_FAKE / native+Combined overlap remains stable, including after SystemUI restart.
+
+Build 441 is therefore **device accepted** for the Hot Reload generation-handoff checkpoint. The runtime is frozen; only record/merge closure may follow before integration into `dev`.
 
 
 ## 2026-09-29 — Build 440: mask native QS_FAKE during the pre-compact handoff window

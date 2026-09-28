@@ -56,11 +56,8 @@ For the pinned HyperOS target, Notification Shade itself does not present the st
 - Fail-native semantics remain: if the new generation cannot restore the transfer/handoff, the reload is reported as incomplete/restart-required rather than leaving an unowned mixed presentation.
 - No delay, timer, polling, frame callback, animation patch, translation/alpha writer, second mask writer or QS-real mutation is added.
 - **Compatibility gate:** the first transition from an already-running Build 440 generation into Build 441 still originates from old Build-440 code and therefore cannot supply the new v9 handoff callback. Focused validation of the new no-flash protocol must be performed after Build 441 is already active, then Hot Reload again (441 -> 441).
-- Device gate after CI:
-  1. ensure Build 441 is active once;
-  2. press Hot Reload repeatedly while watching Combined Status and neighboring icons — no Combined flash and no horizontal layout pulse;
-  3. after a 441 -> 441 Hot Reload, immediately pull Control Center — Combined Status must remain continuously represented;
-  4. repeat Control Center pulls and one SystemUI restart to confirm Build-440 raw-native/overlap correction remains intact.
+- **Device result: accepted.** After Build 441 is active, repeated 441 -> 441 Hot Reload no longer shows the previous Combined Status flash / peer-icon horizontal layout pulse, and immediate Control Center pull no longer exhibits the temporary Combined Status blank. The earlier Build-440 raw-native / native+Combined overlap correction also remains stable, including after SystemUI restart.
+- Build 441 is therefore the current device-accepted runtime checkpoint for the Home -> bounded QS_FAKE transition and Hot Reload generation handoff. Runtime remains frozen pending integration into `dev`.
 
 ## Current runtime checkpoints
 
