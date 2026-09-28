@@ -21,6 +21,8 @@ class CombinedStatusModule : XposedModule() {
     private var panelTransitionSourceInstalled = false
     private var controlCenterSceneVisible = false
     private var controlCenterSceneEligible = false
+    private var controlCenterSourceScene = CombinedStatusSourceScene.UNKNOWN
+    private var keyguardRuntimeReady = false
     private var controlCenterGeometryProbeBucket = -1
     private var runtimeSessionId = newRuntimeSessionId()
     private val diagnosticSequence = AtomicLong(0L)
@@ -249,8 +251,13 @@ class CombinedStatusModule : XposedModule() {
             SystemUiNetworkRuntimeOwner.resetRuntimeState()
             islandMotionSourceInstalled = false
             panelTransitionSourceInstalled = false
+            controlCenterSceneVisible = false
+            controlCenterSceneEligible = false
+            controlCenterSourceScene = CombinedStatusSourceScene.UNKNOWN
+            keyguardRuntimeReady = false
             controlCenterGeometryProbeBucket = -1
             SystemUiPresentationRuntimeOwner.resetRuntimeState()
+            SystemUiKeyguardHostResolver.resetRuntimeState()
             SystemUiHomePresentationOwner.resetRuntimeState("hotReload")
             SystemUiNativeNetworkSuppressionOwner.resetRuntimeState("hotReload")
             bindRuntimeDiagnostics()
@@ -1122,10 +1129,16 @@ class CombinedStatusModule : XposedModule() {
         sourceScene: CombinedStatusSourceScene,
         authority: String,
     ) {
+        controlCenterSourceScene = sourceScene
+        val settings = RuntimeFeaturePreferencesOwner.currentSettings()
+        val keyguardEligible =
+            settings.enabled &&
+                settings.keyguardEnabled &&
+                keyguardRuntimeReady
         val nextEligible =
             CombinedStatusScenePolicy.controlCenterProjectionEligible(
                 sourceScene = sourceScene,
-                keyguardEnabled = false,
+                keyguardEnabled = keyguardEligible,
             )
         if (nextEligible == controlCenterSceneEligible) {
             return
@@ -1140,10 +1153,18 @@ class CombinedStatusModule : XposedModule() {
             state = if (nextEligible) "eligible" else "native",
             "sourceScene" to sourceScene.name,
             "authority" to authority,
-            "keyguardEnabled" to false,
+            "keyguardEnabled" to settings.keyguardEnabled,
+            "keyguardRuntimeReady" to keyguardRuntimeReady,
             "controlCenterVisible" to controlCenterSceneVisible,
             "fallback" to if (nextEligible) "combined-qs-fake" else "native-qs-fake",
             "nativeGeometryWrites" to 0,
+        )
+    }
+
+    private fun refreshControlCenterSourceSceneEligibility(authority: String) {
+        updateControlCenterSourceSceneEligibility(
+            sourceScene = controlCenterSourceScene,
+            authority = authority,
         )
     }
 
@@ -1476,11 +1497,13 @@ class CombinedStatusModule : XposedModule() {
         trace: RuntimeRenderTrace? = null,
     ) {
         CombinedStatusHomeRenderSession.onState(snapshot, trace)
+        CombinedStatusKeyguardRenderSession.onState(snapshot)
         CombinedStatusControlCenterRenderSession.onState(snapshot)
     }
 
     private fun onPresentationStateChanged(trace: RuntimeRenderTrace? = null) {
         CombinedStatusHomeRenderSession.onPresentationStateChanged(trace)
+        CombinedStatusKeyguardRenderSession.onPresentationStateChanged()
         CombinedStatusControlCenterRenderSession.onPresentationStateChanged()
         refreshStatusIconObservation("presentation")
     }
@@ -1499,6 +1522,7 @@ class CombinedStatusModule : XposedModule() {
         CombinedStatusHomeRenderSession.onStatusIconTintUpdate(
             state.appliedTint,
         )
+        CombinedStatusKeyguardRenderSession.onPresentationStateChanged()
         CombinedStatusControlCenterRenderSession.onPresentationStateChanged()
 
         if (changed != null) {
@@ -1530,6 +1554,7 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun onTintStateUpdate(update: SystemUiTintStateSource.TintUpdate) {
+        CombinedStatusKeyguardRenderSession.onTintUpdate(update)
         val liveStatusIconTint =
             SystemUiNativeNetworkSuppressionOwner.currentAppliedStatusIconTint()
         val resolvedState =
@@ -1570,6 +1595,14 @@ class CombinedStatusModule : XposedModule() {
 
     private fun onSceneStateUpdate(update: SystemUiSceneStateSource.SceneUpdate) {
         val sourceScene = SystemUiSceneStateSource.steadySourceScene(update)
+        if (sourceScene == CombinedStatusSourceScene.KEYGUARD) {
+            SystemUiKeyguardHostResolver.observe(update)?.let { resolution ->
+                onKeyguardHostResolution(
+                    resolution = resolution,
+                    source = "scene-state",
+                )
+            }
+        }
         if (sourceScene != CombinedStatusSourceScene.UNKNOWN) {
             updateControlCenterSourceSceneEligibility(
                 sourceScene = sourceScene,
@@ -1594,6 +1627,185 @@ class CombinedStatusModule : XposedModule() {
                 SystemUiSceneStateSource.Surface.UNLOCKED_STATUS_BAR
         ) {
             refreshStatusIconObservation("scene-unlocked")
+        }
+    }
+
+    private fun onKeyguardHostResolution(
+        resolution: SystemUiKeyguardHostResolver.ResolveResult,
+        source: String,
+    ) {
+        val settings = RuntimeFeaturePreferencesOwner.currentSettings()
+        when (resolution) {
+            is SystemUiKeyguardHostResolver.ResolveResult.Ready -> {
+                if (!settings.enabled || !settings.keyguardEnabled) {
+                    deactivateKeyguardRuntime("feature-ineligible")
+                    return
+                }
+
+                when (
+                    val result =
+                        CombinedStatusKeyguardRenderSession.attach(
+                            resolved = resolution.host,
+                            onEvent = { event ->
+                                if (detailedDiagnosticsEnabled) {
+                                    log(Log.INFO, TAG, event)
+                                }
+                            },
+                            isDetailedDiagnosticsEnabled = { detailedDiagnosticsEnabled },
+                            onPresentationReadinessChanged = { ready ->
+                                onKeyguardPresentationReadinessChanged(
+                                    ready = ready,
+                                    source = source,
+                                )
+                            },
+                        )
+                ) {
+                    CombinedStatusKeyguardRenderSession.AttachResult.Ready -> {
+                        logDiagnostic(
+                            level = Log.INFO,
+                            event = "renderer.attach",
+                            component = "keyguardRenderer",
+                            state = "ready",
+                            "source" to source,
+                            "rawState" to resolution.host.rawState,
+                            "aodOwned" to false,
+                            "nativeGeometryWrites" to 0,
+                        )
+                    }
+
+                    is CombinedStatusKeyguardRenderSession.AttachResult.Failure -> {
+                        deactivateKeyguardRuntime("renderer-attach-failed")
+                        logDiagnostic(
+                            level = Log.WARN,
+                            event = "renderer.attach",
+                            component = "keyguardRenderer",
+                            state = "unavailable",
+                            "source" to source,
+                            "reason" to result.reason,
+                            "fallback" to "native-keyguard",
+                        )
+                    }
+                }
+            }
+
+            is SystemUiKeyguardHostResolver.ResolveResult.Inactive -> {
+                deactivateKeyguardRuntime(
+                    "scene-inactive:" + resolution.surface.name,
+                )
+            }
+
+            is SystemUiKeyguardHostResolver.ResolveResult.Failure -> {
+                if (settings.enabled && settings.keyguardEnabled) {
+                    deactivateKeyguardRuntime("resolver-failed")
+                    logDiagnostic(
+                        level = Log.WARN,
+                        event = "host.resolve",
+                        component = "keyguardRenderer",
+                        state = "unavailable",
+                        "source" to source,
+                        "reason" to resolution.reason,
+                        "fallback" to "native-keyguard",
+                    )
+                }
+            }
+        }
+    }
+
+    private fun onKeyguardPresentationReadinessChanged(
+        ready: Boolean,
+        source: String,
+    ) {
+        if (!ready) {
+            keyguardRuntimeReady = false
+            CombinedStatusKeyguardRenderSession.setNativeHandoffActive(true)
+            SystemUiHomePresentationOwner.deactivateKeyguard("readiness-lost:" + source)
+            refreshControlCenterSourceSceneEligibility("keyguard-readiness-lost")
+            return
+        }
+
+        val settings = RuntimeFeaturePreferencesOwner.currentSettings()
+        if (!settings.enabled || !settings.keyguardEnabled) {
+            deactivateKeyguardRuntime("feature-ineligible")
+            return
+        }
+
+        val resolved = SystemUiKeyguardHostResolver.current()
+        if (resolved !is SystemUiKeyguardHostResolver.ResolveResult.Ready) {
+            deactivateKeyguardRuntime("resolver-not-ready")
+            return
+        }
+
+        when (
+            val result =
+                SystemUiHomePresentationOwner.activateKeyguard(
+                    resolved = resolved.host,
+                    onEvent = { event ->
+                        if (detailedDiagnosticsEnabled) {
+                            log(Log.INFO, TAG, event)
+                        }
+                    },
+                    onFailNative = ::onKeyguardPresentationRuntimeFailure,
+                )
+        ) {
+            is SystemUiHomePresentationOwner.StateResult.Active -> {
+                keyguardRuntimeReady = true
+                CombinedStatusKeyguardRenderSession.setNativeHandoffActive(false)
+                logDiagnostic(
+                    level = Log.INFO,
+                    event = "presentation.cutover",
+                    component = "keyguardPresentation",
+                    state = "combined",
+                    "source" to source,
+                    "representedSlots" to result.representedSlots,
+                    "maskedViews" to result.maskedViews,
+                    "motion" to "inherited-from-keyguard-system-icons",
+                    "aodOwned" to false,
+                )
+                refreshControlCenterSourceSceneEligibility("keyguard-ready")
+            }
+
+            is SystemUiHomePresentationOwner.StateResult.Failure -> {
+                keyguardRuntimeReady = false
+                CombinedStatusKeyguardRenderSession.setNativeHandoffActive(true)
+                SystemUiHomePresentationOwner.deactivateKeyguard("activation-failed")
+                logDiagnostic(
+                    level = Log.WARN,
+                    event = "presentation.cutover",
+                    component = "keyguardPresentation",
+                    state = "native",
+                    "source" to source,
+                    "reason" to result.reason,
+                    "fallback" to "native-keyguard",
+                )
+                refreshControlCenterSourceSceneEligibility("keyguard-activation-failed")
+            }
+
+            is SystemUiHomePresentationOwner.StateResult.Inactive -> Unit
+        }
+    }
+
+    private fun onKeyguardPresentationRuntimeFailure(reason: String) {
+        keyguardRuntimeReady = false
+        CombinedStatusKeyguardRenderSession.setNativeHandoffActive(true)
+        logDiagnostic(
+            level = Log.WARN,
+            event = "presentation.failNative",
+            component = "keyguardPresentation",
+            state = "native",
+            "reason" to reason,
+            "fallback" to "native-keyguard",
+        )
+        refreshControlCenterSourceSceneEligibility("keyguard-fail-native")
+    }
+
+    private fun deactivateKeyguardRuntime(source: String) {
+        val wasReady = keyguardRuntimeReady
+        keyguardRuntimeReady = false
+        CombinedStatusKeyguardRenderSession.setNativeHandoffActive(true)
+        SystemUiHomePresentationOwner.deactivateKeyguard(source)
+        CombinedStatusKeyguardRenderSession.detach()
+        if (wasReady) {
+            refreshControlCenterSourceSceneEligibility("keyguard-deactivate:" + source)
         }
     }
 
@@ -1630,11 +1842,14 @@ class CombinedStatusModule : XposedModule() {
     ) {
         controlCenterSceneVisible = false
         controlCenterSceneEligible = false
+        controlCenterSourceScene = CombinedStatusSourceScene.UNKNOWN
+        keyguardRuntimeReady = false
         CombinedStatusControlCenterRenderSession.detach(
             source = "hotReload-oldGeneration",
             releaseNativePresentation = !continuousHandoff,
         )
         CombinedStatusHomeRenderSession.detach()
+        CombinedStatusKeyguardRenderSession.detach()
         val restoredPresentationViews =
             SystemUiHomePresentationOwner.releaseGenerationForHotReload(
                 requestLayout =
@@ -1645,6 +1860,7 @@ class CombinedStatusModule : XposedModule() {
         StatusBarStableSession.detach()
         SystemUiCoreRuntimeOwner.detach()
         SystemUiPresentationRuntimeOwner.resetRuntimeState()
+        SystemUiKeyguardHostResolver.resetRuntimeState()
         CombinedStatusPresentationStateStore.reset()
         SystemUiIslandMotionSource.resetRuntimeState()
         SystemUiPanelTransitionSource.resetRuntimeState()
@@ -2452,6 +2668,7 @@ class CombinedStatusModule : XposedModule() {
                 component = "featureSettings",
                 state = "ready",
                 "combinedStatusEnabled" to settings.enabled,
+                "keyguardEnabled" to settings.keyguardEnabled,
                 "transport" to "remote-preferences",
             )
         }.onFailure { error ->
@@ -2466,6 +2683,7 @@ class CombinedStatusModule : XposedModule() {
                 component = "featureSettings",
                 state = "unavailable",
                 "combinedStatusEnabled" to false,
+                "keyguardEnabled" to false,
                 "reason" to (error.message ?: error.javaClass.simpleName),
                 "fallback" to "native-systemui",
             )
@@ -2477,13 +2695,28 @@ class CombinedStatusModule : XposedModule() {
         preferenceTransportLatencyNanos: Long?,
     ) {
         CombinedStatusHomeRenderSession.onFeatureSettingsChanged(settings)
+        CombinedStatusKeyguardRenderSession.onFeatureSettingsChanged(settings)
         CombinedStatusControlCenterRenderSession.onFeatureSettingsChanged(settings)
+
+        if (!settings.enabled || !settings.keyguardEnabled) {
+            deactivateKeyguardRuntime("feature-disabled")
+        } else {
+            SystemUiKeyguardHostResolver.current()?.let { resolution ->
+                onKeyguardHostResolution(
+                    resolution = resolution,
+                    source = "feature-enabled",
+                )
+            }
+        }
+        refreshControlCenterSourceSceneEligibility("feature-settings")
+
         logDiagnostic(
             level = Log.INFO,
             event = "featureSettings.changed",
             component = "combinedStatus",
             state = if (settings.enabled) "enabled" else "disabled",
             "combinedStatusEnabled" to settings.enabled,
+            "keyguardEnabled" to settings.keyguardEnabled,
             "preferenceTransportMs" to
                 (
                     preferenceTransportLatencyNanos
@@ -2527,6 +2760,7 @@ class CombinedStatusModule : XposedModule() {
         settings: com.chaners.combinedstatus.settings.CombinedStatusVisualSettings,
     ) {
         CombinedStatusHomeRenderSession.onVisualSettingsChanged(settings)
+        CombinedStatusKeyguardRenderSession.onVisualSettingsChanged(settings)
         CombinedStatusControlCenterRenderSession.onVisualSettingsChanged(settings)
         if (detailedDiagnosticsEnabled) {
             logDiagnostic(
