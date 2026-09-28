@@ -7476,3 +7476,64 @@ A future QS_FAKE session bounded to `visible=true -> visible=false` therefore do
 - **Compatibility:** exact QS_FAKE hierarchy uses the same Battery/status-icon classes consumed by current sources.
 - **Exception recovery:** a stale Home tint cannot become fake authority because fake session filters source View identity and resolves its own peer group.
 - **Future extension:** the same per-carrier tint semantics are compatible with a separately verified Keyguard steady adapter.
+
+
+---
+
+## 2026-09-28 — Exact-target Control Center source / fake / real ownership chain
+
+**Type:** architecture investigation / exact-target evidence  
+**Runtime Build:** unchanged; Build 424 remains the active executable checkpoint  
+**Branch / PR:** `feat/panel-projection` / #146
+
+### Objective
+
+Evaluate the maintainer's unlocked/locked/partial-pull/fully-expanded product concept against the actual HyperOS lifecycle before implementing a new scene abstraction.
+
+### Exact-target evidence
+
+Target: SystemUI `17.03.260226.r`.
+
+1. **Unlocked source registration**
+   - `MiuiPhoneStatusBarView.onFinishInflate()` resolves `R.id.system_icons` to `mStatusBatteryContainer`.
+   - `initDependence(...)` assigns that exact container to `ControlCenterFakeViewController.statusBarSystemIcons` and calls `adjustRealSystemIcons()`.
+
+2. **Keyguard source registration**
+   - `MiuiKeyguardStatusBarView` assigns `mSystemIconsContainer` to `ControlCenterFakeViewController.keyguardSystemIcons` and calls `adjustRealSystemIcons()`.
+   - Keyguard tint changes are forwarded directly to `controlCenterFakeStatusBar.setKeyguardStatusBarColors(...)`.
+
+3. **Native source authority**
+   - `ControlCenterFakeViewController` selects `realSystemIcons` from those two registered source containers according to native status-bar state.
+   - Therefore Combined Status does not need a duplicate unlocked/keyguard transition router.
+
+4. **Native transition representation**
+   - the Control Center fake status bar owns a complete `QS_FAKE` status-icon/Battery representation with native attach/detach, tint and island participation;
+   - `ControlCenterHeaderExpandController` reads source `realSystemIcons` as an anchor and applies transition geometry to Control Center-side status-bar representations.
+
+5. **Native destination ownership**
+   - fully expanded Control Center uses its own `QS` native status-bar representation;
+   - `appearance` is independent from `visible`, `expansion`, and `tracking` and selects fake-vs-real visual ownership;
+   - the plugin-side producer of `appearance` is outside the reviewed SystemUI APK, so its internal threshold must not be guessed or recreated.
+
+### Candidate lifecycle
+
+The source evidence supports a simpler candidate topology than a project-owned `unlocked × lockscreen × three phases` state machine:
+
+`source adapter (Home or future Keyguard) -> native QS_FAKE transition owner -> native QS destination owner`.
+
+This is not yet an implementation decision. The current Build-424 device checkpoint remains single-variable and unchanged.
+
+### 审查 / review
+
+- **Ownership:** HyperOS already owns source selection and fake/real Control Center visual ownership.
+- **Lifecycle:** fake status-bar resources follow native View attach/detach; no project service/poller is required.
+- **Single writer:** a future implementation should inherit native fake-bar translation/alpha/tint rather than add fraction/appearance-derived writers where unnecessary.
+- **Cleanup:** candidate fake-carrier integration should be scoped to that carrier's attach/detach lifecycle.
+- **Fail-native:** if fake carrier identity/bootstrap cannot be verified, retain native SystemUI rather than fall back to local interpolation.
+- **Performance:** candidate route can remove project handoff work; no high-frequency new observer is justified.
+- **Compatibility:** evidence is pinned to SystemUI `17.03.260226.r`; plugin-side `appearance` production is not yet inspected.
+- **Future extension:** Home and Keyguard may keep separate steady HostSessions while sharing the native Control Center transition/destination path.
+
+### Next step
+
+Do not change Build 424. Complete its automated/device validation first. In parallel, continue static/runtime review of the fake Control Center carrier bootstrap/readiness and compare it with the current Build-420 `realSystemIcons.overlay` projection before proposing a follow-up runtime checkpoint.
