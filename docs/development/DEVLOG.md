@@ -7135,3 +7135,54 @@ Focused device gate after automated validation:
 ### Outcome / next step
 
 Build 424 is the active implementation checkpoint. Finish repository/static validation, update the active PR description, then run the normal Ready validation path. Freeze runtime at the signed-Canary device boundary.
+
+
+---
+
+## 2026-09-28 — Scene target clarified: Home/Keyguard sources, native full Control Center
+
+**Type:** product-boundary / architecture planning
+**Runtime Build:** unchanged; Build 424 remains the active executable checkpoint
+
+### Requirement clarification
+
+The final scene model is not “Home Combined Status plus a persistent Combined Status Control Center surface.”
+
+There are two future source contexts:
+- unlocked / Home;
+- locked / Keyguard.
+
+Each source context has:
+1. a steady Combined Status state;
+2. a partial Control Center pull state that must visually follow the native HyperOS transition;
+3. a fully expanded Control Center endpoint that is **native SystemUI status-bar presentation only**.
+
+### Architecture consequence
+
+The stable architecture should separate:
+- **steady source adapters** — Home now, Keyguard later;
+- **one bounded transition coordinator/bridge** — consumes source readiness/geometry plus verified native Control Center motion;
+- **native expanded endpoint** — no persistent Combined Status owner.
+
+Home and Keyguard may reuse domain state, renderer semantics, sizing/tint policy and transition-coordinator logic, but must not share View ownership or infer each other through Battery/Keyguard heuristics.
+
+Build 420 remains valid evidence that `realSystemIcons` / `MiuiStatusBatteryContainer` and readiness-ordered handoff can support the bridge. Its persistent expanded-surface lifetime is no longer the final product target.
+
+### Impact on Build 424
+
+No runtime widening is made in Build 424.
+
+Build 424 still addresses one root cause only: the Home visual is moved into the native animated `system_icons` carrier and the duplicate Notification visibility writer is removed.
+
+Mixing the new fully-expanded-native Control Center endpoint into the same executable checkpoint would reduce attribution and violate the single-variable debugging boundary. A separate follow-up checkpoint should narrow the existing Control Center projection lifetime to the native partial-pull interval and hand off to native status icons at the exact fully expanded endpoint.
+
+### 审查 / review
+
+- **Ownership:** Home and future Keyguard are separate steady owners; fully expanded Control Center is always native.
+- **Lifecycle:** transition bridge exists only while native transition ownership is active.
+- **Single writer:** source adapter owns steady Combined Status; bridge owns only project overlay visibility during bounded handoff; native Control Center owns expanded endpoint.
+- **Cleanup:** reverse motion restores the correct source before bridge cleanup; full expansion removes bridge-owned presentation.
+- **Fail native:** unresolved source/endpoint contracts leave native SystemUI visible.
+- **Performance:** shared event-driven coordinator; no polling or duplicated per-scene state machine.
+- **Compatibility:** source host adapters remain target-verified independently.
+- **Future extension:** Keyguard can be added without changing Home ownership or creating a second transition engine.
