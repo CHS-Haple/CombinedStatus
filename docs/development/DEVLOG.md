@@ -8227,3 +8227,60 @@ Runtime is frozen. Focused device validation should cover:
 6. Hot Reload while Control Center is visible restores native QS_FAKE without blank state, duplicated icons, stale masks or spacing residue.
 
 Do not stack runtime changes before maintainer feedback.
+
+
+---
+
+## 2026-09-28 — Build 426 device rejection: QS_FAKE compact cutover precedes native compact layout
+
+**Build:** 426 / `20260928-426`  
+**PR:** #152 / `feat/control-center-native-transition`  
+**Exact tested runtime head:** `55f266cd8585d78c65c564d363c8f5979c908292`  
+**Device result:** transition carrier direction retained; partial-pull continuity rejected
+
+### Maintainer evidence
+
+During Control Center partial pull:
+- Combined Status itself remains near the right-edge compact/Battery position;
+- the native mute/VPN peer group is sometimes adjacent as expected, but on other pulls is separated by a large gap;
+- the separated mute position matches its fully-expanded/native Control Center placement;
+- the pull does not read as one coherent native transition.
+
+The supplied Detailed diagnostic is Build 426 Canary and reports overall runtime health healthy. QS_FAKE cutover succeeds and logs `carrier=QS_FAKE`, `motion=system-ui-inherited`, `nativeGeometryWrites=0`.
+
+### Root cause / responsible owner
+
+Exact-target SystemUI confirms `ControlCenterHeaderExpandController.controlCenterCallback.onExpansionChanged(float)` writes native `translationX/translationY` to the entire `ControlCenterFakeStatusIcons` root. Therefore the changing **relative** gap between mute/VPN and Combined Status is not explained by missing outer QS_FAKE translation.
+
+Build-426 compact presentation instead has a cutover-order race:
+1. `SystemUiCompactPresentationRegistry.Session.start()` immediately calls `refreshClipMasks()`, making represented Wi-Fi/mobile/Battery visually absent.
+2. Represented slots are removed from native layout only inside the already-hooked `MiuiStatusIconContainer.onMeasure/onLayout` pass through `withRepresentedSlotsIgnored { ... }`.
+3. Before that first compact layout pass completes, invisible represented Views can still occupy their previous native width.
+4. The native mute/VPN peers therefore remain farther left while Combined Status is already visible at the compact Battery slot.
+5. Depending on whether the first native layout happens before or after visible cutover, the defect appears intermittent.
+
+The approximate one-slot peer displacement visible in the supplied screenshots is consistent with a represented network slot remaining in the old layout for that frame/state.
+
+### Selected next direction
+
+Do **not** add a custom translation animation, fraction interpolation, delay, timer, frame follower, or fixed spacing correction.
+
+Build 427 should make compact cutover depend on a completed **native compact measure/layout pass**:
+- activate the host-scoped QS_FAKE session in a prepared/not-visible state;
+- request one bounded native relayout if needed;
+- let the existing measure/layout Hooks apply represented-slot exclusion;
+- apply clip masks only after the corresponding layout pass;
+- promote presentation ownership / show Combined Status only after that pass is confirmed;
+- preserve native QS_FAKE root translation/alpha/appearance as the only motion writer.
+
+### 审查 / review
+
+- **Ownership:** QS_FAKE remains the correct transition surface; HyperOS remains the sole translation/alpha/appearance owner.
+- **Lifecycle:** correction belongs at presentation readiness/cutover, not in panel-fraction state.
+- **Single writer:** represented-slot layout exclusion and mask remain one host-scoped compact session.
+- **Cleanup:** pending/prepared sessions must restore baseline padding/clip state exactly like active sessions.
+- **Fail-native:** if no compact layout pass completes or host detaches, keep/restore native QS_FAKE.
+- **Performance:** at most one bounded `requestLayout()` per session activation; no polling or per-frame project work.
+- **Compatibility:** use the already-verified `MiuiStatusIconContainer.onMeasure/onLayout` seam rather than adding a new private animation Hook.
+- **Exception recovery:** Hot Reload/exit must cancel pending readiness before restoring native state.
+- **Future extension:** the same readiness contract can support a future verified Keyguard source without changing transition motion ownership.
