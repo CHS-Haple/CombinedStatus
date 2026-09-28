@@ -315,6 +315,12 @@ internal object CombinedStatusControlCenterRenderSession {
         }
     }
 
+    internal fun shouldRetainNativePresentationOnLayoutUnavailable(
+        hostAttached: Boolean,
+        nativePresentationReady: Boolean,
+    ): Boolean =
+        hostAttached && nativePresentationReady
+
     internal fun resolveProjectionReady(
         featureEnabled: Boolean,
         modelReady: Boolean,
@@ -650,10 +656,23 @@ internal object CombinedStatusControlCenterRenderSession {
             if (!layoutReady) return
             layoutReady = false
             renderView.visibility = View.GONE
+
+            val hostAttached = host.get()?.isAttachedToWindow == true
+            val retainNativePresentation =
+                shouldRetainNativePresentationOnLayoutUnavailable(
+                    hostAttached = hostAttached,
+                    nativePresentationReady = nativePresentationReady,
+                )
+            if (!retainNativePresentation) {
+                nativePresentationReady = false
+                SystemUiHomePresentationOwner.deactivateControlCenter(
+                    "projection-layout-unavailable-detached",
+                )
+            }
             emitEvent {
                 "controlCenterProjection layoutUnavailable action=pause-render " +
-                    "compactPresentationRetained=" + nativePresentationReady +
-                    " hostAttached=" + (host.get()?.isAttachedToWindow == true) +
+                    "compactPresentationRetained=" + retainNativePresentation +
+                    " hostAttached=" + hostAttached +
                     " nativeGeometryWrites=0"
             }
             dispatchReadiness("layout-unavailable")

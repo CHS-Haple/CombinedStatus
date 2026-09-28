@@ -62,4 +62,30 @@ class CombinedStatusControlCenterRenderSessionTest {
         )
     }
 
+
+    @Test
+    fun transientLayoutLossRetainsPreparedFakePresentationWhileRootStaysAttached() {
+        assertTrue(
+            CombinedStatusControlCenterRenderSession
+                .shouldRetainNativePresentationOnLayoutUnavailable(
+                    hostAttached = true,
+                    nativePresentationReady = true,
+                ),
+        )
+        assertFalse(
+            CombinedStatusControlCenterRenderSession
+                .shouldRetainNativePresentationOnLayoutUnavailable(
+                    hostAttached = false,
+                    nativePresentationReady = true,
+                ),
+        )
+        assertFalse(
+            CombinedStatusControlCenterRenderSession
+                .shouldRetainNativePresentationOnLayoutUnavailable(
+                    hostAttached = true,
+                    nativePresentationReady = false,
+                ),
+        )
+    }
+
 }

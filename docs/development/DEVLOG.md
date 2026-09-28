@@ -3,6 +3,55 @@
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
 
+## 2026-09-29 — Build 435: retain prepared QS_FAKE through transient startup layout loss
+
+**Type:** Phase-2B cold-start lifecycle correction / executable checkpoint  
+**Build:** 435 / `20260929-435`  
+**Work branch / PR:** `fix/control-center-fake-root` / #156
+
+### Build 434 device result
+
+Build 434 is rejected for the first non-charging pull after manual SystemUI restart. Raw native QS_FAKE remains nearly deterministic on that first pull, while later pulls may recover.
+
+The Detailed diagnostic closes the remaining lifecycle cause: Fake-root attach schedules the bootstrap, first native layout succeeds and arms compact presentation, then a short-lived startup layout state becomes unavailable. Build 434 incorrectly treats that render-geometry loss as a full compact-presentation failure and tears the prepared owner down. Fake geometry becomes valid again soon afterward, but compact ownership is already gone until a later visible-time `prearm-reuse`.
+
+### 问题执行流程
+
+1. Retain the accepted attach -> first-native-layout prearm boundary.
+2. Do not add another prearm trigger, timing delay, visibility workaround, or retry loop.
+3. Split transient Combined render-geometry readiness from native compact-presentation lifetime.
+4. Retain compact ownership while the exact Fake root is still attached and native compact presentation was already ready.
+5. Restore native Fake only on actual lifetime/failure boundaries.
+
+### Implementation
+
+- Advance runtime identity to Build 435 / `20260929-435`.
+- `markLayoutUnavailable()` still clears `layoutReady` and hides the Combined overlay.
+- Attached + already-prepared Fake roots retain `nativePresentationReady` and the shared compact owner.
+- Detached/unprepared states retain fail-native cleanup behavior.
+- Add a pure unit-tested retention contract for attached+prepared vs detached/unprepared cases.
+- No new SystemUI Hook, listener, requestLayout, timer, polling, interpolation, animator, per-frame geometry writer, or QS-real mutation.
+
+### 审查 / review
+
+- **Ownership:** compact presentation follows Fake-root lifetime; Combined overlay geometry follows current layout readiness.
+- **Single writer:** `SystemUiHomePresentationOwner` remains the sole writer of QS_FAKE ignoredSlots/padding/clip state.
+- **Cleanup:** transient layout loss no longer restores raw native Fake; root detach/feature disable/host replacement/Hot Reload remain restoration boundaries.
+- **Fail native:** an unprepared or detached Fake root never claims Combined readiness.
+- **Performance:** the correction removes a destructive cleanup path and adds no ongoing work.
+- **Compatibility:** existing exact-target Fake root/status-area contracts are unchanged.
+- **Geometry scope:** fully-expanded endpoint motion and charging-island Battery mapping are unchanged.
+
+### LSPosed safe-mode note
+
+The supplied LSPosed package records `System UI crashed too many times, stop all modules and enter safe mode`, but the supplied evidence does not contain a matching fatal SystemUI stack that attributes the crash loop to Combined Status. The maintainer subsequently restarted once without recurrence. This remains watch-only unless reproducible crash evidence appears.
+
+### Device gate
+
+Restart SystemUI and immediately perform the first non-charging Control Center pull. It must no longer expose raw native QS_FAKE. If that passes, repeat several non-charging pulls, then do only a light charging-no-island / charging-island regression check. Endpoint motion and island Battery alignment remain separate next-step geometry work.
+
+
+
 ## 2026-09-29 — Build 434: move QS_FAKE prearm from attach to first native layout
 
 **Type:** Phase-2B cold-start lifecycle correction / executable checkpoint  
@@ -59,15 +108,6 @@ Non-island Control Center samples report approximately `normalStatusBarTx=46`, `
 - Signed Work Branch Canary #434 / run `36457595937`: completed/success on the same trusted source SHA, including exact checkout, target profile, Canary tests/build, Modern Xposed metadata, Haple signature, non-debuggable verification, artifact upload and post-cleanup.
 - Artifact: `CombinedStatus-0.0.2-HyperOS-20260929-434-canary.apk`; artifact id `10985702866`; ZIP digest `sha256:4cfc425718bda8e4eb8d99b50836c33cb4fb4dd3a0adecfa434e76cd627b2df3`; extracted APK SHA-256 `59f87520e07af0ca40397633acc327ab80251c0b2347d67217667aa97af585ec`; size 3,325,986 bytes.
 - PR #156 is returned to Draft; executable runtime is frozen pending device evidence.
-
-### Automated validation
-
-- Frozen executable SHA: `2c206ec5b1dc69b0789fdffdbdf0419aafd2b2f8`.
-- Ready Fast #1459 / run `36457181582`: success; target profile, unit tests/build, APK resolution and Modern Xposed metadata passed.
-- Work Branch Canary #434 / run `36457595937`: success on the same trusted source SHA; Haple signing/signature, target profile, tests/build, Modern Xposed metadata, non-debuggable and artifact upload passed.
-- An earlier Canary #433 completed all substantive checks but was superseded by #434 during post-cleanup and is not used as the acceptance run.
-- Canary artifact: `CombinedStatus-0.0.2-HyperOS-20260929-434-canary.apk`; artifact id `10985702866`; ZIP digest `sha256:4cfc425718bda8e4eb8d99b50836c33cb4fb4dd3a0adecfa434e76cd627b2df3`; extracted APK SHA-256 `59f87520e07af0ca40397633acc327ab80251c0b2347d67217667aa97af585ec`; size 3,325,986 bytes.
-- PR #156 is Draft; executable runtime is frozen for device evidence.
 
 ### Device gate
 
