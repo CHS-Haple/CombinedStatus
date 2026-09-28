@@ -9173,3 +9173,52 @@ Run exact-head Fast. If successful, request one signed Canary for focused visual
 ### Outcome / next step
 
 Build 450 is the current icon candidate. If its desktop scale is accepted, close the visual checkpoint and integrate the branch without further geometry changes.
+
+
+---
+
+## 2026-09-29 — Build 451 “归元” app-facing name + 51 dp icon candidate
+
+**Type:** companion-app branding / visual resource  
+**Display version:** 0.0.2  
+**Build / executable source:** 451 / `20260929-451` / `87087ce74f4b00c0a93b8908640ffaf83650f369`  
+**Branch:** `feat/guiyuan-app-icon`  
+**Validation:** Fast #1569 passed; Work Branch Canary #468 passed; device visual acceptance pending
+
+### Problem / objective
+
+Carry forward the accepted adaptive-icon direction, enlarge the Build-449 48 dp mark slightly to the maintainer-approved 51 dp target, and change the Simplified Chinese app-facing product name from “三合一状态图标” to “归元” without prematurely renaming the English/public repository identity.
+
+### Implementation / decision
+
+- Selected orbit mark geometry remains unchanged; only the whole foreground group uses uniform `0.7781` scale, giving a longest dimension of approximately 51 dp.
+- Background remains full-bleed `#FFFFFF`; foreground remains ink-black `#24272B`.
+- Simplified Chinese `app_name`, `home_title`, and diagnostics `product_name` are now `归元`.
+- The feature switch/title that describes the actual combined-status function remains descriptive rather than being renamed to the brand word.
+- English app name and public repository/documentation identity remain `Combined Status` in this checkpoint.
+- No SystemUI/Xposed/renderer/state-source behavior changes.
+
+### Cross-branch review
+
+Active `feat/home-ui-shell`, `feat/diagnostics-ui-refinement`, and `feat/keyguard-scene-adapter` were checked before changing app-facing naming. They still derive the same localized product strings from their branch baselines and do not establish a conflicting Chinese product-name policy. Public/normative naming documents are intentionally not rewritten yet.
+
+### 审查 / review
+
+- **Ownership:** launcher mask/crop/themed tint remains Android/HyperOS-owned; product label remains Android resource-owned.
+- **Lifecycle:** static resources only.
+- **Single writer:** one adaptive foreground geometry source; one localized Chinese product label source.
+- **Cleanup:** no duplicate icon assets or alternate product-name plumbing.
+- **Performance:** unchanged static resources.
+- **Compatibility:** standard adaptive foreground/background/monochrome contract; 51 dp remains within the Android adaptive-icon logo range.
+- **Runtime boundary:** no Hook, listener, SystemUI host, renderer, or state-model change.
+
+### CI / device validation
+
+- Fast #1569: passed.
+- Signed Work Branch Canary #468: passed target-profile verification, tests/build, Modern Xposed metadata, Haple signature verification, non-debuggable verification and artifact upload.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260929-451-canary.apk`, id `11002354220`.
+- APK SHA-256: `6cddd0c21e6162d0cc2bd719108c9e2b48b6824e033140a3acc5c793733c2ec5`.
+
+### Outcome / next step
+
+Device-check only the launcher/App info visual scale, clean-white background, themed/monochrome rendering, and Chinese display name “归元”. No SystemUI regression matrix is required for this checkpoint. A later documentation-only closure commit does not create Build 452.
