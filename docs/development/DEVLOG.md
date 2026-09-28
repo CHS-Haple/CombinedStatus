@@ -51,6 +51,15 @@ Therefore the remaining 433 race is not host identity or repeated visibility own
 
 Non-island Control Center samples report approximately `normalStatusBarTx=46`, `normalStatusIconsTx=46`, `batteryWidthDiff=0`. Island samples report approximately `normalStatusBarTx=61`, `normalStatusIconsTx=181`, `batteryWidthDiff=-135`. The maintainer's observed extra leftward island trajectory is therefore treated as real native geometry evidence, not visual noise. Build 434 does not compensate it before lifecycle determinism is closed.
 
+### Automated validation
+
+- Frozen executable SHA: `2c206ec5b1dc69b0789fdffdbdf0419aafd2b2f8`.
+- Ready Fast #1459 / run `36457181582`: success on that exact PR HEAD; target profile, unit tests/build, APK resolution and Modern Xposed metadata passed.
+- Work Branch Canary #433 was superseded/cancelled by the newer same-PR Canary #434 during post-cleanup; all its core validation steps had already passed, so it is not treated as a runtime rejection.
+- Signed Work Branch Canary #434 / run `36457595937`: completed/success on the same trusted source SHA, including exact checkout, target profile, Canary tests/build, Modern Xposed metadata, Haple signature, non-debuggable verification, artifact upload and post-cleanup.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260929-434-canary.apk`; artifact id `10985702866`; ZIP digest `sha256:4cfc425718bda8e4eb8d99b50836c33cb4fb4dd3a0adecfa434e76cd627b2df3`; extracted APK SHA-256 `59f87520e07af0ca40397633acc327ab80251c0b2347d67217667aa97af585ec`; size 3,325,986 bytes.
+- PR #156 is returned to Draft; executable runtime is frozen pending device evidence.
+
 ### Device gate
 
 Restart SystemUI and perform the **first non-charging pull first**. It must present deterministic Combined QS_FAKE rather than raw native Fake. Then repeat several non-charging pulls and one charging-no-island / charging-island regression pass. Endpoint motion and island Battery alignment remain separate next-step gates.
