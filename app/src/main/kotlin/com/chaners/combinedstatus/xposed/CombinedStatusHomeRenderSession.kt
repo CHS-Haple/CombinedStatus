@@ -517,7 +517,7 @@ internal object CombinedStatusHomeRenderSession {
                         anchorRect.right + "," + anchorRect.bottom +
                         " size=" + anchorRect.width() + "x" + anchorRect.height() +
                         " opacity=" + RENDER_OPACITY +
-                        " ancestorVisibilityIndependent=true " +
+                        " nativeVisibilityInherited=true nativeAlphaInherited=true " +
                         "originalsHidden=false nativeGeometryWrites=0"
                 }
             }

@@ -514,3 +514,41 @@ The legacy Hot Reload shade-eligibility payload field may remain null for transf
 **Not established.**
 
 This exact Home carrier contract does not establish Keyguard/AOD support and does not authorize reusing the Home carrier for those surfaces. Control Center remains a real second-host projection and keeps its accepted readiness-ordered handoff.
+
+
+---
+
+## 17. Build-424 correction — render inside the native Home visibility owner
+
+This section supersedes section 16 only where section 16 describes the active Home drawing carrier or Notification-Shade handoff authority. Section 16 remains historical evidence for the Build-420/421 investigation.
+
+### Exact-target visibility chain
+
+The pinned SystemUI target already owns the complete Home system-information visibility decision:
+
+`StatusBarVisibilityInteractor.shouldHomeStatusBarBeVisible`
+-> `HomeStatusBarViewModelImpl.isSystemInfoVisible`
+-> `HomeStatusBarViewModelImpl.systemInfoCombinedVis`
+-> `HomeStatusBarViewBinderInjector.bindSystemInfoVisibility`
+-> `mEndSideContent = R.id.system_icons`.
+
+The exact `system_icons` layout root is `MiuiStatusBatteryContainer`. Native `showEndSideContent()/hideEndSideContent()` applies the end-side alpha/visibility/transition behavior to that owner.
+
+### Build-423 failure mechanism
+
+The Build-423 Home renderer was attached to the parent `MiuiNotificationStatusContainer.overlay`. That kept Combined Status outside the child `system_icons` visibility/alpha owner. A project-local Notification Header fraction gate therefore became a second visibility system and could switch at a different first/last frame than native Home system information.
+
+Header expansion progress remains valid motion evidence, but device evidence proves it is not the complete Home-visibility authority.
+
+### Build-424 rule
+
+Use the parent `MiuiNotificationStatusContainer / system_icon_area` as the Home HostSession discovery boundary, but attach visible Combined Status drawing to `MiuiStatusBatteryContainer(system_icons).overlay`.
+
+Consequences:
+1. Notification Shade needs no Combined Status visibility Hook or reconstructed scene state.
+2. Home Combined Status inherits native `system_icons` draw/alpha/visibility lifetime.
+3. Existing Battery-derived slot width remains the local layout authority; the carrier correction does not justify geometry changes.
+4. Control Center remains a real second-host projection through `realSystemIcons` and keeps readiness-ordered handoff.
+5. Keyguard/AOD remain separate native surfaces.
+
+Reusable principle: when SystemUI already exposes the rendered owner that receives the authoritative visibility decision, place project-owned visual composition inside that owner rather than observing a lower-level animation signal and recreating the visibility decision.
