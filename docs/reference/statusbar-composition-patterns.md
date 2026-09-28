@@ -693,3 +693,45 @@ Architecture implication for the pinned target:
 - this supports Build 424's carrier correction and explains why moving the same visual between those two overlays changes lifecycle behavior without adding a new scene writer.
 
 This Android framework behavior is supporting platform evidence; exact HyperOS ownership still comes from the target SystemUI binder/source chain.
+
+
+### Post-Build-424 QS_FAKE integration candidate
+
+The exact-target review now supports a bounded candidate for a later checkpoint. This is not part of Build 424.
+
+Use the existing native axes rather than a project-owned scene machine:
+
+1. **Source capability**
+   - HyperOS selects `ControlCenterFakeViewController.realSystemIcons`.
+   - For the current implementation, compact transition is eligible only when that object is the Home `MiuiStatusBatteryContainer` already structurally owned by `SystemUiHomePresentationOwner`.
+   - Do not add a generalized source registry before a second compact source (Keyguard) actually exists.
+
+2. **Transition surface activation**
+   - Keep the existing low-frequency `ControlCenterExpandControllerDelegate.onVisibleChanged(boolean)` seam as the transition-surface active/inactive signal.
+   - It is not Home visibility authority and must not write source-scene visibility.
+   - On entry, resolve the already-selected native source and the native QS_FAKE carrier; on exit, restore QS_FAKE native visuals and stop transition-renderer work.
+   - If runtime evidence shows source identity can change while the Control Center remains visible, `ControlCenterFakeViewController.adjustRealSystemIcons()` is the verified low-frequency source-change seam. Do not substitute Battery status state.
+
+3. **QS_FAKE presentation**
+   - resolve through the existing Header object chain:
+     `ControlCenterHeaderExpandController.headerController -> CombinedHeaderController.controlCenterFakeStatusBar -> delegate.statusBarArea`;
+   - render in the native fake `MiuiStatusBatteryContainer.overlay`;
+   - keep native layout occupancy unchanged;
+   - mask represented native Wi-Fi/mobile/airplane/no-SIM/Battery Views with the same reversible clip-state principle used by Home;
+   - do not copy Home `ignoredSlots` or end-padding reservation because HyperOS already synchronizes fake `statusBarArea` width from `realSystemIcons`.
+
+4. **Native motion / visual ownership**
+   - native expansion code continues to own fake-bar translation;
+   - native `appearance` continues to own fake-vs-real Control Center alpha;
+   - the real QS destination remains untouched/native.
+
+5. **Existing hook reuse**
+   - no new tint hook is needed: `SystemUiTintStateSource` already receives all `MiuiBatteryMeterView` tint events and the fake session can filter by its own Battery instance;
+   - no second status-icon layout hook is needed: the existing `MiuiStatusIconContainer.onMeasure/onLayout` interception can route a fake mask-only policy by target identity;
+   - do not revive the legacy binding-level network suppression path.
+
+The transition cutover should remain readiness ordered locally:
+- entry: fake compact renderer ready -> apply fake native clip masks;
+- exit/failure: restore fake native clips -> stop/hide compact renderer.
+
+A QS_FAKE failure therefore degrades only that transition surface to native SystemUI and does not deactivate the Home compact owner.
