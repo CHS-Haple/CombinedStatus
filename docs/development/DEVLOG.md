@@ -3,6 +3,79 @@
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
 
+## 2026-09-28 — Build 431: move Control Center projection onto native fake root
+
+**Type:** Phase-2B root-cause correction / executable device checkpoint
+**Build:** 431 / `20260928-431`
+**Work branch / PR:** `fix/control-center-fake-root` / #156
+**Base:** current `dev` Build 429 / MIUIX `0.9.4-5c91d5e5-SNAPSHOT`
+
+### Build 430 device result
+
+The Build-430 Detailed report closes the top-level fake-carrier gate.
+
+Normal pull:
+- `ControlCenterFakeStatusIcons` root is `visibility=VISIBLE`, `alpha=1.0`, size `827x169` while native fake presentation is active;
+- at the native fake->final handoff the same root remains visible but HyperOS changes only its alpha to `0.0`;
+- child `MiuiStatusBatteryContainer statusBarArea` remains `visibility=VISIBLE`, `alpha=1.0`, size `587x169`.
+
+Charging-island pull:
+- the same root behavior repeats unchanged;
+- `addBatteryIsland=true` and `batteryWidthDiff=-135` affect Home/Battery presentation;
+- Home Battery is hidden/faded, but the top-level fake root remains `alpha=1.0` until the native fake->final handoff, then becomes `alpha=0.0`.
+
+**Conclusion:** top-level `ControlCenterFakeStatusIcons` is the native transition appearance owner. The child `statusBarArea` is geometry/content, not appearance authority. This independently confirms that neither hidden source `realSystemIcons` nor child `QS_FAKE.system_icon_area` should host the Combined visual.
+
+### 问题执行流程
+
+**现象 -> 根因:** Build 428 attached a Combined overlay to the selected Home source carrier, but HyperOS hides that source during Control Center ownership. Builds 425-427 instead coupled the Combined visual to the child fake Battery/system-icon area. Build 430 proves the missing abstraction is the top-level fake presentation root.
+
+**SystemUI contract:** native root alpha already defines fake-vs-final ownership. Reusing that root removes the need for a project appearance threshold, timer, interpolation, or second alpha writer.
+
+**Implementation choice:** attach Combined Status to `ControlCenterFakeStatusIcons.overlay`; locate the unique descendant `MiuiStatusBatteryContainer` only as geometry/tint/native-content source; use reversible clip masks for represented fake Wi-Fi/mobile/Battery after render readiness.
+
+**Rejected alternatives:** do not restore `realSystemIcons.overlay`, child `statusBarArea.overlay`, compact registry, status-icon end padding, temporary slot-exclusion hooks, local expansion thresholds, island offsets, custom alpha, or final-QS mutation.
+
+### Implementation
+
+- `SystemUiPanelTransitionSource` now resolves the verified top-level fake presentation root on native `onVisibleChanged(true)`.
+- `CombinedStatusControlCenterRenderSession`:
+  - verifies exact root class `ControlCenterFakeStatusIcons`;
+  - resolves exactly one descendant `MiuiStatusBatteryContainer`;
+  - resolves fake `MiuiStatusIconContainer`, `MiuiBatteryMeterView`, and stable battery core width;
+  - attaches `CombinedStatusRenderView` to the **root overlay**;
+  - maps the child status-area end slot into root coordinates;
+  - inherits root translation/alpha/visibility from SystemUI;
+  - masks native fake Battery plus represented Wi-Fi/mobile/airplane/no-SIM views with reversible `clipBounds`;
+  - restores masks on loss of readiness, detach, replacement, or cleanup.
+- Readiness ordering is `model + tint + layout + attached root -> masks -> Combined visible -> Home yield`.
+- Mask failure restores native fake content and returns readiness false, preserving fail-native behavior.
+- Build identity advances from 430 to 431.
+
+### 审查 / review
+
+- **Ownership:** SystemUI remains sole fake/final appearance and motion owner.
+- **Single writer:** Combined Status writes only its own overlay plus owned reversible clip bounds on represented fake native views; no native alpha/visibility/translation/padding writer is introduced.
+- **Lifecycle:** one session per resolved fake root; attach/detach and root replacement are explicit.
+- **Cleanup:** every owned clip state stores the native value and restores only if the live value still equals the module-applied mask.
+- **Fail native:** unresolved root, non-unique child status area, missing Battery/status-icons/carrier, tint/layout loss, or clip-writer conflict keeps/restores native Control Center.
+- **Performance:** event/layout driven only; no polling, frame follower, delay, or per-frame reflection.
+- **Compatibility:** exact root class plus structural descendant checks fail closed on unsupported layouts.
+- **Charging island:** Combined projection no longer inherits child Battery alpha/visibility; island motion remains native.
+- **Final QS:** untouched; root alpha naturally hides both native fake content and the Combined root overlay when HyperOS switches to final QS.
+
+### Device test
+
+After Fast + signed Canary:
+1. normal pull/return;
+2. charging-island pull/return;
+3. verify Combined Status is visible during partial pull and disappears exactly with native fake root at final QS;
+4. verify no native Wi-Fi/mobile/Battery overlap and no large spacing regression;
+5. verify Home returns cleanly on close;
+6. export Detailed diagnostics if any mismatch appears.
+
+
+
 ## 2026-09-28 — Build 430: probe top-level Control Center fake presentation
 
 **Type:** Phase-2B bounded diagnostic checkpoint
