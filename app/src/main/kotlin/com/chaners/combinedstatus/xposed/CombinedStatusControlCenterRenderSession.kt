@@ -18,6 +18,7 @@ internal object CombinedStatusControlCenterRenderSession {
         "com.android.systemui.statusbar.views.MiuiStatusIconContainer"
     private const val BATTERY_VIEW_CLASS_NAME =
         "com.android.systemui.statusbar.views.MiuiBatteryMeterView"
+    private const val MAX_PREARM_LAYOUT_ATTEMPTS = 2
 
     private var current: Session? = null
     private var pendingPrearm: PendingPrearm? = null
@@ -125,6 +126,7 @@ internal object CombinedStatusControlCenterRenderSession {
     @Synchronized
     fun currentAttachedHostForHotReload(): ViewGroup? =
         current?.attachedHost()
+            ?: pendingPrearm?.host()?.takeIf { candidate -> candidate.isAttachedToWindow }
 
     @Synchronized
     fun onState(snapshot: CombinedStatusStateStore.Snapshot) {
@@ -176,6 +178,7 @@ internal object CombinedStatusControlCenterRenderSession {
             return
         }
 
+        val attempt = pending.nextAttempt()
         when (
             val result =
                 attach(
@@ -190,16 +193,21 @@ internal object CombinedStatusControlCenterRenderSession {
                 pendingPrearm = null
                 pending.emit(
                     "controlCenterProjection prearm state=armed " +
-                        "source=fake-root-first-layout nativeGeometryWrites=0",
+                        "source=fake-root-first-layout attempt=" + attempt +
+                        " nativeGeometryWrites=0",
                 )
             }
 
             is AttachResult.Failure -> {
-                if (isFirstLayoutRetryable(result.reason)) {
+                val retry =
+                    isFirstLayoutRetryable(result.reason) &&
+                        attempt < MAX_PREARM_LAYOUT_ATTEMPTS
+                if (retry) {
                     pending.emit(
                         "controlCenterProjection prearm state=deferred " +
-                            "source=fake-root-first-layout reason=" + result.reason +
-                            " nativeGeometryWrites=0",
+                            "source=fake-root-first-layout attempt=" + attempt +
+                            " reason=" + result.reason +
+                            " next=native-root-layout nativeGeometryWrites=0",
                     )
                     host.requestLayout()
                 } else {
@@ -207,7 +215,8 @@ internal object CombinedStatusControlCenterRenderSession {
                     pendingPrearm = null
                     pending.emit(
                         "controlCenterProjection prearm state=failed " +
-                            "source=fake-root-first-layout reason=" + result.reason +
+                            "source=fake-root-first-layout attempt=" + attempt +
+                            " reason=" + result.reason +
                             " fallback=native-qs-fake nativeGeometryWrites=0",
                     )
                 }
@@ -243,8 +252,14 @@ internal object CombinedStatusControlCenterRenderSession {
         View.OnAttachStateChangeListener {
         private val host = WeakReference(host)
         private var started = false
+        private var attempts = 0
 
         fun host(): ViewGroup? = host.get()
+
+        fun nextAttempt(): Int {
+            attempts += 1
+            return attempts
+        }
 
         fun matches(candidate: ViewGroup): Boolean =
             host.get() === candidate
