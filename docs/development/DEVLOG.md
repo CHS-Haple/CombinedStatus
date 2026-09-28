@@ -8066,3 +8066,39 @@ Integrated Canary artifact:
 - **Future extension:** continue the Control Center transition redesign in a new short-lived feature branch from this exact integrated baseline; do not reuse merged PR #146.
 
 This record-only closure does not create Build 425.
+
+
+---
+
+## 2026-09-28 — Open QS_FAKE transition-owner work branch
+
+**Type:** work-branch boundary / no runtime Build change  
+**Base:** `dev` at `670c6cb45854dac9dca38f22134414e0b390f0c2`  
+**Branch:** `feat/control-center-qs-fake`  
+**Runtime baseline:** Build 424 / `20260928-424`
+
+### Objective
+
+Start a separate post-424 checkpoint for the Control Center transition owner. Do not stack this experiment onto the already device-accepted Build-424 work branch.
+
+### Scope
+
+- keep unlocked/Home Build-424 `MiuiStatusBatteryContainer(system_icons).overlay` unchanged;
+- replace the historical source-anchor projection with the verified native `QS_FAKE` transition carrier;
+- keep fully expanded `QS` native-only;
+- keep Keyguard steady/AOD native-only;
+- reuse HyperOS native translation, alpha/appearance, tint, source selection and View lifecycle;
+- generalize only the minimum host-scoped compact-presentation/suppression mechanism needed by Home + QS_FAKE.
+
+### 审查 / review boundary
+
+- **Ownership:** QS_FAKE owns transition visual presentation; source Home remains a separate steady owner.
+- **Lifecycle:** no project-owned six-state scene machine; use native carrier lifecycle.
+- **Single writer:** no fraction/appearance-derived translation/alpha writer.
+- **Cleanup:** any fake-carrier session must restore only its own masks/reservation and detach cleanly.
+- **Fail-native:** unresolved fake hierarchy leaves native Control Center untouched.
+- **Performance:** no polling, timer, frame follower, or duplicate high-frequency hooks.
+- **Compatibility:** exact-target SystemUI 17.03.260226.r only until runtime evidence broadens it.
+- **Future extension:** Keyguard may later supply another steady source adapter without changing the QS_FAKE transition owner.
+
+This record-only branch-opening commit does not create a new runtime Build.
