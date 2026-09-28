@@ -8,7 +8,13 @@ This is the chronological engineering diary for Combined Status. It complements,
 **Type:** companion-app UI correction
 **Build:** 438 / `20260929-438`
 **Work branch:** `feat/floating-navigation-options`
-**Validation:** pending PR CI and focused app-UI smoke
+**Executable source:** `62e9c48703db7158568e44a737a3996c1b59f32e`
+**Ready PR Build:** #1479 / run `36464596210` — success
+**Signed Work Branch Canary:** #443 / run `36464868817` — success
+**Artifact:** `CombinedStatus-0.0.2-HyperOS-20260929-438-canary.apk` / id `10989102633`
+**Artifact ZIP digest:** `sha256:a75089e7d00abe2f4309966caffb1f109a66588a0e8440f0d5fcf27f510b1852`
+**Extracted APK SHA-256:** `106421050b3e55fd2e21ace0028cf6e31996f0733c797df669770d00bb4eef9d`
+**Validation:** automated validation passed; focused app-UI smoke pending
 
 ### Problem / objective
 
@@ -34,11 +40,13 @@ The preview viewport itself was conditionally sized: icon-only used 64 dp while 
 
 ### CI / device validation
 
-Pending. Focused check: switch repeatedly between Icons only and Icons & labels; the outer style-preview card and following settings rows must remain stationary while only the navigation content changes.
+PR Build #1479 / run `36464596210` passed on exact Build-438 executable source. Signed Work Branch Canary #443 / run `36464868817` then passed trusted-source resolution, exact checkout, pinned HyperOS target profile, tests/Canary build, Modern Xposed metadata, Haple signature, non-debuggable verification, and artifact upload.
+
+Focused maintainer check remains: switch repeatedly between Icons only and Icons & labels; the outer style-preview card and following settings rows must remain stationary while only the navigation content changes. Also confirm the live bottom bar and preview remain synchronized and light/dark Glass has no regression.
 
 ### Outcome / next step
 
-Run PR CI, then re-test the Appearance preview together with the existing Build-436 Glass/content checks.
+Build 438 is the signed test candidate for the fixed-bounds preview correction. Keep executable source frozen pending maintainer UI feedback. Documentation-only closure after this checkpoint does not create another runtime Build.
 
 
 ## 2026-09-29 — Build 436: align Floating Navigation material and content options
