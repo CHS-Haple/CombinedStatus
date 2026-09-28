@@ -254,6 +254,8 @@ internal object SystemUiHomePresentationOwner {
                 batteryCarrier = batteryCarrier,
                 ignoredSlotsField = field,
                 batteryHideField = hideField,
+                surfaceName = "home",
+                eventPrefix = "homePresentation",
                 onEvent = { event -> eventSink?.invoke(event) },
                 onFailNative = ::onSessionFailure,
             )
