@@ -9377,3 +9377,14 @@ Build 452 is the current visual-geometry candidate. If device feedback accepts t
 - Remaining gate is maintainer visual acceptance only: overall scale, roundness/fullness, six node-to-arc clearances, and themed/monochrome rendering.
 
 This validation-record update is documentation-only and does not create Build 453.
+
+
+### dev integration closure
+
+PR #166 was squash-merged into `dev` as `44b10371e0709d155468f7f2e67307fde5f11ab2`.
+
+Post-merge Integration #1596 passed the full required validation surface on the merged `dev` commit, including wrapper/API 37 setup, Haple signing restoration, pinned HyperOS target verification, tests/build, Modern Xposed metadata, APK signatures, non-debuggable verification and Canary artifact upload.
+
+Integration artifact: `CombinedStatus-0.0.2-HyperOS-20260929-452-canary.apk` (artifact id `11004208038`; archive digest `sha256:1139a9bfac3d085a4e6a4a8249d0357aaf64c80577861fa557690a1dbcfd75c7`).
+
+The icon/name checkpoint is therefore closed on `dev`. This is a record-only documentation update and does not create a new Build.
