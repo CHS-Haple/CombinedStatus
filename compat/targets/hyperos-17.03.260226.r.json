@@ -44,6 +44,12 @@
     "com.android.systemui.statusbar.views.MiuiBatteryMeterIconView",
     "com.android.systemui.shade.ShadeExpansionStateManager",
     "com.miui.systemui.controlcenter.container.ControlCenterExpandControllerDelegate",
+    "com.android.systemui.controlcenter.shade.ControlCenterHeaderExpandController",
+    "com.android.systemui.controlcenter.shade.ControlCenterHeaderExpandController$controlCenterCallback$1",
+    "com.android.systemui.controlcenter.shade.CombinedHeaderController",
+    "com.android.systemui.controlcenter.shade.StatusBarAnchorBounds",
+    "com.android.systemui.controlcenter.header.CcFakeStatusBarIcons",
+    "dagger.Lazy",
     "com.android.systemui.controlcenter.shade.NotificationHeaderExpandController",
     "com.android.systemui.controlcenter.shade.NotificationHeaderExpandController$notificationCallback$1",
     "com.android.systemui.controlcenter.shade.NotificationShadeWrapper"
@@ -157,6 +163,9 @@
     "com.miui.systemui.controlcenter.container.ControlCenterExpandControllerDelegate": [
       "onVisibleChanged(Z)V"
     ],
+    "dagger.Lazy": [
+      "get()Ljava/lang/Object;"
+    ],
     "com.android.systemui.controlcenter.shade.NotificationHeaderExpandController$notificationCallback$1": [
       "onExpansionChanged(F)V"
     ]
@@ -187,6 +196,38 @@
     "com.android.systemui.controlcenter.shade.NotificationHeaderExpandController": [
       "notification",
       "headerController"
+    ],
+    "com.miui.systemui.controlcenter.container.ControlCenterExpandControllerDelegate": [
+      "callbacks"
+    ],
+    "com.android.systemui.controlcenter.shade.ControlCenterHeaderExpandController$controlCenterCallback$1": [
+      "this$0"
+    ],
+    "com.android.systemui.controlcenter.shade.ControlCenterHeaderExpandController": [
+      "statusBarAnchor",
+      "normalControlStatusBarTranslationX",
+      "normalControlStatusIconsTranslationX",
+      "batteryWidthDiff",
+      "isAddBatteryIsland",
+      "isControlCenterExpanding",
+      "realSystemIcons",
+      "headerController"
+    ],
+    "com.android.systemui.controlcenter.shade.CombinedHeaderController": [
+      "controlCenterFakeStatusBar"
+    ],
+    "com.android.systemui.controlcenter.phone.widget.ControlCenterFakeStatusIcons": [
+      "delegate"
+    ],
+    "com.android.systemui.controlcenter.header.CcFakeStatusBarIcons": [
+      "statusBarArea"
+    ],
+    "com.android.systemui.controlcenter.shade.StatusBarAnchorBounds": [
+      "systemIconsLocationOnScreen",
+      "systemIconsWidth",
+      "statusIconsLocationInWindow",
+      "statusIconsWidth",
+      "batteryWidth"
     ]
   },
   "batterySemanticContract": {
