@@ -98,7 +98,17 @@ The maintainer reports the Build-441 target behavior is successful after Build 4
 - immediate Control Center pull after Hot Reload no longer reproduces the temporary Combined Status blank;
 - the Build-440 correction for raw native QS_FAKE / native+Combined overlap remains stable, including after SystemUI restart.
 
-Build 441 is therefore **device accepted** for the Hot Reload generation-handoff checkpoint. The runtime is frozen; only record/merge closure may follow before integration into `dev`.
+Build 441 is therefore **device accepted** for the Hot Reload generation-handoff checkpoint.
+
+### Integration closure
+
+- Final documentation/evidence head: `868146013d49eea2521b44a9dd4273a5a6276013`.
+- Final exact-head Fast #1507 / run `36475707633`: success.
+- PR #156 squash merge to `dev`: `eab6af041b689a2355b83914c26f2e5735c522ce`.
+- Post-merge Integration #1508 / run `36476038417`: success across pinned target profile, tests/build, Modern Xposed metadata, Haple signature verification, Canary non-debuggable validation and artifact upload.
+- Integration artifact: `CombinedStatus-0.0.2-HyperOS-20260929-441-canary.apk`, artifact id `10993452881`, archive digest `sha256:4626d22195d8b461ba955b605997ce5ae78c7fc39c67fc2d70b1978354081641`.
+- Git tree equality between the final PR head and squash integration is exact (`332d2353e35819a122f396a2e6c056c2c8503199`), so the integrated executable/content is the accepted work-branch state rather than a post-acceptance code rewrite.
+- Build 441 is now the current Integration-validated `dev` runtime baseline. The closed PR must not be reopened for the separate charging-island geometry follow-up.
 
 ### Post-acceptance hidden-anomaly review
 
