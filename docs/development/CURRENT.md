@@ -46,7 +46,7 @@ For the pinned HyperOS target, Notification Shade itself does not present the st
 - Detailed diagnostics record eight QS_FAKE projection attaches but only five `layoutReady/active` cutovers. One pull reaches `fraction=1.0` and Fake root `alpha=0.0`, then compact `layoutReady` arrives only during reverse motion. Therefore `visible=true -> requestLayout -> wait for onLayout -> cutover` is not a valid preparation lifetime.
 - Build 433 moves compact preparation to `ControlCenterFakeStatusIcons.onAttachedToWindow()` and keeps QS_FAKE prepared while that native root remains attached. `visible` now controls only Combined overlay visibility/Home authority.
 - Existing `MiuiStatusIconContainer.onMeasure/onLayout` and `MiuiStatusBatteryContainer.setIsHideBattery` Hooks remain the only layout/mask writers. Build 433 adds one low-frequency Fake-root attach Hook only; no polling, delay, custom animator, or QS-real mutation.
-- Feature disable, Fake-root detach, host replacement, and Hot Reload remain restoration boundaries; repeated attach and feature re-enable re-arm idempotently.
+- Feature disable, Fake-root detach, host replacement, and Hot Reload remain restoration boundaries; repeated attach and feature re-enable re-arm idempotently. Hot Reload transfer now carries the currently attached native Fake root reference so the new generation prearms on the main thread without waiting for the next gesture.
 - Endpoint motion and charging-island Battery alignment remain intentionally open follow-up gates; Build 433 first tests deterministic QS_FAKE presentation across repeated pulls.
 
 ## Current runtime checkpoints
