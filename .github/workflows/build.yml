@@ -48,6 +48,73 @@ jobs:
         run: |
           SCOPE=full
           REASON="trusted main/manual validation"
+          SURFACE_DIFF_AVAILABLE=false
+          HAS_RUNTIME=false
+          HAS_CI=false
+          HAS_TOOLING=false
+          HAS_BUILD=false
+          HAS_DOCS=false
+          MIXED_SURFACE=false
+          MIXED_SURFACE_REASON=""
+
+          has_non_routine_gradle_properties() {
+            local base_sha="$1"
+            local head_sha="$2"
+            local changes
+
+            changes="$(
+              git diff --unified=0 "$base_sha" "$head_sha" -- gradle.properties |
+                awk '/^[+-][^+-]/ {
+                  line = substr($0, 2)
+                  if (line !~ /^combinedStatus\.(versionCode|buildId)=/) {
+                    print line
+                  }
+                }'
+            )"
+            [[ -n "$changes" ]]
+          }
+
+          detect_surfaces() {
+            local base_sha="$1"
+            local head_sha="$2"
+
+            if [[ -z "$base_sha" || -z "$head_sha" || "$base_sha" == "0000000000000000000000000000000000000000" ]]; then
+              return
+            fi
+
+            SURFACE_DIFF_AVAILABLE=true
+            mapfile -t SURFACE_CHANGED_FILES < <(git diff --name-only "$base_sha" "$head_sha")
+
+            for path in "${SURFACE_CHANGED_FILES[@]}"; do
+              case "$path" in
+                .github/workflows/*)
+                  HAS_CI=true
+                  ;;
+                tools/*)
+                  HAS_TOOLING=true
+                  ;;
+                gradle/*|build.gradle.kts|settings.gradle.kts|app/build.gradle.kts|app/proguard-rules.pro|gradlew|gradlew.bat)
+                  HAS_BUILD=true
+                  ;;
+                gradle.properties)
+                  if has_non_routine_gradle_properties "$base_sha" "$head_sha"; then
+                    HAS_BUILD=true
+                  fi
+                  ;;
+                app/*|compat/*)
+                  HAS_RUNTIME=true
+                  ;;
+                docs/*|README.md|README_zh-CN.md|CHANGELOG.md|CONTRIBUTING.md|LICENSE)
+                  HAS_DOCS=true
+                  ;;
+              esac
+            done
+
+            if [[ "$HAS_RUNTIME" == "true" && ( "$HAS_CI" == "true" || "$HAS_TOOLING" == "true" || "$HAS_BUILD" == "true" ) ]]; then
+              MIXED_SURFACE=true
+              MIXED_SURFACE_REASON="runtime and build/CI/tooling surfaces share one diff"
+            fi
+          }
 
           apply_runtime_scope() {
             local mode="$1"
@@ -88,16 +155,7 @@ jobs:
                   break
                   ;;
                 gradle.properties)
-                  NON_ROUTINE_PROPERTIES="$(
-                    git diff --unified=0 "$base_sha" "$head_sha" -- gradle.properties |
-                      awk '/^[+-][^+-]/ {
-                        line = substr($0, 2)
-                        if (line !~ /^combinedStatus\.(versionCode|buildId)=/) {
-                          print line
-                        }
-                      }'
-                  )"
-                  if [[ -n "$NON_ROUTINE_PROPERTIES" ]]; then
+                  if has_non_routine_gradle_properties "$base_sha" "$head_sha"; then
                     SCOPE=full
                     REASON="non-routine Gradle property changed"
                     break
@@ -117,12 +175,15 @@ jobs:
           elif [[ "$EVENT_NAME" == "push" && "$GITHUB_REF" == "refs/heads/dev" ]]; then
             if [[ -n "$PUSH_BEFORE_SHA" && "$PUSH_BEFORE_SHA" != "0000000000000000000000000000000000000000" ]]; then
               classify_paths "$PUSH_BEFORE_SHA" "$PUSH_HEAD_SHA" integration
+              detect_surfaces "$PUSH_BEFORE_SHA" "$PUSH_HEAD_SHA"
             fi
           elif [[ "$EVENT_NAME" == "push" && "$GITHUB_REF" == "refs/heads/main" ]]; then
             if [[ -n "$PUSH_BEFORE_SHA" && "$PUSH_BEFORE_SHA" != "0000000000000000000000000000000000000000" ]]; then
               classify_paths "$PUSH_BEFORE_SHA" "$PUSH_HEAD_SHA" full
+              detect_surfaces "$PUSH_BEFORE_SHA" "$PUSH_HEAD_SHA"
             fi
           elif [[ "$EVENT_NAME" == "pull_request" ]]; then
+            detect_surfaces "$PR_BASE_SHA" "$PR_HEAD_SHA"
             if [[ "$PR_DRAFT" == "true" ]]; then
               SCOPE=light
               REASON="draft pull request"
@@ -131,6 +192,10 @@ jobs:
             else
               classify_paths "$PR_BASE_SHA" "$PR_HEAD_SHA" fast
             fi
+          fi
+
+          if [[ "$MIXED_SURFACE" == "true" ]]; then
+            echo "::warning title=Mixed validation surfaces::$MIXED_SURFACE_REASON. Full remains required while these surfaces are combined. If they are independently mergeable and reversible, isolate the build/CI/tooling change and back-sync it before continuing ordinary runtime work."
           fi
 
           RUN_ANDROID=false
@@ -148,9 +213,18 @@ jobs:
           fi
 
           echo "scope=$SCOPE" >> "$GITHUB_OUTPUT"
+          echo "reason=$REASON" >> "$GITHUB_OUTPUT"
           echo "run_android=$RUN_ANDROID" >> "$GITHUB_OUTPUT"
           echo "run_debug=$RUN_DEBUG" >> "$GITHUB_OUTPUT"
           echo "run_canary=$RUN_CANARY" >> "$GITHUB_OUTPUT"
+          echo "surface_diff_available=$SURFACE_DIFF_AVAILABLE" >> "$GITHUB_OUTPUT"
+          echo "has_runtime=$HAS_RUNTIME" >> "$GITHUB_OUTPUT"
+          echo "has_ci=$HAS_CI" >> "$GITHUB_OUTPUT"
+          echo "has_tooling=$HAS_TOOLING" >> "$GITHUB_OUTPUT"
+          echo "has_build=$HAS_BUILD" >> "$GITHUB_OUTPUT"
+          echo "has_docs=$HAS_DOCS" >> "$GITHUB_OUTPUT"
+          echo "mixed_surface=$MIXED_SURFACE" >> "$GITHUB_OUTPUT"
+          echo "mixed_surface_reason=$MIXED_SURFACE_REASON" >> "$GITHUB_OUTPUT"
           echo "Validation scope: $SCOPE ($REASON)"
 
       - name: Lightweight repository checks
@@ -390,6 +464,19 @@ jobs:
         run: |
           echo "### Build validation" >> "$GITHUB_STEP_SUMMARY"
           echo "- Validation scope: ${{ steps.scope.outputs.scope }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Routing reason: ${{ steps.scope.outputs.reason }}" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${{ steps.scope.outputs.surface_diff_available }}" == "true" ]]; then
+            echo "- Changed surfaces: runtime=${{ steps.scope.outputs.has_runtime }}, build=${{ steps.scope.outputs.has_build }}, CI=${{ steps.scope.outputs.has_ci }}, tooling=${{ steps.scope.outputs.has_tooling }}, docs=${{ steps.scope.outputs.has_docs }}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- Changed surfaces: unavailable for this trigger" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [[ "${{ steps.scope.outputs.mixed_surface }}" == "true" ]]; then
+            echo "- Mixed-surface review: **required** — ${{ steps.scope.outputs.mixed_surface_reason }}" >> "$GITHUB_STEP_SUMMARY"
+            echo "- Guidance: keep Full while combined; split only when the high-risk surface is independently mergeable/reversible, then back-sync before ordinary runtime work continues." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- Mixed-surface review: not required" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "- Signed work-branch Canary: explicit/demand-driven; CI does not infer device-test need from changed paths." >> "$GITHUB_STEP_SUMMARY"
           if [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.pull_request.draft }}" == "true" ]]; then
             echo "- Pull request state: draft (lightweight validation only)" >> "$GITHUB_STEP_SUMMARY"
           fi

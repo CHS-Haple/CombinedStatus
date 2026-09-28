@@ -10,6 +10,19 @@ This directory stores current development state, future direction, version plann
 - [DEVLOG.md](DEVLOG.md) — chronological engineering history.
 - [RECORDING.md](RECORDING.md) — file-level writing conventions, templates, evidence language, and cross-file synchronization rules.
 
+## CI routing quick reference
+
+The normative CI contract lives in [CONTRIBUTING.md](../../CONTRIBUTING.md). The Build workflow keeps four scopes:
+
+- **Light** — Draft and proven repository-only work.
+- **Fast** — ordinary ready `feat/*` / `fix/* -> dev` app/runtime validation.
+- **Integration** — trusted runtime integration on `dev`, including the signed Canary artifact.
+- **Full** — build/dependency/CI/tooling changes and stable boundaries.
+
+Routing is evaluated from the current base-to-head diff. The Build summary reports the selected scope, routing reason, detected runtime/build/CI/tooling/docs surfaces, and a mixed-surface warning when runtime work still carries a Full-triggering engineering surface. That warning is guidance, not permission to split an inseparable change or to weaken Full validation.
+
+Signed work-branch Canary remains explicit and demand-driven after a successful trusted checkpoint. Changed paths alone do not prove that device testing is needed; runtime/device acceptance remains an engineering/maintainer decision.
+
 ## Historical integrity
 
 `DEVLOG.md` is historical evidence.

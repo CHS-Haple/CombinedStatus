@@ -539,11 +539,16 @@ Routing:
 - Trusted ordinary runtime push to `dev` -> Integration.
 - Routine internal `versionCode` / `buildId` changes may remain in Fast/Integration with the runtime change they identify.
 - Dependency/build/CI/tooling changes, including `app/build.gradle.kts` and ProGuard configuration -> Full.
+- CI classifies the **current diff against the target/base**, not merely the latest commit. A work PR that still contains build/CI/tooling changes therefore remains Full even when its newest commit is an ordinary runtime fix.
+- When one diff mixes runtime code with build/CI/tooling surfaces, CI must expose that mixed-surface state in the run summary. Keep Full while the surfaces remain combined. If the high-risk surface is independently mergeable/reversible, isolate and validate it separately, land/synchronize it first, then refresh the runtime branch so its remaining diff can return to Fast. Do not split an inseparable fix merely to reduce CI cost.
+- Do not introduce a mutable "last successful Full" checkpoint or latest-commit-only bypass as the normal classifier. The base-to-head diff remains the safety authority unless a future design can prove ancestry, invalidation, and trust semantics without adding a weaker parallel state source.
 - Mechanical direct maintenance on `main` / `dev` -> Light when proven non-behavioral.
 - Runtime-affecting push or promotion/hotfix boundary on `main` -> Full.
 - Release workflow -> deliberate publication validation.
 
 This keeps validation proportional to the lifecycle stage: Draft pull requests stay cheap while implementation is moving; ready pull requests prove bounded source/build correctness without signing secrets; signed work-branch Canary is created only for an explicit device-validation checkpoint; `dev` still produces the integrated Canary baseline; Full is reserved for changes that can alter the build system or stable artifact contract.
+
+The Build summary is the operator-facing explanation of that routing decision. It reports the selected scope, routing reason, changed surface families, whether runtime and build/CI/tooling changes are mixed, and the explicit Canary boundary. Surface detection is advisory for branch hygiene; it must not downgrade an otherwise required Full gate.
 
 The work-branch Canary is a privileged default-branch workflow, but it is **not** an automatic follow-up to every successful Fast Build. For the normal path, a repository-owner `/canary` top-level comment on an **open, same-repository, ready** `feat/**` or `fix/**` PR resolves the live head branch/SHA, verifies that exact SHA already has a successful trusted `pull_request` Build, then reruns the applicable target-profile/tests and produces one signed non-debuggable Canary for focused device validation. The work branch itself does not gain a privileged push-triggered workflow.
 
