@@ -31,7 +31,7 @@ Classification is not permission to mutate SystemUI. Runtime integration still r
 | --- | --- | --- | --- |
 | Home stable | PROJECTED | NONE | Runtime verified |
 | Notification-shade transition | NATIVE_ONLY | SYSTEM_UI | Runtime lifetime verified |
-| Control Center transition bridge | PROJECTED | SYSTEM_UI | Build 428 rejects hidden realSystemIcons source as active host; Build 430 probes top-level ControlCenterFakeStatusIcons |
+| Control Center transition bridge | PROJECTED | SYSTEM_UI | Build 430 device-verifies top-level ControlCenterFakeStatusIcons fake/final ownership; Build 431 projects on its overlay |
 | Control Center fully expanded | NATIVE_ONLY candidate | SYSTEM_UI | Maintainer concept + native fake/real appearance evidence; product adoption pending review |
 | Keyguard | NATIVE_ONLY | SYSTEM_UI | Static ownership verified |
 | AOD | NATIVE_ONLY | SYSTEM_UI | Static ownership verified |
@@ -79,7 +79,9 @@ Control Center is split into two ownership phases.
 - Build 420 proves that source geometry plus readiness-ordered handoff can preserve continuity, but Build 428 proves the selected `realSystemIcons` source itself is hidden during current Control Center ownership and cannot be the active display host;
 - Builds 425-427 place the compact presentation inside child `QS_FAKE.system_icon_area`; device evidence rejects that child-carrier implementation;
 - exact-target review still verifies the distinct top-level `ControlCenterFakeStatusIcons` presentation and SystemUI-owned Header translation/fake-to-final alpha;
-- Build 430 therefore probes that top-level fake View separately from its child Battery/system-icon-area hide lifecycle before any new rendering/suppression implementation;
+- Build 430 device evidence verifies that the top-level fake View remains visible in normal and charging-island transitions and that HyperOS performs fake->final handoff by changing the root alpha while the child statusBarArea stays visible;
+- Build 431 uses `ControlCenterFakeStatusIcons.overlay` as the transition visual host, resolves the child `MiuiStatusBatteryContainer` only for geometry/tint/native-icon masking, and never uses the child as the Combined Status carrier;
+- represented fake Wi-Fi/mobile/Battery may receive reversible clip masks only after render readiness; no padding reservation, slot-exclusion hook, alpha/visibility writer, translation writer, project animation or final-QS mutation is permitted;
 - SystemUI remains the sole motion/geometry/appearance owner.
 
 **Fully expanded endpoint — current design candidate**
