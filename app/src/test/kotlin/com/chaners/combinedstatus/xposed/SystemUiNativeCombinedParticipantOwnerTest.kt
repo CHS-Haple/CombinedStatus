@@ -432,47 +432,42 @@ class SystemUiNativeCombinedParticipantOwnerTest {
     }
 
     @Test
-    fun masterSwitchBlocksHomeOverlayRegardlessOfControlCenterOrHandoffState() {
+    fun masterSwitchBlocksHomeOverlayRegardlessOfNativeHandoffState() {
         assertFalse(
             CombinedStatusHomeRenderSession.resolveOverlayVisible(
                 featureEnabled = false,
-                controlCenterAllowsHome = true,
                 nativeHandoffActive = false,
             ),
         )
         assertFalse(
             CombinedStatusHomeRenderSession.resolveOverlayVisible(
                 featureEnabled = false,
-                controlCenterAllowsHome = true,
                 nativeHandoffActive = true,
             ),
         )
     }
 
     @Test
-    fun controlCenterOwnershipBlocksHomeOverlay() {
-        assertFalse(
+    fun enabledHomeOverlayNoLongerDependsOnControlCenterOwnership() {
+        assertTrue(
             CombinedStatusHomeRenderSession.resolveOverlayVisible(
                 featureEnabled = true,
-                controlCenterAllowsHome = false,
                 nativeHandoffActive = false,
             ),
         )
     }
 
     @Test
-    fun enabledMasterSwitchStillDefersToControlCenterAndNativeHandoff() {
+    fun enabledMasterSwitchDefersOnlyToNativeHandoff() {
         assertTrue(
             CombinedStatusHomeRenderSession.resolveOverlayVisible(
                 featureEnabled = true,
-                controlCenterAllowsHome = true,
                 nativeHandoffActive = false,
             ),
         )
         assertFalse(
             CombinedStatusHomeRenderSession.resolveOverlayVisible(
                 featureEnabled = true,
-                controlCenterAllowsHome = true,
                 nativeHandoffActive = true,
             ),
         )
