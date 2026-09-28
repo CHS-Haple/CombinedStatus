@@ -31,8 +31,8 @@ Classification is not permission to mutate SystemUI. Runtime integration still r
 | --- | --- | --- | --- |
 | Home stable | PROJECTED | NONE | Runtime verified |
 | Notification-shade transition | NATIVE_ONLY | SYSTEM_UI | Runtime lifetime verified |
-| Control Center transition bridge | PROJECTED | SYSTEM_UI | Build-420 carrier/handoff evidence; native QS_FAKE ownership candidate under review |
-| Control Center fully expanded | NATIVE_ONLY candidate | SYSTEM_UI | Maintainer concept + native fake/real appearance evidence; product adoption pending review |
+| Control Center transition bridge | PROJECTED | SYSTEM_UI | Build 426 QS_FAKE runtime checkpoint under validation |
+| Control Center fully expanded | NATIVE_ONLY | SYSTEM_UI | Native QS destination / fake-real appearance contract; Build 426 device validation pending |
 | Keyguard | NATIVE_ONLY | SYSTEM_UI | Static ownership verified |
 | AOD | NATIVE_ONLY | SYSTEM_UI | Static ownership verified |
 
@@ -75,19 +75,18 @@ Current rules:
 Control Center is split into two ownership phases.
 
 **Partial pull / transition bridge — PROJECTED**
-- the source steady scene may be Home now and Keyguard later;
-- Build 420 proves that a bounded projection can preserve continuity, but its `realSystemIcons.overlay` carrier is not assumed to be the final architecture;
-- exact-target review now shows a separate native `QS_FAKE` status-bar presentation with its own `MiuiStatusBatteryContainer`, native source-size synchronization, unlocked/keyguard tint handling, and SystemUI-owned translation/alpha;
-- using that native fake carrier is the leading low-overhead candidate because it may inherit the transition without a project-owned appearance/geometry state machine;
-- this candidate remains under review until first-frame readiness, native suppression/masking, Hot Reload, and device behavior are verified;
-- SystemUI remains the sole motion/geometry owner.
+- the current verified source is Home; Keyguard remains native-only until it has its own steady compact owner;
+- Build 420 remains historical evidence that a bounded handoff can preserve continuity, but its source-anchor `realSystemIcons.overlay` projection is superseded in Build 426;
+- Build 426 renders the compact transition presentation inside HyperOS's native `QS_FAKE` `MiuiStatusBatteryContainer` and uses the shared identity-routed compact-presentation registry for reversible local slot exclusion, masking and reservation;
+- the existing low-frequency Control Center visibility callback defines only the fake-session lifetime; it does not write Home visibility;
+- SystemUI remains the sole motion/translation/alpha/source-selection owner.
 
-**Fully expanded endpoint — current design candidate**
-- the maintainer currently prefers a native-only fully expanded Control Center state;
-- this is a product-intent hypothesis, not yet a verified endpoint/lifecycle contract;
-- exact source/runtime review must determine the true ownership boundary and whether a cleaner native handoff abstraction exists before this becomes implementation policy.
+**Fully expanded endpoint — NATIVE_ONLY**
+- HyperOS's independent native `QS` status bar remains the destination representation;
+- native fake/real appearance switching owns the visual handoff; Combined Status does not observe or reconstruct the appearance threshold;
+- the project QS_FAKE visual therefore inherits native fake alpha and naturally leaves the fully expanded endpoint.
 
-Build 420 proved the carrier/handoff mechanism and kept projection alive through the expanded Control Center lifetime. That remains valuable runtime evidence. Whether the final endpoint should be native-only is still under architecture review.
+Build 426 is not yet device-accepted. First/last-frame continuity, repeated partial/full pulls, charging/island interaction, native fully-expanded ownership and fail-native Keyguard behavior remain focused device gates.
 
 No project-owned timing threshold, custom animation, polling/frame follower, peer geometry write, or second native suppression owner is permitted.
 
