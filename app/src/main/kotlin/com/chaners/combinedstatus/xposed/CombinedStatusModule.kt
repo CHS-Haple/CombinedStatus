@@ -1129,19 +1129,21 @@ class CombinedStatusModule : XposedModule() {
                     sourceCarrier = sourceCarrier,
                     onEvent = ::onPanelTransitionEvent,
                     onFailNative = ::onControlCenterPresentationRuntimeFailure,
+                    onReady = ::onControlCenterPresentationReady,
                 )
         ) {
             is SystemUiControlCenterPresentationOwner.StateResult.Active -> {
-                val visible =
-                    CombinedStatusControlCenterRenderSession.setPresentationOwned(true)
+                onControlCenterPresentationReady(result)
+            }
+
+            is SystemUiControlCenterPresentationOwner.StateResult.Prepared -> {
                 logDiagnostic(
                     level = Log.INFO,
-                    event = "presentation.cutover",
+                    event = "presentation.prepare",
                     component = "controlCenterProjection",
-                    state = if (visible) "combined" else "prepared",
+                    state = "waiting-native-layout",
                     "carrier" to "QS_FAKE",
                     "representedSlots" to result.representedSlots,
-                    "maskedViews" to result.maskedViews,
                     "motion" to "system-ui-inherited",
                     "nativeGeometryWrites" to 0,
                 )
@@ -1161,6 +1163,25 @@ class CombinedStatusModule : XposedModule() {
 
             is SystemUiControlCenterPresentationOwner.StateResult.Inactive -> Unit
         }
+    }
+
+    private fun onControlCenterPresentationReady(
+        result: SystemUiControlCenterPresentationOwner.StateResult.Active,
+    ) {
+        val visible =
+            CombinedStatusControlCenterRenderSession.setPresentationOwned(true)
+        logDiagnostic(
+            level = Log.INFO,
+            event = "presentation.cutover",
+            component = "controlCenterProjection",
+            state = if (visible) "combined" else "prepared",
+            "carrier" to "QS_FAKE",
+            "representedSlots" to result.representedSlots,
+            "maskedViews" to result.maskedViews,
+            "cutover" to "native-layout-ready",
+            "motion" to "system-ui-inherited",
+            "nativeGeometryWrites" to 0,
+        )
     }
 
     private fun onControlCenterPresentationRuntimeFailure(reason: String) {
