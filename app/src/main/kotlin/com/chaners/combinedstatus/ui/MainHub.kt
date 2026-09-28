@@ -240,9 +240,6 @@ private fun TopLevelPager(
     onLauncherIconHiddenChange: (Boolean) -> Unit,
     onSwipeBackEnabledChange: (Boolean) -> Unit,
     previewState: PreviewSandboxUiState,
-    onPreviewCenterIndexChange: (Int) -> Unit,
-    onPreviewSignalIndexChange: (Int) -> Unit,
-    onPreviewBatteryIndexChange: (Int) -> Unit,
     onNavigate: (AppRoute) -> Unit,
 ) {
     val flingBehavior = PagerDefaults.flingBehavior(
