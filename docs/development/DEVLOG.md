@@ -8066,3 +8066,62 @@ Integrated Canary artifact:
 - **Future extension:** continue the Control Center transition redesign in a new short-lived feature branch from this exact integrated baseline; do not reuse merged PR #146.
 
 This record-only closure does not create Build 425.
+
+
+---
+
+## 2026-09-28 — Build 425 compact-presentation registry extraction
+
+**Build:** 425 / `20260928-425`
+**Branch:** `feat/control-center-native-transition`
+**Device validation:** not required unless source review or CI reveals behavior drift
+
+### Goal
+
+Prepare the accepted Build-424 Home presentation layer for a second native carrier without adding a second Hook set or changing Home behavior.
+
+### Implementation
+
+- Introduce `SystemUiCompactPresentationRegistry` as the sole installer for the existing three presentation Hooks:
+  - `MiuiStatusIconContainer.onMeasure`;
+  - `MiuiStatusIconContainer.onLayout`;
+  - `MiuiStatusBatteryContainer.setIsHideBattery`.
+- Route those Hooks by exact owned View identity through a small volatile session snapshot.
+- Move reusable represented-slot exclusion, reversible clip-mask, local end-reservation, writer-conflict, and cleanup mechanics into registry sessions.
+- Keep `SystemUiHomePresentationOwner` as the Home-specific adapter:
+  - exact Home host/subtree resolution;
+  - Home readiness/fail-native semantics;
+  - Home event naming;
+  - legacy participant cleanup;
+  - existing public/internal API consumed by the module.
+- Register only the Home session in Build 425. QS_FAKE is **not** activated in this checkpoint.
+- Preserve the legacy Hook IDs so Hot Reload/replacement diagnostics do not gain an unnecessary identity change.
+- Correct the install diagnostic carrier label to the already-accepted Build-424 `MiuiStatusBatteryContainer.overlay`.
+
+### 问题执行流程
+
+**现象与证据:** exact-target review shows Home, future Keyguard, and QS_FAKE share the same `MiuiStatusBatteryContainer + MiuiStatusIconContainer + MiuiBatteryMeterView` presentation structure, while current Home presentation Hooks are already target-identity-gated.
+
+**根因 / 责任源:** adding QS_FAKE by copying the Home owner would duplicate Hook/state ownership. Keeping the current single-session implementation would instead force unrelated surface lifecycle state into the Home owner.
+
+**原生实现:** HyperOS keeps each source/transition carrier as a distinct View instance. Exact carrier identity is therefore the natural dispatch key.
+
+**方案:** one global Hook set plus independent host-scoped sessions. Build 425 performs only the behavior-preserving extraction; the native QS_FAKE owner is introduced in the next checkpoint.
+
+**workaround:** none.
+
+### 审查 / review
+
+- **Ownership:** each session owns only the explicit carrier/status-icon/Battery instances supplied by its surface adapter.
+- **Lifecycle:** Home remains the only registered session in Build 425; existing attach/detach/fail-native flow is unchanged.
+- **Single writer:** the same three Hook points remain the only layout/Battery interception layer.
+- **Cleanup:** registry release removes the session from dispatch before restoring its local padding/clip state; reset releases all sessions before unhooking.
+- **Fail-native:** Home adapter retains its existing fallback callback and native restoration behavior.
+- **Performance:** Hook count stays at three. Hot-path dispatch changes from synchronized access to an immutable volatile array identity lookup; no polling, timer, frame listener, or extra observer is added.
+- **Compatibility:** no new private SystemUI contract is required in Build 425.
+- **Exception recovery:** Hot Reload keeps the existing module-facing owner API and hook-count accounting.
+- **Future extension:** the next checkpoint may register one QS_FAKE session without duplicating Hooks or turning Home into a cross-scene owner.
+
+### Validation
+
+Draft Light first. After source review, move Ready for the normal runtime checkpoint build. This internal extraction does not need a signed Canary/device pass if automated validation shows no behavior drift; continue directly to the QS_FAKE checkpoint.

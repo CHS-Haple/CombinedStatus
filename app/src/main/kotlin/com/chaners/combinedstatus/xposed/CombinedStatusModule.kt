@@ -544,7 +544,7 @@ class CombinedStatusModule : XposedModule() {
                     state = "ready",
                     "source" to source,
                     "hooks" to SystemUiHomePresentationOwner.installedHookCount,
-                    "carrier" to "MiuiNotificationStatusContainer.overlay",
+                    "carrier" to "MiuiStatusBatteryContainer.overlay",
                     "nativeGeometryWrites" to 0,
                 )
             }
