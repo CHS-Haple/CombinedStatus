@@ -812,7 +812,7 @@ internal object SystemUiHomePresentationOwner {
                     hostHeightPx = hostView.height,
                     baseCarrierWidthPx = stableCarrierWidthPx,
                     isRtl = hostView.layoutDirection == View.LAYOUT_DIRECTION_RTL,
-                ) ?: run { onFailNative("home-layout-unavailable"); return false }
+                ) ?: run { onFailNative(surfaceName + "-layout-unavailable"); return false }
             val requestedSlotWidthPx = resolved.requestedSlotWidthPx.toInt()
             val reservationDelta =
                 EndReservationPolicy.resolvePaddingEndDelta(
@@ -946,7 +946,7 @@ internal object SystemUiHomePresentationOwner {
 
         override fun onViewDetachedFromWindow(view: View) {
             if (active) {
-                onFailNative("home-host-detached")
+                onFailNative(surfaceName + "-host-detached")
             }
         }
 
