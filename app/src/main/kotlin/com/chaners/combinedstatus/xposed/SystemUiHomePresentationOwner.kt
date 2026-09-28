@@ -355,12 +355,14 @@ internal object SystemUiHomePresentationOwner {
                 ?: return@Hooker chain.proceed()
             val session =
                 synchronized(this) {
-                    current?.takeIf { candidate -> candidate.owns(target) }
+                    controlCenterCurrent?.takeIf { candidate -> candidate.owns(target) }
+                        ?: current?.takeIf { candidate -> candidate.owns(target) }
                 } ?: return@Hooker chain.proceed()
 
             val result = session.withRepresentedSlotsIgnored { chain.proceed() }
             if (refreshMasksAfter) {
-                session.refreshClipMasks()
+                val masked = session.refreshClipMasks()
+                session.onNativeLayoutCompleted(masked)
             }
             result
         }
@@ -372,7 +374,9 @@ internal object SystemUiHomePresentationOwner {
             val result = chain.proceed()
             val session =
                 synchronized(this) {
-                    current?.takeIf { candidate -> candidate.ownsBatteryContainer(target) }
+                    controlCenterCurrent
+                        ?.takeIf { candidate -> candidate.ownsBatteryContainer(target) }
+                        ?: current?.takeIf { candidate -> candidate.ownsBatteryContainer(target) }
                 }
             session?.syncEndReservation()
             result
