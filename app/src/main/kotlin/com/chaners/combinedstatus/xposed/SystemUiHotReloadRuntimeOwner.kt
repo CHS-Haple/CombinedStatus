@@ -62,6 +62,8 @@ internal object SystemUiHotReloadRuntimeOwner {
                     SystemUiPanelTransitionSource.currentControlCenterHomeEligibility(),
                 appliedTint = stableTint?.appliedTint,
                 statusIconTint = stableTint?.statusIconTint,
+                controlCenterFakeHost =
+                    CombinedStatusControlCenterRenderSession.currentAttachedHostForHotReload(),
             ) ?: return PrepareResult.Unavailable(
                 reason = "state-transfer-capture-failed",
                 wifiRoots = bindingCounts.first,
