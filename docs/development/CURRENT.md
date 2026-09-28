@@ -15,7 +15,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Phase-2A integration: PR #105 merged to `dev` as `2f584c3b393dc5ee606284426aa95a9d6beae5d5`; former stacked PR #100 is closed as superseded.
 - Phase-2B panel/scene-owner integration: PR #138 merged to `dev` as `a25cb5ce2aeab235cfaed579474df70596f03a63`.
 - PR #142 (`fix/home-hun-ownership`) is merged and closed; its Build-413 HUN/shallow-pull lifetime correction is part of `dev` and was promoted to `main` through PR #147.
-- Parallel app-UI checkpoint: `feat/floating-navigation-options` / Build 436 aligns Floating Glass with the pinned MIUIX example and adds a persisted icon-only vs icon-with-label content option shared by the live bottom bar and Appearance preview. Validation is pending.
+- Parallel app-UI checkpoint: `feat/floating-navigation-options` / Build 437 aligns Floating Glass with the pinned MIUIX example, adds a persisted icon-only vs icon-with-label content option, and keeps the Appearance preview on fixed bounds while bottom-anchoring the navigation preview. Validation is pending.
 - Active development display line: **0.0.2**
 - First planned formal release: **1.0.0**
 - Target profile: HyperOS SystemUI `17.03.260226.r`
