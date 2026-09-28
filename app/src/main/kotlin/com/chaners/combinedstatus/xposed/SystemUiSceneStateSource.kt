@@ -146,3 +146,18 @@ internal object SystemUiSceneStateSource {
     private const val STATUS_BAR_STATE_KEYGUARD = 1
     private const val STATUS_BAR_STATE_SHADE_LOCKED = 2
 }
+
+
+internal object CombinedStatusScenePolicy {
+    fun controlCenterProjectionEligible(
+        surface: SystemUiSceneStateSource.Surface,
+        keyguardEnabled: Boolean,
+    ): Boolean =
+        when (surface) {
+            SystemUiSceneStateSource.Surface.UNLOCKED_STATUS_BAR -> true
+            SystemUiSceneStateSource.Surface.KEYGUARD -> keyguardEnabled
+            SystemUiSceneStateSource.Surface.SHADE_LOCKED,
+            SystemUiSceneStateSource.Surface.UNKNOWN,
+            -> false
+        }
+}

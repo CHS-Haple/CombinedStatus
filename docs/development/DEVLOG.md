@@ -3,6 +3,67 @@
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
 
+## 2026-09-29 — Build 444: source-scene-gated QS_FAKE
+
+**Type:** Phase-3 scene-policy correction
+**Build:** 444 / `20260929-444`
+**Work branch:** `feat/keyguard-scene-adapter`
+**Base:** Build-443 exact head `7df6dfe424a645e9453c6a8737fe997b57c6793f`
+**Hook delta:** 0
+**Keyguard steady rendering:** still disabled
+**AOD:** untouched
+
+### Build-443 device evidence
+
+The maintainer confirms that a lockscreen-originated Control Center pull still shows the Combined Status icon. The supplied Build-443 diagnostic establishes two independent facts:
+
+1. The Build-443 cutover fix is active. Cold-start preparation reports `preLayoutVisualMask active=false maskedViews=0 compactLayoutReady=false fallbackVisual=native-until-native-layout`, then native `onLayout` commits compact readiness.
+2. The remaining lockscreen projection is policy, not readiness. Native scene updates enter `raw=1 / KEYGUARD`; later, when Control Center becomes visible, the projection reports `requestedVisible=true` and `ready=true`. Existing `homeRenderControlCenterEligibility=false` only yields the Home steady renderer and does not classify the QS_FAKE source scene.
+
+### Root cause
+
+The shared QS_FAKE bridge had no source-scene eligibility input. Its readiness equation was effectively:
+
+`featureEnabled && modelReady && tintReady && layoutReady && hostAttached && nativePresentationReady`.
+
+That makes a Keyguard-originated pull indistinguishable from a Home-originated pull once the fake root is structurally ready.
+
+### Corrected execution flow
+
+Existing native `MiuiBatteryMeterView.mStatusBarState`
+-> `SystemUiSceneStateSource.Surface`
+-> `CombinedStatusScenePolicy`
+-> source-scene eligibility
+-> QS_FAKE compact presentation + overlay readiness.
+
+Current Build-444 policy:
+- `UNLOCKED_STATUS_BAR`: Combined QS_FAKE allowed.
+- `KEYGUARD`: native QS_FAKE while `keyguardEnabled=false`.
+- `SHADE_LOCKED`: native.
+- `UNKNOWN`: native.
+
+When eligibility becomes false, the overlay readiness gate closes and the existing compact native presentation is deactivated/restored in the same main-thread event. The gate therefore does not leave a hidden Combined overlay paired with masked native slots.
+
+At fake-session attach, the current fake Battery scene is read through the already-installed scene source so cold start and Hot Reload do not depend on receiving a fresh callback before falling back safely.
+
+### 审查 / review
+
+- **root cause first:** fixes missing source-scene policy rather than adding gesture timing checks.
+- **native authority:** scene classification reuses the existing native StatusBarState source already used by HyperOS for Home/Keyguard source selection.
+- **single writer:** existing HomePresentationOwner remains the only compact-mask writer.
+- **fail native:** KEYGUARD / SHADE_LOCKED / UNKNOWN default to native until a verified Keyguard feature policy exists.
+- **future setting:** the policy already accepts `keyguardEnabled`; wiring that setting is deferred until steady Keyguard rendering exists so one switch can govern steady Keyguard + Keyguard-originated QS_FAKE together.
+- **performance:** no Hook/listener/timer/polling/frame callback is added.
+- **AOD:** unchanged.
+
+### Validation plan
+
+Run exact-head Fast and trusted Canary. Device check then compares:
+1. unlocked Home -> Control Center: existing Combined QS_FAKE remains;
+2. Keyguard -> Control Center: native QS_FAKE only;
+3. return/unlock -> Control Center: Combined QS_FAKE resumes without SystemUI restart.
+
+
 ## 2026-09-29 — Build 443: atomic QS_FAKE cold-start cutover
 
 **Type:** device-evidence-driven transition ownership correction

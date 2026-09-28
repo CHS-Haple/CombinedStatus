@@ -20,6 +20,7 @@ class CombinedStatusModule : XposedModule() {
     private var islandMotionSourceInstalled = false
     private var panelTransitionSourceInstalled = false
     private var controlCenterSceneVisible = false
+    private var controlCenterSceneEligible = false
     private var controlCenterGeometryProbeBucket = -1
     private var runtimeSessionId = newRuntimeSessionId()
     private val diagnosticSequence = AtomicLong(0L)
@@ -1533,6 +1534,30 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun onSceneStateUpdate(update: SystemUiSceneStateSource.SceneUpdate) {
+        val nextControlCenterSceneEligible =
+            CombinedStatusScenePolicy.controlCenterProjectionEligible(
+                surface = update.surface,
+                keyguardEnabled = false,
+            )
+        if (nextControlCenterSceneEligible != controlCenterSceneEligible) {
+            controlCenterSceneEligible = nextControlCenterSceneEligible
+            CombinedStatusControlCenterRenderSession.setSceneEligible(
+                nextControlCenterSceneEligible,
+            )
+            logDiagnostic(
+                level = Log.INFO,
+                event = "scene.eligibility",
+                component = "controlCenterProjection",
+                state = if (nextControlCenterSceneEligible) "eligible" else "native",
+                "surface" to update.surface.name,
+                "keyguardEnabled" to false,
+                "controlCenterVisible" to controlCenterSceneVisible,
+                "fallback" to
+                    if (nextControlCenterSceneEligible) "combined-qs-fake" else "native-qs-fake",
+                "nativeGeometryWrites" to 0,
+            )
+        }
+
         if (BuildConfig.RUNTIME_DIAGNOSTICS) {
             SystemUiKeyguardHostProbe.capture(update)?.let(::onKeyguardHostProbe)
         }
@@ -1585,6 +1610,7 @@ class CombinedStatusModule : XposedModule() {
         continuousHandoff: Boolean = false,
     ) {
         controlCenterSceneVisible = false
+        controlCenterSceneEligible = false
         CombinedStatusControlCenterRenderSession.detach(
             source = "hotReload-oldGeneration",
             releaseNativePresentation = !continuousHandoff,

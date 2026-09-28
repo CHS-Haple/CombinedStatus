@@ -79,6 +79,8 @@ Exit criteria:
 
 ## Phase 3 — Keyguard / lockscreen / AOD scene completion — active
 
+Build 444 establishes source-scene eligibility for the shared QS_FAKE bridge before steady Keyguard rendering is enabled. The bridge now inherits the current native scene policy: unlocked Home may project Combined Status, while Keyguard/locked/unknown scenes fail native until the dedicated Keyguard policy is enabled. The gate releases both overlay visibility and compact native masking together. The future lockscreen switch is therefore a feature-domain input to this same policy, not a separate QS_FAKE setting.
+
 Build 443 inserts a transition-safety checkpoint before enabling steady Keyguard rendering: the shared QS_FAKE bridge must preserve native visuals until its existing native-layout boundary can atomically commit mask + Combined projection readiness. This keeps fail-native semantics intact for cold-start Keyguard-originated pulls. The later scene-policy layer remains explicit: Home steady and Keyguard steady are separate adapters sharing domain/render semantics, and QS_FAKE must inherit the native-selected source scene rather than act as an independent user-facing scene.
 
 Reuse the stabilized domain state, renderer semantics, ownership rules, and fail-native behavior while giving each scene its own verified host/lifecycle adapter.

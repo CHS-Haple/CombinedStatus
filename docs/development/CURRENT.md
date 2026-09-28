@@ -38,7 +38,19 @@ SystemUI remains authoritative for surrounding native layout, Battery presentati
 
 For the pinned HyperOS target, Notification Shade itself does not present the status-icon row; therefore Phase 2B does **not** project Combined Status into Notification Shade. Build-423 device evidence proves Notification Header progress is motion context rather than the complete Home visibility authority. Exact-target source instead traces `StatusBarVisibilityInteractor.shouldHomeStatusBarBeVisible -> HomeStatusBarViewModelImpl.systemInfoCombinedVis -> HomeStatusBarViewBinderInjector -> mEndSideContent = R.id.system_icons`. Build 424 therefore places the unlocked/Home render overlay on that exact `MiuiStatusBatteryContainer(system_icons)` owner so native alpha/visibility/transition lifecycle is inherited without a project-local shade gate. Control Center projection is now a bounded transition bridge only: the fully expanded endpoint must return to native status-bar presentation. Keyguard/lockscreen follows as a separate source adapter after Phase 2B, reusing shared domain/render semantics without sharing mutable Home host/session ownership.
 
-## Active checkpoint — Build 443 atomic QS_FAKE cold-start cutover
+## Active checkpoint — Build 444 source-scene-gated QS_FAKE
+
+- Work branch remains `feat/keyguard-scene-adapter`; runtime identity advances to Build 444 / `20260929-444`.
+- Build-443 device evidence confirms the atomic cold-start cutover is active: pre-layout now reports `active=false / fallbackVisual=native-until-native-layout`. It also proves the remaining lockscreen behavior is a separate scene-policy defect: after native state enters `KEYGUARD`, the shared QS_FAKE session still accepts `requestedVisible=true` and becomes `ready=true`, so Combined Status remains visible during a Keyguard-originated Control Center pull.
+- Root cause: QS_FAKE eligibility previously depended on feature/readiness/panel visibility only. The existing native scene source was not part of the projection contract.
+- Build 444 adds a fail-native source-scene gate with **zero new Hooks**. `UNLOCKED_STATUS_BAR` allows the existing Combined QS_FAKE bridge; `KEYGUARD`, `SHADE_LOCKED`, and `UNKNOWN` remain native while the Keyguard feature policy is not yet enabled.
+- The gate owns both sides of the cutover: when a scene is ineligible, the Combined overlay is hidden **and** the compact QS_FAKE native mask/presentation is released. This avoids a half-state where the project visual is hidden but native Wi-Fi/mobile/Battery remain clipped.
+- The current fake Battery's existing `mStatusBarState` is read through `SystemUiSceneStateSource.currentState()` when a QS_FAKE session attaches, so cold start / Hot Reload fail native even before a new scene callback arrives.
+- A future `keyguardEnabled` feature setting will feed the same policy; Build 444 deliberately keeps it `false` until the real steady Keyguard adapter exists. No temporary UI switch is added.
+- Home steady rendering, Home-originated QS_FAKE behavior, native fully-expanded endpoint, and AOD remain unchanged.
+- Validation gate: exact-head Fast -> signed Canary -> focused unlocked-vs-Keyguard Control Center comparison.
+
+## Device evidence — Build 443 atomic QS_FAKE cold-start cutover
 
 - Work branch remains `feat/keyguard-scene-adapter`; runtime identity advances to Build 443 / `20260929-443`.
 - Build-442 device evidence confirms Keyguard steady rendering is still native-only while the existing shared `ControlCenterFakeStatusIcons` projection can display Combined Status during a Keyguard-originated Control Center pull. This is not treated as a completed Keyguard scene adapter.
@@ -47,7 +59,7 @@ For the pinned HyperOS target, Notification Shade itself does not present the st
 - Build 443 keeps native visuals intact before compact cutover. The existing native `onLayout` Hook remains the sole cutover boundary: after native layout completes, the same main-thread turn applies the visual mask, marks compact layout ready, lays out the Combined overlay, and makes it eligible for visibility.
 - Hook delta remains **0**; no delay, timer, retry loop, frame callback, extra visibility writer, or Keyguard-specific QS_FAKE patch is added.
 - Home steady rendering behavior is unchanged. Keyguard steady rendering is still not enabled. AOD remains untouched.
-- Validation gate: Draft Light -> Ready Fast; only if automated validation passes will Build 443 be offered for focused SystemUI-restart / first-Keyguard-pull device verification.
+- Fast #1534 / run `36486221557` and trusted Work Branch Canary #455 / run `36486602806` passed exact head `7df6dfe424a645e9453c6a8737fe997b57c6793f`. Device diagnostics then confirm the atomic pre-layout fallback (`active=false`, native retained) but reject the inherited scene policy: while native scene state is KEYGUARD, QS_FAKE still becomes `requestedVisible=true / ready=true`, so a Keyguard-originated pull still displays Combined Status.
 
 ## Device evidence — Build 442 Keyguard steady-host read-only probe
 

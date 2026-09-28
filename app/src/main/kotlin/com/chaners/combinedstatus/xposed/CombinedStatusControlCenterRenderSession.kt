@@ -22,6 +22,7 @@ internal object CombinedStatusControlCenterRenderSession {
 
     private var current: Session? = null
     private var pendingPrearm: PendingPrearm? = null
+    private var sceneEligible = false
 
     @Synchronized
     fun prearmAfterNextNativeLayout(
@@ -52,6 +53,7 @@ internal object CombinedStatusControlCenterRenderSession {
                 onEvent = onEvent,
                 isDetailedDiagnosticsEnabled = isDetailedDiagnosticsEnabled,
                 onProjectionReadinessChanged = onProjectionReadinessChanged,
+                sceneEligible = sceneEligible,
             )
         pendingPrearm = pending
         pending.start()
@@ -83,6 +85,14 @@ internal object CombinedStatusControlCenterRenderSession {
         val carrier =
             SystemUiHomeCarrierMetrics.resolveCarrierView(battery)
                 ?: return AttachResult.Failure("battery-core-carrier-missing")
+        val resolvedSurface =
+            SystemUiSceneStateSource.currentState(battery)?.surface
+                ?: SystemUiSceneStateSource.Surface.UNKNOWN
+        sceneEligible =
+            CombinedStatusScenePolicy.controlCenterProjectionEligible(
+                surface = resolvedSurface,
+                keyguardEnabled = false,
+            )
 
         val existing = current
         if (
@@ -122,6 +132,18 @@ internal object CombinedStatusControlCenterRenderSession {
     @Synchronized
     fun setRequestedVisible(visible: Boolean): Boolean =
         current?.setRequestedVisible(visible) ?: false
+
+    @Synchronized
+    fun setSceneEligible(eligible: Boolean) {
+        sceneEligible = eligible
+        val session = current
+        session?.setSceneEligible(eligible)
+        if (!eligible) {
+            SystemUiHomePresentationOwner.deactivateControlCenter("scene-ineligible")
+        } else {
+            session?.prepareNativePresentation(reused = true)
+        }
+    }
 
     @Synchronized
     fun currentAttachedHostForHotReload(): ViewGroup? =
@@ -225,8 +247,10 @@ internal object CombinedStatusControlCenterRenderSession {
     fun onFeatureSettingsChanged(settings: CombinedStatusFeatureSettings) {
         val session = current
         session?.setFeatureEnabled(settings.enabled)
-        if (!settings.enabled) {
-            SystemUiHomePresentationOwner.deactivateControlCenter("feature-disabled")
+        if (!settings.enabled || !sceneEligible) {
+            SystemUiHomePresentationOwner.deactivateControlCenter(
+                if (!settings.enabled) "feature-disabled" else "scene-ineligible",
+            )
         } else {
             session?.prepareNativePresentation(reused = true)
         }
@@ -249,6 +273,7 @@ internal object CombinedStatusControlCenterRenderSession {
         }
         current?.stop(source)
         current = null
+        sceneEligible = false
     }
 
     @Synchronized
@@ -406,6 +431,7 @@ internal object CombinedStatusControlCenterRenderSession {
 
     internal fun resolveProjectionReady(
         featureEnabled: Boolean,
+        sceneEligible: Boolean,
         modelReady: Boolean,
         tintReady: Boolean,
         layoutReady: Boolean,
@@ -413,6 +439,7 @@ internal object CombinedStatusControlCenterRenderSession {
         nativePresentationReady: Boolean,
     ): Boolean =
         featureEnabled &&
+            sceneEligible &&
             modelReady &&
             tintReady &&
             layoutReady &&
@@ -440,6 +467,7 @@ internal object CombinedStatusControlCenterRenderSession {
 
         private var requestedVisible = false
         private var featureEnabled = RuntimeFeaturePreferencesOwner.currentSettings().enabled
+        private var sceneEligible = sceneEligible
         private var modelReady = false
         private var tintReady = false
         private var layoutReady = false
@@ -521,7 +549,11 @@ internal object CombinedStatusControlCenterRenderSession {
         }
 
         fun prepareNativePresentation(reused: Boolean): AttachResult {
-            if (!featureEnabled) {
+            if (!featureEnabled || !sceneEligible) {
+                nativePresentationReady = false
+                syncPresentation(
+                    if (!featureEnabled) "feature-ineligible" else "scene-ineligible",
+                )
                 return AttachResult.Ready
             }
             val statusArea =
@@ -633,6 +665,14 @@ internal object CombinedStatusControlCenterRenderSession {
             val batteryView = battery.get() ?: return
             if (update.sourceView !== batteryView) return
             applyTint(update.state, "battery")
+        }
+
+        fun setSceneEligible(eligible: Boolean) {
+            sceneEligible = eligible
+            if (!eligible) {
+                nativePresentationReady = false
+            }
+            syncPresentation("scene")
         }
 
         fun setFeatureEnabled(enabled: Boolean) {
@@ -767,6 +807,7 @@ internal object CombinedStatusControlCenterRenderSession {
         private fun projectionReady(): Boolean =
             resolveProjectionReady(
                 featureEnabled = featureEnabled,
+                sceneEligible = sceneEligible,
                 modelReady = modelReady,
                 tintReady = tintReady,
                 layoutReady = layoutReady,
@@ -797,6 +838,7 @@ internal object CombinedStatusControlCenterRenderSession {
                 "controlCenterProjection readiness source=" + source +
                     " ready=" + ready +
                     " requestedVisible=" + requestedVisible +
+                    " sceneEligible=" + sceneEligible +
                     " modelReady=" + modelReady +
                     " tintReady=" + tintReady +
                     " layoutReady=" + layoutReady +
