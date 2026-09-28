@@ -3,10 +3,10 @@
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
 
-## 2026-09-29 — Build 437: keep Appearance preview geometry stable
+## 2026-09-29 — Build 438: keep Appearance preview geometry stable
 
 **Type:** companion-app UI correction
-**Build:** 437 / `20260929-437`
+**Build:** 438 / `20260929-438`
 **Work branch:** `feat/floating-navigation-options`
 **Validation:** pending PR CI and focused app-UI smoke
 
