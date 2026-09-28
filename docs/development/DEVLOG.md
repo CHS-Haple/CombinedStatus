@@ -5,8 +5,8 @@ This is the chronological engineering diary for Combined Status. It complements,
 
 ## 2026-09-29 — Build 435: retain prepared QS_FAKE through transient startup layout loss
 
-**Type:** Phase-2B cold-start lifecycle correction / executable checkpoint  
-**Build:** 435 / `20260929-435`  
+**Type:** Phase-2B cold-start lifecycle correction / executable checkpoint
+**Build:** 435 / `20260929-435`
 **Work branch / PR:** `fix/control-center-fake-root` / #156
 
 ### Build 434 device result
@@ -54,8 +54,8 @@ Restart SystemUI and immediately perform the first non-charging Control Center p
 
 ## 2026-09-29 — Build 434: move QS_FAKE prearm from attach to first native layout
 
-**Type:** Phase-2B cold-start lifecycle correction / executable checkpoint  
-**Build:** 434 / `20260929-434`  
+**Type:** Phase-2B cold-start lifecycle correction / executable checkpoint
+**Build:** 434 / `20260929-434`
 **Work branch / PR:** `fix/control-center-fake-root` / #156
 
 ### Build 433 device result
