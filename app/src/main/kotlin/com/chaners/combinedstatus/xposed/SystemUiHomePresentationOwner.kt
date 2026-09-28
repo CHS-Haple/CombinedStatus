@@ -595,7 +595,7 @@ internal object SystemUiHomePresentationOwner {
                 " slotExclusion=scoped-native-measure-layout " +
                 "carrierReservation=stable-battery-slot " +
                 "carrierAuthority=battery_icon_container visualMask=clipBounds " +
-                "cutover=native-layout-ready nativeTranslationWrites=0 " +
+                "cutover=compact-layout-ready nativeTranslationWrites=0 " +
                 "nativeAlphaWrites=0 nativeVisibilityWrites=0",
         )
         controlCenterReadySink?.invoke(active)
