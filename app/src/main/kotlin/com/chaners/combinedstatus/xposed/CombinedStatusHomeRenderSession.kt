@@ -99,19 +99,6 @@ internal object CombinedStatusHomeRenderSession {
     }
 
     @Synchronized
-    fun onPanelTransitionUpdate(update: SystemUiPanelTransitionSource.Update) {
-        current?.updatePanelTransition(update)
-    }
-
-    @Synchronized
-    fun onNotificationShadeAuthorityChanged(homeEligible: Boolean) {
-        current?.updateNotificationShadeHomeEligibility(
-            homeEligible = homeEligible,
-            source = "source-availability",
-        )
-    }
-
-    @Synchronized
     fun onControlCenterAuthorityChanged(homeEligible: Boolean) {
         current?.updateControlCenterHomeEligibility(
             homeEligible = homeEligible,
@@ -135,12 +122,10 @@ internal object CombinedStatusHomeRenderSession {
 
     internal fun resolveOverlayVisible(
         featureEnabled: Boolean,
-        notificationShadeAllowsHome: Boolean,
         controlCenterAllowsHome: Boolean,
         nativeHandoffActive: Boolean,
     ): Boolean =
         featureEnabled &&
-            notificationShadeAllowsHome &&
             controlCenterAllowsHome &&
             !nativeHandoffActive
 
@@ -234,8 +219,6 @@ internal object CombinedStatusHomeRenderSession {
         private var layoutLogged = false
         private var deferredStateLogged = false
         private var rejectedTintLogged = false
-        private var notificationShadeAllowsHome =
-            SystemUiPanelTransitionSource.currentNotificationShadeHomeEligibility() ?: false
         // Control Center handoff is coordinator-owned. Source visibility is
         // diagnostic context only until a projected carrier is ready.
         private var controlCenterAllowsHome = true
@@ -247,7 +230,7 @@ internal object CombinedStatusHomeRenderSession {
         private var lastPresentationReady = false
         private val anchorRect = Rect()
 
-        private val hostLayoutListener =
+        private val overlayHostLayoutListener =
             View.OnLayoutChangeListener {
                     _,
                     _,
@@ -289,16 +272,16 @@ internal object CombinedStatusHomeRenderSession {
                 this.batteryCarrier.get() === batteryCarrier
 
         fun start() {
-            val hostView = host.get() ?: return
-            batteryContainer.get() ?: return
+            host.get() ?: return
+            val overlayHost = batteryContainer.get() ?: return
             val battery = batteryView.get() ?: return
             val carrier = batteryCarrier.get() ?: return
 
-            hostView.addOnAttachStateChangeListener(this)
-            hostView.addOnLayoutChangeListener(hostLayoutListener)
+            overlayHost.addOnAttachStateChangeListener(this)
+            overlayHost.addOnLayoutChangeListener(overlayHostLayoutListener)
             carrier.addOnLayoutChangeListener(carrierLayoutListener)
             probeView.visibility = View.GONE
-            hostView.overlay.add(probeView)
+            overlayHost.overlay.add(probeView)
             renderController.updateVisualSettings(
                 RuntimeVisualPreferencesOwner.currentSettings(),
             )
@@ -320,77 +303,12 @@ internal object CombinedStatusHomeRenderSession {
         fun stop(removeVisual: Boolean = true) {
             layoutReady = false
             dispatchPresentationReadiness("stop")
-            host.get()?.removeOnAttachStateChangeListener(this)
-            host.get()?.removeOnLayoutChangeListener(hostLayoutListener)
+            batteryContainer.get()?.removeOnAttachStateChangeListener(this)
+            batteryContainer.get()?.removeOnLayoutChangeListener(overlayHostLayoutListener)
             batteryCarrier.get()?.removeOnLayoutChangeListener(carrierLayoutListener)
             if (removeVisual) {
-                host.get()?.overlay?.remove(probeView)
+                batteryContainer.get()?.overlay?.remove(probeView)
             }
-        }
-
-        fun updatePanelTransition(update: SystemUiPanelTransitionSource.Update) {
-            if (Looper.myLooper() !== Looper.getMainLooper()) {
-                host.get()?.post {
-                    updatePanelTransition(update)
-                }
-                return
-            }
-            when (update.source) {
-                SystemUiPanelTransitionSource.Source.NOTIFICATION_SHADE -> {
-                    val allowsHome =
-                        SystemUiPanelTransitionSource.notificationShadeAllowsHome(
-                            fraction = update.fraction,
-                        )
-                    updateNotificationShadeHomeEligibility(
-                        homeEligible = allowsHome,
-                        source = "notification-shade",
-                        detail =
-                            " fraction=" + (update.fraction ?: "unknown") +
-                                " authority=notification-header-callback",
-                    )
-                }
-
-                SystemUiPanelTransitionSource.Source.CONTROL_CENTER -> {
-                    val visible = update.visible ?: return
-                    updateControlCenterHomeEligibility(
-                        homeEligible =
-                            SystemUiPanelTransitionSource.controlCenterAllowsHome(visible),
-                        source = "control-center",
-                        detail = " visible=" + visible,
-                    )
-                }
-            }
-        }
-
-        fun updateNotificationShadeHomeEligibility(
-            homeEligible: Boolean,
-            source: String,
-            detail: String = "",
-        ) {
-            if (Looper.myLooper() !== Looper.getMainLooper()) {
-                host.get()?.post {
-                    updateNotificationShadeHomeEligibility(
-                        homeEligible = homeEligible,
-                        source = source,
-                        detail = detail,
-                    )
-                }
-                return
-            }
-            if (notificationShadeAllowsHome == homeEligible) {
-                return
-            }
-            notificationShadeAllowsHome = homeEligible
-            val visible = applyResolvedVisibility()
-            emitEvent {
-                "homeRenderShadeEligibility" +
-                    " source=" + source +
-                    detail +
-                    " homeEligible=" + notificationShadeAllowsHome +
-                    " visible=" + visible +
-                    " nativeGeometryWrites=0"
-            }
-            dispatchPresentationReadiness("shade:" + source)
         }
 
         fun updateControlCenterHomeEligibility(
@@ -527,7 +445,6 @@ internal object CombinedStatusHomeRenderSession {
             val visibleTrace =
                 trace?.takeIf {
                     layoutLogged &&
-                        notificationShadeAllowsHome &&
                         controlCenterAllowsHome
                 }
             val update =
@@ -592,8 +509,10 @@ internal object CombinedStatusHomeRenderSession {
                 layoutLogged = true
                 emitEvent {
                     "homeRenderProbe attached " +
-                        "slot=homeHostOverlay anchor=hostEnd " +
+                        "slot=homeSystemIconsOverlay anchor=carrierEnd " +
+                        "carrier=MiuiStatusBatteryContainer.overlay " +
                         "carrierAuthority=battery_icon_container " +
+                        "motion=system-ui-inherited " +
                         "bounds=" + anchorRect.left + "," + anchorRect.top + "-" +
                         anchorRect.right + "," + anchorRect.bottom +
                         " size=" + anchorRect.width() + "x" + anchorRect.height() +
@@ -609,7 +528,6 @@ internal object CombinedStatusHomeRenderSession {
             val visible =
                 resolveOverlayVisible(
                     featureEnabled = featureEnabled,
-                    notificationShadeAllowsHome = notificationShadeAllowsHome,
                     controlCenterAllowsHome = controlCenterAllowsHome,
                     nativeHandoffActive = nativeHandoffActive,
                 )
@@ -629,7 +547,7 @@ internal object CombinedStatusHomeRenderSession {
                     modelReady = modelReady,
                     tintReady = tintReady,
                     layoutReady = layoutReady,
-                    hostAttached = host.get()?.isAttachedToWindow == true,
+                    hostAttached = batteryContainer.get()?.isAttachedToWindow == true,
                 )
             if (ownerReady == lastPresentationReady) {
                 return
@@ -639,14 +557,10 @@ internal object CombinedStatusHomeRenderSession {
                 "homeRenderReadiness source=" + source +
                     " ownerReady=" + ownerReady +
                     " overlayEligible=" +
-                    (
-                        notificationShadeAllowsHome &&
-                            controlCenterAllowsHome
-                    ) +
+                    controlCenterAllowsHome +
                     " modelReady=" + modelReady +
                     " tintReady=" + tintReady +
                     " layoutReady=" + layoutReady +
-                    " shadeHomeEligible=" + notificationShadeAllowsHome +
                     " controlCenterHomeEligible=" + controlCenterAllowsHome +
                     " featureEnabled=" + featureEnabled +
                     " nativeGeometryWrites=0"
@@ -661,17 +575,17 @@ internal object CombinedStatusHomeRenderSession {
         }
 
         private fun resolveNativeAnchor(out: Rect): Boolean {
-            val hostView = host.get() ?: return false
+            val overlayHost = batteryContainer.get() ?: return false
             val carrier = batteryCarrier.get() ?: return false
-            val hostWidth = hostView.width
-            val hostHeight = hostView.height
+            val hostWidth = overlayHost.width
+            val hostHeight = overlayHost.height
             val baseCarrierWidth =
                 SystemUiHomeCarrierMetrics
                     .resolveCarrierWidthPx(carrier)
                     ?.coerceAtMost(hostWidth)
                     ?: return false
             if (
-                !hostView.isLaidOut ||
+                !overlayHost.isLaidOut ||
                 hostWidth <= 0 ||
                 hostHeight <= 0 ||
                 baseCarrierWidth <= 0
@@ -679,7 +593,7 @@ internal object CombinedStatusHomeRenderSession {
                 return false
             }
 
-            val rtl = hostView.layoutDirection == View.LAYOUT_DIRECTION_RTL
+            val rtl = overlayHost.layoutDirection == View.LAYOUT_DIRECTION_RTL
             val resolved =
                 CombinedStatusHomeLayoutResolver.resolve(
                     hostWidthPx = hostWidth,
