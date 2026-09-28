@@ -93,6 +93,9 @@ internal object SystemUiHomePresentationOwner {
         ) {
             existing.syncEndReservation()
             val masked = existing.refreshClipMasks()
+            if (current !== existing) {
+                return StateResult.Failure("session-reuse-failed-native-restored")
+            }
             batteryContainer.requestLayout()
             return StateResult.Active(representedSlots.size, masked, true)
         }
@@ -127,6 +130,9 @@ internal object SystemUiHomePresentationOwner {
 
         current = session
         val masked = SystemUiCompactPresentationRegistry.activate(session)
+        if (current !== session) {
+            return StateResult.Failure("session-activation-failed-native-restored")
+        }
         batteryContainer.requestLayout()
         eventSink?.invoke(
             "homePresentation active carrier=MiuiStatusBatteryContainer.overlay " +
