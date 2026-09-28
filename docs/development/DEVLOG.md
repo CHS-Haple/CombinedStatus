@@ -3,6 +3,74 @@
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
 
+## 2026-09-28 — Build 432: native compact-layout handoff on fake root
+
+**Type:** Phase-2B root-cause correction / executable checkpoint
+**Build:** 432 / `20260928-432`
+**Work branch / PR:** `fix/control-center-fake-root` / #156
+**Base:** current `dev` Build 429 / MIUIX `0.9.4-5c91d5e5-SNAPSHOT`
+
+### Build 431 device result
+
+Maintainer video + Detailed diagnostics reject Build 431's fake-surface **occupancy** behavior while retaining the top-level fake-root host decision.
+
+Observed:
+- the Combined render attaches at fixed root-overlay bounds `722,0-827,169`;
+- the same bounds are used in normal and charging-island pulls;
+- native Control Center fraction then advances through the transition while the Combined visual is already located at the stable Battery endpoint;
+- represented fake Wi-Fi/mobile/Battery are visually clipped, but their native layout occupancy is not removed;
+- the result is a large empty gap between preceding native status icons and Combined Status during pull-down;
+- charging-island samples additionally report `addBatteryIsland=true` and `batteryWidthDiff=-135`, but the desired Combined endpoint remains the same logical Battery slot as the non-island case.
+
+**Root cause:** Build 431 solved appearance ownership but not occupancy ownership. A root overlay correctly inherits HyperOS fake/final alpha and root motion, yet clip-only suppression cannot compact the fake `MiuiStatusIconContainer`.
+
+### 问题执行流程
+
+1. Preserve Build-430/431 evidence that `ControlCenterFakeStatusIcons` is the correct visual/appearance carrier.
+2. Reject a project-owned interpolation or `batteryWidthDiff` compensation: neither addresses the retained Wi-Fi/mobile slot widths.
+3. Reuse HyperOS's own status-icon measure/layout path so remaining native icons are reflowed by the native container.
+4. Keep one stable Battery logical slot for Combined Status across Battery-visible and Battery-hidden charging-island states.
+5. Delay visual cutover until the native compact layout has completed to avoid a first-frame blank/overlap.
+
+### Implementation
+
+- Keep `CombinedStatusRenderView` on `ControlCenterFakeStatusIcons.overlay`.
+- Extend the existing `SystemUiHomePresentationOwner` Hook substrate to host a second **transient Control Center session**:
+  - no additional `MiuiStatusIconContainer.onMeasure/onLayout` Hook;
+  - no additional `MiuiStatusBatteryContainer.setIsHideBattery` Hook;
+  - session routing is by exact target View identity.
+- During fake native measure/layout, temporarily add represented slots to the target container's native `ignoredSlots`; restore only module-owned entries after the native method returns.
+- Reuse the existing stable end-reservation policy:
+  - native Battery visible and actual width equals requested stable slot -> padding delta 0;
+  - native Battery hidden -> reserve requested stable Battery slot width;
+  - a wider native Battery presentation does not redefine the Combined logical endpoint.
+- Defer clip masks until the first native fake `onLayout` after requestLayout.
+- Only after that layout reports ready does the root overlay become visible and Home yield.
+- Move native fake clip-mask ownership into the shared compact session; remove duplicate clip-mask ownership from `CombinedStatusControlCenterRenderSession`.
+- Keep `batteryWidthDiff` diagnostic-only for this path; Build 432 does not consume it as a Combined Status translation or endpoint.
+- Hot Reload and detach cleanup restore transient fake padding + clip state before releasing the session.
+
+### 审查 / review
+
+- **Ownership:** top-level fake root remains the visual/appearance owner; child `MiuiStatusIconContainer` owns native peer layout; Combined owns only its overlay and reversible compact presentation state.
+- **Single writer:** the already installed three presentation Hooks are shared; no second measure/layout/hide Hook set is introduced.
+- **Lifecycle:** Home and transient Control Center sessions coexist only on distinct native target Views and are routed by identity.
+- **Readiness:** `Prepared -> native onMeasure/onLayout -> masks/reservation ready -> Combined visible -> Home yield`.
+- **Cleanup:** owned ignored-slot entries are temporary; clip bounds and padding restore only module-owned values; transient session is stopped on hide, host replacement, layout failure, feature disable, and Hot Reload.
+- **Fail native:** unresolved/mismatched native structures, padding writer conflicts, layout failure, or mask failure restore native presentation and keep Home/native SystemUI available.
+- **Performance:** event/layout driven; Hook count unchanged; no polling, delay, frame follower, or custom animation.
+- **Charging island:** `mIsHideBattery` only decides whether the stable logical Battery slot must be reserved; `batteryWidthDiff` does not move the Combined endpoint.
+- **Final QS:** unchanged; native fake-root alpha still performs fake->final yield.
+
+### Validation gate
+
+- Draft Light #1422 / run `36448591032` passed on the in-progress Build-432 branch before the documentation-only follow-up commits.
+- Ready Fast is required on the final executable/doc head.
+- Signed Canary is required before focused device validation.
+- Device test: normal pull/return + charging-island pull/return; verify compact spacing throughout the transition, same logical Battery endpoint in both states, native-only final QS, and clean Home restoration.
+
+
+
 ## 2026-09-28 — Build 431: move Control Center projection onto native fake root
 
 **Type:** Phase-2B root-cause correction / executable device checkpoint
