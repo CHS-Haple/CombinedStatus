@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 
 internal data class CombinedStatusFeatureSettings(
     val enabled: Boolean = true,
+    val keyguardEnabled: Boolean = false,
 )
 
 internal class CombinedStatusFeatureSettingsRepository(context: Context) {
@@ -27,7 +28,10 @@ internal class CombinedStatusFeatureSettingsRepository(context: Context) {
 
             val listener =
                 SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-                    if (key == COMBINED_STATUS_ENABLED_KEY) {
+                    if (
+                        key == COMBINED_STATUS_ENABLED_KEY ||
+                        key == COMBINED_STATUS_KEYGUARD_ENABLED_KEY
+                    ) {
                         emitCurrent()
                     }
                 }
@@ -46,9 +50,25 @@ internal class CombinedStatusFeatureSettingsRepository(context: Context) {
                     COMBINED_STATUS_ENABLED_KEY,
                     true,
                 ),
+            keyguardEnabled =
+                preferences.getBoolean(
+                    COMBINED_STATUS_KEYGUARD_ENABLED_KEY,
+                    false,
+                ),
         )
 
     fun setEnabled(enabled: Boolean) {
+        writeFeatureBoolean(COMBINED_STATUS_ENABLED_KEY, enabled)
+    }
+
+    fun setKeyguardEnabled(enabled: Boolean) {
+        writeFeatureBoolean(COMBINED_STATUS_KEYGUARD_ENABLED_KEY, enabled)
+    }
+
+    private fun writeFeatureBoolean(
+        key: String,
+        enabled: Boolean,
+    ) {
         val changedAtElapsedRealtimeNanos = SystemClock.elapsedRealtimeNanos()
         preferences
             .edit()
@@ -56,12 +76,13 @@ internal class CombinedStatusFeatureSettingsRepository(context: Context) {
                 COMBINED_STATUS_FEATURE_CHANGE_ELAPSED_REALTIME_NANOS_KEY,
                 changedAtElapsedRealtimeNanos,
             )
-            .putBoolean(COMBINED_STATUS_ENABLED_KEY, enabled)
+            .putBoolean(key, enabled)
             .apply()
     }
 }
 
 internal const val COMBINED_STATUS_FEATURE_PREFS_NAME = "combined_status_feature"
 internal const val COMBINED_STATUS_ENABLED_KEY = "combined_status_enabled"
+internal const val COMBINED_STATUS_KEYGUARD_ENABLED_KEY = "combined_status_keyguard_enabled"
 internal const val COMBINED_STATUS_FEATURE_CHANGE_ELAPSED_REALTIME_NANOS_KEY =
     "combined_status_feature_change_elapsed_realtime_nanos"
