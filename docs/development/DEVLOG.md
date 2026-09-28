@@ -7897,3 +7897,14 @@ The preceding Draft Light #1320 failed only because several newly added DEVLOG m
 ### Next
 
 Run Draft Light on the cleaned repository state, then move PR #146 Ready for one final exact-head Full. Only after that exact head succeeds may the owner request `/canary`.
+
+
+### Follow-up correction — QS_FAKE block-list is ineffective for modern network Views
+
+A deeper exact-target trace corrects an intermediate investigation hypothesis.
+
+`IconManager.setBlockList()` is instance-local and calls `StatusBarIconControllerImpl.refreshIconGroup()`. Although that refresh calls `setBlocked()` on `StatusIconDisplayable` children, `ModernStatusBarView.setBlocked(boolean)` is an empty override on this target. Both `ModernStatusBarWifiView` and `ModernStatusBarMobileView` inherit that behavior.
+
+Therefore native block-list mutation is **not** a viable Wi-Fi/mobile suppression mechanism for QS_FAKE. The durable direction is to reuse/generalize the existing binding-identity suppression plus bounded visual-mask approach, with surface-scoped sessions and shared low-frequency/global hooks rather than a second network-state machine.
+
+No runtime code or Build identity changes in this correction.
