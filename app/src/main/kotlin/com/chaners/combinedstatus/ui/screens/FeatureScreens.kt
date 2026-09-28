@@ -87,7 +87,7 @@ import top.yukonga.miuix.kmp.blur.layerBackdrop
 import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
-import top.yukonga.miuix.kmp.icon.extended.Download
+import top.yukonga.miuix.kmp.icon.extended.FileDownloads
 import top.yukonga.miuix.kmp.icon.extended.Home
 import top.yukonga.miuix.kmp.icon.extended.Settings
 import top.yukonga.miuix.kmp.icon.extended.Share
@@ -778,7 +778,7 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
             DiagnosticsActionRow(
                 title = stringResource(R.string.export_diagnostic_report),
                 summary = stringResource(R.string.export_diagnostic_report_summary),
-                icon = MiuixIcons.Download,
+                icon = MiuixIcons.FileDownloads,
                 enabled = !reportInProgress && !exportPickerOpen,
                 onClick = {
                     exportPickerOpen = true
@@ -906,16 +906,16 @@ private fun DiagnosticsActionRow(
     BasicComponent(
         title = title,
         summary = summary,
-        endActions = {
+        startAction = {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                modifier = Modifier.size(22.dp),
+                modifier = Modifier.padding(end = 16.dp),
                 tint =
                     if (enabled) {
-                        MiuixTheme.colorScheme.primary
+                        MiuixTheme.colorScheme.onBackground
                     } else {
-                        MiuixTheme.colorScheme.onSurfaceContainerVariant.copy(alpha = 0.38f)
+                        MiuixTheme.colorScheme.disabledOnSecondaryVariant
                     },
             )
         },

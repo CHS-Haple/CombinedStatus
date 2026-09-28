@@ -112,8 +112,8 @@
     <string name="systemui_version_label">SystemUI</string>
 
     <string name="section_module_runtime">Module runtime</string>
-    <string name="runtime_framework_title">Framework</string>
-    <string name="runtime_framework_summary">Xposed API 102</string>
+    <string name="runtime_framework_title">Framework API</string>
+    <string name="runtime_framework_summary">Modern Xposed API 102</string>
     <string name="runtime_scope_title">Scope</string>
     <string name="runtime_scope_summary">SystemUI (com.android.systemui)</string>
     <string name="runtime_target_title">Compatibility baseline</string>

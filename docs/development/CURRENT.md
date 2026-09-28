@@ -16,6 +16,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Phase-2B panel/scene-owner integration: PR #138 merged to `dev` as `a25cb5ce2aeab235cfaed579474df70596f03a63`.
 - PR #142 (`fix/home-hun-ownership`) is merged and closed; its Build-413 HUN/shallow-pull lifetime correction is part of `dev` and was promoted to `main` through PR #147.
 - App-UI checkpoint Build 438 is integrated in `dev`: Floating Glass matches the pinned MIUIX example, icon-only vs icon-with-label is persisted and shared by live navigation/preview, and the Appearance preview keeps fixed bounds with bottom-anchored navigation content. Maintainer device validation and post-merge Integration #1487 passed.
+- Active companion-app UI refinement: `feat/diagnostics-ui-refinement` keeps diagnostics report actions whole-row clickable but moves their decorative affordances into MIUIX `BasicComponent.startAction`; export uses `FileDownloads`, share uses `Share`, neutral foreground/disabled colors replace the isolated primary-blue trailing treatment, and the framework row now reads `Modern Xposed API 102` / `Framework API`. Report generation/export/share behavior is unchanged; automated validation is pending.
 - Active development display line: **0.0.2**
 - First planned formal release: **1.0.0**
 - Target profile: HyperOS SystemUI `17.03.260226.r`

@@ -3,6 +3,54 @@
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
 
+## 2026-09-29 — Diagnostics action-row visual refinement
+
+**Type:** companion-app UI / copy refinement
+**Branch:** `feat/diagnostics-ui-refinement`
+**Runtime baseline:** validated `dev` Build 441 / `0235d1ae20bc96f733e510547ec659d2377e0516`
+**SystemUI runtime change:** none
+
+### Trigger
+
+Maintainer review of the Diagnostics screen found the small primary-blue export/share glyphs visually inconsistent with the rest of the page. Both rows are already whole-row actions, so the trailing glyphs can incorrectly read as separate icon buttons even though they do not own a separate click target.
+
+The same review approved clarifying the framework baseline from `Xposed API 102` to `Modern Xposed API 102`.
+
+### Evidence reviewed
+
+- Current app implementation uses `BasicComponent.endActions` with a project-fixed 22 dp primary-colored glyph for export/share.
+- Pinned MIUIX revision `5c91d5e5ce1a2fc7e8bdc1258a881c555102bbca` exposes `BasicComponent.startAction` for leading content.
+- The pinned MIUIX `BasicComponentDemo` uses a leading icon with 16 dp trailing padding and the normal foreground color rather than a primary-color trailing action.
+- The same pinned MIUIX icon pack provides `FileDownloads` and `Share` in the native icon family; `FileDownloads` distinguishes file export more clearly from sharing than the previous download-to-tray glyph.
+
+### Root-cause conclusion
+
+The interaction model was already correct; the mismatch was presentation semantics. A primary-colored trailing icon conventionally reads as a distinct trailing action, while these rows intentionally expose one whole-row action. The visual should therefore describe the row, not imply a second click target.
+
+### Implementation
+
+- Preserve the existing whole-row `BasicComponent.onClick` behavior, enable/disable state, report generation, document picker and share chooser paths.
+- Move the decorative icon from `endActions` to the official MIUIX `startAction` slot.
+- Follow the pinned MIUIX demo spacing with 16 dp between icon and text; remove the project-fixed 22 dp action size.
+- Use neutral `onBackground` color when enabled and MIUIX `disabledOnSecondaryVariant` when disabled.
+- Use `MiuixIcons.FileDownloads` for export and `MiuixIcons.Share` for share.
+- Rename the framework display to `Framework API / 框架 API` and `Modern Xposed API 102`.
+- Leave the scope row, diagnostics-level selector, report semantics, SystemUI runtime and Xposed integration untouched.
+
+### 审查 / review
+
+- **MIUIX authority:** uses the pinned upstream component slot, spacing and color semantics instead of a project-specific action layout.
+- **Interaction:** one row still owns one click target; decorative icons have no separate semantics or click handler.
+- **Accessibility:** title remains the row click label; decorative icons keep `contentDescription = null` to avoid duplicate announcements.
+- **Theme compatibility:** icon color follows MIUIX theme foreground/disabled colors and therefore light/dark/dynamic-color changes.
+- **Runtime boundary:** companion-app presentation only; no Hook, listener, SystemUI owner, state source, report payload or file/share execution path changes.
+- **Performance:** no new state, observer, animation, allocation loop or background work.
+
+### Validation
+
+Draft PR should receive Light while the branch is moving. Once the source is frozen for review, Fast is sufficient for the ordinary app/UI change. Focused device review should verify icon placement/weight in light and dark appearance plus unchanged whole-row click behavior; no SystemUI restart or SystemUI runtime regression matrix is required for this presentation-only checkpoint.
+
+
 ## 2026-09-29 — Control Center fully-expanded endpoint investigation: native appearance handoff verified
 
 **Type:** Phase-2B exact-target endpoint review / no executable build
