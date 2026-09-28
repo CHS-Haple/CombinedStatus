@@ -12,8 +12,8 @@ import top.yukonga.miuix.kmp.blur.highlight.Highlight
 import top.yukonga.miuix.kmp.blur.textureBlur
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
-internal const val FloatingNavigationBlurRadius = 22f
-internal const val FloatingNavigationBlendAlpha = 0.45f
+internal const val FloatingNavigationBlurRadius = 25f
+internal const val FloatingNavigationBlendAlpha = 0.6f
 
 internal val FloatingNavigationStyle.requiresTextureBackdrop: Boolean
     get() = this != FloatingNavigationStyle.Standard
@@ -44,7 +44,7 @@ internal fun Modifier.floatingNavigationMaterial(
             ),
         highlight =
             if (style == FloatingNavigationStyle.Glass) {
-                if (darkMode) Highlight.GlassStrokeSmallDark else Highlight.GlassStrokeSmallLight
+                if (darkMode) Highlight.GlassStrokeMiddleDark else Highlight.GlassStrokeMiddleLight
             } else {
                 null
             },

@@ -4,7 +4,7 @@ This file is the concise recovery point for active Combined Status development. 
 
 ## Repository baseline
 
-- Last refreshed: 2026-09-28
+- Last refreshed: 2026-09-29
 - Stable branch: `main`
 - Stable runtime baseline: Build 413 / `20260927-413`, promotion merge commit `3114ade06bcb4846a5654a70f38ea572f5b47b37`
 - Integration branch: `dev`
@@ -15,6 +15,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Phase-2A integration: PR #105 merged to `dev` as `2f584c3b393dc5ee606284426aa95a9d6beae5d5`; former stacked PR #100 is closed as superseded.
 - Phase-2B panel/scene-owner integration: PR #138 merged to `dev` as `a25cb5ce2aeab235cfaed579474df70596f03a63`.
 - PR #142 (`fix/home-hun-ownership`) is merged and closed; its Build-413 HUN/shallow-pull lifetime correction is part of `dev` and was promoted to `main` through PR #147.
+- Parallel app-UI checkpoint: `feat/floating-navigation-options` / Build 438 aligns Floating Glass with the pinned MIUIX example, adds a persisted icon-only vs icon-with-label content option, and keeps the Appearance preview on fixed bounds while bottom-anchoring the navigation preview. PR Build #1479 / run `36464596210` and signed Work Branch Canary #443 / run `36464868817` passed; maintainer device validation reports the preview no longer moves when switching content modes. Ready for exact-head integration validation.
 - Active development display line: **0.0.2**
 - First planned formal release: **1.0.0**
 - Target profile: HyperOS SystemUI `17.03.260226.r`
