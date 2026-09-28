@@ -432,11 +432,10 @@ class SystemUiNativeCombinedParticipantOwnerTest {
     }
 
     @Test
-    fun masterSwitchBlocksHomeOverlayRegardlessOfPanelOrHandoffState() {
+    fun masterSwitchBlocksHomeOverlayRegardlessOfControlCenterOrHandoffState() {
         assertFalse(
             CombinedStatusHomeRenderSession.resolveOverlayVisible(
                 featureEnabled = false,
-                notificationShadeAllowsHome = true,
                 controlCenterAllowsHome = true,
                 nativeHandoffActive = false,
             ),
@@ -444,7 +443,6 @@ class SystemUiNativeCombinedParticipantOwnerTest {
         assertFalse(
             CombinedStatusHomeRenderSession.resolveOverlayVisible(
                 featureEnabled = false,
-                notificationShadeAllowsHome = true,
                 controlCenterAllowsHome = true,
                 nativeHandoffActive = true,
             ),
@@ -456,7 +454,6 @@ class SystemUiNativeCombinedParticipantOwnerTest {
         assertFalse(
             CombinedStatusHomeRenderSession.resolveOverlayVisible(
                 featureEnabled = true,
-                notificationShadeAllowsHome = true,
                 controlCenterAllowsHome = false,
                 nativeHandoffActive = false,
             ),
@@ -464,11 +461,10 @@ class SystemUiNativeCombinedParticipantOwnerTest {
     }
 
     @Test
-    fun enabledMasterSwitchStillDefersToPanelAndNativeHandoff() {
+    fun enabledMasterSwitchStillDefersToControlCenterAndNativeHandoff() {
         assertTrue(
             CombinedStatusHomeRenderSession.resolveOverlayVisible(
                 featureEnabled = true,
-                notificationShadeAllowsHome = true,
                 controlCenterAllowsHome = true,
                 nativeHandoffActive = false,
             ),
@@ -476,15 +472,6 @@ class SystemUiNativeCombinedParticipantOwnerTest {
         assertFalse(
             CombinedStatusHomeRenderSession.resolveOverlayVisible(
                 featureEnabled = true,
-                notificationShadeAllowsHome = false,
-                controlCenterAllowsHome = true,
-                nativeHandoffActive = false,
-            ),
-        )
-        assertFalse(
-            CombinedStatusHomeRenderSession.resolveOverlayVisible(
-                featureEnabled = true,
-                notificationShadeAllowsHome = true,
                 controlCenterAllowsHome = true,
                 nativeHandoffActive = true,
             ),
