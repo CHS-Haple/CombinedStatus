@@ -8,8 +8,8 @@
     <group
         android:pivotX="54"
         android:pivotY="54"
-        android:scaleX="0.7324"
-        android:scaleY="0.7324">
+        android:scaleX="0.7781"
+        android:scaleY="0.7781">
 
         <path
             android:fillColor="@color/launcher_icon_foreground"
