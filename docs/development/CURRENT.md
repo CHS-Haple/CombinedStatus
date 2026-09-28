@@ -10,7 +10,7 @@ This file is the concise recovery point for active Combined Status development. 
 - Integration branch: `dev`
 - Integration runtime baseline: Build 418 / `20260928-418`, merge commit `11bc4ff741869e3311d2be697d4dcfb66f5cb39c`
 - Build 418 / `20260928-418` is the current device-accepted and Integration-validated `dev` runtime baseline. Build 413 remains the current `main`-promoted stable runtime baseline.
-- Active Phase-2B work / PR: `feat/panel-projection` / Ready #146. Build 420 / `20260928-420` remains **device-accepted evidence for the Control Center transition carrier and readiness-ordered handoff**, but a newer product boundary clarifies that the fully expanded Control Center must be native-only; Build 420's full-lifetime projection is therefore not the final product contract. Builds 421-423 are **device-rejected for Notification-Shade edge continuity**. Build 424 / `20260928-424` is the current unvalidated runtime checkpoint: unlocked/Home drawing now lives in the native `MiuiStatusBatteryContainer(system_icons).overlay` and the project-local Notification Header visibility Hook/gate is retired. Static review is complete. PR #146 is Ready, but repeated `ready_for_review` / ready-state `synchronize` events have produced no GitHub `Build` workflow run for the current heads despite `build.yml` subscribing to those events; this is an automation/event-delivery blocker, not a Build-424 source failure. No device acceptance is claimed yet.
+- Active Phase-2B work / PR: `feat/panel-projection` / Draft #146 during final repository cleanup. Build 420 / `20260928-420` remains **device-accepted evidence for the Control Center transition carrier and readiness-ordered handoff**, but the fully expanded Control Center target is native-only. Builds 421-423 are **device-rejected for Notification-Shade edge continuity**. Build 424 / `20260928-424` is the current unvalidated runtime checkpoint: unlocked/Home drawing now lives in the native `MiuiStatusBatteryContainer(system_icons).overlay` and the project-local Notification Header visibility Hook/gate is retired. Static review is complete. After resolving the PR/dev history conflict, Full Build #1321 / run `36413531047` succeeded on head `ca1bbf7e10c485f34846add633c34d06a163e7e8`; final exact-head validation remains pending after documentation/governance cleanup. No device acceptance is claimed yet.
 - Repository-automation baseline: checkpoint-driven CI from PR #139 remains active; Canary admission hardening and bounded automation-only merge delegation were accepted through PR #143/#144. PR #149 (`497be75c1754e49cb7a49b6abd73dcbd3bc010b3`) adds base-to-head validation-surface reporting, mixed runtime/build/CI/tooling warnings, and readable routing reasons without weakening Full gates; history-preserving `main -> dev` sync `2e9b1716849d6709342a446f63e5b886c0aed9ae` passed dev Full #1317. These automation changes do **not** create a new runtime Build; Build 418 remains the integrated runtime baseline.
 - Phase-2A integration: PR #105 merged to `dev` as `2f584c3b393dc5ee606284426aa95a9d6beae5d5`; former stacked PR #100 is closed as superseded.
 - Phase-2B panel/scene-owner integration: PR #138 merged to `dev` as `a25cb5ce2aeab235cfaed579474df70596f03a63`.
@@ -121,7 +121,7 @@ Builds 421-423 are rejected for Notification-Shade first/last-frame continuity. 
 - the legacy Hot Reload payload slot is retained as a null compatibility field only; it is not an active runtime authority;
 - Build-420 Control Center carrier/handoff mechanics are unchanged inside Build 424; their future scope is now explicitly transition-only, with native-only ownership at the fully expanded endpoint.
 
-Build 424 is the current runtime checkpoint (`20260928-424`). Exact executable source: `2556a098d35c202e1c5645a06e73757744f721e1`. Later branch commits remain test/documentation-only as of the current review. Static review confirms no active Notification-Shade visibility Hook/gate remains and the active target-profile panel Hook is only Control Center `onVisibleChanged(Z)` (plus optional bounded expansion diagnostics). A Ready checkpoint was attempted, but GitHub produced no pull-request Build/check for the exact head despite `.github/workflows/build.yml` explicitly handling `ready_for_review` and `synchronize`; PR #146 is back in Draft while investigation continues. No device acceptance is claimed yet.
+Build 424 is the current runtime checkpoint (`20260928-424`). Exact executable source: `2556a098d35c202e1c5645a06e73757744f721e1`. Later branch commits remain test/documentation/governance-only as of the current review. Static review confirms no active Notification-Shade visibility Hook/gate remains and the active target-profile panel Hook is only Control Center `onVisibleChanged(Z)` (plus optional bounded expansion diagnostics). A history-preserving refresh merged current `dev` into the work branch at `ca1bbf7e10c485f34846add633c34d06a163e7e8`, after which Full Build #1321 / run `36413531047` succeeded. Final exact-head validation is pending only because repository-cleanup commits follow that successful checkpoint. No device acceptance is claimed yet.
 
 **Maintainer working scene concept — planning input, not yet a verified lifecycle contract:**
 - The maintainer's current conceptual split is: unlocked/Home steady, locked/Keyguard steady, partial Control Center pull with HyperOS transition continuity, and fully expanded Control Center native-only.
@@ -169,31 +169,19 @@ This supports a candidate source -> native fake transition -> native real destin
 
 
 
-### Build 424 automated-validation blocker
+### Build 424 validation recovery
 
-Build 424 executable source remains `2556a098d35c202e1c5645a06e73757744f721e1`; subsequent branch changes are tests/documentation only.
+The earlier absence of pull-request Build runs was not a GitHub-wide Actions outage. PR #146 had diverged from current `dev` and was not mergeable; GitHub does not run `pull_request` workflows for conflicted PRs.
 
-PR #146 is ready-for-review, but GitHub has emitted no `Build` workflow run for the current head after both the ready transition and subsequent synchronize events. The accepted `.github/workflows/build.yml` on `dev` explicitly includes `pull_request` types `ready_for_review` and `synchronize`, and the same connector successfully retrieves historical Build-423 workflow runs, so this is currently classified as a GitHub Actions event-delivery/triggering blocker rather than a source or routing failure.
+The work branch was history-preserving refreshed from exact dev tip `947c13956f2b4cbe08faf21de73b3a2f1b7a8b81`. During the synchronization experiment, using long-lived `dev` directly as a sync-PR head triggered GitHub's delete-head-branch behavior when the sync PR merged. `dev` was immediately recreated at the exact same SHA, with no runtime/content change. The permanent process rule is now to use a temporary `sync/*` head for long-lived branch synchronization.
 
-Do not bypass the required exact-head Build by requesting Canary early. Runtime remains frozen while static review continues.
+After conflict resolution, PR #146 became mergeable and Full Build #1321 / run `36413531047` succeeded on `ca1bbf7e10c485f34846add633c34d06a163e7e8`. Draft Light #1320 exposed only trailing whitespace in DEVLOG; that repository-text defect is being cleaned before the final exact-head Full checkpoint.
+
 
 ## Immediate next step
 
-1. Keep Build 424 executable source `2556a098d35c202e1c5645a06e73757744f721e1` frozen; later branch changes remain test/documentation-only.
-2. Restore automated validation through the repository's trusted fallback path because repeated ready-for-review / synchronize events are producing no `Build` workflow run. Do not create another runtime Build merely to provoke CI.
-3. After an accepted exact-source automated validation, produce one signed Canary and perform the focused Build-424 device gate: Notification-Shade first/last-frame continuity, Control Center regression, Hot Reload, and lock/unlock smoke behavior.
-4. Do not mix the post-424 Control Center redesign into Build 424.
-5. The preferred follow-up candidate, subject to Build-424 acceptance and maintainer review, is `compact-capable source -> native QS_FAKE transition carrier -> native QS destination`. Retain `onVisibleChanged` only as transition-session lifetime; let HyperOS own Home departure, fake translation/alpha/tint and final fake->real appearance.
-6. Any future QS_FAKE compact session must use host-scoped `ignoredSlots` plus reversible visual masks; clip-only replacement is rejected. Reuse the existing global layout/Battery Hooks through identity-scoped sessions rather than installing a duplicate Hook set.
-7. Treat charging/Battery-island interaction with native `batteryWidthDiff` and tag-5 Battery behavior as a required future device gate; Combined Status must never rewrite that native transition value.
-8. Keep Keyguard/AOD runtime-native until their own steady host contracts are validated. HyperOS's native `realSystemIcons` source selection is reference authority, not permission to render on an unsupported source.
-
-## Reference priority
-
-1. latest `CONTRIBUTING.md`;
-2. this `CURRENT.md`;
-3. `ROADMAP.md`;
-4. recent/relevant `DEVLOG.md` entries;
-5. applicable `docs/architecture/` policy;
-6. applicable `docs/reference/` evidence;
-7. `VERSIONING.md` for version/release semantics and `RECORDING.md` for documentation maintenance.
+1. Keep Build 424 executable source `2556a098d35c202e1c5645a06e73757744f721e1` frozen.
+2. Complete repository-text cleanup and obtain one successful Full validation on the final exact PR head.
+3. Request one exact-head signed Canary only after that successful pull-request Build.
+4. Device-test Notification-Shade first/last-frame continuity, Control Center regression, Hot Reload, and one lock/unlock smoke pass.
+5. Do not mix the post-424 QS_FAKE Control Center redesign into Build 424; discuss/select that follow-up only after Build 424 device evidence.
