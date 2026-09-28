@@ -5,11 +5,11 @@ This is the chronological engineering diary for Combined Status. It complements,
 
 ## 2026-09-29 — Build 442: Keyguard steady-host read-only probe
 
-**Type:** Phase-3 host/source evidence checkpoint  
-**Build:** 442 / `20260929-442`  
-**Work branch:** `feat/keyguard-scene-adapter`  
-**Base:** `dev@0235d1ae20bc96f733e510547ec659d2377e0516`  
-**Rendering:** disabled on Keyguard and AOD  
+**Type:** Phase-3 host/source evidence checkpoint
+**Build:** 442 / `20260929-442`
+**Work branch:** `feat/keyguard-scene-adapter`
+**Base:** `dev@0235d1ae20bc96f733e510547ec659d2377e0516`
+**Rendering:** disabled on Keyguard and AOD
 **Validation:** pending Draft Light -> exact-head Fast -> signed Canary / focused device evidence
 
 ### Goal
@@ -32,14 +32,14 @@ Commits `3178b5017ec57c5f294f5577c8d9749330d0b9f5` and `3fe73ae116562f6d3bc50ddf
 
 - Hook delta: **0**. Reuse the existing `SystemUiSceneStateSource` / `MiuiBatteryMeterView.updateState(I)` callback.
 - Raw `KEYGUARD` classification is only a trigger. The Battery must actually descend from `MiuiKeyguardStatusBarView`; this prevents unrelated Battery views reporting raw state 1 from being misidentified as the Keyguard host.
-- Once per concrete Keyguard host instance, snapshot only:
+- On each structurally verified KEYGUARD transition, snapshot:
   - Keyguard host;
   - `mSystemIconsContainer`;
   - `mStatusIconContainer`;
   - `mBatteryView` and its `battery_icon_container`;
   - local size/padding/alpha/translation state;
   - native `mDep.ccFake.realSystemIcons` identity.
-- Probe state resets with the existing presentation-runtime generation reset so Hot Reload cannot retain a stale host identity.
+- A host is cached as confirmed only after it is attached, the system-icons geometry and Battery carrier width are non-zero, the emitting Battery is exactly `mBatteryView`, and HyperOS has selected that same carrier as `realSystemIcons`. Partial or negative samples are still logged but remain retryable on a later native KEYGUARD transition. Probe state resets with the existing presentation-runtime generation reset so Hot Reload cannot retain a stale host identity.
 - Missing optional reflective fields produce partial diagnostic evidence only; they do not change the live SystemUI state.
 - No Keyguard renderer, overlay, suppression, ignored-slot mutation, mask, end reservation, alpha/visibility/translation write, layout listener, timer, polling, retry or frame callback is introduced.
 - AOD runtime is **not observed or modified** in Build 442.
@@ -59,7 +59,7 @@ This intentionally avoids the invalid shortcut `raw state 1 == Keyguard host`, w
 
 - **root cause/state authority:** Battery status state is global context, not host identity; structural View ancestry is the gate.
 - **ownership/single writer:** SystemUI remains sole writer for Keyguard visibility, tint, animation, geometry and Control Center source selection.
-- **lifecycle:** one snapshot per concrete host instance; no new lifecycle observer exists.
+- **lifecycle:** one positive-ready snapshot freezes a concrete host; partial/negative samples remain eligible on later native scene transitions, with no new lifecycle observer.
 - **cleanup:** only a weak host identity is cached and is cleared by existing presentation-runtime reset.
 - **performance:** bounded ancestor walk + one-shot reflection; no hot-path repeated traversal.
 - **fail-native:** no verified Keyguard ancestor -> no probe action; unresolved fields -> partial diagnostics only.
@@ -68,7 +68,7 @@ This intentionally avoids the invalid shortcut `raw state 1 == Keyguard host`, w
 
 ### Validation gate
 
-First run Draft Light and exact-head Fast. Only after Fast should a signed Canary be generated because the unresolved questions require real-device View identity/geometry evidence.
+Draft Light #1526 correctly classified the PR as Light but failed only `git diff --check` because five new DEVLOG metadata lines contained trailing whitespace; Android/Kotlin/build steps were skipped. The whitespace is corrected without changing Build identity. Re-run Draft Light, then exact-head Fast. Only after Fast should a signed Canary be generated because the unresolved questions require real-device View identity/geometry evidence.
 
 Focused device evidence will require: restart SystemUI, enter steady Keyguard, perform one Keyguard-originated Control Center pull/return, unlock, then export diagnostics. Any visible UI change is a hard failure because Build 442 is read-only.
 

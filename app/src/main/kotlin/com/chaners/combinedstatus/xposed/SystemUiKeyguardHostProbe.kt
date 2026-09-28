@@ -16,7 +16,7 @@ internal object SystemUiKeyguardHostProbe {
     private const val KEYGUARD_HOST_CLASS =
         "com.android.systemui.statusbar.phone.MiuiKeyguardStatusBarView"
 
-    private var lastCapturedHost = WeakReference<ViewGroup>(null)
+    private var confirmedHost = WeakReference<ViewGroup>(null)
 
     @Synchronized
     fun capture(update: SystemUiSceneStateSource.SceneUpdate): Snapshot? {
@@ -25,7 +25,7 @@ internal object SystemUiKeyguardHostProbe {
         val host =
             findAncestor(update.sourceView, KEYGUARD_HOST_CLASS) as? ViewGroup
                 ?: return null
-        if (lastCapturedHost.get() === host) return null
+        if (confirmedHost.get() === host) return null
 
         val systemIcons = readView(host, "mSystemIconsContainer")
         val statusIcons = readView(host, "mStatusIconContainer")
@@ -37,8 +37,29 @@ internal object SystemUiKeyguardHostProbe {
         val ccFake = dependency?.let { readValue(it, "ccFake") }
         val selectedRealSystemIcons =
             ccFake?.let { readView(it, "realSystemIcons") }
+        val batteryMatchesSceneSource =
+            battery?.let { candidate -> candidate === update.sourceView }
+        val selectedAsRealSystemIcons =
+            if (systemIcons == null || selectedRealSystemIcons == null) {
+                null
+            } else {
+                selectedRealSystemIcons === systemIcons
+            }
+        val batteryCarrierWidthPx =
+            batteryCarrier?.let(SystemUiHomeCarrierMetrics::resolveCarrierWidthPx)
+        val complete =
+            shouldFreezeSample(
+                hostAttached = host.isAttachedToWindow,
+                systemIconsAttached = systemIcons?.isAttachedToWindow == true,
+                systemIconsWidth = systemIcons?.width ?: 0,
+                batteryMatchesSceneSource = batteryMatchesSceneSource,
+                batteryCarrierWidthPx = batteryCarrierWidthPx,
+                selectedAsRealSystemIcons = selectedAsRealSystemIcons,
+            )
 
-        lastCapturedHost = WeakReference(host)
+        if (complete) {
+            confirmedHost = WeakReference(host)
+        }
 
         return Snapshot(
             rawState = update.rawState,
@@ -47,16 +68,12 @@ internal object SystemUiKeyguardHostProbe {
             statusIcons = statusIcons?.let(ViewSnapshot::from),
             battery = battery?.let(ViewSnapshot::from),
             batteryCarrier = batteryCarrier?.let(ViewSnapshot::from),
-            batteryMatchesSceneSource =
-                battery?.let { candidate -> candidate === update.sourceView },
+            batteryCarrierWidthPx = batteryCarrierWidthPx,
+            batteryMatchesSceneSource = batteryMatchesSceneSource,
             selectedRealSystemIcons =
                 selectedRealSystemIcons?.let(ViewSnapshot::from),
-            selectedAsRealSystemIcons =
-                if (systemIcons == null || selectedRealSystemIcons == null) {
-                    null
-                } else {
-                    selectedRealSystemIcons === systemIcons
-                },
+            selectedAsRealSystemIcons = selectedAsRealSystemIcons,
+            complete = complete,
         )
     }
 
@@ -66,9 +83,24 @@ internal object SystemUiKeyguardHostProbe {
     internal fun isKeyguardHostClassName(className: String): Boolean =
         className == KEYGUARD_HOST_CLASS
 
+    internal fun shouldFreezeSample(
+        hostAttached: Boolean,
+        systemIconsAttached: Boolean,
+        systemIconsWidth: Int,
+        batteryMatchesSceneSource: Boolean?,
+        batteryCarrierWidthPx: Int?,
+        selectedAsRealSystemIcons: Boolean?,
+    ): Boolean =
+        hostAttached &&
+            systemIconsAttached &&
+            systemIconsWidth > 0 &&
+            batteryMatchesSceneSource == true &&
+            (batteryCarrierWidthPx ?: 0) > 0 &&
+            selectedAsRealSystemIcons == true
+
     @Synchronized
     fun resetRuntimeState() {
-        lastCapturedHost = WeakReference(null)
+        confirmedHost = WeakReference(null)
     }
 
     internal data class Snapshot(
@@ -78,9 +110,11 @@ internal object SystemUiKeyguardHostProbe {
         val statusIcons: ViewSnapshot?,
         val battery: ViewSnapshot?,
         val batteryCarrier: ViewSnapshot?,
+        val batteryCarrierWidthPx: Int?,
         val batteryMatchesSceneSource: Boolean?,
         val selectedRealSystemIcons: ViewSnapshot?,
         val selectedAsRealSystemIcons: Boolean?,
+        val complete: Boolean,
     )
 
     internal data class ViewSnapshot(
@@ -141,7 +175,7 @@ internal object SystemUiKeyguardHostProbe {
     ): View? {
         var current: View? = start
         while (current != null) {
-            if (current.javaClass.name == className) {
+            if (isKeyguardHostClassName(current.javaClass.name) && className == KEYGUARD_HOST_CLASS) {
                 return current
             }
             current = current.parent as? View

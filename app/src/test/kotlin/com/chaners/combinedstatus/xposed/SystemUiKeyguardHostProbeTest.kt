@@ -22,7 +22,50 @@ class SystemUiKeyguardHostProbeTest {
                 SystemUiSceneStateSource.Surface.SHADE_LOCKED,
             ),
         )
+        @Test
+    fun sampleFreezesOnlyAfterPositiveReadyTopology() {
+        assertTrue(
+            SystemUiKeyguardHostProbe.shouldFreezeSample(
+                hostAttached = true,
+                systemIconsAttached = true,
+                systemIconsWidth = 105,
+                batteryMatchesSceneSource = true,
+                batteryCarrierWidthPx = 105,
+                selectedAsRealSystemIcons = true,
+            ),
+        )
+        assertFalse(
+            SystemUiKeyguardHostProbe.shouldFreezeSample(
+                hostAttached = true,
+                systemIconsAttached = true,
+                systemIconsWidth = 105,
+                batteryMatchesSceneSource = true,
+                batteryCarrierWidthPx = 105,
+                selectedAsRealSystemIcons = false,
+            ),
+        )
+        assertFalse(
+            SystemUiKeyguardHostProbe.shouldFreezeSample(
+                hostAttached = true,
+                systemIconsAttached = true,
+                systemIconsWidth = 0,
+                batteryMatchesSceneSource = true,
+                batteryCarrierWidthPx = 105,
+                selectedAsRealSystemIcons = true,
+            ),
+        )
+        assertFalse(
+            SystemUiKeyguardHostProbe.shouldFreezeSample(
+                hostAttached = true,
+                systemIconsAttached = true,
+                systemIconsWidth = 105,
+                batteryMatchesSceneSource = false,
+                batteryCarrierWidthPx = 105,
+                selectedAsRealSystemIcons = true,
+            ),
+        )
     }
+}
 
     @Test
     fun hostGuardAcceptsOnlyPinnedMiuiKeyguardHost() {
