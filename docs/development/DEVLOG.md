@@ -8346,15 +8346,15 @@ Focused device validation:
 
 ## 2026-09-28 — Build 427 signed Canary checkpoint
 
-**Build:** 427 / `20260928-427`  
-**Exact runtime source:** `46b9cbb238ec34ae106a79823360e9d187df551b`  
-**Exact tested PR head:** `eaeb8c0bf1f20e15eb0f6af59c954c09c568742a`  
-**Ready Full:** #1374 / run `36431663108` — success  
-**Work Branch Canary:** #419 / run `36431966358` — success  
-**Artifact:** `CombinedStatus-0.0.2-HyperOS-20260928-427-canary.apk`  
-**Artifact ID:** `10974287546`  
-**Artifact ZIP digest:** `sha256:25155cd6e5bbddb488ffcd6314db42e92008511f4a911be8d8984aea4b25dfc3`  
-**Extracted APK size:** `3309602` bytes  
+**Build:** 427 / `20260928-427`
+**Exact runtime source:** `46b9cbb238ec34ae106a79823360e9d187df551b`
+**Exact tested PR head:** `eaeb8c0bf1f20e15eb0f6af59c954c09c568742a`
+**Ready Full:** #1374 / run `36431663108` — success
+**Work Branch Canary:** #419 / run `36431966358` — success
+**Artifact:** `CombinedStatus-0.0.2-HyperOS-20260928-427-canary.apk`
+**Artifact ID:** `10974287546`
+**Artifact ZIP digest:** `sha256:25155cd6e5bbddb488ffcd6314db42e92008511f4a911be8d8984aea4b25dfc3`
+**Extracted APK size:** `3309602` bytes
 **Extracted APK SHA-256:** `ddf8e07dcd24ab8db84a9bc864e1687d317d4ede38248289df1bbad4821e116e`
 
 ### Automated validation
