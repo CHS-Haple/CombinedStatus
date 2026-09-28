@@ -60,6 +60,15 @@ Non-island Control Center samples report approximately `normalStatusBarTx=46`, `
 - Artifact: `CombinedStatus-0.0.2-HyperOS-20260929-434-canary.apk`; artifact id `10985702866`; ZIP digest `sha256:4cfc425718bda8e4eb8d99b50836c33cb4fb4dd3a0adecfa434e76cd627b2df3`; extracted APK SHA-256 `59f87520e07af0ca40397633acc327ab80251c0b2347d67217667aa97af585ec`; size 3,325,986 bytes.
 - PR #156 is returned to Draft; executable runtime is frozen pending device evidence.
 
+### Automated validation
+
+- Frozen executable SHA: `2c206ec5b1dc69b0789fdffdbdf0419aafd2b2f8`.
+- Ready Fast #1459 / run `36457181582`: success; target profile, unit tests/build, APK resolution and Modern Xposed metadata passed.
+- Work Branch Canary #434 / run `36457595937`: success on the same trusted source SHA; Haple signing/signature, target profile, tests/build, Modern Xposed metadata, non-debuggable and artifact upload passed.
+- An earlier Canary #433 completed all substantive checks but was superseded by #434 during post-cleanup and is not used as the acceptance run.
+- Canary artifact: `CombinedStatus-0.0.2-HyperOS-20260929-434-canary.apk`; artifact id `10985702866`; ZIP digest `sha256:4cfc425718bda8e4eb8d99b50836c33cb4fb4dd3a0adecfa434e76cd627b2df3`; extracted APK SHA-256 `59f87520e07af0ca40397633acc327ab80251c0b2347d67217667aa97af585ec`; size 3,325,986 bytes.
+- PR #156 is Draft; executable runtime is frozen for device evidence.
+
 ### Device gate
 
 Restart SystemUI and perform the **first non-charging pull first**. It must present deterministic Combined QS_FAKE rather than raw native Fake. Then repeat several non-charging pulls and one charging-no-island / charging-island regression pass. Endpoint motion and island Battery alignment remain separate next-step gates.
