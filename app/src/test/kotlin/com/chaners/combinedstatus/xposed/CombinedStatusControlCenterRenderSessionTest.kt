@@ -6,9 +6,36 @@ import org.junit.Test
 
 class CombinedStatusControlCenterRenderSessionTest {
     @Test
-    fun projectionReadinessRequiresSingleOwnedNativeCarrier() {
-        assertTrue(CombinedStatusControlCenterRenderSession.resolveProjectionReady(true, true, true, true, true, true))
-        assertFalse(CombinedStatusControlCenterRenderSession.resolveProjectionReady(true, true, true, true, true, false))
-        assertFalse(CombinedStatusControlCenterRenderSession.resolveProjectionReady(true, true, false, true, true, true))
+    fun projectionReadinessRequiresPreparedFakeRootAndNativeMask() {
+        assertTrue(
+            CombinedStatusControlCenterRenderSession.resolveProjectionReady(
+                featureEnabled = true,
+                modelReady = true,
+                tintReady = true,
+                layoutReady = true,
+                hostAttached = true,
+                maskReady = true,
+            ),
+        )
+        assertFalse(
+            CombinedStatusControlCenterRenderSession.resolveProjectionReady(
+                featureEnabled = true,
+                modelReady = true,
+                tintReady = true,
+                layoutReady = true,
+                hostAttached = true,
+                maskReady = false,
+            ),
+        )
+        assertFalse(
+            CombinedStatusControlCenterRenderSession.resolveProjectionReady(
+                featureEnabled = true,
+                modelReady = true,
+                tintReady = false,
+                layoutReady = true,
+                hostAttached = true,
+                maskReady = true,
+            ),
+        )
     }
 }
