@@ -14,7 +14,7 @@ This is the chronological engineering diary for Combined Status. It complements,
 **Artifact:** `CombinedStatus-0.0.2-HyperOS-20260929-438-canary.apk` / id `10989102633`
 **Artifact ZIP digest:** `sha256:a75089e7d00abe2f4309966caffb1f109a66588a0e8440f0d5fcf27f510b1852`
 **Extracted APK SHA-256:** `106421050b3e55fd2e21ace0028cf6e31996f0733c797df669770d00bb4eef9d`
-**Validation:** automated validation passed; focused maintainer app-UI validation passed; final documentation-closed exact-head PR validation pending
+**Validation:** device-accepted and integrated; final exact-head PR Build #1486 and post-merge dev Build #1487 passed
 
 ### Problem / objective
 
@@ -50,7 +50,7 @@ Maintainer validation reports the original issue is resolved: switching between 
 
 ### Outcome / next step
 
-Build 438 is device-accepted for the fixed-bounds preview correction. The executable source remains frozen; run one final exact-head PR validation for the documentation-closed head, then integrate PR #158 into `dev`. Documentation-only closure does not create another runtime Build.
+Build 438 is device-accepted and integrated into `dev` through PR #158 as squash commit `6ba4a8179808cdf858176882901aa3787c11b6c1`. Final exact-head PR Build #1486 succeeded after documentation closure. Post-merge `dev` Integration Build #1487 / run `36466720314` also succeeded, including target-profile validation, tests/build, Modern Xposed metadata, Haple signature verification, Canary non-debuggable verification and artifact upload. Integrated Canary artifact: `CombinedStatus-0.0.2-HyperOS-20260929-438-canary.apk`, artifact id `10989858681`, ZIP digest `sha256:6bf7e1eadbf0775fc98ca892c1efd31bfb63a999cdeb9cbe0d0e131c08ecfebc`. This closes the app-UI checkpoint; no further executable change is required.
 
 
 ## 2026-09-29 — Build 436: align Floating Navigation material and content options
