@@ -38,4 +38,28 @@ class CombinedStatusControlCenterRenderSessionTest {
             ),
         )
     }
+    @Test
+    fun firstLayoutRetryOnlyCoversEarlyGeometryReadinessFailures() {
+        assertTrue(
+            CombinedStatusControlCenterRenderSession.isFirstLayoutRetryable(
+                "battery-core-width-unavailable",
+            ),
+        )
+        assertTrue(
+            CombinedStatusControlCenterRenderSession.isFirstLayoutRetryable(
+                "fake-status-bar-area-unresolved",
+            ),
+        )
+        assertFalse(
+            CombinedStatusControlCenterRenderSession.isFirstLayoutRetryable(
+                "fake-root-type-mismatch",
+            ),
+        )
+        assertFalse(
+            CombinedStatusControlCenterRenderSession.isFirstLayoutRetryable(
+                "ignored-slots-field-unavailable",
+            ),
+        )
+    }
+
 }
