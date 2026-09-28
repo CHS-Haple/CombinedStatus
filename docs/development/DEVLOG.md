@@ -34,7 +34,7 @@ Detailed diagnostics record eight projection attaches but only five compact `lay
 - Continue using the existing three presentation Hooks for `MiuiStatusIconContainer.onMeasure`, `onLayout`, and `MiuiStatusBatteryContainer.setIsHideBattery`; no duplicate layout Hook set is added.
 - `visible=false` restores Home and hides Combined but no longer tears down the QS_FAKE compact session.
 - Repeated Fake-root attach and feature re-enable use the same idempotent prepare path.
-- Visible-time host resolution remains a fail-safe fallback for Hot Reload/late bootstrap when the native attach event predates the current generation.
+- Hot Reload transfer carries the currently attached native Fake root View reference; after new-generation Hook installation, main-thread restore immediately invokes the same prearm path. Visible-time host resolution remains only a late-bootstrap fallback.
 
 ### 审查 / review
 
