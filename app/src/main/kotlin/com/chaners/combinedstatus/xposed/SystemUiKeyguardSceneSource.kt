@@ -93,10 +93,16 @@ internal object SystemUiKeyguardSceneSource {
             if (onEvent == null || !isProbeEnabled()) return
             val host = candidate as? ViewGroup ?: return
             if (!isKeyguardHostClassName(host.javaClass.name)) return
+            val extraPart =
+                if (extra.isEmpty()) {
+                    ""
+                } else {
+                    " " + extra
+                }
             onEvent(
                 "keyguardScene source=" + source +
-                    if (extra.isEmpty()) " " else " " + extra + " " +
-                    contract.snapshot(host) +
+                    extraPart +
+                    " " + contract.snapshot(host) +
                     " readOnly=true nativeGeometryWrites=0",
             )
         }
@@ -245,12 +251,17 @@ internal object SystemUiKeyguardSceneSource {
     ): Field {
         var current: Class<*>? = type
         while (current != null) {
-            runCatching {
-                return current
-                    .getDeclaredField(name)
-                    .apply { isAccessible = true }
+            val candidate = current
+            val field =
+                runCatching {
+                    candidate
+                        .getDeclaredField(name)
+                        .apply { isAccessible = true }
+                }.getOrNull()
+            if (field != null) {
+                return field
             }
-            current = current.superclass
+            current = candidate.superclass
         }
         error("Missing field " + type.name + "." + name)
     }
