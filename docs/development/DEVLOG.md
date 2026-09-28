@@ -7961,3 +7961,63 @@ The finding resolves the static concern that `ViewGroupOverlay` might remain vis
 5. If any discontinuity remains, export Detailed diagnostics before further runtime mutation.
 
 This record-only closure does not create a new runtime Build.
+
+
+---
+
+## 2026-09-28 — Build 424 device acceptance
+
+**Build:** 424 / `20260928-424`  
+**Exact executable source:** `2556a098d35c202e1c5645a06e73757744f721e1`  
+**Exact tested PR head:** `3cbf8523cfafeb99a58dcd213053e9a2e020f71f`  
+**Ready Full:** #1328 / run `36418043111` — success  
+**Signed Canary:** #417 / run `36418655598` — success  
+**Artifact:** `CombinedStatus-0.0.2-HyperOS-20260928-424-canary.apk` / id `10968671147`  
+**APK SHA-256:** `7e1a7bf035207718de3d74c580b87c3d5f20df648a98a78ef8f560d25c95e778`
+
+### Maintainer feedback
+
+Focused device validation reports **no visible abnormality**.
+
+Accepted behaviors include:
+- Notification Shade first departure / final Home return continuity;
+- quick Control Center regression pass;
+- Hot Reload;
+- lock/unlock smoke pass for Home-overlay leakage.
+
+### Diagnostic confirmation
+
+The supplied Detailed report confirms:
+- runtime health = `healthy`;
+- Build/channel = 424 Canary;
+- Home render carrier = native `MiuiStatusBatteryContainer(system_icons).overlay`;
+- `nativeVisibilityInherited=true` and `nativeAlphaInherited=true`;
+- Notification runtime Hook = false;
+- panel source remains event-driven with zero native geometry writes.
+
+One Control Center entry while the read-only Battery scene reports raw Keyguard state produces:
+`controlCenterProjection state=unavailable fallback=home-visible reason=real-system-icons-not-home-owned-container`.
+
+This is not accepted as a new defect because:
+- no visible anomaly was reported;
+- the fallback is bounded and fail-native;
+- later unlocked Control Center pulls in the same report attach `realSystemIcons.overlay` and reach projection readiness normally;
+- the condition matches the already-identified architectural weakness of Build-420 source-anchor projection when HyperOS selects a source other than the Home-owned carrier.
+
+It therefore strengthens, rather than blocks, the planned post-424 move toward the native QS_FAKE transition owner.
+
+### 审查 / review
+
+- **Ownership:** Build 424 correctly places unlocked/Home drawing inside the native Home end-side visibility owner.
+- **Lifecycle:** Notification Shade needs no project-local visibility state; device behavior confirms the inherited lifecycle.
+- **Single writer:** no Notification fraction/visibility writer remains.
+- **Cleanup:** Hot Reload and lock/unlock smoke pass show no visible carrier leakage.
+- **Fail-native:** the bounded Control Center source mismatch falls back native/Home-visible rather than forcing unsupported ownership.
+- **Performance:** event-driven; no polling/timer/frame follower added.
+- **Compatibility:** accepted on Xiaomi 15 Pro / haotian / Android 17 / SystemUI 17.03.260226.r.
+- **Exception recovery:** Hot Reload completed with healthy runtime state.
+- **Future extension:** freeze Build 424 as the accepted unlocked/Home source-carrier baseline; continue Control Center work as a separate QS_FAKE transition checkpoint.
+
+### Next
+
+Complete feature integration of the accepted Build-424 checkpoint into `dev`. Start the QS_FAKE transition-owner implementation from that integrated baseline rather than stacking it onto the already-accepted Build-424 runtime checkpoint.
