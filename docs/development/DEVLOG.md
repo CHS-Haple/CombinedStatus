@@ -9222,3 +9222,72 @@ Active `feat/home-ui-shell`, `feat/diagnostics-ui-refinement`, and `feat/keyguar
 ### Outcome / next step
 
 Device-check only the launcher/App info visual scale, clean-white background, themed/monochrome rendering, and Chinese display name “归元”. No SystemUI regression matrix is required for this checkpoint. A later documentation-only closure commit does not create Build 452.
+
+
+---
+
+## 2026-09-29 — Build 452 orbit-gap normalization + 53 dp fit
+
+**Type:** companion-app branding / visual resource  
+**Display version:** 0.0.2  
+**Build:** 452 / `20260929-452`  
+**Branch:** `feat/guiyuan-app-icon`  
+**Validation:** pending exact-head Fast
+
+### Device feedback
+
+Build 451 is visually accepted in direction, but two refinements remain visible on the target HyperOS launcher/App info surfaces:
+
+1. the 51 dp foreground still reads slightly conservative relative to neighboring icons;
+2. the three orbit segments do not keep a consistent visual breathing space around the three outer nodes. The smallest Build-451 node/arc clearance is materially tighter than the widest one, which makes some segment tips look like a “tail” approaching a point.
+
+### Problem execution flow
+
+1. Keep the maintainer-selected `归元` topology, center circle, and all three node circles unchanged.
+2. Measure the six nearest arc-end ↔ node clearances from the selected source silhouette rather than adjusting by eye.
+3. Preserve each orbit segment's body/thickness and alter only the local tip extent.
+4. Normalize the clearances by shortening the over-close tips; do not enlarge/move the nodes or introduce new curves/elements.
+5. Increase the complete mark uniformly from approximately 51 dp to approximately 53 dp only after the internal clearance correction.
+
+### Evidence / geometry
+
+The selected source silhouette's six arc-end ↔ node clearances were approximately:
+
+`2.30 / 1.97 / 1.73 / 1.32 / 2.20 / 2.08 dp`
+
+in the unscaled 108 dp source coordinate system.
+
+The Build-452 orbit-tip correction trims only the over-close regions so the six clearances converge to approximately `2.26–2.30 dp` before the adaptive foreground scale is applied. This keeps the node sizes and orbit bodies intact while removing the visibly inconsistent near-contact at the lower-left transition.
+
+The complete foreground group then uses `scale=0.8086`, giving the source mark a longest presented dimension of approximately 53 dp.
+
+### Implementation / decision
+
+- Center circle: unchanged.
+- Top / lower-left / lower-right node circles: unchanged.
+- Three orbit bodies and thickness: retained from the selected source silhouette.
+- Only orbit segment tips are locally shortened to equalize breathing space around nodes.
+- Adaptive foreground uniform scale: `0.8086` (~53 dp longest dimension).
+- Background: `#FFFFFF`.
+- Foreground: `#24272B`.
+- Simplified Chinese app-facing name remains `归元`.
+- No baked rounded-square mask, shadow, alternate density asset, or duplicate round icon is added.
+
+### 审查 / review
+
+- **Ownership:** Android/HyperOS remains final launcher-mask/crop/themed-icon owner.
+- **Lifecycle:** static resources only.
+- **Single writer:** one vector source owns the normal/round/monochrome silhouette.
+- **Cleanup:** no extra raster or per-mask assets.
+- **Performance:** unchanged static-vector cost.
+- **Compatibility:** 53 dp remains inside the adaptive-icon 48–66 dp logo range; 108 dp layer contract is unchanged.
+- **Runtime boundary:** no Hook, SystemUI host, Xposed, state source, renderer, or transition behavior changes.
+- **Visual scope:** this checkpoint intentionally changes only whole-mark scale plus six local orbit-tip clearances.
+
+### Validation
+
+Run exact-head Fast, then request one signed Canary if Fast passes. Device validation is limited to launcher/App info/module-list visual scale, node/arc spacing, themed/monochrome rendering, and the Chinese label `归元`; no SystemUI regression matrix is required.
+
+### Outcome / next step
+
+Build 452 is the current visual candidate. If the 53 dp scale and normalized node clearances are accepted on device, freeze the icon geometry and close this visual checkpoint.
