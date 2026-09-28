@@ -38,7 +38,19 @@ SystemUI remains authoritative for surrounding native layout, Battery presentati
 
 For the pinned HyperOS target, Notification Shade itself does not present the status-icon row; therefore Phase 2B does **not** project Combined Status into Notification Shade. Build-423 device evidence proves Notification Header progress is motion context rather than the complete Home visibility authority. Exact-target source instead traces `StatusBarVisibilityInteractor.shouldHomeStatusBarBeVisible -> HomeStatusBarViewModelImpl.systemInfoCombinedVis -> HomeStatusBarViewBinderInjector -> mEndSideContent = R.id.system_icons`. Build 424 therefore places the unlocked/Home render overlay on that exact `MiuiStatusBatteryContainer(system_icons)` owner so native alpha/visibility/transition lifecycle is inherited without a project-local shade gate. Control Center projection is now a bounded transition bridge only: the fully expanded endpoint must return to native status-bar presentation. Keyguard/lockscreen follows as a separate source adapter after Phase 2B, reusing shared domain/render semantics without sharing mutable Home host/session ownership.
 
-## Active checkpoint — Build 445 Home source identity correction
+## Active checkpoint — Build 446 late-eligibility compact cutover
+
+- Work branch remains `feat/keyguard-scene-adapter`; runtime identity advances to Build 446 / `20260929-446`.
+- Build-445 device evidence accepts the Home source identity correction: the unlocked Control Center pull now reports `sourceScene=HOME` and `scene.eligibility state=eligible authority=hyperos-realSystemIcons`.
+- The remaining failure is downstream of scene classification. On the same pull, compact presentation starts with `preLayoutVisualMask active=false / compactLayoutReady=false` but no later `controlCenterPresentation active` or `layoutReady source=native-status-icons-onLayout` is observed, so the projected owner never reaches ready.
+- Root cause: after Build 444 introduced scene gating, Home compact ownership may begin only when Control Center becomes visible. At that point the fake `MiuiStatusIconContainer` can already have completed its native layout. Build 443 intentionally waits for a native `onLayout` before masking, but a late-started session may never receive another layout callback and remains Prepared forever.
+- Build 446 keeps Build-443's atomic rule and adds a bounded late-entry path: if the existing native status-icons group is already `isLaidOut=true`, has no pending layout request, and has positive geometry, that completed native layout is accepted as the cutover boundary. Otherwise the session still waits for the existing native `onLayout` Hook.
+- The late-entry path applies the existing clip mask only after that proof, marks compact layout ready synchronously, and lets the current render-session readiness equation perform the overlay handoff. No geometry, alpha, or visibility ownership is added.
+- Hook delta remains **0**; no listener, timer, retry loop, polling, or frame callback is added.
+- Home/Keyguard scene policy is unchanged: verified Home may project Combined Status; Keyguard/unknown remain native until the separate Keyguard capability is enabled.
+- Validation gate: exact-head Fast -> trusted Canary -> repeat Home pull + Keyguard pull + unlock-return.
+
+## Device evidence — Build 445 Home source identity correction
 
 - Work branch remains `feat/keyguard-scene-adapter`; runtime identity advances to Build 445 / `20260929-445`.
 - Build-444 device evidence rejects only the **Home classification mechanism**, not the source-scene gate itself. The supplied diagnostic shows every unlocked/Home Control Center entry is reported as `sourceScene=UNKNOWN`, while Keyguard entries are correctly reported as `sourceScene=KEYGUARD`. No `sourceScene=HOME` event appears.

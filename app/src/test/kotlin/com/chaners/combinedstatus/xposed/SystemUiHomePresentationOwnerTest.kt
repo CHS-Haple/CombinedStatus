@@ -66,6 +66,46 @@ class SystemUiHomePresentationOwnerTest {
     }
 
     @Test
+    fun lateEligibleControlCenterCanAdoptAlreadyCompletedNativeLayout() {
+        assertTrue(
+            SystemUiHomePresentationOwner.VisualMaskPolicy.shouldAdoptExistingNativeLayout(
+                deferVisualMaskUntilLayout = true,
+                laidOut = true,
+                layoutRequested = false,
+                width = 478,
+                height = 108,
+            ),
+        )
+        assertFalse(
+            SystemUiHomePresentationOwner.VisualMaskPolicy.shouldAdoptExistingNativeLayout(
+                deferVisualMaskUntilLayout = true,
+                laidOut = false,
+                layoutRequested = false,
+                width = 478,
+                height = 108,
+            ),
+        )
+        assertFalse(
+            SystemUiHomePresentationOwner.VisualMaskPolicy.shouldAdoptExistingNativeLayout(
+                deferVisualMaskUntilLayout = true,
+                laidOut = true,
+                layoutRequested = true,
+                width = 478,
+                height = 108,
+            ),
+        )
+        assertFalse(
+            SystemUiHomePresentationOwner.VisualMaskPolicy.shouldAdoptExistingNativeLayout(
+                deferVisualMaskUntilLayout = true,
+                laidOut = true,
+                layoutRequested = false,
+                width = 0,
+                height = 108,
+            ),
+        )
+    }
+
+    @Test
     fun continuousHotReloadHandoffSuppressesIntermediateLayoutRequest() {
         assertFalse(
             SystemUiHomePresentationOwner.HotReloadHandoffPolicy

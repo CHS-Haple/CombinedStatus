@@ -3,6 +3,66 @@
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
 
+## 2026-09-29 — Build 446: late-eligibility compact cutover
+
+**Type:** device-evidence-driven cutover lifecycle correction
+**Build:** 446 / `20260929-446`
+**Work branch:** `feat/keyguard-scene-adapter`
+**Base:** Build-445 exact head `4e7c446127bf710fd07ffef7a93ff6f6ef0e3c9f`
+**Hook delta:** 0
+**Keyguard steady rendering:** still disabled
+**AOD:** untouched
+
+### Build-445 device evidence
+
+The maintainer reports that desktop/Home Control Center still does not show Combined Status.
+
+The supplied Build-445 detailed diagnostic rejects the previous Home-classifier hypothesis as the remaining blocker:
+- native Control Center visibility resolves `sourceScene=HOME`;
+- scene policy transitions to `state=eligible` with `authority=hyperos-realSystemIcons`;
+- compact presentation then logs `preLayoutVisualMask active=false maskedViews=0 compactLayoutReady=false fallbackVisual=native-until-native-layout`;
+- no later `controlCenterPresentation active` or `layoutReady source=native-status-icons-onLayout` appears during the pull.
+
+### Root cause
+
+Build 443 correctly made the native `MiuiStatusIconContainer.onLayout` event the normal atomic cutover boundary so project masking cannot precede native layout.
+
+Build 444 then delayed compact presentation ownership until source-scene eligibility is known. For a Home-originated pull, that eligibility can arrive only when Control Center becomes visible, after the shared fake status-icons group has already completed its native layout. Starting a deferred compact session at that moment waits for a **future** `onLayout` that HyperOS is not required to emit, leaving `compactLayoutReady=false` indefinitely.
+
+### Corrected execution flow
+
+Scene gate becomes Home-eligible
+-> activate existing QS_FAKE compact session
+-> `syncEndReservation()`
+-> inspect the existing native status-icons layout state
+-> if `isLaidOut && !isLayoutRequested && width>0 && height>0`:
+   reuse that already-completed native layout as the cutover proof
+   -> apply existing visual masks
+   -> mark compact layout ready
+   -> current render-session readiness/visibility handoff
+-> otherwise:
+   preserve native visuals
+   -> wait for the existing native `MiuiStatusIconContainer.onLayout` Hook
+   -> normal Build-443 cutover.
+
+### 审查 / review
+
+- **root cause first:** fixes the missing late-entry cutover boundary, not source classification.
+- **preserves Build 443:** no native masking occurs before either an already-completed native layout or a fresh native `onLayout`.
+- **stale-layout guard:** `isLayoutRequested=true` blocks adoption and forces the normal native callback path.
+- **single writer:** `SystemUiHomePresentationOwner` remains the only compact mask owner.
+- **no geometry ownership:** the project does not set fake-root/status-icons geometry.
+- **performance:** one bounded View-state check only when compact ownership starts; no new hook/listener/timer/polling/frame callback.
+- **fail native:** unresolved/pending layout keeps native visuals visible.
+
+### Validation plan
+
+Exact-head Fast, then trusted Canary. Device validation:
+1. unlocked Home -> Control Center must show Combined QS_FAKE and reach `layoutReady source=existing-native-status-icons-layout` or the normal native-onLayout path;
+2. Keyguard -> Control Center remains native;
+3. unlock -> Home pull restores Combined without SystemUI restart.
+
+
 ## 2026-09-29 — Build 445: Home source identity correction for QS_FAKE
 
 **Type:** device-evidence-driven source-classifier correction
