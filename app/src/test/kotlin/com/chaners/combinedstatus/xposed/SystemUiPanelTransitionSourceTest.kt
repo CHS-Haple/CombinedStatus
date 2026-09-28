@@ -39,7 +39,7 @@ class SystemUiPanelTransitionSourceTest {
     }
 
     @Test
-    fun runtimeHookCountKeepsControlCenterDiagnosticsOptional() {
+    fun runtimeHookCountIncludesFakeLifecyclePrearmAndOptionalDiagnostics() {
         assertEquals(2, SystemUiPanelTransitionSource.expectedHookCount(false))
         assertEquals(4, SystemUiPanelTransitionSource.expectedHookCount(true))
     }
