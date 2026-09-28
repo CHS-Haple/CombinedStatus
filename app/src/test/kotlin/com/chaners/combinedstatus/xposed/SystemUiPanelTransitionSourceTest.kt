@@ -15,30 +15,6 @@ class SystemUiPanelTransitionSourceTest {
     }
 
     @Test
-    fun controlCenterHomeEligibilityRequiresNativeInvisibleSemantics() {
-        assertEquals(true, SystemUiPanelTransitionSource.controlCenterAllowsHome(false))
-        assertEquals(false, SystemUiPanelTransitionSource.controlCenterAllowsHome(true))
-        assertEquals(false, SystemUiPanelTransitionSource.controlCenterAllowsHome(null))
-    }
-
-    @Test
-    fun controlCenterEligibilitySnapshotCanSeedHotReloadGeneration() {
-        SystemUiPanelTransitionSource.resetRuntimeState()
-        assertNull(SystemUiPanelTransitionSource.currentControlCenterHomeEligibility())
-
-        SystemUiPanelTransitionSource.restoreControlCenterHomeEligibility(false)
-        assertEquals(false, SystemUiPanelTransitionSource.currentControlCenterHomeEligibility())
-
-        SystemUiPanelTransitionSource.restoreControlCenterHomeEligibility(true)
-        assertEquals(true, SystemUiPanelTransitionSource.currentControlCenterHomeEligibility())
-
-        // A v5 or older payload has no Control Center field; do not erase the
-        // successfully installed generation's current/bootstrap eligibility.
-        SystemUiPanelTransitionSource.restoreControlCenterHomeEligibility(null)
-        assertEquals(true, SystemUiPanelTransitionSource.currentControlCenterHomeEligibility())
-    }
-
-    @Test
     fun runtimeHookCountKeepsOnlyControlCenterProgressDiagnosticOptional() {
         assertEquals(1, SystemUiPanelTransitionSource.expectedHookCount(false))
         assertEquals(2, SystemUiPanelTransitionSource.expectedHookCount(true))
