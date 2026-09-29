@@ -1,4 +1,4 @@
-package com.chaners.combinedstatus
+package com.chaners.guiyuan
 
 import android.content.res.Configuration
 import android.graphics.Color
@@ -16,13 +16,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import com.chaners.combinedstatus.settings.AppPlatformSettings
-import com.chaners.combinedstatus.settings.AppThemeMode
-import com.chaners.combinedstatus.settings.AppearanceSettings
-import com.chaners.combinedstatus.settings.AppearanceSettingsRepository
-import com.chaners.combinedstatus.settings.FloatingNavigationContent
-import com.chaners.combinedstatus.settings.FloatingNavigationStyle
-import com.chaners.combinedstatus.ui.CombinedStatusApp
+import com.chaners.guiyuan.settings.AppPlatformSettings
+import com.chaners.guiyuan.settings.AppThemeMode
+import com.chaners.guiyuan.settings.AppearanceSettings
+import com.chaners.guiyuan.settings.AppearanceSettingsRepository
+import com.chaners.guiyuan.settings.FloatingNavigationContent
+import com.chaners.guiyuan.settings.FloatingNavigationStyle
+import com.chaners.guiyuan.ui.CombinedStatusApp
 import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {

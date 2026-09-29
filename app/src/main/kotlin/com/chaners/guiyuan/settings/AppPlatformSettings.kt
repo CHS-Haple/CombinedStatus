@@ -1,4 +1,4 @@
-package com.chaners.combinedstatus.settings
+package com.chaners.guiyuan.settings
 
 import android.app.LocaleManager
 import android.content.ComponentName

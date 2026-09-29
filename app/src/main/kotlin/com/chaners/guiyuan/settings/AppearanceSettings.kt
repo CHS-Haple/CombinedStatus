@@ -1,4 +1,4 @@
-package com.chaners.combinedstatus.settings
+package com.chaners.guiyuan.settings
 
 import android.content.Context
 import androidx.datastore.core.DataStore

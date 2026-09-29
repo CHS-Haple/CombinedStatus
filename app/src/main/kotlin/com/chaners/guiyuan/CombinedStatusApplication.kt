@@ -1,4 +1,4 @@
-package com.chaners.combinedstatus
+package com.chaners.guiyuan
 
 import android.app.Application
 import android.content.Context
@@ -6,18 +6,18 @@ import android.content.SharedPreferences
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import com.chaners.combinedstatus.settings.CENTER_FOLLOWS_BATTERY_COLOR_KEY
-import com.chaners.combinedstatus.settings.COMBINED_STATUS_ENABLED_KEY
-import com.chaners.combinedstatus.settings.COMBINED_STATUS_FEATURE_CHANGE_ELAPSED_REALTIME_NANOS_KEY
-import com.chaners.combinedstatus.settings.COMBINED_STATUS_FEATURE_PREFS_NAME
-import com.chaners.combinedstatus.settings.COMBINED_STATUS_KEYGUARD_ENABLED_KEY
-import com.chaners.combinedstatus.settings.COMBINED_STATUS_VISUAL_PREFS_NAME
-import com.chaners.combinedstatus.settings.DIAGNOSTICS_LEVEL_KEY
-import com.chaners.combinedstatus.settings.DIAGNOSTICS_PREFS_NAME
-import com.chaners.combinedstatus.settings.DiagnosticsLevel
-import com.chaners.combinedstatus.settings.MOBILE_FOLLOWS_BATTERY_COLOR_KEY
-import com.chaners.combinedstatus.settings.RUNTIME_REMOTE_PREFS_NAME
-import com.chaners.combinedstatus.system.XposedRuntimeStatus
+import com.chaners.guiyuan.settings.CENTER_FOLLOWS_BATTERY_COLOR_KEY
+import com.chaners.guiyuan.settings.COMBINED_STATUS_ENABLED_KEY
+import com.chaners.guiyuan.settings.COMBINED_STATUS_FEATURE_CHANGE_ELAPSED_REALTIME_NANOS_KEY
+import com.chaners.guiyuan.settings.COMBINED_STATUS_FEATURE_PREFS_NAME
+import com.chaners.guiyuan.settings.COMBINED_STATUS_KEYGUARD_ENABLED_KEY
+import com.chaners.guiyuan.settings.COMBINED_STATUS_VISUAL_PREFS_NAME
+import com.chaners.guiyuan.settings.DIAGNOSTICS_LEVEL_KEY
+import com.chaners.guiyuan.settings.DIAGNOSTICS_PREFS_NAME
+import com.chaners.guiyuan.settings.DiagnosticsLevel
+import com.chaners.guiyuan.settings.MOBILE_FOLLOWS_BATTERY_COLOR_KEY
+import com.chaners.guiyuan.settings.RUNTIME_REMOTE_PREFS_NAME
+import com.chaners.guiyuan.system.XposedRuntimeStatus
 import io.github.libxposed.service.XposedService
 import io.github.libxposed.service.XposedServiceHelper
 import kotlinx.coroutines.flow.MutableStateFlow
