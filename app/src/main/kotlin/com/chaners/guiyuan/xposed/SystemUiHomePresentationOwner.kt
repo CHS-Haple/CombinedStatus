@@ -27,7 +27,7 @@ internal object SystemUiHomePresentationOwner {
     private const val BATTERY_HIDE_HOOK_ID =
         "combinedstatus.homePresentation.batteryHideState"
 
-    private val representedSlots =
+    internal val representedSlots: Set<String> =
         linkedSetOf("wifi", "mobile", "stacked_mobile", "airplane", "no_sim")
 
     private var measureHook: HookHandle? = null
@@ -590,6 +590,10 @@ internal object SystemUiHomePresentationOwner {
     }
 
     @Synchronized
+    fun setControlCenterTransitionProjectedSlots(slots: Set<String>): Int =
+        controlCenterCurrent?.setAdditionalMaskedSlots(slots) ?: 0
+
+    @Synchronized
     fun deactivateControlCenter(source: String): ControlCenterStateResult {
         val session =
             controlCenterCurrent
@@ -894,6 +898,7 @@ internal object SystemUiHomePresentationOwner {
         private var transientLiveBatteryWidthUnavailable = false
         private var persistentIgnoredSlotsApplied = false
         private var ownedPersistentIgnoredSlots: List<String> = emptyList()
+        private var additionalMaskedSlots: Set<String> = emptySet()
         private val clipStates = mutableListOf<ClipState>()
         private val batteryLayoutListener =
             View.OnLayoutChangeListener {
@@ -1399,6 +1404,19 @@ internal object SystemUiHomePresentationOwner {
             callback?.invoke(maskedViews)
         }
 
+        fun setAdditionalMaskedSlots(slots: Set<String>): Int {
+            val normalized = slots.filterTo(linkedSetOf()) { it !in representedSlots }
+            if (additionalMaskedSlots == normalized) {
+                return clipStates.count { state -> state.view.get() != null }
+            }
+            additionalMaskedSlots = normalized
+            return if (active && started && isLayoutCutoverReady()) {
+                refreshClipMasks()
+            } else {
+                clipStates.count { state -> state.view.get() != null }
+            }
+        }
+
         fun refreshClipMasks(): Int {
             if (!active) {
                 return 0
@@ -1418,7 +1436,8 @@ internal object SystemUiHomePresentationOwner {
             targets += batteryView
             for (index in 0 until group.childCount) {
                 val child = group.getChildAt(index)
-                if (NativeParticipantRuntimeAccess.slotOf(child) in representedSlots) {
+                val slot = NativeParticipantRuntimeAccess.slotOf(child)
+                if (slot in representedSlots || slot in additionalMaskedSlots) {
                     targets += child
                 }
             }
@@ -1455,6 +1474,7 @@ internal object SystemUiHomePresentationOwner {
         }
 
         private fun restoreClipMasks(): Int {
+            additionalMaskedSlots = emptySet()
             val states = clipStates.toList()
             clipStates.clear()
             var restored = 0
