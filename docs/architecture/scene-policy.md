@@ -99,9 +99,9 @@ Control Center is split into two ownership phases.
 - `onExpansionChanged(progress)` owns translation only and must not be repurposed as a project visibility threshold;
 - Build-441 device diagnostics reach fraction 1.0 and observe the QS_FAKE root at alpha 0 before the return transition, matching the exact-target source contract;
 - the accepted steady Guiyuan renderer remains attached to `ControlCenterFakeStatusIcons.overlay`; transition adaptation may additionally use a temporary **window-root overlay** only for the interval where native expansion progress is strictly between its endpoints;
-- fully expanded ownership remains native-only. Build 478 removes role-6 native target masks entirely; final Wi-Fi/mobile/Battery and final-only status icons stay on the native final surface throughout the gesture;
+- fully expanded ownership remains native-only. Build 480 keeps role-6 native target masks absent; final Wi-Fi/mobile/Battery and final-only status icons stay on the native final surface throughout the gesture;
 - Build-455 device evidence still rejects overlay-local screen coordinates as a motion authority. Build 470-473 later confirmed the same boundary by failing with Home-source/RectF projection. Build 478 samples the Trinity source from the real role-5 Battery/carrier transform and uses role-6 matrices only as read-only Trinity targets;
-- the native fake/final Folme contract remains the endpoint appearance authority. Guiyuan's Trinity overlay follows native expansion for geometry and fake-root alpha for visibility; it does not own a second handoff threshold, tint transition or gesture animator.
+- the native fake/final Folme contract remains the endpoint appearance authority. Build 480 also uses raw native expansion as Trinity geometry progress; Guiyuan's overlay follows fake-root alpha for visibility and does not own a second handoff threshold, tint transition or gesture animator.
 
 No polling/frame follower, native peer geometry write, second layout/suppression owner, or project-owned native alpha/translation/visibility writer is permitted.
 
