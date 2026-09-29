@@ -31,6 +31,8 @@ The project follows a Keep a Changelog-style structure. During pre-release devel
 
 ### Changed
 
+- Refined companion-app visual hierarchy: Runtime status marks now balance ring and inner-symbol weight, Diagnostics report actions use MIUIX Normal leading icons, Preview Sandbox spacing follows a compact consistent vertical rhythm, and Features removes the duplicate master switch while separating lock-screen behavior from color-link controls.
+
 - Redesigned the Home Preview Sandbox and its detail screen around compact MIUIX segmented choices, continuous sliders, uninterrupted Network/Battery cards, and fixed preview geometry while preserving the shared production renderer.
 
 - Preview Sandbox now uses a mutually-exclusive MIUIX Mobile/Wi-Fi selector with context-dependent subordinate controls while preserving valid no-SIM + Wi-Fi simulation; no-Internet Wi-Fi resolves the exact HyperOS unavailable drawable family, and the shared renderer places the 5G-Advanced `A` at lower-right in both previews and the real status bar.
