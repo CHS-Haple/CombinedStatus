@@ -8,6 +8,11 @@ import com.chaners.combinedstatus.xposed.CombinedStatusPresentationStateStore
 import com.chaners.combinedstatus.xposed.CombinedStatusRenderModel
 import com.chaners.combinedstatus.xposed.InternetState
 
+internal enum class PreviewNetworkMode {
+    MOBILE,
+    WIFI,
+}
+
 internal enum class PreviewMobileNetwork {
     NONE,
     FOUR_G,
@@ -16,7 +21,6 @@ internal enum class PreviewMobileNetwork {
 }
 
 internal enum class PreviewWifiState {
-    OFF,
     CONNECTED,
     NO_INTERNET,
     HOTSPOT,
@@ -38,6 +42,7 @@ internal enum class PreviewChargingState {
 internal data class PreviewSandboxUiState(
     val simPresent: Boolean = true,
     val airplaneMode: Boolean = false,
+    val networkMode: PreviewNetworkMode = PreviewNetworkMode.WIFI,
     val mobileNetwork: PreviewMobileNetwork = PreviewMobileNetwork.FIVE_G,
     val mobileSignalLevel: Int = 4,
     val wifiState: PreviewWifiState = PreviewWifiState.CONNECTED,
@@ -49,8 +54,8 @@ internal data class PreviewSandboxUiState(
     val mobileControlsEnabled: Boolean
         get() = simPresent && !airplaneMode
 
-    val wifiSignalEnabled: Boolean
-        get() = wifiState != PreviewWifiState.OFF
+    val mobileOptionsVisible: Boolean
+        get() = networkMode == PreviewNetworkMode.MOBILE && mobileControlsEnabled
 }
 
 internal class PreviewSystemUiResourceResolver(
@@ -118,7 +123,7 @@ internal fun PreviewSandboxUiState.toRenderModel(
 
     val center =
         when {
-            wifiState != PreviewWifiState.OFF ->
+            networkMode == PreviewNetworkMode.WIFI ->
                 CenterIndicator.Wifi(
                     segments = wifiLevel,
                     internet =
@@ -159,7 +164,7 @@ internal fun PreviewSandboxUiState.toRenderModel(
                             PreviewMobileNetwork.NONE -> ""
                             PreviewMobileNetwork.FOUR_G -> "4G"
                             PreviewMobileNetwork.FIVE_G -> "5G"
-                            PreviewMobileNetwork.FIVE_GA -> "5GA"
+                            PreviewMobileNetwork.FIVE_GA -> "5G-A"
                         },
                     enhanced = false,
                     internet = InternetState.VALIDATED,
@@ -197,34 +202,32 @@ internal fun PreviewSandboxUiState.toRenderModel(
     )
 }
 
+internal fun previewWifiResourceNames(
+    state: PreviewWifiState,
+    level: Int,
+): List<String> =
+    when (state) {
+        PreviewWifiState.CONNECTED ->
+            listOf("stat_sys_wifi_signal_$level")
+
+        PreviewWifiState.NO_INTERNET ->
+            listOf("stat_sys_wifi_signal_unavailable_$level")
+
+        PreviewWifiState.HOTSPOT ->
+            listOf("stat_sys_hotspot_signal_$level")
+    }
+
 private fun previewWifiResourceId(
     resources: PreviewSystemUiResourceResolver,
     state: PreviewWifiState,
     level: Int,
 ): Int? =
-    when (state) {
-        PreviewWifiState.OFF -> null
-
-        PreviewWifiState.CONNECTED ->
-            resources.drawableId(
-                "stat_sys_wifi_signal_$level",
-            )
-
-        PreviewWifiState.NO_INTERNET ->
-            resources.drawableId(
-                "stat_sys_wifi_signal_${level}_unavailable",
-                "stat_sys_wifi_signal_${level}_no_internet",
-                "stat_sys_wifi_signal_${level}_nointernet",
-                "stat_sys_wifi_signal_${level}_no_network",
-                "stat_sys_wifi_signal_$level",
-            )
-
-        PreviewWifiState.HOTSPOT ->
-            resources.drawableId(
-                "stat_sys_hotspot_signal_$level",
-                "stat_sys_wifi_signal_$level",
-            )
-    }
+    resources.drawableId(
+        *previewWifiResourceNames(
+            state = state,
+            level = level.coerceIn(0, 3),
+        ).toTypedArray(),
+    )
 
 private fun previewBatterySemanticColor(
     resources: PreviewSystemUiResourceResolver,
