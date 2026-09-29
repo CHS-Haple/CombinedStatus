@@ -123,7 +123,7 @@ internal class CombinedStatusPainter(
         opacity: Float = 1f,
         motionProgress: Float = 0f,
         shapeProgress: Float = 0f,
-        batteryTargetAspectRatio: Float? = null,
+        mobileTargetHeightRatio: Float? = null,
     ) {
         if (width <= 0 || height <= 0 || opacity <= 0f) return
 
@@ -160,7 +160,6 @@ internal class CombinedStatusPainter(
                         opacity = opacity,
                         geometry = outerGeometry,
                         shapeProgress = shape,
-                        targetAspectRatio = batteryTargetAspectRatio,
                     )
                 } else {
                     drawBattery(
@@ -204,6 +203,7 @@ internal class CombinedStatusPainter(
                         geometry = outerGeometry,
                         motionProgress = motion,
                         shapeProgress = shape,
+                        targetHeightRatio = mobileTargetHeightRatio,
                     )
                 } else {
                     drawMobile(
@@ -221,7 +221,36 @@ internal class CombinedStatusPainter(
         canvas.restoreToCount(save)
     }
 
+    internal object BatteryMorphPolicy {
+        fun contourProgress(progress: Float): Float =
+            smoothPhase(progress, 0.05f, 0.88f)
+
+        fun sourceOpacity(progress: Float): Float =
+            1f - smoothPhase(progress, 0.18f, 0.80f)
+
+        fun terminalProgress(progress: Float): Float =
+            smoothPhase(progress, 0.58f, 1f)
+
+        private fun smoothPhase(
+            value: Float,
+            start: Float,
+            end: Float,
+        ): Float {
+            val normalized =
+                if (!value.isFinite() || end <= start) {
+                    0f
+                } else {
+                    ((value - start) / (end - start)).coerceIn(0f, 1f)
+                }
+            return normalized * normalized * (3f - 2f * normalized)
+        }
+    }
+
     internal object MobileSignalMorphPolicy {
+        private const val NATIVE_HEIGHT_CAP_RATIO = 0.90f
+        private const val STABLE_MAX_BAR_HEIGHT = 54f
+        private val BAR_HEIGHT_RATIOS = floatArrayOf(0.56f, 0.70f, 0.84f, 1f)
+
         fun rowProgress(shapeProgress: Float): Float =
             smoothPhase(
                 value = shapeProgress,
@@ -235,6 +264,39 @@ internal class CombinedStatusPainter(
                 start = 0.5f,
                 end = 1f,
             )
+
+        fun targetMaxBarHeight(
+            sourceBoundsHeight: Float,
+            diameter: Float,
+            targetHeightRatio: Float?,
+        ): Float {
+            val nativeCap =
+                targetHeightRatio
+                    ?.takeIf { ratio -> ratio.isFinite() && ratio > 0f }
+                    ?.let { ratio -> sourceBoundsHeight * ratio * NATIVE_HEIGHT_CAP_RATIO }
+                    ?: STABLE_MAX_BAR_HEIGHT
+            return min(STABLE_MAX_BAR_HEIGHT, nativeCap)
+                .coerceAtLeast(diameter)
+        }
+
+        fun targetBarHeight(
+            index: Int,
+            maxBarHeight: Float,
+            diameter: Float,
+        ): Float {
+            val ratio = BAR_HEIGHT_RATIOS.getOrElse(index) { 1f }
+            return (maxBarHeight * ratio).coerceAtLeast(diameter)
+        }
+
+        fun halfBarHeight(
+            diameter: Float,
+            targetBarHeight: Float,
+            barProgress: Float,
+        ): Float =
+            (
+                diameter +
+                    (targetBarHeight - diameter) * barProgress.coerceIn(0f, 1f)
+            ) / 2f
 
         private fun smoothPhase(
             value: Float,
@@ -354,7 +416,7 @@ internal class CombinedStatusPainter(
                     ),
                 target = TransitionTarget.BatteryIcon,
                 shapePolicy = TransitionShapePolicy.BATTERY_FOLD,
-                scalePolicy = TransitionScalePolicy.TARGET,
+                scalePolicy = TransitionScalePolicy.SHRINK_ONLY,
             )
 
         val centerSpec =
@@ -607,43 +669,43 @@ internal class CombinedStatusPainter(
         opacity: Float,
         geometry: CombinedStatusOuterGeometry.Resolved,
         shapeProgress: Float,
-        targetAspectRatio: Float?,
     ) {
-        val p = shapeProgress.coerceIn(0f, 1f)
-        val morph = p * p * (3f - 2f * p)
-        val ringOpacity = opacity * (1f - morph)
-        if (ringOpacity > 0f) {
+        val progress = shapeProgress.coerceIn(0f, 1f)
+        val contourProgress = BatteryMorphPolicy.contourProgress(progress)
+        val sourceOpacity = BatteryMorphPolicy.sourceOpacity(progress)
+        if (sourceOpacity > 0f) {
             drawBattery(
                 canvas = canvas,
                 model = model,
                 batteryTint = batteryTint,
-                opacity = ringOpacity,
+                opacity = opacity * sourceOpacity,
                 geometry = geometry,
             )
         }
 
-        if (morph <= 0f) return
+        if (contourProgress <= 0f) return
 
-        val sourceWidth = batteryRing.width()
-        val sourceHeight = batteryRing.height()
-        val resolvedAspect =
-            (targetAspectRatio ?: BATTERY_TRANSITION_FALLBACK_ASPECT)
-                .coerceIn(BATTERY_TRANSITION_MIN_ASPECT, 1f)
-        val targetHeight = sourceWidth * resolvedAspect
-        val bodyHeight = lerp(sourceHeight, targetHeight, morph)
-        val targetBodyWidth = sourceWidth * BATTERY_TRANSITION_BODY_WIDTH_RATIO
-        val bodyWidth = lerp(sourceWidth, targetBodyWidth, morph)
-        val bodyLeft = batteryRing.left
-        val bodyTop = BATTERY_COMPONENT_CENTER_Y - bodyHeight / 2f
-        val bodyRight = bodyLeft + bodyWidth
-        val bodyBottom = bodyTop + bodyHeight
-        val cornerRadius = bodyHeight / 2f
+        val bodyLeft =
+            lerp(batteryRing.left, BATTERY_TRANSITION_TARGET_BODY_LEFT, contourProgress)
+        val bodyTop =
+            lerp(batteryRing.top, BATTERY_TRANSITION_TARGET_BODY_TOP, contourProgress)
+        val bodyRight =
+            lerp(batteryRing.right, BATTERY_TRANSITION_TARGET_BODY_RIGHT, contourProgress)
+        val bodyBottom =
+            lerp(batteryRing.bottom, BATTERY_TRANSITION_TARGET_BODY_BOTTOM, contourProgress)
+        val bodyHeight = (bodyBottom - bodyTop).coerceAtLeast(1f)
+        val cornerRadius =
+            lerp(
+                batteryRing.height() / 2f,
+                BATTERY_TRANSITION_TARGET_CORNER_RADIUS,
+                contourProgress,
+            ).coerceAtMost(bodyHeight / 2f)
 
         stroke(
             color = batteryTint,
             alpha = 255,
             width = geometry.ringStroke,
-            opacity = opacity * morph,
+            opacity = opacity * contourProgress,
         )
         canvas.drawRoundRect(
             bodyLeft,
@@ -655,39 +717,29 @@ internal class CombinedStatusPainter(
             paint,
         )
 
-        val terminalProgress = morph * morph
-        if (terminalProgress > 0f) {
-            val terminalHeight = bodyHeight * 0.42f
-            val availableTerminalWidth =
-                (batteryRing.right - bodyRight).coerceAtLeast(0f)
-            val terminalWidth =
-                min(
-                    availableTerminalWidth,
-                    max(
-                        geometry.ringStroke,
-                        bodyHeight * 0.12f,
-                    ),
-                )
-            val terminalLeft =
-                batteryRing.right - terminalWidth
-            val terminalTop =
-                BATTERY_COMPONENT_CENTER_Y - terminalHeight / 2f
-            if (terminalWidth <= 0f) return
-            fill(
-                color = batteryTint,
-                alpha = 255,
-                opacity = opacity * terminalProgress,
-            )
-            canvas.drawRoundRect(
-                terminalLeft,
-                terminalTop,
-                terminalLeft + terminalWidth,
-                terminalTop + terminalHeight,
-                terminalWidth / 2f,
-                terminalWidth / 2f,
-                paint,
-            )
-        }
+        val terminalProgress = BatteryMorphPolicy.terminalProgress(progress)
+        if (terminalProgress <= 0f) return
+
+        val terminalWidth =
+            BATTERY_TRANSITION_TARGET_TERMINAL_WIDTH * terminalProgress
+        val terminalHeight =
+            BATTERY_TRANSITION_TARGET_TERMINAL_HEIGHT * terminalProgress
+        val terminalLeft = bodyRight
+        val terminalTop = BATTERY_COMPONENT_CENTER_Y - terminalHeight / 2f
+        fill(
+            color = batteryTint,
+            alpha = 255,
+            opacity = opacity * terminalProgress,
+        )
+        canvas.drawRoundRect(
+            terminalLeft,
+            terminalTop,
+            terminalLeft + terminalWidth,
+            terminalTop + terminalHeight,
+            terminalWidth / 2f,
+            terminalWidth / 2f,
+            paint,
+        )
     }
 
     private fun drawCenterTransition(
@@ -1472,24 +1524,18 @@ internal class CombinedStatusPainter(
         val usableWidth = (bounds.width - diameter).coerceAtLeast(diameter * 3f)
         val step = usableWidth / (MOBILE_DOT_COUNT - 1).toFloat()
         val firstX = bounds.left + diameter / 2f
-        val baselineY = bounds.bottom
         val targetCenters =
             List(MOBILE_DOT_COUNT) { index ->
                 TransitionPoint(
                     x = firstX + step * index,
-                    y = baselineY - geometry.mobileDotRadius,
+                    y = bounds.centerY,
                 )
             }
-        val maxBarHeight = (bounds.height * 0.92f).coerceAtLeast(diameter)
-        val barHeights =
-            listOf(0.34f, 0.52f, 0.72f, 0.92f)
-                .map { ratio -> (bounds.height * ratio).coerceIn(diameter, maxBarHeight) }
 
         return MobileSignalTransitionLayout(
             bounds = bounds,
             sourceCenters = sourceCenters,
             targetCenters = targetCenters,
-            barHeights = barHeights,
         )
     }
 
@@ -1501,6 +1547,7 @@ internal class CombinedStatusPainter(
         geometry: CombinedStatusOuterGeometry.Resolved,
         motionProgress: Float,
         shapeProgress: Float,
+        targetHeightRatio: Float?,
     ) {
         val layout = resolveMobileSignalTransitionLayout(geometry, model)
         @Suppress("UNUSED_VARIABLE")
@@ -1509,6 +1556,12 @@ internal class CombinedStatusPainter(
         val rowProgress = MobileSignalMorphPolicy.rowProgress(shape)
         val barProgress = MobileSignalMorphPolicy.barProgress(shape)
         val diameter = geometry.mobileDotRadius * 2f
+        val maxBarHeight =
+            MobileSignalMorphPolicy.targetMaxBarHeight(
+                sourceBoundsHeight = layout.bounds.height,
+                diameter = diameter,
+                targetHeightRatio = targetHeightRatio,
+            )
         val level = model.mobileLevel
 
         for (index in 0 until MOBILE_DOT_COUNT) {
@@ -1516,8 +1569,18 @@ internal class CombinedStatusPainter(
             val target = layout.targetCenters[index]
             val centerX = lerp(source.x, target.x, rowProgress)
             val centerY = lerp(source.y, target.y, rowProgress)
-            val barHeight = lerp(diameter, layout.barHeights[index], barProgress)
-            val bottom = centerY + geometry.mobileDotRadius
+            val targetBarHeight =
+                MobileSignalMorphPolicy.targetBarHeight(
+                    index = index,
+                    maxBarHeight = maxBarHeight,
+                    diameter = diameter,
+                )
+            val halfBarHeight =
+                MobileSignalMorphPolicy.halfBarHeight(
+                    diameter = diameter,
+                    targetBarHeight = targetBarHeight,
+                    barProgress = barProgress,
+                )
             fill(
                 color = tint,
                 alpha = if (level != null && level > index) 255 else 48,
@@ -1525,9 +1588,9 @@ internal class CombinedStatusPainter(
             )
             canvas.drawRoundRect(
                 centerX - geometry.mobileDotRadius,
-                bottom - barHeight,
+                centerY - halfBarHeight,
                 centerX + geometry.mobileDotRadius,
-                bottom,
+                centerY + halfBarHeight,
                 geometry.mobileDotRadius,
                 geometry.mobileDotRadius,
                 paint,
@@ -1717,9 +1780,13 @@ internal class CombinedStatusPainter(
         const val NATIVE_STEADY_APPEAR_THRESHOLD = 0.999f
         const val BATTERY_COMPONENT_CENTER_X = 60f
         const val BATTERY_COMPONENT_CENTER_Y = 58f
-        const val BATTERY_TRANSITION_FALLBACK_ASPECT = 0.56f
-        const val BATTERY_TRANSITION_MIN_ASPECT = 0.42f
-        const val BATTERY_TRANSITION_BODY_WIDTH_RATIO = 0.86f
+        const val BATTERY_TRANSITION_TARGET_BODY_LEFT = 19f
+        const val BATTERY_TRANSITION_TARGET_BODY_TOP = 34f
+        const val BATTERY_TRANSITION_TARGET_BODY_RIGHT = 93f
+        const val BATTERY_TRANSITION_TARGET_BODY_BOTTOM = 82f
+        const val BATTERY_TRANSITION_TARGET_CORNER_RADIUS = 12f
+        const val BATTERY_TRANSITION_TARGET_TERMINAL_WIDTH = 8f
+        const val BATTERY_TRANSITION_TARGET_TERMINAL_HEIGHT = 20f
 
     }
 
@@ -1732,7 +1799,6 @@ internal class CombinedStatusPainter(
         val bounds: TransitionBounds,
         val sourceCenters: List<TransitionPoint>,
         val targetCenters: List<TransitionPoint>,
-        val barHeights: List<Float>,
     )
 
     private data class TransitionWifiMetrics(

@@ -276,12 +276,16 @@ internal object CombinedStatusControlCenterTransitionOwner {
             )
         }
 
-        fun geometryAspectRatio(geometry: FloatArray): Float? {
-            require(geometry.size == 6)
-            val width = vectorLength(geometry[2], geometry[3])
-            val height = vectorLength(geometry[4], geometry[5])
-            if (width <= 0f || height <= 0f) return null
-            return height / width
+        fun relativeGeometryHeight(
+            target: FloatArray,
+            current: FloatArray,
+        ): Float? {
+            require(target.size == 6)
+            require(current.size == 6)
+            val targetHeight = vectorLength(target[4], target[5])
+            val currentHeight = vectorLength(current[4], current[5])
+            if (targetHeight <= 0f || currentHeight <= 0f) return null
+            return targetHeight / currentHeight
         }
 
         private fun vectorLength(
@@ -612,12 +616,16 @@ internal object CombinedStatusControlCenterTransitionOwner {
                             CombinedStatusPainter.TransitionShapePolicy.RIGID ->
                                 0f
                         },
-                    batteryTargetAspectRatio =
+                    mobileTargetHeightRatio =
                         if (
                             spec.shapePolicy ==
-                            CombinedStatusPainter.TransitionShapePolicy.BATTERY_FOLD
+                            CombinedStatusPainter.TransitionShapePolicy.MOBILE_SIGNAL &&
+                            targetGeometry != null
                         ) {
-                            targetGeometry?.let(Policy::geometryAspectRatio)
+                            Policy.relativeGeometryHeight(
+                                target = targetGeometry,
+                                current = geometry,
+                            )
                         } else {
                             null
                         },
@@ -940,13 +948,22 @@ internal object CombinedStatusControlCenterTransitionOwner {
             )
         }
 
-        private fun resolveBatteryIconTarget(battery: View): View? =
-            readViewField(
-                target = battery,
-                fieldName = "mBatteryIconView",
-            )
+        private fun resolveBatteryIconTarget(battery: View): View? {
+            val fieldNames =
+                if (readIntField(battery, "mBatteryStyle") == 1) {
+                    listOf("mHollowBatteryIconView", "mBatteryIconView")
+                } else {
+                    listOf("mBatteryIconView", "mHollowBatteryIconView")
+                }
+            return fieldNames.firstNotNullOfOrNull { fieldName ->
+                readViewField(
+                    target = battery,
+                    fieldName = fieldName,
+                )
+            }
                 ?: findDescendantByResourceEntry(battery, "battery_icon")
                 ?: findDescendantByResourceEntry(battery, "battery_icon_container")
+        }
 
         private fun readViewField(
             target: Any,
@@ -961,6 +978,22 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     runCatching {
                         field.isAccessible = true
                         field.get(target) as? View
+                    }.getOrNull()
+                }
+
+        private fun readIntField(
+            target: Any,
+            fieldName: String,
+        ): Int? =
+            generateSequence(target.javaClass) { clazz -> clazz.superclass }
+                .mapNotNull { clazz ->
+                    clazz.declaredFields.firstOrNull { field -> field.name == fieldName }
+                }
+                .firstOrNull()
+                ?.let { field ->
+                    runCatching {
+                        field.isAccessible = true
+                        field.getInt(target)
                     }.getOrNull()
                 }
 
