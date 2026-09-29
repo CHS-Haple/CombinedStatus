@@ -22,7 +22,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
-import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
@@ -196,20 +195,11 @@ private fun HomeRuntimeStatusCard(
             RuntimeStatusTone.Error -> MiuixTheme.colorScheme.error
             RuntimeStatusTone.Neutral -> MiuixTheme.colorScheme.onSurfaceContainerVariant
         }
-    val containerColor =
-        when (state.tone) {
-            RuntimeStatusTone.Neutral -> MiuixTheme.colorScheme.surfaceContainer
-            else ->
-                accentColor
-                    .copy(alpha = 0.15f)
-                    .compositeOver(MiuixTheme.colorScheme.surfaceContainer)
-        }
-
     Card(
         modifier = modifier,
         colors =
             CardDefaults.defaultColors(
-                color = containerColor,
+                color = MiuixTheme.colorScheme.surfaceContainer,
                 contentColor = MiuixTheme.colorScheme.onSurfaceContainer,
             ),
     ) {
@@ -226,7 +216,7 @@ private fun HomeRuntimeStatusCard(
                 modifier =
                     Modifier
                         .align(Alignment.BottomEnd)
-                        .offset(y = 10.dp)
+                        .offset(y = 6.dp)
                         .size(RuntimeStatusMarkSize),
             )
 
@@ -234,7 +224,7 @@ private fun HomeRuntimeStatusCard(
                 modifier =
                     Modifier
                         .fillMaxSize()
-                        .padding(end = 98.dp),
+                        .padding(end = 90.dp),
             ) {
                 Text(
                     text = stringResource(state.titleRes),
@@ -274,7 +264,7 @@ private fun HomeRuntimeStatusCard(
                     modifier = Modifier.padding(top = 12.dp),
                     style = MiuixTheme.textStyles.body2,
                     color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
-                    maxLines = 2,
+                    maxLines = 3,
                 )
             }
 
@@ -326,20 +316,22 @@ private fun HomePreviewSandboxCard(
             style = MiuixTheme.textStyles.body2,
             color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
         )
-        CombinedStatusPreview(
-            model = state.toRenderModel(resources),
+        Box(
             modifier =
                 Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .size(112.dp)
-                    .padding(top = 4.dp),
-        )
+                    .fillMaxWidth()
+                    .height(HomePreviewStageHeight)
+                    .padding(top = 2.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            CombinedStatusPreview(
+                model = state.toRenderModel(resources),
+                modifier = Modifier.size(HomePreviewIconSize),
+            )
+        }
         Text(
             text = previewNetworkSummary(state),
-            modifier =
-                Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .padding(top = 2.dp),
+            modifier = Modifier.align(Alignment.CenterHorizontally),
             style = MiuixTheme.textStyles.body1,
             color = MiuixTheme.colorScheme.onSurfaceContainer,
         )
@@ -348,7 +340,7 @@ private fun HomePreviewSandboxCard(
             modifier =
                 Modifier
                     .align(Alignment.CenterHorizontally)
-                    .padding(top = 2.dp),
+                    .padding(top = 1.dp),
             style = MiuixTheme.textStyles.body2,
             color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
         )
@@ -503,7 +495,9 @@ private fun resolveHomeRuntimeCardState(
     }
 }
 
-private val RuntimeCardHeight = 160.dp
-private val RuntimeStatusMarkSize = 88.dp
+private val RuntimeCardHeight = 168.dp
+private val RuntimeStatusMarkSize = 80.dp
+private val HomePreviewStageHeight = 124.dp
+private val HomePreviewIconSize = 112.dp
 private val RuntimeSuccessAccent = Color(0xFF36D167)
 private val RuntimeWarningAccent = Color(0xFFFFA500)
