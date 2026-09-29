@@ -40,7 +40,7 @@ class SystemUiPanelTransitionSourceTest {
 
     @Test
     fun runtimeHookCountIncludesFakeLifecyclePrearmAndOptionalDiagnostics() {
-        assertEquals(2, SystemUiPanelTransitionSource.expectedHookCount(false))
+        assertEquals(3, SystemUiPanelTransitionSource.expectedHookCount(false))
         assertEquals(4, SystemUiPanelTransitionSource.expectedHookCount(true))
     }
 
@@ -147,6 +147,16 @@ class SystemUiPanelTransitionSourceTest {
         assertEquals(0, SystemUiPanelTransitionSource.diagnosticBucket(-0.2f))
         assertEquals(8, SystemUiPanelTransitionSource.diagnosticBucket(1.4f))
         assertNull(SystemUiPanelTransitionSource.diagnosticBucket(null))
+    }
+
+    @Test
+    fun transitionProjectionUsesNativeProgressAsBaselineTimeline() {
+        val policy =
+            CombinedStatusControlCenterRenderSession.ControlCenterTransitionProjectionPolicy
+        assertEquals(0f, policy.geometryProgress(-0.2f))
+        assertEquals(0.5f, policy.geometryProgress(0.5f))
+        assertEquals(1f, policy.geometryProgress(1.4f))
+        assertEquals(0f, policy.geometryProgress(Float.NaN))
     }
 
     @Test
