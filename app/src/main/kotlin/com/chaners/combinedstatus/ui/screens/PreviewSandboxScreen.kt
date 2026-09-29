@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.chaners.combinedstatus.R
 import com.chaners.combinedstatus.ui.components.CombinedStatusPreview
@@ -26,18 +27,16 @@ import com.chaners.combinedstatus.ui.components.topBarBackdropSource
 import com.chaners.combinedstatus.ui.layout.pageContentPadding
 import kotlin.math.roundToInt
 import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
-import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TabRowWithContour
+import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
-import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SliderPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -103,8 +102,8 @@ internal fun PreviewSandboxScreen(
 
     val mobileDisabledSummary =
         when {
-            !state.simPresent -> stringResource(R.string.home_preview_mobile_disabled_no_sim)
             state.airplaneMode -> stringResource(R.string.home_preview_mobile_disabled_airplane)
+            !state.simPresent -> stringResource(R.string.home_preview_mobile_disabled_no_sim)
             else -> null
         }
 
@@ -157,7 +156,7 @@ internal fun PreviewSandboxScreen(
                             Modifier
                                 .padding(horizontal = 12.dp)
                                 .padding(bottom = 12.dp),
-                        insideMargin = PaddingValues(horizontal = 18.dp, vertical = 16.dp),
+                        insideMargin = PaddingValues(horizontal = 18.dp, vertical = 14.dp),
                     ) {
                         Text(
                             text = stringResource(R.string.home_preview_live_title),
@@ -166,7 +165,7 @@ internal fun PreviewSandboxScreen(
                         )
                         Text(
                             text = stringResource(R.string.home_preview_sandbox_summary),
-                            modifier = Modifier.padding(top = 4.dp),
+                            modifier = Modifier.padding(top = 3.dp),
                             style = MiuixTheme.textStyles.body2,
                             color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
                         )
@@ -174,20 +173,17 @@ internal fun PreviewSandboxScreen(
                             modifier =
                                 Modifier
                                     .fillMaxWidth()
-                                    .height(144.dp),
+                                    .height(132.dp),
                             contentAlignment = Alignment.Center,
                         ) {
                             CombinedStatusPreview(
                                 model = renderModel,
-                                modifier = Modifier.size(124.dp),
+                                modifier = Modifier.size(120.dp),
                             )
                         }
                         Text(
                             text = previewNetworkSummary(state),
-                            modifier =
-                                Modifier
-                                    .align(Alignment.CenterHorizontally)
-                                    .padding(top = 2.dp),
+                            modifier = Modifier.align(Alignment.CenterHorizontally),
                             style = MiuixTheme.textStyles.body1,
                             color = MiuixTheme.colorScheme.onSurfaceContainer,
                         )
@@ -196,7 +192,7 @@ internal fun PreviewSandboxScreen(
                             modifier =
                                 Modifier
                                     .align(Alignment.CenterHorizontally)
-                                    .padding(top = 2.dp),
+                                    .padding(top = 1.dp),
                             style = MiuixTheme.textStyles.body2,
                             color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
                         )
@@ -210,6 +206,7 @@ internal fun PreviewSandboxScreen(
                             Modifier
                                 .padding(horizontal = 12.dp)
                                 .padding(bottom = 12.dp),
+                        insideMargin = PaddingValues(vertical = 12.dp),
                     ) {
                         TabRowWithContour(
                             tabs = networkModeOptions,
@@ -220,40 +217,22 @@ internal fun PreviewSandboxScreen(
                             modifier =
                                 Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 18.dp, vertical = 12.dp)
-                                    .widthIn(max = 360.dp)
-                                    .align(Alignment.CenterHorizontally),
-                        )
-                        HorizontalDivider(modifier = DividerMargin)
-                        OverlayDropdownPreference(
-                            items = simOptions,
-                            selectedIndex = if (state.simPresent) 0 else 1,
-                            title = stringResource(R.string.home_preview_sim_title),
-                            insideMargin = SandboxPreferenceMargin,
-                            onSelectedIndexChange = { onSimPresentChange(it == 0) },
-                        )
-                        HorizontalDivider(modifier = DividerMargin)
-                        SwitchPreference(
-                            checked = state.airplaneMode,
-                            onCheckedChange = onAirplaneModeChange,
-                            title = stringResource(R.string.home_preview_airplane_title),
-                            summary = stringResource(R.string.home_preview_airplane_summary),
-                            insideMargin = SandboxPreferenceMargin,
+                                    .widthIn(max = 244.dp)
+                                    .align(Alignment.CenterHorizontally)
+                                    .padding(horizontal = 6.dp),
                         )
 
                         if (state.networkMode == PreviewNetworkMode.MOBILE) {
                             if (state.mobileOptionsVisible) {
-                                HorizontalDivider(modifier = DividerMargin)
-                                OverlayDropdownPreference(
-                                    items = mobileNetworkOptions,
-                                    selectedIndex = state.mobileNetwork.ordinal,
+                                SandboxSegmentedField(
                                     title = stringResource(R.string.home_preview_mobile_network_title),
-                                    insideMargin = SandboxPreferenceMargin,
-                                    onSelectedIndexChange = { index ->
+                                    options = mobileNetworkOptions,
+                                    selectedIndex = state.mobileNetwork.ordinal,
+                                    onSelected = { index ->
                                         onMobileNetworkChange(PreviewMobileNetwork.entries[index])
                                     },
+                                    modifier = Modifier.padding(top = 8.dp),
                                 )
-                                HorizontalDivider(modifier = DividerMargin)
                                 SliderPreference(
                                     value = state.mobileSignalLevel.toFloat(),
                                     onValueChange = { value ->
@@ -265,29 +244,29 @@ internal fun PreviewSandboxScreen(
                                     steps = 3,
                                     showKeyPoints = true,
                                     keyPoints = listOf(0f, 1f, 2f, 3f, 4f),
-                                    insideMargin = SandboxPreferenceMargin,
+                                    insideMargin = CompactPreferenceMargin,
                                 )
                             } else {
-                                HorizontalDivider(modifier = DividerMargin)
                                 Text(
                                     text = mobileDisabledSummary.orEmpty(),
-                                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp),
+                                    modifier =
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 18.dp, vertical = 14.dp),
                                     style = MiuixTheme.textStyles.body2,
                                     color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
                                 )
                             }
                         } else {
-                            HorizontalDivider(modifier = DividerMargin)
-                            OverlayDropdownPreference(
-                                items = wifiOptions,
-                                selectedIndex = state.wifiState.ordinal,
+                            SandboxSegmentedField(
                                 title = stringResource(R.string.home_preview_wifi_state_title),
-                                insideMargin = SandboxPreferenceMargin,
-                                onSelectedIndexChange = { index ->
+                                options = wifiOptions,
+                                selectedIndex = state.wifiState.ordinal,
+                                onSelected = { index ->
                                     onWifiStateChange(PreviewWifiState.entries[index])
                                 },
+                                modifier = Modifier.padding(top = 8.dp),
                             )
-                            HorizontalDivider(modifier = DividerMargin)
                             SliderPreference(
                                 value = state.wifiSignalLevel.toFloat(),
                                 onValueChange = { value ->
@@ -299,9 +278,25 @@ internal fun PreviewSandboxScreen(
                                 steps = 2,
                                 showKeyPoints = true,
                                 keyPoints = listOf(0f, 1f, 2f, 3f),
-                                insideMargin = SandboxPreferenceMargin,
+                                insideMargin = CompactPreferenceMargin,
                             )
                         }
+
+                        SandboxSegmentedField(
+                            title = stringResource(R.string.home_preview_sim_title),
+                            options = simOptions,
+                            selectedIndex = if (state.simPresent) 0 else 1,
+                            onSelected = { onSimPresentChange(it == 0) },
+                            maxWidth = 244.dp,
+                            modifier = Modifier.padding(top = 2.dp),
+                        )
+                        SwitchPreference(
+                            checked = state.airplaneMode,
+                            onCheckedChange = onAirplaneModeChange,
+                            title = stringResource(R.string.home_preview_airplane_title),
+                            summary = stringResource(R.string.home_preview_airplane_summary),
+                            insideMargin = CompactPreferenceMargin,
+                        )
                     }
                 }
 
@@ -312,51 +307,77 @@ internal fun PreviewSandboxScreen(
                             Modifier
                                 .padding(horizontal = 12.dp)
                                 .padding(bottom = 12.dp),
+                        insideMargin = PaddingValues(vertical = 10.dp),
                     ) {
                         SliderPreference(
                             value = state.batteryPercent.toFloat(),
                             onValueChange = { value ->
-                                onBatteryPercentChange(
-                                    value.roundToInt().coerceIn(0, 100),
-                                )
+                                onBatteryPercentChange(value.roundToInt().coerceIn(0, 100))
                             },
                             title = stringResource(R.string.home_preview_battery_level_title),
-                            valueText = stringResource(
-                                R.string.home_preview_battery_percent,
-                                state.batteryPercent,
-                            ),
+                            valueText =
+                                stringResource(
+                                    R.string.home_preview_battery_percent,
+                                    state.batteryPercent,
+                                ),
                             valueRange = 0f..100f,
-                            insideMargin = SandboxPreferenceMargin,
+                            insideMargin = CompactPreferenceMargin,
                         )
-                        HorizontalDivider(modifier = DividerMargin)
-                        OverlayDropdownPreference(
-                            items = batteryModeOptions,
-                            selectedIndex = state.batteryMode.ordinal,
+                        SandboxSegmentedField(
                             title = stringResource(R.string.home_preview_battery_mode_title),
-                            insideMargin = SandboxPreferenceMargin,
-                            onSelectedIndexChange = { index ->
-                                onBatteryModeChange(
-                                    PreviewBatteryMode.entries[index],
-                                )
+                            options = batteryModeOptions,
+                            selectedIndex = state.batteryMode.ordinal,
+                            onSelected = { index ->
+                                onBatteryModeChange(PreviewBatteryMode.entries[index])
                             },
+                            modifier = Modifier.padding(top = 2.dp),
                         )
-                        HorizontalDivider(modifier = DividerMargin)
-                        OverlayDropdownPreference(
-                            items = chargingOptions,
-                            selectedIndex = state.chargingState.ordinal,
+                        SandboxSegmentedField(
                             title = stringResource(R.string.home_preview_charging_state_title),
-                            summary = stringResource(R.string.home_preview_charging_state_summary),
-                            insideMargin = SandboxPreferenceMargin,
-                            onSelectedIndexChange = { index ->
-                                onChargingStateChange(
-                                    PreviewChargingState.entries[index],
-                                )
+                            options = chargingOptions,
+                            selectedIndex = state.chargingState.ordinal,
+                            onSelected = { index ->
+                                onChargingStateChange(PreviewChargingState.entries[index])
                             },
+                            modifier = Modifier.padding(top = 8.dp),
                         )
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SandboxSegmentedField(
+    title: String,
+    options: List<String>,
+    selectedIndex: Int,
+    onSelected: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+    maxWidth: Dp = 360.dp,
+) {
+    Column(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .padding(horizontal = 18.dp, vertical = 6.dp),
+    ) {
+        Text(
+            text = title,
+            style = MiuixTheme.textStyles.body1,
+            color = MiuixTheme.colorScheme.onSurfaceContainer,
+        )
+        TabRowWithContour(
+            tabs = options,
+            selectedTabIndex = selectedIndex,
+            onTabSelected = onSelected,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .widthIn(max = maxWidth)
+                    .padding(top = 6.dp),
+        )
     }
 }
 
@@ -383,15 +404,33 @@ internal fun previewNetworkSummary(
                         signalValueText(state.wifiSignalLevel),
                     )
             }
-        return if (state.airplaneMode) {
-            stringResource(R.string.home_preview_network_summary_airplane_wifi, wifi)
+        val withAirplane =
+            if (state.airplaneMode) {
+                stringResource(R.string.home_preview_network_summary_airplane_wifi, wifi)
+            } else {
+                wifi
+            }
+        return if (!state.simPresent) {
+            stringResource(
+                R.string.home_preview_network_summary_with_sim_state,
+                withAirplane,
+                stringResource(R.string.home_preview_sim_absent),
+            )
         } else {
-            wifi
+            withAirplane
         }
     }
 
     if (state.airplaneMode) {
-        return stringResource(R.string.home_preview_airplane_title)
+        return if (!state.simPresent) {
+            stringResource(
+                R.string.home_preview_network_summary_with_sim_state,
+                stringResource(R.string.home_preview_airplane_title),
+                stringResource(R.string.home_preview_sim_absent),
+            )
+        } else {
+            stringResource(R.string.home_preview_airplane_title)
+        }
     }
     if (!state.simPresent) {
         return stringResource(R.string.home_preview_sim_absent)
@@ -452,6 +491,5 @@ private fun signalValueText(level: Int): String =
         stringResource(R.string.home_preview_signal_level, level)
     }
 
-private val SandboxPreferenceMargin =
-    PaddingValues(horizontal = 18.dp, vertical = 10.dp)
-private val DividerMargin = Modifier.padding(horizontal = 18.dp)
+private val CompactPreferenceMargin =
+    PaddingValues(horizontal = 18.dp, vertical = 7.dp)
