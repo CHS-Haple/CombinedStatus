@@ -3,6 +3,57 @@
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
 
+## 2026-09-29 — Build 458: Sandbox information hierarchy and Home-card visual consolidation
+
+**Type:** companion-app Home / Preview Sandbox UI  
+**Display version:** 0.0.2  
+**Build / source:** 458 / `20260929-458` / `feat/home-ui-shell`  
+**SystemUI ownership change:** none
+
+### Problem / objective
+
+Build 456/457 proved the expanded simulation state model but still presented it like a traditional preference page. The main Mobile/Wi-Fi contour control was visually over-wide, the remaining Dropdown/Divider rows fragmented one network concept into unrelated-looking settings, and the Home cards still carried two known visual mismatches: runtime semantics tinted the whole container and the Home Sandbox preview did not have a fixed visual stage.
+
+Maintainer review also reconfirmed that SIM and airplane mode belong to the same Network simulation card; they do not need a synthetic "device state" or "special state" subsection.
+
+### Design / implementation
+
+- Keep exactly three second-level sections: Preview, Network, Battery.
+- Remove preference-style dividers and dropdowns from the Network/Battery cards.
+- Use pinned MIUIX `TabRowWithContour` only for short finite choices:
+  - primary Mobile / Wi-Fi source;
+  - Mobile type;
+  - Wi-Fi state;
+  - SIM present / absent;
+  - battery mode;
+  - charging state.
+- Keep continuous values on `SliderPreference`: mobile signal, Wi-Fi signal, battery percentage.
+- Keep airplane mode on `SwitchPreference`.
+- Make the primary Mobile/Wi-Fi selector narrower and centered; place the selected source's state selector and signal slider immediately below it so proximity communicates ownership without extra headings or dividers.
+- Keep SIM and airplane controls in the same uninterrupted Network card after the source-specific controls.
+- Preserve progressive Mobile availability: when airplane/no-SIM makes Mobile parameters unavailable, show the compact reason instead of stale interactive children.
+- Reduce the live-preview stage to a fixed, centered geometry and tighten summary spacing.
+- Home runtime card uses a neutral MIUIX surface in every semantic state; success/warning/error remains on the independent right-side status mark only. The runtime explanation may use up to three lines.
+- Home Sandbox card now keeps a fixed preview stage and compact two-line summary.
+- Wi-Fi summary appends the no-SIM state when applicable so the textual summary matches the renderer's bottom unavailable mark.
+
+### 审查 / review
+
+- **MIUIX first:** all interactive controls remain pinned MIUIX components; no project-owned segmented control, slider, or switch is introduced.
+- **Information hierarchy:** visual grouping is expressed with proximity and control weight, not nested cards, extra subsection labels, or divider noise.
+- **State ownership:** the Sandbox remains local simulation state only and does not mutate system network/battery state.
+- **Single renderer:** both Home and second-level preview continue through `CombinedStatusPreview -> CombinedStatusRenderView -> CombinedStatusPainter`.
+- **Runtime isolation:** no SystemUI Hook/listener/host ownership changes are included.
+- **Accessibility / semantics:** explicit field titles remain for every finite selector; the compact primary selector remains the only title-less mode switch because its two labels are self-describing.
+- **Compatibility:** no new dependency or custom API surface is introduced.
+- **Performance:** no polling, timer, repeated resource traversal, or new animation owner is added.
+
+### Validation
+
+Unit tests from Build 457 continue to lock center-source precedence and native no-Internet/5G-A policies. Build 458 requires exact-head CI and signed Canary device review for the new visual hierarchy and the companion-app airplane-resource correction.
+
+
+
 ## 2026-09-29 — Build 457: Airplane preview resource-context correction
 
 **Type:** companion-app Preview Sandbox correctness  
