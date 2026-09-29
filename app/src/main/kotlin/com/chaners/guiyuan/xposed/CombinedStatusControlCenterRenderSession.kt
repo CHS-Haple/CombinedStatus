@@ -240,6 +240,10 @@ internal object CombinedStatusControlCenterRenderSession {
         current?.geometryDiagnostic() ?: "projection=unavailable"
 
     @Synchronized
+    fun currentTransitionSourceSnapshot(): TransitionSourceSnapshot? =
+        current?.transitionSourceSnapshot()
+
+    @Synchronized
     fun onFeatureSettingsChanged(settings: CombinedStatusFeatureSettings) {
         val session = current
         session?.setFeatureEnabled(settings.enabled)
@@ -484,6 +488,11 @@ internal object CombinedStatusControlCenterRenderSession {
         private val renderController = CombinedStatusRenderController(renderView)
         private val anchorRect = Rect()
 
+        private var currentModel: CombinedStatusRenderModel? = null
+        private var currentTint: CombinedStatusTintState? = null
+        private var currentVisualSettings = RuntimeVisualPreferencesOwner.currentSettings()
+        private var transitionStateVersion = 0L
+
         private var requestedVisible = false
         private var featureEnabled = RuntimeFeaturePreferencesOwner.currentSettings().enabled
         private var sceneEligible = initialSceneEligible
@@ -525,6 +534,25 @@ internal object CombinedStatusControlCenterRenderSession {
         fun nativePresentationReadyForHotReload(): Boolean =
             nativePresentationReady && attachedHost() != null
 
+        fun transitionSourceSnapshot(): TransitionSourceSnapshot? {
+            if (!projectionReady()) return null
+            val anchorView = battery.get() ?: return null
+            val model = currentModel ?: return null
+            val tint = currentTint ?: return null
+            return TransitionSourceSnapshot(
+                view = renderView,
+                anchorView = anchorView,
+                model = model,
+                colors =
+                    CombinedStatusColorPolicy.resolve(
+                        model = model,
+                        tintState = tint,
+                        visualSettings = currentVisualSettings,
+                    ),
+                stateVersion = transitionStateVersion,
+            )
+        }
+
         fun geometryDiagnostic(): String =
             "projection={" +
                 "root=" + geometrySummary(host.get()) +
@@ -543,7 +571,7 @@ internal object CombinedStatusControlCenterRenderSession {
             carrier.get()?.addOnLayoutChangeListener(carrierLayoutListener)
             renderView.visibility = View.GONE
             hostView.overlay.add(renderView)
-            renderController.updateVisualSettings(RuntimeVisualPreferencesOwner.currentSettings())
+            renderController.updateVisualSettings(currentVisualSettings)
             update(CombinedStatusStateStore.snapshot())
             refreshTint()
             layoutProjection()
@@ -682,7 +710,12 @@ internal object CombinedStatusControlCenterRenderSession {
         }
 
         fun update(snapshot: CombinedStatusStateStore.Snapshot) {
-            modelReady = renderController.update(snapshot).model != null
+            val result = renderController.update(snapshot)
+            if (currentModel != result.model) {
+                currentModel = result.model
+                transitionStateVersion += 1
+            }
+            modelReady = result.model != null
             refreshTint()
             syncPresentation("state")
         }
@@ -713,6 +746,10 @@ internal object CombinedStatusControlCenterRenderSession {
         }
 
         fun updateVisualSettings(settings: CombinedStatusVisualSettings) {
+            if (currentVisualSettings != settings) {
+                currentVisualSettings = settings
+                transitionStateVersion += 1
+            }
             renderController.updateVisualSettings(settings)
         }
 
@@ -735,7 +772,12 @@ internal object CombinedStatusControlCenterRenderSession {
                     batteryState,
                     peerTint,
                 )
-            tintReady = renderController.updateTint(resolved).resolved != null
+            val tintUpdate = renderController.updateTint(resolved)
+            if (currentTint != tintUpdate.resolved) {
+                currentTint = tintUpdate.resolved
+                transitionStateVersion += 1
+            }
+            tintReady = tintUpdate.resolved != null
             syncPresentation("tint:" + source)
         }
 
@@ -926,6 +968,14 @@ internal object CombinedStatusControlCenterRenderSession {
         }
         return found
     }
+
+    internal data class TransitionSourceSnapshot(
+        val view: View,
+        val anchorView: View,
+        val model: CombinedStatusRenderModel,
+        val colors: CombinedStatusColors,
+        val stateVersion: Long,
+    )
 
     internal sealed interface PrearmResult {
         data class Scheduled(

@@ -155,7 +155,7 @@ Motion ownership is independent from layout size:
 
 Home island motion is `SYSTEM_UI`: the visual overlay lives in native `system_icons` and therefore inherits that carrier's own alpha/visibility/translation while also remaining under the ancestor `system_icon_area` island transform. Guiyuan must not add a battery-translation follower, duplicate animator or custom timing curve.
 
-Phase 2B may combine stable Home source bounds with verified native expansion progress and real target geometry, but it must not reopen Home carrier ownership.
+Phase 2B transition rendering must not reopen Home carrier ownership. Exact-target review establishes a narrower transition-only exception: once HyperOS has updated the role-5 QS_FAKE and role-6 final-QS Views for the current frame, Guiyuan may read their full transforms into a window-root overlay **only for Guiyuan-owned Trinity correspondence**. Native status-icon peers, network speed, fake/final block-list membership, appearance, tint and final-only icon entry remain SystemUI-owned. The transition source geometry must come from the real role-5 native carrier/Battery transform, never from an overlay child's local coordinates.
 
 ## Future size / spacing
 
@@ -180,7 +180,11 @@ Do not return to these without new exact-target evidence and a fresh ownership r
 - live charging-inflated Battery root width as replacement visual width;
 - fixed 105/135 or 448/478 correction chains;
 - per-frame/pre-draw translation or pivot races;
-- peer translation/alpha/visibility compensation.
+- peer translation/alpha/visibility compensation;
+- generic native-peer or network-speed projection when the matching SystemUI fake/final surfaces already own their transition;
+- project-owned tint interpolation or progress thresholds that replace `CcFakeStatusBarIcons` / `CcStatusBarIcons` / Header appearance ownership;
+- Home/Keyguard `realSystemIcons` -> final-QS RectF interpolation as a replacement for the verified QS_FAKE(role 5) -> final-QS(role 6) transition;
+- using an overlay child's `getLocationOnScreen()` as a substitute for the actual native transform chain.
 
 Build-specific history and rejected experiments belong in `docs/development/DEVLOG.md`.
 

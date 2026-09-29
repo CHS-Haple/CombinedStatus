@@ -11204,3 +11204,28 @@ Build 473 is now the stable and development baseline. This documentation closure
 - **Post-merge verification:** successful on `main`.
 - **History synchronization:** fast-forward only; no duplicate content commit.
 - **Next runtime risk:** PR #174 remains diverged and must synchronize before it can modify the shared Painter on top of Build 473.
+
+
+---
+
+## 2026-09-29 — Control Center Trinity release becomes component-driven
+
+**Problem**
+
+Build 478 split Guiyuan during the pull gesture, but final Wi-Fi/mobile/battery participants were not visually released back during the transition. Battery, center/Wi-Fi and mobile also shared one generic morph even though KeiMi 2.5.0 treats their shapes differently. The transition path additionally needed to remain maintainable if Guiyuan later moves, reorders or adds internal components.
+
+**Evidence**
+
+Re-decompilation of KeiMi 2.5.0 confirms that represented native Views remain clip-masked for the full open interval `0 < progress < 1`; they are not physically unmasked mid-gesture. Final participants are instead redrawn in the root overlay with `smoothstep((progress - 0.58) / 0.34)`, completing visual handoff around progress 0.92, while real clip state restores only at the 0/1 endpoints. Trinity shape motion uses a separate `smoothstep(progress / 0.82)` window. Battery reshapes/folds, while Wi-Fi largely preserves its glyph shape.
+
+**Conclusion**
+
+Stable QS_FAKE occupancy and transition visual release are separate responsibilities. Mid-gesture ignored-slot restoration would reopen layout ownership and is not needed. The animation engine also must not own Guiyuan-internal coordinates.
+
+**Change**
+
+Build 479 makes `CombinedStatusPainter` the source of truth for each transition component's current local bounds, native target selector, shape policy and release policy. The transition owner derives root geometry from those descriptors and the verified role-5 anchor matrix. Final Wi-Fi/mobile/battery targets are reversibly masked only while the transition owner is active and are redrawn during the verified 0.58–0.92 release window. Battery uses a fold policy, center/Wi-Fi keeps its shape, and mobile uses a bounded collapse policy. Shared native targets are deduplicated.
+
+**Validation**
+
+Build 479 must be replayed unchanged onto the current dev governance baseline, pass exact-head Runtime CI, then receive focused device validation. Acceptance requires correct start anchoring, component-specific folding, visible late-stage participant release, clean reverse re-absorption, and no change to final-only SystemUI icon behavior.

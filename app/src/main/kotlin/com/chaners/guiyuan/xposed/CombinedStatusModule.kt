@@ -1011,7 +1011,8 @@ class CombinedStatusModule : XposedModule() {
                 "notificationRuntimeHook" to false,
                 "notificationHomeLifecycle" to "system-icons-carrier",
                 "controlCenterVisibilityRuntimeHook" to true,
-                "controlCenterExpansionDiagnosticHook" to BuildConfig.RUNTIME_DIAGNOSTICS,
+                "controlCenterExpansionRuntimeHook" to true,
+                "controlCenterAppearanceRuntimeHook" to true,
                 "source" to source,
                 "nativeGeometryWrites" to 0,
             )
@@ -1035,6 +1036,7 @@ class CombinedStatusModule : XposedModule() {
         update: SystemUiPanelTransitionSource.Update,
     ) {
         handleControlCenterPanelUpdate(update)
+        CombinedStatusControlCenterTransitionOwner.onPanelUpdate(update)
 
         if (!detailedDiagnosticsEnabled) {
             return
@@ -1057,6 +1059,8 @@ class CombinedStatusModule : XposedModule() {
             SystemUiNativeNetworkSuppressionOwner.currentTransitionStateSnapshot()
         val projection =
             CombinedStatusControlCenterRenderSession.currentProjectionGeometryDiagnostic()
+        val transitionOwner =
+            CombinedStatusControlCenterTransitionOwner.currentDiagnostic()
         log(
             Log.INFO,
             TAG,
@@ -1066,6 +1070,7 @@ class CombinedStatusModule : XposedModule() {
                 (geometry?.summary ?: "geometry=unavailable") +
                 " " + (state?.summary ?: "state=unavailable") +
                 " " + projection +
+                " " + transitionOwner +
                 " readOnly=true nativeGeometryWrites=0",
         )
     }
@@ -1149,6 +1154,7 @@ class CombinedStatusModule : XposedModule() {
 
         controlCenterSceneEligible = nextEligible
         CombinedStatusControlCenterRenderSession.setSceneEligible(nextEligible)
+        CombinedStatusControlCenterTransitionOwner.setSceneEligible(nextEligible)
         logDiagnostic(
             level = Log.INFO,
             event = "scene.eligibility",
@@ -1293,6 +1299,7 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun onControlCenterProjectionReadinessChanged(ready: Boolean) {
+        CombinedStatusControlCenterTransitionOwner.onProjectionReadinessChanged(ready)
         if (!controlCenterSceneVisible) {
             return
         }
@@ -1949,6 +1956,7 @@ class CombinedStatusModule : XposedModule() {
         controlCenterSceneEligible = false
         controlCenterSourceScene = CombinedStatusSourceScene.UNKNOWN
         keyguardRuntimeReady = false
+        CombinedStatusControlCenterTransitionOwner.detach("hotReload-oldGeneration")
         CombinedStatusControlCenterRenderSession.detach(
             source = "hotReload-oldGeneration",
             releaseNativePresentation = !continuousHandoff,

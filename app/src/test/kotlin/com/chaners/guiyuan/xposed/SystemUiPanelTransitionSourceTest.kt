@@ -40,7 +40,7 @@ class SystemUiPanelTransitionSourceTest {
 
     @Test
     fun runtimeHookCountIncludesFakeLifecyclePrearmAndOptionalDiagnostics() {
-        assertEquals(2, SystemUiPanelTransitionSource.expectedHookCount(false))
+        assertEquals(4, SystemUiPanelTransitionSource.expectedHookCount(false))
         assertEquals(4, SystemUiPanelTransitionSource.expectedHookCount(true))
     }
 
@@ -150,6 +150,85 @@ class SystemUiPanelTransitionSourceTest {
     }
 
     @Test
+    fun transitionMatrixUsesKeiMiComponentGeometryWindow() {
+        assertEquals(0f, CombinedStatusControlCenterTransitionOwner.Policy.geometryProgress(0f))
+        assertEquals(
+            0.5f,
+            CombinedStatusControlCenterTransitionOwner.Policy.geometryProgress(0.41f),
+            0.0001f,
+        )
+        assertEquals(1f, CombinedStatusControlCenterTransitionOwner.Policy.geometryProgress(0.82f))
+        assertEquals(1f, CombinedStatusControlCenterTransitionOwner.Policy.geometryProgress(1f))
+    }
+
+    @Test
+    fun transitionMatrixReleasesFinalNativeParticipantsBetweenFiftyEightAndNinetyTwoPercent() {
+        val policy =
+            CombinedStatusPainter.TransitionReleasePolicy(
+                startProgress = 0.58f,
+                endProgress = 0.92f,
+            )
+        assertEquals(
+            0f,
+            CombinedStatusControlCenterTransitionOwner.Policy.releaseProgress(0.58f, policy),
+        )
+        assertEquals(
+            0.5f,
+            CombinedStatusControlCenterTransitionOwner.Policy.releaseProgress(0.75f, policy),
+            0.0001f,
+        )
+        assertEquals(
+            1f,
+            CombinedStatusControlCenterTransitionOwner.Policy.releaseProgress(0.92f, policy),
+        )
+    }
+
+    @Test
+    fun transitionComponentGeometryFollowsLocalBoundsWithoutAnimationCoordinateConstants() {
+        val parent = floatArrayOf(100f, 200f, 120f, 0f, 0f, 120f)
+        val bounds =
+            CombinedStatusPainter.TransitionBounds(
+                left = 30f,
+                top = 40f,
+                right = 90f,
+                bottom = 80f,
+            )
+        val component =
+            requireNotNull(
+                CombinedStatusControlCenterTransitionOwner.Policy.componentGeometry(
+                    parentGeometry = parent,
+                    parentWidth = 120,
+                    parentHeight = 120,
+                    bounds = bounds,
+                ),
+            )
+        assertEquals(100f, component[0], 0.0001f)
+        assertEquals(180f, component[1], 0.0001f)
+        assertEquals(60f, component[2], 0.0001f)
+        assertEquals(0f, component[3], 0.0001f)
+        assertEquals(0f, component[4], 0.0001f)
+        assertEquals(40f, component[5], 0.0001f)
+    }
+
+    @Test
+    fun transitionMatrixInterpolatesAffineGeometryDeterministically() {
+        val source = floatArrayOf(0f, 0f, 10f, 0f, 0f, 10f)
+        val target = floatArrayOf(20f, 40f, 20f, 0f, 0f, 20f)
+        val mid =
+            CombinedStatusControlCenterTransitionOwner.Policy.interpolateGeometry(
+                source,
+                target,
+                0.5f,
+            )
+        assertEquals(10f, mid[0])
+        assertEquals(20f, mid[1])
+        assertEquals(15f, mid[2])
+        assertEquals(0f, mid[3])
+        assertEquals(0f, mid[4])
+        assertEquals(15f, mid[5])
+    }
+
+    @Test
     fun controlCenterSourceUsesHomeCarrierIdentityBeforeStructuralFallback() {
         assertEquals(
             CombinedStatusSourceScene.HOME,
@@ -172,6 +251,22 @@ class SystemUiPanelTransitionSourceTest {
                 structuralScene = CombinedStatusSourceScene.UNKNOWN,
             ),
         )
+    }
+
+    @Test
+    fun controlCenterUpdateCarriesNativeAppearanceState() {
+        val update =
+            SystemUiPanelTransitionSource.Update(
+                source = SystemUiPanelTransitionSource.Source.CONTROL_CENTER,
+                fraction = null,
+                expanded = null,
+                tracking = null,
+                visible = null,
+                controlCenterAppearance = true,
+                controlCenterAppearanceAnimated = true,
+            )
+        assertEquals(true, update.controlCenterAppearance)
+        assertEquals(true, update.controlCenterAppearanceAnimated)
     }
 
     @Test

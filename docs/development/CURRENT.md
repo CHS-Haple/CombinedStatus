@@ -18,9 +18,11 @@ Control Center transition animation is the active runtime task.
 
 Current implementation line:
 - PR #177 — feat/control-center-transition-matrix;
+- current work-branch checkpoint: Build 479 / 20260929-479;
 - exact-target direction: QS_FAKE role-5 to final-QS role-6 matrix projection;
 - HyperOS remains translation/appearance authority;
 - Guiyuan reads native transition state and renders only its owned presentation;
+- Trinity transition is component-driven: Painter owns source bounds/target mapping/shape-release policy, while the transition owner consumes those descriptors;
 - generic peer projection, Guiyuan-owned network composition, and native-only unsupported peers remain separated.
 
 PR #174 is an older transition route and must not overwrite the newer active matrix line or accepted Build-473 renderer state.
@@ -40,7 +42,7 @@ Keyguard has an independent host/session while sharing domain/render semantics. 
 
 Build 473 is device-accepted and stable.
 
-The active Control Center transition line is not yet accepted. It requires focused device evidence for path/peer motion and Home/Keyguard entry/return behavior before integration.
+The active Control Center transition line is not yet accepted. Build 479 must first pass exact-head Runtime validation after synchronization to current dev, then requires focused device evidence for component release/fold behavior and Home/Keyguard entry/return behavior before integration.
 
 Device testing is requested only when the result can change implementation choice or acceptance. Mechanical/documentation steps continue without a new APK round trip.
 
@@ -57,10 +59,10 @@ Device testing is requested only when the result can change implementation choic
 
 ## Immediate next step
 
-1. Land the workflow simplification without changing APK/runtime behavior.
-2. Synchronize active PR #177 with the updated dev governance baseline before eventual merge.
-3. Continue Control Center transition work on PR #177; generate signed Canary only when focused device evidence is needed.
-4. Keep 1.0.0 gated by actual product/compatibility acceptance rather than extra promotion-marker branches.
+1. Synchronize PR #177 onto current dev without changing the Build-479 runtime delta.
+2. Run exact-head Runtime validation.
+3. If green, request one signed work-branch Canary for focused Trinity release/fold device evidence.
+4. Keep 1.0.0 gated by actual product/compatibility acceptance.
 
 ## Reference priority
 

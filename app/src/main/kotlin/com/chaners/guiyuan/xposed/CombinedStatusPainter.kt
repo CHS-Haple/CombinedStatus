@@ -112,6 +112,342 @@ internal class CombinedStatusPainter(
         canvas.restoreToCount(save)
     }
 
+    fun drawTransitionComponent(
+        canvas: Canvas,
+        width: Int,
+        height: Int,
+        model: CombinedStatusRenderModel,
+        colors: CombinedStatusColors,
+        component: TransitionComponent,
+        opacity: Float = 1f,
+        morphProgress: Float = 0f,
+    ) {
+        if (width <= 0 || height <= 0 || opacity <= 0f) return
+
+        val scale = min(width / CANONICAL_SIZE, height / CANONICAL_SIZE)
+        val visualWidth = CANONICAL_SIZE * scale
+        val visualHeight = CANONICAL_SIZE * scale
+        val offsetX = (width - visualWidth) / 2f
+        val offsetY = (height - visualHeight) / 2f
+        val nativeTransform =
+            NativeRenderTransform(
+                scale = scale,
+                offsetX = offsetX,
+                offsetY = offsetY,
+            )
+        val save = canvas.save()
+        canvas.translate(offsetX, offsetY)
+        canvas.scale(scale, scale)
+
+        val morph = morphProgress.coerceIn(0f, 1f)
+        when (component) {
+            TransitionComponent.BATTERY -> {
+                val componentSave = canvas.save()
+                canvas.scale(
+                    lerp(1f, BATTERY_FOLD_SCALE_X, morph),
+                    lerp(1f, BATTERY_FOLD_SCALE_Y, morph),
+                    BATTERY_COMPONENT_CENTER_X,
+                    BATTERY_COMPONENT_CENTER_Y,
+                )
+                drawBattery(
+                    canvas = canvas,
+                    model = model,
+                    batteryTint = colors.batteryTint,
+                    opacity = opacity,
+                    geometry =
+                        resolveOuterGeometry(
+                            CombinedStatusOuterGeometry.DEFAULT_WEIGHT_SCALE,
+                        ),
+                )
+                canvas.restoreToCount(componentSave)
+            }
+
+            TransitionComponent.CENTER ->
+                drawCenterIndicator(
+                    canvas = canvas,
+                    indicator = model.centerIndicator,
+                    tint = colors.centerTint,
+                    opacity = opacity,
+                    scale = scale,
+                    appearAmount = 1f,
+                    geometry =
+                        CombinedStatusCenterGeometry.resolve(
+                            sizeScale = CombinedStatusCenterGeometry.DEFAULT_SIZE_SCALE,
+                            textWeightScale = CombinedStatusCenterGeometry.DEFAULT_TEXT_WEIGHT_SCALE,
+                        ),
+                    nativeTransform = nativeTransform,
+                    scaleMobileTypeWithCanvas = false,
+                )
+
+            TransitionComponent.MOBILE -> {
+                val componentSave = canvas.save()
+                val collapseScale = lerp(1f, MOBILE_COLLAPSE_SCALE, morph)
+                canvas.scale(
+                    collapseScale,
+                    collapseScale,
+                    MOBILE_CENTER_X,
+                    MOBILE_CENTER_Y,
+                )
+                drawMobile(
+                    canvas = canvas,
+                    model = model,
+                    tint = colors.mobileTint,
+                    opacity = opacity,
+                    geometry =
+                        resolveOuterGeometry(
+                            CombinedStatusOuterGeometry.DEFAULT_WEIGHT_SCALE,
+                        ),
+                )
+                canvas.restoreToCount(componentSave)
+            }
+        }
+
+        canvas.restoreToCount(save)
+    }
+
+    internal enum class TransitionComponent {
+        BATTERY,
+        CENTER,
+        MOBILE,
+    }
+
+    internal enum class TransitionShapePolicy {
+        FOLD,
+        KEEP_SHAPE,
+        COLLAPSE,
+    }
+
+    internal sealed interface TransitionTarget {
+        data object Battery : TransitionTarget
+
+        data class Slots(
+            val preferredSlots: List<String>,
+        ) : TransitionTarget
+    }
+
+    internal data class TransitionBounds(
+        val left: Float,
+        val top: Float,
+        val right: Float,
+        val bottom: Float,
+    ) {
+        val width: Float
+            get() = (right - left).coerceAtLeast(0f)
+
+        val height: Float
+            get() = (bottom - top).coerceAtLeast(0f)
+
+        val centerX: Float
+            get() = (left + right) / 2f
+
+        val centerY: Float
+            get() = (top + bottom) / 2f
+    }
+
+    internal data class TransitionReleasePolicy(
+        val startProgress: Float,
+        val endProgress: Float,
+    )
+
+    internal data class TransitionComponentSpec(
+        val component: TransitionComponent,
+        val sourceBounds: TransitionBounds,
+        val target: TransitionTarget,
+        val shapePolicy: TransitionShapePolicy,
+        val releasePolicy: TransitionReleasePolicy = DEFAULT_TRANSITION_RELEASE,
+    )
+
+    fun transitionComponentSpecs(
+        width: Int,
+        height: Int,
+        model: CombinedStatusRenderModel,
+    ): List<TransitionComponentSpec> {
+        if (width <= 0 || height <= 0) return emptyList()
+
+        val scale = min(width / CANONICAL_SIZE, height / CANONICAL_SIZE)
+        val offsetX = (width - CANONICAL_SIZE * scale) / 2f
+        val offsetY = (height - CANONICAL_SIZE * scale) / 2f
+        val outerGeometry =
+            resolveOuterGeometry(CombinedStatusOuterGeometry.DEFAULT_WEIGHT_SCALE)
+        val centerGeometry =
+            CombinedStatusCenterGeometry.resolve(
+                sizeScale = CombinedStatusCenterGeometry.DEFAULT_SIZE_SCALE,
+                textWeightScale = CombinedStatusCenterGeometry.DEFAULT_TEXT_WEIGHT_SCALE,
+            )
+
+        fun toViewBounds(bounds: TransitionBounds): TransitionBounds =
+            TransitionBounds(
+                left = offsetX + bounds.left * scale,
+                top = offsetY + bounds.top * scale,
+                right = offsetX + bounds.right * scale,
+                bottom = offsetY + bounds.bottom * scale,
+            )
+
+        val specs = ArrayList<TransitionComponentSpec>(3)
+        val batteryHalfStroke = outerGeometry.ringStroke / 2f
+        specs +=
+            TransitionComponentSpec(
+                component = TransitionComponent.BATTERY,
+                sourceBounds =
+                    toViewBounds(
+                        TransitionBounds(
+                            left = batteryRing.left - batteryHalfStroke,
+                            top = batteryRing.top - batteryHalfStroke,
+                            right = batteryRing.right + batteryHalfStroke,
+                            bottom = batteryRing.bottom + batteryHalfStroke,
+                        ),
+                    ),
+                target = TransitionTarget.Battery,
+                shapePolicy = TransitionShapePolicy.FOLD,
+            )
+
+        val centerSpec =
+            when (model.centerIndicator) {
+                is CenterIndicator.Wifi ->
+                    TransitionComponentSpec(
+                        component = TransitionComponent.CENTER,
+                        sourceBounds =
+                            toViewBounds(
+                                centeredBounds(
+                                    centerX = WIFI_CENTER_X,
+                                    centerY = WIFI_CENTER_Y,
+                                    width = centerGeometry.wifiMaxWidth,
+                                    height = centerGeometry.wifiMaxHeight,
+                                ),
+                            ),
+                        target = TransitionTarget.Slots(listOf("wifi")),
+                        shapePolicy = TransitionShapePolicy.KEEP_SHAPE,
+                    )
+
+                is CenterIndicator.MobileType ->
+                    TransitionComponentSpec(
+                        component = TransitionComponent.CENTER,
+                        sourceBounds =
+                            toViewBounds(
+                                centeredBounds(
+                                    centerX = MOBILE_TYPE_CENTER_X,
+                                    centerY = MOBILE_TYPE_CENTER_Y,
+                                    width = MOBILE_TYPE_TRANSITION_MAX_WIDTH,
+                                    height = MOBILE_TYPE_TRANSITION_MAX_HEIGHT,
+                                ),
+                            ),
+                        target = TransitionTarget.Slots(listOf("mobile", "stacked_mobile")),
+                        shapePolicy = TransitionShapePolicy.KEEP_SHAPE,
+                    )
+
+                CenterIndicator.Airplane ->
+                    TransitionComponentSpec(
+                        component = TransitionComponent.CENTER,
+                        sourceBounds =
+                            toViewBounds(
+                                centeredBounds(
+                                    centerX = AIRPLANE_CENTER_X,
+                                    centerY = AIRPLANE_CENTER_Y,
+                                    width = centerGeometry.airplaneMaxSize,
+                                    height = centerGeometry.airplaneMaxSize,
+                                ),
+                            ),
+                        target = TransitionTarget.Slots(listOf("airplane")),
+                        shapePolicy = TransitionShapePolicy.KEEP_SHAPE,
+                    )
+
+                is CenterIndicator.NoSim ->
+                    TransitionComponentSpec(
+                        component = TransitionComponent.CENTER,
+                        sourceBounds =
+                            toViewBounds(
+                                centeredBounds(
+                                    centerX = CENTER_TRANSITION_PIVOT_X,
+                                    centerY = CENTER_TRANSITION_PIVOT_Y,
+                                    width = centerGeometry.noSimMaxSize,
+                                    height = centerGeometry.noSimMaxSize,
+                                ),
+                            ),
+                        target =
+                            TransitionTarget.Slots(
+                                listOf("no_sim", "mobile", "stacked_mobile"),
+                            ),
+                        shapePolicy = TransitionShapePolicy.KEEP_SHAPE,
+                    )
+
+                CenterIndicator.Empty -> null
+            }
+        centerSpec?.let(specs::add)
+
+        var mobileLeft = Float.POSITIVE_INFINITY
+        var mobileTop = Float.POSITIVE_INFINITY
+        var mobileRight = Float.NEGATIVE_INFINITY
+        var mobileBottom = Float.NEGATIVE_INFINITY
+        for (index in 0 until MOBILE_DOT_COUNT) {
+            val angle = outerGeometry.bottomDotAngle(index)
+            val centerX =
+                MOBILE_CENTER_X +
+                    cos(angle).toFloat() * CombinedStatusOuterGeometry.MOBILE_ORBIT_RADIUS
+            val centerY =
+                MOBILE_CENTER_Y +
+                    sin(angle).toFloat() * CombinedStatusOuterGeometry.MOBILE_ORBIT_RADIUS
+            mobileLeft = min(mobileLeft, centerX - outerGeometry.mobileDotRadius)
+            mobileTop = min(mobileTop, centerY - outerGeometry.mobileDotRadius)
+            mobileRight = max(mobileRight, centerX + outerGeometry.mobileDotRadius)
+            mobileBottom = max(mobileBottom, centerY + outerGeometry.mobileDotRadius)
+        }
+        if (model.mobileUnavailableMark) {
+            val half =
+                max(
+                    outerGeometry.unavailableMarkHalfExtent,
+                    outerGeometry.unavailableMarkStroke,
+                )
+            mobileLeft = min(mobileLeft, MOBILE_UNAVAILABLE_CENTER_X - half)
+            mobileTop = min(mobileTop, MOBILE_UNAVAILABLE_CENTER_Y - half)
+            mobileRight = max(mobileRight, MOBILE_UNAVAILABLE_CENTER_X + half)
+            mobileBottom = max(mobileBottom, MOBILE_UNAVAILABLE_CENTER_Y + half)
+        }
+        if (
+            mobileLeft.isFinite() &&
+            mobileTop.isFinite() &&
+            mobileRight.isFinite() &&
+            mobileBottom.isFinite()
+        ) {
+            specs +=
+                TransitionComponentSpec(
+                    component = TransitionComponent.MOBILE,
+                    sourceBounds =
+                        toViewBounds(
+                            TransitionBounds(
+                                left = mobileLeft,
+                                top = mobileTop,
+                                right = mobileRight,
+                                bottom = mobileBottom,
+                            ),
+                        ),
+                    target = TransitionTarget.Slots(listOf("mobile", "stacked_mobile")),
+                    shapePolicy = TransitionShapePolicy.COLLAPSE,
+                )
+        }
+
+        return specs
+    }
+
+    private fun centeredBounds(
+        centerX: Float,
+        centerY: Float,
+        width: Float,
+        height: Float,
+    ): TransitionBounds =
+        TransitionBounds(
+            left = centerX - width / 2f,
+            top = centerY - height / 2f,
+            right = centerX + width / 2f,
+            bottom = centerY + height / 2f,
+        )
+
+    private fun lerp(
+        start: Float,
+        end: Float,
+        progress: Float,
+    ): Float =
+        start + (end - start) * progress.coerceIn(0f, 1f)
+
     private fun resolveOuterGeometry(weightScale: Float): CombinedStatusOuterGeometry.Resolved {
         val normalized =
             CombinedStatusOuterGeometry.normalizeWeightScale(weightScale)
@@ -1011,6 +1347,19 @@ internal class CombinedStatusPainter(
         const val NATIVE_OPTICAL_ALPHA_THRESHOLD = 8
         const val MIN_OPTICAL_RATIO = 0.08f
         const val NATIVE_STEADY_APPEAR_THRESHOLD = 0.999f
+        const val BATTERY_COMPONENT_CENTER_X = 60f
+        const val BATTERY_COMPONENT_CENTER_Y = 58f
+        const val BATTERY_FOLD_SCALE_X = 12.75f / 9.25f
+        const val BATTERY_FOLD_SCALE_Y = 3.4f / 9.25f
+        const val MOBILE_COLLAPSE_SCALE = 0.82f
+        const val MOBILE_TYPE_TRANSITION_MAX_WIDTH = 66f
+        const val MOBILE_TYPE_TRANSITION_MAX_HEIGHT = 44f
+
+        val DEFAULT_TRANSITION_RELEASE =
+            TransitionReleasePolicy(
+                startProgress = 0.58f,
+                endProgress = 0.92f,
+            )
     }
 
     private data class NativeCenterAsset(
