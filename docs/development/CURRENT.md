@@ -46,13 +46,13 @@ Phases 2A, 2B, 3 and 4 are complete for the validated baseline:
 
 The active executable work on the 0.0.3 line is **transition-animation adaptation across Home/Keyguard -> QS_FAKE -> native Control Center**, before adaptive sizing, spacing and broader visual controls.
 
-Current candidate: `feat/control-center-transition-projection`, Build **470 / 20260929-470**.
+Current candidate: `feat/control-center-transition-projection`, Build **471 / 20260929-471**.
 
 Root-cause review now separates two facts:
 - HyperOS native `onExpansionChanged(progress)` and fake/final Folme appearance ownership are still running and remain the motion/appearance authority.
 - Guiyuan's session-long compact slot exclusion changes which child icons participate in the QS_FAKE layout, so the stock per-icon source/target correspondence is no longer available from the compact child layout alone.
 
-Build 470 therefore keeps compact occupancy but adds a transition-only visual projection: common native peer slots are projected from HyperOS's selected source Views toward stable final-QS endpoints, while Guiyuan reuses its production painter and separates Battery / center / mobile components toward corresponding native endpoints. Final-QS target coordinates remove the final root's live native translation before interpolation so native root motion is not applied twice. Repeated peer slots are projected only when source / QS_FAKE / final-QS participant counts all match; otherwise those peers remain native. Raw native expansion progress is the baseline timeline. No project-local gesture animator or replacement fake/final fade is introduced; later optical shaping is allowed only if device evidence shows a small local adjustment is needed to stay visually coherent with HyperOS.
+Build 470 introduced the transition-only visual projection; Build 471 keeps that architecture and adds a narrow progress-cycle guard: common native peer slots are projected from HyperOS's selected source Views toward stable final-QS endpoints, while Guiyuan reuses its production painter and separates Battery / center / mobile components toward corresponding native endpoints. Final-QS target coordinates remove the final root's live native translation before interpolation so native root motion is not applied twice. Repeated peer slots are projected only when source / QS_FAKE / final-QS participant counts all match; otherwise those peers remain native. Raw native expansion progress is the baseline timeline. A visibility-enter callback no longer clears a fraction that may already have arrived; progress is reset only on Control Center visibility exit, preventing a possible first-frame rewind under alternate callback ordering. No project-local gesture animator or replacement fake/final fade is introduced; later optical shaping is allowed only if device evidence shows a small local adjustment is needed to stay visually coherent with HyperOS.
 
 ## Current architecture / ownership boundary
 
