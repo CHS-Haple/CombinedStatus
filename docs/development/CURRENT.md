@@ -108,7 +108,7 @@ Historical rejected/superseded Builds and hypotheses remain in `DEVLOG.md`; do n
 
 ## Active branch boundary
 
-- Active companion-app presentation work: `feat/presentation-ui-polish` / Build 467, created from synchronized `dev@2163d3a8b9134e6114d6e59387b7c808d9399a08`.
+- Active companion-app presentation work: `feat/presentation-ui-polish` / Build 472, created from and still 0-behind synchronized `dev@2163d3a8b9134e6114d6e59387b7c808d9399a08`.
 - This branch is UI/copy-only at the product-runtime boundary and must not absorb the pending SystemUI transition-animation work.
 - Pre-promotion historical `feat/*` / `fix/*` branches remain invalid continuation bases; old open PRs must be re-evaluated rather than merged by age/name.
 - New runtime work still starts from the synchronized current `dev` baseline after this independent presentation checkpoint is closed.
@@ -126,12 +126,12 @@ Historical rejected/superseded Builds and hypotheses remain in `DEVLOG.md`; do n
 
 ## Immediate next step
 
-1. Complete Build 468 exact-head Fast validation, then request a signed Canary for the focused visual re-check because Build 467 device evidence directly reopened divider strength and information-card density.
-2. Freeze Build 468 for device review of Sandbox group separation plus the three upper Diagnostics information cards; keep the accepted Diagnostics & reports card unchanged.
-3. Integrate the accepted presentation checkpoint into `dev` without coupling it to SystemUI runtime work.
-4. The next runtime checkpoint remains the Home/Keyguard -> QS_FAKE -> native Control Center **visual transition-animation** gap. Start that work from the then-current synchronized `dev`, not from this presentation branch.
-5. For transition work, reuse verified native progress/geometry/alpha/appearance ownership; do not create a duplicate animator, fixed-pixel follower, fraction threshold, timer or delay patch.
-6. Only after transition animation is accepted, continue adaptive sizing/spacing and later battery-ring color-source controls. Keep 1.0.0 gated by the release-qualification matrix and explicit maintainer authorization.
+1. Complete Build 472 exact-head Fast validation and issue one signed Canary for focused device review of the unified MIUIX preference structure and moderate Sandbox density.
+2. Keep PR #173 UI/copy-only at the runtime boundary; do not absorb the newly requested shared Wi-Fi optical-normalization runtime change.
+3. In parallel, investigate Wi-Fi connected / no-internet / hotspot optical normalization on a separate `fix/*` branch from synchronized `dev`; use connected Wi-Fi as the reference geometry and reuse the shared renderer so Preview and real SystemUI receive one implementation.
+4. Integrate each accepted branch into `dev` only after its own device evidence is accepted.
+5. The next broader runtime checkpoint remains Home/Keyguard -> QS_FAKE -> native Control Center **visual transition-animation** adaptation; do not mix that work into either focused branch.
+6. Keep 1.0.0 gated by the release-qualification matrix and explicit maintainer authorization.
 
 ## Reference priority
 
