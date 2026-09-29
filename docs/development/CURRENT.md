@@ -37,18 +37,18 @@ This file is the concise recovery point for active Guiyuan development. Read it 
 
 ### Active presentation checkpoint
 
-**Build 468 / `20260929-468`** is the active companion-app presentation checkpoint on `feat/presentation-ui-polish`, still 0-behind current `dev@2163d3a8b9134e6114d6e59387b7c808d9399a08`.
+**Build 469 / `20260929-469`** is the active companion-app presentation checkpoint on `feat/presentation-ui-polish`, still 0-behind current `dev@2163d3a8b9134e6114d6e59387b7c808d9399a08`.
 
-Build 467 passed Fast #1729 and signed Work Branch Canary #494, but focused device review superseded its final visual choices: the Sandbox divider read as effectively absent, and the upper Diagnostics information cards remained too sparse/head-heavy. The Diagnostics & reports action card was accepted and remains unchanged.
+Build 467 established the two-level Sandbox text hierarchy and animated Diagnostics identity but was too sparse in the upper Diagnostics cards. Build 468 passed exact-head Fast #1736 and signed Work Branch Canary #495 on `1b8bd86562d9dec6d5b573cbb8134e18309e5d0a`, but device screenshots then showed the opposite visual extreme: full-width Sandbox dividers read as table-like and unattractive, while the upper Diagnostics cards became overly compressed. The Diagnostics & reports action card remains accepted and unchanged.
 
-Build 468 therefore:
-- keeps the two-level MIUIX Sandbox typography while raising the 1 dp divider to a clearly visible low-contrast tone and giving group boundaries 10 dp vertical separation;
-- treats the upper Diagnostics surfaces as compact information cards: app/device/module fact rows use tighter uniform spacing, while the action card is untouched;
-- reduces the animated Guiyuan identity slot from 72 dp to 64 dp, slows the existing linear counterclockwise motion from 18 to 20 seconds per revolution, and keeps the frozen foreground vector as the single brand-geometry source;
-- shortens `app_description` again to remove redundant LSPosed/context wording where the surrounding UI already establishes it;
+Build 469 therefore:
+- removes the full-width Sandbox divider treatment entirely and uses soft vertical rhythm to separate preview/result, network/device, and battery-state groups;
+- preserves the accepted `body1` / `body2` Sandbox hierarchy and label/value summary pattern;
+- moves Diagnostics information rows from the Build-468 5 dp extreme to a 7 dp mid-density rhythm, with slightly restored header breathing room;
+- keeps the 64 dp background-free Guiyuan identity mark, the 20-second linear counterclockwise screen-local rotation, and the shortened app description;
 - leaves all SystemUI/Xposed runtime, state sources, renderer behavior, Hooks, persistent preferences, native suppression, and production icon geometry unchanged.
 
-Executable source checkpoint before documentation closure: `b25ee8340a624598f3c28e3b011c349b52e99f05`.
+Executable source checkpoint before documentation closure: `025341c9587f90d5e0e9a33c98eecb6d020c7ca9`.
 Exact-head Fast validation is pending.
 
 ## Current phase
