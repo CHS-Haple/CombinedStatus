@@ -35,6 +35,24 @@ This file is the concise recovery point for active Guiyuan development. Read it 
 - **App icon:** Build 452, integrated by PR #166 as `44b10371e0709d155468f7f2e67307fde5f11ab2`. The Guiyuan mark uses the accepted rotationally symmetric adaptive-icon geometry.
 - **Companion app:** Build 464, integrated through PR #165 as `a2394db92ce208771956defcd558c954065000f7`; Build 465 advanced the integrated display line to 0.0.3. Home Runtime Status, production-rendered Preview Sandbox, Features hierarchy, Diagnostics action styling, and MIUIX-aligned Sandbox controls are part of the accepted baseline.
 
+### Active presentation checkpoint
+
+**Build 471 / `20260929-471`** is the active companion-app presentation checkpoint on `feat/presentation-ui-polish`, still 0-behind current `dev@2163d3a8b9134e6114d6e59387b7c808d9399a08`.
+
+Build 470 passed exact-head Fast #1753 / #1756 and signed Work Branch Canary #499 on `e08097328f25e837b41f71ae469865820384037f`. Device review then rejected two Build-470 visual choices: demoting custom Sandbox setting titles to subdued `body2` made controls visually dominate and left native `SwitchPreference` title "Airplane mode" standing out; the Canvas implementation still scaled a 64 dp painter by 1.8x and produced visibly worse edge aliasing on the animated Guiyuan mark.
+
+Build 471 therefore:
+- restores all custom Sandbox setting titles (slider and segmented-field titles) to the primary MIUIX `body1` / `onSurfaceContainer` role so setting semantics lead the hierarchy consistently with native preference titles;
+- keeps control option typography owned by MIUIX and preserves the accepted soft spacing-only grouping, state model and production renderer;
+- keeps the accepted 8 dp Module runtime top/bottom edge breathing room from Build 470;
+- removes Canvas `scale()` entirely from the animated identity path;
+- draws `ic_launcher_foreground` directly at its final 1.8x target size (centered inside the 64 dp slot) and applies only the rotation transform, so the vector is rasterized at the final geometry rather than enlarged from a smaller draw;
+- retains the same single launcher vector source, theme tint, 64 dp layout slot and 20-second linear counterclockwise motion;
+- leaves all SystemUI/Xposed runtime, state sources, Hooks, production renderer, persistent preferences, native suppression and production icon geometry unchanged.
+
+Executable source checkpoint before documentation closure: `7e0d66bc796672155c3243d796b8490f017f019a`.
+Exact-head Fast validation is pending.
+
 ## Current phase
 
 Phases 2A, 2B, 3 and 4 are complete for the validated baseline:
@@ -90,13 +108,10 @@ Historical rejected/superseded Builds and hypotheses remain in `DEVLOG.md`; do n
 
 ## Active branch boundary
 
-No pre-promotion `feat/*` or `fix/*` branch is a valid continuation base for Phase 5.
-
-- `feat/visual-tuning-controls` is fully behind current `dev` and carries no unique current commits.
-- Other inspected historical feature/fix branches are substantially diverged and/or still reference the pre-Guiyuan package layout.
-- Old open PRs must not be merged merely because they remain open; their requirement must be re-evaluated against current `dev`.
-
-New executable work must branch from the synchronized current `dev` baseline.
+- Active companion-app presentation work: `feat/presentation-ui-polish` / Build 472, created from and still 0-behind synchronized `dev@2163d3a8b9134e6114d6e59387b7c808d9399a08`.
+- This branch is UI/copy-only at the product-runtime boundary and must not absorb the pending SystemUI transition-animation work.
+- Pre-promotion historical `feat/*` / `fix/*` branches remain invalid continuation bases; old open PRs must be re-evaluated rather than merged by age/name.
+- New runtime work still starts from the synchronized current `dev` baseline after this independent presentation checkpoint is closed.
 
 ## Non-negotiable boundaries
 
@@ -111,11 +126,12 @@ New executable work must branch from the synchronized current `dev` baseline.
 
 ## Immediate next step
 
-1. Close the remaining Home/Keyguard -> QS_FAKE -> native Control Center **visual transition-animation** gap before adaptive sizing or broader visual controls.
-2. Start from the synchronized current `dev` baseline on a new focused `feat/*` branch; do not revive historical transition/layout branches.
-3. First review the exact-target native progress, geometry, alpha and appearance ownership across source steady scene -> QS_FAKE -> final QS. Reuse verified SystemUI motion/appearance state; do not create a duplicate project-local animator, fixed-pixel follower, fraction threshold, timer or delay patch.
-4. Keep carrier/scene ownership, stable geometry, transition geometry and animation presentation as separate responsibilities. Any Guiyuan-owned interpolation must be a narrow derivation from authoritative native transition facts and must fail native when those facts are unavailable.
-5. Only after transition animation is accepted, continue adaptive sizing/spacing and later battery-ring color-source controls. Keep 1.0.0 gated by the release-qualification matrix and explicit maintainer authorization.
+1. Complete Build 472 exact-head Fast validation and issue one signed Canary for focused device review of the unified MIUIX preference structure and moderate Sandbox density.
+2. Keep PR #173 UI/copy-only at the runtime boundary; do not absorb the newly requested shared Wi-Fi optical-normalization runtime change.
+3. In parallel, investigate Wi-Fi connected / no-internet / hotspot optical normalization on a separate `fix/*` branch from synchronized `dev`; use connected Wi-Fi as the reference geometry and reuse the shared renderer so Preview and real SystemUI receive one implementation.
+4. Integrate each accepted branch into `dev` only after its own device evidence is accepted.
+5. The next broader runtime checkpoint remains Home/Keyguard -> QS_FAKE -> native Control Center **visual transition-animation** adaptation; do not mix that work into either focused branch.
+6. Keep 1.0.0 gated by the release-qualification matrix and explicit maintainer authorization.
 
 ## Reference priority
 

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">归元</string>
-    <string name="app_description">归元是一款面向 HyperOS 的 LSPosed 模块，将电量、移动网络和 Wi-Fi 状态整合为一个紧凑的状态栏图标</string>
+    <string name="app_description">面向 HyperOS，将电量、移动网络与 Wi-Fi 整合为一个紧凑的状态栏图标</string>
     <string name="home_title">归元</string>
     <string name="hot_reload">热重载 SystemUI 模块</string>
     <string name="nav_home">首页</string>

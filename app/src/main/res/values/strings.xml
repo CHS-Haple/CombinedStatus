@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Guiyuan</string>
-    <string name="app_description">Guiyuan is an LSPosed module for HyperOS that combines battery, mobile network, and Wi-Fi status into one compact status-bar indicator</string>
+    <string name="app_description">Combines battery, mobile network, and Wi-Fi into one compact HyperOS status-bar indicator</string>
 
     <string name="home_title">Guiyuan</string>
     <string name="hot_reload">Hot reload SystemUI module</string>
