@@ -39,6 +39,14 @@ internal enum class PreviewChargingState {
     SUPER_FAST_CHARGING,
 }
 
+internal enum class PreviewCenterSource {
+    WIFI,
+    AIRPLANE,
+    NO_SIM,
+    EMPTY,
+    MOBILE,
+}
+
 internal data class PreviewSandboxUiState(
     val simPresent: Boolean = true,
     val airplaneMode: Boolean = false,
@@ -110,6 +118,15 @@ internal class PreviewSystemUiResourceResolver(
     }
 }
 
+internal fun PreviewSandboxUiState.previewCenterSource(): PreviewCenterSource =
+    when {
+        networkMode == PreviewNetworkMode.WIFI -> PreviewCenterSource.WIFI
+        airplaneMode -> PreviewCenterSource.AIRPLANE
+        !simPresent -> PreviewCenterSource.NO_SIM
+        mobileNetwork == PreviewMobileNetwork.NONE -> PreviewCenterSource.EMPTY
+        else -> PreviewCenterSource.MOBILE
+    }
+
 internal fun PreviewSandboxUiState.toRenderModel(
     resources: PreviewSystemUiResourceResolver,
 ): CombinedStatusRenderModel {
@@ -122,8 +139,8 @@ internal fun PreviewSandboxUiState.toRenderModel(
         }
 
     val center =
-        when {
-            networkMode == PreviewNetworkMode.WIFI ->
+        when (previewCenterSource()) {
+            PreviewCenterSource.WIFI ->
                 CenterIndicator.Wifi(
                     segments = wifiLevel,
                     internet =
@@ -140,9 +157,9 @@ internal fun PreviewSandboxUiState.toRenderModel(
                         ),
                 )
 
-            airplaneMode -> CenterIndicator.Airplane
+            PreviewCenterSource.AIRPLANE -> CenterIndicator.Airplane
 
-            !simPresent ->
+            PreviewCenterSource.NO_SIM ->
                 resources
                     .drawableId("stat_sys_no_sim")
                     ?.let { resourceId ->
@@ -155,9 +172,9 @@ internal fun PreviewSandboxUiState.toRenderModel(
                     }
                     ?: CenterIndicator.Empty
 
-            mobileNetwork == PreviewMobileNetwork.NONE -> CenterIndicator.Empty
+            PreviewCenterSource.EMPTY -> CenterIndicator.Empty
 
-            else ->
+            PreviewCenterSource.MOBILE ->
                 CenterIndicator.MobileType(
                     label =
                         when (mobileNetwork) {
