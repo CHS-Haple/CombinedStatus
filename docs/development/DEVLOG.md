@@ -3,6 +3,59 @@
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
 
+## 2026-09-29 — Build 456: Progressive network Sandbox and shared 5G-A / no-Internet rendering correction
+
+**Type:** companion-app Preview Sandbox + shared renderer correctness  
+**Display version:** 0.0.2  
+**Build / source:** 456 / `20260929-456` / `feat/home-ui-shell`  
+**SystemUI ownership change:** none
+
+### Problem / objective
+
+Build 455 exposed Mobile and Wi-Fi controls simultaneously even though they are mutually exclusive center-source choices. Device review also showed two renderer correctness defects: simulated no-Internet Wi-Fi fell back to the ordinary Wi-Fi drawable, and the 5G-Advanced `A` suffix appeared upper-right instead of lower-right.
+
+### Problem execution flow
+
+1. Re-read the active branch implementation and recording rules.
+2. Verify the pinned MIUIX dependency exposes official `TabRowWithContour`.
+3. Re-check exact-target SystemUI-Reference resources instead of guessing drawable names.
+4. Trace production mobile-type flow from `NativePresentationResolver` through `CenterIndicator.MobileType` into the shared `CombinedStatusPainter`.
+5. Keep simulation-only state separate from real SystemUI state and retain one renderer.
+
+### Evidence / root cause
+
+- Exact SystemUI-Reference for HyperOS SystemUI `17.03.260226.r` verifies `stat_sys_wifi_signal_unavailable_0..3` plus tint/dark variants.
+- Build 455 tried the wrong `stat_sys_wifi_signal_<level>_unavailable` naming and then deliberately fell back to ordinary `stat_sys_wifi_signal_<level>`, erasing the no-Internet visual semantic.
+- `drawMobileType()` already split both `5GA` and `5G-A` into `5G` + `A`, but all suffixes shared one upward offset.
+- Production mobile type is read from HyperOS `mMobileType` / `mobile_type_single`, then reaches the same shared painter used by previews. The suffix correction therefore applies to real status-bar rendering as well.
+
+### Implementation / decision
+
+- Add local-only `PreviewNetworkMode.MOBILE/WIFI` and use pinned MIUIX `TabRowWithContour` as the two-way selector.
+- Keep SIM and airplane mode outside that selector as device-level state, so no-SIM + Wi-Fi and airplane + Wi-Fi remain valid.
+- Reveal only the selected source's subordinate controls; unavailable Mobile children fold instead of occupying the page as disabled rows.
+- Remove the redundant Wi-Fi `OFF` child state: selecting Mobile is the mutually-exclusive non-Wi-Fi path.
+- Map no-Internet Wi-Fi only to `stat_sys_wifi_signal_unavailable_<level>`; do not intentionally substitute an ordinary Wi-Fi drawable.
+- Use `5G-A` as the settings/Sandbox label for readability.
+- Keep the visual status-bar symbol compact: `5G` remains the main text and `A` is placed lower-right. Existing non-A enhancement suffixes keep their previous upper-right placement.
+- Center the live preview in a fixed-height visual stage so state changes do not shift its anchor.
+
+### 审查 / review
+
+- **Ownership:** Sandbox writes no real Wi-Fi/mobile/SIM/airplane state.
+- **Single renderer:** preview and real status-bar continue to share `CombinedStatusRenderView` / `CombinedStatusPainter`.
+- **HyperOS reuse:** exact native unavailable Wi-Fi resources are reused; no copied asset or parallel connectivity observer is added.
+- **Lifecycle / cleanup:** no Hook, listener, polling, timer or frame callback is added.
+- **Fail-native / semantics:** no-Internet is no longer intentionally degraded to ordinary Wi-Fi.
+- **Compatibility:** the selector comes from the already pinned MIUIX dependency; painter normalization accepts both `5GA` and `5G-A`.
+- **Future extension:** hidden subordinate selections are retained across Mobile/Wi-Fi switches.
+
+### Validation
+
+Deterministic tests cover the exact unavailable Wi-Fi resource family, no ordinary-Wi-Fi fallback, valid no-SIM + Wi-Fi state, progressive Mobile visibility, and lower-right `A` direction. Exact-head CI and signed Canary remain required before device acceptance.
+
+
+
 ## 2026-09-29 — Build 455: Runtime-card hierarchy restoration and complete Sandbox state model
 
 **Type:** companion-app Home / Preview Sandbox UI
