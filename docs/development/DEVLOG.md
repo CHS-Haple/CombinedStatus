@@ -10633,3 +10633,14 @@ The migrated workflow now produces the expected artifact names:
 - `Guiyuan-0.0.3-HyperOS-20260929-466-canary.apk`
 
 This closes the application/package/build-artifact identity migration on `dev`. Remaining work is repository-level GitHub rename/public metadata followed by final `dev -> main` promotion. This is a documentation-only closure and does not create a new Build.
+
+
+### Repository rename and promotion preflight closure
+
+The repository administration step is complete: the canonical public repository is now `CHS-Haple/Guiyuan`. Existing `main`, `dev`, `validation/dev`, promotion branch, PR history and Actions history remained intact after the rename, and README/badge references already target the new repository identity.
+
+Promotion hygiene then exposed two non-behavioral stable-boundary formatting defects: one extra EOF blank line in `PreviewSandboxScreen.kt` and three trailing-whitespace lines in this DEVLOG. Those were corrected without changing Build 466 runtime semantics. Integrated Build #1699 and docs-only Build #1704 passed, promotion readiness returned to READY, and the exact promotion snapshot advanced to the current dev SHA.
+
+Ready promotion PR #170 passed Build #1707 under the renamed `CHS-Haple/Guiyuan` repository. The only remaining step is the required explicit merge-commit promotion to `main`.
+
+This closure is documentation-only and does not create a new Build.
