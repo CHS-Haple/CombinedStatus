@@ -1,13 +1,16 @@
 package com.chaners.guiyuan.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
@@ -160,20 +163,23 @@ internal fun PreviewSandboxScreen(
                     ) {
                         Text(
                             text = stringResource(R.string.home_preview_live_title),
-                            style = MiuixTheme.textStyles.title3,
+                            style = MiuixTheme.textStyles.body1,
                             color = MiuixTheme.colorScheme.onSurfaceContainer,
                         )
                         Text(
                             text = stringResource(R.string.home_preview_sandbox_summary),
-                            modifier = Modifier.padding(top = 3.dp),
+                            modifier = Modifier.padding(top = 2.dp),
                             style = MiuixTheme.textStyles.body2,
                             color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
+                        )
+                        SandboxDivider(
+                            modifier = Modifier.padding(top = 11.dp),
                         )
                         Box(
                             modifier =
                                 Modifier
                                     .fillMaxWidth()
-                                    .height(132.dp),
+                                    .height(126.dp),
                             contentAlignment = Alignment.Center,
                         ) {
                             CombinedStatusPreview(
@@ -181,20 +187,15 @@ internal fun PreviewSandboxScreen(
                                 modifier = Modifier.size(120.dp),
                             )
                         }
-                        Text(
-                            text = previewNetworkSummary(state),
-                            modifier = Modifier.align(Alignment.CenterHorizontally),
-                            style = MiuixTheme.textStyles.body1,
-                            color = MiuixTheme.colorScheme.onSurfaceContainer,
+                        SandboxDivider()
+                        PreviewStatusLine(
+                            label = stringResource(R.string.home_preview_section_network),
+                            value = previewNetworkSummary(state),
+                            modifier = Modifier.padding(top = 5.dp),
                         )
-                        Text(
-                            text = previewBatterySummary(state),
-                            modifier =
-                                Modifier
-                                    .align(Alignment.CenterHorizontally)
-                                    .padding(top = 1.dp),
-                            style = MiuixTheme.textStyles.body2,
-                            color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
+                        PreviewStatusLine(
+                            label = stringResource(R.string.home_preview_section_battery),
+                            value = previewBatterySummary(state),
                         )
                     }
                 }
@@ -280,6 +281,9 @@ internal fun PreviewSandboxScreen(
                             )
                         }
 
+                        SandboxDivider(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                        )
                         SandboxSegmentedField(
                             title = stringResource(R.string.home_preview_sim_title),
                             options = simOptions,
@@ -319,6 +323,9 @@ internal fun PreviewSandboxScreen(
                                 ),
                             valueRange = 0f..100f,
                         )
+                        SandboxDivider(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                        )
                         SandboxSegmentedField(
                             title = stringResource(R.string.home_preview_battery_mode_title),
                             options = batteryModeOptions,
@@ -341,6 +348,47 @@ internal fun PreviewSandboxScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun SandboxDivider(
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(MiuixTheme.colorScheme.outline.copy(alpha = 0.12f)),
+    )
+}
+
+@Composable
+private fun PreviewStatusLine(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.width(48.dp),
+            style = MiuixTheme.textStyles.body2,
+            color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
+        )
+        Text(
+            text = value,
+            modifier = Modifier.fillMaxWidth(),
+            style = MiuixTheme.textStyles.body1,
+            color = MiuixTheme.colorScheme.onSurfaceContainer,
+        )
     }
 }
 
