@@ -42,7 +42,7 @@ Keyguard has an independent host/session while sharing domain/render semantics. 
 
 Build 473 is device-accepted and stable.
 
-The active Control Center transition line is not yet accepted. Build 480 is device-rejected on non-charging Home because full-target affine interpolation visibly flattened Trinity elements and parent-View targets collapsed unrelated semantics into the same geometry. Build 481 is also device-rejected: Mobile did not reliably move when internal final children were 0×0, Wi-Fi optical size/endpoint did not coincide with the native glyph, transition tint did not consistently follow final native peers, and child-first targeting did not represent real final slot occupancy. Build 482 replaces child-first targeting with read-only role-6 top-level slot witnesses; internal children/drawables only refine optical alignment, raw native expansion owns external motion, native fake alpha drives the local Mobile dot-to-bars morph, and final SystemUI appearance remains native-owned.
+The active Control Center transition line is not yet accepted. Build 480 is device-rejected on non-charging Home because full-target affine interpolation visibly flattened Trinity elements and parent-View targets collapsed unrelated semantics into the same geometry. Build 481 is also device-rejected: Mobile did not reliably move when internal final children were 0×0, Wi-Fi optical size/endpoint did not coincide with the native glyph, transition tint did not consistently follow final native peers, and child-first targeting did not represent real final slot occupancy. Build 482 replaces child-first targeting with read-only role-6 top-level slot witnesses; internal children/drawables only refine optical alignment, raw native expansion owns external motion, native fake alpha drives the local Mobile dot-to-bars morph, and final SystemUI appearance remains native-owned. Exact-head Runtime Build #1833 and signed Work Branch Canary #522 both pass for source `cfdf12ff4c2e8249f833e52e871cb35f1bad953b`; device acceptance is now pending the focused non-charging Home pass.
 
 Device testing is requested only when the result can change implementation choice or acceptance. Mechanical/documentation steps continue without a new APK round trip.
 
@@ -59,11 +59,10 @@ Device testing is requested only when the result can change implementation choic
 
 ## Immediate next step
 
-1. Run one exact-head Runtime CI for Build 482.
-2. If green, produce one signed work-branch Canary.
-3. Validate non-charging Home only: real final-slot spacing, Wi-Fi optical endpoint/tint, Mobile slot motion and late dot-to-bars handoff.
-4. Only after Home is accepted, run charging-island and Keyguard-originated regression passes.
-5. Keep 1.0.0 gated by actual product/compatibility acceptance.
+1. Validate signed Build 482 Canary #522 on non-charging Home only: real final-slot spacing, Wi-Fi optical endpoint/tint, Mobile slot motion and late dot-to-bars handoff.
+2. Compare the result against Build 481 device evidence; do not add timing/offset compensation without a new native-source or device fact.
+3. Only after Home is accepted, run charging-island and Keyguard-originated regression passes.
+4. Keep 1.0.0 gated by actual product/compatibility acceptance.
 
 ## Reference priority
 

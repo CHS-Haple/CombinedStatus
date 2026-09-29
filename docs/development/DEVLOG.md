@@ -11390,4 +11390,8 @@ Exact-head Runtime Build #1832 reached `:app:compileDebugKotlin` and failed at `
 
 ### Validation
 
-Run one exact-head Runtime CI and one signed work-branch Canary. Device validation is intentionally limited to non-charging Home first: partial pull/return and full pull/return must show real final-slot spacing, Wi-Fi proportional motion ending on the native glyph with native peer tint, Mobile movement followed by the late dot-to-bars morph, and no overlap/disappearance at native handoff.
+Exact-head Runtime Build #1832 failed only at Kotlin compile because the new mobile witness superclass walk was inferred as `Class<View>?`; the explicit `Class<*>` compile correction was applied without changing transition behavior. Runtime Build #1833 then passed the pinned HyperOS profile, unit tests, debug build and Modern Xposed metadata for exact source `cfdf12ff4c2e8249f833e52e871cb35f1bad953b`.
+
+Signed Work Branch Canary #522 independently resolved and checked out the same exact source SHA, then passed the pinned HyperOS profile, unit tests/Canary build, Modern Xposed API 102 metadata, Haple signature verification and non-debuggable verification. Artifact: `Guiyuan-0.0.3-HyperOS-20260929-482-canary.apk`.
+
+Device validation is intentionally limited to non-charging Home first: partial pull/return and full pull/return must show real final-slot spacing, Wi-Fi proportional motion ending on the native glyph with native peer tint, Mobile movement followed by the late dot-to-bars morph, and no overlap/disappearance at native handoff.
