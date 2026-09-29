@@ -37,14 +37,19 @@ This file is the concise recovery point for active Guiyuan development. Read it 
 
 ### Active presentation checkpoint
 
-**Build 467 / `20260929-467`** is the active companion-app presentation checkpoint on `feat/presentation-ui-polish`, branched directly from synchronized `dev@2163d3a8b9134e6114d6e59387b7c808d9399a08`.
+**Build 468 / `20260929-468`** is the active companion-app presentation checkpoint on `feat/presentation-ui-polish`, still 0-behind current `dev@2163d3a8b9134e6114d6e59387b7c808d9399a08`.
 
-- Preview Sandbox now uses a consistent MIUIX `body1` / `body2` hierarchy and bounded low-contrast dividers to separate live results, network-local controls, device-level SIM/airplane state, and battery controls.
-- The Diagnostics app card places the existing background-free Guiyuan foreground mark beside the product identity. The foreground vector rotates linearly counterclockwise once every 18 seconds; because the center is circular, it remains visually stationary while the outer orbit/nodes move.
-- `app_description` is shortened so the Diagnostics card and LSPosed module list do not repeat the adjacent product name.
-- No SystemUI/Xposed runtime, state source, renderer, Hook, persistent preference, or production icon geometry changes are included.
-- Executable source checkpoint before documentation closure: `68151be263ab020da2085b28b97c2019f986be4c`.
-- Exact-head Fast validation is pending.
+Build 467 passed Fast #1729 and signed Work Branch Canary #494, but focused device review superseded its final visual choices: the Sandbox divider read as effectively absent, and the upper Diagnostics information cards remained too sparse/head-heavy. The Diagnostics & reports action card was accepted and remains unchanged.
+
+Build 468 therefore:
+- keeps the two-level MIUIX Sandbox typography while raising the 1 dp divider to a clearly visible low-contrast tone and giving group boundaries 10 dp vertical separation;
+- treats the upper Diagnostics surfaces as compact information cards: app/device/module fact rows use tighter uniform spacing, while the action card is untouched;
+- reduces the animated Guiyuan identity slot from 72 dp to 64 dp, slows the existing linear counterclockwise motion from 18 to 20 seconds per revolution, and keeps the frozen foreground vector as the single brand-geometry source;
+- shortens `app_description` again to remove redundant LSPosed/context wording where the surrounding UI already establishes it;
+- leaves all SystemUI/Xposed runtime, state sources, renderer behavior, Hooks, persistent preferences, native suppression, and production icon geometry unchanged.
+
+Executable source checkpoint before documentation closure: `b25ee8340a624598f3c28e3b011c349b52e99f05`.
+Exact-head Fast validation is pending.
 
 ## Current phase
 
@@ -119,11 +124,12 @@ Historical rejected/superseded Builds and hypotheses remain in `DEVLOG.md`; do n
 
 ## Immediate next step
 
-1. Complete Build 467 exact-head Fast validation and focused presentation review; request a signed Canary only if device visual evidence is actually needed.
-2. Integrate the accepted presentation checkpoint into `dev` without coupling it to SystemUI runtime work.
-3. The next runtime checkpoint remains the Home/Keyguard -> QS_FAKE -> native Control Center **visual transition-animation** gap. Start that work from the then-current synchronized `dev`, not from this presentation branch.
-4. For transition work, reuse verified native progress/geometry/alpha/appearance ownership; do not create a duplicate animator, fixed-pixel follower, fraction threshold, timer or delay patch.
-5. Only after transition animation is accepted, continue adaptive sizing/spacing and later battery-ring color-source controls. Keep 1.0.0 gated by the release-qualification matrix and explicit maintainer authorization.
+1. Complete Build 468 exact-head Fast validation, then request a signed Canary for the focused visual re-check because Build 467 device evidence directly reopened divider strength and information-card density.
+2. Freeze Build 468 for device review of Sandbox group separation plus the three upper Diagnostics information cards; keep the accepted Diagnostics & reports card unchanged.
+3. Integrate the accepted presentation checkpoint into `dev` without coupling it to SystemUI runtime work.
+4. The next runtime checkpoint remains the Home/Keyguard -> QS_FAKE -> native Control Center **visual transition-animation** gap. Start that work from the then-current synchronized `dev`, not from this presentation branch.
+5. For transition work, reuse verified native progress/geometry/alpha/appearance ownership; do not create a duplicate animator, fixed-pixel follower, fraction threshold, timer or delay patch.
+6. Only after transition animation is accepted, continue adaptive sizing/spacing and later battery-ring color-source controls. Keep 1.0.0 gated by the release-qualification matrix and explicit maintainer authorization.
 
 ## Reference priority
 
