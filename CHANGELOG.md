@@ -31,8 +31,8 @@ The project follows a Keep a Changelog-style structure. During pre-release devel
 
 ### Changed
 
-- Refined Preview Sandbox typography to a consistent two-level MIUIX hierarchy while using soft spacing rather than full-width hard dividers to separate live results, network/device state, and battery controls; simulation and production-renderer behavior are unchanged.
-- Diagnostics now uses a balanced mid-density information-card rhythm for app, device/system, and module-runtime facts while leaving the accepted Diagnostics & reports action card unchanged. The app identity uses the background-free Guiyuan foreground mark with a slow 20-second linear counterclockwise orbit animation, and the shared app/module description is shortened to avoid repeating adjacent product/context labels.
+- Refined Preview Sandbox typography to a consistent hierarchy: field labels use the same subdued MIUIX role, option rendering remains owned by native MIUIX controls, and soft spacing rather than hard dividers separates live results, network/device state, and battery controls; simulation and production-renderer behavior are unchanged.
+- Diagnostics now uses a balanced mid-density information-card rhythm while restoring extra edge breathing room for Module runtime and leaving Diagnostics & reports unchanged. The background-free Guiyuan identity keeps its slow 20-second counterclockwise motion but is now vector-transformed before rasterization instead of post-render layer-scaled, improving edge clarity while reusing the same launcher foreground source.
 
 - Development display version advanced to **0.0.3** after integrating the accepted Home / Preview Sandbox UI line into `dev`; this remains a pre-release development line and does not change the planned first formal release target of 1.0.0.
 
