@@ -31,6 +31,8 @@ The project follows a Keep a Changelog-style structure. During pre-release devel
 
 ### Changed
 
+- Development display version advanced to **0.0.3** after integrating the accepted Home / Preview Sandbox UI line into `dev`; this remains a pre-release development line and does not change the planned first formal release target of 1.0.0.
+
 - Unified Preview Sandbox segmented controls to one balanced 300 dp maximum width so hierarchy is conveyed by labels and spacing rather than different control sizes.
 
 - Restored MIUIX-native spacing ownership in Preview Sandbox, introduced compact hierarchical width caps for segmented controls with equal same-level distribution, and renamed the diagnostics framework display to `Modern Xposed API 102`.
