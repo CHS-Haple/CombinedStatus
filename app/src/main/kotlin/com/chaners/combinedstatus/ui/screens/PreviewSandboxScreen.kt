@@ -5,8 +5,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -32,6 +34,7 @@ import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
 import top.yukonga.miuix.kmp.basic.Text
+import top.yukonga.miuix.kmp.basic.TabRowWithContour
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
@@ -44,6 +47,7 @@ internal fun PreviewSandboxScreen(
     state: PreviewSandboxUiState,
     onSimPresentChange: (Boolean) -> Unit,
     onAirplaneModeChange: (Boolean) -> Unit,
+    onNetworkModeChange: (PreviewNetworkMode) -> Unit,
     onMobileNetworkChange: (PreviewMobileNetwork) -> Unit,
     onMobileSignalLevelChange: (Int) -> Unit,
     onWifiStateChange: (PreviewWifiState) -> Unit,
@@ -60,6 +64,11 @@ internal fun PreviewSandboxScreen(
         }
     val renderModel = state.toRenderModel(resourceResolver)
 
+    val networkModeOptions =
+        listOf(
+            stringResource(R.string.home_preview_network_mode_mobile),
+            stringResource(R.string.home_preview_network_mode_wifi),
+        )
     val simOptions =
         listOf(
             stringResource(R.string.home_preview_sim_present),
@@ -74,7 +83,6 @@ internal fun PreviewSandboxScreen(
         )
     val wifiOptions =
         listOf(
-            stringResource(R.string.home_preview_wifi_off),
             stringResource(R.string.home_preview_wifi_connected),
             stringResource(R.string.home_preview_wifi_no_internet),
             stringResource(R.string.home_preview_wifi_hotspot),
@@ -162,14 +170,18 @@ internal fun PreviewSandboxScreen(
                             style = MiuixTheme.textStyles.body2,
                             color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
                         )
-                        CombinedStatusPreview(
-                            model = renderModel,
+                        Box(
                             modifier =
                                 Modifier
-                                    .align(Alignment.CenterHorizontally)
-                                    .size(132.dp)
-                                    .padding(top = 4.dp),
-                        )
+                                    .fillMaxWidth()
+                                    .height(144.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            CombinedStatusPreview(
+                                model = renderModel,
+                                modifier = Modifier.size(124.dp),
+                            )
+                        }
                         Text(
                             text = previewNetworkSummary(state),
                             modifier =
@@ -199,6 +211,20 @@ internal fun PreviewSandboxScreen(
                                 .padding(horizontal = 12.dp)
                                 .padding(bottom = 12.dp),
                     ) {
+                        TabRowWithContour(
+                            tabs = networkModeOptions,
+                            selectedTabIndex = state.networkMode.ordinal,
+                            onTabSelected = { index ->
+                                onNetworkModeChange(PreviewNetworkMode.entries[index])
+                            },
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 18.dp, vertical = 12.dp)
+                                    .widthIn(max = 360.dp)
+                                    .align(Alignment.CenterHorizontally),
+                        )
+                        HorizontalDivider(modifier = DividerMargin)
                         OverlayDropdownPreference(
                             items = simOptions,
                             selectedIndex = if (state.simPresent) 0 else 1,
@@ -214,73 +240,68 @@ internal fun PreviewSandboxScreen(
                             summary = stringResource(R.string.home_preview_airplane_summary),
                             insideMargin = SandboxPreferenceMargin,
                         )
-                        HorizontalDivider(modifier = DividerMargin)
-                        OverlayDropdownPreference(
-                            items = mobileNetworkOptions,
-                            selectedIndex = state.mobileNetwork.ordinal,
-                            title = stringResource(R.string.home_preview_mobile_network_title),
-                            summary = mobileDisabledSummary,
-                            enabled = state.mobileControlsEnabled,
-                            insideMargin = SandboxPreferenceMargin,
-                            onSelectedIndexChange = { index ->
-                                onMobileNetworkChange(
-                                    PreviewMobileNetwork.entries[index],
+
+                        if (state.networkMode == PreviewNetworkMode.MOBILE) {
+                            if (state.mobileOptionsVisible) {
+                                HorizontalDivider(modifier = DividerMargin)
+                                OverlayDropdownPreference(
+                                    items = mobileNetworkOptions,
+                                    selectedIndex = state.mobileNetwork.ordinal,
+                                    title = stringResource(R.string.home_preview_mobile_network_title),
+                                    insideMargin = SandboxPreferenceMargin,
+                                    onSelectedIndexChange = { index ->
+                                        onMobileNetworkChange(PreviewMobileNetwork.entries[index])
+                                    },
                                 )
-                            },
-                        )
-                        HorizontalDivider(modifier = DividerMargin)
-                        SliderPreference(
-                            value = state.mobileSignalLevel.toFloat(),
-                            onValueChange = { value ->
-                                onMobileSignalLevelChange(
-                                    value.roundToInt().coerceIn(0, 4),
+                                HorizontalDivider(modifier = DividerMargin)
+                                SliderPreference(
+                                    value = state.mobileSignalLevel.toFloat(),
+                                    onValueChange = { value ->
+                                        onMobileSignalLevelChange(value.roundToInt().coerceIn(0, 4))
+                                    },
+                                    title = stringResource(R.string.home_preview_mobile_signal_title),
+                                    valueText = signalValueText(state.mobileSignalLevel),
+                                    valueRange = 0f..4f,
+                                    steps = 3,
+                                    showKeyPoints = true,
+                                    keyPoints = listOf(0f, 1f, 2f, 3f, 4f),
+                                    insideMargin = SandboxPreferenceMargin,
                                 )
-                            },
-                            title = stringResource(R.string.home_preview_mobile_signal_title),
-                            summary = mobileDisabledSummary,
-                            valueText = signalValueText(state.mobileSignalLevel),
-                            enabled = state.mobileControlsEnabled,
-                            valueRange = 0f..4f,
-                            steps = 3,
-                            showKeyPoints = true,
-                            keyPoints = listOf(0f, 1f, 2f, 3f, 4f),
-                            insideMargin = SandboxPreferenceMargin,
-                        )
-                        HorizontalDivider(modifier = DividerMargin)
-                        OverlayDropdownPreference(
-                            items = wifiOptions,
-                            selectedIndex = state.wifiState.ordinal,
-                            title = stringResource(R.string.home_preview_wifi_state_title),
-                            insideMargin = SandboxPreferenceMargin,
-                            onSelectedIndexChange = { index ->
-                                onWifiStateChange(
-                                    PreviewWifiState.entries[index],
+                            } else {
+                                HorizontalDivider(modifier = DividerMargin)
+                                Text(
+                                    text = mobileDisabledSummary.orEmpty(),
+                                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 12.dp),
+                                    style = MiuixTheme.textStyles.body2,
+                                    color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
                                 )
-                            },
-                        )
-                        HorizontalDivider(modifier = DividerMargin)
-                        SliderPreference(
-                            value = state.wifiSignalLevel.toFloat(),
-                            onValueChange = { value ->
-                                onWifiSignalLevelChange(
-                                    value.roundToInt().coerceIn(0, 3),
-                                )
-                            },
-                            title = stringResource(R.string.home_preview_wifi_signal_title),
-                            summary =
-                                if (state.wifiSignalEnabled) {
-                                    null
-                                } else {
-                                    stringResource(R.string.home_preview_wifi_disabled)
+                            }
+                        } else {
+                            HorizontalDivider(modifier = DividerMargin)
+                            OverlayDropdownPreference(
+                                items = wifiOptions,
+                                selectedIndex = state.wifiState.ordinal,
+                                title = stringResource(R.string.home_preview_wifi_state_title),
+                                insideMargin = SandboxPreferenceMargin,
+                                onSelectedIndexChange = { index ->
+                                    onWifiStateChange(PreviewWifiState.entries[index])
                                 },
-                            valueText = signalValueText(state.wifiSignalLevel),
-                            enabled = state.wifiSignalEnabled,
-                            valueRange = 0f..3f,
-                            steps = 2,
-                            showKeyPoints = true,
-                            keyPoints = listOf(0f, 1f, 2f, 3f),
-                            insideMargin = SandboxPreferenceMargin,
-                        )
+                            )
+                            HorizontalDivider(modifier = DividerMargin)
+                            SliderPreference(
+                                value = state.wifiSignalLevel.toFloat(),
+                                onValueChange = { value ->
+                                    onWifiSignalLevelChange(value.roundToInt().coerceIn(0, 3))
+                                },
+                                title = stringResource(R.string.home_preview_wifi_signal_title),
+                                valueText = signalValueText(state.wifiSignalLevel),
+                                valueRange = 0f..3f,
+                                steps = 2,
+                                showKeyPoints = true,
+                                keyPoints = listOf(0f, 1f, 2f, 3f),
+                                insideMargin = SandboxPreferenceMargin,
+                            )
+                        }
                     }
                 }
 
@@ -343,55 +364,45 @@ internal fun PreviewSandboxScreen(
 internal fun previewNetworkSummary(
     state: PreviewSandboxUiState,
 ): String {
-    val wifi =
-        when (state.wifiState) {
-            PreviewWifiState.OFF -> null
-            PreviewWifiState.CONNECTED ->
-                stringResource(
-                    R.string.home_preview_network_summary_wifi,
-                    signalValueText(state.wifiSignalLevel),
-                )
-            PreviewWifiState.NO_INTERNET ->
-                stringResource(
-                    R.string.home_preview_network_summary_wifi_no_internet,
-                    signalValueText(state.wifiSignalLevel),
-                )
-            PreviewWifiState.HOTSPOT ->
-                stringResource(
-                    R.string.home_preview_network_summary_hotspot,
-                    signalValueText(state.wifiSignalLevel),
-                )
+    if (state.networkMode == PreviewNetworkMode.WIFI) {
+        val wifi =
+            when (state.wifiState) {
+                PreviewWifiState.CONNECTED ->
+                    stringResource(
+                        R.string.home_preview_network_summary_wifi,
+                        signalValueText(state.wifiSignalLevel),
+                    )
+                PreviewWifiState.NO_INTERNET ->
+                    stringResource(
+                        R.string.home_preview_network_summary_wifi_no_internet,
+                        signalValueText(state.wifiSignalLevel),
+                    )
+                PreviewWifiState.HOTSPOT ->
+                    stringResource(
+                        R.string.home_preview_network_summary_hotspot,
+                        signalValueText(state.wifiSignalLevel),
+                    )
+            }
+        return if (state.airplaneMode) {
+            stringResource(R.string.home_preview_network_summary_airplane_wifi, wifi)
+        } else {
+            wifi
         }
+    }
 
     if (state.airplaneMode) {
-        return if (wifi != null) {
-            stringResource(
-                R.string.home_preview_network_summary_airplane_wifi,
-                wifi,
-            )
-        } else {
-            stringResource(R.string.home_preview_airplane_title)
-        }
+        return stringResource(R.string.home_preview_airplane_title)
     }
-
-    if (wifi != null) {
-        return wifi
-    }
-
     if (!state.simPresent) {
         return stringResource(R.string.home_preview_sim_absent)
     }
 
     val mobileType =
         when (state.mobileNetwork) {
-            PreviewMobileNetwork.NONE ->
-                stringResource(R.string.home_preview_network_none)
-            PreviewMobileNetwork.FOUR_G ->
-                stringResource(R.string.home_preview_network_4g)
-            PreviewMobileNetwork.FIVE_G ->
-                stringResource(R.string.home_preview_network_5g)
-            PreviewMobileNetwork.FIVE_GA ->
-                stringResource(R.string.home_preview_network_5ga)
+            PreviewMobileNetwork.NONE -> stringResource(R.string.home_preview_network_none)
+            PreviewMobileNetwork.FOUR_G -> stringResource(R.string.home_preview_network_4g)
+            PreviewMobileNetwork.FIVE_G -> stringResource(R.string.home_preview_network_5g)
+            PreviewMobileNetwork.FIVE_GA -> stringResource(R.string.home_preview_network_5ga)
         }
     return stringResource(
         R.string.home_preview_network_summary_mobile,
