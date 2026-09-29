@@ -12,7 +12,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,8 +43,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalContext
@@ -754,7 +755,7 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
         }
 
         Section(R.string.section_module_runtime) {
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             DiagnosticsInfoValue(
                 value = stringResource(R.string.runtime_framework_summary),
                 label = stringResource(R.string.runtime_framework_title),
@@ -773,7 +774,7 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
                     label = stringResource(R.string.runtime_inventory_title),
                 )
             }
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(8.dp))
         }
 
         Section(R.string.section_diagnostic_report) {
@@ -884,24 +885,34 @@ private fun GuiyuanAnimatedIdentityMark() {
                 ),
             label = "guiyuanIdentityOrbitRotation",
         )
+    val painter = painterResource(R.drawable.ic_launcher_foreground)
+    val tint = MiuixTheme.colorScheme.onSurfaceContainer
 
     Box(
         modifier = Modifier.size(64.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Image(
-            painter = painterResource(R.drawable.ic_launcher_foreground),
-            contentDescription = null,
-            colorFilter = ColorFilter.tint(MiuixTheme.colorScheme.onSurfaceContainer),
-            modifier =
-                Modifier
-                    .size(64.dp)
-                    .graphicsLayer {
-                        scaleX = 1.8f
-                        scaleY = 1.8f
-                        rotationZ = orbitRotation
-                    },
-        )
+        Canvas(
+            modifier = Modifier.size(64.dp),
+        ) {
+            rotate(
+                degrees = orbitRotation,
+                pivot = center,
+            ) {
+                scale(
+                    scaleX = 1.8f,
+                    scaleY = 1.8f,
+                    pivot = center,
+                ) {
+                    with(painter) {
+                        draw(
+                            size = this@Canvas.size,
+                            colorFilter = ColorFilter.tint(tint),
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
