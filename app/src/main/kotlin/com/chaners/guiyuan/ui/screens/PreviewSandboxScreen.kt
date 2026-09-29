@@ -1,6 +1,5 @@
 package com.chaners.guiyuan.ui.screens
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -172,14 +171,12 @@ internal fun PreviewSandboxScreen(
                             style = MiuixTheme.textStyles.body2,
                             color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
                         )
-                        SandboxDivider(
-                            modifier = Modifier.padding(top = 10.dp, bottom = 4.dp),
-                        )
                         Box(
                             modifier =
                                 Modifier
                                     .fillMaxWidth()
-                                    .height(126.dp),
+                                    .padding(top = 8.dp)
+                                    .height(130.dp),
                             contentAlignment = Alignment.Center,
                         ) {
                             CombinedStatusPreview(
@@ -187,13 +184,10 @@ internal fun PreviewSandboxScreen(
                                 modifier = Modifier.size(120.dp),
                             )
                         }
-                        SandboxDivider(
-                            modifier = Modifier.padding(bottom = 4.dp),
-                        )
                         PreviewStatusLine(
                             label = stringResource(R.string.home_preview_section_network),
                             value = previewNetworkSummary(state),
-                            modifier = Modifier.padding(top = 5.dp),
+                            modifier = Modifier.padding(top = 7.dp),
                         )
                         PreviewStatusLine(
                             label = stringResource(R.string.home_preview_section_battery),
@@ -283,9 +277,7 @@ internal fun PreviewSandboxScreen(
                             )
                         }
 
-                        SandboxDivider(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                        )
+                        Spacer(modifier = Modifier.height(10.dp))
                         SandboxSegmentedField(
                             title = stringResource(R.string.home_preview_sim_title),
                             options = simOptions,
@@ -325,9 +317,7 @@ internal fun PreviewSandboxScreen(
                                 ),
                             valueRange = 0f..100f,
                         )
-                        SandboxDivider(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
-                        )
+                        Spacer(modifier = Modifier.height(10.dp))
                         SandboxSegmentedField(
                             title = stringResource(R.string.home_preview_battery_mode_title),
                             options = batteryModeOptions,
@@ -351,19 +341,6 @@ internal fun PreviewSandboxScreen(
             }
         }
     }
-}
-
-@Composable
-private fun SandboxDivider(
-    modifier: Modifier = Modifier,
-) {
-    Box(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .height(1.dp)
-                .background(MiuixTheme.colorScheme.onSurfaceContainerVariant.copy(alpha = 0.20f)),
-    )
 }
 
 @Composable
