@@ -31,6 +31,8 @@
     <string name="home_preview_section_network">Network</string>
     <string name="home_preview_section_battery">Battery</string>
 
+    <string name="home_preview_network_mode_mobile">Mobile</string>
+    <string name="home_preview_network_mode_wifi">Wi-Fi</string>
     <string name="home_preview_sim_title">SIM state</string>
     <string name="home_preview_sim_present">SIM inserted</string>
     <string name="home_preview_sim_absent">No SIM</string>
@@ -40,7 +42,7 @@
     <string name="home_preview_network_none">None</string>
     <string name="home_preview_network_4g">4G</string>
     <string name="home_preview_network_5g">5G</string>
-    <string name="home_preview_network_5ga">5GA</string>
+    <string name="home_preview_network_5ga">5G-A</string>
     <string name="home_preview_mobile_signal_title">Mobile signal</string>
     <string name="home_preview_mobile_disabled_no_sim">Unavailable while no SIM is inserted</string>
     <string name="home_preview_mobile_disabled_airplane">Unavailable while airplane mode is on</string>
