@@ -84,4 +84,21 @@ class CombinedStatusControlCenterTransitionOwnerTest {
             0f,
             height,
         )
+
+    @Test
+    fun sourceGeometryKeepsNativePositionButUsesStableRenderBasis() {
+        val nativePosition = floatArrayOf(100f, 200f, 60f, 0f, 0f, 40f)
+        val stableRenderBasis = floatArrayOf(900f, 900f, 105f, 0f, 0f, 169f)
+
+        val result =
+            CombinedStatusControlCenterTransitionOwner.Policy.composeSourceGeometry(
+                positionAuthority = nativePosition,
+                basisAuthority = stableRenderBasis,
+            )
+
+        assertEquals(100f, result[0], 0.0001f)
+        assertEquals(200f, result[1], 0.0001f)
+        assertEquals(105f, result[2], 0.0001f)
+        assertEquals(169f, result[5], 0.0001f)
+    }
 }
