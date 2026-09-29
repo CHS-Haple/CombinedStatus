@@ -260,6 +260,21 @@ internal object CombinedStatusControlCenterTransitionOwner {
             )
         }
 
+        fun composeSourceGeometry(
+            positionAuthority: FloatArray,
+            basisAuthority: FloatArray,
+        ): FloatArray {
+            require(positionAuthority.size == 6 && basisAuthority.size == 6)
+            return floatArrayOf(
+                positionAuthority[0],
+                positionAuthority[1],
+                basisAuthority[2],
+                basisAuthority[3],
+                basisAuthority[4],
+                basisAuthority[5],
+            )
+        }
+
         fun scaleGeometry(
             source: FloatArray,
             scale: Float,
@@ -493,11 +508,21 @@ internal object CombinedStatusControlCenterTransitionOwner {
             val sourceAnchor = sourceAnchorRef.get() ?: return
             if (sourceView.width <= 0 || sourceView.height <= 0) return
 
-            val sourceSample =
+            val sourcePositionSample =
                 sample(
                     view = sourceAnchor,
                     root = rootView,
                 ) ?: return
+            val sourceBasisSample =
+                sample(
+                    view = sourceView,
+                    root = rootView,
+                ) ?: return
+            val sourceParentGeometry =
+                Policy.composeSourceGeometry(
+                    positionAuthority = sourcePositionSample.geometry,
+                    basisAuthority = sourceBasisSample.geometry,
+                )
             val model = currentSnapshot.model
             val specs =
                 painter.transitionComponentSpecs(
@@ -543,7 +568,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
             specs.forEach { spec ->
                 val sourceGeometry =
                     Policy.componentGeometry(
-                        parentGeometry = sourceSample.geometry,
+                        parentGeometry = sourceParentGeometry,
                         parentWidth = sourceView.width,
                         parentHeight = sourceView.height,
                         bounds = spec.sourceBounds,
@@ -763,11 +788,12 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     target = target,
                     mobileSubId = mobileSubId,
                 )
+            val opticalRequired =
+                target is CombinedStatusPainter.TransitionTarget.Slots &&
+                    target.preferredChildEntries.isNotEmpty()
+
             targetCache[key]
                 ?.takeIf { witness ->
-                    val opticalRequired =
-                        target is CombinedStatusPainter.TransitionTarget.Slots &&
-                            target.preferredChildEntries.isNotEmpty()
                     val slotStillSemantic =
                         target !is CombinedStatusPainter.TransitionTarget.Slots ||
                             witness.slotView.visibility == View.VISIBLE
@@ -775,7 +801,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         slotStillSemantic &&
                         (
                             !opticalRequired ||
-                                witness.opticalView?.isAttachedToWindow == true
+                                witness.opticalView?.let(::isReliableSemanticTarget) == true
                         )
                 }
                 ?.let { return it }
@@ -788,6 +814,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                             slotView = finalBattery,
                             opticalView = resolveBatteryIconTarget(finalBattery),
                             subscriptionId = null,
+                            requiresOpticalGeometry = false,
                         ).takeIf { witness -> isUsableSlotView(witness.slotView) }
 
                     is CombinedStatusPainter.TransitionTarget.Slots ->
@@ -802,30 +829,27 @@ internal object CombinedStatusControlCenterTransitionOwner {
                                         },
                                 ) ?: return@firstNotNullOfOrNull null
                             val optical =
-                                target.preferredChildEntries.firstNotNullOfOrNull { entry ->
-                                    findDescendantByResourceEntry(
-                                        root = slotRoot,
-                                        entryName = entry,
-                                    )
-                                }
+                                target.preferredChildEntries
+                                    .firstNotNullOfOrNull { entry ->
+                                        findDescendantByResourceEntry(
+                                            root = slotRoot,
+                                            entryName = entry,
+                                        )?.takeIf(::isReliableSemanticTarget)
+                                    }
+                            if (opticalRequired && optical == null) {
+                                return@firstNotNullOfOrNull null
+                            }
                             TargetWitness(
                                 slot = slot,
                                 slotView = slotRoot,
                                 opticalView = optical,
                                 subscriptionId = readMobileSubId(slotRoot),
+                                requiresOpticalGeometry = opticalRequired,
                             )
                         }
                 }
-            val opticalRequired =
-                target is CombinedStatusPainter.TransitionTarget.Slots &&
-                    target.preferredChildEntries.isNotEmpty()
-            if (
-                resolved != null &&
-                (
-                    !opticalRequired ||
-                        resolved.opticalView != null
-                )
-            ) {
+
+            if (resolved != null) {
                 targetCache[key] = resolved
             } else {
                 targetCache.remove(key)
@@ -838,7 +862,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
             root: View,
             sourceGeometry: FloatArray,
             targetOpticalBounds: CombinedStatusPainter.TransitionNormalizedBounds?,
-        ): FloatArray {
+        ): FloatArray? {
             val opticalView = witness.opticalView
             if (opticalView != null) {
                 val opticalSample = sample(opticalView, root)
@@ -866,6 +890,10 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     root = root,
                     targetOpticalBounds = targetOpticalBounds,
                 )?.let { return it }
+
+                if (witness.requiresOpticalGeometry) {
+                    return null
+                }
             }
 
             val slotSample = sample(witness.slotView, root) ?: return sourceGeometry
@@ -1033,6 +1061,12 @@ internal object CombinedStatusControlCenterTransitionOwner {
             }
         }
 
+        private fun isReliableSemanticTarget(view: View): Boolean =
+            view.visibility == View.VISIBLE &&
+                view.isAttachedToWindow &&
+                view.width > 0 &&
+                view.height > 0
+
         private fun isUsableSlotView(view: View): Boolean =
             view.isAttachedToWindow &&
                 view.width > 0 &&
@@ -1161,6 +1195,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
             val slotView: View,
             val opticalView: View?,
             val subscriptionId: Int?,
+            val requiresOpticalGeometry: Boolean,
         ) {
             val summary: String
                 get() =
