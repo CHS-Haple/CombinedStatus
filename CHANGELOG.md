@@ -31,6 +31,20 @@ The project follows a Keep a Changelog-style structure. During pre-release devel
 
 ### Changed
 
+- Unified Preview Sandbox segmented controls to one balanced 300 dp maximum width so hierarchy is conveyed by labels and spacing rather than different control sizes.
+
+- Restored MIUIX-native spacing ownership in Preview Sandbox, introduced compact hierarchical width caps for segmented controls with equal same-level distribution, and renamed the diagnostics framework display to `Modern Xposed API 102`.
+
+- Optically normalized Diagnostics leading icons across level/export/share using MIUIX Normal-weight symbols in a shared slot, and lowered the Home runtime status mark slightly to improve spacing below the master Switch.
+
+- Refined companion-app visual hierarchy: Runtime status marks now balance ring and inner-symbol weight, Diagnostics report actions use MIUIX Normal leading icons, Preview Sandbox spacing follows a compact consistent vertical rhythm, and Features removes the duplicate master switch while separating lock-screen behavior from color-link controls.
+
+- Redesigned the Home Preview Sandbox and its detail screen around compact MIUIX segmented choices, continuous sliders, uninterrupted Network/Battery cards, and fixed preview geometry while preserving the shared production renderer.
+
+- Preview Sandbox now uses a mutually-exclusive MIUIX Mobile/Wi-Fi selector with context-dependent subordinate controls while preserving valid no-SIM + Wi-Fi simulation; no-Internet Wi-Fi resolves the exact HyperOS unavailable drawable family, and the shared renderer places the 5G-Advanced `A` at lower-right in both previews and the real status bar.
+
+- Home now uses a two-card runtime/preview hierarchy: the Runtime card separates user intent from actual Xposed state with fixed-height semantic feedback, heavier unified rounded status marks, and a compact single-line version/short-build identity. Home keeps only one MIUIX Preview Sandbox navigation row with a production-rendered leading preview and navigates to a dedicated secondary page whose contour-tab controls adjust simulated center/signal/battery state; app previews scale mobile-type labels proportionally with the preview viewport while production SystemUI sizing remains unchanged.
+
 - Launcher branding now uses an abstract converging-orbit mark as a true Android adaptive icon: the geometry lives in the foreground vector, the default palette is ink-black on clean white, launcher masks remain system-owned, and Android monochrome/themed icons reuse the same silhouette.
 
 - Floating-navigation Glass follows the pinned MIUIX example material baseline, and the Appearance preview consumes the same production material and content settings as the live bottom navigation. The preview keeps fixed outer bounds and bottom-anchors the navigation sample so switching label modes does not move surrounding settings.
@@ -67,6 +81,10 @@ The project follows a Keep a Changelog-style structure. During pre-release devel
 - CI validation is checkpoint-driven: active runtime PRs stay Draft between meaningful Fast checkpoints, signed work-branch Canary is created only after explicit maintainer admission when device evidence is needed, and documentation-only checkpoint closure remains a Light repository record rather than creating a recursive runtime Build.
 
 ### Fixed
+
+- Refined the Home runtime-card status mark without altering its established semantic colors: kept the master Switch in its original position, enlarged and strengthened the circular mark, and moved the mark slightly upward.
+
+- Fixed the companion-app Sandbox airplane center disappearing outside the SystemUI process by resolving the native flight-mode drawable from the SystemUI package context; Mobile airplane mode now correctly overrides no-SIM center presentation while retaining the bottom unavailable mark.
 
 - Home Combined Status now yields its overlay to native notification-shade and Control Center presentation using SystemUI scene-lifetime callbacks, while keeping the structurally valid Home owner persistent underneath. Notification-shade ownership follows actual native motion: active tracking or any positive shade fraction leaves Home, while non-tracking at the native closed boundary (`fraction<=0`) permits Home even when HyperOS asserts `expanded=true` for a heads-up notification. Control Center reacquires Home only after native `visible=false`. This removes HUN disappearance plus shallow/return overlay leakage without arbitrary thresholds, delays, polling, destructive owner teardown, or custom transition motion.
 - No-SIM is now a persistent cellular-layer state: the lower mobile signal orbit keeps its unavailable `×` whenever HyperOS reports native no-SIM, even when the center simultaneously shows the native no-SIM glyph or Wi-Fi. This prevents Wi-Fi from erasing SIM-absence semantics while preserving the center's native-priority presentation.

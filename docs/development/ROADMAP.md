@@ -135,6 +135,10 @@ The Home page has two conceptual regions:
 
 Runtime Status reflects real module/SystemUI state and retains the real Hot Reload action. Preview Sandbox is simulation-only and must never mutate real Wi-Fi/mobile/SIM/airplane/charging/battery state.
 
+Keep Home dense enough to remain an overview rather than a settings surface. Home may show one compact production-rendered preview plus a standard MIUIX navigation row; detailed Sandbox selectors belong on a secondary page so future simulated states can expand without turning Home into a long scrolling form.
+
+The companion-app presentation shell may be implemented in parallel with Phase 3 because it does not claim or mutate SystemUI scene ownership. Until a verified runtime-health source is wired, the Home UI must not infer "running/healthy" from the master-switch preference. Early Sandbox controls may keep local, non-persistent simulation state, but the final visual preview should reuse the real render semantics/model rather than maintaining a second renderer.
+
 Prefer reusing the real render semantics/model for previews rather than maintaining a second visually similar implementation.
 
 ## Phase 5 — Adaptive sizing, spacing and broader visual controls

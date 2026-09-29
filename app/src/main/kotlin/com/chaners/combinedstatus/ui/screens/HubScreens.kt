@@ -75,33 +75,30 @@ internal fun FeaturesScreen(
         title = stringResource(R.string.features_title),
         sectionTitle = stringResource(R.string.section_hyperos_display),
         bottomContentPadding = bottomContentPadding,
+        secondarySectionTitle = stringResource(R.string.section_color_linkage),
+        secondaryContent = {
+            SwitchPreference(
+                title = stringResource(R.string.mobile_follow_battery_color),
+                summary = stringResource(R.string.mobile_follow_battery_color_summary),
+                checked = visualSettings.mobileFollowsBatteryColor,
+                enabled = featureSettings.enabled,
+                onCheckedChange = visualRepository::setMobileFollowsBatteryColor,
+            )
+            SwitchPreference(
+                title = stringResource(R.string.center_follow_battery_color),
+                summary = stringResource(R.string.center_follow_battery_color_summary),
+                checked = visualSettings.centerFollowsBatteryColor,
+                enabled = featureSettings.enabled,
+                onCheckedChange = visualRepository::setCenterFollowsBatteryColor,
+            )
+        },
     ) {
-        SwitchPreference(
-            title = stringResource(R.string.combined_status_feature_title),
-            summary = stringResource(R.string.combined_status_feature_summary),
-            checked = featureSettings.enabled,
-            onCheckedChange = featureRepository::setEnabled,
-        )
         SwitchPreference(
             title = stringResource(R.string.keyguard_combined_status_title),
             summary = stringResource(R.string.keyguard_combined_status_summary),
             checked = featureSettings.keyguardEnabled,
             enabled = featureSettings.enabled,
             onCheckedChange = featureRepository::setKeyguardEnabled,
-        )
-        SwitchPreference(
-            title = stringResource(R.string.mobile_follow_battery_color),
-            summary = stringResource(R.string.mobile_follow_battery_color_summary),
-            checked = visualSettings.mobileFollowsBatteryColor,
-            enabled = featureSettings.enabled,
-            onCheckedChange = visualRepository::setMobileFollowsBatteryColor,
-        )
-        SwitchPreference(
-            title = stringResource(R.string.center_follow_battery_color),
-            summary = stringResource(R.string.center_follow_battery_color_summary),
-            checked = visualSettings.centerFollowsBatteryColor,
-            enabled = featureSettings.enabled,
-            onCheckedChange = visualRepository::setCenterFollowsBatteryColor,
         )
     }
 }

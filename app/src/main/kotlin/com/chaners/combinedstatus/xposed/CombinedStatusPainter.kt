@@ -54,6 +54,7 @@ internal class CombinedStatusPainter(
         outerWeightScale: Float = CombinedStatusOuterGeometry.DEFAULT_WEIGHT_SCALE,
         centerSizeScale: Float = CombinedStatusCenterGeometry.DEFAULT_SIZE_SCALE,
         centerTextWeightScale: Float = CombinedStatusCenterGeometry.DEFAULT_TEXT_WEIGHT_SCALE,
+        scaleMobileTypeWithCanvas: Boolean = false,
     ) {
         if (width <= 0 || height <= 0) {
             return
@@ -98,6 +99,7 @@ internal class CombinedStatusPainter(
             enterAmount = centerEnterAmount,
             geometry = centerGeometry,
             nativeTransform = nativeTransform,
+            scaleMobileTypeWithCanvas = scaleMobileTypeWithCanvas,
         )
         drawMobile(
             canvas = canvas,
@@ -167,6 +169,7 @@ internal class CombinedStatusPainter(
         enterAmount: Float,
         geometry: CombinedStatusCenterGeometry.Resolved,
         nativeTransform: NativeRenderTransform,
+        scaleMobileTypeWithCanvas: Boolean,
     ) {
         if (previous == null || previous == current) {
             drawCenterIndicator(
@@ -178,6 +181,7 @@ internal class CombinedStatusPainter(
                 appearAmount = 1f,
                 geometry = geometry,
                 nativeTransform = nativeTransform,
+                scaleMobileTypeWithCanvas = scaleMobileTypeWithCanvas,
             )
             return
         }
@@ -191,6 +195,7 @@ internal class CombinedStatusPainter(
             appearAmount = exitAmount.coerceIn(0f, 1f),
             geometry = geometry,
             nativeTransform = nativeTransform,
+            scaleMobileTypeWithCanvas = scaleMobileTypeWithCanvas,
         )
         drawCenterIndicator(
             canvas = canvas,
@@ -201,6 +206,7 @@ internal class CombinedStatusPainter(
             appearAmount = enterAmount.coerceIn(0f, 1f),
             geometry = geometry,
             nativeTransform = nativeTransform,
+            scaleMobileTypeWithCanvas = scaleMobileTypeWithCanvas,
         )
     }
 
@@ -213,6 +219,7 @@ internal class CombinedStatusPainter(
         appearAmount: Float,
         geometry: CombinedStatusCenterGeometry.Resolved,
         nativeTransform: NativeRenderTransform,
+        scaleMobileTypeWithCanvas: Boolean,
     ) {
         if (appearAmount <= 0f) {
             return
@@ -249,6 +256,7 @@ internal class CombinedStatusPainter(
                     opacity = opacity,
                     scale = scale,
                     geometry = geometry,
+                    scaleWithCanvas = scaleMobileTypeWithCanvas,
                 )
 
             CenterIndicator.Airplane ->
@@ -595,7 +603,13 @@ internal class CombinedStatusPainter(
         airplaneDrawableResolved = true
         cachedAirplaneResourceId =
             runCatching {
-                context.resources.getIdentifier(
+                val resourceContext =
+                    if (context.packageName == SYSTEM_UI_PACKAGE) {
+                        context
+                    } else {
+                        context.createPackageContext(SYSTEM_UI_PACKAGE, 0)
+                    }
+                resourceContext.resources.getIdentifier(
                     AIRPLANE_RESOURCE_NAME,
                     "drawable",
                     SYSTEM_UI_PACKAGE,
@@ -638,6 +652,7 @@ internal class CombinedStatusPainter(
         opacity: Float,
         scale: Float,
         geometry: CombinedStatusCenterGeometry.Resolved,
+        scaleWithCanvas: Boolean,
     ) {
         val normalized = indicator.label.trim().uppercase()
         val split =
@@ -671,16 +686,16 @@ internal class CombinedStatusPainter(
         paint.typeface = mobileTypeTypeface(geometry.mobileTypeWeight)
         paint.textAlign = Paint.Align.LEFT
         val mainTextSize =
-            if (scale > 0f) {
-                geometry.mobileTypeTextSize / scale
-            } else {
+            if (scaleWithCanvas || scale <= 0f) {
                 geometry.mobileTypeTextSize
+            } else {
+                geometry.mobileTypeTextSize / scale
             }
         val suffixTextSize =
-            if (scale > 0f) {
-                geometry.mobileTypeSuffixSize / scale
-            } else {
+            if (scaleWithCanvas || scale <= 0f) {
                 geometry.mobileTypeSuffixSize
+            } else {
+                geometry.mobileTypeSuffixSize / scale
             }
         paint.textSize = mainTextSize
         paint.getTextBounds(
@@ -724,13 +739,18 @@ internal class CombinedStatusPainter(
                 mobileTypeMainBounds.width() +
                 MOBILE_TYPE_SUFFIX_GAP -
                 mobileTypeSuffixBounds.left
+        val suffixOffset =
+            if (scaleWithCanvas || scale <= 0f) {
+                geometry.mobileTypeSuffixRise
+            } else {
+                geometry.mobileTypeSuffixRise / scale
+            }
         val suffixCenterY =
-            MOBILE_TYPE_CENTER_Y -
-                if (scale > 0f) {
-                    geometry.mobileTypeSuffixRise / scale
-                } else {
-                    geometry.mobileTypeSuffixRise
-                }
+            MOBILE_TYPE_CENTER_Y +
+                CombinedStatusMobileTypeSuffixPolicy.verticalOffset(
+                    suffix = split.second,
+                    magnitude = suffixOffset,
+                )
         val suffixBaselineY =
             suffixCenterY -
                 (mobileTypeSuffixBounds.top + mobileTypeSuffixBounds.bottom) / 2f
@@ -967,6 +987,18 @@ internal class CombinedStatusPainter(
 }
 
 
+
+internal object CombinedStatusMobileTypeSuffixPolicy {
+    fun verticalOffset(
+        suffix: String,
+        magnitude: Float,
+    ): Float =
+        if (suffix.trim().uppercase() == "A") {
+            magnitude
+        } else {
+            -magnitude
+        }
+}
 
 internal object NativeCenterResourceVariantPolicy {
     fun tintEntryName(entryName: String): String {

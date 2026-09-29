@@ -31,6 +31,7 @@ import com.chaners.combinedstatus.ui.components.requiresTextureBackdrop
 import com.chaners.combinedstatus.ui.navigation.AppRoute
 import com.chaners.combinedstatus.ui.screens.FeaturesScreen
 import com.chaners.combinedstatus.ui.screens.HomeScreen
+import com.chaners.combinedstatus.ui.screens.PreviewSandboxUiState
 import com.chaners.combinedstatus.ui.screens.SettingsHubScreen
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.FloatingNavigationBar
@@ -68,6 +69,7 @@ internal fun MainHub(
     onAppLanguageChange: (AppLanguage) -> Unit,
     onLauncherIconHiddenChange: (Boolean) -> Unit,
     onSwipeBackEnabledChange: (Boolean) -> Unit,
+    previewState: PreviewSandboxUiState,
     onNavigate: (AppRoute) -> Unit,
 ) {
     val pagerState = rememberPagerState(pageCount = { TopLevelPageCount })
@@ -201,6 +203,7 @@ internal fun MainHub(
                 onAppLanguageChange = onAppLanguageChange,
                 onLauncherIconHiddenChange = onLauncherIconHiddenChange,
                 onSwipeBackEnabledChange = onSwipeBackEnabledChange,
+                previewState = previewState,
                 onNavigate = onNavigate,
             )
         }
@@ -236,6 +239,7 @@ private fun TopLevelPager(
     onAppLanguageChange: (AppLanguage) -> Unit,
     onLauncherIconHiddenChange: (Boolean) -> Unit,
     onSwipeBackEnabledChange: (Boolean) -> Unit,
+    previewState: PreviewSandboxUiState,
     onNavigate: (AppRoute) -> Unit,
 ) {
     val flingBehavior = PagerDefaults.flingBehavior(
@@ -262,7 +266,9 @@ private fun TopLevelPager(
             0 -> HomeScreen(
                 bottomContentPadding = bottom,
                 hotReloadInProgress = hotReloadInProgress,
+                previewState = previewState,
                 onHotReload = onHotReload,
+                onOpenPreviewSandbox = { onNavigate(AppRoute.PreviewSandbox) },
             )
             1 -> FeaturesScreen(
                 bottomContentPadding = bottom,

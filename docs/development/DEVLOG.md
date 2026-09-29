@@ -2,6 +2,577 @@
 
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
+
+## 2026-09-29 — Build 464: Unified Sandbox segmented-control width
+
+**Type:** companion-app UI refinement  
+**Display version:** 0.0.2  
+**Build / source:** 464 / `20260929-464` / `feat/home-ui-shell`  
+**SystemUI ownership change:** none
+
+### Maintainer feedback
+
+The Build-463 width hierarchy was too explicit. Different semantic levels do not need different control widths; the page should stay visually calm and let labels, ordering and spacing communicate hierarchy.
+
+### Implementation
+
+- Use one shared 300 dp maximum width for every Preview Sandbox finite-state `TabRowWithContour`.
+- Apply that same width to:
+  - Mobile / Wi-Fi;
+  - mobile type;
+  - Wi-Fi state;
+  - SIM state;
+  - battery mode;
+  - charging state.
+- Keep equal option distribution inside each selector.
+- Retain Build 463's MIUIX-native Slider/Switch margins and restored vertical breathing room.
+- Retain `Modern Xposed API 102` diagnostics naming.
+
+### 审查 / review
+
+- **Hierarchy:** expressed through text and spacing rather than arbitrary width differences.
+- **Consistency:** same control family now shares the same maximum width.
+- **Runtime isolation:** no SystemUI state, Hook, renderer, listener or preference ownership changes.
+
+
+
+
+## 2026-09-29 — Build 463: MIUIX-aligned Sandbox spacing and diagnostics framework naming
+
+**Type:** companion-app UI refinement  
+**Display version:** 0.0.2  
+**Build / source:** 463 / `20260929-463` / `feat/home-ui-shell`  
+**SystemUI ownership change:** none
+
+### Maintainer feedback
+
+Build 462 made the Preview Sandbox visually too compact. The problem was not the control family itself, but compounded custom compression: SliderPreference/SwitchPreference had been forced down to 4 dp vertical inside margins while custom segmented rows also used very small inter-control spacing. The same review requested that segmented controls avoid excessive full-card width while same-level options remain evenly distributed. Diagnostics framework naming should explicitly say `Modern Xposed API 102`.
+
+### Implementation
+
+- Restore SliderPreference and SwitchPreference to their pinned MIUIX default `BasicComponentDefaults.InsideMargin` rather than overriding them with a compact 4 dp vertical margin.
+- Keep Card-level vertical padding light so child components own their normal spacing.
+- Custom segmented rows use a consistent optical rhythm:
+  - 16 dp horizontal padding;
+  - 11 dp vertical padding;
+  - 7 dp title-to-contour spacing.
+- Keep the primary mode selector visually distinct and compact:
+  - Mobile / Wi-Fi: max 260 dp.
+- Keep ordinary same-level finite-state selectors consistent:
+  - mobile type, Wi-Fi state, battery mode, charging state: max 320 dp.
+- Keep the two-state SIM selector compact:
+  - max 280 dp.
+- Continue using MIUIX `TabRowWithContour`, which distributes entries evenly inside each selector.
+- Update the diagnostics framework string from `Xposed API 102` to `Modern Xposed API 102` in both English and Simplified Chinese resources.
+
+### 审查 / review
+
+- **MIUIX ownership:** continuous and binary preference rows once again use the library's own standard internal spacing rather than project-level compression.
+- **Hierarchy:** widths encode control hierarchy without stretching every finite selector to the card edges.
+- **Consistency:** selectors at the same semantic level share one width cap and internal equal distribution.
+- **Runtime isolation:** no SystemUI hooks, state model, render ownership, listeners, or remote-preference logic change.
+- **Performance:** layout-only changes; no new observer, resource traversal, or animation.
+
+### Test checklist
+
+- Sandbox: verify rows have comfortable vertical breathing room without returning to the earlier oversized gaps.
+- Compare Wi-Fi/mobile and battery paths for uniform same-level spacing.
+- Verify segmented controls do not look excessively wide and each option has equal internal allocation.
+- Diagnostics: verify the framework row displays `Modern Xposed API 102`.
+
+
+
+## 2026-09-29 — Build 462: Runtime mark spacing and diagnostics optical icon normalization
+
+**Type:** companion-app UI refinement  
+**Display version:** 0.0.2  
+**Build / source:** 462 / `20260929-462` / `feat/home-ui-shell`  
+**SystemUI ownership change:** none
+
+### Maintainer feedback
+
+Build 461 device review showed two remaining optical issues:
+
+- the Home Runtime status mark still sat too close to the top-right master Switch;
+- Diagnostics report actions used equal nominal icon bounds but not equal perceived size, with Download reading larger than Share, while Diagnostics level had no matching MIUIX leading icon.
+
+### Implementation
+
+- Home Runtime:
+  - preserve the established card tint, mark color, 96 dp mark canvas, 6.4 dp ring stroke, 7.2 dp inner-symbol stroke and original Switch position;
+  - move the entire status mark from `y=+2 dp` to `y=+6 dp` to create more breathing room below the Switch and better balance the full card.
+- Diagnostics:
+  - add a MIUIX Normal-weight `Tune` leading icon to Diagnostics level through the native `OverlayDropdownPreference.startAction` API;
+  - route Diagnostics level, Export and Share through one shared 24 dp leading-icon slot;
+  - optically normalize the internal icon sizes rather than forcing equal nominal vector sizes:
+    - Tune: 22 dp;
+    - Download: 21 dp;
+    - Share: 23 dp;
+  - keep all three on the same neutral `onSurfaceContainer` tint and 16 dp title separation.
+
+### 审查 / review
+
+- **MIUIX first:** all three symbols come from the pinned MIUIX icon family and use Normal weight; no custom vector or copied HyperOS asset is introduced.
+- **Optical, not mechanical, equality:** the shared 24 dp slot guarantees identical row geometry while per-icon internal sizing compensates for different vector ink occupancy.
+- **Layout ownership:** Home Switch position and card geometry remain unchanged; only the status-mark offset changes.
+- **Runtime isolation:** no Xposed hook, SystemUI host, render state, listener or preference ownership changes.
+- **Accessibility:** icons remain decorative because the corresponding row title and click semantics fully identify each action.
+
+### Test checklist
+
+- Home Runtime: confirm the status mark no longer feels crowded against the Switch and still avoids the card bottom edge.
+- Diagnostics: compare Diagnostics level / Export / Share side-by-side for perceived size, stroke weight and identical title start position.
+- Verify Diagnostics level dropdown, export and share actions remain functionally unchanged.
+
+
+
+
+## 2026-09-29 — Build 461: App-wide visual rhythm and action-style consolidation
+
+**Type:** companion-app UI refinement  
+**Display version:** 0.0.2  
+**Build / source:** 461 / `20260929-461` / `feat/home-ui-shell`  
+**SystemUI ownership change:** none
+
+### Maintainer feedback
+
+Build 460 device review exposed four remaining presentation inconsistencies:
+
+1. The Runtime status ring had become heavier without the inner symbol gaining comparable visual weight.
+2. The whole status mark still sat slightly high relative to the card's left text block and top-right Switch.
+3. Diagnostics export/share actions used right-side blue outline icons that did not match the desired HyperOS/MIUIX settings-row language.
+4. Preview Sandbox vertical spacing remained uneven, especially the large gap before Charging state. The Features page also duplicated the master Combined Status switch already present on Home and mixed behavioral and color-link controls into one dense block.
+
+### Implementation
+
+- Home Runtime mark:
+  - keep the established semantic card tint and mark color;
+  - keep 96 dp mark canvas and original master-Switch placement;
+  - use 6.4 dp for the outer ring and 7.2 dp for inner Check / Alert / Minus strokes;
+  - move the whole mark to `y=+2 dp` for better full-card visual centering.
+- Diagnostics:
+  - follow the pinned MIUIX `BasicComponent.startAction` pattern;
+  - move action icons from right-side `endActions` to the title-leading position;
+  - use `MiuixIcons.Normal.Download` / `MiuixIcons.Normal.Share` at 24 dp with 16 dp title separation;
+  - use neutral `onSurfaceContainer` tint instead of action-blue.
+- Preview Sandbox:
+  - retain the three-section Preview / Network / Battery model and all state semantics;
+  - keep primary mode -> source-state spacing at 8 dp;
+  - normalize ordinary adjacent fields and segmented title->control spacing to 4 dp;
+  - reduce Slider/Switch internal vertical margin to 4 dp;
+  - set Network/Battery card vertical margins to 10/8 dp;
+  - remove the compounded padding that made Charging state appear detached from Battery mode.
+- Features:
+  - remove the duplicate global Combined Status switch; Home remains the single user-facing master control;
+  - keep Lock-screen Combined Status in the System UI section;
+  - move the two visual color-follow options into a separate Color linkage section;
+  - shorten summaries and remove development/process wording from user-facing copy.
+
+### 审查 / review
+
+- **MIUIX first:** Diagnostics leading actions now follow the official upstream `BasicComponent.startAction` example rather than a project-specific right-side action treatment.
+- **No duplicate ownership:** removing the Features master switch changes only UI entry-point duplication; the existing feature preference authority remains unchanged and continues to be controlled from Home.
+- **Visual rhythm:** Sandbox spacing is expressed by one small set of reusable values rather than accumulating per-field dividers or large ad-hoc gaps.
+- **State/runtime safety:** no Xposed hook, SystemUI host, renderer state, listener, lifecycle or remote-preference ownership is changed.
+- **Accessibility:** action titles/summaries remain text-first; decorative leading icons have null content descriptions because the clickable row already exposes its title/onClick label.
+- **Performance:** no new observer, animation, timer or repeated resource lookup is introduced.
+
+### Test checklist
+
+- Home: verify all Runtime states keep established semantic colors and Switch placement; check/alert/minus symbols should look equally weighted with the ring and the full mark should visually center with the card.
+- Diagnostics: export/share icons should appear left of the titles, match each other in size/weight, and retain existing export/share behavior.
+- Sandbox: compare Mobile and Wi-Fi paths; verify charging state no longer has an oversized top gap and all segmented/sliding rows remain readable.
+- Features: verify the global master switch is absent, lock-screen control remains functional, and both color-link controls remain disabled when the Home master feature is disabled.
+
+
+## 2026-09-29 — Build 460: Runtime status-mark weight correction
+
+**Type:** companion-app Home UI refinement  
+**Display version:** 0.0.2  
+**Build / source:** 460 / `20260929-460` / `feat/home-ui-shell`  
+**SystemUI ownership change:** none
+
+### Maintainer correction
+
+The Build-459 attempt incorrectly moved the master Switch horizontally. The Switch position was already correct and must remain unchanged. The intended visual improvement belongs to the lower circular status mark: it should read larger and stronger while keeping its established semantic color.
+
+### Implementation
+
+- Restore the master Switch to the original `Alignment.TopEnd` placement with no added end padding.
+- Keep the restored pre-458 runtime-card semantic tint and status-mark color composition.
+- Increase the status-mark canvas from 88 dp to 96 dp.
+- Increase the mark stroke from 5.4 dp to 6.4 dp.
+- Retain the previously requested vertical correction at `y=-2 dp` so the mark sits slightly higher.
+- Leave Sandbox UI, renderer semantics and SystemUI runtime code unchanged.
+
+### 审查 / review
+
+The change is limited to Home-card presentation geometry and stroke weight. No state, ownership, Hook, lifecycle, dependency or renderer-path changes are introduced.
+
+
+
+## 2026-09-29 — Build 459: Runtime-card scope correction
+
+**Type:** companion-app Home UI correction  
+**Display version:** 0.0.2  
+**Build / source:** 459 / `20260929-459` / `feat/home-ui-shell`  
+**SystemUI ownership change:** none
+
+### Maintainer correction
+
+Build 458 changed more of the Runtime card than requested. The intended change was limited to two geometry issues: the top-right master Switch sat too close to the card's right edge, and the circular status mark sat too low. The existing semantic card tint and status-mark appearance were not part of the requested redesign.
+
+### Implementation
+
+- Restore the pre-458 runtime-card semantic container tint.
+- Restore the pre-458 status-mark color composition, 88 dp mark canvas, 160 dp card height, text end allocation and two-line summary.
+- Keep the master Switch behavior unchanged and add only an 8 dp visual end inset.
+- Move the status mark upward: replace the historical `+10 dp` bottom-end offset with `-2 dp`.
+- Retain the Build-458 Preview Sandbox redesign and fixed Home preview stage unchanged.
+
+### 审查 / review
+
+This is a scope correction, not a new visual direction. No state model, Xposed/SystemUI Hook, renderer ownership, lifecycle, or dependency changes are included.
+
+
+
+## 2026-09-29 — Build 458: Sandbox information hierarchy and Home-card visual consolidation
+
+**Type:** companion-app Home / Preview Sandbox UI  
+**Display version:** 0.0.2  
+**Build / source:** 458 / `20260929-458` / `feat/home-ui-shell`  
+**SystemUI ownership change:** none
+
+### Problem / objective
+
+Build 456/457 proved the expanded simulation state model but still presented it like a traditional preference page. The main Mobile/Wi-Fi contour control was visually over-wide, the remaining Dropdown/Divider rows fragmented one network concept into unrelated-looking settings, and the Home cards still carried two known visual mismatches: runtime semantics tinted the whole container and the Home Sandbox preview did not have a fixed visual stage.
+
+Maintainer review also reconfirmed that SIM and airplane mode belong to the same Network simulation card; they do not need a synthetic "device state" or "special state" subsection.
+
+### Design / implementation
+
+- Keep exactly three second-level sections: Preview, Network, Battery.
+- Remove preference-style dividers and dropdowns from the Network/Battery cards.
+- Use pinned MIUIX `TabRowWithContour` only for short finite choices:
+  - primary Mobile / Wi-Fi source;
+  - Mobile type;
+  - Wi-Fi state;
+  - SIM present / absent;
+  - battery mode;
+  - charging state.
+- Keep continuous values on `SliderPreference`: mobile signal, Wi-Fi signal, battery percentage.
+- Keep airplane mode on `SwitchPreference`.
+- Make the primary Mobile/Wi-Fi selector narrower and centered; place the selected source's state selector and signal slider immediately below it so proximity communicates ownership without extra headings or dividers.
+- Keep SIM and airplane controls in the same uninterrupted Network card after the source-specific controls.
+- Preserve progressive Mobile availability: when airplane/no-SIM makes Mobile parameters unavailable, show the compact reason instead of stale interactive children.
+- Reduce the live-preview stage to a fixed, centered geometry and tighten summary spacing.
+- Home runtime card uses a neutral MIUIX surface in every semantic state; success/warning/error remains on the independent right-side status mark only. The runtime explanation may use up to three lines.
+- Home Sandbox card now keeps a fixed preview stage and compact two-line summary.
+- Wi-Fi summary appends the no-SIM state when applicable so the textual summary matches the renderer's bottom unavailable mark.
+
+### 审查 / review
+
+- **MIUIX first:** all interactive controls remain pinned MIUIX components; no project-owned segmented control, slider, or switch is introduced.
+- **Information hierarchy:** visual grouping is expressed with proximity and control weight, not nested cards, extra subsection labels, or divider noise.
+- **State ownership:** the Sandbox remains local simulation state only and does not mutate system network/battery state.
+- **Single renderer:** both Home and second-level preview continue through `CombinedStatusPreview -> CombinedStatusRenderView -> CombinedStatusPainter`.
+- **Runtime isolation:** no SystemUI Hook/listener/host ownership changes are included.
+- **Accessibility / semantics:** explicit field titles remain for every finite selector; the compact primary selector remains the only title-less mode switch because its two labels are self-describing.
+- **Compatibility:** no new dependency or custom API surface is introduced.
+- **Performance:** no polling, timer, repeated resource traversal, or new animation owner is added.
+
+### Validation
+
+Unit tests from Build 457 continue to lock center-source precedence and native no-Internet/5G-A policies. Build 458 requires exact-head CI and signed Canary device review for the new visual hierarchy and the companion-app airplane-resource correction.
+
+
+
+## 2026-09-29 — Build 457: Airplane preview resource-context correction
+
+**Type:** companion-app Preview Sandbox correctness  
+**Display version:** 0.0.2  
+**Build / source:** 457 / `20260929-457` / `feat/home-ui-shell`  
+**SystemUI ownership change:** none
+
+### Problem / objective
+
+Maintainer device review found that `Mobile + no SIM + airplane mode` was a valid Sandbox state but rendered an empty center: the outer ring and bottom four unavailable dots + `×` remained visible while the expected airplane icon was missing.
+
+The intended semantic precedence is explicit:
+- Wi-Fi remains the center source while Wi-Fi is selected, including airplane/no-SIM device state;
+- on Mobile, airplane mode is the center state even when no SIM is present;
+- no-SIM becomes the Mobile center only when airplane mode is off.
+
+### Problem execution flow
+
+1. Verify the Sandbox state model allows no-SIM and airplane mode simultaneously.
+2. Trace center selection and confirm `CenterIndicator.Airplane` is selected before no-SIM on the Mobile path.
+3. Trace `CombinedStatusRenderView -> CombinedStatusPainter -> drawNativeAirplane()`.
+4. Compare native-resource resolution with Wi-Fi/no-SIM preview resource handling.
+5. Correct the shared native resource context rather than blocking the state combination or adding a preview-only airplane drawing implementation.
+
+### Root cause
+
+The state precedence was already semantically correct. The failure was resource ownership: `CombinedStatusPainter.airplaneResourceId()` queried `context.resources` for the SystemUI drawable `stat_sys_signal_flightmode`. In the real SystemUI host that context is SystemUI and succeeds. In the companion-app AndroidView preview, the same shared renderer receives the app context, so the SystemUI drawable can resolve to zero and the center silently remains empty.
+
+Wi-Fi/no-SIM preview resources already use a SystemUI package context, which is why the defect was isolated to the Airplane path.
+
+### Implementation
+
+- Keep `CenterIndicator.Airplane` and the single shared painter.
+- When the painter is hosted outside `com.android.systemui`, resolve the flight-mode resource through `createPackageContext("com.android.systemui", 0)`; inside SystemUI, keep the direct current context.
+- Make Sandbox center-source precedence a named pure policy: `WIFI -> AIRPLANE -> NO_SIM -> EMPTY -> MOBILE`.
+- Add deterministic regression coverage for:
+  - Wi-Fi + airplane + no-SIM => Wi-Fi center;
+  - Mobile + airplane + no-SIM => Airplane center;
+  - Mobile + no-SIM + airplane off => No-SIM center.
+
+### 审查 / review
+
+- **Root cause first:** the legal state combination is retained; no UI restriction is added.
+- **Single renderer:** no second airplane painter or copied asset is introduced.
+- **HyperOS reuse:** the native SystemUI flight-mode resource remains the visual authority.
+- **Production safety:** SystemUI-hosted rendering continues to use the existing SystemUI context; the new package-context hop is only needed when the shared renderer is hosted by the companion app.
+- **Lifecycle / performance:** resource ID resolution remains one-time cached per painter; no listener, polling, retry, or frame-path lookup is introduced.
+- **Semantics:** `mobileUnavailableMark = airplaneMode || !simPresent` is unchanged, so no-SIM remains visible as the bottom unavailable mark while Airplane owns the Mobile center.
+- **Scope:** no Home runtime-card or broader Sandbox layout redesign is included; those remain pending separate maintainer confirmation.
+
+### Validation
+
+Unit coverage locks the three center-source combinations above. Exact-head Fast and signed Canary remain required before device acceptance.
+
+
+
+## 2026-09-29 — Build 456: Progressive network Sandbox and shared 5G-A / no-Internet rendering correction
+
+**Type:** companion-app Preview Sandbox + shared renderer correctness  
+**Display version:** 0.0.2  
+**Build / source:** 456 / `20260929-456` / `feat/home-ui-shell`  
+**SystemUI ownership change:** none
+
+### Problem / objective
+
+Build 455 exposed Mobile and Wi-Fi controls simultaneously even though they are mutually exclusive center-source choices. Device review also showed two renderer correctness defects: simulated no-Internet Wi-Fi fell back to the ordinary Wi-Fi drawable, and the 5G-Advanced `A` suffix appeared upper-right instead of lower-right.
+
+### Problem execution flow
+
+1. Re-read the active branch implementation and recording rules.
+2. Verify the pinned MIUIX dependency exposes official `TabRowWithContour`.
+3. Re-check exact-target SystemUI-Reference resources instead of guessing drawable names.
+4. Trace production mobile-type flow from `NativePresentationResolver` through `CenterIndicator.MobileType` into the shared `CombinedStatusPainter`.
+5. Keep simulation-only state separate from real SystemUI state and retain one renderer.
+
+### Evidence / root cause
+
+- Exact SystemUI-Reference for HyperOS SystemUI `17.03.260226.r` verifies `stat_sys_wifi_signal_unavailable_0..3` plus tint/dark variants.
+- Build 455 tried the wrong `stat_sys_wifi_signal_<level>_unavailable` naming and then deliberately fell back to ordinary `stat_sys_wifi_signal_<level>`, erasing the no-Internet visual semantic.
+- `drawMobileType()` already split both `5GA` and `5G-A` into `5G` + `A`, but all suffixes shared one upward offset.
+- Production mobile type is read from HyperOS `mMobileType` / `mobile_type_single`, then reaches the same shared painter used by previews. The suffix correction therefore applies to real status-bar rendering as well.
+
+### Implementation / decision
+
+- Add local-only `PreviewNetworkMode.MOBILE/WIFI` and use pinned MIUIX `TabRowWithContour` as the two-way selector.
+- Keep SIM and airplane mode outside that selector as device-level state, so no-SIM + Wi-Fi and airplane + Wi-Fi remain valid.
+- Reveal only the selected source's subordinate controls; unavailable Mobile children fold instead of occupying the page as disabled rows.
+- Remove the redundant Wi-Fi `OFF` child state: selecting Mobile is the mutually-exclusive non-Wi-Fi path.
+- Map no-Internet Wi-Fi only to `stat_sys_wifi_signal_unavailable_<level>`; do not intentionally substitute an ordinary Wi-Fi drawable.
+- Use `5G-A` as the settings/Sandbox label for readability.
+- Keep the visual status-bar symbol compact: `5G` remains the main text and `A` is placed lower-right. Existing non-A enhancement suffixes keep their previous upper-right placement.
+- Center the live preview in a fixed-height visual stage so state changes do not shift its anchor.
+
+### 审查 / review
+
+- **Ownership:** Sandbox writes no real Wi-Fi/mobile/SIM/airplane state.
+- **Single renderer:** preview and real status-bar continue to share `CombinedStatusRenderView` / `CombinedStatusPainter`.
+- **HyperOS reuse:** exact native unavailable Wi-Fi resources are reused; no copied asset or parallel connectivity observer is added.
+- **Lifecycle / cleanup:** no Hook, listener, polling, timer or frame callback is added.
+- **Fail-native / semantics:** no-Internet is no longer intentionally degraded to ordinary Wi-Fi.
+- **Compatibility:** the selector comes from the already pinned MIUIX dependency; painter normalization accepts both `5GA` and `5G-A`.
+- **Future extension:** hidden subordinate selections are retained across Mobile/Wi-Fi switches.
+
+### Validation
+
+Deterministic tests cover the exact unavailable Wi-Fi resource family, no ordinary-Wi-Fi fallback, valid no-SIM + Wi-Fi state, progressive Mobile visibility, and lower-right `A` direction. Exact-head CI and signed Canary remain required before device acceptance.
+
+
+
+## 2026-09-29 — Build 455: Runtime-card hierarchy restoration and complete Sandbox state model
+
+**Type:** companion-app Home / Preview Sandbox UI
+**Display version:** 0.0.2
+**Build / source:** 455 / `20260929-455` / `feat/home-ui-shell`
+**SystemUI runtime change:** none
+
+### Maintainer feedback / objective
+
+Build 454 over-compressed the product identity and the compact Home Sandbox entry lost too much visual weight. The accepted direction restores two-line Version/Build identity, strengthens that text hierarchy, lowers and unifies the status mark, returns the Home Sandbox to a full feature card, and makes the second-level Sandbox model real independent system-state dimensions rather than a small list of final render outcomes.
+
+The Sandbox must cover:
+- SIM inserted / not inserted;
+- airplane mode;
+- mobile network: none / 4G / 5G / 5GA;
+- mobile signal: none + four levels (0-4);
+- Wi-Fi: off / connected / no internet / hotspot;
+- Wi-Fi signal: none + three levels (0-3);
+- battery level: 0-100%;
+- battery mode: balanced / battery saver / performance / ultra battery saver;
+- charging state: not charging / charging / super fast charging.
+
+Battery mode and charging are explicitly independent inputs.
+
+### Problem execution flow
+
+1. Re-check the production network and battery authority before extending the Sandbox.
+2. Preserve the production `CombinedStatusRenderModel` and painter rather than create a second visual implementation.
+3. Model simulation inputs independently and derive the final render model with production precedence:
+   - visible Wi-Fi wins the center presentation, including while airplane mode is enabled;
+   - airplane mode suppresses mobile controls but does not erase their selected values;
+   - no-SIM suppresses mobile controls and can use the native `stat_sys_no_sim` asset;
+   - mobile network `None` does not forcibly erase the separately-selected signal level.
+4. Keep battery mode and charging separate; charging overrides the final native battery semantic color only at render resolution, not in the stored Sandbox state.
+5. Use pinned MIUIX preferences for settings-like controls and SliderPreference for ordinal/percentage values.
+
+### Implementation
+
+- Runtime card:
+  - fixed 160 dp height;
+  - `Version 0.0.2` and full `Build 20260929-455` return as separate lines;
+  - both use MIUIX body1 + Medium and the normal container foreground rather than faint helper text;
+  - summary remains body2/secondary;
+  - status mark moves down 10 dp;
+  - ring and inner symbol use the same semantic color, alpha (0.58) and 5.4 dp rounded stroke.
+- Home Sandbox:
+  - full clickable MIUIX Card with Sink press feedback;
+  - title + explanatory copy + 112 dp production-rendered preview;
+  - separate compact network and battery summaries;
+  - whole card opens the second-level Sandbox.
+- Second-level Sandbox:
+  - large 132 dp preview card;
+  - Network card uses OverlayDropdownPreference, SwitchPreference and SliderPreference;
+  - mobile controls remain visible but disabled when airplane mode is enabled or SIM is absent, preserving their selections;
+  - Wi-Fi stays independently enabled in airplane mode;
+  - mobile signal uses discrete 0..4; Wi-Fi signal uses discrete 0..3;
+  - Battery card splits percentage Slider, battery-mode dropdown and charging-state dropdown.
+- Native preview resources:
+  - no-SIM resolves `stat_sys_no_sim` from installed SystemUI;
+  - normal Wi-Fi resolves `stat_sys_wifi_signal_<level>`;
+  - hotspot resolves `stat_sys_hotspot_signal_<level>`;
+  - no-internet Wi-Fi tries the parser-compatible native family variants and fails softly to normal Wi-Fi when unavailable.
+- Battery preview colors:
+  - resolved from installed SystemUI resource names when available;
+  - charging and quick/super-fast charging use HyperOS charging semantic color with quick/super-fast resource names preferred if the target exposes them;
+  - ultra battery saver prefers a distinct target resource if present and otherwise deliberately falls back to the existing POWER_SAVE semantic.
+  - Production source remains `MiuiBatteryMeterIconView.getProgressStatus()`, which currently normalizes quick/performance charging states to CHARGING and exposes NORMAL / CHARGING / POWER_SAVE / PERFORMANCE / LOW semantics.
+
+### 审查 / review
+
+- **Ownership:** Sandbox writes no real system state; all state is local Compose saveable state.
+- **Single renderer:** the production render model/view/painter remains the only visual implementation.
+- **HyperOS reuse:** SystemUI native resource families are looked up by name and passed through the existing native center renderer rather than redrawn.
+- **MIUIX:** setting rows use upstream OverlayDropdownPreference, SwitchPreference and SliderPreference; the Home feature card uses official Card Sink feedback.
+- **Airplane compatibility:** airplane disables only mobile controls; Wi-Fi combinations remain legal, matching the production connectivity policy where visible Wi-Fi can precede airplane center presentation.
+- **Battery semantics:** UI keeps mode and charging independent even though current native SystemUI semantic color authority may collapse ultra saver into power-save and quick/super-fast charging into charging.
+- **Performance:** SystemUI package resources are resolved by one remembered per-screen resolver; there is no polling, Hook or background observer.
+- **Runtime boundary:** no SystemUI Hook, ownership, suppression, transition, tint, scene or Hot Reload behavior changes.
+
+### Validation
+
+Build 455 requires exact-head Fast and signed Canary. Device review should cover runtime-card text hierarchy and mark position, Home Sandbox visual weight, second-level Network/Battery structure, airplane + Wi-Fi, no-SIM + Wi-Fi, 0-4 mobile signal direction, 0-3 Wi-Fi signal direction, native hotspot/no-internet presentation, percentage slider, and independent battery-mode/charging combinations.
+
+### Outcome / next step
+
+Pending CI and focused device acceptance.
+
+## 2026-09-29 — Build 454: Compact runtime identity follow-up
+
+**Type:** companion-app Home UI refinement
+**Display version:** 0.0.2
+**Build / source:** 454 / `20260929-454` / `feat/home-ui-shell`
+**SystemUI runtime change:** none
+
+### Maintainer feedback / objective
+
+Build 453 implemented the requested heavier status mark, clean single-path check, compact Home Sandbox entry, secondary Preview Sandbox and proportional 5G preview scaling. Before device handoff, review against the maintainer's original screenshot feedback found one remaining mismatch: the Runtime card still exposed the full date-prefixed build on a separate line and retained more vertical space than the now-reduced content needed.
+
+### Implementation
+
+- Collapse product identity to one low-emphasis line: `0.0.2 · 454`.
+- Keep the full `20260929-454` identity in diagnostics/build artifacts and engineering records rather than the Home overview.
+- Reduce the still-fixed Runtime card height from 160 dp to 144 dp; state changes cannot resize the card.
+- Keep Build-453 semantic background strength, status-mark size/strokes/contrast, Xposed runtime-state authority, secondary Sandbox controls and preview-only 5G scaling unchanged.
+
+### 审查 / review
+
+- **Information hierarchy:** Home keeps human-scale product identity while Diagnostics retains exact build metadata.
+- **Fixed geometry:** 144 dp remains state-invariant; this is not content-driven sizing.
+- **Status visual:** no background tint changes; only the already accepted heavier ring/symbol treatment remains.
+- **Runtime boundary:** no SystemUI/Xposed Hook, host, scene, suppression or render-state ownership changes.
+- **Preview boundary:** second-level Sandbox and proportional mobile-type preview path are unchanged from Build 453.
+
+### Validation
+
+Exact-head Fast and signed Canary required because the Runtime card geometry and visible build identity change.
+
+### Outcome / next step
+
+Pending CI and focused device review.
+
+## 2026-09-29 — Build 453: Home status polish and secondary Preview Sandbox
+
+**Type:** companion-app Home UI / preview architecture refinement
+**Display version:** 0.0.2
+**Build / source:** 453 / `20260929-453` / `feat/home-ui-shell`
+**Runtime baseline:** validated `dev` Build 441; companion-app base includes accepted Build-452 icon work
+**SystemUI runtime change:** none
+
+### Context / numbering
+
+The Home work was drafted on Build 447 and an unvalidated local branch identity briefly advanced through 448 while the separate app-icon line integrated Builds 449-452 into `dev`. Before any Build-448 Fast/Canary artifact was produced, this branch was rebased/squashed onto latest `dev` and renumbered to Build 453. Build 448 therefore has no test artifact and is not a device checkpoint.
+
+### Maintainer feedback / objective
+
+Build 447 established the correct runtime-state source, but device review requested stronger and cleaner status decoration, a less developer-looking version block, tighter Home density, and proportional mobile-type scaling in app previews. Detailed Preview Sandbox selectors should not permanently occupy Home as more simulated states are added.
+
+### Problem execution flow
+
+1. Keep the accepted status-card background intensity and change only ring/symbol weight and contrast.
+2. Keep status color tied to actual runtime state, not to the master Switch.
+3. Preserve fixed card geometry while replacing the long combined version string with two short product-identity lines.
+4. Keep Home as an overview by moving detailed Sandbox selectors to a secondary MIUIX page.
+5. Preserve production SystemUI mobile-type sizing; make app previews scale the entire `5G` glyph with the viewport instead of assigning a second literal preview text size.
+
+### Implementation
+
+- Runtime card remains fixed at 160 dp.
+- Decorative mark grows to 88 dp; ring stroke is 5.0 dp and inner symbol stroke 5.6 dp.
+- Ring and symbol use separate semantic alpha, making the symbol visually distinct without weakening the card background.
+- The check uses one continuous rounded path, removing the darker two-line overlap at the elbow; alert and minus retain the same outer-ring geometry and rounded stroke language.
+- Version identity remains on two restrained lines as requested: `版本  0.0.2` / `构建  20260929-453` (English: `Version` / `Build`), avoiding one long developer-style string while keeping the full build identity visible.
+- Home Preview Sandbox is one compact MIUIX `ArrowPreference`; its leading content is the production-rendered preview and its summary is the current simulated state.
+- `AppRoute.PreviewSandbox` opens a dedicated page whose center/signal/battery choices use upstream `TabRowWithContour` selectors. These are immediate preview modes rather than persisted settings, so the previous settings-dropdown affordance is removed.
+- Sandbox state is hoisted to `CombinedStatusApp` so Home and the secondary page share one non-persistent simulation state.
+- App previews enable a new opt-in `scaleMobileTypeWithCanvas` path. `5G` / enhanced labels, including their apparent stroke thickness, now scale through the same canvas transform as the rest of the preview. The flag defaults off, so SystemUI rendering retains the previously accepted physical-size contract.
+
+### 审查 / review
+
+- **Upstream / MIUIX:** Home uses standard `Card`, `Switch`, `ArrowPreference`, typography and navigation transitions; detail selectors use upstream `TabRowWithContour`, matching immediate simulation switching rather than preference-dropdown semantics.
+- **Visual grammar:** every runtime state uses the same ring location, size, stroke caps and corner/line language; only semantic symbol/tone changes.
+- **Overlap artifact:** the check elbow is one path join rather than overlapping translucent strokes.
+- **Renderer reuse:** app preview continues to use the production render model/painter; only an opt-in preview scaling policy differs.
+- **SystemUI safety:** preview scaling defaults off and does not alter SystemUI host sessions, Hook ownership, suppression, scene logic or accepted 5G physical sizing.
+- **Ownership:** preview state is app-local/saveable; runtime truth remains the official libxposed service source from Build 447.
+- **Performance:** no polling, frame loop, new process owner or SystemUI listener is added.
+
+### Validation
+
+Draft Light #1599 passed after the Build-452 rebase. The first ready exact-head Fast #1600 reached Kotlin compilation and failed before producing an APK because three obsolete preview-mutation parameters remained on the private `TopLevelPager` signature after preview ownership moved to `CombinedStatusApp`. The call site had already stopped passing them. The stale private parameters were removed as a compile-only cleanup; no behavior or Build-453 design changed.
+
+Corrected exact-head Fast and a signed Canary are still required. Device review should cover: all runtime-card states, ring/symbol contrast and joint rendering, fixed card height, two-line version/build typography, compact Home density, secondary-page navigation/back behavior, contour-tab interaction, and Wi-Fi/5G preview proportions.
+
+### Outcome / next step
+
+Pending CI and maintainer device acceptance. If accepted, integrate the companion-app Home shell independently of the Phase-3 SystemUI runtime line.
+
 ## 2026-09-29 — Build 456: Keyguard / QS_FAKE native ignored-slot session ownership
 
 **Type:** Phase-3 device-rejection root-cause correction

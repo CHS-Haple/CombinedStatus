@@ -46,6 +46,9 @@ internal class CombinedStatusRenderView(
     private var visualSettings = CombinedStatusVisualSettings()
 
     @Volatile
+    private var scaleMobileTypeWithCanvas = false
+
+    @Volatile
     private var pendingStateUptimeMs: Long = 0
 
     @Volatile
@@ -119,6 +122,14 @@ internal class CombinedStatusRenderView(
             return
         }
         visualSettings = state
+        requestRedraw()
+    }
+
+    fun setScaleMobileTypeWithCanvas(enabled: Boolean) {
+        if (scaleMobileTypeWithCanvas == enabled) {
+            return
+        }
+        scaleMobileTypeWithCanvas = enabled
         requestRedraw()
     }
 
@@ -235,6 +246,7 @@ internal class CombinedStatusRenderView(
             centerEnterAmount =
                 centerEnterInterpolator
                     .getInterpolation(transitionFraction),
+            scaleMobileTypeWithCanvas = scaleMobileTypeWithCanvas,
         )
 
         val committedAt = pendingStateUptimeMs
