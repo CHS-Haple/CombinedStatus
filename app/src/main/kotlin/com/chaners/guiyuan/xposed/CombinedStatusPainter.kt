@@ -111,6 +111,84 @@ internal class CombinedStatusPainter(
         canvas.restoreToCount(save)
     }
 
+    fun drawTransitionComponent(
+        canvas: Canvas,
+        width: Int,
+        height: Int,
+        model: CombinedStatusRenderModel,
+        colors: CombinedStatusColors,
+        component: TransitionComponent,
+        opacity: Float = 1f,
+    ) {
+        if (width <= 0 || height <= 0) return
+
+        val scale = min(width / CANONICAL_SIZE, height / CANONICAL_SIZE)
+        val visualWidth = CANONICAL_SIZE * scale
+        val visualHeight = CANONICAL_SIZE * scale
+        val offsetX = (width - visualWidth) / 2f
+        val offsetY = (height - visualHeight) / 2f
+        val nativeTransform =
+            NativeRenderTransform(
+                scale = scale,
+                offsetX = offsetX,
+                offsetY = offsetY,
+            )
+        val save = canvas.save()
+        canvas.translate(offsetX, offsetY)
+        canvas.scale(scale, scale)
+
+        when (component) {
+            TransitionComponent.BATTERY ->
+                drawBattery(
+                    canvas = canvas,
+                    model = model,
+                    batteryTint = colors.batteryTint,
+                    opacity = opacity,
+                    geometry =
+                        resolveOuterGeometry(
+                            CombinedStatusOuterGeometry.DEFAULT_WEIGHT_SCALE,
+                        ),
+                )
+
+            TransitionComponent.CENTER ->
+                drawCenterIndicator(
+                    canvas = canvas,
+                    indicator = model.centerIndicator,
+                    tint = colors.centerTint,
+                    opacity = opacity,
+                    scale = scale,
+                    appearAmount = 1f,
+                    geometry =
+                        CombinedStatusCenterGeometry.resolve(
+                            sizeScale = CombinedStatusCenterGeometry.DEFAULT_SIZE_SCALE,
+                            textWeightScale = CombinedStatusCenterGeometry.DEFAULT_TEXT_WEIGHT_SCALE,
+                        ),
+                    nativeTransform = nativeTransform,
+                    scaleMobileTypeWithCanvas = false,
+                )
+
+            TransitionComponent.MOBILE ->
+                drawMobile(
+                    canvas = canvas,
+                    model = model,
+                    tint = colors.mobileTint,
+                    opacity = opacity,
+                    geometry =
+                        resolveOuterGeometry(
+                            CombinedStatusOuterGeometry.DEFAULT_WEIGHT_SCALE,
+                        ),
+                )
+        }
+
+        canvas.restoreToCount(save)
+    }
+
+    internal enum class TransitionComponent {
+        BATTERY,
+        CENTER,
+        MOBILE,
+    }
+
     private fun resolveOuterGeometry(weightScale: Float): CombinedStatusOuterGeometry.Resolved {
         val normalized =
             CombinedStatusOuterGeometry.normalizeWeightScale(weightScale)
