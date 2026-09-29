@@ -2,6 +2,54 @@
 
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
+## 2026-09-30 — Build 485: stable source geometry and theme-bounded transition shapes
+
+**Type:** Control Center transition correction
+**Display version:** 0.0.3
+**Build / source:** 485 / `20260930-485` / `feat/control-center-transition-matrix`
+**SystemUI ownership change:** none; HyperOS remains motion/appearance/final-asset authority
+
+### Maintainer feedback / device evidence
+
+Build 484 improved semantic target behavior but exposed three concrete visual/root-geometry problems:
+
+- Battery looked like a hard switch into a giant icon. The resolved final `mBatteryIconView` can be 0x0 on this target, so the transition fell back to the whole `MiuiBatteryMeterView` slot (105x169 normally; charging/island paths can be wider) and mistakenly treated container geometry as glyph geometry.
+- In charging state, pressing/holding the status-bar path could flatten the entire Trinity source. The transition source anchor was `MiuiBatteryMeterView`, so any native transient Battery/ancestor transform was sampled into every Guiyuan component.
+- Mobile dots reached the correct semantic area but the bars grew only upward and remained visibly short. The old bar heights were derived from the compact source-dot bounds while `SHRINK_ONLY` correctly prevented whole-group enlargement.
+
+The maintainer also clarified the theme boundary: final native icons may change with themes, so Guiyuan should resemble the semantic destination rather than perform 1:1 proportional adaptation to every themed glyph.
+
+### Root cause
+
+- **Source authority error:** position and scale authority were conflated. The Guiyuan renderView already has a stable carrier-local layout, but the transition sampled the mutable native Battery View instead.
+- **Battery geometry error:** slot occupancy was used as if it were optical glyph size.
+- **Mobile shape error:** external component scale and local signal-shape scale were coupled to the same compact bounds.
+
+### Implementation
+
+- Use the laid-out Guiyuan `renderView` as the transition source anchor/geometry authority. Native Battery transient transforms no longer scale the entire Guiyuan source.
+- Keep Battery endpoint position native, but switch Battery component scaling to `SHRINK_ONLY`.
+- Prefer the active native Battery style witness (`mBatteryIconView` / `mHollowBatteryIconView`) when available; it remains an endpoint witness only.
+- Replace Build-484 slot-as-glyph Battery sizing with a stable compact local silhouette: the source arc fades progressively, a near-circle outline contracts toward a small rounded Battery body, and the terminal appears late.
+- Re-center the Mobile row vertically inside its local signal region.
+- Grow each Mobile bar symmetrically from the dot center (equal upward/downward growth).
+- Separate local bar height from whole-component scale. The native target height is a cap/reference only; the highest bar stays below it and a stable local maximum prevents large themed targets from enlarging the Guiyuan morph.
+- Preserve Build-484 semantic exit policy, component target separation, reservation ownership, raw HyperOS progress, and final SystemUI handoff.
+
+### 审查 / review
+
+- **Single writer:** no native translation/alpha/visibility writer was added. Guiyuan changes only its own overlay pixels and the existing reservation owner.
+- **Theme compatibility:** theme/native glyph geometry does not become a 1:1 morph template. Native target size can reduce the Mobile cap, but cannot enlarge it beyond Guiyuan's stable maximum.
+- **Charging/press lifecycle:** source geometry no longer depends on `MiuiBatteryMeterView`'s transient transform.
+- **Fail native:** unresolved semantic targets retain the existing no-destination exit/final-native behavior.
+- **Performance:** no timer, animator, polling path, per-frame resource scan, or extra Hook is introduced.
+- **Reversibility:** all local shape phases remain pure functions of native expansion progress.
+
+### Validation gate
+
+Run exact-head Runtime CI, then one signed work-branch Canary. Device acceptance must specifically cover charging press/hold aspect stability, Battery contour continuity/size, and centered symmetric Mobile bar growth before this checkpoint is considered accepted.
+
+
 
 ## 2026-09-29 — Build 465: dev integration and 0.0.3 development-line transition
 

@@ -62,13 +62,14 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
-    fun targetAspectRatioComesFromNativeWitnessGeometry() {
+    fun nativeTargetHeightCanBoundLocalShapeWithoutOwningItsExactScale() {
         val ratio =
-            CombinedStatusControlCenterTransitionOwner.Policy.geometryAspectRatio(
-                geometry(width = 20f, height = 8f),
+            CombinedStatusControlCenterTransitionOwner.Policy.relativeGeometryHeight(
+                target = geometry(width = 20f, height = 50f),
+                current = geometry(width = 10f, height = 20f),
             )
 
-        assertEquals(0.4f, ratio ?: -1f, 0.0001f)
+        assertEquals(2.5f, ratio ?: -1f, 0.0001f)
     }
 
     private fun geometry(

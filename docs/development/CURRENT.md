@@ -18,7 +18,7 @@ Control Center transition animation is the active runtime task.
 
 Current implementation line:
 - PR #177 — feat/control-center-transition-matrix;
-- current work-branch checkpoint: Build 483 / 20260929-483;
+- current work-branch checkpoint: Build 485 / 20260930-485;
 - exact-target direction: QS_FAKE role-5 to final-QS role-6 matrix projection;
 - HyperOS remains translation/appearance authority; raw native expansion drives transition geometry and native fake/final Folme owns visual handoff;
 - Guiyuan reads native transition state and renders only its owned Trinity correspondence; final role-6 top-level slots are read-only occupancy witnesses, while the existing QS_FAKE statusIcons-paddingEnd owner now provides a progress-synchronous semantic reservation so surrounding native peers move through SystemUI's own measure/layout path;
@@ -44,7 +44,11 @@ Build 473 is device-accepted and stable.
 
 The active Control Center transition line is not yet accepted. Build 480 is device-rejected on non-charging Home because full-target affine interpolation visibly flattened Trinity elements and parent-View targets collapsed unrelated semantics into the same geometry. Build 481 is also device-rejected: Mobile did not reliably move when internal final children were 0×0, Wi-Fi optical size/endpoint did not coincide with the native glyph, transition tint did not consistently follow final native peers, and child-first targeting did not represent real final slot occupancy. Build 482 replaces child-first targeting with read-only role-6 top-level slot witnesses; internal children/drawables only refine optical alignment, raw native expansion owns external motion, native fake alpha drives the local Mobile morph, and final SystemUI appearance remains native-owned. Exact-head Runtime Build #1833 and signed Work Branch Canary #522 pass for source `cfdf12ff4c2e8249f833e52e871cb35f1bad953b`. Focused device feedback says Build 482 is substantially improved and its Battery/Wi-Fi trajectory is the explicit rollback baseline, but it is not accepted because decomposed elements do not create live layout occupancy, surrounding native peers therefore do not move with the split, and Mobile needs a staged dots -> row -> bars morph before native handoff.
 
-Build 483 keeps the Build-482 external element trajectory. It adds one semantic reservation path through the already-existing QS_FAKE `statusIcons.paddingEnd` owner: source semantic spans and role-6 top-level slot spans are frozen for one gesture, raw HyperOS progress interpolates those spans, and only the union that extends beyond the compact slot changes the reservation. Represented native slots remain ignored for the whole fake-surface session; they are never suddenly released mid-gesture. A separate second commit changes only Mobile's local morph into dots -> horizontal row -> vertical bars, so that local animation can be reverted independently if device review prefers Build 482.
+Build 483 kept the Build-482 external trajectory and added semantic reservation plus a local dots -> row -> bars Mobile morph. Build 484 then split component scale policy, added fast exit for semantics without a destination, and attempted a Battery ring -> Battery outline morph.
+
+Build-484 device review rejects three details without rejecting the overall matrix/reservation line: (1) the Battery morph used the whole 105x169/135x169 MiuiBatteryMeterView fallback as if it were the glyph and therefore produced an oversized, hard-looking Battery; (2) the transition source sampled MiuiBatteryMeterView each frame, so charging/status-bar press transforms could flatten the whole Guiyuan source and every later component trajectory; (3) Mobile bars grew only upward from a bottom baseline and remained too short relative to the final native signal.
+
+Build 485 addresses those root causes without adopting themed glyph geometry as a 1:1 template. The laid-out Guiyuan renderView is now its own source-geometry authority; native Battery style/glyph is used only as an endpoint witness while Battery transition scale is shrink-only and the local silhouette remains compact/stable; Mobile rows around the signal center and bars grow symmetrically upward/downward. Native mobile height is only a cap/reference: the highest Guiyuan bar remains below the native target and a stable local maximum prevents theme-driven enlargement. HyperOS still owns external progress, final appearance, native peer layout, and final themed assets.
 
 Device testing is requested only when the result can change implementation choice or acceptance. Mechanical/documentation steps continue without a new APK round trip.
 
@@ -61,11 +65,11 @@ Device testing is requested only when the result can change implementation choic
 
 ## Immediate next step
 
-1. Run one exact-head Runtime CI for Build 483 and, if green, one signed work-branch Canary.
-2. Validate non-charging Home only: semantic reservation should move surrounding native peers continuously with the split while Battery/Wi-Fi retain the accepted Build-482 trajectory.
-3. Judge Mobile's dots -> row -> bars morph independently. If its visual quality is worse, revert only the Mobile commit; if reservation causes peer-layout regression, revert the reservation commit and return to the exact Build-482 Canary baseline.
-4. Only after Home is accepted, run charging-island and Keyguard-originated regression passes.
-5. Keep 1.0.0 gated by actual product/compatibility acceptance.
+1. Run exact-head Runtime CI for Build 485; if green, request one signed work-branch Canary.
+2. Device gate A — charging: press/hold the status-bar path that flattened Build 484; the entire Guiyuan source must retain its normal aspect through the transition.
+3. Device gate B — Battery: verify the ring contracts progressively into a compact Battery-like contour with no 105x169/135x169 giant intermediate and no abrupt hard cut; final themed Battery remains native-owned.
+4. Device gate C — Mobile: verify dots settle into a centered row, then each bar grows equally upward/downward; bar lengths should approach but not exceed the native signal and must not be driven larger by a theme.
+5. If those pass, continue the remaining charging-island/Keyguard-originated regression pass before acceptance.
 
 ## Reference priority
 

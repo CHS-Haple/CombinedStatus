@@ -2,6 +2,7 @@ package com.chaners.guiyuan.xposed
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SystemUiPanelTransitionSourceTest {
@@ -309,6 +310,76 @@ class SystemUiPanelTransitionSourceTest {
         assertEquals(
             0.5f,
             CombinedStatusPainter.MobileSignalMorphPolicy.barProgress(0.75f),
+            0.0001f,
+        )
+    }
+
+    @Test
+    fun mobileSignalMorphUsesNativeHeightOnlyAsACapAndGrowsAroundTheDotCenter() {
+        val maxBarHeight =
+            CombinedStatusPainter.MobileSignalMorphPolicy.targetMaxBarHeight(
+                sourceBoundsHeight = 24f,
+                diameter = 6f,
+                targetHeightRatio = 3f,
+            )
+        val highest =
+            CombinedStatusPainter.MobileSignalMorphPolicy.targetBarHeight(
+                index = 3,
+                maxBarHeight = maxBarHeight,
+                diameter = 6f,
+            )
+        val lowest =
+            CombinedStatusPainter.MobileSignalMorphPolicy.targetBarHeight(
+                index = 0,
+                maxBarHeight = maxBarHeight,
+                diameter = 6f,
+            )
+
+        assertEquals(54f, maxBarHeight, 0.0001f)
+        assertEquals(maxBarHeight, highest, 0.0001f)
+        assertTrue(lowest < highest)
+        assertEquals(
+            highest / 2f,
+            CombinedStatusPainter.MobileSignalMorphPolicy.halfBarHeight(
+                diameter = 6f,
+                targetBarHeight = highest,
+                barProgress = 1f,
+            ),
+            0.0001f,
+        )
+        assertTrue(highest < 24f * 3f)
+    }
+
+    @Test
+    fun batteryMorphRemainsProgressDerivedWithoutAThemeScaleTimeline() {
+        assertEquals(
+            0f,
+            CombinedStatusPainter.BatteryMorphPolicy.contourProgress(0f),
+            0.0001f,
+        )
+        assertEquals(
+            1f,
+            CombinedStatusPainter.BatteryMorphPolicy.sourceOpacity(0f),
+            0.0001f,
+        )
+        assertEquals(
+            0f,
+            CombinedStatusPainter.BatteryMorphPolicy.terminalProgress(0.5f),
+            0.0001f,
+        )
+        assertEquals(
+            1f,
+            CombinedStatusPainter.BatteryMorphPolicy.contourProgress(1f),
+            0.0001f,
+        )
+        assertEquals(
+            0f,
+            CombinedStatusPainter.BatteryMorphPolicy.sourceOpacity(1f),
+            0.0001f,
+        )
+        assertEquals(
+            1f,
+            CombinedStatusPainter.BatteryMorphPolicy.terminalProgress(1f),
             0.0001f,
         )
     }
