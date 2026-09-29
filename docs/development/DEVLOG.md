@@ -10818,4 +10818,3 @@ The remaining issues are composition-density problems, not typography or compone
 ### Validation gate
 
 Move PR #173 back to Ready and run exact-head Fast. If successful, request one signed Canary because device evidence directly reopened visual contrast/density. Freeze the exact Build-468 source for that review; do not layer SystemUI transition work into this branch.
-
