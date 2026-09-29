@@ -915,8 +915,8 @@ private fun DiagnosticsCardHeader(
                 .fillMaxWidth()
                 .padding(horizontal = 18.dp)
                 .padding(
-                    top = 12.dp,
-                    bottom = if (leadingContent != null) 10.dp else 4.dp,
+                    top = 13.dp,
+                    bottom = if (leadingContent != null) 11.dp else 7.dp,
                 ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -970,7 +970,7 @@ private fun DiagnosticsInfoValue(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 18.dp, vertical = 5.dp),
+                .padding(horizontal = 18.dp, vertical = 7.dp),
     ) {
         Text(
             text = value.ifBlank { "—" },
