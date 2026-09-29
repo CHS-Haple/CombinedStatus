@@ -44,7 +44,15 @@ Phases 2A, 2B, 3 and 4 are complete for the validated baseline:
 - **Phase 3:** Keyguard / lockscreen / AOD steady-scene ownership is complete for the current target; Keyguard-originated visual transition animation remains pending with the shared QS_FAKE animation work.
 - **Phase 4:** companion-app Home / Preview Sandbox integration.
 
-The next executable work on the 0.0.3 line is **transition-animation adaptation across Home/Keyguard -> QS_FAKE -> native Control Center**, before adaptive sizing, spacing and broader visual controls. The carrier/ownership bridge is verified, but Guiyuan's visual motion/alpha/shape continuity across the gesture is not yet fully adapted.
+The active executable work on the 0.0.3 line is **transition-animation adaptation across Home/Keyguard -> QS_FAKE -> native Control Center**, before adaptive sizing, spacing and broader visual controls.
+
+Current candidate: `feat/control-center-transition-projection`, Build **470 / 20260929-470**.
+
+Root-cause review now separates two facts:
+- HyperOS native `onExpansionChanged(progress)` and fake/final Folme appearance ownership are still running and remain the motion/appearance authority.
+- Guiyuan's session-long compact slot exclusion changes which child icons participate in the QS_FAKE layout, so the stock per-icon source/target correspondence is no longer available from the compact child layout alone.
+
+Build 470 therefore keeps compact occupancy but adds a transition-only visual projection: common native peer slots are projected from HyperOS's selected source Views toward the final QS Views, while Guiyuan reuses its production painter and separates Battery / center / mobile components toward corresponding native endpoints. Raw native expansion progress is the baseline timeline. No project-local gesture animator or replacement fake/final fade is introduced; later optical shaping is allowed only if device evidence shows a small local adjustment is needed to stay visually coherent with HyperOS.
 
 ## Current architecture / ownership boundary
 
