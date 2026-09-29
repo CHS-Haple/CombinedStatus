@@ -10683,11 +10683,462 @@ This closure is documentation-only and does not create a new Build.
 
 Build 466 is the stable `main` baseline. The Guiyuan product/repository/package identity migration is closed. Subsequent main-to-dev ancestry synchronization is repository-history maintenance only and does not create a new Build or alter the accepted runtime.
 
+---
 
-### Correction — transition animation is not complete
+## 2026-09-29 — Build 467 companion-app presentation polish
 
-The Guiyuan identity/package/repository migration and the steady-scene / QS_FAKE ownership bridge are stable, but this must not be read as completion of visual transition animation work.
+**Type:** companion-app UI / copy
+**Display version:** 0.0.3
+**Build / source:** Build 467 / `20260929-467` / executable checkpoint `68151be263ab020da2085b28b97c2019f986be4c`
+**Branch:** `feat/presentation-ui-polish`
+**Validation:** exact-head Fast pending
 
-Home/Keyguard -> QS_FAKE -> native Control Center still requires explicit adaptation and device validation for continuous motion, alpha, first/last-frame handoff and return-path behavior. The existing verified native carrier/ownership/geometry path is the substrate for that work; it is not evidence that the Guiyuan visual animation itself is already complete.
+### Problem / objective
 
-This correction changes project-status wording only. It does not invalidate Build 466 as the current stable development baseline and does not create a new Build.
+The accepted companion-app baseline is functionally correct, but device screenshots expose three presentation issues: Preview Sandbox mixes too many simultaneous text weights without enough grouping, the app/module description redundantly repeats the adjacent product name, and the Diagnostics app card lacks a strong but compact product-identity visual.
+
+### Problem execution flow
+
+1. Recovered the current Guiyuan repository baseline and rejected the stale `feat/diagnostics-ui-refinement` branch as a continuation source because it had diverged materially from current `dev`.
+2. Created a fresh presentation branch from `dev@2163d3a8b9134e6114d6e59387b7c808d9399a08`.
+3. Reviewed the current Preview Sandbox structure and found four simultaneous card-local text hierarchy levels with no structural separation between preview result and control groups.
+4. Kept MIUIX component typography as the authority and reduced custom card text to two roles: `body1` primary content and `body2` supporting content.
+5. Reused the frozen `ic_launcher_foreground` vector for Diagnostics instead of copying paths or adding a second brand-geometry source.
+6. Shortened the shared Android `app_description`, which is consumed by both Diagnostics and the LSPosed/module-facing application description.
+
+### Root-cause status
+
+**Confirmed presentation cause:** the Sandbox looked visually noisy because semantic groups were expressed mainly through changing text size/weight rather than layout grouping. The issue was hierarchy composition, not one incorrect font-size constant.
+
+### Implementation / decision
+
+- Preview Sandbox:
+  - card-local text uses MIUIX `body1` for primary values/titles and `body2` for supporting labels/copy;
+  - live network and battery results use one consistent label/value row pattern;
+  - low-contrast dividers separate live result, network-local vs device-level state, and battery level vs mode/charging controls;
+  - simulation state and production renderer are unchanged.
+- Diagnostics:
+  - the app header places a 72 dp layout slot for the background-free Guiyuan foreground mark beside title/description;
+  - the existing foreground vector is reused directly and theme-tinted;
+  - the vector rotates `0 -> -360°` with linear easing over 18 seconds and repeats while the Diagnostics composable is active;
+  - because the center element is a circle, rotating the complete foreground leaves the center visually unchanged while the asymmetric outer orbit/nodes visibly travel counterclockwise.
+- Copy:
+  - Chinese description starts directly with “面向 HyperOS 的 LSPosed 模块…”;
+  - English description starts directly with “LSPosed module for HyperOS…”;
+  - repository README/public project description is intentionally unchanged because its standalone documentation context benefits from an explicit product subject.
+- Internal Build identity advances from 466 to 467; display version remains 0.0.3.
+
+### 审查 / review
+
+- **Ownership:** MIUIX remains typography/component owner; the app owns only presentation composition. Frozen launcher-vector geometry remains the single brand silhouette source.
+- **Lifecycle:** the infinite transition exists only while the Diagnostics screen composable is active; no background service, process-global animator, or SystemUI animation is added.
+- **Single writer:** no runtime SystemUI property is touched. The animation writes only the local Compose graphics-layer rotation.
+- **Cleanup:** Compose disposal ends the screen-local animation automatically; no listener/callback registration exists.
+- **Fail native:** not applicable to companion-app-only presentation; SystemUI runtime path is unchanged.
+- **Performance:** one small GPU graphics-layer rotation while Diagnostics is visible; no polling, reflection, View traversal, logging, or runtime-state wakeup is added.
+- **Compatibility:** uses existing Compose/MIUIX dependencies and the current adaptive foreground resource; no dependency/build-system change.
+- **Future extension:** if motion preferences are later exposed, the animation can be gated without changing the brand resource or diagnostics information structure.
+
+### CI / device validation
+
+Exact-head Fast is required because app/runtime package files changed. A signed Canary is not automatically required; request one only if visual review on the target device is needed after Fast.
+
+### Outcome / next step
+
+Run exact-head Fast. If green, review the Sandbox hierarchy and Diagnostics mark in light/dark appearance. Integrate to `dev` when accepted. The pending SystemUI transition-animation work remains a separate branch from the updated `dev` baseline.
+
+---
+
+## 2026-09-29 — Build 468: rebalance Sandbox grouping and Diagnostics information density
+
+**Type:** focused companion-app visual correction
+**Display version:** 0.0.3
+**Build / source:** Build 468 / `20260929-468` / executable checkpoint `b25ee8340a624598f3c28e3b011c349b52e99f05`
+**Branch / PR:** `feat/presentation-ui-polish` / #173
+**SystemUI runtime change:** none
+**Validation:** exact-head Fast pending
+
+### Build 467 device evidence
+
+Build 467 passed ready Fast #1729 and signed Work Branch Canary #494. Canary #494 verified the exact work-branch source `9e0dc34e5e2824b20743f670d6583408a3611a61`, passed signing/metadata/non-debuggable checks, and uploaded artifact `Guiyuan-0.0.3-HyperOS-20260929-467-canary.apk` (artifact id `11031627778`).
+
+Focused device screenshots then refined the visual conclusion:
+- the 1 dp Sandbox dividers at the Build-467 opacity/spacing read as effectively absent;
+- the Diagnostics app identity block was visually top-heavy;
+- device/system and module-runtime cards retained too much vertical whitespace for their information density;
+- the Diagnostics & reports action card was explicitly considered well balanced and should not be changed.
+
+Build 467 is therefore structurally valid but visually superseded by this checkpoint.
+
+### Root cause
+
+The remaining issues are composition-density problems, not typography or component defects.
+
+- **Sandbox:** the divider line had insufficient contrast and only 4 dp group separation, so it did not create a perceptible group boundary.
+- **Diagnostics:** identity content carried high visual mass at the top while fact rows retained 8 dp vertical padding per item, creating a sparse lower half and inconsistent density relative to the accepted action card.
+
+### Implementation
+
+#### Preview Sandbox
+- keep the accepted MIUIX `body1` / `body2` hierarchy;
+- keep dividers at 1 dp rather than increasing stroke thickness;
+- derive divider color from `onSurfaceContainerVariant` at 0.20 alpha;
+- use 10 dp vertical space around network/device and battery-value/state group boundaries;
+- keep preview result dividers restrained with smaller local spacing;
+- do not change simulation policy, controls, state, or production renderer.
+
+#### Diagnostics information cards
+- keep the Diagnostics & reports section byte-for-byte behaviorally unchanged;
+- reduce fact-row vertical padding from 8 dp to 5 dp and give the secondary label a 1 dp local offset;
+- reduce app identity mark layout slot from 72 dp to 64 dp and title from `title2` to `title3` only when the identity mark is present;
+- reduce identity/header spacing while retaining the device name as the stronger `title2` identity;
+- add one restrained divider between the app identity block and version/build/package facts;
+- slow the screen-local linear counterclockwise identity rotation from 18 s to 20 s per revolution;
+- shorten the shared description to focus on the actual HyperOS status-indicator function rather than repeating LSPosed/module context already established by the host UI.
+
+### Problem execution flow
+
+1. Preserve Build-467 successful CI/runtime boundary and use only device visual evidence to reopen presentation.
+2. Separate the already-accepted action-list card from the sparse information-card family.
+3. Correct grouping through spacing/contrast before considering thicker dividers or background blocks.
+4. Correct Diagnostics density through shared information-row rhythm rather than converting the page to a table or adding per-row separators.
+5. Reuse the frozen foreground vector and screen-local Compose animation; do not create a second logo asset or animation owner.
+
+### 审查 / review
+
+- **Ownership:** MIUIX still owns text/component grammar; Guiyuan owns only local composition and its product identity mark.
+- **Lifecycle:** identity motion exists only while the Diagnostics composable is active.
+- **Single writer:** animation writes only one local graphics-layer rotation; no runtime property is touched.
+- **Cleanup:** Compose disposal ends the animation; no listener, callback, service, or background owner exists.
+- **Fail native:** SystemUI path is untouched.
+- **Performance:** one small graphics-layer transform while Diagnostics is visible; no polling, repeated resource lookup, logging, or runtime wakeup.
+- **Compatibility:** no dependency/build-system change; existing MIUIX and Compose APIs only.
+- **Future extension:** upper information-card density and lower action-card interaction remain separate reusable presentation roles.
+
+### Validation gate
+
+Move PR #173 back to Ready and run exact-head Fast. If successful, request one signed Canary because device evidence directly reopened visual contrast/density. Freeze the exact Build-468 source for that review; do not layer SystemUI transition work into this branch.
+
+---
+
+## 2026-09-29 — Build 469: remove hard Sandbox dividers and restore balanced Diagnostics density
+
+**Type:** device-driven companion-app presentation correction
+**Display version:** 0.0.3
+**Build / source:** Build 469 / `20260929-469` / executable checkpoint `025341c9587f90d5e0e9a33c98eecb6d020c7ca9`
+**Branch / PR:** `feat/presentation-ui-polish` / #173
+**SystemUI runtime change:** none
+**Validation:** exact-head Fast pending
+
+### Device evidence from Build 468
+
+Build 468 passed exact-head Fast #1736 and signed Work Branch Canary #495. Canary #495 resolved and checked out exact source `1b8bd86562d9dec6d5b573cbb8134e18309e5d0a` and passed signing, metadata, non-debuggable, test/build, target-profile, and artifact-upload gates.
+
+Focused device screenshots then showed two visual regressions:
+- the stronger full-width Sandbox dividers made the card read like a table/list and were judged visually unattractive;
+- the upper Diagnostics information cards were over-compressed and lost the intended breathing room.
+
+The lower Diagnostics & reports action card remains accepted and is intentionally untouched.
+
+### Root cause
+
+Build 468 corrected both earlier problems by increasing structural force too aggressively.
+
+- **Sandbox:** hierarchy was moved from weakly perceived to over-explicit. The line itself became the visual object instead of spacing/group rhythm doing the work.
+- **Diagnostics:** reducing fact-row vertical padding from 8 dp to 5 dp, together with tighter headers, removed too much inter-item air and made the page feel dense despite the information being static/read-only.
+
+### Implementation
+
+#### Preview Sandbox
+- remove the full-width divider primitive entirely;
+- keep the improved two-level typography and label/value summaries;
+- use approximately 10 dp inter-group spacing between network-local and device-level controls, and between battery level and battery-state controls;
+- retain a small 8 dp lead-in above the central live preview and 7 dp before summary rows;
+- keep all simulated state, control semantics, and production renderer unchanged.
+
+#### Diagnostics
+- move shared fact-row vertical padding from 5 dp to 7 dp as the midpoint between Build 467 and Build 468;
+- restore modest header breathing room: 13 dp top and 7 dp bottom for non-brand headers, 11 dp bottom for the app identity header;
+- keep the 64 dp background-free Guiyuan mark, 20-second linear counterclockwise animation, title hierarchy, shortened description, and app identity/fact divider;
+- keep Diagnostics & reports unchanged.
+
+### Problem execution flow
+
+1. Treat Build-468 device screenshots as evidence that explicit separators and maximum compression were the wrong presentation direction.
+2. Preserve all structurally successful Build-467/468 work: typography hierarchy, summary format, identity mark, animation ownership, copy cleanup.
+3. Remove only the over-assertive structural elements.
+4. Restore density by midpoint rhythm rather than reverting to the original sparse layout.
+5. Keep the entire SystemUI/runtime boundary frozen.
+
+### 审查 / review
+
+- **Ownership:** MIUIX continues to own typography/control grammar; Guiyuan only adjusts local composition.
+- **Lifecycle:** no lifecycle or runtime owner changed.
+- **Single writer:** the only animation writer remains the local Diagnostics graphics layer.
+- **Cleanup:** no listener/callback/service/background state added.
+- **Fail native:** unaffected because SystemUI runtime is untouched.
+- **Performance:** spacing-only changes plus the already-accepted one small screen-local transform.
+- **Compatibility:** no dependency/API/build-system change.
+- **Future extension:** information cards and action cards remain separate reusable layout roles.
+
+### Validation gate
+
+Run exact-head Fast for Build 469. If green, issue one signed Canary for focused visual review only. Freeze source for that test and do not mix transition-animation/runtime work into this branch.
+
+---
+
+## 2026-09-29 — Build 470: normalize Sandbox typography, restore Module runtime edges, sharpen animated identity
+
+**Type:** device-driven companion-app presentation correction
+**Display version:** 0.0.3
+**Build / source:** Build 470 / `20260929-470` / executable checkpoint `abb0b1bdf2f281f2287c3b6616db62c31423a33b`
+**Branch / PR:** `feat/presentation-ui-polish` / #173
+**SystemUI runtime change:** none
+**Validation:** exact-head Fast pending
+
+### Build 469 evidence
+
+Build 469 passed ready Fast #1744 and signed Work Branch Canary #496. Canary #496 resolved and checked out exact source `89f4758f1ebdf46860c73fd1bff30c05e50d48cc`, passed target-profile, tests/build, Modern Xposed metadata, Haple signing/signature, non-debuggable and artifact-upload gates.
+
+Device review accepted the removal of hard Sandbox dividers and the general mid-density Diagnostics direction, but identified three remaining visual defects:
+- Sandbox field labels still had inconsistent apparent size/weight; slider labels were especially heavy relative to segmented fields/options.
+- Module runtime remained visually too close to the card top and bottom edges.
+- The rotating Guiyuan identity appeared blurred and visibly aliased.
+
+### Root cause
+
+- **Sandbox typography:** slider labels and segmented-field labels were both promoted to `body1`, making field labels compete with actual option/value content. The slider's title/value row amplified that visual weight even when the nominal token matched.
+- **Module runtime:** shared 7 dp information-row rhythm was acceptable, but only 4 dp extra edge breathing room was insufficient for a section with no explicit header inside the card.
+- **Identity clarity:** the launcher vector was first laid out at 64 dp and then enlarged 1.8x in a `graphicsLayer` while rotating. This transforms the rendered layer rather than expressing the optical enlargement in the vector draw transform, which can soften/jag the animated edge.
+
+### Implementation
+
+#### Preview Sandbox typography
+- Slider and segmented field labels now share MIUIX `body2` with the variant foreground color.
+- MIUIX `TabRowWithContour`, `SliderPreference`, and their option/value rendering remain authoritative; no custom font-size constants are introduced.
+- Soft group spacing and simulation behavior remain unchanged.
+
+#### Module runtime
+- Keep shared Diagnostics fact rows at the accepted 7 dp vertical rhythm.
+- Increase only Module runtime's outer top/bottom spacer from 4 dp to 8 dp.
+- Device/system, app identity, and Diagnostics & reports remain unchanged.
+
+#### Animated Guiyuan identity
+- Keep `ic_launcher_foreground` as the single brand-geometry source.
+- Keep the 64 dp layout slot, theme tint, 1.8x optical enlargement, 20-second linear counterclockwise rotation and screen-local lifecycle.
+- Replace `Image + graphicsLayer(scale + rotation)` with `Canvas` draw transforms: rotate and scale the vector draw coordinates, then rasterize the vector at the final transformed geometry.
+- No duplicate vector paths, bitmap asset, background service, timer, listener or runtime animation owner is added.
+
+### 审查 / review
+
+- **Ownership:** MIUIX owns control option typography; Guiyuan only assigns semantic field-label hierarchy around those controls.
+- **Lifecycle:** identity animation remains scoped to the Diagnostics composable.
+- **Single writer:** one local Canvas transform owns identity motion; no SystemUI property is touched.
+- **Cleanup:** Compose disposal ends the infinite transition; no manual cleanup path is needed.
+- **Fail native:** unaffected because SystemUI runtime is unchanged.
+- **Performance:** one small vector Canvas transform only while Diagnostics is visible; no polling, bitmap allocation loop or background work.
+- **Compatibility:** existing Compose/MIUIX APIs and the existing vector resource only.
+- **Visual boundary:** Diagnostics & reports remains untouched.
+
+### Validation gate
+
+Run exact-head Fast. If green, request one signed Canary because font hierarchy, card-edge breathing room and animated-vector clarity all require focused device visual evidence. Freeze that exact Build-470 source for review.
+
+---
+
+## 2026-09-29 — Build 471: restore setting-title hierarchy and remove animated identity scale-up
+
+**Type:** device-driven companion-app presentation correction
+**Display version:** 0.0.3
+**Build / source:** Build 471 / `20260929-471` / executable checkpoint `7e0d66bc796672155c3243d796b8490f017f019a`
+**Branch / PR:** `feat/presentation-ui-polish` / #173
+**SystemUI runtime change:** none
+**Validation:** exact-head Fast pending
+
+### Build 470 device evidence
+
+Build 470 passed exact-head Fast #1753 and #1756 and signed Work Branch Canary #499. Canary #499 resolved and checked out exact source `e08097328f25e837b41f71ae469865820384037f`, then passed target-profile, tests/build, Modern Xposed metadata, Haple signature, non-debuggable and artifact-upload gates.
+
+Device screenshots rejected two presentation choices:
+- custom Sandbox setting titles had been demoted to subdued `body2`, so segmented/slider controls became visually dominant while native `SwitchPreference` retained a primary title and made Airplane mode stand out;
+- the animated Guiyuan mark showed stronger visible jaggedness, indicating that the Canvas implementation still performed a 1.8x scale-up of a 64 dp draw rather than actually drawing at the final target size.
+
+### Root cause
+
+- **Sandbox:** the hierarchy was inverted. The setting label is the semantic owner and must remain visually primary; the control is subordinate. Matching all custom setting titles to the native preference title role is more important than trying to reduce slider-specific apparent weight by demoting every label.
+- **Identity:** changing from `graphicsLayer` scale to DrawScope `scale()` changed the transform owner but not the fundamental geometry path. The painter was still issued a 64 dp draw and then enlarged 1.8x.
+
+### Implementation
+
+#### Sandbox
+- Restore slider and segmented-field titles to MIUIX `body1` and `onSurfaceContainer`.
+- Keep MIUIX-native control option typography untouched.
+- Preserve group spacing, card composition, state model and production renderer.
+
+#### Animated Guiyuan identity
+- Remove DrawScope `scale()` entirely.
+- Compute the final target size as 1.8x the 64 dp slot, center that target rectangle around the slot, and call the vector painter directly with the final target `Size`.
+- Apply only the screen-local rotation transform around the slot center.
+- Keep `ic_launcher_foreground` as the single geometry source; no copied vector path, bitmap or alternate logo asset is introduced.
+
+### 审查 / review
+
+- **Ownership:** setting semantics own the title hierarchy; MIUIX owns control rendering.
+- **Lifecycle:** one screen-local Compose infinite transition remains the only animation owner.
+- **Single writer:** only the Canvas rotation transform changes per frame.
+- **Cleanup:** Compose disposal ends the animation naturally.
+- **Performance:** one small vector draw while Diagnostics is visible; no bitmap regeneration, polling, listener or background work.
+- **Compatibility:** existing Compose painter/draw APIs and the existing launcher vector only.
+- **Runtime boundary:** no SystemUI/Xposed runtime or production icon behavior changes.
+- **Accepted boundary:** Module runtime 8 dp edge breathing room and Diagnostics & reports remain unchanged.
+
+### Validation gate
+
+Run exact-head Fast. If green, issue one signed Canary for focused device review of Sandbox hierarchy and animated-logo edge quality. Freeze that exact Build-471 source for visual review.
+
+---
+
+## 2026-09-29 — Build 472: unify Sandbox setting structure on MIUIX BasicComponent
+
+**Type:** device-driven companion-app presentation correction
+**Display version:** 0.0.3
+**Build / source:** Build 472 / `20260929-472` / executable checkpoint `939d23667553a8b9e4a31bb2dc34910d67f1c5fa`
+**Branch / PR:** `feat/presentation-ui-polish` / #173
+**SystemUI runtime change:** none
+**Validation:** exact-head Fast pending
+
+### Build 471 device evidence
+
+Build 471 passed exact-head Fast #1770 / #1771 and signed Work Branch Canary #503. Device review showed that restoring custom titles to `body1` still did not make the Sandbox visually uniform and that the vertical rhythm remained looser than desired.
+
+The new screenshots clarified the structural mismatch:
+- Wi-Fi state, Wi-Fi signal, SIM state, battery level/mode/charging were still custom `Text + control` compositions;
+- Airplane mode alone used native MIUIX `SwitchPreference`;
+- therefore the native setting title and the custom labels could not share identical font weight, line height and padding even when nominal text tokens were matched.
+
+### Root cause
+
+MIUIX `SwitchPreference` and `SliderPreference` both delegate their title layer to `BasicComponent`. `BasicComponent` renders the preference title with the native headline-size + Medium-weight contract and owns the 56 dp minimum component rhythm.
+
+Guiyuan had bypassed that contract:
+- slider title/value were manually injected through `bottomAction`;
+- segmented preferences rendered a separate custom `Text` before `TabRowWithContour`;
+- explicit 10 dp group spacers were then added on top of each component's own internal spacing.
+
+This made typography and density impossible to normalize reliably by changing `body1/body2` alone.
+
+### Implementation
+
+- Remove `SandboxSliderLabel`.
+- Use `SliderPreference(title = ..., valueText = ...)` for mobile signal, Wi-Fi signal and battery level.
+- Rebuild segmented settings with MIUIX `BasicComponent(title = ..., bottomAction = ...)`; keep `TabRowWithContour` only as the subordinate bottom control.
+- Give slider, segmented and switch settings one shared `SandboxPreferenceInsideMargin = PaddingValues(horizontal = 16.dp, vertical = 10.dp)`.
+- Remove the explicit 10 dp spacers between SIM/battery setting groups.
+- Reduce only the first context-specific network detail lead-in from 8 dp to 4 dp.
+- Preserve the network-mode top selector, state model, Preview renderer, Diagnostics and all SystemUI runtime code.
+
+### 审查 / review
+
+- **Ownership:** MIUIX `BasicComponent` now owns all Sandbox setting titles; MIUIX controls own their own option/value rendering.
+- **Hierarchy:** setting title remains semantic primary; slider/tab/switch is subordinate.
+- **Density:** compaction comes from removing duplicate outer spacing and using one inside-margin contract, not from shrinking fonts.
+- **Lifecycle / state:** no state ownership or callback behavior changes.
+- **Fail native:** irrelevant to this UI-only change; SystemUI runtime remains untouched.
+- **Performance:** no new animation, listener, polling, reflection or resource lookup.
+- **Compatibility:** uses already-pinned MIUIX APIs (`BasicComponent`, `SliderPreference`, `SwitchPreference`, `TabRowWithContour`) without custom internals.
+- **Future extension:** the same preference structure can host future Sandbox controls without reintroducing custom title typography.
+
+### Validation gate
+
+Run exact-head Fast for Build 472. If green, issue one signed Canary for focused device review of:
+1. title/weight uniformity across Wi-Fi state, Wi-Fi signal, SIM state, Airplane mode and battery settings;
+2. moderate vertical compaction without returning to Build-468 over-density.
+
+The separate requested Wi-Fi connected/no-internet/hotspot optical normalization must be implemented on a dedicated runtime branch because it changes the shared production renderer and real SystemUI output.
+
+---
+
+## 2026-09-29 — Build 473: Wi-Fi optical normalization on accepted Build-472 UI baseline
+
+**Type:** accepted runtime visual correction + branch-integration closure
+**Display version:** 0.0.3
+**Build:** 473 / `20260929-473`
+**Branch / PR:** `fix/wifi-optical-normalization` / #175
+**Integrated UI base:** PR #173 squash commit `d24fd7aff07abf78a0a5828fc2e667a88dd05720`
+**Original device-tested Wi-Fi source:** `f918663bbd53549089dff0d8a52387b00d6e09b7`
+
+### Build 472 acceptance and integration
+
+Build 472 passed exact-head Fast #1778 and signed Work Branch Canary #506. Maintainer device review accepted the final Sandbox preference hierarchy/density and companion-app presentation result.
+
+PR #173 was then squash-merged into `dev` as `d24fd7aff07abf78a0a5828fc2e667a88dd05720`.
+
+### Build 473 device evidence
+
+The same-level connected / no-Internet / hotspot comparison confirmed the intended correction. The maintainer reported no remaining issue and authorized integration.
+
+The accepted Wi-Fi source passed:
+- exact-head Fast #1782;
+- signed Work Branch Canary #509;
+- trusted-source checkout of `f918663bbd53549089dff0d8a52387b00d6e09b7`;
+- target-profile, tests/build, Modern Xposed metadata, Haple signature, non-debuggable and artifact-upload gates.
+
+### Root cause and retained implementation
+
+The shared native-center renderer previously fit each complete Wi-Fi variant by its own visible alpha bounds. Native no-Internet/hotspot badges therefore changed the fitted scale of the common Wi-Fi body.
+
+The accepted fix remains:
+- derive the same signal-level connected `stat_sys_wifi_signal_N` reference through the existing Wi-Fi resource parser;
+- use that connected asset only as the optical-fit authority;
+- draw the current HyperOS drawable unchanged, preserving its complete authored viewport and badge relationship;
+- share reference geometry only when current/reference intrinsic viewports match exactly;
+- fall back to the previous per-resource optical fit if reference resolution/loading/viewport compatibility fails;
+- cache the resource mapping;
+- add no Hook, observer, listener, polling, state-machine or duplicate renderer path.
+
+### Integration synchronization
+
+Because PR #173 and PR #175 were created from the same earlier `dev` snapshot but both legitimately touched build identity and current-state documentation, PR #175 was not merged against a stale base.
+
+Instead:
+1. PR #173 was integrated first.
+2. PR #175 was reset to the resulting `dev@d24fd7aff07abf78a0a5828fc2e667a88dd05720`.
+3. The already device-tested Wi-Fi renderer/policy/tests were reapplied unchanged.
+4. Build identity was kept at 473.
+5. CURRENT / DEVLOG / CHANGELOG were reconciled to describe the combined accepted state rather than retaining two competing active-branch narratives.
+
+This synchronization adds the already accepted Build-472 companion-app UI beneath the already accepted Build-473 runtime correction; it does not change either accepted behavior.
+
+### 审查 / review
+
+- **Ownership:** UI presentation remains companion-app-owned; Wi-Fi resource semantics remain SystemUI-owned; `CombinedStatusPainter` owns only Guiyuan's final center drawing bounds.
+- **Single writer:** unchanged.
+- **Lifecycle / cleanup:** unchanged; no new runtime owner.
+- **Performance:** cached resource-family lookup only.
+- **Fail native:** unresolved/incompatible reference geometry retains the existing per-resource path.
+- **Compatibility:** native drawable identity/tint/viewport semantics remain authoritative.
+- **Validation attribution:** Build 472 UI and Build 473 Wi-Fi runtime were each device-accepted independently. The synchronized branch changes ancestry/documentation only around those accepted executable deltas.
+
+### Final integration gate
+
+Run exact-head Fast on the synchronized PR #175 head. If green, squash-merge into `dev` and require the normal post-merge Integration gate. No repeated work-branch Canary/device cycle is required because synchronization did not alter either accepted executable behavior.
+
+### dev integration closure
+
+The synchronized Build-473 head `0740948973e4fb62fd40fdbf3195c846e606e328` passed exact-head Fast #1788 after inheriting the already accepted Build-472 companion-app baseline.
+
+PR #175 then squash-merged into `dev` as `8feb0d51a4974442f6683d4550608739986d87a2`.
+
+Post-merge `dev` Integration #1789 passed:
+- pinned HyperOS target-profile verification;
+- unit/build checks;
+- Modern Xposed metadata verification;
+- Haple signing and APK signature verification;
+- non-debuggable Canary verification;
+- Canary artifact preparation/upload.
+
+Build 473 is therefore the accepted combined `dev` baseline for this visual round: it contains the accepted Build-472 companion-app hierarchy/density/identity changes and the accepted native Wi-Fi connected/no-Internet/hotspot optical normalization.
+
+The separate transition-animation PR #174 remains outside this closure. Because it still descends from the pre-472/473 `dev` base and also edits `CombinedStatusPainter`, it must synchronize onto current `dev` and preserve the accepted Wi-Fi optical-reference path before any later integration.
+
+This closure is documentation-only and does not create a new Build.
