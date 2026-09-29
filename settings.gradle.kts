@@ -44,5 +44,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "CombinedStatus"
+rootProject.name = "Guiyuan"
 include(":app")
