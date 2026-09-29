@@ -2,7 +2,7 @@
 
 ## Current development version
 
-The active display-version line is **0.0.2**.
+The active display-version line is **0.0.3**.
 
 Development versions continue to advance according to actual engineering milestones and explicit maintainer direction. A development checkpoint does not become a formal release merely because its display version changes.
 
