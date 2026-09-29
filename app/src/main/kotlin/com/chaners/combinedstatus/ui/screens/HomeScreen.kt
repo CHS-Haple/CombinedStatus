@@ -226,7 +226,7 @@ private fun HomeRuntimeStatusCard(
                 modifier =
                     Modifier
                         .align(Alignment.BottomEnd)
-                        .offset(y = (-2).dp)
+                        .offset(y = 2.dp)
                         .size(RuntimeStatusMarkSize),
             )
 
@@ -365,7 +365,8 @@ private fun RuntimeStatusMark(
 ) {
     Canvas(modifier = modifier) {
         val markColor = color.copy(alpha = 0.58f)
-        val markStrokeWidth = 6.4.dp.toPx()
+        val ringStrokeWidth = 6.4.dp.toPx()
+        val symbolStrokeWidth = 7.2.dp.toPx()
         val center = Offset(size.width / 2f, size.height / 2f)
         val radius = size.minDimension * 0.40f
 
@@ -375,7 +376,7 @@ private fun RuntimeStatusMark(
             center = center,
             style =
                 Stroke(
-                    width = markStrokeWidth,
+                    width = ringStrokeWidth,
                     cap = StrokeCap.Round,
                 ),
         )
@@ -393,7 +394,7 @@ private fun RuntimeStatusMark(
                     color = markColor,
                     style =
                         Stroke(
-                            width = markStrokeWidth,
+                            width = symbolStrokeWidth,
                             cap = StrokeCap.Round,
                             join = StrokeJoin.Round,
                         ),
@@ -405,12 +406,12 @@ private fun RuntimeStatusMark(
                     color = markColor,
                     start = Offset(size.width * 0.50f, size.height * 0.29f),
                     end = Offset(size.width * 0.50f, size.height * 0.56f),
-                    strokeWidth = markStrokeWidth,
+                    strokeWidth = symbolStrokeWidth,
                     cap = StrokeCap.Round,
                 )
                 drawCircle(
                     color = markColor,
-                    radius = markStrokeWidth * 0.58f,
+                    radius = symbolStrokeWidth * 0.58f,
                     center = Offset(size.width * 0.50f, size.height * 0.70f),
                 )
             }
@@ -420,7 +421,7 @@ private fun RuntimeStatusMark(
                     color = markColor,
                     start = Offset(size.width * 0.31f, size.height * 0.50f),
                     end = Offset(size.width * 0.69f, size.height * 0.50f),
-                    strokeWidth = markStrokeWidth,
+                    strokeWidth = symbolStrokeWidth,
                     cap = StrokeCap.Round,
                 )
             }
