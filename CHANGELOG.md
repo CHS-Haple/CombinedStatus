@@ -72,7 +72,7 @@ The project follows a Keep a Changelog-style structure. During pre-release devel
 
 ### Fixed
 
-- Corrected Home runtime-card geometry without altering its established semantic colors: inset the master Switch and moved the status mark upward.
+- Refined the Home runtime-card status mark without altering its established semantic colors: kept the master Switch in its original position, enlarged and strengthened the circular mark, and moved the mark slightly upward.
 
 - Fixed the companion-app Sandbox airplane center disappearing outside the SystemUI process by resolving the native flight-mode drawable from the SystemUI package context; Mobile airplane mode now correctly overrides no-SIM center presentation while retaining the bottom unavailable mark.
 
