@@ -119,6 +119,7 @@ internal class CombinedStatusPainter(
         model: CombinedStatusRenderModel,
         colors: CombinedStatusColors,
         component: TransitionComponent,
+        shapePolicy: TransitionShapePolicy,
         opacity: Float = 1f,
         morphProgress: Float = 0f,
     ) {
@@ -140,15 +141,31 @@ internal class CombinedStatusPainter(
         canvas.scale(scale, scale)
 
         val morph = morphProgress.coerceIn(0f, 1f)
-        when (component) {
-            TransitionComponent.BATTERY -> {
-                val componentSave = canvas.save()
+        val componentSave = canvas.save()
+        when (shapePolicy) {
+            TransitionShapePolicy.FOLD ->
                 canvas.scale(
                     lerp(1f, BATTERY_FOLD_SCALE_X, morph),
                     lerp(1f, BATTERY_FOLD_SCALE_Y, morph),
                     BATTERY_COMPONENT_CENTER_X,
                     BATTERY_COMPONENT_CENTER_Y,
                 )
+
+            TransitionShapePolicy.KEEP_SHAPE -> Unit
+
+            TransitionShapePolicy.COLLAPSE -> {
+                val collapseScale = lerp(1f, MOBILE_COLLAPSE_SCALE, morph)
+                canvas.scale(
+                    collapseScale,
+                    collapseScale,
+                    MOBILE_CENTER_X,
+                    MOBILE_CENTER_Y,
+                )
+            }
+        }
+
+        when (component) {
+            TransitionComponent.BATTERY ->
                 drawBattery(
                     canvas = canvas,
                     model = model,
@@ -159,8 +176,6 @@ internal class CombinedStatusPainter(
                             CombinedStatusOuterGeometry.DEFAULT_WEIGHT_SCALE,
                         ),
                 )
-                canvas.restoreToCount(componentSave)
-            }
 
             TransitionComponent.CENTER ->
                 drawCenterIndicator(
@@ -179,15 +194,7 @@ internal class CombinedStatusPainter(
                     scaleMobileTypeWithCanvas = false,
                 )
 
-            TransitionComponent.MOBILE -> {
-                val componentSave = canvas.save()
-                val collapseScale = lerp(1f, MOBILE_COLLAPSE_SCALE, morph)
-                canvas.scale(
-                    collapseScale,
-                    collapseScale,
-                    MOBILE_CENTER_X,
-                    MOBILE_CENTER_Y,
-                )
+            TransitionComponent.MOBILE ->
                 drawMobile(
                     canvas = canvas,
                     model = model,
@@ -198,9 +205,8 @@ internal class CombinedStatusPainter(
                             CombinedStatusOuterGeometry.DEFAULT_WEIGHT_SCALE,
                         ),
                 )
-                canvas.restoreToCount(componentSave)
-            }
         }
+        canvas.restoreToCount(componentSave)
 
         canvas.restoreToCount(save)
     }

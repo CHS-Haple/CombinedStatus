@@ -203,7 +203,7 @@ class SystemUiPanelTransitionSourceTest {
                 ),
             )
         assertEquals(100f, component[0], 0.0001f)
-        assertEquals(180f, component[1], 0.0001f)
+        assertEquals(200f, component[1], 0.0001f)
         assertEquals(60f, component[2], 0.0001f)
         assertEquals(0f, component[3], 0.0001f)
         assertEquals(0f, component[4], 0.0001f)

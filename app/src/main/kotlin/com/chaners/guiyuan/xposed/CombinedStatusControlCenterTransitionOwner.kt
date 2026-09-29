@@ -446,6 +446,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         model = model,
                         colors = sourceColors,
                         component = spec.component,
+                        shapePolicy = spec.shapePolicy,
                         opacity = 1f,
                         morphProgress = geometryProgress,
                     )
