@@ -31,6 +31,8 @@ The project follows a Keep a Changelog-style structure. During pre-release devel
 
 ### Changed
 
+- Restored MIUIX-native spacing ownership in Preview Sandbox, introduced compact hierarchical width caps for segmented controls with equal same-level distribution, and renamed the diagnostics framework display to `Modern Xposed API 102`.
+
 - Optically normalized Diagnostics leading icons across level/export/share using MIUIX Normal-weight symbols in a shared slot, and lowered the Home runtime status mark slightly to improve spacing below the master Switch.
 
 - Refined companion-app visual hierarchy: Runtime status marks now balance ring and inner-symbol weight, Diagnostics report actions use MIUIX Normal leading icons, Preview Sandbox spacing follows a compact consistent vertical rhythm, and Features removes the duplicate master switch while separating lock-screen behavior from color-link controls.
