@@ -3,6 +3,34 @@
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
 
+## 2026-09-29 — Build 465: dev integration and 0.0.3 development-line transition
+
+**Type:** integration/version transition  
+**Display version:** 0.0.3  
+**Build / source:** 465 / `20260929-465` / `dev`  
+**SystemUI ownership change:** none beyond already accepted/integrated baselines
+
+### Integration
+
+PR #165 (`feat/home-ui-shell`) was accepted by the maintainer and squash-merged into `dev` as `a2394db92ce208771956defcd558c954065000f7`. The accepted work-branch UI checkpoint is Build 464 / `20260929-464`; exact-head Build #1680 and signed Work Branch Canary #491 passed before merge.
+
+### Version transition
+
+The maintainer explicitly advances the active development display line from 0.0.2 to **0.0.3**. Build identity advances independently to Build 465 / `20260929-465`; historical 0.0.1 / 0.0.2 Build records remain unchanged.
+
+### Current baseline
+
+- SystemUI runtime ownership/scene baseline remains the accepted Build-456 line from PR #163.
+- Companion-app Home / Preview Sandbox, Diagnostics visual refinements, Features hierarchy and Build-464 UI state are now integrated in `dev`.
+- Phase 4 is therefore integrated for the current development baseline.
+- 0.0.3 remains a pre-release development line; the first planned formal release target remains 1.0.0.
+
+### 审查 / review
+
+This transition changes application/build identity and repository current-state documentation. It does not introduce a new SystemUI Hook, runtime state writer, lifecycle owner, polling path or compatibility contract. Post-change `dev` CI is required to validate the resulting Build-465 package identity and integrated source state.
+
+
+
 ## 2026-09-29 — Build 464: Unified Sandbox segmented-control width
 
 **Type:** companion-app UI refinement  
