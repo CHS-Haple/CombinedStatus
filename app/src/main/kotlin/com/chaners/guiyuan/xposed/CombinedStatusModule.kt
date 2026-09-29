@@ -1035,9 +1035,13 @@ class CombinedStatusModule : XposedModule() {
     private fun onPanelTransitionUpdate(
         update: SystemUiPanelTransitionSource.Update,
     ) {
-        CombinedStatusControlCenterRenderSession.onNativeExpansionProgress(
-            update.fraction,
-        )
+        if (update.fraction != null) {
+            CombinedStatusControlCenterRenderSession.onNativeExpansionProgress(
+                update.fraction,
+            )
+        } else if (update.visible != null) {
+            CombinedStatusControlCenterRenderSession.onNativeExpansionProgress(null)
+        }
         handleControlCenterPanelUpdate(update)
 
         if (!detailedDiagnosticsEnabled) {
