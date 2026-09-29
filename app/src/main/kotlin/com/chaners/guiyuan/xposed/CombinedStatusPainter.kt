@@ -25,6 +25,7 @@ internal class CombinedStatusPainter(
     private var cachedAirplaneResourceId: Int = 0
     private val nativeCenterAssets = LinkedHashMap<String, NativeCenterAsset>(NATIVE_CENTER_CACHE_SIZE, 0.75f, true)
     private val nativeTintVariantIds = HashMap<String, Int>()
+    private val nativeWifiReferenceIds = HashMap<String, Int>()
     private var cachedMobileTypeWeight: Int = Int.MIN_VALUE
     private var cachedMobileTypeTypeface: Typeface = Typeface.DEFAULT
     private val mobileTypeMainBounds = Rect()
@@ -298,26 +299,30 @@ internal class CombinedStatusPainter(
         pixelAligned: Boolean,
     ) {
         val nativeResourceId = indicator.nativeResourceId
-        if (
-            nativeResourceId != null &&
-            drawNativeCenterResource(
-                canvas = canvas,
-                resource =
-                    CombinedStatusPresentationStateStore.NativeIconResource(
-                        packageName = SYSTEM_UI_PACKAGE,
-                        resourceId = nativeResourceId,
-                    ),
-                tint = tint,
-                opacity = opacity,
-                centerX = WIFI_CENTER_X,
-                centerY = WIFI_CENTER_Y,
-                maxWidth = geometry.wifiMaxWidth,
-                maxHeight = geometry.wifiMaxHeight,
-                nativeTransform = nativeTransform,
-                pixelAligned = pixelAligned,
-            )
-        ) {
-            return
+        if (nativeResourceId != null) {
+            val nativeResource =
+                CombinedStatusPresentationStateStore.NativeIconResource(
+                    packageName = SYSTEM_UI_PACKAGE,
+                    resourceId = nativeResourceId,
+                )
+            if (
+                drawNativeCenterResource(
+                    canvas = canvas,
+                    resource = nativeResource,
+                    opticalReferenceResource =
+                        wifiOpticalReferenceResource(nativeResource),
+                    tint = tint,
+                    opacity = opacity,
+                    centerX = WIFI_CENTER_X,
+                    centerY = WIFI_CENTER_Y,
+                    maxWidth = geometry.wifiMaxWidth,
+                    maxHeight = geometry.wifiMaxHeight,
+                    nativeTransform = nativeTransform,
+                    pixelAligned = pixelAligned,
+                )
+            ) {
+                return
+            }
         }
 
         val save = canvas.save()
@@ -334,6 +339,40 @@ internal class CombinedStatusPainter(
             canvas.drawPath(path, paint)
         }
         canvas.restoreToCount(save)
+    }
+
+    private fun wifiOpticalReferenceResource(
+        resource: CombinedStatusPresentationStateStore.NativeIconResource,
+    ): CombinedStatusPresentationStateStore.NativeIconResource? {
+        if (resource.packageName != SYSTEM_UI_PACKAGE) {
+            return null
+        }
+
+        val key = resource.packageName + ":" + resource.resourceId
+        val referenceId =
+            nativeWifiReferenceIds.getOrPut(key) {
+                runCatching {
+                    val drawableContext =
+                        if (resource.packageName == context.packageName) {
+                            context
+                        } else {
+                            context.createPackageContext(resource.packageName, 0)
+                        }
+                    val entryName =
+                        drawableContext.resources.getResourceEntryName(resource.resourceId)
+                    val referenceEntry =
+                        NativeWifiOpticalReferencePolicy.connectedReferenceEntry(entryName)
+                            ?: return@runCatching 0
+                    drawableContext.resources.getIdentifier(
+                        referenceEntry,
+                        "drawable",
+                        resource.packageName,
+                    )
+                }.getOrDefault(0)
+            }
+        return referenceId
+            .takeIf { it != 0 }
+            ?.let { resource.copy(resourceId = it) }
     }
 
     private fun resolveNativeTintVariant(
@@ -481,6 +520,7 @@ internal class CombinedStatusPainter(
     private fun drawNativeCenterResource(
         canvas: Canvas,
         resource: CombinedStatusPresentationStateStore.NativeIconResource,
+        opticalReferenceResource: CombinedStatusPresentationStateStore.NativeIconResource? = null,
         tint: Int,
         opacity: Float,
         centerX: Float,
@@ -501,13 +541,29 @@ internal class CombinedStatusPainter(
             return false
         }
 
-        val optical = asset.opticalBounds
+        val opticalReferenceAsset =
+            opticalReferenceResource
+                ?.let { reference ->
+                    val presentationReference =
+                        resolveNativeTintVariant(reference) ?: reference
+                    nativeCenterAsset(presentationReference)
+                }
+                ?.takeIf { reference ->
+                    NativeWifiOpticalReferencePolicy.canShareReferenceViewport(
+                        currentWidth = intrinsicWidth,
+                        currentHeight = intrinsicHeight,
+                        referenceWidth = reference.intrinsicWidth,
+                        referenceHeight = reference.intrinsicHeight,
+                    )
+                }
+        val fitAsset = opticalReferenceAsset ?: asset
+        val optical = fitAsset.opticalBounds
         val opticalWidthRatio =
             (optical.right - optical.left).coerceAtLeast(MIN_OPTICAL_RATIO)
         val opticalHeightRatio =
             (optical.bottom - optical.top).coerceAtLeast(MIN_OPTICAL_RATIO)
-        val opticalIntrinsicWidth = intrinsicWidth * opticalWidthRatio
-        val opticalIntrinsicHeight = intrinsicHeight * opticalHeightRatio
+        val opticalIntrinsicWidth = fitAsset.intrinsicWidth * opticalWidthRatio
+        val opticalIntrinsicHeight = fitAsset.intrinsicHeight * opticalHeightRatio
         val drawableScale =
             min(
                 maxWidth / opticalIntrinsicWidth,
