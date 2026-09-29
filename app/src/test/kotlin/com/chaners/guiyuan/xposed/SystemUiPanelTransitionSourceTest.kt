@@ -195,7 +195,7 @@ class SystemUiPanelTransitionSourceTest {
     }
 
     @Test
-    fun transitionMotionUsesNativeExpansionAndMobileMorphUsesNativeFakeAlpha() {
+    fun transitionMotionAndMobileMorphUseNativeExpansion() {
         assertEquals(0f, CombinedStatusControlCenterTransitionOwner.Policy.motionProgress(0f))
         assertEquals(
             0.41f,
@@ -211,17 +211,17 @@ class SystemUiPanelTransitionSourceTest {
 
         assertEquals(
             0f,
-            CombinedStatusControlCenterTransitionOwner.Policy.mobileSignalShapeProgress(1f),
+            CombinedStatusControlCenterTransitionOwner.Policy.mobileSignalShapeProgress(0f),
             0.0001f,
         )
         assertEquals(
-            0.5f,
+            0.25f,
             CombinedStatusControlCenterTransitionOwner.Policy.mobileSignalShapeProgress(0.5f),
             0.0001f,
         )
         assertEquals(
             1f,
-            CombinedStatusControlCenterTransitionOwner.Policy.mobileSignalShapeProgress(0f),
+            CombinedStatusControlCenterTransitionOwner.Policy.mobileSignalShapeProgress(1f),
             0.0001f,
         )
     }

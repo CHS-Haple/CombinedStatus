@@ -62,30 +62,6 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
-    fun mobileSignalMorphUsesNativeProgressWithoutWaitingForFakeAlphaFade() {
-        assertEquals(
-            0f,
-            CombinedStatusControlCenterTransitionOwner.Policy.mobileSignalShapeProgress(0f),
-            0.0001f,
-        )
-        assertEquals(
-            0.25f,
-            CombinedStatusControlCenterTransitionOwner.Policy.mobileSignalShapeProgress(0.5f),
-            0.0001f,
-        )
-        assertEquals(
-            0.5625f,
-            CombinedStatusControlCenterTransitionOwner.Policy.mobileSignalShapeProgress(0.75f),
-            0.0001f,
-        )
-        assertEquals(
-            1f,
-            CombinedStatusControlCenterTransitionOwner.Policy.mobileSignalShapeProgress(1f),
-            0.0001f,
-        )
-    }
-
-    @Test
     fun targetAspectRatioComesFromNativeWitnessGeometry() {
         val ratio =
             CombinedStatusControlCenterTransitionOwner.Policy.geometryAspectRatio(
