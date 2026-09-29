@@ -195,48 +195,47 @@ class SystemUiPanelTransitionSourceTest {
     }
 
     @Test
-    fun transitionMotionCompletesBeforeLocalMobileSignalMorph() {
+    fun transitionMotionUsesNativeExpansionAndMobileMorphUsesNativeFakeAlpha() {
         assertEquals(0f, CombinedStatusControlCenterTransitionOwner.Policy.motionProgress(0f))
         assertEquals(
-            0.5f,
+            0.41f,
             CombinedStatusControlCenterTransitionOwner.Policy.motionProgress(0.41f),
             0.0001f,
         )
-        assertEquals(1f, CombinedStatusControlCenterTransitionOwner.Policy.motionProgress(0.82f))
+        assertEquals(
+            0.82f,
+            CombinedStatusControlCenterTransitionOwner.Policy.motionProgress(0.82f),
+            0.0001f,
+        )
         assertEquals(1f, CombinedStatusControlCenterTransitionOwner.Policy.motionProgress(1f))
 
         assertEquals(
             0f,
-            CombinedStatusControlCenterTransitionOwner.Policy.mobileSignalShapeProgress(0.82f),
+            CombinedStatusControlCenterTransitionOwner.Policy.mobileSignalShapeProgress(1f),
             0.0001f,
         )
         assertEquals(
             0.5f,
-            CombinedStatusControlCenterTransitionOwner.Policy.mobileSignalShapeProgress(0.87f),
+            CombinedStatusControlCenterTransitionOwner.Policy.mobileSignalShapeProgress(0.5f),
             0.0001f,
         )
         assertEquals(
             1f,
-            CombinedStatusControlCenterTransitionOwner.Policy.mobileSignalShapeProgress(0.92f),
+            CombinedStatusControlCenterTransitionOwner.Policy.mobileSignalShapeProgress(0f),
             0.0001f,
         )
     }
 
     @Test
-    fun transitionNativeWitnessOnlyTakesOverAfterLocalShapeCompletes() {
+    fun transitionDoesNotOwnANativeReleaseTimeline() {
         assertEquals(
-            0f,
-            CombinedStatusControlCenterTransitionOwner.Policy.nativeWitnessProgress(0.92f),
-            0.0001f,
-        )
-        assertEquals(
-            0.5f,
-            CombinedStatusControlCenterTransitionOwner.Policy.nativeWitnessProgress(0.96f),
+            0.92f,
+            CombinedStatusControlCenterTransitionOwner.Policy.geometryProgress(0.92f),
             0.0001f,
         )
         assertEquals(
             1f,
-            CombinedStatusControlCenterTransitionOwner.Policy.nativeWitnessProgress(1f),
+            CombinedStatusControlCenterTransitionOwner.Policy.geometryProgress(1f),
             0.0001f,
         )
     }

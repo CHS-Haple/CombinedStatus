@@ -264,6 +264,14 @@ internal class CombinedStatusPainter(
         val sourceBounds: TransitionBounds,
         val target: TransitionTarget,
         val shapePolicy: TransitionShapePolicy,
+        val targetOpticalBounds: TransitionNormalizedBounds? = null,
+    )
+
+    internal data class TransitionNormalizedBounds(
+        val left: Float,
+        val top: Float,
+        val right: Float,
+        val bottom: Float,
     )
 
     fun transitionComponentSpecs(
@@ -312,7 +320,12 @@ internal class CombinedStatusPainter(
 
         val centerSpec =
             when (model.centerIndicator) {
-                is CenterIndicator.Wifi ->
+                is CenterIndicator.Wifi -> {
+                    val metrics =
+                        transitionWifiMetrics(
+                            indicator = model.centerIndicator,
+                            geometry = centerGeometry,
+                        )
                     TransitionComponentSpec(
                         component = TransitionComponent.CENTER,
                         sourceBounds =
@@ -320,8 +333,12 @@ internal class CombinedStatusPainter(
                                 centeredBounds(
                                     centerX = WIFI_CENTER_X,
                                     centerY = WIFI_CENTER_Y,
-                                    width = centerGeometry.wifiMaxWidth,
-                                    height = centerGeometry.wifiMaxHeight,
+                                    width =
+                                        metrics?.sourceOpticalWidth
+                                            ?: centerGeometry.wifiMaxWidth,
+                                    height =
+                                        metrics?.sourceOpticalHeight
+                                            ?: centerGeometry.wifiMaxHeight,
                                 ),
                             ),
                         target =
@@ -330,7 +347,9 @@ internal class CombinedStatusPainter(
                                 preferredChildEntries = listOf("wifi_signal"),
                             ),
                         shapePolicy = TransitionShapePolicy.RIGID,
+                        targetOpticalBounds = metrics?.targetOpticalBounds,
                     )
+                }
 
                 is CenterIndicator.MobileType ->
                     TransitionComponentSpec(
@@ -415,6 +434,59 @@ internal class CombinedStatusPainter(
             )
 
         return specs
+    }
+
+    private fun transitionWifiMetrics(
+        indicator: CenterIndicator.Wifi,
+        geometry: CombinedStatusCenterGeometry.Resolved,
+    ): TransitionWifiMetrics? {
+        val resourceId = indicator.nativeResourceId ?: return null
+        val resource =
+            CombinedStatusPresentationStateStore.NativeIconResource(
+                packageName = SYSTEM_UI_PACKAGE,
+                resourceId = resourceId,
+            )
+        val presentationResource = resolveNativeTintVariant(resource) ?: resource
+        val asset = nativeCenterAsset(presentationResource) ?: return null
+        val referenceAsset =
+            wifiOpticalReferenceResource(resource)
+                ?.let { reference ->
+                    val presentationReference =
+                        resolveNativeTintVariant(reference) ?: reference
+                    nativeCenterAsset(presentationReference)
+                }
+                ?.takeIf { reference ->
+                    NativeWifiOpticalReferencePolicy.canShareReferenceViewport(
+                        currentWidth = asset.intrinsicWidth,
+                        currentHeight = asset.intrinsicHeight,
+                        referenceWidth = reference.intrinsicWidth,
+                        referenceHeight = reference.intrinsicHeight,
+                    )
+                }
+        val fitAsset = referenceAsset ?: asset
+        val optical = fitAsset.opticalBounds
+        val opticalWidthRatio =
+            (optical.right - optical.left).coerceAtLeast(MIN_OPTICAL_RATIO)
+        val opticalHeightRatio =
+            (optical.bottom - optical.top).coerceAtLeast(MIN_OPTICAL_RATIO)
+        val opticalIntrinsicWidth = fitAsset.intrinsicWidth * opticalWidthRatio
+        val opticalIntrinsicHeight = fitAsset.intrinsicHeight * opticalHeightRatio
+        val drawableScale =
+            min(
+                geometry.wifiMaxWidth / opticalIntrinsicWidth,
+                geometry.wifiMaxHeight / opticalIntrinsicHeight,
+            )
+        return TransitionWifiMetrics(
+            sourceOpticalWidth = opticalIntrinsicWidth * drawableScale,
+            sourceOpticalHeight = opticalIntrinsicHeight * drawableScale,
+            targetOpticalBounds =
+                TransitionNormalizedBounds(
+                    left = optical.left,
+                    top = optical.top,
+                    right = optical.right,
+                    bottom = optical.bottom,
+                ),
+        )
     }
 
     private fun centeredBounds(
@@ -1297,6 +1369,7 @@ internal class CombinedStatusPainter(
         shapeProgress: Float,
     ) {
         val layout = resolveMobileSignalTransitionLayout(geometry, model)
+        @Suppress("UNUSED_VARIABLE")
         val motion = motionProgress.coerceIn(0f, 1f)
         val shape = shapeProgress.coerceIn(0f, 1f)
         val diameter = geometry.mobileDotRadius * 2f
@@ -1305,8 +1378,8 @@ internal class CombinedStatusPainter(
         for (index in 0 until MOBILE_DOT_COUNT) {
             val source = layout.sourceCenters[index]
             val target = layout.targetCenters[index]
-            val centerX = lerp(source.x, target.x, motion)
-            val centerY = lerp(source.y, target.y, motion)
+            val centerX = lerp(source.x, target.x, shape)
+            val centerY = lerp(source.y, target.y, shape)
             val barHeight = lerp(diameter, layout.barHeights[index], shape)
             val bottom = centerY + geometry.mobileDotRadius
             fill(
@@ -1522,6 +1595,12 @@ internal class CombinedStatusPainter(
         val sourceCenters: List<TransitionPoint>,
         val targetCenters: List<TransitionPoint>,
         val barHeights: List<Float>,
+    )
+
+    private data class TransitionWifiMetrics(
+        val sourceOpticalWidth: Float,
+        val sourceOpticalHeight: Float,
+        val targetOpticalBounds: TransitionNormalizedBounds,
     )
 
     private data class MobileTypeLayout(
