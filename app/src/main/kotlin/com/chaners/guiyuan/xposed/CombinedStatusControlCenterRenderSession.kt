@@ -1,6 +1,8 @@
 package com.chaners.guiyuan.xposed
 
+import android.graphics.Canvas
 import android.graphics.Rect
+import android.graphics.RectF
 import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
@@ -23,6 +25,8 @@ internal object CombinedStatusControlCenterRenderSession {
     private var current: Session? = null
     private var pendingPrearm: PendingPrearm? = null
     private var sceneEligible = false
+    private var transitionEndpoints: SystemUiPanelTransitionSource.ControlCenterTransitionEndpoints? = null
+    private var nativeExpansionProgress: Float? = null
 
     @Synchronized
     fun prearmAfterNextNativeLayout(
@@ -124,6 +128,22 @@ internal object CombinedStatusControlCenterRenderSession {
     @Synchronized
     fun setRequestedVisible(visible: Boolean): Boolean =
         current?.setRequestedVisible(visible) ?: false
+
+    @Synchronized
+    fun setTransitionEndpoints(
+        endpoints: SystemUiPanelTransitionSource.ControlCenterTransitionEndpoints?,
+    ) {
+        transitionEndpoints = endpoints
+        current?.setTransitionEndpoints(endpoints)
+    }
+
+    @Synchronized
+    fun onNativeExpansionProgress(progress: Float?) {
+        if (progress != null) {
+            nativeExpansionProgress = progress
+        }
+        current?.setNativeExpansionProgress(nativeExpansionProgress)
+    }
 
     @Synchronized
     fun setSceneEligible(eligible: Boolean) {
@@ -269,6 +289,8 @@ internal object CombinedStatusControlCenterRenderSession {
         }
         current?.stop(source)
         current = null
+        nativeExpansionProgress = null
+        transitionEndpoints = null
     }
 
     @Synchronized
@@ -482,7 +504,16 @@ internal object CombinedStatusControlCenterRenderSession {
         private val carrier = WeakReference(carrier)
         private val renderView = CombinedStatusRenderView(host.context)
         private val renderController = CombinedStatusRenderController(renderView)
+        private val transitionView = TransitionProjectionView(host.context)
         private val anchorRect = Rect()
+
+        private var currentModel: CombinedStatusRenderModel? = null
+        private var currentTint: CombinedStatusTintState? = null
+        private var currentVisualSettings = RuntimeVisualPreferencesOwner.currentSettings()
+        private var transitionEndpoints =
+            CombinedStatusControlCenterRenderSession.transitionEndpoints
+        private var nativeExpansionProgress =
+            CombinedStatusControlCenterRenderSession.nativeExpansionProgress
 
         private var requestedVisible = false
         private var featureEnabled = RuntimeFeaturePreferencesOwner.currentSettings().enabled
@@ -542,8 +573,13 @@ internal object CombinedStatusControlCenterRenderSession {
             statusBarArea.get()?.addOnLayoutChangeListener(statusAreaLayoutListener)
             carrier.get()?.addOnLayoutChangeListener(carrierLayoutListener)
             renderView.visibility = View.GONE
+            transitionView.visibility = View.GONE
             hostView.overlay.add(renderView)
-            renderController.updateVisualSettings(RuntimeVisualPreferencesOwner.currentSettings())
+            hostView.overlay.add(transitionView)
+            renderController.updateVisualSettings(currentVisualSettings)
+            transitionView.setVisualSettings(currentVisualSettings)
+            transitionView.setEndpoints(transitionEndpoints)
+            transitionView.setNativeProgress(nativeExpansionProgress)
             update(CombinedStatusStateStore.snapshot())
             refreshTint()
             layoutProjection()
@@ -557,6 +593,8 @@ internal object CombinedStatusControlCenterRenderSession {
             statusBarArea.get()?.removeOnLayoutChangeListener(statusAreaLayoutListener)
             carrier.get()?.removeOnLayoutChangeListener(carrierLayoutListener)
             hostView?.overlay?.remove(renderView)
+            hostView?.overlay?.remove(transitionView)
+            SystemUiHomePresentationOwner.setControlCenterTransitionProjectedSlots(emptySet())
             requestedVisible = false
             layoutReady = false
             nativePresentationReady = false
@@ -682,8 +720,11 @@ internal object CombinedStatusControlCenterRenderSession {
         }
 
         fun update(snapshot: CombinedStatusStateStore.Snapshot) {
-            modelReady = renderController.update(snapshot).model != null
+            val result = renderController.update(snapshot)
+            currentModel = result.model
+            modelReady = result.model != null
             refreshTint()
+            syncTransitionState()
             syncPresentation("state")
         }
 
@@ -713,7 +754,25 @@ internal object CombinedStatusControlCenterRenderSession {
         }
 
         fun updateVisualSettings(settings: CombinedStatusVisualSettings) {
+            currentVisualSettings = settings
             renderController.updateVisualSettings(settings)
+            transitionView.setVisualSettings(settings)
+            syncTransitionState()
+        }
+
+        fun setTransitionEndpoints(
+            endpoints: SystemUiPanelTransitionSource.ControlCenterTransitionEndpoints?,
+        ) {
+            transitionEndpoints = endpoints
+            transitionView.setEndpoints(endpoints)
+            refreshTransitionProjectedSlots()
+            syncPresentation("transition-endpoints")
+        }
+
+        fun setNativeExpansionProgress(progress: Float?) {
+            nativeExpansionProgress = progress
+            transitionView.setNativeProgress(progress)
+            syncPresentation("transition-progress")
         }
 
         private fun refreshTint() {
@@ -735,7 +794,10 @@ internal object CombinedStatusControlCenterRenderSession {
                     batteryState,
                     peerTint,
                 )
-            tintReady = renderController.updateTint(resolved).resolved != null
+            val tintUpdate = renderController.updateTint(resolved)
+            currentTint = tintUpdate.resolved
+            tintReady = tintUpdate.resolved != null
+            syncTransitionState()
             syncPresentation("tint:" + source)
         }
 
@@ -792,6 +854,27 @@ internal object CombinedStatusControlCenterRenderSession {
                 anchorRect.bottom,
             )
 
+            if (
+                transitionView.measuredWidth != hostView.width ||
+                transitionView.measuredHeight != hostView.height
+            ) {
+                transitionView.measure(
+                    View.MeasureSpec.makeMeasureSpec(
+                        hostView.width,
+                        View.MeasureSpec.EXACTLY,
+                    ),
+                    View.MeasureSpec.makeMeasureSpec(
+                        hostView.height,
+                        View.MeasureSpec.EXACTLY,
+                    ),
+                )
+            }
+            transitionView.layout(0, 0, hostView.width, hostView.height)
+            transitionView.setCombinedAnchor(anchorRect)
+            transitionView.setEndpoints(transitionEndpoints)
+            transitionView.setNativeProgress(nativeExpansionProgress)
+            refreshTransitionProjectedSlots()
+
             val firstReady = !layoutReady
             layoutReady = true
             syncPresentation("layout")
@@ -811,6 +894,8 @@ internal object CombinedStatusControlCenterRenderSession {
             if (!layoutReady) return
             layoutReady = false
             renderView.visibility = View.GONE
+            transitionView.visibility = View.GONE
+            SystemUiHomePresentationOwner.setControlCenterTransitionProjectedSlots(emptySet())
 
             val hostAttached = host.get()?.isAttachedToWindow == true
             val retainNativePresentation =
@@ -845,14 +930,50 @@ internal object CombinedStatusControlCenterRenderSession {
             )
 
         private fun syncPresentation(source: String) {
+            syncTransitionState()
             applyVisibility()
             dispatchReadiness(source)
         }
 
+        private fun syncTransitionState() {
+            val model = currentModel
+            val tint = currentTint
+            if (model == null || tint == null) {
+                transitionView.clearRenderState()
+                return
+            }
+            transitionView.setRenderState(
+                model = model,
+                colors =
+                    CombinedStatusColorPolicy.resolve(
+                        model = model,
+                        tintState = tint,
+                        visualSettings = currentVisualSettings,
+                    ),
+            )
+        }
+
+        private fun refreshTransitionProjectedSlots() {
+            val slots =
+                if (transitionView.hasUsableEndpoints()) {
+                    transitionView.commonPeerSlots()
+                } else {
+                    emptySet()
+                }
+            SystemUiHomePresentationOwner.setControlCenterTransitionProjectedSlots(slots)
+        }
+
         private fun applyVisibility() {
             val visible = requestedVisible && projectionReady()
-            renderView.visibility = if (visible) View.VISIBLE else View.GONE
-            if (visible) {
+            val transitionVisible = visible && transitionView.hasUsableEndpoints()
+            transitionView.visibility =
+                if (transitionVisible) View.VISIBLE else View.GONE
+            renderView.visibility =
+                if (visible && !transitionVisible) View.VISIBLE else View.GONE
+            if (transitionVisible) {
+                transitionView.invalidate()
+                renderView.clearPendingLatency()
+            } else if (visible) {
                 renderView.invalidate()
             } else {
                 renderView.clearPendingLatency()
@@ -888,6 +1009,8 @@ internal object CombinedStatusControlCenterRenderSession {
             layoutReady = false
             nativePresentationReady = false
             renderView.visibility = View.GONE
+            transitionView.visibility = View.GONE
+            SystemUiHomePresentationOwner.setControlCenterTransitionProjectedSlots(emptySet())
             SystemUiHomePresentationOwner.deactivateControlCenter(
                 "fake-root-detached",
             )
@@ -897,6 +1020,380 @@ internal object CombinedStatusControlCenterRenderSession {
         private inline fun emitEvent(message: () -> String) {
             if (isDetailedDiagnosticsEnabled()) onEvent(message())
         }
+    }
+
+    private class TransitionProjectionView(
+        context: android.content.Context,
+    ) : View(context) {
+        private val painter = CombinedStatusPainter(context)
+        private val combinedAnchor = Rect()
+        private var endpoints: SystemUiPanelTransitionSource.ControlCenterTransitionEndpoints? = null
+        private var nativeProgress: Float? = null
+        private var model: CombinedStatusRenderModel? = null
+        private var colors: CombinedStatusColors? = null
+        private var visualSettings = CombinedStatusVisualSettings()
+
+        init {
+            isClickable = false
+            isFocusable = false
+            importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
+            setWillNotDraw(false)
+        }
+
+        fun setCombinedAnchor(rect: Rect) {
+            if (combinedAnchor == rect) return
+            combinedAnchor.set(rect)
+            invalidate()
+        }
+
+        fun setEndpoints(
+            value: SystemUiPanelTransitionSource.ControlCenterTransitionEndpoints?,
+        ) {
+            if (
+                endpoints?.sourceSystemIcons === value?.sourceSystemIcons &&
+                endpoints?.finalPresentationRoot === value?.finalPresentationRoot
+            ) {
+                return
+            }
+            endpoints = value
+            invalidate()
+        }
+
+        fun setNativeProgress(value: Float?) {
+            if (nativeProgress == value) return
+            nativeProgress = value
+            postInvalidateOnAnimation()
+        }
+
+        fun setRenderState(
+            model: CombinedStatusRenderModel,
+            colors: CombinedStatusColors,
+        ) {
+            this.model = model
+            this.colors = colors
+            invalidate()
+        }
+
+        fun setVisualSettings(settings: CombinedStatusVisualSettings) {
+            visualSettings = settings
+        }
+
+        fun clearRenderState() {
+            model = null
+            colors = null
+            invalidate()
+        }
+
+        fun hasUsableEndpoints(): Boolean =
+            endpoints?.let { value ->
+                value.sourceSystemIcons.isAttachedToWindow &&
+                    value.finalPresentationRoot.isAttachedToWindow &&
+                    finalSystemIcons(value.finalPresentationRoot) != null
+            } == true &&
+                combinedAnchor.width() > 0 &&
+                combinedAnchor.height() > 0
+
+        fun commonPeerSlots(): Set<String> {
+            val value = endpoints ?: return emptySet()
+            val sourceGroup = statusIconGroup(value.sourceSystemIcons) ?: return emptySet()
+            val finalIcons =
+                finalSystemIcons(value.finalPresentationRoot) ?: return emptySet()
+            val targetGroup = statusIconGroup(finalIcons) ?: return emptySet()
+            val source = slotViews(sourceGroup).filterValues(::eligiblePeer)
+            val target = slotViews(targetGroup).filterValues(::eligiblePeer)
+            return source.keys
+                .intersect(target.keys)
+                .filterTo(linkedSetOf()) { slot ->
+                    slot !in SystemUiHomePresentationOwner.representedSlots
+                }
+        }
+
+        override fun onDraw(canvas: Canvas) {
+            super.onDraw(canvas)
+            val value = endpoints ?: return
+            val currentModel = model ?: return
+            val currentColors = colors ?: return
+            val sourceGroup = statusIconGroup(value.sourceSystemIcons) ?: return
+            val finalIcons =
+                finalSystemIcons(value.finalPresentationRoot) ?: return
+            val targetGroup = statusIconGroup(finalIcons) ?: return
+            val progress =
+                ControlCenterTransitionProjectionPolicy.geometryProgress(
+                    nativeProgress ?: 0f,
+                )
+            val sourcePeers = slotViews(sourceGroup)
+            val targetPeers = slotViews(targetGroup)
+
+            commonPeerSlots().forEach { slot ->
+                val source = sourcePeers[slot] ?: return@forEach
+                val target = targetPeers[slot] ?: return@forEach
+                drawProjectedView(
+                    canvas = canvas,
+                    source = source,
+                    sourceRect = localRect(source),
+                    targetRect = localRect(target),
+                    progress = progress,
+                )
+            }
+
+            val sourceCombined = RectF(combinedAnchor)
+            val batteryTarget =
+                finalIcons
+                    .directChildByClass(BATTERY_VIEW_CLASS_NAME)
+                    ?.let(::localRect)
+                    ?: sourceCombined
+            val mobileTarget =
+                targetPeers["mobile"]
+                    ?.let(::mobileSignalTargetRect)
+                    ?: targetPeers["stacked_mobile"]?.let(::mobileSignalTargetRect)
+                    ?: sourceCombined
+            val centerTarget =
+                when (currentModel.centerIndicator) {
+                    is CenterIndicator.Wifi ->
+                        targetPeers["wifi"]?.let(::localRect)
+                    is CenterIndicator.MobileType ->
+                        targetPeers["mobile"]
+                            ?.let(::mobileTypeTargetRect)
+                            ?: targetPeers["stacked_mobile"]?.let(::mobileTypeTargetRect)
+                    CenterIndicator.Airplane ->
+                        targetPeers["airplane"]?.let(::localRect)
+                    is CenterIndicator.NoSim ->
+                        targetPeers["no_sim"]?.let(::localRect)
+                    CenterIndicator.Empty -> null
+                } ?: sourceCombined
+
+            drawCombinedComponent(
+                canvas = canvas,
+                source = sourceCombined,
+                target = batteryTarget,
+                progress = progress,
+                model = currentModel,
+                colors = currentColors,
+                component = CombinedStatusPainter.TransitionComponent.BATTERY,
+            )
+            drawCombinedComponent(
+                canvas = canvas,
+                source = sourceCombined,
+                target = centerTarget,
+                progress = progress,
+                model = currentModel,
+                colors = currentColors,
+                component = CombinedStatusPainter.TransitionComponent.CENTER,
+            )
+            drawCombinedComponent(
+                canvas = canvas,
+                source = sourceCombined,
+                target = mobileTarget,
+                progress = progress,
+                model = currentModel,
+                colors = currentColors,
+                component = CombinedStatusPainter.TransitionComponent.MOBILE,
+            )
+        }
+
+        private fun drawCombinedComponent(
+            canvas: Canvas,
+            source: RectF,
+            target: RectF,
+            progress: Float,
+            model: CombinedStatusRenderModel,
+            colors: CombinedStatusColors,
+            component: CombinedStatusPainter.TransitionComponent,
+        ) {
+            val rect =
+                ControlCenterTransitionProjectionPolicy.interpolate(
+                    source = source,
+                    target = target,
+                    progress = progress,
+                )
+            if (rect.width() <= 0f || rect.height() <= 0f) return
+            val save = canvas.save()
+            canvas.translate(rect.left, rect.top)
+            painter.drawTransitionComponent(
+                canvas = canvas,
+                width = rect.width().toInt().coerceAtLeast(1),
+                height = rect.height().toInt().coerceAtLeast(1),
+                model = model,
+                colors = colors,
+                component = component,
+            )
+            canvas.restoreToCount(save)
+        }
+
+        private fun drawProjectedView(
+            canvas: Canvas,
+            source: View,
+            sourceRect: RectF,
+            targetRect: RectF,
+            progress: Float,
+        ) {
+            if (
+                source.width <= 0 ||
+                source.height <= 0 ||
+                sourceRect.width() <= 0f ||
+                sourceRect.height() <= 0f ||
+                targetRect.width() <= 0f ||
+                targetRect.height() <= 0f
+            ) {
+                return
+            }
+            val rect =
+                ControlCenterTransitionProjectionPolicy.interpolate(
+                    source = sourceRect,
+                    target = targetRect,
+                    progress = progress,
+                )
+            val save = canvas.save()
+            canvas.translate(rect.left, rect.top)
+            canvas.scale(
+                rect.width() / source.width.toFloat(),
+                rect.height() / source.height.toFloat(),
+            )
+            source.draw(canvas)
+            canvas.restoreToCount(save)
+        }
+
+        private fun localRect(view: View): RectF {
+            val hostLocation = IntArray(2)
+            val viewLocation = IntArray(2)
+            getLocationOnScreen(hostLocation)
+            view.getLocationOnScreen(viewLocation)
+            val left = (viewLocation[0] - hostLocation[0]).toFloat()
+            val top = (viewLocation[1] - hostLocation[1]).toFloat()
+            return RectF(
+                left,
+                top,
+                left + view.width,
+                top + view.height,
+            )
+        }
+
+        private fun mobileTypeTargetRect(view: View): RectF {
+            val textCandidate =
+                view.descendants()
+                    .firstOrNull { candidate ->
+                        candidate is android.widget.TextView &&
+                            candidate.width > 0 &&
+                            candidate.height > 0 &&
+                            candidate.visibility == View.VISIBLE &&
+                            candidate.text.isNotBlank()
+                    }
+            return textCandidate?.let(::localRect) ?: localRect(view)
+        }
+
+        private fun mobileSignalTargetRect(view: View): RectF {
+            val nonText =
+                view.descendants()
+                    .filter { candidate ->
+                        candidate !is android.widget.TextView &&
+                            candidate.width > 0 &&
+                            candidate.height > 0 &&
+                            candidate.visibility == View.VISIBLE
+                    }
+                    .maxByOrNull { candidate -> candidate.width * candidate.height }
+            return nonText?.let(::localRect) ?: localRect(view)
+        }
+
+        private fun finalSystemIcons(root: ViewGroup): ViewGroup? =
+            root.uniqueDescendantByClass(BATTERY_CONTAINER_CLASS_NAME)
+
+        private fun statusIconGroup(systemIcons: ViewGroup): ViewGroup? =
+            systemIcons.directChildByClass(STATUS_ICON_CONTAINER_CLASS_NAME) as? ViewGroup
+
+        private fun slotViews(group: ViewGroup): Map<String, View> =
+            buildMap {
+                for (index in 0 until group.childCount) {
+                    val child = group.getChildAt(index)
+                    val slot = NativeParticipantRuntimeAccess.slotOf(child) ?: continue
+                    put(slot, child)
+                }
+            }
+
+        private fun eligiblePeer(view: View): Boolean =
+            view.width > 0 &&
+                view.height > 0 &&
+                NativeParticipantRuntimeAccess.iconVisible(view) != false
+
+        private fun View.descendants(): Sequence<View> =
+            sequence {
+                if (this@descendants is ViewGroup) {
+                    val queue = ArrayDeque<ViewGroup>()
+                    queue.add(this@descendants)
+                    while (queue.isNotEmpty()) {
+                        val group = queue.removeFirst()
+                        for (index in 0 until group.childCount) {
+                            val child = group.getChildAt(index)
+                            yield(child)
+                            if (child is ViewGroup) queue.add(child)
+                        }
+                    }
+                }
+            }
+
+        private fun ViewGroup.directChildByClass(className: String): View? {
+            for (index in 0 until childCount) {
+                val child = getChildAt(index)
+                if (child.javaClass.name == className) return child
+            }
+            return null
+        }
+
+        private fun ViewGroup.uniqueDescendantByClass(className: String): ViewGroup? {
+            var found: ViewGroup? = null
+            val queue = ArrayDeque<ViewGroup>()
+            queue.add(this)
+            while (queue.isNotEmpty()) {
+                val parent = queue.removeFirst()
+                for (index in 0 until parent.childCount) {
+                    val child = parent.getChildAt(index)
+                    if (child is ViewGroup) {
+                        if (child.javaClass.name == className) {
+                            if (found != null && found !== child) return null
+                            found = child
+                        }
+                        queue.add(child)
+                    }
+                }
+            }
+            return found
+        }
+
+        private companion object {
+            const val BATTERY_CONTAINER_CLASS_NAME =
+                "com.android.systemui.statusbar.views.MiuiStatusBatteryContainer"
+            const val STATUS_ICON_CONTAINER_CLASS_NAME =
+                "com.android.systemui.statusbar.views.MiuiStatusIconContainer"
+            const val BATTERY_VIEW_CLASS_NAME =
+                "com.android.systemui.statusbar.views.MiuiBatteryMeterView"
+        }
+    }
+
+    internal object ControlCenterTransitionProjectionPolicy {
+        fun geometryProgress(nativeProgress: Float): Float =
+            nativeProgress
+                .takeIf(Float::isFinite)
+                ?.coerceIn(0f, 1f)
+                ?: 0f
+
+        fun interpolate(
+            source: RectF,
+            target: RectF,
+            progress: Float,
+        ): RectF {
+            val p = geometryProgress(progress)
+            return RectF(
+                lerp(source.left, target.left, p),
+                lerp(source.top, target.top, p),
+                lerp(source.right, target.right, p),
+                lerp(source.bottom, target.bottom, p),
+            )
+        }
+
+        private fun lerp(
+            start: Float,
+            end: Float,
+            progress: Float,
+        ): Float = start + (end - start) * progress
     }
 
     private fun ViewGroup.directChild(className: String): View? {
