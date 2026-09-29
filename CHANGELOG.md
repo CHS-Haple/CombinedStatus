@@ -31,6 +31,8 @@ The project follows a Keep a Changelog-style structure. During pre-release devel
 
 ### Changed
 
+- Unified Preview Sandbox segmented controls to one balanced 300 dp maximum width so hierarchy is conveyed by labels and spacing rather than different control sizes.
+
 - Restored MIUIX-native spacing ownership in Preview Sandbox, introduced compact hierarchical width caps for segmented controls with equal same-level distribution, and renamed the diagnostics framework display to `Modern Xposed API 102`.
 
 - Optically normalized Diagnostics leading icons across level/export/share using MIUIX Normal-weight symbols in a shared slot, and lowered the Home runtime status mark slightly to improve spacing below the master Switch.
