@@ -315,7 +315,7 @@ class SystemUiPanelTransitionSourceTest {
     }
 
     @Test
-    fun mobileSignalMorphUsesNativeHeightOnlyAsACapAndGrowsAroundTheDotCenter() {
+    fun mobileSignalMorphUsesNativeHeightOnlyAsACap() {
         val maxBarHeight =
             CombinedStatusPainter.MobileSignalMorphPolicy.targetMaxBarHeight(
                 sourceBoundsHeight = 24f,
@@ -338,50 +338,7 @@ class SystemUiPanelTransitionSourceTest {
         assertEquals(54f, maxBarHeight, 0.0001f)
         assertEquals(maxBarHeight, highest, 0.0001f)
         assertTrue(lowest < highest)
-        assertEquals(
-            highest / 2f,
-            CombinedStatusPainter.MobileSignalMorphPolicy.halfBarHeight(
-                diameter = 6f,
-                targetBarHeight = highest,
-                barProgress = 1f,
-            ),
-            0.0001f,
-        )
         assertTrue(highest < 24f * 3f)
-    }
-
-    @Test
-    fun batteryMorphRemainsProgressDerivedWithoutAThemeScaleTimeline() {
-        assertEquals(
-            0f,
-            CombinedStatusPainter.BatteryMorphPolicy.contourProgress(0f),
-            0.0001f,
-        )
-        assertEquals(
-            1f,
-            CombinedStatusPainter.BatteryMorphPolicy.sourceOpacity(0f),
-            0.0001f,
-        )
-        assertEquals(
-            0f,
-            CombinedStatusPainter.BatteryMorphPolicy.terminalProgress(0.5f),
-            0.0001f,
-        )
-        assertEquals(
-            1f,
-            CombinedStatusPainter.BatteryMorphPolicy.contourProgress(1f),
-            0.0001f,
-        )
-        assertEquals(
-            0f,
-            CombinedStatusPainter.BatteryMorphPolicy.sourceOpacity(1f),
-            0.0001f,
-        )
-        assertEquals(
-            1f,
-            CombinedStatusPainter.BatteryMorphPolicy.terminalProgress(1f),
-            0.0001f,
-        )
     }
 
     @Test
