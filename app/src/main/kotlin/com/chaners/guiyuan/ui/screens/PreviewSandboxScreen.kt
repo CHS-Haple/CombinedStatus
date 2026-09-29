@@ -173,7 +173,7 @@ internal fun PreviewSandboxScreen(
                             color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
                         )
                         SandboxDivider(
-                            modifier = Modifier.padding(top = 11.dp),
+                            modifier = Modifier.padding(top = 10.dp, bottom = 4.dp),
                         )
                         Box(
                             modifier =
@@ -187,7 +187,9 @@ internal fun PreviewSandboxScreen(
                                 modifier = Modifier.size(120.dp),
                             )
                         }
-                        SandboxDivider()
+                        SandboxDivider(
+                            modifier = Modifier.padding(bottom = 4.dp),
+                        )
                         PreviewStatusLine(
                             label = stringResource(R.string.home_preview_section_network),
                             value = previewNetworkSummary(state),
@@ -282,7 +284,7 @@ internal fun PreviewSandboxScreen(
                         }
 
                         SandboxDivider(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
                         )
                         SandboxSegmentedField(
                             title = stringResource(R.string.home_preview_sim_title),
@@ -324,7 +326,7 @@ internal fun PreviewSandboxScreen(
                             valueRange = 0f..100f,
                         )
                         SandboxDivider(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
                         )
                         SandboxSegmentedField(
                             title = stringResource(R.string.home_preview_battery_mode_title),
@@ -360,7 +362,7 @@ private fun SandboxDivider(
             modifier
                 .fillMaxWidth()
                 .height(1.dp)
-                .background(MiuixTheme.colorScheme.outline.copy(alpha = 0.12f)),
+                .background(MiuixTheme.colorScheme.onSurfaceContainerVariant.copy(alpha = 0.20f)),
     )
 }
 
