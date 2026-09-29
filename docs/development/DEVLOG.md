@@ -11142,3 +11142,65 @@ Build 473 is therefore the accepted combined `dev` baseline for this visual roun
 The separate transition-animation PR #174 remains outside this closure. Because it still descends from the pre-472/473 `dev` base and also edits `CombinedStatusPainter`, it must synchronize onto current `dev` and preserve the accepted Wi-Fi optical-reference path before any later integration.
 
 This closure is documentation-only and does not create a new Build.
+
+---
+
+## 2026-09-29 — Build 473 promotion to main
+
+**Type:** stable-baseline promotion closure
+**Display version:** 0.0.3
+**Build:** 473 / `20260929-473`
+**Promotion PR:** #176
+**Promotion merge:** `7db7159a340642564bb389519da362f756f7a884`
+**Runtime behavior change in this closure:** none beyond the already accepted Build-472/473 executable state
+
+### Promotion readiness
+
+After Build 473 integrated into `dev`, the first readiness check correctly blocked promotion because `validation/dev` still pointed to an older validated runtime baseline.
+
+The validation marker was advanced to the genuinely device-tested Build-473 runtime commit `8feb0d51a4974442f6683d4550608739986d87a2`, not to a later documentation commit.
+
+- `validation/dev` Build #1792: success;
+- promotion-readiness #143: `READY: dev is CI-green and device-validated`;
+- the marker-to-current-dev delta contained only documentation closure, so readiness legitimately carried device validation across a non-runtime delta.
+
+### Promotion
+
+A dedicated `promote/build-473` branch was created from exact READY `dev@a701445430602cf636323ed551a60c1ecc62a09f`.
+
+Promotion PR #176:
+- was 0-behind `main`;
+- contained no promotion-only file changes;
+- passed promotion Build #1793;
+- merged to `main` using the required merge-commit strategy.
+
+Resulting stable merge commit:
+`7db7159a340642564bb389519da362f756f7a884`.
+
+### Post-merge validation
+
+Post-merge `main` Build #1794 passed:
+- Gradle wrapper and Android API 37 setup;
+- pinned HyperOS target profile verification;
+- tests/build;
+- Modern Xposed metadata verification;
+- Haple signing and signature verification;
+- non-debuggable Canary verification;
+- APK preparation/upload and validation summary.
+
+Main-push CodeQL #82 also passed both Python and Actions analysis jobs.
+
+### Branch-history closure
+
+After post-merge validation, `main` was exactly one merge commit ahead of `dev` with **zero file differences**. `dev` was therefore fast-forwarded to the same promotion merge commit instead of creating a duplicate synchronization commit.
+
+Build 473 is now the stable and development baseline. This documentation closure records that fact only; it does not increment `versionCode` / `buildId` and does not create a new runtime checkpoint.
+
+### 审查 / review
+
+- **Promotion source:** exact READY `dev`; no cherry-pick or reconstructed source.
+- **Device evidence:** retained from the actual accepted Build-472/473 runtime checkpoints, not fabricated from documentation HEAD.
+- **Stable merge strategy:** merge commit, preserving the promotion boundary.
+- **Post-merge verification:** successful on `main`.
+- **History synchronization:** fast-forward only; no duplicate content commit.
+- **Next runtime risk:** PR #174 remains diverged and must synchronize before it can modify the shared Painter on top of Build 473.

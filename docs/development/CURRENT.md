@@ -18,33 +18,30 @@ This file is the concise recovery point for active Guiyuan development. Read it 
 
 ### Stable product baseline
 
-**Build 466 / `20260929-466`** is the current device-accepted and `main`-promoted Guiyuan 0.0.3 product baseline.
+**Build 473 / `20260929-473`** is the current device-accepted and `main`-promoted Guiyuan 0.0.3 product baseline.
 
-- Identity migration PR #168 was integrated into `dev` as `83cfd4d4be139dd3ec9cac870a8450a6dce09d08`.
-- Exact-head Full #1690 and signed Work Branch Canary #492 passed before integration; the Build 466 package/module identity was accepted on device.
-- Post-merge `dev` Integration #1693 passed target-profile verification, tests/build, Modern Xposed metadata, Haple signing/signature verification, non-debuggable Canary verification, and artifact upload.
-- The canonical repository is now `CHS-Haple/Guiyuan`; repository history, branches, PRs and Actions history were retained through the rename.
-- Promotion branch and `dev` were identical at `8fca6f0e450da0231efd9be302b1893bab6d391e`.
-- Ready-state promotion Build #1707 passed; PR #170 merged to `main` as `be3cc0ae872b328d0a41d49a2599ec53950f3476`.
-- Post-merge main Full #1708 passed the stable validation surface, including signing/signature verification and artifact upload.
-- Existing `CombinedStatus*` implementation class/object names remain intentional internal identifiers; they are not a second public product identity.
+- Build 472 companion-app presentation/Sandbox work was accepted on device after exact-head Fast #1778 and signed Canary #506, then integrated by PR #173.
+- Build 473 Wi-Fi optical normalization was accepted on device after exact-head Fast #1782 and signed Canary #509, then integrated by PR #175.
+- The synchronized Build-473 integration passed exact-head Fast #1788 and post-merge `dev` Integration #1789.
+- `validation/dev` was advanced to the genuinely device-validated runtime commit `8feb0d51a4974442f6683d4550608739986d87a2`; Build #1792 passed and promotion-readiness #143 reported `READY: dev is CI-green and device-validated`, carrying validation only across the later documentation-only delta.
+- Promotion PR #176 used exact READY `dev@a701445430602cf636323ed551a60c1ecc62a09f`; promotion Build #1793 passed.
+- PR #176 merged to `main` with the required merge commit `7db7159a340642564bb389519da362f756f7a884`.
+- Post-merge `main` Build #1794 passed target-profile verification, build/tests, Modern Xposed metadata, Haple signing/signature verification, non-debuggable Canary verification and artifact upload.
+- Main-push CodeQL run #82 passed both Python and Actions analysis jobs.
+- `dev` was fast-forwarded to the same promotion merge commit so stable and integration history remain aligned without a duplicate synchronization commit.
+- This documentation closure does not create a new runtime Build or alter the APK.
 
-### Accepted lineage inside Build 466
+### Accepted lineage inherited from Build 466
 
 - **SystemUI runtime behavior:** Build 456 / `20260929-456`, integrated by PR #163 as `d70b416ba531651c6690027b7404b1854fdb3056`. Device validation accepts Home, Keyguard, AOD-native gating, QS_FAKE transition ownership, session-scoped native ignored-slot ownership, Hot Reload continuity, and cleanup restoration on the pinned target.
 - **App icon:** Build 452, integrated by PR #166 as `44b10371e0709d155468f7f2e67307fde5f11ab2`. The Guiyuan mark uses the accepted rotationally symmetric adaptive-icon geometry.
 - **Companion app:** Build 464, integrated through PR #165 as `a2394db92ce208771956defcd558c954065000f7`; Build 465 advanced the integrated display line to 0.0.3. Home Runtime Status, production-rendered Preview Sandbox, Features hierarchy, Diagnostics action styling, and MIUIX-aligned Sandbox controls are part of the accepted baseline.
 
-### Current dev baseline
+### Build 472-473 additions in the stable baseline
 
-**Build 473 / `20260929-473`** is the current accepted `dev` development baseline. The executable integration commit is `8feb0d51a4974442f6683d4550608739986d87a2`.
-
-Accepted lineage:
-- **Build 472 / PR #173:** Preview Sandbox setting structure now uses MIUIX `BasicComponent` / native preference title ownership with moderate spacing, while the Diagnostics Guiyuan identity is drawn directly at final vector size before rotation. Exact-head Fast #1778 and signed Canary #506 passed; maintainer device review accepted the result. PR #173 was squash-integrated as `d24fd7aff07abf78a0a5828fc2e667a88dd05720`, and post-merge `dev` Integration #1786 passed.
-- **Build 473 / PR #175:** connected, no-Internet and hotspot native Wi-Fi variants use the same-level connected Wi-Fi drawable as the optical-fit reference, preserving each HyperOS drawable's authored viewport/badge relationship. Original device-tested source `f918663bbd53549089dff0d8a52387b00d6e09b7` passed exact-head Fast #1782 and signed Canary #509 and was accepted on device.
-- PR #175 was synchronized onto the accepted Build-472 `dev` baseline without changing either accepted executable behavior. Synchronized exact-head Fast #1788 passed, PR #175 was squash-integrated as `8feb0d51a4974442f6683d4550608739986d87a2`, and post-merge `dev` Integration #1789 passed the full integrated gate including Haple signing, non-debuggable Canary verification, and artifact upload.
-
-Build 473 adds no Wi-Fi semantic source, Hook, observer, listener, transition owner, copied drawable, or per-state scale constant. The shared `CombinedStatusPainter` remains the single renderer used by Preview Sandbox and real Guiyuan SystemUI presentation.
+- **Build 472 / PR #173:** Preview Sandbox setting structure uses MIUIX `BasicComponent` / native preference title ownership with moderate spacing; the Diagnostics Guiyuan identity is drawn directly at final vector size before rotation. Fast #1778, signed Canary #506 and maintainer device review accepted the result.
+- **Build 473 / PR #175:** connected, no-Internet and hotspot native Wi-Fi variants use the same-level connected Wi-Fi drawable as the optical-fit reference while preserving each HyperOS drawable's authored viewport/badge relationship. Fast #1782, signed Canary #509 and maintainer device review accepted the result.
+- Build 473 adds no Wi-Fi semantic source, Hook, observer, listener, transition owner, copied drawable, or per-state scale constant. `CombinedStatusPainter` remains the single shared renderer used by Preview Sandbox and real Guiyuan SystemUI presentation.
 
 ## Current phase
 
@@ -86,21 +83,27 @@ Keyguard uses a separate host/session adapter while sharing domain/render semant
 
 ## Validation state
 
-There is no open device-blocking defect on the current accepted Build-473 `dev` baseline or on the promoted Build-466 `main` baseline.
+There is no open device-blocking defect on the current Build-473 stable/development baseline.
 
-Accepted current-development evidence includes:
+Accepted promotion evidence includes:
 - Build 472 companion-app presentation: Fast #1778, signed Canary #506, maintainer device acceptance, post-merge `dev` Integration #1786;
 - Build 473 Wi-Fi optical normalization: Fast #1782, signed Canary #509, maintainer device acceptance;
-- synchronized Build-473 integration: exact-head Fast #1788 and post-merge `dev` Integration #1789 on `8feb0d51a4974442f6683d4550608739986d87a2`.
+- synchronized Build-473 integration: Fast #1788 and post-merge `dev` Integration #1789;
+- validation marker Build #1792 plus promotion-readiness #143 = READY;
+- promotion PR #176 / Build #1793 = success;
+- `main` promotion merge `7db7159a340642564bb389519da362f756f7a884`;
+- post-merge `main` Build #1794 = success;
+- main-push CodeQL #82: Python and Actions analysis both successful.
 
-Stable Build-466 evidence remains Full #1690, Canary #492, `dev` Integration #1693, promotion Build #1707, and post-merge `main` Full #1708.
+Build 466 remains the prior stable checkpoint and its evidence is historical, not the current stable baseline.
 
 Historical rejected/superseded Builds and hypotheses remain in `DEVLOG.md`; do not restore them from old branches or chats.
 
 ## Active branch boundary
 
-- The Build-472 presentation line and Build-473 Wi-Fi optical line are closed and integrated into `dev`.
-- The separate transition-animation PR #174 / `feat/control-center-transition-projection` remains open. Relative to current `dev@8feb0d51a4974442f6683d4550608739986d87a2`, it is 23 commits ahead and 2 commits behind and therefore diverged.
+- The Build-472 presentation line and Build-473 Wi-Fi optical line are closed, promoted, and part of the current stable/development baseline.
+- `main` and `dev` share the Build-473 promotion history; the documentation closure is text-only and must remain synchronized between both branches.
+- The separate transition-animation PR #174 / `feat/control-center-transition-projection` remains open. Relative to the Build-473 promotion baseline it is 23 commits ahead and 5 commits behind and therefore diverged.
 - PR #174 also changes `CombinedStatusPainter`; before any transition-line integration, it must synchronize with current `dev` and preserve the accepted Build-473 Wi-Fi optical-reference behavior rather than overwriting the renderer with its older base.
 - Pre-promotion historical branches remain invalid continuation bases.
 
@@ -117,7 +120,7 @@ Historical rejected/superseded Builds and hypotheses remain in `DEVLOG.md`; do n
 
 ## Immediate next step
 
-1. Treat Build 473 / `dev@8feb0d51a4974442f6683d4550608739986d87a2` as the accepted executable development baseline for subsequent work.
+1. Treat Build 473 / the synchronized `main` + `dev` stable history as the accepted executable baseline for subsequent work.
 2. Synchronize the separate Control Center transition-animation PR #174 onto current `dev` before further integration, explicitly reviewing its `CombinedStatusPainter` overlap against the accepted Wi-Fi optical-reference path.
 3. Continue transition-animation adaptation without reopening the closed Build-472 companion UI or Build-473 Wi-Fi optical decisions unless new device evidence contradicts them.
 4. Keep 1.0.0 gated by the release-qualification matrix and explicit maintainer authorization.
