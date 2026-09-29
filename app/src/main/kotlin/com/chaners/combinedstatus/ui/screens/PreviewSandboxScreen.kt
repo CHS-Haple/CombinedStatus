@@ -231,7 +231,7 @@ internal fun PreviewSandboxScreen(
                                     onSelected = { index ->
                                         onMobileNetworkChange(PreviewMobileNetwork.entries[index])
                                     },
-                                    modifier = Modifier.padding(top = 8.dp),
+                                    modifier = Modifier.padding(top = 5.dp),
                                 )
                                 SliderPreference(
                                     value = state.mobileSignalLevel.toFloat(),
@@ -330,7 +330,7 @@ internal fun PreviewSandboxScreen(
                             onSelected = { index ->
                                 onBatteryModeChange(PreviewBatteryMode.entries[index])
                             },
-                            modifier = Modifier.padding(top = 2.dp),
+                            modifier = Modifier.padding(top = 4.dp),
                         )
                         SandboxSegmentedField(
                             title = stringResource(R.string.home_preview_charging_state_title),
@@ -361,7 +361,7 @@ private fun SandboxSegmentedField(
         modifier =
             modifier
                 .fillMaxWidth()
-                .padding(horizontal = 18.dp, vertical = 6.dp),
+                .padding(horizontal = 18.dp),
     ) {
         Text(
             text = title,
