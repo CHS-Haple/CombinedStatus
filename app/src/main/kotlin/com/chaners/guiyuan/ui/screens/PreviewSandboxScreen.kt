@@ -399,8 +399,8 @@ private fun SandboxSliderLabel(
         Text(
             text = title,
             modifier = Modifier.weight(1f),
-            style = MiuixTheme.textStyles.body1,
-            color = MiuixTheme.colorScheme.onSurfaceContainer,
+            style = MiuixTheme.textStyles.body2,
+            color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
         )
         Text(
             text = value,
@@ -427,8 +427,8 @@ private fun SandboxSegmentedField(
     ) {
         Text(
             text = title,
-            style = MiuixTheme.textStyles.body1,
-            color = MiuixTheme.colorScheme.onSurfaceContainer,
+            style = MiuixTheme.textStyles.body2,
+            color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
         )
         TabRowWithContour(
             tabs = options,
