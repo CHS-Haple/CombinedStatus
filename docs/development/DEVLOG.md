@@ -10718,6 +10718,8 @@ Compact occupancy and transition visual correspondence are separate responsibili
 5. Reuse `CombinedStatusPainter` for Guiyuan itself and draw Battery / center / mobile as separate components toward native Battery / Wi-Fi-or-mobile / mobile targets. No screenshot slicing or duplicate icon assets are introduced.
 6. Keep compact ignored-slot layout unchanged. Native fake peer Views represented by the transition overlay are hidden only through the existing reversible `clipBounds` owner; native translation/alpha/visibility remain untouched.
 7. Use raw finite native expansion progress, clamped to [0,1], as the baseline projection timeline. No new `ValueAnimator`, timer, delay, polling loop, gesture state machine or replacement fake/final fade is introduced.
+8. Derive final-QS endpoint coordinates by removing the final status-bar root's current native translation before interpolation. This avoids applying the same SystemUI root motion once through the live final View position and a second time through Guiyuan's progress interpolation.
+9. Preserve repeated-slot topology: native peers are projected/masked only when source, QS_FAKE and final-QS expose the same non-zero participant count for that slot. Incomplete mappings fail native instead of dropping a second SIM/stacked participant.
 
 ### Review
 
