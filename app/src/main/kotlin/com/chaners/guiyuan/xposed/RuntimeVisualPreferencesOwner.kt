@@ -1,9 +1,9 @@
-package com.chaners.combinedstatus.xposed
+package com.chaners.guiyuan.xposed
 
 import android.content.SharedPreferences
-import com.chaners.combinedstatus.settings.CENTER_FOLLOWS_BATTERY_COLOR_KEY
-import com.chaners.combinedstatus.settings.CombinedStatusVisualSettings
-import com.chaners.combinedstatus.settings.MOBILE_FOLLOWS_BATTERY_COLOR_KEY
+import com.chaners.guiyuan.settings.CENTER_FOLLOWS_BATTERY_COLOR_KEY
+import com.chaners.guiyuan.settings.CombinedStatusVisualSettings
+import com.chaners.guiyuan.settings.MOBILE_FOLLOWS_BATTERY_COLOR_KEY
 
 internal object RuntimeVisualPreferencesOwner {
     @Volatile
