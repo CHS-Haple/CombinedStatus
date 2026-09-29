@@ -238,24 +238,15 @@ private fun HomeRuntimeStatusCard(
                         stringResource(
                             R.string.home_version_line,
                             BuildConfig.VERSION_NAME,
+                            BuildConfig.BUILD_ID.substringAfterLast('-'),
                         ),
                     modifier = Modifier.padding(top = 4.dp),
-                    style = MiuixTheme.textStyles.body2,
-                    color = MiuixTheme.colorScheme.onSurfaceContainer,
-                )
-                Text(
-                    text =
-                        stringResource(
-                            R.string.home_build_line,
-                            BuildConfig.BUILD_ID,
-                        ),
-                    modifier = Modifier.padding(top = 1.dp),
                     style = MiuixTheme.textStyles.body2,
                     color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
                 )
                 Text(
                     text = stringResource(state.summaryRes),
-                    modifier = Modifier.padding(top = 12.dp),
+                    modifier = Modifier.padding(top = 18.dp),
                     style = MiuixTheme.textStyles.body2,
                     color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
                     maxLines = 2,
@@ -470,7 +461,7 @@ private fun resolveHomeRuntimeCardState(
     }
 }
 
-private val RuntimeCardHeight = 160.dp
+private val RuntimeCardHeight = 144.dp
 private val RuntimeStatusMarkSize = 88.dp
 private val RuntimeSuccessAccent = Color(0xFF36D167)
 private val RuntimeWarningAccent = Color(0xFFFFA500)

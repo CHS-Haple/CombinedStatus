@@ -3,6 +3,40 @@
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
 
+## 2026-09-29 — Build 454: Compact runtime identity follow-up
+
+**Type:** companion-app Home UI refinement
+**Display version:** 0.0.2
+**Build / source:** 454 / `20260929-454` / `feat/home-ui-shell`
+**SystemUI runtime change:** none
+
+### Maintainer feedback / objective
+
+Build 453 implemented the requested heavier status mark, clean single-path check, compact Home Sandbox entry, secondary Preview Sandbox and proportional 5G preview scaling. Before device handoff, review against the maintainer's original screenshot feedback found one remaining mismatch: the Runtime card still exposed the full date-prefixed build on a separate line and retained more vertical space than the now-reduced content needed.
+
+### Implementation
+
+- Collapse product identity to one low-emphasis line: `0.0.2 · 454`.
+- Keep the full `20260929-454` identity in diagnostics/build artifacts and engineering records rather than the Home overview.
+- Reduce the still-fixed Runtime card height from 160 dp to 144 dp; state changes cannot resize the card.
+- Keep Build-453 semantic background strength, status-mark size/strokes/contrast, Xposed runtime-state authority, secondary Sandbox controls and preview-only 5G scaling unchanged.
+
+### 审查 / review
+
+- **Information hierarchy:** Home keeps human-scale product identity while Diagnostics retains exact build metadata.
+- **Fixed geometry:** 144 dp remains state-invariant; this is not content-driven sizing.
+- **Status visual:** no background tint changes; only the already accepted heavier ring/symbol treatment remains.
+- **Runtime boundary:** no SystemUI/Xposed Hook, host, scene, suppression or render-state ownership changes.
+- **Preview boundary:** second-level Sandbox and proportional mobile-type preview path are unchanged from Build 453.
+
+### Validation
+
+Exact-head Fast and signed Canary required because the Runtime card geometry and visible build identity change.
+
+### Outcome / next step
+
+Pending CI and focused device review.
+
 ## 2026-09-29 — Build 453: Home status polish and secondary Preview Sandbox
 
 **Type:** companion-app Home UI / preview architecture refinement
