@@ -184,15 +184,15 @@ jobs:
           VERSION_NAME="$(sed -n 's/^combinedStatus.versionName=//p' gradle.properties)"
           BUILD_ID="$(sed -n 's/^combinedStatus.buildId=//p' gradle.properties)"
           mkdir -p dist
-          APK_NAME="CombinedStatus-${VERSION_NAME}-HyperOS-${BUILD_ID}-release.apk"
+          APK_NAME="Guiyuan-${VERSION_NAME}-HyperOS-${BUILD_ID}-release.apk"
           cp app/build/outputs/apk/release/app-release.apk "dist/$APK_NAME"
 
           if [[ "${{ inputs.channel }}" == "stable" ]]; then
             RELEASE_TAG="v$VERSION_NAME"
-            RELEASE_TITLE="Combined Status $VERSION_NAME"
+            RELEASE_TITLE="Guiyuan $VERSION_NAME"
           else
             RELEASE_TAG="build-${BUILD_ID}-ci${GITHUB_RUN_NUMBER}"
-            RELEASE_TITLE="Combined Status $VERSION_NAME ($BUILD_ID)"
+            RELEASE_TITLE="Guiyuan $VERSION_NAME ($BUILD_ID)"
           fi
 
           echo "VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
