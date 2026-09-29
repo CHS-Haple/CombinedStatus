@@ -219,6 +219,36 @@ internal class CombinedStatusPainter(
         canvas.restoreToCount(save)
     }
 
+    internal object MobileSignalMorphPolicy {
+        fun rowProgress(shapeProgress: Float): Float =
+            smoothPhase(
+                value = shapeProgress,
+                start = 0f,
+                end = 0.5f,
+            )
+
+        fun barProgress(shapeProgress: Float): Float =
+            smoothPhase(
+                value = shapeProgress,
+                start = 0.5f,
+                end = 1f,
+            )
+
+        private fun smoothPhase(
+            value: Float,
+            start: Float,
+            end: Float,
+        ): Float {
+            val normalized =
+                if (!value.isFinite() || end <= start) {
+                    0f
+                } else {
+                    ((value - start) / (end - start)).coerceIn(0f, 1f)
+                }
+            return normalized * normalized * (3f - 2f * normalized)
+        }
+    }
+
     internal enum class TransitionComponent {
         BATTERY,
         CENTER,
@@ -1372,15 +1402,17 @@ internal class CombinedStatusPainter(
         @Suppress("UNUSED_VARIABLE")
         val motion = motionProgress.coerceIn(0f, 1f)
         val shape = shapeProgress.coerceIn(0f, 1f)
+        val rowProgress = MobileSignalMorphPolicy.rowProgress(shape)
+        val barProgress = MobileSignalMorphPolicy.barProgress(shape)
         val diameter = geometry.mobileDotRadius * 2f
         val level = model.mobileLevel
 
         for (index in 0 until MOBILE_DOT_COUNT) {
             val source = layout.sourceCenters[index]
             val target = layout.targetCenters[index]
-            val centerX = lerp(source.x, target.x, shape)
-            val centerY = lerp(source.y, target.y, shape)
-            val barHeight = lerp(diameter, layout.barHeights[index], shape)
+            val centerX = lerp(source.x, target.x, rowProgress)
+            val centerY = lerp(source.y, target.y, rowProgress)
+            val barHeight = lerp(diameter, layout.barHeights[index], barProgress)
             val bottom = centerY + geometry.mobileDotRadius
             fill(
                 color = tint,

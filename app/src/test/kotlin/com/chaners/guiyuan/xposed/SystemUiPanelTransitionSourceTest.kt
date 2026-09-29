@@ -271,6 +271,49 @@ class SystemUiPanelTransitionSourceTest {
     }
 
     @Test
+    fun mobileSignalMorphRowsDotsBeforeGrowingBars() {
+        assertEquals(
+            0f,
+            CombinedStatusPainter.MobileSignalMorphPolicy.rowProgress(0f),
+            0.0001f,
+        )
+        assertEquals(
+            1f,
+            CombinedStatusPainter.MobileSignalMorphPolicy.rowProgress(0.5f),
+            0.0001f,
+        )
+        assertEquals(
+            0f,
+            CombinedStatusPainter.MobileSignalMorphPolicy.barProgress(0.5f),
+            0.0001f,
+        )
+        assertEquals(
+            1f,
+            CombinedStatusPainter.MobileSignalMorphPolicy.barProgress(1f),
+            0.0001f,
+        )
+    }
+
+    @Test
+    fun mobileSignalMorphKeepsBarGrowthOutUntilRowPhaseCompletes() {
+        assertEquals(
+            0f,
+            CombinedStatusPainter.MobileSignalMorphPolicy.barProgress(0.25f),
+            0.0001f,
+        )
+        assertEquals(
+            0.5f,
+            CombinedStatusPainter.MobileSignalMorphPolicy.rowProgress(0.25f),
+            0.0001f,
+        )
+        assertEquals(
+            0.5f,
+            CombinedStatusPainter.MobileSignalMorphPolicy.barProgress(0.75f),
+            0.0001f,
+        )
+    }
+
+    @Test
     fun transitionDoesNotOwnANativeReleaseTimeline() {
         assertEquals(
             0.92f,
