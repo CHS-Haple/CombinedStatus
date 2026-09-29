@@ -206,7 +206,7 @@ internal fun PreviewSandboxScreen(
                             Modifier
                                 .padding(horizontal = 12.dp)
                                 .padding(bottom = 12.dp),
-                        insideMargin = PaddingValues(vertical = 12.dp),
+                        insideMargin = PaddingValues(vertical = 8.dp),
                     ) {
                         TabRowWithContour(
                             tabs = networkModeOptions,
@@ -377,7 +377,7 @@ private fun SandboxSegmentedField(
                     .widthIn(max = maxWidth)
                     .fillMaxWidth()
                     .align(Alignment.CenterHorizontally)
-                    .padding(top = 6.dp),
+                    .padding(top = 4.dp),
         )
     }
 }
@@ -493,4 +493,4 @@ private fun signalValueText(level: Int): String =
     }
 
 private val CompactPreferenceMargin =
-    PaddingValues(horizontal = 18.dp, vertical = 5.dp)
+    PaddingValues(horizontal = 18.dp, vertical = 4.dp)
