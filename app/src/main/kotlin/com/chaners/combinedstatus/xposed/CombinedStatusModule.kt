@@ -1015,14 +1015,6 @@ class CombinedStatusModule : XposedModule() {
                 "source" to source,
                 "nativeGeometryWrites" to 0,
             )
-            if (result.keyguardAodReady) {
-                SystemUiKeyguardHostResolver.current()?.let { resolution ->
-                    onKeyguardHostResolution(
-                        resolution = resolution,
-                        source = "aod-authority-ready",
-                    )
-                }
-            }
         }.onFailure { error ->
             panelTransitionSourceInstalled = false
             controlCenterGeometryProbeBucket = -1
@@ -1422,6 +1414,14 @@ class CombinedStatusModule : XposedModule() {
                 "source" to source,
                 "nativeGeometryWrites" to 0,
             )
+            if (result.keyguardAodReady) {
+                SystemUiKeyguardHostResolver.current()?.let { resolution ->
+                    onKeyguardHostResolution(
+                        resolution = resolution,
+                        source = "aod-authority-ready",
+                    )
+                }
+            }
         }.onFailure { error ->
             logDiagnostic(
                 level = Log.ERROR,
