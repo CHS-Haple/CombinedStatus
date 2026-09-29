@@ -25,14 +25,15 @@
     <string name="preview_label">Sample</string>
 
     <string name="section_hyperos_display">System UI</string>
+    <string name="section_color_linkage">Color linkage</string>
     <string name="combined_status_feature_title">Combined status indicator</string>
     <string name="combined_status_feature_summary">Master switch for Combined Status across all supported SystemUI scenes. Turning it off restores native status icons.</string>
     <string name="keyguard_combined_status_title">Show on lock screen</string>
-    <string name="keyguard_combined_status_summary">Use Combined Status on the lock screen. AOD is outside this feature scope and will be validated separately.</string>
+    <string name="keyguard_combined_status_summary">Show Combined Status in the lock-screen status bar. AOD is not supported yet.</string>
     <string name="mobile_follow_battery_color">Match mobile status color to battery ring</string>
-    <string name="mobile_follow_battery_color_summary">Use the battery ring’s resolved color for the four mobile-signal dots and unavailable mark</string>
+    <string name="mobile_follow_battery_color_summary">Match the mobile signal dots and unavailable mark to the battery ring color</string>
     <string name="center_follow_battery_color">Match center icon color to battery ring</string>
-    <string name="center_follow_battery_color_summary">Use the battery ring’s resolved color for Wi-Fi, hotspot, mobile type, airplane mode, and no-SIM center icons</string>
+    <string name="center_follow_battery_color_summary">Match Wi-Fi, hotspot, mobile type, airplane, and no-SIM icons to the battery ring color</string>
     <string name="appearance_title">Appearance</string>
     <string name="appearance_summary">Theme and interface effects</string>
     <string name="status_bar_title">Status bar</string>
