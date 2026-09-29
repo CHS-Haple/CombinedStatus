@@ -6,7 +6,13 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,10 +42,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
@@ -705,6 +714,9 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
             DiagnosticsCardHeader(
                 title = stringResource(R.string.product_name),
                 subtitle = stringResource(R.string.app_description),
+                leadingContent = {
+                    GuiyuanAnimatedIdentityMark()
+                },
             )
             DiagnosticsInfoValue(
                 value = BuildConfig.VERSION_NAME,
@@ -854,28 +866,76 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
 }
 
 @Composable
+private fun GuiyuanAnimatedIdentityMark() {
+    val orbitRotation by
+        rememberInfiniteTransition(label = "guiyuanIdentityOrbit").animateFloat(
+            initialValue = 0f,
+            targetValue = -360f,
+            animationSpec =
+                infiniteRepeatable(
+                    animation =
+                        tween(
+                            durationMillis = 18_000,
+                            easing = LinearEasing,
+                        ),
+                ),
+            label = "guiyuanIdentityOrbitRotation",
+        )
+
+    Box(
+        modifier = Modifier.size(72.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Image(
+            painter = painterResource(R.drawable.ic_launcher_foreground),
+            contentDescription = null,
+            colorFilter = ColorFilter.tint(MiuixTheme.colorScheme.onSurfaceContainer),
+            modifier =
+                Modifier
+                    .size(72.dp)
+                    .graphicsLayer {
+                        scaleX = 1.8f
+                        scaleY = 1.8f
+                        rotationZ = orbitRotation
+                    },
+        )
+    }
+}
+
+@Composable
 private fun DiagnosticsCardHeader(
     title: String,
     subtitle: String? = null,
+    leadingContent: (@Composable () -> Unit)? = null,
 ) {
-    Column(
+    Row(
         modifier =
             Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 18.dp)
-                .padding(top = 18.dp, bottom = 10.dp),
+                .padding(top = 16.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = title,
-            style = MiuixTheme.textStyles.title2,
-            color = MiuixTheme.colorScheme.onSurfaceContainer,
-        )
-        if (!subtitle.isNullOrBlank()) {
+        if (leadingContent != null) {
+            leadingContent()
+            Spacer(modifier = Modifier.width(14.dp))
+        }
+        Column(
+            modifier = Modifier.weight(1f),
+        ) {
             Text(
-                text = subtitle,
-                style = MiuixTheme.textStyles.body2,
-                color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
+                text = title,
+                style = MiuixTheme.textStyles.title2,
+                color = MiuixTheme.colorScheme.onSurfaceContainer,
             )
+            if (!subtitle.isNullOrBlank()) {
+                Text(
+                    text = subtitle,
+                    modifier = Modifier.padding(top = 2.dp),
+                    style = MiuixTheme.textStyles.body2,
+                    color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
+                )
+            }
         }
     }
 }
