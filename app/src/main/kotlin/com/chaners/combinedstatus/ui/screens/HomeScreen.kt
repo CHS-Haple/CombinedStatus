@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -195,11 +196,20 @@ private fun HomeRuntimeStatusCard(
             RuntimeStatusTone.Error -> MiuixTheme.colorScheme.error
             RuntimeStatusTone.Neutral -> MiuixTheme.colorScheme.onSurfaceContainerVariant
         }
+    val containerColor =
+        when (state.tone) {
+            RuntimeStatusTone.Neutral -> MiuixTheme.colorScheme.surfaceContainer
+            else ->
+                accentColor
+                    .copy(alpha = 0.15f)
+                    .compositeOver(MiuixTheme.colorScheme.surfaceContainer)
+        }
+
     Card(
         modifier = modifier,
         colors =
             CardDefaults.defaultColors(
-                color = MiuixTheme.colorScheme.surfaceContainer,
+                color = containerColor,
                 contentColor = MiuixTheme.colorScheme.onSurfaceContainer,
             ),
     ) {
@@ -216,7 +226,7 @@ private fun HomeRuntimeStatusCard(
                 modifier =
                     Modifier
                         .align(Alignment.BottomEnd)
-                        .offset(y = 6.dp)
+                        .offset(y = (-2).dp)
                         .size(RuntimeStatusMarkSize),
             )
 
@@ -224,7 +234,7 @@ private fun HomeRuntimeStatusCard(
                 modifier =
                     Modifier
                         .fillMaxSize()
-                        .padding(end = 90.dp),
+                        .padding(end = 98.dp),
             ) {
                 Text(
                     text = stringResource(state.titleRes),
@@ -264,14 +274,17 @@ private fun HomeRuntimeStatusCard(
                     modifier = Modifier.padding(top = 12.dp),
                     style = MiuixTheme.textStyles.body2,
                     color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
-                    maxLines = 3,
+                    maxLines = 2,
                 )
             }
 
             Switch(
                 checked = enabled,
                 onCheckedChange = onEnabledChange,
-                modifier = Modifier.align(Alignment.TopEnd),
+                modifier =
+                    Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(end = 8.dp),
             )
         }
     }
@@ -495,8 +508,8 @@ private fun resolveHomeRuntimeCardState(
     }
 }
 
-private val RuntimeCardHeight = 168.dp
-private val RuntimeStatusMarkSize = 80.dp
+private val RuntimeCardHeight = 160.dp
+private val RuntimeStatusMarkSize = 88.dp
 private val HomePreviewStageHeight = 124.dp
 private val HomePreviewIconSize = 112.dp
 private val RuntimeSuccessAccent = Color(0xFF36D167)
