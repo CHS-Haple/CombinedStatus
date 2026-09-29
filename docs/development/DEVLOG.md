@@ -10563,3 +10563,50 @@ Post-merge Integration #1596 passed the full required validation surface on the 
 Integration artifact: `CombinedStatus-0.0.2-HyperOS-20260929-452-canary.apk` (artifact id `11004208038`; archive digest `sha256:1139a9bfac3d085a4e6a4a8249d0357aaf64c80577861fa557690a1dbcfd75c7`).
 
 The icon/name checkpoint is therefore closed on `dev`. This is a record-only documentation update and does not create a new Build.
+
+
+## 2026-09-29 — Build 466 Guiyuan identity migration
+
+**Type:** product/repository identity migration  
+**Display version:** 0.0.3  
+**Build / source:** Build 466 / `20260929-466` / `feat/guiyuan-identity-migration`  
+**Validation:** pending exact-head Full CI and focused signed Canary/device verification
+
+### Problem / objective
+
+After the 0.0.3 development line was integrated, the maintainer selected **Guiyuan / 归元** as the product identity and requested a complete current-state migration rather than retaining Combined Status as a second public brand. The Android package identity is also intentionally changed; backward package/data compatibility is not a requirement for this pre-release migration.
+
+### Problem execution flow
+
+1. Confirmed `dev` had advanced to 0.0.3 / Build 465 and its latest Build workflow was green.
+2. Created `feat/guiyuan-identity-migration` from that exact `dev` head.
+3. Separated brand/package identity from implementation symbols: package paths and public/current identity migrate, while `CombinedStatus*` classes/objects remain unchanged.
+4. Migrated every main/test Kotlin package path from `com.chaners.combinedstatus` to `com.chaners.guiyuan`.
+5. Updated Gradle namespace/applicationId, Modern Xposed Java entry, English/Chinese app identity text, diagnostic report/export names, CI/Canary/Release APK names, public docs, contribution rules, issue templates, architecture/current/reference docs, and the Unreleased changelog net state.
+6. Preserved historical DEVLOG facts and previously generated artifact names rather than rewriting history.
+
+### Implementation / decision
+
+- Public English product name: **Guiyuan**
+- Chinese product name: **归元**
+- Android namespace/applicationId: `com.chaners.guiyuan`
+- New source/test package path: `com.chaners.guiyuan.*`
+- Modern Xposed entry: `com.chaners.guiyuan.xposed.CombinedStatusModule`
+- Gradle root project: `Guiyuan`
+- APK artifact prefix: `Guiyuan-`
+- Diagnostic export prefix/path: `Guiyuan-Diagnostic-` / `Downloads/Guiyuan/`
+- Existing `CombinedStatus*` implementation class/object names are intentionally retained.
+- Functional copy such as “combined status indicator / 三合一状态图标” remains descriptive text rather than a second product brand.
+- Old application data/package upgrade continuity is intentionally not preserved; this is a new Android application identity.
+
+### Review
+
+- **Ownership / runtime:** no SystemUI ownership, state-source, hook, rendering, layout, lifecycle or fail-native logic is intentionally changed.
+- **Xposed:** Java entry package follows the new namespace while the single entry class itself remains `CombinedStatusModule`.
+- **Persistence:** the new applicationId means Android treats Guiyuan as a different app identity; existing package-scoped app data is not migrated.
+- **History integrity:** DEVLOG history and actual old artifact names stay unchanged; current docs and the Unreleased net state use Guiyuan/归元.
+- **Validation boundary:** because package identity, Xposed entry and build/release workflows change together, Full CI is required; a focused signed Canary/device check is required before integration.
+
+### Outcome / next step
+
+Run exact-head Full CI. If green, build one signed Canary and verify Android/LSPosed recognition, package identity, launcher/app-info naming, module loading/Hot Reload, and a basic Home/Keyguard runtime smoke test. Then integrate to `dev`; after post-merge Integration and promotion gates pass, promote the completed 0.0.3 Guiyuan identity to `main`.
