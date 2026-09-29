@@ -90,7 +90,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 projectionReady &&
                 progress != null &&
                 progress > 0f &&
-                progress < 1f &&
+                progress <= 1f &&
                 endpoint != null &&
                 endpoint.fakeRoot.isAttachedToWindow &&
                 endpoint.finalRoot.isAttachedToWindow
@@ -165,6 +165,36 @@ internal object CombinedStatusControlCenterTransitionOwner {
             val nativeHandoff =
                 1f - fakeAlpha.coerceIn(0f, 1f)
             return nativeHandoff * nativeHandoff * (3f - 2f * nativeHandoff)
+        }
+
+        data class ReservationSpan(
+            val sourceLeft: Float,
+            val sourceRight: Float,
+            val targetLeft: Float,
+            val targetRight: Float,
+        )
+
+        fun resolveReservationWidth(
+            compactWidthPx: Int,
+            spans: List<ReservationSpan>,
+            progress: Float,
+        ): Int {
+            val compact = compactWidthPx.coerceAtLeast(0)
+            if (compact == 0) return 0
+            val p = geometryProgress(progress)
+            var left = -compact.toFloat()
+            var right = 0f
+            spans.forEach { span ->
+                val currentLeft =
+                    span.sourceLeft +
+                        (span.targetLeft - span.sourceLeft) * p
+                val currentRight =
+                    span.sourceRight +
+                        (span.targetRight - span.sourceRight) * p
+                left = min(left, currentLeft)
+                right = maxOf(right, currentRight)
+            }
+            return kotlin.math.ceil((right - left).coerceAtLeast(compact.toFloat())).toInt()
         }
 
         fun interpolateGeometry(
@@ -288,6 +318,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
         private var lastStateVersion = sourceSnapshot.stateVersion
         private var lastWitnessSummary = "pending"
         private var cachedNativePeerTint: Int? = null
+        private var frozenReservationSpans: List<Policy.ReservationSpan>? = null
+        private var lastReservationWidthPx: Int? = null
 
         private val preDrawListener =
             ViewTreeObserver.OnPreDrawListener {
@@ -325,6 +357,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 if (cachedNativePeerTint == null) {
                     refreshNativePeerTint()
                 }
+                syncTransitionReservation()
                 drawable.setBounds(0, 0, rootView.width, rootView.height)
                 drawable.invalidateSelf()
                 true
@@ -341,6 +374,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 ",fake=" + (fakeRootRef.get()?.javaClass?.simpleName ?: "none") +
                 ",final=" + (finalRootRef.get()?.javaClass?.simpleName ?: "none") +
                 ",witness=" + lastWitnessSummary +
+                ",reservation=" + (lastReservationWidthPx ?: -1) +
                 "}"
 
         fun matches(
@@ -363,6 +397,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
             started = true
             source.clipBounds = sourceMask.appliedClip
             refreshNativePeerTint()
+            syncTransitionReservation()
             rootView.overlay.add(drawable)
             rootView.viewTreeObserver.addOnPreDrawListener(preDrawListener)
             drawable.setBounds(0, 0, rootView.width, rootView.height)
@@ -385,10 +420,14 @@ internal object CombinedStatusControlCenterTransitionOwner {
             if (appearanceChanged) {
                 refreshNativePeerTint()
             }
+            syncTransitionReservation()
             drawable.invalidateSelf()
         }
 
         fun stop(source: String) {
+            SystemUiHomePresentationOwner.clearControlCenterTransitionReservation(
+                "transition-" + source,
+            )
             if (!started) return
             started = false
             val rootView = rootRef.get()
@@ -532,6 +571,105 @@ internal object CombinedStatusControlCenterTransitionOwner {
             cachedNativePeerTint =
                 SystemUiNativeNetworkSuppressionOwner
                     .currentAppliedStatusIconTintForGroup(finalStatusIcons)
+        }
+
+        private fun syncTransitionReservation() {
+            val source = sourceViewRef.get() ?: return
+            if (source.width <= 0) return
+            val spans =
+                frozenReservationSpans
+                    ?: resolveReservationSpans()
+                        ?.also { resolved ->
+                            frozenReservationSpans = resolved
+                        }
+                    ?: return
+            val requestedWidth =
+                Policy.resolveReservationWidth(
+                    compactWidthPx = source.width,
+                    spans = spans,
+                    progress = progress,
+                )
+            if (lastReservationWidthPx == requestedWidth) return
+            if (
+                SystemUiHomePresentationOwner.updateControlCenterTransitionReservation(
+                    requestedSlotWidthPx = requestedWidth,
+                )
+            ) {
+                lastReservationWidthPx = requestedWidth
+            }
+        }
+
+        private fun resolveReservationSpans(): List<Policy.ReservationSpan>? {
+            val source = sourceViewRef.get() ?: return null
+            if (source.width <= 0 || source.height <= 0) return null
+            if (!isUsableSlotView(finalBattery)) return null
+
+            val specs =
+                painter.transitionComponentSpecs(
+                    width = source.width,
+                    height = source.height,
+                    model = currentSnapshot.model,
+                )
+            if (specs.isEmpty()) return null
+
+            val sourceRtl =
+                source.layoutDirection == View.LAYOUT_DIRECTION_RTL
+            val targetRtl =
+                finalBattery.layoutDirection == View.LAYOUT_DIRECTION_RTL
+            if (sourceRtl != targetRtl) return null
+
+            val batteryLocation = IntArray(2)
+            finalBattery.getLocationInWindow(batteryLocation)
+            val finalEndPhysical =
+                if (targetRtl) {
+                    batteryLocation[0].toFloat()
+                } else {
+                    (batteryLocation[0] + finalBattery.width).toFloat()
+                }
+            fun logicalTargetX(physicalX: Float): Float =
+                (if (targetRtl) -physicalX else physicalX) -
+                    (if (targetRtl) -finalEndPhysical else finalEndPhysical)
+            fun logicalSourceX(localX: Float): Float {
+                val sourceEnd =
+                    if (sourceRtl) 0f else source.width.toFloat()
+                return (if (sourceRtl) -localX else localX) -
+                    (if (sourceRtl) -sourceEnd else sourceEnd)
+            }
+
+            val preferredMobileSubId =
+                CombinedStatusPresentationStateStore
+                    .snapshot()
+                    .mobilePresentation
+                    ?.presentationRootSubscriptionId
+
+            val result = ArrayList<Policy.ReservationSpan>(specs.size)
+            specs.forEach { spec ->
+                val witness =
+                    resolveTarget(
+                        target = spec.target,
+                        preferredMobileSubId = preferredMobileSubId,
+                    ) ?: return null
+                val slot = witness.slotView
+                if (!isUsableSlotView(slot)) return null
+                val targetLocation = IntArray(2)
+                slot.getLocationInWindow(targetLocation)
+
+                val sourceA = logicalSourceX(spec.sourceBounds.left)
+                val sourceB = logicalSourceX(spec.sourceBounds.right)
+                val targetA = logicalTargetX(targetLocation[0].toFloat())
+                val targetB =
+                    logicalTargetX(
+                        (targetLocation[0] + slot.width).toFloat(),
+                    )
+                result +=
+                    Policy.ReservationSpan(
+                        sourceLeft = min(sourceA, sourceB),
+                        sourceRight = maxOf(sourceA, sourceB),
+                        targetLeft = min(targetA, targetB),
+                        targetRight = maxOf(targetA, targetB),
+                    )
+            }
+            return result
         }
 
         private fun resolveTarget(

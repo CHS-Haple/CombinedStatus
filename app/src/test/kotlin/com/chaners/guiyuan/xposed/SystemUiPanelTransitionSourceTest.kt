@@ -227,6 +227,50 @@ class SystemUiPanelTransitionSourceTest {
     }
 
     @Test
+    fun transitionReservationExpandsOnlyWhenSemanticSpanLeavesCompactBoundary() {
+        val spans =
+            listOf(
+                CombinedStatusControlCenterTransitionOwner.Policy.ReservationSpan(
+                    sourceLeft = -22f,
+                    sourceRight = -12f,
+                    targetLeft = -145f,
+                    targetRight = -110f,
+                ),
+                CombinedStatusControlCenterTransitionOwner.Policy.ReservationSpan(
+                    sourceLeft = -44f,
+                    sourceRight = -32f,
+                    targetLeft = -96f,
+                    targetRight = -62f,
+                ),
+            )
+
+        assertEquals(
+            105,
+            CombinedStatusControlCenterTransitionOwner.Policy.resolveReservationWidth(
+                compactWidthPx = 105,
+                spans = spans,
+                progress = 0f,
+            ),
+        )
+        assertEquals(
+            105,
+            CombinedStatusControlCenterTransitionOwner.Policy.resolveReservationWidth(
+                compactWidthPx = 105,
+                spans = spans,
+                progress = 0.5f,
+            ),
+        )
+        assertEquals(
+            145,
+            CombinedStatusControlCenterTransitionOwner.Policy.resolveReservationWidth(
+                compactWidthPx = 105,
+                spans = spans,
+                progress = 1f,
+            ),
+        )
+    }
+
+    @Test
     fun transitionDoesNotOwnANativeReleaseTimeline() {
         assertEquals(
             0.92f,

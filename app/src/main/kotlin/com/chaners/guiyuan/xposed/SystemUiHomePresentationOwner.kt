@@ -26,6 +26,7 @@ internal object SystemUiHomePresentationOwner {
         "combinedstatus.homePresentation.statusIconsLayout"
     private const val BATTERY_HIDE_HOOK_ID =
         "combinedstatus.homePresentation.batteryHideState"
+    private const val CONTROL_CENTER_FAKE_SURFACE = "control-center-fake"
 
     private val representedSlots =
         linkedSetOf("wifi", "mobile", "stacked_mobile", "airplane", "no_sim")
@@ -608,6 +609,20 @@ internal object SystemUiHomePresentationOwner {
     }
 
     @Synchronized
+    fun updateControlCenterTransitionReservation(
+        requestedSlotWidthPx: Int,
+    ): Boolean =
+        controlCenterCurrent
+            ?.updateTransitionReservation(requestedSlotWidthPx)
+            ?: false
+
+    @Synchronized
+    fun clearControlCenterTransitionReservation(source: String): Boolean =
+        controlCenterCurrent
+            ?.clearTransitionReservation(source)
+            ?: true
+
+    @Synchronized
     fun deactivate(source: String): StateResult {
         val session = current ?: return StateResult.Inactive(0)
         current = null
@@ -818,10 +833,10 @@ internal object SystemUiHomePresentationOwner {
                 "representedSlots=" + representedSlots.joinToString(",") +
                 " maskedViews=" + maskedViews +
                 " slotExclusion=session-native-ignored-slots " +
-                "carrierReservation=stable-battery-slot " +
+                "carrierReservation=status-icons-end-padding " +
                 "carrierAuthority=battery_icon_container visualMask=clipBounds " +
-                "cutover=compact-layout-ready nativeTranslationWrites=0 " +
-                "nativeAlphaWrites=0 nativeVisibilityWrites=0",
+                "cutover=compact-layout-ready nativeLayoutReservationWrites=1 " +
+                "nativeTranslationWrites=0 nativeAlphaWrites=0 nativeVisibilityWrites=0",
         )
         controlCenterReadySink?.invoke(active)
     }
@@ -894,6 +909,7 @@ internal object SystemUiHomePresentationOwner {
         private var transientLiveBatteryWidthUnavailable = false
         private var persistentIgnoredSlotsApplied = false
         private var ownedPersistentIgnoredSlots: List<String> = emptyList()
+        private var transitionRequestedSlotWidthPx: Int? = null
         private val clipStates = mutableListOf<ClipState>()
         private val batteryLayoutListener =
             View.OnLayoutChangeListener {
@@ -1228,6 +1244,29 @@ internal object SystemUiHomePresentationOwner {
             return restored
         }
 
+        fun updateTransitionReservation(
+            requestedSlotWidthPx: Int,
+        ): Boolean {
+            if (surfaceName != CONTROL_CENTER_FAKE_SURFACE) return false
+            val normalized = requestedSlotWidthPx.coerceAtLeast(0)
+            if (transitionRequestedSlotWidthPx == normalized) return true
+            transitionRequestedSlotWidthPx = normalized
+            return syncEndReservation()
+        }
+
+        fun clearTransitionReservation(source: String): Boolean {
+            if (surfaceName != CONTROL_CENTER_FAKE_SURFACE) return true
+            if (transitionRequestedSlotWidthPx == null) return true
+            transitionRequestedSlotWidthPx = null
+            val restored = syncEndReservation()
+            onEvent(
+                eventPrefix +
+                    " transitionReservation cleared source=" + source +
+                    " restoredCompact=" + restored,
+            )
+            return restored
+        }
+
         fun syncEndReservation(): Boolean {
             if (!active) return true
             val group = statusIcons.get() ?: run { onFailNative("status-icon-group-released"); return false }
@@ -1291,7 +1330,12 @@ internal object SystemUiHomePresentationOwner {
                     baseCarrierWidthPx = stableCarrierWidthPx,
                     isRtl = hostView.layoutDirection == View.LAYOUT_DIRECTION_RTL,
                 ) ?: run { onFailNative(surfaceName + "-layout-unavailable"); return false }
-            val requestedSlotWidthPx = resolved.requestedSlotWidthPx.toInt()
+            val compactSlotWidthPx = resolved.requestedSlotWidthPx.toInt()
+            val requestedSlotWidthPx =
+                EndReservationPolicy.resolveRequestedSlotWidth(
+                    compactSlotWidthPx = compactSlotWidthPx,
+                    transitionRequestedSlotWidthPx = transitionRequestedSlotWidthPx,
+                )
             val reservationDelta =
                 EndReservationPolicy.resolvePaddingEndDelta(
                     nativeHide = nativeHide,
@@ -1319,7 +1363,10 @@ internal object SystemUiHomePresentationOwner {
                     eventPrefix + " endReservation nativeHide=" + nativeHide +
                         " stableCarrierWidth=" + stableCarrierWidthPx +
                         " actualBatteryWidth=" + actualBatteryWidthPx +
+                        " compactSlotWidth=" + compactSlotWidthPx +
                         " requestedSlotWidth=" + requestedSlotWidthPx +
+                        " transitionRequestedSlotWidth=" +
+                        (transitionRequestedSlotWidthPx ?: -1) +
                         " paddingEndDelta=" + reservationDelta +
                         " basePaddingEnd=" + baseline.end +
                         " appliedPaddingEnd=" + target.end +
@@ -1550,6 +1597,16 @@ internal object SystemUiHomePresentationOwner {
             compactLayoutReady: Boolean,
         ): Boolean =
             retainOnTransientLoss && compactLayoutReady
+
+        fun resolveRequestedSlotWidth(
+            compactSlotWidthPx: Int,
+            transitionRequestedSlotWidthPx: Int?,
+        ): Int {
+            val compact = compactSlotWidthPx.coerceAtLeast(0)
+            return transitionRequestedSlotWidthPx
+                ?.coerceAtLeast(compact)
+                ?: compact
+        }
 
         fun resolvePaddingEndDelta(
             nativeHide: Boolean,
