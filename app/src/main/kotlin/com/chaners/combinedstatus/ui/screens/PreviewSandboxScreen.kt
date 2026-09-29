@@ -206,7 +206,7 @@ internal fun PreviewSandboxScreen(
                             Modifier
                                 .padding(horizontal = 12.dp)
                                 .padding(bottom = 12.dp),
-                        insideMargin = PaddingValues(vertical = 8.dp),
+                        insideMargin = PaddingValues(vertical = 10.dp),
                     ) {
                         TabRowWithContour(
                             tabs = networkModeOptions,
@@ -307,7 +307,7 @@ internal fun PreviewSandboxScreen(
                             Modifier
                                 .padding(horizontal = 12.dp)
                                 .padding(bottom = 12.dp),
-                        insideMargin = PaddingValues(vertical = 10.dp),
+                        insideMargin = PaddingValues(vertical = 8.dp),
                     ) {
                         SliderPreference(
                             value = state.batteryPercent.toFloat(),
