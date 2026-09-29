@@ -29,7 +29,7 @@ The project follows a Keep a Changelog-style structure. During pre-release devel
 
 ### Changed
 
-- Redesigned the Home Preview Sandbox and its detail screen around compact MIUIX segmented choices, continuous sliders, uninterrupted Network/Battery cards, fixed preview geometry, and neutral runtime-card surfaces while preserving the shared production renderer.
+- Redesigned the Home Preview Sandbox and its detail screen around compact MIUIX segmented choices, continuous sliders, uninterrupted Network/Battery cards, and fixed preview geometry while preserving the shared production renderer.
 
 - Preview Sandbox now uses a mutually-exclusive MIUIX Mobile/Wi-Fi selector with context-dependent subordinate controls while preserving valid no-SIM + Wi-Fi simulation; no-Internet Wi-Fi resolves the exact HyperOS unavailable drawable family, and the shared renderer places the 5G-Advanced `A` at lower-right in both previews and the real status bar.
 
@@ -71,6 +71,8 @@ The project follows a Keep a Changelog-style structure. During pre-release devel
 - CI validation is checkpoint-driven: active runtime PRs stay Draft between meaningful Fast checkpoints, signed work-branch Canary is created only after explicit maintainer admission when device evidence is needed, and documentation-only checkpoint closure remains a Light repository record rather than creating a recursive runtime Build.
 
 ### Fixed
+
+- Corrected Home runtime-card geometry without altering its established semantic colors: inset the master Switch and moved the status mark upward.
 
 - Fixed the companion-app Sandbox airplane center disappearing outside the SystemUI process by resolving the native flight-mode drawable from the SystemUI package context; Mobile airplane mode now correctly overrides no-SIM center presentation while retaining the bottom unavailable mark.
 
