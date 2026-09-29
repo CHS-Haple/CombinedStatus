@@ -55,7 +55,7 @@ Prefer runtime/resource-reference reuse over copying proprietary HyperOS assets 
 
 When a verified HyperOS/SystemUI drawable or icon is reused inside Guiyuan, preserve the authoritative resource identity and its authored internal visual relationships. Prefer consuming the runtime resource as-is rather than editing, recoloring, or preprocessing the source asset.
 
-Native drawables rendered by Combined Status MUST preserve the verified HyperOS/SystemUI Drawable or vector semantics through the final resolved rendering bounds. Authored alpha/coverage, viewport relationships, and native resource identity must not be flattened or normalized merely to make a reused icon visually match another status icon. A raster probe MAY be used for bounded optical measurement, but probe pixels MUST NOT become the final rendered visual asset when the native path can draw the Drawable/vector directly at final bounds.
+Native drawables rendered by Guiyuan MUST preserve the verified HyperOS/SystemUI Drawable or vector semantics through the final resolved rendering bounds. Authored alpha/coverage, viewport relationships, and native resource identity must not be flattened or normalized merely to make a reused icon visually match another status icon. A raster probe MAY be used for bounded optical measurement, but probe pixels MUST NOT become the final rendered visual asset when the native path can draw the Drawable/vector directly at final bounds.
 
 Project-drawn full-strength elements MUST resolve from the same authoritative SystemUI tint source when they are intended to match native status icons. Semantic dimming that communicates state, such as inactive signal dots or an unfilled battery track, SHOULD remain distinguishable.
 
@@ -197,7 +197,7 @@ Do not maintain both a native semantic source and a project-local parser/state m
 
 State-source selection must also satisfy the lightweight rule: prefer event-driven payloads over polling, avoid re-querying state already delivered by a callback, avoid duplicate dispatch to the same execution context, and do not add caching whose invalidation/lifecycle cost exceeds the work it saves.
 
-Observation does not grant ownership. A hook, reflection lookup, topology probe, or geometry sample may explain SystemUI behavior without giving Combined Status permission to write that property.
+Observation does not grant ownership. A hook, reflection lookup, topology probe, or geometry sample may explain SystemUI behavior without giving Guiyuan permission to write that property.
 
 One live property should have one runtime writer. Treat measured/layout width, position, translation, alpha, visibility, tint, animation state, and parent/child attachment as ownership-sensitive. Do not add a second writer merely to counteract the first.
 
@@ -603,7 +603,7 @@ Classify meaningful upstream changes:
 
 - **A — priority**: fixes a current/likely project issue, removes a workaround, addresses lifecycle/state/crash risk, or contains important maintainer guidance for an API/component in use.
 - **B — canary candidate**: clear interaction/stability/performance/compatibility/maintainability benefit worth isolated validation.
-- **C — normally ignore**: unrelated churn, docs/examples only, or components not used by Combined Status.
+- **C — normally ignore**: unrelated churn, docs/examples only, or components not used by Guiyuan.
 
 Treat maturity separately:
 
@@ -689,11 +689,11 @@ Use the PR template when a PR exists. Mechanical maintenance may use a short com
 
 ## 11. Development continuity and engineering memory
 
-Combined Status keeps durable engineering context in the repository so a new development session can recover the current state without relying on chat history.
+Guiyuan keeps durable engineering context in the repository so a new development session can recover the current state without relying on chat history.
 
 ### 11.1 Required startup read
 
-Before implementation, diagnosis, review, or continuation of an existing Combined Status task, read in this order:
+Before implementation, diagnosis, review, or continuation of an existing Guiyuan task, read in this order:
 
 1. the latest `CONTRIBUTING.md`;
 2. `docs/development/CURRENT.md`;
