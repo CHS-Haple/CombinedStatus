@@ -1,4 +1,4 @@
-package com.chaners.combinedstatus.xposed
+package com.chaners.guiyuan.xposed
 
 import android.view.View
 import io.github.libxposed.api.XposedInterface.HookHandle

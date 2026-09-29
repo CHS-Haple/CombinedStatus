@@ -1,4 +1,4 @@
-package com.chaners.combinedstatus.xposed
+package com.chaners.guiyuan.xposed
 
 import android.content.Context
 import android.os.Looper
@@ -9,8 +9,8 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.widget.FrameLayout
-import com.chaners.combinedstatus.settings.CombinedStatusFeatureSettings
-import com.chaners.combinedstatus.settings.CombinedStatusVisualSettings
+import com.chaners.guiyuan.settings.CombinedStatusFeatureSettings
+import com.chaners.guiyuan.settings.CombinedStatusVisualSettings
 import io.github.libxposed.api.XposedInterface.HookHandle
 import io.github.libxposed.api.XposedInterface.Hooker
 import io.github.libxposed.api.XposedModule
