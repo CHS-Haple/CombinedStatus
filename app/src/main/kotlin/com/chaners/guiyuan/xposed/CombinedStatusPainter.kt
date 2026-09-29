@@ -266,7 +266,6 @@ internal class CombinedStatusPainter(
     internal enum class TransitionScalePolicy {
         TARGET,
         SHRINK_ONLY,
-        SOURCE,
     }
 
     internal sealed interface TransitionTarget {
@@ -632,9 +631,11 @@ internal class CombinedStatusPainter(
                 .coerceIn(BATTERY_TRANSITION_MIN_ASPECT, 1f)
         val targetHeight = sourceWidth * resolvedAspect
         val bodyHeight = lerp(sourceHeight, targetHeight, morph)
-        val bodyLeft = BATTERY_COMPONENT_CENTER_X - sourceWidth / 2f
+        val targetBodyWidth = sourceWidth * BATTERY_TRANSITION_BODY_WIDTH_RATIO
+        val bodyWidth = lerp(sourceWidth, targetBodyWidth, morph)
+        val bodyLeft = batteryRing.left
         val bodyTop = BATTERY_COMPONENT_CENTER_Y - bodyHeight / 2f
-        val bodyRight = bodyLeft + sourceWidth
+        val bodyRight = bodyLeft + bodyWidth
         val bodyBottom = bodyTop + bodyHeight
         val cornerRadius = bodyHeight / 2f
 
@@ -657,15 +658,21 @@ internal class CombinedStatusPainter(
         val terminalProgress = morph * morph
         if (terminalProgress > 0f) {
             val terminalHeight = bodyHeight * 0.42f
+            val availableTerminalWidth =
+                (batteryRing.right - bodyRight).coerceAtLeast(0f)
             val terminalWidth =
-                max(
-                    geometry.ringStroke,
-                    bodyHeight * 0.12f,
+                min(
+                    availableTerminalWidth,
+                    max(
+                        geometry.ringStroke,
+                        bodyHeight * 0.12f,
+                    ),
                 )
             val terminalLeft =
-                bodyRight + geometry.ringStroke * 0.45f
+                batteryRing.right - terminalWidth
             val terminalTop =
                 BATTERY_COMPONENT_CENTER_Y - terminalHeight / 2f
+            if (terminalWidth <= 0f) return
             fill(
                 color = batteryTint,
                 alpha = 255,
@@ -1712,6 +1719,7 @@ internal class CombinedStatusPainter(
         const val BATTERY_COMPONENT_CENTER_Y = 58f
         const val BATTERY_TRANSITION_FALLBACK_ASPECT = 0.56f
         const val BATTERY_TRANSITION_MIN_ASPECT = 0.42f
+        const val BATTERY_TRANSITION_BODY_WIDTH_RATIO = 0.86f
 
     }
 

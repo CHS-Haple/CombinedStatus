@@ -336,6 +336,7 @@ class SystemUiPanelTransitionSourceTest {
                 source = source,
                 target = target,
                 progress = 1f,
+                scalePolicy = CombinedStatusPainter.TransitionScalePolicy.TARGET,
             )
 
         assertEquals(110f, end[0], 0.0001f)

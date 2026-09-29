@@ -248,9 +248,6 @@ internal object CombinedStatusControlCenterTransitionOwner {
 
                     CombinedStatusPainter.TransitionScalePolicy.SHRINK_ONLY ->
                         min(rawTargetScale, 1f)
-
-                    CombinedStatusPainter.TransitionScalePolicy.SOURCE ->
-                        1f
                 }
             val scale = 1f + (targetScale - 1f) * p
             return floatArrayOf(
@@ -763,7 +760,11 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     val opticalRequired =
                         target is CombinedStatusPainter.TransitionTarget.Slots &&
                             target.preferredChildEntries.isNotEmpty()
+                    val slotStillSemantic =
+                        target !is CombinedStatusPainter.TransitionTarget.Slots ||
+                            witness.slotView.visibility == View.VISIBLE
                     witness.slotView.isAttachedToWindow &&
+                        slotStillSemantic &&
                         (
                             !opticalRequired ||
                                 witness.opticalView?.isAttachedToWindow == true
