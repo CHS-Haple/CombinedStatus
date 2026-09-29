@@ -216,7 +216,7 @@ internal fun PreviewSandboxScreen(
                             },
                             modifier =
                                 Modifier
-                                    .widthIn(max = 244.dp)
+                                    .widthIn(max = 260.dp)
                                     .fillMaxWidth()
                                     .align(Alignment.CenterHorizontally)
                                     .padding(horizontal = 6.dp),
@@ -231,7 +231,7 @@ internal fun PreviewSandboxScreen(
                                     onSelected = { index ->
                                         onMobileNetworkChange(PreviewMobileNetwork.entries[index])
                                     },
-                                    modifier = Modifier.padding(top = 6.dp),
+                                    modifier = Modifier.padding(top = 8.dp),
                                 )
                                 SliderPreference(
                                     value = state.mobileSignalLevel.toFloat(),
@@ -264,7 +264,7 @@ internal fun PreviewSandboxScreen(
                                 onSelected = { index ->
                                     onWifiStateChange(PreviewWifiState.entries[index])
                                 },
-                                modifier = Modifier.padding(top = 6.dp),
+                                modifier = Modifier.padding(top = 8.dp),
                             )
                             SliderPreference(
                                 value = state.wifiSignalLevel.toFloat(),
@@ -285,7 +285,7 @@ internal fun PreviewSandboxScreen(
                             options = simOptions,
                             selectedIndex = if (state.simPresent) 0 else 1,
                             onSelected = { onSimPresentChange(it == 0) },
-                            maxWidth = 244.dp,
+                            maxWidth = 280.dp,
                             modifier = Modifier,
                         )
                         SwitchPreference(
@@ -351,13 +351,13 @@ private fun SandboxSegmentedField(
     selectedIndex: Int,
     onSelected: (Int) -> Unit,
     modifier: Modifier = Modifier,
-    maxWidth: Dp = 360.dp,
+    maxWidth: Dp = 320.dp,
 ) {
     Column(
         modifier =
             modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 10.dp),
+                .padding(horizontal = 16.dp, vertical = 11.dp),
     ) {
         Text(
             text = title,
@@ -373,7 +373,7 @@ private fun SandboxSegmentedField(
                     .widthIn(max = maxWidth)
                     .fillMaxWidth()
                     .align(Alignment.CenterHorizontally)
-                    .padding(top = 8.dp),
+                    .padding(top = 7.dp),
         )
     }
 }
