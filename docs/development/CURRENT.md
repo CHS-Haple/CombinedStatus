@@ -37,18 +37,18 @@ This file is the concise recovery point for active Guiyuan development. Read it 
 
 ### Active presentation checkpoint
 
-**Build 469 / `20260929-469`** is the active companion-app presentation checkpoint on `feat/presentation-ui-polish`, still 0-behind current `dev@2163d3a8b9134e6114d6e59387b7c808d9399a08`.
+**Build 470 / `20260929-470`** is the active companion-app presentation checkpoint on `feat/presentation-ui-polish`, still 0-behind current `dev@2163d3a8b9134e6114d6e59387b7c808d9399a08`.
 
-Build 467 established the two-level Sandbox text hierarchy and animated Diagnostics identity but was too sparse in the upper Diagnostics cards. Build 468 passed exact-head Fast #1736 and signed Work Branch Canary #495 on `1b8bd86562d9dec6d5b573cbb8134e18309e5d0a`, but device screenshots then showed the opposite visual extreme: full-width Sandbox dividers read as table-like and unattractive, while the upper Diagnostics cards became overly compressed. The Diagnostics & reports action card remains accepted and unchanged.
+Build 469 passed exact-head Fast #1744 and signed Work Branch Canary #496 on `89f4758f1ebdf46860c73fd1bff30c05e50d48cc`. Device screenshots accepted the removal of hard Sandbox dividers and the restored mid-density Diagnostics rhythm, but exposed three remaining presentation defects: Sandbox field labels still carried inconsistent visual weight (slider labels looked heavier), the Module runtime card remained too tight at its top/bottom edges, and the rotating Guiyuan identity showed blur/jagged edges.
 
-Build 469 therefore:
-- removes the full-width Sandbox divider treatment entirely and uses soft vertical rhythm to separate preview/result, network/device, and battery-state groups;
-- preserves the accepted `body1` / `body2` Sandbox hierarchy and label/value summary pattern;
-- moves Diagnostics information rows from the Build-468 5 dp extreme to a 7 dp mid-density rhythm, with slightly restored header breathing room;
-- keeps the 64 dp background-free Guiyuan identity mark, the 20-second linear counterclockwise screen-local rotation, and the shortened app description;
-- leaves all SystemUI/Xposed runtime, state sources, renderer behavior, Hooks, persistent preferences, native suppression, and production icon geometry unchanged.
+Build 470 therefore:
+- moves Sandbox field labels for sliders and segmented fields to the same MIUIX `body2` / variant-color role while leaving option typography owned by the MIUIX controls;
+- preserves the accepted soft spacing-only Sandbox grouping and all simulation/renderer behavior;
+- increases only the Module runtime card's top/bottom edge breathing room from 4 dp to 8 dp without loosening the shared information-row rhythm or touching Diagnostics & reports;
+- replaces the identity mark's `graphicsLayer` 1.8x post-render scale with a Canvas transform that scales/rotates the vector before rasterization, retaining the same launcher foreground source, 64 dp slot, 1.8x optical scale, 20-second linear counterclockwise motion, and theme tint;
+- leaves all SystemUI/Xposed runtime, state sources, Hooks, production renderer, persistent preferences, native suppression, and production icon geometry unchanged.
 
-Executable source checkpoint before documentation closure: `025341c9587f90d5e0e9a33c98eecb6d020c7ca9`.
+Executable source checkpoint before documentation closure: `abb0b1bdf2f281f2287c3b6616db62c31423a33b`.
 Exact-head Fast validation is pending.
 
 ## Current phase
