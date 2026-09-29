@@ -143,25 +143,15 @@ internal class CombinedStatusPainter(
         val morph = morphProgress.coerceIn(0f, 1f)
         val componentSave = canvas.save()
         when (shapePolicy) {
-            TransitionShapePolicy.FOLD ->
+            TransitionShapePolicy.BATTERY_FOLD ->
                 canvas.scale(
-                    lerp(1f, BATTERY_FOLD_SCALE_X, morph),
+                    1f,
                     lerp(1f, BATTERY_FOLD_SCALE_Y, morph),
                     BATTERY_COMPONENT_CENTER_X,
                     BATTERY_COMPONENT_CENTER_Y,
                 )
 
-            TransitionShapePolicy.KEEP_SHAPE -> Unit
-
-            TransitionShapePolicy.COLLAPSE -> {
-                val collapseScale = lerp(1f, MOBILE_COLLAPSE_SCALE, morph)
-                canvas.scale(
-                    collapseScale,
-                    collapseScale,
-                    MOBILE_CENTER_X,
-                    MOBILE_CENTER_Y,
-                )
-            }
+            TransitionShapePolicy.RIGID -> Unit
         }
 
         when (component) {
@@ -218,9 +208,8 @@ internal class CombinedStatusPainter(
     }
 
     internal enum class TransitionShapePolicy {
-        FOLD,
-        KEEP_SHAPE,
-        COLLAPSE,
+        BATTERY_FOLD,
+        RIGID,
     }
 
     internal sealed interface TransitionTarget {
@@ -298,7 +287,7 @@ internal class CombinedStatusPainter(
                         ),
                     ),
                 target = TransitionTarget.Battery,
-                shapePolicy = TransitionShapePolicy.FOLD,
+                shapePolicy = TransitionShapePolicy.BATTERY_FOLD,
             )
 
         val centerSpec =
@@ -316,7 +305,7 @@ internal class CombinedStatusPainter(
                                 ),
                             ),
                         target = TransitionTarget.Slots(listOf("wifi")),
-                        shapePolicy = TransitionShapePolicy.KEEP_SHAPE,
+                        shapePolicy = TransitionShapePolicy.RIGID,
                     )
 
                 is CenterIndicator.MobileType ->
@@ -332,7 +321,7 @@ internal class CombinedStatusPainter(
                                 ).bounds,
                             ),
                         target = TransitionTarget.Slots(listOf("mobile", "stacked_mobile")),
-                        shapePolicy = TransitionShapePolicy.KEEP_SHAPE,
+                        shapePolicy = TransitionShapePolicy.RIGID,
                     )
 
                 CenterIndicator.Airplane ->
@@ -348,7 +337,7 @@ internal class CombinedStatusPainter(
                                 ),
                             ),
                         target = TransitionTarget.Slots(listOf("airplane")),
-                        shapePolicy = TransitionShapePolicy.KEEP_SHAPE,
+                        shapePolicy = TransitionShapePolicy.RIGID,
                     )
 
                 is CenterIndicator.NoSim ->
@@ -367,7 +356,7 @@ internal class CombinedStatusPainter(
                             TransitionTarget.Slots(
                                 listOf("no_sim", "mobile", "stacked_mobile"),
                             ),
-                        shapePolicy = TransitionShapePolicy.KEEP_SHAPE,
+                        shapePolicy = TransitionShapePolicy.RIGID,
                     )
 
                 CenterIndicator.Empty -> null
@@ -421,7 +410,7 @@ internal class CombinedStatusPainter(
                             ),
                         ),
                     target = TransitionTarget.Slots(listOf("mobile", "stacked_mobile")),
-                    shapePolicy = TransitionShapePolicy.COLLAPSE,
+                    shapePolicy = TransitionShapePolicy.RIGID,
                 )
         }
 
@@ -1419,9 +1408,7 @@ internal class CombinedStatusPainter(
         const val NATIVE_STEADY_APPEAR_THRESHOLD = 0.999f
         const val BATTERY_COMPONENT_CENTER_X = 60f
         const val BATTERY_COMPONENT_CENTER_Y = 58f
-        const val BATTERY_FOLD_SCALE_X = 12.75f / 9.25f
-        const val BATTERY_FOLD_SCALE_Y = 3.4f / 9.25f
-        const val MOBILE_COLLAPSE_SCALE = 0.82f
+        const val BATTERY_FOLD_SCALE_Y = 0.72f
 
     }
 

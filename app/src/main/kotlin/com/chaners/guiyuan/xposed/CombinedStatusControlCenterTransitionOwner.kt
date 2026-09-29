@@ -10,7 +10,9 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import java.lang.ref.WeakReference
+import kotlin.math.min
 import kotlin.math.roundToInt
+import kotlin.math.sqrt
 
 internal object CombinedStatusControlCenterTransitionOwner {
     private const val STATUS_ICON_CONTAINER_CLASS_NAME =
@@ -162,6 +164,46 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 source[index] + (target[index] - source[index]) * p
             }
         }
+
+        fun interpolateSimilarityGeometry(
+            source: FloatArray,
+            target: FloatArray,
+            progress: Float,
+        ): FloatArray {
+            require(source.size == 6 && target.size == 6)
+            val p = progress.coerceIn(0f, 1f)
+            val sourceWidth = vectorLength(source[2], source[3])
+            val sourceHeight = vectorLength(source[4], source[5])
+            val targetWidth = vectorLength(target[2], target[3])
+            val targetHeight = vectorLength(target[4], target[5])
+            if (
+                sourceWidth <= 0f ||
+                sourceHeight <= 0f ||
+                targetWidth <= 0f ||
+                targetHeight <= 0f
+            ) {
+                return source.copyOf()
+            }
+            val targetScale =
+                min(
+                    targetWidth / sourceWidth,
+                    targetHeight / sourceHeight,
+                )
+            val scale = 1f + (targetScale - 1f) * p
+            return floatArrayOf(
+                source[0] + (target[0] - source[0]) * p,
+                source[1] + (target[1] - source[1]) * p,
+                source[2] * scale,
+                source[3] * scale,
+                source[4] * scale,
+                source[5] * scale,
+            )
+        }
+
+        private fun vectorLength(
+            x: Float,
+            y: Float,
+        ): Float = sqrt(x * x + y * y)
 
         fun componentGeometry(
             parentGeometry: FloatArray,
@@ -373,7 +415,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     sample(target, rootView)?.geometry
                         ?: return@forEach
                 val geometry =
-                    Policy.interpolateGeometry(
+                    Policy.interpolateSimilarityGeometry(
                         source = sourceGeometry,
                         target = targetGeometry,
                         progress = geometryProgress,

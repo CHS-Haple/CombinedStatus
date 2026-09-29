@@ -195,6 +195,25 @@ class SystemUiPanelTransitionSourceTest {
     }
 
     @Test
+    fun transitionSimilarityGeometryPreservesSourceAspectRatio() {
+        val source = floatArrayOf(10f, 20f, 60f, 0f, 0f, 30f)
+        val target = floatArrayOf(110f, 220f, 100f, 0f, 0f, 100f)
+        val end =
+            CombinedStatusControlCenterTransitionOwner.Policy.interpolateSimilarityGeometry(
+                source = source,
+                target = target,
+                progress = 1f,
+            )
+
+        assertEquals(110f, end[0], 0.0001f)
+        assertEquals(220f, end[1], 0.0001f)
+        assertEquals(100f, end[2], 0.0001f)
+        assertEquals(0f, end[3], 0.0001f)
+        assertEquals(0f, end[4], 0.0001f)
+        assertEquals(50f, end[5], 0.0001f)
+    }
+
+    @Test
     fun transitionMatrixInterpolatesAffineGeometryDeterministically() {
         val source = floatArrayOf(0f, 0f, 10f, 0f, 0f, 10f)
         val target = floatArrayOf(20f, 40f, 20f, 0f, 0f, 20f)
