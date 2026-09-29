@@ -35,16 +35,16 @@ This file is the concise recovery point for active Guiyuan development. Read it 
 - **App icon:** Build 452, integrated by PR #166 as `44b10371e0709d155468f7f2e67307fde5f11ab2`. The Guiyuan mark uses the accepted rotationally symmetric adaptive-icon geometry.
 - **Companion app:** Build 464, integrated through PR #165 as `a2394db92ce208771956defcd558c954065000f7`; Build 465 advanced the integrated display line to 0.0.3. Home Runtime Status, production-rendered Preview Sandbox, Features hierarchy, Diagnostics action styling, and MIUIX-aligned Sandbox controls are part of the accepted baseline.
 
-### Active integrated checkpoint
+### Current dev baseline
 
-**Build 473 / `20260929-473`** is the active accepted integration candidate on `fix/wifi-optical-normalization`, synchronized on top of the accepted Build-472 companion-app UI integration commit `dev@d24fd7aff07abf78a0a5828fc2e667a88dd05720`.
+**Build 473 / `20260929-473`** is the current accepted `dev` development baseline. The executable integration commit is `8feb0d51a4974442f6683d4550608739986d87a2`.
 
-Accepted lineage in this candidate:
-- **Build 472 / PR #173:** unified Preview Sandbox setting structure on MIUIX `BasicComponent` / native preference title ownership, moderately compact spacing, and the final-size animated Guiyuan identity path. Exact-head Fast #1778 and signed Canary #506 passed; maintainer device review accepted the presentation result. PR #173 was squash-integrated into `dev` as `d24fd7aff07abf78a0a5828fc2e667a88dd05720`.
-- **Build 473 / PR #175:** connected, no-Internet and hotspot native Wi-Fi variants share the same-level connected Wi-Fi drawable as optical-fit reference while preserving each HyperOS drawable's authored viewport/badge relationship. Exact-head Fast #1782 and signed Canary #509 passed on device-tested source `f918663bbd53549089dff0d8a52387b00d6e09b7`; maintainer review accepted the result.
-- PR #175 has been synchronized onto the integrated Build-472 `dev` baseline without changing the accepted Wi-Fi fit policy or the accepted companion-app UI. The resulting exact-head Fast is the final pre-merge source/build check; no repeated device gate is required for this ancestry-only composition.
+Accepted lineage:
+- **Build 472 / PR #173:** Preview Sandbox setting structure now uses MIUIX `BasicComponent` / native preference title ownership with moderate spacing, while the Diagnostics Guiyuan identity is drawn directly at final vector size before rotation. Exact-head Fast #1778 and signed Canary #506 passed; maintainer device review accepted the result. PR #173 was squash-integrated as `d24fd7aff07abf78a0a5828fc2e667a88dd05720`, and post-merge `dev` Integration #1786 passed.
+- **Build 473 / PR #175:** connected, no-Internet and hotspot native Wi-Fi variants use the same-level connected Wi-Fi drawable as the optical-fit reference, preserving each HyperOS drawable's authored viewport/badge relationship. Original device-tested source `f918663bbd53549089dff0d8a52387b00d6e09b7` passed exact-head Fast #1782 and signed Canary #509 and was accepted on device.
+- PR #175 was synchronized onto the accepted Build-472 `dev` baseline without changing either accepted executable behavior. Synchronized exact-head Fast #1788 passed, PR #175 was squash-integrated as `8feb0d51a4974442f6683d4550608739986d87a2`, and post-merge `dev` Integration #1789 passed the full integrated gate including Haple signing, non-debuggable Canary verification, and artifact upload.
 
-Build 473 changes no Wi-Fi semantic source, Hook, observer, listener, transition owner or native drawable contents. It changes only the shared final native Wi-Fi fit reference and therefore applies consistently to Preview Sandbox and real SystemUI rendering.
+Build 473 adds no Wi-Fi semantic source, Hook, observer, listener, transition owner, copied drawable, or per-state scale constant. The shared `CombinedStatusPainter` remains the single renderer used by Preview Sandbox and real Guiyuan SystemUI presentation.
 
 ## Current phase
 
@@ -86,24 +86,22 @@ Keyguard uses a separate host/session adapter while sharing domain/render semant
 
 ## Validation state
 
-There is no open device-blocking defect on the promoted Build 466 baseline.
+There is no open device-blocking defect on the current accepted Build-473 `dev` baseline or on the promoted Build-466 `main` baseline.
 
-Accepted evidence includes:
-- Build 456 runtime device acceptance and post-merge Integration #1651;
-- Build 452 icon device acceptance and post-merge Integration #1596;
-- Build 464 companion-app UI acceptance;
-- Build 466 identity/package device acceptance;
-- Full #1690, Work Branch Canary #492 and `dev` Integration #1693;
-- ready promotion Build #1707;
-- post-merge `main` Full #1708.
+Accepted current-development evidence includes:
+- Build 472 companion-app presentation: Fast #1778, signed Canary #506, maintainer device acceptance, post-merge `dev` Integration #1786;
+- Build 473 Wi-Fi optical normalization: Fast #1782, signed Canary #509, maintainer device acceptance;
+- synchronized Build-473 integration: exact-head Fast #1788 and post-merge `dev` Integration #1789 on `8feb0d51a4974442f6683d4550608739986d87a2`.
+
+Stable Build-466 evidence remains Full #1690, Canary #492, `dev` Integration #1693, promotion Build #1707, and post-merge `main` Full #1708.
 
 Historical rejected/superseded Builds and hypotheses remain in `DEVLOG.md`; do not restore them from old branches or chats.
 
 ## Active branch boundary
 
-- Build 472 companion-app presentation work is accepted and integrated into `dev` by PR #173.
-- Active integration work: `fix/wifi-optical-normalization` / PR #175 / Build 473, synchronized onto `dev@d24fd7aff07abf78a0a5828fc2e667a88dd05720`.
-- This branch owns only the accepted Wi-Fi optical normalization plus integration-record closure; it must not absorb the separate Control Center transition-animation work.
+- The Build-472 presentation line and Build-473 Wi-Fi optical line are closed and integrated into `dev`.
+- The separate transition-animation PR #174 / `feat/control-center-transition-projection` remains open. Relative to current `dev@8feb0d51a4974442f6683d4550608739986d87a2`, it is 23 commits ahead and 2 commits behind and therefore diverged.
+- PR #174 also changes `CombinedStatusPainter`; before any transition-line integration, it must synchronize with current `dev` and preserve the accepted Build-473 Wi-Fi optical-reference behavior rather than overwriting the renderer with its older base.
 - Pre-promotion historical branches remain invalid continuation bases.
 
 ## Non-negotiable boundaries
@@ -119,11 +117,10 @@ Historical rejected/superseded Builds and hypotheses remain in `DEVLOG.md`; do n
 
 ## Immediate next step
 
-1. Complete the synchronized Build-473 exact-head Fast check on PR #175.
-2. Squash-merge accepted PR #175 into `dev`.
-3. Confirm the post-merge `dev` Integration gate; Build 473 then becomes the combined accepted development baseline containing both the Build-472 companion UI polish and the Wi-Fi optical correction.
-4. Continue the separate Home/Keyguard -> QS_FAKE -> native Control Center transition-animation adaptation from the then-current synchronized `dev`; do not mix it back into this closed visual checkpoint.
-5. Keep 1.0.0 gated by the release-qualification matrix and explicit maintainer authorization.
+1. Treat Build 473 / `dev@8feb0d51a4974442f6683d4550608739986d87a2` as the accepted executable development baseline for subsequent work.
+2. Synchronize the separate Control Center transition-animation PR #174 onto current `dev` before further integration, explicitly reviewing its `CombinedStatusPainter` overlap against the accepted Wi-Fi optical-reference path.
+3. Continue transition-animation adaptation without reopening the closed Build-472 companion UI or Build-473 Wi-Fi optical decisions unless new device evidence contradicts them.
+4. Keep 1.0.0 gated by the release-qualification matrix and explicit maintainer authorization.
 
 ## Reference priority
 
