@@ -111,10 +111,11 @@ New executable work must branch from the synchronized current `dev` baseline.
 
 ## Immediate next step
 
-1. Start Phase 5 from the synchronized current `dev` baseline on a new focused `feat/*` branch; do not revive `feat/visual-tuning-controls` or other historical implementation branches.
-2. First Phase-5 checkpoint: adaptive Guiyuan visual sizing and neighboring spacing from resolved geometry, while keeping native slot occupancy, visual width, transition geometry, and optical spacing independently owned. Reuse the production renderer in Preview Sandbox.
-3. Keep per-state battery-ring color-source controls as a separate bounded checkpoint unless implementation review proves the same owner/boundary. Reuse existing native battery semantic/color authority rather than creating a second mode state machine.
-4. Keep 1.0.0 gated by the existing release-qualification matrix and explicit maintainer authorization.
+1. Close the remaining Home/Keyguard -> QS_FAKE -> native Control Center **visual transition-animation** gap before adaptive sizing or broader visual controls.
+2. Start from the synchronized current `dev` baseline on a new focused `feat/*` branch; do not revive historical transition/layout branches.
+3. First review the exact-target native progress, geometry, alpha and appearance ownership across source steady scene -> QS_FAKE -> final QS. Reuse verified SystemUI motion/appearance state; do not create a duplicate project-local animator, fixed-pixel follower, fraction threshold, timer or delay patch.
+4. Keep carrier/scene ownership, stable geometry, transition geometry and animation presentation as separate responsibilities. Any Guiyuan-owned interpolation must be a narrow derivation from authoritative native transition facts and must fail native when those facts are unavailable.
+5. Only after transition animation is accepted, continue adaptive sizing/spacing and later battery-ring color-source controls. Keep 1.0.0 gated by the release-qualification matrix and explicit maintainer authorization.
 
 ## Reference priority
 
