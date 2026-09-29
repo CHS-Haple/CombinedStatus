@@ -33,6 +33,42 @@ class PreviewSandboxPolicyTest {
     }
 
     @Test
+    fun wifiRemainsCenterAuthorityWhileAirplaneAndNoSimAreActive() {
+        val state =
+            PreviewSandboxUiState(
+                simPresent = false,
+                airplaneMode = true,
+                networkMode = PreviewNetworkMode.WIFI,
+            )
+
+        assertEquals(PreviewCenterSource.WIFI, state.previewCenterSource())
+    }
+
+    @Test
+    fun airplaneOverridesNoSimForMobileCenter() {
+        val state =
+            PreviewSandboxUiState(
+                simPresent = false,
+                airplaneMode = true,
+                networkMode = PreviewNetworkMode.MOBILE,
+            )
+
+        assertEquals(PreviewCenterSource.AIRPLANE, state.previewCenterSource())
+    }
+
+    @Test
+    fun noSimOwnsMobileCenterWhenAirplaneIsOff() {
+        val state =
+            PreviewSandboxUiState(
+                simPresent = false,
+                airplaneMode = false,
+                networkMode = PreviewNetworkMode.MOBILE,
+            )
+
+        assertEquals(PreviewCenterSource.NO_SIM, state.previewCenterSource())
+    }
+
+    @Test
     fun mobileSubordinateOptionsFoldWhenUnavailable() {
         val ready =
             PreviewSandboxUiState(
