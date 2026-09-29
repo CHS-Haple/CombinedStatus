@@ -906,14 +906,17 @@ private fun DiagnosticsActionRow(
     BasicComponent(
         title = title,
         summary = summary,
-        endActions = {
+        startAction = {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                modifier = Modifier.size(22.dp),
+                modifier =
+                    Modifier
+                        .size(24.dp)
+                        .padding(end = 2.dp),
                 tint =
                     if (enabled) {
-                        MiuixTheme.colorScheme.primary
+                        MiuixTheme.colorScheme.onSurfaceContainer
                     } else {
                         MiuixTheme.colorScheme.onSurfaceContainerVariant.copy(alpha = 0.38f)
                     },
