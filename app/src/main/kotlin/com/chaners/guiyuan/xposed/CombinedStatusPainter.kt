@@ -123,6 +123,7 @@ internal class CombinedStatusPainter(
         opacity: Float = 1f,
         motionProgress: Float = 0f,
         shapeProgress: Float = 0f,
+        batteryTargetAspectRatio: Float? = null,
     ) {
         if (width <= 0 || height <= 0 || opacity <= 0f) return
 
@@ -144,32 +145,33 @@ internal class CombinedStatusPainter(
         val motion = motionProgress.coerceIn(0f, 1f)
         val shape = shapeProgress.coerceIn(0f, 1f)
         val componentSave = canvas.save()
-        when (shapePolicy) {
-            TransitionShapePolicy.BATTERY_FOLD ->
-                canvas.scale(
-                    1f,
-                    lerp(1f, BATTERY_FOLD_SCALE_Y, motion),
-                    BATTERY_COMPONENT_CENTER_X,
-                    BATTERY_COMPONENT_CENTER_Y,
-                )
-
-            TransitionShapePolicy.RIGID,
-            TransitionShapePolicy.MOBILE_SIGNAL,
-            -> Unit
-        }
 
         when (component) {
-            TransitionComponent.BATTERY ->
-                drawBattery(
-                    canvas = canvas,
-                    model = model,
-                    batteryTint = colors.batteryTint,
-                    opacity = opacity,
-                    geometry =
-                        resolveOuterGeometry(
-                            CombinedStatusOuterGeometry.DEFAULT_WEIGHT_SCALE,
-                        ),
-                )
+            TransitionComponent.BATTERY -> {
+                val outerGeometry =
+                    resolveOuterGeometry(
+                        CombinedStatusOuterGeometry.DEFAULT_WEIGHT_SCALE,
+                    )
+                if (shapePolicy == TransitionShapePolicy.BATTERY_FOLD) {
+                    drawBatteryTransition(
+                        canvas = canvas,
+                        model = model,
+                        batteryTint = colors.batteryTint,
+                        opacity = opacity,
+                        geometry = outerGeometry,
+                        shapeProgress = shape,
+                        targetAspectRatio = batteryTargetAspectRatio,
+                    )
+                } else {
+                    drawBattery(
+                        canvas = canvas,
+                        model = model,
+                        batteryTint = colors.batteryTint,
+                        opacity = opacity,
+                        geometry = outerGeometry,
+                    )
+                }
+            }
 
             TransitionComponent.CENTER ->
                 drawCenterIndicator(
@@ -261,6 +263,12 @@ internal class CombinedStatusPainter(
         MOBILE_SIGNAL,
     }
 
+    internal enum class TransitionScalePolicy {
+        TARGET,
+        SHRINK_ONLY,
+        SOURCE,
+    }
+
     internal sealed interface TransitionTarget {
         data object BatteryIcon : TransitionTarget
 
@@ -294,6 +302,7 @@ internal class CombinedStatusPainter(
         val sourceBounds: TransitionBounds,
         val target: TransitionTarget,
         val shapePolicy: TransitionShapePolicy,
+        val scalePolicy: TransitionScalePolicy,
         val targetOpticalBounds: TransitionNormalizedBounds? = null,
     )
 
@@ -346,6 +355,7 @@ internal class CombinedStatusPainter(
                     ),
                 target = TransitionTarget.BatteryIcon,
                 shapePolicy = TransitionShapePolicy.BATTERY_FOLD,
+                scalePolicy = TransitionScalePolicy.TARGET,
             )
 
         val centerSpec =
@@ -377,6 +387,7 @@ internal class CombinedStatusPainter(
                                 preferredChildEntries = listOf("wifi_signal"),
                             ),
                         shapePolicy = TransitionShapePolicy.RIGID,
+                        scalePolicy = TransitionScalePolicy.TARGET,
                         targetOpticalBounds = metrics?.targetOpticalBounds,
                     )
                 }
@@ -400,6 +411,7 @@ internal class CombinedStatusPainter(
                                     listOf("mobile_type_single", "mobile_type"),
                             ),
                         shapePolicy = TransitionShapePolicy.RIGID,
+                        scalePolicy = TransitionScalePolicy.SHRINK_ONLY,
                     )
 
                 CenterIndicator.Airplane ->
@@ -416,6 +428,7 @@ internal class CombinedStatusPainter(
                             ),
                         target = TransitionTarget.Slots(listOf("airplane")),
                         shapePolicy = TransitionShapePolicy.RIGID,
+                        scalePolicy = TransitionScalePolicy.SHRINK_ONLY,
                     )
 
                 is CenterIndicator.NoSim ->
@@ -435,6 +448,7 @@ internal class CombinedStatusPainter(
                                 listOf("no_sim", "mobile", "stacked_mobile"),
                             ),
                         shapePolicy = TransitionShapePolicy.RIGID,
+                        scalePolicy = TransitionScalePolicy.SHRINK_ONLY,
                     )
 
                 CenterIndicator.Empty -> null
@@ -461,6 +475,7 @@ internal class CombinedStatusPainter(
                     } else {
                         TransitionShapePolicy.MOBILE_SIGNAL
                     },
+                scalePolicy = TransitionScalePolicy.SHRINK_ONLY,
             )
 
         return specs
@@ -581,6 +596,88 @@ internal class CombinedStatusPainter(
                 BATTERY_START_DEGREES,
                 segments.activeSweep,
                 false,
+                paint,
+            )
+        }
+    }
+
+    private fun drawBatteryTransition(
+        canvas: Canvas,
+        model: CombinedStatusRenderModel,
+        batteryTint: Int,
+        opacity: Float,
+        geometry: CombinedStatusOuterGeometry.Resolved,
+        shapeProgress: Float,
+        targetAspectRatio: Float?,
+    ) {
+        val p = shapeProgress.coerceIn(0f, 1f)
+        val morph = p * p * (3f - 2f * p)
+        val ringOpacity = opacity * (1f - morph)
+        if (ringOpacity > 0f) {
+            drawBattery(
+                canvas = canvas,
+                model = model,
+                batteryTint = batteryTint,
+                opacity = ringOpacity,
+                geometry = geometry,
+            )
+        }
+
+        if (morph <= 0f) return
+
+        val sourceWidth = batteryRing.width()
+        val sourceHeight = batteryRing.height()
+        val resolvedAspect =
+            (targetAspectRatio ?: BATTERY_TRANSITION_FALLBACK_ASPECT)
+                .coerceIn(BATTERY_TRANSITION_MIN_ASPECT, 1f)
+        val targetHeight = sourceWidth * resolvedAspect
+        val bodyHeight = lerp(sourceHeight, targetHeight, morph)
+        val bodyLeft = BATTERY_COMPONENT_CENTER_X - sourceWidth / 2f
+        val bodyTop = BATTERY_COMPONENT_CENTER_Y - bodyHeight / 2f
+        val bodyRight = bodyLeft + sourceWidth
+        val bodyBottom = bodyTop + bodyHeight
+        val cornerRadius = bodyHeight / 2f
+
+        stroke(
+            color = batteryTint,
+            alpha = 255,
+            width = geometry.ringStroke,
+            opacity = opacity * morph,
+        )
+        canvas.drawRoundRect(
+            bodyLeft,
+            bodyTop,
+            bodyRight,
+            bodyBottom,
+            cornerRadius,
+            cornerRadius,
+            paint,
+        )
+
+        val terminalProgress = morph * morph
+        if (terminalProgress > 0f) {
+            val terminalHeight = bodyHeight * 0.42f
+            val terminalWidth =
+                max(
+                    geometry.ringStroke,
+                    bodyHeight * 0.12f,
+                )
+            val terminalLeft =
+                bodyRight + geometry.ringStroke * 0.45f
+            val terminalTop =
+                BATTERY_COMPONENT_CENTER_Y - terminalHeight / 2f
+            fill(
+                color = batteryTint,
+                alpha = 255,
+                opacity = opacity * terminalProgress,
+            )
+            canvas.drawRoundRect(
+                terminalLeft,
+                terminalTop,
+                terminalLeft + terminalWidth,
+                terminalTop + terminalHeight,
+                terminalWidth / 2f,
+                terminalWidth / 2f,
                 paint,
             )
         }
@@ -1613,7 +1710,8 @@ internal class CombinedStatusPainter(
         const val NATIVE_STEADY_APPEAR_THRESHOLD = 0.999f
         const val BATTERY_COMPONENT_CENTER_X = 60f
         const val BATTERY_COMPONENT_CENTER_Y = 58f
-        const val BATTERY_FOLD_SCALE_Y = 0.72f
+        const val BATTERY_TRANSITION_FALLBACK_ASPECT = 0.56f
+        const val BATTERY_TRANSITION_MIN_ASPECT = 0.42f
 
     }
 

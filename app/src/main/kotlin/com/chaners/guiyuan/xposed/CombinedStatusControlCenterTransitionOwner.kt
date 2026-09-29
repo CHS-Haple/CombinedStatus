@@ -161,11 +161,18 @@ internal object CombinedStatusControlCenterTransitionOwner {
         fun motionProgress(raw: Float): Float =
             geometryProgress(raw)
 
-        fun mobileSignalShapeProgress(fakeAlpha: Float): Float {
-            val nativeHandoff =
-                1f - fakeAlpha.coerceIn(0f, 1f)
-            return nativeHandoff * nativeHandoff * (3f - 2f * nativeHandoff)
+        fun mobileSignalShapeProgress(rawProgress: Float): Float {
+            val p = geometryProgress(rawProgress)
+            return p * p
         }
+
+        fun unmatchedExitOpacity(rawProgress: Float): Float {
+            val remaining = 1f - geometryProgress(rawProgress)
+            return remaining * remaining
+        }
+
+        fun unmatchedExitScale(rawProgress: Float): Float =
+            1f - 0.06f * geometryProgress(rawProgress)
 
         data class ReservationSpan(
             val sourceLeft: Float,
@@ -213,6 +220,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
             source: FloatArray,
             target: FloatArray,
             progress: Float,
+            scalePolicy: CombinedStatusPainter.TransitionScalePolicy,
         ): FloatArray {
             require(source.size == 6 && target.size == 6)
             val p = progress.coerceIn(0f, 1f)
@@ -228,11 +236,22 @@ internal object CombinedStatusControlCenterTransitionOwner {
             ) {
                 return source.copyOf()
             }
-            val targetScale =
+            val rawTargetScale =
                 min(
                     targetWidth / sourceWidth,
                     targetHeight / sourceHeight,
                 )
+            val targetScale =
+                when (scalePolicy) {
+                    CombinedStatusPainter.TransitionScalePolicy.TARGET ->
+                        rawTargetScale
+
+                    CombinedStatusPainter.TransitionScalePolicy.SHRINK_ONLY ->
+                        min(rawTargetScale, 1f)
+
+                    CombinedStatusPainter.TransitionScalePolicy.SOURCE ->
+                        1f
+                }
             val scale = 1f + (targetScale - 1f) * p
             return floatArrayOf(
                 source[0] + (target[0] - source[0]) * p,
@@ -242,6 +261,30 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 source[4] * scale,
                 source[5] * scale,
             )
+        }
+
+        fun scaleGeometry(
+            source: FloatArray,
+            scale: Float,
+        ): FloatArray {
+            require(source.size == 6)
+            val normalized = scale.coerceAtLeast(0f)
+            return floatArrayOf(
+                source[0],
+                source[1],
+                source[2] * normalized,
+                source[3] * normalized,
+                source[4] * normalized,
+                source[5] * normalized,
+            )
+        }
+
+        fun geometryAspectRatio(geometry: FloatArray): Float? {
+            require(geometry.size == 6)
+            val width = vectorLength(geometry[2], geometry[3])
+            val height = vectorLength(geometry[4], geometry[5])
+            if (width <= 0f || height <= 0f) return null
+            return height / width
         }
 
         private fun vectorLength(
@@ -467,7 +510,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
             val motionProgress = Policy.motionProgress(nativeProgress)
             val opacity = endpointAlpha(fake)
             val mobileSignalShapeProgress =
-                Policy.mobileSignalShapeProgress(opacity)
+                Policy.mobileSignalShapeProgress(nativeProgress)
             if (opacity <= 0f) return
 
             val transitionColors =
@@ -517,13 +560,28 @@ internal object CombinedStatusControlCenterTransitionOwner {
                             sourceGeometry = sourceGeometry,
                             targetOpticalBounds = spec.targetOpticalBounds,
                         )
-                    } ?: sourceGeometry
+                    }
                 val geometry =
-                    Policy.interpolateSimilarityGeometry(
-                        source = sourceGeometry,
-                        target = targetGeometry,
-                        progress = if (witness != null) motionProgress else 0f,
-                    )
+                    if (targetGeometry != null) {
+                        Policy.interpolateSimilarityGeometry(
+                            source = sourceGeometry,
+                            target = targetGeometry,
+                            progress = motionProgress,
+                            scalePolicy = spec.scalePolicy,
+                        )
+                    } else {
+                        Policy.scaleGeometry(
+                            source = sourceGeometry,
+                            scale = Policy.unmatchedExitScale(nativeProgress),
+                        )
+                    }
+                val componentOpacity =
+                    if (targetGeometry != null) {
+                        opacity
+                    } else {
+                        opacity * Policy.unmatchedExitOpacity(nativeProgress)
+                    }
+                if (componentOpacity <= 0f) return@forEach
                 val matrix =
                     matrixForBoundsGeometry(
                         geometry = geometry,
@@ -533,7 +591,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 val save =
                     canvas.saveLayerAlpha(
                         null,
-                        (255f * opacity.coerceIn(0f, 1f)).roundToInt(),
+                        (255f * componentOpacity.coerceIn(0f, 1f)).roundToInt(),
                     )
                 canvas.concat(matrix)
                 painter.drawTransitionComponent(
@@ -547,12 +605,24 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     opacity = 1f,
                     motionProgress = motionProgress,
                     shapeProgress =
-                        if (spec.shapePolicy ==
-                            CombinedStatusPainter.TransitionShapePolicy.MOBILE_SIGNAL
+                        when (spec.shapePolicy) {
+                            CombinedStatusPainter.TransitionShapePolicy.BATTERY_FOLD ->
+                                motionProgress
+
+                            CombinedStatusPainter.TransitionShapePolicy.MOBILE_SIGNAL ->
+                                mobileSignalShapeProgress
+
+                            CombinedStatusPainter.TransitionShapePolicy.RIGID ->
+                                0f
+                        },
+                    batteryTargetAspectRatio =
+                        if (
+                            spec.shapePolicy ==
+                            CombinedStatusPainter.TransitionShapePolicy.BATTERY_FOLD
                         ) {
-                            mobileSignalShapeProgress
+                            targetGeometry?.let(Policy::geometryAspectRatio)
                         } else {
-                            0f
+                            null
                         },
                 )
                 canvas.restoreToCount(save)
@@ -648,9 +718,9 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     resolveTarget(
                         target = spec.target,
                         preferredMobileSubId = preferredMobileSubId,
-                    ) ?: return null
+                    ) ?: return@forEach
                 val slot = witness.slotView
-                if (!isUsableSlotView(slot)) return null
+                if (!isUsableSlotView(slot)) return@forEach
                 val targetLocation = IntArray(2)
                 slot.getLocationInWindow(targetLocation)
 
@@ -669,7 +739,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         targetRight = maxOf(targetA, targetB),
                     )
             }
-            return result
+            return result.takeIf { it.isNotEmpty() }
         }
 
         private fun resolveTarget(
@@ -920,12 +990,13 @@ internal object CombinedStatusControlCenterTransitionOwner {
             if (preferredMobileSubId != null) {
                 candidates.firstOrNull { view ->
                     readMobileSubId(view) == preferredMobileSubId &&
+                        view.visibility == View.VISIBLE &&
                         isUsableSlotView(view)
                 }?.let { return it }
             }
             return candidates.firstOrNull { view ->
                 view.visibility == View.VISIBLE && isUsableSlotView(view)
-            } ?: candidates.firstOrNull(::isUsableSlotView)
+            }
         }
 
         private fun isUsableSlotView(view: View): Boolean =
