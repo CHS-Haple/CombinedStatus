@@ -25,12 +25,16 @@ internal object CombinedStatusKeyguardRenderSession {
 
         existing?.stop()
         val settings = RuntimeFeaturePreferencesOwner.currentSettings()
+        val initialAod =
+            SystemUiKeyguardAodStateSource.currentState(resolved.battery)
+                ?: return AttachResult.Failure("aod-state-unavailable")
         val session =
             Session(
                 resolved = resolved,
                 onEvent = onEvent,
                 isDetailedDiagnosticsEnabled = isDetailedDiagnosticsEnabled,
                 initialFeatureEnabled = settings.enabled && settings.keyguardEnabled,
+                initialAodBlocked = initialAod.blocksProjection,
                 onPresentationReadinessChanged = onPresentationReadinessChanged,
             )
         current = session
@@ -65,6 +69,11 @@ internal object CombinedStatusKeyguardRenderSession {
     }
 
     @Synchronized
+    fun onAodState(update: SystemUiKeyguardAodStateSource.AodUpdate) {
+        current?.updateAodState(update)
+    }
+
+    @Synchronized
     fun setNativeHandoffActive(active: Boolean) {
         current?.setNativeHandoffActive(active)
     }
@@ -78,8 +87,9 @@ internal object CombinedStatusKeyguardRenderSession {
     internal fun resolveOverlayVisible(
         featureEnabled: Boolean,
         nativeHandoffActive: Boolean,
+        aodBlocked: Boolean,
     ): Boolean =
-        featureEnabled && !nativeHandoffActive
+        featureEnabled && !nativeHandoffActive && !aodBlocked
 
     internal fun resolveOwnerReady(
         featureEnabled: Boolean,
@@ -87,18 +97,21 @@ internal object CombinedStatusKeyguardRenderSession {
         tintReady: Boolean,
         layoutReady: Boolean,
         hostAttached: Boolean,
+        aodBlocked: Boolean,
     ): Boolean =
         featureEnabled &&
             modelReady &&
             tintReady &&
             layoutReady &&
-            hostAttached
+            hostAttached &&
+            !aodBlocked
 
     private class Session(
         resolved: SystemUiKeyguardHostResolver.ResolvedHost,
         private val onEvent: (String) -> Unit,
         private val isDetailedDiagnosticsEnabled: () -> Boolean,
         initialFeatureEnabled: Boolean,
+        initialAodBlocked: Boolean,
         private val onPresentationReadinessChanged: ((Boolean) -> Unit)?,
     ) : View.OnAttachStateChangeListener {
         private val host = WeakReference(resolved.host)
@@ -111,6 +124,7 @@ internal object CombinedStatusKeyguardRenderSession {
 
         private var featureEnabled = initialFeatureEnabled
         private var nativeHandoffActive = true
+        private var aodBlocked = initialAodBlocked
         private var modelReady = false
         private var tintReady = false
         private var layoutReady = false
@@ -198,6 +212,25 @@ internal object CombinedStatusKeyguardRenderSession {
 
         fun updateVisualSettings(settings: CombinedStatusVisualSettings) {
             renderController.updateVisualSettings(settings)
+        }
+
+        fun updateAodState(update: SystemUiKeyguardAodStateSource.AodUpdate) {
+            val battery = batteryView.get() ?: return
+            if (update.sourceView !== battery) return
+            if (aodBlocked == update.blocksProjection) return
+
+            aodBlocked = update.blocksProjection
+            val visible = applyResolvedVisibility()
+            emitEvent {
+                "keyguardRenderAod blocked=" + aodBlocked +
+                    " source=" + update.source +
+                    " toAod=" + update.toAod +
+                    " isAodAnimate=" + update.isAodAnimate +
+                    " animToAod=" + (update.animToAod ?: "unavailable") +
+                    " overlayVisible=" + visible +
+                    " nativeGeometryWrites=0"
+            }
+            dispatchPresentationReadiness("aod:" + update.source)
         }
 
         fun updateTint(update: SystemUiTintStateSource.TintUpdate) {
@@ -352,6 +385,7 @@ internal object CombinedStatusKeyguardRenderSession {
                 resolveOverlayVisible(
                     featureEnabled = featureEnabled,
                     nativeHandoffActive = nativeHandoffActive,
+                    aodBlocked = aodBlocked,
                 )
             renderView.visibility = if (visible) View.VISIBLE else View.GONE
             if (visible) {
@@ -370,6 +404,7 @@ internal object CombinedStatusKeyguardRenderSession {
                     tintReady = tintReady,
                     layoutReady = layoutReady,
                     hostAttached = systemIcons.get()?.isAttachedToWindow == true,
+                    aodBlocked = aodBlocked,
                 )
             if (ready == lastPresentationReady) return
             lastPresentationReady = ready
@@ -380,6 +415,7 @@ internal object CombinedStatusKeyguardRenderSession {
                     " tintReady=" + tintReady +
                     " layoutReady=" + layoutReady +
                     " featureEnabled=" + featureEnabled +
+                    " aodBlocked=" + aodBlocked +
                     " aodOwned=false nativeGeometryWrites=0"
             }
             onPresentationReadinessChanged?.invoke(ready)

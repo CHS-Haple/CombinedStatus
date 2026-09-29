@@ -1370,6 +1370,7 @@ class CombinedStatusModule : XposedModule() {
                 classLoader = classLoader,
                 onTintState = ::onTintStateUpdate,
                 onSceneState = ::onSceneStateUpdate,
+                onKeyguardAodState = ::onKeyguardAodStateUpdate,
                 onMobileTypeChanged = { drawable ->
                     refreshMobilePresentation(
                         trace = beginRenderTrace("mobileType"),
@@ -1378,6 +1379,16 @@ class CombinedStatusModule : XposedModule() {
                 },
                 onTintEvent = if (BuildConfig.RUNTIME_DIAGNOSTICS) ::onTintSourceEvent else null,
                 onSceneEvent = if (BuildConfig.RUNTIME_DIAGNOSTICS) ::onSceneSourceEvent else null,
+                onKeyguardAodEvent =
+                    if (BuildConfig.RUNTIME_DIAGNOSTICS) {
+                        { event ->
+                            if (detailedDiagnosticsEnabled) {
+                                log(Log.INFO, TAG, event)
+                            }
+                        }
+                    } else {
+                        null
+                    },
             )
         }.onSuccess { result ->
             logDiagnostic(
@@ -1398,6 +1409,8 @@ class CombinedStatusModule : XposedModule() {
                 "tintHooks" to result.tintHooks,
                 "sceneHooks" to result.sceneHooks,
                 "mobileTypeHooks" to result.mobileTypeHooks,
+                "keyguardAodHooks" to result.keyguardAodHooks,
+                "keyguardAodReady" to result.keyguardAodReady,
                 "source" to source,
                 "nativeGeometryWrites" to 0,
             )
@@ -1593,6 +1606,26 @@ class CombinedStatusModule : XposedModule() {
         }
     }
 
+    private fun onKeyguardAodStateUpdate(
+        update: SystemUiKeyguardAodStateSource.AodUpdate,
+    ) {
+        CombinedStatusKeyguardRenderSession.onAodState(update)
+        if (detailedDiagnosticsEnabled) {
+            logDiagnostic(
+                level = Log.INFO,
+                event = "aod.state",
+                component = "keyguardAod",
+                state = if (update.blocksProjection) "native" else "keyguard-eligible",
+                "source" to update.source,
+                "toAod" to update.toAod,
+                "isAodAnimate" to update.isAodAnimate,
+                "animToAod" to update.animToAod,
+                "blocksProjection" to update.blocksProjection,
+                "nativeGeometryWrites" to 0,
+            )
+        }
+    }
+
     private fun onSceneStateUpdate(update: SystemUiSceneStateSource.SceneUpdate) {
         val structuralSourceScene =
             SystemUiSceneStateSource.steadySourceScene(update.sourceView)
@@ -1645,6 +1678,18 @@ class CombinedStatusModule : XposedModule() {
             is SystemUiKeyguardHostResolver.ResolveResult.Ready -> {
                 if (!settings.enabled || !settings.keyguardEnabled) {
                     deactivateKeyguardRuntime("feature-ineligible")
+                    return
+                }
+                if (!SystemUiPresentationRuntimeOwner.keyguardAodReady) {
+                    deactivateKeyguardRuntime("aod-authority-unavailable")
+                    logDiagnostic(
+                        level = Log.WARN,
+                        event = "aod.authority",
+                        component = "keyguardAod",
+                        state = "unavailable",
+                        "source" to source,
+                        "fallback" to "native-keyguard",
+                    )
                     return
                 }
 
