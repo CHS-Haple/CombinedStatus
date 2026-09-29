@@ -66,7 +66,7 @@ The project is still under active development, so wider device, system-version, 
 **Development / contribution**
 - [CONTRIBUTING.md](CONTRIBUTING.md) — engineering, validation, ownership, CI, and contribution rules.
 - [docs/README.md](docs/README.md) — documentation map and authority guide.
-- [docs/development/README.md](docs/development/README.md) — current state, roadmap, versioning, and engineering-history guide.
+- [docs/development/README.md](docs/development/README.md) — current state, roadmap, engineering history, and lightweight development workflow.
 - [docs/architecture](docs/architecture) — architecture policy and scene/layout boundaries.
 
 ---
@@ -125,7 +125,7 @@ The project is still under active development, so wider device, system-version, 
 **开发 / 贡献**
 - [CONTRIBUTING.md](CONTRIBUTING.md) — 工程、验证、所有权、CI 与贡献规范。
 - [docs/README.md](docs/README.md) — 文档导航与权威关系说明。
-- [docs/development/README.md](docs/development/README.md) — 当前状态、路线图、版本规则与工程历史说明。
+- [docs/development/README.md](docs/development/README.md) — 当前状态、路线图、工程历史与精简开发流程说明。
 - [docs/architecture](docs/architecture) — 架构策略与场景/布局边界。
 
 ---
