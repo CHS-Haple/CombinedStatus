@@ -1,6 +1,6 @@
-# Contributing to Combined Status
+# Contributing to Guiyuan
 
-This document is the engineering source of truth for Combined Status contributors. Apply its rules in proportion to risk: runtime-sensitive SystemUI work needs deeper ownership and device validation, while deterministic mechanical maintenance should remain lightweight.
+This document is the engineering source of truth for Guiyuan contributors. Apply its rules in proportion to risk: runtime-sensitive SystemUI work needs deeper ownership and device validation, while deterministic mechanical maintenance should remain lightweight.
 
 ## 1. Scope, language, and licensing
 
@@ -16,9 +16,9 @@ Normative terms are deliberate:
 
 A justified exception to a MUST-level architectural rule must record the evidence, affected lifecycle, rollback/fallback boundary, compatibility risk, and required validation.
 
-The application ID and package namespace are `com.chaners.combinedstatus`. Changing that identity requires an explicit compatibility and migration plan.
+The application ID and package namespace are `com.chaners.guiyuan`. Changing that identity requires an explicit compatibility and migration plan.
 
-Combined Status is licensed under the [Apache License 2.0](LICENSE). Contributions submitted for inclusion are provided under the same license unless explicitly stated otherwise. Contributors must have the right to submit their material and must preserve required third-party attribution, notices, and license obligations.
+Guiyuan is licensed under the [Apache License 2.0](LICENSE). Contributions submitted for inclusion are provided under the same license unless explicitly stated otherwise. Contributors must have the right to submit their material and must preserve required third-party attribution, notices, and license obligations.
 
 ### Development setup
 
@@ -47,13 +47,13 @@ Every change should preserve four qualities.
 
 Follow Android, HyperOS, MIUIX, and Modern Xposed contracts before inventing project-specific behavior. Keep lifecycle, ownership, state flow, compatibility boundaries, and platform responsibilities explicit.
 
-Where HyperOS already provides an applicable feature design, state model, behavior, or resource, contributors SHOULD consume that verified native source before creating a project-local equivalent. This includes authoritative state sources, state/transition semantics, interaction and layout rules, platform APIs/contracts, and native icons/drawables/resources. Combined Status SHOULD own only its Combined Status-specific composition/presentation or a narrowly scoped fallback for behavior HyperOS does not expose. Do not maintain a parallel parser, state machine, icon set, or behavior model when a verified HyperOS source can be safely reused.
+Where HyperOS already provides an applicable feature design, state model, behavior, or resource, contributors SHOULD consume that verified native source before creating a project-local equivalent. This includes authoritative state sources, state/transition semantics, interaction and layout rules, platform APIs/contracts, and native icons/drawables/resources. Guiyuan SHOULD own only its Guiyuan-specific composition/presentation or a narrowly scoped fallback for behavior HyperOS does not expose. Do not maintain a parallel parser, state machine, icon set, or behavior model when a verified HyperOS source can be safely reused.
 
 Prefer runtime/resource-reference reuse over copying proprietary HyperOS assets into the repository. Any copied third-party asset still requires a valid license basis and applicable attribution/notice.
 
 #### Native visual resource integration
 
-When a verified HyperOS/SystemUI drawable or icon is reused inside Combined Status, preserve the authoritative resource identity and its authored internal visual relationships. Prefer consuming the runtime resource as-is rather than editing, recoloring, or preprocessing the source asset.
+When a verified HyperOS/SystemUI drawable or icon is reused inside Guiyuan, preserve the authoritative resource identity and its authored internal visual relationships. Prefer consuming the runtime resource as-is rather than editing, recoloring, or preprocessing the source asset.
 
 Native drawables rendered by Combined Status MUST preserve the verified HyperOS/SystemUI Drawable or vector semantics through the final resolved rendering bounds. Authored alpha/coverage, viewport relationships, and native resource identity must not be flattened or normalized merely to make a reused icon visually match another status icon. A raster probe MAY be used for bounded optical measurement, but probe pixels MUST NOT become the final rendered visual asset when the native path can draw the Drawable/vector directly at final bounds.
 
@@ -77,7 +77,7 @@ A newer API or dependency is not automatically better. Adoption still needs life
 
 ### 2.4 Fail native
 
-When Combined Status cannot safely establish the required contract, degrade toward native HyperOS behavior rather than leaving a partially active replacement.
+When Guiyuan cannot safely establish the required contract, degrade toward native HyperOS behavior rather than leaving a partially active replacement.
 
 Do not hide a native representation until the replacement is valid for the current session. Compatibility failure should disable the smallest affected feature, not destabilize SystemUI.
 
@@ -179,15 +179,15 @@ For runtime facts already modeled by Android or HyperOS, choose the highest veri
 5. parsing rendered resources, View state, names, geometry, or other presentation artifacts only when no stronger source is available;
 6. a workaround only under the normal last-resort rule.
 
-Do not reconstruct a native state from a lower-level signal merely because it is easy to observe. If SystemUI already decides signal level, connectivity validity, network type, charging class, scene, tint, visibility, animation state, or a comparable semantic result, reuse that verified decision when Combined Status needs the same meaning.
+Do not reconstruct a native state from a lower-level signal merely because it is easy to observe. If SystemUI already decides signal level, connectivity validity, network type, charging class, scene, tint, visibility, animation state, or a comparable semantic result, reuse that verified decision when Guiyuan needs the same meaning.
 
-Project-local logic is appropriate only when the native source does not expose a required Combined Status-specific fact or when several authoritative facts must be composed into a project-specific presentation decision. Such logic must remain a derivation layer rather than a parallel platform state machine.
+Project-local logic is appropriate only when the native source does not expose a required Guiyuan-specific fact or when several authoritative facts must be composed into a project-specific presentation decision. Such logic must remain a derivation layer rather than a parallel platform state machine.
 
 When adding or keeping project-local derivation, document in code/PR evidence as applicable:
 
 - which native facts are authoritative inputs;
 - which required semantic is not directly exposed upstream;
-- the exact derived output Combined Status owns;
+- the exact derived output Guiyuan owns;
 - when the derivation is valid and when it becomes unknown/stale;
 - conflict precedence if another source reports the same fact;
 - fallback behavior when an input is unavailable;
@@ -212,13 +212,13 @@ When ownership moves, move one bounded responsibility at a time, keep one active
 Keep these responsibilities conceptually separate:
 
 1. native SystemUI layout slot;
-2. Combined Status visual/drawing geometry;
+2. Guiyuan visual/drawing geometry;
 3. transition/animation geometry;
 4. optical adjustment.
 
 A visual-width requirement does not automatically justify native layout-width mutation. An animation correction does not automatically change stable geometry. An optical offset must not silently become layout ownership.
 
-Prefer solving Combined Status-specific appearance inside its own presentation/rendering layer. Native measured width, layout width, translation, or visibility writes are exceptional and require verified runtime evidence, a single owner, narrow scope, reversibility, and focused device validation.
+Prefer solving Guiyuan-specific appearance inside its own presentation/rendering layer. Native measured width, layout width, translation, or visibility writes are exceptional and require verified runtime evidence, a single owner, narrow scope, reversibility, and focused device validation.
 
 Pixel correctness in one scene is not enough. For runtime-sensitive geometry or animation work, verify the expected writer, absence of competing writers, stable/transition separation, host replacement, and the relevant Home, keyguard, AOD, shade/Control Center, charging/island, and recreation paths.
 
@@ -275,9 +275,9 @@ Any user-facing text change needs copy review.
 
 Fixed terminology:
 
-- Public English product name: **Combined Status**
-- Chinese product name: **三合一状态图标**
-- Established technical identifier when required by repository/source/artifact identity: `CombinedStatus`
+- Public English product name: **Guiyuan**
+- Chinese product name: **归元**
+- Established technical identifier for new repository/artifact identity: `Guiyuan`; existing `CombinedStatus*` code symbols remain valid internal implementation names and are not renamed mechanically.
 - Chinese: **移动网络**
 - English: **mobile network**
 - Internal domain naming: `mobileNetwork` / `mobileSignal`
