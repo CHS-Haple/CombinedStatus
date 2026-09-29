@@ -10747,3 +10747,75 @@ Exact-head Fast is required because app/runtime package files changed. A signed 
 
 Run exact-head Fast. If green, review the Sandbox hierarchy and Diagnostics mark in light/dark appearance. Integrate to `dev` when accepted. The pending SystemUI transition-animation work remains a separate branch from the updated `dev` baseline.
 
+---
+
+## 2026-09-29 — Build 468: rebalance Sandbox grouping and Diagnostics information density
+
+**Type:** focused companion-app visual correction
+**Display version:** 0.0.3
+**Build / source:** Build 468 / `20260929-468` / executable checkpoint `b25ee8340a624598f3c28e3b011c349b52e99f05`
+**Branch / PR:** `feat/presentation-ui-polish` / #173
+**SystemUI runtime change:** none
+**Validation:** exact-head Fast pending
+
+### Build 467 device evidence
+
+Build 467 passed ready Fast #1729 and signed Work Branch Canary #494. Canary #494 verified the exact work-branch source `9e0dc34e5e2824b20743f670d6583408a3611a61`, passed signing/metadata/non-debuggable checks, and uploaded artifact `Guiyuan-0.0.3-HyperOS-20260929-467-canary.apk` (artifact id `11031627778`).
+
+Focused device screenshots then refined the visual conclusion:
+- the 1 dp Sandbox dividers at the Build-467 opacity/spacing read as effectively absent;
+- the Diagnostics app identity block was visually top-heavy;
+- device/system and module-runtime cards retained too much vertical whitespace for their information density;
+- the Diagnostics & reports action card was explicitly considered well balanced and should not be changed.
+
+Build 467 is therefore structurally valid but visually superseded by this checkpoint.
+
+### Root cause
+
+The remaining issues are composition-density problems, not typography or component defects.
+
+- **Sandbox:** the divider line had insufficient contrast and only 4 dp group separation, so it did not create a perceptible group boundary.
+- **Diagnostics:** identity content carried high visual mass at the top while fact rows retained 8 dp vertical padding per item, creating a sparse lower half and inconsistent density relative to the accepted action card.
+
+### Implementation
+
+#### Preview Sandbox
+- keep the accepted MIUIX `body1` / `body2` hierarchy;
+- keep dividers at 1 dp rather than increasing stroke thickness;
+- derive divider color from `onSurfaceContainerVariant` at 0.20 alpha;
+- use 10 dp vertical space around network/device and battery-value/state group boundaries;
+- keep preview result dividers restrained with smaller local spacing;
+- do not change simulation policy, controls, state, or production renderer.
+
+#### Diagnostics information cards
+- keep the Diagnostics & reports section byte-for-byte behaviorally unchanged;
+- reduce fact-row vertical padding from 8 dp to 5 dp and give the secondary label a 1 dp local offset;
+- reduce app identity mark layout slot from 72 dp to 64 dp and title from `title2` to `title3` only when the identity mark is present;
+- reduce identity/header spacing while retaining the device name as the stronger `title2` identity;
+- add one restrained divider between the app identity block and version/build/package facts;
+- slow the screen-local linear counterclockwise identity rotation from 18 s to 20 s per revolution;
+- shorten the shared description to focus on the actual HyperOS status-indicator function rather than repeating LSPosed/module context already established by the host UI.
+
+### Problem execution flow
+
+1. Preserve Build-467 successful CI/runtime boundary and use only device visual evidence to reopen presentation.
+2. Separate the already-accepted action-list card from the sparse information-card family.
+3. Correct grouping through spacing/contrast before considering thicker dividers or background blocks.
+4. Correct Diagnostics density through shared information-row rhythm rather than converting the page to a table or adding per-row separators.
+5. Reuse the frozen foreground vector and screen-local Compose animation; do not create a second logo asset or animation owner.
+
+### 审查 / review
+
+- **Ownership:** MIUIX still owns text/component grammar; Guiyuan owns only local composition and its product identity mark.
+- **Lifecycle:** identity motion exists only while the Diagnostics composable is active.
+- **Single writer:** animation writes only one local graphics-layer rotation; no runtime property is touched.
+- **Cleanup:** Compose disposal ends the animation; no listener, callback, service, or background owner exists.
+- **Fail native:** SystemUI path is untouched.
+- **Performance:** one small graphics-layer transform while Diagnostics is visible; no polling, repeated resource lookup, logging, or runtime wakeup.
+- **Compatibility:** no dependency/build-system change; existing MIUIX and Compose APIs only.
+- **Future extension:** upper information-card density and lower action-card interaction remain separate reusable presentation roles.
+
+### Validation gate
+
+Move PR #173 back to Ready and run exact-head Fast. If successful, request one signed Canary because device evidence directly reopened visual contrast/density. Freeze the exact Build-468 source for that review; do not layer SystemUI transition work into this branch.
+
