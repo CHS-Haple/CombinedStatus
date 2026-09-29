@@ -3,6 +3,32 @@
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
 
+## 2026-09-29 — Build 460: Runtime status-mark weight correction
+
+**Type:** companion-app Home UI refinement  
+**Display version:** 0.0.2  
+**Build / source:** 460 / `20260929-460` / `feat/home-ui-shell`  
+**SystemUI ownership change:** none
+
+### Maintainer correction
+
+The Build-459 attempt incorrectly moved the master Switch horizontally. The Switch position was already correct and must remain unchanged. The intended visual improvement belongs to the lower circular status mark: it should read larger and stronger while keeping its established semantic color.
+
+### Implementation
+
+- Restore the master Switch to the original `Alignment.TopEnd` placement with no added end padding.
+- Keep the restored pre-458 runtime-card semantic tint and status-mark color composition.
+- Increase the status-mark canvas from 88 dp to 96 dp.
+- Increase the mark stroke from 5.4 dp to 6.4 dp.
+- Retain the previously requested vertical correction at `y=-2 dp` so the mark sits slightly higher.
+- Leave Sandbox UI, renderer semantics and SystemUI runtime code unchanged.
+
+### 审查 / review
+
+The change is limited to Home-card presentation geometry and stroke weight. No state, ownership, Hook, lifecycle, dependency or renderer-path changes are introduced.
+
+
+
 ## 2026-09-29 — Build 459: Runtime-card scope correction
 
 **Type:** companion-app Home UI correction  
