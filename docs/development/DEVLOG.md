@@ -11610,3 +11610,56 @@ The HyperCeiler recognizer requires the original native `mobile_signal` to be hi
 - Unit tests lock mobile-type/signal fallback separation, RTL mirroring, and HyperCeiler dual-signal structural signature.
 - Runtime CI must pass on exact head.
 - Signed Canary device validation is required specifically with HyperCeiler dual-row enabled and disabled.
+
+
+## 2026-09-30 — Build 488: Keyguard-to-Control-Center lifecycle lease
+
+**Type:** Control Center / Keyguard handoff correction  
+**Display version:** 0.0.3  
+**Build / source:** 488 / `20260930-488` / `feat/control-center-transition-matrix`
+
+### Problem
+
+Device video shows an apparent short stall at the fully-expanded endpoint when Control Center is pulled from Keyguard. Slow-frame review shows this is not primarily a frame-rate pause: for a short interval the outgoing Keyguard status row is restored/re-laid out while the incoming final Control Center row is also visible, so native peers visibly occupy two nearby geometries before converging.
+
+### Evidence
+
+The Keyguard renderer declares readiness from model + tint + live host layout. When the Keyguard host loses usable layout near the Control Center endpoint, the current module handles `ready=false` immediately by:
+- setting `keyguardRuntimeReady=false`;
+- switching the Keyguard renderer back to native handoff;
+- deactivating the Keyguard compact presentation, restoring represented native slots/reservation;
+- recomputing KEYGUARD Control Center projection eligibility.
+
+Runtime diagnostics also show a terminal `keyguard-readiness-lost` eligibility transition. Native scene callbacks may report the outgoing Battery as raw unlocked status state during this same handoff, so the steady-source path can additionally request Home cleanup even though the active Control Center gesture originated from verified KEYGUARD `realSystemIcons`.
+
+### Root cause
+
+Steady Keyguard readiness and an in-flight Control Center source lease are different lifetimes. The former may legitimately disappear before HyperOS completes fake/final Control Center handoff; treating that transient loss as permission to restore the outgoing Keyguard native row creates a second layout transition underneath the native Control Center transition.
+
+### Change
+
+- Track native Control Center expansion fraction from the existing HyperOS callback; no new animator/timer/polling source is added.
+- Acquire a Keyguard Control Center lease only after:
+  - the source scene is KEYGUARD;
+  - steady Keyguard compact presentation was already ready;
+  - native expansion becomes greater than zero.
+- While the lease is valid, transient Keyguard renderer readiness loss does not restore native slots/reservation and transient steady-source HOME classification is ignored for ownership.
+- Release the lease at native fraction zero, or immediately on authoritative source change away from KEYGUARD, AOD ownership, runtime failure, feature disable, host invalidation, teardown, or Hot Reload.
+- If renderer readiness is still false when the lease ends, execute the existing fail-native readiness-loss path immediately. There is no time delay or grace timer.
+
+### 审查 / review
+
+- **motion ownership:** native expansion remains the only gesture timeline and SystemUI final fake/final appearance remains authoritative.
+- **single writer:** no peer translation/alpha/visibility writer is added; the existing Keyguard compact-presentation owner simply keeps its already-owned slot/reservation state alive for the verified transition lifetime.
+- **cleanup:** the lease is bounded by native fraction/source/AOD/host/feature/runtime lifecycle and is reset on teardown/Hot Reload.
+- **fail-native:** AOD, detached/unresolved host, runtime failure, disabled feature, or authoritative non-Keyguard source bypass retention.
+- **performance:** only scalar state is updated from existing callbacks; no listener, traversal, delay, or polling loop is added.
+- **regression boundary:** Build-487 target compatibility and Build-486 trajectory/Battery/Mobile morphology are unchanged.
+
+### Bluetooth-device battery compatibility observation
+
+The affected peer is `bluetooth_handsfree_battery` (headset + battery), not the ordinary Bluetooth icon. Guiyuan source review finds no writer for that peer's tint, color filter, alpha, visibility, or geometry. HyperCeiler current main `StatusBarIcon.java` exposes the slot by mutating HyperOS `RIGHT_BLOCK_LIST` / `CONTROL_CENTER_BLOCK_LIST`; it does not add a dedicated Home tint owner there. An occasional stale inversion can therefore be caused by the exposed native slot's own lifecycle or by cross-module ordering, but current evidence does not justify Guiyuan taking tint ownership. No tint fix is included; a recurrence should first add/read a bounded slot-tint diagnostic.
+
+### Validation
+
+Exact-head Runtime CI is required. Signed Canary device validation must cover Keyguard pull to fully expanded Control Center and reverse collapse, plus verify AOD/fail-native cleanup remains immediate.

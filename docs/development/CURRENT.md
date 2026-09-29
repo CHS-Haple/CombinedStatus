@@ -18,7 +18,7 @@ Control Center transition animation is the active runtime task.
 
 Current implementation line:
 - PR #177 — feat/control-center-transition-matrix;
-- current work-branch checkpoint: Build 487 / 20260930-487;
+- current work-branch checkpoint: Build 488 / 20260930-488;
 - exact-target direction: QS_FAKE role-5 to final-QS role-6 matrix projection;
 - HyperOS remains translation/appearance authority; raw native expansion drives transition geometry and native fake/final Folme owns visual handoff;
 - Guiyuan reads native transition state and renders only its owned Trinity correspondence; final role-6 top-level slots are read-only occupancy witnesses, while the existing QS_FAKE statusIcons-paddingEnd owner now provides a progress-synchronous semantic reservation so surrounding native peers move through SystemUI's own measure/layout path;
@@ -52,6 +52,12 @@ Build 485 removed the charging-press flattening but device review rejects its sy
 
 Build 486 restores the accepted pre-custom Battery treatment: the ring uses the Build-482 fold/projection handoff and no synthetic Battery body is drawn. Source ownership is split: MiuiBatteryMeterView contributes native center/translation while Guiyuan renderView contributes the stable basis, so transient charging/press scale cannot flatten Guiyuan without replacing the accepted native trajectory coordinate authority. Mobile first forms a row, then all four bars grow upward from one shared fixed lower baseline for the entire bar-growth phase. Target resolution now follows one fail-fast rule: semantic children such as wifi_signal, mobile_type(_single), and mobile_signal must be visible, attached and non-zero; otherwise that component uses the existing fast fade/slight-shrink exit instead of guessing a top-level slot position. HyperOS remains external progress, final appearance, peer-layout, and themed-asset authority.
 
+Build 487 adds HyperCeiler dual-row signal compatibility plus bounded semantic fallback and has exact-head Runtime CI #1846 green; signed Canary #528 is available for focused dual-row validation.
+
+Build 488 addresses a separate Keyguard-originated terminal handoff defect seen in device video. Frame review shows a short interval near fully expanded Control Center where the outgoing Keyguard status row is restored/re-laid out while the incoming final Control Center status row is also visible, producing an apparent one-frame stall/offset across native peers such as VPN and Bluetooth-device battery. The existing Keyguard renderer reports transient readiness loss as its host geometry disappears, and the module immediately restores represented native slots/reservation and revokes KEYGUARD Control Center eligibility. Build 488 adds no delay: once a KEYGUARD-originated Control Center gesture has non-zero native expansion, the already-established Keyguard presentation owns a lifecycle lease until native expansion returns to zero or an authoritative break occurs (AOD, real host detach/failure, feature disable, or Control Center source resolves away from KEYGUARD). During that lease, transient steady-source HOME/raw-state changes and renderer layout-readiness loss do not restore the outgoing Keyguard row. Final Control Center remains native-owned.
+
+Bluetooth-device battery tint remains observationally separate: Guiyuan has no writer for `bluetooth_handsfree_battery` tint/alpha/visibility. HyperCeiler's current `StatusBarIcon` implementation only changes HyperOS RIGHT_BLOCK_LIST / CONTROL_CENTER_BLOCK_LIST membership for that slot. No tint mutation is added in Build 488; recurrence should be captured with a read-only slot-tint probe before any compatibility fix.
+
 Device testing is requested only when the result can change implementation choice or acceptance. Mechanical/documentation steps continue without a new APK round trip.
 
 ## Non-negotiable boundaries
@@ -67,11 +73,12 @@ Device testing is requested only when the result can change implementation choic
 
 ## Immediate next step
 
-1. Run exact-head Runtime CI for Build 487; if green, request one signed work-branch Canary.
-2. Device gate A — HyperCeiler dual-row: verify the four-dot/mobile-signal component now migrates toward the visible dual-row signal container instead of staying behind or fading.
-3. Device gate B — 5G separation: verify real `mobile_type` geometry still wins and 5G does not overlap the signal morph; if a type child is unavailable, the bounded type region remains separated from the bounded signal region.
-4. Device gate C — native/no-modifier regression: verify native HyperOS mobile/Wi-Fi paths still prefer real semantic children and are unchanged when those children are available.
-5. Keep Build-486 trajectory, Battery ring-fold, flat signal baseline, and charging-press behavior unchanged.
+1. Run exact-head Runtime CI for Build 488; if green, request one signed Canary.
+2. Device gate A — repeat the lockscreen -> fully expanded Control Center pull and verify the terminal one-frame peer-row re-layout/stall is gone.
+3. Device gate B — reverse fully expanded Control Center back to Keyguard and verify Keyguard Trinity/native peer spacing restores without a delayed jump.
+4. Device gate C — AOD/feature-disable/fail-native still break the lease immediately; the lease must never survive native fraction zero.
+5. Preserve Build-487 HyperCeiler dual-row target compatibility, Build-486 Battery ring-fold, flat Mobile baseline, and source position/basis split.
+6. If `bluetooth_handsfree_battery` inversion recurs, collect read-only tint/visibility evidence before changing ownership.
 
 ## Reference priority
 

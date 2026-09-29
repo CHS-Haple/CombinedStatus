@@ -128,6 +128,8 @@ Build 442 establishes the structural host/source boundary. Build 456 uses that b
 
 The candidate deliberately separates steady-host identity from transition-router timing: `realSystemIcons` does not need to have switched to Keyguard before the steady Keyguard host can be resolved. Conversely, Keyguard-originated QS_FAKE is not permitted until the steady Keyguard adapter is actually ready.
 
+Build 488 adds a lifecycle rule for Keyguard-originated Control Center transitions: once the verified Keyguard compact presentation has entered a native expansion with fraction greater than zero, that already-owned presentation state may remain leased across transient Keyguard host-layout/readiness loss until native expansion returns to zero. This is not a timing grace period. The lease exists only while the source remains KEYGUARD, the feature remains enabled, the Keyguard host remains attached, and AOD is not active; authoritative source change, AOD, host/runtime failure, feature disable, teardown, or Hot Reload releases it immediately. Its purpose is to prevent restoring/re-laying out the outgoing Keyguard native status row underneath HyperOS's fake-to-final Control Center handoff. It does not keep Guiyuan visible on the fully-expanded final Control Center surface and does not write native peer geometry/alpha/visibility.
+
 AOD remains a separate gate. Build 456 retains Build 455's corrected native AOD-state observation Hooks and does not claim AOD alpha/visibility/translation/animation ownership. Any AOD leakage or failed restoration during Canary validation rejects the candidate rather than being patched with timing or alpha thresholds.
 
 ## Charging

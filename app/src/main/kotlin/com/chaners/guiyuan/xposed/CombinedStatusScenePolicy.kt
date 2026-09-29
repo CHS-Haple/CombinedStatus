@@ -74,6 +74,32 @@ internal object CombinedStatusScenePolicy {
     fun all(): List<CombinedStatusSceneCapability> =
         CombinedStatusScene.entries.map(::capability)
 
+    fun shouldAcquireKeyguardControlCenterLease(
+        sourceScene: CombinedStatusSourceScene,
+        keyguardRuntimeReady: Boolean,
+        nativeFraction: Float,
+    ): Boolean =
+        sourceScene == CombinedStatusSourceScene.KEYGUARD &&
+            keyguardRuntimeReady &&
+            nativeFraction > 0f
+
+    fun shouldRetainKeyguardControlCenterLease(
+        leaseActive: Boolean,
+        sourceScene: CombinedStatusSourceScene,
+        featureEnabled: Boolean,
+        keyguardEnabled: Boolean,
+        hostAttached: Boolean,
+        aodBlocked: Boolean,
+        nativeFraction: Float,
+    ): Boolean =
+        leaseActive &&
+            sourceScene == CombinedStatusSourceScene.KEYGUARD &&
+            featureEnabled &&
+            keyguardEnabled &&
+            hostAttached &&
+            !aodBlocked &&
+            nativeFraction > 0f
+
     fun controlCenterProjectionEligible(
         sourceScene: CombinedStatusSourceScene,
         keyguardEnabled: Boolean,

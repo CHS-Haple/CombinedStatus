@@ -86,4 +86,67 @@ class CombinedStatusScenePolicyTest {
             ),
         )
     }
+
+    @Test
+    fun keyguardControlCenterLeaseExistsOnlyInsideVerifiedNativeTransitionLifetime() {
+        assertTrue(
+            CombinedStatusScenePolicy.shouldAcquireKeyguardControlCenterLease(
+                sourceScene = CombinedStatusSourceScene.KEYGUARD,
+                keyguardRuntimeReady = true,
+                nativeFraction = 0.5f,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.shouldAcquireKeyguardControlCenterLease(
+                sourceScene = CombinedStatusSourceScene.KEYGUARD,
+                keyguardRuntimeReady = true,
+                nativeFraction = 0f,
+            ),
+        )
+
+        assertTrue(
+            CombinedStatusScenePolicy.shouldRetainKeyguardControlCenterLease(
+                leaseActive = true,
+                sourceScene = CombinedStatusSourceScene.KEYGUARD,
+                featureEnabled = true,
+                keyguardEnabled = true,
+                hostAttached = true,
+                aodBlocked = false,
+                nativeFraction = 1f,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.shouldRetainKeyguardControlCenterLease(
+                leaseActive = true,
+                sourceScene = CombinedStatusSourceScene.HOME,
+                featureEnabled = true,
+                keyguardEnabled = true,
+                hostAttached = true,
+                aodBlocked = false,
+                nativeFraction = 1f,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.shouldRetainKeyguardControlCenterLease(
+                leaseActive = true,
+                sourceScene = CombinedStatusSourceScene.KEYGUARD,
+                featureEnabled = true,
+                keyguardEnabled = true,
+                hostAttached = true,
+                aodBlocked = true,
+                nativeFraction = 1f,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.shouldRetainKeyguardControlCenterLease(
+                leaseActive = true,
+                sourceScene = CombinedStatusSourceScene.KEYGUARD,
+                featureEnabled = true,
+                keyguardEnabled = true,
+                hostAttached = true,
+                aodBlocked = false,
+                nativeFraction = 0f,
+            ),
+        )
+    }
 }
