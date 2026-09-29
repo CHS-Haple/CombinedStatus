@@ -42,6 +42,7 @@ import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.chaners.combinedstatus.BuildConfig
 import com.chaners.combinedstatus.R
@@ -766,6 +767,12 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
                 selectedIndex = diagnosticsSettings.level.ordinal,
                 title = stringResource(R.string.diagnostics_mode_title),
                 summary = stringResource(R.string.diagnostics_mode_summary),
+                startAction = {
+                    DiagnosticsLeadingIcon(
+                        icon = MiuixIcons.Normal.Tune,
+                        visualSize = 22.dp,
+                    )
+                },
                 showValue = true,
                 onSelectedIndexChange = { index ->
                     DiagnosticsLevel.entries.getOrNull(index)?.let { level ->
@@ -779,6 +786,7 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
                 title = stringResource(R.string.export_diagnostic_report),
                 summary = stringResource(R.string.export_diagnostic_report_summary),
                 icon = MiuixIcons.Normal.Download,
+                iconVisualSize = 21.dp,
                 enabled = !reportInProgress && !exportPickerOpen,
                 onClick = {
                     exportPickerOpen = true
@@ -789,6 +797,7 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
                 title = stringResource(R.string.share_diagnostic_report),
                 summary = stringResource(R.string.share_diagnostic_report_summary),
                 icon = MiuixIcons.Normal.Share,
+                iconVisualSize = 23.dp,
                 enabled = !reportInProgress && !exportPickerOpen,
                 onClick = {
                     buildReport { report ->
@@ -900,6 +909,7 @@ private fun DiagnosticsActionRow(
     title: String,
     summary: String,
     icon: ImageVector,
+    iconVisualSize: Dp,
     enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
@@ -907,25 +917,43 @@ private fun DiagnosticsActionRow(
         title = title,
         summary = summary,
         startAction = {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                modifier =
-                    Modifier
-                        .padding(end = 16.dp)
-                        .size(24.dp),
-                tint =
-                    if (enabled) {
-                        MiuixTheme.colorScheme.onSurfaceContainer
-                    } else {
-                        MiuixTheme.colorScheme.onSurfaceContainerVariant.copy(alpha = 0.38f)
-                    },
+            DiagnosticsLeadingIcon(
+                icon = icon,
+                visualSize = iconVisualSize,
+                enabled = enabled,
             )
         },
         onClick = onClick,
         onClickLabel = title,
         enabled = enabled,
     )
+}
+
+@Composable
+private fun DiagnosticsLeadingIcon(
+    icon: ImageVector,
+    visualSize: Dp,
+    enabled: Boolean = true,
+) {
+    Box(
+        modifier =
+            Modifier
+                .padding(end = 16.dp)
+                .size(24.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(visualSize),
+            tint =
+                if (enabled) {
+                    MiuixTheme.colorScheme.onSurfaceContainer
+                } else {
+                    MiuixTheme.colorScheme.onSurfaceContainerVariant.copy(alpha = 0.38f)
+                },
+        )
+    }
 }
 
 @Composable
