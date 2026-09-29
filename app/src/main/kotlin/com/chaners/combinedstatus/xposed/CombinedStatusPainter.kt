@@ -603,7 +603,13 @@ internal class CombinedStatusPainter(
         airplaneDrawableResolved = true
         cachedAirplaneResourceId =
             runCatching {
-                context.resources.getIdentifier(
+                val resourceContext =
+                    if (context.packageName == SYSTEM_UI_PACKAGE) {
+                        context
+                    } else {
+                        context.createPackageContext(SYSTEM_UI_PACKAGE, 0)
+                    }
+                resourceContext.resources.getIdentifier(
                     AIRPLANE_RESOURCE_NAME,
                     "drawable",
                     SYSTEM_UI_PACKAGE,
