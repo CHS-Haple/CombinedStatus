@@ -43,8 +43,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.drawscope.rotate
-import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.Layout
@@ -895,18 +896,22 @@ private fun GuiyuanAnimatedIdentityMark() {
         Canvas(
             modifier = Modifier.size(64.dp),
         ) {
+            val targetSize =
+                Size(
+                    width = size.width * 1.8f,
+                    height = size.height * 1.8f,
+                )
+            val left = (size.width - targetSize.width) / 2f
+            val top = (size.height - targetSize.height) / 2f
+
             rotate(
                 degrees = orbitRotation,
                 pivot = center,
             ) {
-                scale(
-                    scaleX = 1.8f,
-                    scaleY = 1.8f,
-                    pivot = center,
-                ) {
+                translate(left = left, top = top) {
                     with(painter) {
                         draw(
-                            size = this@Canvas.size,
+                            size = targetSize,
                             colorFilter = ColorFilter.tint(tint),
                         )
                     }
