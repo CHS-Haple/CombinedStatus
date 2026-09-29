@@ -912,8 +912,8 @@ private fun DiagnosticsActionRow(
                 contentDescription = null,
                 modifier =
                     Modifier
-                        .size(24.dp)
-                        .padding(end = 2.dp),
+                        .padding(end = 16.dp)
+                        .size(24.dp),
                 tint =
                     if (enabled) {
                         MiuixTheme.colorScheme.onSurfaceContainer
