@@ -718,6 +718,7 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
                     GuiyuanAnimatedIdentityMark()
                 },
             )
+            DiagnosticsInfoDivider()
             DiagnosticsInfoValue(
                 value = BuildConfig.VERSION_NAME,
                 label = stringResource(R.string.diagnostics_version_label),
@@ -875,7 +876,7 @@ private fun GuiyuanAnimatedIdentityMark() {
                 infiniteRepeatable(
                     animation =
                         tween(
-                            durationMillis = 18_000,
+                            durationMillis = 20_000,
                             easing = LinearEasing,
                         ),
                 ),
@@ -883,7 +884,7 @@ private fun GuiyuanAnimatedIdentityMark() {
         )
 
     Box(
-        modifier = Modifier.size(72.dp),
+        modifier = Modifier.size(64.dp),
         contentAlignment = Alignment.Center,
     ) {
         Image(
@@ -892,7 +893,7 @@ private fun GuiyuanAnimatedIdentityMark() {
             colorFilter = ColorFilter.tint(MiuixTheme.colorScheme.onSurfaceContainer),
             modifier =
                 Modifier
-                    .size(72.dp)
+                    .size(64.dp)
                     .graphicsLayer {
                         scaleX = 1.8f
                         scaleY = 1.8f
@@ -913,19 +914,27 @@ private fun DiagnosticsCardHeader(
             Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 18.dp)
-                .padding(top = 16.dp, bottom = 12.dp),
+                .padding(
+                    top = 12.dp,
+                    bottom = if (leadingContent != null) 10.dp else 4.dp,
+                ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (leadingContent != null) {
             leadingContent()
-            Spacer(modifier = Modifier.width(14.dp))
+            Spacer(modifier = Modifier.width(12.dp))
         }
         Column(
             modifier = Modifier.weight(1f),
         ) {
             Text(
                 text = title,
-                style = MiuixTheme.textStyles.title2,
+                style =
+                    if (leadingContent != null) {
+                        MiuixTheme.textStyles.title3
+                    } else {
+                        MiuixTheme.textStyles.title2
+                    },
                 color = MiuixTheme.colorScheme.onSurfaceContainer,
             )
             if (!subtitle.isNullOrBlank()) {
@@ -941,6 +950,18 @@ private fun DiagnosticsCardHeader(
 }
 
 @Composable
+private fun DiagnosticsInfoDivider() {
+    Surface(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 18.dp)
+                .height(1.dp),
+        color = MiuixTheme.colorScheme.onSurfaceContainerVariant.copy(alpha = 0.16f),
+    ) {}
+}
+
+@Composable
 private fun DiagnosticsInfoValue(
     value: String,
     label: String,
@@ -949,7 +970,7 @@ private fun DiagnosticsInfoValue(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 18.dp, vertical = 8.dp),
+                .padding(horizontal = 18.dp, vertical = 5.dp),
     ) {
         Text(
             text = value.ifBlank { "—" },
@@ -958,6 +979,7 @@ private fun DiagnosticsInfoValue(
         )
         Text(
             text = label,
+            modifier = Modifier.padding(top = 1.dp),
             style = MiuixTheme.textStyles.body2,
             color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
         )
