@@ -431,13 +431,13 @@ jobs:
           mkdir -p dist
 
           if [[ "${{ steps.scope.outputs.run_debug }}" == "true" ]]; then
-            DEBUG_APK_NAME="CombinedStatus-${VERSION_NAME}-HyperOS-${BUILD_ID}-debug.apk"
+            DEBUG_APK_NAME="Guiyuan-${VERSION_NAME}-HyperOS-${BUILD_ID}-debug.apk"
             cp "$DEBUG_APK_PATH" "dist/$DEBUG_APK_NAME"
             echo "DEBUG_APK_NAME=$DEBUG_APK_NAME" >> "$GITHUB_ENV"
           fi
 
           if [[ "${{ steps.scope.outputs.run_canary }}" == "true" ]]; then
-            CANARY_APK_NAME="CombinedStatus-${VERSION_NAME}-HyperOS-${BUILD_ID}-canary.apk"
+            CANARY_APK_NAME="Guiyuan-${VERSION_NAME}-HyperOS-${BUILD_ID}-canary.apk"
             cp "$CANARY_APK_PATH" "dist/$CANARY_APK_NAME"
             echo "CANARY_APK_NAME=$CANARY_APK_NAME" >> "$GITHUB_ENV"
           fi

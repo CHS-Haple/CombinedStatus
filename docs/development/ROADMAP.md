@@ -1,4 +1,4 @@
-# Combined Status Development Roadmap
+# Guiyuan Development Roadmap
 
 This file stores future direction, phase boundaries, prerequisites, confirmed product design, and deferred/rejected routes. Current implementation state belongs in `CURRENT.md`; build-by-build investigation belongs in `DEVLOG.md`; release/net changes belong in `CHANGELOG.md`.
 
@@ -14,7 +14,7 @@ This file stores future direction, phase boundaries, prerequisites, confirmed pr
 ## Phase 1 — Core Home / native SystemUI foundation — completed
 
 Established capabilities that later phases must preserve include:
-- Home Combined Status rendering foundation;
+- Home Guiyuan rendering foundation;
 - authoritative Wi-Fi/mobile/battery/domain state;
 - single-SIM and dual-SIM presentation paths;
 - hotspot, no-SIM, airplane and mobile-type semantics;
@@ -49,32 +49,70 @@ Exit criteria:
 
 Current acceptance note: Build 408 is accepted for `dev` as the Phase-2A working baseline. Minor residual ring/center/dot optical-weight variance is deferred to later visual polish and does not reopen Home carrier ownership or block Phase 2B.
 
-## Phase 2B — Home -> shade / Control Center projection — active
+## Phase 2B — Home ownership continuity + Control Center transition bridge — completed for current dev baseline
 
 Extend the accepted Phase-2A Home visual into panel transitions without reopening steady Home ownership.
 
 Direction:
 - treat steady Home geometry as the source contract;
-- use verified native transition progress/endpoints where available;
-- separate transition lifetime/masking from the steady Home session;
+- do **not** create a Notification-Shade Guiyuan surface on the pinned target because the native Notification Shade does not expose the status-icon row there;
+- keep Notification Shade native-only and inherit Home departure/return from the verified native `system_icons` end-side carrier lifecycle rather than maintaining a project-local shade visibility gate;
+- Control Center is a **transition destination**, not a persistent Guiyuan scene: exact-target source and Build-441 runtime evidence verify the bounded QS_FAKE bridge and native final-surface endpoint;
+- during a partial pull, bridge the source Guiyuan presentation through verified native Control Center transition geometry/progress so the gesture visually connects to HyperOS;
+- fully expanded Control Center is native-only by verified HyperOS appearance ownership: native `appearance=true` fades the QS_FAKE root to alpha 0 while bringing final `ControlCenterStatusBarIcon` to alpha 1; Combined never owns the final surface. Build-453 device evidence reopens only whether the project overlay's projected geometry always tracks that native fake carrier correctly, so Build 455 diagnoses the existing projection instead of introducing a second endpoint owner;
+- use verified native transition progress/endpoints only for that bounded bridge lifetime;
+- separate transition bridge lifetime/masking from the steady Home session;
 - preserve native peer animation and Control Center geometry ownership;
 - avoid first-frame shift, last-frame snap, duplicate occupancy, or a second animation system.
 
-Accepted prerequisite: Build 413 closes the Home scene-lifetime/HUN boundary on the pinned target. Zero-fraction, non-tracking HUN state no longer evicts Home; active shade tracking or positive native shade motion and Control Center's native visible state transfer presentation away from Home without destroying the persistent Home owner. This prerequisite does **not** complete Phase 2B: the remaining task is a real Combined Status projection for the supported shade / Control Center surfaces with coherent native-owned intermediate motion.
+Accepted prerequisite: Build 413 closes the HUN/scene-lifetime boundary on the pinned target. Build 418 closes the shared Home Tint lifecycle blocker exposed while preparing panel projection.
+
+Build-419 diagnostics plus maintainer clarification refine the remaining Phase-2B scope: Notification Shade is a **Home ownership boundary only**, while Control Center is the actual projection surface. The Build-419 bounded Notification-Shade probe is therefore retired rather than promoted into production.
+
+Build 420 establishes useful Control Center source geometry and readiness-ordered handoff evidence. Build 428 now narrows that conclusion: `realSystemIcons` is the selected Home/Keyguard source reference, not the visible Control Center presentation, and the source container can be natively hidden throughout current Control Center ownership. Builds 425-427 reject placing the Combined visual carrier inside child `QS_FAKE.system_icon_area`. Build 430 device evidence validates the **top-level `ControlCenterFakeStatusIcons` presentation carrier** independently from the child Battery/system-icon-area hide lifecycle: the root owns native fake/final alpha while the child remains visible. Build 431 keeps that root host but is device-rejected for clip-only occupancy because represented Wi-Fi/mobile widths remain in native layout. Build 432 retains the root overlay and reuses the existing presentation Hook substrate for fake `MiuiStatusIconContainer` compact layout, but device evidence rejects its visible-time transient-session lifecycle: the same QS_FAKE surface can nondeterministically appear native, partially compact/masked, or Combined because native layout readiness may arrive after expansion/appearance. Build 433 moves QS_FAKE compact preparation out of the visible cycle and into the native `ControlCenterFakeStatusIcons` host lifetime, but cold-start evidence shows bare `onAttachedToWindow()` can still precede usable child/Battery geometry. Build 434 therefore keeps attach as the bootstrap lifetime boundary while establishing compact readiness only after the root's first native layout, with at most one additional native-layout retry for explicit early-geometry failures. Build-434 device diagnostics then show that prearm succeeds but a transient startup layout-unavailable event incorrectly tears the compact owner back down; Build 435 separates render-geometry readiness from compact-presentation lifetime so an attached, already-prepared QS_FAKE owner survives that transient loss. Build 441 closes Fake determinism and Hot Reload continuity. PR #160 closes charging-island trajectory as native QS_FAKE behavior. Exact-target endpoint review verifies native fake/final appearance handoff and the fully expanded native-only endpoint. Build 424 separately remains the accepted Home/Notification-Shade carrier correction.
 
 Exit criteria:
 - clean Home departure and return;
 - coherent intermediate motion;
-- correct expanded-surface behavior for the supported target;
+- clean partial-pull transition into Control Center and exact yield to native status icons at the fully expanded endpoint; Notification Shade remains native/no-status-icon by design;
 - no regression in steady Home or charging/island behavior.
 
-## Phase 3 — Keyguard / lockscreen / AOD scene completion
+## Phase 3 — Keyguard / lockscreen / AOD scene completion — completed for current dev baseline
+
+Build 456 supersedes device-rejected Build 455. Build 455 proves the corrected AOD authority can enable steady Keyguard Guiyuan, but device evidence exposes a shared Keyguard/QS_FAKE peer-layout defect: native peers can jump toward their end position and leave a large gap, while disabling lockscreen Combined can probabilistically race native restoration during a pull.
+
+The Build-455 geometry probe rejects a direct Combined-translation patch. The overlay-local anchor still composes to the native Battery carrier; the structural mismatch is the compact presentation's ignored-slot lifetime. Temporary `ignoredSlots` mutation around only `onMeasure/onLayout` gives Keyguard/QS_FAKE motion owners a different slot-state fact outside those calls. Build 456 therefore promotes only those two transition-capable surfaces to the exact native `addIgnoredSlots/setIgnoredSlots` session contract, while keeping accepted Home behavior unchanged. Native add/set remains the layout trigger/authority; project motion/alpha/visibility writers remain forbidden.
+
+AOD remains NATIVE_ONLY. Steady Keyguard can project only when the lockscreen feature is enabled, its AOD gate is unblocked, the session-owned native slot exclusions are active, and native compact layout has completed. Cleanup restores only the session-owned slot delta and fails native on contract/ownership ambiguity.
+
+Build 456 is device-accepted on the pinned Xiaomi 15 Pro / SystemUI `17.03.260226.r` and integrated into `dev` by PR #163 squash commit `d70b416ba531651c6690027b7404b1854fdb3056`. Final Fast #1640 and signed Canary #484 pass on the accepted executable head, and post-merge Integration #1651 passes the full `dev` gate. The separate companion-app/UI line remains independent and active; no display-version bump is coupled to this runtime integration.
+
+Build 447 is the first opt-in steady-Keyguard runtime candidate. It adds a separate Keyguard host/render/presentation adapter and a default-off feature switch while reusing the existing three class-wide presentation Hooks (Hook delta 0). Keyguard-originated QS_FAKE is enabled only after the steady adapter reaches ready. AOD remains outside the candidate's supported scope and is a focused real-device blocker before Keyguard can be promoted to runtime-verified evidence.
+
+Build 446 is device-accepted and closes the late-eligibility QS_FAKE cutover prerequisite. Phase 3 may now advance to the independent steady Keyguard adapter; AOD remains a later, separate gate.
+
+Build 446 preserves the source-scene gate and closes its late-entry lifecycle hole: when Home eligibility is learned after QS_FAKE has already completed native layout, the existing laid-out status-icons state may serve as the compact cutover proof only if no layout request is pending and geometry is valid. Otherwise the existing native `onLayout` path remains mandatory. This keeps the fail-native/atomic handoff contract while allowing scene-gated Home projection to become ready.
+
+Build 445 tightens the Build-444 source-scene gate without changing its policy: HyperOS `realSystemIcons` remains the selected source endpoint, but Home is identified by object identity against the existing HomePresentationOwner carrier rather than transient View ancestry. Keyguard retains the already device-proven structural fallback. This preserves fail-native behavior while restoring Home-originated QS_FAKE.
+
+Build 444 establishes source-scene eligibility for the shared QS_FAKE bridge before steady Keyguard rendering is enabled. It reuses the existing `CombinedStatusScenePolicy`: structurally verified steady source hosts can pre-seed the policy, and HyperOS `realSystemIcons` is the final Home/Keyguard authority when Control Center becomes visible. Home may project Guiyuan; Keyguard/unknown fail native until the Keyguard capability is verified/promoted and its feature setting is enabled. The gate releases both overlay visibility and compact native masking together. The future lockscreen switch is therefore a feature-domain input to this same policy, not a separate QS_FAKE setting.
+
+Build 443 inserts a transition-safety checkpoint before enabling steady Keyguard rendering: the shared QS_FAKE bridge must preserve native visuals until its existing native-layout boundary can atomically commit mask + Combined projection readiness. This keeps fail-native semantics intact for cold-start Keyguard-originated pulls. The later scene-policy layer remains explicit: Home steady and Keyguard steady are separate adapters sharing domain/render semantics, and QS_FAKE must inherit the native-selected source scene rather than act as an independent user-facing scene.
 
 Reuse the stabilized domain state, renderer semantics, ownership rules, and fail-native behavior while giving each scene its own verified host/lifecycle adapter.
 
-Do not build a second lockscreen-specific state machine or revive historical motion/alignment patch chains.
+Build 442 is the first Phase-3 executable checkpoint and is intentionally narrower than a lifecycle adapter: it reuses the existing Battery scene callback only as a trigger, requires actual `MiuiKeyguardStatusBarView` ancestry, and takes one read-only steady-host/source snapshot. Hook delta is zero; no Keyguard rendering/suppression and no AOD runtime probe is introduced. Positive device evidence from this checkpoint is a prerequisite for choosing the later Keyguard presentation/lifecycle seam.
 
-## Phase 4 — App Home + Preview Sandbox — design confirmed, implementation planned
+The scene architecture is now verified for the pinned target:
+- **Unlocked:** Home steady Guiyuan -> bounded QS_FAKE transition -> fully expanded Control Center native-only.
+- **Locked:** opt-in steady Keyguard Guiyuan -> bounded Keyguard-originated QS_FAKE transition -> fully expanded Control Center native-only.
+- Notification Shade remains native-only on the pinned target.
+- AOD remains native-only and is gated by its verified `MiuiBatteryMeterView` lifecycle authority.
+- Home and Keyguard keep separate mutable host/render/session ownership while sharing domain/render semantics; the transition bridge follows the native-selected source scene.
+
+Do not reopen this architecture with a second lockscreen-specific state machine, fixed-pixel compensation, duplicated animation ownership, or historical motion/alignment patch chains without new device evidence.
+
+## Phase 4 — App Home + Preview Sandbox — integrated for current dev baseline
 
 Primary navigation remains:
 
@@ -84,7 +122,7 @@ The Home page has two conceptual regions:
 
 ~~~text
 ┌─────────────────────────────────────┐
-│ Combined Status                 ↻   │
+│ Guiyuan                 ↻   │
 │  Runtime Status + master switch    │
 │                                     │
 │  Preview Sandbox                   │
@@ -97,12 +135,18 @@ The Home page has two conceptual regions:
 
 Runtime Status reflects real module/SystemUI state and retains the real Hot Reload action. Preview Sandbox is simulation-only and must never mutate real Wi-Fi/mobile/SIM/airplane/charging/battery state.
 
+Keep Home dense enough to remain an overview rather than a settings surface. Home may show one compact production-rendered preview plus a standard MIUIX navigation row; detailed Sandbox selectors belong on a secondary page so future simulated states can expand without turning Home into a long scrolling form.
+
+The companion-app presentation shell may be implemented in parallel with Phase 3 because it does not claim or mutate SystemUI scene ownership. Until a verified runtime-health source is wired, the Home UI must not infer "running/healthy" from the master-switch preference. Early Sandbox controls may keep local, non-persistent simulation state, but the final visual preview should reuse the real render semantics/model rather than maintaining a second renderer.
+
 Prefer reusing the real render semantics/model for previews rather than maintaining a second visually similar implementation.
+
+Current integration note: PR #165 is integrated into `dev` by squash commit `a2394db92ce208771956defcd558c954065000f7`. Build 464 is the accepted work-branch UI checkpoint; the post-integration development line advances to 0.0.3 / Build 465. Home runtime status, production-rendered Preview Sandbox, Diagnostics action styling, Features-page hierarchy, and MIUIX-aligned Sandbox controls are now part of the current dev baseline. Future UI work continues from this integrated state rather than reopening the retired Build-458–464 iteration chain.
 
 ## Phase 5 — Adaptive sizing, spacing and broader visual controls
 
 After the carrier/scene contracts are stable:
-- expose user-adjustable Combined Status visual size;
+- expose user-adjustable Guiyuan visual size;
 - derive neighboring spacing from resolved geometry rather than a permanent fixed-width assumption;
 - keep native occupancy, visual width, transition geometry, and optical spacing independently resolved;
 - expose per-state battery-ring color sources for NORMAL / CHARGING / POWER_SAVE / PERFORMANCE / LOW: **System default** (HyperOS semantic color where available), **Follow status icons** (native monochrome/tint authority), or **Custom color**, without creating a second battery-mode state machine;

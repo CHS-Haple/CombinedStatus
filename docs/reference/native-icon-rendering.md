@@ -22,7 +22,7 @@ For a visible state:
 - the raw resource ID is the semantic icon identity;
 - `WifiIcon.Hidden` remains authoritative even if the previously bound ImageView still retains a visible drawable/tag.
 
-Combined Status may therefore use the raw model resource for Wi-Fi semantics, but that raw semantic ID is **not yet the final rendered resource ID**.
+Guiyuan may therefore use the raw model resource for Wi-Fi semantics, but that raw semantic ID is **not yet the final rendered resource ID**.
 
 ## Native View and geometry path
 
@@ -123,23 +123,23 @@ Target-device feedback reports Build 404 as visually worse than Build 403. That 
 
 The stronger current root-cause candidate is therefore the intermediate rasterization/resampling boundary itself. Build 403's alpha normalization may have partially compensated for losses introduced by that non-native path without making the path correct.
 
-## Combined Status consequence
+## Guiyuan consequence
 
 For verified native center resources, the preferred rendering order is now:
 
 `semantic native resource`
 -> native-compatible presentation selection
 -> cloned Drawable / VectorDrawable
--> final resolved Combined Status bounds
+-> final resolved Guiyuan bounds
 -> direct Drawable draw
 
-Optical measurement may still require a bounded probe because Combined Status places a native resource inside a different compact composition. If retained, that probe should be **measurement-only** and must not become the bitmap subsequently drawn to screen.
+Optical measurement may still require a bounded probe because Guiyuan places a native resource inside a different compact composition. If retained, that probe should be **measurement-only** and must not become the bitmap subsequently drawn to screen.
 
 Keep these concerns separate:
 
 1. semantic resource identity;
 2. HyperOS state-dependent resource transformation;
-3. Combined Status optical measurement / placement;
+3. Guiyuan optical measurement / placement;
 4. final Drawable rasterization;
 5. tint ownership.
 
@@ -160,4 +160,4 @@ This preserves attribution and avoids concluding that a multi-variable visual ch
 - View/layout/resource dimensions: exact target APK resources and DEX.
 - Light / Dark / Tint mapping and Binder resource/tint path: exact target DEX/resource inspection.
 - Absence of an equivalent 96px raster-cache/resample step in the verified native Wi-Fi/status-icon path: exact target directed inspection.
-- Combined Status still owns a different compact composition, so native 20dp geometry is evidence for rendering semantics rather than a requirement to copy the native slot size into the Combined Status center.
+- Guiyuan still owns a different compact composition, so native 20dp geometry is evidence for rendering semantics rather than a requirement to copy the native slot size into the Guiyuan center.

@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Combined Status</string>
-    <string name="app_description">An LSPosed module for HyperOS that combines battery, mobile network, and Wi-Fi status into one status bar indicator</string>
+    <string name="app_name">Guiyuan</string>
+    <string name="app_description">Guiyuan is an LSPosed module for HyperOS that combines battery, mobile network, and Wi-Fi status into one compact status-bar indicator</string>
 
-    <string name="home_title">Combined Status</string>
+    <string name="home_title">Guiyuan</string>
     <string name="hot_reload">Hot reload SystemUI module</string>
     <string name="nav_home">Home</string>
     <string name="nav_features">Features</string>
@@ -25,12 +25,15 @@
     <string name="preview_label">Sample</string>
 
     <string name="section_hyperos_display">System UI</string>
+    <string name="section_color_linkage">Color linkage</string>
     <string name="combined_status_feature_title">Combined status indicator</string>
-    <string name="combined_status_feature_summary">Master switch for Combined Status across all supported SystemUI scenes. Turning it off restores native status icons.</string>
+    <string name="combined_status_feature_summary">Master switch for the unified status indicator across all supported SystemUI scenes. Turning it off restores native status icons.</string>
+    <string name="keyguard_combined_status_title">Show on lock screen</string>
+    <string name="keyguard_combined_status_summary">Show the unified status indicator in the lock-screen status bar. AOD is not supported yet.</string>
     <string name="mobile_follow_battery_color">Match mobile status color to battery ring</string>
-    <string name="mobile_follow_battery_color_summary">Use the battery ring’s resolved color for the four mobile-signal dots and unavailable mark</string>
+    <string name="mobile_follow_battery_color_summary">Match the mobile signal dots and unavailable mark to the battery ring color</string>
     <string name="center_follow_battery_color">Match center icon color to battery ring</string>
-    <string name="center_follow_battery_color_summary">Use the battery ring’s resolved color for Wi-Fi, hotspot, mobile type, airplane mode, and no-SIM center icons</string>
+    <string name="center_follow_battery_color_summary">Match Wi-Fi, hotspot, mobile type, airplane, and no-SIM icons to the battery ring color</string>
     <string name="appearance_title">Appearance</string>
     <string name="appearance_summary">Theme and interface effects</string>
     <string name="status_bar_title">Status bar</string>
@@ -70,6 +73,10 @@
     <string name="floating_navigation_style_standard">Standard</string>
     <string name="floating_navigation_style_blur">Blur</string>
     <string name="floating_navigation_style_glass">Glass</string>
+    <string name="floating_navigation_content">Floating navigation content</string>
+    <string name="floating_navigation_content_summary">Choose whether floating navigation items show icons only or icons with labels</string>
+    <string name="floating_navigation_content_icon_only">Icons only</string>
+    <string name="floating_navigation_content_icon_and_text">Icons &amp; labels</string>
     <string name="swipe_back">Page swipe back</string>
     <string name="swipe_back_summary">Swipe horizontally on a page to go back</string>
 
@@ -93,7 +100,7 @@
 
     <string name="section_current_build">Version information</string>
     <string name="section_diagnostics_app">App</string>
-    <string name="product_name">Combined Status</string>
+    <string name="product_name">Guiyuan</string>
     <string name="target_platform_value">HyperOS SystemUI module</string>
     <string name="version_value">Version: %1$s</string>
     <string name="build_value">Build: %1$s</string>
@@ -109,7 +116,7 @@
 
     <string name="section_module_runtime">Module runtime</string>
     <string name="runtime_framework_title">Framework</string>
-    <string name="runtime_framework_summary">Xposed API 102</string>
+    <string name="runtime_framework_summary">Modern Xposed API 102</string>
     <string name="runtime_scope_title">Scope</string>
     <string name="runtime_scope_summary">SystemUI (com.android.systemui)</string>
     <string name="runtime_target_title">Compatibility baseline</string>

@@ -4,7 +4,7 @@
 
 This note preserves reusable architecture findings from a mature SystemUI status-composition implementation without importing its product identity, source code, assets, or implementation-specific naming.
 
-The findings are useful because they address the same class of problems Combined Status must solve:
+The findings are useful because they address the same class of problems Guiyuan must solve:
 
 - replacing several native status visuals with one compact representation;
 - avoiding duplicate layout occupancy;
@@ -13,7 +13,7 @@ The findings are useful because they address the same class of problems Combined
 - transitioning between compact and native representations;
 - supporting later size/spacing controls without coupling drawing size to platform slot geometry.
 
-These patterns are **reference evidence**, not yet the production contract for Combined Status 0.0.2.
+These patterns are **reference evidence**, not yet the production contract for Guiyuan 0.0.2.
 
 ---
 
@@ -37,7 +37,7 @@ over:
 
 This avoids creating two independent layout identities that must later exchange width, position, and animation ownership.
 
-### Combined Status applicability
+### Guiyuan applicability
 
 **Adopted for the current Phase-2A Home path on the pinned target.**
 
@@ -75,11 +75,15 @@ A layout mutation can be safe only when all of the following are true:
 
 Prefer a restoration-token model over long-lived mutation.
 
-### Combined Status applicability
+### Guiyuan applicability
 
-**Adopted for Home on the pinned target.**
+**Adopted for Home on the pinned target; refined for transition-capable Keyguard/QS_FAKE.**
 
-Exact-target inspection verified `MiuiStatusIconContainer.ignoredSlots` and its use by native measure/layout. The current Home session temporarily adds only represented slots around those native calls and restores exactly the entries it owned.
+Exact-target inspection verified `MiuiStatusIconContainer.ignoredSlots`, public final `addIgnoredSlots(...)` / `setIgnoredSlots(...)`, and native measure/layout consumption. Home keeps the device-accepted temporary native-call scope: represented entries exist only around the hooked native measure/layout invocation and are then restored.
+
+Build-455 device evidence proves that temporary scope is not sufficient for Keyguard/QS_FAKE, because those surfaces have native motion/animation ownership that can run outside the measure/layout call. Build 456 therefore uses the same native ignored-slot contract as **session state** on those two surfaces: add only the absent represented entries through the native API, keep them present until that presentation session ends, then restore only the owned delta through the native setter. Native add/set remains responsible for layout invalidation; Guiyuan does not add a parallel motion writer.
+
+The reusable rule is therefore not "always temporary" or "always persistent": the ignored-slot lifetime must match the complete native presentation owner that consumes the layout state. In every case the mutation stays host/session-scoped, minimal, reversible and fail-native on writer ambiguity.
 
 This remains fingerprint-scoped. Other SystemUI builds/scenes and unexpected competing state must be revalidated or fail native.
 
@@ -102,7 +106,7 @@ When a native View must retain layout, lifecycle, tint, and state ownership but 
 - restore only module-owned changes;
 - do not confuse visual suppression with layout removal.
 
-### Combined Status applicability
+### Guiyuan applicability
 
 **Adopted for the current Home path.**
 
@@ -138,7 +142,7 @@ A host/session boundary should answer:
 - which temporary mutations are currently owned;
 - how cleanup restores native state.
 
-### Combined Status applicability
+### Guiyuan applicability
 
 **Directly compatible with project rules.**
 
@@ -173,7 +177,7 @@ Do not use one width value for all of:
 
 A future user scale should feed one shared resolved-layout/sizing object. Scene adapters consume the result; they should not invent their own scale offsets.
 
-### Combined Status applicability
+### Guiyuan applicability
 
 **Required design direction for 0.0.2.**
 
@@ -199,13 +203,68 @@ over:
 
 `native hide request -> module rewrites request -> repair downstream geometry`.
 
-### Combined Status applicability
+### Guiyuan applicability
 
 **Important negative guidance.**
 
 The project rejected both the earlier global battery-hide-preservation idea and the later narrow Build-395 layout-time hide override. The current Home path treats native Battery hide as a read-only fact and adjusts only its own verified replacement-space reservation.
 
-Combined Status differs from a battery-only compact representation because network information must remain represented during charging-island behavior.
+Guiyuan differs from a battery-only compact representation because network information must remain represented during charging-island behavior.
+
+---
+
+## 7. Exact-target QS_FAKE Battery-Island translation contract
+
+**Observed and statically verified on the pinned target.**
+
+Source artifact:
+- HyperOS SystemUI `17.03.260226.r`
+- versionCode `202602260`
+- SHA-256 `a0e738e41fe599b97950cbf52a9e2ddc6ae2ceff986efbacb1c9840bea78768d`
+- reviewed with JADX 1.5.6
+
+The target separates Control Center status presentation into:
+- `ControlCenterFakeStatusIcons` / `StatusBarLocation.QS_FAKE` / layout-from tag 5;
+- `ControlCenterStatusBarIcon` / `StatusBarLocation.QS` / layout-from tag 6.
+
+`ControlCenterHeaderExpandController.updateLocation()` computes ordinary status-icon translation from the real-status-bar and Control Center endpoints. For Battery Island it deliberately overrides the ordinary Battery width difference with the negative **full Control Center Battery View width**.
+
+The expansion callback then applies:
+- final QS surface: progress-scaled normal status-icon translation;
+- QS_FAKE surface: the same progress-scaled translation **plus the unscaled `batteryWidthDiff`**.
+
+Device evidence `normalStatusIconsTx=181`, `batteryWidthDiff=-135` is therefore internally consistent: at progress 0 the fake endpoint is `181 - 135 = 46`, while at progress 1 it becomes `-135`. The non-island `46/0` case moves `46 -> 0`. A visibly larger leftward Battery-island trajectory is native behavior, not proof of project-owned drift.
+
+`MiuiBatteryMeterView.updateIslandChanged()` independently confirms the same ownership model: Battery Island calls `MiuiStatusBatteryContainer.setIsHideBattery(true)`, makes the Battery view non-visible, and the Battery island animation uses the full `getWidth()`. `MiuiStatusBatteryContainer` then excludes hidden Battery width from normal occupied layout.
+
+### Fully expanded fake/final appearance endpoint
+
+Exact-target review also verifies that endpoint visibility is not owned by expansion fraction.
+
+`ControlCenterHeaderExpandController$controlCenterCallback$1.onAppearanceChanged(appearance, animate)` owns the alpha handoff between the two native Control Center status-bar surfaces:
+
+- `appearance=true`: final `ControlCenterStatusBarIcon` is driven to alpha `1`, while `ControlCenterFakeStatusIcons` is driven to alpha `0`;
+- `appearance=false`: final alpha returns to `0`, while QS_FAKE returns to `1`.
+
+By contrast, `onExpansionChanged(progress)` updates translation only. It is motion/geometry evidence, not a project visibility authority.
+
+Build-441 target diagnostics independently match that contract: native fraction reaches `1.0`, then the QS_FAKE root is observed at alpha `0.0` before the return transition. The same relationship is visible in ordinary and Battery-Island pulls.
+
+Guiyuan attaches only to `ControlCenterFakeStatusIcons.overlay`. Exact-target source and Build-441 diagnostics verify the **native root** alpha/translation and fake/final appearance contract; the project does not mask, hide, translate, or otherwise mutate final `ControlCenterStatusBarIcon`.
+
+Build-453 device feedback reopens one narrower derived assumption: the project overlay render View can probabilistically appear at the fully-expanded endpoint position before the expected fake trajectory is visually complete. The native fake/final contract remains verified, but project-overlay coordinate inheritance is no longer accepted merely from the root alpha observation. Build 455 therefore samples QS_FAKE root, status-area, carrier and render screen/local geometry at the existing 8 diagnostic progress buckets. No new writer is introduced.
+
+The fully expanded Control Center endpoint remains native-only through HyperOS appearance ownership. Do **not** add a project `fraction >= x` hide threshold, custom fake-to-final fade, final-QS suppression, or fixed-position compensation without owner-level geometry evidence.
+
+### Reusable principle
+
+Treat native root motion and project-local replacement geometry as separate contracts:
+
+`native QS_FAKE root motion -> inherited by overlay`
+
+`stable logical replacement slot -> owned by Guiyuan presentation`
+
+Do **not** turn the difference between full native Battery presentation width and stable Combined carrier width into a magic compensation. In particular, do not add `batteryWidthDiff` to Guiyuan translation: the parent QS_FAKE root already carries it.
 
 ---
 
@@ -215,15 +274,15 @@ Combined Status differs from a battery-only compact representation because netwo
 
 Scene transition progress is consumed from an existing native expansion callback.
 
-For notification-shade state, Android SystemUI's `ShadeExpansionStateManager` documents `expanded` as independent from the numeric expansion fraction and `tracking` as active gesture ownership. Its closed-state transition occurs only after the panel is no longer expanded and user tracking has ended. The pinned HyperOS target exposes the same three semantic inputs through the already-verified `onPanelExpansionChanged(float, boolean, boolean)` hook contract.
+For Notification Shade on the pinned HyperOS target, Build-422 root-cause review supersedes the earlier reliance on generic `ShadeExpansionStateManager.onPanelExpansionChanged(...)` for Home handoff timing. Exact-target source shows that the native Notification Header is driven from `NotificationPanelExpansionAnimator.expansion`, exposed through `NotificationPanelExpandController.expansionState`, then delivered to `NotificationHeaderExpandController$notificationCallback$1.onExpansionChanged(float)`.
 
-Combined Status consequence: static unlocked status-bar state and numeric `fraction == 0` are not, by themselves, proof that Home presentation has regained ownership. Treat the native expanded/tracking facts as the first scene-lifetime boundary; preserve fraction for native-progress projection rather than inventing a local threshold.
+Build-423 device evidence later established that this Header callback is valid **motion context**, but not the Guiyuan Home-visibility authority. Do not reconstruct Home ownership from Header fraction, Battery status state, global Keyguard state, generic Shade expanded/tracking flags, or a local timing threshold.
 
 Exact-target device diagnostics also verify a separate Control Center lifetime contract on `com.miui.systemui.controlcenter.container.ControlCenterExpandControllerDelegate`:
 - `onVisibleChanged(boolean)` brackets Control Center ownership and remains true throughout the outward/return transition;
 - `onExpansionChanged(float)` supplies native progress but is not required to decide whether Home owns the scene.
 
-Combined Status consequence: compose the semantic visibility callback into Home eligibility; keep Control Center fraction for diagnostics/future projection and do not invent a fraction threshold.
+Guiyuan consequence: compose the semantic visibility callback into Home eligibility; keep Control Center fraction for diagnostics/future projection and do not invent a fraction threshold.
 
 Projection endpoints are derived from actual View screen coordinates. The visual transition is then drawn using canvas translation/scale/alpha rather than by taking ownership of the native Views' live translation.
 
@@ -239,13 +298,38 @@ is preferable to:
 
 `fixed offset + custom duration + independent interpolator`.
 
-### Combined Status applicability
+### Guiyuan applicability
 
 **Strong candidate for Home -> shade / Control Center.**
 
-This aligns with the project requirement that SystemUI own transition timing and target placement while Combined Status owns only its composed visual projection.
+This aligns with the project requirement that SystemUI own transition timing and target placement while Guiyuan owns only its composed visual projection.
 
-For the current Home charging/Super-Island path, a separate projection is unnecessary: exact-target review shows the Combined Status overlay already rides the native animated `system_icon_area` host. The real-endpoint/native-progress principle remains the preferred candidate for Phase 2B Home -> shade / Control Center projection.
+For Home, Build-424 exact-target review distinguishes the parent `system_icon_area` HostSession from the actual animated end-side child `system_icons`. The Home visual belongs on the latter carrier so it inherits native end-side motion directly. The real-endpoint/native-progress principle remains applicable to a genuine second projected surface such as Control Center, not to Notification Shade where no status-icon projection target exists.
+
+---
+
+## Keyguard steady-source contract on the pinned target
+
+**Static exact-target evidence; Build 442 performs only the first steady-host/source runtime verification.**
+
+The Keyguard source is not the Home carrier reused under a different global flag. HyperOS exposes a distinct native source:
+
+- `MiuiKeyguardStatusBarView.mSystemIconsContainer` resolves `@id/system_icons_container` as a `MiuiStatusBatteryContainer`;
+- `MiuiKeyguardStatusBarView.initCallback()` registers that View into `ControlCenterFakeViewController.keyguardSystemIcons`;
+- `ControlCenterFakeViewController.adjustRealSystemIcons()` selects Home `statusBarSystemIcons` for status-bar state 0, Keyguard `keyguardSystemIcons` for state 1, and no source for other states;
+- native status-bar-state and bouncer callbacks re-run the same selection, so Guiyuan must not reconstruct a second Home/Keyguard router;
+- Control Center Header consumes the selected `realSystemIcons` as its source geometry reference.
+
+Keyguard also has independent lifecycle and tint authority:
+
+- `onAttachedToWindow()/onDetachedFromWindow()` register and release Keyguard callbacks/icon groups;
+- base `KeyguardStatusBarView.setVisibility()` owns root visibility and resets the system-icons translation on exit;
+- `updateIconsAndTextColors()` derives Keyguard light/dark colors and applies them to Keyguard icon/battery presentation while forwarding the same source tint to QS_FAKE;
+- child `animateIconContainer()` targets `mStatusIconContainer`, not the whole system-icons carrier.
+
+AOD is separate. `KeyguardStatusBarViewControllerInject.animateFullAod()` independently changes Battery alpha/AOD mode and status-icon alpha/visibility/animation flags. A future Keyguard Combined adapter must therefore remain inactive for AOD until a distinct AOD contract is verified.
+
+**Project implication:** the strongest steady Keyguard carrier candidate is the native `mSystemIconsContainer` host with a Keyguard-specific session, sharing only renderer/domain semantics with Home. Build 442 verifies only that steady carrier/source identity using the existing scene callback; lifecycle/tint/AOD runtime observation remains deferred until this first gate is positive.
 
 ---
 
@@ -300,12 +384,12 @@ Fail-native cleanup should restore the exact prior state, not merely set a guess
 
 ## 10. What the reference evidence does not establish
 
-The following remain **not established** for Combined Status:
+The following remain **not established** for Guiyuan:
 
 - that one Home host can also be reused for keyguard or AOD;
 - that the target SystemUI exposes identical ignored-slot behavior in every scene;
 - that compact presentation should disappear whenever the native battery host disappears;
-- that the reference scene policy is appropriate for Combined Status network semantics;
+- that the reference scene policy is appropriate for Guiyuan network semantics;
 - that the exact sizing constants or source implementation details should be copied;
 - that an overlay alone is sufficient for every native APPEAR/DISAPPEAR requirement;
 - that any private/obfuscated implementation identifier is a stable platform contract.
@@ -323,7 +407,7 @@ Use this checklist for current Home regression review and before promoting the s
 - exactly one effective end-side layout responsibility;
 - no duplicate Wi-Fi/mobile/battery occupancy;
 - native state/tint sources remain live;
-- Combined Status visual masking is reversible;
+- Guiyuan visual masking is reversible;
 - scale/spacing derives from one resolved layout.
 
 ### Charging / island
@@ -374,3 +458,387 @@ Current target-specific status:
 Builds 386-396 remain useful historical evidence but are not the current design premise.
 
 The reference library should continue to guide Phase 2B and later scene work at the level of ownership, lifecycle, restoration and projection patterns. Exact target contracts must still be proven independently before new writes are introduced.
+
+
+## 13. Retained state carrier is not visible Tint authority
+
+Build-416 Hot Reload device evidence adds a presentation-ownership distinction to the existing masking pattern.
+
+A represented native status View may remain attached, measured, event-driven and tint-capable because Guiyuan deliberately preserves its SystemUI lifecycle. That does **not** make the represented View authoritative for the tint of what the user currently sees after its visual has been replaced/masked.
+
+For Home monochrome tint resolution:
+- represented Guiyuan slots (`wifi`, `mobile`, `stacked_mobile`, `airplane`, `no_sim`, and any future `combined_status` participant itself) are state/lifecycle carriers, not visible peer/anchor candidates;
+- prefer a genuinely visible, non-represented Home peer as the location-aware `DarkIconDispatcher.getTint(...)` anchor and static/applied tint peer;
+- require the peer to be visible with positive layout geometry;
+- when no eligible visible peer exists, fall back to the native manager/global/cached authority rather than forcing a dark-mode refresh or inventing a color.
+
+This rule is especially important across module Hot Reload: represented native Views can temporarily retain presentation state that a full SystemUI recreation would rebuild, while neighboring visible SystemUI icons already reflect the current surface tint.
+
+
+## 14. Tint event trigger and visible Tint authority must share one snapshot
+
+Builds 415-417 establish that Home monochrome Tint has two distinct concepts that must not be conflated:
+
+- a **native event trigger** such as Battery `onDarkChangedInternal`;
+- the **visible Home status-icon authority** used to decide the monochrome direction of the composition.
+
+A trigger may be timely while a cached authority value is stale. Likewise, a valid status-icon authority observation can occur before a new renderer generation is attached. Combining values from different event generations produces a mixed-scene snapshot even when each individual value is valid.
+
+For Guiyuan:
+- resolve the current visible Home status-icon Tint synchronously when committing a Battery-triggered renderer Tint update;
+- a status-icon observation updates only status-icon authority and must not replay unrelated Battery state;
+- after Hot Reload, transfer is a temporary visual-continuity seed only; fresh new-generation native authority supersedes transferred status Tint before visible ownership begins;
+- if live status-icon authority is unavailable, fail toward the current native Battery applied tint rather than reuse a stale embedded status-icon field;
+- do not add polling, delayed retries, forced DarkIcon refreshes, or a second native Tint writer to compensate for ordering.
+
+The exact-target SystemUI-Reference currently verifies the Home host/status-icon/Battery/scene contracts used by this path, but does **not** establish a stable `DarkIconDispatcher.addDarkReceiver/removeDarkReceiver` registration contract for this artifact. Therefore direct receiver registration is not introduced without separate DEX/runtime verification.
+
+
+### Build-418 acceptance evidence
+
+Build 418 device validation accepts the snapshot rule above on the pinned HyperOS target.
+
+Observed in the accepted Detailed session:
+- Hot Reload restores the Home host without a SystemUI restart and the new generation resolves a visible non-represented status-icon anchor;
+- the renderer begins with matching `appliedTint` and `statusIconTint`;
+- across repeated native dark/light transitions, `appliedTint`, `statusIconTint`, and the live SystemUI status-icon authority advance together through the same intermediate values;
+- repeated entry/exit no longer reproduces the stale white/black inversion seen in Builds 415-417.
+
+This supports the ownership rule that a native event may trigger a renderer update, but the visible status-icon authority must be resolved for the same commit generation. It does not justify a second color writer, polling, delayed retry, or direct DarkIcon registration on an unverified contract.
+
+
+## 15. Notification-shade target evidence from Build 414
+
+The completed Build-414 bounded probe is historical evidence for Phase 2B; the probe itself is retired from the active runtime after Build 418 integration.
+
+Observed on the pinned target:
+- `NotificationHeaderExpandController$notificationCallback$1.onExpansionChanged(float)` follows the native notification-header expansion path;
+- captures at native boundary buckets 0/1/7/8 did **not** expose a direct status-icon target View from the controller;
+- the only direct Android `View` discovered on the controller was `realClockIcons`;
+- controller-level `notificationTranslationX=2` and `notificationTranslationY=-109` remained stable in those captures and therefore are not sufficient by themselves to define Guiyuan target geometry;
+- the one-time controller field inventory exposed narrower ownership seams including `headerController: Lazy` and `notification: NotificationShadeWrapper`.
+
+### Consequence
+
+Do not interpolate Guiyuan toward `realClockIcons` or the two controller translation scalars. They are evidence about the header controller, not a verified status-icon projection endpoint.
+
+The next notification-shade review should follow the controller/wrapper ownership chain and identify:
+1. the actual status-icon/native-header surface that owns target layout;
+2. its target bounds/location at native endpoints;
+3. its native tint authority;
+4. the lifecycle boundary for attaching/removing a draw-only Guiyuan projection.
+
+Only if exact-target source/reference review cannot resolve one of those facts should a new bounded runtime diagnostic be added. A completed diagnostic hook should not remain resident after its evidence is captured.
+
+---
+
+## 16. Build-420/421 panel ownership correction — host lifecycle over Battery scene inference
+
+Later Phase-2B device evidence supersedes the open Notification-Shade continuation described in section 15.
+
+### Verified target behavior
+
+- The pinned Notification Shade does not expose/present the status-icon row as a Guiyuan projection target; it remains native-only.
+- Build 420 device validation accepts Control Center projection through the native `realSystemIcons` / `MiuiStatusBatteryContainer` carrier and its readiness-ordered handoff.
+- Build 421 device diagnostics show `MiuiBatteryMeterView.updateState()` can emit raw status-bar state `1` at a Notification-Shade boundary while `KeyguardManager.isKeyguardLocked` is also `true`.
+- That Battery/global-Keyguard combination fires before the verified shade-fraction owner and therefore cannot be used as a second Home-visibility authority.
+- Build 423 still drew Home Guiyuan in the parent `MiuiNotificationStatusContainer.overlay`; Build-424 exact-target review shows the native end-side visibility animation is instead applied to child `R.id.system_icons`, so the parent overlay does not inherit that child-specific transition.
+
+### Reusable principle
+
+Do not reconstruct a global scene state machine from a retained native presentation carrier when the real host and panel owners already expose their lifecycles.
+
+For the current target:
+1. **Home HostSession:** native `MiuiNotificationStatusContainer / system_icon_area`.
+2. **Home visual carrier:** child `R.id.system_icons` / `MiuiStatusBatteryContainer.overlay`, which is the exact `mEndSideContent` animated by the native Home binder.
+3. **Notification Shade:** no Guiyuan projection or project-local visibility writer; Home departure/return is inherited from the native end-side carrier.
+4. **Control Center:** verified projected carrier + coordinator handoff.
+5. **Battery status state:** read-only presentation/tint event context; not Home visibility.
+6. **Keyguard/AOD:** separate native hosts/adapters; no inference from Home Battery state.
+
+This removes a competing writer instead of refining it with another boolean. It also keeps future Keyguard/AOD support explicit and host-scoped rather than coupling those scenes to Home's Battery presentation internals.
+
+
+---
+
+## 17. Build-424 exact-target Home end-side carrier correction
+
+**Observed evidence.**
+
+Exact SystemUI `17.03.260226.r` source/resources establish the Home visibility chain:
+
+`StatusBarVisibilityInteractor.shouldHomeStatusBarBeVisible`
+→ `HomeStatusBarViewModelImpl.isSystemInfoVisible`
+→ `systemInfoCombinedVis`
+→ `HomeStatusBarViewBinderInjector`
+→ `mEndSideContent`.
+
+`HomeStatusBarViewBinderImpl.bind()` resolves `mEndSideContent` from `R.id.system_icons`. In the exact `status_bar.xml`, `MiuiNotificationStatusContainer @id/system_icon_area` includes `@layout/system_icons`; the exact `system_icons.xml` root is `MiuiStatusBatteryContainer @id/system_icons` and contains the native status-icon group and Battery.
+
+`HomeStatusBarViewBinderInjector.showEndSideContent()/hideEndSideContent()` drives that end-side carrier through native alpha / visibility / translation animation. The Build-423 Guiyuan Home visual was attached one level above it in `MiuiNotificationStatusContainer.overlay`, so it could not naturally inherit a transition written specifically to the child `system_icons` View. The project-local Header-fraction gate therefore became a competing visibility decision and exposed first/last-frame ordering differences.
+
+**Reusable principle.**
+
+When a native View subtree already owns presentation visibility and transition motion, place a draw-only replacement inside that exact animated carrier when its geometry/lifecycle contract is verified. Prefer:
+
+`native visibility semantic -> native animated carrier -> module-owned overlay child`
+
+over:
+
+`native motion callback -> project-local visibility state -> parent overlay`.
+
+Observing a native animation callback does not grant ownership of the visibility property it helps animate.
+
+**Guiyuan adoption.**
+
+Build 424 moves only the Home render overlay to `MiuiStatusBatteryContainer(system_icons).overlay` and removes the Notification Header runtime Hook and Home eligibility state. Slot reservation, native represented-slot masking, Control Center projection, domain state, tint, and native geometry ownership remain separate and unchanged.
+
+The legacy Hot Reload shade-eligibility payload field may remain null for transfer-format compatibility; it is not an active state source.
+
+**Not established.**
+
+This exact Home carrier contract does not establish Keyguard/AOD support and does not authorize reusing the Home carrier for those surfaces. Control Center remains a real second-host projection and keeps its accepted readiness-ordered handoff.
+
+
+---
+
+## 17. Build-424 correction — render inside the native Home visibility owner
+
+This section supersedes section 16 only where section 16 describes the active Home drawing carrier or Notification-Shade handoff authority. Section 16 remains historical evidence for the Build-420/421 investigation.
+
+### Exact-target visibility chain
+
+The pinned SystemUI target already owns the complete Home system-information visibility decision:
+
+`StatusBarVisibilityInteractor.shouldHomeStatusBarBeVisible`
+-> `HomeStatusBarViewModelImpl.isSystemInfoVisible`
+-> `HomeStatusBarViewModelImpl.systemInfoCombinedVis`
+-> `HomeStatusBarViewBinderInjector.bindSystemInfoVisibility`
+-> `mEndSideContent = R.id.system_icons`.
+
+The exact `system_icons` layout root is `MiuiStatusBatteryContainer`. Native `showEndSideContent()/hideEndSideContent()` applies the end-side alpha/visibility/transition behavior to that owner.
+
+### Build-423 failure mechanism
+
+The Build-423 Home renderer was attached to the parent `MiuiNotificationStatusContainer.overlay`. That kept Guiyuan outside the child `system_icons` visibility/alpha owner. A project-local Notification Header fraction gate therefore became a second visibility system and could switch at a different first/last frame than native Home system information.
+
+Header expansion progress remains valid motion evidence, but device evidence proves it is not the complete Home-visibility authority.
+
+### Build-424 rule
+
+Use the parent `MiuiNotificationStatusContainer / system_icon_area` as the Home HostSession discovery boundary, but attach visible Guiyuan drawing to `MiuiStatusBatteryContainer(system_icons).overlay`.
+
+Consequences:
+1. Notification Shade needs no Guiyuan visibility Hook or reconstructed scene state.
+2. Home Guiyuan inherits native `system_icons` draw/alpha/visibility lifetime.
+3. Existing Battery-derived slot width remains the local layout authority; the carrier correction does not justify geometry changes.
+4. Control Center remains a real second-host projection through `realSystemIcons` and keeps readiness-ordered handoff.
+5. Keyguard/AOD remain separate native surfaces.
+
+Reusable principle: when SystemUI already exposes the rendered owner that receives the authoritative visibility decision, place project-owned visual composition inside that owner rather than observing a lower-level animation signal and recreating the visibility decision.
+
+## Exact-target Control Center source / transition / destination ownership evidence
+
+**Status:** verified reference evidence for HyperOS SystemUI `17.03.260226.r`; not yet a production Guiyuan contract.
+
+Exact-target decompilation shows that HyperOS separates three different roles rather than treating Control Center as one status-bar surface:
+
+1. **Source status-bar owner**
+   - `MiuiPhoneStatusBarView` registers its `MiuiStatusBatteryContainer` as `ControlCenterFakeViewController.statusBarSystemIcons`.
+   - `MiuiKeyguardStatusBarView` registers its lockscreen `mSystemIconsContainer` as `keyguardSystemIcons`.
+   - `ControlCenterFakeViewController.adjustRealSystemIcons()` selects the current source from `StatusBarState`; Guiyuan should not duplicate that unlocked/keyguard routing logic.
+
+2. **Control Center transition owner**
+   - `ControlCenterFakeStatusIcons` is a complete native status-bar presentation, not only an anchor.
+   - It owns an independent `StatusBarLocation.QS_FAKE` icon group, `MiuiStatusIconContainer`, `MiuiBatteryMeterView`, and `MiuiStatusBatteryContainer(system_icon_area)`.
+   - It registers native dark/tint/config/island lifecycle on attach and removes the corresponding callbacks/icon group on detach.
+   - Its width is synchronized from the selected real source by `ControlCenterFakeViewController.updateFakeStatusIconsSize()`.
+   - `setStatusBarState()` and `setKeyguardStatusBarColors()` give the fake presentation native unlocked/keyguard tint semantics.
+
+3. **Fully expanded Control Center owner**
+   - `CombinedHeaderController.controlCenterStatusBar` / `controlCenterSystemIcons` is the independent native Control Center status-bar presentation.
+   - `ControlCenterHeaderExpandController.controlCenterCallback.onExpansionChanged(float)` applies native translation to both fake and real Control Center status-bar presentations.
+   - `onAppearanceChanged(boolean, boolean)` is the native visual-ownership switch: appearance=true shows the real Control Center status bar and fades the fake bar out; appearance=false does the inverse.
+   - `PanelExpandController` exposes `getAppearance()`, so the current native ownership value is queryable without reconstructing it from a local expansion threshold.
+
+Additional Home evidence:
+- `ControlCenterContainerController.expandStateForStatusBar` drives `HomeStatusBarViewBinderInjector.mControlPanelExpand`.
+- While that value is true, `updateSystemInfoIconVisibilities()` calls `hideEndSideContent(false)`; when false, it calls `showEndSideContent(false)`.
+- Therefore a Guiyuan visual placed inside the native Home `system_icons` carrier can inherit Home departure/return without a project-local Control Center visibility writer.
+
+### Candidate implication for later review
+
+A lower-maintenance transition architecture may be possible:
+
+`source steady carrier -> native QS_FAKE transition carrier -> native QS destination`
+
+with Guiyuan rendering only inside verified source/fake carriers and inheriting native translation/alpha/tint, instead of maintaining a project-owned Control Center motion/appearance state machine.
+
+This is **not yet an implementation decision**. Before promotion, review:
+- first-frame readiness if the fake carrier is prepared before gesture start;
+- exact ownership/masking of represented native Wi-Fi/mobile/Battery inside `QS_FAKE`;
+- Hot Reload / recreation behavior;
+- whether one low-frequency fake-view lifecycle attachment is preferable to the current Build-420 visible-event projection;
+- interaction with the later lockscreen steady adapter.
+
+Do not derive the fake-to-real switch from fraction/epsilon/timer logic when the native appearance lifecycle is available.
+
+
+### QS_FAKE readiness and suppression refinement
+
+Existing Build-423 device diagnostics provide a useful ordering sample for the current target:
+- Control Center `visible=true` reached the project at 07:51:32.034; the current projection completed attach/readiness in that same timestamp.
+- The first later captured Control Center expansion sample at 07:51:32.205 already shows native Home `mEndSideContent` at alpha 0 / INVISIBLE.
+- This is evidence that the existing low-frequency Control Center visibility seam can become ready before the native Home end-side carrier leaves in this observed sequence. It weakens the case for adding a separate fake-view lifecycle Hook solely for first-frame readiness.
+- The ordering, not the measured millisecond gap, is the reusable fact; reverse/close ordering still requires focused validation for any future QS_FAKE implementation.
+
+QS_FAKE does not block Wi-Fi/mobile/Battery through its native `RIGHT_BLOCK_LIST`. Its `system_icons.xml` is the same `MiuiStatusBatteryContainer + MiuiStatusIconContainer + MiuiBatteryMeterView` structure used by Home.
+
+Exact `MiuiStatusIconContainer.onMeasure()` confirms that `ignoredSlots`, not visual clipping, determines whether represented slots participate in native measurement/underflow. Therefore a future compact QS_FAKE carrier must use scoped/reversible slot exclusion in addition to visual masking.
+
+The existing Home suppression mechanism already installs one global set of three class Hooks:
+- `MiuiStatusIconContainer.onMeasure`;
+- `MiuiStatusIconContainer.onLayout`;
+- `MiuiStatusBatteryContainer.setIsHideBattery`.
+
+A lower-overhead generalization candidate is to retain those same Hooks and route only owned carrier instances through an identity-keyed session registry, rather than installing a second Hook set for QS_FAKE.
+
+The Home end-reservation formula is also structurally carrier-local: it replaces the native Battery end reservation with the compact requested slot width. Build-423 normal-state evidence had stable carrier width = actual Battery width = requested compact width = 105, yielding zero padding delta. For charging/island variants, `MiuiBatteryMeterView` writes island hide state to its own associated `MiuiStatusBatteryContainer`; QS_FAKE binds its Battery to its own container. This supports evaluating the same reservation policy from each carrier's local native state rather than copying Home state into QS_FAKE.
+
+These are architecture candidates, not authorization to refactor Build 424.
+
+
+---
+
+## HyperOS Control Center source / transition / destination ownership
+
+**Exact-target evidence — SystemUI 17.03.260226.r.**
+
+The pinned target already separates the Control Center status-bar lifecycle into distinct native responsibilities. This is stronger evidence than deriving scene state from panel fraction.
+
+### Source registration
+
+Unlocked source:
+- `MiuiPhoneStatusBarView.onFinishInflate()` resolves `R.id.system_icons` as `mStatusBatteryContainer`.
+- `MiuiPhoneStatusBarView.initDependence(...)` assigns that exact `MiuiStatusBatteryContainer` to `ControlCenterFakeViewController.statusBarSystemIcons`.
+- The assignment is followed by `adjustRealSystemIcons()`.
+
+Keyguard source:
+- `MiuiKeyguardStatusBarView` registers its `mSystemIconsContainer` as `ControlCenterFakeViewController.keyguardSystemIcons`.
+- That assignment is also followed by `adjustRealSystemIcons()`.
+- Keyguard color changes are forwarded to `controlCenterFakeStatusBar.setKeyguardStatusBarColors(...)`.
+
+`ControlCenterFakeViewController` therefore owns the native source selection for Control Center transitions; Guiyuan should not duplicate an unlocked-vs-keyguard routing state machine.
+
+### Transition representation
+
+The Control Center fake status bar is a complete native status-bar representation rather than a geometry-only shell:
+- it owns a `MiuiStatusBatteryContainer`, status-icon container and Battery View;
+- it uses the native `StatusBarLocation.QS_FAKE` icon group;
+- it participates in native tint, island and attach/detach lifecycle;
+- the source status-bar state is used to select unlocked/keyguard presentation semantics.
+
+`ControlCenterHeaderExpandController.onExpansionChanged(...)` applies native transition geometry to the Control Center-side fake/real status-bar representations while reading the current source `realSystemIcons` as the anchor.
+
+### Destination ownership
+
+The fully expanded Control Center has its own native status-bar representation (`StatusBarLocation.QS`), distinct from the source Home/Keyguard `realSystemIcons`.
+
+Native `appearance` is a separate semantic from `visible`, `expansion`, and `tracking`:
+- `appearance=false` selects the fake Control Center status bar visually;
+- `appearance=true` selects the real Control Center status bar visually;
+- expansion motion and visual ownership are therefore separate native axes.
+
+The concrete plugin-side producer of `appearance` is outside the SystemUI APK reviewed here. Do not infer its internal threshold or reproduce it from fraction. The verified SystemUI consumer contract is sufficient to establish that fake/real visual ownership already exists natively.
+
+### Reusable architecture implication
+
+A strong candidate lifecycle is:
+
+`source native carrier (Home or Keyguard)`
+→ `native QS_FAKE transition carrier`
+→ `native QS destination carrier`.
+
+This is **evidence, not yet a production decision**. Before replacing the current Build-420 transition mechanism:
+- verify the fake carrier at runtime on the pinned device;
+- verify first/last-frame continuity and Hot Reload/bootstrap behavior;
+- review whether attaching Guiyuan inside the fake carrier can inherit native translation/alpha/tint without adding a second appearance/fraction writer.
+
+No project-local six-state scene machine is justified by the current evidence.
+
+
+### Android ViewOverlay inheritance note
+
+AOSP `ViewOverlay` / `ViewGroupOverlay` is rendered from the host View's own draw path after the host content/children. The internal overlay group redirects invalidation to the host rather than acting as an independent window/surface.
+
+Architecture implication for the pinned target:
+- an overlay attached to `MiuiStatusBatteryContainer(system_icons)` participates in that host's render-node visibility/alpha/translation lifecycle;
+- an overlay attached one level above, on `MiuiNotificationStatusContainer`, does **not** automatically inherit child-specific animations applied only to `system_icons`;
+- this supports Build 424's carrier correction and explains why moving the same visual between those two overlays changes lifecycle behavior without adding a new scene writer.
+
+This Android framework behavior is supporting platform evidence; exact HyperOS ownership still comes from the target SystemUI binder/source chain.
+
+
+### Post-Build-424 QS_FAKE integration candidate
+
+The exact-target review now supports a bounded candidate for a later checkpoint. This is not part of Build 424.
+
+Use the existing native axes rather than a project-owned scene machine:
+
+1. **Source capability**
+   - HyperOS selects `ControlCenterFakeViewController.realSystemIcons`.
+   - For the current implementation, compact transition is eligible only when that object is the Home `MiuiStatusBatteryContainer` already structurally owned by `SystemUiHomePresentationOwner`.
+   - Do not add a generalized source registry before a second compact source (Keyguard) actually exists.
+
+2. **Transition surface activation**
+   - Keep the existing low-frequency `ControlCenterExpandControllerDelegate.onVisibleChanged(boolean)` seam as the transition-surface active/inactive signal.
+   - It is not Home visibility authority and must not write source-scene visibility.
+   - On entry, resolve the already-selected native source and the native QS_FAKE carrier; on exit, restore QS_FAKE native visuals and stop transition-renderer work.
+   - If runtime evidence shows source identity can change while the Control Center remains visible, `ControlCenterFakeViewController.adjustRealSystemIcons()` is the verified low-frequency source-change seam. Do not substitute Battery status state.
+
+3. **QS_FAKE presentation**
+   - resolve through the existing Header object chain:
+     `ControlCenterHeaderExpandController.headerController -> CombinedHeaderController.controlCenterFakeStatusBar -> delegate.statusBarArea`;
+   - render in the native fake `MiuiStatusBatteryContainer.overlay`;
+   - preserve the parent fake-status-bar translation/alpha lifecycle as SystemUI-owned;
+   - use the same bounded presentation-layer mechanism proven on Home: temporary represented-slot exclusion only during the exact target `MiuiStatusIconContainer.onMeasure/onLayout` call plus reversible View clip masks;
+   - do **not** rely on `MiuiLightDarkIconManager` block-list entries for modern Wi-Fi/mobile: the target `ModernStatusBarView.setBlocked(boolean)` implementation is a no-op;
+   - do **not** assume end reservation is unnecessary merely because HyperOS synchronizes fake `statusBarArea` width from `realSystemIcons`: `MiuiStatusBatteryContainer` still measures Battery separately and subtracts its width from `statusIcons`. A future fake-carrier adapter must verify a local reservation contract against exact target geometry before writing it.
+
+4. **Native motion / visual ownership**
+   - native expansion code continues to own fake-bar translation;
+   - native `appearance` continues to own fake-vs-real Control Center alpha;
+   - the real QS destination remains untouched/native.
+
+5. **Existing hook reuse**
+   - no new tint hook is needed: `SystemUiTintStateSource` already receives all `MiuiBatteryMeterView` tint events and the fake session can filter by its own Battery instance;
+   - no second status-icon layout hook is needed: the existing `MiuiStatusIconContainer.onMeasure/onLayout` interception can route explicitly registered host-scoped presentation sessions by target identity;
+   - prefer extracting the current Home presentation-layer slot-exclusion / clip-mask mechanism over reviving the older binding-level network suppression owner as the default transition implementation.
+
+The transition cutover should remain readiness ordered locally:
+- entry: fake compact renderer ready -> apply fake native clip masks;
+- exit/failure: restore fake native clips -> stop/hide compact renderer.
+
+A QS_FAKE failure therefore degrades only that transition surface to native SystemUI and does not deactivate the Home compact owner.
+
+
+### QS_FAKE batteryWidthDiff independence
+
+Exact-target `ControlCenterHeaderExpandController` computes `batteryWidthDiff` from the selected source anchor Battery width and the **real QS destination Battery** width. During island handling it may replace that difference with the negative real-QS Battery width. `onExpansionChanged(float)` then adds the resulting value to the whole `controlCenterFakeStatusBar.translationX`.
+
+The calculation does **not** read QS_FAKE `ignoredSlots`, local `statusIcons.paddingEnd`, or a Guiyuan compact reservation. Therefore a future carrier-local QS_FAKE exclusion/reservation policy does not feed back into the native parent translation formula, provided Guiyuan never writes/cancels the fake parent translation.
+
+This narrows the future island/charging device gate to local compact-edge/layout continuity; native Control Center motion ownership remains structurally independent.
+
+
+### QS_FAKE modern-network suppression constraint
+
+Further exact-target review closes an important false lead.
+
+`MiuiLightDarkIconManager.setBlockList(...)` copies its input into an instance-local block list and calls `StatusBarIconControllerImpl.refreshIconGroup(...)`. That refresh does invoke `StatusIconDisplayable.setBlocked(...)` for matching children. However the target's modern Wi-Fi/mobile views inherit from `ModernStatusBarView`, whose `setBlocked(boolean)` override is an empty implementation. Therefore the icon-manager block list does **not** suppress the modern Wi-Fi/mobile pipeline used on this target.
+
+Implication:
+- do not use the QS_FAKE block list as the Guiyuan network replacement mechanism;
+- the leading lightweight route is to generalize the **current presentation-layer** mechanism already used by Home: temporary `ignoredSlots` ownership around native measure/layout plus reversible clip masks for represented Wi-Fi/mobile/airplane/no-SIM/Battery Views;
+- the older binding-identity suppression path remains historical/fallback evidence, not the default QS_FAKE design;
+- keep one global status-icon/Battery hook set where possible and route only explicitly registered host-scoped presentation sessions; do not duplicate network state machines.
