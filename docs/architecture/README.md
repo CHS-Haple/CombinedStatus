@@ -2,7 +2,7 @@
 
 This directory contains the current architecture policy and scene/layout capability boundaries for Guiyuan.
 
-## Current 0.0.2 status
+## Current 0.0.3 status
 
 The pinned-target Home carrier redesign has moved from pre-runtime evaluation into runtime validation.
 
@@ -26,7 +26,7 @@ SystemUI retains native peer layout, Battery hide/presentation, tint authority, 
 
 - [scene-policy.md](scene-policy.md)
   - current scene capability map;
-  - Home is the only Guiyuan rendering surface currently runtime-verified;
+  - Home and the opt-in Keyguard adapter are runtime-verified Guiyuan steady rendering surfaces on the pinned target; bounded QS_FAKE transition projection is also accepted while the fully expanded Control Center and AOD remain native;
   - shade / Control Center, keyguard and AOD remain native-only until separately promoted.
 
 - [../reference/README.md](../reference/README.md)
@@ -35,7 +35,7 @@ SystemUI retains native peer layout, Battery hide/presentation, tint authority, 
 
 ## Superseded architecture route
 
-The default 0.0.2 architecture must not return to:
+The current architecture must not return to:
 
 `extra permanent status participant -> zero/full-width occupancy handoff -> custom slot/translation compensation`
 
