@@ -10818,3 +10818,70 @@ The remaining issues are composition-density problems, not typography or compone
 ### Validation gate
 
 Move PR #173 back to Ready and run exact-head Fast. If successful, request one signed Canary because device evidence directly reopened visual contrast/density. Freeze the exact Build-468 source for that review; do not layer SystemUI transition work into this branch.
+
+---
+
+## 2026-09-29 — Build 469: remove hard Sandbox dividers and restore balanced Diagnostics density
+
+**Type:** device-driven companion-app presentation correction
+**Display version:** 0.0.3
+**Build / source:** Build 469 / `20260929-469` / executable checkpoint `025341c9587f90d5e0e9a33c98eecb6d020c7ca9`
+**Branch / PR:** `feat/presentation-ui-polish` / #173
+**SystemUI runtime change:** none
+**Validation:** exact-head Fast pending
+
+### Device evidence from Build 468
+
+Build 468 passed exact-head Fast #1736 and signed Work Branch Canary #495. Canary #495 resolved and checked out exact source `1b8bd86562d9dec6d5b573cbb8134e18309e5d0a` and passed signing, metadata, non-debuggable, test/build, target-profile, and artifact-upload gates.
+
+Focused device screenshots then showed two visual regressions:
+- the stronger full-width Sandbox dividers made the card read like a table/list and were judged visually unattractive;
+- the upper Diagnostics information cards were over-compressed and lost the intended breathing room.
+
+The lower Diagnostics & reports action card remains accepted and is intentionally untouched.
+
+### Root cause
+
+Build 468 corrected both earlier problems by increasing structural force too aggressively.
+
+- **Sandbox:** hierarchy was moved from weakly perceived to over-explicit. The line itself became the visual object instead of spacing/group rhythm doing the work.
+- **Diagnostics:** reducing fact-row vertical padding from 8 dp to 5 dp, together with tighter headers, removed too much inter-item air and made the page feel dense despite the information being static/read-only.
+
+### Implementation
+
+#### Preview Sandbox
+- remove the full-width divider primitive entirely;
+- keep the improved two-level typography and label/value summaries;
+- use approximately 10 dp inter-group spacing between network-local and device-level controls, and between battery level and battery-state controls;
+- retain a small 8 dp lead-in above the central live preview and 7 dp before summary rows;
+- keep all simulated state, control semantics, and production renderer unchanged.
+
+#### Diagnostics
+- move shared fact-row vertical padding from 5 dp to 7 dp as the midpoint between Build 467 and Build 468;
+- restore modest header breathing room: 13 dp top and 7 dp bottom for non-brand headers, 11 dp bottom for the app identity header;
+- keep the 64 dp background-free Guiyuan mark, 20-second linear counterclockwise animation, title hierarchy, shortened description, and app identity/fact divider;
+- keep Diagnostics & reports unchanged.
+
+### Problem execution flow
+
+1. Treat Build-468 device screenshots as evidence that explicit separators and maximum compression were the wrong presentation direction.
+2. Preserve all structurally successful Build-467/468 work: typography hierarchy, summary format, identity mark, animation ownership, copy cleanup.
+3. Remove only the over-assertive structural elements.
+4. Restore density by midpoint rhythm rather than reverting to the original sparse layout.
+5. Keep the entire SystemUI/runtime boundary frozen.
+
+### 审查 / review
+
+- **Ownership:** MIUIX continues to own typography/control grammar; Guiyuan only adjusts local composition.
+- **Lifecycle:** no lifecycle or runtime owner changed.
+- **Single writer:** the only animation writer remains the local Diagnostics graphics layer.
+- **Cleanup:** no listener/callback/service/background state added.
+- **Fail native:** unaffected because SystemUI runtime is untouched.
+- **Performance:** spacing-only changes plus the already-accepted one small screen-local transform.
+- **Compatibility:** no dependency/API/build-system change.
+- **Future extension:** information cards and action cards remain separate reusable layout roles.
+
+### Validation gate
+
+Run exact-head Fast for Build 469. If green, issue one signed Canary for focused visual review only. Freeze source for that test and do not mix transition-animation/runtime work into this branch.
+
