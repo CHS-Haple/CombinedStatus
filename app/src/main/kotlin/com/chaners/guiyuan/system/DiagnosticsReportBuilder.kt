@@ -92,7 +92,7 @@ internal object DiagnosticsReportBuilder {
             }
 
         return buildString {
-            appendLine("Combined Status Diagnostic Report")
+            appendLine("Guiyuan Diagnostic Report")
             appendLine()
             appendLine("[App]")
             appendLine("version=" + BuildConfig.VERSION_NAME)
@@ -140,7 +140,7 @@ internal object DiagnosticsReportBuilder {
             appendLine("collection=" + collectionState(selected.result))
             appendLine("lines=" + moduleLines.size)
             if (moduleLines.isEmpty()) {
-                appendLine("No Combined Status runtime log entries were available.")
+                appendLine("No Guiyuan runtime log entries were available.")
             } else {
                 moduleLines.forEach(::appendLine)
             }
