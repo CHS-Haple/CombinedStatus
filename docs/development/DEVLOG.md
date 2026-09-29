@@ -10610,3 +10610,12 @@ After the 0.0.3 development line was integrated, the maintainer selected **Guiyu
 ### Outcome / next step
 
 Run exact-head Full CI. If green, build one signed Canary and verify Android/LSPosed recognition, package identity, launcher/app-info naming, module loading/Hot Reload, and a basic Home/Keyguard runtime smoke test. Then integrate to `dev`; after post-merge Integration and promotion gates pass, promote the completed 0.0.3 Guiyuan identity to `main`.
+
+
+### Device acceptance
+
+Maintainer device validation accepts Build 466 after the package/brand migration. The new `com.chaners.guiyuan` module identity is recognized and loadable, and the focused runtime smoke check is accepted.
+
+Full #1690 and signed Work Branch Canary #492 are green on the migrated source. The remaining repository-level work is integration into `dev`, post-merge Integration validation, repository-name/public metadata migration to `Guiyuan`, and final promotion to `main`.
+
+This acceptance update is documentation-only and does not create a new Build.
