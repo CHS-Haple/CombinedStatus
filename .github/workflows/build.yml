@@ -2,10 +2,10 @@ name: Build
 
 on:
   push:
-    branches: [ main, dev, validation/dev ]
+    branches: [ main, dev ]
   pull_request:
     branches: [ main, dev ]
-    types: [ opened, synchronize, reopened, ready_for_review, converted_to_draft ]
+    types: [ opened, synchronize, reopened, ready_for_review ]
   workflow_dispatch:
 
 permissions:
@@ -119,16 +119,10 @@ jobs:
           apply_runtime_scope() {
             local mode="$1"
             case "$mode" in
-              fast)
+              runtime)
                 if [[ "$SCOPE" != "full" ]]; then
-                  SCOPE=fast
-                  REASON="ordinary product/runtime PR"
-                fi
-                ;;
-              integration)
-                if [[ "$SCOPE" != "full" ]]; then
-                  SCOPE=integration
-                  REASON="trusted dev runtime integration"
+                  SCOPE=runtime
+                  REASON="ordinary runtime validation"
                 fi
                 ;;
               full)
@@ -169,12 +163,9 @@ jobs:
             done
           }
 
-          if [[ "$EVENT_NAME" == "push" && "$GITHUB_REF" == "refs/heads/validation/dev" ]]; then
-            SCOPE=light
-            REASON="device-validation marker update"
-          elif [[ "$EVENT_NAME" == "push" && "$GITHUB_REF" == "refs/heads/dev" ]]; then
+          if [[ "$EVENT_NAME" == "push" && "$GITHUB_REF" == "refs/heads/dev" ]]; then
             if [[ -n "$PUSH_BEFORE_SHA" && "$PUSH_BEFORE_SHA" != "0000000000000000000000000000000000000000" ]]; then
-              classify_paths "$PUSH_BEFORE_SHA" "$PUSH_HEAD_SHA" integration
+              classify_paths "$PUSH_BEFORE_SHA" "$PUSH_HEAD_SHA" runtime
               detect_surfaces "$PUSH_BEFORE_SHA" "$PUSH_HEAD_SHA"
             fi
           elif [[ "$EVENT_NAME" == "push" && "$GITHUB_REF" == "refs/heads/main" ]]; then
@@ -190,7 +181,7 @@ jobs:
             elif [[ "$PR_BASE_REF" == "main" ]]; then
               classify_paths "$PR_BASE_SHA" "$PR_HEAD_SHA" full
             else
-              classify_paths "$PR_BASE_SHA" "$PR_HEAD_SHA" fast
+              classify_paths "$PR_BASE_SHA" "$PR_HEAD_SHA" runtime
             fi
           fi
 
@@ -202,13 +193,13 @@ jobs:
           RUN_DEBUG=false
           RUN_CANARY=false
 
-          if [[ "$SCOPE" == "fast" || "$SCOPE" == "integration" || "$SCOPE" == "full" ]]; then
+          if [[ "$SCOPE" == "runtime" || "$SCOPE" == "full" ]]; then
             RUN_ANDROID=true
           fi
-          if [[ "$SCOPE" == "fast" || "$SCOPE" == "full" ]]; then
+          if [[ "$SCOPE" == "full" || ( "$SCOPE" == "runtime" && "$EVENT_NAME" == "pull_request" ) ]]; then
             RUN_DEBUG=true
           fi
-          if [[ "$SCOPE" == "integration" || "$SCOPE" == "full" ]]; then
+          if [[ "$SCOPE" == "full" || ( "$SCOPE" == "runtime" && "$EVENT_NAME" == "push" && "$GITHUB_REF" == "refs/heads/dev" ) ]]; then
             RUN_CANARY=true
           fi
 
@@ -228,7 +219,7 @@ jobs:
           echo "Validation scope: $SCOPE ($REASON)"
 
       - name: Lightweight repository checks
-        if: steps.scope.outputs.scope == 'light' && github.ref != 'refs/heads/validation/dev'
+        if: steps.scope.outputs.scope == 'light'
         shell: bash
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || '' }}
@@ -476,7 +467,7 @@ jobs:
           else
             echo "- Mixed-surface review: not required" >> "$GITHUB_STEP_SUMMARY"
           fi
-          echo "- Signed work-branch Canary: explicit/demand-driven; CI does not infer device-test need from changed paths." >> "$GITHUB_STEP_SUMMARY"
+          echo "- Signed work-branch Canary: explicit/demand-driven and independently validates the requested source SHA." >> "$GITHUB_STEP_SUMMARY"
           if [[ "${{ github.event_name }}" == "pull_request" && "${{ github.event.pull_request.draft }}" == "true" ]]; then
             echo "- Pull request state: draft (lightweight validation only)" >> "$GITHUB_STEP_SUMMARY"
           fi

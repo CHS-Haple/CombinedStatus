@@ -1,207 +1,86 @@
 # Guiyuan Development Roadmap
 
-This file stores future direction, phase boundaries, prerequisites, confirmed product design, and deferred/rejected routes. Current implementation state belongs in `CURRENT.md`; build-by-build investigation belongs in `DEVLOG.md`; release/net changes belong in `CHANGELOG.md`.
+ROADMAP describes future direction only. Build chronology/debugging history belongs in DEVLOG; current execution state belongs in CURRENT.
 
-## Roadmap rules
+## Phase 1 — Core Home/SystemUI foundation — complete
 
-- Keep macro phases stable unless new evidence changes sequencing.
-- Do not move already-completed capabilities back into future work merely because they need regression testing.
-- Distinguish **design confirmed** from **implementation complete**.
-- Revalidate implementation details against the latest source, target SystemUI, dependency state, and device evidence before coding.
-- Prefer verified HyperOS/SystemUI state, resources, layout, and motion ownership over duplicate project-local machinery.
-- Record route reversals and invalidated approaches in `DEVLOG.md`; keep this file focused on future direction.
+Established:
+- compact Home Guiyuan rendering;
+- authoritative battery, Wi-Fi, mobile-network, airplane and SIM/data state;
+- native tint/resource reuse;
+- reversible native replacement with fail-native fallback;
+- event-driven diagnostics and Hot Reload;
+- single/dual-SIM, hotspot, no-SIM, airplane and mobile-type semantics.
 
-## Phase 1 — Core Home / native SystemUI foundation — completed
+## Phase 2 — Home carrier and Control Center ownership — ownership complete; transition polish in progress
 
-Established capabilities that later phases must preserve include:
-- Home Guiyuan rendering foundation;
-- authoritative Wi-Fi/mobile/battery/domain state;
-- single-SIM and dual-SIM presentation paths;
-- hotspot, no-SIM, airplane and mobile-type semantics;
-- native resource/tint reuse and bounded visual-intensity handling;
-- native Wi-Fi/mobile/battery replacement with fail-native restoration;
-- master switch and Hot Reload;
-- charging/island ownership evidence required for the current carrier architecture.
+Stable contracts:
+- steady Home geometry remains SystemUI-hosted;
+- charging/Super-Island motion stays native-owned;
+- Notification Shade remains native-only on the pinned target;
+- QS_FAKE is the bounded Control Center bridge;
+- fully expanded Control Center remains native.
 
-Dual-SIM/network support and island participation are not separate future phases.
+Remaining:
+- make Guiyuan and relevant native-peer motion through the Control Center gesture visually coherent with HyperOS;
+- preserve accepted steady Home/Keyguard geometry and Build-473 Wi-Fi optical behavior;
+- avoid project-owned gesture timing, duplicate translation writers, endpoint snaps, or duplicate occupancy.
 
-## Phase 2A — 0.0.2 Home carrier / presentation architecture — completed for current dev baseline
+## Phase 3 — Keyguard / AOD ownership — steady scene complete; shared transition polish remains
 
-Stabilize one coherent Home/end-side presentation contract before extending the visual into other SystemUI surfaces.
+Established:
+- optional steady Keyguard Guiyuan with independent host/session;
+- AOD remains native-only;
+- Keyguard-originated QS_FAKE uses the same verified transition boundary;
+- session-owned slot exclusions are reversible and fail native on ambiguity.
 
-Required direction:
-- use a verified existing Home host/lifecycle rather than a permanent second status participant by default;
-- keep one host-scoped owner for overlay/presentation/restoration state;
-- resolve visual geometry and native occupancy as separate facts;
-- use the live native battery-body carrier as the current stable replacement-width authority on the pinned target;
-- inherit native charging/Super-Island host motion rather than copying Battery translation or creating a project-owned animator;
-- keep native Battery scene/hide behavior read-only;
-- make every temporary native exclusion/mask/reservation reversible and conflict-detecting;
-- fail native when an ownership, compatibility, or restoration contract cannot be established.
+Remaining work is limited to the shared Control Center transition presentation from the Keyguard source scene.
 
-Exit criteria:
-- correct steady Home placement and optical spacing;
-- correct normal and charging/Super-Island behavior;
-- no duplicate native/project occupancy owner;
-- no hidden persistent peer-geometry writer;
-- cleanup and Hot Reload restore only module-owned state;
-- current target behavior passes the declared focused device scenarios.
+## Phase 4 — Companion app and customization — product polish
 
-Current acceptance note: Build 408 is accepted for `dev` as the Phase-2A working baseline. Minor residual ring/center/dot optical-weight variance is deferred to later visual polish and does not reopen Home carrier ownership or block Phase 2B.
+Established:
+- MIUIX Home / Features / Settings;
+- runtime state and diagnostics UI;
+- Preview Sandbox using the production renderer;
+- language, launcher visibility, navigation appearance, diagnostics export/share;
+- battery semantic colors and color-link controls.
 
-## Phase 2B — Home ownership continuity + Control Center transition bridge — ownership/geometry complete; animation adaptation pending
+Planned/deferred:
+- adaptive Guiyuan sizing/spacing without native geometry hacks;
+- proportional ring/dot thickness controls after visual rules are stable;
+- optional per-state custom colors while retaining System default/status-tint choices;
+- additional Preview scenarios only when they improve real configuration usability.
 
-Extend the accepted Phase-2A Home visual into panel transitions without reopening steady Home ownership.
+Do not add controls merely because a renderer parameter exists.
 
-Direction:
-- treat steady Home geometry as the source contract;
-- do **not** create a Notification-Shade Guiyuan surface on the pinned target because the native Notification Shade does not expose the status-icon row there;
-- keep Notification Shade native-only and inherit Home departure/return from the verified native `system_icons` end-side carrier lifecycle rather than maintaining a project-local shade visibility gate;
-- Control Center is a **transition destination**, not a persistent Guiyuan scene: exact-target source and Build-441 runtime evidence verify the bounded QS_FAKE bridge and native final-surface endpoint;
-- during a partial pull, bridge the source Guiyuan presentation through verified native Control Center transition geometry/progress so the gesture visually connects to HyperOS;
-- fully expanded Control Center is native-only by verified HyperOS appearance ownership: native `appearance=true` fades the QS_FAKE root to alpha 0 while bringing final `ControlCenterStatusBarIcon` to alpha 1; Combined never owns the final surface. Build-453 device evidence reopens only whether the project overlay's projected geometry always tracks that native fake carrier correctly, so Build 455 diagnoses the existing projection instead of introducing a second endpoint owner;
-- use verified native transition progress/endpoints only for that bounded bridge lifetime;
-- separate transition bridge lifetime/masking from the steady Home session;
-- preserve native peer animation and Control Center geometry ownership;
-- avoid first-frame shift, last-frame snap, duplicate occupancy, or a second animation system.
+## Phase 5 — Compatibility and 1.0.0 qualification
 
-Accepted prerequisite: Build 413 closes the HUN/scene-lifetime boundary on the pinned target. Build 418 closes the shared Home Tint lifecycle blocker exposed while preparing panel projection.
+Before 1.0.0:
+- close supported Home/Keyguard/Control Center transition acceptance;
+- verify fail-native behavior on unsupported/unknown conditions;
+- review target-profile compatibility and dependencies;
+- remove obsolete diagnostics/probes and stale branches with no remaining engineering value;
+- ensure public docs, privacy/security notices, third-party notices, changelog, signing, metadata, and release workflow are ready.
 
-Build-419 diagnostics plus maintainer clarification refine the remaining Phase-2B scope: Notification Shade is a **Home ownership boundary only**, while Control Center is the actual projection surface. The Build-419 bounded Notification-Shade probe is therefore retired rather than promoted into production.
+1.0.0 remains an explicit maintainer decision.
 
-Build 420 establishes useful Control Center source geometry and readiness-ordered handoff evidence. Build 428 now narrows that conclusion: `realSystemIcons` is the selected Home/Keyguard source reference, not the visible Control Center presentation, and the source container can be natively hidden throughout current Control Center ownership. Builds 425-427 reject placing the Combined visual carrier inside child `QS_FAKE.system_icon_area`. Build 430 device evidence validates the **top-level `ControlCenterFakeStatusIcons` presentation carrier** independently from the child Battery/system-icon-area hide lifecycle: the root owns native fake/final alpha while the child remains visible. Build 431 keeps that root host but is device-rejected for clip-only occupancy because represented Wi-Fi/mobile widths remain in native layout. Build 432 retains the root overlay and reuses the existing presentation Hook substrate for fake `MiuiStatusIconContainer` compact layout, but device evidence rejects its visible-time transient-session lifecycle: the same QS_FAKE surface can nondeterministically appear native, partially compact/masked, or Combined because native layout readiness may arrive after expansion/appearance. Build 433 moves QS_FAKE compact preparation out of the visible cycle and into the native `ControlCenterFakeStatusIcons` host lifetime, but cold-start evidence shows bare `onAttachedToWindow()` can still precede usable child/Battery geometry. Build 434 therefore keeps attach as the bootstrap lifetime boundary while establishing compact readiness only after the root's first native layout, with at most one additional native-layout retry for explicit early-geometry failures. Build-434 device diagnostics then show that prearm succeeds but a transient startup layout-unavailable event incorrectly tears the compact owner back down; Build 435 separates render-geometry readiness from compact-presentation lifetime so an attached, already-prepared QS_FAKE owner survives that transient loss. Build 441 closes Fake determinism and Hot Reload continuity. PR #160 closes charging-island trajectory as native QS_FAKE behavior. Exact-target endpoint review verifies native fake/final appearance handoff and the fully expanded native-only endpoint. Build 424 separately remains the accepted Home/Notification-Shade carrier correction.
+## Persistent design seams
 
-Exit criteria:
-- clean Home departure and return;
-- coherent intermediate motion;
-- clean partial-pull transition into Control Center and exact yield to native status icons at the fully expanded endpoint; Notification Shade remains native/no-status-icon by design;
-- no regression in steady Home or charging/island behavior.
+Preserve:
+- authoritative native state -> domain state -> scene/presentation policy -> renderer;
+- independent Home and Keyguard ownership;
+- native final Control Center and AOD ownership;
+- native resource identity/tint authority where available;
+- custom colors/sizing as presentation policy, not duplicate platform state;
+- bounded diagnostics outside hot paths.
 
-## Phase 3 — Keyguard / lockscreen / AOD scene ownership — steady scene complete; transition animation pending
+## Rejected by default
 
-Build 456 supersedes device-rejected Build 455. Build 455 proves the corrected AOD authority can enable steady Keyguard Guiyuan, but device evidence exposes a shared Keyguard/QS_FAKE peer-layout defect: native peers can jump toward their end position and leave a large gap, while disabling lockscreen Combined can probabilistically race native restoration during a pull.
-
-The Build-455 geometry probe rejects a direct Combined-translation patch. The overlay-local anchor still composes to the native Battery carrier; the structural mismatch is the compact presentation's ignored-slot lifetime. Temporary `ignoredSlots` mutation around only `onMeasure/onLayout` gives Keyguard/QS_FAKE motion owners a different slot-state fact outside those calls. Build 456 therefore promotes only those two transition-capable surfaces to the exact native `addIgnoredSlots/setIgnoredSlots` session contract, while keeping accepted Home behavior unchanged. Native add/set remains the layout trigger/authority; project motion/alpha/visibility writers remain forbidden.
-
-AOD remains NATIVE_ONLY. Steady Keyguard can project only when the lockscreen feature is enabled, its AOD gate is unblocked, the session-owned native slot exclusions are active, and native compact layout has completed. Cleanup restores only the session-owned slot delta and fails native on contract/ownership ambiguity.
-
-Build 456 is device-accepted on the pinned Xiaomi 15 Pro / SystemUI `17.03.260226.r` and integrated into `dev` by PR #163 squash commit `d70b416ba531651c6690027b7404b1854fdb3056`. Final Fast #1640 and signed Canary #484 pass on the accepted executable head, and post-merge Integration #1651 passes the full `dev` gate. The separate companion-app/UI line remains independent and active; no display-version bump is coupled to this runtime integration.
-
-Build 447 is the first opt-in steady-Keyguard runtime candidate. It adds a separate Keyguard host/render/presentation adapter and a default-off feature switch while reusing the existing three class-wide presentation Hooks (Hook delta 0). Keyguard-originated QS_FAKE is enabled only after the steady adapter reaches ready. AOD remains outside the candidate's supported scope and is a focused real-device blocker before Keyguard can be promoted to runtime-verified evidence.
-
-Build 446 is device-accepted and closes the late-eligibility QS_FAKE cutover prerequisite. Phase 3 may now advance to the independent steady Keyguard adapter; AOD remains a later, separate gate.
-
-Build 446 preserves the source-scene gate and closes its late-entry lifecycle hole: when Home eligibility is learned after QS_FAKE has already completed native layout, the existing laid-out status-icons state may serve as the compact cutover proof only if no layout request is pending and geometry is valid. Otherwise the existing native `onLayout` path remains mandatory. This keeps the fail-native/atomic handoff contract while allowing scene-gated Home projection to become ready.
-
-Build 445 tightens the Build-444 source-scene gate without changing its policy: HyperOS `realSystemIcons` remains the selected source endpoint, but Home is identified by object identity against the existing HomePresentationOwner carrier rather than transient View ancestry. Keyguard retains the already device-proven structural fallback. This preserves fail-native behavior while restoring Home-originated QS_FAKE.
-
-Build 444 establishes source-scene eligibility for the shared QS_FAKE bridge before steady Keyguard rendering is enabled. It reuses the existing `CombinedStatusScenePolicy`: structurally verified steady source hosts can pre-seed the policy, and HyperOS `realSystemIcons` is the final Home/Keyguard authority when Control Center becomes visible. Home may project Guiyuan; Keyguard/unknown fail native until the Keyguard capability is verified/promoted and its feature setting is enabled. The gate releases both overlay visibility and compact native masking together. The future lockscreen switch is therefore a feature-domain input to this same policy, not a separate QS_FAKE setting.
-
-Build 443 inserts a transition-safety checkpoint before enabling steady Keyguard rendering: the shared QS_FAKE bridge must preserve native visuals until its existing native-layout boundary can atomically commit mask + Combined projection readiness. This keeps fail-native semantics intact for cold-start Keyguard-originated pulls. The later scene-policy layer remains explicit: Home steady and Keyguard steady are separate adapters sharing domain/render semantics, and QS_FAKE must inherit the native-selected source scene rather than act as an independent user-facing scene.
-
-Reuse the stabilized domain state, renderer semantics, ownership rules, and fail-native behavior while giving each scene its own verified host/lifecycle adapter.
-
-Build 442 is the first Phase-3 executable checkpoint and is intentionally narrower than a lifecycle adapter: it reuses the existing Battery scene callback only as a trigger, requires actual `MiuiKeyguardStatusBarView` ancestry, and takes one read-only steady-host/source snapshot. Hook delta is zero; no Keyguard rendering/suppression and no AOD runtime probe is introduced. Positive device evidence from this checkpoint is a prerequisite for choosing the later Keyguard presentation/lifecycle seam.
-
-The scene architecture is now verified for the pinned target:
-- **Unlocked:** Home steady Guiyuan -> bounded QS_FAKE transition -> fully expanded Control Center native-only.
-- **Locked:** opt-in steady Keyguard Guiyuan -> bounded Keyguard-originated QS_FAKE transition -> fully expanded Control Center native-only.
-- Notification Shade remains native-only on the pinned target.
-- AOD remains native-only and is gated by its verified `MiuiBatteryMeterView` lifecycle authority.
-- Home and Keyguard keep separate mutable host/render/session ownership while sharing domain/render semantics; the transition bridge follows the native-selected source scene.
-
-Do not reopen this architecture with a second lockscreen-specific state machine, fixed-pixel compensation, duplicated animation ownership, or historical motion/alignment patch chains without new device evidence.
-
-## Phase 4 — App Home + Preview Sandbox — integrated for current dev baseline
-
-Primary navigation remains:
-
-`Home | Features | Settings`
-
-The Home page has two conceptual regions:
-
-~~~text
-┌─────────────────────────────────────┐
-│ Guiyuan                 ↻   │
-│  Runtime Status + master switch    │
-│                                     │
-│  Preview Sandbox                   │
-│  simulated Wi-Fi / mobile / SIM /  │
-│  airplane / charging / battery     │
-├─────────────────────────────────────┤
-│       Home       Features   Settings│
-└─────────────────────────────────────┘
-~~~
-
-Runtime Status reflects real module/SystemUI state and retains the real Hot Reload action. Preview Sandbox is simulation-only and must never mutate real Wi-Fi/mobile/SIM/airplane/charging/battery state.
-
-Keep Home dense enough to remain an overview rather than a settings surface. Home may show one compact production-rendered preview plus a standard MIUIX navigation row; detailed Sandbox selectors belong on a secondary page so future simulated states can expand without turning Home into a long scrolling form.
-
-The companion-app presentation shell may be implemented in parallel with Phase 3 because it does not claim or mutate SystemUI scene ownership. Until a verified runtime-health source is wired, the Home UI must not infer "running/healthy" from the master-switch preference. Early Sandbox controls may keep local, non-persistent simulation state, but the final visual preview should reuse the real render semantics/model rather than maintaining a second renderer.
-
-Prefer reusing the real render semantics/model for previews rather than maintaining a second visually similar implementation.
-
-Current integration note: PR #165 is integrated into `dev` by squash commit `a2394db92ce208771956defcd558c954065000f7`. Build 464 is the accepted work-branch UI checkpoint; the post-integration development line advances to 0.0.3 / Build 465. Home runtime status, production-rendered Preview Sandbox, Diagnostics action styling, Features-page hierarchy, and MIUIX-aligned Sandbox controls are now part of the current dev baseline. Future UI work continues from this integrated state rather than reopening the retired Build-458–464 iteration chain.
-
-## Phase 5 — Transition animation adaptation, then adaptive sizing / spacing / broader visual controls
-
-After the carrier/scene contracts are stable:
-- expose user-adjustable Guiyuan visual size;
-- derive neighboring spacing from resolved geometry rather than a permanent fixed-width assumption;
-- first close the visual transition-animation gap for Home/Keyguard -> QS_FAKE -> native Control Center using verified native progress/geometry/alpha ownership, with no duplicate project-local animator;
-- keep native occupancy, visual width, transition geometry, transition animation, and optical spacing independently resolved;
-- expose per-state battery-ring color sources for NORMAL / CHARGING / POWER_SAVE / PERFORMANCE / LOW: **System default** (HyperOS semantic color where available), **Follow status icons** (native monochrome/tint authority), or **Custom color**, without creating a second battery-mode state machine;
-- make future controls previewable in the Preview Sandbox.
-
-## Phase 6 — 1.0.0 release qualification — final pre-release phase
-
-The first planned formal release is **1.0.0**. Current `0.0.x` versions remain development lines until this qualification is complete and the maintainer explicitly authorizes the formal version transition.
-
-Qualification includes the supported acceptance matrix, as applicable:
-- Home steady behavior;
-- shade / Control Center transition animation continuity, including first/last-frame handoff and partial-pull/return motion;
-- keyguard / lockscreen / AOD steady behavior plus Keyguard-originated transition animation;
-- charging / island states;
-- single-SIM and dual-SIM states;
-- Wi-Fi / hotspot / no-Internet / no-SIM / airplane combinations;
-- master-switch disable/enable;
-- Hot Reload and SystemUI recreation;
-- light/dark/tint and battery semantic-color behavior;
-- adaptive sizing/spacing boundaries intended for release;
-- performance/energy and diagnostics boundaries;
-- Release/signing/metadata checks;
-- public documentation and notices consistency.
-
-Completion of an earlier phase does not by itself advance the display version to `1.0.0`.
-
-## Cross-cutting engineering routes
-
-### Runtime ownership
-
-When lifecycle responsibilities accumulate, move one bounded responsibility at a time into a dedicated owner/session. Keep one active writer for each mutable fact and preserve reversible cleanup.
-
-### Native resource/state reuse
-
-Prefer verified runtime resource identity and native semantic state. Do not maintain copied icon sets, duplicate mode-priority state machines, per-resource gray multipliers, or screenshot-derived compensation when the platform already exposes the needed meaning.
-
-### Compatibility / diagnostics
-
-Keep diagnostics event-driven and bounded. Compatibility-sensitive integration points require exact-target evidence and must fail native when their contract cannot be established.
-
-## Deferred / rejected routes
-
-- Permanent extra status participant as the default 0.0.2 Home carrier — superseded by the existing-host composition direction.
-- Overriding native Battery hide/scene decisions to preserve project layout — rejected as a default ownership model.
-- Following Battery translation per frame or creating a duplicate island animator — rejected.
-- Magic translation/margin/padding/delay compensation without an ownership-level justification — rejected.
-- Treating one fixed pixel width as the permanent source for future adaptive sizing — rejected.
-- Reusing historical patches solely because they once improved one device symptom — rejected without revalidation.
-
-## Update triggers
-
-Update this file when:
-- the project enters a new macro phase;
-- a phase prerequisite or exit criterion changes;
-- a confirmed future product design changes;
-- an architecture decision changes future sequencing;
-- the first formal release target or qualification boundary changes.
+Do not reintroduce without new exact-target evidence:
+- polling-based state/geometry ownership;
+- copied Battery/peer animation timelines;
+- timer/delay lifecycle fixes;
+- persistent duplicate status participants when a verified native carrier exists;
+- global native-slot suppression outside the owning scene/session;
+- per-resource grayscale/alpha compensation used only to force visual similarity;
+- historical Build-specific patches as current architecture.

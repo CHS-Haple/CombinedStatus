@@ -31,6 +31,9 @@ The project follows a Keep a Changelog-style structure. During pre-release devel
 
 ### Changed
 
+- Simplified contributor workflow around one day-to-day CURRENT source, decision-oriented DEVLOG, direct dev-to-main promotion, and three CI scopes (Light / Runtime / Full); removed the validation/dev promotion marker, separate promote stage, promotion-readiness workflow, and redundant recording/version-status documents while preserving runtime ownership, fail-native, root-cause, and device-validation safeguards.
+
+
 - Refined Preview Sandbox hierarchy so all setting titles (slider and segmented-field titles) share the same primary MIUIX role as native preference titles, while control option rendering stays owned by MIUIX and soft spacing separates groups; simulation and production-renderer behavior are unchanged.
 - Diagnostics keeps the balanced mid-density information-card rhythm and Module runtime edge breathing room while leaving Diagnostics & reports unchanged. The background-free Guiyuan identity still uses the same launcher vector and 20-second counterclockwise motion, but is now drawn directly at its final optical size and only rotated, avoiding any post-draw or Canvas scale-up path.
 
