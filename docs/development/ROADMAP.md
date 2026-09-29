@@ -59,7 +59,7 @@ Direction:
 - keep Notification Shade native-only and inherit Home departure/return from the verified native `system_icons` end-side carrier lifecycle rather than maintaining a project-local shade visibility gate;
 - Control Center is a **transition destination**, not a persistent Combined Status scene: exact-target source and Build-441 runtime evidence verify the bounded QS_FAKE bridge and native final-surface endpoint;
 - during a partial pull, bridge the source Combined Status presentation through verified native Control Center transition geometry/progress so the gesture visually connects to HyperOS;
-- fully expanded Control Center is native-only by verified HyperOS appearance ownership: native `appearance=true` fades the QS_FAKE root to alpha 0 while bringing final `ControlCenterStatusBarIcon` to alpha 1; Combined inherits QS_FAKE root alpha and never owns the final surface;
+- fully expanded Control Center is native-only by verified HyperOS appearance ownership: native `appearance=true` fades the QS_FAKE root to alpha 0 while bringing final `ControlCenterStatusBarIcon` to alpha 1; Combined never owns the final surface. Build-453 device evidence reopens only whether the project overlay's projected geometry always tracks that native fake carrier correctly, so Build 455 diagnoses the existing projection instead of introducing a second endpoint owner;
 - use verified native transition progress/endpoints only for that bounded bridge lifetime;
 - separate transition bridge lifetime/masking from the steady Home session;
 - preserve native peer animation and Control Center geometry ownership;
@@ -79,7 +79,9 @@ Exit criteria:
 
 ## Phase 3 — Keyguard / lockscreen / AOD scene completion — active
 
-Build 453 supersedes the automation-only Build-447 candidate with explicit native AOD gating. AOD remains NATIVE_ONLY; steady Keyguard can project only when the lockscreen feature is enabled, its host/presentation is ready, and native AOD state is unblocked.
+Build 455 supersedes device-rejected Build 453 by correcting the pinned native AOD method contract from the rejected zero-argument assumption to exact-target `MiuiBatteryMeterView.toggleAodMode(boolean): void`. AOD remains NATIVE_ONLY; steady Keyguard can project only when the lockscreen feature is enabled, its host/presentation is ready, and native AOD state is unblocked.
+
+Build-453 device evidence is now a negative checkpoint: the AOD observer installed zero Hooks and therefore forced Keyguard Fail-native. The same session also reports probabilistic QS_FAKE Combined endpoint misposition. Because Build 446 -> 453 contains no direct Control Center render/transition-source change, Build 455 only adds bounded read-only geometry evidence at the existing native expansion buckets; it does not add a motion formula, endpoint threshold, custom fade, or final-QS mutation.
 
 Build 447 is the first opt-in steady-Keyguard runtime candidate. It adds a separate Keyguard host/render/presentation adapter and a default-off feature switch while reusing the existing three class-wide presentation Hooks (Hook delta 0). Keyguard-originated QS_FAKE is enabled only after the steady adapter reaches ready. AOD remains outside the candidate's supported scope and is a focused real-device blocker before Keyguard can be promoted to runtime-verified evidence.
 

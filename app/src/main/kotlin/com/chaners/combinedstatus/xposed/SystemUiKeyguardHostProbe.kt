@@ -11,7 +11,9 @@ import java.lang.reflect.Field
  * No Hook/listener/observer is installed here. The probe only consumes the
  * existing MiuiBatteryMeterView.updateState() scene event. A positive-ready
  * topology freezes one concrete host; partial/negative samples remain retryable
- * on later native Keyguard scene transitions.
+ * on later native Keyguard scene transitions. The Control Center
+ * realSystemIcons selector is recorded as context only: steady Keyguard host
+ * readiness must not wait for that transition router to select the same carrier.
  */
 internal object SystemUiKeyguardHostProbe {
     private const val KEYGUARD_HOST_CLASS =
@@ -55,7 +57,6 @@ internal object SystemUiKeyguardHostProbe {
                 systemIconsWidth = systemIcons?.width ?: 0,
                 batteryMatchesSceneSource = batteryMatchesSceneSource,
                 batteryCarrierWidthPx = batteryCarrierWidthPx,
-                selectedAsRealSystemIcons = selectedAsRealSystemIcons,
             )
 
         if (complete) {
@@ -90,14 +91,12 @@ internal object SystemUiKeyguardHostProbe {
         systemIconsWidth: Int,
         batteryMatchesSceneSource: Boolean?,
         batteryCarrierWidthPx: Int?,
-        selectedAsRealSystemIcons: Boolean?,
     ): Boolean =
         hostAttached &&
             systemIconsAttached &&
             systemIconsWidth > 0 &&
             batteryMatchesSceneSource == true &&
-            (batteryCarrierWidthPx ?: 0) > 0 &&
-            selectedAsRealSystemIcons == true
+            (batteryCarrierWidthPx ?: 0) > 0
 
     @Synchronized
     fun resetRuntimeState() {

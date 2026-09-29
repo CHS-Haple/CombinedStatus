@@ -47,19 +47,23 @@ For the pinned HyperOS target, Notification Shade itself does not present the st
 - Keyguard-originated Control Center remains native while `keyguardEnabled=false`; scene transition cleanup restores the compact QS_FAKE presentation before the native Keyguard route is used.
 - Build 446 therefore closes the Phase-3 prerequisite bug exposed by source-scene gating without reopening Home/QS_FAKE ownership.
 
-## Active checkpoint — Build 453 AOD-gated steady Keyguard candidate
+## Active checkpoint — Build 455 exact-AOD-contract correction + bounded QS_FAKE geometry probe
 
-- Final candidate is rebased by merge-parent onto latest `dev@4c00aaae5491f849b8bdbe4bb8a3d7e159f821c8`, carrying the device-accepted Build-452 归元 adaptive-icon/name checkpoint without changing its SystemUI behavior.
-- Runtime identity advances to Build 453 / `20260929-453`. Build 446 remains the accepted Home/QS_FAKE behavioral baseline.
-- Build 447 / `20260929-447` passed automated Fast validation, but **review rejected it before Canary/device testing** because its Keyguard renderer only logged `aodOwned=false`; it had no runtime authority preventing the overlay/native mask from persisting into AOD.
-- Build 453 keeps the separate Keyguard resolver/render/presentation architecture and adds a bounded native AOD authority inside the existing presentation-runtime owner.
-- Exact-target structural resolution requires one `MiuiBatteryMeterView.setIsAodAnimate(boolean): void` and one `toggleAodMode(): void` method plus Boolean `mToAod` and `mIsAodAnimate` fields. Ambiguous/missing contracts disable only Keyguard Combined and fail native; Home/QS_FAKE remains on the accepted Build-446 path.
-- Keyguard projection is blocked whenever `mToAod || mIsAodAnimate`. `mAnimToAod` is diagnostic-only because its exact semantic meaning is not established strongly enough to grant visibility ownership.
-- AOD transition/steady state therefore closes Keyguard overlay readiness, restores the existing native Keyguard presentation mask/reservation, and forces Keyguard-originated QS_FAKE back to native. Exiting AOD reuses the still-valid Keyguard host/readiness path to cut over again.
-- AOD authority installs before the existing scene source to avoid a cold-start Keyguard race; once installed, a cached structurally verified Keyguard host is re-evaluated immediately.
-- AOD lifecycle adds **2 Hooks** to the existing presentation runtime. No timer, delay, polling, frame callback, alpha writer, visibility writer, translation writer, or second presentation writer is added.
-- Home/Keyguard carrier identity remains scene-scoped: the Home identity API remains Home-only so Build-445 `realSystemIcons` classification cannot mistake a Keyguard carrier for Home.
-- Validation gate: exact-head Fast -> trusted Canary -> focused switch-on steady Keyguard / Keyguard QS_FAKE / AOD enter-exit / switch-off / unlock Home / SystemUI cold-start test.
+- Runtime identity advances to Build 455 / `20260929-455`; Build 453 is retained below as device-rejected evidence. Build 446 remains the accepted Home/QS_FAKE behavioral baseline.
+- Build-453 device diagnostics prove the Keyguard AOD authority never installed: `keyguardAodHooks=0` / `keyguardAodReady=false`, so the Keyguard adapter correctly failed native and steady lockscreen remained native.
+- Root cause is an exact-target contract mismatch. Build 453 resolved `MiuiBatteryMeterView.toggleAodMode(): void`, but the pinned SystemUI `17.03.260226.r` exact reference verifies `toggleAodMode(boolean): void`. Build 455 corrects only that structural signature and keeps strict single-match / Fail-native behavior.
+- `setIsAodAnimate(boolean): void`, Boolean `mToAod` / `mIsAodAnimate`, and the `mToAod || mIsAodAnimate` AOD blocker remain unchanged. AOD stays native-only.
+- Build-453 also shows a fully attached/sized steady Keyguard topology while the read-only probe still reports `partial` solely because `realSystemIcons` has not selected the same carrier. Build 455 removes that selector equality from probe readiness; selector identity remains logged as transition-router context. The production Keyguard resolver already does not depend on that selector.
+- New unlocked device feedback reports a probabilistic QS_FAKE Combined visual at the fully-expanded endpoint position. Build 446 -> 453 review finds no executable diff in `CombinedStatusControlCenterRenderSession` or `SystemUiPanelTransitionSource`, so Build 455 does **not** add a geometry compensation, fraction threshold, custom animation, or final-QS writer.
+- Instead, existing 8-bucket Control Center diagnostics now include read-only screen/local geometry, alpha and visibility for the QS_FAKE root, status-bar area, status icons, Battery, logical carrier and Combined render View. This is bounded to the existing diagnostic cadence and adds no Hook/listener/frame loop.
+- Validation gate: Draft Light -> ready checkpoint validation -> trusted Canary -> focused Keyguard/AOD test plus one unlocked QS_FAKE reproduction/export. Runtime freezes once the signed Canary is produced.
+
+## Device-rejected checkpoint — Build 453
+
+- Build 453 / `20260929-453` passed exact-head Build #1615 and signed Work Branch Canary #475, but target-device evidence rejects it as a Phase-3 candidate.
+- Steady Keyguard remains native because AOD authority installation fails before Keyguard cutover; this is now traced to the incorrect zero-argument `toggleAodMode` contract rather than to Keyguard geometry.
+- The same device session reports probabilistic unlocked and Keyguard-originated QS_FAKE misposition. Current evidence is insufficient to identify a writer/coordinate owner, so the next candidate observes the existing native/projection geometry rather than patching motion.
+- Build 453 therefore remains historical evidence only and must not be promoted or merged.
 
 ## Rejected pre-device checkpoint — Build 447
 

@@ -1055,6 +1055,8 @@ class CombinedStatusModule : XposedModule() {
             SystemUiNativeNetworkSuppressionOwner.currentTransitionTargetGeometry()
         val state =
             SystemUiNativeNetworkSuppressionOwner.currentTransitionStateSnapshot()
+        val projection =
+            CombinedStatusControlCenterRenderSession.currentProjectionGeometryDiagnostic()
         log(
             Log.INFO,
             TAG,
@@ -1063,6 +1065,7 @@ class CombinedStatusModule : XposedModule() {
                 " bucket=" + bucket + "/8 " +
                 (geometry?.summary ?: "geometry=unavailable") +
                 " " + (state?.summary ?: "state=unavailable") +
+                " " + projection +
                 " readOnly=true nativeGeometryWrites=0",
         )
     }

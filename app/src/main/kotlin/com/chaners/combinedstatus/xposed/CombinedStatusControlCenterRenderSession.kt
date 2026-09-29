@@ -236,6 +236,10 @@ internal object CombinedStatusControlCenterRenderSession {
     }
 
     @Synchronized
+    fun currentProjectionGeometryDiagnostic(): String =
+        current?.geometryDiagnostic() ?: "projection=unavailable"
+
+    @Synchronized
     fun onFeatureSettingsChanged(settings: CombinedStatusFeatureSettings) {
         val session = current
         session?.setFeatureEnabled(settings.enabled)
@@ -414,6 +418,29 @@ internal object CombinedStatusControlCenterRenderSession {
         }
     }
 
+    private fun geometrySummary(view: View?): String {
+        if (view == null) return "none"
+        val location = IntArray(2)
+        val hasLocation =
+            runCatching {
+                view.getLocationOnScreen(location)
+                true
+            }.getOrDefault(false)
+        return view.javaClass.simpleName +
+            "(v=" + view.visibility +
+            ",a=" + view.alpha +
+            ",l=" + view.left +
+            ",t=" + view.top +
+            ",w=" + view.width +
+            ",h=" + view.height +
+            ",tx=" + view.translationX +
+            ",ty=" + view.translationY +
+            ",sx=" + (if (hasLocation) location[0] else "na") +
+            ",sy=" + (if (hasLocation) location[1] else "na") +
+            ",parent=" + (view.parent?.javaClass?.simpleName ?: "none") +
+            ")"
+    }
+
     internal fun shouldRetainNativePresentationOnLayoutUnavailable(
         hostAttached: Boolean,
         nativePresentationReady: Boolean,
@@ -497,6 +524,16 @@ internal object CombinedStatusControlCenterRenderSession {
 
         fun nativePresentationReadyForHotReload(): Boolean =
             nativePresentationReady && attachedHost() != null
+
+        fun geometryDiagnostic(): String =
+            "projection={" +
+                "root=" + geometrySummary(host.get()) +
+                ",area=" + geometrySummary(statusBarArea.get()) +
+                ",statusIcons=" + geometrySummary(statusIcons.get()) +
+                ",battery=" + geometrySummary(battery.get()) +
+                ",carrier=" + geometrySummary(carrier.get()) +
+                ",render=" + geometrySummary(renderView) +
+                "}"
 
         fun start() {
             val hostView = host.get() ?: return

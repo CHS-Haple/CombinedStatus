@@ -246,9 +246,11 @@ By contrast, `onExpansionChanged(progress)` updates translation only. It is moti
 
 Build-441 target diagnostics independently match that contract: native fraction reaches `1.0`, then the QS_FAKE root is observed at alpha `0.0` before the return transition. The same relationship is visible in ordinary and Battery-Island pulls.
 
-Combined Status attaches only to `ControlCenterFakeStatusIcons.overlay` and inherits the root alpha/translation. The project does not mask, hide, translate, or otherwise mutate final `ControlCenterStatusBarIcon`.
+Combined Status attaches only to `ControlCenterFakeStatusIcons.overlay`. Exact-target source and Build-441 diagnostics verify the **native root** alpha/translation and fake/final appearance contract; the project does not mask, hide, translate, or otherwise mutate final `ControlCenterStatusBarIcon`.
 
-Therefore the fully expanded Control Center endpoint is already native-only through HyperOS appearance ownership. Do **not** add a project `fraction >= x` hide threshold, custom fake-to-final fade, or final-QS suppression.
+Build-453 device feedback reopens one narrower derived assumption: the project overlay render View can probabilistically appear at the fully-expanded endpoint position before the expected fake trajectory is visually complete. The native fake/final contract remains verified, but project-overlay coordinate inheritance is no longer accepted merely from the root alpha observation. Build 455 therefore samples QS_FAKE root, status-area, carrier and render screen/local geometry at the existing 8 diagnostic progress buckets. No new writer is introduced.
+
+The fully expanded Control Center endpoint remains native-only through HyperOS appearance ownership. Do **not** add a project `fraction >= x` hide threshold, custom fake-to-final fade, final-QS suppression, or fixed-position compensation without owner-level geometry evidence.
 
 ### Reusable principle
 

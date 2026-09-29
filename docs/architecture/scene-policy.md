@@ -33,7 +33,7 @@ Classification is not permission to mutate SystemUI. Runtime integration still r
 | Notification-shade transition | NATIVE_ONLY | SYSTEM_UI | Runtime lifetime verified |
 | Control Center transition bridge | PROJECTED | SYSTEM_UI | Build 430 device-verifies top-level ControlCenterFakeStatusIcons fake/final ownership; Build 431 projects on its overlay |
 | Control Center fully expanded | NATIVE_ONLY candidate | SYSTEM_UI | Maintainer concept + native fake/real appearance evidence; product adoption pending review |
-| Keyguard | PROJECTED candidate | SYSTEM_UI | Build 453 AOD-gated candidate; real-device validation pending |
+| Keyguard | PROJECTED candidate | SYSTEM_UI | Build 455 exact-AOD-contract candidate; real-device validation pending |
 | AOD | NATIVE_ONLY | SYSTEM_UI | Static ownership verified; independent runtime gate |
 
 The map fails closed outside the verified Home path and the bounded Control Center transition evidence. Unsupported or not-yet-verified scenes remain native rather than receiving a partial Combined Status implementation. A verified transition carrier is not, by itself, permission to keep Combined Status visible as a fully expanded panel surface.
@@ -95,14 +95,15 @@ Control Center is split into two ownership phases.
 - `onExpansionChanged(progress)` owns translation only and must not be repurposed as a project visibility threshold;
 - Build-441 device diagnostics reach fraction 1.0 and observe the QS_FAKE root at alpha 0 before the return transition, matching the exact-target source contract;
 - Combined Status is attached only to `ControlCenterFakeStatusIcons.overlay`, inherits root alpha/translation, and never masks or writes the final `ControlCenterStatusBarIcon` surface;
-- therefore the bridge naturally yields to the native final surface without a project-owned endpoint fade, fraction threshold, or final-QS mutation.
+- therefore the native fake/final ownership contract remains the endpoint authority without a project-owned endpoint fade, fraction threshold, or final-QS mutation.
+- Build-453 device evidence reports a probabilistic Combined QS_FAKE endpoint-position anomaly. This does not invalidate the native appearance contract, but it reopens the narrower assumption that the overlay render View always shares the expected fake-carrier coordinate trajectory. Build 455 records root/area/carrier/render geometry at the already-existing diagnostic progress buckets before any motion change is considered.
 
 No project-owned timing threshold, custom animation, polling/frame follower, peer geometry write, or second native suppression owner is permitted.
 
 
 ## Keyguard and AOD
 
-Build 453 carries the first **opt-in PROJECTED candidate for steady Keyguard** after Build 447 was rejected in review for missing AOD exclusion. It is not promoted to runtime-verified evidence until focused device validation passes. AOD remains NATIVE_ONLY.
+Build 455 carries the corrected **opt-in PROJECTED candidate for steady Keyguard** after Build 453 was rejected on device because its AOD observer required the wrong zero-argument `toggleAodMode` signature. It is not promoted to runtime-verified evidence until focused device validation passes. AOD remains NATIVE_ONLY.
 
 Exact-target review now narrows the Keyguard candidate without yet promoting it:
 - `MiuiKeyguardStatusBarView.mSystemIconsContainer` / `@id/system_icons_container` is the native Keyguard end-side `MiuiStatusBatteryContainer` registered into `ControlCenterFakeViewController.keyguardSystemIcons`;
@@ -114,11 +115,11 @@ Exact-target review now narrows the Keyguard candidate without yet promoting it:
 
 AOD remains a separate future surface and is not implied by Keyguard support. Exact-target `KeyguardStatusBarViewControllerInject.animateFullAod()` separately drives Battery alpha/AOD mode plus status-icon alpha/visibility/`setIsAodAnimate()`, proving that a steady Keyguard adapter cannot silently own AOD as a boolean sub-state.
 
-Build 442 establishes the structural host/source boundary. Build 453 uses that boundary with a separate mutable Keyguard adapter and a default-off feature switch. The adapter reuses the existing class-wide status-icon presentation Hook substrate by exact View identity; it does not add a Keyguard lifecycle state machine. HyperOS still owns carrier visibility/alpha/translation and the shared Control Center source router.
+Build 442 establishes the structural host/source boundary. Build 455 uses that boundary with a separate mutable Keyguard adapter and a default-off feature switch. The adapter reuses the existing class-wide status-icon presentation Hook substrate by exact View identity; it does not add a Keyguard lifecycle state machine. HyperOS still owns carrier visibility/alpha/translation and the shared Control Center source router.
 
 The candidate deliberately separates steady-host identity from transition-router timing: `realSystemIcons` does not need to have switched to Keyguard before the steady Keyguard host can be resolved. Conversely, Keyguard-originated QS_FAKE is not permitted until the steady Keyguard adapter is actually ready.
 
-AOD remains a separate gate. Build 453 adds only native AOD-state observation Hooks and does not claim AOD alpha/visibility/translation/animation ownership. Any AOD leakage or failed restoration during Canary validation rejects the candidate rather than being patched with timing or alpha thresholds.
+AOD remains a separate gate. Build 455 adds only native AOD-state observation Hooks and does not claim AOD alpha/visibility/translation/animation ownership. Any AOD leakage or failed restoration during Canary validation rejects the candidate rather than being patched with timing or alpha thresholds.
 
 ## Charging
 
@@ -169,6 +170,6 @@ Design consequences:
 
 ### Build 453 AOD exclusion authority
 
-Steady Keyguard projection is not equivalent to AOD ownership. Build 453 adds a narrow native lifecycle gate using the exact-target `MiuiBatteryMeterView` AOD contract. A unique `setIsAodAnimate(boolean): void` and `toggleAodMode(): void` plus Boolean `mToAod` / `mIsAodAnimate` are required before Keyguard projection is allowed. `mToAod || mIsAodAnimate` blocks Keyguard projection and restores the native represented presentation. `mAnimToAod` is diagnostic-only.
+Steady Keyguard projection is not equivalent to AOD ownership. Build 453 adds a narrow native lifecycle gate using the exact-target `MiuiBatteryMeterView` AOD contract. A unique `setIsAodAnimate(boolean): void` and `toggleAodMode(boolean): void` plus Boolean `mToAod` / `mIsAodAnimate` are required before Keyguard projection is allowed. `mToAod || mIsAodAnimate` blocks Keyguard projection and restores the native represented presentation. `mAnimToAod` is diagnostic-only.
 
 If that contract cannot be resolved uniquely, Keyguard remains native while Home/QS_FAKE continues on the accepted Build-446 path. Combined Status does not write AOD alpha, visibility, translation, animation or geometry.

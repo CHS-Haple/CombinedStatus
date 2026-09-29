@@ -47,17 +47,15 @@ class SystemUiKeyguardHostProbeTest {
                 systemIconsWidth = 105,
                 batteryMatchesSceneSource = true,
                 batteryCarrierWidthPx = 105,
-                selectedAsRealSystemIcons = true,
             ),
         )
-        assertFalse(
+        assertTrue(
             SystemUiKeyguardHostProbe.shouldFreezeSample(
                 hostAttached = true,
                 systemIconsAttached = true,
                 systemIconsWidth = 105,
                 batteryMatchesSceneSource = true,
                 batteryCarrierWidthPx = 105,
-                selectedAsRealSystemIcons = false,
             ),
         )
         assertFalse(
@@ -67,7 +65,6 @@ class SystemUiKeyguardHostProbeTest {
                 systemIconsWidth = 0,
                 batteryMatchesSceneSource = true,
                 batteryCarrierWidthPx = 105,
-                selectedAsRealSystemIcons = true,
             ),
         )
         assertFalse(
@@ -77,7 +74,6 @@ class SystemUiKeyguardHostProbeTest {
                 systemIconsWidth = 105,
                 batteryMatchesSceneSource = false,
                 batteryCarrierWidthPx = 105,
-                selectedAsRealSystemIcons = true,
             ),
         )
         assertFalse(
@@ -87,7 +83,6 @@ class SystemUiKeyguardHostProbeTest {
                 systemIconsWidth = 105,
                 batteryMatchesSceneSource = true,
                 batteryCarrierWidthPx = 0,
-                selectedAsRealSystemIcons = true,
             ),
         )
     }

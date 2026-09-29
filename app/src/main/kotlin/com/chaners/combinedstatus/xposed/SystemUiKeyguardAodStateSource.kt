@@ -63,8 +63,10 @@ internal object SystemUiKeyguardAodStateSource {
         val toggleCandidates =
             batteryClass.declaredMethods.filter { method ->
                 method.name == TOGGLE_AOD_METHOD &&
-                    method.parameterCount == 0 &&
-                    method.returnType == Void.TYPE
+                    matchesToggleAodSignature(
+                        parameterTypes = method.parameterTypes,
+                        returnType = method.returnType,
+                    )
             }
         val toggleMethod =
             toggleCandidates.singleOrNull()
@@ -189,6 +191,14 @@ internal object SystemUiKeyguardAodStateSource {
 
     private fun readBoolean(owner: Any, field: Field): Boolean? =
         runCatching { field.get(owner) as? Boolean }.getOrNull()
+
+    internal fun matchesToggleAodSignature(
+        parameterTypes: Array<Class<*>>,
+        returnType: Class<*>,
+    ): Boolean =
+        parameterTypes.size == 1 &&
+            isBooleanType(parameterTypes[0]) &&
+            returnType == Void.TYPE
 
     private fun isBooleanType(type: Class<*>): Boolean =
         type == Boolean::class.javaPrimitiveType ||

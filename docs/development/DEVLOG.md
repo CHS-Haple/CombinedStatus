@@ -2,6 +2,54 @@
 
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
+## 2026-09-29 — Build 455: exact AOD contract correction and bounded QS_FAKE geometry evidence
+
+**Type:** Phase-3 device-rejection root-cause correction + bounded transition diagnostics  
+**Build:** 455 / `20260929-455`  
+**Work branch / PR:** `feat/keyguard-scene-adapter` / #163  
+**Runtime prerequisite:** device-accepted Build 446 Home/QS_FAKE  
+**Rejected predecessor:** Build 453 / signed Canary #475
+
+### Device evidence / problem execution flow
+
+Build 453 reaches the target device with the lockscreen feature setting enabled, but the runtime snapshot reports `keyguardAodHooks=0` and `keyguardAodReady=false`. When the native Battery source enters Keyguard, `onKeyguardHostResolution` therefore follows its existing AOD-authority Fail-native path and steady lockscreen remains native.
+
+The same report captures an attached, correctly sized `MiuiKeyguardStatusBarView` / `mSystemIconsContainer` / `mStatusIconContainer` / `mBatteryView`, while the diagnostic host probe remains `partial` because `selectedAsRealSystemIcons=false`. That selector is the shared Control Center transition router, not the production steady-Keyguard resolver gate.
+
+Separately, maintainer screenshots report a probabilistic unlocked QS_FAKE Combined visual at the fully-expanded endpoint position and a Keyguard-originated misalignment. Build 446 -> 453 source review shows no executable difference in the Control Center render session or panel-transition source, so no geometry compensation is justified from the current evidence.
+
+### Root cause / exact-target evidence
+
+The pinned SystemUI reference for `17.03.260226.r` verifies:
+
+- `MiuiBatteryMeterView.setIsAodAnimate(boolean): void`;
+- `MiuiBatteryMeterView.toggleAodMode(boolean): void`;
+- Boolean `mToAod` / `mIsAodAnimate`;
+- HyperOS remains owner of Keyguard/AOD and Control Center motion/appearance.
+
+Build 453 incorrectly required `toggleAodMode(): void`. The strict resolver therefore found no valid method, installed zero AOD Hooks, and intentionally disabled Keyguard Combined.
+
+### Implementation
+
+- Correct the strict `toggleAodMode` reflection contract to exactly one Boolean parameter and keep unique-match Fail-native semantics.
+- Add a unit regression guard that rejects zero-argument or non-Boolean toggle signatures.
+- Remove `realSystemIcons` selector equality from **diagnostic probe readiness only**; it remains recorded in snapshots. The production Keyguard resolver is unchanged.
+- Extend the existing 8-bucket Control Center diagnostic with local/screen geometry, alpha and visibility for QS_FAKE root, status-bar area, status-icon group, Battery, logical carrier and Combined render View.
+- No new Hook, listener, timer, delay, polling loop, frame callback, geometry writer, alpha writer, endpoint threshold or final-QS mutation is added.
+
+### 审查 / review
+
+- **root-cause-first:** fix the exact broken native contract before considering layout changes.
+- **ownership:** AOD and Control Center motion/appearance stay SystemUI-owned; diagnostics are read-only.
+- **single writer:** no new presentation writer is introduced.
+- **Fail native:** missing/ambiguous AOD contracts continue to disable only Keyguard Combined.
+- **performance:** the geometry sample piggybacks the existing diagnostic 8-bucket expansion callback cadence.
+- **rejected route:** do not revive Battery-width, fixed-pixel, fraction-threshold or custom-animation compensation without frame-level owner evidence.
+
+### Validation
+
+Draft validation first. After a clean exact-head ready validation, create one signed Canary and freeze runtime for focused device evidence: steady Keyguard, Keyguard-originated partial Control Center, AOD enter/exit, unlock, and one reproduction of the unlocked QS_FAKE endpoint-position defect with diagnostics export.
+
 
 ## 2026-09-29 — Build 453: native-AOD-gated steady Keyguard candidate
 
@@ -26,7 +74,7 @@ Exact-target SystemUI reference for `17.03.260226.r` identifies `MiuiBatteryMete
 ### Implementation
 
 - `SystemUiKeyguardAodStateSource` is installed inside the existing presentation-runtime owner before the scene source.
-- It structurally resolves a unique `setIsAodAnimate(boolean): void` and unique `toggleAodMode(): void`, plus Boolean `mToAod` / `mIsAodAnimate`. Contract failure is isolated to Keyguard support and returns native.
+- It structurally resolves a unique `setIsAodAnimate(boolean): void` and, at this historical checkpoint, incorrectly required zero-argument `toggleAodMode(): void`, plus Boolean `mToAod` / `mIsAodAnimate`. Device evidence later rejects that signature assumption: the pinned method is `toggleAodMode(boolean): void`, so Build 453 correctly falls back native and is superseded by Build 455.
 - `mToAod || mIsAodAnimate` is the visibility/readiness blocker. `mAnimToAod` is read only for diagnostics and does not independently grant/revoke ownership.
 - Keyguard renderer readiness now includes `!aodBlocked`. When AOD becomes blocked, readiness falls before presentation ownership is retained: the existing Keyguard presentation session is deactivated/restored and Keyguard-originated QS_FAKE eligibility becomes native.
 - AOD exit reopens readiness and reuses the verified Keyguard host to reactivate the same bounded presentation contract.
