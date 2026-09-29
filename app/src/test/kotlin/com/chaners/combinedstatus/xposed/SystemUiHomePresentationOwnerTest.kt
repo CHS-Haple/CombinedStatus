@@ -22,6 +22,27 @@ class SystemUiHomePresentationOwnerTest {
     }
 
     @Test
+    fun persistentIgnoredSlotRestoreRemovesOnlySessionOwnedDelta() {
+        val existing = listOf("alarm_clock", "wifi")
+        val requested = listOf("wifi", "mobile", "no_sim")
+        val owned =
+            SystemUiHomePresentationOwner.PersistentIgnoredSlotPolicy.ownedDelta(
+                existing = existing,
+                requested = requested,
+            )
+        assertEquals(listOf("mobile", "no_sim"), owned)
+
+        val live = listOf("alarm_clock", "wifi", "mobile", "no_sim", "vpn")
+        assertEquals(
+            listOf("alarm_clock", "wifi", "vpn"),
+            SystemUiHomePresentationOwner.PersistentIgnoredSlotPolicy.restoreTarget(
+                live = live,
+                ownedEntries = owned,
+            ),
+        )
+    }
+
+    @Test
     fun endReservationKeepsOneResolvedEndBoundaryAcrossBatteryStates() {
         assertEquals(
             0,

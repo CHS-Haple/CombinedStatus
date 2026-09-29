@@ -1807,23 +1807,36 @@ class CombinedStatusModule : XposedModule() {
                         }
                     },
                     onFailNative = ::onKeyguardPresentationRuntimeFailure,
+                    onReady = { active ->
+                        completeKeyguardPresentationCutover(
+                            result = active,
+                            source = "native-layout",
+                        )
+                    },
                 )
         ) {
             is SystemUiHomePresentationOwner.StateResult.Active -> {
-                keyguardRuntimeReady = true
-                CombinedStatusKeyguardRenderSession.setNativeHandoffActive(false)
+                completeKeyguardPresentationCutover(
+                    result = result,
+                    source = source,
+                )
+            }
+
+            is SystemUiHomePresentationOwner.StateResult.Prepared -> {
+                keyguardRuntimeReady = false
+                CombinedStatusKeyguardRenderSession.setNativeHandoffActive(true)
                 logDiagnostic(
                     level = Log.INFO,
                     event = "presentation.cutover",
                     component = "keyguardPresentation",
-                    state = "combined",
+                    state = "prepared",
                     "source" to source,
                     "representedSlots" to result.representedSlots,
-                    "maskedViews" to result.maskedViews,
-                    "motion" to "inherited-from-keyguard-system-icons",
-                    "aodOwned" to false,
+                    "reused" to result.reused,
+                    "next" to "native-status-icons-layout",
+                    "fallback" to "native-keyguard-until-compact-layout",
                 )
-                refreshControlCenterSourceSceneEligibility("keyguard-ready")
+                refreshControlCenterSourceSceneEligibility("keyguard-compact-layout-pending")
             }
 
             is SystemUiHomePresentationOwner.StateResult.Failure -> {
@@ -1844,6 +1857,31 @@ class CombinedStatusModule : XposedModule() {
 
             is SystemUiHomePresentationOwner.StateResult.Inactive -> Unit
         }
+    }
+
+    private fun completeKeyguardPresentationCutover(
+        result: SystemUiHomePresentationOwner.StateResult.Active,
+        source: String,
+    ) {
+        val settings = RuntimeFeaturePreferencesOwner.currentSettings()
+        if (!settings.enabled || !settings.keyguardEnabled) {
+            deactivateKeyguardRuntime("cutover-feature-ineligible")
+            return
+        }
+        keyguardRuntimeReady = true
+        CombinedStatusKeyguardRenderSession.setNativeHandoffActive(false)
+        logDiagnostic(
+            level = Log.INFO,
+            event = "presentation.cutover",
+            component = "keyguardPresentation",
+            state = "combined",
+            "source" to source,
+            "representedSlots" to result.representedSlots,
+            "maskedViews" to result.maskedViews,
+            "motion" to "inherited-from-keyguard-system-icons",
+            "aodOwned" to false,
+        )
+        refreshControlCenterSourceSceneEligibility("keyguard-ready")
     }
 
     private fun onKeyguardPresentationRuntimeFailure(reason: String) {

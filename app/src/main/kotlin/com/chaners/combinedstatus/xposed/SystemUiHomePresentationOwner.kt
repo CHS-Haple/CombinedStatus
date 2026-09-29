@@ -34,6 +34,8 @@ internal object SystemUiHomePresentationOwner {
     private var layoutHook: HookHandle? = null
     private var batteryHideHook: HookHandle? = null
     private var ignoredSlotsField: Field? = null
+    private var addIgnoredSlotsMethod: java.lang.reflect.Method? = null
+    private var setIgnoredSlotsMethod: java.lang.reflect.Method? = null
     private var batteryHideField: Field? = null
     private var current: Session? = null
     private var keyguardCurrent: Session? = null
@@ -45,6 +47,7 @@ internal object SystemUiHomePresentationOwner {
     private var failNativeSink: ((String) -> Unit)? = null
     private var keyguardEventSink: ((String) -> Unit)? = null
     private var keyguardFailNativeSink: ((String) -> Unit)? = null
+    private var keyguardReadySink: ((StateResult.Active) -> Unit)? = null
 
     val installedHookCount: Int
         @Synchronized get() = listOfNotNull(measureHook, layoutHook, batteryHideHook).size
@@ -82,6 +85,30 @@ internal object SystemUiHomePresentationOwner {
                 .firstOrNull()
                 ?.apply { isAccessible = true }
                 ?: return InstallResult.Failure("ignored-slots-field-missing")
+        val addIgnoredSlots =
+            containerClass.declaredMethods
+                .filter { method ->
+                    method.name == "addIgnoredSlots" &&
+                        method.parameterTypes.contentEquals(
+                            arrayOf(java.util.List::class.java),
+                        ) &&
+                        method.returnType == Void.TYPE
+                }
+                .singleOrNull()
+                ?.apply { isAccessible = true }
+                ?: return InstallResult.Failure("add-ignored-slots-contract-missing")
+        val setIgnoredSlots =
+            containerClass.declaredMethods
+                .filter { method ->
+                    method.name == "setIgnoredSlots" &&
+                        method.parameterTypes.contentEquals(
+                            arrayOf(java.util.List::class.java),
+                        ) &&
+                        method.returnType == Void.TYPE
+                }
+                .singleOrNull()
+                ?.apply { isAccessible = true }
+                ?: return InstallResult.Failure("set-ignored-slots-contract-missing")
         val batteryContainerClass =
             runCatching {
                 Class.forName(BATTERY_CONTAINER, false, classLoader)
@@ -146,6 +173,8 @@ internal object SystemUiHomePresentationOwner {
         eventSink = onEvent
         failNativeSink = onFailNative
         ignoredSlotsField = field
+        addIgnoredSlotsMethod = addIgnoredSlots
+        setIgnoredSlotsMethod = setIgnoredSlots
         batteryHideField = hideField
 
         val first =
@@ -256,6 +285,9 @@ internal object SystemUiHomePresentationOwner {
                 battery = battery,
                 batteryCarrier = batteryCarrier,
                 ignoredSlotsField = field,
+                addIgnoredSlotsMethod = null,
+                setIgnoredSlotsMethod = null,
+                ignoredSlotLifetime = IgnoredSlotLifetime.NATIVE_CALL,
                 batteryHideField = hideField,
                 surfaceName = "home",
                 eventPrefix = "homePresentation",
@@ -284,6 +316,7 @@ internal object SystemUiHomePresentationOwner {
         resolved: SystemUiKeyguardHostResolver.ResolvedHost,
         onEvent: (String) -> Unit,
         onFailNative: (String) -> Unit,
+        onReady: (StateResult.Active) -> Unit,
     ): StateResult {
         if (Looper.myLooper() !== Looper.getMainLooper()) {
             return StateResult.Failure("main-thread-required")
@@ -295,6 +328,12 @@ internal object SystemUiHomePresentationOwner {
         val field =
             ignoredSlotsField
                 ?: return StateResult.Failure("ignored-slots-field-unavailable")
+        val addMethod =
+            addIgnoredSlotsMethod
+                ?: return StateResult.Failure("add-ignored-slots-method-unavailable")
+        val setMethod =
+            setIgnoredSlotsMethod
+                ?: return StateResult.Failure("set-ignored-slots-method-unavailable")
         val hideField =
             batteryHideField
                 ?: return StateResult.Failure("battery-hide-field-unavailable")
@@ -309,6 +348,7 @@ internal object SystemUiHomePresentationOwner {
 
         keyguardEventSink = onEvent
         keyguardFailNativeSink = onFailNative
+        keyguardReadySink = onReady
 
         val existing = keyguardCurrent
         if (
@@ -320,10 +360,22 @@ internal object SystemUiHomePresentationOwner {
                 batteryCarrier = resolved.batteryCarrier,
             ) == true
         ) {
-            existing.syncEndReservation()
-            val masked = existing.refreshClipMasks()
-            resolved.systemIcons.requestLayout()
-            return StateResult.Active(representedSlots.size, masked, true)
+            val masked =
+                existing.start(
+                    deferVisualMaskUntilLayout = true,
+                    onLayoutReady = { maskedViews ->
+                        onKeyguardSessionLayoutReady(
+                            session = existing,
+                            maskedViews = maskedViews,
+                            reused = true,
+                        )
+                    },
+                )
+            return if (existing.isLayoutCutoverReady()) {
+                StateResult.Active(representedSlots.size, masked, true)
+            } else {
+                StateResult.Prepared(representedSlots.size, true)
+            }
         }
 
         existing?.stop("keyguard-host-replaced")
@@ -335,6 +387,9 @@ internal object SystemUiHomePresentationOwner {
                 battery = resolved.battery,
                 batteryCarrier = resolved.batteryCarrier,
                 ignoredSlotsField = field,
+                addIgnoredSlotsMethod = addMethod,
+                setIgnoredSlotsMethod = setMethod,
+                ignoredSlotLifetime = IgnoredSlotLifetime.PRESENTATION_SESSION,
                 batteryHideField = hideField,
                 surfaceName = "keyguard",
                 eventPrefix = "keyguardPresentation",
@@ -343,20 +398,22 @@ internal object SystemUiHomePresentationOwner {
                 onFailNative = ::onKeyguardSessionFailure,
             )
         keyguardCurrent = session
-        val masked = session.start()
-        resolved.systemIcons.requestLayout()
-        keyguardEventSink?.invoke(
-            "keyguardPresentation active carrier=MiuiStatusBatteryContainer.overlay " +
-                "representedSlots=" + representedSlots.joinToString(",") +
-                " maskedViews=" + masked +
-                " slotExclusion=scoped-native-measure-layout " +
-                "carrierReservation=status-icons-end-padding " +
-                "carrierAuthority=battery_icon_container visualMask=clipBounds " +
-                "motion=keyguard-system-icons-inherited " +
-                "nativeLayoutReservationWrites=1 nativeTranslationWrites=0 " +
-                "nativeAlphaWrites=0 nativeVisibilityWrites=0",
-        )
-        return StateResult.Active(representedSlots.size, masked, false)
+        val masked =
+            session.start(
+                deferVisualMaskUntilLayout = true,
+                onLayoutReady = { maskedViews ->
+                    onKeyguardSessionLayoutReady(
+                        session = session,
+                        maskedViews = maskedViews,
+                        reused = false,
+                    )
+                },
+            )
+        return if (session.isLayoutCutoverReady()) {
+            StateResult.Active(representedSlots.size, masked, false)
+        } else {
+            StateResult.Prepared(representedSlots.size, false)
+        }
     }
 
     @Synchronized
@@ -371,6 +428,7 @@ internal object SystemUiHomePresentationOwner {
         )
         keyguardEventSink = null
         keyguardFailNativeSink = null
+        keyguardReadySink = null
         return StateResult.Inactive(restored)
     }
 
@@ -412,6 +470,12 @@ internal object SystemUiHomePresentationOwner {
         val field =
             ignoredSlotsField
                 ?: return ControlCenterStateResult.Failure("ignored-slots-field-unavailable")
+        val addMethod =
+            addIgnoredSlotsMethod
+                ?: return ControlCenterStateResult.Failure("add-ignored-slots-method-unavailable")
+        val setMethod =
+            setIgnoredSlotsMethod
+                ?: return ControlCenterStateResult.Failure("set-ignored-slots-method-unavailable")
         val hideField =
             batteryHideField
                 ?: return ControlCenterStateResult.Failure("battery-hide-field-unavailable")
@@ -449,7 +513,6 @@ internal object SystemUiHomePresentationOwner {
                         )
                     },
                 )
-            batteryContainer.requestLayout()
             return if (existing.isLayoutCutoverReady()) {
                 ControlCenterStateResult.Active(
                     representedSlots = representedSlots.size,
@@ -473,6 +536,9 @@ internal object SystemUiHomePresentationOwner {
                 battery = battery,
                 batteryCarrier = batteryCarrier,
                 ignoredSlotsField = field,
+                addIgnoredSlotsMethod = addMethod,
+                setIgnoredSlotsMethod = setMethod,
+                ignoredSlotLifetime = IgnoredSlotLifetime.PRESENTATION_SESSION,
                 batteryHideField = hideField,
                 surfaceName = "control-center-fake",
                 eventPrefix = "controlCenterPresentation",
@@ -492,7 +558,6 @@ internal object SystemUiHomePresentationOwner {
                     )
                 },
             )
-        batteryContainer.requestLayout()
         return if (session.isLayoutCutoverReady()) {
             ControlCenterStateResult.Active(
                 representedSlots = representedSlots.size,
@@ -590,6 +655,7 @@ internal object SystemUiHomePresentationOwner {
         failNativeSink = null
         keyguardEventSink = null
         keyguardFailNativeSink = null
+        keyguardReadySink = null
         return homeRestored + keyguardRestored + controlCenterRestored
     }
 
@@ -701,6 +767,35 @@ internal object SystemUiHomePresentationOwner {
         keyguardFailNativeSink?.invoke(reason)
         keyguardEventSink = null
         keyguardFailNativeSink = null
+        keyguardReadySink = null
+    }
+
+    @Synchronized
+    private fun onKeyguardSessionLayoutReady(
+        session: Session,
+        maskedViews: Int,
+        reused: Boolean,
+    ) {
+        if (keyguardCurrent !== session) {
+            return
+        }
+        val active =
+            StateResult.Active(
+                representedSlots = representedSlots.size,
+                maskedViews = maskedViews,
+                reused = reused,
+            )
+        keyguardEventSink?.invoke(
+            "keyguardPresentation active carrier=MiuiStatusBatteryContainer.overlay " +
+                "representedSlots=" + representedSlots.joinToString(",") +
+                " maskedViews=" + maskedViews +
+                " slotExclusion=session-native-ignored-slots " +
+                "carrierReservation=status-icons-end-padding " +
+                "carrierAuthority=battery_icon_container visualMask=clipBounds " +
+                "motion=keyguard-system-icons-inherited cutover=compact-layout-ready " +
+                "nativeTranslationWrites=0 nativeAlphaWrites=0 nativeVisibilityWrites=0",
+        )
+        keyguardReadySink?.invoke(active)
     }
 
     @Synchronized
@@ -722,7 +817,7 @@ internal object SystemUiHomePresentationOwner {
             "controlCenterPresentation active carrier=QS_FAKE.system_icon_area " +
                 "representedSlots=" + representedSlots.joinToString(",") +
                 " maskedViews=" + maskedViews +
-                " slotExclusion=scoped-native-measure-layout " +
+                " slotExclusion=session-native-ignored-slots " +
                 "carrierReservation=stable-battery-slot " +
                 "carrierAuthority=battery_icon_container visualMask=clipBounds " +
                 "cutover=compact-layout-ready nativeTranslationWrites=0 " +
@@ -751,6 +846,8 @@ internal object SystemUiHomePresentationOwner {
         layoutHook = null
         batteryHideHook = null
         ignoredSlotsField = null
+        addIgnoredSlotsMethod = null
+        setIgnoredSlotsMethod = null
         batteryHideField = null
         controlCenterCurrent = null
         keyguardCurrent = null
@@ -761,6 +858,7 @@ internal object SystemUiHomePresentationOwner {
         failNativeSink = null
         keyguardEventSink = null
         keyguardFailNativeSink = null
+        keyguardReadySink = null
     }
 
     private class Session(
@@ -770,6 +868,9 @@ internal object SystemUiHomePresentationOwner {
         battery: View,
         batteryCarrier: View,
         private val ignoredSlotsField: Field,
+        private val addIgnoredSlotsMethod: java.lang.reflect.Method?,
+        private val setIgnoredSlotsMethod: java.lang.reflect.Method?,
+        private val ignoredSlotLifetime: IgnoredSlotLifetime,
         private val batteryHideField: Field,
         private val surfaceName: String,
         private val eventPrefix: String,
@@ -791,6 +892,8 @@ internal object SystemUiHomePresentationOwner {
         private var nativePadding: PaddingState? = null
         private var appliedPadding: PaddingState? = null
         private var transientLiveBatteryWidthUnavailable = false
+        private var persistentIgnoredSlotsApplied = false
+        private var ownedPersistentIgnoredSlots: List<String> = emptyList()
         private val clipStates = mutableListOf<ClipState>()
         private val batteryLayoutListener =
             View.OnLayoutChangeListener {
@@ -868,6 +971,7 @@ internal object SystemUiHomePresentationOwner {
             nativePadding = PaddingState.from(group)
             battery.get()?.addOnLayoutChangeListener(batteryLayoutListener)
             batteryCarrier.get()?.addOnLayoutChangeListener(carrierLayoutListener)
+            if (!applyPersistentIgnoredSlotsIfNeeded(group)) return 0
             if (!syncEndReservation()) return 0
 
             if (
@@ -924,21 +1028,25 @@ internal object SystemUiHomePresentationOwner {
             battery.get()?.removeOnLayoutChangeListener(batteryLayoutListener)
             batteryCarrier.get()?.removeOnLayoutChangeListener(carrierLayoutListener)
             val reservationRestored = restoreEndReservation()
+            val ignoredSlotsRestored = restorePersistentIgnoredSlots()
             val restored = restoreClipMasks()
-            if (requestLayout) {
+            val explicitLayoutRequest =
+                requestLayout && ignoredSlotLifetime == IgnoredSlotLifetime.NATIVE_CALL
+            if (explicitLayoutRequest) {
                 batteryContainer.get()?.requestLayout()
             }
             onEvent(
                 eventPrefix + " cleanup source=" + source +
                     " restoredClipBounds=" + restored +
                     " restoredEndReservation=" + reservationRestored +
-                    " requestLayout=" + requestLayout,
+                    " restoredIgnoredSlots=" + ignoredSlotsRestored +
+                    " requestLayout=" + explicitLayoutRequest,
             )
             return restored
         }
 
         fun <T> withRepresentedSlotsIgnored(block: () -> T): T {
-            if (!active) {
+            if (!active || ignoredSlotLifetime == IgnoredSlotLifetime.PRESENTATION_SESSION) {
                 return block()
             }
             val container = statusIcons.get()
@@ -972,6 +1080,113 @@ internal object SystemUiHomePresentationOwner {
             } finally {
                 OwnedListEntries.restoreOwnedEntries(list, owned)
             }
+        }
+
+        private fun applyPersistentIgnoredSlotsIfNeeded(group: ViewGroup): Boolean {
+            if (
+                ignoredSlotLifetime != IgnoredSlotLifetime.PRESENTATION_SESSION ||
+                persistentIgnoredSlotsApplied
+            ) {
+                return true
+            }
+            val addMethod =
+                addIgnoredSlotsMethod
+                    ?: run {
+                        onFailNative("add-ignored-slots-method-unavailable")
+                        return false
+                    }
+            @Suppress("UNCHECKED_CAST")
+            val live =
+                runCatching {
+                    ignoredSlotsField.get(group) as? MutableList<String>
+                }.getOrNull()
+                    ?: run {
+                        onFailNative("ignored-slots-list-unavailable")
+                        return false
+                    }
+            val owned =
+                PersistentIgnoredSlotPolicy.ownedDelta(
+                    existing = live,
+                    requested = representedSlots,
+                )
+            ownedPersistentIgnoredSlots = owned
+            persistentIgnoredSlotsApplied = true
+            val applied =
+                runCatching {
+                    if (owned.isNotEmpty()) {
+                        addMethod.invoke(group, ArrayList(owned))
+                    }
+                    @Suppress("UNCHECKED_CAST")
+                    val after =
+                        ignoredSlotsField.get(group) as? MutableList<String>
+                            ?: error("ignored-slots-list-unavailable-after-add")
+                    check(representedSlots.all(after::contains)) {
+                        "ignored-slots-native-api-did-not-retain-represented-slots"
+                    }
+                }
+            if (applied.isFailure) {
+                onFailNative(
+                    "ignored-slots-session-add-" +
+                        (
+                            applied.exceptionOrNull()?.message
+                                ?: applied.exceptionOrNull()?.javaClass?.simpleName
+                                ?: "unknown"
+                        ),
+                )
+                return false
+            }
+            onEvent(
+                eventPrefix + " ignoredSlots active lifetime=presentation-session" +
+                    " owned=" + owned.joinToString(",") +
+                    " represented=" + representedSlots.joinToString(",") +
+                    " nativeApi=addIgnoredSlots",
+            )
+            return true
+        }
+
+        private fun restorePersistentIgnoredSlots(): Boolean {
+            if (
+                ignoredSlotLifetime != IgnoredSlotLifetime.PRESENTATION_SESSION ||
+                !persistentIgnoredSlotsApplied
+            ) {
+                return true
+            }
+            val owned = ownedPersistentIgnoredSlots
+            persistentIgnoredSlotsApplied = false
+            ownedPersistentIgnoredSlots = emptyList()
+            if (owned.isEmpty()) {
+                return true
+            }
+            val group = statusIcons.get() ?: return false
+            val setMethod = setIgnoredSlotsMethod ?: return false
+            @Suppress("UNCHECKED_CAST")
+            val live =
+                runCatching {
+                    ignoredSlotsField.get(group) as? MutableList<String>
+                }.getOrNull() ?: return false
+            val target =
+                PersistentIgnoredSlotPolicy.restoreTarget(
+                    live = live,
+                    ownedEntries = owned,
+                )
+            val restored =
+                runCatching {
+                    if (target != live) {
+                        setMethod.invoke(group, ArrayList(target))
+                    }
+                    @Suppress("UNCHECKED_CAST")
+                    val after =
+                        ignoredSlotsField.get(group) as? MutableList<String>
+                            ?: return@runCatching false
+                    after == target
+                }.getOrDefault(false)
+            if (!restored) {
+                onEvent(
+                    eventPrefix +
+                        " ignoredSlots restore=failed owned=" + owned.joinToString(","),
+                )
+            }
+            return restored
         }
 
         fun syncEndReservation(): Boolean {
@@ -1240,6 +1455,27 @@ internal object SystemUiHomePresentationOwner {
         }
     }
 
+    private enum class IgnoredSlotLifetime {
+        NATIVE_CALL,
+        PRESENTATION_SESSION,
+    }
+
+    internal object PersistentIgnoredSlotPolicy {
+        fun <T> ownedDelta(
+            existing: Collection<T>,
+            requested: Collection<T>,
+        ): List<T> =
+            requested.filterNot(existing::contains)
+
+        fun <T> restoreTarget(
+            live: List<T>,
+            ownedEntries: Collection<T>,
+        ): List<T> {
+            val owned = ownedEntries.toHashSet()
+            return live.filterNot(owned::contains)
+        }
+    }
+
     internal object HotReloadHandoffPolicy {
         fun shouldRequestLayoutOnRelease(
             continuousHandoff: Boolean,
@@ -1347,6 +1583,10 @@ internal object SystemUiHomePresentationOwner {
         data class Active(
             val representedSlots: Int,
             val maskedViews: Int,
+            val reused: Boolean,
+        ) : StateResult
+        data class Prepared(
+            val representedSlots: Int,
             val reused: Boolean,
         ) : StateResult
         data class Inactive(val restoredViews: Int) : StateResult
