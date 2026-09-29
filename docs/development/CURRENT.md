@@ -40,11 +40,11 @@ This file is the concise recovery point for active Guiyuan development. Read it 
 Phases 2A, 2B, 3 and 4 are complete for the validated baseline:
 
 - **Phase 2A:** Home carrier / presentation architecture.
-- **Phase 2B:** unlocked Home continuity + bounded Control Center transition bridge.
-- **Phase 3:** Keyguard / lockscreen / AOD scene completion.
+- **Phase 2B:** unlocked Home continuity + bounded Control Center transition ownership/geometry bridge is structurally complete; visual transition-animation adaptation remains pending.
+- **Phase 3:** Keyguard / lockscreen / AOD steady-scene ownership is complete for the current target; Keyguard-originated visual transition animation remains pending with the shared QS_FAKE animation work.
 - **Phase 4:** companion-app Home / Preview Sandbox integration.
 
-The next executable phase is **Phase 5 — adaptive sizing, spacing and broader visual controls** on the 0.0.3 development line.
+The next executable work on the 0.0.3 line is **transition-animation adaptation across Home/Keyguard -> QS_FAKE -> native Control Center**, before adaptive sizing, spacing and broader visual controls. The carrier/ownership bridge is verified, but Guiyuan's visual motion/alpha/shape continuity across the gesture is not yet fully adapted.
 
 ## Current architecture / ownership boundary
 
