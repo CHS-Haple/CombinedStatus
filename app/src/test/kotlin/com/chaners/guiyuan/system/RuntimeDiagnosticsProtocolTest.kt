@@ -1,4 +1,4 @@
-package com.chaners.combinedstatus.system
+package com.chaners.guiyuan.system
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

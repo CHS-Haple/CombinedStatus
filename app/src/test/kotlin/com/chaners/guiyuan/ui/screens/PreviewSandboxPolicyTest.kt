@@ -1,4 +1,4 @@
-package com.chaners.combinedstatus.ui.screens
+package com.chaners.guiyuan.ui.screens
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
