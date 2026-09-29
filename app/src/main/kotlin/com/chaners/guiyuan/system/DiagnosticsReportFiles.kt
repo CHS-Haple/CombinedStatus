@@ -19,10 +19,10 @@ internal object DiagnosticsReportFiles {
     const val ShareMimeType = "text/plain"
 
     private const val ShareLogTag = "CombinedStatusShare"
-    private const val ShareNamePrefix = "CombinedStatus-Diagnostic-"
+    private const val ShareNamePrefix = "Guiyuan-Diagnostic-"
     private const val MaxSharedReports = 3
     private val MaxSharedReportAgeMillis = TimeUnit.HOURS.toMillis(24)
-    private val ShareRelativePath = "${Environment.DIRECTORY_DOWNLOADS}/CombinedStatus/"
+    private val ShareRelativePath = "${Environment.DIRECTORY_DOWNLOADS}/Guiyuan/"
     private val ShareCollection =
         MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
     private val FileTimestampFormatter = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")
