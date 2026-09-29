@@ -505,6 +505,7 @@ internal object CombinedStatusControlCenterRenderSession {
         private val transitionView =
             TransitionProjectionView(
                 context = host.context,
+                fakeRoot = host,
                 fakeStatusIcons = statusIcons,
             )
         private val anchorRect = Rect()
@@ -525,6 +526,8 @@ internal object CombinedStatusControlCenterRenderSession {
         private var layoutReady = false
         private var nativePresentationReady = false
         private var lastProjectionReady: Boolean? = null
+        private var cachedTransitionPeerSlots: Set<String>? = null
+        private var appliedTransitionPeerSlots: Set<String> = emptySet()
 
         private val hostLayoutListener =
             View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
@@ -597,6 +600,8 @@ internal object CombinedStatusControlCenterRenderSession {
             hostView?.overlay?.remove(renderView)
             hostView?.overlay?.remove(transitionView)
             SystemUiHomePresentationOwner.setControlCenterTransitionProjectedSlots(emptySet())
+            cachedTransitionPeerSlots = null
+            appliedTransitionPeerSlots = emptySet()
             requestedVisible = false
             layoutReady = false
             nativePresentationReady = false
@@ -767,7 +772,7 @@ internal object CombinedStatusControlCenterRenderSession {
         ) {
             transitionEndpoints = endpoints
             transitionView.setEndpoints(endpoints)
-            refreshTransitionProjectedSlots()
+            cachedTransitionPeerSlots = null
             syncPresentation("transition-endpoints")
         }
 
@@ -875,7 +880,7 @@ internal object CombinedStatusControlCenterRenderSession {
             transitionView.setCombinedAnchor(anchorRect)
             transitionView.setEndpoints(transitionEndpoints)
             transitionView.setNativeProgress(nativeExpansionProgress)
-            refreshTransitionProjectedSlots()
+            cachedTransitionPeerSlots = null
 
             val firstReady = !layoutReady
             layoutReady = true
@@ -955,14 +960,19 @@ internal object CombinedStatusControlCenterRenderSession {
             )
         }
 
-        private fun refreshTransitionProjectedSlots() {
+        private fun refreshTransitionProjectedSlots(transitionVisible: Boolean) {
             val slots =
-                if (transitionView.hasUsableEndpoints()) {
-                    transitionView.commonPeerSlots()
+                if (transitionVisible) {
+                    cachedTransitionPeerSlots
+                        ?: transitionView.commonPeerSlots().also { resolved ->
+                            cachedTransitionPeerSlots = resolved
+                        }
                 } else {
                     emptySet()
                 }
+            if (slots == appliedTransitionPeerSlots) return
             SystemUiHomePresentationOwner.setControlCenterTransitionProjectedSlots(slots)
+            appliedTransitionPeerSlots = slots
         }
 
         private fun applyVisibility() {
@@ -972,6 +982,7 @@ internal object CombinedStatusControlCenterRenderSession {
                 if (transitionVisible) View.VISIBLE else View.GONE
             renderView.visibility =
                 if (visible && !transitionVisible) View.VISIBLE else View.GONE
+            refreshTransitionProjectedSlots(transitionVisible)
             if (transitionVisible) {
                 transitionView.invalidate()
                 renderView.clearPendingLatency()
@@ -1026,9 +1037,11 @@ internal object CombinedStatusControlCenterRenderSession {
 
     private class TransitionProjectionView(
         context: android.content.Context,
+        fakeRoot: ViewGroup,
         fakeStatusIcons: ViewGroup,
     ) : View(context) {
         private val painter = CombinedStatusPainter(context)
+        private val fakeRoot = WeakReference(fakeRoot)
         private val fakeStatusIcons = WeakReference(fakeStatusIcons)
         private val combinedAnchor = Rect()
         private var endpoints: SystemUiPanelTransitionSource.ControlCenterTransitionEndpoints? = null
@@ -1111,12 +1124,25 @@ internal object CombinedStatusControlCenterRenderSession {
                 .intersect(fake.keys)
                 .intersect(target.keys)
                 .filterTo(linkedSetOf()) { slot ->
+                    val sourceViews = source[slot].orEmpty()
+                    val fakeViews = fake[slot].orEmpty()
+                    val targetViews = target[slot].orEmpty()
                     slot !in SystemUiHomePresentationOwner.representedSlots &&
                         ControlCenterTransitionProjectionPolicy.canProjectPeerCounts(
-                            sourceCount = source[slot]?.size ?: 0,
-                            fakeCount = fake[slot]?.size ?: 0,
-                            targetCount = target[slot]?.size ?: 0,
-                        )
+                            sourceCount = sourceViews.size,
+                            fakeCount = fakeViews.size,
+                            targetCount = targetViews.size,
+                        ) &&
+                        sourceViews.zip(targetViews).all { (sourceView, targetView) ->
+                            val sourceRect = localRect(sourceView)
+                            val targetRect =
+                                stableFinalRect(
+                                    view = targetView,
+                                    finalRoot = value.finalPresentationRoot,
+                                )
+                            ControlCenterTransitionProjectionPolicy.isUsableRect(sourceRect) &&
+                                ControlCenterTransitionProjectionPolicy.isUsableRect(targetRect)
+                        }
                 }
         }
 
@@ -1324,12 +1350,22 @@ internal object CombinedStatusControlCenterRenderSession {
         }
 
         private fun localRect(view: View): RectF {
-            val hostLocation = IntArray(2)
+            val root = fakeRoot.get() ?: return RectF()
+            if (!root.isAttachedToWindow || !view.isAttachedToWindow) return RectF()
+            val rootLocation = IntArray(2)
             val viewLocation = IntArray(2)
-            getLocationOnScreen(hostLocation)
+            root.getLocationOnScreen(rootLocation)
             view.getLocationOnScreen(viewLocation)
-            val left = (viewLocation[0] - hostLocation[0]).toFloat()
-            val top = (viewLocation[1] - hostLocation[1]).toFloat()
+            val left =
+                ControlCenterTransitionProjectionPolicy.rootLocalCoordinate(
+                    screenCoordinate = viewLocation[0],
+                    rootScreenCoordinate = rootLocation[0],
+                )
+            val top =
+                ControlCenterTransitionProjectionPolicy.rootLocalCoordinate(
+                    screenCoordinate = viewLocation[1],
+                    rootScreenCoordinate = rootLocation[1],
+                )
             return RectF(
                 left,
                 top,
@@ -1381,22 +1417,33 @@ internal object CombinedStatusControlCenterRenderSession {
             finalRoot: ViewGroup,
         ): RectF {
             val current = localRect(view)
+            val root = fakeRoot.get() ?: return RectF()
+            val relativeTranslationX =
+                ControlCenterTransitionProjectionPolicy.relativeRootTranslation(
+                    finalTranslation = finalRoot.translationX,
+                    carrierTranslation = root.translationX,
+                )
+            val relativeTranslationY =
+                ControlCenterTransitionProjectionPolicy.relativeRootTranslation(
+                    finalTranslation = finalRoot.translationY,
+                    carrierTranslation = root.translationY,
+                )
             return RectF(
                 ControlCenterTransitionProjectionPolicy.stableEndpointCoordinate(
                     current.left,
-                    finalRoot.translationX,
+                    relativeTranslationX,
                 ),
                 ControlCenterTransitionProjectionPolicy.stableEndpointCoordinate(
                     current.top,
-                    finalRoot.translationY,
+                    relativeTranslationY,
                 ),
                 ControlCenterTransitionProjectionPolicy.stableEndpointCoordinate(
                     current.right,
-                    finalRoot.translationX,
+                    relativeTranslationX,
                 ),
                 ControlCenterTransitionProjectionPolicy.stableEndpointCoordinate(
                     current.bottom,
-                    finalRoot.translationY,
+                    relativeTranslationY,
                 ),
             )
         }
@@ -1418,7 +1465,8 @@ internal object CombinedStatusControlCenterRenderSession {
             }
 
         private fun eligiblePeer(view: View): Boolean =
-            view.width > 0 &&
+            view.isAttachedToWindow &&
+                view.width > 0 &&
                 view.height > 0 &&
                 NativeParticipantRuntimeAccess.iconVisible(view) != false
 
@@ -1483,10 +1531,28 @@ internal object CombinedStatusControlCenterRenderSession {
                 ?.coerceIn(0f, 1f)
                 ?: 0f
 
+        fun rootLocalCoordinate(
+            screenCoordinate: Int,
+            rootScreenCoordinate: Int,
+        ): Float = (screenCoordinate - rootScreenCoordinate).toFloat()
+
+        fun relativeRootTranslation(
+            finalTranslation: Float,
+            carrierTranslation: Float,
+        ): Float = finalTranslation - carrierTranslation
+
         fun stableEndpointCoordinate(
             currentCoordinate: Float,
-            rootTranslation: Float,
-        ): Float = currentCoordinate - rootTranslation
+            relativeRootTranslation: Float,
+        ): Float = currentCoordinate - relativeRootTranslation
+
+        fun isUsableRect(rect: RectF): Boolean =
+            rect.left.isFinite() &&
+                rect.top.isFinite() &&
+                rect.right.isFinite() &&
+                rect.bottom.isFinite() &&
+                rect.width() > 0f &&
+                rect.height() > 0f
 
         fun canProjectPeerCounts(
             sourceCount: Int,

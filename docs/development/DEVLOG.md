@@ -10779,3 +10779,67 @@ The normal observed order may not trigger this, but the runtime contract should 
 
 Run exact-head Fast. If green, keep PR #174 ready and generate a signed Canary for focused Home/Keyguard pull-return, mid-gesture reversal, normal charging/Super-Island, first-pull after SystemUI restart, and Hot Reload continuity. Reject for first-frame rewind, duplicate peers, endpoint jump, double fade, large gaps, stale state or visibly disjoint timing.
 
+
+
+---
+
+## 2026-09-29 — Build 472 — Correct QS_FAKE projection coordinates and peer-mask lifetime
+
+**Branch:** `feat/control-center-transition-projection`
+**Display version:** 0.0.3
+**Build:** 472 / `20260929-472`
+**Status:** root-cause correction after Build-471 device rejection; exact-head Fast and focused device validation required
+
+### Device evidence / problem
+
+Build 471 is rejected. During Control Center pull, native peer status icons disappear instead of remaining visually continuous, and Guiyuan's split composition follows an incorrect horizontal trajectory toward the screen edge.
+
+Detailed diagnostics confirm that HyperOS itself is still moving the QS_FAKE root in the expected direction while native expansion progress advances. The visual error therefore comes from Guiyuan's transition projection rather than the native root-motion callback.
+
+### Root cause
+
+Two transition-only integration assumptions were incorrect:
+
+1. The projection View lives in `ControlCenterFakeStatusIcons.overlay`. Reading that overlay child's own screen location as the coordinate origin is not equivalent to reading the real QS_FAKE root transform. Build-455 evidence had already shown that overlay-local location APIs can hide ancestor motion.
+2. Final-QS stabilization subtracted the final root's absolute live translation even though the projection already inherits fake-root translation. The correct removable term is the **relative** root motion, `finalRoot.translation - fakeRoot.translation`. In the normal path both translations are equal and no correction is required; in the island path only their native difference is removed.
+
+The peer disappearance is amplified by mask lifetime: Build 471 could retain additional QS_FAKE peer clip masks even when the transition projection was not currently visible.
+
+### Changes
+
+- Resolve every projected source/target rectangle in the real `ControlCenterFakeStatusIcons` root-local coordinate system.
+- Stabilize final endpoints by removing only final-vs-fake relative root translation.
+- Apply additional peer clip masks only while the transition projection is actually visible; clear them whenever the projection falls back or exits.
+- Cache the small peer-slot correspondence outside the per-frame progress path.
+- Require attached Views and usable finite non-empty source/target rectangles before a peer slot is eligible for masking/projection.
+- Keep compact represented-slot ownership, raw native expansion progress, native root translation and native fake/final Folme ownership unchanged.
+
+### 问题执行流程
+
+1. Compare the recording with Build-471 detailed root geometry instead of tuning easing.
+2. Verify that QS_FAKE root screen X moves left while the visible Guiyuan trajectory drifts oppositely.
+3. Re-check the overlay-coordinate assumption against the earlier Build-455 finding.
+4. Re-derive target geometry in the carrier's own coordinate space.
+5. Make masking conditional on an actually visible, geometrically valid projection.
+6. Preserve steady layout and all native motion writers.
+
+### 审查 / review
+
+- **Ownership:** SystemUI remains the sole root translation/appearance/timing owner; Guiyuan only draws root-local transition visuals.
+- **Single writer:** no native translation, alpha or visibility writer is added.
+- **Fail native:** unusable peer mapping is not masked.
+- **Lifecycle:** extra peer masks exist only during an active visible projection and are cleared on fallback/exit/cleanup.
+- **Performance:** peer mapping is cached per endpoint/layout generation; expansion progress only invalidates the overlay and does not re-traverse/mask the View tree every frame.
+- **Island compatibility:** the correction uses the native final-vs-fake translation delta rather than a battery-width constant.
+- **Steady-state boundary:** ignoredSlots, compact reservation and stable renderer geometry are unchanged.
+- **Visual timing:** no easing change in this Build; first prove path/visibility correctness.
+
+### Validation
+
+Run exact-head Fast. If green, generate a signed Canary. Focused device validation should first verify only:
+- native peer icons remain visible throughout pull/return;
+- Guiyuan moves toward the correct native endpoints rather than drifting toward the screen edge;
+- mid-gesture reversal follows the finger without a jump;
+- fully expanded native QS handoff remains clean.
+
+If those pass, continue with Keyguard and charging/Super-Island coverage before any optical/easing tuning.

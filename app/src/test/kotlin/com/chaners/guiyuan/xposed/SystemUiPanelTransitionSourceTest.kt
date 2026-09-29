@@ -160,11 +160,23 @@ class SystemUiPanelTransitionSourceTest {
     }
 
     @Test
-    fun transitionProjectionRemovesLiveFinalRootTranslationFromStableEndpoint() {
+    fun transitionProjectionUsesFakeRootLocalCoordinatesAndRelativeRootMotion() {
         val policy =
             CombinedStatusControlCenterRenderSession.ControlCenterTransitionProjectionPolicy
-        assertEquals(120f, policy.stableEndpointCoordinate(181f, 61f))
-        assertEquals(120f, policy.stableEndpointCoordinate(-15f, -135f))
+
+        assertEquals(724f, policy.rootLocalCoordinate(1236, 512))
+        assertEquals(0f, policy.relativeRootTranslation(46f, 46f))
+        assertEquals(135f, policy.relativeRootTranslation(46f, -89f))
+        assertEquals(120f, policy.stableEndpointCoordinate(120f, 0f))
+        assertEquals(120f, policy.stableEndpointCoordinate(255f, 135f))
+    }
+
+    @Test
+    fun transitionProjectionRejectsInvalidGeometryBeforeMasking() {
+        val policy =
+            CombinedStatusControlCenterRenderSession.ControlCenterTransitionProjectionPolicy
+        assertEquals(true, policy.isUsableRect(android.graphics.RectF(0f, 0f, 10f, 10f)))
+        assertEquals(false, policy.isUsableRect(android.graphics.RectF()))
     }
 
     @Test
