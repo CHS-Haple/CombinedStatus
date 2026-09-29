@@ -281,10 +281,7 @@ private fun HomeRuntimeStatusCard(
             Switch(
                 checked = enabled,
                 onCheckedChange = onEnabledChange,
-                modifier =
-                    Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(end = 8.dp),
+                modifier = Modifier.align(Alignment.TopEnd),
             )
         }
     }
@@ -368,7 +365,7 @@ private fun RuntimeStatusMark(
 ) {
     Canvas(modifier = modifier) {
         val markColor = color.copy(alpha = 0.58f)
-        val markStrokeWidth = 5.4.dp.toPx()
+        val markStrokeWidth = 6.4.dp.toPx()
         val center = Offset(size.width / 2f, size.height / 2f)
         val radius = size.minDimension * 0.40f
 
@@ -509,7 +506,7 @@ private fun resolveHomeRuntimeCardState(
 }
 
 private val RuntimeCardHeight = 160.dp
-private val RuntimeStatusMarkSize = 88.dp
+private val RuntimeStatusMarkSize = 96.dp
 private val HomePreviewStageHeight = 124.dp
 private val HomePreviewIconSize = 112.dp
 private val RuntimeSuccessAccent = Color(0xFF36D167)
