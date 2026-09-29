@@ -1,8 +1,8 @@
-package com.chaners.combinedstatus.system
+package com.chaners.guiyuan.system
 
 import android.content.Context
-import com.chaners.combinedstatus.BuildConfig
-import com.chaners.combinedstatus.settings.DiagnosticsSettingsRepository
+import com.chaners.guiyuan.BuildConfig
+import com.chaners.guiyuan.settings.DiagnosticsSettingsRepository
 import java.time.OffsetDateTime
 
 internal object DiagnosticsReportBuilder {
@@ -14,8 +14,8 @@ internal object DiagnosticsReportBuilder {
     private const val LsposedModuleLogCommand =
         "for f in \$(ls -1t /data/adb/lspd/log/modules_*.log " +
             "/data/adb/lspd/log.old/modules_*.log 2>/dev/null | head -n 8); do " +
-            "if grep -Fq 'com.chaners.combinedstatus' \"\$f\"; then " +
-            "grep -F 'com.chaners.combinedstatus' \"\$f\" || true; break; fi; done"
+            "if grep -Fq 'com.chaners.guiyuan' \"\$f\"; then " +
+            "grep -F 'com.chaners.guiyuan' \"\$f\" || true; break; fi; done"
 
     private const val LogcatCommand =
         "logcat -d -b all -v threadtime -t 3000"
@@ -164,7 +164,7 @@ internal object DiagnosticsReportBuilder {
         output
             .lineSequence()
             .filter { line ->
-                line.contains("com.chaners.combinedstatus") &&
+                line.contains("com.chaners.guiyuan") &&
                     line.contains("CombinedStatus")
             }
             .toList()

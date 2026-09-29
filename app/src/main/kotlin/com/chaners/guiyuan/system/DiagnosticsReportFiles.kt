@@ -1,4 +1,4 @@
-package com.chaners.combinedstatus.system
+package com.chaners.guiyuan.system
 
 import android.content.ContentUris
 import android.content.ContentValues
@@ -8,7 +8,7 @@ import android.net.Uri
 import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
-import com.chaners.combinedstatus.BuildConfig
+import com.chaners.guiyuan.BuildConfig
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit

@@ -1,4 +1,4 @@
-package com.chaners.combinedstatus.system
+package com.chaners.guiyuan.system
 
 internal object SystemUiScopeController {
     private const val CommandTimeoutSeconds = 20L

@@ -1,4 +1,4 @@
-package com.chaners.combinedstatus.system
+package com.chaners.guiyuan.system
 
 import android.content.Context
 import android.content.pm.PackageManager

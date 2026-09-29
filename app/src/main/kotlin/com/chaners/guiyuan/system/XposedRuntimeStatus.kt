@@ -1,4 +1,4 @@
-package com.chaners.combinedstatus.system
+package com.chaners.guiyuan.system
 
 internal sealed interface XposedRuntimeStatus {
     data object Checking : XposedRuntimeStatus

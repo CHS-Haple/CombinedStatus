@@ -1,7 +1,7 @@
-package com.chaners.combinedstatus.system
+package com.chaners.guiyuan.system
 
 import android.content.Context
-import com.chaners.combinedstatus.BuildConfig
+import com.chaners.guiyuan.BuildConfig
 import java.time.OffsetDateTime
 
 internal object ShareDiagnosticsStore {

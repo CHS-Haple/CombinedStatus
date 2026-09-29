@@ -1,4 +1,4 @@
-package com.chaners.combinedstatus.system
+package com.chaners.guiyuan.system
 
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers

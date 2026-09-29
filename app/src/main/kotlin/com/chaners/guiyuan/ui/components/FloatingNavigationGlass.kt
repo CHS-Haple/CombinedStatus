@@ -1,9 +1,9 @@
-package com.chaners.combinedstatus.ui.components
+package com.chaners.guiyuan.ui.components
 
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import com.chaners.combinedstatus.settings.FloatingNavigationStyle
+import com.chaners.guiyuan.settings.FloatingNavigationStyle
 import top.yukonga.miuix.kmp.basic.FloatingToolbarDefaults
 import top.yukonga.miuix.kmp.blur.Backdrop
 import top.yukonga.miuix.kmp.blur.BlendColorEntry

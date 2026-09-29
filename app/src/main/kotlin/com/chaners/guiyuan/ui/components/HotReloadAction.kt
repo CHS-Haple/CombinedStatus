@@ -1,8 +1,8 @@
-package com.chaners.combinedstatus.ui.components
+package com.chaners.guiyuan.ui.components
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
-import com.chaners.combinedstatus.R
+import com.chaners.guiyuan.R
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.TooltipBox
