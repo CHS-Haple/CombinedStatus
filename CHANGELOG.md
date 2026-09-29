@@ -70,6 +70,8 @@ The project follows a Keep a Changelog-style structure. During pre-release devel
 
 ### Fixed
 
+- Fixed the companion-app Sandbox airplane center disappearing outside the SystemUI process by resolving the native flight-mode drawable from the SystemUI package context; Mobile airplane mode now correctly overrides no-SIM center presentation while retaining the bottom unavailable mark.
+
 - Home Combined Status now yields its overlay to native notification-shade and Control Center presentation using SystemUI scene-lifetime callbacks, while keeping the structurally valid Home owner persistent underneath. Notification-shade ownership follows actual native motion: active tracking or any positive shade fraction leaves Home, while non-tracking at the native closed boundary (`fraction<=0`) permits Home even when HyperOS asserts `expanded=true` for a heads-up notification. Control Center reacquires Home only after native `visible=false`. This removes HUN disappearance plus shallow/return overlay leakage without arbitrary thresholds, delays, polling, destructive owner teardown, or custom transition motion.
 - No-SIM is now a persistent cellular-layer state: the lower mobile signal orbit keeps its unavailable `×` whenever HyperOS reports native no-SIM, even when the center simultaneously shows the native no-SIM glyph or Wi-Fi. This prevents Wi-Fi from erasing SIM-absence semantics while preserving the center's native-priority presentation.
 - Home `no_sim` replacement consumes the native `StatusBarIconView.isIconVisible()` result in the same visibility event HyperOS uses to present the icon. The native no-SIM drawable is resolved before replacement suppression is enabled; unresolved resources remain fail-native.
