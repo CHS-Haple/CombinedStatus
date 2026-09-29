@@ -37,18 +37,20 @@ This file is the concise recovery point for active Guiyuan development. Read it 
 
 ### Active presentation checkpoint
 
-**Build 470 / `20260929-470`** is the active companion-app presentation checkpoint on `feat/presentation-ui-polish`, still 0-behind current `dev@2163d3a8b9134e6114d6e59387b7c808d9399a08`.
+**Build 471 / `20260929-471`** is the active companion-app presentation checkpoint on `feat/presentation-ui-polish`, still 0-behind current `dev@2163d3a8b9134e6114d6e59387b7c808d9399a08`.
 
-Build 469 passed exact-head Fast #1744 and signed Work Branch Canary #496 on `89f4758f1ebdf46860c73fd1bff30c05e50d48cc`. Device screenshots accepted the removal of hard Sandbox dividers and the restored mid-density Diagnostics rhythm, but exposed three remaining presentation defects: Sandbox field labels still carried inconsistent visual weight (slider labels looked heavier), the Module runtime card remained too tight at its top/bottom edges, and the rotating Guiyuan identity showed blur/jagged edges.
+Build 470 passed exact-head Fast #1753 / #1756 and signed Work Branch Canary #499 on `e08097328f25e837b41f71ae469865820384037f`. Device review then rejected two Build-470 visual choices: demoting custom Sandbox setting titles to subdued `body2` made controls visually dominate and left native `SwitchPreference` title "Airplane mode" standing out; the Canvas implementation still scaled a 64 dp painter by 1.8x and produced visibly worse edge aliasing on the animated Guiyuan mark.
 
-Build 470 therefore:
-- moves Sandbox field labels for sliders and segmented fields to the same MIUIX `body2` / variant-color role while leaving option typography owned by the MIUIX controls;
-- preserves the accepted soft spacing-only Sandbox grouping and all simulation/renderer behavior;
-- increases only the Module runtime card's top/bottom edge breathing room from 4 dp to 8 dp without loosening the shared information-row rhythm or touching Diagnostics & reports;
-- replaces the identity mark's `graphicsLayer` 1.8x post-render scale with a Canvas transform that scales/rotates the vector before rasterization, retaining the same launcher foreground source, 64 dp slot, 1.8x optical scale, 20-second linear counterclockwise motion, and theme tint;
-- leaves all SystemUI/Xposed runtime, state sources, Hooks, production renderer, persistent preferences, native suppression, and production icon geometry unchanged.
+Build 471 therefore:
+- restores all custom Sandbox setting titles (slider and segmented-field titles) to the primary MIUIX `body1` / `onSurfaceContainer` role so setting semantics lead the hierarchy consistently with native preference titles;
+- keeps control option typography owned by MIUIX and preserves the accepted soft spacing-only grouping, state model and production renderer;
+- keeps the accepted 8 dp Module runtime top/bottom edge breathing room from Build 470;
+- removes Canvas `scale()` entirely from the animated identity path;
+- draws `ic_launcher_foreground` directly at its final 1.8x target size (centered inside the 64 dp slot) and applies only the rotation transform, so the vector is rasterized at the final geometry rather than enlarged from a smaller draw;
+- retains the same single launcher vector source, theme tint, 64 dp layout slot and 20-second linear counterclockwise motion;
+- leaves all SystemUI/Xposed runtime, state sources, Hooks, production renderer, persistent preferences, native suppression and production icon geometry unchanged.
 
-Executable source checkpoint before documentation closure: `abb0b1bdf2f281f2287c3b6616db62c31423a33b`.
+Executable source checkpoint before documentation closure: `7e0d66bc796672155c3243d796b8490f017f019a`.
 Exact-head Fast validation is pending.
 
 ## Current phase
