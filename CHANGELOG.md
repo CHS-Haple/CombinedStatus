@@ -31,7 +31,7 @@ The project follows a Keep a Changelog-style structure. During pre-release devel
 
 ### Changed
 
-- Simplified contributor workflow around one day-to-day CURRENT source, decision-oriented DEVLOG, direct dev-to-main promotion, and three CI scopes (Light / Runtime / Full); removed the validation/dev promotion marker, separate promote stage, promotion-readiness workflow, and redundant recording/version-status documents while preserving runtime ownership, fail-native, root-cause, and device-validation safeguards.
+- Contributor workflow now uses CONTRIBUTING + CURRENT as the daily recovery path, a decision-oriented DEVLOG, direct dev-to-main promotion, and three CI scopes (Light / Runtime / Full); signed work-branch Canary remains demand-driven and independently validates the requested source SHA.
 
 
 - Refined Preview Sandbox hierarchy so all setting titles (slider and segmented-field titles) share the same primary MIUIX role as native preference titles, while control option rendering stays owned by MIUIX and soft spacing separates groups; simulation and production-renderer behavior are unchanged.
@@ -86,7 +86,6 @@ The project follows a Keep a Changelog-style structure. During pre-release devel
 - The app uses native MIUIX components and shared production material definitions for navigation and appearance previews instead of separate visual approximations.
 - Diagnostics, app descriptions, and user-facing copy consistently identify Xiaomi HyperOS as the target and use **mobile network / 移动网络** terminology.
 - Build and release tooling separates Debug, Canary, and formal Release signing/CI responsibilities; distributable APK filenames use application version/build identity rather than GitHub Actions run numbers, while test-release tags may retain the run number as CI execution metadata.
-- CI validation is checkpoint-driven: active runtime PRs stay Draft between meaningful Fast checkpoints, signed work-branch Canary is created only after explicit maintainer admission when device evidence is needed, and documentation-only checkpoint closure remains a Light repository record rather than creating a recursive runtime Build.
 
 ### Fixed
 
