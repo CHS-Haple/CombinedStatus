@@ -18,11 +18,11 @@ Control Center transition animation is the active runtime task.
 
 Current implementation line:
 - PR #177 — feat/control-center-transition-matrix;
-- current work-branch checkpoint: Build 479 / 20260929-479;
+- current work-branch checkpoint: Build 480 / 20260929-480;
 - exact-target direction: QS_FAKE role-5 to final-QS role-6 matrix projection;
-- HyperOS remains translation/appearance authority;
-- Guiyuan reads native transition state and renders only its owned presentation;
-- Trinity transition is component-driven: Painter owns source bounds/target mapping/shape-release policy, while the transition owner consumes those descriptors;
+- HyperOS remains translation/appearance authority; raw native expansion drives transition geometry and native fake/final Folme owns visual handoff;
+- Guiyuan reads native transition state and renders only its owned Trinity correspondence; it does not mask/redraw final native participants;
+- Trinity transition is component-driven: Painter owns source bounds/semantic target/shape policy, while the transition owner consumes those descriptors;
 - generic peer projection, Guiyuan-owned network composition, and native-only unsupported peers remain separated.
 
 PR #174 is an older transition route and must not overwrite the newer active matrix line or accepted Build-473 renderer state.
@@ -42,7 +42,7 @@ Keyguard has an independent host/session while sharing domain/render semantics. 
 
 Build 473 is device-accepted and stable.
 
-The active Control Center transition line is not yet accepted. Build 479 must first pass exact-head Runtime validation after synchronization to current dev, then requires focused device evidence for component release/fold behavior and Home/Keyguard entry/return behavior before integration.
+The active Control Center transition line is not yet accepted. Build 479 is superseded before device testing because review found it reintroduced a project-owned final-participant release window that conflicts with the verified native appearance contract. Build 480 retains component-driven correspondence but restores native timing/handoff ownership. It must pass exact-head Runtime validation, then requires focused device evidence for split trajectories and Home/Keyguard entry/return behavior before integration.
 
 Device testing is requested only when the result can change implementation choice or acceptance. Mechanical/documentation steps continue without a new APK round trip.
 
@@ -59,10 +59,11 @@ Device testing is requested only when the result can change implementation choic
 
 ## Immediate next step
 
-1. Synchronize PR #177 onto current dev without changing the Build-479 runtime delta.
-2. Run exact-head Runtime validation.
-3. If green, request one signed work-branch Canary for focused Trinity release/fold device evidence.
-4. Keep 1.0.0 gated by actual product/compatibility acceptance.
+1. Run exact-head Runtime validation for Build 480.
+2. Review CI output and exact base-to-head scope.
+3. If green, request one signed work-branch Canary for focused Trinity split-path device evidence.
+4. Keep runtime frozen during device validation; do not tune offsets/timing without new evidence.
+5. Keep 1.0.0 gated by actual product/compatibility acceptance.
 
 ## Reference priority
 
