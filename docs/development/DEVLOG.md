@@ -3,6 +3,40 @@
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
 
+## 2026-09-29 — Build 464: Unified Sandbox segmented-control width
+
+**Type:** companion-app UI refinement  
+**Display version:** 0.0.2  
+**Build / source:** 464 / `20260929-464` / `feat/home-ui-shell`  
+**SystemUI ownership change:** none
+
+### Maintainer feedback
+
+The Build-463 width hierarchy was too explicit. Different semantic levels do not need different control widths; the page should stay visually calm and let labels, ordering and spacing communicate hierarchy.
+
+### Implementation
+
+- Use one shared 300 dp maximum width for every Preview Sandbox finite-state `TabRowWithContour`.
+- Apply that same width to:
+  - Mobile / Wi-Fi;
+  - mobile type;
+  - Wi-Fi state;
+  - SIM state;
+  - battery mode;
+  - charging state.
+- Keep equal option distribution inside each selector.
+- Retain Build 463's MIUIX-native Slider/Switch margins and restored vertical breathing room.
+- Retain `Modern Xposed API 102` diagnostics naming.
+
+### 审查 / review
+
+- **Hierarchy:** expressed through text and spacing rather than arbitrary width differences.
+- **Consistency:** same control family now shares the same maximum width.
+- **Runtime isolation:** no SystemUI state, Hook, renderer, listener or preference ownership changes.
+
+
+
+
 ## 2026-09-29 — Build 463: MIUIX-aligned Sandbox spacing and diagnostics framework naming
 
 **Type:** companion-app UI refinement  
