@@ -139,10 +139,8 @@ internal object CombinedStatusControlCenterRenderSession {
 
     @Synchronized
     fun onNativeExpansionProgress(progress: Float?) {
-        if (progress != null) {
-            nativeExpansionProgress = progress
-        }
-        current?.setNativeExpansionProgress(nativeExpansionProgress)
+        nativeExpansionProgress = progress
+        current?.setNativeExpansionProgress(progress)
     }
 
     @Synchronized
