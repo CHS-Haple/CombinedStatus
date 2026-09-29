@@ -206,7 +206,7 @@ internal fun PreviewSandboxScreen(
                             Modifier
                                 .padding(horizontal = 12.dp)
                                 .padding(bottom = 12.dp),
-                        insideMargin = PaddingValues(vertical = 10.dp),
+                        insideMargin = PaddingValues(vertical = 8.dp),
                     ) {
                         TabRowWithContour(
                             tabs = networkModeOptions,
@@ -231,7 +231,7 @@ internal fun PreviewSandboxScreen(
                                     onSelected = { index ->
                                         onMobileNetworkChange(PreviewMobileNetwork.entries[index])
                                     },
-                                    modifier = Modifier.padding(top = 8.dp),
+                                    modifier = Modifier.padding(top = 6.dp),
                                 )
                                 SliderPreference(
                                     value = state.mobileSignalLevel.toFloat(),
@@ -244,7 +244,6 @@ internal fun PreviewSandboxScreen(
                                     steps = 3,
                                     showKeyPoints = true,
                                     keyPoints = listOf(0f, 1f, 2f, 3f, 4f),
-                                    insideMargin = CompactPreferenceMargin,
                                 )
                             } else {
                                 Text(
@@ -278,7 +277,6 @@ internal fun PreviewSandboxScreen(
                                 steps = 2,
                                 showKeyPoints = true,
                                 keyPoints = listOf(0f, 1f, 2f, 3f),
-                                insideMargin = CompactPreferenceMargin,
                             )
                         }
 
@@ -288,14 +286,13 @@ internal fun PreviewSandboxScreen(
                             selectedIndex = if (state.simPresent) 0 else 1,
                             onSelected = { onSimPresentChange(it == 0) },
                             maxWidth = 244.dp,
-                            modifier = Modifier.padding(top = 4.dp),
+                            modifier = Modifier,
                         )
                         SwitchPreference(
                             checked = state.airplaneMode,
                             onCheckedChange = onAirplaneModeChange,
                             title = stringResource(R.string.home_preview_airplane_title),
                             summary = stringResource(R.string.home_preview_airplane_summary),
-                            insideMargin = CompactPreferenceMargin,
                         )
                     }
                 }
@@ -321,7 +318,6 @@ internal fun PreviewSandboxScreen(
                                     state.batteryPercent,
                                 ),
                             valueRange = 0f..100f,
-                            insideMargin = CompactPreferenceMargin,
                         )
                         SandboxSegmentedField(
                             title = stringResource(R.string.home_preview_battery_mode_title),
@@ -330,7 +326,7 @@ internal fun PreviewSandboxScreen(
                             onSelected = { index ->
                                 onBatteryModeChange(PreviewBatteryMode.entries[index])
                             },
-                            modifier = Modifier.padding(top = 4.dp),
+                            modifier = Modifier.padding(top = 8.dp),
                         )
                         SandboxSegmentedField(
                             title = stringResource(R.string.home_preview_charging_state_title),
@@ -361,7 +357,7 @@ private fun SandboxSegmentedField(
         modifier =
             modifier
                 .fillMaxWidth()
-                .padding(horizontal = 18.dp),
+                .padding(horizontal = 16.dp, vertical = 10.dp),
     ) {
         Text(
             text = title,
@@ -492,5 +488,3 @@ private fun signalValueText(level: Int): String =
         stringResource(R.string.home_preview_signal_level, level)
     }
 
-private val CompactPreferenceMargin =
-    PaddingValues(horizontal = 18.dp, vertical = 4.dp)
