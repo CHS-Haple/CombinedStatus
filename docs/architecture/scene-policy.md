@@ -4,13 +4,13 @@ This document complements [layout-policy.md](layout-policy.md).
 
 The layout policy owns shared Guiyuan visual calculations. The scene policy owns only scene capability classification and motion ownership.
 
-## 0.0.2 architecture status
+## 0.0.3 architecture status
 
-The capability map below is retained as the **last verified runtime-scene evidence for the currently implemented path**. It is not a mandate to preserve that Home carrier in 0.0.2.
+The capability map below describes the verified runtime-scene contract for the current 0.0.3 development line. Historical carrier experiments remain evidence only and do not override the accepted 0.0.3 ownership model.
 
-The permanent extra-participant / occupancy-handoff architecture explored by Builds 386-393 is **superseded as the default starting point for new 0.0.2 work**. Its runtime observations remain valid historical evidence.
+The permanent extra-participant / occupancy-handoff architecture explored by Builds 386-393 remains **superseded for current work**. Its runtime observations remain valid historical evidence.
 
-Current 0.0.2 work must follow `docs/development/CURRENT.md`, `docs/development/ROADMAP.md`, and `docs/architecture/README.md`. Any future capability-map promotion should describe the architecture actually validated by the new carrier/presentation contract.
+Current 0.0.3 work must follow `docs/development/CURRENT.md`, `docs/development/ROADMAP.md`, and `docs/architecture/README.md`. Capability changes must describe the architecture actually validated by the current carrier/presentation contract.
 
 ## Rule
 
@@ -32,11 +32,11 @@ Classification is not permission to mutate SystemUI. Runtime integration still r
 | Home stable | PROJECTED | NONE | Runtime verified |
 | Notification-shade transition | NATIVE_ONLY | SYSTEM_UI | Runtime lifetime verified |
 | Control Center transition bridge | PROJECTED | SYSTEM_UI | Build 430 device-verifies top-level ControlCenterFakeStatusIcons fake/final ownership; Build 431 projects on its overlay |
-| Control Center fully expanded | NATIVE_ONLY candidate | SYSTEM_UI | Maintainer concept + native fake/real appearance evidence; product adoption pending review |
-| Keyguard | PROJECTED candidate | SYSTEM_UI | Build 455 exact-AOD-contract candidate; real-device validation pending |
+| Control Center fully expanded | NATIVE_ONLY | SYSTEM_UI | Exact-target fake/final appearance ownership is verified; accepted runtime keeps the final surface native-only |
+| Keyguard | PROJECTED | SYSTEM_UI | Build 456 is maintainer device-accepted with a separate opt-in Keyguard host/render/presentation adapter |
 | AOD | NATIVE_ONLY | SYSTEM_UI | Static ownership verified; independent runtime gate |
 
-The map fails closed outside the verified Home path and the bounded Control Center transition evidence. Unsupported or not-yet-verified scenes remain native rather than receiving a partial Guiyuan implementation. A verified transition carrier is not, by itself, permission to keep Guiyuan visible as a fully expanded panel surface.
+The map fails closed outside the verified Home / opt-in Keyguard steady paths and the bounded Control Center transition bridge. Unsupported scenes remain native rather than receiving a partial Guiyuan implementation. A verified transition carrier is not, by itself, permission to keep Guiyuan visible as a fully expanded panel surface.
 
 ## Home stable
 
@@ -103,9 +103,9 @@ No project-owned timing threshold, custom animation, polling/frame follower, pee
 
 ## Keyguard and AOD
 
-Build 456 carries the current **opt-in PROJECTED candidate for steady Keyguard**. Build 455 proves the corrected AOD authority can reach steady Keyguard Guiyuan, but is rejected for a shared Keyguard/QS_FAKE peer-layout/motion inconsistency caused by temporary ignored-slot state. Build 456 keeps AOD NATIVE_ONLY and makes Keyguard/QS_FAKE represented-slot exclusion session-scoped through the verified native container API. It is not promoted to runtime-verified evidence until focused device validation passes.
+Build 456 is the current **device-accepted opt-in PROJECTED steady Keyguard implementation**. Build 455 proves the corrected AOD authority can reach steady Keyguard Guiyuan but is rejected for a shared Keyguard/QS_FAKE peer-layout/motion inconsistency caused by temporary ignored-slot state. Build 456 keeps AOD NATIVE_ONLY and makes Keyguard/QS_FAKE represented-slot exclusion session-scoped through the verified native container API; focused maintainer device validation accepted the resulting steady Keyguard and transition behavior.
 
-Exact-target review now narrows the Keyguard candidate without yet promoting it:
+Exact-target review underlying the accepted Keyguard adapter establishes:
 - `MiuiKeyguardStatusBarView.mSystemIconsContainer` / `@id/system_icons_container` is the native Keyguard end-side `MiuiStatusBatteryContainer` registered into `ControlCenterFakeViewController.keyguardSystemIcons`;
 - HyperOS itself selects `statusBarSystemIcons` for status-bar state 0 and `keyguardSystemIcons` for state 1, then feeds the selected `realSystemIcons` into Control Center Header geometry. Guiyuan must reuse that native router rather than duplicate it;
 - Keyguard steady must use a **separate host/session adapter** from Home. Shared renderer/domain semantics are reusable, but mutable Home View/session ownership is not;
@@ -113,7 +113,7 @@ Exact-target review now narrows the Keyguard candidate without yet promoting it:
 - the base Keyguard status-bar visibility lifecycle resets `mSystemIconsContainer` translation when hidden, while Keyguard-specific status-icon animations target the child `mStatusIconContainer`; these are distinct ownership layers and must not be collapsed;
 - Build 442 observes only the steady Keyguard host/source identity through the already-installed Battery scene callback. It does not install Keyguard lifecycle/tint/AOD hooks and does not draw, hide, compact, reserve, or translate Keyguard content.
 
-AOD remains a separate future surface and is not implied by Keyguard support. Exact-target `KeyguardStatusBarViewControllerInject.animateFullAod()` separately drives Battery alpha/AOD mode plus status-icon alpha/visibility/`setIsAodAnimate()`, proving that a steady Keyguard adapter cannot silently own AOD as a boolean sub-state.
+AOD remains a separate native-only surface and is not implied by Keyguard support. Exact-target `KeyguardStatusBarViewControllerInject.animateFullAod()` separately drives Battery alpha/AOD mode plus status-icon alpha/visibility/`setIsAodAnimate()`, proving that a steady Keyguard adapter cannot silently own AOD as a boolean sub-state.
 
 Build 442 establishes the structural host/source boundary. Build 456 uses that boundary with a separate mutable Keyguard adapter and a default-off feature switch. The adapter reuses the existing class-wide status-icon presentation Hook substrate by exact View identity; it does not add a Keyguard lifecycle state machine. For transition-capable Keyguard/QS_FAKE containers, represented ignored slots remain present for the whole presentation session through native `addIgnoredSlots/setIgnoredSlots`, so native measure/layout and native motion observe the same slot-state fact. HyperOS still owns carrier visibility/alpha/translation and the shared Control Center source router.
 
@@ -157,13 +157,13 @@ This matrix records the maintainer's current product-intent partition. It is **n
 | Source context | Steady state | Partial Control Center pull | Fully expanded Control Center |
 | --- | --- | --- | --- |
 | Unlocked / Home | Guiyuan on verified Home carrier | Guiyuan transition bridge follows native HyperOS motion | Native SystemUI status bar only |
-| Locked / Keyguard | Guiyuan on future verified Keyguard carrier | Guiyuan transition bridge follows native HyperOS motion from the Keyguard source | Native SystemUI status bar only |
+| Locked / Keyguard | Guiyuan on the verified opt-in Keyguard carrier | Guiyuan transition bridge follows native HyperOS motion from the Keyguard source | Native SystemUI status bar only |
 
 Design consequences:
 - source-scene ownership and transition ownership should be evaluated separately;
-- Home/Keyguard may end up as separate adapters, a shared higher-level lifecycle, or another exact-target structure; do not decide this from the conceptual table alone;
+- Home and Keyguard use separate steady host/session adapters while reusing shared renderer/domain semantics; do not merge their mutable View/session ownership;
 - a shared transition coordinator is a candidate only if source/runtime evidence supports it without creating a third state machine;
-- the maintainer currently prefers a native-only fully expanded Control Center endpoint, pending verification;
+- the fully expanded Control Center endpoint is verified and accepted as native-only;
 - reverse motion restores the correct source scene before bridge cleanup;
 - no source adapter may infer the other source scene from Battery state, global Keyguard booleans, or timing.
 
