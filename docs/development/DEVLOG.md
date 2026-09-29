@@ -10682,3 +10682,12 @@ This closure is documentation-only and does not create a new Build.
 ### Conclusion
 
 Build 466 is the stable `main` baseline. The Guiyuan product/repository/package identity migration is closed. Subsequent main-to-dev ancestry synchronization is repository-history maintenance only and does not create a new Build or alter the accepted runtime.
+
+
+### Correction — transition animation is not complete
+
+The Guiyuan identity/package/repository migration and the steady-scene / QS_FAKE ownership bridge are stable, but this must not be read as completion of visual transition animation work.
+
+Home/Keyguard -> QS_FAKE -> native Control Center still requires explicit adaptation and device validation for continuous motion, alpha, first/last-frame handoff and return-path behavior. The existing verified native carrier/ownership/geometry path is the substrate for that work; it is not evidence that the Guiyuan visual animation itself is already complete.
+
+This correction changes project-status wording only. It does not invalidate Build 466 as the current stable development baseline and does not create a new Build.
