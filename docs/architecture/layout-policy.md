@@ -1,11 +1,11 @@
-# Combined Status layout policy
+# Guiyuan layout policy
 
 ## Purpose
 
-Combined Status keeps four responsibilities separate:
+Guiyuan keeps four responsibilities separate:
 
 1. native SystemUI layout/occupancy;
-2. Combined Status visual geometry;
+2. Guiyuan visual geometry;
 3. transition/motion geometry;
 4. optical adjustment.
 
@@ -15,33 +15,33 @@ A value from one responsibility must not silently become the control value for a
 
 The current work-branch Home path uses the existing native Home host rather than a permanent extra status participant:
 
-`MiuiNotificationStatusContainer / system_icon_area (HostSession) -> MiuiStatusBatteryContainer / system_icons.overlay (visual carrier) -> CombinedStatusHomeLayoutResolver -> Combined Status renderer`
+`MiuiNotificationStatusContainer / system_icon_area (HostSession) -> MiuiStatusBatteryContainer / system_icons.overlay (visual carrier) -> CombinedStatusHomeLayoutResolver -> Guiyuan renderer`
 
 Build 397 is the first device-accepted charging-carrier checkpoint for this route. Build 398 refines the carrier-width authority to the live `battery_icon_container`; Build 399 changes only battery-ring compositing and does not alter this layout contract.
 
 ### Ownership
 
 - HyperOS owns native Battery composition, Battery hide state, peer layout behavior, tint/scene facts and island/Folme motion.
-- Combined Status owns its overlay drawing, resolved replacement-slot intent, temporary represented-slot exclusions, reversible visual masks and one conflict-detected status-icon end reservation.
-- Native alpha, visibility, translation and Battery measured/layout width are not Combined Status write properties.
+- Guiyuan owns its overlay drawing, resolved replacement-slot intent, temporary represented-slot exclusions, reversible visual masks and one conflict-detected status-icon end reservation.
+- Native alpha, visibility, translation and Battery measured/layout width are not Guiyuan write properties.
 
 ## Render modes
 
 ### PROJECTED
 
-Combined Status renders against verified native host geometry while SystemUI remains authoritative for surrounding layout and motion.
+Guiyuan renders against verified native host geometry while SystemUI remains authoritative for surrounding layout and motion.
 
 Home currently uses this mode. Build 424 places the visual inside the native `system_icons` carrier while keeping the outer `system_icon_area` as the HostSession/ancestor-motion boundary.
 
 ### NATIVE_ONLY
 
-Combined Status does not render on the surface. Native SystemUI content and motion remain authoritative.
+Guiyuan does not render on the surface. Native SystemUI content and motion remain authoritative.
 
 Notification Shade, keyguard and AOD currently use this mode. Control Center has a separately verified Build-420 projection path in the active Phase-2B branch; its longer-term transition carrier is under exact-target review and is not promoted here as a new settled layout contract.
 
 ## Shared `ResolvedLayout` contract
 
-### Combined Status inputs
+### Guiyuan inputs
 
 The shared resolver may consume presentation intent only:
 
@@ -49,7 +49,7 @@ The shared resolver may consume presentation intent only:
 - user visual scale;
 - desired neighbor/leading optical gap;
 - relative per-glyph scale;
-- bounded optical adjustment inside the Combined Status presentation space.
+- bounded optical adjustment inside the Guiyuan presentation space.
 
 These inputs are independent. Visual scale is not automatically a native slot-width write, and optical adjustment is not native translation.
 
@@ -70,7 +70,7 @@ A host adapter must not invent a scene-specific width difference, timing curve o
 
 The shared resolver keeps separate:
 
-- whether Combined Status may render;
+- whether Guiyuan may render;
 - visual size/bounds;
 - requested neighbor gap;
 - requested replacement-slot width;
@@ -102,7 +102,7 @@ Represented Wi-Fi/mobile/airplane/no-SIM slots are excluded only while the exact
 
 The active HostSession:
 1. reads the existing `ignoredSlots` collection;
-2. adds only missing Combined Status-owned entries;
+2. adds only missing Guiyuan-owned entries;
 3. lets native measure/layout run;
 4. removes exactly those owned entries in `finally`.
 
@@ -149,11 +149,11 @@ The reservation:
 
 Motion ownership is independent from layout size:
 
-- `NONE` — no Combined Status-owned motion is needed;
+- `NONE` — no Guiyuan-owned motion is needed;
 - `SYSTEM_UI` — SystemUI owns positioning/transition motion;
 - `COMBINED_STATUS` — reserved for a future transition proven to be fully module-owned.
 
-Home island motion is `SYSTEM_UI`: the visual overlay lives in native `system_icons` and therefore inherits that carrier's own alpha/visibility/translation while also remaining under the ancestor `system_icon_area` island transform. Combined Status must not add a battery-translation follower, duplicate animator or custom timing curve.
+Home island motion is `SYSTEM_UI`: the visual overlay lives in native `system_icons` and therefore inherits that carrier's own alpha/visibility/translation while also remaining under the ancestor `system_icon_area` island transform. Guiyuan must not add a battery-translation follower, duplicate animator or custom timing curve.
 
 Phase 2B may combine stable Home source bounds with verified native expansion progress and real target geometry, but it must not reopen Home carrier ownership.
 
@@ -186,7 +186,7 @@ Build-specific history and rejected experiments belong in `docs/development/DEVL
 
 ## Requirements for any new native geometry write
 
-Before Combined Status takes ownership of another native geometry property, verify:
+Before Guiyuan takes ownership of another native geometry property, verify:
 
 1. the exact owning SystemUI host and lifecycle;
 2. the current writer set and single-writer boundary;

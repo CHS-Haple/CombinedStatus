@@ -1,6 +1,6 @@
 # Development record writing guide
 
-This guide defines **how** Combined Status engineering records are written.
+This guide defines **how** Guiyuan engineering records are written.
 
 `CONTRIBUTING.md` is the normative source for **when** a record is required and which document class must be synchronized. This file standardizes structure, evidence language, duplication boundaries, and maintenance style so another contributor can recover the same engineering state without chat history.
 
@@ -205,7 +205,7 @@ Purpose: preserve generalized implementation/platform evidence that may inform f
 Each entry should distinguish:
 1. **Observed evidence**;
 2. **Reusable principle**;
-3. **Combined Status applicability / current adoption status**;
+3. **Guiyuan applicability / current adoption status**;
 4. **What is not established**.
 
 Do not turn a reference pattern into automatic write authority. Exact-target verification remains required.
@@ -260,7 +260,7 @@ For a checkpoint whose final CI/device result is known only after the executable
 - `CURRENT.md` may summarize a DEVLOG conclusion but must not reproduce the whole historical entry.
 - `ROADMAP.md` must not describe an already accepted current mechanism as if it were still an unproven future candidate.
 - Architecture policy must not preserve a superseded mechanism as the active recommendation.
-- Reference evidence may remain historically true even when Combined Status chooses a different implementation.
+- Reference evidence may remain historically true even when Guiyuan chooses a different implementation.
 - `CHANGELOG.md` must describe final net behavior, not abandoned intermediate implementation details.
 - Public README text must never present work-branch-only behavior as stable `main` behavior unless explicitly scoped as development state.
 

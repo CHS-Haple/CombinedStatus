@@ -21,7 +21,7 @@ val hapleSigningEnabled =
 
 @Suppress("UnstableApiUsage")
 android {
-    namespace = "com.chaners.combinedstatus"
+    namespace = "com.chaners.guiyuan"
     buildToolsVersion = "37.0.0"
 
     compileSdk {
@@ -31,7 +31,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.chaners.combinedstatus"
+        applicationId = "com.chaners.guiyuan"
         minSdk = 33
         targetSdk = 37
         versionCode = combinedStatusVersionCode

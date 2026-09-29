@@ -5,7 +5,7 @@
     <string name="home_build_line">构建  %1$s</string>
 
     <string name="home_runtime_running">运行中</string>
-    <string name="home_runtime_running_summary">当前使用三合一状态图标</string>
+    <string name="home_runtime_running_summary">归元正在运行</string>
     <string name="home_runtime_unhooked">未 Hook</string>
     <string name="home_runtime_unhooked_summary">SystemUI 作用域未启用</string>
     <string name="home_runtime_pending">待生效</string>

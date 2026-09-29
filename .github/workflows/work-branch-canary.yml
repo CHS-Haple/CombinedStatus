@@ -298,7 +298,7 @@ jobs:
         run: |
           VERSION_NAME="$(sed -n 's/^combinedStatus.versionName=//p' gradle.properties)"
           BUILD_ID="$(sed -n 's/^combinedStatus.buildId=//p' gradle.properties)"
-          CANARY_APK_NAME="CombinedStatus-${VERSION_NAME}-HyperOS-${BUILD_ID}-canary.apk"
+          CANARY_APK_NAME="Guiyuan-${VERSION_NAME}-HyperOS-${BUILD_ID}-canary.apk"
           mkdir -p dist
           cp "$CANARY_APK_PATH" "dist/$CANARY_APK_NAME"
           echo "CANARY_APK_NAME=$CANARY_APK_NAME" >> "$GITHUB_ENV"

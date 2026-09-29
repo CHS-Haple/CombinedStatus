@@ -1,12 +1,12 @@
-# Combined Status
+# Guiyuan
 
-[![Build](https://github.com/CHS-Haple/CombinedStatus/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/CHS-Haple/CombinedStatus/actions/workflows/build.yml)
+[![Build](https://github.com/CHS-Haple/Guiyuan/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/CHS-Haple/Guiyuan/actions/workflows/build.yml)
 ![Companion app: Android 13+](https://img.shields.io/badge/Companion%20app-Android%2013%2B-3DDC84?logo=android&logoColor=white)
 ![Modern Xposed API 102](https://img.shields.io/badge/Modern%20Xposed%20API-102-3F51B5)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
 ![Status: pre-release](https://img.shields.io/badge/status-pre--release-orange)
 
-**Combined Status** is an LSPosed module for Xiaomi HyperOS that combines battery, mobile-network, and Wi-Fi information into one compact status-bar indicator.
+**Guiyuan** is an LSPosed module for Xiaomi HyperOS that combines battery, mobile-network, and Wi-Fi information into one compact status-bar indicator.
 
 [English](#english) | [简体中文](#简体中文)
 
@@ -16,7 +16,7 @@
 
 ### Project status
 
-> **Pre-release development.** The active development line is **0.0.2**. The first planned formal release is **1.0.0**; current `0.0.x` versions are development checkpoints rather than formal releases.
+> **Pre-release development.** The active development line is **0.0.3**. The first planned formal release is **1.0.0**; current `0.0.x` versions are development checkpoints rather than formal releases.
 
 | Item | Current scope |
 | --- | --- |
@@ -24,7 +24,7 @@
 | Verified SystemUI baseline | `17.03.260226.r` |
 | Xposed interface | Modern Xposed API 102 |
 | Companion app | Android 13 / API 33+ |
-| Verified Combined Status surface | Home status bar |
+| Verified Guiyuan surfaces | Home status bar; opt-in lock screen / Keyguard |
 | Other SystemUI surfaces | Native until separately supported and validated |
 
 Compatibility is established against the actual target SystemUI. Other HyperOS builds or device variants may differ internally and are not assumed compatible until validated.
@@ -50,7 +50,7 @@ Compatibility is established against the actual target SystemUI. Other HyperOS b
 
 ### Current scope
 
-The Home status bar is the only Combined Status surface currently treated as runtime-verified. Notification shade / Control Center, keyguard, and AOD remain native until each surface is separately supported and validated.
+The Home status bar and the opt-in lock-screen / Keyguard presentation are runtime-verified on the pinned target. Notification Shade remains native because this target does not expose the status-icon row there. Partial Control Center pulls use the bounded SystemUI-owned transition bridge from a verified source scene; the fully expanded Control Center and AOD remain native.
 
 The project is still under active development, so wider device, system-version, and scene compatibility should not be inferred from the current verified target.
 
@@ -75,7 +75,7 @@ The project is still under active development, so wider device, system-version, 
 
 ### 项目状态
 
-> **预发布开发阶段。** 当前开发版本线为 **0.0.2**。计划首个正式发布版本为 **1.0.0**；当前 `0.0.x` 均属于开发检查点，不是正式发布版本。
+> **预发布开发阶段。** 当前开发版本线为 **0.0.3**。计划首个正式发布版本为 **1.0.0**；当前 `0.0.x` 均属于开发检查点，不是正式发布版本。
 
 | 项目 | 当前范围 |
 | --- | --- |
@@ -83,7 +83,7 @@ The project is still under active development, so wider device, system-version, 
 | 已验证 SystemUI 基线 | `17.03.260226.r` |
 | Xposed 接口 | Modern Xposed API 102 |
 | 配套应用 | Android 13 / API 33+ |
-| 已验证 Combined Status 场景 | 主状态栏 Home |
+| 已验证归元场景 | 主状态栏 Home；可选锁屏 / Keyguard |
 | 其他 SystemUI 场景 | 在分别完成支持与验证前保持原生 |
 
 兼容性以目标 SystemUI 的实际结构和运行表现为准。其他 HyperOS 版本或不同机型的内部实现可能不同，在完成验证前不会默认视为兼容。
@@ -109,7 +109,7 @@ The project is still under active development, so wider device, system-version, 
 
 ### 当前范围
 
-主状态栏 Home 是目前唯一按“已完成运行时验证”处理的 Combined Status 场景。通知栏 / 控制中心、锁屏与 AOD 在分别完成支持和验证前保持系统原生行为。
+主状态栏 Home 与可选的锁屏 / Keyguard 归元显示已在当前固定目标上完成运行时验证。通知栏在该目标上不提供状态图标行，因此保持系统原生；控制中心部分下拉通过由 SystemUI 主导的有界过渡桥衔接，完全展开的控制中心与 AOD 保持系统原生。
 
 项目仍处于持续开发阶段，因此不应仅根据当前验证目标推定其他机型、系统版本或场景已经兼容。
 
@@ -132,6 +132,6 @@ The project is still under active development, so wider device, system-version, 
 
 ## Disclaimer / 免责声明
 
-Combined Status is an independent community project and is not affiliated with, endorsed by, or maintained by Xiaomi, HyperOS, LSPosed, or the MIUIX project.
+Guiyuan is an independent community project and is not affiliated with, endorsed by, or maintained by Xiaomi, HyperOS, LSPosed, or the MIUIX project.
 
-Combined Status 是独立的社区项目，与 Xiaomi、HyperOS、LSPosed 或 MIUIX 项目不存在官方隶属、背书或维护关系。
+归元是独立的社区项目，与 Xiaomi、HyperOS、LSPosed 或 MIUIX 项目不存在官方隶属、背书或维护关系。
