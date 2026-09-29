@@ -29,6 +29,8 @@ The project follows a Keep a Changelog-style structure. During pre-release devel
 
 ### Changed
 
+- Preview Sandbox now uses a mutually-exclusive MIUIX Mobile/Wi-Fi selector with context-dependent subordinate controls while preserving valid no-SIM + Wi-Fi simulation; no-Internet Wi-Fi resolves the exact HyperOS unavailable drawable family, and the shared renderer places the 5G-Advanced `A` at lower-right in both previews and the real status bar.
+
 - Home now uses a two-card runtime/preview hierarchy: the Runtime card separates user intent from actual Xposed state with fixed-height semantic feedback, heavier unified rounded status marks, and a compact single-line version/short-build identity. Home keeps only one MIUIX Preview Sandbox navigation row with a production-rendered leading preview and navigates to a dedicated secondary page whose contour-tab controls adjust simulated center/signal/battery state; app previews scale mobile-type labels proportionally with the preview viewport while production SystemUI sizing remains unchanged.
 
 - Launcher branding now uses an abstract converging-orbit mark as a true Android adaptive icon: the geometry lives in the foreground vector, the default palette is ink-black on clean white, launcher masks remain system-owned, and Android monochrome/themed icons reuse the same silhouette.
