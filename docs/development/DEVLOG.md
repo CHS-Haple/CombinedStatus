@@ -11055,3 +11055,70 @@ Run exact-head Fast for Build 472. If green, issue one signed Canary for focused
 2. moderate vertical compaction without returning to Build-468 over-density.
 
 The separate requested Wi-Fi connected/no-internet/hotspot optical normalization must be implemented on a dedicated runtime branch because it changes the shared production renderer and real SystemUI output.
+
+---
+
+## 2026-09-29 — Build 473: Wi-Fi optical normalization on accepted Build-472 UI baseline
+
+**Type:** accepted runtime visual correction + branch-integration closure
+**Display version:** 0.0.3
+**Build:** 473 / `20260929-473`
+**Branch / PR:** `fix/wifi-optical-normalization` / #175
+**Integrated UI base:** PR #173 squash commit `d24fd7aff07abf78a0a5828fc2e667a88dd05720`
+**Original device-tested Wi-Fi source:** `f918663bbd53549089dff0d8a52387b00d6e09b7`
+
+### Build 472 acceptance and integration
+
+Build 472 passed exact-head Fast #1778 and signed Work Branch Canary #506. Maintainer device review accepted the final Sandbox preference hierarchy/density and companion-app presentation result.
+
+PR #173 was then squash-merged into `dev` as `d24fd7aff07abf78a0a5828fc2e667a88dd05720`.
+
+### Build 473 device evidence
+
+The same-level connected / no-Internet / hotspot comparison confirmed the intended correction. The maintainer reported no remaining issue and authorized integration.
+
+The accepted Wi-Fi source passed:
+- exact-head Fast #1782;
+- signed Work Branch Canary #509;
+- trusted-source checkout of `f918663bbd53549089dff0d8a52387b00d6e09b7`;
+- target-profile, tests/build, Modern Xposed metadata, Haple signature, non-debuggable and artifact-upload gates.
+
+### Root cause and retained implementation
+
+The shared native-center renderer previously fit each complete Wi-Fi variant by its own visible alpha bounds. Native no-Internet/hotspot badges therefore changed the fitted scale of the common Wi-Fi body.
+
+The accepted fix remains:
+- derive the same signal-level connected `stat_sys_wifi_signal_N` reference through the existing Wi-Fi resource parser;
+- use that connected asset only as the optical-fit authority;
+- draw the current HyperOS drawable unchanged, preserving its complete authored viewport and badge relationship;
+- share reference geometry only when current/reference intrinsic viewports match exactly;
+- fall back to the previous per-resource optical fit if reference resolution/loading/viewport compatibility fails;
+- cache the resource mapping;
+- add no Hook, observer, listener, polling, state-machine or duplicate renderer path.
+
+### Integration synchronization
+
+Because PR #173 and PR #175 were created from the same earlier `dev` snapshot but both legitimately touched build identity and current-state documentation, PR #175 was not merged against a stale base.
+
+Instead:
+1. PR #173 was integrated first.
+2. PR #175 was reset to the resulting `dev@d24fd7aff07abf78a0a5828fc2e667a88dd05720`.
+3. The already device-tested Wi-Fi renderer/policy/tests were reapplied unchanged.
+4. Build identity was kept at 473.
+5. CURRENT / DEVLOG / CHANGELOG were reconciled to describe the combined accepted state rather than retaining two competing active-branch narratives.
+
+This synchronization adds the already accepted Build-472 companion-app UI beneath the already accepted Build-473 runtime correction; it does not change either accepted behavior.
+
+### 审查 / review
+
+- **Ownership:** UI presentation remains companion-app-owned; Wi-Fi resource semantics remain SystemUI-owned; `CombinedStatusPainter` owns only Guiyuan's final center drawing bounds.
+- **Single writer:** unchanged.
+- **Lifecycle / cleanup:** unchanged; no new runtime owner.
+- **Performance:** cached resource-family lookup only.
+- **Fail native:** unresolved/incompatible reference geometry retains the existing per-resource path.
+- **Compatibility:** native drawable identity/tint/viewport semantics remain authoritative.
+- **Validation attribution:** Build 472 UI and Build 473 Wi-Fi runtime were each device-accepted independently. The synchronized branch changes ancestry/documentation only around those accepted executable deltas.
+
+### Final integration gate
+
+Run exact-head Fast on the synchronized PR #175 head. If green, squash-merge into `dev` and require the normal post-merge Integration gate. No repeated work-branch Canary/device cycle is required because synchronization did not alter either accepted executable behavior.
