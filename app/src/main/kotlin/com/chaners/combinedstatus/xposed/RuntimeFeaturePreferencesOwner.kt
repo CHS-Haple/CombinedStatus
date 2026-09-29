@@ -4,11 +4,16 @@ import android.content.SharedPreferences
 import android.os.SystemClock
 import com.chaners.combinedstatus.settings.COMBINED_STATUS_ENABLED_KEY
 import com.chaners.combinedstatus.settings.COMBINED_STATUS_FEATURE_CHANGE_ELAPSED_REALTIME_NANOS_KEY
+import com.chaners.combinedstatus.settings.COMBINED_STATUS_KEYGUARD_ENABLED_KEY
 import com.chaners.combinedstatus.settings.CombinedStatusFeatureSettings
 
 internal object RuntimeFeaturePreferencesOwner {
     @Volatile
-    private var current = CombinedStatusFeatureSettings(enabled = false)
+    private var current =
+        CombinedStatusFeatureSettings(
+            enabled = false,
+            keyguardEnabled = false,
+        )
 
     private var preferences: SharedPreferences? = null
     private var listener: SharedPreferences.OnSharedPreferenceChangeListener? = null
@@ -30,7 +35,10 @@ internal object RuntimeFeaturePreferencesOwner {
         val listener =
             SharedPreferences.OnSharedPreferenceChangeListener { changed, key ->
                 if (
-                    key == COMBINED_STATUS_ENABLED_KEY &&
+                    (
+                        key == COMBINED_STATUS_ENABLED_KEY ||
+                            key == COMBINED_STATUS_KEYGUARD_ENABLED_KEY
+                    ) &&
                     isCurrentBinding(changed, token)
                 ) {
                     val next = resolve(changed)
@@ -64,7 +72,11 @@ internal object RuntimeFeaturePreferencesOwner {
     @Synchronized
     fun unbind() {
         unbindLocked()
-        current = CombinedStatusFeatureSettings(enabled = false)
+        current =
+            CombinedStatusFeatureSettings(
+                enabled = false,
+                keyguardEnabled = false,
+            )
     }
 
     private fun unbindLocked() {
@@ -105,6 +117,11 @@ internal object RuntimeFeaturePreferencesOwner {
                 preferences.getBoolean(
                     COMBINED_STATUS_ENABLED_KEY,
                     true,
+                ),
+            keyguardEnabled =
+                preferences.getBoolean(
+                    COMBINED_STATUS_KEYGUARD_ENABLED_KEY,
+                    false,
                 ),
         )
 }

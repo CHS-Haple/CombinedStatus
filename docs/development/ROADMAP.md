@@ -59,7 +59,7 @@ Direction:
 - keep Notification Shade native-only and inherit Home departure/return from the verified native `system_icons` end-side carrier lifecycle rather than maintaining a project-local shade visibility gate;
 - Control Center is a **transition destination**, not a persistent Combined Status scene: exact-target source and Build-441 runtime evidence verify the bounded QS_FAKE bridge and native final-surface endpoint;
 - during a partial pull, bridge the source Combined Status presentation through verified native Control Center transition geometry/progress so the gesture visually connects to HyperOS;
-- fully expanded Control Center is native-only by verified HyperOS appearance ownership: native `appearance=true` fades the QS_FAKE root to alpha 0 while bringing final `ControlCenterStatusBarIcon` to alpha 1; Combined inherits QS_FAKE root alpha and never owns the final surface;
+- fully expanded Control Center is native-only by verified HyperOS appearance ownership: native `appearance=true` fades the QS_FAKE root to alpha 0 while bringing final `ControlCenterStatusBarIcon` to alpha 1; Combined never owns the final surface. Build-453 device evidence reopens only whether the project overlay's projected geometry always tracks that native fake carrier correctly, so Build 455 diagnoses the existing projection instead of introducing a second endpoint owner;
 - use verified native transition progress/endpoints only for that bounded bridge lifetime;
 - separate transition bridge lifetime/masking from the steady Home session;
 - preserve native peer animation and Control Center geometry ownership;
@@ -77,9 +77,31 @@ Exit criteria:
 - clean partial-pull transition into Control Center and exact yield to native status icons at the fully expanded endpoint; Notification Shade remains native/no-status-icon by design;
 - no regression in steady Home or charging/island behavior.
 
-## Phase 3 — Keyguard / lockscreen / AOD scene completion — active
+## Phase 3 — Keyguard / lockscreen / AOD scene completion — device accepted, integration pending
+
+Build 456 supersedes device-rejected Build 455. Build 455 proves the corrected AOD authority can enable steady Keyguard Combined Status, but device evidence exposes a shared Keyguard/QS_FAKE peer-layout defect: native peers can jump toward their end position and leave a large gap, while disabling lockscreen Combined can probabilistically race native restoration during a pull.
+
+The Build-455 geometry probe rejects a direct Combined-translation patch. The overlay-local anchor still composes to the native Battery carrier; the structural mismatch is the compact presentation's ignored-slot lifetime. Temporary `ignoredSlots` mutation around only `onMeasure/onLayout` gives Keyguard/QS_FAKE motion owners a different slot-state fact outside those calls. Build 456 therefore promotes only those two transition-capable surfaces to the exact native `addIgnoredSlots/setIgnoredSlots` session contract, while keeping accepted Home behavior unchanged. Native add/set remains the layout trigger/authority; project motion/alpha/visibility writers remain forbidden.
+
+AOD remains NATIVE_ONLY. Steady Keyguard can project only when the lockscreen feature is enabled, its AOD gate is unblocked, the session-owned native slot exclusions are active, and native compact layout has completed. Cleanup restores only the session-owned slot delta and fails native on contract/ownership ambiguity.
+
+Build 456 is device-accepted on the pinned Xiaomi 15 Pro / SystemUI `17.03.260226.r` and is the Phase-3 integration candidate. Final Fast #1640 and signed Canary #484 pass on the accepted exact head. The separate companion-app/UI line remains independent; no display-version bump is coupled to this runtime merge.
+
+Build 447 is the first opt-in steady-Keyguard runtime candidate. It adds a separate Keyguard host/render/presentation adapter and a default-off feature switch while reusing the existing three class-wide presentation Hooks (Hook delta 0). Keyguard-originated QS_FAKE is enabled only after the steady adapter reaches ready. AOD remains outside the candidate's supported scope and is a focused real-device blocker before Keyguard can be promoted to runtime-verified evidence.
+
+Build 446 is device-accepted and closes the late-eligibility QS_FAKE cutover prerequisite. Phase 3 may now advance to the independent steady Keyguard adapter; AOD remains a later, separate gate.
+
+Build 446 preserves the source-scene gate and closes its late-entry lifecycle hole: when Home eligibility is learned after QS_FAKE has already completed native layout, the existing laid-out status-icons state may serve as the compact cutover proof only if no layout request is pending and geometry is valid. Otherwise the existing native `onLayout` path remains mandatory. This keeps the fail-native/atomic handoff contract while allowing scene-gated Home projection to become ready.
+
+Build 445 tightens the Build-444 source-scene gate without changing its policy: HyperOS `realSystemIcons` remains the selected source endpoint, but Home is identified by object identity against the existing HomePresentationOwner carrier rather than transient View ancestry. Keyguard retains the already device-proven structural fallback. This preserves fail-native behavior while restoring Home-originated QS_FAKE.
+
+Build 444 establishes source-scene eligibility for the shared QS_FAKE bridge before steady Keyguard rendering is enabled. It reuses the existing `CombinedStatusScenePolicy`: structurally verified steady source hosts can pre-seed the policy, and HyperOS `realSystemIcons` is the final Home/Keyguard authority when Control Center becomes visible. Home may project Combined Status; Keyguard/unknown fail native until the Keyguard capability is verified/promoted and its feature setting is enabled. The gate releases both overlay visibility and compact native masking together. The future lockscreen switch is therefore a feature-domain input to this same policy, not a separate QS_FAKE setting.
+
+Build 443 inserts a transition-safety checkpoint before enabling steady Keyguard rendering: the shared QS_FAKE bridge must preserve native visuals until its existing native-layout boundary can atomically commit mask + Combined projection readiness. This keeps fail-native semantics intact for cold-start Keyguard-originated pulls. The later scene-policy layer remains explicit: Home steady and Keyguard steady are separate adapters sharing domain/render semantics, and QS_FAKE must inherit the native-selected source scene rather than act as an independent user-facing scene.
 
 Reuse the stabilized domain state, renderer semantics, ownership rules, and fail-native behavior while giving each scene its own verified host/lifecycle adapter.
+
+Build 442 is the first Phase-3 executable checkpoint and is intentionally narrower than a lifecycle adapter: it reuses the existing Battery scene callback only as a trigger, requires actual `MiuiKeyguardStatusBarView` ancestry, and takes one read-only steady-host/source snapshot. Hook delta is zero; no Keyguard rendering/suppression and no AOD runtime probe is introduced. Positive device evidence from this checkpoint is a prerequisite for choosing the later Keyguard presentation/lifecycle seam.
 
 The unlocked side of the scene concept is now verified through Phase 2B. The locked side remains a planning hypothesis until exact Keyguard lifecycle review:
 - **Unlocked concept:** Home steady Combined Status -> partial-pull transition continuity -> fully expanded Control Center native-only.

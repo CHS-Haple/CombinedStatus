@@ -77,9 +77,13 @@ Prefer a restoration-token model over long-lived mutation.
 
 ### Combined Status applicability
 
-**Adopted for Home on the pinned target.**
+**Adopted for Home on the pinned target; refined for transition-capable Keyguard/QS_FAKE.**
 
-Exact-target inspection verified `MiuiStatusIconContainer.ignoredSlots` and its use by native measure/layout. The current Home session temporarily adds only represented slots around those native calls and restores exactly the entries it owned.
+Exact-target inspection verified `MiuiStatusIconContainer.ignoredSlots`, public final `addIgnoredSlots(...)` / `setIgnoredSlots(...)`, and native measure/layout consumption. Home keeps the device-accepted temporary native-call scope: represented entries exist only around the hooked native measure/layout invocation and are then restored.
+
+Build-455 device evidence proves that temporary scope is not sufficient for Keyguard/QS_FAKE, because those surfaces have native motion/animation ownership that can run outside the measure/layout call. Build 456 therefore uses the same native ignored-slot contract as **session state** on those two surfaces: add only the absent represented entries through the native API, keep them present until that presentation session ends, then restore only the owned delta through the native setter. Native add/set remains responsible for layout invalidation; Combined Status does not add a parallel motion writer.
+
+The reusable rule is therefore not "always temporary" or "always persistent": the ignored-slot lifetime must match the complete native presentation owner that consumes the layout state. In every case the mutation stays host/session-scoped, minimal, reversible and fail-native on writer ambiguity.
 
 This remains fingerprint-scoped. Other SystemUI builds/scenes and unexpected competing state must be revalidated or fail native.
 
@@ -246,9 +250,11 @@ By contrast, `onExpansionChanged(progress)` updates translation only. It is moti
 
 Build-441 target diagnostics independently match that contract: native fraction reaches `1.0`, then the QS_FAKE root is observed at alpha `0.0` before the return transition. The same relationship is visible in ordinary and Battery-Island pulls.
 
-Combined Status attaches only to `ControlCenterFakeStatusIcons.overlay` and inherits the root alpha/translation. The project does not mask, hide, translate, or otherwise mutate final `ControlCenterStatusBarIcon`.
+Combined Status attaches only to `ControlCenterFakeStatusIcons.overlay`. Exact-target source and Build-441 diagnostics verify the **native root** alpha/translation and fake/final appearance contract; the project does not mask, hide, translate, or otherwise mutate final `ControlCenterStatusBarIcon`.
 
-Therefore the fully expanded Control Center endpoint is already native-only through HyperOS appearance ownership. Do **not** add a project `fraction >= x` hide threshold, custom fake-to-final fade, or final-QS suppression.
+Build-453 device feedback reopens one narrower derived assumption: the project overlay render View can probabilistically appear at the fully-expanded endpoint position before the expected fake trajectory is visually complete. The native fake/final contract remains verified, but project-overlay coordinate inheritance is no longer accepted merely from the root alpha observation. Build 455 therefore samples QS_FAKE root, status-area, carrier and render screen/local geometry at the existing 8 diagnostic progress buckets. No new writer is introduced.
+
+The fully expanded Control Center endpoint remains native-only through HyperOS appearance ownership. Do **not** add a project `fraction >= x` hide threshold, custom fake-to-final fade, final-QS suppression, or fixed-position compensation without owner-level geometry evidence.
 
 ### Reusable principle
 
@@ -299,6 +305,31 @@ is preferable to:
 This aligns with the project requirement that SystemUI own transition timing and target placement while Combined Status owns only its composed visual projection.
 
 For Home, Build-424 exact-target review distinguishes the parent `system_icon_area` HostSession from the actual animated end-side child `system_icons`. The Home visual belongs on the latter carrier so it inherits native end-side motion directly. The real-endpoint/native-progress principle remains applicable to a genuine second projected surface such as Control Center, not to Notification Shade where no status-icon projection target exists.
+
+---
+
+## Keyguard steady-source contract on the pinned target
+
+**Static exact-target evidence; Build 442 performs only the first steady-host/source runtime verification.**
+
+The Keyguard source is not the Home carrier reused under a different global flag. HyperOS exposes a distinct native source:
+
+- `MiuiKeyguardStatusBarView.mSystemIconsContainer` resolves `@id/system_icons_container` as a `MiuiStatusBatteryContainer`;
+- `MiuiKeyguardStatusBarView.initCallback()` registers that View into `ControlCenterFakeViewController.keyguardSystemIcons`;
+- `ControlCenterFakeViewController.adjustRealSystemIcons()` selects Home `statusBarSystemIcons` for status-bar state 0, Keyguard `keyguardSystemIcons` for state 1, and no source for other states;
+- native status-bar-state and bouncer callbacks re-run the same selection, so Combined Status must not reconstruct a second Home/Keyguard router;
+- Control Center Header consumes the selected `realSystemIcons` as its source geometry reference.
+
+Keyguard also has independent lifecycle and tint authority:
+
+- `onAttachedToWindow()/onDetachedFromWindow()` register and release Keyguard callbacks/icon groups;
+- base `KeyguardStatusBarView.setVisibility()` owns root visibility and resets the system-icons translation on exit;
+- `updateIconsAndTextColors()` derives Keyguard light/dark colors and applies them to Keyguard icon/battery presentation while forwarding the same source tint to QS_FAKE;
+- child `animateIconContainer()` targets `mStatusIconContainer`, not the whole system-icons carrier.
+
+AOD is separate. `KeyguardStatusBarViewControllerInject.animateFullAod()` independently changes Battery alpha/AOD mode and status-icon alpha/visibility/animation flags. A future Keyguard Combined adapter must therefore remain inactive for AOD until a distinct AOD contract is verified.
+
+**Project implication:** the strongest steady Keyguard carrier candidate is the native `mSystemIconsContainer` host with a Keyguard-specific session, sharing only renderer/domain semantics with Home. Build 442 verifies only that steady carrier/source identity using the existing scene callback; lifecycle/tint/AOD runtime observation remains deferred until this first gate is positive.
 
 ---
 

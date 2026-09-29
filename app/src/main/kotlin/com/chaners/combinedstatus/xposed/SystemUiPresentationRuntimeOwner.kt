@@ -8,12 +8,18 @@ internal object SystemUiPresentationRuntimeOwner {
 
     val installedHookCount: Int
         @Synchronized get() =
-            current?.let { it.tintHooks + it.sceneHooks + it.mobileTypeHooks } ?: 0
+            current?.let {
+                it.tintHooks + it.sceneHooks + it.mobileTypeHooks + it.keyguardAodHooks
+            } ?: 0
+
+    val keyguardAodReady: Boolean
+        @Synchronized get() = current?.keyguardAodReady == true
 
     internal data class AttachResult(
         val tintHooks: Int,
         val sceneHooks: Int,
         val mobileTypeHooks: Int,
+        val keyguardAodHooks: Int,
     ) {
         val tintReady: Boolean
             get() = tintHooks == SystemUiTintStateSource.HOOK_COUNT
@@ -21,6 +27,8 @@ internal object SystemUiPresentationRuntimeOwner {
             get() = sceneHooks == SystemUiSceneStateSource.HOOK_COUNT
         val mobileTypeReady: Boolean
             get() = mobileTypeHooks == SystemUiMobileTypeStateSource.HOOK_COUNT
+        val keyguardAodReady: Boolean
+            get() = keyguardAodHooks == SystemUiKeyguardAodStateSource.HOOK_COUNT
     }
 
     @Synchronized
@@ -29,9 +37,11 @@ internal object SystemUiPresentationRuntimeOwner {
         classLoader: ClassLoader,
         onTintState: (SystemUiTintStateSource.TintUpdate) -> Unit,
         onSceneState: (SystemUiSceneStateSource.SceneUpdate) -> Unit,
+        onKeyguardAodState: (SystemUiKeyguardAodStateSource.AodUpdate) -> Unit,
         onMobileTypeChanged: (Drawable) -> Unit,
         onTintEvent: ((String) -> Unit)?,
         onSceneEvent: ((String) -> Unit)?,
+        onKeyguardAodEvent: ((String) -> Unit)?,
     ): AttachResult {
         val tintHooks =
             SystemUiTintStateSource.install(
@@ -40,6 +50,22 @@ internal object SystemUiPresentationRuntimeOwner {
                 onTintState = onTintState,
                 onEvent = onTintEvent,
             ).size
+        val keyguardAodHooks =
+            runCatching {
+                SystemUiKeyguardAodStateSource.install(
+                    module = module,
+                    classLoader = classLoader,
+                    onAodState = onKeyguardAodState,
+                    onEvent = onKeyguardAodEvent,
+                ).size
+            }.getOrElse { error ->
+                onKeyguardAodEvent?.invoke(
+                    "keyguardAod install=unavailable reason=" +
+                        (error.message ?: error.javaClass.simpleName) +
+                        " fallback=native-keyguard",
+                )
+                0
+            }
         val sceneHooks =
             SystemUiSceneStateSource.install(
                 module = module,
@@ -58,6 +84,7 @@ internal object SystemUiPresentationRuntimeOwner {
             tintHooks = tintHooks,
             sceneHooks = sceneHooks,
             mobileTypeHooks = mobileTypeHooks,
+            keyguardAodHooks = keyguardAodHooks,
         ).also { current = it }
     }
 
@@ -66,5 +93,7 @@ internal object SystemUiPresentationRuntimeOwner {
         current = null
         SystemUiTintStateSource.resetRuntimeState()
         SystemUiSceneStateSource.resetRuntimeState()
+        SystemUiKeyguardAodStateSource.resetRuntimeState()
+        SystemUiKeyguardHostProbe.resetRuntimeState()
     }
 }

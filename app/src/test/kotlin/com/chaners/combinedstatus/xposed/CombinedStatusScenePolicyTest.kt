@@ -1,6 +1,7 @@
 package com.chaners.combinedstatus.xposed
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -47,17 +48,42 @@ class CombinedStatusScenePolicyTest {
     }
 
     @Test
-    fun keyguardAndAodRemainNativeOnlyUntilDedicatedAdaptersAreVerified() {
-        listOf(
-            CombinedStatusScene.KEYGUARD,
-            CombinedStatusScene.AOD,
-        ).forEach { scene ->
-            val capability = CombinedStatusScenePolicy.capability(scene)
-            assertEquals(CombinedStatusRenderMode.NATIVE_ONLY, capability.renderMode)
-            assertEquals(
-                CombinedStatusMotionOwnership.SYSTEM_UI,
-                capability.motionOwnership,
-            )
-        }
+    fun keyguardIsProjectedCandidateWhileAodRemainsNativeOnly() {
+        val keyguard = CombinedStatusScenePolicy.capability(CombinedStatusScene.KEYGUARD)
+        assertEquals(CombinedStatusRenderMode.PROJECTED, keyguard.renderMode)
+        assertEquals(CombinedStatusMotionOwnership.SYSTEM_UI, keyguard.motionOwnership)
+        assertEquals(CombinedStatusSceneEvidence.STATIC_VERIFIED, keyguard.evidence)
+
+        val aod = CombinedStatusScenePolicy.capability(CombinedStatusScene.AOD)
+        assertEquals(CombinedStatusRenderMode.NATIVE_ONLY, aod.renderMode)
+        assertEquals(CombinedStatusMotionOwnership.SYSTEM_UI, aod.motionOwnership)
+    }
+
+    @Test
+    fun controlCenterProjectionInheritsVerifiedSourceSceneCapability() {
+        assertTrue(
+            CombinedStatusScenePolicy.controlCenterProjectionEligible(
+                sourceScene = CombinedStatusSourceScene.HOME,
+                keyguardEnabled = false,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.controlCenterProjectionEligible(
+                sourceScene = CombinedStatusSourceScene.KEYGUARD,
+                keyguardEnabled = false,
+            ),
+        )
+        assertTrue(
+            CombinedStatusScenePolicy.controlCenterProjectionEligible(
+                sourceScene = CombinedStatusSourceScene.KEYGUARD,
+                keyguardEnabled = true,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.controlCenterProjectionEligible(
+                sourceScene = CombinedStatusSourceScene.UNKNOWN,
+                keyguardEnabled = true,
+            ),
+        )
     }
 }
