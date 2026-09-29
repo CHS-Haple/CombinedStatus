@@ -18,7 +18,7 @@ Control Center transition animation is the active runtime task.
 
 Current implementation line:
 - PR #177 — feat/control-center-transition-matrix;
-- current work-branch checkpoint: Build 488 / 20260930-488;
+- current work-branch checkpoint: Build 489 / 20260930-489;
 - exact-target direction: QS_FAKE role-5 to final-QS role-6 matrix projection;
 - HyperOS remains translation/appearance authority; raw native expansion drives transition geometry and native fake/final Folme owns visual handoff;
 - Guiyuan reads native transition state and renders only its owned Trinity correspondence; final role-6 top-level slots are read-only occupancy witnesses, while the existing QS_FAKE statusIcons-paddingEnd owner now provides a progress-synchronous semantic reservation so surrounding native peers move through SystemUI's own measure/layout path;
@@ -58,6 +58,8 @@ Build 488 addresses a separate Keyguard-originated terminal handoff defect seen 
 
 Bluetooth-device battery tint remains observationally separate: Guiyuan has no writer for `bluetooth_handsfree_battery` tint/alpha/visibility. HyperCeiler's current `StatusBarIcon` implementation only changes HyperOS RIGHT_BLOCK_LIST / CONTROL_CENTER_BLOCK_LIST membership for that slot. No tint mutation is added in Build 488; recurrence should be captured with a read-only slot-tint probe before any compatibility fix.
 
+
+Build 489 keeps the Build-488 Keyguard handoff lease and fixes two independent transition details in the same test package. First, charging exposes a 135px `MiuiBatteryMeterView` around a stable 105px `battery_icon_container`; using the outer BatteryView center as transition position authority creates a 15px compact-source discontinuity at gesture entry. The transition source now uses the real compact carrier as position authority while renderView remains the stable basis/size authority, preserving the Build-486 anti-flattening split without a numeric offset. Second, the Mobile dots still row first, then bars expand vertically in both directions: a shared downward expansion derived from the shortest bar keeps all lower edges collinear, while each bar's remaining height grows upward. No additional animation timeline is introduced.
 Device testing is requested only when the result can change implementation choice or acceptance. Mechanical/documentation steps continue without a new APK round trip.
 
 ## Non-negotiable boundaries
@@ -73,12 +75,12 @@ Device testing is requested only when the result can change implementation choic
 
 ## Immediate next step
 
-1. Run exact-head Runtime CI for Build 488; if green, request one signed Canary.
-2. Device gate A — repeat the lockscreen -> fully expanded Control Center pull and verify the terminal one-frame peer-row re-layout/stall is gone.
-3. Device gate B — reverse fully expanded Control Center back to Keyguard and verify Keyguard Trinity/native peer spacing restores without a delayed jump.
-4. Device gate C — AOD/feature-disable/fail-native still break the lease immediately; the lease must never survive native fraction zero.
-5. Preserve Build-487 HyperCeiler dual-row target compatibility, Build-486 Battery ring-fold, flat Mobile baseline, and source position/basis split.
-6. If `bluetooth_handsfree_battery` inversion recurs, collect read-only tint/visibility evidence before changing ownership.
+1. Run exact-head Runtime CI for Build 489; if green, request one signed Canary.
+2. Device gate A — charging Home: press/start Control Center and verify Trinity has no initial horizontal jump before following the native trajectory.
+3. Device gate B — Mobile morph: verify dots row first, then every bar grows both upward and downward while all four lower edges remain on one line.
+4. Device gate C — Keyguard: re-run the Build-488 lockscreen -> fully expanded Control Center endpoint and reverse collapse; terminal peer-row re-layout must remain fixed.
+5. Device gate D — HyperCeiler dual-row: verify Build-487 structural target recognition remains active and 5G/signal separation is preserved.
+6. Bluetooth-device battery tint remains observation-only until a recurrence produces bounded tint evidence.
 
 ## Reference priority
 

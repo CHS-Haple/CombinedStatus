@@ -536,7 +536,7 @@ internal object CombinedStatusControlCenterRenderSession {
 
         fun transitionSourceSnapshot(): TransitionSourceSnapshot? {
             if (!projectionReady()) return null
-            val anchorView = battery.get() ?: return null
+            val anchorView = carrier.get() ?: return null
             val model = currentModel ?: return null
             val tint = currentTint ?: return null
             return TransitionSourceSnapshot(

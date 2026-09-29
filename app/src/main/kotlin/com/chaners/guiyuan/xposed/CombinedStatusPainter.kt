@@ -263,6 +263,23 @@ internal class CombinedStatusPainter(
             return (maxBarHeight * ratio).coerceAtLeast(diameter)
         }
 
+        fun sharedBottomExpansion(
+            maxBarHeight: Float,
+            diameter: Float,
+            barProgress: Float,
+        ): Float {
+            val shortestTargetHeight =
+                targetBarHeight(
+                    index = 0,
+                    maxBarHeight = maxBarHeight,
+                    diameter = diameter,
+                )
+            val symmetricGrowthRoom =
+                (shortestTargetHeight - diameter)
+                    .coerceAtLeast(0f) / 2f
+            return symmetricGrowthRoom * barProgress.coerceIn(0f, 1f)
+        }
+
         private fun smoothPhase(
             value: Float,
             start: Float,
@@ -1463,7 +1480,14 @@ internal class CombinedStatusPainter(
             val barHeight =
                 diameter +
                     (targetBarHeight - diameter) * barProgress
-            val bottom = centerY + geometry.mobileDotRadius
+            val bottom =
+                centerY +
+                    geometry.mobileDotRadius +
+                    MobileSignalMorphPolicy.sharedBottomExpansion(
+                        maxBarHeight = maxBarHeight,
+                        diameter = diameter,
+                        barProgress = barProgress,
+                    )
             fill(
                 color = tint,
                 alpha = if (level != null && level > index) 255 else 48,

@@ -315,6 +315,34 @@ class SystemUiPanelTransitionSourceTest {
     }
 
     @Test
+    fun mobileSignalMorphExpandsBothWaysWhileKeepingOneSharedBottom() {
+        val maxBarHeight = 54f
+        val diameter = 6f
+        val shortest =
+            CombinedStatusPainter.MobileSignalMorphPolicy.targetBarHeight(
+                index = 0,
+                maxBarHeight = maxBarHeight,
+                diameter = diameter,
+            )
+        val half =
+            CombinedStatusPainter.MobileSignalMorphPolicy.sharedBottomExpansion(
+                maxBarHeight = maxBarHeight,
+                diameter = diameter,
+                barProgress = 0.5f,
+            )
+        val full =
+            CombinedStatusPainter.MobileSignalMorphPolicy.sharedBottomExpansion(
+                maxBarHeight = maxBarHeight,
+                diameter = diameter,
+                barProgress = 1f,
+            )
+
+        assertTrue(half > 0f)
+        assertEquals((shortest - diameter) / 4f, half, 0.0001f)
+        assertEquals((shortest - diameter) / 2f, full, 0.0001f)
+    }
+
+    @Test
     fun mobileSignalMorphUsesNativeHeightOnlyAsACap() {
         val maxBarHeight =
             CombinedStatusPainter.MobileSignalMorphPolicy.targetMaxBarHeight(

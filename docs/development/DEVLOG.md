@@ -11663,3 +11663,44 @@ The affected peer is `bluetooth_handsfree_battery` (headset + battery), not the 
 ### Validation
 
 Exact-head Runtime CI is required. Signed Canary device validation must cover Keyguard pull to fully expanded Control Center and reverse collapse, plus verify AOD/fail-native cleanup remains immediate.
+
+
+## 2026-09-30 — Build 489: compact-carrier source continuity and bidirectional Mobile growth
+
+**Type:** Control Center transition correction  
+**Display version:** 0.0.3  
+**Build / source:** 489 / `20260930-489` / `feat/control-center-transition-matrix`
+
+### Device evidence
+
+Build 487 device video in charging state shows a small one-time horizontal Trinity jump when the Control Center gesture begins. Diagnostic geometry reports a stable compact carrier width of 105px while the charging `MiuiBatteryMeterView` is 135px wide. The previous hybrid source split used the BatteryView center for position and renderView only for basis, so the compact 105px composition and the 135px wrapper do not share the same center at transition entry.
+
+The same device review also clarifies the intended Mobile morph: after the four dots form a row, each bar should expand vertically both upward and downward, but all four lower edges must stay aligned throughout growth.
+
+### Root cause
+
+- **Charging source continuity:** the transition used the correct native wrapper for broad trajectory motion but the wrong geometric sub-authority for compact position. `battery_icon_container` already represents the real compact slot and inherits the same parent/native movement; it should own source position.
+- **Mobile morphology:** Build 486/487 fixed the bottom edge but implemented all growth upward. A common bottom can still move downward while remaining common to every bar.
+
+### Change
+
+- `transitionSourceSnapshot()` now exposes the fake-root `battery_icon_container` as `anchorView`.
+- TransitionOwner continues to compose position from `anchorView` and basis/axes from Guiyuan `renderView`; BatteryView scale/skew therefore still cannot flatten the source.
+- Mobile bar growth keeps one shared bottom offset. The offset is half of the shortest bar's total extra growth, progressed by the existing bar phase:
+  - shortest bar grows symmetrically up/down;
+  - taller bars share the same downward growth and extend farther upward;
+  - all bottoms remain collinear at every bar-growth frame.
+- Raw HyperOS expansion remains the only transition timeline.
+
+### 审查 / review
+
+- **No geometry hack:** no 15px constant is introduced; the real compact carrier is the position witness.
+- **Ownership:** native carrier position + Guiyuan stable render basis remain separate single authorities.
+- **Charging compatibility:** 105/135 or future wrapper-width differences are handled structurally rather than numerically.
+- **Morph semantics:** shared bottom movement is shape-local only; target path/slot geometry is unchanged.
+- **Regression boundary:** Build-488 Keyguard lease, Build-487 HyperCeiler dual-row recognition, Build-486 Battery ring-fold, native raw progress, peer ownership, and semantic reservation remain unchanged.
+- **Lifecycle/performance:** no new hook, listener, animator, timer, polling, or per-frame traversal is added beyond existing draw math.
+
+### Validation
+
+Exact-head Runtime CI is required. One signed Canary should jointly validate charging gesture entry, bidirectional Mobile growth, Keyguard terminal handoff, and HyperCeiler dual-row regression.
