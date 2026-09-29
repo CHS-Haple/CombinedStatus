@@ -1,42 +1,35 @@
 # Development documentation
 
-This directory stores current development state, future direction, version planning, and chronological engineering history.
+This directory has three development-state documents:
 
-## Files
+- [CURRENT.md](CURRENT.md) — day-to-day recovery point and current source of truth.
+- [ROADMAP.md](ROADMAP.md) — phases, future direction, prerequisites, deferred work, and release exit criteria.
+- [DEVLOG.md](DEVLOG.md) — historical engineering decisions and meaningful evidence.
 
-- [CURRENT.md](CURRENT.md) — concise current source of truth: active branch/baseline, current architecture boundary, blockers, validation state, and immediate next step.
-- [ROADMAP.md](ROADMAP.md) — macro phases, planned work, deferred directions, prerequisites, and future-compatible seams.
-- [VERSIONING.md](VERSIONING.md) — current development display-version policy and the first formal-release target.
-- [DEVLOG.md](DEVLOG.md) — chronological engineering history.
-- [RECORDING.md](RECORDING.md) — file-level writing conventions, templates, evidence language, and cross-file synchronization rules.
+Writing/synchronization rules live directly in [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
-## CI routing quick reference
+## Daily workflow
 
-The normative CI contract lives in [CONTRIBUTING.md](../../CONTRIBUTING.md). The Build workflow keeps four scopes:
+Start with CONTRIBUTING + CURRENT. Read ROADMAP, architecture/reference material, or historical DEVLOG entries only when the active task needs them.
 
-- **Light** — Draft and proven repository-only work.
-- **Fast** — ordinary ready `feat/*` / `fix/* -> dev` app/runtime validation.
-- **Integration** — trusted runtime integration on `dev`, including the signed Canary artifact.
-- **Full** — build/dependency/CI/tooling changes and stable boundaries.
+Do not synchronize every fact everywhere:
+- CURRENT changes when baseline, active objective, blocker, validation state, or next step materially changes.
+- DEVLOG changes for durable root causes, rejected/superseded reasoning, architecture/ownership/lifecycle changes, or meaningful device evidence.
+- ROADMAP changes only when future direction changes.
+- CHANGELOG changes only for durable net project/release state.
 
-Routing is evaluated from the current base-to-head diff. The Build summary reports the selected scope, routing reason, detected runtime/build/CI/tooling/docs surfaces, and a mixed-surface warning when runtime work still carries a Full-triggering engineering surface. That warning is guidance, not permission to split an inseparable change or to weaken Full validation.
+## CI model
 
-Signed work-branch Canary remains explicit and demand-driven after a successful trusted checkpoint. Changed paths alone do not prove that device testing is needed; runtime/device acceptance remains an engineering/maintainer decision.
+- Light — Draft and repository-only/mechanical work.
+- Runtime — ordinary app/SystemUI validation; ready PRs build Debug, trusted runtime integration on dev produces signed Canary.
+- Full — main/stable boundaries and build/dependency/CI/tooling/release changes.
 
-## Historical integrity
+Signed work-branch Canary is demand-driven. /canary may be requested on any open same-repository feat/* or fix/* PR; the trusted workflow independently validates the exact requested SHA.
 
-`DEVLOG.md` is historical evidence.
+Normal runtime path:
 
-When later evidence invalidates an older conclusion or implementation route:
-- do not rewrite the old entry;
-- append a later correction/invalidation;
-- update `CURRENT.md` so the current source of truth no longer points at the invalidated route;
-- update `ROADMAP.md` when the future direction changes.
+~~~text
+feat/* or fix/* -> dev -> dev-to-main PR -> main
+~~~
 
-An old Build can remain valid evidence about one SystemUI behavior while its overall architecture is no longer approved for new development.
-
-## Relationship to reference evidence
-
-Reusable implementation patterns are stored separately under [../reference/](../reference/).
-
-Reference evidence is not development history and is not automatic permission to mutate SystemUI. Any adopted pattern still requires exact-target verification and the ownership/fail-native rules in `CONTRIBUTING.md`.
+There is no validation/dev marker or promote/* stage.

@@ -1,49 +1,32 @@
 # Documentation map
 
-This directory separates current development state, architecture policy, reusable reference evidence, and chronological engineering history.
+Guiyuan keeps daily development recovery intentionally small.
 
 ## Start here
 
-The existing required startup path remains unchanged:
+For normal development, read only:
 
-1. [CONTRIBUTING.md](../CONTRIBUTING.md)
-2. [development/CURRENT.md](development/CURRENT.md)
-3. [development/ROADMAP.md](development/ROADMAP.md)
-4. the recent and historically relevant parts of [development/DEVLOG.md](development/DEVLOG.md)
+1. [CONTRIBUTING.md](../CONTRIBUTING.md) — engineering and workflow rules.
+2. [development/CURRENT.md](development/CURRENT.md) — accepted baseline, active objective, blockers, and next step.
 
-For SystemUI architecture, geometry, host, scene, transition, or sizing work, continue with:
-
-5. [architecture/README.md](architecture/README.md)
-6. [reference/README.md](reference/README.md)
-7. the relevant reference/architecture entry for the task
-
-For development-record maintenance or when creating/updating CURRENT, DEVLOG, ROADMAP, architecture/reference records, also follow [development/RECORDING.md](development/RECORDING.md).
-
-For display-version, release-target, or release-preparation work, also read [development/VERSIONING.md](development/VERSIONING.md).
+Then load task-specific material only when needed:
+- [development/ROADMAP.md](development/ROADMAP.md) — future phases, prerequisites, deferred work, and 1.0.0 direction.
+- [architecture/README.md](architecture/README.md) — reusable ownership/lifecycle/scene/layout contracts.
+- [reference/README.md](reference/README.md) — reusable SystemUI/upstream evidence.
+- [development/DEVLOG.md](development/DEVLOG.md) — historical decisions, rejected routes, root causes, and meaningful device evidence.
+- [CHANGELOG.md](../CHANGELOG.md) — durable net project/release state.
 
 ## Authority by purpose
 
-| Need | Document | Meaning |
-| --- | --- | --- |
-| Engineering rules | `CONTRIBUTING.md` | Normative |
-| Current branch truth | `development/CURRENT.md` | Current source of truth |
-| Planned direction | `development/ROADMAP.md` | Planning source of truth |
-| Version / first-release target | `development/VERSIONING.md` | Current versioning and release-boundary source of truth |
-| Architecture policy/status | `architecture/` | Policy plus explicit supersession state |
-| Reusable implementation evidence | `reference/` | Evidence only; never automatic write authority |
-| Engineering history | `development/DEVLOG.md` | Chronological historical record |
-| Record writing format | `development/RECORDING.md` | File-level writing and synchronization guide |
-| Release/net-change record | `CHANGELOG.md` | Durable release-state record |
+| Need | Source |
+| --- | --- |
+| Engineering/contribution rules | CONTRIBUTING.md |
+| Day-to-day current truth | development/CURRENT.md |
+| Future direction | development/ROADMAP.md |
+| Reusable architecture policy | architecture/ |
+| Reusable platform evidence | reference/ |
+| Historical engineering decisions | development/DEVLOG.md |
+| Durable release/net changes | CHANGELOG.md |
+| Display/build identity | Gradle project configuration |
 
-## Historical-record rule
-
-Historical engineering records are intentionally preserved.
-
-When later evidence invalidates an older architecture or hypothesis:
-
-- do not delete or rewrite the historical entry;
-- do not make an old result appear as if it never happened;
-- add a current supersession/status notice in the appropriate current-policy document;
-- append a later correction to the development log when a durable engineering conclusion changes.
-
-A historical implementation may remain useful evidence while being explicitly **not approved as the current architecture**.
+Historical DEVLOG entries remain evidence after supersession. Confirm old routes against CURRENT and current architecture before reuse.
