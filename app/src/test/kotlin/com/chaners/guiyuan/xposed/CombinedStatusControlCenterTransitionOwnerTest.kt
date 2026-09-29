@@ -166,18 +166,49 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
-    fun keyguardTransitionLeavesNativePeersOnSystemUiMotionPath() {
+    fun verifiedSourceScenesKeepSemanticReservationThroughProjection() {
         assertTrue(
             CombinedStatusControlCenterTransitionOwner.Policy
                 .usesProgressSynchronousReservation(CombinedStatusSourceScene.HOME),
         )
         assertTrue(
-            !CombinedStatusControlCenterTransitionOwner.Policy
+            CombinedStatusControlCenterTransitionOwner.Policy
                 .usesProgressSynchronousReservation(CombinedStatusSourceScene.KEYGUARD),
         )
         assertTrue(
             !CombinedStatusControlCenterTransitionOwner.Policy
                 .usesProgressSynchronousReservation(CombinedStatusSourceScene.UNKNOWN),
+        )
+    }
+
+    @Test
+    fun nativeFinalAppearanceCanOnlyCatchOutwardGeometryUp() {
+        assertEquals(
+            0.62f,
+            CombinedStatusControlCenterTransitionOwner.Policy.handoffMotionProgress(
+                expansionProgress = 0.62f,
+                finalAppearanceAlpha = 0.2f,
+                finalAppearanceActive = true,
+            ),
+            0.0001f,
+        )
+        assertEquals(
+            0.82f,
+            CombinedStatusControlCenterTransitionOwner.Policy.handoffMotionProgress(
+                expansionProgress = 0.62f,
+                finalAppearanceAlpha = 0.82f,
+                finalAppearanceActive = true,
+            ),
+            0.0001f,
+        )
+        assertEquals(
+            0.62f,
+            CombinedStatusControlCenterTransitionOwner.Policy.handoffMotionProgress(
+                expansionProgress = 0.62f,
+                finalAppearanceAlpha = 0.82f,
+                finalAppearanceActive = false,
+            ),
+            0.0001f,
         )
     }
 }

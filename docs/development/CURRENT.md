@@ -18,7 +18,7 @@ Control Center transition animation is the active runtime task.
 
 Current implementation line:
 - PR #177 — feat/control-center-transition-matrix;
-- current work-branch checkpoint: Build 490 / 20260930-490;
+- current work-branch checkpoint: Build 491 / 20260930-491;
 - exact-target direction: QS_FAKE role-5 to final-QS role-6 matrix projection;
 - HyperOS remains translation/appearance authority; raw native expansion drives transition geometry and native fake/final Folme owns visual handoff;
 - Guiyuan reads native transition state and renders only its owned Trinity correspondence; final role-6 top-level slots are read-only occupancy witnesses, while the existing QS_FAKE statusIcons-paddingEnd owner now provides a progress-synchronous semantic reservation so surrounding native peers move through SystemUI's own measure/layout path;
@@ -62,6 +62,8 @@ Bluetooth-device battery tint remains observationally separate: Guiyuan has no w
 Build 489 keeps the Build-488 Keyguard handoff lease and fixes two independent transition details in the same test package. First, charging exposes a 135px `MiuiBatteryMeterView` around a stable 105px `battery_icon_container`; using the outer BatteryView center as transition position authority creates a 15px compact-source discontinuity at gesture entry. The transition source now uses the real compact carrier as position authority while renderView remains the stable basis/size authority, preserving the Build-486 anti-flattening split without a numeric offset. Second, the Mobile dots still row first, then bars expand vertically in both directions: a shared downward expansion derived from the shortest bar keeps all lower edges collinear, while each bar's remaining height grows upward. No additional animation timeline is introduced.
 
 Build 488 is device-rejected as insufficient for Keyguard gesture responsiveness. The lifecycle lease can preserve ownership at handoff, but the 488 diagnostic shows the transition still updates `statusIcons.paddingEnd` nearly every display frame through `setPaddingRelative`. That is a layout-path mutation, not a draw/property animation, and it adds a one-layout-behind peer-row motion on an already busy Keyguard/Control Center handoff. Build 490 therefore keeps the lease but removes progress-synchronous padding reservation for KEYGUARD-originated transitions. Keyguard native peers remain entirely on HyperOS fake-root/child translation motion; Guiyuan only renders its own component transition. HOME keeps progress reservation unchanged pending separate evidence. Build 489 compact-carrier source continuity and bidirectional Mobile growth are retained.
+
+Build 490 is device-rejected. 120fps device video isolates three separate defects: (1) charging transition source discontinuity — the Guiyuan ring center moves from approximately x=1307.7 to x=1277.6 in one 8.3ms frame while the adjacent native peer row remains effectively stationary; therefore the QS_FAKE carrier is not the steady visual source authority. (2) Keyguard reservation removal causes native peers to collapse into the decomposed Guiyuan transition region. (3) during a fast Keyguard fling, old QS_FAKE/Guiyuan and final Control Center status rows overlap with visibly different geometry for roughly 10 frames (~83ms), while slow pulls hide the mismatch. Build 491 restores verified-scene semantic reservation, commits expansion-driven reservation before HyperOS consumes the same native sample, freezes HOME/KEYGUARD steady render geometry as the transition source when available, and lets native final-surface alpha only catch outward geometry up during the native appearance handoff. No custom duration/threshold is added. Mobile shared downward growth is also corrected to half of the tallest bar's extra height so the tallest bar grows symmetrically about the original dot row while all four bottoms remain collinear.
 Device testing is requested only when the result can change implementation choice or acceptance. Mechanical/documentation steps continue without a new APK round trip.
 
 ## Non-negotiable boundaries
@@ -77,12 +79,12 @@ Device testing is requested only when the result can change implementation choic
 
 ## Immediate next step
 
-1. Run exact-head Runtime CI for Build 490; if green, produce one signed Canary.
-2. Device gate A — Keyguard pull: compare directly with Build 488 and verify the status row follows the finger without the obvious lag/stall across the full gesture, not only the endpoint.
-3. Device gate B — Keyguard reverse collapse: verify native peers remain smooth and no overlap/regression appears after removing per-frame padding reservation.
-4. Device gate C — charging Home: verify Build-489 compact-carrier source removes the initial horizontal Trinity jump.
-5. Device gate D — Mobile: verify row -> bidirectional vertical growth with a shared flat bottom.
-6. Device gate E — HyperCeiler dual-row compatibility and 5G/signal separation remain intact.
+1. Run exact-head Runtime CI for Build 491; if green, produce one signed Canary.
+2. Charging/Home gate — verify transition entry no longer has the one-frame ~30px Guiyuan-only left jump relative to VPN/headset/silent peers.
+3. Keyguard occupancy gate — verify native peers remain reserved throughout both charging and non-charging pulls; Build-490 overlap must be gone.
+4. Fast Keyguard endpoint gate — perform a quick fling to fully expanded Control Center and verify the ~80ms fake/final double-geometry hitch is materially reduced; also compare a slow pull.
+5. Mobile morph gate — dots row at center, then the tallest bar grows equally upward/downward while all four bottoms stay flat; the resulting signal group must no longer look top-heavy.
+6. Reverse-collapse and HyperCeiler dual-row/5G regression checks remain required.
 
 ## Reference priority
 

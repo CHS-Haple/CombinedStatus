@@ -268,16 +268,10 @@ internal class CombinedStatusPainter(
             diameter: Float,
             barProgress: Float,
         ): Float {
-            val shortestTargetHeight =
-                targetBarHeight(
-                    index = 0,
-                    maxBarHeight = maxBarHeight,
-                    diameter = diameter,
-                )
-            val symmetricGrowthRoom =
-                (shortestTargetHeight - diameter)
+            val sharedDownwardGrowth =
+                (maxBarHeight - diameter)
                     .coerceAtLeast(0f) / 2f
-            return symmetricGrowthRoom * barProgress.coerceIn(0f, 1f)
+            return sharedDownwardGrowth * barProgress.coerceIn(0f, 1f)
         }
 
         private fun smoothPhase(

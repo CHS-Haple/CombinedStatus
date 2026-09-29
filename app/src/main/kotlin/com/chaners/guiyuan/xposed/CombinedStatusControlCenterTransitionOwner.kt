@@ -125,6 +125,16 @@ internal object CombinedStatusControlCenterTransitionOwner {
             return
         }
 
+        val steadySourceView =
+            when (sourceScene) {
+                CombinedStatusSourceScene.HOME ->
+                    CombinedStatusHomeRenderSession.currentTransitionSourceView()
+                CombinedStatusSourceScene.KEYGUARD ->
+                    CombinedStatusKeyguardRenderSession.currentTransitionSourceView()
+                CombinedStatusSourceScene.UNKNOWN ->
+                    null
+            }
+
         val existing = current
         if (
             existing == null ||
@@ -143,6 +153,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     fakeRoot = endpoint.fakeRoot,
                     finalRoot = endpoint.finalRoot,
                     sourceSnapshot = sourceSnapshot,
+                    steadySourceView = steadySourceView,
+                    steadySourceLabel = sourceScene.name.lowercase(),
                 ) ?: run {
                     current = null
                     return
@@ -168,6 +180,21 @@ internal object CombinedStatusControlCenterTransitionOwner {
         fun motionProgress(raw: Float): Float =
             geometryProgress(raw)
 
+        fun handoffMotionProgress(
+            expansionProgress: Float,
+            finalAppearanceAlpha: Float,
+            finalAppearanceActive: Boolean,
+        ): Float {
+            val expansion = geometryProgress(expansionProgress)
+            if (!finalAppearanceActive) return expansion
+            val appearance =
+                finalAppearanceAlpha
+                    .takeIf(Float::isFinite)
+                    ?.coerceIn(0f, 1f)
+                    ?: 0f
+            return maxOf(expansion, appearance)
+        }
+
         fun mobileSignalShapeProgress(rawProgress: Float): Float {
             val p = geometryProgress(rawProgress)
             return p * p
@@ -183,7 +210,9 @@ internal object CombinedStatusControlCenterTransitionOwner {
 
         fun usesProgressSynchronousReservation(
             sourceScene: CombinedStatusSourceScene,
-        ): Boolean = sourceScene == CombinedStatusSourceScene.HOME
+        ): Boolean =
+            sourceScene == CombinedStatusSourceScene.HOME ||
+                sourceScene == CombinedStatusSourceScene.KEYGUARD
 
         data class ReservationSpan(
             val sourceLeft: Float,
@@ -420,6 +449,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
         sourceView: View,
         sourceAnchor: View,
         sourceSnapshot: CombinedStatusControlCenterRenderSession.TransitionSourceSnapshot,
+        private val frozenSource: FrozenSourceGeometry?,
         private val finalStatusIcons: ViewGroup,
         private val finalBattery: View,
     ) {
@@ -498,6 +528,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 ",appearanceAnimated=" + nativeAppearanceAnimated +
                 ",nativePeers=systemui" +
                 ",sourceAnchor=" + (sourceAnchorRef.get()?.javaClass?.simpleName ?: "none") +
+                ",sourceOrigin=" + (frozenSource?.source ?: "qs-fake-live") +
                 ",sourceStateVersion=" + lastStateVersion +
                 ",root=" + (rootRef.get()?.javaClass?.simpleName ?: "none") +
                 ",fake=" + (fakeRootRef.get()?.javaClass?.simpleName ?: "none") +
@@ -582,35 +613,52 @@ internal object CombinedStatusControlCenterTransitionOwner {
             val sourceAnchor = sourceAnchorRef.get() ?: return
             if (sourceView.width <= 0 || sourceView.height <= 0) return
 
-            val sourcePositionSample =
-                sample(
-                    view = sourceAnchor,
-                    root = rootView,
-                ) ?: return
-            val sourceBasisSample =
-                sample(
-                    view = sourceView,
-                    root = rootView,
-                ) ?: return
+            val liveSourceParentGeometry =
+                if (frozenSource == null) {
+                    val sourcePositionSample =
+                        sample(
+                            view = sourceAnchor,
+                            root = rootView,
+                        ) ?: return
+                    val sourceBasisSample =
+                        sample(
+                            view = sourceView,
+                            root = rootView,
+                        ) ?: return
+                    Policy.composeSourceGeometry(
+                        positionAuthority = sourcePositionSample.geometry,
+                        basisAuthority = sourceBasisSample.geometry,
+                    )
+                } else {
+                    null
+                }
             val sourceParentGeometry =
-                Policy.composeSourceGeometry(
-                    positionAuthority = sourcePositionSample.geometry,
-                    basisAuthority = sourceBasisSample.geometry,
-                )
+                frozenSource?.geometry ?: liveSourceParentGeometry ?: return
+            val sourceWidth = frozenSource?.width ?: sourceView.width
+            val sourceHeight = frozenSource?.height ?: sourceView.height
             val model = currentSnapshot.model
             val specs =
                 painter.transitionComponentSpecs(
-                    width = sourceView.width,
-                    height = sourceView.height,
+                    width = sourceWidth,
+                    height = sourceHeight,
                     model = model,
                 )
             if (specs.isEmpty()) return
 
             val nativeProgress = Policy.geometryProgress(progress)
-            val motionProgress = Policy.motionProgress(nativeProgress)
             val opacity = endpointAlpha(fake)
+            val finalOpacity =
+                finalRootRef.get()
+                    ?.let(::endpointAlpha)
+                    ?: 0f
+            val motionProgress =
+                Policy.handoffMotionProgress(
+                    expansionProgress = nativeProgress,
+                    finalAppearanceAlpha = finalOpacity,
+                    finalAppearanceActive = nativeAppearance,
+                )
             val mobileSignalShapeProgress =
-                Policy.mobileSignalShapeProgress(nativeProgress)
+                Policy.mobileSignalShapeProgress(motionProgress)
             if (opacity <= 0f) return
 
             val transitionColors =
@@ -643,8 +691,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 val sourceGeometry =
                     Policy.componentGeometry(
                         parentGeometry = sourceParentGeometry,
-                        parentWidth = sourceView.width,
-                        parentHeight = sourceView.height,
+                        parentWidth = sourceWidth,
+                        parentHeight = sourceHeight,
                         bounds = spec.sourceBounds,
                     ) ?: return@forEach
                 val witness =
@@ -679,7 +727,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     if (targetGeometry != null) {
                         opacity
                     } else {
-                        opacity * Policy.unmatchedExitOpacity(nativeProgress)
+                        opacity * Policy.unmatchedExitOpacity(motionProgress)
                     }
                 if (componentOpacity <= 0f) return@forEach
                 val matrix =
@@ -696,8 +744,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 canvas.concat(matrix)
                 painter.drawTransitionComponent(
                     canvas = canvas,
-                    width = sourceView.width,
-                    height = sourceView.height,
+                    width = sourceWidth,
+                    height = sourceHeight,
                     model = model,
                     colors = transitionColors,
                     component = spec.component,
@@ -766,11 +814,21 @@ internal object CombinedStatusControlCenterTransitionOwner {
                             frozenReservationSpans = resolved
                         }
                     ?: return
+            val finalAppearanceAlpha =
+                finalRootRef.get()
+                    ?.let(::endpointAlpha)
+                    ?: 0f
+            val reservationProgress =
+                Policy.handoffMotionProgress(
+                    expansionProgress = progress,
+                    finalAppearanceAlpha = finalAppearanceAlpha,
+                    finalAppearanceActive = nativeAppearance,
+                )
             val requestedWidth =
                 Policy.resolveReservationWidth(
-                    compactWidthPx = source.width,
+                    compactWidthPx = frozenSource?.width ?: source.width,
                     spans = spans,
-                    progress = progress,
+                    progress = reservationProgress,
                 )
             if (lastReservationWidthPx == requestedWidth) return
             if (
@@ -1371,6 +1429,13 @@ internal object CombinedStatusControlCenterTransitionOwner {
             val geometry: FloatArray,
         )
 
+        private data class FrozenSourceGeometry(
+            val width: Int,
+            val height: Int,
+            val geometry: FloatArray,
+            val source: String,
+        )
+
         private data class CompatibilityOpticalTarget(
             val view: View,
             val source: String,
@@ -1418,6 +1483,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 fakeRoot: ViewGroup,
                 finalRoot: ViewGroup,
                 sourceSnapshot: CombinedStatusControlCenterRenderSession.TransitionSourceSnapshot,
+                steadySourceView: View?,
+                steadySourceLabel: String,
             ): Session? {
                 val finalStatusIcons =
                     uniqueDescendant(finalRoot, STATUS_ICON_CONTAINER_CLASS_NAME)
@@ -1425,6 +1492,26 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 val finalBattery =
                     uniqueDescendantView(finalRoot, BATTERY_VIEW_CLASS_NAME)
                         ?: return null
+                val frozenSource =
+                    steadySourceView
+                        ?.takeIf { view ->
+                            view.width > 0 &&
+                                view.height > 0 &&
+                                view.rootView === root
+                        }
+                        ?.let { view ->
+                            sampleGeometry(
+                                view = view,
+                                root = root,
+                            )?.let { geometry ->
+                                FrozenSourceGeometry(
+                                    width = view.width,
+                                    height = view.height,
+                                    geometry = geometry,
+                                    source = steadySourceLabel,
+                                )
+                            }
+                        }
                 return Session(
                     root = root,
                     fakeRoot = fakeRoot,
@@ -1432,8 +1519,33 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     sourceView = sourceSnapshot.view,
                     sourceAnchor = sourceSnapshot.anchorView,
                     sourceSnapshot = sourceSnapshot,
+                    frozenSource = frozenSource,
                     finalStatusIcons = finalStatusIcons,
                     finalBattery = finalBattery,
+                )
+            }
+
+            private fun sampleGeometry(
+                view: View,
+                root: View,
+            ): FloatArray? {
+                if (view.width <= 0 || view.height <= 0) return null
+                val matrix = Matrix()
+                view.transformMatrixToGlobal(matrix)
+                root.transformMatrixToLocal(matrix)
+                val values = FloatArray(9)
+                matrix.getValues(values)
+                return floatArrayOf(
+                    ((values[Matrix.MSCALE_X] * view.width) +
+                        (values[Matrix.MSKEW_X] * view.height)) / 2f +
+                        values[Matrix.MTRANS_X],
+                    ((values[Matrix.MSKEW_Y] * view.width) +
+                        (values[Matrix.MSCALE_Y] * view.height)) / 2f +
+                        values[Matrix.MTRANS_Y],
+                    values[Matrix.MSCALE_X] * view.width,
+                    values[Matrix.MSKEW_Y] * view.width,
+                    values[Matrix.MSKEW_X] * view.height,
+                    values[Matrix.MSCALE_Y] * view.height,
                 )
             }
 

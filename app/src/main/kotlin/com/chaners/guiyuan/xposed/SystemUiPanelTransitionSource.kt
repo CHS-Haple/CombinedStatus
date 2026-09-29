@@ -204,6 +204,22 @@ internal object SystemUiPanelTransitionSource {
                                 nativeFraction(
                                     (chain.getArg(0) as? Number)?.toFloat(),
                                 )
+                            val transitionEndpoints =
+                                controlAnchorContract
+                                    ?.transitionEndpointsFromCallback(chain.thisObject)
+                            val preNativeUpdate =
+                                Update(
+                                    source = Source.CONTROL_CENTER,
+                                    fraction = fraction,
+                                    expanded = null,
+                                    tracking = null,
+                                    visible = null,
+                                    controlCenterTransitionEndpoints = transitionEndpoints,
+                                )
+                            // Reservation/source projection must be committed before
+                            // HyperOS consumes this expansion sample. Drawing still
+                            // happens on the normal traversal after the native callback.
+                            onUpdate?.invoke(preNativeUpdate)
                             val result = chain.proceed()
                             val anchorSnapshot =
                                 if (
@@ -216,27 +232,17 @@ internal object SystemUiPanelTransitionSource {
                                 } else {
                                     null
                                 }
-                            val update =
-                                Update(
-                                    source = Source.CONTROL_CENTER,
-                                    fraction = fraction,
-                                    expanded = null,
-                                    tracking = null,
-                                    visible = null,
-                                    controlCenterTransitionEndpoints =
-                                        controlAnchorContract
-                                            ?.transitionEndpointsFromCallback(chain.thisObject),
-                                    controlCenterAnchor = anchorSnapshot,
-                                    homeMotion =
-                                        if (anchorSnapshot != null) {
-                                            SystemUiIslandMotionSource.currentOwnerSnapshot()
-                                        } else {
-                                            null
-                                        },
-                                )
-                            onUpdate?.invoke(update)
                             emitDiagnostic(
-                                update = update,
+                                update =
+                                    preNativeUpdate.copy(
+                                        controlCenterAnchor = anchorSnapshot,
+                                        homeMotion =
+                                            if (anchorSnapshot != null) {
+                                                SystemUiIslandMotionSource.currentOwnerSnapshot()
+                                            } else {
+                                                null
+                                            },
+                                    ),
                                 onEvent = onEvent,
                                 isProbeEnabled = isProbeEnabled,
                             )

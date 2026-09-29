@@ -115,6 +115,9 @@ internal object CombinedStatusHomeRenderSession {
     fun currentTintState(): CombinedStatusTintState? = current?.currentTintState()
 
     @Synchronized
+    fun currentTransitionSourceView(): View? = current?.transitionSourceView()
+
+    @Synchronized
     fun detach(preserveVisual: Boolean = false) {
         current?.stop(removeVisual = !preserveVisual)
         current = null
@@ -299,6 +302,14 @@ internal object CombinedStatusHomeRenderSession {
 
         fun currentTintState(): CombinedStatusTintState? =
             renderController.currentTintState()
+
+        fun transitionSourceView(): View? =
+            probeView.takeIf { view ->
+                layoutReady &&
+                    view.width > 0 &&
+                    view.height > 0 &&
+                    batteryContainer.get()?.isAttachedToWindow == true
+            }
 
         fun stop(removeVisual: Boolean = true) {
             layoutReady = false

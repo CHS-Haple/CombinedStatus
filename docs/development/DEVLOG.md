@@ -11742,3 +11742,52 @@ A layout property was being used as a high-frequency animation property. The nat
 ### Validation
 
 Exact-head Runtime CI and one signed Canary are required. The decisive test is full-gesture finger following on Keyguard versus Build 488.
+
+
+## 2026-09-30 — Build 491: steady-source continuity and native-phase handoff
+
+**Type:** Control Center source/endpoint continuity correction  
+**Display version:** 0.0.3  
+**Build / source:** 491 / `20260930-491` / `feat/control-center-transition-matrix`
+
+### Device evidence
+
+Build 490 is rejected on device.
+
+The supplied 120fps recording gives three bounded observations:
+
+- **Charging source discontinuity:** between video frames at about 0.5499s and 0.5582s, the green Guiyuan ring center shifts from approximately x=1307.7 to x=1277.6, a ~30.1px left jump in one 8.3ms frame. Frame registration of the neighboring native peer region is effectively stationary, so this is not a whole-row HyperOS translation.
+- **Keyguard occupancy regression:** after Build 490 disables Keyguard progress reservation, VPN/headset/silent peers visibly collapse into the decomposed Guiyuan drawing during the pull, in both charging and non-charging semantics.
+- **Fast terminal handoff:** during a fast Keyguard fling, the old QS_FAKE/Guiyuan row and final Control Center row coexist at different geometry for roughly 10 frames (~83ms). A slow pull makes the same interval much harder to perceive.
+
+### Root cause
+
+- QS_FAKE `battery_icon_container` is a valid compact carrier inside the projected surface, but it is not the visual source position authority for the last steady HOME/KEYGUARD frame. Using it as the transition origin allows a surface-switch discontinuity even when its width is stable.
+- Build 490 removed a required occupancy contract instead of fixing its phase.
+- `SystemUiPanelTransitionSource` previously invoked Guiyuan's expansion update only **after** native `onExpansionChanged` returned. Semantic reservation therefore described the current fraction only after HyperOS had already consumed that sample.
+- Native appearance handoff is independent of expansion fraction. During a fast fling the final native surface can become visibly active while Guiyuan geometry is still behind on expansion progress.
+- Build 489 used the shortest Mobile bar to determine shared downward growth; the downward component was too small to change the group optical center materially.
+
+### Change
+
+- HOME and KEYGUARD steady render sessions now expose their laid-out render View as a read-only transition-source witness.
+- Transition Session freezes that steady View's full transformed geometry before native expansion processing when available. QS_FAKE live carrier sampling remains a compatibility fallback only.
+- Expansion update/reservation is committed before calling native `onExpansionChanged`; drawing still occurs on the normal traversal after native processing.
+- HOME and KEYGUARD progress reservation are both restored; UNKNOWN remains lightweight/native.
+- When native final appearance is active, effective outward geometry progress is the greater of native expansion progress and the **actual final native surface alpha**. This has no custom duration, threshold, or interpolator and guarantees Guiyuan geometry cannot remain behind a final surface that is already more visible.
+- Reservation uses the same native-driven handoff progress so fake peer geometry converges with the final row during the actual appearance handoff.
+- Mobile shared bottom downward growth is now half of the tallest bar's extra height. The tallest bar therefore expands symmetrically around the landed dot row, while all four lower edges remain collinear.
+
+### 审查 / review
+
+- **Source ownership:** steady HOME/KEYGUARD rendering owns the transition origin; QS_FAKE remains the projected carrier, not the origin.
+- **Native timing:** no custom animator, duration, delay, or fraction threshold is introduced. Expansion and final-surface alpha remain HyperOS authorities.
+- **Reservation:** Build-490's removal is explicitly rejected; occupancy is restored, but its update is moved to the same native callback phase instead of one callback late.
+- **Appearance:** Guiyuan does not write final QS alpha/translation/visibility; it only reads final effective alpha to avoid lagging behind native handoff.
+- **Performance:** no new listener, polling loop, reflection traversal per frame, or timer is added. Existing pre-draw work reuses already-held endpoint references.
+- **Fallback:** if a steady source View cannot be sampled, the existing QS_FAKE live source remains available rather than inventing coordinates.
+- **Compatibility:** Build-487 HyperCeiler dual-row target recognition, Build-488 Keyguard lease, and Battery ring-fold remain intact.
+
+### Validation
+
+Exact-head Runtime CI and one signed Canary are required. Device validation must include charging entry, Keyguard occupancy, **fast** fully-expanded handoff, slow-pull comparison, reverse collapse, Mobile optical centering, and HyperCeiler dual-row regression.

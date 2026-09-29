@@ -79,6 +79,9 @@ internal object CombinedStatusKeyguardRenderSession {
     }
 
     @Synchronized
+    fun currentTransitionSourceView(): View? = current?.transitionSourceView()
+
+    @Synchronized
     fun detach() {
         current?.stop()
         current = null
@@ -147,6 +150,14 @@ internal object CombinedStatusKeyguardRenderSession {
                 systemIcons.get() === resolved.systemIcons &&
                 batteryView.get() === resolved.battery &&
                 batteryCarrier.get() === resolved.batteryCarrier
+
+        fun transitionSourceView(): View? =
+            renderView.takeIf { view ->
+                layoutReady &&
+                    view.width > 0 &&
+                    view.height > 0 &&
+                    systemIcons.get()?.isAttachedToWindow == true
+            }
 
         fun start() {
             val overlayHost = systemIcons.get() ?: return
