@@ -33,6 +33,8 @@ internal object SystemUiIslandMotionSource {
 
     private var injectorRef = WeakReference<Any>(null)
     private var diagnosticFields: List<Pair<String, Field>> = emptyList()
+    @Volatile
+    private var islandShowing: Boolean? = null
 
     fun install(
         module: XposedModule,
@@ -73,18 +75,21 @@ internal object SystemUiIslandMotionSource {
                         val secondary = chain.getArg(1) as? Boolean ?: false
                         val animate = chain.getArg(2) as? Boolean ?: false
                         val result = chain.proceed()
-                        if (onEvent == null || !isProbeEnabled()) {
-                            return@Hooker result
-                        }
-
                         val injector =
                             outerField?.let { field ->
                                 runCatching { field.get(chain.thisObject) }.getOrNull()
                             }
-                        if (injector != null) {
-                            synchronized(this) {
+                        synchronized(this) {
+                            islandShowing = showing
+                            if (injector != null) {
                                 injectorRef = WeakReference(injector)
                             }
+                        }
+                        if (onEvent == null || !isProbeEnabled()) {
+                            return@Hooker result
+                        }
+
+                        if (injector != null) {
                             val views =
                                 resolvedDiagnosticFields.mapNotNull { (name, field) ->
                                     (runCatching { field.get(injector) as? View }.getOrNull())
@@ -118,6 +123,9 @@ internal object SystemUiIslandMotionSource {
     fun matches(handle: HookHandle): Boolean = handle.id == HOOK_ID
 
     @Synchronized
+    fun isIslandShowing(): Boolean = islandShowing == true
+
+    @Synchronized
     fun currentOwnerSnapshot(): OwnerSnapshot? {
         val injector = injectorRef.get() ?: return null
         val views =
@@ -135,6 +143,7 @@ internal object SystemUiIslandMotionSource {
         synchronized(this) {
             injectorRef = WeakReference(null)
             diagnosticFields = emptyList()
+            islandShowing = null
         }
         DiagnosticProbe.reset()
     }

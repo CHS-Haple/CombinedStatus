@@ -126,12 +126,12 @@ internal object CombinedStatusControlCenterTransitionOwner {
             return
         }
 
-        val steadySourceView =
+        val steadySourceWitness =
             when (sourceScene) {
                 CombinedStatusSourceScene.HOME ->
-                    CombinedStatusHomeRenderSession.currentTransitionSourceView()
+                    CombinedStatusHomeRenderSession.currentTransitionSourceWitness()
                 CombinedStatusSourceScene.KEYGUARD ->
-                    CombinedStatusKeyguardRenderSession.currentTransitionSourceView()
+                    CombinedStatusKeyguardRenderSession.currentTransitionSourceWitness()
                 CombinedStatusSourceScene.UNKNOWN ->
                     null
             }
@@ -154,7 +154,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     fakeRoot = endpoint.fakeRoot,
                     finalRoot = endpoint.finalRoot,
                     sourceSnapshot = sourceSnapshot,
-                    steadySourceView = steadySourceView,
+                    steadySourceWitness = steadySourceWitness,
                     steadySourceLabel = sourceScene.name.lowercase(),
                 ) ?: run {
                     current = null
@@ -170,7 +170,11 @@ internal object CombinedStatusControlCenterTransitionOwner {
             nativeAppearance = nativeAppearance,
             nativeAppearanceAnimated = nativeAppearanceAnimated,
             transitionReservationEnabled =
-                Policy.usesProgressSynchronousReservation(sourceScene),
+                Policy.usesProgressSynchronousReservation(
+                    sourceScene = sourceScene,
+                    charging = sourceSnapshot.model.charging,
+                    nativeIslandShowing = SystemUiIslandMotionSource.isIslandShowing(),
+                ),
         )
     }
 
@@ -224,9 +228,14 @@ internal object CombinedStatusControlCenterTransitionOwner {
 
         fun usesProgressSynchronousReservation(
             sourceScene: CombinedStatusSourceScene,
+            charging: Boolean = false,
+            nativeIslandShowing: Boolean = false,
         ): Boolean =
-            sourceScene == CombinedStatusSourceScene.HOME ||
-                sourceScene == CombinedStatusSourceScene.KEYGUARD
+            (
+                sourceScene == CombinedStatusSourceScene.HOME ||
+                    sourceScene == CombinedStatusSourceScene.KEYGUARD
+            ) &&
+                !(charging && nativeIslandShowing)
 
         enum class ReservationProgress {
             LINEAR,
@@ -1844,7 +1853,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 fakeRoot: ViewGroup,
                 finalRoot: ViewGroup,
                 sourceSnapshot: CombinedStatusControlCenterRenderSession.TransitionSourceSnapshot,
-                steadySourceView: View?,
+                steadySourceWitness: CombinedStatusTransitionSourceWitness?,
                 steadySourceLabel: String,
             ): Session? {
                 val finalStatusIcons =
@@ -1854,30 +1863,46 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     uniqueDescendantView(finalRoot, BATTERY_VIEW_CLASS_NAME)
                         ?: return null
                 val frozenSource =
-                    steadySourceView
-                        ?.takeIf { view ->
-                            view.width > 0 &&
-                                view.height > 0 &&
-                                view.isAttachedToWindow
+                    steadySourceWitness
+                        ?.takeIf { witness ->
+                            witness.renderView.width > 0 &&
+                                witness.renderView.height > 0 &&
+                                witness.renderView.isAttachedToWindow &&
+                                witness.positionAnchor.width > 0 &&
+                                witness.positionAnchor.height > 0 &&
+                                witness.positionAnchor.isAttachedToWindow
                         }
-                        ?.let { view ->
-                            sampleGeometry(
-                                view = view,
-                                root = root,
-                            )?.let { geometry ->
-                                FrozenSourceGeometry(
-                                    width = view.width,
-                                    height = view.height,
-                                    geometry = geometry,
-                                    source =
-                                        steadySourceLabel +
-                                            if (view.rootView === root.rootView) {
-                                                "-steady-same-root"
-                                            } else {
-                                                "-steady-cross-root"
-                                            },
-                                )
-                            }
+                        ?.let { witness ->
+                            val basisGeometry =
+                                sampleGeometry(
+                                    view = witness.renderView,
+                                    root = root,
+                                ) ?: return@let null
+                            val positionGeometry =
+                                sampleGeometry(
+                                    view = witness.positionAnchor,
+                                    root = root,
+                                ) ?: return@let null
+                            FrozenSourceGeometry(
+                                width = witness.renderView.width,
+                                height = witness.renderView.height,
+                                geometry =
+                                    Policy.composeSourceGeometry(
+                                        positionAuthority = positionGeometry,
+                                        basisAuthority = basisGeometry,
+                                    ),
+                                source =
+                                    steadySourceLabel +
+                                        "-steady-anchor+" +
+                                        if (
+                                            witness.positionAnchor.rootView ===
+                                            root.rootView
+                                        ) {
+                                            "same-root"
+                                        } else {
+                                            "cross-root"
+                                        },
+                            )
                         }
                 return Session(
                     root = root,

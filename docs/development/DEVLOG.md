@@ -11877,3 +11877,47 @@ A separate visual issue affects the Mobile morph regardless of dual-row compatib
 ### Validation
 
 Runtime CI is required. If green, one signed Canary should validate Build 492 source continuity and Build 493 semantic/optical behavior together while preserving their separate commits for isolation.
+
+## 2026-09-30 — Build 494: restore native source position authority; isolate charging-island reservation
+
+**Type:** Control Center transition geometry / island ownership correction  
+**Display version:** 0.0.3  
+**Build / source:** 494 / `20260930-494` / `feat/control-center-transition-matrix`
+
+### Device evidence
+
+Build 493 is rejected before semantic validation. Device video shows Trinity beginning the Control Center transition from an incorrect upper-left/offset position in every tested scene as soon as the status bar is pressed. The Build-493 diagnostic confirms the retained witness is active (`sourceOrigin=home-steady-cross-root`), but the projected overlay render View reports a transform origin that is not the visible status-bar Trinity position. This proves the remaining defect is not witness lifetime; it is the selected **position authority**.
+
+A second device clarification scopes the excessive peer gap to **charging + active Super-Island**. Ordinary non-island charging should not be changed.
+
+### Root cause
+
+Build 492/493 froze the steady overlay render View as both position and basis authority. Home/Keyguard render Views are ViewOverlay children: their layout/basis is valid for drawing, but their transformed global origin is not the native carrier's visual position contract. This accidentally discarded the earlier verified rule already used by the live fallback: native carrier/anchor owns position; stable render View owns basis/size.
+
+For charging + active island, HyperOS already owns peer displacement through `HomeStatusBarViewBinderInjector.onIslandStatusChanged`. The later progress-synchronous fake-status-icons reservation adds a second layout displacement on top of that native island motion.
+
+### Change
+
+- Home and Keyguard now expose one retained transition witness containing both:
+  - stable render View for width/height/basis;
+  - native `battery_icon_container` carrier for position.
+- Transition Session samples both once and freezes `composeSourceGeometry(positionAuthority=native carrier, basisAuthority=stable render)`.
+- Cross-window conversion remains one-shot and unchanged; QS_FAKE remains the compatibility fallback.
+- `SystemUiIslandMotionSource` now retains the latest native `showing` state from the already-hooked island callback even when detailed diagnostics are disabled.
+- Progress-synchronous transition reservation is suppressed only when `charging && nativeIslandShowing`; the underlying compact carrier reservation remains active.
+- Non-island charging and all non-charging scenes keep the existing progress reservation.
+- Build-493 semantic split/reveal and Mobile optical-height changes are untouched.
+
+### 审查 / review
+
+- **root-cause-first:** restores the previously established native-position/render-basis split instead of adding x/y offsets.
+- **native-first:** `battery_icon_container` remains source-position authority; HyperOS island callback remains island-motion authority.
+- **single writer:** no new native translation/alpha/visibility writer is added.
+- **island ownership:** charging-island no longer receives both native island motion and Guiyuan transition padding motion.
+- **performance:** one extra retained View reference per steady witness and one Boolean island state updated by an existing event hook; no polling, timer or per-frame reflection.
+- **fail native:** missing/detached anchor or render witness falls back to the existing QS_FAKE path.
+- **scope:** ordinary charging and non-island scenes are deliberately unchanged.
+
+### Validation
+
+Exact-head Runtime CI and one signed Canary are required. Device validation is intentionally limited first to global press-entry origin and charging-island peer spacing. Build-493 semantic behavior should not be re-evaluated until those geometry gates pass.

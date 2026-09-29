@@ -115,7 +115,8 @@ internal object CombinedStatusHomeRenderSession {
     fun currentTintState(): CombinedStatusTintState? = current?.currentTintState()
 
     @Synchronized
-    fun currentTransitionSourceView(): View? = current?.transitionSourceView()
+    fun currentTransitionSourceWitness(): CombinedStatusTransitionSourceWitness? =
+        current?.transitionSourceWitness()
 
     @Synchronized
     fun detach(preserveVisual: Boolean = false) {
@@ -303,14 +304,26 @@ internal object CombinedStatusHomeRenderSession {
         fun currentTintState(): CombinedStatusTintState? =
             renderController.currentTintState()
 
-        fun transitionSourceView(): View? =
-            probeView.takeIf { view ->
-                CombinedStatusScenePolicy.retainedTransitionSourceWitnessAvailable(
-                    widthPx = view.width,
-                    heightPx = view.height,
-                    hostAttached = batteryContainer.get()?.isAttachedToWindow == true,
+        fun transitionSourceWitness(): CombinedStatusTransitionSourceWitness? {
+            val anchor = batteryCarrier.get() ?: return null
+            val render = probeView
+            if (
+                !CombinedStatusScenePolicy.retainedTransitionSourceWitnessAvailable(
+                    widthPx = render.width,
+                    heightPx = render.height,
+                    hostAttached =
+                        batteryContainer.get()?.isAttachedToWindow == true &&
+                            anchor.isAttachedToWindow,
                 )
+            ) {
+                return null
             }
+            if (anchor.width <= 0 || anchor.height <= 0) return null
+            return CombinedStatusTransitionSourceWitness(
+                renderView = render,
+                positionAnchor = anchor,
+            )
+        }
 
         fun stop(removeVisual: Boolean = true) {
             layoutReady = false

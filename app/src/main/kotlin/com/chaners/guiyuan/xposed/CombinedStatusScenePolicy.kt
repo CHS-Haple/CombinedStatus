@@ -1,5 +1,12 @@
 package com.chaners.guiyuan.xposed
 
+import android.view.View
+
+internal data class CombinedStatusTransitionSourceWitness(
+    val renderView: View,
+    val positionAnchor: View,
+)
+
 internal enum class CombinedStatusScene {
     HOME_STABLE,
     NOTIFICATION_SHADE_TRANSITION,

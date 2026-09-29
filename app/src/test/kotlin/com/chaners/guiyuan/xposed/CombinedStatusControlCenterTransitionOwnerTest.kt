@@ -230,6 +230,34 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
+    fun chargingIslandKeepsNativeIslandAsTheOnlyPeerMotionAuthority() {
+        assertTrue(
+            !CombinedStatusControlCenterTransitionOwner.Policy
+                .usesProgressSynchronousReservation(
+                    sourceScene = CombinedStatusSourceScene.HOME,
+                    charging = true,
+                    nativeIslandShowing = true,
+                ),
+        )
+        assertTrue(
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .usesProgressSynchronousReservation(
+                    sourceScene = CombinedStatusSourceScene.HOME,
+                    charging = true,
+                    nativeIslandShowing = false,
+                ),
+        )
+        assertTrue(
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .usesProgressSynchronousReservation(
+                    sourceScene = CombinedStatusSourceScene.HOME,
+                    charging = false,
+                    nativeIslandShowing = true,
+                ),
+        )
+    }
+
+    @Test
     fun verifiedSourceScenesKeepSemanticReservationThroughProjection() {
         assertTrue(
             CombinedStatusControlCenterTransitionOwner.Policy

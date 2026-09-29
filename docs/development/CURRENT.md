@@ -68,6 +68,8 @@ Build 492 follows the 491 device result without reverting the accepted callback-
 
 Build 493 adds explicit semantic expansion for states whose fully expanded native status row contains more independently visible semantics than the compact Trinity source. The correspondence model is now explicit: existing components remain 1→1 morphs; an additional final mobile subscription is a 1→N split from the compact Mobile source; Wi-Fi with airplane mode is a 0→1 reveal for the independent final airplane slot. These projected extras are drawn only by Guiyuan's transition overlay and use read-only final slot geometry; native final alpha/visibility/translation remain untouched. Secondary Mobile reads its own subscription signal level rather than cloning the primary SIM. Reservation spans include the same extra final semantics so peer layout and projected drawing describe one occupancy set. Mobile capsule height also changes from an empirical 0.90 target factor to an optical budget that subtracts one round-cap radius from the native target height before bounding the bar body, keeping the rounded endpoint inside the intended visual envelope.
 
+Build 494 is the focused correction after Build 493 device rejection. The press-entry drift is scene-independent: Build 493 successfully activates the retained steady witness, but freezes the overlay render View's own transformed position. Because Home/Keyguard render Views live in a ViewOverlay, that transform is not the real status-bar visual position authority. Build 494 therefore freezes source position from the retained native battery-body carrier and source basis/size from the retained render View, reusing the already-established `composeSourceGeometry(positionAuthority, basisAuthority)` rule. The charging/Super-Island spacing defect is separate and has now been scoped by device feedback to charging while native island presentation is showing. In that single state, progress-synchronous transition reservation is disabled so HyperOS island motion remains the sole peer-motion authority and the previously accepted compact carrier reservation remains intact. Non-island charging, non-charging island state, Home, Keyguard, semantic split/reveal, and final native handoff remain unchanged.
+
 Device testing is requested only when the result can change implementation choice or acceptance. Mechanical/documentation steps continue without a new APK round trip.
 
 ## Non-negotiable boundaries
@@ -83,12 +85,12 @@ Device testing is requested only when the result can change implementation choic
 
 ## Immediate next step
 
-1. Run exact-head Runtime CI for Build 493 after Build-492 Runtime completes.
-2. If Runtime is green, produce one signed Canary for combined device validation; 492 and 493 remain separate commits/build checkpoints for regression isolation.
-3. Source gate — diagnostic transition buckets should use `sourceOrigin=home-steady-*` or `keyguard-steady-*`, not unintended `qs-fake-live`.
-4. Semantic gate — ordinary dual-SIM should show the second signal as a continuous split rather than a terminal pop; Wi-Fi+airplane should reveal the independent plane continuously without implying that Wi-Fi or the four dots semantically become the plane.
-5. Optical gate — the tallest rounded Mobile bar should no longer read taller than the native target because its round cap is included inside the target optical budget.
-6. Preserve Build-491 responsiveness and recheck charging/island spacing, reverse collapse, HyperCeiler dual-row/5G, and final native handoff.
+1. Run exact-head Runtime CI for Build 494.
+2. If green, produce one signed Canary and test only the two rejected geometry gates before resuming semantic validation.
+3. Press-entry gate — in Home, Keyguard, charging and non-charging scenes, touching/pulling Control Center must start from the currently visible Trinity position; diagnostic source should report `*-steady-anchor+*`.
+4. Charging-island gate — only while charging and native island presentation is showing, peers must retain native island spacing rather than opening the extra 493 transition-reservation gap.
+5. Confirm ordinary non-island charging still keeps the accepted compact 105px carrier behavior and that non-charging pulls retain progress reservation.
+6. If both gates pass, resume Build-493 dual-SIM / Wi-Fi+airplane / Mobile optical-height validation without further runtime changes.
 
 ## Reference priority
 
