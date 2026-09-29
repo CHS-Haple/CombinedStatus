@@ -10884,4 +10884,3 @@ Build 468 corrected both earlier problems by increasing structural force too agg
 ### Validation gate
 
 Run exact-head Fast for Build 469. If green, issue one signed Canary for focused visual review only. Freeze source for that test and do not mix transition-animation/runtime work into this branch.
-
