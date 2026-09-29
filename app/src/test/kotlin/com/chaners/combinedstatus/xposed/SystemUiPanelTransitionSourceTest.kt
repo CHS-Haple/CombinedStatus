@@ -188,4 +188,3 @@ class SystemUiPanelTransitionSourceTest {
         assertEquals(CombinedStatusSourceScene.KEYGUARD, update.controlCenterSourceScene)
     }
 }
-

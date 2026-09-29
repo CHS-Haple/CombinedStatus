@@ -4,10 +4,10 @@ This is the chronological engineering diary for Combined Status. It complements,
 
 ## 2026-09-29 — Build 455: exact AOD contract correction and bounded QS_FAKE geometry evidence
 
-**Type:** Phase-3 device-rejection root-cause correction + bounded transition diagnostics  
-**Build:** 455 / `20260929-455`  
-**Work branch / PR:** `feat/keyguard-scene-adapter` / #163  
-**Runtime prerequisite:** device-accepted Build 446 Home/QS_FAKE  
+**Type:** Phase-3 device-rejection root-cause correction + bounded transition diagnostics
+**Build:** 455 / `20260929-455`
+**Work branch / PR:** `feat/keyguard-scene-adapter` / #163
+**Runtime prerequisite:** device-accepted Build 446 Home/QS_FAKE
 **Rejected predecessor:** Build 453 / signed Canary #475
 
 ### Device evidence / problem execution flow
