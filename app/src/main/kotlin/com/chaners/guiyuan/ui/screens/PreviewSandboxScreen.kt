@@ -487,4 +487,3 @@ private fun signalValueText(level: Int): String =
     } else {
         stringResource(R.string.home_preview_signal_level, level)
     }
-
