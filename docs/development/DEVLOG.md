@@ -10682,3 +10682,53 @@ This closure is documentation-only and does not create a new Build.
 ### Conclusion
 
 Build 466 is the stable `main` baseline. The Guiyuan product/repository/package identity migration is closed. Subsequent main-to-dev ancestry synchronization is repository-history maintenance only and does not create a new Build or alter the accepted runtime.
+
+---
+
+## 2026-09-29 — Build 470 — Native-driven Control Center transition projection
+
+**Branch:** `feat/control-center-transition-projection`  
+**Display version:** 0.0.3  
+**Build:** 470 / `20260929-470`  
+**Status:** implementation checkpoint; device validation required
+
+### Problem / evidence
+
+Build 466 keeps the verified QS_FAKE root translation and native fake/final alpha ownership, but visual continuity is incomplete. Device feedback identifies two coupled symptoms during Control Center pull: Guiyuan does not split toward its native Wi-Fi/mobile/Battery endpoints, and native peer icons no longer show the stock per-icon source-to-destination transition.
+
+Detailed Build-466 evidence shows native expansion progress and QS_FAKE root translation remain continuous while the compact session holds represented `wifi/mobile/stacked_mobile/airplane/no_sim` slots out of the fake child layout. Therefore the missing visual transition is not a missing root animator; static compact occupancy removed the child-level correspondence that stock HyperOS normally presents.
+
+### Root cause
+
+Compact occupancy and transition visual correspondence are separate responsibilities. Releasing ignored slots during the gesture would reintroduce the Build-431 large-gap layout failure. Keeping compact layout as the sole visible transition surface preserves occupancy but cannot reproduce the removed per-icon paths.
+
+### Reference / implementation review
+
+- Exact-target SystemUI: `onExpansionChanged(float)` remains the native fake/final translation timeline; `onAppearanceChanged(...)` remains native Folme fake/final alpha ownership.
+- Builds 441/455/456: Battery-island and fake-root transforms are inherited and must not be applied a second time.
+- KeiMi 2.5.0 Trinity: consumes HyperOS expansion progress and uses overlay projection from real View geometry. Its local animation machinery is not adopted as the Control Center gesture timeline.
+- Maintainer intent: KeiMi-like split/correspondence is useful, but the result should remain visually coherent with HyperOS rather than exposing an obviously separate animation language.
+
+### Changes
+
+1. Promote the exact HyperOS expansion callback from diagnostics-only to a read-only runtime source so optimized Canary/Release builds receive native gesture progress.
+2. Keep appearance observation diagnostic-only; fake/final alpha stays native.
+3. Resolve transition endpoints from the same Header owner: HyperOS-selected `realSystemIcons` as source and the final Control Center status-bar root when its exact field is available. Final endpoint resolution is optional and fails back to the accepted Build-466 renderer.
+4. Add a full-root transition overlay inside the verified QS_FAKE root. Common native peer slots are matched by slot name and drawn from source View bounds toward final-QS View bounds.
+5. Reuse `CombinedStatusPainter` for Guiyuan itself and draw Battery / center / mobile as separate components toward native Battery / Wi-Fi-or-mobile / mobile targets. No screenshot slicing or duplicate icon assets are introduced.
+6. Keep compact ignored-slot layout unchanged. Native fake peer Views represented by the transition overlay are hidden only through the existing reversible `clipBounds` owner; native translation/alpha/visibility remain untouched.
+7. Use raw finite native expansion progress, clamped to [0,1], as the baseline projection timeline. No new `ValueAnimator`, timer, delay, polling loop, gesture state machine or replacement fake/final fade is introduced.
+
+### Review
+
+- **Ownership:** SystemUI owns root motion, gesture timing and fake/final alpha; Guiyuan owns only its overlay drawing correspondence.
+- **Single writer:** no native motion property gains a second writer.
+- **Fail native:** unavailable final endpoint disables the new projection and preserves the existing QS_FAKE path.
+- **Performance:** redraw is driven by the already-existing native expansion callback; peer sets are bounded to the small status-icon child list.
+- **Lifecycle:** native progress is reset on each Control Center visibility cycle to avoid stale endpoint state on a later pull.
+- **Visual tuning boundary:** direct native progress is the first candidate. Small local optical shaping remains allowed only after device evidence and must preserve HyperOS-like timing/reversal rather than creating a separate animation identity.
+
+### Required device validation
+
+After Fast passes, generate a signed Canary. Validate Home and enabled Keyguard source scenes in both directions, including normal and charging/Super-Island paths. Reject the candidate for duplicate icons, large gaps, endpoint jumps, stale-progress first frames, mid-gesture reversal lag, double fade, AOD leakage, Hot Reload regressions, or visibly non-HyperOS timing.
+\n
