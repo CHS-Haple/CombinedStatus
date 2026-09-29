@@ -131,7 +131,7 @@ internal object SystemUiKeyguardAodStateSource {
         isAodAnimate: Boolean,
         animToAod: Boolean?,
     ): Boolean =
-        toAod || isAodAnimate || animToAod == true
+        toAod || isAodAnimate
 
     private fun publish(
         sourceView: View,

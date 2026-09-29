@@ -50,13 +50,6 @@ internal object SystemUiPresentationRuntimeOwner {
                 onTintState = onTintState,
                 onEvent = onTintEvent,
             ).size
-        val sceneHooks =
-            SystemUiSceneStateSource.install(
-                module = module,
-                classLoader = classLoader,
-                onSceneState = onSceneState,
-                onEvent = onSceneEvent,
-            ).size
         val keyguardAodHooks =
             runCatching {
                 SystemUiKeyguardAodStateSource.install(
@@ -73,6 +66,13 @@ internal object SystemUiPresentationRuntimeOwner {
                 )
                 0
             }
+        val sceneHooks =
+            SystemUiSceneStateSource.install(
+                module = module,
+                classLoader = classLoader,
+                onSceneState = onSceneState,
+                onEvent = onSceneEvent,
+            ).size
         val mobileTypeHooks =
             SystemUiMobileTypeStateSource.install(
                 module = module,
