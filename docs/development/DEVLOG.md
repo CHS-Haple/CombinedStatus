@@ -3,6 +3,31 @@
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
 
+## 2026-09-29 — Build 459: Runtime-card scope correction
+
+**Type:** companion-app Home UI correction  
+**Display version:** 0.0.2  
+**Build / source:** 459 / `20260929-459` / `feat/home-ui-shell`  
+**SystemUI ownership change:** none
+
+### Maintainer correction
+
+Build 458 changed more of the Runtime card than requested. The intended change was limited to two geometry issues: the top-right master Switch sat too close to the card's right edge, and the circular status mark sat too low. The existing semantic card tint and status-mark appearance were not part of the requested redesign.
+
+### Implementation
+
+- Restore the pre-458 runtime-card semantic container tint.
+- Restore the pre-458 status-mark color composition, 88 dp mark canvas, 160 dp card height, text end allocation and two-line summary.
+- Keep the master Switch behavior unchanged and add only an 8 dp visual end inset.
+- Move the status mark upward: replace the historical `+10 dp` bottom-end offset with `-2 dp`.
+- Retain the Build-458 Preview Sandbox redesign and fixed Home preview stage unchanged.
+
+### 审查 / review
+
+This is a scope correction, not a new visual direction. No state model, Xposed/SystemUI Hook, renderer ownership, lifecycle, or dependency changes are included.
+
+
+
 ## 2026-09-29 — Build 458: Sandbox information hierarchy and Home-card visual consolidation
 
 **Type:** companion-app Home / Preview Sandbox UI  
