@@ -10687,9 +10687,9 @@ Build 466 is the stable `main` baseline. The Guiyuan product/repository/package 
 
 ## 2026-09-29 — Build 470 — Native-driven Control Center transition projection
 
-**Branch:** `feat/control-center-transition-projection`  
-**Display version:** 0.0.3  
-**Build:** 470 / `20260929-470`  
+**Branch:** `feat/control-center-transition-projection`
+**Display version:** 0.0.3
+**Build:** 470 / `20260929-470`
 **Status:** implementation checkpoint; device validation required
 
 ### Problem / evidence
