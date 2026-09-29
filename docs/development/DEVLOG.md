@@ -11517,3 +11517,43 @@ This means reservation follows semantic decomposition but never reads the instan
 ### Validation gate
 
 Run exact-head Runtime CI, then one signed work-branch Canary. Device testing remains non-charging Home first. Acceptance requires: no peer jump when decomposition begins, surrounding native icons moving continuously through native layout, unchanged or improved Build-482 Battery/Wi-Fi trajectory, Mobile visually reading as dots -> row -> bars, and clean reverse motion.
+
+
+## 2026-09-30 — Build 486: restore native trajectory authority and unified missing-target exit
+
+**Type:** Control Center transition correction
+**Display version:** 0.0.3
+**Build / source:** 486 / `20260930-486` / `feat/control-center-transition-matrix`
+
+### Device evidence
+
+Build 485 fixed the charging/status-bar-press flattening but device video review rejects four outcomes: the synthetic Battery contour appears as a large dark block instead of a transition; replacing BatteryView with renderView as the complete source anchor reintroduces visible Trinity drift; the signal-bar lower edge is not visually unified; and 5G can overlap the signal morph when the intended native type child has no usable geometry.
+
+### Root cause
+
+Build 485 solved source deformation by changing both source position and source basis authority at once. Those responsibilities are independent: BatteryView remains the verified native trajectory/position witness, while its transient scale must not own Guiyuan shape. The laid-out renderView provides a stable Guiyuan basis but its overlay center must not redefine the external path.
+
+For network targets, a top-level slot is only an occupancy witness. When a requested semantic child such as `mobile_type` or `mobile_signal` is absent, invisible or 0x0, using the whole slot as a guessed optical target collapses different semantics onto one center.
+
+### Implementation
+
+- Restore BatteryView as source center/translation authority and combine it with renderView basis vectors/size.
+- Remove the Build-484/485 synthetic Battery body/terminal and restore the Build-482 ring fold (`scaleY -> 0.72`) plus native handoff.
+- Restore the accepted Battery target scaling path.
+- Keep the staged Mobile dots -> row -> bars sequence; once bar growth starts, every bar shares one fixed lower baseline and grows upward only.
+- Keep native Mobile height as an upper cap/reference rather than a 1:1 theme template.
+- Apply one missing-target policy to all semantic child targets: the child must be visible, attached and non-zero; otherwise target resolution fails and the existing fast fade + slight shrink exit runs. No slot-center guess or project-local semantic partition is introduced.
+- Native raw expansion remains the only external animation progress source.
+
+### 审查 / review
+
+- **Ownership:** native position and stable source basis have separate single authorities; no compensation offset is added.
+- **Target semantics:** role-6 top-level slots remain occupancy witnesses; semantic movement requires a real semantic child.
+- **Fail-native:** unavailable semantic geometry exits rather than inventing a destination.
+- **Lifecycle/cleanup:** no new long-lived runtime object, animator, timer, listener or cleanup path.
+- **Compatibility/theme:** final themed glyphs remain SystemUI-owned; no 1:1 theme geometry reproduction.
+- **Regression boundary:** accepted Wi-Fi optical path and semantic reservation mechanism remain otherwise unchanged.
+
+### Validation
+
+Runtime CI must compile/test the source-geometry composition and updated morph policies. Signed Canary device validation is required for trajectory, charging press, Battery handoff, flat signal baseline, and missing-target exit.
