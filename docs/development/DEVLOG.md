@@ -3,6 +3,58 @@
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
 
+## 2026-09-29 — Build 453: native-AOD-gated steady Keyguard candidate
+
+**Type:** Phase-3 Keyguard/AOD lifecycle correction + latest-dev synchronization
+**Build:** 453 / `20260929-453`
+**Work branch / PR:** `feat/keyguard-scene-adapter` / #163
+**Runtime base:** device-accepted Build 446 Home/QS_FAKE + Build-447 Keyguard candidate
+**Integration parent:** latest `dev@4c00aaae5491f849b8bdbe4bb8a3d7e159f821c8` (Build-452 归元 app-icon/name checkpoint)
+**AOD Hook delta:** +2
+**AOD render ownership:** native-only
+
+### Trigger / rejected Build 447
+
+Build 447 introduced the desired separate steady-Keyguard adapter and passed automated Build #1586, but review stopped it before Canary/device admission. The renderer's visibility contract was only `featureEnabled && !nativeHandoffActive`; `aodOwned=false` existed solely as diagnostic text. Because HyperOS status-bar state `KEYGUARD` does not prove that AOD is inactive, enabling the lockscreen switch could have left Combined Status visible/masked during AOD.
+
+This is a correctness/ownership defect, not a cosmetic follow-up. Build 447 is therefore automation-only evidence and not a device candidate.
+
+### Native evidence
+
+Exact-target SystemUI reference for `17.03.260226.r` identifies `MiuiBatteryMeterView` AOD state members `mToAod`, `mIsAodAnimate`, `mAnimToAod`, `setIsAodAnimate()` and `toggleAodMode()`. AOD is also independently animated by Keyguard/AOD owners, so steady Keyguard cannot infer AOD from ordinary status-bar state, alpha or visibility.
+
+### Implementation
+
+- `SystemUiKeyguardAodStateSource` is installed inside the existing presentation-runtime owner before the scene source.
+- It structurally resolves a unique `setIsAodAnimate(boolean): void` and unique `toggleAodMode(): void`, plus Boolean `mToAod` / `mIsAodAnimate`. Contract failure is isolated to Keyguard support and returns native.
+- `mToAod || mIsAodAnimate` is the visibility/readiness blocker. `mAnimToAod` is read only for diagnostics and does not independently grant/revoke ownership.
+- Keyguard renderer readiness now includes `!aodBlocked`. When AOD becomes blocked, readiness falls before presentation ownership is retained: the existing Keyguard presentation session is deactivated/restored and Keyguard-originated QS_FAKE eligibility becomes native.
+- AOD exit reopens readiness and reuses the verified Keyguard host to reactivate the same bounded presentation contract.
+- AOD authority installs before scene observation; after successful install the module re-evaluates any already-cached Keyguard host to remove cold-start ordering dependence.
+- Hot Reload requires no special AOD takeover path: the existing generation owner preserves only the status-host handle and unhooks all other prior-generation handles, so the two AOD Hooks are cleaned with the rest of the presentation sources.
+- Home carrier identity remains Home-only; a separate Keyguard identity query prevents the Build-445 Home source router from misclassifying Keyguard.
+
+### 审查 / review
+
+- **native lifecycle authority:** no alpha/visibility threshold or status-bar-state guess is used for AOD.
+- **fail native:** missing/ambiguous AOD contract disables only Keyguard Combined; Home/QS_FAKE continues unchanged.
+- **single writer:** existing Keyguard presentation owner remains the sole native-mask/reservation writer for that host.
+- **AOD ownership:** Combined writes no AOD alpha, visibility, translation, animation or geometry.
+- **performance:** +2 event-driven native lifecycle Hooks; no timer/polling/delay/frame observer.
+- **cold start:** AOD source precedes scene source and triggers cached-host retry after authority becomes ready.
+- **integration:** Build-452 归元 assets/name/history are merged as a second parent; SystemUI runtime logic from that dev checkpoint is unchanged.
+
+### Validation plan
+
+Exact-head Fast first. Only after Fast passes, request trusted signed Canary. Device validation must cover:
+1. lockscreen switch off -> native steady Keyguard and native Keyguard-originated QS_FAKE;
+2. switch on -> Combined steady Keyguard without duplicate/gap;
+3. Keyguard-originated partial Control Center -> Combined only after steady Keyguard readiness;
+4. AOD enter -> native-only with no Combined leak, then AOD exit -> Keyguard Combined recovers;
+5. unlock -> accepted Home/QS_FAKE Build-446 behavior remains unchanged;
+6. SystemUI restart/cold start -> same policy without one-time raw/overlap/blank frames.
+
+
 ## 2026-09-29 — Build 447: opt-in steady Keyguard adapter candidate
 
 **Type:** Phase-3 runtime capability candidate
@@ -9419,3 +9471,370 @@ Integrated Canary artifact:
 - **Future extension:** continue the Control Center transition redesign in a new short-lived feature branch from this exact integrated baseline; do not reuse merged PR #146.
 
 This record-only closure does not create Build 425.
+
+
+---
+
+## 2026-09-29 — Build 446 adaptive launcher mark
+
+**Type:** companion-app visual resource
+**Display version:** 0.0.2
+**Build:** 446 / `20260929-446`
+**Branch:** `feat/guiyuan-app-icon`
+**Validation:** pending Fast
+
+### Problem / objective
+
+Replace the previous literal Wi-Fi/status launcher graphic with the selected abstract “归元” orbit mark while preserving the approved mark's size relationships and geometry. The launcher asset should remain understated rather than pure black and should participate correctly in Android adaptive masks and themed/monochrome icon rendering.
+
+### Problem execution flow
+
+1. Re-read the current contribution, development-recording and app/resource rules.
+2. Inspect the existing launcher contract: `mipmap-anydpi-v26/ic_launcher.xml` already owns adaptive background + foreground + monochrome layers.
+3. Preserve that platform contract rather than baking a rounded-square mask into the artwork.
+4. Trace the approved mark at its original canvas proportions into the existing 108 dp vector viewport; keep the foreground bounds at approximately 21.53–86.12 × 19.98–85.52 so the selected composition is not rescaled or re-laid out.
+5. Use a restrained ink-black `#24272B` instead of absolute black and a warm off-white `#F7F6F2` background.
+6. Point `android:roundIcon` at the same adaptive resource rather than maintaining a second icon asset.
+
+### Implementation / decision
+
+- `ic_launcher_foreground.xml` now contains only the approved abstract orbit silhouette; there is no baked launcher tile, gradient, shadow, text, Wi-Fi glyph, battery glyph, or second decorative layer.
+- Adaptive masking remains owned by Android/HyperOS through the existing `<adaptive-icon>` resource.
+- The existing `monochrome` layer continues to reuse the same foreground geometry so Android 13+ themed icons retain the mark.
+- The default launcher palette is intentionally near-black ink rather than pure `#000000`; it reads black at launcher size while avoiding the harsher digital-black appearance.
+- No app navigation, settings, SystemUI hooks, runtime state, renderer behavior, or module ownership changes.
+
+### 审查 / review
+
+- **Ownership:** Android launcher remains the mask/themed-icon owner; the app owns only foreground geometry and default background/foreground colors.
+- **Lifecycle:** resource-only; no runtime listener/session lifecycle.
+- **Single writer:** one foreground vector and one background color source; no duplicate round-icon artwork.
+- **Cleanup:** no generated raster or alternate density-specific launcher assets are added.
+- **Fail native:** not applicable to SystemUI; launcher falls back to normal adaptive rendering.
+- **Performance:** vector/static color resources only.
+- **Compatibility:** minSdk 33 already satisfies the adaptive + monochrome contract used by the existing launcher resource.
+- **Future extension:** product naming can change independently without redrawing or changing the launcher geometry.
+
+### CI / device validation
+
+Normal Fast validation should cover resource compilation and Debug APK packaging. Focused device review only needs launcher presentation across the launcher's available masks plus one themed-icon/monochrome check; no SystemUI runtime matrix is required.
+
+### Outcome / next step
+
+Run Fast on the exact branch head. If the compiled adaptive icon preserves the approved mark under the device launcher masks and themed-icon mode, integrate the resource checkpoint into `dev`.
+
+
+---
+
+## 2026-09-29 — Build 449 HyperOS adaptive-icon fit correction
+
+**Type:** companion-app visual resource
+**Display version:** 0.0.2
+**Build:** 449 / `20260929-449`
+**Branch:** `feat/guiyuan-app-icon`
+**Validation:** Fast #1588 passed; Work Branch Canary #471 passed; device visual acceptance pending
+
+### Problem / objective
+
+Build 446 compiled and packaged correctly, but maintainer device review in HyperOS App info showed the foreground mark visually too large. The warm off-white background also read less clean than intended. The objective is to keep the selected `归元` geometry unchanged while adapting its presentation to the platform launcher contract instead of hand-tuning against one screenshot.
+
+### Problem execution flow
+
+1. Use the maintainer-selected source image as the geometry authority.
+2. Verify that the existing vector trace matches the source mark's measured bounds and relative geometry; no redesign is required.
+3. Re-check Xiaomi launcher guidance: HyperOS/MIUI reads the package icon and applies system crop/scale behavior, so application artwork must not bake a competing launcher mask.
+4. Re-check Android adaptive-icon rules: foreground/background layers remain 108 × 108 dp, logo artwork should stay inside the 48–66 dp range, and the artwork itself should not contain an outer icon mask or outline shadow.
+5. Preserve the source's intentionally generous negative space by using the lower 48 dp bound for this approximately circular mark.
+6. Keep the clean full-bleed background separate from the foreground geometry.
+
+### Evidence / findings
+
+- The selected source mark's dark symbol measures approximately 920 × 933 px on a 1536 px canvas; the previously traced vector occupies 64.593 × 65.541 dp in the 108 dp viewport, matching that geometry.
+- Build 446 used that near-65.5 dp mark directly and therefore filled most of the adaptive safe area; the maintainer rejected the resulting HyperOS presentation as oversized.
+- Uniform scale `48 / 65.541 = 0.7324` preserves every internal proportion while bringing the longest dimension to 48 dp.
+- The background is now full-bleed `#FFFFFF`; HyperOS supplies the visible launcher mask instead of receiving a pre-rounded tile.
+
+### Implementation / decision
+
+- Keep the exact approved orbit/circle/dot vector path.
+- Apply one centered uniform `0.7324` transform to the complete mark; do not edit individual paths, gaps, dot sizes, arc thicknesses, or relative placement.
+- Use ink-black `#24272B` on clean white `#FFFFFF`.
+- Keep adaptive foreground/background/monochrome as separate resource roles.
+- Keep `android:roundIcon` pointing to the same adaptive icon; do not maintain a duplicate round asset.
+- Builds 447-448 are superseded pre-acceptance sizing/background adjustments and are not candidate baselines.
+
+### 审查 / review
+
+- **Ownership:** HyperOS/Android launcher owns final mask/crop/themed tint; app owns one foreground mark plus one background color.
+- **Lifecycle:** static resource only.
+- **Single writer:** one vector source for normal/round/monochrome presentation.
+- **Cleanup:** no bitmap export, no density copies, no baked rounded rectangle or drop shadow.
+- **Fail native:** launcher receives a standard AdaptiveIconDrawable contract.
+- **Performance:** static vector/color resources only.
+- **Compatibility:** the 108 dp adaptive layers and 48 dp mark remain within the Android adaptive-icon design range; Xiaomi launcher behavior remains free to apply its own mask/scale.
+- **Future extension:** color can change without changing geometry; themed icons continue to use the same silhouette.
+
+### CI / device validation
+
+Exact-head Fast must pass resource compilation and Debug packaging before any new signed Canary request. If a focused Canary is produced, device review is limited to HyperOS launcher/App info scale, common launcher masks, and themed/monochrome presentation. No SystemUI regression matrix is required.
+
+### Outcome / next step
+
+Freeze the Build-449 geometry if exact-head CI passes. Device acceptance should judge only final launcher scale/whitespace and themed-icon rendering; do not reopen the mark's internal design unless the maintainer explicitly changes the selected source.
+
+
+---
+
+## 2026-09-29 — Build 450 launcher scale refinement
+
+**Type:** companion-app visual resource
+**Display version:** 0.0.2
+**Build:** 450 / `20260929-450`
+**Branch:** `feat/guiyuan-app-icon`
+**Validation:** pending exact-head Fast
+
+### Device feedback
+
+Build 449 corrected the previous oversized presentation and clean-background issue. Maintainer desktop review accepts the overall adaptive-icon direction but finds the 48 dp foreground slightly too small relative to neighboring HyperOS launcher icons.
+
+### Decision
+
+- Preserve the selected `归元` mark's internal geometry exactly.
+- Change only the complete foreground group's uniform scale from `0.7324` to `0.7781`.
+- With the traced mark's longest unscaled dimension of 65.541 dp, the new presented dimension is approximately 51 dp.
+- Retain pure white `#FFFFFF` background and ink-black `#24272B` foreground.
+- Retain one adaptive resource for default, round and monochrome/themed presentation.
+- No mask, shadow, raster export, per-density asset or alternate geometry is introduced.
+
+### 审查 / review
+
+- **Ownership:** launcher mask/crop remains Android/HyperOS-owned.
+- **Lifecycle:** static resource only.
+- **Single writer:** one vector geometry source and one uniform scale owner.
+- **Cleanup:** no duplicate icon assets.
+- **Performance:** unchanged static vector resource.
+- **Compatibility:** 51 dp remains inside the Android adaptive-icon 48–66 dp logo range while better matching the target HyperOS visual density.
+- **Runtime boundary:** no SystemUI, Xposed, Hook, state or renderer changes.
+
+### Validation
+
+Run exact-head Fast. If successful, request one signed Canary for focused visual validation only. Device review needs only the launcher/App info scale and themed-icon presentation; no SystemUI regression matrix is required.
+
+### Outcome / next step
+
+Build 450 is the current icon candidate. If its desktop scale is accepted, close the visual checkpoint and integrate the branch without further geometry changes.
+
+
+---
+
+## 2026-09-29 — Build 451 “归元” app-facing name + 51 dp icon candidate
+
+**Type:** companion-app branding / visual resource
+**Display version:** 0.0.2
+**Build / executable source:** 451 / `20260929-451` / `87087ce74f4b00c0a93b8908640ffaf83650f369`
+**Branch:** `feat/guiyuan-app-icon`
+**Validation:** Fast #1569 passed; Work Branch Canary #468 passed; device visual acceptance pending
+
+### Problem / objective
+
+Carry forward the accepted adaptive-icon direction, enlarge the Build-449 48 dp mark slightly to the maintainer-approved 51 dp target, and change the Simplified Chinese app-facing product name from “三合一状态图标” to “归元” without prematurely renaming the English/public repository identity.
+
+### Implementation / decision
+
+- Selected orbit mark geometry remains unchanged; only the whole foreground group uses uniform `0.7781` scale, giving a longest dimension of approximately 51 dp.
+- Background remains full-bleed `#FFFFFF`; foreground remains ink-black `#24272B`.
+- Simplified Chinese `app_name`, `home_title`, and diagnostics `product_name` are now `归元`.
+- The feature switch/title that describes the actual combined-status function remains descriptive rather than being renamed to the brand word.
+- English app name and public repository/documentation identity remain `Combined Status` in this checkpoint.
+- No SystemUI/Xposed/renderer/state-source behavior changes.
+
+### Cross-branch review
+
+Active `feat/home-ui-shell`, `feat/diagnostics-ui-refinement`, and `feat/keyguard-scene-adapter` were checked before changing app-facing naming. They still derive the same localized product strings from their branch baselines and do not establish a conflicting Chinese product-name policy. Public/normative naming documents are intentionally not rewritten yet.
+
+### 审查 / review
+
+- **Ownership:** launcher mask/crop/themed tint remains Android/HyperOS-owned; product label remains Android resource-owned.
+- **Lifecycle:** static resources only.
+- **Single writer:** one adaptive foreground geometry source; one localized Chinese product label source.
+- **Cleanup:** no duplicate icon assets or alternate product-name plumbing.
+- **Performance:** unchanged static resources.
+- **Compatibility:** standard adaptive foreground/background/monochrome contract; 51 dp remains within the Android adaptive-icon logo range.
+- **Runtime boundary:** no Hook, listener, SystemUI host, renderer, or state-model change.
+
+### CI / device validation
+
+- Fast #1569: passed.
+- Signed Work Branch Canary #468: passed target-profile verification, tests/build, Modern Xposed metadata, Haple signature verification, non-debuggable verification and artifact upload.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260929-451-canary.apk`, id `11002354220`.
+- APK SHA-256: `6cddd0c21e6162d0cc2bd719108c9e2b48b6824e033140a3acc5c793733c2ec5`.
+
+### Outcome / next step
+
+Device-check only the launcher/App info visual scale, clean-white background, themed/monochrome rendering, and Chinese display name “归元”. No SystemUI regression matrix is required for this checkpoint. A later documentation-only closure commit does not create Build 452.
+
+
+---
+
+## 2026-09-29 — Build 452 orbit-gap normalization + 53 dp fit
+
+**Type:** companion-app branding / visual resource
+**Display version:** 0.0.2
+**Build:** 452 / `20260929-452`
+**Branch:** `feat/guiyuan-app-icon`
+**Validation:** pending exact-head Fast
+
+### Device feedback
+
+Build 451 is visually accepted in direction, but two refinements remain visible on the target HyperOS launcher/App info surfaces:
+
+1. the 51 dp foreground still reads slightly conservative relative to neighboring icons;
+2. the three orbit segments do not keep a consistent visual breathing space around the three outer nodes. The smallest Build-451 node/arc clearance is materially tighter than the widest one, which makes some segment tips look like a “tail” approaching a point.
+
+### Problem execution flow
+
+1. Keep the maintainer-selected `归元` topology, center circle, and all three node circles unchanged.
+2. Measure the six nearest arc-end ↔ node clearances from the selected source silhouette rather than adjusting by eye.
+3. Preserve each orbit segment's body/thickness and alter only the local tip extent.
+4. Normalize the clearances by shortening the over-close tips; do not enlarge/move the nodes or introduce new curves/elements.
+5. Increase the complete mark uniformly from approximately 51 dp to approximately 53 dp only after the internal clearance correction.
+
+### Evidence / geometry
+
+The selected source silhouette's six arc-end ↔ node clearances were approximately:
+
+`2.30 / 1.97 / 1.73 / 1.32 / 2.20 / 2.08 dp`
+
+in the unscaled 108 dp source coordinate system.
+
+The Build-452 orbit-tip correction trims only the over-close regions so the six clearances converge to approximately `2.26–2.30 dp` before the adaptive foreground scale is applied. This keeps the node sizes and orbit bodies intact while removing the visibly inconsistent near-contact at the lower-left transition.
+
+The complete foreground group then uses `scale=0.8086`, giving the source mark a longest presented dimension of approximately 53 dp.
+
+### Implementation / decision
+
+- Center circle: unchanged.
+- Top / lower-left / lower-right node circles: unchanged.
+- Three orbit bodies and thickness: retained from the selected source silhouette.
+- Only orbit segment tips are locally shortened to equalize breathing space around nodes.
+- Adaptive foreground uniform scale: `0.8086` (~53 dp longest dimension).
+- Background: `#FFFFFF`.
+- Foreground: `#24272B`.
+- Simplified Chinese app-facing name remains `归元`.
+- No baked rounded-square mask, shadow, alternate density asset, or duplicate round icon is added.
+
+### 审查 / review
+
+- **Ownership:** Android/HyperOS remains final launcher-mask/crop/themed-icon owner.
+- **Lifecycle:** static resources only.
+- **Single writer:** one vector source owns the normal/round/monochrome silhouette.
+- **Cleanup:** no extra raster or per-mask assets.
+- **Performance:** unchanged static-vector cost.
+- **Compatibility:** 53 dp remains inside the adaptive-icon 48–66 dp logo range; 108 dp layer contract is unchanged.
+- **Runtime boundary:** no Hook, SystemUI host, Xposed, state source, renderer, or transition behavior changes.
+- **Visual scope:** this checkpoint intentionally changes only whole-mark scale plus six local orbit-tip clearances.
+
+### Validation
+
+Run exact-head Fast, then request one signed Canary if Fast passes. Device validation is limited to launcher/App info/module-list visual scale, node/arc spacing, themed/monochrome rendering, and the Chinese label `归元`; no SystemUI regression matrix is required.
+
+### Outcome / next step
+
+Build 452 is the current visual candidate. If the 53 dp scale and normalized node clearances are accepted on device, freeze the icon geometry and close this visual checkpoint.
+
+
+---
+
+## 2026-09-29 — Build 452 visually unified orbit geometry
+
+**Type:** companion-app branding / visual resource
+**Display version:** 0.0.2
+**Build:** 452 / `20260929-452`
+**Branch:** `feat/guiyuan-app-icon`
+**Validation:** pending exact-head Fast
+
+### Device feedback
+
+Build 451 is accepted directionally for the “归元” name, clean white background and adaptive-icon structure, but the maintainer identifies two remaining visual issues:
+
+1. the mark can still be slightly larger relative to surrounding HyperOS icons;
+2. the small node-to-arc “head/tail” gaps do not read uniformly enough, even though the prior traced raster happened to produce similar numerical distances.
+
+The required target is explicitly **visual unity, roundness and fullness**, not preservation of raster-trace irregularities.
+
+### Root cause
+
+The previous foreground was a point-by-point raster trace. Its three nodes had slightly different bounding boxes, while the three orbit segments had independently traced endpoint shapes. That means numerical gap similarity did not guarantee optical equality: cap curvature, node radius and local tangent differed around the three junctions.
+
+### Implementation / decision
+
+Replace only the orbit geometry with a construction that is rotationally symmetric around the existing 108 dp adaptive center:
+
+- center: `54,54`;
+- orbit centerline radius: `28.2 dp`;
+- three equal node centers: `-90° / 30° / 150°`;
+- three equal node radii: `5.15 dp`;
+- three equal arc sweeps: `74°`;
+- equal angular clearance around each node: `23°` per side;
+- orbit stroke: `7.6 dp`, true round line caps and joins;
+- center disc: `12 dp` radius;
+- whole-mark uniform scale: `0.8110`, producing approximately 53 dp visible height.
+
+This removes the traced “tail” asymmetry while keeping the selected concept, three-node/orbit topology, center disc, monochrome palette and adaptive-icon ownership unchanged.
+
+### Problem execution flow
+
+1. Re-check the exact Build-451 foreground path and measure each traced node/arc relationship.
+2. Confirm that all six nearest raster-trace gaps were numerically close (~2.2 dp) yet still visually inconsistent because node sizes and endpoint contours differed.
+3. Replace the traced orbit perimeter with one mathematical orbit system rather than hand-adjusting six independent endpoints.
+4. Keep one radius/stroke/sweep and use `round` caps so all endpoints have identical curvature.
+5. Increase the complete mark to the agreed ~53 dp target without changing Android/HyperOS mask ownership.
+
+### 审查 / review
+
+- **Ownership:** Android/HyperOS still owns launcher mask, crop and themed tint.
+- **Lifecycle:** static resource only.
+- **Single writer:** one symmetric geometry source replaces six independently traced junctions.
+- **Cleanup:** no bitmap exports, duplicate density assets, mask artwork or shadow layers.
+- **Performance:** static vector only; no runtime effect.
+- **Compatibility:** VectorDrawable paths/strokes only, within the existing adaptive foreground contract.
+- **Visual consistency:** node sizes, arc thickness, cap roundness, sweep and clearances are now intentionally identical by construction instead of merely similar by tracing.
+- **Runtime boundary:** no Hook, SystemUI, Xposed, state source or renderer change.
+
+### Validation
+
+Run exact-head Fast. If successful, request one signed Canary for focused device validation of only:
+- overall launcher/App info scale;
+- perceived equality of all three node-to-arc clearances;
+- roundness/fullness;
+- themed/monochrome rendering;
+- Chinese display name `归元`.
+
+No SystemUI regression matrix is required.
+
+### Outcome / next step
+
+Build 452 is the current visual-geometry candidate. If device feedback accepts the optical rhythm, freeze the icon geometry and close the branding checkpoint.
+
+
+### CI closure
+
+- Fast #1588 passed on exact executable source `c0e05afb2f186cac89bc2c6d542edb0978e2e6e9`.
+- Signed Work Branch Canary #471 passed trusted-source resolution, target-profile verification, tests/build, Modern Xposed metadata, Haple signature verification, non-debuggable verification and artifact upload.
+- Artifact: `CombinedStatus-0.0.2-HyperOS-20260929-452-canary.apk`, id `11004186800`.
+- Artifact ZIP digest: `sha256:7ab0608e2abac503225d3a14bc87ff468f2bd6cec331cbe51944a33479e70486`.
+- Extracted APK SHA-256: `c97518218f20a40662d6cbaf92ca7bd7d2f8df6858c2553cba1ab63004d7c925`.
+- Remaining gate is maintainer visual acceptance only: overall scale, roundness/fullness, six node-to-arc clearances, and themed/monochrome rendering.
+
+This validation-record update is documentation-only and does not create Build 453.
+
+
+### dev integration closure
+
+PR #166 was squash-merged into `dev` as `44b10371e0709d155468f7f2e67307fde5f11ab2`.
+
+Post-merge Integration #1596 passed the full required validation surface on the merged `dev` commit, including wrapper/API 37 setup, Haple signing restoration, pinned HyperOS target verification, tests/build, Modern Xposed metadata, APK signatures, non-debuggable verification and Canary artifact upload.
+
+Integration artifact: `CombinedStatus-0.0.2-HyperOS-20260929-452-canary.apk` (artifact id `11004208038`; archive digest `sha256:1139a9bfac3d085a4e6a4a8249d0357aaf64c80577861fa557690a1dbcfd75c7`).
+
+The icon/name checkpoint is therefore closed on `dev`. This is a record-only documentation update and does not create a new Build.

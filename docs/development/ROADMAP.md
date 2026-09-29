@@ -79,6 +79,8 @@ Exit criteria:
 
 ## Phase 3 — Keyguard / lockscreen / AOD scene completion — active
 
+Build 453 supersedes the automation-only Build-447 candidate with explicit native AOD gating. AOD remains NATIVE_ONLY; steady Keyguard can project only when the lockscreen feature is enabled, its host/presentation is ready, and native AOD state is unblocked.
+
 Build 447 is the first opt-in steady-Keyguard runtime candidate. It adds a separate Keyguard host/render/presentation adapter and a default-off feature switch while reusing the existing three class-wide presentation Hooks (Hook delta 0). Keyguard-originated QS_FAKE is enabled only after the steady adapter reaches ready. AOD remains outside the candidate's supported scope and is a focused real-device blocker before Keyguard can be promoted to runtime-verified evidence.
 
 Build 446 is device-accepted and closes the late-eligibility QS_FAKE cutover prerequisite. Phase 3 may now advance to the independent steady Keyguard adapter; AOD remains a later, separate gate.

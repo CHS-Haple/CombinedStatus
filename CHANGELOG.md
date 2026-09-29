@@ -7,6 +7,8 @@ The project follows a Keep a Changelog-style structure. During pre-release devel
 ## [Unreleased]
 
 ### Added
+- Optional opt-in lock-screen Combined Status uses a separate Keyguard host/render/presentation adapter, while Home and Keyguard retain independent mutable View ownership. Keyguard-originated QS_FAKE is enabled only after the steady Keyguard presentation is ready.
+- Keyguard projection is guarded by native HyperOS AOD lifecycle authority from `MiuiBatteryMeterView`; AOD transition or steady AOD restores native status presentation, and unresolved AOD contracts fail native without affecting the accepted Home/QS_FAKE path.
 
 - Battery-ring color now follows HyperOS battery semantic states: charging, power-save, performance, and low-battery use the colors already loaded by SystemUI, while normal state keeps the native status-icon tint. The color policy is structured so every state can later choose System default, status-icon tint, or a custom color without changing the native state-source path.
 
@@ -28,6 +30,8 @@ The project follows a Keep a Changelog-style structure. During pre-release devel
 - Combined Status visual color-link controls can independently make the four mobile-signal dots/unavailable mark and the center network icon follow the battery ring’s final resolved color; both links default off and synchronize to SystemUI through event-driven Modern Xposed remote preferences.
 
 ### Changed
+
+- Launcher branding now uses an abstract converging-orbit mark as a true Android adaptive icon: the geometry lives in the foreground vector, the default palette is ink-black on clean white, launcher masks remain system-owned, and Android monochrome/themed icons reuse the same silhouette.
 
 - Floating-navigation Glass follows the pinned MIUIX example material baseline, and the Appearance preview consumes the same production material and content settings as the live bottom navigation. The preview keeps fixed outer bounds and bottom-anchors the navigation sample so switching label modes does not move surrounding settings.
 - Home status-icon tint now remains synchronized with the live HyperOS/SystemUI status-icon authority across module Hot Reload and repeated light/dark app/Home transitions, avoiding stale cross-scene tint snapshots while preserving native Battery semantic colors and fail-native behavior.
