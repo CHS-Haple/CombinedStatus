@@ -10633,3 +10633,52 @@ The migrated workflow now produces the expected artifact names:
 - `Guiyuan-0.0.3-HyperOS-20260929-466-canary.apk`
 
 This closes the application/package/build-artifact identity migration on `dev`. Remaining work is repository-level GitHub rename/public metadata followed by final `dev -> main` promotion. This is a documentation-only closure and does not create a new Build.
+
+
+### Repository rename and promotion preflight closure
+
+The repository administration step is complete: the canonical public repository is now `CHS-Haple/Guiyuan`. Existing `main`, `dev`, `validation/dev`, promotion branch, PR history and Actions history remained intact after the rename, and README/badge references already target the new repository identity.
+
+Promotion hygiene then exposed two non-behavioral stable-boundary formatting defects: one extra EOF blank line in `PreviewSandboxScreen.kt` and three trailing-whitespace lines in this DEVLOG. Those were corrected without changing Build 466 runtime semantics. Integrated Build #1699 and docs-only Build #1704 passed, promotion readiness returned to READY, and the exact promotion snapshot advanced to the current dev SHA.
+
+Ready promotion PR #170 passed Build #1707 under the renamed `CHS-Haple/Guiyuan` repository. The only remaining step is the required explicit merge-commit promotion to `main`.
+
+This closure is documentation-only and does not create a new Build.
+
+
+## 2026-09-29 — Build 466 stable promotion to main
+
+**Type:** validated stable-baseline promotion / Guiyuan identity closure  
+**Display version:** 0.0.3  
+**Build:** 466 / `20260929-466`  
+**Promotion PR:** #170  
+**Main merge:** `be3cc0ae872b328d0a41d49a2599ec53950f3476`  
+**Canonical repository:** `CHS-Haple/Guiyuan`
+
+### Promotion evidence
+
+- Product/application migration PR #168 was device-accepted and integrated into `dev` as `83cfd4d4be139dd3ec9cac870a8450a6dce09d08`.
+- Exact-head Full #1690 and signed Work Branch Canary #492 passed before integration.
+- Post-merge `dev` Integration #1693 passed target-profile, tests/build, Modern Xposed metadata, Haple signature, non-debuggable verification and `Guiyuan-*` artifact upload.
+- The repository was renamed from `CHS-Haple/CombinedStatus` to `CHS-Haple/Guiyuan`; branches, PR history, Actions history and repository-facing links remained intact.
+- Stable-boundary hygiene removed one extra EOF blank line and three DEVLOG trailing-whitespace lines without changing Build 466 runtime semantics. Build #1699 and docs-only Build #1704 passed.
+- `validation/dev` and promotion readiness reflected the accepted Build 466 baseline; current readiness was READY before promotion.
+- Ready promotion Build #1707 passed on the exact promotion snapshot.
+- PR #170 merged with the required merge commit `be3cc0ae872b328d0a41d49a2599ec53950f3476`.
+- `Push on main` #72 passed.
+- Post-merge main Full #1708 passed the complete stable surface, including Haple signing/signature verification and artifact upload.
+
+### Stable identity
+
+- Public product: **Guiyuan / 归元**
+- Android namespace/applicationId: `com.chaners.guiyuan`
+- Modern Xposed entry: `com.chaners.guiyuan.xposed.CombinedStatusModule`
+- Stable artifacts:
+  - `Guiyuan-0.0.3-HyperOS-20260929-466-debug.apk`
+  - `Guiyuan-0.0.3-HyperOS-20260929-466-canary.apk`
+- Existing `CombinedStatus*` internal implementation symbols remain intentionally unchanged.
+- Historical old package/artifact/repository names remain unchanged where they record actual earlier facts.
+
+### Conclusion
+
+Build 466 is the stable `main` baseline. The Guiyuan product/repository/package identity migration is closed. Subsequent main-to-dev ancestry synchronization is repository-history maintenance only and does not create a new Build or alter the accepted runtime.
