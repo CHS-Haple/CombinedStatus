@@ -79,6 +79,26 @@ class CombinedStatusCenterGeometryTest {
         )
     }
     @Test
+    fun fiveGaAccessSuffixUsesLowerRightVerticalDirection() {
+        assertEquals(
+            8f,
+            CombinedStatusMobileTypeSuffixPolicy.verticalOffset(
+                suffix = "A",
+                magnitude = 8f,
+            ),
+            0f,
+        )
+        assertEquals(
+            -8f,
+            CombinedStatusMobileTypeSuffixPolicy.verticalOffset(
+                suffix = "++",
+                magnitude = 8f,
+            ),
+            0f,
+        )
+    }
+
+    @Test
     fun airplaneDefaultVisualSizeMatchesAcceptedWifiFamilyWidth() {
         val geometry =
             CombinedStatusCenterGeometry.resolve(
