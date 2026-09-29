@@ -117,10 +117,12 @@ internal object CombinedStatusScenePolicy {
             hostAttached
 
     fun controlCenterProjectionEligible(
+        featureEnabled: Boolean,
         sourceScene: CombinedStatusSourceScene,
         keyguardEnabled: Boolean,
     ): Boolean =
-        when (sourceScene) {
+        featureEnabled &&
+            when (sourceScene) {
             CombinedStatusSourceScene.HOME ->
                 capability(CombinedStatusScene.HOME_STABLE).renderMode ==
                     CombinedStatusRenderMode.PROJECTED

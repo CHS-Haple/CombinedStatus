@@ -68,7 +68,9 @@ Build 492 follows the 491 device result without reverting the accepted callback-
 
 Build 493 adds explicit semantic expansion for states whose fully expanded native status row contains more independently visible semantics than the compact Trinity source. The correspondence model is now explicit: existing components remain 1→1 morphs; an additional final mobile subscription is a 1→N split from the compact Mobile source; Wi-Fi with airplane mode is a 0→1 reveal for the independent final airplane slot. These projected extras are drawn only by Guiyuan's transition overlay and use read-only final slot geometry; native final alpha/visibility/translation remain untouched. Secondary Mobile reads its own subscription signal level rather than cloning the primary SIM. Reservation spans include the same extra final semantics so peer layout and projected drawing describe one occupancy set. Mobile capsule height also changes from an empirical 0.90 target factor to an optical budget that subtracts one round-cap radius from the native target height before bounding the bar body, keeping the rounded endpoint inside the intended visual envelope.
 
-Build 494 is the focused correction after Build 493 device rejection. The press-entry drift is scene-independent: Build 493 successfully activates the retained steady witness, but freezes the overlay render View's own transformed position. Because Home/Keyguard render Views live in a ViewOverlay, that transform is not the real status-bar visual position authority. Build 494 therefore freezes source position from the retained native battery-body carrier and source basis/size from the retained render View, reusing the already-established `composeSourceGeometry(positionAuthority, basisAuthority)` rule. The charging/Super-Island spacing defect is separate and has now been scoped by device feedback to charging while native island presentation is showing. In that single state, progress-synchronous transition reservation is disabled so HyperOS island motion remains the sole peer-motion authority and the previously accepted compact carrier reservation remains intact. Non-island charging, non-charging island state, Home, Keyguard, semantic split/reveal, and final native handoff remain unchanged.
+Build 494 is device-rejected. It does not restore native-equivalent transition motion: with Guiyuan enabled the row first drops vertically and only then joins the native lower-left trajectory, charging press entry remains left-biased, and charging + island can still end with peer overlap. Those motion defects remain queued after the master-switch safety regression below.
+
+Build 495 is a safety-only checkpoint after device evidence showed that disabling the Guiyuan master switch can leave native status icons suppressed across scenes. Root cause review found three reacquisition gaps: Control Center eligibility did not include `settings.enabled`; Home presentation readiness could call `SystemUiHomePresentationOwner.activate()` after disable; and runtime feature changes were never forwarded to `SystemUiNativeCombinedParticipantOwner`, so its battery/network suppression handoff could remain active. Build 495 makes master-switch-off a hard acquisition gate, routes the setting to the native participant owner, releases Home/Keyguard/Control Center presentation ownership plus native battery/network suppression, and adds a race-safe guard to the native participant handoff callback. No Build-494 transition geometry or animation code is changed.
 
 Device testing is requested only when the result can change implementation choice or acceptance. Mechanical/documentation steps continue without a new APK round trip.
 
@@ -85,12 +87,11 @@ Device testing is requested only when the result can change implementation choic
 
 ## Immediate next step
 
-1. Run exact-head Runtime CI for Build 494.
-2. If green, produce one signed Canary and test only the two rejected geometry gates before resuming semantic validation.
-3. Press-entry gate — in Home, Keyguard, charging and non-charging scenes, touching/pulling Control Center must start from the currently visible Trinity position; diagnostic source should report `*-steady-anchor+*`.
-4. Charging-island gate — only while charging and native island presentation is showing, peers must retain native island spacing rather than opening the extra 493 transition-reservation gap.
-5. Confirm ordinary non-island charging still keeps the accepted compact 105px carrier behavior and that non-charging pulls retain progress reservation.
-6. If both gates pass, resume Build-493 dual-SIM / Wi-Fi+airplane / Mobile optical-height validation without further runtime changes.
+1. Run exact-head Runtime CI for Build 495, then produce one signed Canary.
+2. Safety gate first: disable the Guiyuan master switch and verify native status icons remain present/restored in Home, Keyguard and Control Center, including after repeated pulls and scene changes.
+3. Re-enable Guiyuan and verify the normal compact presentation can reacquire without restart/Hot Reload.
+4. Only after the master-switch gate passes, resume transition motion work from the new device evidence: native peers move directly lower-left, while Guiyuan currently inserts an incorrect initial vertical-only segment.
+5. The next motion correction must inherit external x/y motion from the native fake status-bar carrier from the first frame; Guiyuan should own only local Trinity morph geometry. Charging press-left bias and charging-island final overlap remain part of that same follow-up review.
 
 ## Reference priority
 

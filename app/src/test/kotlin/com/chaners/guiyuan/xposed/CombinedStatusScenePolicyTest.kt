@@ -88,25 +88,43 @@ class CombinedStatusScenePolicyTest {
     fun controlCenterProjectionInheritsVerifiedSourceSceneCapability() {
         assertTrue(
             CombinedStatusScenePolicy.controlCenterProjectionEligible(
+                featureEnabled = true,
                 sourceScene = CombinedStatusSourceScene.HOME,
                 keyguardEnabled = false,
             ),
         )
         assertFalse(
             CombinedStatusScenePolicy.controlCenterProjectionEligible(
+                featureEnabled = true,
                 sourceScene = CombinedStatusSourceScene.KEYGUARD,
                 keyguardEnabled = false,
             ),
         )
         assertTrue(
             CombinedStatusScenePolicy.controlCenterProjectionEligible(
+                featureEnabled = true,
                 sourceScene = CombinedStatusSourceScene.KEYGUARD,
                 keyguardEnabled = true,
             ),
         )
         assertFalse(
             CombinedStatusScenePolicy.controlCenterProjectionEligible(
+                featureEnabled = true,
                 sourceScene = CombinedStatusSourceScene.UNKNOWN,
+                keyguardEnabled = true,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.controlCenterProjectionEligible(
+                featureEnabled = false,
+                sourceScene = CombinedStatusSourceScene.HOME,
+                keyguardEnabled = true,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.controlCenterProjectionEligible(
+                featureEnabled = false,
+                sourceScene = CombinedStatusSourceScene.KEYGUARD,
                 keyguardEnabled = true,
             ),
         )

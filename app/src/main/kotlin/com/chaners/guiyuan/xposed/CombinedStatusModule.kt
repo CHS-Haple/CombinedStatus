@@ -1165,6 +1165,7 @@ class CombinedStatusModule : XposedModule() {
                 keyguardRuntimeReady
         val nextEligible =
             CombinedStatusScenePolicy.controlCenterProjectionEligible(
+                featureEnabled = settings.enabled,
                 sourceScene = sourceScene,
                 keyguardEnabled = keyguardEligible,
             )
@@ -2382,6 +2383,11 @@ class CombinedStatusModule : XposedModule() {
         ready: Boolean,
         source: String,
     ) {
+        if (!RuntimeFeaturePreferencesOwner.currentSettings().enabled) {
+            CombinedStatusHomeRenderSession.setNativeHandoffActive(true)
+            SystemUiHomePresentationOwner.deactivate("feature-disabled:" + source)
+            return
+        }
         if (!ready) {
             CombinedStatusHomeRenderSession.setNativeHandoffActive(true)
             SystemUiHomePresentationOwner.deactivate("readiness-lost:" + source)
@@ -2651,7 +2657,34 @@ class CombinedStatusModule : XposedModule() {
                         val state = CombinedStatusStateStore.snapshot()
                         val wifi = state.wifi
 
-                        if (active) {
+                        if (
+                            active &&
+                            !RuntimeFeaturePreferencesOwner.currentSettings().enabled
+                        ) {
+                            val batterySuppression =
+                                SystemUiNativeBatterySuppressionOwner.deactivate(
+                                    "feature-disabled-native-handoff",
+                                )
+                            val networkSuppression =
+                                SystemUiNativeNetworkSuppressionOwner.deactivate(
+                                    "feature-disabled-native-handoff",
+                                )
+                            CombinedStatusHomeRenderSession.setNativeHandoffActive(false)
+                            logDiagnostic(
+                                level = Log.INFO,
+                                event = "visibility.handoff",
+                                component = "nativeCombinedParticipant",
+                                state = "blocked",
+                                "source" to source,
+                                "reason" to "master-switch-disabled",
+                                "nativeActive" to false,
+                                "overlayActive" to false,
+                                "networkSuppression" to networkSuppression.summary,
+                                "batterySuppression" to batterySuppression.summary,
+                                "nativeGeometryWrites" to 0,
+                            )
+                            false
+                        } else if (active) {
                             val batterySuppression =
                                 SystemUiNativeBatterySuppressionOwner.activate(
                                     host = host,
@@ -2993,12 +3026,16 @@ class CombinedStatusModule : XposedModule() {
         settings: CombinedStatusFeatureSettings,
         preferenceTransportLatencyNanos: Long?,
     ) {
+        SystemUiNativeCombinedParticipantOwner.onFeatureSettingsChanged(settings)
         CombinedStatusHomeRenderSession.onFeatureSettingsChanged(settings)
         CombinedStatusKeyguardRenderSession.onFeatureSettingsChanged(settings)
         CombinedStatusControlCenterRenderSession.onFeatureSettingsChanged(settings)
 
-        if (!settings.enabled || !settings.keyguardEnabled) {
+        if (!settings.enabled) {
+            releaseFeaturePresentationOwnership("feature-disabled")
             deactivateKeyguardRuntime("feature-disabled")
+        } else if (!settings.keyguardEnabled) {
+            deactivateKeyguardRuntime("keyguard-feature-disabled")
         } else {
             SystemUiKeyguardHostResolver.current()?.let { resolution ->
                 onKeyguardHostResolution(
@@ -3025,6 +3062,19 @@ class CombinedStatusModule : XposedModule() {
             "eventDriven" to true,
             "fallback" to if (settings.enabled) "combined-status" else "native-systemui",
         )
+    }
+
+    private fun releaseFeaturePresentationOwnership(source: String) {
+        controlCenterSceneEligible = false
+        keyguardControlCenterLeaseActive = false
+        CombinedStatusControlCenterRenderSession.setSceneEligible(false)
+        CombinedStatusControlCenterTransitionOwner.setSceneEligible(false)
+        SystemUiHomePresentationOwner.deactivateControlCenter(source)
+        SystemUiHomePresentationOwner.deactivateKeyguard(source)
+        SystemUiHomePresentationOwner.deactivate(source)
+        SystemUiNativeBatterySuppressionOwner.deactivate(source)
+        SystemUiNativeNetworkSuppressionOwner.deactivate(source)
+        CombinedStatusHomeRenderSession.setNativeHandoffActive(true)
     }
 
     private fun bindRuntimeVisualSettings() {

@@ -11921,3 +11921,48 @@ For charging + active island, HyperOS already owns peer displacement through `Ho
 ### Validation
 
 Exact-head Runtime CI and one signed Canary are required. Device validation is intentionally limited first to global press-entry origin and charging-island peer spacing. Build-493 semantic behavior should not be re-evaluated until those geometry gates pass.
+
+
+## 2026-09-30 — Build 495: master-switch fail-native closure
+
+**Type:** Runtime lifecycle / presentation-ownership safety  
+**Display version:** 0.0.3  
+**Build / source:** 495 / `20260930-495` / `feat/control-center-transition-matrix`
+
+### Device evidence
+
+Build 494 exposes a safety regression independent of the transition-shape defects: after disabling the Guiyuan master switch, native status icons can remain missing across scenes. The issue is not limited to Control Center.
+
+A separate motion observation remains open for the next checkpoint: with native SystemUI the status row moves directly lower-left during Control Center expansion, while Guiyuan currently adds a short vertical-only segment before joining that trajectory. Build 495 intentionally does not touch that motion path so the safety regression can be isolated.
+
+### Root cause
+
+Master-switch-off was not a hard acquisition boundary for every presentation owner.
+
+- Runtime feature changes were sent to Home/Keyguard/Control Center render sessions but **not** to `SystemUiNativeCombinedParticipantOwner`. Its validated native handoff could therefore keep Battery/Network suppression active after the UI feature was disabled.
+- `updateControlCenterSourceSceneEligibility()` evaluated HOME/KEYGUARD capability without `settings.enabled`, so a feature-settings refresh could re-enable QS_FAKE presentation immediately after the disable path restored it.
+- `onHomePresentationReadinessChanged(ready=true)` could call `SystemUiHomePresentationOwner.activate(host)` without checking the master switch, allowing a later readiness callback to reacquire native Home suppression.
+- The native participant handoff callback had no independent master-switch race guard.
+
+### Change
+
+- Route every runtime feature change to `SystemUiNativeCombinedParticipantOwner.onFeatureSettingsChanged()`.
+- Add `featureEnabled` to Control Center projection eligibility; disabled always resolves native.
+- Add a master-switch hard gate before Home presentation activation.
+- On feature disable, release Guiyuan-owned Home, Keyguard and Control Center presentation state plus native Battery/Network suppression and clear Control Center eligibility/lease state.
+- Add a race-safe guard in the native participant handoff callback so an `active=true` callback observed after disable cannot reacquire suppression.
+- Keep hooks/state collectors installed; re-enabling remains event-driven and does not require SystemUI restart.
+- Build-494 transition geometry, semantic split/reveal and island logic are unchanged.
+
+### 审查 / review
+
+- **Fail native:** feature disabled now means no Guiyuan presentation owner may acquire or retain suppression.
+- **Single writer / cleanup:** the change uses existing owner-specific deactivate/restore contracts; it does not write native geometry directly.
+- **Race handling:** both settings propagation and acquisition-site guards are used, so a late callback cannot undo the disable transaction.
+- **Lifecycle:** hooks remain installed while visual/native ownership is released; re-enable can reacquire through the existing readiness/handoff flows.
+- **Performance:** no new hook, listener, polling, timer, frame callback or traversal is added.
+- **Isolation:** no transition curve/geometry change is included in this checkpoint.
+
+### Validation
+
+Exact-head Runtime CI plus one signed Canary. Device gate: disable the master switch while Guiyuan is active, then verify native Wi-Fi/mobile/battery and peer icons stay present through Home, Keyguard, Control Center pulls and repeated scene transitions. Re-enable must restore Guiyuan without restart.
