@@ -10682,3 +10682,68 @@ This closure is documentation-only and does not create a new Build.
 ### Conclusion
 
 Build 466 is the stable `main` baseline. The Guiyuan product/repository/package identity migration is closed. Subsequent main-to-dev ancestry synchronization is repository-history maintenance only and does not create a new Build or alter the accepted runtime.
+
+---
+
+## 2026-09-29 — Build 467 companion-app presentation polish
+
+**Type:** companion-app UI / copy
+**Display version:** 0.0.3
+**Build / source:** Build 467 / `20260929-467` / executable checkpoint `68151be263ab020da2085b28b97c2019f986be4c`
+**Branch:** `feat/presentation-ui-polish`
+**Validation:** exact-head Fast pending
+
+### Problem / objective
+
+The accepted companion-app baseline is functionally correct, but device screenshots expose three presentation issues: Preview Sandbox mixes too many simultaneous text weights without enough grouping, the app/module description redundantly repeats the adjacent product name, and the Diagnostics app card lacks a strong but compact product-identity visual.
+
+### Problem execution flow
+
+1. Recovered the current Guiyuan repository baseline and rejected the stale `feat/diagnostics-ui-refinement` branch as a continuation source because it had diverged materially from current `dev`.
+2. Created a fresh presentation branch from `dev@2163d3a8b9134e6114d6e59387b7c808d9399a08`.
+3. Reviewed the current Preview Sandbox structure and found four simultaneous card-local text hierarchy levels with no structural separation between preview result and control groups.
+4. Kept MIUIX component typography as the authority and reduced custom card text to two roles: `body1` primary content and `body2` supporting content.
+5. Reused the frozen `ic_launcher_foreground` vector for Diagnostics instead of copying paths or adding a second brand-geometry source.
+6. Shortened the shared Android `app_description`, which is consumed by both Diagnostics and the LSPosed/module-facing application description.
+
+### Root-cause status
+
+**Confirmed presentation cause:** the Sandbox looked visually noisy because semantic groups were expressed mainly through changing text size/weight rather than layout grouping. The issue was hierarchy composition, not one incorrect font-size constant.
+
+### Implementation / decision
+
+- Preview Sandbox:
+  - card-local text uses MIUIX `body1` for primary values/titles and `body2` for supporting labels/copy;
+  - live network and battery results use one consistent label/value row pattern;
+  - low-contrast dividers separate live result, network-local vs device-level state, and battery level vs mode/charging controls;
+  - simulation state and production renderer are unchanged.
+- Diagnostics:
+  - the app header places a 72 dp layout slot for the background-free Guiyuan foreground mark beside title/description;
+  - the existing foreground vector is reused directly and theme-tinted;
+  - the vector rotates `0 -> -360°` with linear easing over 18 seconds and repeats while the Diagnostics composable is active;
+  - because the center element is a circle, rotating the complete foreground leaves the center visually unchanged while the asymmetric outer orbit/nodes visibly travel counterclockwise.
+- Copy:
+  - Chinese description starts directly with “面向 HyperOS 的 LSPosed 模块…”;
+  - English description starts directly with “LSPosed module for HyperOS…”;
+  - repository README/public project description is intentionally unchanged because its standalone documentation context benefits from an explicit product subject.
+- Internal Build identity advances from 466 to 467; display version remains 0.0.3.
+
+### 审查 / review
+
+- **Ownership:** MIUIX remains typography/component owner; the app owns only presentation composition. Frozen launcher-vector geometry remains the single brand silhouette source.
+- **Lifecycle:** the infinite transition exists only while the Diagnostics screen composable is active; no background service, process-global animator, or SystemUI animation is added.
+- **Single writer:** no runtime SystemUI property is touched. The animation writes only the local Compose graphics-layer rotation.
+- **Cleanup:** Compose disposal ends the screen-local animation automatically; no listener/callback registration exists.
+- **Fail native:** not applicable to companion-app-only presentation; SystemUI runtime path is unchanged.
+- **Performance:** one small GPU graphics-layer rotation while Diagnostics is visible; no polling, reflection, View traversal, logging, or runtime-state wakeup is added.
+- **Compatibility:** uses existing Compose/MIUIX dependencies and the current adaptive foreground resource; no dependency/build-system change.
+- **Future extension:** if motion preferences are later exposed, the animation can be gated without changing the brand resource or diagnostics information structure.
+
+### CI / device validation
+
+Exact-head Fast is required because app/runtime package files changed. A signed Canary is not automatically required; request one only if visual review on the target device is needed after Fast.
+
+### Outcome / next step
+
+Run exact-head Fast. If green, review the Sandbox hierarchy and Diagnostics mark in light/dark appearance. Integrate to `dev` when accepted. The pending SystemUI transition-animation work remains a separate branch from the updated `dev` baseline.
+
