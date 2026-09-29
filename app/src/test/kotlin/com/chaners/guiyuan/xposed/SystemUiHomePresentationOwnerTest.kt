@@ -1,4 +1,4 @@
-package com.chaners.combinedstatus.xposed
+package com.chaners.guiyuan.xposed
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse

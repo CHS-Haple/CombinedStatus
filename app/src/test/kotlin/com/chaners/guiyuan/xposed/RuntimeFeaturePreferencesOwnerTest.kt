@@ -1,4 +1,4 @@
-package com.chaners.combinedstatus.xposed
+package com.chaners.guiyuan.xposed
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -7,7 +7,7 @@ import org.junit.Test
 class RuntimeFeaturePreferencesOwnerTest {
     @Test
     fun keyguardFeatureDefaultsFailNative() {
-        val settings = com.chaners.combinedstatus.settings.CombinedStatusFeatureSettings()
+        val settings = com.chaners.guiyuan.settings.CombinedStatusFeatureSettings()
         assertEquals(true, settings.enabled)
         assertEquals(false, settings.keyguardEnabled)
     }
