@@ -35,23 +35,16 @@ This file is the concise recovery point for active Guiyuan development. Read it 
 - **App icon:** Build 452, integrated by PR #166 as `44b10371e0709d155468f7f2e67307fde5f11ab2`. The Guiyuan mark uses the accepted rotationally symmetric adaptive-icon geometry.
 - **Companion app:** Build 464, integrated through PR #165 as `a2394db92ce208771956defcd558c954065000f7`; Build 465 advanced the integrated display line to 0.0.3. Home Runtime Status, production-rendered Preview Sandbox, Features hierarchy, Diagnostics action styling, and MIUIX-aligned Sandbox controls are part of the accepted baseline.
 
-### Active presentation checkpoint
+### Active integrated checkpoint
 
-**Build 471 / `20260929-471`** is the active companion-app presentation checkpoint on `feat/presentation-ui-polish`, still 0-behind current `dev@2163d3a8b9134e6114d6e59387b7c808d9399a08`.
+**Build 473 / `20260929-473`** is the active accepted integration candidate on `fix/wifi-optical-normalization`, synchronized on top of the accepted Build-472 companion-app UI integration commit `dev@d24fd7aff07abf78a0a5828fc2e667a88dd05720`.
 
-Build 470 passed exact-head Fast #1753 / #1756 and signed Work Branch Canary #499 on `e08097328f25e837b41f71ae469865820384037f`. Device review then rejected two Build-470 visual choices: demoting custom Sandbox setting titles to subdued `body2` made controls visually dominate and left native `SwitchPreference` title "Airplane mode" standing out; the Canvas implementation still scaled a 64 dp painter by 1.8x and produced visibly worse edge aliasing on the animated Guiyuan mark.
+Accepted lineage in this candidate:
+- **Build 472 / PR #173:** unified Preview Sandbox setting structure on MIUIX `BasicComponent` / native preference title ownership, moderately compact spacing, and the final-size animated Guiyuan identity path. Exact-head Fast #1778 and signed Canary #506 passed; maintainer device review accepted the presentation result. PR #173 was squash-integrated into `dev` as `d24fd7aff07abf78a0a5828fc2e667a88dd05720`.
+- **Build 473 / PR #175:** connected, no-Internet and hotspot native Wi-Fi variants share the same-level connected Wi-Fi drawable as optical-fit reference while preserving each HyperOS drawable's authored viewport/badge relationship. Exact-head Fast #1782 and signed Canary #509 passed on device-tested source `f918663bbd53549089dff0d8a52387b00d6e09b7`; maintainer review accepted the result.
+- PR #175 has been synchronized onto the integrated Build-472 `dev` baseline without changing the accepted Wi-Fi fit policy or the accepted companion-app UI. The resulting exact-head Fast is the final pre-merge source/build check; no repeated device gate is required for this ancestry-only composition.
 
-Build 471 therefore:
-- restores all custom Sandbox setting titles (slider and segmented-field titles) to the primary MIUIX `body1` / `onSurfaceContainer` role so setting semantics lead the hierarchy consistently with native preference titles;
-- keeps control option typography owned by MIUIX and preserves the accepted soft spacing-only grouping, state model and production renderer;
-- keeps the accepted 8 dp Module runtime top/bottom edge breathing room from Build 470;
-- removes Canvas `scale()` entirely from the animated identity path;
-- draws `ic_launcher_foreground` directly at its final 1.8x target size (centered inside the 64 dp slot) and applies only the rotation transform, so the vector is rasterized at the final geometry rather than enlarged from a smaller draw;
-- retains the same single launcher vector source, theme tint, 64 dp layout slot and 20-second linear counterclockwise motion;
-- leaves all SystemUI/Xposed runtime, state sources, Hooks, production renderer, persistent preferences, native suppression and production icon geometry unchanged.
-
-Executable source checkpoint before documentation closure: `7e0d66bc796672155c3243d796b8490f017f019a`.
-Exact-head Fast validation is pending.
+Build 473 changes no Wi-Fi semantic source, Hook, observer, listener, transition owner or native drawable contents. It changes only the shared final native Wi-Fi fit reference and therefore applies consistently to Preview Sandbox and real SystemUI rendering.
 
 ## Current phase
 
@@ -108,10 +101,10 @@ Historical rejected/superseded Builds and hypotheses remain in `DEVLOG.md`; do n
 
 ## Active branch boundary
 
-- Active companion-app presentation work: `feat/presentation-ui-polish` / Build 472, created from and still 0-behind synchronized `dev@2163d3a8b9134e6114d6e59387b7c808d9399a08`.
-- This branch is UI/copy-only at the product-runtime boundary and must not absorb the pending SystemUI transition-animation work.
-- Pre-promotion historical `feat/*` / `fix/*` branches remain invalid continuation bases; old open PRs must be re-evaluated rather than merged by age/name.
-- New runtime work still starts from the synchronized current `dev` baseline after this independent presentation checkpoint is closed.
+- Build 472 companion-app presentation work is accepted and integrated into `dev` by PR #173.
+- Active integration work: `fix/wifi-optical-normalization` / PR #175 / Build 473, synchronized onto `dev@d24fd7aff07abf78a0a5828fc2e667a88dd05720`.
+- This branch owns only the accepted Wi-Fi optical normalization plus integration-record closure; it must not absorb the separate Control Center transition-animation work.
+- Pre-promotion historical branches remain invalid continuation bases.
 
 ## Non-negotiable boundaries
 
@@ -126,12 +119,11 @@ Historical rejected/superseded Builds and hypotheses remain in `DEVLOG.md`; do n
 
 ## Immediate next step
 
-1. Complete Build 472 exact-head Fast validation and issue one signed Canary for focused device review of the unified MIUIX preference structure and moderate Sandbox density.
-2. Keep PR #173 UI/copy-only at the runtime boundary; do not absorb the newly requested shared Wi-Fi optical-normalization runtime change.
-3. In parallel, investigate Wi-Fi connected / no-internet / hotspot optical normalization on a separate `fix/*` branch from synchronized `dev`; use connected Wi-Fi as the reference geometry and reuse the shared renderer so Preview and real SystemUI receive one implementation.
-4. Integrate each accepted branch into `dev` only after its own device evidence is accepted.
-5. The next broader runtime checkpoint remains Home/Keyguard -> QS_FAKE -> native Control Center **visual transition-animation** adaptation; do not mix that work into either focused branch.
-6. Keep 1.0.0 gated by the release-qualification matrix and explicit maintainer authorization.
+1. Complete the synchronized Build-473 exact-head Fast check on PR #175.
+2. Squash-merge accepted PR #175 into `dev`.
+3. Confirm the post-merge `dev` Integration gate; Build 473 then becomes the combined accepted development baseline containing both the Build-472 companion UI polish and the Wi-Fi optical correction.
+4. Continue the separate Home/Keyguard -> QS_FAKE -> native Control Center transition-animation adaptation from the then-current synchronized `dev`; do not mix it back into this closed visual checkpoint.
+5. Keep 1.0.0 gated by the release-qualification matrix and explicit maintainer authorization.
 
 ## Reference priority
 
