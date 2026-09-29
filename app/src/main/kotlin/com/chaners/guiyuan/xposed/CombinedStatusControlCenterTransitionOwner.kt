@@ -150,6 +150,53 @@ internal object CombinedStatusControlCenterTransitionOwner {
     internal object Policy {
         fun geometryProgress(raw: Float): Float =
             if (raw.isFinite()) raw.coerceIn(0f, 1f) else 0f
+
+        fun interpolateGeometry(
+            source: FloatArray,
+            target: FloatArray,
+            progress: Float,
+        ): FloatArray {
+            require(source.size == 6 && target.size == 6)
+            val p = progress.coerceIn(0f, 1f)
+            return FloatArray(6) { index ->
+                source[index] + (target[index] - source[index]) * p
+            }
+        }
+
+        fun componentGeometry(
+            parentGeometry: FloatArray,
+            parentWidth: Int,
+            parentHeight: Int,
+            bounds: CombinedStatusPainter.TransitionBounds,
+        ): FloatArray? {
+            if (
+                parentGeometry.size != 6 ||
+                parentWidth <= 0 ||
+                parentHeight <= 0 ||
+                bounds.width <= 0f ||
+                bounds.height <= 0f
+            ) {
+                return null
+            }
+            val normalizedCenterX =
+                bounds.centerX / parentWidth.toFloat() - 0.5f
+            val normalizedCenterY =
+                bounds.centerY / parentHeight.toFloat() - 0.5f
+            val widthScale = bounds.width / parentWidth.toFloat()
+            val heightScale = bounds.height / parentHeight.toFloat()
+            return floatArrayOf(
+                parentGeometry[0] +
+                    parentGeometry[2] * normalizedCenterX +
+                    parentGeometry[4] * normalizedCenterY,
+                parentGeometry[1] +
+                    parentGeometry[3] * normalizedCenterX +
+                    parentGeometry[5] * normalizedCenterY,
+                parentGeometry[2] * widthScale,
+                parentGeometry[3] * widthScale,
+                parentGeometry[4] * heightScale,
+                parentGeometry[5] * heightScale,
+            )
+        }
     }
 
     private class Session(
