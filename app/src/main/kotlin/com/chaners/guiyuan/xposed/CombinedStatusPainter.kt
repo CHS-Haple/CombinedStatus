@@ -250,17 +250,11 @@ internal class CombinedStatusPainter(
             get() = (top + bottom) / 2f
     }
 
-    internal data class TransitionReleasePolicy(
-        val startProgress: Float,
-        val endProgress: Float,
-    )
-
     internal data class TransitionComponentSpec(
         val component: TransitionComponent,
         val sourceBounds: TransitionBounds,
         val target: TransitionTarget,
         val shapePolicy: TransitionShapePolicy,
-        val releasePolicy: TransitionReleasePolicy = DEFAULT_TRANSITION_RELEASE,
     )
 
     fun transitionComponentSpecs(
@@ -330,12 +324,12 @@ internal class CombinedStatusPainter(
                         component = TransitionComponent.CENTER,
                         sourceBounds =
                             toViewBounds(
-                                centeredBounds(
-                                    centerX = MOBILE_TYPE_CENTER_X,
-                                    centerY = MOBILE_TYPE_CENTER_Y,
-                                    width = MOBILE_TYPE_TRANSITION_MAX_WIDTH,
-                                    height = MOBILE_TYPE_TRANSITION_MAX_HEIGHT,
-                                ),
+                                resolveMobileTypeLayout(
+                                    indicator = model.centerIndicator,
+                                    scale = scale,
+                                    geometry = centerGeometry,
+                                    scaleWithCanvas = false,
+                                ).bounds,
                             ),
                         target = TransitionTarget.Slots(listOf("mobile", "stacked_mobile")),
                         shapePolicy = TransitionShapePolicy.KEEP_SHAPE,
@@ -1052,6 +1046,49 @@ internal class CombinedStatusPainter(
         geometry: CombinedStatusCenterGeometry.Resolved,
         scaleWithCanvas: Boolean,
     ) {
+        val layout =
+            resolveMobileTypeLayout(
+                indicator = indicator,
+                scale = scale,
+                geometry = geometry,
+                scaleWithCanvas = scaleWithCanvas,
+            )
+
+        paint.style = Paint.Style.FILL
+        paint.color = tint
+        paint.alpha =
+            CombinedStatusVisualIntensity.resolveCanvasAlpha(
+                color = tint,
+                semanticAlpha = 255,
+                opacity = opacity,
+            )
+        paint.typeface = mobileTypeTypeface(geometry.mobileTypeWeight)
+        paint.textAlign = Paint.Align.LEFT
+
+        paint.textSize = layout.mainTextSize
+        canvas.drawText(
+            layout.main,
+            layout.mainX,
+            layout.mainBaselineY,
+            paint,
+        )
+        if (layout.suffix.isNotEmpty()) {
+            paint.textSize = layout.suffixTextSize
+            canvas.drawText(
+                layout.suffix,
+                layout.suffixX,
+                layout.suffixBaselineY,
+                paint,
+            )
+        }
+    }
+
+    private fun resolveMobileTypeLayout(
+        indicator: CenterIndicator.MobileType,
+        scale: Float,
+        geometry: CombinedStatusCenterGeometry.Resolved,
+        scaleWithCanvas: Boolean,
+    ): MobileTypeLayout {
         val normalized = indicator.label.trim().uppercase()
         val split =
             when {
@@ -1073,14 +1110,6 @@ internal class CombinedStatusPainter(
                 else -> normalized to ""
             }
 
-        paint.style = Paint.Style.FILL
-        paint.color = tint
-        paint.alpha =
-            CombinedStatusVisualIntensity.resolveCanvasAlpha(
-                color = tint,
-                semanticAlpha = 255,
-                opacity = opacity,
-            )
         paint.typeface = mobileTypeTypeface(geometry.mobileTypeWeight)
         paint.textAlign = Paint.Align.LEFT
         val mainTextSize =
@@ -1095,6 +1124,7 @@ internal class CombinedStatusPainter(
             } else {
                 geometry.mobileTypeSuffixSize / scale
             }
+
         paint.textSize = mainTextSize
         paint.getTextBounds(
             split.first,
@@ -1102,21 +1132,31 @@ internal class CombinedStatusPainter(
             split.first.length,
             mobileTypeMainBounds,
         )
-
         val mainBaselineY =
             MOBILE_TYPE_CENTER_Y -
                 (mobileTypeMainBounds.top + mobileTypeMainBounds.bottom) / 2f
+
         if (split.second.isEmpty()) {
             val mainX =
                 MOBILE_TYPE_CENTER_X -
                     (mobileTypeMainBounds.left + mobileTypeMainBounds.right) / 2f
-            canvas.drawText(
-                split.first,
-                mainX,
-                mainBaselineY,
-                paint,
+            return MobileTypeLayout(
+                main = split.first,
+                suffix = "",
+                mainTextSize = mainTextSize,
+                suffixTextSize = suffixTextSize,
+                mainX = mainX,
+                mainBaselineY = mainBaselineY,
+                suffixX = mainX,
+                suffixBaselineY = mainBaselineY,
+                bounds =
+                    TransitionBounds(
+                        left = mainX + mobileTypeMainBounds.left,
+                        top = mainBaselineY + mobileTypeMainBounds.top,
+                        right = mainX + mobileTypeMainBounds.right,
+                        bottom = mainBaselineY + mobileTypeMainBounds.bottom,
+                    ),
             )
-            return
         }
 
         paint.textSize = suffixTextSize
@@ -1153,14 +1193,38 @@ internal class CombinedStatusPainter(
             suffixCenterY -
                 (mobileTypeSuffixBounds.top + mobileTypeSuffixBounds.bottom) / 2f
 
-        paint.textSize = mainTextSize
-        canvas.drawText(split.first, mainX, mainBaselineY, paint)
-        paint.textSize = suffixTextSize
-        canvas.drawText(
-            split.second,
-            suffixX,
-            suffixBaselineY,
-            paint,
+        return MobileTypeLayout(
+            main = split.first,
+            suffix = split.second,
+            mainTextSize = mainTextSize,
+            suffixTextSize = suffixTextSize,
+            mainX = mainX,
+            mainBaselineY = mainBaselineY,
+            suffixX = suffixX,
+            suffixBaselineY = suffixBaselineY,
+            bounds =
+                TransitionBounds(
+                    left =
+                        min(
+                            mainX + mobileTypeMainBounds.left,
+                            suffixX + mobileTypeSuffixBounds.left,
+                        ),
+                    top =
+                        min(
+                            mainBaselineY + mobileTypeMainBounds.top,
+                            suffixBaselineY + mobileTypeSuffixBounds.top,
+                        ),
+                    right =
+                        max(
+                            mainX + mobileTypeMainBounds.right,
+                            suffixX + mobileTypeSuffixBounds.right,
+                        ),
+                    bottom =
+                        max(
+                            mainBaselineY + mobileTypeMainBounds.bottom,
+                            suffixBaselineY + mobileTypeSuffixBounds.bottom,
+                        ),
+                ),
         )
     }
 
@@ -1358,15 +1422,20 @@ internal class CombinedStatusPainter(
         const val BATTERY_FOLD_SCALE_X = 12.75f / 9.25f
         const val BATTERY_FOLD_SCALE_Y = 3.4f / 9.25f
         const val MOBILE_COLLAPSE_SCALE = 0.82f
-        const val MOBILE_TYPE_TRANSITION_MAX_WIDTH = 66f
-        const val MOBILE_TYPE_TRANSITION_MAX_HEIGHT = 44f
 
-        val DEFAULT_TRANSITION_RELEASE =
-            TransitionReleasePolicy(
-                startProgress = 0.58f,
-                endProgress = 0.92f,
-            )
     }
+
+    private data class MobileTypeLayout(
+        val main: String,
+        val suffix: String,
+        val mainTextSize: Float,
+        val suffixTextSize: Float,
+        val mainX: Float,
+        val mainBaselineY: Float,
+        val suffixX: Float,
+        val suffixBaselineY: Float,
+        val bounds: TransitionBounds,
+    )
 
     private data class NativeCenterAsset(
         val drawable: Drawable,
