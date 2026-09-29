@@ -305,10 +305,11 @@ internal object CombinedStatusHomeRenderSession {
 
         fun transitionSourceView(): View? =
             probeView.takeIf { view ->
-                layoutReady &&
-                    view.width > 0 &&
-                    view.height > 0 &&
-                    batteryContainer.get()?.isAttachedToWindow == true
+                CombinedStatusScenePolicy.retainedTransitionSourceWitnessAvailable(
+                    widthPx = view.width,
+                    heightPx = view.height,
+                    hostAttached = batteryContainer.get()?.isAttachedToWindow == true,
+                )
             }
 
         fun stop(removeVisual: Boolean = true) {

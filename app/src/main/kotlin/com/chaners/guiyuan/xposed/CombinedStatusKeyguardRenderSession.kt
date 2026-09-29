@@ -153,10 +153,11 @@ internal object CombinedStatusKeyguardRenderSession {
 
         fun transitionSourceView(): View? =
             renderView.takeIf { view ->
-                layoutReady &&
-                    view.width > 0 &&
-                    view.height > 0 &&
-                    systemIcons.get()?.isAttachedToWindow == true
+                CombinedStatusScenePolicy.retainedTransitionSourceWitnessAvailable(
+                    widthPx = view.width,
+                    heightPx = view.height,
+                    hostAttached = systemIcons.get()?.isAttachedToWindow == true,
+                )
             }
 
         fun start() {

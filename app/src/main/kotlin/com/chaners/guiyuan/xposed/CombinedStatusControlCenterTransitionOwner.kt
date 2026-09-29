@@ -1497,7 +1497,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         ?.takeIf { view ->
                             view.width > 0 &&
                                 view.height > 0 &&
-                                view.rootView === root
+                                view.isAttachedToWindow
                         }
                         ?.let { view ->
                             sampleGeometry(
@@ -1508,7 +1508,13 @@ internal object CombinedStatusControlCenterTransitionOwner {
                                     width = view.width,
                                     height = view.height,
                                     geometry = geometry,
-                                    source = steadySourceLabel,
+                                    source =
+                                        steadySourceLabel +
+                                            if (view.rootView === root.rootView) {
+                                                "-steady-same-root"
+                                            } else {
+                                                "-steady-cross-root"
+                                            },
                                 )
                             }
                         }
@@ -1529,9 +1535,26 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 view: View,
                 root: View,
             ): FloatArray? {
-                if (view.width <= 0 || view.height <= 0) return null
+                if (
+                    view.width <= 0 ||
+                    view.height <= 0 ||
+                    !view.isAttachedToWindow ||
+                    !root.isAttachedToWindow
+                ) {
+                    return null
+                }
                 val matrix = Matrix()
                 view.transformMatrixToGlobal(matrix)
+                val sourceRoot = view.rootView
+                val targetRoot = root.rootView
+                if (sourceRoot !== targetRoot) {
+                    val sourceWindowOrigin = windowOriginOnScreen(sourceRoot) ?: return null
+                    val targetWindowOrigin = windowOriginOnScreen(targetRoot) ?: return null
+                    matrix.postTranslate(
+                        (sourceWindowOrigin.first - targetWindowOrigin.first).toFloat(),
+                        (sourceWindowOrigin.second - targetWindowOrigin.second).toFloat(),
+                    )
+                }
                 root.transformMatrixToLocal(matrix)
                 val values = FloatArray(9)
                 matrix.getValues(values)
@@ -1547,6 +1570,17 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     values[Matrix.MSKEW_X] * view.height,
                     values[Matrix.MSCALE_Y] * view.height,
                 )
+            }
+
+            private fun windowOriginOnScreen(view: View): Pair<Int, Int>? {
+                if (!view.isAttachedToWindow) return null
+                return runCatching {
+                    val screen = IntArray(2)
+                    val window = IntArray(2)
+                    view.getLocationOnScreen(screen)
+                    view.getLocationInWindow(window)
+                    (screen[0] - window[0]) to (screen[1] - window[1])
+                }.getOrNull()
             }
 
             private fun slotViews(

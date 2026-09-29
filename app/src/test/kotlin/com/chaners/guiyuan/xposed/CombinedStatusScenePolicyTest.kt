@@ -48,6 +48,31 @@ class CombinedStatusScenePolicyTest {
     }
 
     @Test
+    fun retainedTransitionSourceWitnessSurvivesPresentationHandoff() {
+        assertTrue(
+            CombinedStatusScenePolicy.retainedTransitionSourceWitnessAvailable(
+                widthPx = 105,
+                heightPx = 169,
+                hostAttached = true,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.retainedTransitionSourceWitnessAvailable(
+                widthPx = 0,
+                heightPx = 169,
+                hostAttached = true,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.retainedTransitionSourceWitnessAvailable(
+                widthPx = 105,
+                heightPx = 169,
+                hostAttached = false,
+            ),
+        )
+    }
+
+    @Test
     fun keyguardIsProjectedCandidateWhileAodRemainsNativeOnly() {
         val keyguard = CombinedStatusScenePolicy.capability(CombinedStatusScene.KEYGUARD)
         assertEquals(CombinedStatusRenderMode.PROJECTED, keyguard.renderMode)

@@ -100,6 +100,15 @@ internal object CombinedStatusScenePolicy {
             !aodBlocked &&
             nativeFraction > 0f
 
+    fun retainedTransitionSourceWitnessAvailable(
+        widthPx: Int,
+        heightPx: Int,
+        hostAttached: Boolean,
+    ): Boolean =
+        widthPx > 0 &&
+            heightPx > 0 &&
+            hostAttached
+
     fun controlCenterProjectionEligible(
         sourceScene: CombinedStatusSourceScene,
         keyguardEnabled: Boolean,

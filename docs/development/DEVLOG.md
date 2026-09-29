@@ -11791,3 +11791,41 @@ The supplied 120fps recording gives three bounded observations:
 ### Validation
 
 Exact-head Runtime CI and one signed Canary are required. Device validation must include charging entry, Keyguard occupancy, **fast** fully-expanded handoff, slow-pull comparison, reverse collapse, Mobile optical centering, and HyperCeiler dual-row regression.
+
+## 2026-09-30 — Build 492: retain steady source geometry across presentation handoff
+
+**Type:** Control Center transition source-lifecycle correction  
+**Display version:** 0.0.3  
+**Build / source:** 492 / `20260930-492` / `feat/control-center-transition-matrix`
+
+### Device evidence
+
+Build 491 removes the previously reported fast Keyguard handoff stall, but three geometry defects remain: Keyguard press can shift Trinity before meaningful expansion, charging transition remains left-biased, and charging-island pulls can visually open excessive peer spacing.
+
+The supplied Build-491 diagnostic reports `sourceOrigin=qs-fake-live` for every captured transition bucket. The new Build-491 steady-source path therefore never actually becomes active.
+
+### Root cause
+
+Current presentation readiness and transition-geometry validity were coupled incorrectly. `currentTransitionSourceView()` returned null after steady presentation readiness yielded even though its already-laid-out render View could still provide the last steady geometry. Session creation also required identical `rootView` identity, which is too strict when a steady surface and `NotificationShadeWindowView` belong to distinct window roots.
+
+### Change
+
+- Home/Keyguard retain an attached, non-zero laid-out render View as a read-only transition witness after presentation readiness yields.
+- Transition source capture accepts distinct window roots.
+- Cross-window source geometry is reconciled from native screen/window origins and sampled once when the transition Session is created.
+- Same-root sampling and QS_FAKE fallback remain intact.
+- Diagnostics distinguish `*-steady-same-root`, `*-steady-cross-root`, and `qs-fake-live`.
+- Build-491 callback phase, semantic reservation, Keyguard lease, final-alpha handoff, Battery carrier authority, and Mobile morphology remain unchanged.
+
+### 审查 / review
+
+- **root-cause-first:** enables the intended 491 source authority instead of adding x-offset compensation.
+- **ownership:** steady Home/Keyguard owns source geometry; QS_FAKE remains projection/fallback; final Control Center remains native.
+- **single writer:** no new SystemUI property writer is added.
+- **motion:** no animator, delay, threshold, translation follower, or Battery descendant geometry write is added.
+- **performance:** cross-window conversion is one-shot at Session creation.
+- **fail native:** detached/invalid geometry or failed conversion keeps the existing QS_FAKE fallback.
+
+### Validation
+
+Exact-head Runtime CI is required. Device acceptance remains deferred until the subsequent semantic-transition checkpoint is combined with this source fix.
