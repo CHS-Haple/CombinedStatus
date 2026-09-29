@@ -3,6 +3,62 @@
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
 
+## 2026-09-29 — Build 457: Airplane preview resource-context correction
+
+**Type:** companion-app Preview Sandbox correctness  
+**Display version:** 0.0.2  
+**Build / source:** 457 / `20260929-457` / `feat/home-ui-shell`  
+**SystemUI ownership change:** none
+
+### Problem / objective
+
+Maintainer device review found that `Mobile + no SIM + airplane mode` was a valid Sandbox state but rendered an empty center: the outer ring and bottom four unavailable dots + `×` remained visible while the expected airplane icon was missing.
+
+The intended semantic precedence is explicit:
+- Wi-Fi remains the center source while Wi-Fi is selected, including airplane/no-SIM device state;
+- on Mobile, airplane mode is the center state even when no SIM is present;
+- no-SIM becomes the Mobile center only when airplane mode is off.
+
+### Problem execution flow
+
+1. Verify the Sandbox state model allows no-SIM and airplane mode simultaneously.
+2. Trace center selection and confirm `CenterIndicator.Airplane` is selected before no-SIM on the Mobile path.
+3. Trace `CombinedStatusRenderView -> CombinedStatusPainter -> drawNativeAirplane()`.
+4. Compare native-resource resolution with Wi-Fi/no-SIM preview resource handling.
+5. Correct the shared native resource context rather than blocking the state combination or adding a preview-only airplane drawing implementation.
+
+### Root cause
+
+The state precedence was already semantically correct. The failure was resource ownership: `CombinedStatusPainter.airplaneResourceId()` queried `context.resources` for the SystemUI drawable `stat_sys_signal_flightmode`. In the real SystemUI host that context is SystemUI and succeeds. In the companion-app AndroidView preview, the same shared renderer receives the app context, so the SystemUI drawable can resolve to zero and the center silently remains empty.
+
+Wi-Fi/no-SIM preview resources already use a SystemUI package context, which is why the defect was isolated to the Airplane path.
+
+### Implementation
+
+- Keep `CenterIndicator.Airplane` and the single shared painter.
+- When the painter is hosted outside `com.android.systemui`, resolve the flight-mode resource through `createPackageContext("com.android.systemui", 0)`; inside SystemUI, keep the direct current context.
+- Make Sandbox center-source precedence a named pure policy: `WIFI -> AIRPLANE -> NO_SIM -> EMPTY -> MOBILE`.
+- Add deterministic regression coverage for:
+  - Wi-Fi + airplane + no-SIM => Wi-Fi center;
+  - Mobile + airplane + no-SIM => Airplane center;
+  - Mobile + no-SIM + airplane off => No-SIM center.
+
+### 审查 / review
+
+- **Root cause first:** the legal state combination is retained; no UI restriction is added.
+- **Single renderer:** no second airplane painter or copied asset is introduced.
+- **HyperOS reuse:** the native SystemUI flight-mode resource remains the visual authority.
+- **Production safety:** SystemUI-hosted rendering continues to use the existing SystemUI context; the new package-context hop is only needed when the shared renderer is hosted by the companion app.
+- **Lifecycle / performance:** resource ID resolution remains one-time cached per painter; no listener, polling, retry, or frame-path lookup is introduced.
+- **Semantics:** `mobileUnavailableMark = airplaneMode || !simPresent` is unchanged, so no-SIM remains visible as the bottom unavailable mark while Airplane owns the Mobile center.
+- **Scope:** no Home runtime-card or broader Sandbox layout redesign is included; those remain pending separate maintainer confirmation.
+
+### Validation
+
+Unit coverage locks the three center-source combinations above. Exact-head Fast and signed Canary remain required before device acceptance.
+
+
+
 ## 2026-09-29 — Build 456: Progressive network Sandbox and shared 5G-A / no-Internet rendering correction
 
 **Type:** companion-app Preview Sandbox + shared renderer correctness  
