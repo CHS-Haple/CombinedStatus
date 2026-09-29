@@ -160,6 +160,25 @@ class SystemUiPanelTransitionSourceTest {
     }
 
     @Test
+    fun transitionProjectionRemovesLiveFinalRootTranslationFromStableEndpoint() {
+        val policy =
+            CombinedStatusControlCenterRenderSession.ControlCenterTransitionProjectionPolicy
+        assertEquals(120f, policy.stableEndpointCoordinate(181f, 61f))
+        assertEquals(120f, policy.stableEndpointCoordinate(-15f, -135f))
+    }
+
+    @Test
+    fun transitionProjectionOnlyMasksSlotsWithCompleteThreeSurfaceMapping() {
+        val policy =
+            CombinedStatusControlCenterRenderSession.ControlCenterTransitionProjectionPolicy
+        assertEquals(true, policy.canProjectPeerCounts(1, 1, 1))
+        assertEquals(true, policy.canProjectPeerCounts(2, 2, 2))
+        assertEquals(false, policy.canProjectPeerCounts(2, 1, 2))
+        assertEquals(false, policy.canProjectPeerCounts(2, 2, 1))
+        assertEquals(false, policy.canProjectPeerCounts(0, 0, 0))
+    }
+
+    @Test
     fun controlCenterSourceUsesHomeCarrierIdentityBeforeStructuralFallback() {
         assertEquals(
             CombinedStatusSourceScene.HOME,

@@ -502,7 +502,11 @@ internal object CombinedStatusControlCenterRenderSession {
         private val carrier = WeakReference(carrier)
         private val renderView = CombinedStatusRenderView(host.context)
         private val renderController = CombinedStatusRenderController(renderView)
-        private val transitionView = TransitionProjectionView(host.context)
+        private val transitionView =
+            TransitionProjectionView(
+                context = host.context,
+                fakeStatusIcons = statusIcons,
+            )
         private val anchorRect = Rect()
 
         private var currentModel: CombinedStatusRenderModel? = null
@@ -1022,8 +1026,10 @@ internal object CombinedStatusControlCenterRenderSession {
 
     private class TransitionProjectionView(
         context: android.content.Context,
+        fakeStatusIcons: ViewGroup,
     ) : View(context) {
         private val painter = CombinedStatusPainter(context)
+        private val fakeStatusIcons = WeakReference(fakeStatusIcons)
         private val combinedAnchor = Rect()
         private var endpoints: SystemUiPanelTransitionSource.ControlCenterTransitionEndpoints? = null
         private var nativeProgress: Float? = null
@@ -1094,15 +1100,23 @@ internal object CombinedStatusControlCenterRenderSession {
         fun commonPeerSlots(): Set<String> {
             val value = endpoints ?: return emptySet()
             val sourceGroup = statusIconGroup(value.sourceSystemIcons) ?: return emptySet()
+            val fakeGroup = fakeStatusIcons.get() ?: return emptySet()
             val finalIcons =
                 finalSystemIcons(value.finalPresentationRoot) ?: return emptySet()
             val targetGroup = statusIconGroup(finalIcons) ?: return emptySet()
-            val source = slotViews(sourceGroup).filterValues(::eligiblePeer)
-            val target = slotViews(targetGroup).filterValues(::eligiblePeer)
+            val source = eligibleSlotViews(sourceGroup)
+            val fake = eligibleSlotViews(fakeGroup)
+            val target = eligibleSlotViews(targetGroup)
             return source.keys
+                .intersect(fake.keys)
                 .intersect(target.keys)
                 .filterTo(linkedSetOf()) { slot ->
-                    slot !in SystemUiHomePresentationOwner.representedSlots
+                    slot !in SystemUiHomePresentationOwner.representedSlots &&
+                        ControlCenterTransitionProjectionPolicy.canProjectPeerCounts(
+                            sourceCount = source[slot]?.size ?: 0,
+                            fakeCount = fake[slot]?.size ?: 0,
+                            targetCount = target[slot]?.size ?: 0,
+                        )
                 }
         }
 
@@ -1119,44 +1133,102 @@ internal object CombinedStatusControlCenterRenderSession {
                 ControlCenterTransitionProjectionPolicy.geometryProgress(
                     nativeProgress ?: 0f,
                 )
-            val sourcePeers = slotViews(sourceGroup)
-            val targetPeers = slotViews(targetGroup)
+            val sourcePeers = eligibleSlotViews(sourceGroup)
+            val targetPeers = eligibleSlotViews(targetGroup)
 
             commonPeerSlots().forEach { slot ->
-                val source = sourcePeers[slot] ?: return@forEach
-                val target = targetPeers[slot] ?: return@forEach
-                drawProjectedView(
-                    canvas = canvas,
-                    source = source,
-                    sourceRect = localRect(source),
-                    targetRect = localRect(target),
-                    progress = progress,
-                )
+                val sources = sourcePeers[slot].orEmpty()
+                val targets = targetPeers[slot].orEmpty()
+                sources.zip(targets).forEach { (source, target) ->
+                    drawProjectedView(
+                        canvas = canvas,
+                        source = source,
+                        sourceRect = localRect(source),
+                        targetRect =
+                            stableFinalRect(
+                                view = target,
+                                finalRoot = value.finalPresentationRoot,
+                            ),
+                        progress = progress,
+                    )
+                }
             }
 
             val sourceCombined = RectF(combinedAnchor)
             val batteryTarget =
                 finalIcons
                     .directChildByClass(BATTERY_VIEW_CLASS_NAME)
-                    ?.let(::localRect)
+                    ?.let { target ->
+                        stableFinalRect(
+                            view = target,
+                            finalRoot = value.finalPresentationRoot,
+                        )
+                    }
                     ?: sourceCombined
             val mobileTarget =
                 targetPeers["mobile"]
-                    ?.let(::mobileSignalTargetRect)
-                    ?: targetPeers["stacked_mobile"]?.let(::mobileSignalTargetRect)
+                    ?.firstOrNull()
+                    ?.let { target ->
+                        mobileSignalTargetRect(
+                            view = target,
+                            finalRoot = value.finalPresentationRoot,
+                        )
+                    }
+                    ?: targetPeers["stacked_mobile"]
+                        ?.firstOrNull()
+                        ?.let { target ->
+                            mobileSignalTargetRect(
+                                view = target,
+                                finalRoot = value.finalPresentationRoot,
+                            )
+                        }
                     ?: sourceCombined
             val centerTarget =
                 when (currentModel.centerIndicator) {
                     is CenterIndicator.Wifi ->
-                        targetPeers["wifi"]?.let(::localRect)
+                        targetPeers["wifi"]
+                            ?.firstOrNull()
+                            ?.let { target ->
+                                stableFinalRect(
+                                    view = target,
+                                    finalRoot = value.finalPresentationRoot,
+                                )
+                            }
                     is CenterIndicator.MobileType ->
                         targetPeers["mobile"]
-                            ?.let(::mobileTypeTargetRect)
-                            ?: targetPeers["stacked_mobile"]?.let(::mobileTypeTargetRect)
+                            ?.firstOrNull()
+                            ?.let { target ->
+                                mobileTypeTargetRect(
+                                    view = target,
+                                    finalRoot = value.finalPresentationRoot,
+                                )
+                            }
+                            ?: targetPeers["stacked_mobile"]
+                                ?.firstOrNull()
+                                ?.let { target ->
+                                    mobileTypeTargetRect(
+                                        view = target,
+                                        finalRoot = value.finalPresentationRoot,
+                                    )
+                                }
                     CenterIndicator.Airplane ->
-                        targetPeers["airplane"]?.let(::localRect)
+                        targetPeers["airplane"]
+                            ?.firstOrNull()
+                            ?.let { target ->
+                                stableFinalRect(
+                                    view = target,
+                                    finalRoot = value.finalPresentationRoot,
+                                )
+                            }
                     is CenterIndicator.NoSim ->
-                        targetPeers["no_sim"]?.let(::localRect)
+                        targetPeers["no_sim"]
+                            ?.firstOrNull()
+                            ?.let { target ->
+                                stableFinalRect(
+                                    view = target,
+                                    finalRoot = value.finalPresentationRoot,
+                                )
+                            }
                     CenterIndicator.Empty -> null
                 } ?: sourceCombined
 
@@ -1266,7 +1338,10 @@ internal object CombinedStatusControlCenterRenderSession {
             )
         }
 
-        private fun mobileTypeTargetRect(view: View): RectF {
+        private fun mobileTypeTargetRect(
+            view: View,
+            finalRoot: ViewGroup,
+        ): RectF {
             val textCandidate =
                 view.descendants()
                     .firstOrNull { candidate ->
@@ -1276,10 +1351,16 @@ internal object CombinedStatusControlCenterRenderSession {
                             candidate.visibility == View.VISIBLE &&
                             candidate.text.isNotBlank()
                     }
-            return textCandidate?.let(::localRect) ?: localRect(view)
+            return stableFinalRect(
+                view = textCandidate ?: view,
+                finalRoot = finalRoot,
+            )
         }
 
-        private fun mobileSignalTargetRect(view: View): RectF {
+        private fun mobileSignalTargetRect(
+            view: View,
+            finalRoot: ViewGroup,
+        ): RectF {
             val nonText =
                 view.descendants()
                     .filter { candidate ->
@@ -1289,7 +1370,35 @@ internal object CombinedStatusControlCenterRenderSession {
                             candidate.visibility == View.VISIBLE
                     }
                     .maxByOrNull { candidate -> candidate.width * candidate.height }
-            return nonText?.let(::localRect) ?: localRect(view)
+            return stableFinalRect(
+                view = nonText ?: view,
+                finalRoot = finalRoot,
+            )
+        }
+
+        private fun stableFinalRect(
+            view: View,
+            finalRoot: ViewGroup,
+        ): RectF {
+            val current = localRect(view)
+            return RectF(
+                ControlCenterTransitionProjectionPolicy.stableEndpointCoordinate(
+                    current.left,
+                    finalRoot.translationX,
+                ),
+                ControlCenterTransitionProjectionPolicy.stableEndpointCoordinate(
+                    current.top,
+                    finalRoot.translationY,
+                ),
+                ControlCenterTransitionProjectionPolicy.stableEndpointCoordinate(
+                    current.right,
+                    finalRoot.translationX,
+                ),
+                ControlCenterTransitionProjectionPolicy.stableEndpointCoordinate(
+                    current.bottom,
+                    finalRoot.translationY,
+                ),
+            )
         }
 
         private fun finalSystemIcons(root: ViewGroup): ViewGroup? =
@@ -1298,12 +1407,13 @@ internal object CombinedStatusControlCenterRenderSession {
         private fun statusIconGroup(systemIcons: ViewGroup): ViewGroup? =
             systemIcons.directChildByClass(STATUS_ICON_CONTAINER_CLASS_NAME) as? ViewGroup
 
-        private fun slotViews(group: ViewGroup): Map<String, View> =
-            buildMap {
+        private fun eligibleSlotViews(group: ViewGroup): Map<String, List<View>> =
+            buildMap<String, MutableList<View>> {
                 for (index in 0 until group.childCount) {
                     val child = group.getChildAt(index)
+                    if (!eligiblePeer(child)) continue
                     val slot = NativeParticipantRuntimeAccess.slotOf(child) ?: continue
-                    put(slot, child)
+                    getOrPut(slot) { mutableListOf() }.add(child)
                 }
             }
 
@@ -1372,6 +1482,20 @@ internal object CombinedStatusControlCenterRenderSession {
                 .takeIf(Float::isFinite)
                 ?.coerceIn(0f, 1f)
                 ?: 0f
+
+        fun stableEndpointCoordinate(
+            currentCoordinate: Float,
+            rootTranslation: Float,
+        ): Float = currentCoordinate - rootTranslation
+
+        fun canProjectPeerCounts(
+            sourceCount: Int,
+            fakeCount: Int,
+            targetCount: Int,
+        ): Boolean =
+            sourceCount > 0 &&
+                sourceCount == fakeCount &&
+                sourceCount == targetCount
 
         fun interpolate(
             source: RectF,
