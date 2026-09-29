@@ -3,6 +3,51 @@
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
 
+## 2026-09-29 — Build 462: Runtime mark spacing and diagnostics optical icon normalization
+
+**Type:** companion-app UI refinement  
+**Display version:** 0.0.2  
+**Build / source:** 462 / `20260929-462` / `feat/home-ui-shell`  
+**SystemUI ownership change:** none
+
+### Maintainer feedback
+
+Build 461 device review showed two remaining optical issues:
+
+- the Home Runtime status mark still sat too close to the top-right master Switch;
+- Diagnostics report actions used equal nominal icon bounds but not equal perceived size, with Download reading larger than Share, while Diagnostics level had no matching MIUIX leading icon.
+
+### Implementation
+
+- Home Runtime:
+  - preserve the established card tint, mark color, 96 dp mark canvas, 6.4 dp ring stroke, 7.2 dp inner-symbol stroke and original Switch position;
+  - move the entire status mark from `y=+2 dp` to `y=+6 dp` to create more breathing room below the Switch and better balance the full card.
+- Diagnostics:
+  - add a MIUIX Normal-weight `Tune` leading icon to Diagnostics level through the native `OverlayDropdownPreference.startAction` API;
+  - route Diagnostics level, Export and Share through one shared 24 dp leading-icon slot;
+  - optically normalize the internal icon sizes rather than forcing equal nominal vector sizes:
+    - Tune: 22 dp;
+    - Download: 21 dp;
+    - Share: 23 dp;
+  - keep all three on the same neutral `onSurfaceContainer` tint and 16 dp title separation.
+
+### 审查 / review
+
+- **MIUIX first:** all three symbols come from the pinned MIUIX icon family and use Normal weight; no custom vector or copied HyperOS asset is introduced.
+- **Optical, not mechanical, equality:** the shared 24 dp slot guarantees identical row geometry while per-icon internal sizing compensates for different vector ink occupancy.
+- **Layout ownership:** Home Switch position and card geometry remain unchanged; only the status-mark offset changes.
+- **Runtime isolation:** no Xposed hook, SystemUI host, render state, listener or preference ownership changes.
+- **Accessibility:** icons remain decorative because the corresponding row title and click semantics fully identify each action.
+
+### Test checklist
+
+- Home Runtime: confirm the status mark no longer feels crowded against the Switch and still avoids the card bottom edge.
+- Diagnostics: compare Diagnostics level / Export / Share side-by-side for perceived size, stroke weight and identical title start position.
+- Verify Diagnostics level dropdown, export and share actions remain functionally unchanged.
+
+
+
+
 ## 2026-09-29 — Build 461: App-wide visual rhythm and action-style consolidation
 
 **Type:** companion-app UI refinement  
