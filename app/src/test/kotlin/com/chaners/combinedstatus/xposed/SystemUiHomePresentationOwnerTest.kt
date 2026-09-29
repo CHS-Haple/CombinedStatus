@@ -43,6 +43,22 @@ class SystemUiHomePresentationOwnerTest {
     }
 
     @Test
+    fun persistentIgnoredSlotRestoreAvoidsNativeSetterDuringContinuousHandoff() {
+        assertFalse(
+            SystemUiHomePresentationOwner.PersistentIgnoredSlotPolicy
+                .shouldUseNativeSetterOnRestore(
+                    requestLayout = false,
+                ),
+        )
+        assertTrue(
+            SystemUiHomePresentationOwner.PersistentIgnoredSlotPolicy
+                .shouldUseNativeSetterOnRestore(
+                    requestLayout = true,
+                ),
+        )
+    }
+
+    @Test
     fun endReservationKeepsOneResolvedEndBoundaryAcrossBatteryStates() {
         assertEquals(
             0,

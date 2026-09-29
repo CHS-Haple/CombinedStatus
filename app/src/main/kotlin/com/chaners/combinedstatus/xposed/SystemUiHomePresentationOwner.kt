@@ -1028,7 +1028,10 @@ internal object SystemUiHomePresentationOwner {
             battery.get()?.removeOnLayoutChangeListener(batteryLayoutListener)
             batteryCarrier.get()?.removeOnLayoutChangeListener(carrierLayoutListener)
             val reservationRestored = restoreEndReservation()
-            val ignoredSlotsRestored = restorePersistentIgnoredSlots()
+            val ignoredSlotsRestored =
+                restorePersistentIgnoredSlots(
+                    requestLayout = requestLayout,
+                )
             val restored = restoreClipMasks()
             val explicitLayoutRequest =
                 requestLayout && ignoredSlotLifetime == IgnoredSlotLifetime.NATIVE_CALL
@@ -1152,7 +1155,9 @@ internal object SystemUiHomePresentationOwner {
             return true
         }
 
-        private fun restorePersistentIgnoredSlots(): Boolean {
+        private fun restorePersistentIgnoredSlots(
+            requestLayout: Boolean,
+        ): Boolean {
             if (
                 ignoredSlotLifetime != IgnoredSlotLifetime.PRESENTATION_SESSION ||
                 !persistentIgnoredSlotsApplied
@@ -1160,13 +1165,12 @@ internal object SystemUiHomePresentationOwner {
                 return true
             }
             val owned = ownedPersistentIgnoredSlots
-            persistentIgnoredSlotsApplied = false
-            ownedPersistentIgnoredSlots = emptyList()
             if (owned.isEmpty()) {
+                persistentIgnoredSlotsApplied = false
+                ownedPersistentIgnoredSlots = emptyList()
                 return true
             }
             val group = statusIcons.get() ?: return false
-            val setMethod = setIgnoredSlotsMethod ?: return false
             @Suppress("UNCHECKED_CAST")
             val live =
                 runCatching {
@@ -1177,10 +1181,25 @@ internal object SystemUiHomePresentationOwner {
                     live = live,
                     ownedEntries = owned,
                 )
+            val useNativeSetter =
+                PersistentIgnoredSlotPolicy.shouldUseNativeSetterOnRestore(
+                    requestLayout = requestLayout,
+                )
+            val setMethod =
+                if (useNativeSetter) {
+                    setIgnoredSlotsMethod ?: return false
+                } else {
+                    null
+                }
             val restored =
                 runCatching {
                     if (target != live) {
-                        setMethod.invoke(group, ArrayList(target))
+                        if (useNativeSetter) {
+                            setMethod!!.invoke(group, ArrayList(target))
+                        } else {
+                            live.clear()
+                            live.addAll(target)
+                        }
                     }
                     @Suppress("UNCHECKED_CAST")
                     val after =
@@ -1188,10 +1207,22 @@ internal object SystemUiHomePresentationOwner {
                             ?: return@runCatching false
                     after == target
                 }.getOrDefault(false)
-            if (!restored) {
+            if (restored) {
+                persistentIgnoredSlotsApplied = false
+                ownedPersistentIgnoredSlots = emptyList()
+                if (!useNativeSetter) {
+                    onEvent(
+                        eventPrefix +
+                            " ignoredSlots restore=handoff-no-layout owned=" +
+                            owned.joinToString(",") +
+                            " nativeApi=owned-list-delta",
+                    )
+                }
+            } else {
                 onEvent(
                     eventPrefix +
-                        " ignoredSlots restore=failed owned=" + owned.joinToString(","),
+                        " ignoredSlots restore=failed owned=" + owned.joinToString(",") +
+                        " requestLayout=" + requestLayout,
                 )
             }
             return restored
@@ -1482,6 +1513,10 @@ internal object SystemUiHomePresentationOwner {
             val owned = ownedEntries.toHashSet()
             return live.filterNot(owned::contains)
         }
+
+        fun shouldUseNativeSetterOnRestore(
+            requestLayout: Boolean,
+        ): Boolean = requestLayout
     }
 
     internal object HotReloadHandoffPolicy {
