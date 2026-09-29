@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-Combined Status uses third-party libraries and build tooling. This file provides a human-readable summary of the project's direct dependencies and does not replace the license text or notices distributed by each upstream project.
+Guiyuan uses third-party libraries and build tooling. This file provides a human-readable summary of the project's direct dependencies and does not replace the license text or notices distributed by each upstream project.
 
 The exact resolved dependency graph is defined by Gradle and may include additional transitive dependencies.
 
@@ -46,4 +46,4 @@ Before a formal public release, maintainers should verify the resolved dependenc
 
 ## Project license
 
-Combined Status itself is licensed under the [Apache License 2.0](LICENSE). Third-party components remain governed by their respective upstream licenses and notice requirements.
+Guiyuan itself is licensed under the [Apache License 2.0](LICENSE). Third-party components remain governed by their respective upstream licenses and notice requirements.
