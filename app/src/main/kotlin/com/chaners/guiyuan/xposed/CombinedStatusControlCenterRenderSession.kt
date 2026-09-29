@@ -597,11 +597,9 @@ internal object CombinedStatusControlCenterRenderSession {
             hostView?.removeOnLayoutChangeListener(hostLayoutListener)
             statusBarArea.get()?.removeOnLayoutChangeListener(statusAreaLayoutListener)
             carrier.get()?.removeOnLayoutChangeListener(carrierLayoutListener)
+            refreshTransitionProjectedSlots(false)
             hostView?.overlay?.remove(renderView)
             hostView?.overlay?.remove(transitionView)
-            SystemUiHomePresentationOwner.setControlCenterTransitionProjectedSlots(emptySet())
-            cachedTransitionPeerSlots = null
-            appliedTransitionPeerSlots = emptySet()
             requestedVisible = false
             layoutReady = false
             nativePresentationReady = false
@@ -773,6 +771,7 @@ internal object CombinedStatusControlCenterRenderSession {
             transitionEndpoints = endpoints
             transitionView.setEndpoints(endpoints)
             cachedTransitionPeerSlots = null
+            transitionView.clearPeerProjections()
             syncPresentation("transition-endpoints")
         }
 
@@ -881,6 +880,7 @@ internal object CombinedStatusControlCenterRenderSession {
             transitionView.setEndpoints(transitionEndpoints)
             transitionView.setNativeProgress(nativeExpansionProgress)
             cachedTransitionPeerSlots = null
+            transitionView.clearPeerProjections()
 
             val firstReady = !layoutReady
             layoutReady = true
@@ -902,7 +902,7 @@ internal object CombinedStatusControlCenterRenderSession {
             layoutReady = false
             renderView.visibility = View.GONE
             transitionView.visibility = View.GONE
-            SystemUiHomePresentationOwner.setControlCenterTransitionProjectedSlots(emptySet())
+            refreshTransitionProjectedSlots(false)
 
             val hostAttached = host.get()?.isAttachedToWindow == true
             val retainNativePresentation =
@@ -961,15 +961,24 @@ internal object CombinedStatusControlCenterRenderSession {
         }
 
         private fun refreshTransitionProjectedSlots(transitionVisible: Boolean) {
-            val slots =
-                if (transitionVisible) {
-                    cachedTransitionPeerSlots
-                        ?: transitionView.commonPeerSlots().also { resolved ->
-                            cachedTransitionPeerSlots = resolved
-                        }
-                } else {
-                    emptySet()
+            if (!transitionVisible) {
+                if (appliedTransitionPeerSlots.isNotEmpty()) {
+                    SystemUiHomePresentationOwner
+                        .setControlCenterTransitionProjectedSlots(emptySet())
                 }
+                appliedTransitionPeerSlots = emptySet()
+                if (cachedTransitionPeerSlots != null) {
+                    cachedTransitionPeerSlots = null
+                    transitionView.clearPeerProjections()
+                }
+                return
+            }
+
+            val slots =
+                cachedTransitionPeerSlots
+                    ?: transitionView.preparePeerProjections().also { resolved ->
+                        cachedTransitionPeerSlots = resolved
+                    }
             if (slots == appliedTransitionPeerSlots) return
             SystemUiHomePresentationOwner.setControlCenterTransitionProjectedSlots(slots)
             appliedTransitionPeerSlots = slots
@@ -1023,7 +1032,7 @@ internal object CombinedStatusControlCenterRenderSession {
             nativePresentationReady = false
             renderView.visibility = View.GONE
             transitionView.visibility = View.GONE
-            SystemUiHomePresentationOwner.setControlCenterTransitionProjectedSlots(emptySet())
+            refreshTransitionProjectedSlots(false)
             SystemUiHomePresentationOwner.deactivateControlCenter(
                 "fake-root-detached",
             )
@@ -1049,6 +1058,7 @@ internal object CombinedStatusControlCenterRenderSession {
         private var model: CombinedStatusRenderModel? = null
         private var colors: CombinedStatusColors? = null
         private var visualSettings = CombinedStatusVisualSettings()
+        private var peerProjections: List<PeerProjection> = emptyList()
 
         init {
             isClickable = false
@@ -1073,7 +1083,12 @@ internal object CombinedStatusControlCenterRenderSession {
                 return
             }
             endpoints = value
+            peerProjections = emptyList()
             invalidate()
+        }
+
+        fun clearPeerProjections() {
+            peerProjections = emptyList()
         }
 
         fun setNativeProgress(value: Float?) {
@@ -1110,7 +1125,8 @@ internal object CombinedStatusControlCenterRenderSession {
                 combinedAnchor.width() > 0 &&
                 combinedAnchor.height() > 0
 
-        fun commonPeerSlots(): Set<String> {
+        fun preparePeerProjections(): Set<String> {
+            peerProjections = emptyList()
             val value = endpoints ?: return emptySet()
             val sourceGroup = statusIconGroup(value.sourceSystemIcons) ?: return emptySet()
             val fakeGroup = fakeStatusIcons.get() ?: return emptySet()
@@ -1120,30 +1136,44 @@ internal object CombinedStatusControlCenterRenderSession {
             val source = eligibleSlotViews(sourceGroup)
             val fake = eligibleSlotViews(fakeGroup)
             val target = eligibleSlotViews(targetGroup)
-            return source.keys
-                .intersect(fake.keys)
-                .intersect(target.keys)
-                .filterTo(linkedSetOf()) { slot ->
-                    val sourceViews = source[slot].orEmpty()
-                    val fakeViews = fake[slot].orEmpty()
-                    val targetViews = target[slot].orEmpty()
-                    slot !in SystemUiHomePresentationOwner.representedSlots &&
-                        ControlCenterTransitionProjectionPolicy.canProjectPeerCounts(
-                            sourceCount = sourceViews.size,
-                            fakeCount = fakeViews.size,
-                            targetCount = targetViews.size,
-                        ) &&
-                        sourceViews.zip(targetViews).all { (sourceView, targetView) ->
-                            val sourceRect = localRect(sourceView)
-                            val targetRect =
-                                stableFinalRect(
-                                    view = targetView,
-                                    finalRoot = value.finalPresentationRoot,
-                                )
-                            ControlCenterTransitionProjectionPolicy.isUsableRect(sourceRect) &&
-                                ControlCenterTransitionProjectionPolicy.isUsableRect(targetRect)
-                        }
+            val resolved = mutableListOf<PeerProjection>()
+            val slots = linkedSetOf<String>()
+
+            source.keys.intersect(fake.keys).intersect(target.keys).forEach { slot ->
+                val sourceViews = source[slot].orEmpty()
+                val fakeViews = fake[slot].orEmpty()
+                val targetViews = target[slot].orEmpty()
+                if (
+                    slot in SystemUiHomePresentationOwner.representedSlots ||
+                    !ControlCenterTransitionProjectionPolicy.canProjectPeerCounts(
+                        sourceCount = sourceViews.size,
+                        fakeCount = fakeViews.size,
+                        targetCount = targetViews.size,
+                    )
+                ) return@forEach
+
+                val pairs = sourceViews.zip(targetViews)
+                if (
+                    !pairs.all { (sourceView, targetView) ->
+                        ControlCenterTransitionProjectionPolicy.isUsableRect(localRect(sourceView)) &&
+                            ControlCenterTransitionProjectionPolicy.isUsableRect(
+                                stableFinalRect(targetView, value.finalPresentationRoot),
+                            )
+                    }
+                ) return@forEach
+
+                slots += slot
+                pairs.forEach { (sourceView, targetView) ->
+                    resolved +=
+                        PeerProjection(
+                            source = WeakReference(sourceView),
+                            target = WeakReference(targetView),
+                        )
                 }
+            }
+
+            peerProjections = resolved
+            return slots
         }
 
         override fun onDraw(canvas: Canvas) {
@@ -1159,25 +1189,22 @@ internal object CombinedStatusControlCenterRenderSession {
                 ControlCenterTransitionProjectionPolicy.geometryProgress(
                     nativeProgress ?: 0f,
                 )
-            val sourcePeers = eligibleSlotViews(sourceGroup)
             val targetPeers = eligibleSlotViews(targetGroup)
 
-            commonPeerSlots().forEach { slot ->
-                val sources = sourcePeers[slot].orEmpty()
-                val targets = targetPeers[slot].orEmpty()
-                sources.zip(targets).forEach { (source, target) ->
-                    drawProjectedView(
-                        canvas = canvas,
-                        source = source,
-                        sourceRect = localRect(source),
-                        targetRect =
-                            stableFinalRect(
-                                view = target,
-                                finalRoot = value.finalPresentationRoot,
-                            ),
-                        progress = progress,
-                    )
-                }
+            peerProjections.forEach { projection ->
+                val source = projection.source.get() ?: return@forEach
+                val target = projection.target.get() ?: return@forEach
+                drawProjectedView(
+                    canvas = canvas,
+                    source = source,
+                    sourceRect = localRect(source),
+                    targetRect =
+                        stableFinalRect(
+                            view = target,
+                            finalRoot = value.finalPresentationRoot,
+                        ),
+                    progress = progress,
+                )
             }
 
             val sourceCombined = RectF(combinedAnchor)
@@ -1514,6 +1541,11 @@ internal object CombinedStatusControlCenterRenderSession {
             return found
         }
 
+        private data class PeerProjection(
+            val source: WeakReference<View>,
+            val target: WeakReference<View>,
+        )
+
         private companion object {
             const val BATTERY_CONTAINER_CLASS_NAME =
                 "com.android.systemui.statusbar.views.MiuiStatusBatteryContainer"
@@ -1547,12 +1579,20 @@ internal object CombinedStatusControlCenterRenderSession {
         ): Float = currentCoordinate - relativeRootTranslation
 
         fun isUsableRect(rect: RectF): Boolean =
-            rect.left.isFinite() &&
-                rect.top.isFinite() &&
-                rect.right.isFinite() &&
-                rect.bottom.isFinite() &&
-                rect.width() > 0f &&
-                rect.height() > 0f
+            isUsableBounds(rect.left, rect.top, rect.right, rect.bottom)
+
+        fun isUsableBounds(
+            left: Float,
+            top: Float,
+            right: Float,
+            bottom: Float,
+        ): Boolean =
+            left.isFinite() &&
+                top.isFinite() &&
+                right.isFinite() &&
+                bottom.isFinite() &&
+                right > left &&
+                bottom > top
 
         fun canProjectPeerCounts(
             sourceCount: Int,

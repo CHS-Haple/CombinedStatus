@@ -46,13 +46,13 @@ Phases 2A, 2B, 3 and 4 are complete for the validated baseline:
 
 The active executable work on the 0.0.3 line is **transition-animation adaptation across Home/Keyguard -> QS_FAKE -> native Control Center**, before adaptive sizing, spacing and broader visual controls.
 
-Current candidate: `feat/control-center-transition-projection`, Build **472 / 20260929-472**.
+Current candidate: `feat/control-center-transition-projection`, Build **473 / 20260929-473**.
 
 Root-cause review now separates two facts:
 - HyperOS native `onExpansionChanged(progress)` and fake/final Folme appearance ownership are still running and remain the motion/appearance authority.
 - Guiyuan's session-long compact slot exclusion changes which child icons participate in the QS_FAKE layout, so the stock per-icon source/target correspondence is no longer available from the compact child layout alone.
 
-Build 471 is rejected by device evidence: native peer icons could disappear during pull and Guiyuan's split trajectory drifted in the wrong horizontal direction. The root cause is coordinate/visual-ownership integration rather than easing. The transition View is attached through `ControlCenterFakeStatusIcons.overlay`, so its own `getLocationOnScreen()` is not a trustworthy carrier origin; all projection geometry must instead resolve against the real QS_FAKE root. Final-QS stabilization must remove only `finalRoot.translation - fakeRoot.translation`, because the overlay already inherits fake-root motion. Build 472 applies that root-local/relative-motion model, masks peer slots only while the transition projection is actually visible, caches the bounded slot mapping outside the per-frame progress path, and rejects unusable source/target rectangles before masking. HyperOS remains the timing, root-motion and fake/final Folme authority; no new animator or steady-layout change is introduced.
+Build 471 is rejected by device evidence: native peer icons could disappear during pull and Guiyuan's split trajectory drifted in the wrong horizontal direction. The root cause is coordinate/visual-ownership integration rather than easing. The transition View is attached through `ControlCenterFakeStatusIcons.overlay`, so its own `getLocationOnScreen()` is not a trustworthy carrier origin; all projection geometry must instead resolve against the real QS_FAKE root. Final-QS stabilization removes only `finalRoot.translation - fakeRoot.translation`, because the overlay already inherits fake-root motion. Build 472 established that correction but Fast #1779 exposed a JVM-only test defect after runtime sources compiled. Build 473 keeps the coordinate correction, makes mask bookkeeping symmetric across fallback/detach, and caches bounded peer View pairs per endpoint/layout generation so native expansion frames do not rebuild the three-surface correspondence. HyperOS remains the timing, root-motion and fake/final Folme authority; no new animator or steady-layout change is introduced.
 
 ## Current architecture / ownership boundary
 

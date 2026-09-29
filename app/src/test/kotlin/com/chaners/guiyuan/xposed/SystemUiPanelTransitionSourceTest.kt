@@ -175,8 +175,9 @@ class SystemUiPanelTransitionSourceTest {
     fun transitionProjectionRejectsInvalidGeometryBeforeMasking() {
         val policy =
             CombinedStatusControlCenterRenderSession.ControlCenterTransitionProjectionPolicy
-        assertEquals(true, policy.isUsableRect(android.graphics.RectF(0f, 0f, 10f, 10f)))
-        assertEquals(false, policy.isUsableRect(android.graphics.RectF()))
+        assertEquals(true, policy.isUsableBounds(0f, 0f, 10f, 10f))
+        assertEquals(false, policy.isUsableBounds(0f, 0f, 0f, 10f))
+        assertEquals(false, policy.isUsableBounds(Float.NaN, 0f, 10f, 10f))
     }
 
     @Test

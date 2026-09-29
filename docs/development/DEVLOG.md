@@ -10788,7 +10788,7 @@ Run exact-head Fast. If green, keep PR #174 ready and generate a signed Canary f
 **Branch:** `feat/control-center-transition-projection`
 **Display version:** 0.0.3
 **Build:** 472 / `20260929-472`
-**Status:** root-cause correction after Build-471 device rejection; exact-head Fast and focused device validation required
+**Status:** superseded before device validation; Fast #1779 failed one JVM-only policy test after runtime compilation
 
 ### Device evidence / problem
 
@@ -10843,3 +10843,47 @@ Run exact-head Fast. If green, generate a signed Canary. Focused device validati
 - fully expanded native QS handoff remains clean.
 
 If those pass, continue with Keyguard and charging/Super-Island coverage before any optical/easing tuning.
+
+
+### Build 472 CI outcome
+
+Exact-head Fast #1779 compiled the runtime sources and failed only `SystemUiPanelTransitionSourceTest.transitionProjectionRejectsInvalidGeometryBeforeMasking`: the test instantiated Android `RectF` inside the plain JVM unit-test environment and hit the Android stub `RuntimeException`. Build 472 is not a device candidate.
+
+---
+
+## 2026-09-29 — Build 473 — Harden transition projection cache and mask cleanup
+
+**Branch:** `feat/control-center-transition-projection`
+**Display version:** 0.0.3
+**Build:** 473 / `20260929-473`
+**Status:** exact-head Fast required; signed Canary/device validation only after green
+
+### Changes
+
+- Preserve Build-472 fake-root-local coordinates and final-vs-fake relative-root translation.
+- Replace the Android-framework JVM test with a pure-float bounds-policy test.
+- Cache native peer View pairs per endpoint/layout generation instead of rebuilding three-surface slot correspondence during every draw.
+- Clear cached peer mappings and applied-mask bookkeeping together on endpoint change, layout regeneration, fallback, visibility exit, detach and session stop.
+- Apply extra peer masks only while the transition overlay is visibly active and a prepared projection exists.
+
+### 问题执行流程
+
+1. Read Fast #1779 logs and separate the lone JVM test defect from runtime compilation.
+2. Remove Android framework-object construction from the plain unit-test policy check.
+3. Audit every path that clears real clip masks and synchronize cached/applied mask state with it.
+4. Move peer correspondence discovery out of the native expansion hot path.
+5. Keep the Build-472 coordinate correction and native motion ownership unchanged.
+
+### 审查 / review
+
+- **Ownership:** SystemUI remains the sole native translation/alpha/timing writer.
+- **Single writer:** Guiyuan still owns only its overlay drawing and reversible clip masks.
+- **Cleanup:** actual masks, applied-mask state and cached View pairs now invalidate symmetrically.
+- **Performance:** native expansion frames reuse prepared peer pairs; no per-frame three-surface slot matching.
+- **Fail native:** invalid/unattached/empty endpoint pairs are excluded before their fake peer can be masked.
+- **Test boundary:** policy tests are JVM-safe.
+- **Device boundary:** Build 471 remains rejected; Build 472 is an internal failed-gate checkpoint; Build 473 is the next eligible device candidate only after Fast passes.
+
+### Validation
+
+Run exact-head Fast. If green, generate one signed Canary and first verify Home pull/return: native peers remain visible, Guiyuan heads toward native endpoints, reversal has no jump, and final-QS handoff stays native. Only after that passes expand to Keyguard and charging/Super-Island.
