@@ -11122,3 +11122,23 @@ This synchronization adds the already accepted Build-472 companion-app UI beneat
 ### Final integration gate
 
 Run exact-head Fast on the synchronized PR #175 head. If green, squash-merge into `dev` and require the normal post-merge Integration gate. No repeated work-branch Canary/device cycle is required because synchronization did not alter either accepted executable behavior.
+
+### dev integration closure
+
+The synchronized Build-473 head `0740948973e4fb62fd40fdbf3195c846e606e328` passed exact-head Fast #1788 after inheriting the already accepted Build-472 companion-app baseline.
+
+PR #175 then squash-merged into `dev` as `8feb0d51a4974442f6683d4550608739986d87a2`.
+
+Post-merge `dev` Integration #1789 passed:
+- pinned HyperOS target-profile verification;
+- unit/build checks;
+- Modern Xposed metadata verification;
+- Haple signing and APK signature verification;
+- non-debuggable Canary verification;
+- Canary artifact preparation/upload.
+
+Build 473 is therefore the accepted combined `dev` baseline for this visual round: it contains the accepted Build-472 companion-app hierarchy/density/identity changes and the accepted native Wi-Fi connected/no-Internet/hotspot optical normalization.
+
+The separate transition-animation PR #174 remains outside this closure. Because it still descends from the pre-472/473 `dev` base and also edits `CombinedStatusPainter`, it must synchronize onto current `dev` and preserve the accepted Wi-Fi optical-reference path before any later integration.
+
+This closure is documentation-only and does not create a new Build.
