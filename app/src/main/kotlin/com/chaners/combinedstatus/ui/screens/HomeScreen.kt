@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -42,13 +43,16 @@ import com.chaners.combinedstatus.ui.components.topBarBackdropSource
 import com.chaners.combinedstatus.ui.layout.pageContentPadding
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
+import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.Switch
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TopAppBar
-import top.yukonga.miuix.kmp.preference.ArrowPreference
+import top.yukonga.miuix.kmp.icon.MiuixIcons
+import top.yukonga.miuix.kmp.icon.basic.ArrowRight
+import top.yukonga.miuix.kmp.utils.PressFeedbackType
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 
 private enum class RuntimeStatusTone {
@@ -94,6 +98,10 @@ internal fun HomeScreen(
         )
     val xposedRuntimeStatus by
         application.xposedRuntimeStatus.collectAsState()
+    val previewResources =
+        remember(context.applicationContext) {
+            PreviewSystemUiResourceResolver(context.applicationContext)
+        }
 
     val scrollBehavior = MiuixScrollBehavior()
     val topBarBackdrop = rememberTopBarBackdrop()
@@ -154,6 +162,7 @@ internal fun HomeScreen(
                     SmallTitle(stringResource(R.string.section_home_preview_sandbox))
                     HomePreviewSandboxCard(
                         state = previewState,
+                        resources = previewResources,
                         onOpen = onOpenPreviewSandbox,
                         modifier =
                             Modifier
@@ -217,6 +226,7 @@ private fun HomeRuntimeStatusCard(
                 modifier =
                     Modifier
                         .align(Alignment.BottomEnd)
+                        .offset(y = 10.dp)
                         .size(RuntimeStatusMarkSize),
             )
 
@@ -238,15 +248,30 @@ private fun HomeRuntimeStatusCard(
                         stringResource(
                             R.string.home_version_line,
                             BuildConfig.VERSION_NAME,
-                            BuildConfig.BUILD_ID.substringAfterLast('-'),
                         ),
-                    modifier = Modifier.padding(top = 4.dp),
-                    style = MiuixTheme.textStyles.body2,
-                    color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
+                    modifier = Modifier.padding(top = 5.dp),
+                    style =
+                        MiuixTheme.textStyles.body1.copy(
+                            fontWeight = FontWeight.Medium,
+                        ),
+                    color = MiuixTheme.colorScheme.onSurfaceContainer,
+                )
+                Text(
+                    text =
+                        stringResource(
+                            R.string.home_build_line,
+                            BuildConfig.BUILD_ID,
+                        ),
+                    modifier = Modifier.padding(top = 1.dp),
+                    style =
+                        MiuixTheme.textStyles.body1.copy(
+                            fontWeight = FontWeight.Medium,
+                        ),
+                    color = MiuixTheme.colorScheme.onSurfaceContainer,
                 )
                 Text(
                     text = stringResource(state.summaryRes),
-                    modifier = Modifier.padding(top = 18.dp),
+                    modifier = Modifier.padding(top = 12.dp),
                     style = MiuixTheme.textStyles.body2,
                     color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
                     maxLines = 2,
@@ -265,48 +290,67 @@ private fun HomeRuntimeStatusCard(
 @Composable
 private fun HomePreviewSandboxCard(
     state: PreviewSandboxUiState,
+    resources: PreviewSystemUiResourceResolver,
     onOpen: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val center =
-        when (state.centerIndex) {
-            0 -> stringResource(R.string.home_preview_center_wifi)
-            1 -> stringResource(R.string.home_preview_center_5g)
-            else -> stringResource(R.string.home_preview_center_empty)
+    Card(
+        modifier = modifier,
+        insideMargin = PaddingValues(horizontal = 18.dp, vertical = 16.dp),
+        pressFeedbackType = PressFeedbackType.Sink,
+        showIndication = true,
+        onClick = onOpen,
+    ) {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = stringResource(R.string.home_preview_open_title),
+                style =
+                    MiuixTheme.textStyles.title3.copy(
+                        fontWeight = FontWeight.Medium,
+                    ),
+                color = MiuixTheme.colorScheme.onSurfaceContainer,
+            )
+            Icon(
+                imageVector = MiuixIcons.Basic.ArrowRight,
+                contentDescription = null,
+                tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                modifier =
+                    Modifier
+                        .align(Alignment.CenterEnd)
+                        .size(18.dp),
+            )
         }
-    val signal =
-        when (state.signalIndex) {
-            0 -> stringResource(R.string.home_preview_signal_strong)
-            1 -> stringResource(R.string.home_preview_signal_medium)
-            2 -> stringResource(R.string.home_preview_signal_weak)
-            else -> stringResource(R.string.home_preview_signal_unavailable)
-        }
-    val battery =
-        when (state.batteryIndex) {
-            0 -> stringResource(R.string.home_preview_battery_normal)
-            1 -> stringResource(R.string.home_preview_battery_charging)
-            else -> stringResource(R.string.home_preview_battery_power_save)
-        }
-    val stateSummary =
-        stringResource(
-            R.string.home_preview_state_format,
-            center,
-            signal,
-            battery,
+        Text(
+            text = stringResource(R.string.home_preview_home_summary),
+            modifier = Modifier.padding(top = 5.dp, end = 24.dp),
+            style = MiuixTheme.textStyles.body2,
+            color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
         )
-
-    Card(modifier = modifier) {
-        ArrowPreference(
-            title = stringResource(R.string.home_preview_open_title),
-            summary = stateSummary,
-            insideMargin = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
-            startAction = {
-                CombinedStatusPreview(
-                    model = state.toRenderModel(),
-                    modifier = Modifier.size(58.dp),
-                )
-            },
-            onClick = onOpen,
+        CombinedStatusPreview(
+            model = state.toRenderModel(resources),
+            modifier =
+                Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .size(112.dp)
+                    .padding(top = 4.dp),
+        )
+        Text(
+            text = previewNetworkSummary(state),
+            modifier =
+                Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .padding(top = 2.dp),
+            style = MiuixTheme.textStyles.body1,
+            color = MiuixTheme.colorScheme.onSurfaceContainer,
+        )
+        Text(
+            text = previewBatterySummary(state),
+            modifier =
+                Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .padding(top = 2.dp),
+            style = MiuixTheme.textStyles.body2,
+            color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
         )
     }
 }
@@ -318,20 +362,18 @@ private fun RuntimeStatusMark(
     modifier: Modifier = Modifier,
 ) {
     Canvas(modifier = modifier) {
-        val ringColor = color.copy(alpha = 0.38f)
-        val symbolColor = color.copy(alpha = 0.64f)
-        val ringStrokeWidth = 5.0.dp.toPx()
-        val symbolStrokeWidth = 5.6.dp.toPx()
+        val markColor = color.copy(alpha = 0.58f)
+        val markStrokeWidth = 5.4.dp.toPx()
         val center = Offset(size.width / 2f, size.height / 2f)
         val radius = size.minDimension * 0.40f
 
         drawCircle(
-            color = ringColor,
+            color = markColor,
             radius = radius,
             center = center,
             style =
                 Stroke(
-                    width = ringStrokeWidth,
+                    width = markStrokeWidth,
                     cap = StrokeCap.Round,
                 ),
         )
@@ -346,10 +388,10 @@ private fun RuntimeStatusMark(
                     }
                 drawPath(
                     path = checkPath,
-                    color = symbolColor,
+                    color = markColor,
                     style =
                         Stroke(
-                            width = symbolStrokeWidth,
+                            width = markStrokeWidth,
                             cap = StrokeCap.Round,
                             join = StrokeJoin.Round,
                         ),
@@ -358,25 +400,25 @@ private fun RuntimeStatusMark(
 
             RuntimeStatusMarkKind.Alert -> {
                 drawLine(
-                    color = symbolColor,
+                    color = markColor,
                     start = Offset(size.width * 0.50f, size.height * 0.29f),
                     end = Offset(size.width * 0.50f, size.height * 0.56f),
-                    strokeWidth = symbolStrokeWidth,
+                    strokeWidth = markStrokeWidth,
                     cap = StrokeCap.Round,
                 )
                 drawCircle(
-                    color = symbolColor,
-                    radius = symbolStrokeWidth * 0.58f,
+                    color = markColor,
+                    radius = markStrokeWidth * 0.58f,
                     center = Offset(size.width * 0.50f, size.height * 0.70f),
                 )
             }
 
             RuntimeStatusMarkKind.Minus -> {
                 drawLine(
-                    color = symbolColor,
+                    color = markColor,
                     start = Offset(size.width * 0.31f, size.height * 0.50f),
                     end = Offset(size.width * 0.69f, size.height * 0.50f),
-                    strokeWidth = symbolStrokeWidth,
+                    strokeWidth = markStrokeWidth,
                     cap = StrokeCap.Round,
                 )
             }
@@ -461,7 +503,7 @@ private fun resolveHomeRuntimeCardState(
     }
 }
 
-private val RuntimeCardHeight = 144.dp
+private val RuntimeCardHeight = 160.dp
 private val RuntimeStatusMarkSize = 88.dp
 private val RuntimeSuccessAccent = Color(0xFF36D167)
 private val RuntimeWarningAccent = Color(0xFFFFA500)

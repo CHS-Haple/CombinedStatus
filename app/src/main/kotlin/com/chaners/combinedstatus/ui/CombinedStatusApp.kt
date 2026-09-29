@@ -3,6 +3,7 @@ package com.chaners.combinedstatus.ui
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -15,8 +16,12 @@ import com.chaners.combinedstatus.settings.FloatingNavigationStyle
 import com.chaners.combinedstatus.ui.navigation.AppRoute
 import com.chaners.combinedstatus.ui.screens.AppearanceScreen
 import com.chaners.combinedstatus.ui.screens.DiagnosticsScreen
+import com.chaners.combinedstatus.ui.screens.PreviewBatteryMode
+import com.chaners.combinedstatus.ui.screens.PreviewChargingState
+import com.chaners.combinedstatus.ui.screens.PreviewMobileNetwork
 import com.chaners.combinedstatus.ui.screens.PreviewSandboxScreen
 import com.chaners.combinedstatus.ui.screens.PreviewSandboxUiState
+import com.chaners.combinedstatus.ui.screens.PreviewWifiState
 import com.chaners.combinedstatus.ui.theme.CombinedStatusTheme
 import top.yukonga.miuix.kmp.nav.core.NavDisplay
 import top.yukonga.miuix.kmp.nav.core.NavDisplayEffects
@@ -46,14 +51,58 @@ internal fun CombinedStatusApp(
         themeMode = settings.themeMode,
         dynamicColorEnabled = settings.dynamicColorEnabled,
     ) {
-        var previewCenterIndex by rememberSaveable { mutableIntStateOf(0) }
-        var previewSignalIndex by rememberSaveable { mutableIntStateOf(0) }
-        var previewBatteryIndex by rememberSaveable { mutableIntStateOf(0) }
+        var previewSimPresent by rememberSaveable { mutableStateOf(true) }
+        var previewAirplaneMode by rememberSaveable { mutableStateOf(false) }
+        var previewMobileNetworkIndex by rememberSaveable {
+            mutableIntStateOf(PreviewMobileNetwork.FIVE_G.ordinal)
+        }
+        var previewMobileSignalLevel by rememberSaveable { mutableIntStateOf(4) }
+        var previewWifiStateIndex by rememberSaveable {
+            mutableIntStateOf(PreviewWifiState.CONNECTED.ordinal)
+        }
+        var previewWifiSignalLevel by rememberSaveable { mutableIntStateOf(3) }
+        var previewBatteryPercent by rememberSaveable { mutableIntStateOf(87) }
+        var previewBatteryModeIndex by rememberSaveable {
+            mutableIntStateOf(PreviewBatteryMode.BALANCED.ordinal)
+        }
+        var previewChargingStateIndex by rememberSaveable {
+            mutableIntStateOf(PreviewChargingState.NOT_CHARGING.ordinal)
+        }
         val previewState =
             PreviewSandboxUiState(
-                centerIndex = previewCenterIndex,
-                signalIndex = previewSignalIndex,
-                batteryIndex = previewBatteryIndex,
+                simPresent = previewSimPresent,
+                airplaneMode = previewAirplaneMode,
+                mobileNetwork =
+                    PreviewMobileNetwork.entries[
+                        previewMobileNetworkIndex.coerceIn(
+                            0,
+                            PreviewMobileNetwork.entries.lastIndex,
+                        )
+                    ],
+                mobileSignalLevel = previewMobileSignalLevel,
+                wifiState =
+                    PreviewWifiState.entries[
+                        previewWifiStateIndex.coerceIn(
+                            0,
+                            PreviewWifiState.entries.lastIndex,
+                        )
+                    ],
+                wifiSignalLevel = previewWifiSignalLevel,
+                batteryPercent = previewBatteryPercent,
+                batteryMode =
+                    PreviewBatteryMode.entries[
+                        previewBatteryModeIndex.coerceIn(
+                            0,
+                            PreviewBatteryMode.entries.lastIndex,
+                        )
+                    ],
+                chargingState =
+                    PreviewChargingState.entries[
+                        previewChargingStateIndex.coerceIn(
+                            0,
+                            PreviewChargingState.entries.lastIndex,
+                        )
+                    ],
             )
 
         val backStack = rememberNavBackStack<AppRoute>(AppRoute.Home)
@@ -116,9 +165,29 @@ internal fun CombinedStatusApp(
             entry<AppRoute.PreviewSandbox>(swipeDismiss = swipeBackDirection) {
                 PreviewSandboxScreen(
                     state = previewState,
-                    onCenterIndexChange = { previewCenterIndex = it },
-                    onSignalIndexChange = { previewSignalIndex = it },
-                    onBatteryIndexChange = { previewBatteryIndex = it },
+                    onSimPresentChange = { previewSimPresent = it },
+                    onAirplaneModeChange = { previewAirplaneMode = it },
+                    onMobileNetworkChange = {
+                        previewMobileNetworkIndex = it.ordinal
+                    },
+                    onMobileSignalLevelChange = {
+                        previewMobileSignalLevel = it
+                    },
+                    onWifiStateChange = {
+                        previewWifiStateIndex = it.ordinal
+                    },
+                    onWifiSignalLevelChange = {
+                        previewWifiSignalLevel = it
+                    },
+                    onBatteryPercentChange = {
+                        previewBatteryPercent = it
+                    },
+                    onBatteryModeChange = {
+                        previewBatteryModeIndex = it.ordinal
+                    },
+                    onChargingStateChange = {
+                        previewChargingStateIndex = it.ordinal
+                    },
                     onBack = ::navigateBack,
                 )
             }

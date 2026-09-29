@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="section_home_runtime">Runtime</string>
-    <string name="home_version_line">%1$s · %2$s</string>
+    <string name="home_version_line">Version  %1$s</string>
+    <string name="home_build_line">Build  %1$s</string>
 
     <string name="home_runtime_running">Running</string>
     <string name="home_runtime_running_summary">Combined Status is active</string>
@@ -22,29 +23,55 @@
 
     <string name="section_home_preview_sandbox">Preview sandbox</string>
     <string name="home_preview_sandbox_title">Preview sandbox</string>
-    <string name="home_preview_sandbox_summary">Simulation only. Real system state is not changed.</string>
-    <string name="home_preview_open_title">Adjust preview</string>
-    <string name="home_preview_state_format">%1$s · %2$s · %3$s</string>
+    <string name="home_preview_sandbox_summary">Changes here are simulated only and never modify the real system.</string>
+    <string name="home_preview_open_title">Preview sandbox</string>
+    <string name="home_preview_home_summary">Simulate network, signal, battery, and charging states without changing the real system.</string>
+    <string name="home_preview_live_title">Live preview</string>
     <string name="home_preview_section_preview">Preview</string>
-    <string name="home_preview_section_state">Simulated state</string>
+    <string name="home_preview_section_network">Network</string>
+    <string name="home_preview_section_battery">Battery</string>
 
-    <string name="home_preview_center_title">Center content</string>
-    <string name="home_preview_center_wifi">Wi‑Fi</string>
-    <string name="home_preview_center_5g">5G</string>
-    <string name="home_preview_center_empty">Empty</string>
+    <string name="home_preview_sim_title">SIM state</string>
+    <string name="home_preview_sim_present">SIM inserted</string>
+    <string name="home_preview_sim_absent">No SIM</string>
+    <string name="home_preview_airplane_title">Airplane mode</string>
+    <string name="home_preview_airplane_summary">Mobile controls pause in airplane mode; Wi‑Fi can still be simulated independently.</string>
+    <string name="home_preview_mobile_network_title">Mobile network</string>
+    <string name="home_preview_network_none">None</string>
+    <string name="home_preview_network_4g">4G</string>
+    <string name="home_preview_network_5g">5G</string>
+    <string name="home_preview_network_5ga">5GA</string>
+    <string name="home_preview_mobile_signal_title">Mobile signal</string>
+    <string name="home_preview_mobile_disabled_no_sim">Unavailable while no SIM is inserted</string>
+    <string name="home_preview_mobile_disabled_airplane">Unavailable while airplane mode is on</string>
 
-    <string name="home_preview_signal_title">Mobile signal</string>
-    <string name="home_preview_signal_strong">Strong</string>
-    <string name="home_preview_signal_medium">Medium</string>
-    <string name="home_preview_signal_weak">Weak</string>
-    <string name="home_preview_signal_unavailable">Unavailable</string>
-    <string name="home_preview_signal_unavailable_short">None</string>
+    <string name="home_preview_wifi_state_title">Wi‑Fi state</string>
+    <string name="home_preview_wifi_off">Off</string>
+    <string name="home_preview_wifi_connected">Connected</string>
+    <string name="home_preview_wifi_no_internet">No internet</string>
+    <string name="home_preview_wifi_hotspot">Hotspot</string>
+    <string name="home_preview_wifi_signal_title">Wi‑Fi signal</string>
+    <string name="home_preview_wifi_disabled">Enable a Wi‑Fi state to adjust signal strength</string>
 
-    <string name="home_preview_battery_title">Battery state</string>
-    <string name="home_preview_battery_normal">Normal · 87%</string>
-    <string name="home_preview_battery_charging">Charging · 68%</string>
-    <string name="home_preview_battery_power_save">Power save · 42%</string>
-    <string name="home_preview_battery_normal_short">Normal</string>
-    <string name="home_preview_battery_charging_short">Charging</string>
-    <string name="home_preview_battery_power_save_short">Power save</string>
+    <string name="home_preview_signal_none">None</string>
+    <string name="home_preview_signal_level">%1$d bars</string>
+    <string name="home_preview_network_summary_wifi">Wi‑Fi · %1$s</string>
+    <string name="home_preview_network_summary_wifi_no_internet">Wi‑Fi (no internet) · %1$s</string>
+    <string name="home_preview_network_summary_hotspot">Hotspot Wi‑Fi · %1$s</string>
+    <string name="home_preview_network_summary_airplane_wifi">Airplane · %1$s</string>
+    <string name="home_preview_network_summary_mobile">%1$s · %2$s</string>
+
+    <string name="home_preview_battery_level_title">Battery level</string>
+    <string name="home_preview_battery_percent">%1$d%%</string>
+    <string name="home_preview_battery_mode_title">Battery mode</string>
+    <string name="home_preview_battery_mode_balanced">Balanced</string>
+    <string name="home_preview_battery_mode_power_save">Battery saver</string>
+    <string name="home_preview_battery_mode_performance">Performance</string>
+    <string name="home_preview_battery_mode_super_power_save">Ultra battery saver</string>
+    <string name="home_preview_charging_state_title">Charging state</string>
+    <string name="home_preview_charging_state_summary">Charging is independent from battery mode.</string>
+    <string name="home_preview_charging_none">Not charging</string>
+    <string name="home_preview_charging_normal">Charging</string>
+    <string name="home_preview_charging_super_fast">Super fast charging</string>
+    <string name="home_preview_battery_summary_format">%1$d%% · %2$s · %3$s</string>
 </resources>

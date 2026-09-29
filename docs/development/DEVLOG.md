@@ -3,6 +3,93 @@
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
 
+## 2026-09-29 — Build 455: Runtime-card hierarchy restoration and complete Sandbox state model
+
+**Type:** companion-app Home / Preview Sandbox UI
+**Display version:** 0.0.2
+**Build / source:** 455 / `20260929-455` / `feat/home-ui-shell`
+**SystemUI runtime change:** none
+
+### Maintainer feedback / objective
+
+Build 454 over-compressed the product identity and the compact Home Sandbox entry lost too much visual weight. The accepted direction restores two-line Version/Build identity, strengthens that text hierarchy, lowers and unifies the status mark, returns the Home Sandbox to a full feature card, and makes the second-level Sandbox model real independent system-state dimensions rather than a small list of final render outcomes.
+
+The Sandbox must cover:
+- SIM inserted / not inserted;
+- airplane mode;
+- mobile network: none / 4G / 5G / 5GA;
+- mobile signal: none + four levels (0-4);
+- Wi-Fi: off / connected / no internet / hotspot;
+- Wi-Fi signal: none + three levels (0-3);
+- battery level: 0-100%;
+- battery mode: balanced / battery saver / performance / ultra battery saver;
+- charging state: not charging / charging / super fast charging.
+
+Battery mode and charging are explicitly independent inputs.
+
+### Problem execution flow
+
+1. Re-check the production network and battery authority before extending the Sandbox.
+2. Preserve the production `CombinedStatusRenderModel` and painter rather than create a second visual implementation.
+3. Model simulation inputs independently and derive the final render model with production precedence:
+   - visible Wi-Fi wins the center presentation, including while airplane mode is enabled;
+   - airplane mode suppresses mobile controls but does not erase their selected values;
+   - no-SIM suppresses mobile controls and can use the native `stat_sys_no_sim` asset;
+   - mobile network `None` does not forcibly erase the separately-selected signal level.
+4. Keep battery mode and charging separate; charging overrides the final native battery semantic color only at render resolution, not in the stored Sandbox state.
+5. Use pinned MIUIX preferences for settings-like controls and SliderPreference for ordinal/percentage values.
+
+### Implementation
+
+- Runtime card:
+  - fixed 160 dp height;
+  - `Version 0.0.2` and full `Build 20260929-455` return as separate lines;
+  - both use MIUIX body1 + Medium and the normal container foreground rather than faint helper text;
+  - summary remains body2/secondary;
+  - status mark moves down 10 dp;
+  - ring and inner symbol use the same semantic color, alpha (0.58) and 5.4 dp rounded stroke.
+- Home Sandbox:
+  - full clickable MIUIX Card with Sink press feedback;
+  - title + explanatory copy + 112 dp production-rendered preview;
+  - separate compact network and battery summaries;
+  - whole card opens the second-level Sandbox.
+- Second-level Sandbox:
+  - large 132 dp preview card;
+  - Network card uses OverlayDropdownPreference, SwitchPreference and SliderPreference;
+  - mobile controls remain visible but disabled when airplane mode is enabled or SIM is absent, preserving their selections;
+  - Wi-Fi stays independently enabled in airplane mode;
+  - mobile signal uses discrete 0..4; Wi-Fi signal uses discrete 0..3;
+  - Battery card splits percentage Slider, battery-mode dropdown and charging-state dropdown.
+- Native preview resources:
+  - no-SIM resolves `stat_sys_no_sim` from installed SystemUI;
+  - normal Wi-Fi resolves `stat_sys_wifi_signal_<level>`;
+  - hotspot resolves `stat_sys_hotspot_signal_<level>`;
+  - no-internet Wi-Fi tries the parser-compatible native family variants and fails softly to normal Wi-Fi when unavailable.
+- Battery preview colors:
+  - resolved from installed SystemUI resource names when available;
+  - charging and quick/super-fast charging use HyperOS charging semantic color with quick/super-fast resource names preferred if the target exposes them;
+  - ultra battery saver prefers a distinct target resource if present and otherwise deliberately falls back to the existing POWER_SAVE semantic.
+  - Production source remains `MiuiBatteryMeterIconView.getProgressStatus()`, which currently normalizes quick/performance charging states to CHARGING and exposes NORMAL / CHARGING / POWER_SAVE / PERFORMANCE / LOW semantics.
+
+### 审查 / review
+
+- **Ownership:** Sandbox writes no real system state; all state is local Compose saveable state.
+- **Single renderer:** the production render model/view/painter remains the only visual implementation.
+- **HyperOS reuse:** SystemUI native resource families are looked up by name and passed through the existing native center renderer rather than redrawn.
+- **MIUIX:** setting rows use upstream OverlayDropdownPreference, SwitchPreference and SliderPreference; the Home feature card uses official Card Sink feedback.
+- **Airplane compatibility:** airplane disables only mobile controls; Wi-Fi combinations remain legal, matching the production connectivity policy where visible Wi-Fi can precede airplane center presentation.
+- **Battery semantics:** UI keeps mode and charging independent even though current native SystemUI semantic color authority may collapse ultra saver into power-save and quick/super-fast charging into charging.
+- **Performance:** SystemUI package resources are resolved by one remembered per-screen resolver; there is no polling, Hook or background observer.
+- **Runtime boundary:** no SystemUI Hook, ownership, suppression, transition, tint, scene or Hot Reload behavior changes.
+
+### Validation
+
+Build 455 requires exact-head Fast and signed Canary. Device review should cover runtime-card text hierarchy and mark position, Home Sandbox visual weight, second-level Network/Battery structure, airplane + Wi-Fi, no-SIM + Wi-Fi, 0-4 mobile signal direction, 0-3 Wi-Fi signal direction, native hotspot/no-internet presentation, percentage slider, and independent battery-mode/charging combinations.
+
+### Outcome / next step
+
+Pending CI and focused device acceptance.
+
 ## 2026-09-29 — Build 454: Compact runtime identity follow-up
 
 **Type:** companion-app Home UI refinement

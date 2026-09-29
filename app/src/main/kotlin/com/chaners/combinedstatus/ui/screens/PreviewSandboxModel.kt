@@ -1,0 +1,262 @@
+package com.chaners.combinedstatus.ui.screens
+
+import android.content.Context
+import android.content.res.Resources
+import com.chaners.combinedstatus.xposed.CenterIndicator
+import com.chaners.combinedstatus.xposed.CombinedStatusBatterySemanticState
+import com.chaners.combinedstatus.xposed.CombinedStatusPresentationStateStore
+import com.chaners.combinedstatus.xposed.CombinedStatusRenderModel
+import com.chaners.combinedstatus.xposed.InternetState
+
+internal enum class PreviewMobileNetwork {
+    NONE,
+    FOUR_G,
+    FIVE_G,
+    FIVE_GA,
+}
+
+internal enum class PreviewWifiState {
+    OFF,
+    CONNECTED,
+    NO_INTERNET,
+    HOTSPOT,
+}
+
+internal enum class PreviewBatteryMode {
+    BALANCED,
+    POWER_SAVE,
+    PERFORMANCE,
+    SUPER_POWER_SAVE,
+}
+
+internal enum class PreviewChargingState {
+    NOT_CHARGING,
+    CHARGING,
+    SUPER_FAST_CHARGING,
+}
+
+internal data class PreviewSandboxUiState(
+    val simPresent: Boolean = true,
+    val airplaneMode: Boolean = false,
+    val mobileNetwork: PreviewMobileNetwork = PreviewMobileNetwork.FIVE_G,
+    val mobileSignalLevel: Int = 4,
+    val wifiState: PreviewWifiState = PreviewWifiState.CONNECTED,
+    val wifiSignalLevel: Int = 3,
+    val batteryPercent: Int = 87,
+    val batteryMode: PreviewBatteryMode = PreviewBatteryMode.BALANCED,
+    val chargingState: PreviewChargingState = PreviewChargingState.NOT_CHARGING,
+) {
+    val mobileControlsEnabled: Boolean
+        get() = simPresent && !airplaneMode
+
+    val wifiSignalEnabled: Boolean
+        get() = wifiState != PreviewWifiState.OFF
+}
+
+internal class PreviewSystemUiResourceResolver(
+    context: Context,
+) {
+    private val resources: Resources? =
+        runCatching {
+            context
+                .createPackageContext(SYSTEM_UI_PACKAGE, 0)
+                .resources
+        }.getOrNull()
+
+    fun drawableId(vararg names: String): Int? =
+        resources
+            ?.let { systemResources ->
+                names
+                    .asSequence()
+                    .map { name ->
+                        systemResources.getIdentifier(
+                            name,
+                            "drawable",
+                            SYSTEM_UI_PACKAGE,
+                        )
+                    }
+                    .firstOrNull { id -> id != 0 }
+            }
+
+    fun color(vararg names: String): Int? =
+        resources
+            ?.let { systemResources ->
+                names
+                    .asSequence()
+                    .mapNotNull { name ->
+                        val id =
+                            systemResources.getIdentifier(
+                                name,
+                                "color",
+                                SYSTEM_UI_PACKAGE,
+                            )
+                        id.takeIf { it != 0 }
+                    }
+                    .mapNotNull { id ->
+                        runCatching {
+                            systemResources.getColor(id, null)
+                        }.getOrNull()
+                    }
+                    .firstOrNull()
+            }
+
+    private companion object {
+        const val SYSTEM_UI_PACKAGE = "com.android.systemui"
+    }
+}
+
+internal fun PreviewSandboxUiState.toRenderModel(
+    resources: PreviewSystemUiResourceResolver,
+): CombinedStatusRenderModel {
+    val wifiLevel = wifiSignalLevel.coerceIn(0, 3)
+    val mobileLevel =
+        if (mobileControlsEnabled) {
+            mobileSignalLevel.coerceIn(0, 4)
+        } else {
+            null
+        }
+
+    val center =
+        when {
+            wifiState != PreviewWifiState.OFF ->
+                CenterIndicator.Wifi(
+                    segments = wifiLevel,
+                    internet =
+                        if (wifiState == PreviewWifiState.NO_INTERNET) {
+                            InternetState.NO_INTERNET
+                        } else {
+                            InternetState.VALIDATED
+                        },
+                    nativeResourceId =
+                        previewWifiResourceId(
+                            resources = resources,
+                            state = wifiState,
+                            level = wifiLevel,
+                        ),
+                )
+
+            airplaneMode -> CenterIndicator.Airplane
+
+            !simPresent ->
+                resources
+                    .drawableId("stat_sys_no_sim")
+                    ?.let { resourceId ->
+                        CenterIndicator.NoSim(
+                            CombinedStatusPresentationStateStore.NativeIconResource(
+                                packageName = SYSTEM_UI_PACKAGE,
+                                resourceId = resourceId,
+                            ),
+                        )
+                    }
+                    ?: CenterIndicator.Empty
+
+            mobileNetwork == PreviewMobileNetwork.NONE -> CenterIndicator.Empty
+
+            else ->
+                CenterIndicator.MobileType(
+                    label =
+                        when (mobileNetwork) {
+                            PreviewMobileNetwork.NONE -> ""
+                            PreviewMobileNetwork.FOUR_G -> "4G"
+                            PreviewMobileNetwork.FIVE_G -> "5G"
+                            PreviewMobileNetwork.FIVE_GA -> "5GA"
+                        },
+                    enhanced = false,
+                    internet = InternetState.VALIDATED,
+                )
+        }
+
+    val charging = chargingState != PreviewChargingState.NOT_CHARGING
+    val semanticState =
+        if (charging) {
+            CombinedStatusBatterySemanticState.CHARGING
+        } else {
+            when (batteryMode) {
+                PreviewBatteryMode.BALANCED -> CombinedStatusBatterySemanticState.NORMAL
+                PreviewBatteryMode.POWER_SAVE -> CombinedStatusBatterySemanticState.POWER_SAVE
+                PreviewBatteryMode.PERFORMANCE -> CombinedStatusBatterySemanticState.PERFORMANCE
+                PreviewBatteryMode.SUPER_POWER_SAVE -> CombinedStatusBatterySemanticState.POWER_SAVE
+            }
+        }
+
+    return CombinedStatusRenderModel(
+        batteryPercent = batteryPercent.coerceIn(0, 100),
+        charging = charging,
+        centerIndicator = center,
+        mobileLevel = mobileLevel,
+        mobileUnavailableMark = airplaneMode || !simPresent,
+        effectiveDataSubscriptionId = -1,
+        batterySemanticState = semanticState,
+        batterySystemSemanticColor =
+            previewBatterySemanticColor(
+                resources = resources,
+                batteryMode = batteryMode,
+                chargingState = chargingState,
+                semanticState = semanticState,
+            ),
+    )
+}
+
+private fun previewWifiResourceId(
+    resources: PreviewSystemUiResourceResolver,
+    state: PreviewWifiState,
+    level: Int,
+): Int? =
+    when (state) {
+        PreviewWifiState.OFF -> null
+
+        PreviewWifiState.CONNECTED ->
+            resources.drawableId(
+                "stat_sys_wifi_signal_$level",
+            )
+
+        PreviewWifiState.NO_INTERNET ->
+            resources.drawableId(
+                "stat_sys_wifi_signal_${level}_unavailable",
+                "stat_sys_wifi_signal_${level}_no_internet",
+                "stat_sys_wifi_signal_${level}_nointernet",
+                "stat_sys_wifi_signal_${level}_no_network",
+                "stat_sys_wifi_signal_$level",
+            )
+
+        PreviewWifiState.HOTSPOT ->
+            resources.drawableId(
+                "stat_sys_hotspot_signal_$level",
+                "stat_sys_wifi_signal_$level",
+            )
+    }
+
+private fun previewBatterySemanticColor(
+    resources: PreviewSystemUiResourceResolver,
+    batteryMode: PreviewBatteryMode,
+    chargingState: PreviewChargingState,
+    semanticState: CombinedStatusBatterySemanticState,
+): Int? =
+    when {
+        chargingState == PreviewChargingState.SUPER_FAST_CHARGING ->
+            resources.color(
+                "status_bar_battery_super_fast_charging",
+                "status_bar_battery_quick_charging",
+                "status_bar_battery_charging",
+            )
+
+        chargingState == PreviewChargingState.CHARGING ->
+            resources.color("status_bar_battery_charging")
+
+        batteryMode == PreviewBatteryMode.SUPER_POWER_SAVE ->
+            resources.color(
+                "status_bar_battery_super_power_save",
+                "status_bar_battery_super_save",
+                "status_bar_battery_power_save",
+            )
+
+        semanticState == CombinedStatusBatterySemanticState.POWER_SAVE ->
+            resources.color("status_bar_battery_power_save")
+
+        semanticState == CombinedStatusBatterySemanticState.PERFORMANCE ->
+            resources.color("status_bar_battery_performance")
+
+        else -> null
+    }
+
+private const val SYSTEM_UI_PACKAGE = "com.android.systemui"

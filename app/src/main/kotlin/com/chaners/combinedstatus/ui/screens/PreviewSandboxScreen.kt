@@ -2,15 +2,18 @@ package com.chaners.combinedstatus.ui.screens
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.chaners.combinedstatus.R
@@ -19,10 +22,7 @@ import com.chaners.combinedstatus.ui.components.MiuixBlurredTopBar
 import com.chaners.combinedstatus.ui.components.rememberTopBarBackdrop
 import com.chaners.combinedstatus.ui.components.topBarBackdropSource
 import com.chaners.combinedstatus.ui.layout.pageContentPadding
-import com.chaners.combinedstatus.xposed.CenterIndicator
-import com.chaners.combinedstatus.xposed.CombinedStatusBatterySemanticState
-import com.chaners.combinedstatus.xposed.CombinedStatusRenderModel
-import com.chaners.combinedstatus.xposed.InternetState
+import kotlin.math.roundToInt
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.HorizontalDivider
 import top.yukonga.miuix.kmp.basic.Icon
@@ -31,45 +31,74 @@ import top.yukonga.miuix.kmp.basic.MiuixScrollBehavior
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.basic.SmallTitle
 import top.yukonga.miuix.kmp.basic.SmallTopAppBar
-import top.yukonga.miuix.kmp.basic.TabRowWithContour
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.preference.SliderPreference
+import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
-
-internal data class PreviewSandboxUiState(
-    val centerIndex: Int = 0,
-    val signalIndex: Int = 0,
-    val batteryIndex: Int = 0,
-)
 
 @Composable
 internal fun PreviewSandboxScreen(
     state: PreviewSandboxUiState,
-    onCenterIndexChange: (Int) -> Unit,
-    onSignalIndexChange: (Int) -> Unit,
-    onBatteryIndexChange: (Int) -> Unit,
+    onSimPresentChange: (Boolean) -> Unit,
+    onAirplaneModeChange: (Boolean) -> Unit,
+    onMobileNetworkChange: (PreviewMobileNetwork) -> Unit,
+    onMobileSignalLevelChange: (Int) -> Unit,
+    onWifiStateChange: (PreviewWifiState) -> Unit,
+    onWifiSignalLevelChange: (Int) -> Unit,
+    onBatteryPercentChange: (Int) -> Unit,
+    onBatteryModeChange: (PreviewBatteryMode) -> Unit,
+    onChargingStateChange: (PreviewChargingState) -> Unit,
     onBack: () -> Unit,
 ) {
-    val centerOptions =
+    val context = LocalContext.current
+    val resourceResolver =
+        remember(context.applicationContext) {
+            PreviewSystemUiResourceResolver(context.applicationContext)
+        }
+    val renderModel = state.toRenderModel(resourceResolver)
+
+    val simOptions =
         listOf(
-            stringResource(R.string.home_preview_center_wifi),
-            stringResource(R.string.home_preview_center_5g),
-            stringResource(R.string.home_preview_center_empty),
+            stringResource(R.string.home_preview_sim_present),
+            stringResource(R.string.home_preview_sim_absent),
         )
-    val signalOptions =
+    val mobileNetworkOptions =
         listOf(
-            stringResource(R.string.home_preview_signal_strong),
-            stringResource(R.string.home_preview_signal_medium),
-            stringResource(R.string.home_preview_signal_weak),
-            stringResource(R.string.home_preview_signal_unavailable_short),
+            stringResource(R.string.home_preview_network_none),
+            stringResource(R.string.home_preview_network_4g),
+            stringResource(R.string.home_preview_network_5g),
+            stringResource(R.string.home_preview_network_5ga),
         )
-    val batteryOptions =
+    val wifiOptions =
         listOf(
-            stringResource(R.string.home_preview_battery_normal_short),
-            stringResource(R.string.home_preview_battery_charging_short),
-            stringResource(R.string.home_preview_battery_power_save_short),
+            stringResource(R.string.home_preview_wifi_off),
+            stringResource(R.string.home_preview_wifi_connected),
+            stringResource(R.string.home_preview_wifi_no_internet),
+            stringResource(R.string.home_preview_wifi_hotspot),
         )
+    val batteryModeOptions =
+        listOf(
+            stringResource(R.string.home_preview_battery_mode_balanced),
+            stringResource(R.string.home_preview_battery_mode_power_save),
+            stringResource(R.string.home_preview_battery_mode_performance),
+            stringResource(R.string.home_preview_battery_mode_super_power_save),
+        )
+    val chargingOptions =
+        listOf(
+            stringResource(R.string.home_preview_charging_none),
+            stringResource(R.string.home_preview_charging_normal),
+            stringResource(R.string.home_preview_charging_super_fast),
+        )
+
+    val mobileDisabledSummary =
+        when {
+            !state.simPresent -> stringResource(R.string.home_preview_mobile_disabled_no_sim)
+            state.airplaneMode -> stringResource(R.string.home_preview_mobile_disabled_airplane)
+            else -> null
+        }
 
     val scrollBehavior = MiuixScrollBehavior()
     val topBarBackdrop = rememberTopBarBackdrop()
@@ -120,55 +149,188 @@ internal fun PreviewSandboxScreen(
                             Modifier
                                 .padding(horizontal = 12.dp)
                                 .padding(bottom = 12.dp),
+                        insideMargin = PaddingValues(horizontal = 18.dp, vertical = 16.dp),
                     ) {
-                        Column(
+                        Text(
+                            text = stringResource(R.string.home_preview_live_title),
+                            style = MiuixTheme.textStyles.title3,
+                            color = MiuixTheme.colorScheme.onSurfaceContainer,
+                        )
+                        Text(
+                            text = stringResource(R.string.home_preview_sandbox_summary),
+                            modifier = Modifier.padding(top = 4.dp),
+                            style = MiuixTheme.textStyles.body2,
+                            color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
+                        )
+                        CombinedStatusPreview(
+                            model = renderModel,
                             modifier =
                                 Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 18.dp, vertical = 12.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                        ) {
-                            CombinedStatusPreview(
-                                model = state.toRenderModel(),
-                                modifier = Modifier.size(112.dp),
-                            )
-                            Text(
-                                text = stringResource(R.string.home_preview_sandbox_summary),
-                                modifier = Modifier.padding(top = 2.dp),
-                                style = MiuixTheme.textStyles.body2,
-                                color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
-                            )
-                        }
+                                    .align(Alignment.CenterHorizontally)
+                                    .size(132.dp)
+                                    .padding(top = 4.dp),
+                        )
+                        Text(
+                            text = previewNetworkSummary(state),
+                            modifier =
+                                Modifier
+                                    .align(Alignment.CenterHorizontally)
+                                    .padding(top = 2.dp),
+                            style = MiuixTheme.textStyles.body1,
+                            color = MiuixTheme.colorScheme.onSurfaceContainer,
+                        )
+                        Text(
+                            text = previewBatterySummary(state),
+                            modifier =
+                                Modifier
+                                    .align(Alignment.CenterHorizontally)
+                                    .padding(top = 2.dp),
+                            style = MiuixTheme.textStyles.body2,
+                            color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
+                        )
                     }
                 }
 
                 item {
-                    SmallTitle(stringResource(R.string.home_preview_section_state))
+                    SmallTitle(stringResource(R.string.home_preview_section_network))
                     Card(
                         modifier =
                             Modifier
                                 .padding(horizontal = 12.dp)
                                 .padding(bottom = 12.dp),
                     ) {
-                        PreviewSandboxSelector(
-                            title = stringResource(R.string.home_preview_center_title),
-                            options = centerOptions,
-                            selectedIndex = state.centerIndex,
-                            onSelected = onCenterIndexChange,
+                        OverlayDropdownPreference(
+                            items = simOptions,
+                            selectedIndex = if (state.simPresent) 0 else 1,
+                            title = stringResource(R.string.home_preview_sim_title),
+                            insideMargin = SandboxPreferenceMargin,
+                            onSelectedIndexChange = { onSimPresentChange(it == 0) },
                         )
-                        HorizontalDivider(modifier = Modifier.padding(horizontal = 18.dp))
-                        PreviewSandboxSelector(
-                            title = stringResource(R.string.home_preview_signal_title),
-                            options = signalOptions,
-                            selectedIndex = state.signalIndex,
-                            onSelected = onSignalIndexChange,
+                        HorizontalDivider(modifier = DividerMargin)
+                        SwitchPreference(
+                            checked = state.airplaneMode,
+                            onCheckedChange = onAirplaneModeChange,
+                            title = stringResource(R.string.home_preview_airplane_title),
+                            summary = stringResource(R.string.home_preview_airplane_summary),
+                            insideMargin = SandboxPreferenceMargin,
                         )
-                        HorizontalDivider(modifier = Modifier.padding(horizontal = 18.dp))
-                        PreviewSandboxSelector(
-                            title = stringResource(R.string.home_preview_battery_title),
-                            options = batteryOptions,
-                            selectedIndex = state.batteryIndex,
-                            onSelected = onBatteryIndexChange,
+                        HorizontalDivider(modifier = DividerMargin)
+                        OverlayDropdownPreference(
+                            items = mobileNetworkOptions,
+                            selectedIndex = state.mobileNetwork.ordinal,
+                            title = stringResource(R.string.home_preview_mobile_network_title),
+                            summary = mobileDisabledSummary,
+                            enabled = state.mobileControlsEnabled,
+                            insideMargin = SandboxPreferenceMargin,
+                            onSelectedIndexChange = { index ->
+                                onMobileNetworkChange(
+                                    PreviewMobileNetwork.entries[index],
+                                )
+                            },
+                        )
+                        HorizontalDivider(modifier = DividerMargin)
+                        SliderPreference(
+                            value = state.mobileSignalLevel.toFloat(),
+                            onValueChange = { value ->
+                                onMobileSignalLevelChange(
+                                    value.roundToInt().coerceIn(0, 4),
+                                )
+                            },
+                            title = stringResource(R.string.home_preview_mobile_signal_title),
+                            summary = mobileDisabledSummary,
+                            valueText = signalValueText(state.mobileSignalLevel),
+                            enabled = state.mobileControlsEnabled,
+                            valueRange = 0f..4f,
+                            steps = 3,
+                            showKeyPoints = true,
+                            keyPoints = listOf(0f, 1f, 2f, 3f, 4f),
+                            insideMargin = SandboxPreferenceMargin,
+                        )
+                        HorizontalDivider(modifier = DividerMargin)
+                        OverlayDropdownPreference(
+                            items = wifiOptions,
+                            selectedIndex = state.wifiState.ordinal,
+                            title = stringResource(R.string.home_preview_wifi_state_title),
+                            insideMargin = SandboxPreferenceMargin,
+                            onSelectedIndexChange = { index ->
+                                onWifiStateChange(
+                                    PreviewWifiState.entries[index],
+                                )
+                            },
+                        )
+                        HorizontalDivider(modifier = DividerMargin)
+                        SliderPreference(
+                            value = state.wifiSignalLevel.toFloat(),
+                            onValueChange = { value ->
+                                onWifiSignalLevelChange(
+                                    value.roundToInt().coerceIn(0, 3),
+                                )
+                            },
+                            title = stringResource(R.string.home_preview_wifi_signal_title),
+                            summary =
+                                if (state.wifiSignalEnabled) {
+                                    null
+                                } else {
+                                    stringResource(R.string.home_preview_wifi_disabled)
+                                },
+                            valueText = signalValueText(state.wifiSignalLevel),
+                            enabled = state.wifiSignalEnabled,
+                            valueRange = 0f..3f,
+                            steps = 2,
+                            showKeyPoints = true,
+                            keyPoints = listOf(0f, 1f, 2f, 3f),
+                            insideMargin = SandboxPreferenceMargin,
+                        )
+                    }
+                }
+
+                item {
+                    SmallTitle(stringResource(R.string.home_preview_section_battery))
+                    Card(
+                        modifier =
+                            Modifier
+                                .padding(horizontal = 12.dp)
+                                .padding(bottom = 12.dp),
+                    ) {
+                        SliderPreference(
+                            value = state.batteryPercent.toFloat(),
+                            onValueChange = { value ->
+                                onBatteryPercentChange(
+                                    value.roundToInt().coerceIn(0, 100),
+                                )
+                            },
+                            title = stringResource(R.string.home_preview_battery_level_title),
+                            valueText = stringResource(
+                                R.string.home_preview_battery_percent,
+                                state.batteryPercent,
+                            ),
+                            valueRange = 0f..100f,
+                            insideMargin = SandboxPreferenceMargin,
+                        )
+                        HorizontalDivider(modifier = DividerMargin)
+                        OverlayDropdownPreference(
+                            items = batteryModeOptions,
+                            selectedIndex = state.batteryMode.ordinal,
+                            title = stringResource(R.string.home_preview_battery_mode_title),
+                            insideMargin = SandboxPreferenceMargin,
+                            onSelectedIndexChange = { index ->
+                                onBatteryModeChange(
+                                    PreviewBatteryMode.entries[index],
+                                )
+                            },
+                        )
+                        HorizontalDivider(modifier = DividerMargin)
+                        OverlayDropdownPreference(
+                            items = chargingOptions,
+                            selectedIndex = state.chargingState.ordinal,
+                            title = stringResource(R.string.home_preview_charging_state_title),
+                            summary = stringResource(R.string.home_preview_charging_state_summary),
+                            insideMargin = SandboxPreferenceMargin,
+                            onSelectedIndexChange = { index ->
+                                onChargingStateChange(
+                                    PreviewChargingState.entries[index],
+                                )
+                            },
                         )
                     }
                 }
@@ -178,75 +340,107 @@ internal fun PreviewSandboxScreen(
 }
 
 @Composable
-private fun PreviewSandboxSelector(
-    title: String,
-    options: List<String>,
-    selectedIndex: Int,
-    onSelected: (Int) -> Unit,
-) {
-    Column(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 18.dp, vertical = 10.dp),
-    ) {
-        Text(
-            text = title,
-            style = MiuixTheme.textStyles.body1,
-            color = MiuixTheme.colorScheme.onSurfaceContainer,
-        )
-        TabRowWithContour(
-            tabs = options,
-            selectedTabIndex = selectedIndex,
-            onTabSelected = onSelected,
-            modifier = Modifier.padding(top = 8.dp),
-        )
+internal fun previewNetworkSummary(
+    state: PreviewSandboxUiState,
+): String {
+    val wifi =
+        when (state.wifiState) {
+            PreviewWifiState.OFF -> null
+            PreviewWifiState.CONNECTED ->
+                stringResource(
+                    R.string.home_preview_network_summary_wifi,
+                    signalValueText(state.wifiSignalLevel),
+                )
+            PreviewWifiState.NO_INTERNET ->
+                stringResource(
+                    R.string.home_preview_network_summary_wifi_no_internet,
+                    signalValueText(state.wifiSignalLevel),
+                )
+            PreviewWifiState.HOTSPOT ->
+                stringResource(
+                    R.string.home_preview_network_summary_hotspot,
+                    signalValueText(state.wifiSignalLevel),
+                )
+        }
+
+    if (state.airplaneMode) {
+        return if (wifi != null) {
+            stringResource(
+                R.string.home_preview_network_summary_airplane_wifi,
+                wifi,
+            )
+        } else {
+            stringResource(R.string.home_preview_airplane_title)
+        }
     }
-}
 
-internal fun PreviewSandboxUiState.toRenderModel(): CombinedStatusRenderModel {
-    val center =
-        when (centerIndex) {
-            0 ->
-                CenterIndicator.Wifi(
-                    segments = 3,
-                    internet = InternetState.VALIDATED,
-                )
-            1 ->
-                CenterIndicator.MobileType(
-                    label = "5G",
-                    enhanced = false,
-                    internet = InternetState.VALIDATED,
-                )
-            else -> CenterIndicator.Empty
-        }
-    val mobileLevel =
-        when (signalIndex) {
-            0 -> 4
-            1 -> 3
-            2 -> 2
-            else -> null
-        }
-    val batteryPercent =
-        when (batteryIndex) {
-            0 -> 87
-            1 -> 68
-            else -> 42
-        }
-    val semanticState =
-        when (batteryIndex) {
-            1 -> CombinedStatusBatterySemanticState.CHARGING
-            2 -> CombinedStatusBatterySemanticState.POWER_SAVE
-            else -> CombinedStatusBatterySemanticState.NORMAL
-        }
+    if (wifi != null) {
+        return wifi
+    }
 
-    return CombinedStatusRenderModel(
-        batteryPercent = batteryPercent,
-        charging = batteryIndex == 1,
-        centerIndicator = center,
-        mobileLevel = mobileLevel,
-        mobileUnavailableMark = signalIndex == 3,
-        effectiveDataSubscriptionId = -1,
-        batterySemanticState = semanticState,
+    if (!state.simPresent) {
+        return stringResource(R.string.home_preview_sim_absent)
+    }
+
+    val mobileType =
+        when (state.mobileNetwork) {
+            PreviewMobileNetwork.NONE ->
+                stringResource(R.string.home_preview_network_none)
+            PreviewMobileNetwork.FOUR_G ->
+                stringResource(R.string.home_preview_network_4g)
+            PreviewMobileNetwork.FIVE_G ->
+                stringResource(R.string.home_preview_network_5g)
+            PreviewMobileNetwork.FIVE_GA ->
+                stringResource(R.string.home_preview_network_5ga)
+        }
+    return stringResource(
+        R.string.home_preview_network_summary_mobile,
+        mobileType,
+        signalValueText(state.mobileSignalLevel),
     )
 }
+
+@Composable
+internal fun previewBatterySummary(
+    state: PreviewSandboxUiState,
+): String {
+    val mode =
+        when (state.batteryMode) {
+            PreviewBatteryMode.BALANCED ->
+                stringResource(R.string.home_preview_battery_mode_balanced)
+            PreviewBatteryMode.POWER_SAVE ->
+                stringResource(R.string.home_preview_battery_mode_power_save)
+            PreviewBatteryMode.PERFORMANCE ->
+                stringResource(R.string.home_preview_battery_mode_performance)
+            PreviewBatteryMode.SUPER_POWER_SAVE ->
+                stringResource(R.string.home_preview_battery_mode_super_power_save)
+        }
+    val charging =
+        when (state.chargingState) {
+            PreviewChargingState.NOT_CHARGING ->
+                stringResource(R.string.home_preview_charging_none)
+            PreviewChargingState.CHARGING ->
+                stringResource(R.string.home_preview_charging_normal)
+            PreviewChargingState.SUPER_FAST_CHARGING ->
+                stringResource(R.string.home_preview_charging_super_fast)
+        }
+
+    return stringResource(
+        R.string.home_preview_battery_summary_format,
+        state.batteryPercent,
+        mode,
+        charging,
+    )
+}
+
+@Composable
+private fun signalValueText(level: Int): String =
+    if (level <= 0) {
+        stringResource(R.string.home_preview_signal_none)
+    } else {
+        stringResource(R.string.home_preview_signal_level, level)
+    }
+
+private val SandboxPreferenceMargin =
+    PaddingValues(horizontal = 18.dp, vertical = 10.dp)
+private val DividerMargin = Modifier.padding(horizontal = 18.dp)
