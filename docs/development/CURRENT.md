@@ -18,7 +18,7 @@ Control Center transition animation is the active runtime task.
 
 Current implementation line:
 - PR #177 — feat/control-center-transition-matrix;
-- current work-branch checkpoint: Build 485 / 20260930-485;
+- current work-branch checkpoint: Build 486 / 20260930-486;
 - exact-target direction: QS_FAKE role-5 to final-QS role-6 matrix projection;
 - HyperOS remains translation/appearance authority; raw native expansion drives transition geometry and native fake/final Folme owns visual handoff;
 - Guiyuan reads native transition state and renders only its owned Trinity correspondence; final role-6 top-level slots are read-only occupancy witnesses, while the existing QS_FAKE statusIcons-paddingEnd owner now provides a progress-synchronous semantic reservation so surrounding native peers move through SystemUI's own measure/layout path;
@@ -48,7 +48,9 @@ Build 483 kept the Build-482 external trajectory and added semantic reservation 
 
 Build-484 device review rejects three details without rejecting the overall matrix/reservation line: (1) the Battery morph used the whole 105x169/135x169 MiuiBatteryMeterView fallback as if it were the glyph and therefore produced an oversized, hard-looking Battery; (2) the transition source sampled MiuiBatteryMeterView each frame, so charging/status-bar press transforms could flatten the whole Guiyuan source and every later component trajectory; (3) Mobile bars grew only upward from a bottom baseline and remained too short relative to the final native signal.
 
-Build 485 addresses those root causes without adopting themed glyph geometry as a 1:1 template. The laid-out Guiyuan renderView is now its own source-geometry authority; native Battery style/glyph is used only as an endpoint witness while Battery transition scale is shrink-only and the local silhouette remains compact/stable; Mobile rows around the signal center and bars grow symmetrically upward/downward. Native mobile height is only a cap/reference: the highest Guiyuan bar remains below the native target and a stable local maximum prevents theme-driven enlargement. HyperOS still owns external progress, final appearance, native peer layout, and final themed assets.
+Build 485 removed the charging-press flattening but device review rejects its synthetic Battery contour, exposes a new external trajectory drift from making renderView the full source authority, leaves the Mobile signal baseline visually wrong, and shows 5G overlapping signal when a semantic child target is unavailable.
+
+Build 486 restores the accepted pre-custom Battery treatment: the ring uses the Build-482 fold/projection handoff and no synthetic Battery body is drawn. Source ownership is split: MiuiBatteryMeterView contributes native center/translation while Guiyuan renderView contributes the stable basis, so transient charging/press scale cannot flatten Guiyuan without replacing the accepted native trajectory coordinate authority. Mobile first forms a row, then all four bars grow upward from one shared fixed lower baseline for the entire bar-growth phase. Target resolution now follows one fail-fast rule: semantic children such as wifi_signal, mobile_type(_single), and mobile_signal must be visible, attached and non-zero; otherwise that component uses the existing fast fade/slight-shrink exit instead of guessing a top-level slot position. HyperOS remains external progress, final appearance, peer-layout, and themed-asset authority.
 
 Device testing is requested only when the result can change implementation choice or acceptance. Mechanical/documentation steps continue without a new APK round trip.
 
@@ -65,11 +67,11 @@ Device testing is requested only when the result can change implementation choic
 
 ## Immediate next step
 
-1. Run exact-head Runtime CI for Build 485; if green, request one signed work-branch Canary.
-2. Device gate A — charging: press/hold the status-bar path that flattened Build 484; the entire Guiyuan source must retain its normal aspect through the transition.
-3. Device gate B — Battery: verify the ring contracts progressively into a compact Battery-like contour with no 105x169/135x169 giant intermediate and no abrupt hard cut; final themed Battery remains native-owned.
-4. Device gate C — Mobile: verify dots settle into a centered row, then each bar grows equally upward/downward; bar lengths should approach but not exceed the native signal and must not be driven larger by a theme.
-5. If those pass, continue the remaining charging-island/Keyguard-originated regression pass before acceptance.
+1. Run exact-head Runtime CI for Build 486; if green, request one signed work-branch Canary.
+2. Device gate A — trajectory: verify Build-485 drift is gone while charging/status-bar press no longer flattens Guiyuan.
+3. Device gate B — Battery: verify the synthetic dark block is gone and the earlier ring-fold/native-handoff treatment is restored.
+4. Device gate C — Mobile: verify the four dots form a row and, once bar growth begins, all four bars keep one flat lower baseline while growing upward; height stays below the native signal cap.
+5. Device gate D — missing semantic targets: verify 5G/Wi-Fi/signal/airplane elements with no reliable destination exit quickly instead of occupying another slot's center. If these pass, continue charging-island/Keyguard-originated regression before acceptance.
 
 ## Reference priority
 
