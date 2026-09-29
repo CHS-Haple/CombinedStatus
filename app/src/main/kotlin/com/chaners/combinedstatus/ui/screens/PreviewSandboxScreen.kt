@@ -231,7 +231,7 @@ internal fun PreviewSandboxScreen(
                                     onSelected = { index ->
                                         onMobileNetworkChange(PreviewMobileNetwork.entries[index])
                                     },
-                                    modifier = Modifier.padding(top = 5.dp),
+                                    modifier = Modifier.padding(top = 8.dp),
                                 )
                                 SliderPreference(
                                     value = state.mobileSignalLevel.toFloat(),
@@ -288,7 +288,7 @@ internal fun PreviewSandboxScreen(
                             selectedIndex = if (state.simPresent) 0 else 1,
                             onSelected = { onSimPresentChange(it == 0) },
                             maxWidth = 244.dp,
-                            modifier = Modifier.padding(top = 2.dp),
+                            modifier = Modifier.padding(top = 4.dp),
                         )
                         SwitchPreference(
                             checked = state.airplaneMode,
@@ -339,7 +339,7 @@ internal fun PreviewSandboxScreen(
                             onSelected = { index ->
                                 onChargingStateChange(PreviewChargingState.entries[index])
                             },
-                            modifier = Modifier.padding(top = 8.dp),
+                            modifier = Modifier.padding(top = 4.dp),
                         )
                     }
                 }
@@ -493,4 +493,4 @@ private fun signalValueText(level: Int): String =
     }
 
 private val CompactPreferenceMargin =
-    PaddingValues(horizontal = 18.dp, vertical = 7.dp)
+    PaddingValues(horizontal = 18.dp, vertical = 5.dp)
