@@ -148,76 +148,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
     }
 
     internal object Policy {
-        fun geometryProgress(raw: Float): Float {
-            if (!raw.isFinite()) return 0f
-            val normalized = (raw / 0.82f).coerceIn(0f, 1f)
-            return smoothstep(normalized)
-        }
-
-        fun releaseProgress(
-            raw: Float,
-            policy: CombinedStatusPainter.TransitionReleasePolicy,
-        ): Float {
-            if (!raw.isFinite()) return 0f
-            val span = policy.endProgress - policy.startProgress
-            if (span <= 0f) {
-                return if (raw >= policy.endProgress) 1f else 0f
-            }
-            val normalized =
-                ((raw - policy.startProgress) / span)
-                    .coerceIn(0f, 1f)
-            return smoothstep(normalized)
-        }
-
-        fun interpolateGeometry(
-            source: FloatArray,
-            target: FloatArray,
-            progress: Float,
-        ): FloatArray {
-            require(source.size == 6 && target.size == 6)
-            val p = progress.coerceIn(0f, 1f)
-            return FloatArray(6) { index ->
-                source[index] + (target[index] - source[index]) * p
-            }
-        }
-
-        fun componentGeometry(
-            parentGeometry: FloatArray,
-            parentWidth: Int,
-            parentHeight: Int,
-            bounds: CombinedStatusPainter.TransitionBounds,
-        ): FloatArray? {
-            if (
-                parentGeometry.size != 6 ||
-                parentWidth <= 0 ||
-                parentHeight <= 0 ||
-                bounds.width <= 0f ||
-                bounds.height <= 0f
-            ) {
-                return null
-            }
-            val normalizedCenterX =
-                bounds.centerX / parentWidth.toFloat() - 0.5f
-            val normalizedCenterY =
-                bounds.centerY / parentHeight.toFloat() - 0.5f
-            val widthScale = bounds.width / parentWidth.toFloat()
-            val heightScale = bounds.height / parentHeight.toFloat()
-            return floatArrayOf(
-                parentGeometry[0] +
-                    parentGeometry[2] * normalizedCenterX +
-                    parentGeometry[4] * normalizedCenterY,
-                parentGeometry[1] +
-                    parentGeometry[3] * normalizedCenterX +
-                    parentGeometry[5] * normalizedCenterY,
-                parentGeometry[2] * widthScale,
-                parentGeometry[3] * widthScale,
-                parentGeometry[4] * heightScale,
-                parentGeometry[5] * heightScale,
-            )
-        }
-
-        private fun smoothstep(value: Float): Float =
-            value * value * (3f - 2f * value)
+        fun geometryProgress(raw: Float): Float =
+            if (raw.isFinite()) raw.coerceIn(0f, 1f) else 0f
     }
 
     private class Session(
@@ -242,7 +174,6 @@ internal object CombinedStatusControlCenterTransitionOwner {
             nativeClip = sourceView.clipBounds?.let(::Rect),
             appliedClip = Rect(0, 0, 0, 0),
         )
-        private val targetMasks = ArrayList<MaskState>()
         private val sourceColors = sourceSnapshot.colors
 
         private var currentSnapshot = sourceSnapshot
@@ -285,7 +216,6 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     currentSnapshot = latest
                     lastStateVersion = latest.stateVersion
                 }
-                reconcileTargetMasks(currentSnapshot.model)
                 drawable.setBounds(0, 0, rootView.width, rootView.height)
                 drawable.invalidateSelf()
                 true
@@ -296,19 +226,6 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 ",appearance=" + nativeAppearance +
                 ",appearanceAnimated=" + nativeAppearanceAnimated +
                 ",nativePeers=systemui" +
-                ",targetMasks=" + targetMasks.size +
-                ",release=" +
-                (
-                    painter
-                        .transitionComponentSpecs(
-                            sourceViewRef.get()?.width ?: 0,
-                            sourceViewRef.get()?.height ?: 0,
-                            currentSnapshot.model,
-                        )
-                        .firstOrNull()
-                        ?.let { Policy.releaseProgress(progress, it.releasePolicy) }
-                        ?: 0f
-                ) +
                 ",sourceAnchor=" + (sourceAnchorRef.get()?.javaClass?.simpleName ?: "none") +
                 ",sourceStateVersion=" + lastStateVersion +
                 ",root=" + (rootRef.get()?.javaClass?.simpleName ?: "none") +
@@ -335,7 +252,6 @@ internal object CombinedStatusControlCenterTransitionOwner {
             val source = sourceViewRef.get() ?: return
             started = true
             source.clipBounds = sourceMask.appliedClip
-            reconcileTargetMasks(currentSnapshot.model)
             rootView.overlay.add(drawable)
             rootView.viewTreeObserver.addOnPreDrawListener(preDrawListener)
             drawable.setBounds(0, 0, rootView.width, rootView.height)
@@ -352,9 +268,6 @@ internal object CombinedStatusControlCenterTransitionOwner {
             this.currentSnapshot = sourceSnapshot
             this.nativeAppearance = nativeAppearance
             this.nativeAppearanceAnimated = nativeAppearanceAnimated
-            if (started) {
-                reconcileTargetMasks(sourceSnapshot.model)
-            }
             drawable.invalidateSelf()
         }
 
@@ -371,13 +284,11 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     sourceView.clipBounds = sourceMask.nativeClip?.let(::Rect)
                 }
             }
-            restoreTargetMasks()
         }
 
         fun draw(canvas: Canvas) {
             val rootView = rootRef.get() ?: return
             val fake = fakeRootRef.get() ?: return
-            val final = finalRootRef.get() ?: return
             val sourceView = sourceViewRef.get() ?: return
             val sourceAnchor = sourceAnchorRef.get() ?: return
             if (sourceView.width <= 0 || sourceView.height <= 0) return
@@ -397,12 +308,9 @@ internal object CombinedStatusControlCenterTransitionOwner {
             if (specs.isEmpty()) return
 
             val geometryProgress = Policy.geometryProgress(progress)
-            val envelope =
-                (endpointAlpha(fake) + endpointAlpha(final))
-                    .coerceIn(0f, 1f)
-            if (envelope <= 0f) return
+            val opacity = endpointAlpha(fake)
+            if (opacity <= 0f) return
 
-            val targetRelease = linkedMapOf<View, Float>()
             specs.forEach { spec ->
                 val sourceGeometry =
                     Policy.componentGeometry(
@@ -411,15 +319,12 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         parentHeight = sourceView.height,
                         bounds = spec.sourceBounds,
                     ) ?: return@forEach
-                val target = resolveTarget(spec.target)
-                val targetSample = target?.let { sample(it, rootView) }
-                val targetGeometry = targetSample?.geometry ?: sourceGeometry
-                val release =
-                    if (targetSample == null) {
-                        0f
-                    } else {
-                        Policy.releaseProgress(progress, spec.releasePolicy)
-                    }
+                val target =
+                    resolveTarget(spec.target)
+                        ?: return@forEach
+                val targetGeometry =
+                    sample(target, rootView)?.geometry
+                        ?: return@forEach
                 val geometry =
                     Policy.interpolateGeometry(
                         source = sourceGeometry,
@@ -431,40 +336,24 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         geometry = geometry,
                         bounds = spec.sourceBounds,
                     ) ?: return@forEach
-                val compactOpacity = envelope * (1f - release)
-                if (compactOpacity > 0f) {
-                    val save =
-                        canvas.saveLayerAlpha(
-                            null,
-                            (255f * compactOpacity.coerceIn(0f, 1f)).roundToInt(),
-                        )
-                    canvas.concat(matrix)
-                    painter.drawTransitionComponent(
-                        canvas = canvas,
-                        width = sourceView.width,
-                        height = sourceView.height,
-                        model = model,
-                        colors = sourceColors,
-                        component = spec.component,
-                        shapePolicy = spec.shapePolicy,
-                        opacity = 1f,
-                        morphProgress = geometryProgress,
+                val save =
+                    canvas.saveLayerAlpha(
+                        null,
+                        (255f * opacity.coerceIn(0f, 1f)).roundToInt(),
                     )
-                    canvas.restoreToCount(save)
-                }
-                if (target != null && release > 0f) {
-                    targetRelease[target] =
-                        maxOf(targetRelease[target] ?: 0f, release)
-                }
-            }
-
-            targetRelease.forEach { (target, release) ->
-                drawNativeTarget(
+                canvas.concat(matrix)
+                painter.drawTransitionComponent(
                     canvas = canvas,
-                    target = target,
-                    rootView = rootView,
-                    alpha = envelope * release,
+                    width = sourceView.width,
+                    height = sourceView.height,
+                    model = model,
+                    colors = sourceColors,
+                    component = spec.component,
+                    shapePolicy = spec.shapePolicy,
+                    opacity = 1f,
+                    morphProgress = geometryProgress,
                 )
+                canvas.restoreToCount(save)
             }
         }
 
@@ -478,85 +367,6 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         slotViews(finalStatusIcons, slot).firstOrNull()
                     }
             }
-
-        private fun reconcileTargetMasks(model: CombinedStatusRenderModel) {
-            if (!started) return
-            val source = sourceViewRef.get() ?: return
-            val targets =
-                painter
-                    .transitionComponentSpecs(
-                        width = source.width,
-                        height = source.height,
-                        model = model,
-                    )
-                    .mapNotNull { spec -> resolveTarget(spec.target) }
-                    .distinctBy(System::identityHashCode)
-                    .toSet()
-
-            val iterator = targetMasks.iterator()
-            while (iterator.hasNext()) {
-                val state = iterator.next()
-                val view = state.view.get()
-                if (view == null || view !in targets) {
-                    if (view != null) restoreMask(state)
-                    iterator.remove()
-                }
-            }
-            targets.forEach { view ->
-                if (targetMasks.none { state -> state.view.get() === view }) {
-                    val nativeClip = view.clipBounds?.let(::Rect)
-                    val applied = Rect(0, 0, 0, 0)
-                    view.clipBounds = applied
-                    targetMasks +=
-                        MaskState(
-                            view = WeakReference(view),
-                            nativeClip = nativeClip,
-                            appliedClip = applied,
-                        )
-                }
-            }
-        }
-
-        private fun restoreTargetMasks() {
-            val states = targetMasks.toList()
-            targetMasks.clear()
-            states.forEach(::restoreMask)
-        }
-
-        private fun restoreMask(state: MaskState) {
-            val view = state.view.get() ?: return
-            if (view.clipBounds == state.appliedClip) {
-                view.clipBounds = state.nativeClip?.let(::Rect)
-            }
-        }
-
-        private fun drawNativeTarget(
-            canvas: Canvas,
-            target: View,
-            rootView: View,
-            alpha: Float,
-        ) {
-            if (alpha <= 0f) return
-            val sample = sample(target, rootView) ?: return
-            val matrix =
-                matrixForGeometry(
-                    geometry = sample.geometry,
-                    width = target.width,
-                    height = target.height,
-                ) ?: return
-            val save =
-                canvas.saveLayerAlpha(
-                    null,
-                    (255f * alpha.coerceIn(0f, 1f)).roundToInt(),
-                )
-            canvas.concat(matrix)
-            targetMasks
-                .firstOrNull { state -> state.view.get() === target }
-                ?.nativeClip
-                ?.let(canvas::clipRect)
-            target.draw(canvas)
-            canvas.restoreToCount(save)
-        }
 
         private fun endpointAlpha(view: View): Float {
             var current: View? = view
