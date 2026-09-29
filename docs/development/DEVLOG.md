@@ -4,10 +4,10 @@ This is the chronological engineering diary for Combined Status. It complements,
 
 ## 2026-09-29 — Build 456: Keyguard / QS_FAKE native ignored-slot session ownership
 
-**Type:** Phase-3 device-rejection root-cause correction  
-**Build:** 456 / `20260929-456`  
-**Work branch / PR:** `feat/keyguard-scene-adapter` / #163  
-**Device-rejected predecessor:** Build 455 / Canary #480  
+**Type:** Phase-3 device-rejection root-cause correction
+**Build:** 456 / `20260929-456`
+**Work branch / PR:** `feat/keyguard-scene-adapter` / #163
+**Device-rejected predecessor:** Build 455 / Canary #480
 **Accepted prerequisite:** Build 446 Home/QS_FAKE source-scene and late-cutover baseline
 
 ### Device evidence / problem execution flow
