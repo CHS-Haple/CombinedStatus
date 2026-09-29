@@ -111,11 +111,10 @@ New executable work must branch from the synchronized current `dev` baseline.
 
 ## Immediate next step
 
-1. Back-sync the accepted `main` promotion and current-state closure into `dev` before new executable work so both branches share the same stable ancestry.
-2. Start Phase 5 from that synchronized `dev` on a new focused `feat/*` branch; do not revive `feat/visual-tuning-controls` or other historical implementation branches.
-3. First Phase-5 checkpoint: adaptive Guiyuan visual sizing and neighboring spacing from resolved geometry, while keeping native slot occupancy, visual width, transition geometry, and optical spacing independently owned. Reuse the production renderer in Preview Sandbox.
-4. Keep per-state battery-ring color-source controls as a separate bounded checkpoint unless implementation review proves the same owner/boundary. Reuse existing native battery semantic/color authority rather than creating a second mode state machine.
-5. Keep 1.0.0 gated by the existing release-qualification matrix and explicit maintainer authorization.
+1. Start Phase 5 from the synchronized current `dev` baseline on a new focused `feat/*` branch; do not revive `feat/visual-tuning-controls` or other historical implementation branches.
+2. First Phase-5 checkpoint: adaptive Guiyuan visual sizing and neighboring spacing from resolved geometry, while keeping native slot occupancy, visual width, transition geometry, and optical spacing independently owned. Reuse the production renderer in Preview Sandbox.
+3. Keep per-state battery-ring color-source controls as a separate bounded checkpoint unless implementation review proves the same owner/boundary. Reuse existing native battery semantic/color authority rather than creating a second mode state machine.
+4. Keep 1.0.0 gated by the existing release-qualification matrix and explicit maintainer authorization.
 
 ## Reference priority
 
