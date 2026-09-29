@@ -1,4 +1,4 @@
-package com.chaners.combinedstatus.xposed
+package com.chaners.guiyuan.xposed
 
 internal object CombinedStatusPresentationPolicy {
     fun resolveModel(

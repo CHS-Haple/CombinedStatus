@@ -1,14 +1,14 @@
-package com.chaners.combinedstatus.xposed
+package com.chaners.guiyuan.xposed
 
 import android.graphics.drawable.Drawable
 import android.os.Process
 import android.os.SystemClock
 import android.util.Log
 import android.view.ViewGroup
-import com.chaners.combinedstatus.BuildConfig
-import com.chaners.combinedstatus.settings.CombinedStatusFeatureSettings
-import com.chaners.combinedstatus.settings.RUNTIME_REMOTE_PREFS_NAME
-import com.chaners.combinedstatus.system.RuntimeDiagnosticsProtocol
+import com.chaners.guiyuan.BuildConfig
+import com.chaners.guiyuan.settings.CombinedStatusFeatureSettings
+import com.chaners.guiyuan.settings.RUNTIME_REMOTE_PREFS_NAME
+import com.chaners.guiyuan.system.RuntimeDiagnosticsProtocol
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.HotReloadedParam
 import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
@@ -2875,7 +2875,7 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun onRuntimeVisualSettingsChanged(
-        settings: com.chaners.combinedstatus.settings.CombinedStatusVisualSettings,
+        settings: com.chaners.guiyuan.settings.CombinedStatusVisualSettings,
     ) {
         CombinedStatusHomeRenderSession.onVisualSettingsChanged(settings)
         CombinedStatusKeyguardRenderSession.onVisualSettingsChanged(settings)

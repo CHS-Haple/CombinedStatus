@@ -1,4 +1,4 @@
-package com.chaners.combinedstatus.xposed
+package com.chaners.guiyuan.xposed
 
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
@@ -10,7 +10,7 @@ import android.os.SystemClock
 import android.view.View
 import android.view.animation.AnimationUtils
 import android.view.animation.Interpolator
-import com.chaners.combinedstatus.settings.CombinedStatusVisualSettings
+import com.chaners.guiyuan.settings.CombinedStatusVisualSettings
 
 internal class CombinedStatusRenderView(
     context: Context,

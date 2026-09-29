@@ -1,10 +1,10 @@
-package com.chaners.combinedstatus.xposed
+package com.chaners.guiyuan.xposed
 
 import android.graphics.Rect
 import android.os.Looper
 import android.view.View
-import com.chaners.combinedstatus.settings.CombinedStatusFeatureSettings
-import com.chaners.combinedstatus.settings.CombinedStatusVisualSettings
+import com.chaners.guiyuan.settings.CombinedStatusFeatureSettings
+import com.chaners.guiyuan.settings.CombinedStatusVisualSettings
 import java.lang.ref.WeakReference
 
 internal object CombinedStatusKeyguardRenderSession {

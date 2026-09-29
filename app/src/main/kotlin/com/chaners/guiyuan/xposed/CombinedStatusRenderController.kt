@@ -1,6 +1,6 @@
-package com.chaners.combinedstatus.xposed
+package com.chaners.guiyuan.xposed
 
-import com.chaners.combinedstatus.settings.CombinedStatusVisualSettings
+import com.chaners.guiyuan.settings.CombinedStatusVisualSettings
 
 internal class CombinedStatusRenderController(
     private val view: CombinedStatusRenderView,

@@ -1,4 +1,4 @@
-package com.chaners.combinedstatus.xposed
+package com.chaners.guiyuan.xposed
 
 internal enum class CombinedStatusScene {
     HOME_STABLE,
