@@ -1104,13 +1104,12 @@ internal object SystemUiHomePresentationOwner {
                         onFailNative("ignored-slots-list-unavailable")
                         return false
                     }
+            val before = live.toList()
             val owned =
                 PersistentIgnoredSlotPolicy.ownedDelta(
-                    existing = live,
+                    existing = before,
                     requested = representedSlots,
                 )
-            ownedPersistentIgnoredSlots = owned
-            persistentIgnoredSlotsApplied = true
             val applied =
                 runCatching {
                     if (owned.isNotEmpty()) {
@@ -1125,16 +1124,25 @@ internal object SystemUiHomePresentationOwner {
                     }
                 }
             if (applied.isFailure) {
+                val rollback =
+                    setIgnoredSlotsMethod?.let { setMethod ->
+                        runCatching {
+                            setMethod.invoke(group, ArrayList(before))
+                        }.isSuccess
+                    } ?: false
                 onFailNative(
                     "ignored-slots-session-add-" +
                         (
                             applied.exceptionOrNull()?.message
                                 ?: applied.exceptionOrNull()?.javaClass?.simpleName
                                 ?: "unknown"
-                        ),
+                        ) +
+                        "-rollback=" + rollback,
                 )
                 return false
             }
+            ownedPersistentIgnoredSlots = owned
+            persistentIgnoredSlotsApplied = true
             onEvent(
                 eventPrefix + " ignoredSlots active lifetime=presentation-session" +
                     " owned=" + owned.joinToString(",") +
