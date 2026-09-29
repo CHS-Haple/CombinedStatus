@@ -3,6 +3,51 @@
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
 
+## 2026-09-29 — Build 463: MIUIX-aligned Sandbox spacing and diagnostics framework naming
+
+**Type:** companion-app UI refinement  
+**Display version:** 0.0.2  
+**Build / source:** 463 / `20260929-463` / `feat/home-ui-shell`  
+**SystemUI ownership change:** none
+
+### Maintainer feedback
+
+Build 462 made the Preview Sandbox visually too compact. The problem was not the control family itself, but compounded custom compression: SliderPreference/SwitchPreference had been forced down to 4 dp vertical inside margins while custom segmented rows also used very small inter-control spacing. The same review requested that segmented controls avoid excessive full-card width while same-level options remain evenly distributed. Diagnostics framework naming should explicitly say `Modern Xposed API 102`.
+
+### Implementation
+
+- Restore SliderPreference and SwitchPreference to their pinned MIUIX default `BasicComponentDefaults.InsideMargin` rather than overriding them with a compact 4 dp vertical margin.
+- Keep Card-level vertical padding light so child components own their normal spacing.
+- Custom segmented rows use a consistent optical rhythm:
+  - 16 dp horizontal padding;
+  - 11 dp vertical padding;
+  - 7 dp title-to-contour spacing.
+- Keep the primary mode selector visually distinct and compact:
+  - Mobile / Wi-Fi: max 260 dp.
+- Keep ordinary same-level finite-state selectors consistent:
+  - mobile type, Wi-Fi state, battery mode, charging state: max 320 dp.
+- Keep the two-state SIM selector compact:
+  - max 280 dp.
+- Continue using MIUIX `TabRowWithContour`, which distributes entries evenly inside each selector.
+- Update the diagnostics framework string from `Xposed API 102` to `Modern Xposed API 102` in both English and Simplified Chinese resources.
+
+### 审查 / review
+
+- **MIUIX ownership:** continuous and binary preference rows once again use the library's own standard internal spacing rather than project-level compression.
+- **Hierarchy:** widths encode control hierarchy without stretching every finite selector to the card edges.
+- **Consistency:** selectors at the same semantic level share one width cap and internal equal distribution.
+- **Runtime isolation:** no SystemUI hooks, state model, render ownership, listeners, or remote-preference logic change.
+- **Performance:** layout-only changes; no new observer, resource traversal, or animation.
+
+### Test checklist
+
+- Sandbox: verify rows have comfortable vertical breathing room without returning to the earlier oversized gaps.
+- Compare Wi-Fi/mobile and battery paths for uniform same-level spacing.
+- Verify segmented controls do not look excessively wide and each option has equal internal allocation.
+- Diagnostics: verify the framework row displays `Modern Xposed API 102`.
+
+
+
 ## 2026-09-29 — Build 462: Runtime mark spacing and diagnostics optical icon normalization
 
 **Type:** companion-app UI refinement  
