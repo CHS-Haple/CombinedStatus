@@ -236,8 +236,12 @@ internal fun PreviewSandboxScreen(
                                     onValueChange = { value ->
                                         onMobileSignalLevelChange(value.roundToInt().coerceIn(0, 4))
                                     },
-                                    title = stringResource(R.string.home_preview_mobile_signal_title),
-                                    valueText = signalValueText(state.mobileSignalLevel),
+                                    bottomAction = {
+                                        SandboxSliderLabel(
+                                            title = stringResource(R.string.home_preview_mobile_signal_title),
+                                            value = signalValueText(state.mobileSignalLevel),
+                                        )
+                                    },
                                     valueRange = 0f..4f,
                                     steps = 3,
                                     showKeyPoints = true,
@@ -269,8 +273,12 @@ internal fun PreviewSandboxScreen(
                                 onValueChange = { value ->
                                     onWifiSignalLevelChange(value.roundToInt().coerceIn(0, 3))
                                 },
-                                title = stringResource(R.string.home_preview_wifi_signal_title),
-                                valueText = signalValueText(state.wifiSignalLevel),
+                                bottomAction = {
+                                    SandboxSliderLabel(
+                                        title = stringResource(R.string.home_preview_wifi_signal_title),
+                                        value = signalValueText(state.wifiSignalLevel),
+                                    )
+                                },
                                 valueRange = 0f..3f,
                                 steps = 2,
                                 showKeyPoints = true,
@@ -310,12 +318,16 @@ internal fun PreviewSandboxScreen(
                             onValueChange = { value ->
                                 onBatteryPercentChange(value.roundToInt().coerceIn(0, 100))
                             },
-                            title = stringResource(R.string.home_preview_battery_level_title),
-                            valueText =
-                                stringResource(
-                                    R.string.home_preview_battery_percent,
-                                    state.batteryPercent,
-                                ),
+                            bottomAction = {
+                                SandboxSliderLabel(
+                                    title = stringResource(R.string.home_preview_battery_level_title),
+                                    value =
+                                        stringResource(
+                                            R.string.home_preview_battery_percent,
+                                            state.batteryPercent,
+                                        ),
+                                )
+                            },
                             valueRange = 0f..100f,
                         )
                         Spacer(modifier = Modifier.height(10.dp))
@@ -368,6 +380,32 @@ private fun PreviewStatusLine(
             modifier = Modifier.fillMaxWidth(),
             style = MiuixTheme.textStyles.body1,
             color = MiuixTheme.colorScheme.onSurfaceContainer,
+        )
+    }
+}
+
+@Composable
+private fun SandboxSliderLabel(
+    title: String,
+    value: String,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(bottom = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = title,
+            modifier = Modifier.weight(1f),
+            style = MiuixTheme.textStyles.body1,
+            color = MiuixTheme.colorScheme.onSurfaceContainer,
+        )
+        Text(
+            text = value,
+            style = MiuixTheme.textStyles.body2,
+            color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
         )
     }
 }
