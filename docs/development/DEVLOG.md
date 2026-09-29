@@ -2,6 +2,65 @@
 
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
+
+## 2026-09-29 — Build 461: App-wide visual rhythm and action-style consolidation
+
+**Type:** companion-app UI refinement  
+**Display version:** 0.0.2  
+**Build / source:** 461 / `20260929-461` / `feat/home-ui-shell`  
+**SystemUI ownership change:** none
+
+### Maintainer feedback
+
+Build 460 device review exposed four remaining presentation inconsistencies:
+
+1. The Runtime status ring had become heavier without the inner symbol gaining comparable visual weight.
+2. The whole status mark still sat slightly high relative to the card's left text block and top-right Switch.
+3. Diagnostics export/share actions used right-side blue outline icons that did not match the desired HyperOS/MIUIX settings-row language.
+4. Preview Sandbox vertical spacing remained uneven, especially the large gap before Charging state. The Features page also duplicated the master Combined Status switch already present on Home and mixed behavioral and color-link controls into one dense block.
+
+### Implementation
+
+- Home Runtime mark:
+  - keep the established semantic card tint and mark color;
+  - keep 96 dp mark canvas and original master-Switch placement;
+  - use 6.4 dp for the outer ring and 7.2 dp for inner Check / Alert / Minus strokes;
+  - move the whole mark to `y=+2 dp` for better full-card visual centering.
+- Diagnostics:
+  - follow the pinned MIUIX `BasicComponent.startAction` pattern;
+  - move action icons from right-side `endActions` to the title-leading position;
+  - use `MiuixIcons.Normal.Download` / `MiuixIcons.Normal.Share` at 24 dp with 16 dp title separation;
+  - use neutral `onSurfaceContainer` tint instead of action-blue.
+- Preview Sandbox:
+  - retain the three-section Preview / Network / Battery model and all state semantics;
+  - keep primary mode -> source-state spacing at 8 dp;
+  - normalize ordinary adjacent fields and segmented title->control spacing to 4 dp;
+  - reduce Slider/Switch internal vertical margin to 4 dp;
+  - set Network/Battery card vertical margins to 10/8 dp;
+  - remove the compounded padding that made Charging state appear detached from Battery mode.
+- Features:
+  - remove the duplicate global Combined Status switch; Home remains the single user-facing master control;
+  - keep Lock-screen Combined Status in the System UI section;
+  - move the two visual color-follow options into a separate Color linkage section;
+  - shorten summaries and remove development/process wording from user-facing copy.
+
+### 审查 / review
+
+- **MIUIX first:** Diagnostics leading actions now follow the official upstream `BasicComponent.startAction` example rather than a project-specific right-side action treatment.
+- **No duplicate ownership:** removing the Features master switch changes only UI entry-point duplication; the existing feature preference authority remains unchanged and continues to be controlled from Home.
+- **Visual rhythm:** Sandbox spacing is expressed by one small set of reusable values rather than accumulating per-field dividers or large ad-hoc gaps.
+- **State/runtime safety:** no Xposed hook, SystemUI host, renderer state, listener, lifecycle or remote-preference ownership is changed.
+- **Accessibility:** action titles/summaries remain text-first; decorative leading icons have null content descriptions because the clickable row already exposes its title/onClick label.
+- **Performance:** no new observer, animation, timer or repeated resource lookup is introduced.
+
+### Test checklist
+
+- Home: verify all Runtime states keep established semantic colors and Switch placement; check/alert/minus symbols should look equally weighted with the ring and the full mark should visually center with the card.
+- Diagnostics: export/share icons should appear left of the titles, match each other in size/weight, and retain existing export/share behavior.
+- Sandbox: compare Mobile and Wi-Fi paths; verify charging state no longer has an oversized top gap and all segmented/sliding rows remain readable.
+- Features: verify the global master switch is absent, lock-screen control remains functional, and both color-link controls remain disabled when the Home master feature is disabled.
+
+
 ## 2026-09-29 — Build 460: Runtime status-mark weight correction
 
 **Type:** companion-app Home UI refinement  
