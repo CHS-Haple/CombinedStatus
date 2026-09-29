@@ -11557,3 +11557,56 @@ For network targets, a top-level slot is only an occupancy witness. When a reque
 ### Validation
 
 Runtime CI must compile/test the source-geometry composition and updated morph policies. Signed Canary device validation is required for trajectory, charging press, Battery handoff, flat signal baseline, and missing-target exit.
+
+
+## 2026-09-30 — Build 487: HyperCeiler dual-row compatibility and bounded semantic fallback
+
+**Type:** Control Center transition compatibility
+**Display version:** 0.0.3
+**Build / source:** 487 / `20260930-487` / `feat/control-center-transition-matrix`
+
+### Device evidence
+
+Build 486 device testing with HyperCeiler dual-row mobile signal confirms the fail-fast rule is too strict for third-party status-bar composition. The final Control Center mobile slot remains usable and the native mobile type target resolves, but the signal target is unresolved, so Guiyuan's Mobile component no longer migrates.
+
+The diagnostic also confirms dual-SIM aggregation on the source side and a valid visible mobile root. HyperCeiler source review explains the mismatch: `DualRowSignalHookV` injects a generated-ID `FrameLayout` with two `ImageView` children into `mobile_signal_container`, then explicitly sets the original `mobile_signal` to `GONE`. Its generated IDs cannot be recovered through Android resource-entry lookup.
+
+### Root cause
+
+Build 486 treated "semantic resource child unavailable" as equivalent to "semantic destination unavailable." That is correct for untrusted arbitrary geometry, but not for known composition replacements where the top-level SystemUI slot remains authoritative and a replacement optical child can be identified structurally.
+
+### Evidence / reference
+
+- HyperCeiler repository: `ReChronoRain/HyperCeiler`.
+- Reviewed implementation: `DualRowSignalHookV.kt` on current indexed main (`55d51aa8daa68dcc358e07f5bd77ababe20b94fe`).
+- HyperCeiler creates `dual_signal_container`, `dual_signal_slot1`, and `dual_signal_slot2` using `View.generateViewId()`; the dual container is a `FrameLayout` with two direct `ImageView` children, while the original `mobile_signal` is hidden in dual mode.
+
+### Implementation
+
+Target resolution becomes a strict hierarchy:
+
+1. real visible/attached/non-zero semantic child;
+2. known read-only compatibility optical witness — currently HyperCeiler dual-row signal, recognized by structure rather than package/class dependency;
+3. bounded semantic estimate inside a reliable top-level slot:
+   - mobile type uses the logical start region;
+   - mobile signal uses a separated logical end region;
+   - Wi-Fi may use the whole Wi-Fi slot;
+4. no reliable slot -> existing fast fade + slight shrink.
+
+The HyperCeiler recognizer requires the original native `mobile_signal` to be hidden plus a visible generated-ID `FrameLayout` whose direct children are ImageViews. No HyperCeiler APIs, preferences, module resources, hooks, or classloader access are used.
+
+### 审查 / review
+
+- **Native-first:** native semantic children always win.
+- **Compatibility scope:** HyperCeiler recognition is read-only and structural; it cannot mutate third-party views.
+- **Fallback safety:** generic estimation is constrained to an already-valid SystemUI top-level slot and separates mobile type from signal instead of collapsing both to slot center.
+- **RTL:** mobile type/signal estimated regions mirror with layout direction.
+- **Ownership:** no native/HyperCeiler translation, alpha, visibility, or layout property is written.
+- **Lifecycle/performance:** resolution occurs inside the existing transition target path; no listener, polling loop, timer, or new animator is introduced.
+- **Regression boundary:** Build-486 source position/basis split, Battery ring-fold, Mobile flat baseline, native progress ownership, and semantic reservation remain unchanged.
+
+### Test / device gate
+
+- Unit tests lock mobile-type/signal fallback separation, RTL mirroring, and HyperCeiler dual-signal structural signature.
+- Runtime CI must pass on exact head.
+- Signed Canary device validation is required specifically with HyperCeiler dual-row enabled and disabled.

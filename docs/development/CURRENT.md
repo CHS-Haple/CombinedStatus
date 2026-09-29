@@ -18,7 +18,7 @@ Control Center transition animation is the active runtime task.
 
 Current implementation line:
 - PR #177 — feat/control-center-transition-matrix;
-- current work-branch checkpoint: Build 486 / 20260930-486;
+- current work-branch checkpoint: Build 487 / 20260930-487;
 - exact-target direction: QS_FAKE role-5 to final-QS role-6 matrix projection;
 - HyperOS remains translation/appearance authority; raw native expansion drives transition geometry and native fake/final Folme owns visual handoff;
 - Guiyuan reads native transition state and renders only its owned Trinity correspondence; final role-6 top-level slots are read-only occupancy witnesses, while the existing QS_FAKE statusIcons-paddingEnd owner now provides a progress-synchronous semantic reservation so surrounding native peers move through SystemUI's own measure/layout path;
@@ -67,11 +67,11 @@ Device testing is requested only when the result can change implementation choic
 
 ## Immediate next step
 
-1. Run exact-head Runtime CI for Build 486; if green, request one signed work-branch Canary.
-2. Device gate A — trajectory: verify Build-485 drift is gone while charging/status-bar press no longer flattens Guiyuan.
-3. Device gate B — Battery: verify the synthetic dark block is gone and the earlier ring-fold/native-handoff treatment is restored.
-4. Device gate C — Mobile: verify the four dots form a row and, once bar growth begins, all four bars keep one flat lower baseline while growing upward; height stays below the native signal cap.
-5. Device gate D — missing semantic targets: verify 5G/Wi-Fi/signal/airplane elements with no reliable destination exit quickly instead of occupying another slot's center. If these pass, continue charging-island/Keyguard-originated regression before acceptance.
+1. Run exact-head Runtime CI for Build 487; if green, request one signed work-branch Canary.
+2. Device gate A — HyperCeiler dual-row: verify the four-dot/mobile-signal component now migrates toward the visible dual-row signal container instead of staying behind or fading.
+3. Device gate B — 5G separation: verify real `mobile_type` geometry still wins and 5G does not overlap the signal morph; if a type child is unavailable, the bounded type region remains separated from the bounded signal region.
+4. Device gate C — native/no-modifier regression: verify native HyperOS mobile/Wi-Fi paths still prefer real semantic children and are unchanged when those children are available.
+5. Keep Build-486 trajectory, Battery ring-fold, flat signal baseline, and charging-press behavior unchanged.
 
 ## Reference priority
 

@@ -9,6 +9,7 @@ import android.graphics.drawable.Drawable
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
+import android.widget.FrameLayout
 import android.widget.ImageView
 import java.lang.ref.WeakReference
 import java.util.WeakHashMap
@@ -274,6 +275,64 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 basisAuthority[5],
             )
         }
+
+        fun semanticFallbackBounds(
+            preferredChildEntries: List<String>,
+            isRtl: Boolean,
+        ): CombinedStatusPainter.TransitionNormalizedBounds? {
+            val logical =
+                when {
+                    preferredChildEntries.any { entry ->
+                        entry == "mobile_type_single" || entry == "mobile_type"
+                    } ->
+                        CombinedStatusPainter.TransitionNormalizedBounds(
+                            left = 0f,
+                            top = 0f,
+                            right = 0.42f,
+                            bottom = 1f,
+                        )
+
+                    preferredChildEntries.contains("mobile_signal") ->
+                        CombinedStatusPainter.TransitionNormalizedBounds(
+                            left = 0.48f,
+                            top = 0f,
+                            right = 1f,
+                            bottom = 1f,
+                        )
+
+                    preferredChildEntries.contains("wifi_signal") ->
+                        CombinedStatusPainter.TransitionNormalizedBounds(
+                            left = 0f,
+                            top = 0f,
+                            right = 1f,
+                            bottom = 1f,
+                        )
+
+                    else -> null
+                } ?: return null
+            if (!isRtl || (logical.left == 0f && logical.right == 1f)) {
+                return logical
+            }
+            return CombinedStatusPainter.TransitionNormalizedBounds(
+                left = 1f - logical.right,
+                top = logical.top,
+                right = 1f - logical.left,
+                bottom = logical.bottom,
+            )
+        }
+
+        fun isHyperCeilerDualSignalStructure(
+            nativeSignalVisible: Boolean,
+            candidateVisible: Boolean,
+            candidateHasResourceEntry: Boolean,
+            directChildCount: Int,
+            directImageChildCount: Int,
+        ): Boolean =
+            !nativeSignalVisible &&
+                candidateVisible &&
+                !candidateHasResourceEntry &&
+                directChildCount >= 2 &&
+                directChildCount == directImageChildCount
 
         fun scaleGeometry(
             source: FloatArray,
@@ -801,7 +860,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         slotStillSemantic &&
                         (
                             !opticalRequired ||
-                                witness.opticalView?.let(::isReliableSemanticTarget) == true
+                                witness.opticalView?.let(::isReliableSemanticTarget) == true ||
+                                witness.fallbackBounds != null
                         )
                 }
                 ?.let { return it }
@@ -815,6 +875,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
                             opticalView = resolveBatteryIconTarget(finalBattery),
                             subscriptionId = null,
                             requiresOpticalGeometry = false,
+                            fallbackBounds = null,
+                            opticalSource = "battery",
                         ).takeIf { witness -> isUsableSlotView(witness.slotView) }
 
                     is CombinedStatusPainter.TransitionTarget.Slots ->
@@ -828,7 +890,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
                                                 slot == STACKED_MOBILE_SLOT
                                         },
                                 ) ?: return@firstNotNullOfOrNull null
-                            val optical =
+
+                            val nativeOptical =
                                 target.preferredChildEntries
                                     .firstNotNullOfOrNull { entry ->
                                         findDescendantByResourceEntry(
@@ -836,15 +899,45 @@ internal object CombinedStatusControlCenterTransitionOwner {
                                             entryName = entry,
                                         )?.takeIf(::isReliableSemanticTarget)
                                     }
-                            if (opticalRequired && optical == null) {
+                            val compatibilityOptical =
+                                if (nativeOptical == null) {
+                                    resolveCompatibilityOpticalTarget(
+                                        slotRoot = slotRoot,
+                                        preferredChildEntries = target.preferredChildEntries,
+                                    )
+                                } else {
+                                    null
+                                }
+                            val optical = nativeOptical ?: compatibilityOptical?.view
+                            val fallbackBounds =
+                                if (opticalRequired && optical == null) {
+                                    Policy.semanticFallbackBounds(
+                                        preferredChildEntries = target.preferredChildEntries,
+                                        isRtl =
+                                            slotRoot.layoutDirection ==
+                                                View.LAYOUT_DIRECTION_RTL,
+                                    )
+                                } else {
+                                    null
+                                }
+                            if (opticalRequired && optical == null && fallbackBounds == null) {
                                 return@firstNotNullOfOrNull null
                             }
+
                             TargetWitness(
                                 slot = slot,
                                 slotView = slotRoot,
                                 opticalView = optical,
                                 subscriptionId = readMobileSubId(slotRoot),
                                 requiresOpticalGeometry = opticalRequired,
+                                fallbackBounds = fallbackBounds,
+                                opticalSource =
+                                    when {
+                                        nativeOptical != null -> "native"
+                                        compatibilityOptical != null -> compatibilityOptical.source
+                                        fallbackBounds != null -> "slot-estimate"
+                                        else -> "slot"
+                                    },
                             )
                         }
                 }
@@ -891,9 +984,6 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     targetOpticalBounds = targetOpticalBounds,
                 )?.let { return it }
 
-                if (witness.requiresOpticalGeometry) {
-                    return null
-                }
             }
 
             val slotSample = sample(witness.slotView, root) ?: return sourceGeometry
@@ -905,11 +995,34 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     right = (slot.width - slot.paddingRight).toFloat(),
                     bottom = (slot.height - slot.paddingBottom).toFloat(),
                 )
+            val targetBounds =
+                witness.fallbackBounds
+                    ?.let { fallback ->
+                        CombinedStatusPainter.TransitionBounds(
+                            left =
+                                contentBounds.left +
+                                    contentBounds.width * fallback.left,
+                            top =
+                                contentBounds.top +
+                                    contentBounds.height * fallback.top,
+                            right =
+                                contentBounds.left +
+                                    contentBounds.width * fallback.right,
+                            bottom =
+                                contentBounds.top +
+                                    contentBounds.height * fallback.bottom,
+                        )
+                    }
+                    ?: if (witness.requiresOpticalGeometry) {
+                        return null
+                    } else {
+                        contentBounds
+                    }
             return Policy.componentGeometry(
                 parentGeometry = slotSample.geometry,
                 parentWidth = slot.width,
                 parentHeight = slot.height,
-                bounds = contentBounds,
+                bounds = targetBounds,
             ) ?: slotSample.geometry
         }
 
@@ -1024,6 +1137,50 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         field.getInt(target)
                     }.getOrNull()
                 }
+
+        private fun resolveCompatibilityOpticalTarget(
+            slotRoot: View,
+            preferredChildEntries: List<String>,
+        ): CompatibilityOpticalTarget? {
+            if (!preferredChildEntries.contains("mobile_signal")) return null
+            val signalContainer =
+                findDescendantByResourceEntry(
+                    root = slotRoot,
+                    entryName = "mobile_signal_container",
+                ) as? ViewGroup ?: return null
+            val nativeSignal =
+                findDescendantByResourceEntry(
+                    root = slotRoot,
+                    entryName = "mobile_signal",
+                ) ?: return null
+
+            for (index in 0 until signalContainer.childCount) {
+                val candidate = signalContainer.getChildAt(index) as? FrameLayout ?: continue
+                if (!isReliableSemanticTarget(candidate)) continue
+                var imageChildren = 0
+                for (childIndex in 0 until candidate.childCount) {
+                    if (candidate.getChildAt(childIndex) is ImageView) {
+                        imageChildren += 1
+                    }
+                }
+                val isHyperCeilerDual =
+                    Policy.isHyperCeilerDualSignalStructure(
+                        nativeSignalVisible = nativeSignal.visibility == View.VISIBLE,
+                        candidateVisible = candidate.visibility == View.VISIBLE,
+                        candidateHasResourceEntry =
+                            NativeParticipantRuntimeAccess.resourceEntryName(candidate) != null,
+                        directChildCount = candidate.childCount,
+                        directImageChildCount = imageChildren,
+                    )
+                if (isHyperCeilerDual) {
+                    return CompatibilityOpticalTarget(
+                        view = candidate,
+                        source = "hyperceiler-dual-signal",
+                    )
+                }
+            }
+            return null
+        }
 
         private fun readMobileSubId(view: View): Int? {
             if (mobileSubIdCache.containsKey(view)) {
@@ -1190,12 +1347,19 @@ internal object CombinedStatusControlCenterTransitionOwner {
             val geometry: FloatArray,
         )
 
+        private data class CompatibilityOpticalTarget(
+            val view: View,
+            val source: String,
+        )
+
         private data class TargetWitness(
             val slot: String,
             val slotView: View,
             val opticalView: View?,
             val subscriptionId: Int?,
             val requiresOpticalGeometry: Boolean,
+            val fallbackBounds: CombinedStatusPainter.TransitionNormalizedBounds?,
+            val opticalSource: String,
         ) {
             val summary: String
                 get() =
@@ -1207,6 +1371,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         "/sub=" +
                         (subscriptionId ?: -1) +
                         "/opt=" +
+                        opticalSource +
+                        ":" +
                         (
                             opticalView?.let { view ->
                                 (NativeParticipantRuntimeAccess.resourceEntryName(view)

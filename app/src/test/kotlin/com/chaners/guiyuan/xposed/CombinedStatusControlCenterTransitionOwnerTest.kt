@@ -101,4 +101,67 @@ class CombinedStatusControlCenterTransitionOwnerTest {
         assertEquals(105f, result[2], 0.0001f)
         assertEquals(169f, result[5], 0.0001f)
     }
+
+    @Test
+    fun semanticFallbackSeparatesMobileTypeAndSignalInsteadOfSharingSlotCenter() {
+        val type =
+            CombinedStatusControlCenterTransitionOwner.Policy.semanticFallbackBounds(
+                preferredChildEntries = listOf("mobile_type_single", "mobile_type"),
+                isRtl = false,
+            )
+        val signal =
+            CombinedStatusControlCenterTransitionOwner.Policy.semanticFallbackBounds(
+                preferredChildEntries = listOf("mobile_signal"),
+                isRtl = false,
+            )
+        requireNotNull(type)
+        requireNotNull(signal)
+
+        assertTrue(type.right < signal.left)
+
+        val rtlType =
+            CombinedStatusControlCenterTransitionOwner.Policy.semanticFallbackBounds(
+                preferredChildEntries = listOf("mobile_type"),
+                isRtl = true,
+            )
+        val rtlSignal =
+            CombinedStatusControlCenterTransitionOwner.Policy.semanticFallbackBounds(
+                preferredChildEntries = listOf("mobile_signal"),
+                isRtl = true,
+            )
+        requireNotNull(rtlType)
+        requireNotNull(rtlSignal)
+        assertTrue(rtlSignal.right < rtlType.left)
+    }
+
+    @Test
+    fun hyperCeilerDualSignalCompatibilityRequiresItsStructuralSignature() {
+        assertTrue(
+            CombinedStatusControlCenterTransitionOwner.Policy.isHyperCeilerDualSignalStructure(
+                nativeSignalVisible = false,
+                candidateVisible = true,
+                candidateHasResourceEntry = false,
+                directChildCount = 2,
+                directImageChildCount = 2,
+            ),
+        )
+        assertTrue(
+            !CombinedStatusControlCenterTransitionOwner.Policy.isHyperCeilerDualSignalStructure(
+                nativeSignalVisible = true,
+                candidateVisible = true,
+                candidateHasResourceEntry = false,
+                directChildCount = 2,
+                directImageChildCount = 2,
+            ),
+        )
+        assertTrue(
+            !CombinedStatusControlCenterTransitionOwner.Policy.isHyperCeilerDualSignalStructure(
+                nativeSignalVisible = false,
+                candidateVisible = true,
+                candidateHasResourceEntry = true,
+                directChildCount = 2,
+                directImageChildCount = 2,
+            ),
+        )
+    }
 }
