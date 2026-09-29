@@ -1011,7 +1011,8 @@ class CombinedStatusModule : XposedModule() {
                 "notificationRuntimeHook" to false,
                 "notificationHomeLifecycle" to "system-icons-carrier",
                 "controlCenterVisibilityRuntimeHook" to true,
-                "controlCenterExpansionDiagnosticHook" to BuildConfig.RUNTIME_DIAGNOSTICS,
+                "controlCenterExpansionRuntimeHook" to true,
+                "controlCenterAppearanceDiagnosticHook" to BuildConfig.RUNTIME_DIAGNOSTICS,
                 "source" to source,
                 "nativeGeometryWrites" to 0,
             )
@@ -1034,6 +1035,9 @@ class CombinedStatusModule : XposedModule() {
     private fun onPanelTransitionUpdate(
         update: SystemUiPanelTransitionSource.Update,
     ) {
+        CombinedStatusControlCenterRenderSession.onNativeExpansionProgress(
+            update.fraction,
+        )
         handleControlCenterPanelUpdate(update)
 
         if (!detailedDiagnosticsEnabled) {
@@ -1075,6 +1079,7 @@ class CombinedStatusModule : XposedModule() {
     ) {
         val visible = update.visible ?: return
         if (!visible) {
+            CombinedStatusControlCenterRenderSession.setTransitionEndpoints(null)
             controlCenterSceneVisible = false
             // Restore Home first. QS_FAKE compact presentation remains prearmed
             // for the lifetime of the native fake root; only the Combined
@@ -1085,6 +1090,9 @@ class CombinedStatusModule : XposedModule() {
         }
 
         controlCenterSceneVisible = true
+        CombinedStatusControlCenterRenderSession.setTransitionEndpoints(
+            update.controlCenterTransitionEndpoints,
+        )
         updateControlCenterSourceSceneEligibility(
             sourceScene =
                 update.controlCenterSourceScene
