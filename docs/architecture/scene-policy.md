@@ -33,7 +33,7 @@ Classification is not permission to mutate SystemUI. Runtime integration still r
 | Notification-shade transition | NATIVE_ONLY | SYSTEM_UI | Runtime lifetime verified |
 | Control Center transition bridge | PROJECTED | SYSTEM_UI | Build 430 device-verifies top-level ControlCenterFakeStatusIcons fake/final ownership; Build 431 projects on its overlay |
 | Control Center fully expanded | NATIVE_ONLY candidate | SYSTEM_UI | Maintainer concept + native fake/real appearance evidence; product adoption pending review |
-| Keyguard | PROJECTED candidate | SYSTEM_UI | Build 447 implementation candidate; real-device validation pending |
+| Keyguard | PROJECTED candidate | SYSTEM_UI | Build 453 AOD-gated candidate; real-device validation pending |
 | AOD | NATIVE_ONLY | SYSTEM_UI | Static ownership verified; independent runtime gate |
 
 The map fails closed outside the verified Home path and the bounded Control Center transition evidence. Unsupported or not-yet-verified scenes remain native rather than receiving a partial Combined Status implementation. A verified transition carrier is not, by itself, permission to keep Combined Status visible as a fully expanded panel surface.
@@ -102,7 +102,7 @@ No project-owned timing threshold, custom animation, polling/frame follower, pee
 
 ## Keyguard and AOD
 
-Build 447 introduces the first **opt-in PROJECTED candidate for steady Keyguard**. It is not promoted to runtime-verified evidence until focused device validation passes. AOD remains NATIVE_ONLY.
+Build 453 carries the first **opt-in PROJECTED candidate for steady Keyguard** after Build 447 was rejected in review for missing AOD exclusion. It is not promoted to runtime-verified evidence until focused device validation passes. AOD remains NATIVE_ONLY.
 
 Exact-target review now narrows the Keyguard candidate without yet promoting it:
 - `MiuiKeyguardStatusBarView.mSystemIconsContainer` / `@id/system_icons_container` is the native Keyguard end-side `MiuiStatusBatteryContainer` registered into `ControlCenterFakeViewController.keyguardSystemIcons`;
@@ -118,7 +118,7 @@ Build 442 establishes the structural host/source boundary. Build 453 uses that b
 
 The candidate deliberately separates steady-host identity from transition-router timing: `realSystemIcons` does not need to have switched to Keyguard before the steady Keyguard host can be resolved. Conversely, Keyguard-originated QS_FAKE is not permitted until the steady Keyguard adapter is actually ready.
 
-AOD remains a separate gate. Build 447 does not claim AOD alpha/visibility/animation ownership and adds no AOD Hook. Any AOD leakage or failed restoration during Canary validation rejects the candidate rather than being patched with timing or alpha thresholds.
+AOD remains a separate gate. Build 453 adds only native AOD-state observation Hooks and does not claim AOD alpha/visibility/translation/animation ownership. Any AOD leakage or failed restoration during Canary validation rejects the candidate rather than being patched with timing or alpha thresholds.
 
 ## Charging
 
