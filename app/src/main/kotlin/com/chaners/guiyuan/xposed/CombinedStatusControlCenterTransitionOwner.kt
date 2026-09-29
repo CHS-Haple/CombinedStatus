@@ -760,7 +760,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 return mobileSubIdCache[view]
             }
             val resolved =
-                generateSequence(view.javaClass) { clazz -> clazz.superclass }
+                generateSequence<Class<*>>(view.javaClass) { clazz -> clazz.superclass }
                     .mapNotNull { clazz ->
                         clazz.declaredFields.firstOrNull { field -> field.name == "subId" }
                     }

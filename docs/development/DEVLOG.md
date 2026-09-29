@@ -11384,6 +11384,10 @@ A semantic child is not a slot. Final ordering, width, spacing and position must
 - **fail native:** unresolved child geometry falls back to the valid top-level slot; unresolved slot keeps the source component rather than inventing an offset.
 - **maintainability:** new semantic elements declare a source optical bound and slot target; SystemUI continues to supply live final occupancy.
 
+### CI correction
+
+Exact-head Runtime Build #1832 reached `:app:compileDebugKotlin` and failed at `CombinedStatusControlCenterTransitionOwner.kt:763`: Kotlin inferred the `View.javaClass` inheritance sequence too narrowly (`Class<View>?` versus captured superclass type). The inheritance walk is now explicitly typed as `generateSequence<Class<*>>(...)`. This is a compile-only correction; transition ownership, geometry, timing and rendering behavior are unchanged.
+
 ### Validation
 
 Run one exact-head Runtime CI and one signed work-branch Canary. Device validation is intentionally limited to non-charging Home first: partial pull/return and full pull/return must show real final-slot spacing, Wi-Fi proportional motion ending on the native glyph with native peer tint, Mobile movement followed by the late dot-to-bars morph, and no overlap/disappearance at native handoff.
