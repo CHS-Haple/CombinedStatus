@@ -2221,6 +2221,19 @@ class CombinedStatusModule : XposedModule() {
                     "islandMotion" to "inherited-from-system_icon_area",
                 )
             }
+            is SystemUiHomePresentationOwner.StateResult.Prepared -> {
+                CombinedStatusHomeRenderSession.setNativeHandoffActive(true)
+                SystemUiHomePresentationOwner.deactivate("unexpected-prepared")
+                logDiagnostic(
+                    level = Log.WARN,
+                    event = "presentation.cutover",
+                    component = "homePresentation",
+                    state = "native",
+                    "source" to source,
+                    "reason" to "unexpected-prepared-state",
+                    "fallback" to "native-systemui",
+                )
+            }
             is SystemUiHomePresentationOwner.StateResult.Failure -> {
                 CombinedStatusHomeRenderSession.setNativeHandoffActive(true)
                 SystemUiHomePresentationOwner.deactivate("activation-failed")
