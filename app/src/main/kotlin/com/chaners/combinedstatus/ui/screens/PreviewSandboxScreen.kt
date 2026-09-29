@@ -216,8 +216,8 @@ internal fun PreviewSandboxScreen(
                             },
                             modifier =
                                 Modifier
-                                    .fillMaxWidth()
                                     .widthIn(max = 244.dp)
+                                    .fillMaxWidth()
                                     .align(Alignment.CenterHorizontally)
                                     .padding(horizontal = 6.dp),
                         )
@@ -374,8 +374,9 @@ private fun SandboxSegmentedField(
             onTabSelected = onSelected,
             modifier =
                 Modifier
-                    .fillMaxWidth()
                     .widthIn(max = maxWidth)
+                    .fillMaxWidth()
+                    .align(Alignment.CenterHorizontally)
                     .padding(top = 6.dp),
         )
     }
