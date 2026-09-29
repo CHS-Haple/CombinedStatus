@@ -35,7 +35,8 @@ Earlier exact-target review already proves `MiuiStatusIconContainer` exposes pub
 - Keyguard and QS_FAKE now hold represented ignored slots for the full presentation session through the native API.
 - Record only entries absent before activation as the session's owned delta.
 - On activation failure, restore the pre-call snapshot before invoking Fail-native; ownership is committed only after native state verification succeeds.
-- On cleanup, derive `live - ownedDelta` and restore through the native set API, preserving unrelated SystemUI/current-writer entries.
+- On normal cleanup, derive `live - ownedDelta` and restore through the native set API, preserving unrelated SystemUI/current-writer entries.
+- Continuous Hot Reload keeps the existing single-main-thread generation handoff layout-free: old-generation release removes only its owned list delta directly and does not invoke `setIgnoredSlots()`, whose native implementation requests layout. The new generation reacquires the same session state in the same handoff turn; ownership bookkeeping is cleared only after a successful restore.
 - Remove the extra project-side Keyguard/QS_FAKE container `requestLayout()`; native add/set owns layout invalidation.
 - Keyguard now returns a Prepared state until the existing hooked native `onLayout` completes. Native visuals remain intact before that boundary; only then are represented native views clip-masked and Combined made ready.
 - Home receiving Prepared is an invariant violation and explicitly fails native.
