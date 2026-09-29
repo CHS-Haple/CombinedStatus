@@ -31,6 +31,9 @@ The project follows a Keep a Changelog-style structure. During pre-release devel
 
 ### Changed
 
+- Refined Preview Sandbox typography and grouping to a consistent two-level MIUIX hierarchy, with low-contrast dividers separating live results, network/device state, and battery controls without changing simulation or production-renderer behavior.
+- Diagnostics now presents the background-free Guiyuan foreground mark beside the app identity with a slow linear counterclockwise orbit animation; app/module descriptions no longer repeat the adjacent product name.
+
 - Development display version advanced to **0.0.3** after integrating the accepted Home / Preview Sandbox UI line into `dev`; this remains a pre-release development line and does not change the planned first formal release target of 1.0.0.
 
 - Unified Preview Sandbox segmented controls to one balanced 300 dp maximum width so hierarchy is conveyed by labels and spacing rather than different control sizes.
