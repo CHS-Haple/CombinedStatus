@@ -62,6 +62,9 @@ Earlier exact-target review already proves `MiuiStatusIconContainer` exposes pub
 - Final exact-head Draft Light #1639 passed on `59bc315fe70ccbc8bc7a0a6d0144d9baca27787f`.
 - Ready-state Fast #1640 / run `36511881800` passed target profile, unit tests/build and Modern Xposed metadata on the same exact head.
 - Signed Work Branch Canary #484 / run `36512436512` passed trusted-source checkout, pinned target profile, tests/Canary build, Modern Xposed metadata, Haple APK signature, non-debuggable verification and artifact upload.
+- Record-only device-acceptance closure head `2eb672fc1712743dbecdd108ececddcbedcb93a4` passed Build #1650 without changing runtime/build identity.
+- PR #163 squash-merged into `dev` as `d70b416ba531651c6690027b7404b1854fdb3056`.
+- Post-merge `dev` Integration #1651 / run `36513595263` passed target-profile, tests/build, Modern Xposed metadata, Haple signing/signature verification, Canary non-debuggable verification and artifact upload.
 
 ### Device result
 
@@ -75,7 +78,7 @@ The supplied detailed diagnostic confirms the intended runtime contract:
 - Keyguard/Control Center cleanup restores clip bounds, end reservation and owned ignored slots successfully on scene exit/unlock;
 - no project-owned native translation/alpha/visibility writes are reported.
 
-No new runtime patch is justified from this evidence. Build 456 is frozen as the accepted Phase-3 integration candidate. The display version remains 0.0.2 for integration; the maintainer explicitly defers the planned 0.0.3 bump until the independent UI line is also closed.
+No new runtime patch is justified from this evidence. Build 456 is frozen and integrated as the accepted Phase-3 `dev` runtime baseline. The display version remains 0.0.2; the maintainer explicitly defers the planned 0.0.3 bump until the independent UI line is also closed.
 
 ## 2026-09-29 — Build 455: exact AOD contract correction and bounded QS_FAKE geometry evidence
 

@@ -77,7 +77,7 @@ Exit criteria:
 - clean partial-pull transition into Control Center and exact yield to native status icons at the fully expanded endpoint; Notification Shade remains native/no-status-icon by design;
 - no regression in steady Home or charging/island behavior.
 
-## Phase 3 — Keyguard / lockscreen / AOD scene completion — device accepted, integration pending
+## Phase 3 — Keyguard / lockscreen / AOD scene completion — completed for current dev baseline
 
 Build 456 supersedes device-rejected Build 455. Build 455 proves the corrected AOD authority can enable steady Keyguard Combined Status, but device evidence exposes a shared Keyguard/QS_FAKE peer-layout defect: native peers can jump toward their end position and leave a large gap, while disabling lockscreen Combined can probabilistically race native restoration during a pull.
 
@@ -85,7 +85,7 @@ The Build-455 geometry probe rejects a direct Combined-translation patch. The ov
 
 AOD remains NATIVE_ONLY. Steady Keyguard can project only when the lockscreen feature is enabled, its AOD gate is unblocked, the session-owned native slot exclusions are active, and native compact layout has completed. Cleanup restores only the session-owned slot delta and fails native on contract/ownership ambiguity.
 
-Build 456 is device-accepted on the pinned Xiaomi 15 Pro / SystemUI `17.03.260226.r` and is the Phase-3 integration candidate. Final Fast #1640 and signed Canary #484 pass on the accepted exact head. The separate companion-app/UI line remains independent; no display-version bump is coupled to this runtime merge.
+Build 456 is device-accepted on the pinned Xiaomi 15 Pro / SystemUI `17.03.260226.r` and integrated into `dev` by PR #163 squash commit `d70b416ba531651c6690027b7404b1854fdb3056`. Final Fast #1640 and signed Canary #484 pass on the accepted executable head, and post-merge Integration #1651 passes the full `dev` gate. The separate companion-app/UI line remains independent and active; no display-version bump is coupled to this runtime integration.
 
 Build 447 is the first opt-in steady-Keyguard runtime candidate. It adds a separate Keyguard host/render/presentation adapter and a default-off feature switch while reusing the existing three class-wide presentation Hooks (Hook delta 0). Keyguard-originated QS_FAKE is enabled only after the steady adapter reaches ready. AOD remains outside the candidate's supported scope and is a focused real-device blocker before Keyguard can be promoted to runtime-verified evidence.
 
@@ -103,13 +103,14 @@ Reuse the stabilized domain state, renderer semantics, ownership rules, and fail
 
 Build 442 is the first Phase-3 executable checkpoint and is intentionally narrower than a lifecycle adapter: it reuses the existing Battery scene callback only as a trigger, requires actual `MiuiKeyguardStatusBarView` ancestry, and takes one read-only steady-host/source snapshot. Hook delta is zero; no Keyguard rendering/suppression and no AOD runtime probe is introduced. Positive device evidence from this checkpoint is a prerequisite for choosing the later Keyguard presentation/lifecycle seam.
 
-The unlocked side of the scene concept is now verified through Phase 2B. The locked side remains a planning hypothesis until exact Keyguard lifecycle review:
-- **Unlocked concept:** Home steady Combined Status -> partial-pull transition continuity -> fully expanded Control Center native-only.
-- **Locked concept:** Keyguard steady Combined Status -> partial-pull transition continuity -> fully expanded Control Center native-only.
+The scene architecture is now verified for the pinned target:
+- **Unlocked:** Home steady Combined Status -> bounded QS_FAKE transition -> fully expanded Control Center native-only.
+- **Locked:** opt-in steady Keyguard Combined Status -> bounded Keyguard-originated QS_FAKE transition -> fully expanded Control Center native-only.
 - Notification Shade remains native-only on the pinned target.
-- AOD keeps its own verified host/lifecycle contract and must not be inferred from either source scene.
+- AOD remains native-only and is gated by its verified `MiuiBatteryMeterView` lifecycle authority.
+- Home and Keyguard keep separate mutable host/render/session ownership while sharing domain/render semantics; the transition bridge follows the native-selected source scene.
 
-Exact-target review should determine whether Home/Keyguard truly map to separate steady adapters plus one transition coordinator, or whether HyperOS exposes a cleaner shared lifecycle abstraction. Discuss that evidence before locking the model. Do not build a second lockscreen-specific state machine or revive historical motion/alignment patch chains.
+Do not reopen this architecture with a second lockscreen-specific state machine, fixed-pixel compensation, duplicated animation ownership, or historical motion/alignment patch chains without new device evidence.
 
 ## Phase 4 — App Home + Preview Sandbox — design confirmed, implementation planned
 
