@@ -112,7 +112,7 @@ The scene architecture is now verified for the pinned target:
 
 Do not reopen this architecture with a second lockscreen-specific state machine, fixed-pixel compensation, duplicated animation ownership, or historical motion/alignment patch chains without new device evidence.
 
-## Phase 4 — App Home + Preview Sandbox — design confirmed, implementation planned
+## Phase 4 — App Home + Preview Sandbox — integrated for current dev baseline
 
 Primary navigation remains:
 
@@ -140,6 +140,8 @@ Keep Home dense enough to remain an overview rather than a settings surface. Hom
 The companion-app presentation shell may be implemented in parallel with Phase 3 because it does not claim or mutate SystemUI scene ownership. Until a verified runtime-health source is wired, the Home UI must not infer "running/healthy" from the master-switch preference. Early Sandbox controls may keep local, non-persistent simulation state, but the final visual preview should reuse the real render semantics/model rather than maintaining a second renderer.
 
 Prefer reusing the real render semantics/model for previews rather than maintaining a second visually similar implementation.
+
+Current integration note: PR #165 is integrated into `dev` by squash commit `a2394db92ce208771956defcd558c954065000f7`. Build 464 is the accepted work-branch UI checkpoint; the post-integration development line advances to 0.0.3 / Build 465. Home runtime status, production-rendered Preview Sandbox, Diagnostics action styling, Features-page hierarchy, and MIUIX-aligned Sandbox controls are now part of the current dev baseline. Future UI work continues from this integrated state rather than reopening the retired Build-458–464 iteration chain.
 
 ## Phase 5 — Adaptive sizing, spacing and broader visual controls
 
