@@ -150,37 +150,21 @@ class SystemUiPanelTransitionSourceTest {
     }
 
     @Test
-    fun transitionMatrixUsesKeiMiComponentGeometryWindow() {
+    fun transitionMatrixUsesRawNativeExpansionProgress() {
         assertEquals(0f, CombinedStatusControlCenterTransitionOwner.Policy.geometryProgress(0f))
         assertEquals(
-            0.5f,
+            0.41f,
             CombinedStatusControlCenterTransitionOwner.Policy.geometryProgress(0.41f),
             0.0001f,
         )
-        assertEquals(1f, CombinedStatusControlCenterTransitionOwner.Policy.geometryProgress(0.82f))
-        assertEquals(1f, CombinedStatusControlCenterTransitionOwner.Policy.geometryProgress(1f))
-    }
-
-    @Test
-    fun transitionMatrixReleasesFinalNativeParticipantsBetweenFiftyEightAndNinetyTwoPercent() {
-        val policy =
-            CombinedStatusPainter.TransitionReleasePolicy(
-                startProgress = 0.58f,
-                endProgress = 0.92f,
-            )
         assertEquals(
-            0f,
-            CombinedStatusControlCenterTransitionOwner.Policy.releaseProgress(0.58f, policy),
-        )
-        assertEquals(
-            0.5f,
-            CombinedStatusControlCenterTransitionOwner.Policy.releaseProgress(0.75f, policy),
+            0.82f,
+            CombinedStatusControlCenterTransitionOwner.Policy.geometryProgress(0.82f),
             0.0001f,
         )
-        assertEquals(
-            1f,
-            CombinedStatusControlCenterTransitionOwner.Policy.releaseProgress(0.92f, policy),
-        )
+        assertEquals(1f, CombinedStatusControlCenterTransitionOwner.Policy.geometryProgress(1f))
+        assertEquals(0f, CombinedStatusControlCenterTransitionOwner.Policy.geometryProgress(-0.2f))
+        assertEquals(1f, CombinedStatusControlCenterTransitionOwner.Policy.geometryProgress(1.4f))
     }
 
     @Test
