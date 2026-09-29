@@ -17,6 +17,7 @@ This file is the concise recovery point for active Guiyuan development. Read it 
 - PR #142 (`fix/home-hun-ownership`) is merged and closed; its Build-413 HUN/shallow-pull lifetime correction is part of `dev` and was promoted to `main` through PR #147.
 - App-UI checkpoint Build 438 is integrated in `dev`: Floating Glass matches the pinned MIUIX example, icon-only vs icon-with-label is persisted and shared by live navigation/preview, and the Appearance preview keeps fixed bounds with bottom-anchored navigation content. Maintainer device validation and post-merge Integration #1487 passed.
 - Active development display line: **0.0.3**
+- Active identity-migration checkpoint: **Build 466 / `20260929-466`** on `feat/guiyuan-identity-migration`. Product identity is **Guiyuan / 归元**; Android namespace/applicationId is `com.chaners.guiyuan`; main/test Kotlin package paths and the Modern Xposed Java entry have moved to the new package. Existing `CombinedStatus*` internal code symbols remain intentionally unchanged. CI/Release artifact prefixes are `Guiyuan-`. Historical DEVLOG/previous artifact identities are preserved as recorded. Validation is pending exact-head Full CI and focused signed Canary/device verification before integration.
 - First planned formal release: **1.0.0**
 - Target profile: HyperOS SystemUI `17.03.260226.r`
 - Modern Xposed API: 102
