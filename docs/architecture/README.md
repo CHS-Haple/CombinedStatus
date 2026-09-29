@@ -1,6 +1,6 @@
 # Architecture document status
 
-This directory contains the current architecture policy and scene/layout capability boundaries for Combined Status.
+This directory contains the current architecture policy and scene/layout capability boundaries for Guiyuan.
 
 ## Current 0.0.2 status
 
@@ -13,9 +13,9 @@ The pinned-target Home carrier redesign has moved from pre-runtime evaluation in
 
 Current Home direction:
 
-`MiuiNotificationStatusContainer / system_icon_area -> HostSession overlay -> ResolvedLayout -> Combined Status renderer`
+`MiuiNotificationStatusContainer / system_icon_area -> HostSession overlay -> ResolvedLayout -> Guiyuan renderer`
 
-SystemUI retains native peer layout, Battery hide/presentation, tint authority, and live island motion. Combined Status owns only its compact composition plus the explicitly verified, reversible Home presentation state described in [layout-policy.md](layout-policy.md).
+SystemUI retains native peer layout, Battery hide/presentation, tint authority, and live island motion. Guiyuan owns only its compact composition plus the explicitly verified, reversible Home presentation state described in [layout-policy.md](layout-policy.md).
 
 ## Documents
 
@@ -26,7 +26,7 @@ SystemUI retains native peer layout, Battery hide/presentation, tint authority, 
 
 - [scene-policy.md](scene-policy.md)
   - current scene capability map;
-  - Home is the only Combined Status rendering surface currently runtime-verified;
+  - Home is the only Guiyuan rendering surface currently runtime-verified;
   - shade / Control Center, keyguard and AOD remain native-only until separately promoted.
 
 - [../reference/README.md](../reference/README.md)
