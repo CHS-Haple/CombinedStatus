@@ -35,6 +35,17 @@ This file is the concise recovery point for active Guiyuan development. Read it 
 - **App icon:** Build 452, integrated by PR #166 as `44b10371e0709d155468f7f2e67307fde5f11ab2`. The Guiyuan mark uses the accepted rotationally symmetric adaptive-icon geometry.
 - **Companion app:** Build 464, integrated through PR #165 as `a2394db92ce208771956defcd558c954065000f7`; Build 465 advanced the integrated display line to 0.0.3. Home Runtime Status, production-rendered Preview Sandbox, Features hierarchy, Diagnostics action styling, and MIUIX-aligned Sandbox controls are part of the accepted baseline.
 
+### Active presentation checkpoint
+
+**Build 467 / `20260929-467`** is the active companion-app presentation checkpoint on `feat/presentation-ui-polish`, branched directly from synchronized `dev@2163d3a8b9134e6114d6e59387b7c808d9399a08`.
+
+- Preview Sandbox now uses a consistent MIUIX `body1` / `body2` hierarchy and bounded low-contrast dividers to separate live results, network-local controls, device-level SIM/airplane state, and battery controls.
+- The Diagnostics app card places the existing background-free Guiyuan foreground mark beside the product identity. The foreground vector rotates linearly counterclockwise once every 18 seconds; because the center is circular, it remains visually stationary while the outer orbit/nodes move.
+- `app_description` is shortened so the Diagnostics card and LSPosed module list do not repeat the adjacent product name.
+- No SystemUI/Xposed runtime, state source, renderer, Hook, persistent preference, or production icon geometry changes are included.
+- Executable source checkpoint before documentation closure: `68151be263ab020da2085b28b97c2019f986be4c`.
+- Exact-head Fast validation is pending.
+
 ## Current phase
 
 Phases 2A, 2B, 3 and 4 are complete for the validated baseline:
@@ -90,13 +101,10 @@ Historical rejected/superseded Builds and hypotheses remain in `DEVLOG.md`; do n
 
 ## Active branch boundary
 
-No pre-promotion `feat/*` or `fix/*` branch is a valid continuation base for Phase 5.
-
-- `feat/visual-tuning-controls` is fully behind current `dev` and carries no unique current commits.
-- Other inspected historical feature/fix branches are substantially diverged and/or still reference the pre-Guiyuan package layout.
-- Old open PRs must not be merged merely because they remain open; their requirement must be re-evaluated against current `dev`.
-
-New executable work must branch from the synchronized current `dev` baseline.
+- Active companion-app presentation work: `feat/presentation-ui-polish` / Build 467, created from synchronized `dev@2163d3a8b9134e6114d6e59387b7c808d9399a08`.
+- This branch is UI/copy-only at the product-runtime boundary and must not absorb the pending SystemUI transition-animation work.
+- Pre-promotion historical `feat/*` / `fix/*` branches remain invalid continuation bases; old open PRs must be re-evaluated rather than merged by age/name.
+- New runtime work still starts from the synchronized current `dev` baseline after this independent presentation checkpoint is closed.
 
 ## Non-negotiable boundaries
 
@@ -111,10 +119,10 @@ New executable work must branch from the synchronized current `dev` baseline.
 
 ## Immediate next step
 
-1. Close the remaining Home/Keyguard -> QS_FAKE -> native Control Center **visual transition-animation** gap before adaptive sizing or broader visual controls.
-2. Start from the synchronized current `dev` baseline on a new focused `feat/*` branch; do not revive historical transition/layout branches.
-3. First review the exact-target native progress, geometry, alpha and appearance ownership across source steady scene -> QS_FAKE -> final QS. Reuse verified SystemUI motion/appearance state; do not create a duplicate project-local animator, fixed-pixel follower, fraction threshold, timer or delay patch.
-4. Keep carrier/scene ownership, stable geometry, transition geometry and animation presentation as separate responsibilities. Any Guiyuan-owned interpolation must be a narrow derivation from authoritative native transition facts and must fail native when those facts are unavailable.
+1. Complete Build 467 exact-head Fast validation and focused presentation review; request a signed Canary only if device visual evidence is actually needed.
+2. Integrate the accepted presentation checkpoint into `dev` without coupling it to SystemUI runtime work.
+3. The next runtime checkpoint remains the Home/Keyguard -> QS_FAKE -> native Control Center **visual transition-animation** gap. Start that work from the then-current synchronized `dev`, not from this presentation branch.
+4. For transition work, reuse verified native progress/geometry/alpha/appearance ownership; do not create a duplicate animator, fixed-pixel follower, fraction threshold, timer or delay patch.
 5. Only after transition animation is accepted, continue adaptive sizing/spacing and later battery-ring color-source controls. Keep 1.0.0 gated by the release-qualification matrix and explicit maintainer authorization.
 
 ## Reference priority
