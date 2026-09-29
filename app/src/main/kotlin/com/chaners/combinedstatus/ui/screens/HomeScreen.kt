@@ -226,7 +226,7 @@ private fun HomeRuntimeStatusCard(
                 modifier =
                     Modifier
                         .align(Alignment.BottomEnd)
-                        .offset(y = 2.dp)
+                        .offset(y = 6.dp)
                         .size(RuntimeStatusMarkSize),
             )
 
