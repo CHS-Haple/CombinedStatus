@@ -2,7 +2,7 @@
 
 This document complements [layout-policy.md](layout-policy.md).
 
-The layout policy owns shared Combined Status visual calculations. The scene policy owns only scene capability classification and motion ownership.
+The layout policy owns shared Guiyuan visual calculations. The scene policy owns only scene capability classification and motion ownership.
 
 ## 0.0.2 architecture status
 
@@ -16,7 +16,7 @@ Current 0.0.2 work must follow `docs/development/CURRENT.md`, `docs/development/
 
 A scene capability may define:
 
-- whether Combined Status renders on the surface;
+- whether Guiyuan renders on the surface;
 - whether rendering is projected against native geometry;
 - who owns motion;
 - the current evidence maturity.
@@ -36,13 +36,13 @@ Classification is not permission to mutate SystemUI. Runtime integration still r
 | Keyguard | PROJECTED candidate | SYSTEM_UI | Build 455 exact-AOD-contract candidate; real-device validation pending |
 | AOD | NATIVE_ONLY | SYSTEM_UI | Static ownership verified; independent runtime gate |
 
-The map fails closed outside the verified Home path and the bounded Control Center transition evidence. Unsupported or not-yet-verified scenes remain native rather than receiving a partial Combined Status implementation. A verified transition carrier is not, by itself, permission to keep Combined Status visible as a fully expanded panel surface.
+The map fails closed outside the verified Home path and the bounded Control Center transition evidence. Unsupported or not-yet-verified scenes remain native rather than receiving a partial Guiyuan implementation. A verified transition carrier is not, by itself, permission to keep Guiyuan visible as a fully expanded panel surface.
 
 ## Home stable
 
 Home stable remains the primary persistent rendering scene. Build 420 additionally runtime-verifies a usable Control Center carrier and readiness-ordered handoff mechanism; that evidence is now scoped to the transition bridge rather than the fully expanded endpoint.
 
-Its PROJECTED mode means the Combined Status visual is anchored from verified native geometry while the native slot, native motion, and surrounding layout remain SystemUI-owned.
+Its PROJECTED mode means the Guiyuan visual is anchored from verified native geometry while the native slot, native motion, and surrounding layout remain SystemUI-owned.
 
 ## Notification shade and Control Center
 
@@ -50,7 +50,7 @@ The pinned target separates these two panel paths.
 
 ### Notification Shade
 
-Notification Shade remains **NATIVE_ONLY**: this target does not present the status-icon row there, so Combined Status must not invent one.
+Notification Shade remains **NATIVE_ONLY**: this target does not present the status-icon row there, so Guiyuan must not invent one.
 
 The Home render must inherit the native Home end-side presentation lifecycle instead of deriving its own visibility from panel motion. Exact-target source verifies:
 
@@ -63,8 +63,8 @@ The Home render must inherit the native Home end-side presentation lifecycle ins
 `showEndSideContent()/hideEndSideContent()` owns the native alpha / visibility / translation transition of `system_icons`. The exact `system_icons` root is `MiuiStatusBatteryContainer`.
 
 Current rules:
-- Home Combined Status renders in `MiuiStatusBatteryContainer(system_icons).overlay`, so native end-side alpha/visibility/translation apply naturally;
-- Notification Header expansion remains useful motion evidence but is **not** a Combined Status Home-visibility authority;
+- Home Guiyuan renders in `MiuiStatusBatteryContainer(system_icons).overlay`, so native end-side alpha/visibility/translation apply naturally;
+- Notification Header expansion remains useful motion evidence but is **not** a Guiyuan Home-visibility authority;
 - Battery `MiuiBatteryMeterView.mStatusBarState`, global Keyguard state, generic Shade expansion state, and local fraction thresholds are not Home-visibility authorities;
 - no project-local Notification-Shade visibility Hook, timing threshold, delay, polling loop, or reconstructed panel state machine is permitted;
 - the parent `MiuiNotificationStatusContainer / system_icon_area` remains the HostSession discovery/ownership boundary, while the visual carrier is the verified animated `system_icons` child.
@@ -94,7 +94,7 @@ Control Center is split into two ownership phases.
 - `appearance=true` drives final `ControlCenterStatusBarIcon` alpha to 1 and `ControlCenterFakeStatusIcons` alpha to 0; `appearance=false` reverses that ownership;
 - `onExpansionChanged(progress)` owns translation only and must not be repurposed as a project visibility threshold;
 - Build-441 device diagnostics reach fraction 1.0 and observe the QS_FAKE root at alpha 0 before the return transition, matching the exact-target source contract;
-- Combined Status is attached only to `ControlCenterFakeStatusIcons.overlay` and never masks or writes the final `ControlCenterStatusBarIcon` surface; Build 455 keeps native root alpha/translation as the verified SystemUI contract while revalidating the project render View's actual coordinate inheritance;
+- Guiyuan is attached only to `ControlCenterFakeStatusIcons.overlay` and never masks or writes the final `ControlCenterStatusBarIcon` surface; Build 455 keeps native root alpha/translation as the verified SystemUI contract while revalidating the project render View's actual coordinate inheritance;
 - therefore the native fake/final ownership contract remains the endpoint authority without a project-owned endpoint fade, fraction threshold, or final-QS mutation.
 - Build-455 device evidence and geometry review supersede the earlier endpoint-position hypothesis: overlay-local render coordinates must be composed with the native root carrier, and the Combined Battery-slot anchor remains aligned. The rejected behavior instead comes from temporary compact ignored-slot state allowing native peer layout and native peer motion to observe different slot sets. Build 456 keeps native fake/final appearance ownership unchanged and corrects only that presentation-state lifetime.
 
@@ -103,11 +103,11 @@ No project-owned timing threshold, custom animation, polling/frame follower, pee
 
 ## Keyguard and AOD
 
-Build 456 carries the current **opt-in PROJECTED candidate for steady Keyguard**. Build 455 proves the corrected AOD authority can reach steady Keyguard Combined Status, but is rejected for a shared Keyguard/QS_FAKE peer-layout/motion inconsistency caused by temporary ignored-slot state. Build 456 keeps AOD NATIVE_ONLY and makes Keyguard/QS_FAKE represented-slot exclusion session-scoped through the verified native container API. It is not promoted to runtime-verified evidence until focused device validation passes.
+Build 456 carries the current **opt-in PROJECTED candidate for steady Keyguard**. Build 455 proves the corrected AOD authority can reach steady Keyguard Guiyuan, but is rejected for a shared Keyguard/QS_FAKE peer-layout/motion inconsistency caused by temporary ignored-slot state. Build 456 keeps AOD NATIVE_ONLY and makes Keyguard/QS_FAKE represented-slot exclusion session-scoped through the verified native container API. It is not promoted to runtime-verified evidence until focused device validation passes.
 
 Exact-target review now narrows the Keyguard candidate without yet promoting it:
 - `MiuiKeyguardStatusBarView.mSystemIconsContainer` / `@id/system_icons_container` is the native Keyguard end-side `MiuiStatusBatteryContainer` registered into `ControlCenterFakeViewController.keyguardSystemIcons`;
-- HyperOS itself selects `statusBarSystemIcons` for status-bar state 0 and `keyguardSystemIcons` for state 1, then feeds the selected `realSystemIcons` into Control Center Header geometry. Combined Status must reuse that native router rather than duplicate it;
+- HyperOS itself selects `statusBarSystemIcons` for status-bar state 0 and `keyguardSystemIcons` for state 1, then feeds the selected `realSystemIcons` into Control Center Header geometry. Guiyuan must reuse that native router rather than duplicate it;
 - Keyguard steady must use a **separate host/session adapter** from Home. Shared renderer/domain semantics are reusable, but mutable Home View/session ownership is not;
 - `MiuiKeyguardStatusBarView.updateIconsAndTextColors()` is the native Keyguard tint authority and also forwards the same Keyguard tint semantics to QS_FAKE;
 - the base Keyguard status-bar visibility lifecycle resets `mSystemIconsContainer` translation when hidden, while Keyguard-specific status-icon animations target the child `mStatusIconContainer`; these are distinct ownership layers and must not be collapsed;
@@ -129,11 +129,11 @@ They must not create a second scene geometry policy or a separate slot-width rul
 
 ## Motion ownership
 
-Unlocked steady currently uses `NONE`: Combined Status has no independent motion requirement there. Its end-side visual inherits native `system_icons` motion when SystemUI transitions that carrier.
+Unlocked steady currently uses `NONE`: Guiyuan has no independent motion requirement there. Its end-side visual inherits native `system_icons` motion when SystemUI transitions that carrier.
 
-Notification Shade and all Control Center transition/destination motion stay under `SYSTEM_UI`; inheritance/projection does not transfer motion ownership to Combined Status. Whether Combined Status renders on a given verified carrier is a separate capability decision from who owns motion.
+Notification Shade and all Control Center transition/destination motion stay under `SYSTEM_UI`; inheritance/projection does not transfer motion ownership to Guiyuan. Whether Guiyuan renders on a given verified carrier is a separate capability decision from who owns motion.
 
-`COMBINED_STATUS` remains reserved for a future transition that is demonstrated to be genuinely owned by Combined Status from start state through cleanup.
+`COMBINED_STATUS` remains reserved for a future transition that is demonstrated to be genuinely owned by Guiyuan from start state through cleanup.
 
 ## Promotion rule
 
@@ -156,8 +156,8 @@ This matrix records the maintainer's current product-intent partition. It is **n
 
 | Source context | Steady state | Partial Control Center pull | Fully expanded Control Center |
 | --- | --- | --- | --- |
-| Unlocked / Home | Combined Status on verified Home carrier | Combined Status transition bridge follows native HyperOS motion | Native SystemUI status bar only |
-| Locked / Keyguard | Combined Status on future verified Keyguard carrier | Combined Status transition bridge follows native HyperOS motion from the Keyguard source | Native SystemUI status bar only |
+| Unlocked / Home | Guiyuan on verified Home carrier | Guiyuan transition bridge follows native HyperOS motion | Native SystemUI status bar only |
+| Locked / Keyguard | Guiyuan on future verified Keyguard carrier | Guiyuan transition bridge follows native HyperOS motion from the Keyguard source | Native SystemUI status bar only |
 
 Design consequences:
 - source-scene ownership and transition ownership should be evaluated separately;
@@ -172,4 +172,4 @@ Design consequences:
 
 Steady Keyguard projection is not equivalent to AOD ownership. Device-rejected Build 453 attempted this gate but incorrectly resolved `toggleAodMode` as zero-argument, so its AOD authority installed zero Hooks and Keyguard failed native. Build 455 corrects the pinned contract: a unique `setIsAodAnimate(boolean): void` and `toggleAodMode(boolean): void` plus Boolean `mToAod` / `mIsAodAnimate` are required before Keyguard projection is allowed. `mToAod || mIsAodAnimate` blocks Keyguard projection and restores the native represented presentation. `mAnimToAod` is diagnostic-only.
 
-If that contract cannot be resolved uniquely, Keyguard remains native while Home/QS_FAKE continues on the accepted Build-446 path. Combined Status does not write AOD alpha, visibility, translation, animation or geometry.
+If that contract cannot be resolved uniquely, Keyguard remains native while Home/QS_FAKE continues on the accepted Build-446 path. Guiyuan does not write AOD alpha, visibility, translation, animation or geometry.
