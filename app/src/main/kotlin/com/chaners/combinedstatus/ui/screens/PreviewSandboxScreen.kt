@@ -216,7 +216,7 @@ internal fun PreviewSandboxScreen(
                             },
                             modifier =
                                 Modifier
-                                    .widthIn(max = 260.dp)
+                                    .widthIn(max = 300.dp)
                                     .fillMaxWidth()
                                     .align(Alignment.CenterHorizontally)
                                     .padding(horizontal = 6.dp),
@@ -285,7 +285,7 @@ internal fun PreviewSandboxScreen(
                             options = simOptions,
                             selectedIndex = if (state.simPresent) 0 else 1,
                             onSelected = { onSimPresentChange(it == 0) },
-                            maxWidth = 280.dp,
+                            maxWidth = 300.dp,
                             modifier = Modifier,
                         )
                         SwitchPreference(
@@ -351,7 +351,7 @@ private fun SandboxSegmentedField(
     selectedIndex: Int,
     onSelected: (Int) -> Unit,
     modifier: Modifier = Modifier,
-    maxWidth: Dp = 320.dp,
+    maxWidth: Dp = 300.dp,
 ) {
     Column(
         modifier =
