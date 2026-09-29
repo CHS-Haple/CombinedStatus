@@ -10567,9 +10567,9 @@ The icon/name checkpoint is therefore closed on `dev`. This is a record-only doc
 
 ## 2026-09-29 — Build 466 Guiyuan identity migration
 
-**Type:** product/repository identity migration  
-**Display version:** 0.0.3  
-**Build / source:** Build 466 / `20260929-466` / `feat/guiyuan-identity-migration`  
+**Type:** product/repository identity migration
+**Display version:** 0.0.3
+**Build / source:** Build 466 / `20260929-466` / `feat/guiyuan-identity-migration`
 **Validation:** pending exact-head Full CI and focused signed Canary/device verification
 
 ### Problem / objective
