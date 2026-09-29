@@ -42,7 +42,7 @@ Keyguard has an independent host/session while sharing domain/render semantics. 
 
 Build 473 is device-accepted and stable.
 
-The active Control Center transition line is not yet accepted. Build 479 is superseded before device testing because review found it reintroduced a project-owned final-participant release window that conflicts with the verified native appearance contract. Build 480 retains component-driven correspondence but restores native timing/handoff ownership. It must pass exact-head Runtime validation, then requires focused device evidence for split trajectories and Home/Keyguard entry/return behavior before integration.
+The active Control Center transition line is not yet accepted. Build 479 is superseded before device testing because review found it reintroduced a project-owned final-participant release window that conflicts with the verified native appearance contract. Build 480 retains component-driven correspondence but restores native timing/handoff ownership. Exact-head Runtime Build #1829 passed on executable head `886f3fbf96fa8500d065d88898f64820e43dedf1`; runtime is frozen pending focused Home device evidence.
 
 Device testing is requested only when the result can change implementation choice or acceptance. Mechanical/documentation steps continue without a new APK round trip.
 
@@ -59,10 +59,10 @@ Device testing is requested only when the result can change implementation choic
 
 ## Immediate next step
 
-1. Run exact-head Runtime validation for Build 480.
-2. Review CI output and exact base-to-head scope.
-3. If green, request one signed work-branch Canary for focused Trinity split-path device evidence.
-4. Keep runtime frozen during device validation; do not tune offsets/timing without new evidence.
+1. Produce one signed work-branch Canary from the frozen Build-480 source.
+2. Validate Home partial pull/return, full open/return and charging-island regression.
+3. Only after Home trajectory is accepted, run the Keyguard-originated regression pass.
+4. Do not tune offsets/timing without new device evidence.
 5. Keep 1.0.0 gated by actual product/compatibility acceptance.
 
 ## Reference priority
