@@ -11229,3 +11229,49 @@ Build 479 makes `CombinedStatusPainter` the source of truth for each transition 
 **Validation**
 
 Build 479 must be replayed unchanged onto the current dev governance baseline, pass exact-head Runtime CI, then receive focused device validation. Acceptance requires correct start anchoring, component-specific folding, visible late-stage participant release, clean reverse re-absorption, and no change to final-only SystemUI icon behavior.
+
+
+---
+
+## 2026-09-30 — Build 480: native-owned handoff with renderer-owned component correspondence
+
+**Type:** Build-479 architecture review correction  
+**Build:** 480 / `20260929-480`  
+**Branch / PR:** `feat/control-center-transition-matrix` / #177  
+**Device status:** pending; Build 479 is superseded before device testing
+
+### Problem execution flow
+
+Build 479 correctly moved Trinity motion from one whole-source frame to Painter-defined component descriptors, but its release layer also copied KeiMi-specific timing windows into Guiyuan: geometry used a project `smoothstep(progress / 0.82)`, final Wi-Fi/mobile/Battery were clip-masked, and Guiyuan redrew those native targets through a `0.58–0.92` release window.
+
+That conflicts with the already verified pinned-SystemUI endpoint contract: `onExpansionChanged(progress)` owns native geometry, while `onAppearanceChanged(appearance, animate)` owns QS_FAKE/final alpha/Folme handoff. Final-QS participants are native surface content and must not gain a second project handoff authority.
+
+### Root cause
+
+KeiMi evidence was applied one layer too high. Its component/correspondence structure is useful for Guiyuan's compact Trinity decomposition, but its private geometry/release envelopes are implementation choices, not HyperOS scene authority.
+
+### Measures
+
+- keep the window-root overlay only for Guiyuan-owned Trinity correspondence;
+- keep Painter-owned component source bounds, semantic target selection and shape policy;
+- restore raw native expansion fraction as the sole geometry progress input;
+- remove project `0.82` geometry shaping and `0.58–0.92` release thresholds;
+- remove role-6 target clip masks and `target.draw()` redraw;
+- let native final Wi-Fi/mobile/Battery remain attached, visible/hidden and animated only by SystemUI's final surface;
+- Trinity overlay opacity follows the real QS_FAKE root alpha;
+- replace fixed `66×44` MobileType transition bounds with the same measured text-ink layout used by the renderer, including suffix placement such as 5G-A.
+
+### 审查 / review
+
+- **Ownership:** HyperOS remains the only fake/final appearance writer; Guiyuan owns only temporary Trinity pixels.
+- **Timing:** no project gesture interpolator, release threshold or duplicate animator remains.
+- **Geometry:** each component starts from its current renderer-local bounds and targets a read-only role-6 native witness matrix.
+- **Maintainability:** renderer and transition share MobileType layout; moving/resizing text automatically changes transition bounds. New components extend the descriptor layer rather than the gesture state machine.
+- **Occupancy:** no mid-gesture ignored-slot/padding/width restoration; steady presentation ownership remains independent from visual correspondence.
+- **Cleanup:** transition cleanup restores only the Guiyuan source clip; final native Views are never mutated by Build 480.
+- **Performance:** one bounded pre-draw matrix sample path; no polling, timer or per-peer projection.
+- **Fail native:** unresolved source/target witnesses skip that correspondence instead of mutating SystemUI.
+
+### Validation
+
+Exact-head Runtime CI is required before a signed Canary. If green, device validation is limited to Home first: open, partial pull/return, full open/return, and charging-island regression. Keyguard follows only after Home trajectory is accepted.
