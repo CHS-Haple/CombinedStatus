@@ -10884,3 +10884,62 @@ Build 468 corrected both earlier problems by increasing structural force too agg
 ### Validation gate
 
 Run exact-head Fast for Build 469. If green, issue one signed Canary for focused visual review only. Freeze source for that test and do not mix transition-animation/runtime work into this branch.
+
+---
+
+## 2026-09-29 — Build 470: normalize Sandbox typography, restore Module runtime edges, sharpen animated identity
+
+**Type:** device-driven companion-app presentation correction
+**Display version:** 0.0.3
+**Build / source:** Build 470 / `20260929-470` / executable checkpoint `abb0b1bdf2f281f2287c3b6616db62c31423a33b`
+**Branch / PR:** `feat/presentation-ui-polish` / #173
+**SystemUI runtime change:** none
+**Validation:** exact-head Fast pending
+
+### Build 469 evidence
+
+Build 469 passed ready Fast #1744 and signed Work Branch Canary #496. Canary #496 resolved and checked out exact source `89f4758f1ebdf46860c73fd1bff30c05e50d48cc`, passed target-profile, tests/build, Modern Xposed metadata, Haple signing/signature, non-debuggable and artifact-upload gates.
+
+Device review accepted the removal of hard Sandbox dividers and the general mid-density Diagnostics direction, but identified three remaining visual defects:
+- Sandbox field labels still had inconsistent apparent size/weight; slider labels were especially heavy relative to segmented fields/options.
+- Module runtime remained visually too close to the card top and bottom edges.
+- The rotating Guiyuan identity appeared blurred and visibly aliased.
+
+### Root cause
+
+- **Sandbox typography:** slider labels and segmented-field labels were both promoted to `body1`, making field labels compete with actual option/value content. The slider's title/value row amplified that visual weight even when the nominal token matched.
+- **Module runtime:** shared 7 dp information-row rhythm was acceptable, but only 4 dp extra edge breathing room was insufficient for a section with no explicit header inside the card.
+- **Identity clarity:** the launcher vector was first laid out at 64 dp and then enlarged 1.8x in a `graphicsLayer` while rotating. This transforms the rendered layer rather than expressing the optical enlargement in the vector draw transform, which can soften/jag the animated edge.
+
+### Implementation
+
+#### Preview Sandbox typography
+- Slider and segmented field labels now share MIUIX `body2` with the variant foreground color.
+- MIUIX `TabRowWithContour`, `SliderPreference`, and their option/value rendering remain authoritative; no custom font-size constants are introduced.
+- Soft group spacing and simulation behavior remain unchanged.
+
+#### Module runtime
+- Keep shared Diagnostics fact rows at the accepted 7 dp vertical rhythm.
+- Increase only Module runtime's outer top/bottom spacer from 4 dp to 8 dp.
+- Device/system, app identity, and Diagnostics & reports remain unchanged.
+
+#### Animated Guiyuan identity
+- Keep `ic_launcher_foreground` as the single brand-geometry source.
+- Keep the 64 dp layout slot, theme tint, 1.8x optical enlargement, 20-second linear counterclockwise rotation and screen-local lifecycle.
+- Replace `Image + graphicsLayer(scale + rotation)` with `Canvas` draw transforms: rotate and scale the vector draw coordinates, then rasterize the vector at the final transformed geometry.
+- No duplicate vector paths, bitmap asset, background service, timer, listener or runtime animation owner is added.
+
+### 审查 / review
+
+- **Ownership:** MIUIX owns control option typography; Guiyuan only assigns semantic field-label hierarchy around those controls.
+- **Lifecycle:** identity animation remains scoped to the Diagnostics composable.
+- **Single writer:** one local Canvas transform owns identity motion; no SystemUI property is touched.
+- **Cleanup:** Compose disposal ends the infinite transition; no manual cleanup path is needed.
+- **Fail native:** unaffected because SystemUI runtime is unchanged.
+- **Performance:** one small vector Canvas transform only while Diagnostics is visible; no polling, bitmap allocation loop or background work.
+- **Compatibility:** existing Compose/MIUIX APIs and the existing vector resource only.
+- **Visual boundary:** Diagnostics & reports remains untouched.
+
+### Validation gate
+
+Run exact-head Fast. If green, request one signed Canary because font hierarchy, card-edge breathing room and animated-vector clarity all require focused device visual evidence. Freeze that exact Build-470 source for review.
