@@ -733,13 +733,18 @@ internal class CombinedStatusPainter(
                 mobileTypeMainBounds.width() +
                 MOBILE_TYPE_SUFFIX_GAP -
                 mobileTypeSuffixBounds.left
+        val suffixOffset =
+            if (scaleWithCanvas || scale <= 0f) {
+                geometry.mobileTypeSuffixRise
+            } else {
+                geometry.mobileTypeSuffixRise / scale
+            }
         val suffixCenterY =
-            MOBILE_TYPE_CENTER_Y -
-                if (scaleWithCanvas || scale <= 0f) {
-                    geometry.mobileTypeSuffixRise
-                } else {
-                    geometry.mobileTypeSuffixRise / scale
-                }
+            MOBILE_TYPE_CENTER_Y +
+                CombinedStatusMobileTypeSuffixPolicy.verticalOffset(
+                    suffix = split.second,
+                    magnitude = suffixOffset,
+                )
         val suffixBaselineY =
             suffixCenterY -
                 (mobileTypeSuffixBounds.top + mobileTypeSuffixBounds.bottom) / 2f
@@ -976,6 +981,18 @@ internal class CombinedStatusPainter(
 }
 
 
+
+internal object CombinedStatusMobileTypeSuffixPolicy {
+    fun verticalOffset(
+        suffix: String,
+        magnitude: Float,
+    ): Float =
+        if (suffix.trim().uppercase() == "A") {
+            magnitude
+        } else {
+            -magnitude
+        }
+}
 
 internal object NativeCenterResourceVariantPolicy {
     fun tintEntryName(entryName: String): String {
