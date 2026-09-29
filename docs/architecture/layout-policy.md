@@ -155,7 +155,13 @@ Motion ownership is independent from layout size:
 
 Home island motion is `SYSTEM_UI`: the visual overlay lives in native `system_icons` and therefore inherits that carrier's own alpha/visibility/translation while also remaining under the ancestor `system_icon_area` island transform. Guiyuan must not add a battery-translation follower, duplicate animator or custom timing curve.
 
-Phase 2B may combine stable Home source bounds with verified native expansion progress and real target geometry, but it must not reopen Home carrier ownership.
+Phase 2B may combine stable Home/Keyguard source bounds with verified native expansion progress and real target geometry, but it must not reopen steady-scene carrier ownership.
+
+For transition animation, visual projection is distinct from native geometry mutation:
+- SystemUI continues to own fake/final root translation and Folme alpha;
+- Guiyuan may draw transition-only copies/components inside its verified QS_FAKE overlay using native source/target View geometry;
+- projected native peers may be visually masked only through the existing reversible clip-mask owner while their native layout/translation/alpha/visibility properties remain untouched;
+- the compact ignored-slot owner remains responsible for steady QS_FAKE occupancy and must not be released merely to recover animation.
 
 ## Future size / spacing
 
