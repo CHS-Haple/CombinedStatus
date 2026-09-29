@@ -5,9 +5,9 @@ This is the chronological engineering diary for Combined Status. It complements,
 
 ## 2026-09-29 — Build 465: dev integration and 0.0.3 development-line transition
 
-**Type:** integration/version transition  
-**Display version:** 0.0.3  
-**Build / source:** 465 / `20260929-465` / `dev`  
+**Type:** integration/version transition
+**Display version:** 0.0.3
+**Build / source:** 465 / `20260929-465` / `dev`
 **SystemUI ownership change:** none beyond already accepted/integrated baselines
 
 ### Integration
@@ -33,9 +33,9 @@ This transition changes application/build identity and repository current-state 
 
 ## 2026-09-29 — Build 464: Unified Sandbox segmented-control width
 
-**Type:** companion-app UI refinement  
-**Display version:** 0.0.2  
-**Build / source:** 464 / `20260929-464` / `feat/home-ui-shell`  
+**Type:** companion-app UI refinement
+**Display version:** 0.0.2
+**Build / source:** 464 / `20260929-464` / `feat/home-ui-shell`
 **SystemUI ownership change:** none
 
 ### Maintainer feedback
@@ -67,9 +67,9 @@ The Build-463 width hierarchy was too explicit. Different semantic levels do not
 
 ## 2026-09-29 — Build 463: MIUIX-aligned Sandbox spacing and diagnostics framework naming
 
-**Type:** companion-app UI refinement  
-**Display version:** 0.0.2  
-**Build / source:** 463 / `20260929-463` / `feat/home-ui-shell`  
+**Type:** companion-app UI refinement
+**Display version:** 0.0.2
+**Build / source:** 463 / `20260929-463` / `feat/home-ui-shell`
 **SystemUI ownership change:** none
 
 ### Maintainer feedback
@@ -112,9 +112,9 @@ Build 462 made the Preview Sandbox visually too compact. The problem was not the
 
 ## 2026-09-29 — Build 462: Runtime mark spacing and diagnostics optical icon normalization
 
-**Type:** companion-app UI refinement  
-**Display version:** 0.0.2  
-**Build / source:** 462 / `20260929-462` / `feat/home-ui-shell`  
+**Type:** companion-app UI refinement
+**Display version:** 0.0.2
+**Build / source:** 462 / `20260929-462` / `feat/home-ui-shell`
 **SystemUI ownership change:** none
 
 ### Maintainer feedback
@@ -157,9 +157,9 @@ Build 461 device review showed two remaining optical issues:
 
 ## 2026-09-29 — Build 461: App-wide visual rhythm and action-style consolidation
 
-**Type:** companion-app UI refinement  
-**Display version:** 0.0.2  
-**Build / source:** 461 / `20260929-461` / `feat/home-ui-shell`  
+**Type:** companion-app UI refinement
+**Display version:** 0.0.2
+**Build / source:** 461 / `20260929-461` / `feat/home-ui-shell`
 **SystemUI ownership change:** none
 
 ### Maintainer feedback
@@ -215,9 +215,9 @@ Build 460 device review exposed four remaining presentation inconsistencies:
 
 ## 2026-09-29 — Build 460: Runtime status-mark weight correction
 
-**Type:** companion-app Home UI refinement  
-**Display version:** 0.0.2  
-**Build / source:** 460 / `20260929-460` / `feat/home-ui-shell`  
+**Type:** companion-app Home UI refinement
+**Display version:** 0.0.2
+**Build / source:** 460 / `20260929-460` / `feat/home-ui-shell`
 **SystemUI ownership change:** none
 
 ### Maintainer correction
@@ -241,9 +241,9 @@ The change is limited to Home-card presentation geometry and stroke weight. No s
 
 ## 2026-09-29 — Build 459: Runtime-card scope correction
 
-**Type:** companion-app Home UI correction  
-**Display version:** 0.0.2  
-**Build / source:** 459 / `20260929-459` / `feat/home-ui-shell`  
+**Type:** companion-app Home UI correction
+**Display version:** 0.0.2
+**Build / source:** 459 / `20260929-459` / `feat/home-ui-shell`
 **SystemUI ownership change:** none
 
 ### Maintainer correction
@@ -266,9 +266,9 @@ This is a scope correction, not a new visual direction. No state model, Xposed/S
 
 ## 2026-09-29 — Build 458: Sandbox information hierarchy and Home-card visual consolidation
 
-**Type:** companion-app Home / Preview Sandbox UI  
-**Display version:** 0.0.2  
-**Build / source:** 458 / `20260929-458` / `feat/home-ui-shell`  
+**Type:** companion-app Home / Preview Sandbox UI
+**Display version:** 0.0.2
+**Build / source:** 458 / `20260929-458` / `feat/home-ui-shell`
 **SystemUI ownership change:** none
 
 ### Problem / objective
@@ -317,9 +317,9 @@ Unit tests from Build 457 continue to lock center-source precedence and native n
 
 ## 2026-09-29 — Build 457: Airplane preview resource-context correction
 
-**Type:** companion-app Preview Sandbox correctness  
-**Display version:** 0.0.2  
-**Build / source:** 457 / `20260929-457` / `feat/home-ui-shell`  
+**Type:** companion-app Preview Sandbox correctness
+**Display version:** 0.0.2
+**Build / source:** 457 / `20260929-457` / `feat/home-ui-shell`
 **SystemUI ownership change:** none
 
 ### Problem / objective
@@ -373,9 +373,9 @@ Unit coverage locks the three center-source combinations above. Exact-head Fast 
 
 ## 2026-09-29 — Build 456: Progressive network Sandbox and shared 5G-A / no-Internet rendering correction
 
-**Type:** companion-app Preview Sandbox + shared renderer correctness  
-**Display version:** 0.0.2  
-**Build / source:** 456 / `20260929-456` / `feat/home-ui-shell`  
+**Type:** companion-app Preview Sandbox + shared renderer correctness
+**Display version:** 0.0.2
+**Build / source:** 456 / `20260929-456` / `feat/home-ui-shell`
 **SystemUI ownership change:** none
 
 ### Problem / objective
