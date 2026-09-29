@@ -22,6 +22,43 @@ class SystemUiHomePresentationOwnerTest {
     }
 
     @Test
+    fun persistentIgnoredSlotRestoreRemovesOnlySessionOwnedDelta() {
+        val existing = listOf("alarm_clock", "wifi")
+        val requested = listOf("wifi", "mobile", "no_sim")
+        val owned =
+            SystemUiHomePresentationOwner.PersistentIgnoredSlotPolicy.ownedDelta(
+                existing = existing,
+                requested = requested,
+            )
+        assertEquals(listOf("mobile", "no_sim"), owned)
+
+        val live = listOf("alarm_clock", "wifi", "mobile", "no_sim", "vpn")
+        assertEquals(
+            listOf("alarm_clock", "wifi", "vpn"),
+            SystemUiHomePresentationOwner.PersistentIgnoredSlotPolicy.restoreTarget(
+                live = live,
+                ownedEntries = owned,
+            ),
+        )
+    }
+
+    @Test
+    fun persistentIgnoredSlotRestoreAvoidsNativeSetterDuringContinuousHandoff() {
+        assertFalse(
+            SystemUiHomePresentationOwner.PersistentIgnoredSlotPolicy
+                .shouldUseNativeSetterOnRestore(
+                    requestLayout = false,
+                ),
+        )
+        assertTrue(
+            SystemUiHomePresentationOwner.PersistentIgnoredSlotPolicy
+                .shouldUseNativeSetterOnRestore(
+                    requestLayout = true,
+                ),
+        )
+    }
+
+    @Test
     fun endReservationKeepsOneResolvedEndBoundaryAcrossBatteryStates() {
         assertEquals(
             0,
@@ -50,18 +87,58 @@ class SystemUiHomePresentationOwnerTest {
     }
 
     @Test
-    fun deferredControlCenterCutoverMasksNativeVisualsBeforeCompactLayout() {
+    fun deferredControlCenterCutoverPreservesNativeVisualsUntilCompactLayout() {
         assertTrue(
             SystemUiHomePresentationOwner.VisualMaskPolicy
-                .shouldMaskBeforeCompactCutover(
+                .shouldPreserveNativeBeforeCompactCutover(
                     deferVisualMaskUntilLayout = true,
                 ),
         )
         assertFalse(
             SystemUiHomePresentationOwner.VisualMaskPolicy
-                .shouldMaskBeforeCompactCutover(
+                .shouldPreserveNativeBeforeCompactCutover(
                     deferVisualMaskUntilLayout = false,
                 ),
+        )
+    }
+
+    @Test
+    fun lateEligibleControlCenterCanAdoptAlreadyCompletedNativeLayout() {
+        assertTrue(
+            SystemUiHomePresentationOwner.VisualMaskPolicy.shouldAdoptExistingNativeLayout(
+                deferVisualMaskUntilLayout = true,
+                laidOut = true,
+                layoutRequested = false,
+                width = 478,
+                height = 108,
+            ),
+        )
+        assertFalse(
+            SystemUiHomePresentationOwner.VisualMaskPolicy.shouldAdoptExistingNativeLayout(
+                deferVisualMaskUntilLayout = true,
+                laidOut = false,
+                layoutRequested = false,
+                width = 478,
+                height = 108,
+            ),
+        )
+        assertFalse(
+            SystemUiHomePresentationOwner.VisualMaskPolicy.shouldAdoptExistingNativeLayout(
+                deferVisualMaskUntilLayout = true,
+                laidOut = true,
+                layoutRequested = true,
+                width = 478,
+                height = 108,
+            ),
+        )
+        assertFalse(
+            SystemUiHomePresentationOwner.VisualMaskPolicy.shouldAdoptExistingNativeLayout(
+                deferVisualMaskUntilLayout = true,
+                laidOut = true,
+                layoutRequested = false,
+                width = 0,
+                height = 108,
+            ),
         )
     }
 

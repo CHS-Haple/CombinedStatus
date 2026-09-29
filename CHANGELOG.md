@@ -7,6 +7,8 @@ The project follows a Keep a Changelog-style structure. During pre-release devel
 ## [Unreleased]
 
 ### Added
+- Optional opt-in lock-screen Combined Status uses a separate Keyguard host/render/presentation adapter, while Home and Keyguard retain independent mutable View ownership. Keyguard-originated QS_FAKE is enabled only after the steady Keyguard presentation is ready.
+- Keyguard projection is guarded by native HyperOS AOD lifecycle authority from `MiuiBatteryMeterView`; AOD transition or steady AOD restores native status presentation, and unresolved AOD contracts fail native without affecting the accepted Home/QS_FAKE path.
 
 - Battery-ring color now follows HyperOS battery semantic states: charging, power-save, performance, and low-battery use the colors already loaded by SystemUI, while normal state keeps the native status-icon tint. The color policy is structured so every state can later choose System default, status-icon tint, or a custom color without changing the native state-source path.
 

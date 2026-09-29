@@ -6,6 +6,13 @@ import org.junit.Test
 
 class RuntimeFeaturePreferencesOwnerTest {
     @Test
+    fun keyguardFeatureDefaultsFailNative() {
+        val settings = com.chaners.combinedstatus.settings.CombinedStatusFeatureSettings()
+        assertEquals(true, settings.enabled)
+        assertEquals(false, settings.keyguardEnabled)
+    }
+
+    @Test
     fun validCrossProcessTimestampProducesTransportLatency() {
         assertEquals(
             6_000_000L,

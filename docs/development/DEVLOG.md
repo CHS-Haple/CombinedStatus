@@ -2,7 +2,6 @@
 
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
-
 ## 2026-09-29 — Build 460: Runtime status-mark weight correction
 
 **Type:** companion-app Home UI refinement  
@@ -391,6 +390,582 @@ Corrected exact-head Fast and a signed Canary are still required. Device review 
 
 Pending CI and maintainer device acceptance. If accepted, integrate the companion-app Home shell independently of the Phase-3 SystemUI runtime line.
 
+## 2026-09-29 — Build 456: Keyguard / QS_FAKE native ignored-slot session ownership
+
+**Type:** Phase-3 device-rejection root-cause correction
+**Build:** 456 / `20260929-456`
+**Work branch / PR:** `feat/keyguard-scene-adapter` / #163
+**Device-rejected predecessor:** Build 455 / Canary #480
+**Accepted prerequisite:** Build 446 Home/QS_FAKE source-scene and late-cutover baseline
+
+### Device evidence / problem execution flow
+
+Build 455 corrects the AOD reflection contract from Build 453 and reaches the intended steady Keyguard Combined presentation when the lockscreen switch is enabled. Device screenshots and diagnostics then expose a different defect:
+
+- Keyguard steady and Keyguard-originated pulls can place native peer icons such as silent/headset far from Combined, visually resembling the peer jumping directly toward the fully-expanded destination.
+- The same large peer-to-Combined gap can occur in unlocked QS_FAKE.
+- With lockscreen Combined disabled, a Keyguard-originated pull can probabilistically show native icon misalignment/overlap while the compact presentation is released.
+
+The new geometry probe initially appears to show a stationary Combined render View while the QS_FAKE root moves. Review rejects that interpretation because a `ViewOverlay` child `getLocationOnScreen()` is not the final canvas-draw coordinate. Composing the native root screen position with the overlay-local anchor continues to land at the native Battery carrier. Therefore no translation follower, fixed offset, fraction threshold or endpoint writer is justified.
+
+### Root cause
+
+The presentation owner through Build 455 uses the class-wide `MiuiStatusIconContainer.onMeasure/onLayout` Hooks to insert represented slots into `ignoredSlots` only for the duration of each native call and restores the list immediately afterward.
+
+That is adequate for the accepted steady Home carrier, but Keyguard and QS_FAKE have native motion/animation ownership outside those calls. Their layout pass can therefore observe compact ignored slots while later native motion/end-state work observes the restored full slot set. Peer layout and peer motion no longer share one native state fact.
+
+Earlier exact-target review already proves `MiuiStatusIconContainer` exposes public final `addIgnoredSlots(...)` / `setIgnoredSlots(...)`, with the add path requesting layout. The original architecture review also required host/session-scoped additions, exact owned-delta restoration and Fail-native on ambiguity.
+
+### Implementation
+
+- Resolve the exact target native ignored-slot add/set contracts once at presentation-owner installation.
+- Keep Home on the existing device-accepted temporary native-call scope.
+- Keyguard and QS_FAKE now hold represented ignored slots for the full presentation session through the native API.
+- Record only entries absent before activation as the session's owned delta.
+- On activation failure, restore the pre-call snapshot before invoking Fail-native; ownership is committed only after native state verification succeeds.
+- On normal cleanup, derive `live - ownedDelta` and restore through the native set API, preserving unrelated SystemUI/current-writer entries.
+- Continuous Hot Reload keeps the existing single-main-thread generation handoff layout-free: old-generation release removes only its owned list delta directly and does not invoke `setIgnoredSlots()`, whose native implementation requests layout. The new generation reacquires the same session state in the same handoff turn; ownership bookkeeping is cleared only after a successful restore.
+- Remove the extra project-side Keyguard/QS_FAKE container `requestLayout()`; native add/set owns layout invalidation.
+- Keyguard now returns a Prepared state until the existing hooked native `onLayout` completes. Native visuals remain intact before that boundary; only then are represented native views clip-masked and Combined made ready.
+- Home receiving Prepared is an invariant violation and explicitly fails native.
+- Hook count remains unchanged.
+
+### 审查 / review
+
+- **Root-cause-first:** fixes the contradictory native slot-state lifetime instead of compensating observed pixels.
+- **Ownership:** `MiuiStatusIconContainer` remains layout owner; HyperOS remains motion/appearance owner.
+- **Single writer:** no project translation, alpha, visibility, animation, endpoint or final-QS writer is added.
+- **Lifecycle:** persistent exclusions exist only inside concrete Keyguard/QS_FAKE presentation sessions and are invalidated on detach/replacement/feature disable/AOD gate/Hot Reload/failure.
+- **Cleanup:** only the recorded session-owned slot delta is removed; unrelated ignored entries are preserved.
+- **Fail native:** missing/ambiguous native method contract, state verification failure or rollback failure does not authorize Combined cutover.
+- **Performance:** no polling/timer/frame follower; existing three class-wide presentation Hooks remain the only presentation Hook substrate.
+- **Compatibility:** the native API route is pinned to the exact HyperOS target; unsupported contracts remain native.
+- **Home regression boundary:** Home stays on its already accepted temporary per-native-call path.
+
+### Automation
+
+- Build #1633 failed only at Kotlin compilation because the new sealed `StateResult.Prepared` branch was not consumed by the existing Home exhaustive `when`.
+- The corrected source handles that impossible Home state explicitly with Fail-native.
+- Draft Light #1635 passes on head `0f74c4b7528e62e1e355fa00330cd6ee1ca59cf3`.
+- Final exact-head Draft Light #1639 passed on `59bc315fe70ccbc8bc7a0a6d0144d9baca27787f`.
+- Ready-state Fast #1640 / run `36511881800` passed target profile, unit tests/build and Modern Xposed metadata on the same exact head.
+- Signed Work Branch Canary #484 / run `36512436512` passed trusted-source checkout, pinned target profile, tests/Canary build, Modern Xposed metadata, Haple APK signature, non-debuggable verification and artifact upload.
+- Record-only device-acceptance closure head `2eb672fc1712743dbecdd108ececddcbedcb93a4` passed Build #1650 without changing runtime/build identity.
+- PR #163 squash-merged into `dev` as `d70b416ba531651c6690027b7404b1854fdb3056`.
+- Post-merge `dev` Integration #1651 / run `36513595263` passed target-profile, tests/build, Modern Xposed metadata, Haple signing/signature verification, Canary non-debuggable verification and artifact upload.
+
+### Device result
+
+**Accepted for dev integration.** The maintainer reports Build 456 looks normal across the focused scenarios and elects to close this runtime line before the separate UI line is finished.
+
+The supplied detailed diagnostic confirms the intended runtime contract:
+- runtime health is `overall=healthy`;
+- native AOD authority is installed with `keyguardAodHooks=2` and `keyguardAodReady=true`;
+- Keyguard session acquisition uses `lifetime=presentation-session` / `nativeApi=addIgnoredSlots`, keeps native visuals before compact layout, and cuts over only from native `onLayout`;
+- QS_FAKE uses the same session-native ignored-slot ownership and compact-layout-ready cutover;
+- Keyguard/Control Center cleanup restores clip bounds, end reservation and owned ignored slots successfully on scene exit/unlock;
+- no project-owned native translation/alpha/visibility writes are reported.
+
+No new runtime patch is justified from this evidence. Build 456 is frozen and integrated as the accepted Phase-3 `dev` runtime baseline. The display version remains 0.0.2; the maintainer explicitly defers the planned 0.0.3 bump until the independent UI line is also closed.
+
+## 2026-09-29 — Build 455: exact AOD contract correction and bounded QS_FAKE geometry evidence
+
+**Type:** Phase-3 device-rejection root-cause correction + bounded transition diagnostics
+**Build:** 455 / `20260929-455`
+**Work branch / PR:** `feat/keyguard-scene-adapter` / #163
+**Runtime prerequisite:** device-accepted Build 446 Home/QS_FAKE
+**Rejected predecessor:** Build 453 / signed Canary #475
+
+### Device evidence / problem execution flow
+
+Build 453 reaches the target device with the lockscreen feature setting enabled, but the runtime snapshot reports `keyguardAodHooks=0` and `keyguardAodReady=false`. When the native Battery source enters Keyguard, `onKeyguardHostResolution` therefore follows its existing AOD-authority Fail-native path and steady lockscreen remains native.
+
+The same report captures an attached, correctly sized `MiuiKeyguardStatusBarView` / `mSystemIconsContainer` / `mStatusIconContainer` / `mBatteryView`, while the diagnostic host probe remains `partial` because `selectedAsRealSystemIcons=false`. That selector is the shared Control Center transition router, not the production steady-Keyguard resolver gate.
+
+Separately, maintainer screenshots report a probabilistic unlocked QS_FAKE Combined visual at the fully-expanded endpoint position and a Keyguard-originated misalignment. Build 446 -> 453 source review shows no executable difference in the Control Center render session or panel-transition source, so no geometry compensation is justified from the current evidence.
+
+### Root cause / exact-target evidence
+
+The pinned SystemUI reference for `17.03.260226.r` verifies:
+
+- `MiuiBatteryMeterView.setIsAodAnimate(boolean): void`;
+- `MiuiBatteryMeterView.toggleAodMode(boolean): void`;
+- Boolean `mToAod` / `mIsAodAnimate`;
+- HyperOS remains owner of Keyguard/AOD and Control Center motion/appearance.
+
+Build 453 incorrectly required `toggleAodMode(): void`. The strict resolver therefore found no valid method, installed zero AOD Hooks, and intentionally disabled Keyguard Combined.
+
+### Implementation
+
+- Correct the strict `toggleAodMode` reflection contract to exactly one Boolean parameter and keep unique-match Fail-native semantics.
+- Add a unit regression guard that rejects zero-argument or non-Boolean toggle signatures.
+- Remove `realSystemIcons` selector equality from **diagnostic probe readiness only**; it remains recorded in snapshots. The production Keyguard resolver is unchanged.
+- Extend the existing 8-bucket Control Center diagnostic with local/screen geometry, alpha and visibility for QS_FAKE root, status-bar area, status-icon group, Battery, logical carrier and Combined render View.
+- No new Hook, listener, timer, delay, polling loop, frame callback, geometry writer, alpha writer, endpoint threshold or final-QS mutation is added.
+
+### 审查 / review
+
+- **root-cause-first:** fix the exact broken native contract before considering layout changes.
+- **ownership:** AOD and Control Center motion/appearance stay SystemUI-owned; diagnostics are read-only.
+- **single writer:** no new presentation writer is introduced.
+- **Fail native:** missing/ambiguous AOD contracts continue to disable only Keyguard Combined.
+- **performance:** the geometry sample piggybacks the existing diagnostic 8-bucket expansion callback cadence.
+- **rejected route:** do not revive Battery-width, fixed-pixel, fraction-threshold or custom-animation compensation without frame-level owner evidence.
+
+### Validation
+
+Draft validation first. After a clean exact-head ready validation, create one signed Canary and freeze runtime for focused device evidence: steady Keyguard, Keyguard-originated partial Control Center, AOD enter/exit, unlock, and one reproduction of the unlocked QS_FAKE endpoint-position defect with diagnostics export.
+
+
+## 2026-09-29 — Build 453: native-AOD-gated steady Keyguard candidate
+
+**Type:** Phase-3 Keyguard/AOD lifecycle correction + latest-dev synchronization
+**Build:** 453 / `20260929-453`
+**Work branch / PR:** `feat/keyguard-scene-adapter` / #163
+**Runtime base:** device-accepted Build 446 Home/QS_FAKE + Build-447 Keyguard candidate
+**Integration parent:** latest `dev@4c00aaae5491f849b8bdbe4bb8a3d7e159f821c8` (Build-452 归元 app-icon/name checkpoint)
+**AOD Hook delta:** +2
+**AOD render ownership:** native-only
+
+### Trigger / rejected Build 447
+
+Build 447 introduced the desired separate steady-Keyguard adapter and passed automated Build #1586, but review stopped it before Canary/device admission. The renderer's visibility contract was only `featureEnabled && !nativeHandoffActive`; `aodOwned=false` existed solely as diagnostic text. Because HyperOS status-bar state `KEYGUARD` does not prove that AOD is inactive, enabling the lockscreen switch could have left Combined Status visible/masked during AOD.
+
+This is a correctness/ownership defect, not a cosmetic follow-up. Build 447 is therefore automation-only evidence and not a device candidate.
+
+### Native evidence
+
+Exact-target SystemUI reference for `17.03.260226.r` identifies `MiuiBatteryMeterView` AOD state members `mToAod`, `mIsAodAnimate`, `mAnimToAod`, `setIsAodAnimate()` and `toggleAodMode()`. AOD is also independently animated by Keyguard/AOD owners, so steady Keyguard cannot infer AOD from ordinary status-bar state, alpha or visibility.
+
+### Implementation
+
+- `SystemUiKeyguardAodStateSource` is installed inside the existing presentation-runtime owner before the scene source.
+- It structurally resolves a unique `setIsAodAnimate(boolean): void` and, at this historical checkpoint, incorrectly required zero-argument `toggleAodMode(): void`, plus Boolean `mToAod` / `mIsAodAnimate`. Device evidence later rejects that signature assumption: the pinned method is `toggleAodMode(boolean): void`, so Build 453 correctly falls back native and is superseded by Build 455.
+- `mToAod || mIsAodAnimate` is the visibility/readiness blocker. `mAnimToAod` is read only for diagnostics and does not independently grant/revoke ownership.
+- Keyguard renderer readiness now includes `!aodBlocked`. When AOD becomes blocked, readiness falls before presentation ownership is retained: the existing Keyguard presentation session is deactivated/restored and Keyguard-originated QS_FAKE eligibility becomes native.
+- AOD exit reopens readiness and reuses the verified Keyguard host to reactivate the same bounded presentation contract.
+- AOD authority installs before scene observation; after successful install the module re-evaluates any already-cached Keyguard host to remove cold-start ordering dependence.
+- Hot Reload requires no special AOD takeover path: the existing generation owner preserves only the status-host handle and unhooks all other prior-generation handles, so the two AOD Hooks are cleaned with the rest of the presentation sources.
+- Home carrier identity remains Home-only; a separate Keyguard identity query prevents the Build-445 Home source router from misclassifying Keyguard.
+
+### 审查 / review
+
+- **native lifecycle authority:** no alpha/visibility threshold or status-bar-state guess is used for AOD.
+- **fail native:** missing/ambiguous AOD contract disables only Keyguard Combined; Home/QS_FAKE continues unchanged.
+- **single writer:** existing Keyguard presentation owner remains the sole native-mask/reservation writer for that host.
+- **AOD ownership:** Combined writes no AOD alpha, visibility, translation, animation or geometry.
+- **performance:** +2 event-driven native lifecycle Hooks; no timer/polling/delay/frame observer.
+- **cold start:** AOD source precedes scene source and triggers cached-host retry after authority becomes ready.
+- **integration:** Build-452 归元 assets/name/history are merged as a second parent; SystemUI runtime logic from that dev checkpoint is unchanged.
+
+### Validation plan
+
+Exact-head Fast first. Only after Fast passes, request trusted signed Canary. Device validation must cover:
+1. lockscreen switch off -> native steady Keyguard and native Keyguard-originated QS_FAKE;
+2. switch on -> Combined steady Keyguard without duplicate/gap;
+3. Keyguard-originated partial Control Center -> Combined only after steady Keyguard readiness;
+4. AOD enter -> native-only with no Combined leak, then AOD exit -> Keyguard Combined recovers;
+5. unlock -> accepted Home/QS_FAKE Build-446 behavior remains unchanged;
+6. SystemUI restart/cold start -> same policy without one-time raw/overlap/blank frames.
+
+
+## 2026-09-29 — Build 447: opt-in steady Keyguard adapter candidate
+
+**Type:** Phase-3 runtime capability candidate
+**Build:** 447 / `20260929-447`
+**Work branch:** `feat/keyguard-scene-adapter`
+**Base:** device-accepted Build 446 + docs closure
+**Hook delta:** 0
+**AOD:** outside supported scope; device blocker
+
+### Objective
+
+Build 446 closes the Home/QS_FAKE prerequisite regressions. The next task is the actual steady lockscreen adapter without turning Keyguard into a Home flag or creating a second Control Center transition engine.
+
+### Architecture
+
+`SystemUiKeyguardHostResolver`
+-> structurally verified `MiuiKeyguardStatusBarView`
+-> native `mSystemIconsContainer / mStatusIconContainer / mBatteryView`
+-> independent `CombinedStatusKeyguardRenderSession`
+-> independent identity-scoped Keyguard presentation session
+-> shared semantic renderer/layout policies.
+
+The resolver is triggered by the already-installed Battery scene callback. It accepts the concrete Keyguard View ancestry first, then uses the raw surface only to decide steady Keyguard vs exit. This closes the unlock cleanup hole where a Keyguard Battery can emit an unlocked raw state that the higher-level scene classifier intentionally maps to UNKNOWN.
+
+### Feature policy
+
+- global `enabled` continues to govern the product globally;
+- `keyguardEnabled` is added to the same feature-domain repository and remote preference transport;
+- default is **false**;
+- the Features UI exposes one Keyguard switch and disables it while the global feature is off;
+- Keyguard-originated QS_FAKE is allowed only when `enabled && keyguardEnabled && keyguardRuntimeReady`;
+- Home-originated QS_FAKE continues to use the accepted Build-445/446 Home source identity path.
+
+### Presentation ownership
+
+The existing class-wide presentation Hook substrate remains exactly three Hooks. A new `keyguardCurrent` session is selected only by exact View identity. Home carrier identity remains Home-only so the Build-445 `realSystemIcons` classifier cannot misclassify the Keyguard carrier as Home.
+
+The Keyguard renderer is mounted in the native Keyguard `MiuiStatusBatteryContainer.overlay`. Native carrier visibility/alpha/translation are inherited; Combined Status does not write them. Native represented-slot masking/reservation is installed only after render model, Keyguard Battery tint, layout and attachment are ready.
+
+### AOD boundary
+
+Exact-target static evidence proves AOD has a distinct lifecycle (`fullAodFlow`, `animateFullAod()`, Battery AOD state/methods). Build 447 deliberately does not claim that lifecycle and adds no AOD Hook.
+
+Therefore:
+- the Keyguard switch is an opt-in candidate, not a promoted runtime-verified capability;
+- AOD enter/exit is a required device blocker;
+- if Combined Status leaks into AOD or native Keyguard/AOD restoration is incomplete, the candidate is rejected and the next change must introduce a dedicated AOD boundary instead of an alpha/timing heuristic.
+
+### 审查 / review
+
+- **root cause / ownership:** separate mutable Keyguard owner; no Home session reuse.
+- **native authority:** structural Keyguard host and Keyguard Battery tint.
+- **single writer:** Home, Keyguard and QS_FAKE sessions are disjoint by exact View identity.
+- **cleanup:** Keyguard Battery unlocked-state and verified Home source both release Keyguard presentation; preference disable and Hot Reload also restore native state.
+- **QS_FAKE:** native HyperOS `realSystemIcons` remains the source router; Keyguard readiness only supplies permission.
+- **Home regression guard:** `ownsBatteryContainer()` stays Home-only.
+- **performance:** Hook delta 0; no polling/timer/frame follower.
+- **AOD:** not inferred from Keyguard state.
+
+### Validation plan
+
+Automated:
+1. exact-head Fast;
+2. pinned target profile;
+3. feature default / scene-policy / resolver / render-readiness unit tests;
+4. Modern Xposed metadata.
+
+If Fast passes, trusted Canary. Device:
+1. enable **锁屏显示三合一** and enter steady lockscreen;
+2. confirm native represented Wi-Fi/mobile/Battery are replaced by one Combined visual with no duplicate/gap;
+3. Keyguard -> partial Control Center pull -> bridge follows Keyguard source; fully expanded endpoint remains native;
+4. unlock -> accepted Home behavior remains unchanged;
+5. disable Keyguard switch -> steady Keyguard + Keyguard-originated QS_FAKE return native without SystemUI restart;
+6. AOD enter/exit -> report any Combined leak, duplicate, blank state, wrong alpha/motion, or failed restoration as a blocker;
+7. restart SystemUI and repeat the first Keyguard entry.
+
+
+## 2026-09-29 — Build 446: late-eligibility compact cutover
+
+**Type:** device-evidence-driven cutover lifecycle correction
+**Build:** 446 / `20260929-446`
+**Work branch:** `feat/keyguard-scene-adapter`
+**Base:** Build-445 exact head `4e7c446127bf710fd07ffef7a93ff6f6ef0e3c9f`
+**Hook delta:** 0
+**Keyguard steady rendering:** still disabled
+**AOD:** untouched
+
+### Build-445 device evidence
+
+The maintainer reports that desktop/Home Control Center still does not show Combined Status.
+
+The supplied Build-445 detailed diagnostic rejects the previous Home-classifier hypothesis as the remaining blocker:
+- native Control Center visibility resolves `sourceScene=HOME`;
+- scene policy transitions to `state=eligible` with `authority=hyperos-realSystemIcons`;
+- compact presentation then logs `preLayoutVisualMask active=false maskedViews=0 compactLayoutReady=false fallbackVisual=native-until-native-layout`;
+- no later `controlCenterPresentation active` or `layoutReady source=native-status-icons-onLayout` appears during the pull.
+
+### Root cause
+
+Build 443 correctly made the native `MiuiStatusIconContainer.onLayout` event the normal atomic cutover boundary so project masking cannot precede native layout.
+
+Build 444 then delayed compact presentation ownership until source-scene eligibility is known. For a Home-originated pull, that eligibility can arrive only when Control Center becomes visible, after the shared fake status-icons group has already completed its native layout. Starting a deferred compact session at that moment waits for a **future** `onLayout` that HyperOS is not required to emit, leaving `compactLayoutReady=false` indefinitely.
+
+### Corrected execution flow
+
+Scene gate becomes Home-eligible
+-> activate existing QS_FAKE compact session
+-> `syncEndReservation()`
+-> inspect the existing native status-icons layout state
+-> if `isLaidOut && !isLayoutRequested && width>0 && height>0`:
+   reuse that already-completed native layout as the cutover proof
+   -> apply existing visual masks
+   -> mark compact layout ready
+   -> current render-session readiness/visibility handoff
+-> otherwise:
+   preserve native visuals
+   -> wait for the existing native `MiuiStatusIconContainer.onLayout` Hook
+   -> normal Build-443 cutover.
+
+### 审查 / review
+
+- **root cause first:** fixes the missing late-entry cutover boundary, not source classification.
+- **preserves Build 443:** no native masking occurs before either an already-completed native layout or a fresh native `onLayout`.
+- **stale-layout guard:** `isLayoutRequested=true` blocks adoption and forces the normal native callback path.
+- **single writer:** `SystemUiHomePresentationOwner` remains the only compact mask owner.
+- **no geometry ownership:** the project does not set fake-root/status-icons geometry.
+- **performance:** one bounded View-state check only when compact ownership starts; no new hook/listener/timer/polling/frame callback.
+- **fail native:** unresolved/pending layout keeps native visuals visible.
+
+### Validation plan
+
+Exact-head Fast, then trusted Canary. Device validation:
+1. unlocked Home -> Control Center must show Combined QS_FAKE and reach `layoutReady source=existing-native-status-icons-layout` or the normal native-onLayout path;
+2. Keyguard -> Control Center remains native;
+3. unlock -> Home pull restores Combined without SystemUI restart.
+
+
+### Device acceptance
+
+Build 446 is accepted by the maintainer with no visible issue in the requested Home / Keyguard / return checks.
+
+Detailed diagnostic `CombinedStatus-Diagnostic-20260929-446-20260929-063035.txt` verifies:
+- Home-originated Control Center reaches `sourceScene=HOME`, then `layoutReady source=existing-native-status-icons-layout`, `compact ready=true`, and final projection readiness with every gate true;
+- a later Home pull enters with a pending layout, keeps native visuals during preparation, then receives `layoutReady source=native-status-icons-onLayout`, activates the compact presentation, and reaches projection ready;
+- Keyguard scene updates deactivate/restore the compact QS_FAKE owner and keep `sourceScene=KEYGUARD / state=native / keyguardEnabled=false`;
+- runtime health remains healthy and no additional geometry/alpha/visibility writer is introduced by the Build-446 correction.
+
+**Outcome:** accepted. The late-eligibility cutover blocker is closed. Phase-3 work can proceed to the independent steady Keyguard adapter without reopening the Home/QS_FAKE fix.
+
+
+## 2026-09-29 — Build 445: Home source identity correction for QS_FAKE
+
+**Type:** device-evidence-driven source-classifier correction
+**Build:** 445 / `20260929-445`
+**Work branch:** `feat/keyguard-scene-adapter`
+**Base:** Build-444 exact head `a9f7eb2d1997fd8ac0abcc1a8d3729b85264c2ce`
+**Hook delta:** 0
+**Keyguard steady rendering:** still disabled
+**AOD:** untouched
+
+### Build-444 device evidence
+
+The maintainer reports that the desktop/Home QS_FAKE Combined Status disappeared. The supplied Build-444 detailed diagnostic makes the failure deterministic:
+
+- unlocked/Home Control Center visibility callbacks repeatedly report `sourceScene=UNKNOWN`;
+- there is no `sourceScene=HOME` in the session;
+- Keyguard-originated Control Center callbacks report `sourceScene=KEYGUARD`, so the Keyguard branch of the classifier is working;
+- Home steady Combined Status itself remains active, proving the underlying Home carrier/session still exists.
+
+### Root cause
+
+Build 444 correctly chose HyperOS `ControlCenterHeaderExpandController.realSystemIcons` as the final selected source endpoint, but then classified that endpoint through its **current View ancestry**.
+
+For the selected Home `MiuiStatusBatteryContainer`, Control Center ownership no longer preserves the steady `MiuiNotificationStatusContainer` parent chain required by `SystemUiSceneStateSource.steadySourceScene(View)`. The source therefore falls through to `UNKNOWN`, and the intentionally fail-native scene policy suppresses the desktop QS_FAKE Combined projection.
+
+Keyguard happens to retain enough structural ancestry in the observed target to classify correctly; that does not make ancestry a valid Home identity contract.
+
+### Corrected execution flow
+
+HyperOS `realSystemIcons`
+-> compare object identity with the Home `MiuiStatusBatteryContainer` already owned by `SystemUiHomePresentationOwner`
+-> identity match = HOME
+-> otherwise use the existing structural classifier (verified Keyguard fallback)
+-> unresolved = UNKNOWN/native
+-> existing `CombinedStatusScenePolicy`
+-> shared QS_FAKE eligibility + compact mask ownership.
+
+### 审查 / review
+
+- **root cause first:** fixes the failing Home classifier, not the scene gate.
+- **native authority:** `realSystemIcons` remains the HyperOS-selected source endpoint.
+- **reuse:** Home identity reuses the existing HomePresentationOwner session; no duplicate carrier cache is introduced.
+- **single writer:** no presentation writer changes; existing mask/overlay ownership remains unchanged.
+- **fail native:** an unproven source still resolves UNKNOWN/native.
+- **Keyguard:** already-working structural Keyguard classification is preserved.
+- **performance:** one synchronized identity comparison at the native visibility boundary; no new Hook/listener/reflection/timer/polling.
+- **compatibility:** exact-target contract remains SystemUI `17.03.260226.r`.
+
+### Validation plan
+
+Run exact-head Fast and trusted Canary. Device validation must confirm:
+1. unlocked Home -> Control Center restores Combined QS_FAKE and diagnostics report `sourceScene=HOME`;
+2. Keyguard -> Control Center remains native and reports `sourceScene=KEYGUARD`;
+3. unlock -> Control Center restores Home Combined QS_FAKE without SystemUI restart.
+
+
+## 2026-09-29 — Build 444: source-scene-gated QS_FAKE
+
+**Type:** Phase-3 scene-policy correction
+**Build:** 444 / `20260929-444`
+**Work branch:** `feat/keyguard-scene-adapter`
+**Base:** Build-443 exact head `7df6dfe424a645e9453c6a8737fe997b57c6793f`
+**Hook delta:** 0
+**Keyguard steady rendering:** still disabled
+**AOD:** untouched
+
+### Build-443 device evidence
+
+The maintainer confirms that a lockscreen-originated Control Center pull still shows the Combined Status icon. The supplied Build-443 diagnostic establishes two independent facts:
+
+1. The Build-443 cutover fix is active. Cold-start preparation reports `preLayoutVisualMask active=false maskedViews=0 compactLayoutReady=false fallbackVisual=native-until-native-layout`, then native `onLayout` commits compact readiness.
+2. The remaining lockscreen projection is policy, not readiness. Native scene updates enter `raw=1 / KEYGUARD`; later, when Control Center becomes visible, the projection reports `requestedVisible=true` and `ready=true`. Existing `homeRenderControlCenterEligibility=false` only yields the Home steady renderer and does not classify the QS_FAKE source scene.
+
+### Root cause
+
+The shared QS_FAKE bridge had no source-scene eligibility input. Its readiness equation was effectively:
+
+`featureEnabled && modelReady && tintReady && layoutReady && hostAttached && nativePresentationReady`.
+
+That makes a Keyguard-originated pull indistinguishable from a Home-originated pull once the fake root is structurally ready.
+
+### Corrected execution flow
+
+Structurally verified steady Battery host (pre-seed) / HyperOS `ControlCenterHeaderExpandController.realSystemIcons` (final pull authority)
+-> `CombinedStatusSourceScene`
+-> existing `CombinedStatusScenePolicy`
+-> source-scene eligibility
+-> QS_FAKE compact presentation + overlay readiness.
+
+Current Build-444 policy:
+- native-selected Home source: Combined QS_FAKE allowed because the verified Home capability is projected;
+- native-selected Keyguard source: native QS_FAKE because the Keyguard capability is still `NATIVE_ONLY` (and `keyguardEnabled=false`);
+- unknown/unresolved source: native.
+
+A steady Battery callback may pre-seed the source only when its actual View ancestry is `MiuiNotificationStatusContainer` or `MiuiKeyguardStatusBarView` and its state is structurally consistent. Fake/QS Battery instances are ignored as source authority. On `onVisibleChanged(true)`, HyperOS `realSystemIcons` ancestry becomes the final authority for that pull.
+
+When eligibility becomes false, the overlay readiness gate closes and the existing compact native presentation is deactivated/restored in the same main-thread event. The gate therefore does not leave a hidden Combined overlay paired with masked native slots.
+
+At fake-session attach, the current fake Battery scene is read through the already-installed scene source so cold start and Hot Reload do not depend on receiving a fresh callback before falling back safely.
+
+### 审查 / review
+
+- **root cause first:** fixes missing source-scene policy rather than adding gesture timing checks.
+- **native authority:** pre-seed accepts only structurally verified steady hosts; final pull classification reads HyperOS's own `realSystemIcons` selection from the already-resolved Control Center header contract.
+- **single writer:** existing HomePresentationOwner remains the only compact-mask writer.
+- **fail native:** KEYGUARD / SHADE_LOCKED / UNKNOWN default to native until a verified Keyguard feature policy exists.
+- **future setting:** the policy already accepts `keyguardEnabled`; wiring that setting is deferred until steady Keyguard rendering exists so one switch can govern steady Keyguard + Keyguard-originated QS_FAKE together.
+- **performance:** no Hook/listener/timer/polling/frame callback is added.
+- **AOD:** unchanged.
+
+### Validation plan
+
+Fast #1537 / run `36487954963` passed environment/target-profile gates but failed `compileDebugKotlin`: the first draft duplicated the already-existing `CombinedStatusScenePolicy` object in `SystemUiSceneStateSource.kt`, making the draft method unresolved through the redeclaration. This was a repository-reuse error, not a runtime hypothesis failure. The correction removes the duplicate object, extends the existing policy, and uses native `realSystemIcons` as final pull authority.
+
+Re-run exact-head Fast and trusted Canary. Device check then compares:
+1. unlocked Home -> Control Center: existing Combined QS_FAKE remains;
+2. Keyguard -> Control Center: native QS_FAKE only;
+3. return/unlock -> Control Center: Combined QS_FAKE resumes without SystemUI restart.
+
+
+## 2026-09-29 — Build 443: atomic QS_FAKE cold-start cutover
+
+**Type:** device-evidence-driven transition ownership correction
+**Build:** 443 / `20260929-443`
+**Work branch:** `feat/keyguard-scene-adapter`
+**Base:** Build-442 PR head `02e028172cb2700767df5190aaefe43a11dcb4d1`
+**Hook delta:** 0
+**Keyguard steady rendering:** still disabled
+**AOD:** untouched
+
+### Device evidence from Build 442
+
+The maintainer observed two distinct facts after installing Build 442:
+1. steady Keyguard still shows the native HyperOS status bar, while a Keyguard-originated Control Center pull can show the existing Combined Status QS_FAKE projection;
+2. after a SystemUI restart and a delay, the first Keyguard-originated pull appeared once to lose the fake Combined Status, but later pulls were not readily reproducible.
+
+The supplied diagnostic session supports a cold-start readiness race:
+- the first structurally valid Keyguard probe is `partial`: the `MiuiKeyguardStatusBarView`, its `mSystemIconsContainer` and Battery carrier are attached but 0-sized, while `realSystemIcons` still points at the 587x108 unlocked/Home `MiuiStatusBatteryContainer`;
+- immediately afterward the existing QS_FAKE presentation reports `projection-layout-unavailable-detached` / `pause-render`;
+- on the first later Control Center pull the session logs `preLayoutVisualMask active=true maskedViews=6 compactLayoutReady=false`;
+- only after native `MiuiStatusIconContainer.onLayout` does it log `layoutReady`, `controlCenterPresentation active`, and projection `ready=true`;
+- subsequent pulls reuse the compact-ready presentation, explaining why the defect becomes difficult to reproduce.
+
+### Root cause
+
+The implementation contradicted its own deferred-cutover contract. `Session.start(deferVisualMaskUntilLayout=true)` set `compactLayoutReady=false` but still called `refreshClipMasks()` immediately. Native represented slots and Battery could therefore be visually clipped before the Combined overlay had valid layout/readiness.
+
+This is a sequencing defect in the shared QS_FAKE bridge, not evidence that a Keyguard steady renderer already exists.
+
+### Corrected execution flow
+
+`QS_FAKE attach/prearm`
+-> keep native visuals intact
+-> request/use native layout
+-> existing `MiuiStatusIconContainer.onLayout` Hook completes native layout
+-> refresh visual masks
+-> mark compact layout ready
+-> existing ready callback marks native presentation ready
+-> lay out Combined overlay
+-> apply requested visibility in the same main-thread turn.
+
+Home steady ownership is unchanged. The fully expanded endpoint remains native-owned through HyperOS appearance alpha. No new scene heuristic is introduced.
+
+### 审查 / review
+
+- **root cause first:** fixes the pre-mask-before-readiness ordering rather than adding delay/retry behavior.
+- **single writer:** the existing HomePresentationOwner remains the sole visual-mask writer; no second mask owner is added.
+- **lifecycle:** the existing native `onLayout` Hook is reused as the cutover boundary.
+- **fail native:** until compact layout is ready, native QS_FAKE visuals remain visible. Failure therefore falls back to native instead of blank.
+- **performance:** no new Hook, listener, timer, polling, frame callback, or repeated traversal.
+- **compatibility:** exact-target behavior remains pinned to HyperOS SystemUI `17.03.260226.r`.
+- **Keyguard policy:** Keyguard steady Combined Status and its future enable/disable policy remain separate Phase-3 work. QS_FAKE must eventually inherit the currently selected Home/Keyguard scene policy rather than define it.
+
+### Validation plan
+
+Draft Light first, then exact-head Fast. If both pass, generate a signed Canary and verify: restart SystemUI -> wait on Keyguard -> first Control Center pull -> repeated pull/return. Expected result: the first pull never has a native-hidden/Combined-not-ready blank interval, and subsequent behavior remains unchanged.
+
+
+## 2026-09-29 — Build 442: Keyguard steady-host read-only probe
+
+**Type:** Phase-3 host/source evidence checkpoint
+**Build:** 442 / `20260929-442`
+**Work branch:** `feat/keyguard-scene-adapter`
+**Base:** `dev@0235d1ae20bc96f733e510547ec659d2377e0516`
+**Rendering:** disabled on Keyguard and AOD
+**Validation:** pending Draft Light -> exact-head Fast -> signed Canary / focused device evidence
+
+### Goal
+
+Begin Phase 3 without guessing the lockscreen owner. Before any Combined Status visual or native suppression is allowed on Keyguard, verify the exact steady Keyguard carrier, its local geometry/padding, and whether HyperOS has selected that same source for the shared Control Center transition route.
+
+### Exact-target evidence
+
+SystemUI Reference/JADX evidence for `17.03.260226.r` establishes:
+1. `MiuiKeyguardStatusBarView.mSystemIconsContainer` is the native Keyguard system-icons carrier registered as `ControlCenterFakeViewController.keyguardSystemIcons`.
+2. `adjustRealSystemIcons()` selects Home for native status-bar state 0 and Keyguard for state 1.
+3. Keyguard has its own tint/visibility/icon-animation owners; those owners must not be copied into a project scene state machine.
+4. AOD has a distinct controller/lifecycle and must not be inferred from steady Keyguard.
+
+### Rejected first branch draft
+
+Commits `3178b5017ec57c5f294f5577c8d9749330d0b9f5` and `3fe73ae116562f6d3bc50ddf11b5283da5dcdda9` initially added five read-only hooks for Keyguard attach/detach, base visibility, tint update and full-AOD animation. Review rejected that design **before CI/device validation**: although it did not write native properties, it duplicated native lifecycle observation, increased Hot Reload hook ownership, mixed AOD into the first Keyguard checkpoint, and violated the already-selected Build-442 boundary of reusing the existing scene Hook. Those commits are retained only as rejected development history; their 5-Hook route is not an accepted architecture premise.
+
+### Corrected implementation
+
+- Hook delta: **0**. Reuse the existing `SystemUiSceneStateSource` / `MiuiBatteryMeterView.updateState(I)` callback.
+- Raw `KEYGUARD` classification is only a trigger. The Battery must actually descend from `MiuiKeyguardStatusBarView`; this prevents unrelated Battery views reporting raw state 1 from being misidentified as the Keyguard host.
+- On each structurally verified KEYGUARD transition, snapshot:
+  - Keyguard host;
+  - `mSystemIconsContainer`;
+  - `mStatusIconContainer`;
+  - `mBatteryView` and its `battery_icon_container`;
+  - local size/padding/alpha/translation state;
+  - native `mDep.ccFake.realSystemIcons` identity.
+- A host is cached as confirmed only after it is attached, the system-icons geometry and Battery carrier width are non-zero, the emitting Battery is exactly `mBatteryView`, and HyperOS has selected that same carrier as `realSystemIcons`. Partial or negative samples are still logged but remain retryable on a later native KEYGUARD transition. Probe state resets with the existing presentation-runtime generation reset so Hot Reload cannot retain a stale host identity.
+- Missing optional reflective fields produce partial diagnostic evidence only; they do not change the live SystemUI state.
+- No Keyguard renderer, overlay, suppression, ignored-slot mutation, mask, end reservation, alpha/visibility/translation write, layout listener, timer, polling, retry or frame callback is introduced.
+- AOD runtime is **not observed or modified** in Build 442.
+
+### Problem execution flow
+
+`MiuiBatteryMeterView.updateState(1)`
+-> existing `SystemUiSceneStateSource`
+-> verify actual Battery ancestor is `MiuiKeyguardStatusBarView`
+-> one-shot host/source snapshot
+-> diagnostic record only
+-> no presentation mutation.
+
+This intentionally avoids the invalid shortcut `raw state 1 == Keyguard host`, which prior Phase-2 evidence already showed can be false at other panel boundaries.
+
+### 审查 / review
+
+- **root cause/state authority:** Battery status state is global context, not host identity; structural View ancestry is the gate.
+- **ownership/single writer:** SystemUI remains sole writer for Keyguard visibility, tint, animation, geometry and Control Center source selection.
+- **lifecycle:** one positive-ready snapshot freezes a concrete host; partial/negative samples remain eligible on later native scene transitions, with no new lifecycle observer.
+- **cleanup:** only a weak host identity is cached and is cleared by existing presentation-runtime reset.
+- **performance:** bounded ancestor walk + one-shot reflection; no hot-path repeated traversal.
+- **fail-native:** no verified Keyguard ancestor -> no probe action; unresolved fields -> partial diagnostics only.
+- **compatibility:** evidence is exact-target only for HyperOS SystemUI `17.03.260226.r`.
+- **future extension:** positive host/source evidence can authorize a later separate Keyguard presentation adapter. AOD remains a separate subsequent contract.
+
+### Validation gate
+
+Draft Light #1526 correctly classified the PR as Light but failed only `git diff --check` because five new DEVLOG metadata lines contained trailing whitespace; Android/Kotlin/build steps were skipped. After correcting that record formatting and hardening the one-shot cache so partial/negative samples remain retryable, Draft Light #1528 / run `36484281474` passed on exact runtime head `a4df8e2e6a05e7f14d71be64dbe234f6d292105d`. Build identity remains 442. The next gate is exact-head Fast; only after Fast should a signed Canary be generated because the unresolved questions require real-device View identity/geometry evidence.
+
+Focused device evidence will require: restart SystemUI, enter steady Keyguard, perform one Keyguard-originated Control Center pull/return, unlock, then export diagnostics. Any visible UI change is a hard failure because Build 442 is read-only.
+
 
 ## 2026-09-29 — Control Center fully-expanded endpoint investigation: native appearance handoff verified
 
@@ -477,9 +1052,9 @@ Build-441 diagnostics repeatedly showed normal Control Center motion `normalStat
 
 The larger charging-island leftward trajectory is **native HyperOS QS_FAKE behavior**, not an independent Combined Status 30 px alignment bug. The stable 105 px Combined carrier and the full native Battery presentation width used by island motion are two valid, different geometry semantics.
 
-### Rejected hypothesis / abandoned Build-442 attempt
+### Rejected hypothesis / abandoned local-normalization draft
 
-Before the exact-target chain was fully closed, an unmerged local-normalization attempt was briefly written on this work branch (commits `d1814d00b4c81f0d2d03ffb103e1ec6bc7cbea23`, `72254dd4d1e39fbdc6508d8ed97a0fd191635354`, record commit `5c1dc3f46061711678dfed58495721e062f8cd38`). It proposed canceling the Battery-island part of the inherited QS_FAKE root motion on the Combined overlay.
+Before the exact-target chain was fully closed, an unmerged local-normalization draft was briefly written on that work branch (commits `d1814d00b4c81f0d2d03ffb103e1ec6bc7cbea23`, `72254dd4d1e39fbdc6508d8ed97a0fd191635354`, record commit `5c1dc3f46061711678dfed58495721e062f8cd38`). It temporarily used the then-prospective next build identity while proposing cancellation of the Battery-island part of inherited QS_FAKE motion, but it never entered an accepted PR/CI/device checkpoint and therefore **did not reserve or become Build 442**. Formal Build 442 is the later Phase-3 Keyguard lifecycle probe.
 
 Exact-target review rejects that premise: the `-batteryWidth` term is part of HyperOS's intended QS_FAKE transition contract, and Combined currently inherits the same native root surface. The attempt had no PR, no accepted CI checkpoint and no device validation; the work branch was reset to the validated Build-441 baseline before continuing. **Do not revive this route without new frame-level evidence that Combined diverges from native QS_FAKE peers.**
 
@@ -9416,10 +9991,10 @@ This record-only closure does not create Build 425.
 
 ## 2026-09-29 — Build 446 adaptive launcher mark
 
-**Type:** companion-app visual resource  
-**Display version:** 0.0.2  
-**Build:** 446 / `20260929-446`  
-**Branch:** `feat/guiyuan-app-icon`  
+**Type:** companion-app visual resource
+**Display version:** 0.0.2
+**Build:** 446 / `20260929-446`
+**Branch:** `feat/guiyuan-app-icon`
 **Validation:** pending Fast
 
 ### Problem / objective
@@ -9467,10 +10042,10 @@ Run Fast on the exact branch head. If the compiled adaptive icon preserves the a
 
 ## 2026-09-29 — Build 449 HyperOS adaptive-icon fit correction
 
-**Type:** companion-app visual resource  
-**Display version:** 0.0.2  
-**Build:** 449 / `20260929-449`  
-**Branch:** `feat/guiyuan-app-icon`  
+**Type:** companion-app visual resource
+**Display version:** 0.0.2
+**Build:** 449 / `20260929-449`
+**Branch:** `feat/guiyuan-app-icon`
 **Validation:** Fast #1588 passed; Work Branch Canary #471 passed; device visual acceptance pending
 
 ### Problem / objective
@@ -9526,10 +10101,10 @@ Freeze the Build-449 geometry if exact-head CI passes. Device acceptance should 
 
 ## 2026-09-29 — Build 450 launcher scale refinement
 
-**Type:** companion-app visual resource  
-**Display version:** 0.0.2  
-**Build:** 450 / `20260929-450`  
-**Branch:** `feat/guiyuan-app-icon`  
+**Type:** companion-app visual resource
+**Display version:** 0.0.2
+**Build:** 450 / `20260929-450`
+**Branch:** `feat/guiyuan-app-icon`
 **Validation:** pending exact-head Fast
 
 ### Device feedback
@@ -9568,10 +10143,10 @@ Build 450 is the current icon candidate. If its desktop scale is accepted, close
 
 ## 2026-09-29 — Build 451 “归元” app-facing name + 51 dp icon candidate
 
-**Type:** companion-app branding / visual resource  
-**Display version:** 0.0.2  
-**Build / executable source:** 451 / `20260929-451` / `87087ce74f4b00c0a93b8908640ffaf83650f369`  
-**Branch:** `feat/guiyuan-app-icon`  
+**Type:** companion-app branding / visual resource
+**Display version:** 0.0.2
+**Build / executable source:** 451 / `20260929-451` / `87087ce74f4b00c0a93b8908640ffaf83650f369`
+**Branch:** `feat/guiyuan-app-icon`
 **Validation:** Fast #1569 passed; Work Branch Canary #468 passed; device visual acceptance pending
 
 ### Problem / objective
@@ -9617,10 +10192,10 @@ Device-check only the launcher/App info visual scale, clean-white background, th
 
 ## 2026-09-29 — Build 452 orbit-gap normalization + 53 dp fit
 
-**Type:** companion-app branding / visual resource  
-**Display version:** 0.0.2  
-**Build:** 452 / `20260929-452`  
-**Branch:** `feat/guiyuan-app-icon`  
+**Type:** companion-app branding / visual resource
+**Display version:** 0.0.2
+**Build:** 452 / `20260929-452`
+**Branch:** `feat/guiyuan-app-icon`
 **Validation:** pending exact-head Fast
 
 ### Device feedback
@@ -9686,10 +10261,10 @@ Build 452 is the current visual candidate. If the 53 dp scale and normalized nod
 
 ## 2026-09-29 — Build 452 visually unified orbit geometry
 
-**Type:** companion-app branding / visual resource  
-**Display version:** 0.0.2  
-**Build:** 452 / `20260929-452`  
-**Branch:** `feat/guiyuan-app-icon`  
+**Type:** companion-app branding / visual resource
+**Display version:** 0.0.2
+**Build:** 452 / `20260929-452`
+**Branch:** `feat/guiyuan-app-icon`
 **Validation:** pending exact-head Fast
 
 ### Device feedback

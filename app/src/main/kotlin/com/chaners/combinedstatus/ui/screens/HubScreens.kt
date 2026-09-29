@@ -83,6 +83,13 @@ internal fun FeaturesScreen(
             onCheckedChange = featureRepository::setEnabled,
         )
         SwitchPreference(
+            title = stringResource(R.string.keyguard_combined_status_title),
+            summary = stringResource(R.string.keyguard_combined_status_summary),
+            checked = featureSettings.keyguardEnabled,
+            enabled = featureSettings.enabled,
+            onCheckedChange = featureRepository::setKeyguardEnabled,
+        )
+        SwitchPreference(
             title = stringResource(R.string.mobile_follow_battery_color),
             summary = stringResource(R.string.mobile_follow_battery_color_summary),
             checked = visualSettings.mobileFollowsBatteryColor,

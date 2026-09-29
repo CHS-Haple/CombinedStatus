@@ -148,4 +148,43 @@ class SystemUiPanelTransitionSourceTest {
         assertEquals(8, SystemUiPanelTransitionSource.diagnosticBucket(1.4f))
         assertNull(SystemUiPanelTransitionSource.diagnosticBucket(null))
     }
+
+    @Test
+    fun controlCenterSourceUsesHomeCarrierIdentityBeforeStructuralFallback() {
+        assertEquals(
+            CombinedStatusSourceScene.HOME,
+            SystemUiPanelTransitionSource.classifyControlCenterSourceScene(
+                homeIdentityMatches = true,
+                structuralScene = CombinedStatusSourceScene.UNKNOWN,
+            ),
+        )
+        assertEquals(
+            CombinedStatusSourceScene.KEYGUARD,
+            SystemUiPanelTransitionSource.classifyControlCenterSourceScene(
+                homeIdentityMatches = false,
+                structuralScene = CombinedStatusSourceScene.KEYGUARD,
+            ),
+        )
+        assertEquals(
+            CombinedStatusSourceScene.UNKNOWN,
+            SystemUiPanelTransitionSource.classifyControlCenterSourceScene(
+                homeIdentityMatches = false,
+                structuralScene = CombinedStatusSourceScene.UNKNOWN,
+            ),
+        )
+    }
+
+    @Test
+    fun controlCenterUpdateCarriesNativeSelectedSourceScene() {
+        val update =
+            SystemUiPanelTransitionSource.Update(
+                source = SystemUiPanelTransitionSource.Source.CONTROL_CENTER,
+                fraction = null,
+                expanded = null,
+                tracking = null,
+                visible = true,
+                controlCenterSourceScene = CombinedStatusSourceScene.KEYGUARD,
+            )
+        assertEquals(CombinedStatusSourceScene.KEYGUARD, update.controlCenterSourceScene)
+    }
 }

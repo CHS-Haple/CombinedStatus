@@ -10,6 +10,7 @@ import com.chaners.combinedstatus.settings.CENTER_FOLLOWS_BATTERY_COLOR_KEY
 import com.chaners.combinedstatus.settings.COMBINED_STATUS_ENABLED_KEY
 import com.chaners.combinedstatus.settings.COMBINED_STATUS_FEATURE_CHANGE_ELAPSED_REALTIME_NANOS_KEY
 import com.chaners.combinedstatus.settings.COMBINED_STATUS_FEATURE_PREFS_NAME
+import com.chaners.combinedstatus.settings.COMBINED_STATUS_KEYGUARD_ENABLED_KEY
 import com.chaners.combinedstatus.settings.COMBINED_STATUS_VISUAL_PREFS_NAME
 import com.chaners.combinedstatus.settings.DIAGNOSTICS_LEVEL_KEY
 import com.chaners.combinedstatus.settings.DIAGNOSTICS_PREFS_NAME
@@ -67,7 +68,10 @@ class CombinedStatusApplication :
 
     private val featureListener =
         SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-            if (key == COMBINED_STATUS_ENABLED_KEY) {
+            if (
+                key == COMBINED_STATUS_ENABLED_KEY ||
+                key == COMBINED_STATUS_KEYGUARD_ENABLED_KEY
+            ) {
                 xposedService?.let(::syncRuntimeConfig)
             }
         }
@@ -187,6 +191,11 @@ class CombinedStatusApplication :
                 COMBINED_STATUS_ENABLED_KEY,
                 true,
             )
+        val keyguardEnabled =
+            featurePreferences.getBoolean(
+                COMBINED_STATUS_KEYGUARD_ENABLED_KEY,
+                false,
+            )
         val featureChangeElapsedRealtimeNanos =
             featurePreferences.getLong(
                 COMBINED_STATUS_FEATURE_CHANGE_ELAPSED_REALTIME_NANOS_KEY,
@@ -211,6 +220,10 @@ class CombinedStatusApplication :
                 .putBoolean(
                     COMBINED_STATUS_ENABLED_KEY,
                     combinedStatusEnabled,
+                )
+                .putBoolean(
+                    COMBINED_STATUS_KEYGUARD_ENABLED_KEY,
+                    keyguardEnabled,
                 )
                 .putLong(
                     COMBINED_STATUS_FEATURE_CHANGE_ELAPSED_REALTIME_NANOS_KEY,

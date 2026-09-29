@@ -23,4 +23,35 @@ class SystemUiSceneStateSourceTest {
             SystemUiSceneStateSource.classifyRawState(99),
         )
     }
+
+    @Test
+    fun steadySourceAuthorityRequiresMatchingStructuralHost() {
+        assertEquals(
+            CombinedStatusSourceScene.HOME,
+            SystemUiSceneStateSource.classifySteadySourceAncestors(
+                listOf(
+                    "com.android.systemui.statusbar.views.MiuiBatteryMeterView",
+                    "com.android.systemui.statusbar.phone.MiuiNotificationStatusContainer",
+                ),
+            ),
+        )
+        assertEquals(
+            CombinedStatusSourceScene.KEYGUARD,
+            SystemUiSceneStateSource.classifySteadySourceAncestors(
+                listOf(
+                    "com.android.systemui.statusbar.views.MiuiBatteryMeterView",
+                    "com.android.systemui.statusbar.phone.MiuiKeyguardStatusBarView",
+                ),
+            ),
+        )
+        assertEquals(
+            CombinedStatusSourceScene.UNKNOWN,
+            SystemUiSceneStateSource.classifySteadySourceAncestors(
+                listOf(
+                    "com.android.systemui.statusbar.views.MiuiBatteryMeterView",
+                    "com.android.systemui.controlcenter.phone.widget.ControlCenterFakeStatusIcons",
+                ),
+            ),
+        )
+    }
 }

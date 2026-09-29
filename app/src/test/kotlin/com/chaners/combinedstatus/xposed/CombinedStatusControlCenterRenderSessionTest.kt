@@ -10,6 +10,7 @@ class CombinedStatusControlCenterRenderSessionTest {
         assertTrue(
             CombinedStatusControlCenterRenderSession.resolveProjectionReady(
                 featureEnabled = true,
+                sceneEligible = true,
                 modelReady = true,
                 tintReady = true,
                 layoutReady = true,
@@ -20,6 +21,18 @@ class CombinedStatusControlCenterRenderSessionTest {
         assertFalse(
             CombinedStatusControlCenterRenderSession.resolveProjectionReady(
                 featureEnabled = true,
+                sceneEligible = false,
+                modelReady = true,
+                tintReady = true,
+                layoutReady = true,
+                hostAttached = true,
+                nativePresentationReady = true,
+            ),
+        )
+        assertFalse(
+            CombinedStatusControlCenterRenderSession.resolveProjectionReady(
+                featureEnabled = true,
+                sceneEligible = true,
                 modelReady = true,
                 tintReady = true,
                 layoutReady = true,
@@ -30,6 +43,7 @@ class CombinedStatusControlCenterRenderSessionTest {
         assertFalse(
             CombinedStatusControlCenterRenderSession.resolveProjectionReady(
                 featureEnabled = true,
+                sceneEligible = true,
                 modelReady = true,
                 tintReady = false,
                 layoutReady = true,
