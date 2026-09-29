@@ -11704,3 +11704,41 @@ The same device review also clarifies the intended Mobile morph: after the four 
 ### Validation
 
 Exact-head Runtime CI is required. One signed Canary should jointly validate charging gesture entry, bidirectional Mobile growth, Keyguard terminal handoff, and HyperCeiler dual-row regression.
+
+
+## 2026-09-30 — Build 490: remove Keyguard per-frame layout reservation
+
+**Type:** Keyguard Control Center responsiveness / ownership correction  
+**Display version:** 0.0.3  
+**Build / source:** 490 / `20260930-490` / `feat/control-center-transition-matrix`
+
+### Device evidence
+
+Build 488 remains visibly laggy and not finger-following during lockscreen Control Center pulls. The supplied detailed diagnostic shows progress-synchronous end reservation updating `statusIcons.paddingEnd` repeatedly through the gesture, commonly at roughly one update per 120Hz frame. The writer is `SystemUiHomePresentationOwner.syncEndReservation()`, which calls `MiuiStatusIconContainer.setPaddingRelative(...)` whenever the requested width changes.
+
+### Root cause
+
+A layout property was being used as a high-frequency animation property. The native expansion fraction itself is timely, but each changed padding value requires the View layout path before peer geometry reflects the new reservation. On Keyguard this competes with HyperOS's existing fake-root/peer motion and produces visible follow lag even when the lifecycle lease correctly prevents terminal cleanup.
+
+### Change
+
+- Track the verified Control Center source scene inside TransitionOwner.
+- Progress-synchronous semantic reservation is now allowed only for HOME.
+- For KEYGUARD, transition reservation is cleared back to the compact baseline once and then remains untouched through the gesture.
+- Native peers therefore stay on HyperOS's own fake-root and child translation path; Guiyuan continues drawing only its component transition from the same raw native progress.
+- UNKNOWN also fails lightweight with no progress reservation.
+- Build-488 lifecycle lease remains; Build-489 compact-carrier source and Mobile morphology remain.
+
+### 审查 / review
+
+- **root-cause-first:** removes the high-frequency layout mutation rather than smoothing/quantizing it.
+- **native-first:** Keyguard peer motion is returned to HyperOS rather than replaced by a custom translation animator.
+- **single writer:** no new native translation/alpha/visibility writer is introduced.
+- **performance:** eliminates per-frame `setPaddingRelative` on Keyguard; no timer, polling, or extra traversal is added.
+- **cleanup:** existing transition-reservation cleanup remains authoritative and idempotent.
+- **scope:** HOME remains unchanged so accepted Home behavior is not destabilized without evidence.
+- **risk:** Keyguard no longer reserves progressive occupancy for decomposed Guiyuan components; device validation must verify that native peer motion avoids overlap throughout the split.
+
+### Validation
+
+Exact-head Runtime CI and one signed Canary are required. The decisive test is full-gesture finger following on Keyguard versus Build 488.

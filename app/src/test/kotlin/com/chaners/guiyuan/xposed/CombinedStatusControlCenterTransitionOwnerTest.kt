@@ -164,4 +164,20 @@ class CombinedStatusControlCenterTransitionOwnerTest {
             ),
         )
     }
+
+    @Test
+    fun keyguardTransitionLeavesNativePeersOnSystemUiMotionPath() {
+        assertTrue(
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .usesProgressSynchronousReservation(CombinedStatusSourceScene.HOME),
+        )
+        assertTrue(
+            !CombinedStatusControlCenterTransitionOwner.Policy
+                .usesProgressSynchronousReservation(CombinedStatusSourceScene.KEYGUARD),
+        )
+        assertTrue(
+            !CombinedStatusControlCenterTransitionOwner.Policy
+                .usesProgressSynchronousReservation(CombinedStatusSourceScene.UNKNOWN),
+        )
+    }
 }

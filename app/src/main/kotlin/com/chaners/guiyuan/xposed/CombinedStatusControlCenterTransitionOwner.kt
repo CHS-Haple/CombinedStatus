@@ -32,6 +32,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
     private var nativeProgress: Float? = null
     private var nativeAppearance = false
     private var nativeAppearanceAnimated = false
+    private var sourceScene = CombinedStatusSourceScene.UNKNOWN
     private var endpoints: SystemUiPanelTransitionSource.ControlCenterTransitionEndpoints? = null
     private var current: Session? = null
 
@@ -43,12 +44,14 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 nativeProgress = null
                 nativeAppearance = false
                 nativeAppearanceAnimated = false
+                sourceScene = CombinedStatusSourceScene.UNKNOWN
                 endpoints = null
             }
         }
         update.fraction?.let { nativeProgress = it }
         update.controlCenterAppearance?.let { nativeAppearance = it }
         update.controlCenterAppearanceAnimated?.let { nativeAppearanceAnimated = it }
+        update.controlCenterSourceScene?.let { sourceScene = it }
         update.controlCenterTransitionEndpoints?.let { endpoints = it }
         sync("panel-update")
     }
@@ -79,6 +82,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
         nativeProgress = null
         nativeAppearance = false
         nativeAppearanceAnimated = false
+        sourceScene = CombinedStatusSourceScene.UNKNOWN
         endpoints = null
     }
 
@@ -152,6 +156,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
             sourceSnapshot = sourceSnapshot,
             nativeAppearance = nativeAppearance,
             nativeAppearanceAnimated = nativeAppearanceAnimated,
+            transitionReservationEnabled =
+                Policy.usesProgressSynchronousReservation(sourceScene),
         )
     }
 
@@ -174,6 +180,10 @@ internal object CombinedStatusControlCenterTransitionOwner {
 
         fun unmatchedExitScale(rawProgress: Float): Float =
             1f - 0.06f * geometryProgress(rawProgress)
+
+        fun usesProgressSynchronousReservation(
+            sourceScene: CombinedStatusSourceScene,
+        ): Boolean = sourceScene == CombinedStatusSourceScene.HOME
 
         data class ReservationSpan(
             val sourceLeft: Float,
@@ -438,6 +448,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
         private var cachedNativePeerTint: Int? = null
         private var frozenReservationSpans: List<Policy.ReservationSpan>? = null
         private var lastReservationWidthPx: Int? = null
+        private var transitionReservationEnabled = false
 
         private val preDrawListener =
             ViewTreeObserver.OnPreDrawListener {
@@ -493,6 +504,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 ",final=" + (finalRootRef.get()?.javaClass?.simpleName ?: "none") +
                 ",witness=" + lastWitnessSummary +
                 ",reservation=" + (lastReservationWidthPx ?: -1) +
+                ",reservationMode=" +
+                (if (transitionReservationEnabled) "progress-padding" else "native-peer-motion") +
                 "}"
 
         fun matches(
@@ -527,6 +540,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
             sourceSnapshot: CombinedStatusControlCenterRenderSession.TransitionSourceSnapshot,
             nativeAppearance: Boolean,
             nativeAppearanceAnimated: Boolean,
+            transitionReservationEnabled: Boolean,
         ) {
             val appearanceChanged =
                 this.nativeAppearance != nativeAppearance ||
@@ -535,6 +549,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
             this.currentSnapshot = sourceSnapshot
             this.nativeAppearance = nativeAppearance
             this.nativeAppearanceAnimated = nativeAppearanceAnimated
+            this.transitionReservationEnabled = transitionReservationEnabled
             if (appearanceChanged) {
                 refreshNativePeerTint()
             }
@@ -733,6 +748,15 @@ internal object CombinedStatusControlCenterTransitionOwner {
         }
 
         private fun syncTransitionReservation() {
+            if (!transitionReservationEnabled) {
+                if (lastReservationWidthPx != null) {
+                    SystemUiHomePresentationOwner.clearControlCenterTransitionReservation(
+                        "transition-source-native-peer-motion",
+                    )
+                    lastReservationWidthPx = null
+                }
+                return
+            }
             val source = sourceViewRef.get() ?: return
             if (source.width <= 0) return
             val spans =
