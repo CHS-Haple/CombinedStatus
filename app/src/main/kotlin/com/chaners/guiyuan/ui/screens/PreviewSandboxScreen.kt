@@ -1,9 +1,7 @@
 package com.chaners.guiyuan.ui.screens
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -389,16 +387,20 @@ private fun SandboxSegmentedField(
         modifier = modifier,
         insideMargin = SandboxPreferenceInsideMargin,
         bottomAction = {
-            TabRowWithContour(
-                tabs = options,
-                selectedTabIndex = selectedIndex,
-                onTabSelected = onSelected,
-                modifier =
-                    Modifier
-                        .widthIn(max = maxWidth)
-                        .fillMaxWidth()
-                        .align(Alignment.CenterHorizontally),
-            )
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center,
+            ) {
+                TabRowWithContour(
+                    tabs = options,
+                    selectedTabIndex = selectedIndex,
+                    onTabSelected = onSelected,
+                    modifier =
+                        Modifier
+                            .widthIn(max = maxWidth)
+                            .fillMaxWidth(),
+                )
+            }
         },
     )
 }
