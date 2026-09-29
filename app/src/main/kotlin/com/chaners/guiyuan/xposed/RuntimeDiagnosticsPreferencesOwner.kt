@@ -1,8 +1,8 @@
-package com.chaners.combinedstatus.xposed
+package com.chaners.guiyuan.xposed
 
 import android.content.SharedPreferences
-import com.chaners.combinedstatus.settings.DIAGNOSTICS_LEVEL_KEY
-import com.chaners.combinedstatus.settings.DiagnosticsLevel
+import com.chaners.guiyuan.settings.DIAGNOSTICS_LEVEL_KEY
+import com.chaners.guiyuan.settings.DiagnosticsLevel
 
 internal object RuntimeDiagnosticsPreferencesOwner {
     private var preferences: SharedPreferences? = null

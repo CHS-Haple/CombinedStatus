@@ -1,4 +1,4 @@
-package com.chaners.combinedstatus.xposed
+package com.chaners.guiyuan.xposed
 
 import android.os.Bundle
 

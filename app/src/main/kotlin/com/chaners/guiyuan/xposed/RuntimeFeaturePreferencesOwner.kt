@@ -1,11 +1,11 @@
-package com.chaners.combinedstatus.xposed
+package com.chaners.guiyuan.xposed
 
 import android.content.SharedPreferences
 import android.os.SystemClock
-import com.chaners.combinedstatus.settings.COMBINED_STATUS_ENABLED_KEY
-import com.chaners.combinedstatus.settings.COMBINED_STATUS_FEATURE_CHANGE_ELAPSED_REALTIME_NANOS_KEY
-import com.chaners.combinedstatus.settings.COMBINED_STATUS_KEYGUARD_ENABLED_KEY
-import com.chaners.combinedstatus.settings.CombinedStatusFeatureSettings
+import com.chaners.guiyuan.settings.COMBINED_STATUS_ENABLED_KEY
+import com.chaners.guiyuan.settings.COMBINED_STATUS_FEATURE_CHANGE_ELAPSED_REALTIME_NANOS_KEY
+import com.chaners.guiyuan.settings.COMBINED_STATUS_KEYGUARD_ENABLED_KEY
+import com.chaners.guiyuan.settings.CombinedStatusFeatureSettings
 
 internal object RuntimeFeaturePreferencesOwner {
     @Volatile

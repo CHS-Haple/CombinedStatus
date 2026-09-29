@@ -1,4 +1,4 @@
-package com.chaners.combinedstatus.xposed
+package com.chaners.guiyuan.xposed
 
 internal object NativeStatusBarSlotReservation {
     const val STATUS_BAR_ICON_LIST =
