@@ -778,7 +778,7 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
             DiagnosticsActionRow(
                 title = stringResource(R.string.export_diagnostic_report),
                 summary = stringResource(R.string.export_diagnostic_report_summary),
-                icon = MiuixIcons.Download,
+                icon = MiuixIcons.Normal.Download,
                 enabled = !reportInProgress && !exportPickerOpen,
                 onClick = {
                     exportPickerOpen = true
@@ -788,7 +788,7 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
             DiagnosticsActionRow(
                 title = stringResource(R.string.share_diagnostic_report),
                 summary = stringResource(R.string.share_diagnostic_report_summary),
-                icon = MiuixIcons.Share,
+                icon = MiuixIcons.Normal.Share,
                 enabled = !reportInProgress && !exportPickerOpen,
                 onClick = {
                     buildReport { report ->
