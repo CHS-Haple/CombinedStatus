@@ -77,9 +77,13 @@ Prefer a restoration-token model over long-lived mutation.
 
 ### Combined Status applicability
 
-**Adopted for Home on the pinned target.**
+**Adopted for Home on the pinned target; refined for transition-capable Keyguard/QS_FAKE.**
 
-Exact-target inspection verified `MiuiStatusIconContainer.ignoredSlots` and its use by native measure/layout. The current Home session temporarily adds only represented slots around those native calls and restores exactly the entries it owned.
+Exact-target inspection verified `MiuiStatusIconContainer.ignoredSlots`, public final `addIgnoredSlots(...)` / `setIgnoredSlots(...)`, and native measure/layout consumption. Home keeps the device-accepted temporary native-call scope: represented entries exist only around the hooked native measure/layout invocation and are then restored.
+
+Build-455 device evidence proves that temporary scope is not sufficient for Keyguard/QS_FAKE, because those surfaces have native motion/animation ownership that can run outside the measure/layout call. Build 456 therefore uses the same native ignored-slot contract as **session state** on those two surfaces: add only the absent represented entries through the native API, keep them present until that presentation session ends, then restore only the owned delta through the native setter. Native add/set remains responsible for layout invalidation; Combined Status does not add a parallel motion writer.
+
+The reusable rule is therefore not "always temporary" or "always persistent": the ignored-slot lifetime must match the complete native presentation owner that consumes the layout state. In every case the mutation stays host/session-scoped, minimal, reversible and fail-native on writer ambiguity.
 
 This remains fingerprint-scoped. Other SystemUI builds/scenes and unexpected competing state must be revalidated or fail native.
 

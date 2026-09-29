@@ -2,6 +2,75 @@
 
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
+## 2026-09-29 — Build 456: Keyguard / QS_FAKE native ignored-slot session ownership
+
+**Type:** Phase-3 device-rejection root-cause correction  
+**Build:** 456 / `20260929-456`  
+**Work branch / PR:** `feat/keyguard-scene-adapter` / #163  
+**Device-rejected predecessor:** Build 455 / Canary #480  
+**Accepted prerequisite:** Build 446 Home/QS_FAKE source-scene and late-cutover baseline
+
+### Device evidence / problem execution flow
+
+Build 455 corrects the AOD reflection contract from Build 453 and reaches the intended steady Keyguard Combined presentation when the lockscreen switch is enabled. Device screenshots and diagnostics then expose a different defect:
+
+- Keyguard steady and Keyguard-originated pulls can place native peer icons such as silent/headset far from Combined, visually resembling the peer jumping directly toward the fully-expanded destination.
+- The same large peer-to-Combined gap can occur in unlocked QS_FAKE.
+- With lockscreen Combined disabled, a Keyguard-originated pull can probabilistically show native icon misalignment/overlap while the compact presentation is released.
+
+The new geometry probe initially appears to show a stationary Combined render View while the QS_FAKE root moves. Review rejects that interpretation because a `ViewOverlay` child `getLocationOnScreen()` is not the final canvas-draw coordinate. Composing the native root screen position with the overlay-local anchor continues to land at the native Battery carrier. Therefore no translation follower, fixed offset, fraction threshold or endpoint writer is justified.
+
+### Root cause
+
+The presentation owner through Build 455 uses the class-wide `MiuiStatusIconContainer.onMeasure/onLayout` Hooks to insert represented slots into `ignoredSlots` only for the duration of each native call and restores the list immediately afterward.
+
+That is adequate for the accepted steady Home carrier, but Keyguard and QS_FAKE have native motion/animation ownership outside those calls. Their layout pass can therefore observe compact ignored slots while later native motion/end-state work observes the restored full slot set. Peer layout and peer motion no longer share one native state fact.
+
+Earlier exact-target review already proves `MiuiStatusIconContainer` exposes public final `addIgnoredSlots(...)` / `setIgnoredSlots(...)`, with the add path requesting layout. The original architecture review also required host/session-scoped additions, exact owned-delta restoration and Fail-native on ambiguity.
+
+### Implementation
+
+- Resolve the exact target native ignored-slot add/set contracts once at presentation-owner installation.
+- Keep Home on the existing device-accepted temporary native-call scope.
+- Keyguard and QS_FAKE now hold represented ignored slots for the full presentation session through the native API.
+- Record only entries absent before activation as the session's owned delta.
+- On activation failure, restore the pre-call snapshot before invoking Fail-native; ownership is committed only after native state verification succeeds.
+- On cleanup, derive `live - ownedDelta` and restore through the native set API, preserving unrelated SystemUI/current-writer entries.
+- Remove the extra project-side Keyguard/QS_FAKE container `requestLayout()`; native add/set owns layout invalidation.
+- Keyguard now returns a Prepared state until the existing hooked native `onLayout` completes. Native visuals remain intact before that boundary; only then are represented native views clip-masked and Combined made ready.
+- Home receiving Prepared is an invariant violation and explicitly fails native.
+- Hook count remains unchanged.
+
+### 审查 / review
+
+- **Root-cause-first:** fixes the contradictory native slot-state lifetime instead of compensating observed pixels.
+- **Ownership:** `MiuiStatusIconContainer` remains layout owner; HyperOS remains motion/appearance owner.
+- **Single writer:** no project translation, alpha, visibility, animation, endpoint or final-QS writer is added.
+- **Lifecycle:** persistent exclusions exist only inside concrete Keyguard/QS_FAKE presentation sessions and are invalidated on detach/replacement/feature disable/AOD gate/Hot Reload/failure.
+- **Cleanup:** only the recorded session-owned slot delta is removed; unrelated ignored entries are preserved.
+- **Fail native:** missing/ambiguous native method contract, state verification failure or rollback failure does not authorize Combined cutover.
+- **Performance:** no polling/timer/frame follower; existing three class-wide presentation Hooks remain the only presentation Hook substrate.
+- **Compatibility:** the native API route is pinned to the exact HyperOS target; unsupported contracts remain native.
+- **Home regression boundary:** Home stays on its already accepted temporary per-native-call path.
+
+### Automation
+
+- Build #1633 failed only at Kotlin compilation because the new sealed `StateResult.Prepared` branch was not consumed by the existing Home exhaustive `when`.
+- The corrected source handles that impossible Home state explicitly with Fail-native.
+- Draft Light #1635 passes on head `0f74c4b7528e62e1e355fa00330cd6ee1ca59cf3`.
+- Ready-state Fast and signed Canary are pending after documentation closure.
+
+### Device gate
+
+The next Canary must validate both lockscreen-switch states, not only the enabled path:
+
+1. enabled: steady Keyguard peer spacing matches native status-icon rhythm and Combined remains correctly adjacent;
+2. enabled: partial/full Keyguard-originated pull does not jump peer icons to an endpoint early;
+3. unlocked: repeated partial/full Control Center pulls do not reproduce the large peer gap;
+4. disabled: steady Keyguard stays native and repeated pulls do not produce native overlap/misalignment;
+5. AOD enter remains native-only; exit restores the correct Keyguard state;
+6. Home steady behavior remains unchanged.
+
 ## 2026-09-29 — Build 455: exact AOD contract correction and bounded QS_FAKE geometry evidence
 
 **Type:** Phase-3 device-rejection root-cause correction + bounded transition diagnostics

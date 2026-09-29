@@ -47,22 +47,29 @@ For the pinned HyperOS target, Notification Shade itself does not present the st
 - Keyguard-originated Control Center remains native while `keyguardEnabled=false`; scene transition cleanup restores the compact QS_FAKE presentation before the native Keyguard route is used.
 - Build 446 therefore closes the Phase-3 prerequisite bug exposed by source-scene gating without reopening Home/QS_FAKE ownership.
 
-## Active checkpoint — Build 455 exact-AOD-contract correction + bounded QS_FAKE geometry probe
+## Active checkpoint — Build 456 session-native ignored-slot ownership
 
-- Runtime identity advances to Build 455 / `20260929-455`; Build 453 is retained below as device-rejected evidence. Build 446 remains the accepted Home/QS_FAKE behavioral baseline.
-- Build-453 device diagnostics prove the Keyguard AOD authority never installed: `keyguardAodHooks=0` / `keyguardAodReady=false`, so the Keyguard adapter correctly failed native and steady lockscreen remained native.
-- Root cause is an exact-target contract mismatch. Build 453 resolved `MiuiBatteryMeterView.toggleAodMode(): void`, but the pinned SystemUI `17.03.260226.r` exact reference verifies `toggleAodMode(boolean): void`. Build 455 corrects only that structural signature and keeps strict single-match / Fail-native behavior.
-- `setIsAodAnimate(boolean): void`, Boolean `mToAod` / `mIsAodAnimate`, and the `mToAod || mIsAodAnimate` AOD blocker remain unchanged. AOD stays native-only.
-- Build-453 also shows a fully attached/sized steady Keyguard topology while the read-only probe still reports `partial` solely because `realSystemIcons` has not selected the same carrier. Build 455 removes that selector equality from probe readiness; selector identity remains logged as transition-router context. The production Keyguard resolver already does not depend on that selector.
-- New unlocked device feedback reports a probabilistic QS_FAKE Combined visual at the fully-expanded endpoint position. Build 446 -> 453 review finds no executable diff in `CombinedStatusControlCenterRenderSession` or `SystemUiPanelTransitionSource`, so Build 455 does **not** add a geometry compensation, fraction threshold, custom animation, or final-QS writer.
-- Instead, existing 8-bucket Control Center diagnostics now include read-only screen/local geometry, alpha and visibility for the QS_FAKE root, status-bar area, status icons, Battery, logical carrier and Combined render View. This is bounded to the existing diagnostic cadence and adds no Hook/listener/frame loop.
-- Validation gate: Draft Light -> ready checkpoint validation -> trusted Canary -> focused Keyguard/AOD test plus one unlocked QS_FAKE reproduction/export. Runtime freezes once the signed Canary is produced.
+- Runtime identity advances to Build 456 / `20260929-456` on PR #163. Build 455 is now device-rejected as a partial Keyguard repair; Build 446 remains the accepted Home/QS_FAKE prerequisite baseline.
+- Build-455 device evidence confirms the AOD-contract correction works: with the lockscreen Combined switch enabled, steady Keyguard and Keyguard-originated partial Control Center can render Combined Status. The remaining defect is layout/motion ownership: native peer icons such as silent/headset can jump directly toward their expanded/end position, leaving an abnormally large peer-to-Combined gap. The same symptom is reproducible on unlocked QS_FAKE. With the lockscreen switch disabled, Keyguard-originated pulls can still probabilistically show native icon misalignment/overlap during cleanup.
+- Build-455 geometry diagnostics reject the first hypothesis that the Combined anchor itself is simply missing QS_FAKE root motion. `ViewOverlay` child `getLocationOnScreen()` is not a direct final-draw coordinate; when root screen motion is composed with the overlay-local anchor, the Combined Battery-slot target tracks the native carrier. No fixed-pixel, fraction-threshold, translation follower or endpoint compensation is justified.
+- Root-cause review instead finds a lifecycle split in the compact presentation owner. Builds through 455 mutate `MiuiStatusIconContainer.ignoredSlots` only around hooked `onMeasure/onLayout`, then immediately restore the list. That is sufficient for accepted steady Home layout, but Keyguard/QS_FAKE have independent native motion/animation owners that can read/use status-icon layout state outside those calls. The result can combine a compact peer layout with motion/end-state calculations made from the restored full slot set.
+- Exact-target review already verifies public final `MiuiStatusIconContainer.addIgnoredSlots(...)` / `setIgnoredSlots(...)`, and verifies that the native add path requests layout. Build 456 uses that native contract for **Keyguard and QS_FAKE session lifetime only**; Home deliberately remains on its device-accepted scoped measure/layout path.
+- Each transition-surface session computes only the represented-slot delta it owns, applies that delta through the native add API, keeps the native ignored-slot state present for the full presentation lifetime, and restores only its owned delta through the native set API. Failed activation rolls back the pre-call snapshot before Fail-native.
+- Keyguard cutover is now atomic with the same compact-layout principle already used by QS_FAKE: native Keyguard visuals remain visible while the native ignored-slot request schedules layout; only after the existing `MiuiStatusIconContainer.onLayout` completes are represented views clip-masked and Combined allowed to become ready.
+- Keyguard/QS_FAKE cleanup no longer issues a second project-owned container `requestLayout()`; the native ignored-slot API remains the layout authority. No new Hook, polling, delay, per-frame callback, translation/alpha/visibility writer, or final-QS mutation is introduced.
+- Build #1633 exposed one compile-only exhaustive-`when` omission after adding Keyguard `Prepared`; latest source handles Home `Prepared` as an impossible state and fails native explicitly. Draft Light #1635 passes on the corrected head. Ready-state Fast and signed Canary remain pending.
+
+## Device-rejected checkpoint — Build 455
+
+- Build 455 / `20260929-455` passed Draft Light #1620, ready-state Fast #1621 and signed Work Branch Canary #480 on trusted source `1560bfed53cbc4035ad86f9a81942e5f0bd1247a`.
+- The Build-453 AOD reflection failure is fixed: enabling the lockscreen switch now produces Combined Status in steady Keyguard and during Keyguard-originated pulls.
+- Device evidence rejects Build 455 as a promotion candidate because peer icons can adopt an expanded/end position while Combined remains at its Battery-slot presentation, creating a large gap in both Keyguard and unlocked QS_FAKE. Disabling lockscreen Combined can also probabilistically expose native misalignment/overlap during a pull.
+- The bounded geometry probe is retained as evidence but its raw overlay View screen coordinate must not be interpreted as final canvas position. Build 456 supersedes the temporary ignored-slot lifetime that can give native layout and native motion different slot-state facts.
 
 ## Device-rejected checkpoint — Build 453
 
 - Build 453 / `20260929-453` passed exact-head Build #1615 and signed Work Branch Canary #475, but target-device evidence rejects it as a Phase-3 candidate.
-- Steady Keyguard remains native because AOD authority installation fails before Keyguard cutover; this is now traced to the incorrect zero-argument `toggleAodMode` contract rather than to Keyguard geometry.
-- The same device session reports probabilistic unlocked and Keyguard-originated QS_FAKE misposition. Current evidence is insufficient to identify a writer/coordinate owner, so the next candidate observes the existing native/projection geometry rather than patching motion.
+- Steady Keyguard remained native because AOD authority installation failed before Keyguard cutover; this is traced to the incorrect zero-argument `toggleAodMode` contract and is corrected from Build 455 onward.
 - Build 453 therefore remains historical evidence only and must not be promoted or merged.
 
 ## Rejected pre-device checkpoint — Build 447
