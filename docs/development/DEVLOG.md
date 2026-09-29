@@ -10734,3 +10734,48 @@ Compact occupancy and transition visual correspondence are separate responsibili
 
 After Fast passes, generate a signed Canary. Validate Home and enabled Keyguard source scenes in both directions, including normal and charging/Super-Island paths. Reject the candidate for duplicate icons, large gaps, endpoint jumps, stale-progress first frames, mid-gesture reversal lag, double fade, AOD leakage, Hot Reload regressions, or visibly non-HyperOS timing.
 \n
+
+---
+
+## 2026-09-29 — Build 471 — Preserve native transition progress across visible-entry ordering
+
+**Branch:** `feat/control-center-transition-projection`
+**Display version:** 0.0.3
+**Build:** 471 / `20260929-471`
+**Status:** focused timing-guard checkpoint; exact-head Fast and device validation required
+
+### Problem / root cause review
+
+Build 470 established the native-driven transition projection, but review found one avoidable callback-order sensitivity in the integration boundary. `onPanelTransitionUpdate(...)` forwarded every update's `fraction` value before scene handling. The native visibility callback intentionally carries `fraction=null`, so a late `visible=true` callback could clear a valid expansion fraction that had already arrived and briefly rewind the projection to its source position.
+
+The normal observed order may not trigger this, but the runtime contract should not depend on that ordering when the two callbacks represent different facts.
+
+### Change
+
+- A non-null native expansion fraction remains the only normal writer of transition progress.
+- `visible=false` explicitly clears progress at the end of a Control Center visibility cycle.
+- `visible=true` establishes scene/endpoints/host only and no longer overwrites an already received native fraction.
+- The Build-470 projection, endpoint mapping, compact ignored-slot ownership, fake/final Folme ownership, and renderer-component split remain unchanged.
+
+### 问题执行流程
+
+1. Review the Build-470 callback fan-in rather than tuning visual interpolation.
+2. Separate native expansion progress from native visibility lifecycle facts.
+3. Preserve the most recent finite expansion payload while entering the visible scene.
+4. Reset progress only when the native Control Center visibility cycle ends.
+5. Keep all motion/alpha/translation ownership unchanged.
+
+### 审查 / review
+
+- **Ownership:** HyperOS remains the sole gesture-progress and fake/final motion authority.
+- **Single writer:** no new native writer or animator is introduced.
+- **Lifecycle:** exit clears stale progress; a later visibility cycle starts clean without making visible-entry ordering destructive.
+- **Cleanup:** existing session detach/stop paths still clear endpoints, overlay state and projected-slot masks.
+- **Performance:** no additional hook, listener, polling, reflection or frame work.
+- **Compatibility:** behavior is a narrow ordering guard around already verified callback payloads.
+- **Visual boundary:** no easing or optical tuning is changed in this Build.
+
+### Validation
+
+Run exact-head Fast. If green, keep PR #174 ready and generate a signed Canary for focused Home/Keyguard pull-return, mid-gesture reversal, normal charging/Super-Island, first-pull after SystemUI restart, and Hot Reload continuity. Reject for first-frame rewind, duplicate peers, endpoint jump, double fade, large gaps, stale state or visibly disjoint timing.
+
