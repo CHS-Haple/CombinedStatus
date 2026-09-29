@@ -10995,3 +10995,63 @@ Device screenshots rejected two presentation choices:
 ### Validation gate
 
 Run exact-head Fast. If green, issue one signed Canary for focused device review of Sandbox hierarchy and animated-logo edge quality. Freeze that exact Build-471 source for visual review.
+
+---
+
+## 2026-09-29 — Build 472: unify Sandbox setting structure on MIUIX BasicComponent
+
+**Type:** device-driven companion-app presentation correction
+**Display version:** 0.0.3
+**Build / source:** Build 472 / `20260929-472` / executable checkpoint `939d23667553a8b9e4a31bb2dc34910d67f1c5fa`
+**Branch / PR:** `feat/presentation-ui-polish` / #173
+**SystemUI runtime change:** none
+**Validation:** exact-head Fast pending
+
+### Build 471 device evidence
+
+Build 471 passed exact-head Fast #1770 / #1771 and signed Work Branch Canary #503. Device review showed that restoring custom titles to `body1` still did not make the Sandbox visually uniform and that the vertical rhythm remained looser than desired.
+
+The new screenshots clarified the structural mismatch:
+- Wi-Fi state, Wi-Fi signal, SIM state, battery level/mode/charging were still custom `Text + control` compositions;
+- Airplane mode alone used native MIUIX `SwitchPreference`;
+- therefore the native setting title and the custom labels could not share identical font weight, line height and padding even when nominal text tokens were matched.
+
+### Root cause
+
+MIUIX `SwitchPreference` and `SliderPreference` both delegate their title layer to `BasicComponent`. `BasicComponent` renders the preference title with the native headline-size + Medium-weight contract and owns the 56 dp minimum component rhythm.
+
+Guiyuan had bypassed that contract:
+- slider title/value were manually injected through `bottomAction`;
+- segmented preferences rendered a separate custom `Text` before `TabRowWithContour`;
+- explicit 10 dp group spacers were then added on top of each component's own internal spacing.
+
+This made typography and density impossible to normalize reliably by changing `body1/body2` alone.
+
+### Implementation
+
+- Remove `SandboxSliderLabel`.
+- Use `SliderPreference(title = ..., valueText = ...)` for mobile signal, Wi-Fi signal and battery level.
+- Rebuild segmented settings with MIUIX `BasicComponent(title = ..., bottomAction = ...)`; keep `TabRowWithContour` only as the subordinate bottom control.
+- Give slider, segmented and switch settings one shared `SandboxPreferenceInsideMargin = PaddingValues(horizontal = 16.dp, vertical = 10.dp)`.
+- Remove the explicit 10 dp spacers between SIM/battery setting groups.
+- Reduce only the first context-specific network detail lead-in from 8 dp to 4 dp.
+- Preserve the network-mode top selector, state model, Preview renderer, Diagnostics and all SystemUI runtime code.
+
+### 审查 / review
+
+- **Ownership:** MIUIX `BasicComponent` now owns all Sandbox setting titles; MIUIX controls own their own option/value rendering.
+- **Hierarchy:** setting title remains semantic primary; slider/tab/switch is subordinate.
+- **Density:** compaction comes from removing duplicate outer spacing and using one inside-margin contract, not from shrinking fonts.
+- **Lifecycle / state:** no state ownership or callback behavior changes.
+- **Fail native:** irrelevant to this UI-only change; SystemUI runtime remains untouched.
+- **Performance:** no new animation, listener, polling, reflection or resource lookup.
+- **Compatibility:** uses already-pinned MIUIX APIs (`BasicComponent`, `SliderPreference`, `SwitchPreference`, `TabRowWithContour`) without custom internals.
+- **Future extension:** the same preference structure can host future Sandbox controls without reintroducing custom title typography.
+
+### Validation gate
+
+Run exact-head Fast for Build 472. If green, issue one signed Canary for focused device review of:
+1. title/weight uniformity across Wi-Fi state, Wi-Fi signal, SIM state, Airplane mode and battery settings;
+2. moderate vertical compaction without returning to Build-468 over-density.
+
+The separate requested Wi-Fi connected/no-internet/hotspot optical normalization must be implemented on a dedicated runtime branch because it changes the shared production renderer and real SystemUI output.
