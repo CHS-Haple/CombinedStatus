@@ -1039,7 +1039,7 @@ class CombinedStatusModule : XposedModule() {
             CombinedStatusControlCenterRenderSession.onNativeExpansionProgress(
                 update.fraction,
             )
-        } else if (update.visible != null) {
+        } else if (update.visible == false) {
             CombinedStatusControlCenterRenderSession.onNativeExpansionProgress(null)
         }
         handleControlCenterPanelUpdate(update)
