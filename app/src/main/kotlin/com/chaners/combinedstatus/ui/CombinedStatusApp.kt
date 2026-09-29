@@ -19,6 +19,7 @@ import com.chaners.combinedstatus.ui.screens.DiagnosticsScreen
 import com.chaners.combinedstatus.ui.screens.PreviewBatteryMode
 import com.chaners.combinedstatus.ui.screens.PreviewChargingState
 import com.chaners.combinedstatus.ui.screens.PreviewMobileNetwork
+import com.chaners.combinedstatus.ui.screens.PreviewNetworkMode
 import com.chaners.combinedstatus.ui.screens.PreviewSandboxScreen
 import com.chaners.combinedstatus.ui.screens.PreviewSandboxUiState
 import com.chaners.combinedstatus.ui.screens.PreviewWifiState
@@ -53,6 +54,9 @@ internal fun CombinedStatusApp(
     ) {
         var previewSimPresent by rememberSaveable { mutableStateOf(true) }
         var previewAirplaneMode by rememberSaveable { mutableStateOf(false) }
+        var previewNetworkModeIndex by rememberSaveable {
+            mutableIntStateOf(PreviewNetworkMode.WIFI.ordinal)
+        }
         var previewMobileNetworkIndex by rememberSaveable {
             mutableIntStateOf(PreviewMobileNetwork.FIVE_G.ordinal)
         }
@@ -72,6 +76,13 @@ internal fun CombinedStatusApp(
             PreviewSandboxUiState(
                 simPresent = previewSimPresent,
                 airplaneMode = previewAirplaneMode,
+                networkMode =
+                    PreviewNetworkMode.entries[
+                        previewNetworkModeIndex.coerceIn(
+                            0,
+                            PreviewNetworkMode.entries.lastIndex,
+                        )
+                    ],
                 mobileNetwork =
                     PreviewMobileNetwork.entries[
                         previewMobileNetworkIndex.coerceIn(
@@ -167,6 +178,9 @@ internal fun CombinedStatusApp(
                     state = previewState,
                     onSimPresentChange = { previewSimPresent = it },
                     onAirplaneModeChange = { previewAirplaneMode = it },
+                    onNetworkModeChange = {
+                        previewNetworkModeIndex = it.ordinal
+                    },
                     onMobileNetworkChange = {
                         previewMobileNetworkIndex = it.ordinal
                     },
