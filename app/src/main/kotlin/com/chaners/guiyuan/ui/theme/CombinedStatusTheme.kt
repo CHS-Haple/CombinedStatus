@@ -1,8 +1,8 @@
-package com.chaners.combinedstatus.ui.theme
+package com.chaners.guiyuan.ui.theme
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import com.chaners.combinedstatus.settings.AppThemeMode
+import com.chaners.guiyuan.settings.AppThemeMode
 import top.yukonga.miuix.kmp.theme.ColorSchemeMode
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.theme.ThemeController

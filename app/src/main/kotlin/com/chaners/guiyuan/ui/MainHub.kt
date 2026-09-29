@@ -1,4 +1,4 @@
-package com.chaners.combinedstatus.ui
+package com.chaners.guiyuan.ui
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -22,17 +22,17 @@ import androidx.compose.ui.res.stringResource
 import androidx.navigationevent.NavigationEventInfo
 import androidx.navigationevent.compose.NavigationBackHandler
 import androidx.navigationevent.compose.rememberNavigationEventState
-import com.chaners.combinedstatus.R
-import com.chaners.combinedstatus.settings.AppLanguage
-import com.chaners.combinedstatus.settings.AppearanceSettings
-import com.chaners.combinedstatus.ui.components.FloatingNavigationContentItem
-import com.chaners.combinedstatus.ui.components.floatingNavigationMaterial
-import com.chaners.combinedstatus.ui.components.requiresTextureBackdrop
-import com.chaners.combinedstatus.ui.navigation.AppRoute
-import com.chaners.combinedstatus.ui.screens.FeaturesScreen
-import com.chaners.combinedstatus.ui.screens.HomeScreen
-import com.chaners.combinedstatus.ui.screens.PreviewSandboxUiState
-import com.chaners.combinedstatus.ui.screens.SettingsHubScreen
+import com.chaners.guiyuan.R
+import com.chaners.guiyuan.settings.AppLanguage
+import com.chaners.guiyuan.settings.AppearanceSettings
+import com.chaners.guiyuan.ui.components.FloatingNavigationContentItem
+import com.chaners.guiyuan.ui.components.floatingNavigationMaterial
+import com.chaners.guiyuan.ui.components.requiresTextureBackdrop
+import com.chaners.guiyuan.ui.navigation.AppRoute
+import com.chaners.guiyuan.ui.screens.FeaturesScreen
+import com.chaners.guiyuan.ui.screens.HomeScreen
+import com.chaners.guiyuan.ui.screens.PreviewSandboxUiState
+import com.chaners.guiyuan.ui.screens.SettingsHubScreen
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.FloatingNavigationBar
 import top.yukonga.miuix.kmp.basic.NavigationBar

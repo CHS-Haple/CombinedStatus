@@ -1,4 +1,4 @@
-package com.chaners.combinedstatus.ui.screens
+package com.chaners.guiyuan.ui.screens
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,12 +19,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.chaners.combinedstatus.R
-import com.chaners.combinedstatus.ui.components.CombinedStatusPreview
-import com.chaners.combinedstatus.ui.components.MiuixBlurredTopBar
-import com.chaners.combinedstatus.ui.components.rememberTopBarBackdrop
-import com.chaners.combinedstatus.ui.components.topBarBackdropSource
-import com.chaners.combinedstatus.ui.layout.pageContentPadding
+import com.chaners.guiyuan.R
+import com.chaners.guiyuan.ui.components.CombinedStatusPreview
+import com.chaners.guiyuan.ui.components.MiuixBlurredTopBar
+import com.chaners.guiyuan.ui.components.rememberTopBarBackdrop
+import com.chaners.guiyuan.ui.components.topBarBackdropSource
+import com.chaners.guiyuan.ui.layout.pageContentPadding
 import kotlin.math.roundToInt
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon

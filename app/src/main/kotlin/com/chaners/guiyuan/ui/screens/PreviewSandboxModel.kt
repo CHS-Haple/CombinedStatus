@@ -1,12 +1,12 @@
-package com.chaners.combinedstatus.ui.screens
+package com.chaners.guiyuan.ui.screens
 
 import android.content.Context
 import android.content.res.Resources
-import com.chaners.combinedstatus.xposed.CenterIndicator
-import com.chaners.combinedstatus.xposed.CombinedStatusBatterySemanticState
-import com.chaners.combinedstatus.xposed.CombinedStatusPresentationStateStore
-import com.chaners.combinedstatus.xposed.CombinedStatusRenderModel
-import com.chaners.combinedstatus.xposed.InternetState
+import com.chaners.guiyuan.xposed.CenterIndicator
+import com.chaners.guiyuan.xposed.CombinedStatusBatterySemanticState
+import com.chaners.guiyuan.xposed.CombinedStatusPresentationStateStore
+import com.chaners.guiyuan.xposed.CombinedStatusRenderModel
+import com.chaners.guiyuan.xposed.InternetState
 
 internal enum class PreviewNetworkMode {
     MOBILE,

@@ -1,4 +1,4 @@
-package com.chaners.combinedstatus.ui.navigation
+package com.chaners.guiyuan.ui.navigation
 
 import kotlinx.serialization.Serializable
 import top.yukonga.miuix.kmp.nav.core.NavKey

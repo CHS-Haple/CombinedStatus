@@ -1,4 +1,4 @@
-package com.chaners.combinedstatus.ui.screens
+package com.chaners.guiyuan.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,16 +24,16 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.chaners.combinedstatus.R
-import com.chaners.combinedstatus.settings.AppLanguage
-import com.chaners.combinedstatus.settings.CombinedStatusFeatureSettingsRepository
-import com.chaners.combinedstatus.settings.CombinedStatusVisualSettingsRepository
-import com.chaners.combinedstatus.system.SystemUiScopeController
-import com.chaners.combinedstatus.ui.components.MiuixBlurredTopBar
-import com.chaners.combinedstatus.ui.components.rememberTopBarBackdrop
-import com.chaners.combinedstatus.ui.components.topBarBackdropSource
-import com.chaners.combinedstatus.ui.layout.pageContentPadding
-import com.chaners.combinedstatus.ui.navigation.AppRoute
+import com.chaners.guiyuan.R
+import com.chaners.guiyuan.settings.AppLanguage
+import com.chaners.guiyuan.settings.CombinedStatusFeatureSettingsRepository
+import com.chaners.guiyuan.settings.CombinedStatusVisualSettingsRepository
+import com.chaners.guiyuan.system.SystemUiScopeController
+import com.chaners.guiyuan.ui.components.MiuixBlurredTopBar
+import com.chaners.guiyuan.ui.components.rememberTopBarBackdrop
+import com.chaners.guiyuan.ui.components.topBarBackdropSource
+import com.chaners.guiyuan.ui.layout.pageContentPadding
+import com.chaners.guiyuan.ui.navigation.AppRoute
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.ButtonDefaults

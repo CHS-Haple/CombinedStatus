@@ -1,4 +1,4 @@
-package com.chaners.combinedstatus.ui.screens
+package com.chaners.guiyuan.ui.screens
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
@@ -30,17 +30,17 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.chaners.combinedstatus.BuildConfig
-import com.chaners.combinedstatus.CombinedStatusApplication
-import com.chaners.combinedstatus.R
-import com.chaners.combinedstatus.settings.CombinedStatusFeatureSettingsRepository
-import com.chaners.combinedstatus.system.XposedRuntimeStatus
-import com.chaners.combinedstatus.ui.components.CombinedStatusPreview
-import com.chaners.combinedstatus.ui.components.HotReloadAction
-import com.chaners.combinedstatus.ui.components.MiuixBlurredTopBar
-import com.chaners.combinedstatus.ui.components.rememberTopBarBackdrop
-import com.chaners.combinedstatus.ui.components.topBarBackdropSource
-import com.chaners.combinedstatus.ui.layout.pageContentPadding
+import com.chaners.guiyuan.BuildConfig
+import com.chaners.guiyuan.CombinedStatusApplication
+import com.chaners.guiyuan.R
+import com.chaners.guiyuan.settings.CombinedStatusFeatureSettingsRepository
+import com.chaners.guiyuan.system.XposedRuntimeStatus
+import com.chaners.guiyuan.ui.components.CombinedStatusPreview
+import com.chaners.guiyuan.ui.components.HotReloadAction
+import com.chaners.guiyuan.ui.components.MiuixBlurredTopBar
+import com.chaners.guiyuan.ui.components.rememberTopBarBackdrop
+import com.chaners.guiyuan.ui.components.topBarBackdropSource
+import com.chaners.guiyuan.ui.layout.pageContentPadding
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.Icon

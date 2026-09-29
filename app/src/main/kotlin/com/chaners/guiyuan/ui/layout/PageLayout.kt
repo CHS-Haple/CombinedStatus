@@ -1,4 +1,4 @@
-package com.chaners.combinedstatus.ui.layout
+package com.chaners.guiyuan.ui.layout
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
