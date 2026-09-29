@@ -11274,4 +11274,6 @@ KeiMi evidence was applied one layer too high. Its component/correspondence stru
 
 ### Validation
 
-Exact-head Runtime CI is required before a signed Canary. If green, device validation is limited to Home first: open, partial pull/return, full open/return, and charging-island regression. Keyguard follows only after Home trajectory is accepted.
+Exact-head Runtime Build #1829 / run `36600672560` passed on executable head `886f3fbf96fa8500d065d88898f64820e43dedf1`: pinned HyperOS target profile, unit tests/build and Modern Xposed metadata all succeeded. The PR Runtime path correctly skipped signing/artifact publication.
+
+Build 480 runtime is now frozen. One signed work-branch Canary is required for focused Home device validation: partial pull/return, full open/return and charging-island regression. Keyguard follows only after Home trajectory is accepted.
