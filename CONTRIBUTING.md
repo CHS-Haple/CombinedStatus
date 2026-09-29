@@ -70,6 +70,11 @@ Observation is not ownership. One live mutable property should have one runtime 
 
 Hooks are integration points, not architecture. Each hook should have one responsibility, an owner, failure behavior, and a bounded lifecycle.
 
+### Native resource integration
+When reusing a verified HyperOS/SystemUI drawable, preserve its resource identity, authored alpha/coverage, viewport relationships, and final native/vector rendering semantics. Do not add per-resource grayscale multipliers, hard-coded replacement grays, source-alpha edits, raster preprocessing/resampling, or other magic-number compensation merely to force a visual match unless exact-target evidence proves that transformation belongs to the native path.
+
+Do not hide a native representation until the Guiyuan replacement is valid for the current session.
+
 ### Geometry and motion
 Keep separate:
 1. native SystemUI layout/slot ownership;
@@ -157,6 +162,8 @@ Ordinary ready app/SystemUI PRs and trusted runtime integration on dev.
 Main/stable boundaries and dependency, Gradle/build, CI/workflow, tooling, signing, or release changes. Full validates Debug and signed Canary where applicable.
 
 CI proves configured source/build checks, not SystemUI runtime correctness.
+
+Pull-request validation must remain safe for untrusted forks. Secret-independent checks are allowed; signing credentials and project-signed artifacts stay on trusted maintainer/default-branch workflows and must never be exposed to contributor-controlled workflow definitions.
 
 ### Work-branch Canary
 Signed Canary is demand-driven. When device evidence is needed, the repository owner may request /canary on any open same-repository feat/* or fix/* PR, including Draft. The trusted default-branch workflow resolves the exact head SHA and independently performs target-profile checks, unit tests, Canary build, metadata/signature validation, and non-debuggable verification.
