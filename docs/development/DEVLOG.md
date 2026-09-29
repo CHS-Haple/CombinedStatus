@@ -10619,3 +10619,17 @@ Maintainer device validation accepts Build 466 after the package/brand migration
 Full #1690 and signed Work Branch Canary #492 are green on the migrated source. The remaining repository-level work is integration into `dev`, post-merge Integration validation, repository-name/public metadata migration to `Guiyuan`, and final promotion to `main`.
 
 This acceptance update is documentation-only and does not create a new Build.
+
+
+### dev integration closure
+
+PR #168 was squash-merged into `dev` as `83cfd4d4be139dd3ec9cac870a8450a6dce09d08`.
+
+Post-merge Integration #1693 passed the full trusted `dev` validation surface: target-profile verification, unit/build checks, Modern Xposed metadata, Haple signing/signature verification, Canary non-debuggable validation, and artifact upload.
+
+The migrated workflow now produces the expected artifact names:
+
+- `Guiyuan-0.0.3-HyperOS-20260929-466-debug.apk`
+- `Guiyuan-0.0.3-HyperOS-20260929-466-canary.apk`
+
+This closes the application/package/build-artifact identity migration on `dev`. Remaining work is repository-level GitHub rename/public metadata followed by final `dev -> main` promotion. This is a documentation-only closure and does not create a new Build.
