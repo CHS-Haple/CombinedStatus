@@ -624,7 +624,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         ) {
                             Policy.relativeGeometryHeight(
                                 target = targetGeometry,
-                                current = geometry,
+                                current = sourceGeometry,
                             )
                         } else {
                             null
