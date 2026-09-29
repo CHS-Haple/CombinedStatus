@@ -59,18 +59,23 @@ Earlier exact-target review already proves `MiuiStatusIconContainer` exposes pub
 - Build #1633 failed only at Kotlin compilation because the new sealed `StateResult.Prepared` branch was not consumed by the existing Home exhaustive `when`.
 - The corrected source handles that impossible Home state explicitly with Fail-native.
 - Draft Light #1635 passes on head `0f74c4b7528e62e1e355fa00330cd6ee1ca59cf3`.
-- Ready-state Fast and signed Canary are pending after documentation closure.
+- Final exact-head Draft Light #1639 passed on `59bc315fe70ccbc8bc7a0a6d0144d9baca27787f`.
+- Ready-state Fast #1640 / run `36511881800` passed target profile, unit tests/build and Modern Xposed metadata on the same exact head.
+- Signed Work Branch Canary #484 / run `36512436512` passed trusted-source checkout, pinned target profile, tests/Canary build, Modern Xposed metadata, Haple APK signature, non-debuggable verification and artifact upload.
 
-### Device gate
+### Device result
 
-The next Canary must validate both lockscreen-switch states, not only the enabled path:
+**Accepted for dev integration.** The maintainer reports Build 456 looks normal across the focused scenarios and elects to close this runtime line before the separate UI line is finished.
 
-1. enabled: steady Keyguard peer spacing matches native status-icon rhythm and Combined remains correctly adjacent;
-2. enabled: partial/full Keyguard-originated pull does not jump peer icons to an endpoint early;
-3. unlocked: repeated partial/full Control Center pulls do not reproduce the large peer gap;
-4. disabled: steady Keyguard stays native and repeated pulls do not produce native overlap/misalignment;
-5. AOD enter remains native-only; exit restores the correct Keyguard state;
-6. Home steady behavior remains unchanged.
+The supplied detailed diagnostic confirms the intended runtime contract:
+- runtime health is `overall=healthy`;
+- native AOD authority is installed with `keyguardAodHooks=2` and `keyguardAodReady=true`;
+- Keyguard session acquisition uses `lifetime=presentation-session` / `nativeApi=addIgnoredSlots`, keeps native visuals before compact layout, and cuts over only from native `onLayout`;
+- QS_FAKE uses the same session-native ignored-slot ownership and compact-layout-ready cutover;
+- Keyguard/Control Center cleanup restores clip bounds, end reservation and owned ignored slots successfully on scene exit/unlock;
+- no project-owned native translation/alpha/visibility writes are reported.
+
+No new runtime patch is justified from this evidence. Build 456 is frozen as the accepted Phase-3 integration candidate. The display version remains 0.0.2 for integration; the maintainer explicitly defers the planned 0.0.3 bump until the independent UI line is also closed.
 
 ## 2026-09-29 — Build 455: exact AOD contract correction and bounded QS_FAKE geometry evidence
 

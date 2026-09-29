@@ -77,13 +77,15 @@ Exit criteria:
 - clean partial-pull transition into Control Center and exact yield to native status icons at the fully expanded endpoint; Notification Shade remains native/no-status-icon by design;
 - no regression in steady Home or charging/island behavior.
 
-## Phase 3 — Keyguard / lockscreen / AOD scene completion — active
+## Phase 3 — Keyguard / lockscreen / AOD scene completion — device accepted, integration pending
 
 Build 456 supersedes device-rejected Build 455. Build 455 proves the corrected AOD authority can enable steady Keyguard Combined Status, but device evidence exposes a shared Keyguard/QS_FAKE peer-layout defect: native peers can jump toward their end position and leave a large gap, while disabling lockscreen Combined can probabilistically race native restoration during a pull.
 
 The Build-455 geometry probe rejects a direct Combined-translation patch. The overlay-local anchor still composes to the native Battery carrier; the structural mismatch is the compact presentation's ignored-slot lifetime. Temporary `ignoredSlots` mutation around only `onMeasure/onLayout` gives Keyguard/QS_FAKE motion owners a different slot-state fact outside those calls. Build 456 therefore promotes only those two transition-capable surfaces to the exact native `addIgnoredSlots/setIgnoredSlots` session contract, while keeping accepted Home behavior unchanged. Native add/set remains the layout trigger/authority; project motion/alpha/visibility writers remain forbidden.
 
 AOD remains NATIVE_ONLY. Steady Keyguard can project only when the lockscreen feature is enabled, its AOD gate is unblocked, the session-owned native slot exclusions are active, and native compact layout has completed. Cleanup restores only the session-owned slot delta and fails native on contract/ownership ambiguity.
+
+Build 456 is device-accepted on the pinned Xiaomi 15 Pro / SystemUI `17.03.260226.r` and is the Phase-3 integration candidate. Final Fast #1640 and signed Canary #484 pass on the accepted exact head. The separate companion-app/UI line remains independent; no display-version bump is coupled to this runtime merge.
 
 Build 447 is the first opt-in steady-Keyguard runtime candidate. It adds a separate Keyguard host/render/presentation adapter and a default-off feature switch while reusing the existing three class-wide presentation Hooks (Hook delta 0). Keyguard-originated QS_FAKE is enabled only after the steady adapter reaches ready. AOD remains outside the candidate's supported scope and is a focused real-device blocker before Keyguard can be promoted to runtime-verified evidence.
 
