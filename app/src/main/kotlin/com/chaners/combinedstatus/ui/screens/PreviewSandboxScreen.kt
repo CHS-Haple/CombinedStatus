@@ -264,7 +264,7 @@ internal fun PreviewSandboxScreen(
                                 onSelected = { index ->
                                     onWifiStateChange(PreviewWifiState.entries[index])
                                 },
-                                modifier = Modifier.padding(top = 8.dp),
+                                modifier = Modifier.padding(top = 6.dp),
                             )
                             SliderPreference(
                                 value = state.wifiSignalLevel.toFloat(),
@@ -326,7 +326,7 @@ internal fun PreviewSandboxScreen(
                             onSelected = { index ->
                                 onBatteryModeChange(PreviewBatteryMode.entries[index])
                             },
-                            modifier = Modifier.padding(top = 8.dp),
+                            modifier = Modifier,
                         )
                         SandboxSegmentedField(
                             title = stringResource(R.string.home_preview_charging_state_title),
@@ -335,7 +335,7 @@ internal fun PreviewSandboxScreen(
                             onSelected = { index ->
                                 onChargingStateChange(PreviewChargingState.entries[index])
                             },
-                            modifier = Modifier.padding(top = 4.dp),
+                            modifier = Modifier,
                         )
                     }
                 }
@@ -373,7 +373,7 @@ private fun SandboxSegmentedField(
                     .widthIn(max = maxWidth)
                     .fillMaxWidth()
                     .align(Alignment.CenterHorizontally)
-                    .padding(top = 4.dp),
+                    .padding(top = 8.dp),
         )
     }
 }
