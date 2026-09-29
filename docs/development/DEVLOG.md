@@ -10943,3 +10943,55 @@ Device review accepted the removal of hard Sandbox dividers and the general mid-
 ### Validation gate
 
 Run exact-head Fast. If green, request one signed Canary because font hierarchy, card-edge breathing room and animated-vector clarity all require focused device visual evidence. Freeze that exact Build-470 source for review.
+
+---
+
+## 2026-09-29 — Build 471: restore setting-title hierarchy and remove animated identity scale-up
+
+**Type:** device-driven companion-app presentation correction
+**Display version:** 0.0.3
+**Build / source:** Build 471 / `20260929-471` / executable checkpoint `7e0d66bc796672155c3243d796b8490f017f019a`
+**Branch / PR:** `feat/presentation-ui-polish` / #173
+**SystemUI runtime change:** none
+**Validation:** exact-head Fast pending
+
+### Build 470 device evidence
+
+Build 470 passed exact-head Fast #1753 and #1756 and signed Work Branch Canary #499. Canary #499 resolved and checked out exact source `e08097328f25e837b41f71ae469865820384037f`, then passed target-profile, tests/build, Modern Xposed metadata, Haple signature, non-debuggable and artifact-upload gates.
+
+Device screenshots rejected two presentation choices:
+- custom Sandbox setting titles had been demoted to subdued `body2`, so segmented/slider controls became visually dominant while native `SwitchPreference` retained a primary title and made Airplane mode stand out;
+- the animated Guiyuan mark showed stronger visible jaggedness, indicating that the Canvas implementation still performed a 1.8x scale-up of a 64 dp draw rather than actually drawing at the final target size.
+
+### Root cause
+
+- **Sandbox:** the hierarchy was inverted. The setting label is the semantic owner and must remain visually primary; the control is subordinate. Matching all custom setting titles to the native preference title role is more important than trying to reduce slider-specific apparent weight by demoting every label.
+- **Identity:** changing from `graphicsLayer` scale to DrawScope `scale()` changed the transform owner but not the fundamental geometry path. The painter was still issued a 64 dp draw and then enlarged 1.8x.
+
+### Implementation
+
+#### Sandbox
+- Restore slider and segmented-field titles to MIUIX `body1` and `onSurfaceContainer`.
+- Keep MIUIX-native control option typography untouched.
+- Preserve group spacing, card composition, state model and production renderer.
+
+#### Animated Guiyuan identity
+- Remove DrawScope `scale()` entirely.
+- Compute the final target size as 1.8x the 64 dp slot, center that target rectangle around the slot, and call the vector painter directly with the final target `Size`.
+- Apply only the screen-local rotation transform around the slot center.
+- Keep `ic_launcher_foreground` as the single geometry source; no copied vector path, bitmap or alternate logo asset is introduced.
+
+### 审查 / review
+
+- **Ownership:** setting semantics own the title hierarchy; MIUIX owns control rendering.
+- **Lifecycle:** one screen-local Compose infinite transition remains the only animation owner.
+- **Single writer:** only the Canvas rotation transform changes per frame.
+- **Cleanup:** Compose disposal ends the animation naturally.
+- **Performance:** one small vector draw while Diagnostics is visible; no bitmap regeneration, polling, listener or background work.
+- **Compatibility:** existing Compose painter/draw APIs and the existing launcher vector only.
+- **Runtime boundary:** no SystemUI/Xposed runtime or production icon behavior changes.
+- **Accepted boundary:** Module runtime 8 dp edge breathing room and Diagnostics & reports remain unchanged.
+
+### Validation gate
+
+Run exact-head Fast. If green, issue one signed Canary for focused device review of Sandbox hierarchy and animated-logo edge quality. Freeze that exact Build-471 source for visual review.
