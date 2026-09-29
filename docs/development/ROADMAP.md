@@ -49,7 +49,7 @@ Exit criteria:
 
 Current acceptance note: Build 408 is accepted for `dev` as the Phase-2A working baseline. Minor residual ring/center/dot optical-weight variance is deferred to later visual polish and does not reopen Home carrier ownership or block Phase 2B.
 
-## Phase 2B — Home ownership continuity + Control Center transition bridge — completed for current dev baseline
+## Phase 2B — Home ownership continuity + Control Center transition bridge — ownership/geometry complete; animation adaptation pending
 
 Extend the accepted Phase-2A Home visual into panel transitions without reopening steady Home ownership.
 
@@ -77,7 +77,7 @@ Exit criteria:
 - clean partial-pull transition into Control Center and exact yield to native status icons at the fully expanded endpoint; Notification Shade remains native/no-status-icon by design;
 - no regression in steady Home or charging/island behavior.
 
-## Phase 3 — Keyguard / lockscreen / AOD scene completion — completed for current dev baseline
+## Phase 3 — Keyguard / lockscreen / AOD scene ownership — steady scene complete; transition animation pending
 
 Build 456 supersedes device-rejected Build 455. Build 455 proves the corrected AOD authority can enable steady Keyguard Guiyuan, but device evidence exposes a shared Keyguard/QS_FAKE peer-layout defect: native peers can jump toward their end position and leave a large gap, while disabling lockscreen Combined can probabilistically race native restoration during a pull.
 
@@ -143,12 +143,13 @@ Prefer reusing the real render semantics/model for previews rather than maintain
 
 Current integration note: PR #165 is integrated into `dev` by squash commit `a2394db92ce208771956defcd558c954065000f7`. Build 464 is the accepted work-branch UI checkpoint; the post-integration development line advances to 0.0.3 / Build 465. Home runtime status, production-rendered Preview Sandbox, Diagnostics action styling, Features-page hierarchy, and MIUIX-aligned Sandbox controls are now part of the current dev baseline. Future UI work continues from this integrated state rather than reopening the retired Build-458–464 iteration chain.
 
-## Phase 5 — Adaptive sizing, spacing and broader visual controls
+## Phase 5 — Transition animation adaptation, then adaptive sizing / spacing / broader visual controls
 
 After the carrier/scene contracts are stable:
 - expose user-adjustable Guiyuan visual size;
 - derive neighboring spacing from resolved geometry rather than a permanent fixed-width assumption;
-- keep native occupancy, visual width, transition geometry, and optical spacing independently resolved;
+- first close the visual transition-animation gap for Home/Keyguard -> QS_FAKE -> native Control Center using verified native progress/geometry/alpha ownership, with no duplicate project-local animator;
+- keep native occupancy, visual width, transition geometry, transition animation, and optical spacing independently resolved;
 - expose per-state battery-ring color sources for NORMAL / CHARGING / POWER_SAVE / PERFORMANCE / LOW: **System default** (HyperOS semantic color where available), **Follow status icons** (native monochrome/tint authority), or **Custom color**, without creating a second battery-mode state machine;
 - make future controls previewable in the Preview Sandbox.
 
@@ -158,8 +159,8 @@ The first planned formal release is **1.0.0**. Current `0.0.x` versions remain d
 
 Qualification includes the supported acceptance matrix, as applicable:
 - Home steady behavior;
-- shade / Control Center transitions;
-- keyguard / lockscreen / AOD;
+- shade / Control Center transition animation continuity, including first/last-frame handoff and partial-pull/return motion;
+- keyguard / lockscreen / AOD steady behavior plus Keyguard-originated transition animation;
 - charging / island states;
 - single-SIM and dual-SIM states;
 - Wi-Fi / hotspot / no-Internet / no-SIM / airplane combinations;
