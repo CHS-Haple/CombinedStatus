@@ -11829,3 +11829,51 @@ Current presentation readiness and transition-geometry validity were coupled inc
 ### Validation
 
 Exact-head Runtime CI is required. Device acceptance remains deferred until the subsequent semantic-transition checkpoint is combined with this source fix.
+
+## 2026-09-30 — Build 493: semantic split/reveal and Mobile optical-height correction
+
+**Type:** Control Center transition semantics / optical geometry  
+**Display version:** 0.0.3  
+**Build / source:** 493 / `20260930-493` / `feat/control-center-transition-matrix`
+
+### Device clarification
+
+Two reported final-state appearances are valid native semantics rather than unwanted icons:
+- ordinary dual-SIM may expand one compact Trinity Mobile semantic into two independent native SIM signal groups;
+- Wi-Fi and airplane mode may coexist, so the fully expanded native row may contain both Wi-Fi and a separate airplane icon.
+
+The defect is therefore not that those final icons exist. The transition graph was incomplete: only BATTERY / CENTER / MOBILE source components participated, while additional final native semantics had no correspondence and could appear only at the terminal native handoff.
+
+A separate visual issue affects the Mobile morph regardless of dual-row compatibility: rounded capsule ends make the current vertically expanded bars read optically taller than the native target.
+
+### Root cause
+
+- `resolveTarget()` selected exactly one mobile target even when final SystemUI exposed multiple subscription slots.
+- Wi-Fi occupied the CENTER source component, so a simultaneously valid final airplane slot had no projected transition representation.
+- Mobile target height used an empirical `targetHeight × 0.90` bound. That value did not express the actual capsule geometry and could still let the round end read beyond the desired optical envelope.
+
+### Change
+
+- Preserve existing 1→1 component morphs.
+- Add a 1→N Mobile split only when a second visible/usable final mobile slot has a distinct subscription ID from the primary target.
+- The secondary projected Mobile reads that subscription's real signal level from `CombinedStatusStateStore`; unavailable/unknown secondary signals are not invented.
+- Add a 0→1 airplane reveal only when airplane mode is true, the compact center is Wi-Fi, and a real final `airplane` slot is available.
+- Airplane reveal reuses the HyperOS airplane resource already used by the steady renderer and the read-only final slot geometry; no final native View alpha/visibility/translation is written.
+- Both semantic additions use the existing native expansion fraction through local shape/opacity mappings only; no animator, duration, timer or gesture timeline is added.
+- Semantic reservation spans include the additional mobile/airplane final occupancy so native peer layout and overlay geometry describe the same final semantic set.
+- Mobile max bar height now treats one capsule radius as optical endpoint allowance inside the native target-height budget instead of applying the previous empirical 0.90 multiplier.
+
+### 审查 / review
+
+- **semantic correctness:** four dots are not redefined as two SIMs or as airplane mode. Additional final semantics are modeled explicitly as split/reveal.
+- **native-first:** final slot identity, geometry and final presentation remain HyperOS-owned.
+- **single writer:** no new native property writer is introduced; the existing reversible status-icons reservation remains the only layout writer.
+- **compatibility:** HyperCeiler stacked/dual-row optical target recognition remains available for the primary/secondary mobile witnesses.
+- **fail native:** missing/zero/hidden final slots, duplicate subscription IDs, or unavailable secondary signal state simply omit the projected extra rather than guessing.
+- **performance:** secondary-mobile and airplane final targets are resolved/frozen once per transition Session; no new per-frame child traversal, polling, timer or listener is added.
+- **occupancy phase:** extra reservation spans carry the same local split/reveal progress mode as their projected visuals, preventing native peers from making room ahead of the semantic expansion.
+- **optical geometry:** cap correction is derived from the actual dot diameter/radius, not a device-pixel constant.
+
+### Validation
+
+Runtime CI is required. If green, one signed Canary should validate Build 492 source continuity and Build 493 semantic/optical behavior together while preserving their separate commits for isolation.

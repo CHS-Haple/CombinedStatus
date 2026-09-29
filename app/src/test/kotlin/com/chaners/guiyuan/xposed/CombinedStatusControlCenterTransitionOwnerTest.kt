@@ -40,6 +40,70 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
+    fun semanticExpansionUsesNativeProgressWithoutASecondTimeline() {
+        assertEquals(
+            0f,
+            CombinedStatusControlCenterTransitionOwner.Policy.semanticSplitProgress(0f),
+            0.0001f,
+        )
+        assertEquals(
+            0.25f,
+            CombinedStatusControlCenterTransitionOwner.Policy.semanticSplitProgress(0.5f),
+            0.0001f,
+        )
+        assertEquals(
+            1f,
+            CombinedStatusControlCenterTransitionOwner.Policy.semanticRevealProgress(1f),
+            0.0001f,
+        )
+        assertEquals(
+            0.90f,
+            CombinedStatusControlCenterTransitionOwner.Policy.semanticRevealScale(0f),
+            0.0001f,
+        )
+        assertEquals(
+            1f,
+            CombinedStatusControlCenterTransitionOwner.Policy.semanticRevealScale(1f),
+            0.0001f,
+        )
+    }
+
+    @Test
+    fun roundedCapsAreIncludedInsideTheNativeOpticalHeightBudget() {
+        assertEquals(
+            45f,
+            CombinedStatusPainter.MobileSignalMorphPolicy.targetMaxBarHeight(
+                sourceBoundsHeight = 40f,
+                diameter = 10f,
+                targetHeightRatio = 1.25f,
+            ),
+            0.0001f,
+        )
+    }
+
+    @Test
+    fun reservationUsesTheSameLocalProgressAsSemanticExpansion() {
+        val split =
+            CombinedStatusControlCenterTransitionOwner.Policy.resolveReservationWidth(
+                compactWidthPx = 10,
+                spans =
+                    listOf(
+                        CombinedStatusControlCenterTransitionOwner.Policy.ReservationSpan(
+                            sourceLeft = -10f,
+                            sourceRight = 0f,
+                            targetLeft = -30f,
+                            targetRight = 0f,
+                            progressMode =
+                                CombinedStatusControlCenterTransitionOwner.Policy
+                                    .ReservationProgress.SEMANTIC_SPLIT,
+                        ),
+                    ),
+                progress = 0.5f,
+            )
+        assertEquals(15, split)
+    }
+
+    @Test
     fun unmatchedComponentsExitFasterThanLinearWithoutASeparateTimeline() {
         assertEquals(
             1f,

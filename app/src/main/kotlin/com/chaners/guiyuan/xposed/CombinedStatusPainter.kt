@@ -222,7 +222,6 @@ internal class CombinedStatusPainter(
     }
 
     internal object MobileSignalMorphPolicy {
-        private const val NATIVE_HEIGHT_CAP_RATIO = 0.90f
         private const val STABLE_MAX_BAR_HEIGHT = 54f
         private val BAR_HEIGHT_RATIOS = floatArrayOf(0.56f, 0.70f, 0.84f, 1f)
 
@@ -248,7 +247,12 @@ internal class CombinedStatusPainter(
             val nativeCap =
                 targetHeightRatio
                     ?.takeIf { ratio -> ratio.isFinite() && ratio > 0f }
-                    ?.let { ratio -> sourceBoundsHeight * ratio * NATIVE_HEIGHT_CAP_RATIO }
+                    ?.let { ratio ->
+                        val targetOpticalHeight = sourceBoundsHeight * ratio
+                        val roundCapAllowance = diameter / 2f
+                        (targetOpticalHeight - roundCapAllowance)
+                            .coerceAtLeast(diameter)
+                    }
                     ?: STABLE_MAX_BAR_HEIGHT
             return min(STABLE_MAX_BAR_HEIGHT, nativeCap)
                 .coerceAtLeast(diameter)
@@ -516,6 +520,72 @@ internal class CombinedStatusPainter(
             )
 
         return specs
+    }
+
+    fun transitionAirplaneSourceBounds(
+        width: Int,
+        height: Int,
+    ): TransitionBounds? {
+        if (width <= 0 || height <= 0) return null
+        val scale = min(width / CANONICAL_SIZE, height / CANONICAL_SIZE)
+        val offsetX = (width - CANONICAL_SIZE * scale) / 2f
+        val offsetY = (height - CANONICAL_SIZE * scale) / 2f
+        val geometry =
+            CombinedStatusCenterGeometry.resolve(
+                sizeScale = CombinedStatusCenterGeometry.DEFAULT_SIZE_SCALE,
+                textWeightScale = CombinedStatusCenterGeometry.DEFAULT_TEXT_WEIGHT_SCALE,
+            )
+        val local =
+            centeredBounds(
+                centerX = AIRPLANE_CENTER_X,
+                centerY = AIRPLANE_CENTER_Y,
+                width = geometry.airplaneMaxSize,
+                height = geometry.airplaneMaxSize,
+            )
+        return TransitionBounds(
+            left = offsetX + local.left * scale,
+            top = offsetY + local.top * scale,
+            right = offsetX + local.right * scale,
+            bottom = offsetY + local.bottom * scale,
+        )
+    }
+
+    fun drawTransitionAirplane(
+        canvas: Canvas,
+        width: Int,
+        height: Int,
+        tint: Int,
+        opacity: Float,
+    ) {
+        if (width <= 0 || height <= 0 || opacity <= 0f) return
+        val scale = min(width / CANONICAL_SIZE, height / CANONICAL_SIZE)
+        val visualWidth = CANONICAL_SIZE * scale
+        val visualHeight = CANONICAL_SIZE * scale
+        val offsetX = (width - visualWidth) / 2f
+        val offsetY = (height - visualHeight) / 2f
+        val nativeTransform =
+            NativeRenderTransform(
+                scale = scale,
+                offsetX = offsetX,
+                offsetY = offsetY,
+            )
+        val geometry =
+            CombinedStatusCenterGeometry.resolve(
+                sizeScale = CombinedStatusCenterGeometry.DEFAULT_SIZE_SCALE,
+                textWeightScale = CombinedStatusCenterGeometry.DEFAULT_TEXT_WEIGHT_SCALE,
+            )
+        val save = canvas.save()
+        canvas.translate(offsetX, offsetY)
+        canvas.scale(scale, scale)
+        drawNativeAirplane(
+            canvas = canvas,
+            tint = tint,
+            opacity = opacity,
+            geometry = geometry,
+            nativeTransform = nativeTransform,
+            pixelAligned = false,
+        )
+        canvas.restoreToCount(save)
     }
 
     private fun transitionWifiMetrics(

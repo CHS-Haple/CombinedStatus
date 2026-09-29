@@ -23,6 +23,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
     private const val BATTERY_VIEW_CLASS_NAME =
         "com.android.systemui.statusbar.views.MiuiBatteryMeterView"
     private const val BATTERY_SLOT = "battery"
+    private const val AIRPLANE_SLOT = "airplane"
     private const val MOBILE_SLOT = "mobile"
     private const val STACKED_MOBILE_SLOT = "stacked_mobile"
 
@@ -200,6 +201,19 @@ internal object CombinedStatusControlCenterTransitionOwner {
             return p * p
         }
 
+        fun semanticSplitProgress(rawProgress: Float): Float {
+            val p = geometryProgress(rawProgress)
+            return p * p
+        }
+
+        fun semanticRevealProgress(rawProgress: Float): Float {
+            val p = geometryProgress(rawProgress)
+            return p * p
+        }
+
+        fun semanticRevealScale(rawProgress: Float): Float =
+            0.90f + 0.10f * semanticRevealProgress(rawProgress)
+
         fun unmatchedExitOpacity(rawProgress: Float): Float {
             val remaining = 1f - geometryProgress(rawProgress)
             return remaining * remaining
@@ -214,11 +228,18 @@ internal object CombinedStatusControlCenterTransitionOwner {
             sourceScene == CombinedStatusSourceScene.HOME ||
                 sourceScene == CombinedStatusSourceScene.KEYGUARD
 
+        enum class ReservationProgress {
+            LINEAR,
+            SEMANTIC_SPLIT,
+            SEMANTIC_REVEAL,
+        }
+
         data class ReservationSpan(
             val sourceLeft: Float,
             val sourceRight: Float,
             val targetLeft: Float,
             val targetRight: Float,
+            val progressMode: ReservationProgress = ReservationProgress.LINEAR,
         )
 
         fun resolveReservationWidth(
@@ -232,12 +253,18 @@ internal object CombinedStatusControlCenterTransitionOwner {
             var left = -compact.toFloat()
             var right = 0f
             spans.forEach { span ->
+                val spanProgress =
+                    when (span.progressMode) {
+                        ReservationProgress.LINEAR -> p
+                        ReservationProgress.SEMANTIC_SPLIT -> semanticSplitProgress(p)
+                        ReservationProgress.SEMANTIC_REVEAL -> semanticRevealProgress(p)
+                    }
                 val currentLeft =
                     span.sourceLeft +
-                        (span.targetLeft - span.sourceLeft) * p
+                        (span.targetLeft - span.sourceLeft) * spanProgress
                 val currentRight =
                     span.sourceRight +
-                        (span.targetRight - span.sourceRight) * p
+                        (span.targetRight - span.sourceRight) * spanProgress
                 left = min(left, currentLeft)
                 right = maxOf(right, currentRight)
             }
@@ -467,6 +494,9 @@ internal object CombinedStatusControlCenterTransitionOwner {
         )
         private val mobileSubIdCache = WeakHashMap<View, Int?>()
         private val targetCache = HashMap<TargetCacheKey, TargetWitness>()
+        private var frozenAdditionalMobileTargets: List<TargetWitness>? = null
+        private var frozenAirplaneTarget: TargetWitness? = null
+        private var airplaneTargetResolved = false
 
         private var currentSnapshot = sourceSnapshot
         private var progress = 0f
@@ -784,9 +814,212 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 )
             }
 
+            val mobileSpec =
+                specs.firstOrNull { spec ->
+                    spec.component == CombinedStatusPainter.TransitionComponent.MOBILE
+                }
+            if (mobileSpec != null) {
+                val extras =
+                    drawAdditionalMobileSplit(
+                        canvas = canvas,
+                        rootView = rootView,
+                        sourceParentGeometry = sourceParentGeometry,
+                        sourceWidth = sourceWidth,
+                        sourceHeight = sourceHeight,
+                        model = model,
+                        colors = transitionColors,
+                        mobileSpec = mobileSpec,
+                        preferredMobileSubId = preferredMobileSubId,
+                        motionProgress = motionProgress,
+                        shapeProgress = mobileSignalShapeProgress,
+                        opacity = opacity,
+                    )
+                witnessDescriptions?.addAll(extras)
+            }
+            drawSupplementalAirplaneReveal(
+                canvas = canvas,
+                rootView = rootView,
+                sourceParentGeometry = sourceParentGeometry,
+                sourceWidth = sourceWidth,
+                sourceHeight = sourceHeight,
+                model = model,
+                colors = transitionColors,
+                motionProgress = motionProgress,
+                opacity = opacity,
+            )?.let { description ->
+                witnessDescriptions?.add(description)
+            }
+
             witnessDescriptions?.let { descriptions ->
                 lastWitnessSummary = descriptions.joinToString("|")
             }
+        }
+
+        private fun drawAdditionalMobileSplit(
+            canvas: Canvas,
+            rootView: View,
+            sourceParentGeometry: FloatArray,
+            sourceWidth: Int,
+            sourceHeight: Int,
+            model: CombinedStatusRenderModel,
+            colors: CombinedStatusColors,
+            mobileSpec: CombinedStatusPainter.TransitionComponentSpec,
+            preferredMobileSubId: Int?,
+            motionProgress: Float,
+            shapeProgress: Float,
+            opacity: Float,
+        ): List<String> {
+            if (
+                mobileSpec.shapePolicy !=
+                CombinedStatusPainter.TransitionShapePolicy.MOBILE_SIGNAL
+            ) {
+                return emptyList()
+            }
+            val sourceGeometry =
+                Policy.componentGeometry(
+                    parentGeometry = sourceParentGeometry,
+                    parentWidth = sourceWidth,
+                    parentHeight = sourceHeight,
+                    bounds = mobileSpec.sourceBounds,
+                ) ?: return emptyList()
+            val primary =
+                resolveTarget(
+                    target = mobileSpec.target,
+                    preferredMobileSubId = preferredMobileSubId,
+                )
+            val splitProgress = Policy.semanticSplitProgress(motionProgress)
+            if (splitProgress <= 0f) return emptyList()
+
+            val state = CombinedStatusStateStore.snapshot()
+            val descriptions = ArrayList<String>()
+            resolveFrozenAdditionalMobileTargets(primary).forEach { witness ->
+                val subId = witness.subscriptionId ?: return@forEach
+                val level =
+                    when (val signal = state.mobile[subId]?.signal) {
+                        is SignalStrength.Level -> signal.value.coerceIn(0, 4)
+                        else -> return@forEach
+                    }
+                val targetGeometry =
+                    resolveTargetGeometry(
+                        witness = witness,
+                        root = rootView,
+                        sourceGeometry = sourceGeometry,
+                        targetOpticalBounds = mobileSpec.targetOpticalBounds,
+                    ) ?: return@forEach
+                val geometry =
+                    Policy.interpolateSimilarityGeometry(
+                        source = sourceGeometry,
+                        target = targetGeometry,
+                        progress = splitProgress,
+                        scalePolicy = mobileSpec.scalePolicy,
+                    )
+                val matrix =
+                    matrixForBoundsGeometry(
+                        geometry = geometry,
+                        bounds = mobileSpec.sourceBounds,
+                    ) ?: return@forEach
+                val componentOpacity = opacity * splitProgress
+                if (componentOpacity <= 0f) return@forEach
+                val save =
+                    canvas.saveLayerAlpha(
+                        null,
+                        (255f * componentOpacity.coerceIn(0f, 1f)).roundToInt(),
+                    )
+                canvas.concat(matrix)
+                painter.drawTransitionComponent(
+                    canvas = canvas,
+                    width = sourceWidth,
+                    height = sourceHeight,
+                    model =
+                        model.copy(
+                            mobileLevel = level,
+                            mobileUnavailableMark = false,
+                            effectiveDataSubscriptionId = subId,
+                        ),
+                    colors = colors,
+                    component = CombinedStatusPainter.TransitionComponent.MOBILE,
+                    shapePolicy = mobileSpec.shapePolicy,
+                    opacity = 1f,
+                    motionProgress = motionProgress,
+                    shapeProgress = shapeProgress,
+                    mobileTargetHeightRatio =
+                        Policy.relativeGeometryHeight(
+                            target = targetGeometry,
+                            current = sourceGeometry,
+                        ),
+                )
+                canvas.restoreToCount(save)
+                descriptions += "mobile-split:" + witness.summary
+            }
+            return descriptions
+        }
+
+        private fun drawSupplementalAirplaneReveal(
+            canvas: Canvas,
+            rootView: View,
+            sourceParentGeometry: FloatArray,
+            sourceWidth: Int,
+            sourceHeight: Int,
+            model: CombinedStatusRenderModel,
+            colors: CombinedStatusColors,
+            motionProgress: Float,
+            opacity: Float,
+        ): String? {
+            if (
+                CombinedStatusStateStore.snapshot().airplaneMode != true ||
+                model.centerIndicator !is CenterIndicator.Wifi
+            ) {
+                return null
+            }
+            val bounds =
+                painter.transitionAirplaneSourceBounds(
+                    width = sourceWidth,
+                    height = sourceHeight,
+                ) ?: return null
+            val sourceGeometry =
+                Policy.componentGeometry(
+                    parentGeometry = sourceParentGeometry,
+                    parentWidth = sourceWidth,
+                    parentHeight = sourceHeight,
+                    bounds = bounds,
+                ) ?: return null
+            val witness = resolveFrozenAirplaneTarget() ?: return null
+            val targetGeometry =
+                resolveTargetGeometry(
+                    witness = witness,
+                    root = rootView,
+                    sourceGeometry = sourceGeometry,
+                    targetOpticalBounds = null,
+                ) ?: return null
+            val revealProgress = Policy.semanticRevealProgress(motionProgress)
+            if (revealProgress <= 0f) return null
+            val geometry =
+                Policy.scaleGeometry(
+                    source = targetGeometry,
+                    scale = Policy.semanticRevealScale(motionProgress),
+                )
+            val matrix =
+                matrixForBoundsGeometry(
+                    geometry = geometry,
+                    bounds = bounds,
+                ) ?: return null
+            val componentOpacity = opacity * revealProgress
+            if (componentOpacity <= 0f) return null
+            val save =
+                canvas.saveLayerAlpha(
+                    null,
+                    (255f * componentOpacity.coerceIn(0f, 1f)).roundToInt(),
+                )
+            canvas.concat(matrix)
+            painter.drawTransitionAirplane(
+                canvas = canvas,
+                width = sourceWidth,
+                height = sourceHeight,
+                tint = colors.centerTint,
+                opacity = 1f,
+            )
+            canvas.restoreToCount(save)
+            return "airplane-reveal:" + witness.summary
         }
 
         private fun refreshNativePeerTint() {
@@ -910,6 +1143,62 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         targetRight = maxOf(targetA, targetB),
                     )
             }
+            val mobileSpec =
+                specs.firstOrNull { spec ->
+                    spec.component == CombinedStatusPainter.TransitionComponent.MOBILE
+                }
+            if (mobileSpec != null) {
+                val primary =
+                    resolveTarget(
+                        target = mobileSpec.target,
+                        preferredMobileSubId = preferredMobileSubId,
+                    )
+                resolveFrozenAdditionalMobileTargets(primary).forEach { witness ->
+                    val slot = witness.slotView
+                    val targetLocation = IntArray(2)
+                    slot.getLocationInWindow(targetLocation)
+                    val sourceA = logicalSourceX(mobileSpec.sourceBounds.left)
+                    val sourceB = logicalSourceX(mobileSpec.sourceBounds.right)
+                    val targetA = logicalTargetX(targetLocation[0].toFloat())
+                    val targetB =
+                        logicalTargetX(
+                            (targetLocation[0] + slot.width).toFloat(),
+                        )
+                    result +=
+                        Policy.ReservationSpan(
+                            sourceLeft = min(sourceA, sourceB),
+                            sourceRight = maxOf(sourceA, sourceB),
+                            targetLeft = min(targetA, targetB),
+                            targetRight = maxOf(targetA, targetB),
+                            progressMode = Policy.ReservationProgress.SEMANTIC_SPLIT,
+                        )
+                }
+            }
+
+            if (
+                CombinedStatusStateStore.snapshot().airplaneMode == true &&
+                currentSnapshot.model.centerIndicator is CenterIndicator.Wifi
+            ) {
+                resolveFrozenAirplaneTarget()?.let { witness ->
+                    val slot = witness.slotView
+                    val targetLocation = IntArray(2)
+                    slot.getLocationInWindow(targetLocation)
+                    val collapsedEnd = logicalSourceX(source.width.toFloat())
+                    val targetA = logicalTargetX(targetLocation[0].toFloat())
+                    val targetB =
+                        logicalTargetX(
+                            (targetLocation[0] + slot.width).toFloat(),
+                        )
+                    result +=
+                        Policy.ReservationSpan(
+                            sourceLeft = collapsedEnd,
+                            sourceRight = collapsedEnd,
+                            targetLeft = min(targetA, targetB),
+                            targetRight = maxOf(targetA, targetB),
+                            progressMode = Policy.ReservationProgress.SEMANTIC_REVEAL,
+                        )
+                }
+            }
             return result.takeIf { it.isNotEmpty() }
         }
 
@@ -972,54 +1261,10 @@ internal object CombinedStatusControlCenterTransitionOwner {
                                                 slot == STACKED_MOBILE_SLOT
                                         },
                                 ) ?: return@firstNotNullOfOrNull null
-
-                            val nativeOptical =
-                                target.preferredChildEntries
-                                    .firstNotNullOfOrNull { entry ->
-                                        findDescendantByResourceEntry(
-                                            root = slotRoot,
-                                            entryName = entry,
-                                        )?.takeIf(::isReliableSemanticTarget)
-                                    }
-                            val compatibilityOptical =
-                                if (nativeOptical == null) {
-                                    resolveCompatibilityOpticalTarget(
-                                        slotRoot = slotRoot,
-                                        preferredChildEntries = target.preferredChildEntries,
-                                    )
-                                } else {
-                                    null
-                                }
-                            val optical = nativeOptical ?: compatibilityOptical?.view
-                            val fallbackBounds =
-                                if (opticalRequired && optical == null) {
-                                    Policy.semanticFallbackBounds(
-                                        preferredChildEntries = target.preferredChildEntries,
-                                        isRtl =
-                                            slotRoot.layoutDirection ==
-                                                View.LAYOUT_DIRECTION_RTL,
-                                    )
-                                } else {
-                                    null
-                                }
-                            if (opticalRequired && optical == null && fallbackBounds == null) {
-                                return@firstNotNullOfOrNull null
-                            }
-
-                            TargetWitness(
+                            buildSlotWitness(
                                 slot = slot,
-                                slotView = slotRoot,
-                                opticalView = optical,
-                                subscriptionId = readMobileSubId(slotRoot),
-                                requiresOpticalGeometry = opticalRequired,
-                                fallbackBounds = fallbackBounds,
-                                opticalSource =
-                                    when {
-                                        nativeOptical != null -> "native"
-                                        compatibilityOptical != null -> compatibilityOptical.source
-                                        fallbackBounds != null -> "slot-estimate"
-                                        else -> "slot"
-                                    },
+                                slotRoot = slotRoot,
+                                target = target,
                             )
                         }
                 }
@@ -1030,6 +1275,122 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 targetCache.remove(key)
             }
             return resolved
+        }
+
+        private fun buildSlotWitness(
+            slot: String,
+            slotRoot: View,
+            target: CombinedStatusPainter.TransitionTarget.Slots,
+        ): TargetWitness? {
+            if (slotRoot.visibility != View.VISIBLE || !isUsableSlotView(slotRoot)) {
+                return null
+            }
+            val opticalRequired = target.preferredChildEntries.isNotEmpty()
+            val nativeOptical =
+                target.preferredChildEntries
+                    .firstNotNullOfOrNull { entry ->
+                        findDescendantByResourceEntry(
+                            root = slotRoot,
+                            entryName = entry,
+                        )?.takeIf(::isReliableSemanticTarget)
+                    }
+            val compatibilityOptical =
+                if (nativeOptical == null) {
+                    resolveCompatibilityOpticalTarget(
+                        slotRoot = slotRoot,
+                        preferredChildEntries = target.preferredChildEntries,
+                    )
+                } else {
+                    null
+                }
+            val optical = nativeOptical ?: compatibilityOptical?.view
+            val fallbackBounds =
+                if (opticalRequired && optical == null) {
+                    Policy.semanticFallbackBounds(
+                        preferredChildEntries = target.preferredChildEntries,
+                        isRtl =
+                            slotRoot.layoutDirection ==
+                                View.LAYOUT_DIRECTION_RTL,
+                    )
+                } else {
+                    null
+                }
+            if (opticalRequired && optical == null && fallbackBounds == null) {
+                return null
+            }
+            return TargetWitness(
+                slot = slot,
+                slotView = slotRoot,
+                opticalView = optical,
+                subscriptionId = readMobileSubId(slotRoot),
+                requiresOpticalGeometry = opticalRequired,
+                fallbackBounds = fallbackBounds,
+                opticalSource =
+                    when {
+                        nativeOptical != null -> "native"
+                        compatibilityOptical != null -> compatibilityOptical.source
+                        fallbackBounds != null -> "slot-estimate"
+                        else -> "slot"
+                    },
+            )
+        }
+
+        private fun resolveFrozenAdditionalMobileTargets(
+            primary: TargetWitness?,
+        ): List<TargetWitness> {
+            frozenAdditionalMobileTargets?.let { return it }
+            val resolved = resolveAdditionalMobileTargets(primary)
+            frozenAdditionalMobileTargets = resolved
+            return resolved
+        }
+
+        private fun resolveAdditionalMobileTargets(
+            primary: TargetWitness?,
+        ): List<TargetWitness> {
+            val target =
+                CombinedStatusPainter.TransitionTarget.Slots(
+                    preferredSlots = listOf(MOBILE_SLOT, STACKED_MOBILE_SLOT),
+                    preferredChildEntries = listOf("mobile_signal"),
+                )
+            val primarySubId = primary?.subscriptionId
+            return target.preferredSlots
+                .flatMap { slot ->
+                    slotViews(finalStatusIcons, slot).map { view -> slot to view }
+                }
+                .asSequence()
+                .filter { (_, view) ->
+                    view !== primary?.slotView &&
+                        view.visibility == View.VISIBLE &&
+                        isUsableSlotView(view)
+                }
+                .mapNotNull { (slot, view) ->
+                    buildSlotWitness(
+                        slot = slot,
+                        slotRoot = view,
+                        target = target,
+                    )
+                }
+                .filter { witness ->
+                    val subId = witness.subscriptionId
+                    subId != null &&
+                        (primarySubId == null || subId != primarySubId)
+                }
+                .distinctBy { witness -> witness.subscriptionId }
+                .toList()
+        }
+
+        private fun resolveFrozenAirplaneTarget(): TargetWitness? {
+            if (airplaneTargetResolved) return frozenAirplaneTarget
+            airplaneTargetResolved = true
+            frozenAirplaneTarget =
+                resolveTarget(
+                    target =
+                        CombinedStatusPainter.TransitionTarget.Slots(
+                            preferredSlots = listOf(AIRPLANE_SLOT),
+                        ),
+                    preferredMobileSubId = null,
+                )
+            return frozenAirplaneTarget
         }
 
         private fun resolveTargetGeometry(
