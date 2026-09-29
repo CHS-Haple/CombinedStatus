@@ -121,7 +121,8 @@ internal class CombinedStatusPainter(
         component: TransitionComponent,
         shapePolicy: TransitionShapePolicy,
         opacity: Float = 1f,
-        morphProgress: Float = 0f,
+        motionProgress: Float = 0f,
+        shapeProgress: Float = 0f,
     ) {
         if (width <= 0 || height <= 0 || opacity <= 0f) return
 
@@ -140,18 +141,21 @@ internal class CombinedStatusPainter(
         canvas.translate(offsetX, offsetY)
         canvas.scale(scale, scale)
 
-        val morph = morphProgress.coerceIn(0f, 1f)
+        val motion = motionProgress.coerceIn(0f, 1f)
+        val shape = shapeProgress.coerceIn(0f, 1f)
         val componentSave = canvas.save()
         when (shapePolicy) {
             TransitionShapePolicy.BATTERY_FOLD ->
                 canvas.scale(
                     1f,
-                    lerp(1f, BATTERY_FOLD_SCALE_Y, morph),
+                    lerp(1f, BATTERY_FOLD_SCALE_Y, motion),
                     BATTERY_COMPONENT_CENTER_X,
                     BATTERY_COMPONENT_CENTER_Y,
                 )
 
-            TransitionShapePolicy.RIGID -> Unit
+            TransitionShapePolicy.RIGID,
+            TransitionShapePolicy.MOBILE_SIGNAL,
+            -> Unit
         }
 
         when (component) {
@@ -184,17 +188,31 @@ internal class CombinedStatusPainter(
                     scaleMobileTypeWithCanvas = false,
                 )
 
-            TransitionComponent.MOBILE ->
-                drawMobile(
-                    canvas = canvas,
-                    model = model,
-                    tint = colors.mobileTint,
-                    opacity = opacity,
-                    geometry =
-                        resolveOuterGeometry(
-                            CombinedStatusOuterGeometry.DEFAULT_WEIGHT_SCALE,
-                        ),
-                )
+            TransitionComponent.MOBILE -> {
+                val outerGeometry =
+                    resolveOuterGeometry(
+                        CombinedStatusOuterGeometry.DEFAULT_WEIGHT_SCALE,
+                    )
+                if (shapePolicy == TransitionShapePolicy.MOBILE_SIGNAL) {
+                    drawMobileSignalTransition(
+                        canvas = canvas,
+                        model = model,
+                        tint = colors.mobileTint,
+                        opacity = opacity,
+                        geometry = outerGeometry,
+                        motionProgress = motion,
+                        shapeProgress = shape,
+                    )
+                } else {
+                    drawMobile(
+                        canvas = canvas,
+                        model = model,
+                        tint = colors.mobileTint,
+                        opacity = opacity,
+                        geometry = outerGeometry,
+                    )
+                }
+            }
         }
         canvas.restoreToCount(componentSave)
 
@@ -210,13 +228,15 @@ internal class CombinedStatusPainter(
     internal enum class TransitionShapePolicy {
         BATTERY_FOLD,
         RIGID,
+        MOBILE_SIGNAL,
     }
 
     internal sealed interface TransitionTarget {
-        data object Battery : TransitionTarget
+        data object BatteryIcon : TransitionTarget
 
         data class Slots(
             val preferredSlots: List<String>,
+            val preferredChildEntries: List<String> = emptyList(),
         ) : TransitionTarget
     }
 
@@ -286,7 +306,7 @@ internal class CombinedStatusPainter(
                             bottom = batteryRing.bottom + batteryHalfStroke,
                         ),
                     ),
-                target = TransitionTarget.Battery,
+                target = TransitionTarget.BatteryIcon,
                 shapePolicy = TransitionShapePolicy.BATTERY_FOLD,
             )
 
@@ -304,7 +324,11 @@ internal class CombinedStatusPainter(
                                     height = centerGeometry.wifiMaxHeight,
                                 ),
                             ),
-                        target = TransitionTarget.Slots(listOf("wifi")),
+                        target =
+                            TransitionTarget.Slots(
+                                preferredSlots = listOf("wifi"),
+                                preferredChildEntries = listOf("wifi_signal"),
+                            ),
                         shapePolicy = TransitionShapePolicy.RIGID,
                     )
 
@@ -320,7 +344,12 @@ internal class CombinedStatusPainter(
                                     scaleWithCanvas = false,
                                 ).bounds,
                             ),
-                        target = TransitionTarget.Slots(listOf("mobile", "stacked_mobile")),
+                        target =
+                            TransitionTarget.Slots(
+                                preferredSlots = listOf("mobile", "stacked_mobile"),
+                                preferredChildEntries =
+                                    listOf("mobile_type_single", "mobile_type"),
+                            ),
                         shapePolicy = TransitionShapePolicy.RIGID,
                     )
 
@@ -363,56 +392,27 @@ internal class CombinedStatusPainter(
             }
         centerSpec?.let(specs::add)
 
-        var mobileLeft = Float.POSITIVE_INFINITY
-        var mobileTop = Float.POSITIVE_INFINITY
-        var mobileRight = Float.NEGATIVE_INFINITY
-        var mobileBottom = Float.NEGATIVE_INFINITY
-        for (index in 0 until MOBILE_DOT_COUNT) {
-            val angle = outerGeometry.bottomDotAngle(index)
-            val centerX =
-                MOBILE_CENTER_X +
-                    cos(angle).toFloat() * CombinedStatusOuterGeometry.MOBILE_ORBIT_RADIUS
-            val centerY =
-                MOBILE_CENTER_Y +
-                    sin(angle).toFloat() * CombinedStatusOuterGeometry.MOBILE_ORBIT_RADIUS
-            mobileLeft = min(mobileLeft, centerX - outerGeometry.mobileDotRadius)
-            mobileTop = min(mobileTop, centerY - outerGeometry.mobileDotRadius)
-            mobileRight = max(mobileRight, centerX + outerGeometry.mobileDotRadius)
-            mobileBottom = max(mobileBottom, centerY + outerGeometry.mobileDotRadius)
-        }
-        if (model.mobileUnavailableMark) {
-            val half =
-                max(
-                    outerGeometry.unavailableMarkHalfExtent,
-                    outerGeometry.unavailableMarkStroke,
-                )
-            mobileLeft = min(mobileLeft, MOBILE_UNAVAILABLE_CENTER_X - half)
-            mobileTop = min(mobileTop, MOBILE_UNAVAILABLE_CENTER_Y - half)
-            mobileRight = max(mobileRight, MOBILE_UNAVAILABLE_CENTER_X + half)
-            mobileBottom = max(mobileBottom, MOBILE_UNAVAILABLE_CENTER_Y + half)
-        }
-        if (
-            mobileLeft.isFinite() &&
-            mobileTop.isFinite() &&
-            mobileRight.isFinite() &&
-            mobileBottom.isFinite()
-        ) {
-            specs +=
-                TransitionComponentSpec(
-                    component = TransitionComponent.MOBILE,
-                    sourceBounds =
-                        toViewBounds(
-                            TransitionBounds(
-                                left = mobileLeft,
-                                top = mobileTop,
-                                right = mobileRight,
-                                bottom = mobileBottom,
-                            ),
-                        ),
-                    target = TransitionTarget.Slots(listOf("mobile", "stacked_mobile")),
-                    shapePolicy = TransitionShapePolicy.RIGID,
-                )
-        }
+        val mobileLayout =
+            resolveMobileSignalTransitionLayout(
+                geometry = outerGeometry,
+                model = model,
+            )
+        specs +=
+            TransitionComponentSpec(
+                component = TransitionComponent.MOBILE,
+                sourceBounds = toViewBounds(mobileLayout.bounds),
+                target =
+                    TransitionTarget.Slots(
+                        preferredSlots = listOf("mobile", "stacked_mobile"),
+                        preferredChildEntries = listOf("mobile_signal"),
+                    ),
+                shapePolicy =
+                    if (model.mobileUnavailableMark) {
+                        TransitionShapePolicy.RIGID
+                    } else {
+                        TransitionShapePolicy.MOBILE_SIGNAL
+                    },
+            )
 
         return specs
     }
@@ -1226,6 +1226,106 @@ internal class CombinedStatusPainter(
         return cachedMobileTypeTypeface
     }
 
+    private fun resolveMobileSignalTransitionLayout(
+        geometry: CombinedStatusOuterGeometry.Resolved,
+        model: CombinedStatusRenderModel,
+    ): MobileSignalTransitionLayout {
+        val sourceCenters = ArrayList<TransitionPoint>(MOBILE_DOT_COUNT)
+        var left = Float.POSITIVE_INFINITY
+        var top = Float.POSITIVE_INFINITY
+        var right = Float.NEGATIVE_INFINITY
+        var bottom = Float.NEGATIVE_INFINITY
+        for (index in 0 until MOBILE_DOT_COUNT) {
+            val angle = geometry.bottomDotAngle(index)
+            val x =
+                MOBILE_CENTER_X +
+                    cos(angle).toFloat() * CombinedStatusOuterGeometry.MOBILE_ORBIT_RADIUS
+            val y =
+                MOBILE_CENTER_Y +
+                    sin(angle).toFloat() * CombinedStatusOuterGeometry.MOBILE_ORBIT_RADIUS
+            sourceCenters += TransitionPoint(x, y)
+            left = min(left, x - geometry.mobileDotRadius)
+            top = min(top, y - geometry.mobileDotRadius)
+            right = max(right, x + geometry.mobileDotRadius)
+            bottom = max(bottom, y + geometry.mobileDotRadius)
+        }
+        if (model.mobileUnavailableMark) {
+            val half =
+                max(
+                    geometry.unavailableMarkHalfExtent,
+                    geometry.unavailableMarkStroke,
+                )
+            left = min(left, MOBILE_UNAVAILABLE_CENTER_X - half)
+            top = min(top, MOBILE_UNAVAILABLE_CENTER_Y - half)
+            right = max(right, MOBILE_UNAVAILABLE_CENTER_X + half)
+            bottom = max(bottom, MOBILE_UNAVAILABLE_CENTER_Y + half)
+        }
+
+        val bounds = TransitionBounds(left, top, right, bottom)
+        val diameter = geometry.mobileDotRadius * 2f
+        val usableWidth = (bounds.width - diameter).coerceAtLeast(diameter * 3f)
+        val step = usableWidth / (MOBILE_DOT_COUNT - 1).toFloat()
+        val firstX = bounds.left + diameter / 2f
+        val baselineY = bounds.bottom
+        val targetCenters =
+            List(MOBILE_DOT_COUNT) { index ->
+                TransitionPoint(
+                    x = firstX + step * index,
+                    y = baselineY - geometry.mobileDotRadius,
+                )
+            }
+        val maxBarHeight = (bounds.height * 0.92f).coerceAtLeast(diameter)
+        val barHeights =
+            listOf(0.34f, 0.52f, 0.72f, 0.92f)
+                .map { ratio -> (bounds.height * ratio).coerceIn(diameter, maxBarHeight) }
+
+        return MobileSignalTransitionLayout(
+            bounds = bounds,
+            sourceCenters = sourceCenters,
+            targetCenters = targetCenters,
+            barHeights = barHeights,
+        )
+    }
+
+    private fun drawMobileSignalTransition(
+        canvas: Canvas,
+        model: CombinedStatusRenderModel,
+        tint: Int,
+        opacity: Float,
+        geometry: CombinedStatusOuterGeometry.Resolved,
+        motionProgress: Float,
+        shapeProgress: Float,
+    ) {
+        val layout = resolveMobileSignalTransitionLayout(geometry, model)
+        val motion = motionProgress.coerceIn(0f, 1f)
+        val shape = shapeProgress.coerceIn(0f, 1f)
+        val diameter = geometry.mobileDotRadius * 2f
+        val level = model.mobileLevel
+
+        for (index in 0 until MOBILE_DOT_COUNT) {
+            val source = layout.sourceCenters[index]
+            val target = layout.targetCenters[index]
+            val centerX = lerp(source.x, target.x, motion)
+            val centerY = lerp(source.y, target.y, motion)
+            val barHeight = lerp(diameter, layout.barHeights[index], shape)
+            val bottom = centerY + geometry.mobileDotRadius
+            fill(
+                color = tint,
+                alpha = if (level != null && level > index) 255 else 48,
+                opacity = opacity,
+            )
+            canvas.drawRoundRect(
+                centerX - geometry.mobileDotRadius,
+                bottom - barHeight,
+                centerX + geometry.mobileDotRadius,
+                bottom,
+                geometry.mobileDotRadius,
+                geometry.mobileDotRadius,
+                paint,
+            )
+        }
+    }
+
     private fun drawMobile(
         canvas: Canvas,
         model: CombinedStatusRenderModel,
@@ -1411,6 +1511,18 @@ internal class CombinedStatusPainter(
         const val BATTERY_FOLD_SCALE_Y = 0.72f
 
     }
+
+    private data class TransitionPoint(
+        val x: Float,
+        val y: Float,
+    )
+
+    private data class MobileSignalTransitionLayout(
+        val bounds: TransitionBounds,
+        val sourceCenters: List<TransitionPoint>,
+        val targetCenters: List<TransitionPoint>,
+        val barHeights: List<Float>,
+    )
 
     private data class MobileTypeLayout(
         val main: String,

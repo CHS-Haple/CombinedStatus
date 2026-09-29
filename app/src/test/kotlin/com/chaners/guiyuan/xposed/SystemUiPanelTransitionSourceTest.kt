@@ -195,6 +195,53 @@ class SystemUiPanelTransitionSourceTest {
     }
 
     @Test
+    fun transitionMotionCompletesBeforeLocalMobileSignalMorph() {
+        assertEquals(0f, CombinedStatusControlCenterTransitionOwner.Policy.motionProgress(0f))
+        assertEquals(
+            0.5f,
+            CombinedStatusControlCenterTransitionOwner.Policy.motionProgress(0.41f),
+            0.0001f,
+        )
+        assertEquals(1f, CombinedStatusControlCenterTransitionOwner.Policy.motionProgress(0.82f))
+        assertEquals(1f, CombinedStatusControlCenterTransitionOwner.Policy.motionProgress(1f))
+
+        assertEquals(
+            0f,
+            CombinedStatusControlCenterTransitionOwner.Policy.mobileSignalShapeProgress(0.82f),
+            0.0001f,
+        )
+        assertEquals(
+            0.5f,
+            CombinedStatusControlCenterTransitionOwner.Policy.mobileSignalShapeProgress(0.87f),
+            0.0001f,
+        )
+        assertEquals(
+            1f,
+            CombinedStatusControlCenterTransitionOwner.Policy.mobileSignalShapeProgress(0.92f),
+            0.0001f,
+        )
+    }
+
+    @Test
+    fun transitionNativeWitnessOnlyTakesOverAfterLocalShapeCompletes() {
+        assertEquals(
+            0f,
+            CombinedStatusControlCenterTransitionOwner.Policy.nativeWitnessProgress(0.92f),
+            0.0001f,
+        )
+        assertEquals(
+            0.5f,
+            CombinedStatusControlCenterTransitionOwner.Policy.nativeWitnessProgress(0.96f),
+            0.0001f,
+        )
+        assertEquals(
+            1f,
+            CombinedStatusControlCenterTransitionOwner.Policy.nativeWitnessProgress(1f),
+            0.0001f,
+        )
+    }
+
+    @Test
     fun transitionSimilarityGeometryPreservesSourceAspectRatio() {
         val source = floatArrayOf(10f, 20f, 60f, 0f, 0f, 30f)
         val target = floatArrayOf(110f, 220f, 100f, 0f, 0f, 100f)

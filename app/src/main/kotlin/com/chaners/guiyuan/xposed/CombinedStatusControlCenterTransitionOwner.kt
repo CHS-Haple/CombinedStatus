@@ -153,6 +153,43 @@ internal object CombinedStatusControlCenterTransitionOwner {
         fun geometryProgress(raw: Float): Float =
             if (raw.isFinite()) raw.coerceIn(0f, 1f) else 0f
 
+        fun motionProgress(raw: Float): Float =
+            normalizedPhase(
+                raw = geometryProgress(raw),
+                start = 0f,
+                end = 0.82f,
+            )
+
+        fun mobileSignalShapeProgress(raw: Float): Float =
+            smoothstep(
+                normalizedPhase(
+                    raw = geometryProgress(raw),
+                    start = 0.82f,
+                    end = 0.92f,
+                ),
+            )
+
+        fun nativeWitnessProgress(raw: Float): Float =
+            smoothstep(
+                normalizedPhase(
+                    raw = geometryProgress(raw),
+                    start = 0.92f,
+                    end = 1f,
+                ),
+            )
+
+        private fun normalizedPhase(
+            raw: Float,
+            start: Float,
+            end: Float,
+        ): Float {
+            if (end <= start) return if (raw >= end) 1f else 0f
+            return ((raw - start) / (end - start)).coerceIn(0f, 1f)
+        }
+
+        private fun smoothstep(value: Float): Float =
+            value * value * (3f - 2f * value)
+
         fun interpolateGeometry(
             source: FloatArray,
             target: FloatArray,
@@ -396,7 +433,12 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 )
             if (specs.isEmpty()) return
 
-            val geometryProgress = Policy.geometryProgress(progress)
+            val nativeProgress = Policy.geometryProgress(progress)
+            val motionProgress = Policy.motionProgress(nativeProgress)
+            val mobileSignalShapeProgress =
+                Policy.mobileSignalShapeProgress(nativeProgress)
+            val nativeWitnessProgress =
+                Policy.nativeWitnessProgress(nativeProgress)
             val opacity = endpointAlpha(fake)
             if (opacity <= 0f) return
 
@@ -408,41 +450,62 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         parentHeight = sourceView.height,
                         bounds = spec.sourceBounds,
                     ) ?: return@forEach
-                val target =
-                    resolveTarget(spec.target)
-                        ?: return@forEach
+                val target = resolveTarget(spec.target)
                 val targetGeometry =
-                    sample(target, rootView)?.geometry
-                        ?: return@forEach
+                    target
+                        ?.let { view -> sample(view, rootView)?.geometry }
+                        ?: sourceGeometry
                 val geometry =
                     Policy.interpolateSimilarityGeometry(
                         source = sourceGeometry,
                         target = targetGeometry,
-                        progress = geometryProgress,
+                        progress = if (target != null) motionProgress else 0f,
                     )
                 val matrix =
                     matrixForBoundsGeometry(
                         geometry = geometry,
                         bounds = spec.sourceBounds,
                     ) ?: return@forEach
-                val save =
-                    canvas.saveLayerAlpha(
-                        null,
-                        (255f * opacity.coerceIn(0f, 1f)).roundToInt(),
+                val effectiveWitnessProgress =
+                    if (target != null) nativeWitnessProgress else 0f
+                val sourceOpacity =
+                    opacity * (1f - effectiveWitnessProgress)
+                if (sourceOpacity > 0f) {
+                    val save =
+                        canvas.saveLayerAlpha(
+                            null,
+                            (255f * sourceOpacity.coerceIn(0f, 1f)).roundToInt(),
+                        )
+                    canvas.concat(matrix)
+                    painter.drawTransitionComponent(
+                        canvas = canvas,
+                        width = sourceView.width,
+                        height = sourceView.height,
+                        model = model,
+                        colors = sourceColors,
+                        component = spec.component,
+                        shapePolicy = spec.shapePolicy,
+                        opacity = 1f,
+                        motionProgress = motionProgress,
+                        shapeProgress =
+                            if (spec.shapePolicy ==
+                                CombinedStatusPainter.TransitionShapePolicy.MOBILE_SIGNAL
+                            ) {
+                                mobileSignalShapeProgress
+                            } else {
+                                0f
+                            },
                     )
-                canvas.concat(matrix)
-                painter.drawTransitionComponent(
-                    canvas = canvas,
-                    width = sourceView.width,
-                    height = sourceView.height,
-                    model = model,
-                    colors = sourceColors,
-                    component = spec.component,
-                    shapePolicy = spec.shapePolicy,
-                    opacity = 1f,
-                    morphProgress = geometryProgress,
-                )
-                canvas.restoreToCount(save)
+                    canvas.restoreToCount(save)
+                }
+                if (target != null && effectiveWitnessProgress > 0f) {
+                    drawNativeWitness(
+                        canvas = canvas,
+                        target = target,
+                        root = rootView,
+                        opacity = opacity * effectiveWitnessProgress,
+                    )
+                }
             }
         }
 
@@ -450,12 +513,100 @@ internal object CombinedStatusControlCenterTransitionOwner {
             target: CombinedStatusPainter.TransitionTarget,
         ): View? =
             when (target) {
-                CombinedStatusPainter.TransitionTarget.Battery -> finalBattery
+                CombinedStatusPainter.TransitionTarget.BatteryIcon ->
+                    resolveBatteryIconTarget(finalBattery)
+
                 is CombinedStatusPainter.TransitionTarget.Slots ->
                     target.preferredSlots.firstNotNullOfOrNull { slot ->
-                        slotViews(finalStatusIcons, slot).firstOrNull()
+                        val slotRoot = selectSlotView(slotViews(finalStatusIcons, slot))
+                            ?: return@firstNotNullOfOrNull null
+                        if (target.preferredChildEntries.isEmpty()) {
+                            slotRoot
+                        } else {
+                            target.preferredChildEntries.firstNotNullOfOrNull { entry ->
+                                findDescendantByResourceEntry(slotRoot, entry)
+                            }
+                        }
                     }
             }
+
+        private fun resolveBatteryIconTarget(battery: View): View? =
+            readViewField(
+                target = battery,
+                fieldName = "mBatteryIconView",
+            )
+                ?: findDescendantByResourceEntry(battery, "battery_icon")
+                ?: findDescendantByResourceEntry(battery, "battery_icon_container")
+
+        private fun readViewField(
+            target: Any,
+            fieldName: String,
+        ): View? =
+            generateSequence(target.javaClass) { clazz -> clazz.superclass }
+                .mapNotNull { clazz ->
+                    clazz.declaredFields.firstOrNull { field -> field.name == fieldName }
+                }
+                .firstOrNull()
+                ?.let { field ->
+                    runCatching {
+                        field.isAccessible = true
+                        field.get(target) as? View
+                    }.getOrNull()
+                }
+
+        private fun selectSlotView(candidates: List<View>): View? =
+            candidates.firstOrNull { view ->
+                view.isAttachedToWindow &&
+                    view.width > 0 &&
+                    view.height > 0
+            } ?: candidates.firstOrNull { view ->
+                view.measuredWidth > 0 &&
+                    view.measuredHeight > 0
+            }
+
+        private fun findDescendantByResourceEntry(
+            root: View,
+            entryName: String,
+        ): View? {
+            if (NativeParticipantRuntimeAccess.resourceEntryName(root) == entryName) {
+                return root
+            }
+            val group = root as? ViewGroup ?: return null
+            for (index in 0 until group.childCount) {
+                findDescendantByResourceEntry(
+                    root = group.getChildAt(index),
+                    entryName = entryName,
+                )?.let { return it }
+            }
+            return null
+        }
+
+        private fun drawNativeWitness(
+            canvas: Canvas,
+            target: View,
+            root: View,
+            opacity: Float,
+        ) {
+            if (
+                opacity <= 0f ||
+                !target.isAttachedToWindow ||
+                target.width <= 0 ||
+                target.height <= 0
+            ) {
+                return
+            }
+            val matrix = Matrix()
+            target.transformMatrixToGlobal(matrix)
+            root.transformMatrixToLocal(matrix)
+            val save =
+                canvas.saveLayerAlpha(
+                    null,
+                    (255f * opacity.coerceIn(0f, 1f)).roundToInt(),
+                )
+            canvas.concat(matrix)
+            target.draw(canvas)
+            canvas.restoreToCount(save)
+        }
 
         private fun endpointAlpha(view: View): Float {
             var current: View? = view

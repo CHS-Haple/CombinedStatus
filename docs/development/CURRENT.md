@@ -18,7 +18,7 @@ Control Center transition animation is the active runtime task.
 
 Current implementation line:
 - PR #177 — feat/control-center-transition-matrix;
-- current work-branch checkpoint: Build 480 / 20260929-480;
+- current work-branch checkpoint: Build 481 / 20260929-481;
 - exact-target direction: QS_FAKE role-5 to final-QS role-6 matrix projection;
 - HyperOS remains translation/appearance authority; raw native expansion drives transition geometry and native fake/final Folme owns visual handoff;
 - Guiyuan reads native transition state and renders only its owned Trinity correspondence; it does not mask/redraw final native participants;
@@ -42,7 +42,7 @@ Keyguard has an independent host/session while sharing domain/render semantics. 
 
 Build 473 is device-accepted and stable.
 
-The active Control Center transition line is not yet accepted. Build 479 is superseded before device testing because review found it reintroduced a project-owned final-participant release window that conflicts with the verified native appearance contract. Build 480 retains component-driven correspondence but restores native timing/handoff ownership. Exact-head Runtime Build #1829 passed on executable head `886f3fbf96fa8500d065d88898f64820e43dedf1`; runtime is frozen pending focused Home device evidence.
+The active Control Center transition line is not yet accepted. Build 480 is device-rejected on non-charging Home: full-target affine interpolation visibly flattened all Trinity elements, Battery fold exceeded its own visual envelope, and parent-View targets caused mobile/Wi-Fi correspondence to overlap rather than occupy their real final slots. Build 481 separates native-like motion from Guiyuan-local shape morph: exact final child witnesses drive occupancy, rigid components preserve aspect ratio, Battery folds only within its own envelope, and Mobile reaches `mobile_signal` before a separate vertical four-bar morph and read-only native-witness handoff.
 
 Device testing is requested only when the result can change implementation choice or acceptance. Mechanical/documentation steps continue without a new APK round trip.
 
@@ -59,10 +59,10 @@ Device testing is requested only when the result can change implementation choic
 
 ## Immediate next step
 
-1. Produce one signed work-branch Canary from the frozen Build-480 source.
-2. Validate Home partial pull/return, full open/return and charging-island regression.
-3. Only after Home trajectory is accepted, run the Keyguard-originated regression pass.
-4. Do not tune offsets/timing without new device evidence.
+1. Run one exact-head Runtime CI for Build 481 after the two corrective commits land together.
+2. If green, produce one signed work-branch Canary.
+3. Validate non-charging Home first; do not expand the matrix until rigid Wi-Fi motion, bounded Battery fold, real-slot release geometry and Mobile dot-to-bars handoff are accepted.
+4. Only after Home is accepted, run charging-island and Keyguard-originated regression passes.
 5. Keep 1.0.0 gated by actual product/compatibility acceptance.
 
 ## Reference priority

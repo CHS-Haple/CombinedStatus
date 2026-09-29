@@ -11277,3 +11277,57 @@ KeiMi evidence was applied one layer too high. Its component/correspondence stru
 Exact-head Runtime Build #1829 / run `36600672560` passed on executable head `886f3fbf96fa8500d065d88898f64820e43dedf1`: pinned HyperOS target profile, unit tests/build and Modern Xposed metadata all succeeded. The PR Runtime path correctly skipped signing/artifact publication.
 
 Build 480 runtime is now frozen. One signed work-branch Canary is required for focused Home device validation: partial pull/return, full open/return and charging-island regression. Keyguard follows only after Home trajectory is accepted.
+
+
+---
+
+## 2026-09-30 — Build 481: rigid element motion, real final-slot witnesses and staged mobile-signal morph
+
+**Type:** Build-480 device rejection / root-cause correction  
+**Build:** 481 / `20260929-481`  
+**Branch / PR:** `feat/control-center-transition-matrix` / #177
+
+### Device rejection
+
+The first non-charging Home pull on Build 480 is sufficient to reject the checkpoint. The compact Trinity visibly flattens as soon as expansion begins, individual elements stretch unnaturally, Battery fold grows outside its own visual envelope, and released Wi-Fi/mobile/Battery correspondence overlaps instead of occupying the native final status-bar slots.
+
+### Root cause
+
+Build 480 still interpolated each component's complete affine width/height vectors toward the whole target View. That made target aspect ratio a shape writer. Battery then added another non-uniform `FOLD` transform on top. Mobile center/type and four-dot signal also shared the same top-level mobile View witness instead of their distinct native children.
+
+The resulting implementation violated the intended responsibility split:
+- path/slot occupancy should come from HyperOS final geometry;
+- most Guiyuan elements should preserve their own shape while moving;
+- only explicitly-owned local morphs may change shape;
+- the visual handoff must converge on the actual native child, not on a parent container.
+
+### Change A — shape-stable motion
+
+- replace affine X/Y resizing with center interpolation plus one uniform scale factor;
+- Wi-Fi, mobile type and ordinary mobile motion are rigid: translate + uniform scale only;
+- Battery keeps a local fold, but horizontal expansion is removed and vertical fold is reduced to 0.72 so its envelope cannot grow into neighbors;
+- no mobile collapse scale remains.
+
+### Change B — real final-slot correspondence and staged Mobile morph
+
+- Battery targets the real `mBatteryIconView` child (resource fallbacks remain read-only);
+- Wi-Fi targets final `wifi_signal`;
+- mobile type targets `mobile_type_single/mobile_type`;
+- four-dot signal targets final `mobile_signal`;
+- exact child matrices therefore carry the real final slot order, spacing and size instead of projecting onto parent containers;
+- motion and local shape progress are independent: native-like positional motion completes first, then the four dots grow vertically into four rounded signal bars;
+- after local shape completion, the overlay crossfades into a read-only draw of the exact native child witness while HyperOS still owns the real final-surface alpha/Folme handoff;
+- final native Views are not moved, resized, clipped or suppressed by the transition owner.
+
+### 审查 / review
+
+- **ownership:** SystemUI still owns QS_FAKE/final surface translation and appearance; Guiyuan owns only temporary Trinity pixels and local semantic morphs.
+- **occupancy:** target child matrices are read from the real final status-bar layout, so fake transition pixels respect real final slot ordering without changing native measure/layout mid-gesture.
+- **single writer:** no native target property writes are introduced; witness rendering is read-only overlay projection.
+- **maintainability:** target intent is declared per Painter component; future internal movement keeps using renderer-derived source bounds, while future native layout changes are consumed from live child matrices.
+- **cleanup:** only the Guiyuan source clip and root overlay are owned/restored.
+- **performance:** bounded pre-draw sampling only; no polling, timer or peer-wide redraw.
+
+### Validation gate
+
+Build 481 intentionally combines both corrections in one CI checkpoint but retains two separate commits for review/revert. Non-charging Home is the only device gate after CI: partial pull/return and full pull/return must show bounded Battery folding, rigid Wi-Fi movement, correct final-slot spacing, and four dots reaching the mobile-signal target before vertical bar growth. Charging/Keyguard are deferred until that baseline is accepted.
