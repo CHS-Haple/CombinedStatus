@@ -11,8 +11,8 @@ import java.lang.reflect.Method
 import kotlin.math.floor
 
 internal object SystemUiPanelTransitionSource {
-    const val CONTROL_CENTER_RUNTIME_HOOK_COUNT = 2
-    const val CONTROL_CENTER_DIAGNOSTIC_HOOK_COUNT = 2
+    const val CONTROL_CENTER_RUNTIME_HOOK_COUNT = 3
+    const val CONTROL_CENTER_DIAGNOSTIC_HOOK_COUNT = 1
     const val HOOK_COUNT =
         CONTROL_CENTER_RUNTIME_HOOK_COUNT +
             CONTROL_CENTER_DIAGNOSTIC_HOOK_COUNT
@@ -84,16 +84,12 @@ internal object SystemUiPanelTransitionSource {
                 ?.apply { isAccessible = true }
                 ?: error("control-center-fake-attached-method-missing")
         val controlExpansionMethod =
-            if (includeControlCenterDiagnostics) {
-                controlClass
-                    .getDeclaredMethod(
-                        CONTROL_CENTER_EXPANSION_METHOD,
-                        Float::class.javaPrimitiveType,
-                    )
-                    .apply { isAccessible = true }
-            } else {
-                null
-            }
+            controlClass
+                .getDeclaredMethod(
+                    CONTROL_CENTER_EXPANSION_METHOD,
+                    Float::class.javaPrimitiveType,
+                )
+                .apply { isAccessible = true }
         val controlAppearanceMethod =
             if (includeControlCenterDiagnostics) {
                 Class.forName(
@@ -151,6 +147,12 @@ internal object SystemUiPanelTransitionSource {
                                     visible = visible,
                                     controlCenterPresentationHost = controlCenterPresentationHost,
                                     controlCenterSourceScene = controlCenterSourceScene,
+                                    controlCenterTransitionEndpoints =
+                                        if (visible == true) {
+                                            resolveControlCenterTransitionEndpoints(chain.thisObject)
+                                        } else {
+                                            null
+                                        },
                                 )
                             onUpdate?.invoke(update)
                             emitDiagnostic(
@@ -191,55 +193,54 @@ internal object SystemUiPanelTransitionSource {
                 controlCenterHomeEligible = true
             }
 
-            if (includeControlCenterDiagnostics) {
-                val expansionMethod = checkNotNull(controlExpansionMethod)
-                val appearanceMethod = checkNotNull(controlAppearanceMethod)
-
-                handles +=
-                    module
-                        .hook(expansionMethod)
-                        .setId(CONTROL_CENTER_EXPANSION_HOOK_ID)
-                        .intercept(
-                            Hooker { chain ->
-                                val fraction =
-                                    nativeFraction(
-                                        (chain.getArg(0) as? Number)?.toFloat(),
-                                    )
-                                val result = chain.proceed()
-                                val anchorSnapshot =
-                                    if (
-                                        onEvent != null &&
-                                        isProbeEnabled() &&
-                                        shouldCaptureControlAnchor(fraction)
-                                    ) {
-                                        captureControlCenterAnchor(chain.thisObject)
-                                    } else {
-                                        null
-                                    }
-                                val update =
-                                    Update(
-                                        source = Source.CONTROL_CENTER,
-                                        fraction = fraction,
-                                        expanded = null,
-                                        tracking = null,
-                                        visible = null,
-                                        controlCenterAnchor = anchorSnapshot,
-                                        homeMotion =
-                                            if (anchorSnapshot != null) {
-                                                SystemUiIslandMotionSource.currentOwnerSnapshot()
-                                            } else {
-                                                null
-                                            },
-                                    )
-                                onUpdate?.invoke(update)
-                                emitDiagnostic(
-                                    update = update,
-                                    onEvent = onEvent,
-                                    isProbeEnabled = isProbeEnabled,
+            handles +=
+                module
+                    .hook(controlExpansionMethod)
+                    .setId(CONTROL_CENTER_EXPANSION_HOOK_ID)
+                    .intercept(
+                        Hooker { chain ->
+                            val fraction =
+                                nativeFraction(
+                                    (chain.getArg(0) as? Number)?.toFloat(),
                                 )
-                                result
-                            },
-                        )
+                            val result = chain.proceed()
+                            val anchorSnapshot =
+                                if (
+                                    onEvent != null &&
+                                    isProbeEnabled() &&
+                                    shouldCaptureControlAnchor(fraction)
+                                ) {
+                                    captureControlCenterAnchor(chain.thisObject)
+                                } else {
+                                    null
+                                }
+                            val update =
+                                Update(
+                                    source = Source.CONTROL_CENTER,
+                                    fraction = fraction,
+                                    expanded = null,
+                                    tracking = null,
+                                    visible = null,
+                                    controlCenterAnchor = anchorSnapshot,
+                                    homeMotion =
+                                        if (anchorSnapshot != null) {
+                                            SystemUiIslandMotionSource.currentOwnerSnapshot()
+                                        } else {
+                                            null
+                                        },
+                                )
+                            onUpdate?.invoke(update)
+                            emitDiagnostic(
+                                update = update,
+                                onEvent = onEvent,
+                                isProbeEnabled = isProbeEnabled,
+                            )
+                            result
+                        },
+                    )
+
+            if (includeControlCenterDiagnostics) {
+                val appearanceMethod = checkNotNull(controlAppearanceMethod)
 
                 handles +=
                     module
@@ -363,6 +364,19 @@ internal object SystemUiPanelTransitionSource {
         return contract.snapshot(header)
     }
 
+    private fun resolveControlCenterTransitionEndpoints(
+        delegate: Any?,
+    ): ControlCenterTransitionEndpoints? {
+        val contract = controlAnchorContract ?: return null
+        val header = resolveControlCenterHeader(delegate) ?: return null
+        val source = contract.realSystemIcons(header) ?: return null
+        val finalRoot = contract.finalPresentationRoot(header) ?: return null
+        return ControlCenterTransitionEndpoints(
+            sourceSystemIcons = source,
+            finalPresentationRoot = finalRoot,
+        )
+    }
+
     private fun resolveControlCenterSourceScene(delegate: Any?): CombinedStatusSourceScene {
         val contract = controlAnchorContract ?: return CombinedStatusSourceScene.UNKNOWN
         val header =
@@ -457,6 +471,12 @@ internal object SystemUiPanelTransitionSource {
         val controlCenterSourceScene: CombinedStatusSourceScene? = null,
         val controlCenterAnchor: ControlCenterAnchorSnapshot? = null,
         val homeMotion: SystemUiIslandMotionSource.OwnerSnapshot? = null,
+        val controlCenterTransitionEndpoints: ControlCenterTransitionEndpoints? = null,
+    )
+
+    internal data class ControlCenterTransitionEndpoints(
+        val sourceSystemIcons: ViewGroup,
+        val finalPresentationRoot: ViewGroup,
     )
 
     internal enum class Source(
@@ -536,6 +556,7 @@ internal object SystemUiPanelTransitionSource {
         private val headerControllerField: Field,
         private val lazyGetMethod: Method,
         private val controlCenterFakeStatusBarField: Field,
+        private val controlCenterStatusBarField: Field?,
         private val fakeDelegateField: Field,
         private val fakeStatusBarAreaField: Field,
         private val systemIconsLocationField: Field,
@@ -562,6 +583,19 @@ internal object SystemUiPanelTransitionSource {
 
         fun fakePresentationRoot(header: Any): ViewGroup? =
             fakeStatusBar(header)
+
+        fun finalPresentationRoot(header: Any): ViewGroup? {
+            val field = controlCenterStatusBarField ?: return null
+            val lazy =
+                runCatching { headerControllerField.get(header) }
+                    .getOrNull()
+                    ?: return null
+            val combinedHeader =
+                runCatching { lazyGetMethod.invoke(lazy) }
+                    .getOrNull()
+                    ?: return null
+            return runCatching { field.get(combinedHeader) as? ViewGroup }.getOrNull()
+        }
 
         fun snapshotFromCallback(callback: Any?): ControlCenterAnchorSnapshot? {
             val header = headerFromCallback(callback) ?: return null
@@ -737,6 +771,12 @@ internal object SystemUiPanelTransitionSource {
                             combinedHeaderClass
                                 .getDeclaredField("controlCenterFakeStatusBar")
                                 .accessible(),
+                        controlCenterStatusBarField =
+                            runCatching {
+                                combinedHeaderClass
+                                    .getDeclaredField("controlCenterStatusBar")
+                                    .accessible()
+                            }.getOrNull(),
                         fakeDelegateField =
                             fakeStatusBarClass.getDeclaredField("delegate").accessible(),
                         fakeStatusBarAreaField =
