@@ -18,11 +18,11 @@ Control Center transition animation is the active runtime task.
 
 Current implementation line:
 - PR #177 — feat/control-center-transition-matrix;
-- current work-branch checkpoint: Build 481 / 20260929-481;
+- current work-branch checkpoint: Build 482 / 20260929-482;
 - exact-target direction: QS_FAKE role-5 to final-QS role-6 matrix projection;
 - HyperOS remains translation/appearance authority; raw native expansion drives transition geometry and native fake/final Folme owns visual handoff;
-- Guiyuan reads native transition state and renders only its owned Trinity correspondence; it does not mask/redraw final native participants;
-- Trinity transition is component-driven: Painter owns source bounds/semantic target/shape policy, while the transition owner consumes those descriptors;
+- Guiyuan reads native transition state and renders only its owned Trinity correspondence; final role-6 top-level slots are read-only occupancy witnesses and final native participants remain SystemUI-owned;
+- Trinity transition is component-driven: Painter owns source optical bounds/semantic target/shape policy; role-6 top-level slots own final occupancy, while child/drawable data only refines optical alignment;
 - generic peer projection, Guiyuan-owned network composition, and native-only unsupported peers remain separated.
 
 PR #174 is an older transition route and must not overwrite the newer active matrix line or accepted Build-473 renderer state.
@@ -42,7 +42,7 @@ Keyguard has an independent host/session while sharing domain/render semantics. 
 
 Build 473 is device-accepted and stable.
 
-The active Control Center transition line is not yet accepted. Build 480 is device-rejected on non-charging Home: full-target affine interpolation visibly flattened all Trinity elements, Battery fold exceeded its own visual envelope, and parent-View targets caused mobile/Wi-Fi correspondence to overlap rather than occupy their real final slots. Build 481 separates native-like motion from Guiyuan-local shape morph: exact final child witnesses drive occupancy, rigid components preserve aspect ratio, Battery folds only within its own envelope, and Mobile reaches `mobile_signal` before a separate vertical four-bar morph and read-only native-witness handoff.
+The active Control Center transition line is not yet accepted. Build 480 is device-rejected on non-charging Home because full-target affine interpolation visibly flattened Trinity elements and parent-View targets collapsed unrelated semantics into the same geometry. Build 481 is also device-rejected: Mobile did not reliably move when internal final children were 0×0, Wi-Fi optical size/endpoint did not coincide with the native glyph, transition tint did not consistently follow final native peers, and child-first targeting did not represent real final slot occupancy. Build 482 replaces child-first targeting with read-only role-6 top-level slot witnesses; internal children/drawables only refine optical alignment, raw native expansion owns external motion, native fake alpha drives the local Mobile dot-to-bars morph, and final SystemUI appearance remains native-owned.
 
 Device testing is requested only when the result can change implementation choice or acceptance. Mechanical/documentation steps continue without a new APK round trip.
 
@@ -59,9 +59,9 @@ Device testing is requested only when the result can change implementation choic
 
 ## Immediate next step
 
-1. Run one exact-head Runtime CI for Build 481 after the two corrective commits land together.
+1. Run one exact-head Runtime CI for Build 482.
 2. If green, produce one signed work-branch Canary.
-3. Validate non-charging Home first; do not expand the matrix until rigid Wi-Fi motion, bounded Battery fold, real-slot release geometry and Mobile dot-to-bars handoff are accepted.
+3. Validate non-charging Home only: real final-slot spacing, Wi-Fi optical endpoint/tint, Mobile slot motion and late dot-to-bars handoff.
 4. Only after Home is accepted, run charging-island and Keyguard-originated regression passes.
 5. Keep 1.0.0 gated by actual product/compatibility acceptance.
 

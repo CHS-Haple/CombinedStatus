@@ -11331,3 +11331,59 @@ The resulting implementation violated the intended responsibility split:
 ### Validation gate
 
 Build 481 intentionally combines both corrections in one CI checkpoint but retains two separate commits for review/revert. Non-charging Home is the only device gate after CI: partial pull/return and full pull/return must show bounded Battery folding, rigid Wi-Fi movement, correct final-slot spacing, and four dots reaching the mobile-signal target before vertical bar growth. Charging/Keyguard are deferred until that baseline is accepted.
+
+
+---
+
+## 2026-09-30 — Build 482: native slot witnesses and optical transition geometry
+
+**Type:** Control Center transition root-cause correction  
+**Display version:** 0.0.3  
+**Build / source:** 482 / `20260929-482` / `feat/control-center-transition-matrix`  
+**SystemUI ownership change:** none; final QS layout/appearance remains native-owned
+
+### Problem
+
+Build 481 failed the first non-charging Home device pass:
+- Mobile could remain visually stationary;
+- Wi-Fi endpoint size/shape did not coincide with the native Wi-Fi glyph;
+- Wi-Fi transition tint did not consistently follow surrounding native icon inversion;
+- the released Trinity elements did not respect the real final status-bar slot occupancy.
+
+### Evidence
+
+Build-481 diagnostics repeatedly observed transition geometry unavailable while a Wi-Fi collector event exposed a valid native 75×75 drawable with the bound `wifi_signal` View still measured at 0×0. Child-first target resolution therefore treated an internal rendering detail as layout authority.
+
+Review of the exact SystemUI 17.03.260226.r contract confirms that Control Center fake and final status bars are separate complete status-icon surfaces. Native expansion moves both surfaces and native `onAppearanceChanged()` owns their Folme handoff.
+
+Reference review of the supplied 1.4.3 implementation and KeiMi established a shared useful mechanism: transition placement starts from real top-level SystemUI slot layout, while hidden/overlay rendering is a separate visual concern. Their implementation-specific measure/layout/visibility interception and private gesture timing are not adopted as Guiyuan ownership.
+
+### Conclusion
+
+A semantic child is not a slot. Final ordering, width, spacing and position must come from the live role-6 top-level slot View. Internal children/drawables may refine glyph optical geometry, but a missing or 0×0 child must never cancel the slot trajectory.
+
+### Change
+
+- resolve final Wi-Fi/Mobile targets from role-6 top-level slot Views; dual-SIM Mobile prefers the live presentation-root subscription ID;
+- cache resolved witnesses for the Session and retry unresolved optical children only until they become available;
+- derive Wi-Fi source and target optical bounds from the same native drawable optical probe already used by the accepted renderer;
+- if an internal ImageView is 0×0, use its drawable metrics plus the real top-level slot content geometry rather than freezing motion;
+- use raw native expansion fraction for external motion; remove Build-481 project-owned release windows;
+- keep Wi-Fi/center and Mobile rigid during travel; Battery keeps only its bounded local fold;
+- drive the late Mobile dot-to-bars local morph from native fake-root alpha rather than a project timing threshold;
+- read final role-6 peer tint at Session/appearance boundaries for center/mobile transition color; no frame-loop View-tree tint scan is added;
+- do not mask, redraw, translate, resize, alpha-write or visibility-write final role-6 native participants.
+
+### 审查 / review
+
+- **ownership:** SystemUI remains the sole final slot/layout/translation/appearance owner; Guiyuan writes only its temporary source overlay clip/drawing.
+- **geometry:** native occupancy, Guiyuan source geometry and optical glyph geometry are explicit separate layers.
+- **single writer:** no native target geometry/alpha/visibility writer is introduced.
+- **lifecycle / cleanup:** target witnesses are weak/session-scoped; source clip is restored on session stop.
+- **performance:** target/subscription resolution is cached after success; peer tint is cached and refreshed only at native appearance boundaries; no polling or repeated hot-path tree scan is introduced.
+- **fail native:** unresolved child geometry falls back to the valid top-level slot; unresolved slot keeps the source component rather than inventing an offset.
+- **maintainability:** new semantic elements declare a source optical bound and slot target; SystemUI continues to supply live final occupancy.
+
+### Validation
+
+Run one exact-head Runtime CI and one signed work-branch Canary. Device validation is intentionally limited to non-charging Home first: partial pull/return and full pull/return must show real final-slot spacing, Wi-Fi proportional motion ending on the native glyph with native peer tint, Mobile movement followed by the late dot-to-bars morph, and no overlap/disappearance at native handoff.
