@@ -10648,11 +10648,11 @@ This closure is documentation-only and does not create a new Build.
 
 ## 2026-09-29 — Build 466 stable promotion to main
 
-**Type:** validated stable-baseline promotion / Guiyuan identity closure  
-**Display version:** 0.0.3  
-**Build:** 466 / `20260929-466`  
-**Promotion PR:** #170  
-**Main merge:** `be3cc0ae872b328d0a41d49a2599ec53950f3476`  
+**Type:** validated stable-baseline promotion / Guiyuan identity closure
+**Display version:** 0.0.3
+**Build:** 466 / `20260929-466`
+**Promotion PR:** #170
+**Main merge:** `be3cc0ae872b328d0a41d49a2599ec53950f3476`
 **Canonical repository:** `CHS-Haple/Guiyuan`
 
 ### Promotion evidence
