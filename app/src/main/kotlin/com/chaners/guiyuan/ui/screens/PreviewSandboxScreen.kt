@@ -29,6 +29,7 @@ import com.chaners.guiyuan.ui.components.rememberTopBarBackdrop
 import com.chaners.guiyuan.ui.components.topBarBackdropSource
 import com.chaners.guiyuan.ui.layout.pageContentPadding
 import kotlin.math.roundToInt
+import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
@@ -229,19 +230,16 @@ internal fun PreviewSandboxScreen(
                                     onSelected = { index ->
                                         onMobileNetworkChange(PreviewMobileNetwork.entries[index])
                                     },
-                                    modifier = Modifier.padding(top = 8.dp),
+                                    modifier = Modifier.padding(top = 4.dp),
                                 )
                                 SliderPreference(
                                     value = state.mobileSignalLevel.toFloat(),
                                     onValueChange = { value ->
                                         onMobileSignalLevelChange(value.roundToInt().coerceIn(0, 4))
                                     },
-                                    bottomAction = {
-                                        SandboxSliderLabel(
-                                            title = stringResource(R.string.home_preview_mobile_signal_title),
-                                            value = signalValueText(state.mobileSignalLevel),
-                                        )
-                                    },
+                                    title = stringResource(R.string.home_preview_mobile_signal_title),
+                                    valueText = signalValueText(state.mobileSignalLevel),
+                                    insideMargin = SandboxPreferenceInsideMargin,
                                     valueRange = 0f..4f,
                                     steps = 3,
                                     showKeyPoints = true,
@@ -266,19 +264,16 @@ internal fun PreviewSandboxScreen(
                                 onSelected = { index ->
                                     onWifiStateChange(PreviewWifiState.entries[index])
                                 },
-                                modifier = Modifier.padding(top = 8.dp),
+                                modifier = Modifier.padding(top = 4.dp),
                             )
                             SliderPreference(
                                 value = state.wifiSignalLevel.toFloat(),
                                 onValueChange = { value ->
                                     onWifiSignalLevelChange(value.roundToInt().coerceIn(0, 3))
                                 },
-                                bottomAction = {
-                                    SandboxSliderLabel(
-                                        title = stringResource(R.string.home_preview_wifi_signal_title),
-                                        value = signalValueText(state.wifiSignalLevel),
-                                    )
-                                },
+                                title = stringResource(R.string.home_preview_wifi_signal_title),
+                                valueText = signalValueText(state.wifiSignalLevel),
+                                insideMargin = SandboxPreferenceInsideMargin,
                                 valueRange = 0f..3f,
                                 steps = 2,
                                 showKeyPoints = true,
@@ -286,7 +281,6 @@ internal fun PreviewSandboxScreen(
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(10.dp))
                         SandboxSegmentedField(
                             title = stringResource(R.string.home_preview_sim_title),
                             options = simOptions,
@@ -300,6 +294,7 @@ internal fun PreviewSandboxScreen(
                             onCheckedChange = onAirplaneModeChange,
                             title = stringResource(R.string.home_preview_airplane_title),
                             summary = stringResource(R.string.home_preview_airplane_summary),
+                            insideMargin = SandboxPreferenceInsideMargin,
                         )
                     }
                 }
@@ -318,19 +313,15 @@ internal fun PreviewSandboxScreen(
                             onValueChange = { value ->
                                 onBatteryPercentChange(value.roundToInt().coerceIn(0, 100))
                             },
-                            bottomAction = {
-                                SandboxSliderLabel(
-                                    title = stringResource(R.string.home_preview_battery_level_title),
-                                    value =
-                                        stringResource(
-                                            R.string.home_preview_battery_percent,
-                                            state.batteryPercent,
-                                        ),
-                                )
-                            },
+                            title = stringResource(R.string.home_preview_battery_level_title),
+                            valueText =
+                                stringResource(
+                                    R.string.home_preview_battery_percent,
+                                    state.batteryPercent,
+                                ),
+                            insideMargin = SandboxPreferenceInsideMargin,
                             valueRange = 0f..100f,
                         )
-                        Spacer(modifier = Modifier.height(10.dp))
                         SandboxSegmentedField(
                             title = stringResource(R.string.home_preview_battery_mode_title),
                             options = batteryModeOptions,
@@ -385,32 +376,6 @@ private fun PreviewStatusLine(
 }
 
 @Composable
-private fun SandboxSliderLabel(
-    title: String,
-    value: String,
-) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(bottom = 7.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = title,
-            modifier = Modifier.weight(1f),
-            style = MiuixTheme.textStyles.body1,
-            color = MiuixTheme.colorScheme.onSurfaceContainer,
-        )
-        Text(
-            text = value,
-            style = MiuixTheme.textStyles.body2,
-            color = MiuixTheme.colorScheme.onSurfaceContainerVariant,
-        )
-    }
-}
-
-@Composable
 private fun SandboxSegmentedField(
     title: String,
     options: List<String>,
@@ -419,30 +384,30 @@ private fun SandboxSegmentedField(
     modifier: Modifier = Modifier,
     maxWidth: Dp = 300.dp,
 ) {
-    Column(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 11.dp),
-    ) {
-        Text(
-            text = title,
-            style = MiuixTheme.textStyles.body1,
-            color = MiuixTheme.colorScheme.onSurfaceContainer,
-        )
-        TabRowWithContour(
-            tabs = options,
-            selectedTabIndex = selectedIndex,
-            onTabSelected = onSelected,
-            modifier =
-                Modifier
-                    .widthIn(max = maxWidth)
-                    .fillMaxWidth()
-                    .align(Alignment.CenterHorizontally)
-                    .padding(top = 7.dp),
-        )
-    }
+    BasicComponent(
+        title = title,
+        modifier = modifier,
+        insideMargin = SandboxPreferenceInsideMargin,
+        bottomAction = {
+            TabRowWithContour(
+                tabs = options,
+                selectedTabIndex = selectedIndex,
+                onTabSelected = onSelected,
+                modifier =
+                    Modifier
+                        .widthIn(max = maxWidth)
+                        .fillMaxWidth()
+                        .align(Alignment.CenterHorizontally),
+            )
+        },
+    )
 }
+
+private val SandboxPreferenceInsideMargin =
+    PaddingValues(
+        horizontal = 16.dp,
+        vertical = 10.dp,
+    )
 
 @Composable
 internal fun previewNetworkSummary(
