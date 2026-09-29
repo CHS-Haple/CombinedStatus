@@ -11395,3 +11395,77 @@ Exact-head Runtime Build #1832 failed only at Kotlin compile because the new mob
 Signed Work Branch Canary #522 independently resolved and checked out the same exact source SHA, then passed the pinned HyperOS profile, unit tests/Canary build, Modern Xposed API 102 metadata, Haple signature verification and non-debuggable verification. Artifact: `Guiyuan-0.0.3-HyperOS-20260929-482-canary.apk`.
 
 Device validation is intentionally limited to non-charging Home first: partial pull/return and full pull/return must show real final-slot spacing, Wi-Fi proportional motion ending on the native glyph with native peer tint, Mobile movement followed by the late dot-to-bars morph, and no overlap/disappearance at native handoff.
+
+
+---
+
+## 2026-09-30 — Build 483: semantic transition reservation and staged native-signal morph
+
+**Type:** device-guided Control Center transition refinement  
+**Display version:** 0.0.3  
+**Build / branch:** 483 / `20260929-483` / `feat/control-center-transition-matrix`  
+**Rollback baseline:** signed Build 482 Canary #522 / runtime `cfdf12ff4c2e8249f833e52e871cb35f1bad953b`
+
+### Device feedback
+
+Build 482 is materially better and its Battery/Wi-Fi external transition is retained as the explicit fallback. Two gaps remain on non-charging Home:
+
+- decomposed Trinity pixels move toward final slots, but the QS_FAKE layout does not gain matching intermediate occupancy, so surrounding native icons do not participate in the displacement;
+- Mobile should first move as the existing four-dot group, then resolve into a horizontal row of four dots, then grow vertically into four signal bars before the native final surface completes handoff.
+
+### Exact SystemUI evidence
+
+Target SystemUI 17.03.260226.r was re-decompiled for this checkpoint.
+
+`MiuiStatusIconContainer.onMeasure()`:
+- excludes blocked/invisible/`ignoredSlots` children;
+- measures the remaining native children;
+- includes container start/end padding in measured width;
+- adds each child's measured width, child padding and native `status_bar_system_icon_spacing`.
+
+`MiuiStatusIconContainer.onLayout()`:
+- starts status-icon placement from `width - paddingEnd` on the end side;
+- keeps child layout origin separate from the effective `NewStatusIconState.translationX` positions;
+- therefore the existing Guiyuan-owned `statusIcons.paddingEnd` reservation is an authoritative native-layout participant: changing that one reservation lets SystemUI recompute surrounding peer positions without Guiyuan writing their translations.
+
+`ControlCenterHeaderExpandController$controlCenterCallback$1.onExpansionChanged(progress)` confirms that fake/final status-bar X/Y motion is directly derived from native panel progress: status-bar translation uses the native delta multiplied by `1 - progress`; QS_FAKE additionally receives the Header-owned `batteryWidthDiff`. There is no hidden easing for the status-bar trajectory that Guiyuan should imitate. Build 483 therefore retains raw native progress and does not add a project trajectory curve.
+
+The supplied 1.4.3 implementation and KeiMi remain comparison evidence only. Their useful shared result—real layout occupancy participates while a separate visual transition is drawn—is internalized through Guiyuan's existing reservation owner rather than copied through per-frame Battery `setMeasuredDimension()`, visibility interception, or a second layout owner.
+
+### Commit A — semantic Control Center transition reservation
+
+- keep represented Wi-Fi/mobile/airplane/no-SIM slots ignored for the full QS_FAKE presentation session; no mid-gesture slot release occurs;
+- reuse `SystemUiHomePresentationOwner` as the only `statusIcons.paddingEnd` writer;
+- freeze one gesture's source semantic spans from the existing Painter component bounds and final spans from the live role-6 top-level slot Views;
+- normalize both LTR and RTL geometry onto a logical end-axis;
+- drive each source->target semantic span with raw HyperOS expansion progress;
+- compute the reservation from the union of those interpolated spans, with the Build-482 compact slot as a minimum boundary;
+- update native padding only when the resolved integer reservation width actually changes;
+- keep progress=1 reservation alive while the panel is fully expanded so reverse motion can shrink continuously instead of re-expanding from a compact jump;
+- clear the transition override back to the existing compact reservation when the bridge stops.
+
+This means reservation follows semantic decomposition but never reads the instantaneous drawable/pixel envelope. Battery fold, Wi-Fi optical scaling and Mobile's internal morph cannot feed back into layout width.
+
+### Commit B — Mobile local morph only
+
+- external Mobile slot motion remains Build-482 behavior and still uses raw HyperOS expansion;
+- native fake alpha remains the local morph authority;
+- first half of the local morph: the four orbit dots move into one horizontal row while remaining dots;
+- second half: dot positions stay fixed and each dot grows vertically into its corresponding signal bar;
+- the resulting group continues to converge on the existing role-6 `mobile_signal` optical target;
+- this commit has no layout/reservation write and can be reverted independently.
+
+### 审查 / review
+
+- **single writer:** `SystemUiHomePresentationOwner` remains the sole Guiyuan writer of QS_FAKE `statusIcons.paddingEnd`; TransitionOwner only supplies a requested semantic reservation width.
+- **native motion:** no peer `translationX/Y`, alpha or visibility writer is added. Surrounding icons move because native `MiuiStatusIconContainer` remeasures/re-lays out around the reservation.
+- **no release jump:** represented native slots stay ignored throughout the fake-surface lifetime, so three full native slot widths never appear suddenly during the gesture.
+- **no geometry feedback:** layout width is derived from frozen semantic endpoints and native progress, not from current overlay ink bounds.
+- **reverse continuity:** the transition session remains active at progress 1 for reservation ownership even when fake alpha reaches zero; collapse reuses the same frozen semantic spans.
+- **performance:** no polling and no unconditional frame-loop `requestLayout()`; integer-width deduplication prevents repeated padding writes when the reservation pixel has not changed.
+- **compatibility:** LTR/RTL are normalized to the same logical end-axis; unresolved final slot topology leaves the compact reservation in place rather than inventing a width.
+- **rollback:** Build 482 exact runtime/Canary remains untouched; Commit B may be reverted without Commit A, and both may be reverted to restore Build 482.
+
+### Validation gate
+
+Run exact-head Runtime CI, then one signed work-branch Canary. Device testing remains non-charging Home first. Acceptance requires: no peer jump when decomposition begins, surrounding native icons moving continuously through native layout, unchanged or improved Build-482 Battery/Wi-Fi trajectory, Mobile visually reading as dots -> row -> bars, and clean reverse motion.
