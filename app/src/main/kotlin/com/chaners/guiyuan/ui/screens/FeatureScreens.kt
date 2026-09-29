@@ -754,6 +754,7 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
         }
 
         Section(R.string.section_module_runtime) {
+            Spacer(modifier = Modifier.height(4.dp))
             DiagnosticsInfoValue(
                 value = stringResource(R.string.runtime_framework_summary),
                 label = stringResource(R.string.runtime_framework_title),
@@ -772,6 +773,7 @@ internal fun DiagnosticsScreen(onBack: () -> Unit) {
                     label = stringResource(R.string.runtime_inventory_title),
                 )
             }
+            Spacer(modifier = Modifier.height(4.dp))
         }
 
         Section(R.string.section_diagnostic_report) {
