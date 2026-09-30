@@ -12658,7 +12658,7 @@ The existing unified outer-box height therefore overgrows Guiyuan's four-point -
 - Extract the existing drawable alpha optical probe into a shared cached helper.
 - Native `mobile_signal` ImageView witnesses use current drawable optical bounds when no explicit target optical bounds already exist.
 - Existing `hyperceiler-dual-signal` compatibility witnesses remain composite View geometry and bypass the native drawable probe.
-- Cache probe results by cloneable `Drawable.ConstantState + level`; never tint or draw the live SystemUI drawable for measurement.
+- Cache probe results by cloneable `Drawable.ConstantState + level + drawable state + layoutDirection + drawable state + layoutDirection`; never tint or draw the live SystemUI drawable for measurement.
 - Build identity becomes `versionCode=260930307`, `buildId=20260930-507`.
 
 ### 审查 / review
@@ -12668,7 +12668,7 @@ The existing unified outer-box height therefore overgrows Guiyuan's four-point -
 - **single writer:** the existing `statusIcons-paddingEnd` owner remains the only peer-layout writer.
 - **occupancy vs reveal:** native peer spacing and latent pixel opacity are separate authorities.
 - **structure-aware compatibility:** native single-row uses drawable optical content; HyperCeiler dual-row uses the already-identified composite structure. No package/module name branch is used.
-- **performance:** optical raster probing is cached per Drawable.ConstantState + level; ordinary frames are cache lookups only.
+- **performance:** optical raster probing is cached per Drawable.ConstantState + level + drawable state + layoutDirection + drawable state + layoutDirection; ordinary frames are cache lookups only.
 - **side-effect safety:** the probe requires a cloneable constant state and measures only a cloned drawable. Missing cloneability returns null and preserves existing native/frame geometry.
 - **reverse:** decreasing native progress shrinks total reservation symmetrically; participant-specific occupancy gate hides latent pixels before their target slot ceases to fit.
 - **protected boundaries:** Build-491/497/498, Build-500 source authority, Build-504 root-space endpoint and SHRINK_ONLY latent scale remain unchanged.
@@ -12714,7 +12714,7 @@ The Build-507 total-reservation interpolation itself remains useful: it avoids B
 
 - Add `CombinedStatusParticipantVisualSnapshot` as a read-only, module-agnostic visual measurement layer.
 - Clone drawable `ConstantState` at the current state/level and raster-probe the clone; never mutate the live SystemUI drawable.
-- Cache drawable snapshots by `ConstantState + level`.
+- Cache drawable snapshots by `ConstantState + level + drawable state + layoutDirection`.
 - Map ImageView snapshot geometry through the actual drawable frame/imageMatrix into View-normalized coordinates.
 - Recursively collect visible drawable-bearing descendants for ViewGroup/composite targets in one parent coordinate space.
 - Expose optical envelope, connected components and topology.
@@ -12733,7 +12733,7 @@ The Build-507 total-reservation interpolation itself remains useful: it avoids B
 - **fail-native/fallback:** unreliable or unsupported topology does not invent a provider-specific interpretation; Mobile falls back to the existing generic transition path.
 - **coordinate ownership:** snapshot geometry is normalized in participant View space and converted to root-space once by the existing target geometry machinery.
 - **side-effect safety:** only cloned drawables are rasterized/tinted; missing cloneable state returns no drawable snapshot.
-- **performance:** raster work is cached by drawable constant state + level; ViewGroup composition reuses child snapshots and contains no polling or new frame listener.
+- **performance:** raster work is cached by drawable constant state + level + drawable state + layout direction; ViewGroup composition reuses child snapshots and contains no polling or new frame listener.
 - **topology safety:** small secondary components survive filtering, so composite structures are not silently simplified into four bars.
 - **timeline ownership:** HyperOS native expansion remains the only reservation/motion timeline; no delay, Animator or custom temporal curve is added.
 - **protected boundaries:** Build-491 callback/lease, Build-497 Keyguard reservation, Build-498 diagnostic-performance cleanup, Build-500 steady source and Build-504 root-space endpoint/latent scale are unchanged.

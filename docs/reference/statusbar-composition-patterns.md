@@ -906,7 +906,7 @@ The reusable target path is:
 The snapshot contract is read-only:
 - ImageView: clone the current drawable from `ConstantState`, preserve state/level, raster-probe alpha, then map the resulting geometry through the ImageView drawable frame/imageMatrix into View coordinates.
 - ViewGroup/composite: recursively collect visible drawable-bearing descendants and transform their visual components into one parent coordinate space.
-- cache cloned-drawable probe results by `ConstantState + level`;
+- cache cloned-drawable probe results by `ConstantState + level + drawable state + layoutDirection`;
 - never tint, resize or rasterize the live SystemUI drawable.
 
 Topology is structural:
