@@ -13561,8 +13561,8 @@ The previously rejected local `batteryWidthDiff` cancellation/normalization rout
 
 ## 2026-10-01 — Build 527: native-sized Mobile Type and target-weight morph
 
-**Type:** device-driven typography / transition refinement  
-**Display version:** 0.0.3  
+**Type:** device-driven typography / transition refinement
+**Display version:** 0.0.3
 **Build / source:** 527 / `20261001-527` / `feat/battery-top-readout` / PR #181
 
 ### Maintainer device evidence
@@ -13623,8 +13623,8 @@ Keeping one fixed source weight while the matrix shrinks the glyph produces a vi
 
 ## 2026-10-01 — Build 528: quick latent reveal after real slot occupancy begins
 
-**Type:** Control Center latent-presentation timing correction  
-**Display version:** 0.0.3  
+**Type:** Control Center latent-presentation timing correction
+**Display version:** 0.0.3
 **Build / source:** 528 / `20261001-528` / `feat/battery-top-readout` / PR #181
 
 ### Maintainer device feedback
@@ -13689,8 +13689,8 @@ Therefore the alpha could start at the correct time yet still remain partially t
 
 ## 2026-10-01 — Build 529: shape-local ring-to-battery morph
 
-**Type:** Battery transition visual-form correction  
-**Display version:** 0.0.3  
+**Type:** Battery transition visual-form correction
+**Display version:** 0.0.3
 **Build / source:** 529 / `20261001-529` / `feat/battery-top-readout` / PR #181
 
 ### Maintainer direction
