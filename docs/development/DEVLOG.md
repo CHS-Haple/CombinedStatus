@@ -12915,3 +12915,45 @@ A read-only island state source began as a diagnostic owner probe and later beca
 ### Validation
 
 Run exact-head Runtime CI. No device package is useful until a charging scenario is available; charging-without-island and charging-with-native-island remain separate device gates.
+
+
+## 2026-10-01 — Build 511 static review closure
+
+**Type:** tests / review closure  
+**Runtime:** unchanged from Build 511  
+**Source:** `29ac288f1c7497964483dbb21de6464c40c31313`
+
+### Added test protection
+
+- Keyguard Control Center lease now has direct negative-policy coverage for:
+  - inactive lease;
+  - feature disabled;
+  - Keyguard feature disabled;
+  - detached Keyguard host.
+- Existing lease tests continue to cover native fraction zero, AOD blocking and source-scene change.
+- An explicit eight-component dual-row/composite Mobile snapshot is asserted to classify as `COMPOSITE` and return no exact four-bar capability.
+
+### Release / Canary review
+
+All remaining `RUNTIME_DIAGNOSTICS` call sites were re-reviewed. Functional transition/state ownership is shared between Release and Canary; diagnostics gating now affects only logging, probes, diagnostic preferences and optional diagnostic event callbacks. Island status authority is installed in both channels.
+
+### Caller-lifecycle review
+
+The Keyguard lease caller chain was checked against authoritative break conditions:
+- native fraction returning to zero releases the lease;
+- AOD blocking releases it;
+- feature / Keyguard disable deactivates Keyguard runtime;
+- host readiness loss causes retention to fail and the scene path deactivates Keyguard runtime;
+- source-scene movement away from Keyguard releases/deactivates ownership.
+
+No lifecycle migration or second owner is justified by the current code.
+
+### CI
+
+- Runtime #1922 failed only because the newly added composite test omitted the JUnit `assertNull` import.
+- The import-only correction changed no runtime behavior.
+- Exact-head Runtime #1923: **success**.
+
+### 审查 / review conclusion
+
+Static review is complete for the current branch. Runtime stays frozen. Remaining uncertainty is device-only: charging without island, charging with native island, latent supplemental semantics, real third-party dual-row visual confirmation, and final Keyguard-originated transition regression.

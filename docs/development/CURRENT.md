@@ -131,6 +131,8 @@ Device testing is requested only when the result can change implementation choic
 
 Build 510 non-charging device acceptance: the user reports the non-charging path now appears perfect. This accepts the Build-510 separation between outer similarity motion and shape-local exact four-bar growth for the tested non-charging Home path. Charging remains untested because no charging scenario is currently available; runtime stays frozen. Charging must not be inferred from this acceptance because HOME + charging + native-island intentionally uses a different semantic-reservation authority.
 
+Static review closure after Build 511: exact-head Runtime CI #1923 passes at source `29ac288f1c7497964483dbb21de6464c40c31313`. Additional policy tests now lock the independent Keyguard Control Center lease break conditions (inactive lease, feature disabled, Keyguard disabled, detached host) and prove an eight-component dual-row/composite Mobile snapshot cannot expose the exact four-bar capability. Release/Canary control-flow review confirms remaining `RUNTIME_DIAGNOSTICS` branches only gate diagnostics/probes/event callbacks; functional Panel, Island, battery, network, scene and Keyguard state ownership no longer depends on the diagnostics build flag. Runtime remains frozen pending focused device evidence.
+
 Build 511 is a code-review safety checkpoint and does not retune the accepted Build-510 non-charging transition. Review found that `SystemUiIslandMotionSource` was installed only when runtime diagnostics were enabled even though charging Home reservation policy consumes its state. Canary therefore observed island state while Release would not. The source is now installed in every runtime build; only diagnostic event emission remains build-gated. Island state also remains tri-state: charging Home uses semantic reservation only after authoritative `false`; `true` and unknown both fail native to HyperOS peer motion. The visual-snapshot drawable probe now contains clone/tint/draw failures and caches the failed result as unavailable instead of allowing compatibility drawables to throw through the SystemUI render path. Panel transition runtime callbacks now have an explicit fail-native boundary: ordinary Guiyuan callback failures revoke the current Control Center projection/lease ownership while the hooked HyperOS method continues; VM-fatal errors are not swallowed. The confirmed unconditional latent-Mobile diagnostic list allocation is skipped when no witness summary is being refreshed. Build-510 non-charging geometry, Mobile morph, root-space targets, reservation curve and handoff timing are unchanged.
 
 ## Non-negotiable boundaries
@@ -150,8 +152,9 @@ Build 511 is a code-review safety checkpoint and does not retune the accepted Bu
 2. Remaining device gate — charging Home without island: confirm Build-510 non-charging geometry remains unchanged while charging state is active.
 3. Remaining device gate — charging Home with native island: verify the intentionally different reservation authority does not reintroduce left offset, overlap, or endpoint drift.
 4. Remaining device gate — latent: Airplane / No-SIM / additional SIM must fade in continuously while real visual-envelope reservation opens, before QS_FAKE ownership ends, with no adjacent-icon overlap.
-5. Remaining device gate — composite/dual-row Mobile: exact four-bar compensation must stay disabled and the target must not be flattened into a four-bar structure.
-6. Preserve Build-504 accepted final fake/real alignment, Build-507 reservation improvement, Build-509 latent reveal, and Build-510 non-charging Mobile visual behavior.
+5. Composite/dual-row Mobile policy is statically locked to COMPOSITE/fallback; remaining device work is visual confirmation that real third-party dual-row geometry is not flattened.
+6. Final Keyguard-originated regression remains a device gate; lease break policy and caller lifecycle were statically reviewed and unit-tested.
+7. Preserve Build-504 accepted final fake/real alignment, Build-507 reservation improvement, Build-509 latent reveal, and Build-510 non-charging Mobile visual behavior.
 
 ## Reference priority
 
