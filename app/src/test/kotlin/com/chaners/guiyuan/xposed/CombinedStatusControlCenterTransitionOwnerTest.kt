@@ -686,7 +686,7 @@ class CombinedStatusControlCenterTransitionOwnerTest {
                 ),
         )
         assertTrue(
-            CombinedStatusControlCenterTransitionOwner.Policy
+            !CombinedStatusControlCenterTransitionOwner.Policy
                 .usesSemanticTransitionReservation(
                     sourceScene = CombinedStatusSourceScene.HOME,
                     charging = true,
