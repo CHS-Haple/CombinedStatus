@@ -216,9 +216,6 @@ internal object CombinedStatusControlCenterTransitionOwner {
             return p * p
         }
 
-        fun semanticRevealScale(rawProgress: Float): Float =
-            0.90f + 0.10f * semanticRevealProgress(rawProgress)
-
         fun unmatchedExitOpacity(rawProgress: Float): Float {
             val remaining = 1f - geometryProgress(rawProgress)
             return remaining * remaining * remaining
