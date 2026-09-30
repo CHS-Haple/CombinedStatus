@@ -15,7 +15,7 @@ This file is the concise recovery point for active Guiyuan development. Historic
 PR #181 / `feat/battery-top-readout` adds an optional battery percentage readout in the top opening of the Guiyuan battery ring while preserving the accepted Home -> Control Center transition contract.
 
 Current checkpoint:
-- Build 527 / `20261001-527`;
+- Build 528 / `20261001-528`;
 - branch remains based on current `dev` and is not behind it;
 - Build 524 improved the final native Battery-number target for HyperOS hollow-battery presentation;
 - Build 525 corrected two Build-523 device defects:
@@ -47,6 +47,14 @@ Build 527 mobile-type typography correction:
 - if native target typography is unavailable, weight remains unchanged rather than guessing a target;
 - no second animator, timing curve, native text writer, or screenshot-specific endpoint is added.
 
+Build 528 latent-reveal timing correction:
+- new device feedback confirms no-source / latent participants now wait for real occupancy correctly, but their opacity still reaches 100% too late on fast pulls, leaving a visibly empty target slot until the final part of expansion;
+- root cause is the Build-509 rule `min(targetProximity, reservationProgress)`: both terms had to approach 1, so full opacity was mathematically tied to near-terminal target convergence;
+- Build 528 preserves both existing safety gates: zero reservation still means invisible, and content outside one real target visual extent remains invisible;
+- after both gates open, opacity now completes over the first 35% of the existing spatial reveal windows, using the same stateless smoothstep mapping for occupancy and target proximity;
+- no delay, timer, Animator, new gesture curve, target coordinate, or native visibility writer is added;
+- reverse collapse stays symmetric: occupancy/proximity falling back through the same window hides latent pixels before the slot fully closes.
+
 ## Validation state
 
 Confirmed:
@@ -65,8 +73,8 @@ Confirmed:
   - unknown exact authority remains native-peer-motion rather than guessing `false`.
 
 Pending:
-- Build 527 Runtime CI.
-- if green, one exact-head signed Build-527 Canary.
+- Build 528 Runtime CI.
+- if green, one exact-head signed Build-528 Canary.
 - focused device validation:
   - island-only pull remains unchanged and reaches the expected final native icon endpoints;
   - charging without an active generic island remains unchanged;
@@ -101,9 +109,9 @@ Pending:
 
 ## Immediate next step
 
-1. finish Build-527 Runtime CI and automated review;
-2. if green, freeze runtime at exact Build 527 and request one signed work-branch Canary;
-3. validate compact 5G/4G scale plus native-target size/weight convergence, together with the Build-526 island/charging matrix and battery-top checks;
+1. finish Build-528 Runtime CI and automated review;
+2. if green, freeze runtime at exact Build 528 and request one signed work-branch Canary;
+3. validate compact 5G/4G scale + native-target size/weight convergence + quick latent reveal, together with the Build-526 island/charging matrix and battery-top checks;
 4. change runtime again only if that device evidence identifies a concrete remaining defect;
 5. merge to `dev` only after the combined checkpoint is device-accepted.
 
