@@ -12057,3 +12057,56 @@ Run exact-head Runtime CI, then one signed Canary. Device test is intentionally 
 3. Watch the final handoff for whole-row rebase, VPN/other peer one-frame flash, and the prior terminal hitch.
 4. Reverse-collapse once to ensure no new terminal flash.
 5. Home charging-island behavior is regression-only; it should remain as Build 496 and is not part of this fix.
+
+
+## 2026-09-30 — Build 498: remove island animation frame probe
+
+**Type:** Diagnostic isolation / Keyguard Super-Island performance  
+**Display version:** 0.0.3  
+**Build / source:** 498 / `20260930-498` / `feat/control-center-transition-matrix`
+
+### Device evidence
+
+Build 497 removes the visible one-frame layout swap/VPN flash at the terminal Keyguard -> Control Center handoff. The remaining hitch is now scoped more tightly:
+- it occurs only when Super-Island exists on the lockscreen;
+- charging state is irrelevant;
+- every lockscreen pull replays the native Super-Island entrance animation, and the hitch coincides with that animation.
+
+This means the Build-497 reservation fix is valid but not sufficient. The remaining performance defect must be isolated from diagnostics before changing runtime motion ownership.
+
+### Root cause candidate being isolated
+
+`SystemUiIslandMotionSource` is a read-only hook for HyperOS `onIslandStatusChanged`, but Detailed diagnostics also started a 900 ms `ViewTreeObserver.OnPreDrawListener` after every island event. During that period it repeatedly sampled several status-row Views and up to ten status children, called screen-coordinate APIs, built strings, and emitted logs on changed frames.
+
+That probe is not required for runtime behavior. Because it runs exactly while the native island animation is active, it can amplify or create the observed terminal hitch and prevents clean attribution to HyperOS versus Guiyuan runtime observers.
+
+### Change
+
+- Keep the existing island-status hook and `isIslandShowing()` runtime fact unchanged.
+- Keep the single event-level island diagnostic snapshot.
+- Remove the island `OnPreDrawListener` follower entirely.
+- Remove its 900 ms timeout, per-frame status-child traversal, screen-position sampling, and repeated log emission.
+- No transition, reservation, source/target geometry, island animation, Keyguard lease/callback phase, suppression, or visibility logic changes.
+- Bump source identity to Build 498 / `20260930-498`.
+
+### 审查 / review
+
+- **diagnostics must not perturb runtime:** the removed code existed only to observe the animation and had no product behavior contract.
+- **native-first:** HyperOS remains sole island-animation authority.
+- **single writer:** no runtime writer is added or moved.
+- **performance:** eliminates one main-thread pre-draw observer plus repeated coordinate traversal/string/log work for each island event.
+- **cleanup:** deleting the probe also removes its delayed callback and listener lifecycle; the island source retains only event state.
+- **isolation:** Build-497 Keyguard reservation policy stays intact; Home charging-island behavior remains unchanged.
+- **fail-native:** runtime island state still follows the native callback; if the hook is unavailable existing compatibility fallback remains unchanged.
+
+### Validation
+
+Exact-head Runtime CI and one signed Canary.
+
+Primary A/B:
+1. Lock screen with an existing Super-Island, charging or non-charging.
+2. Fast pull Control Center to fully expanded several times.
+3. Confirm the Build-497 VPN/layout flash stays gone.
+4. Judge whether the terminal hitch during the island entrance replay disappears or materially reduces.
+
+The same APK may also be used for unrelated pending regression checks without adding more code changes: Build-496 master-switch fail-native and Build-493 semantic split/reveal scenarios can be exercised separately.

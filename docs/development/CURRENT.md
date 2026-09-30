@@ -18,7 +18,7 @@ Control Center transition animation is the active runtime task.
 
 Current implementation line:
 - PR #177 — feat/control-center-transition-matrix;
-- current work-branch checkpoint: Build 497 / 20260930-497;
+- current work-branch checkpoint: Build 498 / 20260930-498;
 - exact-target direction: QS_FAKE role-5 to final-QS role-6 matrix projection;
 - HyperOS remains translation/appearance authority; raw native expansion drives transition geometry and native fake/final Folme owns visual handoff;
 - Guiyuan reads native transition state and renders only its owned Trinity correspondence; final role-6 top-level slots are read-only occupancy witnesses, while the existing QS_FAKE statusIcons-paddingEnd owner now provides a progress-synchronous semantic reservation so surrounding native peers move through SystemUI's own measure/layout path;
@@ -29,6 +29,9 @@ PR #174 is an older transition route and must not overwrite the newer active mat
 
 
 Build 497 is the current focused Keyguard-island checkpoint. Build-496 device evidence shows that near the final Keyguard -> Control Center handoff, native Super-Island `showing=true` changes the native status-container geometry while the transition owner simultaneously disables progress reservation for `charging && nativeIslandShowing`. That clears the fake-status-icons reservation from ~300 px back to compact 105 px, then reapplies it when island/appearance state changes, producing a one-frame whole-row rebase in which ordinary peer slots such as VPN can flash. Build 497 makes the reservation policy scene-specific: HOME charging+island keeps Build-494 native-peer-motion behavior, while KEYGUARD retains continuous progress-synchronous reservation through the island handoff. No curve, callback phase, lease, island event source, Home behavior, or native visibility writer is changed.
+
+
+Build 498 isolates the remaining Keyguard Super-Island hitch from diagnostic overhead. Build 497 device validation removes the one-frame VPN/layout flash, confirming the Keyguard reservation discontinuity is fixed, but a terminal hitch remains whenever the lockscreen Super-Island replay animation runs, independent of charging. The island hook remains read-only runtime state authority, but its 900 ms `OnPreDrawListener` diagnostic sampler is removed completely. Detailed diagnostics now records only the single island event snapshot; no per-frame island geometry traversal/logging runs during the animation. Transition, reservation, Keyguard lease/callback phase, island animation ownership, and Home behavior are unchanged.
 
 ## Current architecture boundary
 
