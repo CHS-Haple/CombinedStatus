@@ -956,7 +956,11 @@ internal class CombinedStatusPainter(
 
         val text = model.batteryPercent.coerceIn(0, 100).toString()
         val textSize = BATTERY_TOP_TEXT_SIZE * visualSettings.batteryTopTextScale
-        val textExtraStroke = batteryTopTextExtraStroke(visualSettings.batteryTopTextWeight)
+        val textExtraStroke =
+            batteryTopTextExtraStroke(
+                weight = visualSettings.batteryTopTextWeight,
+                textSize = textSize,
+            )
         paint.typeface = batteryTopTextTypeface(visualSettings.batteryTopTextWeight)
         paint.textSize = textSize
         paint.textAlign = Paint.Align.LEFT
@@ -1006,12 +1010,19 @@ internal class CombinedStatusPainter(
             } else {
                 0f
             }
-        // Keep the text anchored to a stable charging slot so a native
-        // single/double-bolt resource handoff cannot move the percentage.
-        val chargingSlotWidth =
-            if (chargingSlotVisible) chargingIconSize else 0f
-        val groupWidth = chargingSlotWidth + iconGap + textOpticalWidth
-        val groupLeft = BATTERY_COMPONENT_CENTER_X - groupWidth / 2f
+        // Keep the percentage itself optically centered over the battery ring.
+        // The native charging glyph occupies only the left side; its transparent
+        // viewport must never push the number away from the ring center.
+        val textInkLeft =
+            BATTERY_COMPONENT_CENTER_X - textOpticalWidth / 2f
+        val groupWidth =
+            if (chargingSlotVisible && chargingIconSize > 0f) {
+                // Keep the ring opening symmetric around the centered number
+                // while reserving enough clearance for the left-side glyph.
+                textOpticalWidth + 2f * (iconGap + chargingOpticalWidth)
+            } else {
+                textOpticalWidth
+            }
         val contentInkHeight = max(textOpticalHeight, chargingOpticalHeight)
 
         // This setting controls the number, not the charging glyph. Keep enough
@@ -1043,13 +1054,6 @@ internal class CombinedStatusPainter(
             } else {
                 BATTERY_TOP_CONTENT_CENTER_Y
             }
-        val textLeft =
-            groupLeft +
-                if (chargingSlotVisible) {
-                    chargingSlotWidth + iconGap
-                } else {
-                    0f
-                }
         val textBaselineY =
             textCenterY -
                 (batteryTopTextBounds.top + batteryTopTextBounds.bottom) / 2f
@@ -1059,7 +1063,10 @@ internal class CombinedStatusPainter(
             textSize = textSize,
             textWeight = visualSettings.batteryTopTextWeight,
             textExtraStroke = textExtraStroke,
-            textX = textLeft + textExtraStroke / 2f - batteryTopTextBounds.left,
+            textX =
+                textInkLeft +
+                    textExtraStroke / 2f -
+                    batteryTopTextBounds.left,
             textBaselineY = textBaselineY,
             groupWidth = groupWidth,
             ringGapPadding =
@@ -1072,13 +1079,19 @@ internal class CombinedStatusPainter(
                 ),
             chargingIconResourceId = chargingIconResourceId,
             chargingIconCenterX =
-                if (chargingSlotVisible) {
-                    // Right-align native optical ink inside the stable slot.
-                    groupLeft + chargingSlotWidth - chargingOpticalWidth / 2f
+                if (chargingSlotVisible && chargingIconSize > 0f) {
+                    val desiredOpticalCenterX =
+                        textInkLeft -
+                            iconGap -
+                            chargingOpticalWidth / 2f
+                    desiredOpticalCenterX -
+                        (chargingOpticalSize?.centerOffsetX ?: 0f)
                 } else {
                     BATTERY_COMPONENT_CENTER_X
                 },
-            chargingIconCenterY = chargingIconCenterY,
+            chargingIconCenterY =
+                chargingIconCenterY -
+                    (chargingOpticalSize?.centerOffsetY ?: 0f),
             chargingIconSize = chargingIconSize,
         )
     }
@@ -1151,12 +1164,16 @@ internal class CombinedStatusPainter(
         return cachedBatteryTopTextTypeface
     }
 
-    private fun batteryTopTextExtraStroke(weight: Int): Float {
+    private fun batteryTopTextExtraStroke(
+        weight: Int,
+        textSize: Float,
+    ): Float {
         val extraWeight =
             (weight - BATTERY_TOP_NATIVE_WEIGHT_MAX)
                 .coerceIn(0, BATTERY_TOP_SYNTHETIC_WEIGHT_RANGE)
-        if (extraWeight == 0) return 0f
-        return BATTERY_TOP_MAX_EXTRA_TEXT_STROKE *
+        if (extraWeight == 0 || textSize <= 0f) return 0f
+        return textSize *
+            BATTERY_TOP_SYNTHETIC_STROKE_RATIO *
             extraWeight.toFloat() /
             BATTERY_TOP_SYNTHETIC_WEIGHT_RANGE.toFloat()
     }
@@ -1490,9 +1507,17 @@ internal class CombinedStatusPainter(
                 maxSize / opticalIntrinsicWidth,
                 maxSize / opticalIntrinsicHeight,
             )
+        val drawWidth = asset.intrinsicWidth * scale
+        val drawHeight = asset.intrinsicHeight * scale
         return NativeOpticalSize(
             width = opticalIntrinsicWidth * scale,
             height = opticalIntrinsicHeight * scale,
+            centerOffsetX =
+                ((asset.opticalBounds.left + asset.opticalBounds.right) / 2f - 0.5f) *
+                    drawWidth,
+            centerOffsetY =
+                ((asset.opticalBounds.top + asset.opticalBounds.bottom) / 2f - 0.5f) *
+                    drawHeight,
         )
     }
 
@@ -2308,8 +2333,8 @@ internal class CombinedStatusPainter(
         const val BATTERY_TOP_GAP_CENTER_DEGREES = 270f
         const val BATTERY_TOP_CONTENT_CENTER_Y = 16f
         const val BATTERY_TOP_NATIVE_WEIGHT_MAX = 1000
-        const val BATTERY_TOP_SYNTHETIC_WEIGHT_RANGE = 200
-        const val BATTERY_TOP_MAX_EXTRA_TEXT_STROKE = 1.4f
+        const val BATTERY_TOP_SYNTHETIC_WEIGHT_RANGE = 400
+        const val BATTERY_TOP_SYNTHETIC_STROKE_RATIO = 0.07f
 
     }
 
@@ -2360,6 +2385,8 @@ internal class CombinedStatusPainter(
     private data class NativeOpticalSize(
         val width: Float,
         val height: Float,
+        val centerOffsetX: Float,
+        val centerOffsetY: Float,
     )
 
     private data class NativeCenterAsset(

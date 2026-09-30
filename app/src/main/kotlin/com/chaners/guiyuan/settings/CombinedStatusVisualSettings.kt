@@ -142,11 +142,17 @@ internal class CombinedStatusVisualSettingsRepository(context: Context) {
     }
 
     fun setBatteryTopTextScale(scale: Float) {
+        val uiScale =
+            scale.coerceIn(
+                BATTERY_TOP_TEXT_UI_SCALE_MIN,
+                BATTERY_TOP_TEXT_UI_SCALE_MAX,
+            )
         preferences
             .edit()
             .putFloat(
                 BATTERY_TOP_TEXT_SCALE_KEY,
-                scale.coerceIn(BATTERY_TOP_TEXT_SCALE_MIN, BATTERY_TOP_TEXT_SCALE_MAX),
+                (uiScale * BATTERY_TOP_TEXT_UI_SCALE_REFERENCE)
+                    .coerceIn(BATTERY_TOP_TEXT_SCALE_MIN, BATTERY_TOP_TEXT_SCALE_MAX),
             )
             .apply()
     }
@@ -201,12 +207,18 @@ internal const val BATTERY_TOP_VERTICAL_OFFSET_KEY = "battery_top_vertical_offse
 internal const val BATTERY_TOP_CHARGING_ICON_SCALE_KEY = "battery_top_charging_icon_scale"
 internal const val RUNTIME_REMOTE_PREFS_NAME = "CombinedStatusRuntimeConfig"
 
-internal const val BATTERY_TOP_TEXT_SCALE_DEFAULT = 1f
+// Persisted text scale remains in the pre-521 physical scale.
+internal const val BATTERY_TOP_TEXT_UI_SCALE_REFERENCE = 1.3f
+internal const val BATTERY_TOP_TEXT_UI_SCALE_MIN = 0f
+internal const val BATTERY_TOP_TEXT_UI_SCALE_MAX = 2f
+internal const val BATTERY_TOP_TEXT_SCALE_DEFAULT =
+    BATTERY_TOP_TEXT_UI_SCALE_REFERENCE
 internal const val BATTERY_TOP_TEXT_SCALE_MIN = 0f
-internal const val BATTERY_TOP_TEXT_SCALE_MAX = 2f
+internal const val BATTERY_TOP_TEXT_SCALE_MAX =
+    BATTERY_TOP_TEXT_UI_SCALE_REFERENCE * BATTERY_TOP_TEXT_UI_SCALE_MAX
 internal const val BATTERY_TOP_TEXT_WEIGHT_DEFAULT = 900
 internal const val BATTERY_TOP_TEXT_WEIGHT_MIN = 400
-internal const val BATTERY_TOP_TEXT_WEIGHT_MAX = 1200
+internal const val BATTERY_TOP_TEXT_WEIGHT_MAX = 1400
 internal const val BATTERY_TOP_VERTICAL_OFFSET_DEFAULT = 0f
 internal const val BATTERY_TOP_VERTICAL_OFFSET_MIN = -30f
 internal const val BATTERY_TOP_VERTICAL_OFFSET_MAX = 30f
@@ -221,6 +233,13 @@ internal const val BATTERY_TOP_CHARGING_ICON_SCALE_DEFAULT =
 internal const val BATTERY_TOP_CHARGING_ICON_SCALE_MIN = 0f
 internal const val BATTERY_TOP_CHARGING_ICON_SCALE_MAX =
     BATTERY_TOP_CHARGING_ICON_UI_SCALE_REFERENCE * BATTERY_TOP_CHARGING_ICON_UI_SCALE_MAX
+
+internal fun batteryTopTextUiScale(rawScale: Float): Float =
+    (rawScale / BATTERY_TOP_TEXT_UI_SCALE_REFERENCE)
+        .coerceIn(
+            BATTERY_TOP_TEXT_UI_SCALE_MIN,
+            BATTERY_TOP_TEXT_UI_SCALE_MAX,
+        )
 
 internal fun batteryTopChargingIconUiScale(rawScale: Float): Float =
     (rawScale / BATTERY_TOP_CHARGING_ICON_UI_SCALE_REFERENCE)

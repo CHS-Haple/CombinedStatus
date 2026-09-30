@@ -28,8 +28,8 @@ import com.chaners.guiyuan.R
 import com.chaners.guiyuan.settings.AppLanguage
 import com.chaners.guiyuan.settings.BATTERY_TOP_CHARGING_ICON_UI_SCALE_MAX
 import com.chaners.guiyuan.settings.BATTERY_TOP_CHARGING_ICON_UI_SCALE_MIN
-import com.chaners.guiyuan.settings.BATTERY_TOP_TEXT_SCALE_MAX
-import com.chaners.guiyuan.settings.BATTERY_TOP_TEXT_SCALE_MIN
+import com.chaners.guiyuan.settings.BATTERY_TOP_TEXT_UI_SCALE_MAX
+import com.chaners.guiyuan.settings.BATTERY_TOP_TEXT_UI_SCALE_MIN
 import com.chaners.guiyuan.settings.BATTERY_TOP_TEXT_WEIGHT_MAX
 import com.chaners.guiyuan.settings.BATTERY_TOP_TEXT_WEIGHT_MIN
 import com.chaners.guiyuan.settings.BATTERY_TOP_VERTICAL_OFFSET_MAX
@@ -37,6 +37,7 @@ import com.chaners.guiyuan.settings.BATTERY_TOP_VERTICAL_OFFSET_MIN
 import com.chaners.guiyuan.settings.CombinedStatusFeatureSettingsRepository
 import com.chaners.guiyuan.settings.CombinedStatusVisualSettingsRepository
 import com.chaners.guiyuan.settings.batteryTopChargingIconUiScale
+import com.chaners.guiyuan.settings.batteryTopTextUiScale
 import com.chaners.guiyuan.system.SystemUiScopeController
 import com.chaners.guiyuan.ui.components.MiuixBlurredTopBar
 import com.chaners.guiyuan.ui.components.rememberTopBarBackdrop
@@ -96,16 +97,22 @@ internal fun FeaturesScreen(
                 onCheckedChange = visualRepository::setBatteryTopReadoutEnabled,
             )
             if (visualSettings.batteryTopReadoutEnabled) {
+                val textUiScale =
+                    batteryTopTextUiScale(
+                        visualSettings.batteryTopTextScale,
+                    )
                 SliderPreference(
-                    value = visualSettings.batteryTopTextScale,
+                    value = textUiScale,
                     onValueChange = visualRepository::setBatteryTopTextScale,
                     title = stringResource(R.string.battery_top_text_size),
                     valueText =
                         stringResource(
                             R.string.battery_top_scale_value,
-                            (visualSettings.batteryTopTextScale * 100f).roundToInt(),
+                            (textUiScale * 100f).roundToInt(),
                         ),
-                    valueRange = BATTERY_TOP_TEXT_SCALE_MIN..BATTERY_TOP_TEXT_SCALE_MAX,
+                    valueRange =
+                        BATTERY_TOP_TEXT_UI_SCALE_MIN..
+                            BATTERY_TOP_TEXT_UI_SCALE_MAX,
                     steps = 39,
                     showKeyPoints = true,
                     keyPoints = listOf(1f),
@@ -125,7 +132,7 @@ internal fun FeaturesScreen(
                     valueRange =
                         BATTERY_TOP_TEXT_WEIGHT_MIN.toFloat()..
                             BATTERY_TOP_TEXT_WEIGHT_MAX.toFloat(),
-                    steps = 15,
+                    steps = 19,
                     showKeyPoints = true,
                     keyPoints = listOf(900f),
                     enabled = featureSettings.enabled,
