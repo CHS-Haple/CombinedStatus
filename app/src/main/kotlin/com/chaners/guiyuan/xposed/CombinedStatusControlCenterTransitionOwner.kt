@@ -2201,54 +2201,123 @@ internal object CombinedStatusControlCenterTransitionOwner {
             val digitalView =
                 readViewField(finalBattery, "mBatteryDigitalView")
                     ?: findDescendantByResourceEntry(finalBattery, "battery_icon_container")
-            val iconView =
-                readViewField(finalBattery, "mBatteryIconView")
-                    ?: resolveBatteryIconTarget(finalBattery)
+            val visibleBatteryBody =
+                resolveBatteryIconTarget(finalBattery)
+                    ?.takeIf { view ->
+                        view.visibility == View.VISIBLE &&
+                            view.width > 0 &&
+                            view.height > 0
+                    }
+            val legacyIconView = readViewField(finalBattery, "mBatteryIconView")
+            val expected =
+                currentSnapshot.model.batteryPercent
+                    .coerceIn(0, 100)
+                    .toString()
 
             val textView =
                 digitalView
                     ?.let(::findBatteryNumberTextView)
                     ?: findBatteryNumberTextView(finalBattery)
-            if (textView != null) {
-                val bounds =
-                    textViewBatteryNumberBounds(textView)
-                        ?: return null
-                return TargetWitness(
-                    slot = BATTERY_NUMBER_SLOT,
-                    slotView = textView,
-                    opticalView = null,
-                    subscriptionId = null,
-                    requiresOpticalGeometry = true,
-                    fallbackBounds = bounds,
-                    opticalSource = "battery-number-text",
-                    textWeight =
-                        runCatching { textView.typeface?.weight }
-                            .getOrNull()
-                            ?.takeIf { it > 0 },
-                    preferFallbackGeometry = true,
-                )
+
+            // Best case: the native percentage TextView itself is laid out.
+            if (
+                textView != null &&
+                textView.width > 0 &&
+                textView.height > 0
+            ) {
+                val bounds = textViewBatteryNumberBounds(textView)
+                if (bounds != null) {
+                    return TargetWitness(
+                        slot = BATTERY_NUMBER_SLOT,
+                        slotView = textView,
+                        opticalView = null,
+                        subscriptionId = null,
+                        requiresOpticalGeometry = true,
+                        fallbackBounds = bounds,
+                        opticalSource = "battery-number-text-layout",
+                        textWeight = batteryNumberTypefaceWeight(textView.paint),
+                        preferFallbackGeometry = true,
+                    )
+                }
             }
 
-            val icon = iconView ?: return null
-            val paint = resolveBatteryNumberPaint(icon) ?: return null
+            // HyperOS hollow-battery presentation keeps the semantic percentage
+            // TextView at 0x0 while a visible MiuiHollowBatteryMeterIconView owns
+            // the final battery body. Prefer the visible body's own text Paint
+            // when available, because it is the closest native geometry authority.
+            if (visibleBatteryBody != null) {
+                val nativeBodyPaint = resolveBatteryNumberPaint(visibleBatteryBody)
+                if (nativeBodyPaint != null) {
+                    val bounds =
+                        centeredBatteryNumberPaintBounds(
+                            view = visibleBatteryBody,
+                            paint = nativeBodyPaint,
+                            text = expected,
+                        )
+                    if (bounds != null) {
+                        return TargetWitness(
+                            slot = BATTERY_NUMBER_SLOT,
+                            slotView = visibleBatteryBody,
+                            opticalView = null,
+                            subscriptionId = null,
+                            requiresOpticalGeometry = true,
+                            fallbackBounds = bounds,
+                            opticalSource = "battery-number-hollow-paint",
+                            textWeight = batteryNumberTypefaceWeight(nativeBodyPaint),
+                            preferFallbackGeometry = true,
+                        )
+                    }
+                }
+
+                // The exact target also exposes battery_percentage_view even
+                // when its parent has 0x0 layout. Its Paint still carries the
+                // native number typography (textSize/typeface). Reuse that
+                // typography but anchor it inside the visible hollow battery.
+                if (textView != null) {
+                    val bounds =
+                        centeredBatteryNumberPaintBounds(
+                            view = visibleBatteryBody,
+                            paint = textView.paint,
+                            text = expected,
+                        )
+                    if (bounds != null) {
+                        return TargetWitness(
+                            slot = BATTERY_NUMBER_SLOT,
+                            slotView = visibleBatteryBody,
+                            opticalView = null,
+                            subscriptionId = null,
+                            requiresOpticalGeometry = true,
+                            fallbackBounds = bounds,
+                            opticalSource = "battery-number-text-metrics-on-hollow",
+                            textWeight = batteryNumberTypefaceWeight(textView.paint),
+                            preferFallbackGeometry = true,
+                        )
+                    }
+                }
+            }
+
+            // Compatibility fallback for variants where mBatteryIconView itself
+            // remains the visible/measured presentation authority.
+            val legacyIcon =
+                legacyIconView
+                    ?.takeIf { view -> view.width > 0 && view.height > 0 }
+                    ?: return null
+            val paint = resolveBatteryNumberPaint(legacyIcon) ?: return null
             val bounds =
                 centeredBatteryNumberPaintBounds(
-                    view = icon,
+                    view = legacyIcon,
                     paint = paint,
-                    text = currentSnapshot.model.batteryPercent.coerceIn(0, 100).toString(),
+                    text = expected,
                 ) ?: return null
             return TargetWitness(
                 slot = BATTERY_NUMBER_SLOT,
-                slotView = icon,
+                slotView = legacyIcon,
                 opticalView = null,
                 subscriptionId = null,
                 requiresOpticalGeometry = true,
                 fallbackBounds = bounds,
-                opticalSource = "battery-number-paint",
-                textWeight =
-                    runCatching { paint.typeface?.weight }
-                        .getOrNull()
-                        ?.takeIf { it > 0 },
+                opticalSource = "battery-number-legacy-icon-paint",
+                textWeight = batteryNumberTypefaceWeight(paint),
                 preferFallbackGeometry = true,
             )
         }
@@ -2265,12 +2334,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
             val candidates = ArrayList<Candidate>()
             fun collect(view: View, depth: Int) {
                 if (depth > BATTERY_NUMBER_PROBE_MAX_DEPTH) return
-                if (
-                    view is TextView &&
-                    view.visibility == View.VISIBLE &&
-                    view.width > 0 &&
-                    view.height > 0
-                ) {
+                if (view is TextView && view.visibility == View.VISIBLE) {
                     val value = view.text?.toString().orEmpty()
                     val digits = value.filter(Char::isDigit)
                     val entry =
@@ -2278,11 +2342,14 @@ internal object CombinedStatusControlCenterTransitionOwner {
                             ?.lowercase()
                             .orEmpty()
                     var score = 0
-                    if (digits == expected) score += 8
+                    if (digits == expected) score += 12
+                    if (entry.contains("percentage_view")) score += 10
                     if (entry.contains("percent")) score += 6
                     if (entry.contains("digit")) score += 5
                     if (entry.contains("battery")) score += 3
                     if (entry.contains("text")) score += 1
+                    if (view.width > 0 && view.height > 0) score += 4
+                    if ((view.layout?.lineCount ?: 0) > 0) score += 2
                     if (score > 0) {
                         candidates += Candidate(view, score)
                     }
@@ -2335,6 +2402,11 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 height = contentHeight,
             )
         }
+
+        private fun batteryNumberTypefaceWeight(paint: Paint): Int? =
+            runCatching { paint.typeface?.weight }
+                .getOrNull()
+                ?.takeIf { it > 0 }
 
         private fun resolveBatteryNumberPaint(view: View): Paint? =
             generateSequence<Class<*>>(view.javaClass) { clazz -> clazz.superclass }
@@ -2410,6 +2482,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
         private fun resolveBatteryNumberProbe(battery: View): String {
             val digitalView = readViewField(battery, "mBatteryDigitalView")
             val iconView = readViewField(battery, "mBatteryIconView")
+            val hollowView = resolveBatteryIconTarget(battery)
 
             fun viewToken(view: View): String {
                 val entry =
@@ -2461,10 +2534,10 @@ internal object CombinedStatusControlCenterTransitionOwner {
             }
             collect(battery, 0)
 
-            val paintFields =
-                iconView
-                    ?.let { icon ->
-                        generateSequence<Class<*>>(icon.javaClass) { clazz -> clazz.superclass }
+            fun paintFields(view: View?): List<String> =
+                view
+                    ?.let { owner ->
+                        generateSequence<Class<*>>(owner.javaClass) { clazz -> clazz.superclass }
                             .flatMap { clazz -> clazz.declaredFields.asSequence() }
                             .filter { field ->
                                 Paint::class.java.isAssignableFrom(field.type)
@@ -2472,11 +2545,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
                             .mapNotNull { field ->
                                 runCatching {
                                     field.isAccessible = true
-                                    val paint = field.get(icon) as? Paint ?: return@runCatching null
-                                    val weight =
-                                        runCatching { paint.typeface?.weight }
-                                            .getOrNull()
-                                            ?: -1
+                                    val paint = field.get(owner) as? Paint ?: return@runCatching null
+                                    val weight = batteryNumberTypefaceWeight(paint) ?: -1
                                     field.name +
                                         ":textSize=" + paint.textSize +
                                         ":weight=" + weight +
@@ -2493,8 +2563,10 @@ internal object CombinedStatusControlCenterTransitionOwner {
             return "{" +
                 "digital=" + (digitalView?.let(::viewToken) ?: "none") +
                 ";icon=" + (iconView?.let(::viewToken) ?: "none") +
+                ";hollow=" + (hollowView?.let(::viewToken) ?: "none") +
                 ";views=[" + descendants.joinToString(",") + "]" +
-                ";paints=[" + paintFields.joinToString(",") + "]" +
+                ";iconPaints=[" + paintFields(iconView).joinToString(",") + "]" +
+                ";hollowPaints=[" + paintFields(hollowView).joinToString(",") + "]" +
                 "}"
         }
 
