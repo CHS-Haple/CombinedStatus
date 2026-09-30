@@ -1,6 +1,8 @@
 package com.chaners.guiyuan.xposed
 
 import android.graphics.drawable.Drawable
+import android.os.Handler
+import android.os.Looper
 import android.os.Process
 import android.os.SystemClock
 import android.util.Log
@@ -3026,6 +3028,34 @@ class CombinedStatusModule : XposedModule() {
         settings: CombinedStatusFeatureSettings,
         preferenceTransportLatencyNanos: Long?,
     ) {
+        if (Looper.myLooper() !== Looper.getMainLooper()) {
+            val dispatch =
+                Runnable {
+                    onRuntimeFeatureSettingsChanged(
+                        settings = settings,
+                        preferenceTransportLatencyNanos = preferenceTransportLatencyNanos,
+                    )
+                }
+            val hostView = SystemUiHostRegistry.currentStatusHost() as? android.view.View
+            val scheduled =
+                (hostView?.post(dispatch) == true) ||
+                    Handler(Looper.getMainLooper()).post(dispatch)
+            if (scheduled) {
+                return
+            }
+            logDiagnostic(
+                level = Log.ERROR,
+                event = "featureSettings.dispatch",
+                component = "combinedStatus",
+                state = "error",
+                "reason" to "main-thread-dispatch-failed",
+                "combinedStatusEnabled" to settings.enabled,
+                "keyguardEnabled" to settings.keyguardEnabled,
+                "fallback" to "leave-current-native-ownership-unchanged",
+            )
+            return
+        }
+
         SystemUiNativeCombinedParticipantOwner.onFeatureSettingsChanged(settings)
         CombinedStatusHomeRenderSession.onFeatureSettingsChanged(settings)
         CombinedStatusKeyguardRenderSession.onFeatureSettingsChanged(settings)
@@ -3060,6 +3090,7 @@ class CombinedStatusModule : XposedModule() {
                         ?: "initial-bind"
                 ),
             "eventDriven" to true,
+            "mainThread" to true,
             "fallback" to if (settings.enabled) "combined-status" else "native-systemui",
         )
     }

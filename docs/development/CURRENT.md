@@ -72,6 +72,9 @@ Build 494 is device-rejected. It does not restore native-equivalent transition m
 
 Build 495 is a safety-only checkpoint after device evidence showed that disabling the Guiyuan master switch can leave native status icons suppressed across scenes. Root cause review found three reacquisition gaps: Control Center eligibility did not include `settings.enabled`; Home presentation readiness could call `SystemUiHomePresentationOwner.activate()` after disable; and runtime feature changes were never forwarded to `SystemUiNativeCombinedParticipantOwner`, so its battery/network suppression handoff could remain active. Build 495 makes master-switch-off a hard acquisition gate, routes the setting to the native participant owner, releases Home/Keyguard/Control Center presentation ownership plus native battery/network suppression, and adds a race-safe guard to the native participant handoff callback. No Build-494 transition geometry or animation code is changed.
 
+Build 495 device validation narrows the remaining master-switch failure: disabling Guiyuan restores Home presentation bookkeeping, but the icons previously covered/suppressed by Guiyuan remain absent in steady Home while Control Center native icons are correct. The diagnostic proves the release transaction is split across threads: Home render feature/handoff updates run on the SystemUI main thread, while `homePresentation cleanup source=feature-disabled` executes on the RemotePreferences callback worker. Build 496 moves the entire feature-settings ownership transaction onto the SystemUI main looper before touching native participant state, presentation owners, suppression owners, or layout. It adds no visibility writer and does not change transition motion.
+
+
 Device testing is requested only when the result can change implementation choice or acceptance. Mechanical/documentation steps continue without a new APK round trip.
 
 ## Non-negotiable boundaries
@@ -87,11 +90,11 @@ Device testing is requested only when the result can change implementation choic
 
 ## Immediate next step
 
-1. Run exact-head Runtime CI for Build 495, then produce one signed Canary.
-2. Safety gate first: disable the Guiyuan master switch and verify native status icons remain present/restored in Home, Keyguard and Control Center, including after repeated pulls and scene changes.
-3. Re-enable Guiyuan and verify the normal compact presentation can reacquire without restart/Hot Reload.
-4. Only after the master-switch gate passes, resume transition motion work from the new device evidence: native peers move directly lower-left, while Guiyuan currently inserts an incorrect initial vertical-only segment.
-5. The next motion correction must inherit external x/y motion from the native fake status-bar carrier from the first frame; Guiyuan should own only local Trinity morph geometry. Charging press-left bias and charging-island final overlap remain part of that same follow-up review.
+1. Run exact-head Runtime CI for Build 496, then produce one signed Canary.
+2. Safety gate: with Guiyuan enabled, disable the master switch while watching steady Home. Previously covered/suppressed native icons must return immediately without pulling Control Center.
+3. Still disabled, pull and collapse Control Center once; steady Home must remain native-correct before and after the gesture.
+4. Re-enable Guiyuan and verify compact presentation reacquires without SystemUI restart/Hot Reload.
+5. Only after this gate passes, resume transition motion ownership work: native peers move directly lower-left, while Guiyuan currently inserts an incorrect initial vertical-only segment. Charging press-left bias and charging-island final overlap remain queued with that motion review.
 
 ## Reference priority
 

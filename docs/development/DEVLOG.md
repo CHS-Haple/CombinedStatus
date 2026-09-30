@@ -11966,3 +11966,45 @@ Master-switch-off was not a hard acquisition boundary for every presentation own
 ### Validation
 
 Exact-head Runtime CI plus one signed Canary. Device gate: disable the master switch while Guiyuan is active, then verify native Wi-Fi/mobile/battery and peer icons stay present through Home, Keyguard, Control Center pulls and repeated scene transitions. Re-enable must restore Guiyuan without restart.
+
+
+## 2026-09-30 — Build 496: main-thread master-switch restore transaction
+
+**Type:** Runtime lifecycle / fail-native restoration  
+**Display version:** 0.0.3  
+**Build / source:** 496 / `20260930-496` / `feat/control-center-transition-matrix`
+
+### Device evidence
+
+Build 495 improves Control Center fallback but fails the steady Home master-switch gate. After disabling Guiyuan, the native icons previously covered/suppressed by Guiyuan do not return in steady Home; pulling Control Center shows the native row correctly.
+
+The Build-495 diagnostic identifies a thread split at the disable boundary:
+- `homeRenderFeature enabled=false`, readiness and handoff execute on the SystemUI main thread;
+- `homePresentation cleanup source=feature-disabled` and the module-level release transaction execute on the RemotePreferences callback worker thread.
+
+The Home presentation cleanup reports its logical state restored, but its View/layout restoration is therefore not committed as one main-thread UI transaction.
+
+### Root cause
+
+Build 495 added `releaseFeaturePresentationOwnership()` directly inside the RemotePreferences change callback. Individual render owners already marshal some work to main, but the module-level presentation/suppression release did not. This split the feature-off transaction across threads and allowed native suppression bookkeeping to clear without a reliable Home measure/layout commit.
+
+### Change
+
+- `onRuntimeFeatureSettingsChanged()` now marshals the **entire** settings ownership transaction to the SystemUI main looper before any native participant, render session, presentation owner, suppression owner, lease or eligibility mutation.
+- Prefer the captured status-host View's `post()`; fall back to a main-looper Handler if the host is not yet available.
+- If main-thread dispatch cannot be scheduled, fail without performing off-main UI mutations.
+- Diagnostic `featureSettings.changed` now records `mainThread=true`.
+- Existing Build-495 feature gates and release ordering remain; no manual peer visibility/visible-state writer is introduced.
+
+### 审查 / review
+
+- **Root cause first:** fixes the invalid UI-thread boundary rather than forcing peer `View.visibility` or `setVisibleState()`.
+- **Native-first:** native Wi-Fi/mobile/battery remain responsible for their own visibility once Guiyuan suppression is released.
+- **Single transaction:** participant suspend, Home/Keyguard/Control Center cleanup, Battery/Network suppression release and layout requests now share one main-thread turn.
+- **Fail native:** no off-main fallback mutation is allowed if dispatch fails.
+- **Performance:** one event-driven main-thread post per off-main settings change; no polling, timer, frame callback or new hook.
+- **Isolation:** transition geometry/curve, charging source geometry and island handling are unchanged.
+
+### Validation
+
+Exact-head Runtime CI and one signed Canary. Device acceptance requires native steady Home icons to return immediately on master-switch disable **before any Control Center gesture**, stay correct after a pull/collapse, and allow Guiyuan to reacquire on re-enable without restart.
