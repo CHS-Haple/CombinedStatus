@@ -186,11 +186,16 @@ internal object SystemUiPanelTransitionSource {
                                     onFailure = onRuntimeFailure,
                                 )
                                 if (onEvent != null && isProbeEnabled()) {
-                                    onEvent(
-                                        "controlCenterFakeLifecycle attached=true " +
-                                            "root=" + root.javaClass.name +
-                                            " attachedToWindow=" + root.isAttachedToWindow +
-                                            " readOnly=true nativeGeometryWrites=0",
+                                    dispatchRuntimeCallback(
+                                        callback = {
+                                            onEvent(
+                                                "controlCenterFakeLifecycle attached=true " +
+                                                    "root=" + root.javaClass.name +
+                                                    " attachedToWindow=" +
+                                                    root.isAttachedToWindow +
+                                                    " readOnly=true nativeGeometryWrites=0",
+                                            )
+                                        },
                                     )
                                 }
                             }
@@ -293,17 +298,23 @@ internal object SystemUiPanelTransitionSource {
                                 onFailure = onRuntimeFailure,
                             )
                             if (onEvent != null && isProbeEnabled()) {
-                                onEvent(
-                                    appearanceDiagnostic(
-                                        first = first,
-                                        second = second,
-                                        snapshot =
-                                            controlAnchorContract
-                                                ?.snapshotFromCallback(chain.thisObject),
-                                        fakePresentation =
-                                            controlAnchorContract
-                                                ?.fakePresentationFromCallback(chain.thisObject),
-                                    ),
+                                dispatchRuntimeCallback(
+                                    callback = {
+                                        onEvent(
+                                            appearanceDiagnostic(
+                                                first = first,
+                                                second = second,
+                                                snapshot =
+                                                    controlAnchorContract
+                                                        ?.snapshotFromCallback(chain.thisObject),
+                                                fakePresentation =
+                                                    controlAnchorContract
+                                                        ?.fakePresentationFromCallback(
+                                                            chain.thisObject,
+                                                        ),
+                                            ),
+                                        )
+                                    },
                                 )
                             }
                             result
@@ -508,18 +519,22 @@ internal object SystemUiPanelTransitionSource {
             update.controlCenterSourceScene?.let { sourceScene ->
                 " sourceScene=" + sourceScene.name
             }.orEmpty()
-        onEvent(
-            "panelTransition source=" + update.source.logName +
-                " fraction=" + (update.fraction ?: "none") +
-                " bucket=" + (bucket ?: probe.bucket) + "/" + DIAGNOSTIC_BUCKETS +
-                " expanded=" + (update.expanded ?: probe.expanded ?: "none") +
-                " tracking=" + (update.tracking ?: probe.tracking ?: "none") +
-                " visible=" + (update.visible ?: probe.visible ?: "none") +
-                anchorSummary +
-                homeMotionSummary +
-                sourceSceneSummary +
-                " authority=hyperos-native-callback" +
-                " nativeGeometryWrites=0",
+        dispatchRuntimeCallback(
+            callback = {
+                onEvent(
+                    "panelTransition source=" + update.source.logName +
+                        " fraction=" + (update.fraction ?: "none") +
+                        " bucket=" + (bucket ?: probe.bucket) + "/" + DIAGNOSTIC_BUCKETS +
+                        " expanded=" + (update.expanded ?: probe.expanded ?: "none") +
+                        " tracking=" + (update.tracking ?: probe.tracking ?: "none") +
+                        " visible=" + (update.visible ?: probe.visible ?: "none") +
+                        anchorSummary +
+                        homeMotionSummary +
+                        sourceSceneSummary +
+                        " authority=hyperos-native-callback" +
+                        " nativeGeometryWrites=0",
+                )
+            },
         )
     }
 

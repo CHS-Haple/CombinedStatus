@@ -1440,8 +1440,21 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun onPanelTransitionRuntimeFailure(error: Throwable) {
+        fun safely(block: () -> Unit) {
+            try {
+                block()
+            } catch (cleanupError: Throwable) {
+                if (
+                    cleanupError is VirtualMachineError ||
+                    cleanupError is ThreadDeath
+                ) {
+                    throw cleanupError
+                }
+            }
+        }
+
         if (keyguardControlCenterLeaseActive) {
-            runCatching {
+            safely {
                 releaseKeyguardControlCenterLease(
                     source = "panel-runtime-failure",
                     reconcileReadiness = false,
@@ -1450,19 +1463,19 @@ class CombinedStatusModule : XposedModule() {
         }
         controlCenterSceneEligible = false
         controlCenterSourceScene = CombinedStatusSourceScene.UNKNOWN
-        runCatching {
+        safely {
             CombinedStatusControlCenterTransitionOwner.setSceneEligible(false)
         }
-        runCatching {
+        safely {
             CombinedStatusControlCenterTransitionOwner.detach("panel-runtime-failure")
         }
-        runCatching {
+        safely {
             CombinedStatusControlCenterRenderSession.setSceneEligible(false)
         }
-        runCatching {
+        safely {
             CombinedStatusHomeRenderSession.onControlCenterAuthorityChanged(true)
         }
-        runCatching {
+        safely {
             logDiagnostic(
                 level = Log.ERROR,
                 event = "runtime.callback",
