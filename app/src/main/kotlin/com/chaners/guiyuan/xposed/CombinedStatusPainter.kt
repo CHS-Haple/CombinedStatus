@@ -857,37 +857,213 @@ internal class CombinedStatusPainter(
         batteryTint: Int,
         opacity: Float,
         geometry: CombinedStatusOuterGeometry.Resolved,
+        visualSettings: CombinedStatusVisualSettings,
+        nativeTransform: NativeRenderTransform,
     ) {
+        val readout =
+            resolveBatteryTopReadoutLayout(
+                model = model,
+                visualSettings = visualSettings,
+                ringStroke = geometry.ringStroke,
+            )
+        if (readout == null) {
+            val segments =
+                CombinedStatusBatteryArcPolicy.resolve(
+                    batteryPercent = model.batteryPercent,
+                    startDegrees = BATTERY_START_DEGREES,
+                    maxSweep = BATTERY_MAX_SWEEP,
+                    degreesPerPercent = BATTERY_DEGREES_PER_PERCENT,
+                )
+
+            if (segments.inactiveSweep > 0f) {
+                stroke(batteryTint, 48, geometry.ringStroke, opacity)
+                canvas.drawArc(
+                    batteryRing,
+                    segments.inactiveStart,
+                    segments.inactiveSweep,
+                    false,
+                    paint,
+                )
+            }
+            if (segments.activeSweep > 0f) {
+                stroke(batteryTint, 255, geometry.ringStroke, opacity)
+                canvas.drawArc(
+                    batteryRing,
+                    BATTERY_START_DEGREES,
+                    segments.activeSweep,
+                    false,
+                    paint,
+                )
+            }
+            return
+        }
+
         val segments =
-            CombinedStatusBatteryArcPolicy.resolve(
+            CombinedStatusBatteryTopArcPolicy.resolve(
                 batteryPercent = model.batteryPercent,
                 startDegrees = BATTERY_START_DEGREES,
                 maxSweep = BATTERY_MAX_SWEEP,
-                degreesPerPercent = BATTERY_DEGREES_PER_PERCENT,
+                gapCenterDegrees = BATTERY_TOP_GAP_CENTER_DEGREES,
+                gapSweepDegrees =
+                    CombinedStatusBatteryTopArcPolicy.gapSweepDegrees(
+                        groupWidth = readout.groupWidth,
+                        ringRadius = batteryRing.width() / 2f,
+                        horizontalPadding = BATTERY_TOP_RING_GAP_PADDING,
+                    ),
             )
 
-        if (segments.inactiveSweep > 0f) {
-            stroke(batteryTint, 48, geometry.ringStroke, opacity)
-            canvas.drawArc(
-                batteryRing,
-                segments.inactiveStart,
-                segments.inactiveSweep,
-                false,
-                paint,
-            )
+        stroke(batteryTint, 48, geometry.ringStroke, opacity)
+        segments.inactive.forEach { arc ->
+            if (arc.sweepDegrees > 0f) {
+                canvas.drawArc(
+                    batteryRing,
+                    arc.startDegrees,
+                    arc.sweepDegrees,
+                    false,
+                    paint,
+                )
+            }
         }
-        if (segments.activeSweep > 0f) {
-            stroke(batteryTint, 255, geometry.ringStroke, opacity)
-            canvas.drawArc(
-                batteryRing,
-                BATTERY_START_DEGREES,
-                segments.activeSweep,
-                false,
-                paint,
-            )
+        stroke(batteryTint, 255, geometry.ringStroke, opacity)
+        segments.active.forEach { arc ->
+            if (arc.sweepDegrees > 0f) {
+                canvas.drawArc(
+                    batteryRing,
+                    arc.startDegrees,
+                    arc.sweepDegrees,
+                    false,
+                    paint,
+                )
+            }
         }
+
+        drawBatteryTopReadout(
+            canvas = canvas,
+            layout = readout,
+            batteryTint = batteryTint,
+            opacity = opacity,
+            nativeTransform = nativeTransform,
+        )
     }
 
+    private fun resolveBatteryTopReadoutLayout(
+        model: CombinedStatusRenderModel,
+        visualSettings: CombinedStatusVisualSettings,
+        ringStroke: Float,
+    ): BatteryTopReadoutLayout? {
+        if (!visualSettings.batteryTopReadoutEnabled) return null
+
+        val text = model.batteryPercent.coerceIn(0, 100).toString()
+        val textSize = BATTERY_TOP_TEXT_SIZE * visualSettings.batteryTopTextScale
+        paint.typeface = batteryTopTextTypeface(visualSettings.batteryTopTextWeight)
+        paint.textSize = textSize
+        paint.textAlign = Paint.Align.LEFT
+        paint.getTextBounds(text, 0, text.length, batteryTopTextBounds)
+
+        val textWidth = batteryTopTextBounds.width().toFloat().coerceAtLeast(1f)
+        val textHeight = batteryTopTextBounds.height().toFloat().coerceAtLeast(1f)
+        val chargingIconResourceId =
+            model.chargingIconResId?.takeIf { model.charging && it != 0 }
+        val chargingIconSize =
+            if (chargingIconResourceId != null) {
+                BATTERY_TOP_CHARGING_ICON_SIZE *
+                    visualSettings.batteryTopChargingIconScale
+            } else {
+                0f
+            }
+        val iconGap =
+            if (chargingIconResourceId != null) BATTERY_TOP_ICON_TEXT_GAP else 0f
+        val groupWidth = chargingIconSize + iconGap + textWidth
+        val groupLeft = BATTERY_COMPONENT_CENTER_X - groupWidth / 2f
+        val contentHeight = max(textHeight, chargingIconSize)
+        val ringOuterTop = batteryRing.top - ringStroke / 2f
+        val minCenterY = ringOuterTop + contentHeight / 2f
+        val centerY =
+            (BATTERY_TOP_CONTENT_CENTER_Y + visualSettings.batteryTopVerticalOffset)
+                .coerceIn(minCenterY, BATTERY_TOP_CONTENT_MAX_CENTER_Y)
+        val textLeft =
+            groupLeft +
+                if (chargingIconResourceId != null) {
+                    chargingIconSize + iconGap
+                } else {
+                    0f
+                }
+        val textBaselineY =
+            centerY -
+                (batteryTopTextBounds.top + batteryTopTextBounds.bottom) / 2f
+
+        return BatteryTopReadoutLayout(
+            text = text,
+            textSize = textSize,
+            textWeight = visualSettings.batteryTopTextWeight,
+            textX = textLeft - batteryTopTextBounds.left,
+            textBaselineY = textBaselineY,
+            groupWidth = groupWidth,
+            chargingIconResourceId = chargingIconResourceId,
+            chargingIconCenterX =
+                if (chargingIconResourceId != null) {
+                    groupLeft + chargingIconSize / 2f
+                } else {
+                    BATTERY_COMPONENT_CENTER_X
+                },
+            chargingIconCenterY = centerY,
+            chargingIconSize = chargingIconSize,
+        )
+    }
+
+    private fun drawBatteryTopReadout(
+        canvas: Canvas,
+        layout: BatteryTopReadoutLayout,
+        batteryTint: Int,
+        opacity: Float,
+        nativeTransform: NativeRenderTransform,
+    ) {
+        layout.chargingIconResourceId?.let { resourceId ->
+            drawNativeCenterResource(
+                canvas = canvas,
+                resource =
+                    CombinedStatusPresentationStateStore.NativeIconResource(
+                        packageName = SYSTEM_UI_PACKAGE,
+                        resourceId = resourceId,
+                    ),
+                tint = batteryTint,
+                opacity = opacity,
+                centerX = layout.chargingIconCenterX,
+                centerY = layout.chargingIconCenterY,
+                maxWidth = layout.chargingIconSize,
+                maxHeight = layout.chargingIconSize,
+                nativeTransform = nativeTransform,
+                pixelAligned = false,
+            )
+        }
+
+        paint.style = Paint.Style.FILL
+        paint.color = batteryTint
+        paint.alpha =
+            CombinedStatusVisualIntensity.resolveCanvasAlpha(
+                color = batteryTint,
+                semanticAlpha = 255,
+                opacity = opacity,
+            )
+        paint.typeface = batteryTopTextTypeface(layout.textWeight)
+        paint.textAlign = Paint.Align.LEFT
+        paint.textSize = layout.textSize
+        canvas.drawText(
+            layout.text,
+            layout.textX,
+            layout.textBaselineY,
+            paint,
+        )
+    }
+
+    private fun batteryTopTextTypeface(weight: Int): Typeface {
+        if (cachedBatteryTopTextWeight != weight) {
+            cachedBatteryTopTextWeight = weight
+            cachedBatteryTopTextTypeface =
+                Typeface.create(Typeface.DEFAULT, weight, false)
+        }
+        return cachedBatteryTopTextTypeface
+    }
     private fun drawCenterTransition(
         canvas: Canvas,
         current: CenterIndicator,
