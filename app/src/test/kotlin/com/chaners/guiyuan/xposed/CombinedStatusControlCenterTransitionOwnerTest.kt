@@ -660,13 +660,13 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
-    fun chargingIslandReservationAuthorityIsSceneSpecific() {
+    fun batteryIslandReservationAuthorityUsesExactNativeContract() {
         assertTrue(
             !CombinedStatusControlCenterTransitionOwner.Policy
                 .usesSemanticTransitionReservation(
                     sourceScene = CombinedStatusSourceScene.HOME,
                     charging = true,
-                    nativeIslandShowing = true,
+                    nativeBatteryIslandActive = true,
                 ),
         )
         assertTrue(
@@ -674,7 +674,7 @@ class CombinedStatusControlCenterTransitionOwnerTest {
                 .usesSemanticTransitionReservation(
                     sourceScene = CombinedStatusSourceScene.HOME,
                     charging = true,
-                    nativeIslandShowing = false,
+                    nativeBatteryIslandActive = false,
                 ),
         )
         assertTrue(
@@ -682,15 +682,15 @@ class CombinedStatusControlCenterTransitionOwnerTest {
                 .usesSemanticTransitionReservation(
                     sourceScene = CombinedStatusSourceScene.HOME,
                     charging = false,
-                    nativeIslandShowing = true,
+                    nativeBatteryIslandActive = true,
                 ),
         )
         assertTrue(
-            !CombinedStatusControlCenterTransitionOwner.Policy
+            CombinedStatusControlCenterTransitionOwner.Policy
                 .usesSemanticTransitionReservation(
                     sourceScene = CombinedStatusSourceScene.HOME,
                     charging = true,
-                    nativeIslandShowing = null,
+                    nativeBatteryIslandActive = null,
                 ),
         )
         assertTrue(
@@ -698,7 +698,7 @@ class CombinedStatusControlCenterTransitionOwnerTest {
                 .usesSemanticTransitionReservation(
                     sourceScene = CombinedStatusSourceScene.HOME,
                     charging = false,
-                    nativeIslandShowing = null,
+                    nativeBatteryIslandActive = null,
                 ),
         )
         assertTrue(
@@ -706,7 +706,7 @@ class CombinedStatusControlCenterTransitionOwnerTest {
                 .usesSemanticTransitionReservation(
                     sourceScene = CombinedStatusSourceScene.KEYGUARD,
                     charging = true,
-                    nativeIslandShowing = null,
+                    nativeBatteryIslandActive = true,
                 ),
         )
     }
