@@ -48,6 +48,31 @@ class CombinedStatusScenePolicyTest {
     }
 
     @Test
+    fun retainedTransitionSourceWitnessSurvivesPresentationHandoff() {
+        assertTrue(
+            CombinedStatusScenePolicy.retainedTransitionSourceWitnessAvailable(
+                widthPx = 105,
+                heightPx = 169,
+                hostAttached = true,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.retainedTransitionSourceWitnessAvailable(
+                widthPx = 0,
+                heightPx = 169,
+                hostAttached = true,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.retainedTransitionSourceWitnessAvailable(
+                widthPx = 105,
+                heightPx = 169,
+                hostAttached = false,
+            ),
+        )
+    }
+
+    @Test
     fun keyguardIsProjectedCandidateWhileAodRemainsNativeOnly() {
         val keyguard = CombinedStatusScenePolicy.capability(CombinedStatusScene.KEYGUARD)
         assertEquals(CombinedStatusRenderMode.PROJECTED, keyguard.renderMode)
@@ -63,26 +88,167 @@ class CombinedStatusScenePolicyTest {
     fun controlCenterProjectionInheritsVerifiedSourceSceneCapability() {
         assertTrue(
             CombinedStatusScenePolicy.controlCenterProjectionEligible(
+                featureEnabled = true,
                 sourceScene = CombinedStatusSourceScene.HOME,
                 keyguardEnabled = false,
             ),
         )
         assertFalse(
             CombinedStatusScenePolicy.controlCenterProjectionEligible(
+                featureEnabled = true,
                 sourceScene = CombinedStatusSourceScene.KEYGUARD,
                 keyguardEnabled = false,
             ),
         )
         assertTrue(
             CombinedStatusScenePolicy.controlCenterProjectionEligible(
+                featureEnabled = true,
                 sourceScene = CombinedStatusSourceScene.KEYGUARD,
                 keyguardEnabled = true,
             ),
         )
         assertFalse(
             CombinedStatusScenePolicy.controlCenterProjectionEligible(
+                featureEnabled = true,
                 sourceScene = CombinedStatusSourceScene.UNKNOWN,
                 keyguardEnabled = true,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.controlCenterProjectionEligible(
+                featureEnabled = false,
+                sourceScene = CombinedStatusSourceScene.HOME,
+                keyguardEnabled = true,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.controlCenterProjectionEligible(
+                featureEnabled = false,
+                sourceScene = CombinedStatusSourceScene.KEYGUARD,
+                keyguardEnabled = true,
+            ),
+        )
+    }
+
+    @Test
+    fun keyguardControlCenterLeaseRejectsEveryIndependentInvalidBoundary() {
+        val base =
+            CombinedStatusScenePolicy.shouldRetainKeyguardControlCenterLease(
+                leaseActive = true,
+                sourceScene = CombinedStatusSourceScene.KEYGUARD,
+                featureEnabled = true,
+                keyguardEnabled = true,
+                hostAttached = true,
+                aodBlocked = false,
+                nativeFraction = 0.5f,
+            )
+        assertTrue(base)
+
+        assertFalse(
+            CombinedStatusScenePolicy.shouldRetainKeyguardControlCenterLease(
+                leaseActive = false,
+                sourceScene = CombinedStatusSourceScene.KEYGUARD,
+                featureEnabled = true,
+                keyguardEnabled = true,
+                hostAttached = true,
+                aodBlocked = false,
+                nativeFraction = 0.5f,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.shouldRetainKeyguardControlCenterLease(
+                leaseActive = true,
+                sourceScene = CombinedStatusSourceScene.KEYGUARD,
+                featureEnabled = false,
+                keyguardEnabled = true,
+                hostAttached = true,
+                aodBlocked = false,
+                nativeFraction = 0.5f,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.shouldRetainKeyguardControlCenterLease(
+                leaseActive = true,
+                sourceScene = CombinedStatusSourceScene.KEYGUARD,
+                featureEnabled = true,
+                keyguardEnabled = false,
+                hostAttached = true,
+                aodBlocked = false,
+                nativeFraction = 0.5f,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.shouldRetainKeyguardControlCenterLease(
+                leaseActive = true,
+                sourceScene = CombinedStatusSourceScene.KEYGUARD,
+                featureEnabled = true,
+                keyguardEnabled = true,
+                hostAttached = false,
+                aodBlocked = false,
+                nativeFraction = 0.5f,
+            ),
+        )
+    }
+
+    @Test
+    fun keyguardControlCenterLeaseExistsOnlyInsideVerifiedNativeTransitionLifetime() {
+        assertTrue(
+            CombinedStatusScenePolicy.shouldAcquireKeyguardControlCenterLease(
+                sourceScene = CombinedStatusSourceScene.KEYGUARD,
+                keyguardRuntimeReady = true,
+                nativeFraction = 0.5f,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.shouldAcquireKeyguardControlCenterLease(
+                sourceScene = CombinedStatusSourceScene.KEYGUARD,
+                keyguardRuntimeReady = true,
+                nativeFraction = 0f,
+            ),
+        )
+
+        assertTrue(
+            CombinedStatusScenePolicy.shouldRetainKeyguardControlCenterLease(
+                leaseActive = true,
+                sourceScene = CombinedStatusSourceScene.KEYGUARD,
+                featureEnabled = true,
+                keyguardEnabled = true,
+                hostAttached = true,
+                aodBlocked = false,
+                nativeFraction = 1f,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.shouldRetainKeyguardControlCenterLease(
+                leaseActive = true,
+                sourceScene = CombinedStatusSourceScene.HOME,
+                featureEnabled = true,
+                keyguardEnabled = true,
+                hostAttached = true,
+                aodBlocked = false,
+                nativeFraction = 1f,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.shouldRetainKeyguardControlCenterLease(
+                leaseActive = true,
+                sourceScene = CombinedStatusSourceScene.KEYGUARD,
+                featureEnabled = true,
+                keyguardEnabled = true,
+                hostAttached = true,
+                aodBlocked = true,
+                nativeFraction = 1f,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.shouldRetainKeyguardControlCenterLease(
+                leaseActive = true,
+                sourceScene = CombinedStatusSourceScene.KEYGUARD,
+                featureEnabled = true,
+                keyguardEnabled = true,
+                hostAttached = true,
+                aodBlocked = false,
+                nativeFraction = 0f,
             ),
         )
     }

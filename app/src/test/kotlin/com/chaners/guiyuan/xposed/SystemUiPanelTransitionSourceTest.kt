@@ -1,10 +1,36 @@
 package com.chaners.guiyuan.xposed
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SystemUiPanelTransitionSourceTest {
+    @Test
+    fun runtimeCallbackFailureIsContainedAndReported() {
+        var reported: Throwable? = null
+        val completed =
+            SystemUiPanelTransitionSource.dispatchRuntimeCallback(
+                callback = { error("callback-failure") },
+                onFailure = { reported = it },
+            )
+
+        assertFalse(completed)
+        assertEquals("callback-failure", reported?.message)
+    }
+
+    @Test
+    fun runtimeCallbackFailureHandlerCannotEscapeTheHookBoundary() {
+        val completed =
+            SystemUiPanelTransitionSource.dispatchRuntimeCallback(
+                callback = { error("callback-failure") },
+                onFailure = { error("failure-handler-failure") },
+            )
+
+        assertFalse(completed)
+    }
+
     @Test
     fun nativeFractionPreservesFiniteHyperOsPayload() {
         assertEquals(-0.2f, SystemUiPanelTransitionSource.nativeFraction(-0.2f))
@@ -40,7 +66,7 @@ class SystemUiPanelTransitionSourceTest {
 
     @Test
     fun runtimeHookCountIncludesFakeLifecyclePrearmAndOptionalDiagnostics() {
-        assertEquals(2, SystemUiPanelTransitionSource.expectedHookCount(false))
+        assertEquals(4, SystemUiPanelTransitionSource.expectedHookCount(false))
         assertEquals(4, SystemUiPanelTransitionSource.expectedHookCount(true))
     }
 
@@ -150,6 +176,271 @@ class SystemUiPanelTransitionSourceTest {
     }
 
     @Test
+    fun transitionMatrixUsesRawNativeExpansionProgress() {
+        assertEquals(0f, CombinedStatusControlCenterTransitionOwner.Policy.geometryProgress(0f))
+        assertEquals(
+            0.41f,
+            CombinedStatusControlCenterTransitionOwner.Policy.geometryProgress(0.41f),
+            0.0001f,
+        )
+        assertEquals(
+            0.82f,
+            CombinedStatusControlCenterTransitionOwner.Policy.geometryProgress(0.82f),
+            0.0001f,
+        )
+        assertEquals(1f, CombinedStatusControlCenterTransitionOwner.Policy.geometryProgress(1f))
+        assertEquals(0f, CombinedStatusControlCenterTransitionOwner.Policy.geometryProgress(-0.2f))
+        assertEquals(1f, CombinedStatusControlCenterTransitionOwner.Policy.geometryProgress(1.4f))
+    }
+
+    @Test
+    fun transitionComponentGeometryFollowsLocalBoundsWithoutAnimationCoordinateConstants() {
+        val parent = floatArrayOf(100f, 200f, 120f, 0f, 0f, 120f)
+        val bounds =
+            CombinedStatusPainter.TransitionBounds(
+                left = 30f,
+                top = 40f,
+                right = 90f,
+                bottom = 80f,
+            )
+        val component =
+            requireNotNull(
+                CombinedStatusControlCenterTransitionOwner.Policy.componentGeometry(
+                    parentGeometry = parent,
+                    parentWidth = 120,
+                    parentHeight = 120,
+                    bounds = bounds,
+                ),
+            )
+        assertEquals(100f, component[0], 0.0001f)
+        assertEquals(200f, component[1], 0.0001f)
+        assertEquals(60f, component[2], 0.0001f)
+        assertEquals(0f, component[3], 0.0001f)
+        assertEquals(0f, component[4], 0.0001f)
+        assertEquals(40f, component[5], 0.0001f)
+    }
+
+    @Test
+    fun transitionMotionAndMobileMorphUseNativeExpansion() {
+        assertEquals(0f, CombinedStatusControlCenterTransitionOwner.Policy.motionProgress(0f))
+        assertEquals(
+            0.41f,
+            CombinedStatusControlCenterTransitionOwner.Policy.motionProgress(0.41f),
+            0.0001f,
+        )
+        assertEquals(
+            0.82f,
+            CombinedStatusControlCenterTransitionOwner.Policy.motionProgress(0.82f),
+            0.0001f,
+        )
+        assertEquals(1f, CombinedStatusControlCenterTransitionOwner.Policy.motionProgress(1f))
+
+        assertEquals(
+            0f,
+            CombinedStatusControlCenterTransitionOwner.Policy.mobileSignalShapeProgress(0f),
+            0.0001f,
+        )
+        assertEquals(
+            0.25f,
+            CombinedStatusControlCenterTransitionOwner.Policy.mobileSignalShapeProgress(0.5f),
+            0.0001f,
+        )
+        assertEquals(
+            1f,
+            CombinedStatusControlCenterTransitionOwner.Policy.mobileSignalShapeProgress(1f),
+            0.0001f,
+        )
+    }
+
+    @Test
+    fun transitionReservationExpandsOnlyWhenSemanticSpanLeavesCompactBoundary() {
+        val spans =
+            listOf(
+                CombinedStatusControlCenterTransitionOwner.Policy.ReservationSpan(
+                    sourceLeft = -22f,
+                    sourceRight = -12f,
+                    targetLeft = -145f,
+                    targetRight = -110f,
+                ),
+                CombinedStatusControlCenterTransitionOwner.Policy.ReservationSpan(
+                    sourceLeft = -44f,
+                    sourceRight = -32f,
+                    targetLeft = -96f,
+                    targetRight = -62f,
+                ),
+            )
+
+        assertEquals(
+            105,
+            CombinedStatusControlCenterTransitionOwner.Policy.resolveReservationWidth(
+                compactWidthPx = 105,
+                spans = spans,
+                progress = 0f,
+            ),
+        )
+        assertEquals(
+            105,
+            CombinedStatusControlCenterTransitionOwner.Policy.resolveReservationWidth(
+                compactWidthPx = 105,
+                spans = spans,
+                progress = 0.5f,
+            ),
+        )
+        assertEquals(
+            145,
+            CombinedStatusControlCenterTransitionOwner.Policy.resolveReservationWidth(
+                compactWidthPx = 105,
+                spans = spans,
+                progress = 1f,
+            ),
+        )
+    }
+
+    @Test
+    fun mobileSignalMorphRowsDotsBeforeGrowingBars() {
+        assertEquals(
+            0f,
+            CombinedStatusPainter.MobileSignalMorphPolicy.rowProgress(0f),
+            0.0001f,
+        )
+        assertEquals(
+            1f,
+            CombinedStatusPainter.MobileSignalMorphPolicy.rowProgress(0.5f),
+            0.0001f,
+        )
+        assertEquals(
+            0f,
+            CombinedStatusPainter.MobileSignalMorphPolicy.barProgress(0.5f),
+            0.0001f,
+        )
+        assertEquals(
+            1f,
+            CombinedStatusPainter.MobileSignalMorphPolicy.barProgress(1f),
+            0.0001f,
+        )
+    }
+
+    @Test
+    fun mobileSignalMorphKeepsBarGrowthOutUntilRowPhaseCompletes() {
+        assertEquals(
+            0f,
+            CombinedStatusPainter.MobileSignalMorphPolicy.barProgress(0.25f),
+            0.0001f,
+        )
+        assertEquals(
+            0.5f,
+            CombinedStatusPainter.MobileSignalMorphPolicy.rowProgress(0.25f),
+            0.0001f,
+        )
+        assertEquals(
+            0.5f,
+            CombinedStatusPainter.MobileSignalMorphPolicy.barProgress(0.75f),
+            0.0001f,
+        )
+    }
+
+    @Test
+    fun mobileSignalMorphExpandsBothWaysWhileKeepingOneSharedBottom() {
+        val maxBarHeight = 54f
+        val diameter = 6f
+        val half =
+            CombinedStatusPainter.MobileSignalMorphPolicy.sharedBottomExpansion(
+                maxBarHeight = maxBarHeight,
+                diameter = diameter,
+                barProgress = 0.5f,
+            )
+        val full =
+            CombinedStatusPainter.MobileSignalMorphPolicy.sharedBottomExpansion(
+                maxBarHeight = maxBarHeight,
+                diameter = diameter,
+                barProgress = 1f,
+            )
+
+        assertTrue(half > 0f)
+        assertEquals((maxBarHeight - diameter) / 4f, half, 0.0001f)
+        assertEquals((maxBarHeight - diameter) / 2f, full, 0.0001f)
+    }
+
+    @Test
+    fun mobileSignalMorphUsesNativeHeightOnlyAsACap() {
+        val maxBarHeight =
+            CombinedStatusPainter.MobileSignalMorphPolicy.targetMaxBarHeight(
+                sourceBoundsHeight = 24f,
+                diameter = 6f,
+                targetHeightRatio = 3f,
+            )
+        val highest =
+            CombinedStatusPainter.MobileSignalMorphPolicy.targetBarHeight(
+                index = 3,
+                maxBarHeight = maxBarHeight,
+                diameter = 6f,
+            )
+        val lowest =
+            CombinedStatusPainter.MobileSignalMorphPolicy.targetBarHeight(
+                index = 0,
+                maxBarHeight = maxBarHeight,
+                diameter = 6f,
+            )
+
+        assertEquals(54f, maxBarHeight, 0.0001f)
+        assertEquals(maxBarHeight, highest, 0.0001f)
+        assertTrue(lowest < highest)
+        assertTrue(highest < 24f * 3f)
+    }
+
+    @Test
+    fun transitionDoesNotOwnANativeReleaseTimeline() {
+        assertEquals(
+            0.92f,
+            CombinedStatusControlCenterTransitionOwner.Policy.geometryProgress(0.92f),
+            0.0001f,
+        )
+        assertEquals(
+            1f,
+            CombinedStatusControlCenterTransitionOwner.Policy.geometryProgress(1f),
+            0.0001f,
+        )
+    }
+
+    @Test
+    fun transitionSimilarityGeometryPreservesSourceAspectRatio() {
+        val source = floatArrayOf(10f, 20f, 60f, 0f, 0f, 30f)
+        val target = floatArrayOf(110f, 220f, 100f, 0f, 0f, 100f)
+        val end =
+            CombinedStatusControlCenterTransitionOwner.Policy.interpolateSimilarityGeometry(
+                source = source,
+                target = target,
+                progress = 1f,
+                scalePolicy = CombinedStatusPainter.TransitionScalePolicy.TARGET,
+            )
+
+        assertEquals(110f, end[0], 0.0001f)
+        assertEquals(220f, end[1], 0.0001f)
+        assertEquals(100f, end[2], 0.0001f)
+        assertEquals(0f, end[3], 0.0001f)
+        assertEquals(0f, end[4], 0.0001f)
+        assertEquals(50f, end[5], 0.0001f)
+    }
+
+    @Test
+    fun transitionMatrixInterpolatesAffineGeometryDeterministically() {
+        val source = floatArrayOf(0f, 0f, 10f, 0f, 0f, 10f)
+        val target = floatArrayOf(20f, 40f, 20f, 0f, 0f, 20f)
+        val mid =
+            CombinedStatusControlCenterTransitionOwner.Policy.interpolateGeometry(
+                source,
+                target,
+                0.5f,
+            )
+        assertEquals(10f, mid[0])
+        assertEquals(20f, mid[1])
+        assertEquals(15f, mid[2])
+        assertEquals(0f, mid[3])
+        assertEquals(0f, mid[4])
+        assertEquals(15f, mid[5])
+    }
+
+    @Test
     fun controlCenterSourceUsesHomeCarrierIdentityBeforeStructuralFallback() {
         assertEquals(
             CombinedStatusSourceScene.HOME,
@@ -172,6 +463,22 @@ class SystemUiPanelTransitionSourceTest {
                 structuralScene = CombinedStatusSourceScene.UNKNOWN,
             ),
         )
+    }
+
+    @Test
+    fun controlCenterUpdateCarriesNativeAppearanceState() {
+        val update =
+            SystemUiPanelTransitionSource.Update(
+                source = SystemUiPanelTransitionSource.Source.CONTROL_CENTER,
+                fraction = null,
+                expanded = null,
+                tracking = null,
+                visible = null,
+                controlCenterAppearance = true,
+                controlCenterAppearanceAnimated = true,
+            )
+        assertEquals(true, update.controlCenterAppearance)
+        assertEquals(true, update.controlCenterAppearanceAnimated)
     }
 
     @Test

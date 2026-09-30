@@ -11,8 +11,8 @@ import java.lang.reflect.Method
 import kotlin.math.floor
 
 internal object SystemUiPanelTransitionSource {
-    const val CONTROL_CENTER_RUNTIME_HOOK_COUNT = 2
-    const val CONTROL_CENTER_DIAGNOSTIC_HOOK_COUNT = 2
+    const val CONTROL_CENTER_RUNTIME_HOOK_COUNT = 4
+    const val CONTROL_CENTER_DIAGNOSTIC_HOOK_COUNT = 0
     const val HOOK_COUNT =
         CONTROL_CENTER_RUNTIME_HOOK_COUNT +
             CONTROL_CENTER_DIAGNOSTIC_HOOK_COUNT
@@ -56,6 +56,7 @@ internal object SystemUiPanelTransitionSource {
         classLoader: ClassLoader,
         onUpdate: ((Update) -> Unit)? = null,
         onFakePresentationAttached: ((ViewGroup) -> Unit)? = null,
+        onRuntimeFailure: ((Throwable) -> Unit)? = null,
         onEvent: ((String) -> Unit)? = null,
         isProbeEnabled: () -> Boolean = { false },
         includeControlCenterDiagnostics: Boolean = true,
@@ -83,31 +84,27 @@ internal object SystemUiPanelTransitionSource {
                 }
                 ?.apply { isAccessible = true }
                 ?: error("control-center-fake-attached-method-missing")
+        val headerCallbackClass =
+            Class.forName(
+                CONTROL_CENTER_HEADER_CALLBACK_CLASS,
+                false,
+                classLoader,
+            )
         val controlExpansionMethod =
-            if (includeControlCenterDiagnostics) {
-                controlClass
-                    .getDeclaredMethod(
-                        CONTROL_CENTER_EXPANSION_METHOD,
-                        Float::class.javaPrimitiveType,
-                    )
-                    .apply { isAccessible = true }
-            } else {
-                null
-            }
+            headerCallbackClass
+                .getDeclaredMethod(
+                    CONTROL_CENTER_EXPANSION_METHOD,
+                    Float::class.javaPrimitiveType,
+                )
+                .apply { isAccessible = true }
         val controlAppearanceMethod =
-            if (includeControlCenterDiagnostics) {
-                Class.forName(
-                    CONTROL_CENTER_HEADER_CALLBACK_CLASS,
-                    false,
-                    classLoader,
-                ).getDeclaredMethod(
+            headerCallbackClass
+                .getDeclaredMethod(
                     CONTROL_CENTER_APPEARANCE_METHOD,
                     Boolean::class.javaPrimitiveType,
                     Boolean::class.javaPrimitiveType,
-                ).apply { isAccessible = true }
-            } else {
-                null
-            }
+                )
+                .apply { isAccessible = true }
 
         controlAnchorContract =
             ControlCenterAnchorContract.resolve(
@@ -142,6 +139,12 @@ internal object SystemUiPanelTransitionSource {
                                 } else {
                                     null
                                 }
+                            val transitionEndpoints =
+                                if (visible == true) {
+                                    resolveControlCenterTransitionEndpoints(chain.thisObject)
+                                } else {
+                                    null
+                                }
                             val update =
                                 Update(
                                     source = Source.CONTROL_CENTER,
@@ -151,8 +154,12 @@ internal object SystemUiPanelTransitionSource {
                                     visible = visible,
                                     controlCenterPresentationHost = controlCenterPresentationHost,
                                     controlCenterSourceScene = controlCenterSourceScene,
+                                    controlCenterTransitionEndpoints = transitionEndpoints,
                                 )
-                            onUpdate?.invoke(update)
+                            dispatchRuntimeCallback(
+                                callback = onUpdate?.let { callback -> { callback(update) } },
+                                onFailure = onRuntimeFailure,
+                            )
                             emitDiagnostic(
                                 update = update,
                                 onEvent = onEvent,
@@ -171,13 +178,24 @@ internal object SystemUiPanelTransitionSource {
                             val result = chain.proceed()
                             val root = chain.thisObject as? ViewGroup
                             if (root != null) {
-                                onFakePresentationAttached?.invoke(root)
+                                dispatchRuntimeCallback(
+                                    callback =
+                                        onFakePresentationAttached?.let { callback ->
+                                            { callback(root) }
+                                        },
+                                    onFailure = onRuntimeFailure,
+                                )
                                 if (onEvent != null && isProbeEnabled()) {
-                                    onEvent(
-                                        "controlCenterFakeLifecycle attached=true " +
-                                            "root=" + root.javaClass.name +
-                                            " attachedToWindow=" + root.isAttachedToWindow +
-                                            " readOnly=true nativeGeometryWrites=0",
+                                    dispatchRuntimeCallback(
+                                        callback = {
+                                            onEvent(
+                                                "controlCenterFakeLifecycle attached=true " +
+                                                    "root=" + root.javaClass.name +
+                                                    " attachedToWindow=" +
+                                                    root.isAttachedToWindow +
+                                                    " readOnly=true nativeGeometryWrites=0",
+                                            )
+                                        },
                                     )
                                 }
                             }
@@ -191,38 +209,53 @@ internal object SystemUiPanelTransitionSource {
                 controlCenterHomeEligible = true
             }
 
-            if (includeControlCenterDiagnostics) {
-                val expansionMethod = checkNotNull(controlExpansionMethod)
-                val appearanceMethod = checkNotNull(controlAppearanceMethod)
-
-                handles +=
-                    module
-                        .hook(expansionMethod)
-                        .setId(CONTROL_CENTER_EXPANSION_HOOK_ID)
-                        .intercept(
-                            Hooker { chain ->
-                                val fraction =
-                                    nativeFraction(
-                                        (chain.getArg(0) as? Number)?.toFloat(),
-                                    )
-                                val result = chain.proceed()
-                                val anchorSnapshot =
-                                    if (
-                                        onEvent != null &&
-                                        isProbeEnabled() &&
-                                        shouldCaptureControlAnchor(fraction)
-                                    ) {
-                                        captureControlCenterAnchor(chain.thisObject)
-                                    } else {
-                                        null
-                                    }
-                                val update =
-                                    Update(
-                                        source = Source.CONTROL_CENTER,
-                                        fraction = fraction,
-                                        expanded = null,
-                                        tracking = null,
-                                        visible = null,
+            handles +=
+                module
+                    .hook(controlExpansionMethod)
+                    .setId(CONTROL_CENTER_EXPANSION_HOOK_ID)
+                    .intercept(
+                        Hooker { chain ->
+                            val fraction =
+                                nativeFraction(
+                                    (chain.getArg(0) as? Number)?.toFloat(),
+                                )
+                            val transitionEndpoints =
+                                controlAnchorContract
+                                    ?.transitionEndpointsFromCallback(chain.thisObject)
+                            val preNativeUpdate =
+                                Update(
+                                    source = Source.CONTROL_CENTER,
+                                    fraction = fraction,
+                                    expanded = null,
+                                    tracking = null,
+                                    visible = null,
+                                    controlCenterTransitionEndpoints = transitionEndpoints,
+                                )
+                            // Reservation/source projection must be committed before
+                            // HyperOS consumes this expansion sample. Drawing still
+                            // happens on the normal traversal after the native callback.
+                            dispatchRuntimeCallback(
+                                callback =
+                                    onUpdate?.let { callback ->
+                                        { callback(preNativeUpdate) }
+                                    },
+                                onFailure = onRuntimeFailure,
+                            )
+                            val result = chain.proceed()
+                            val anchorSnapshot =
+                                if (
+                                    onEvent != null &&
+                                    isProbeEnabled() &&
+                                    shouldCaptureControlAnchor(fraction)
+                                ) {
+                                    controlAnchorContract
+                                        ?.snapshotFromCallback(chain.thisObject)
+                                } else {
+                                    null
+                                }
+                            emitDiagnostic(
+                                update =
+                                    preNativeUpdate.copy(
                                         controlCenterAnchor = anchorSnapshot,
                                         homeMotion =
                                             if (anchorSnapshot != null) {
@@ -230,44 +263,63 @@ internal object SystemUiPanelTransitionSource {
                                             } else {
                                                 null
                                             },
-                                    )
-                                onUpdate?.invoke(update)
-                                emitDiagnostic(
-                                    update = update,
-                                    onEvent = onEvent,
-                                    isProbeEnabled = isProbeEnabled,
-                                )
-                                result
-                            },
-                        )
+                                    ),
+                                onEvent = onEvent,
+                                isProbeEnabled = isProbeEnabled,
+                            )
+                            result
+                        },
+                    )
 
-                handles +=
-                    module
-                        .hook(appearanceMethod)
-                        .setId(CONTROL_CENTER_APPEARANCE_HOOK_ID)
-                        .intercept(
-                            Hooker { chain ->
-                                val first = chain.getArg(0) as? Boolean
-                                val second = chain.getArg(1) as? Boolean
-                                val result = chain.proceed()
-                                if (onEvent != null && isProbeEnabled()) {
-                                    onEvent(
-                                        appearanceDiagnostic(
-                                            first = first,
-                                            second = second,
-                                            snapshot =
-                                                controlAnchorContract
-                                                    ?.snapshotFromCallback(chain.thisObject),
-                                            fakePresentation =
-                                                controlAnchorContract
-                                                    ?.fakePresentationFromCallback(chain.thisObject),
-                                        ),
-                                    )
-                                }
-                                result
-                            },
-                        )
-            }
+            handles +=
+                module
+                    .hook(controlAppearanceMethod)
+                    .setId(CONTROL_CENTER_APPEARANCE_HOOK_ID)
+                    .intercept(
+                        Hooker { chain ->
+                            val first = chain.getArg(0) as? Boolean
+                            val second = chain.getArg(1) as? Boolean
+                            val result = chain.proceed()
+                            val update =
+                                Update(
+                                    source = Source.CONTROL_CENTER,
+                                    fraction = null,
+                                    expanded = null,
+                                    tracking = null,
+                                    visible = null,
+                                    controlCenterAppearance = first,
+                                    controlCenterAppearanceAnimated = second,
+                                    controlCenterTransitionEndpoints =
+                                        controlAnchorContract
+                                            ?.transitionEndpointsFromCallback(chain.thisObject),
+                                )
+                            dispatchRuntimeCallback(
+                                callback = onUpdate?.let { callback -> { callback(update) } },
+                                onFailure = onRuntimeFailure,
+                            )
+                            if (onEvent != null && isProbeEnabled()) {
+                                dispatchRuntimeCallback(
+                                    callback = {
+                                        onEvent(
+                                            appearanceDiagnostic(
+                                                first = first,
+                                                second = second,
+                                                snapshot =
+                                                    controlAnchorContract
+                                                        ?.snapshotFromCallback(chain.thisObject),
+                                                fakePresentation =
+                                                    controlAnchorContract
+                                                        ?.fakePresentationFromCallback(
+                                                            chain.thisObject,
+                                                        ),
+                                            ),
+                                        )
+                                    },
+                                )
+                            }
+                            result
+                        },
+                    )
 
             return handles
         } catch (error: Throwable) {
@@ -285,6 +337,31 @@ internal object SystemUiPanelTransitionSource {
             controlCenterHomeEligible = null
             controlAnchorContract = null
             controlHeaderRef = WeakReference(null)
+        }
+    }
+
+    internal fun dispatchRuntimeCallback(
+        callback: (() -> Unit)?,
+        onFailure: ((Throwable) -> Unit)? = null,
+    ): Boolean {
+        callback ?: return true
+        return try {
+            callback()
+            true
+        } catch (error: Throwable) {
+            if (error is VirtualMachineError || error is ThreadDeath) {
+                throw error
+            }
+            if (onFailure != null) {
+                try {
+                    onFailure(error)
+                } catch (failure: Throwable) {
+                    if (failure is VirtualMachineError || failure is ThreadDeath) {
+                        throw failure
+                    }
+                }
+            }
+            false
         }
     }
 
@@ -363,6 +440,16 @@ internal object SystemUiPanelTransitionSource {
         return contract.snapshot(header)
     }
 
+    private fun resolveControlCenterTransitionEndpoints(
+        delegate: Any?,
+    ): ControlCenterTransitionEndpoints? {
+        val contract = controlAnchorContract ?: return null
+        val header =
+            resolveControlCenterHeader(delegate)
+                ?: return null
+        return contract.transitionEndpoints(header)
+    }
+
     private fun resolveControlCenterSourceScene(delegate: Any?): CombinedStatusSourceScene {
         val contract = controlAnchorContract ?: return CombinedStatusSourceScene.UNKNOWN
         val header =
@@ -432,18 +519,22 @@ internal object SystemUiPanelTransitionSource {
             update.controlCenterSourceScene?.let { sourceScene ->
                 " sourceScene=" + sourceScene.name
             }.orEmpty()
-        onEvent(
-            "panelTransition source=" + update.source.logName +
-                " fraction=" + (update.fraction ?: "none") +
-                " bucket=" + (bucket ?: probe.bucket) + "/" + DIAGNOSTIC_BUCKETS +
-                " expanded=" + (update.expanded ?: probe.expanded ?: "none") +
-                " tracking=" + (update.tracking ?: probe.tracking ?: "none") +
-                " visible=" + (update.visible ?: probe.visible ?: "none") +
-                anchorSummary +
-                homeMotionSummary +
-                sourceSceneSummary +
-                " authority=hyperos-native-callback" +
-                " nativeGeometryWrites=0",
+        dispatchRuntimeCallback(
+            callback = {
+                onEvent(
+                    "panelTransition source=" + update.source.logName +
+                        " fraction=" + (update.fraction ?: "none") +
+                        " bucket=" + (bucket ?: probe.bucket) + "/" + DIAGNOSTIC_BUCKETS +
+                        " expanded=" + (update.expanded ?: probe.expanded ?: "none") +
+                        " tracking=" + (update.tracking ?: probe.tracking ?: "none") +
+                        " visible=" + (update.visible ?: probe.visible ?: "none") +
+                        anchorSummary +
+                        homeMotionSummary +
+                        sourceSceneSummary +
+                        " authority=hyperos-native-callback" +
+                        " nativeGeometryWrites=0",
+                )
+            },
         )
     }
 
@@ -455,6 +546,9 @@ internal object SystemUiPanelTransitionSource {
         val visible: Boolean?,
         val controlCenterPresentationHost: ViewGroup? = null,
         val controlCenterSourceScene: CombinedStatusSourceScene? = null,
+        val controlCenterAppearance: Boolean? = null,
+        val controlCenterAppearanceAnimated: Boolean? = null,
+        val controlCenterTransitionEndpoints: ControlCenterTransitionEndpoints? = null,
         val controlCenterAnchor: ControlCenterAnchorSnapshot? = null,
         val homeMotion: SystemUiIslandMotionSource.OwnerSnapshot? = null,
     )
@@ -464,6 +558,11 @@ internal object SystemUiPanelTransitionSource {
     ) {
         CONTROL_CENTER("control-center"),
     }
+
+    internal data class ControlCenterTransitionEndpoints(
+        val fakeRoot: ViewGroup,
+        val finalRoot: ViewGroup,
+    )
 
     internal data class ControlCenterFakePresentationSnapshot(
         val rootClassName: String?,
@@ -536,6 +635,7 @@ internal object SystemUiPanelTransitionSource {
         private val headerControllerField: Field,
         private val lazyGetMethod: Method,
         private val controlCenterFakeStatusBarField: Field,
+        private val controlCenterStatusBarField: Field,
         private val fakeDelegateField: Field,
         private val fakeStatusBarAreaField: Field,
         private val systemIconsLocationField: Field,
@@ -562,6 +662,24 @@ internal object SystemUiPanelTransitionSource {
 
         fun fakePresentationRoot(header: Any): ViewGroup? =
             fakeStatusBar(header)
+
+        fun transitionEndpoints(
+            header: Any,
+        ): ControlCenterTransitionEndpoints? {
+            val fakeRoot = fakeStatusBar(header) ?: return null
+            val finalRoot = finalStatusBar(header) ?: return null
+            return ControlCenterTransitionEndpoints(
+                fakeRoot = fakeRoot,
+                finalRoot = finalRoot,
+            )
+        }
+
+        fun transitionEndpointsFromCallback(
+            callback: Any?,
+        ): ControlCenterTransitionEndpoints? {
+            val header = headerFromCallback(callback) ?: return null
+            return transitionEndpoints(header)
+        }
 
         fun snapshotFromCallback(callback: Any?): ControlCenterAnchorSnapshot? {
             val header = headerFromCallback(callback) ?: return null
@@ -601,17 +719,25 @@ internal object SystemUiPanelTransitionSource {
                         .getOrNull()
                 }
 
-        private fun fakeStatusBar(header: Any): ViewGroup? {
+        private fun combinedHeader(header: Any): Any? {
             val lazy =
                 runCatching { headerControllerField.get(header) }
                     .getOrNull()
                     ?: return null
-            val combinedHeader =
-                runCatching { lazyGetMethod.invoke(lazy) }
-                    .getOrNull()
-                    ?: return null
+            return runCatching { lazyGetMethod.invoke(lazy) }.getOrNull()
+        }
+
+        private fun fakeStatusBar(header: Any): ViewGroup? {
+            val combinedHeader = combinedHeader(header) ?: return null
             return runCatching {
                 controlCenterFakeStatusBarField.get(combinedHeader) as? ViewGroup
+            }.getOrNull()
+        }
+
+        private fun finalStatusBar(header: Any): ViewGroup? {
+            val combinedHeader = combinedHeader(header) ?: return null
+            return runCatching {
+                controlCenterStatusBarField.get(combinedHeader) as? ViewGroup
             }.getOrNull()
         }
 
@@ -736,6 +862,10 @@ internal object SystemUiPanelTransitionSource {
                         controlCenterFakeStatusBarField =
                             combinedHeaderClass
                                 .getDeclaredField("controlCenterFakeStatusBar")
+                                .accessible(),
+                        controlCenterStatusBarField =
+                            combinedHeaderClass
+                                .getDeclaredField("controlCenterStatusBar")
                                 .accessible(),
                         fakeDelegateField =
                             fakeStatusBarClass.getDeclaredField("delegate").accessible(),

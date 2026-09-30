@@ -112,6 +112,725 @@ internal class CombinedStatusPainter(
         canvas.restoreToCount(save)
     }
 
+    fun drawTransitionComponent(
+        canvas: Canvas,
+        width: Int,
+        height: Int,
+        model: CombinedStatusRenderModel,
+        colors: CombinedStatusColors,
+        component: TransitionComponent,
+        shapePolicy: TransitionShapePolicy,
+        opacity: Float = 1f,
+        motionProgress: Float = 0f,
+        shapeProgress: Float = 0f,
+        mobileTargetWidthRatio: Float? = null,
+        mobileTargetHeightRatio: Float? = null,
+        mobileTargetBars: List<TransitionNormalizedBounds>? = null,
+    ) {
+        if (width <= 0 || height <= 0 || opacity <= 0f) return
+
+        val scale = min(width / CANONICAL_SIZE, height / CANONICAL_SIZE)
+        val visualWidth = CANONICAL_SIZE * scale
+        val visualHeight = CANONICAL_SIZE * scale
+        val offsetX = (width - visualWidth) / 2f
+        val offsetY = (height - visualHeight) / 2f
+        val nativeTransform =
+            NativeRenderTransform(
+                scale = scale,
+                offsetX = offsetX,
+                offsetY = offsetY,
+            )
+        val save = canvas.save()
+        canvas.translate(offsetX, offsetY)
+        canvas.scale(scale, scale)
+
+        val motion = motionProgress.coerceIn(0f, 1f)
+        val shape = shapeProgress.coerceIn(0f, 1f)
+        val componentSave = canvas.save()
+        when (shapePolicy) {
+            TransitionShapePolicy.BATTERY_FOLD ->
+                canvas.scale(
+                    1f,
+                    lerp(1f, BATTERY_FOLD_SCALE_Y, motion),
+                    BATTERY_COMPONENT_CENTER_X,
+                    BATTERY_COMPONENT_CENTER_Y,
+                )
+
+            TransitionShapePolicy.RIGID,
+            TransitionShapePolicy.MOBILE_SIGNAL,
+            -> Unit
+        }
+
+        when (component) {
+            TransitionComponent.BATTERY ->
+                drawBattery(
+                    canvas = canvas,
+                    model = model,
+                    batteryTint = colors.batteryTint,
+                    opacity = opacity,
+                    geometry =
+                        resolveOuterGeometry(
+                            CombinedStatusOuterGeometry.DEFAULT_WEIGHT_SCALE,
+                        ),
+                )
+
+            TransitionComponent.CENTER ->
+                drawCenterIndicator(
+                    canvas = canvas,
+                    indicator = model.centerIndicator,
+                    tint = colors.centerTint,
+                    opacity = opacity,
+                    scale = scale,
+                    appearAmount = 1f,
+                    geometry =
+                        CombinedStatusCenterGeometry.resolve(
+                            sizeScale = CombinedStatusCenterGeometry.DEFAULT_SIZE_SCALE,
+                            textWeightScale = CombinedStatusCenterGeometry.DEFAULT_TEXT_WEIGHT_SCALE,
+                        ),
+                    nativeTransform = nativeTransform,
+                    scaleMobileTypeWithCanvas = false,
+                )
+
+            TransitionComponent.MOBILE -> {
+                val outerGeometry =
+                    resolveOuterGeometry(
+                        CombinedStatusOuterGeometry.DEFAULT_WEIGHT_SCALE,
+                    )
+                if (shapePolicy == TransitionShapePolicy.MOBILE_SIGNAL) {
+                    drawMobileSignalTransition(
+                        canvas = canvas,
+                        model = model,
+                        tint = colors.mobileTint,
+                        opacity = opacity,
+                        geometry = outerGeometry,
+                        motionProgress = motion,
+                        shapeProgress = shape,
+                        targetWidthRatio = mobileTargetWidthRatio,
+                        targetHeightRatio = mobileTargetHeightRatio,
+                        targetBars = mobileTargetBars,
+                    )
+                } else {
+                    drawMobile(
+                        canvas = canvas,
+                        model = model,
+                        tint = colors.mobileTint,
+                        opacity = opacity,
+                        geometry = outerGeometry,
+                    )
+                }
+            }
+        }
+        canvas.restoreToCount(componentSave)
+
+        canvas.restoreToCount(save)
+    }
+
+    internal object MobileSignalMorphPolicy {
+        private const val STABLE_MAX_BAR_HEIGHT = 54f
+        private val BAR_HEIGHT_RATIOS = floatArrayOf(0.56f, 0.70f, 0.84f, 1f)
+
+        fun rowProgress(shapeProgress: Float): Float =
+            smoothPhase(
+                value = shapeProgress,
+                start = 0f,
+                end = 0.5f,
+            )
+
+        fun barProgress(shapeProgress: Float): Float =
+            smoothPhase(
+                value = shapeProgress,
+                start = 0.5f,
+                end = 1f,
+            )
+
+        fun outerSimilarityScale(
+            targetWidthRatio: Float?,
+            targetHeightRatio: Float?,
+        ): Float {
+            val width =
+                targetWidthRatio
+                    ?.takeIf { it.isFinite() && it > 0f }
+                    ?: 1f
+            val height =
+                targetHeightRatio
+                    ?.takeIf { it.isFinite() && it > 0f }
+                    ?: 1f
+            return min(width, height).coerceAtMost(1f).coerceAtLeast(0.001f)
+        }
+
+        fun exactTargetAxisCompensation(
+            targetAxisRatio: Float?,
+            outerScale: Float,
+        ): Float {
+            val target =
+                targetAxisRatio
+                    ?.takeIf { it.isFinite() && it > 0f }
+                    ?: return 1f
+            val scale =
+                outerScale
+                    .takeIf { it.isFinite() && it > 0f }
+                    ?: 1f
+            return (target / scale).coerceAtLeast(0.001f)
+        }
+
+        fun targetMaxBarHeight(
+            sourceBoundsHeight: Float,
+            diameter: Float,
+            targetHeightRatio: Float?,
+        ): Float {
+            val nativeCap =
+                targetHeightRatio
+                    ?.takeIf { ratio -> ratio.isFinite() && ratio > 0f }
+                    ?.let { ratio ->
+                        val targetOpticalHeight = sourceBoundsHeight * ratio
+                        val roundCapAllowance = diameter / 2f
+                        (targetOpticalHeight - roundCapAllowance)
+                            .coerceAtLeast(diameter)
+                    }
+                    ?: STABLE_MAX_BAR_HEIGHT
+            return min(STABLE_MAX_BAR_HEIGHT, nativeCap)
+                .coerceAtLeast(diameter)
+        }
+
+        fun targetBarHeight(
+            index: Int,
+            maxBarHeight: Float,
+            diameter: Float,
+        ): Float {
+            val ratio = BAR_HEIGHT_RATIOS.getOrElse(index) { 1f }
+            return (maxBarHeight * ratio).coerceAtLeast(diameter)
+        }
+
+        fun sharedBottomExpansion(
+            maxBarHeight: Float,
+            diameter: Float,
+            barProgress: Float,
+        ): Float {
+            val sharedDownwardGrowth =
+                (maxBarHeight - diameter)
+                    .coerceAtLeast(0f) / 2f
+            return sharedDownwardGrowth * barProgress.coerceIn(0f, 1f)
+        }
+
+        private fun smoothPhase(
+            value: Float,
+            start: Float,
+            end: Float,
+        ): Float {
+            val normalized =
+                if (!value.isFinite() || end <= start) {
+                    0f
+                } else {
+                    ((value - start) / (end - start)).coerceIn(0f, 1f)
+                }
+            return normalized * normalized * (3f - 2f * normalized)
+        }
+    }
+
+    internal enum class TransitionComponent {
+        BATTERY,
+        CENTER,
+        MOBILE,
+    }
+
+    internal enum class TransitionShapePolicy {
+        BATTERY_FOLD,
+        RIGID,
+        MOBILE_SIGNAL,
+    }
+
+    internal enum class TransitionScalePolicy {
+        TARGET,
+        SHRINK_ONLY,
+    }
+
+    internal sealed interface TransitionTarget {
+        data object BatteryIcon : TransitionTarget
+
+        data class Slots(
+            val preferredSlots: List<String>,
+            val preferredChildEntries: List<String> = emptyList(),
+        ) : TransitionTarget
+    }
+
+    internal data class TransitionBounds(
+        val left: Float,
+        val top: Float,
+        val right: Float,
+        val bottom: Float,
+    ) {
+        val width: Float
+            get() = (right - left).coerceAtLeast(0f)
+
+        val height: Float
+            get() = (bottom - top).coerceAtLeast(0f)
+
+        val centerX: Float
+            get() = (left + right) / 2f
+
+        val centerY: Float
+            get() = (top + bottom) / 2f
+    }
+
+    internal data class TransitionComponentSpec(
+        val component: TransitionComponent,
+        val sourceBounds: TransitionBounds,
+        val target: TransitionTarget,
+        val shapePolicy: TransitionShapePolicy,
+        val scalePolicy: TransitionScalePolicy,
+        val targetOpticalBounds: TransitionNormalizedBounds? = null,
+    )
+
+    internal data class TransitionNormalizedBounds(
+        val left: Float,
+        val top: Float,
+        val right: Float,
+        val bottom: Float,
+    )
+
+    fun transitionComponentSpecs(
+        width: Int,
+        height: Int,
+        model: CombinedStatusRenderModel,
+    ): List<TransitionComponentSpec> {
+        if (width <= 0 || height <= 0) return emptyList()
+
+        val scale = min(width / CANONICAL_SIZE, height / CANONICAL_SIZE)
+        val offsetX = (width - CANONICAL_SIZE * scale) / 2f
+        val offsetY = (height - CANONICAL_SIZE * scale) / 2f
+        val outerGeometry =
+            resolveOuterGeometry(CombinedStatusOuterGeometry.DEFAULT_WEIGHT_SCALE)
+        val centerGeometry =
+            CombinedStatusCenterGeometry.resolve(
+                sizeScale = CombinedStatusCenterGeometry.DEFAULT_SIZE_SCALE,
+                textWeightScale = CombinedStatusCenterGeometry.DEFAULT_TEXT_WEIGHT_SCALE,
+            )
+
+        fun toViewBounds(bounds: TransitionBounds): TransitionBounds =
+            TransitionBounds(
+                left = offsetX + bounds.left * scale,
+                top = offsetY + bounds.top * scale,
+                right = offsetX + bounds.right * scale,
+                bottom = offsetY + bounds.bottom * scale,
+            )
+
+        val specs = ArrayList<TransitionComponentSpec>(3)
+        val batteryHalfStroke = outerGeometry.ringStroke / 2f
+        specs +=
+            TransitionComponentSpec(
+                component = TransitionComponent.BATTERY,
+                sourceBounds =
+                    toViewBounds(
+                        TransitionBounds(
+                            left = batteryRing.left - batteryHalfStroke,
+                            top = batteryRing.top - batteryHalfStroke,
+                            right = batteryRing.right + batteryHalfStroke,
+                            bottom = batteryRing.bottom + batteryHalfStroke,
+                        ),
+                    ),
+                target = TransitionTarget.BatteryIcon,
+                shapePolicy = TransitionShapePolicy.BATTERY_FOLD,
+                scalePolicy = TransitionScalePolicy.TARGET,
+            )
+
+        val centerSpec =
+            when (model.centerIndicator) {
+                is CenterIndicator.Wifi -> {
+                    val metrics =
+                        transitionWifiMetrics(
+                            indicator = model.centerIndicator,
+                            geometry = centerGeometry,
+                        )
+                    TransitionComponentSpec(
+                        component = TransitionComponent.CENTER,
+                        sourceBounds =
+                            toViewBounds(
+                                centeredBounds(
+                                    centerX = WIFI_CENTER_X,
+                                    centerY = WIFI_CENTER_Y,
+                                    width =
+                                        metrics?.sourceOpticalWidth
+                                            ?: centerGeometry.wifiMaxWidth,
+                                    height =
+                                        metrics?.sourceOpticalHeight
+                                            ?: centerGeometry.wifiMaxHeight,
+                                ),
+                            ),
+                        target =
+                            TransitionTarget.Slots(
+                                preferredSlots = listOf("wifi"),
+                                preferredChildEntries = listOf("wifi_signal"),
+                            ),
+                        shapePolicy = TransitionShapePolicy.RIGID,
+                        scalePolicy = TransitionScalePolicy.TARGET,
+                        targetOpticalBounds = metrics?.targetOpticalBounds,
+                    )
+                }
+
+                is CenterIndicator.MobileType ->
+                    TransitionComponentSpec(
+                        component = TransitionComponent.CENTER,
+                        sourceBounds =
+                            toViewBounds(
+                                resolveMobileTypeLayout(
+                                    indicator = model.centerIndicator,
+                                    scale = scale,
+                                    geometry = centerGeometry,
+                                    scaleWithCanvas = false,
+                                ).bounds,
+                            ),
+                        target =
+                            TransitionTarget.Slots(
+                                preferredSlots = listOf("mobile", "stacked_mobile"),
+                                preferredChildEntries =
+                                    listOf("mobile_type_single", "mobile_type"),
+                            ),
+                        shapePolicy = TransitionShapePolicy.RIGID,
+                        scalePolicy = TransitionScalePolicy.SHRINK_ONLY,
+                    )
+
+                CenterIndicator.Airplane -> {
+                    val metrics =
+                        airplaneResourceId()
+                            ?.let { resourceId ->
+                                transitionNativeCenterMetrics(
+                                    resource =
+                                        CombinedStatusPresentationStateStore.NativeIconResource(
+                                            packageName = SYSTEM_UI_PACKAGE,
+                                            resourceId = resourceId,
+                                        ),
+                                    maxWidth = centerGeometry.airplaneMaxSize,
+                                    maxHeight = centerGeometry.airplaneMaxSize,
+                                )
+                            }
+                    TransitionComponentSpec(
+                        component = TransitionComponent.CENTER,
+                        sourceBounds =
+                            toViewBounds(
+                                centeredBounds(
+                                    centerX = AIRPLANE_CENTER_X,
+                                    centerY = AIRPLANE_CENTER_Y,
+                                    width =
+                                        metrics?.sourceOpticalWidth
+                                            ?: centerGeometry.airplaneMaxSize,
+                                    height =
+                                        metrics?.sourceOpticalHeight
+                                            ?: centerGeometry.airplaneMaxSize,
+                                ),
+                            ),
+                        target = TransitionTarget.Slots(listOf("airplane")),
+                        shapePolicy = TransitionShapePolicy.RIGID,
+                        scalePolicy = TransitionScalePolicy.TARGET,
+                        targetOpticalBounds = metrics?.targetOpticalBounds,
+                    )
+                }
+
+                is CenterIndicator.NoSim -> {
+                    val metrics =
+                        transitionNativeCenterMetrics(
+                            resource = model.centerIndicator.nativeResource,
+                            maxWidth = centerGeometry.noSimMaxSize,
+                            maxHeight = centerGeometry.noSimMaxSize,
+                        )
+                    TransitionComponentSpec(
+                        component = TransitionComponent.CENTER,
+                        sourceBounds =
+                            toViewBounds(
+                                centeredBounds(
+                                    centerX = CENTER_TRANSITION_PIVOT_X,
+                                    centerY = CENTER_TRANSITION_PIVOT_Y,
+                                    width =
+                                        metrics?.sourceOpticalWidth
+                                            ?: centerGeometry.noSimMaxSize,
+                                    height =
+                                        metrics?.sourceOpticalHeight
+                                            ?: centerGeometry.noSimMaxSize,
+                                ),
+                            ),
+                        target =
+                            TransitionTarget.Slots(
+                                listOf("no_sim", "mobile", "stacked_mobile"),
+                            ),
+                        shapePolicy = TransitionShapePolicy.RIGID,
+                        scalePolicy = TransitionScalePolicy.TARGET,
+                        targetOpticalBounds = metrics?.targetOpticalBounds,
+                    )
+                }
+
+                CenterIndicator.Empty -> null
+            }
+        centerSpec?.let(specs::add)
+
+        val mobileLayout =
+            resolveMobileSignalTransitionLayout(
+                geometry = outerGeometry,
+                model = model,
+            )
+        specs +=
+            TransitionComponentSpec(
+                component = TransitionComponent.MOBILE,
+                sourceBounds = toViewBounds(mobileLayout.bounds),
+                target =
+                    TransitionTarget.Slots(
+                        preferredSlots = listOf("mobile", "stacked_mobile"),
+                        preferredChildEntries = listOf("mobile_signal"),
+                    ),
+                shapePolicy =
+                    if (model.mobileUnavailableMark) {
+                        TransitionShapePolicy.RIGID
+                    } else {
+                        TransitionShapePolicy.MOBILE_SIGNAL
+                    },
+                scalePolicy = TransitionScalePolicy.SHRINK_ONLY,
+            )
+
+        return specs
+    }
+
+    fun transitionAirplaneSourceBounds(
+        width: Int,
+        height: Int,
+    ): TransitionBounds? {
+        if (width <= 0 || height <= 0) return null
+        val scale = min(width / CANONICAL_SIZE, height / CANONICAL_SIZE)
+        val offsetX = (width - CANONICAL_SIZE * scale) / 2f
+        val offsetY = (height - CANONICAL_SIZE * scale) / 2f
+        val geometry =
+            CombinedStatusCenterGeometry.resolve(
+                sizeScale = CombinedStatusCenterGeometry.DEFAULT_SIZE_SCALE,
+                textWeightScale = CombinedStatusCenterGeometry.DEFAULT_TEXT_WEIGHT_SCALE,
+            )
+        val metrics =
+            airplaneResourceId()
+                ?.let { resourceId ->
+                    transitionNativeCenterMetrics(
+                        resource =
+                            CombinedStatusPresentationStateStore.NativeIconResource(
+                                packageName = SYSTEM_UI_PACKAGE,
+                                resourceId = resourceId,
+                            ),
+                        maxWidth = geometry.airplaneMaxSize,
+                        maxHeight = geometry.airplaneMaxSize,
+                    )
+                }
+        val local =
+            centeredBounds(
+                centerX = AIRPLANE_CENTER_X,
+                centerY = AIRPLANE_CENTER_Y,
+                width = metrics?.sourceOpticalWidth ?: geometry.airplaneMaxSize,
+                height = metrics?.sourceOpticalHeight ?: geometry.airplaneMaxSize,
+            )
+        return TransitionBounds(
+            left = offsetX + local.left * scale,
+            top = offsetY + local.top * scale,
+            right = offsetX + local.right * scale,
+            bottom = offsetY + local.bottom * scale,
+        )
+    }
+
+    fun drawTransitionAirplane(
+        canvas: Canvas,
+        width: Int,
+        height: Int,
+        tint: Int,
+        opacity: Float,
+    ) {
+        if (width <= 0 || height <= 0 || opacity <= 0f) return
+        val scale = min(width / CANONICAL_SIZE, height / CANONICAL_SIZE)
+        val visualWidth = CANONICAL_SIZE * scale
+        val visualHeight = CANONICAL_SIZE * scale
+        val offsetX = (width - visualWidth) / 2f
+        val offsetY = (height - visualHeight) / 2f
+        val nativeTransform =
+            NativeRenderTransform(
+                scale = scale,
+                offsetX = offsetX,
+                offsetY = offsetY,
+            )
+        val geometry =
+            CombinedStatusCenterGeometry.resolve(
+                sizeScale = CombinedStatusCenterGeometry.DEFAULT_SIZE_SCALE,
+                textWeightScale = CombinedStatusCenterGeometry.DEFAULT_TEXT_WEIGHT_SCALE,
+            )
+        val save = canvas.save()
+        canvas.translate(offsetX, offsetY)
+        canvas.scale(scale, scale)
+        drawNativeAirplane(
+            canvas = canvas,
+            tint = tint,
+            opacity = opacity,
+            geometry = geometry,
+            nativeTransform = nativeTransform,
+            pixelAligned = false,
+        )
+        canvas.restoreToCount(save)
+    }
+
+    fun transitionNoSimSourceBounds(
+        width: Int,
+        height: Int,
+        resource: CombinedStatusPresentationStateStore.NativeIconResource,
+    ): TransitionBounds? {
+        if (width <= 0 || height <= 0) return null
+        val scale = min(width / CANONICAL_SIZE, height / CANONICAL_SIZE)
+        val offsetX = (width - CANONICAL_SIZE * scale) / 2f
+        val offsetY = (height - CANONICAL_SIZE * scale) / 2f
+        val geometry =
+            CombinedStatusCenterGeometry.resolve(
+                sizeScale = CombinedStatusCenterGeometry.DEFAULT_SIZE_SCALE,
+                textWeightScale = CombinedStatusCenterGeometry.DEFAULT_TEXT_WEIGHT_SCALE,
+            )
+        val metrics =
+            transitionNativeCenterMetrics(
+                resource = resource,
+                maxWidth = geometry.noSimMaxSize,
+                maxHeight = geometry.noSimMaxSize,
+            )
+        val local =
+            centeredBounds(
+                centerX = CENTER_TRANSITION_PIVOT_X,
+                centerY = CENTER_TRANSITION_PIVOT_Y,
+                width = metrics?.sourceOpticalWidth ?: geometry.noSimMaxSize,
+                height = metrics?.sourceOpticalHeight ?: geometry.noSimMaxSize,
+            )
+        return TransitionBounds(
+            left = offsetX + local.left * scale,
+            top = offsetY + local.top * scale,
+            right = offsetX + local.right * scale,
+            bottom = offsetY + local.bottom * scale,
+        )
+    }
+
+    fun drawTransitionNoSim(
+        canvas: Canvas,
+        width: Int,
+        height: Int,
+        resource: CombinedStatusPresentationStateStore.NativeIconResource,
+        tint: Int,
+        opacity: Float,
+    ) {
+        if (width <= 0 || height <= 0 || opacity <= 0f) return
+        val scale = min(width / CANONICAL_SIZE, height / CANONICAL_SIZE)
+        val visualWidth = CANONICAL_SIZE * scale
+        val visualHeight = CANONICAL_SIZE * scale
+        val offsetX = (width - visualWidth) / 2f
+        val offsetY = (height - visualHeight) / 2f
+        val nativeTransform =
+            NativeRenderTransform(
+                scale = scale,
+                offsetX = offsetX,
+                offsetY = offsetY,
+            )
+        val geometry =
+            CombinedStatusCenterGeometry.resolve(
+                sizeScale = CombinedStatusCenterGeometry.DEFAULT_SIZE_SCALE,
+                textWeightScale = CombinedStatusCenterGeometry.DEFAULT_TEXT_WEIGHT_SCALE,
+            )
+        val save = canvas.save()
+        canvas.translate(offsetX, offsetY)
+        canvas.scale(scale, scale)
+        drawNativeCenterResource(
+            canvas = canvas,
+            resource = resource,
+            tint = tint,
+            opacity = opacity,
+            centerX = CENTER_TRANSITION_PIVOT_X,
+            centerY = CENTER_TRANSITION_PIVOT_Y,
+            maxWidth = geometry.noSimMaxSize,
+            maxHeight = geometry.noSimMaxSize,
+            nativeTransform = nativeTransform,
+            pixelAligned = false,
+        )
+        canvas.restoreToCount(save)
+    }
+
+    private fun transitionWifiMetrics(
+        indicator: CenterIndicator.Wifi,
+        geometry: CombinedStatusCenterGeometry.Resolved,
+    ): TransitionWifiMetrics? {
+        val resourceId = indicator.nativeResourceId ?: return null
+        val resource =
+            CombinedStatusPresentationStateStore.NativeIconResource(
+                packageName = SYSTEM_UI_PACKAGE,
+                resourceId = resourceId,
+            )
+        return transitionNativeCenterMetrics(
+            resource = resource,
+            opticalReferenceResource = wifiOpticalReferenceResource(resource),
+            maxWidth = geometry.wifiMaxWidth,
+            maxHeight = geometry.wifiMaxHeight,
+        )
+    }
+
+    private fun transitionNativeCenterMetrics(
+        resource: CombinedStatusPresentationStateStore.NativeIconResource,
+        opticalReferenceResource: CombinedStatusPresentationStateStore.NativeIconResource? = null,
+        maxWidth: Float,
+        maxHeight: Float,
+    ): TransitionWifiMetrics? {
+        val presentationResource = resolveNativeTintVariant(resource) ?: resource
+        val asset = nativeCenterAsset(presentationResource) ?: return null
+        val referenceAsset =
+            opticalReferenceResource
+                ?.let { reference ->
+                    val presentationReference =
+                        resolveNativeTintVariant(reference) ?: reference
+                    nativeCenterAsset(presentationReference)
+                }
+                ?.takeIf { reference ->
+                    NativeWifiOpticalReferencePolicy.canShareReferenceViewport(
+                        currentWidth = asset.intrinsicWidth,
+                        currentHeight = asset.intrinsicHeight,
+                        referenceWidth = reference.intrinsicWidth,
+                        referenceHeight = reference.intrinsicHeight,
+                    )
+                }
+        val fitAsset = referenceAsset ?: asset
+        val optical = fitAsset.opticalBounds
+        val opticalWidthRatio =
+            (optical.right - optical.left).coerceAtLeast(MIN_OPTICAL_RATIO)
+        val opticalHeightRatio =
+            (optical.bottom - optical.top).coerceAtLeast(MIN_OPTICAL_RATIO)
+        val opticalIntrinsicWidth = fitAsset.intrinsicWidth * opticalWidthRatio
+        val opticalIntrinsicHeight = fitAsset.intrinsicHeight * opticalHeightRatio
+        val drawableScale =
+            min(
+                maxWidth / opticalIntrinsicWidth,
+                maxHeight / opticalIntrinsicHeight,
+            )
+        return TransitionWifiMetrics(
+            sourceOpticalWidth = opticalIntrinsicWidth * drawableScale,
+            sourceOpticalHeight = opticalIntrinsicHeight * drawableScale,
+            targetOpticalBounds =
+                TransitionNormalizedBounds(
+                    left = optical.left,
+                    top = optical.top,
+                    right = optical.right,
+                    bottom = optical.bottom,
+                ),
+        )
+    }
+
+    private fun centeredBounds(
+        centerX: Float,
+        centerY: Float,
+        width: Float,
+        height: Float,
+    ): TransitionBounds =
+        TransitionBounds(
+            left = centerX - width / 2f,
+            top = centerY - height / 2f,
+            right = centerX + width / 2f,
+            bottom = centerY + height / 2f,
+        )
+
+    private fun lerp(
+        start: Float,
+        end: Float,
+        progress: Float,
+    ): Float =
+        start + (end - start) * progress.coerceIn(0f, 1f)
+
     private fun resolveOuterGeometry(weightScale: Float): CombinedStatusOuterGeometry.Resolved {
         val normalized =
             CombinedStatusOuterGeometry.normalizeWeightScale(weightScale)
@@ -451,70 +1170,20 @@ internal class CombinedStatusPainter(
         drawable: Drawable,
         resources: android.content.res.Resources,
     ): NativeVisualProbe? {
-        val intrinsicWidth = drawable.intrinsicWidth
-        val intrinsicHeight = drawable.intrinsicHeight
-        if (intrinsicWidth <= 0 || intrinsicHeight <= 0) {
-            return null
-        }
-
-        val probeScale =
-            NATIVE_OPTICAL_PROBE_MAX /
-                max(intrinsicWidth, intrinsicHeight).toFloat()
-        val probeWidth = max(1, (intrinsicWidth * probeScale).roundToInt())
-        val probeHeight = max(1, (intrinsicHeight * probeScale).roundToInt())
-        val probeDrawable =
-            drawable.constantState
-                ?.newDrawable(resources)
-                ?.mutate()
-                ?: drawable
-        val bitmap =
-            Bitmap.createBitmap(
-                probeWidth,
-                probeHeight,
-                Bitmap.Config.ARGB_8888,
-            )
-        try {
-            probeDrawable.setTint(Color.WHITE)
-            probeDrawable.alpha = 255
-            probeDrawable.setBounds(0, 0, probeWidth, probeHeight)
-            probeDrawable.draw(Canvas(bitmap))
-
-            val pixels = IntArray(probeWidth * probeHeight)
-            bitmap.getPixels(pixels, 0, probeWidth, 0, 0, probeWidth, probeHeight)
-
-            var minX = probeWidth
-            var minY = probeHeight
-            var maxX = -1
-            var maxY = -1
-            pixels.forEachIndexed { index, color ->
-                val alpha = Color.alpha(color)
-                if (alpha > NATIVE_OPTICAL_ALPHA_THRESHOLD) {
-                    val x = index % probeWidth
-                    val y = index / probeWidth
-                    if (x < minX) minX = x
-                    if (x > maxX) maxX = x
-                    if (y < minY) minY = y
-                    if (y > maxY) maxY = y
-                }
-            }
-
-            if (maxX < minX || maxY < minY) {
-                return null
-            }
-
-            val opticalBounds =
+        val optical =
+            CombinedStatusParticipantVisualSnapshot.resolveDrawable(
+                drawable = drawable,
+                resources = resources,
+            )?.envelope ?: return null
+        return NativeVisualProbe(
+            opticalBounds =
                 OpticalBounds(
-                    left = minX / probeWidth.toFloat(),
-                    top = minY / probeHeight.toFloat(),
-                    right = (maxX + 1) / probeWidth.toFloat(),
-                    bottom = (maxY + 1) / probeHeight.toFloat(),
-                )
-            // Keep the raster probe measurement-only. The native Drawable is
-            // rendered directly at the final presentation bounds below.
-            return NativeVisualProbe(opticalBounds = opticalBounds)
-        } finally {
-            bitmap.recycle()
-        }
+                    left = optical.left,
+                    top = optical.top,
+                    right = optical.right,
+                    bottom = optical.bottom,
+                ),
+        )
     }
 
     private fun drawNativeCenterResource(
@@ -710,6 +1379,49 @@ internal class CombinedStatusPainter(
         geometry: CombinedStatusCenterGeometry.Resolved,
         scaleWithCanvas: Boolean,
     ) {
+        val layout =
+            resolveMobileTypeLayout(
+                indicator = indicator,
+                scale = scale,
+                geometry = geometry,
+                scaleWithCanvas = scaleWithCanvas,
+            )
+
+        paint.style = Paint.Style.FILL
+        paint.color = tint
+        paint.alpha =
+            CombinedStatusVisualIntensity.resolveCanvasAlpha(
+                color = tint,
+                semanticAlpha = 255,
+                opacity = opacity,
+            )
+        paint.typeface = mobileTypeTypeface(geometry.mobileTypeWeight)
+        paint.textAlign = Paint.Align.LEFT
+
+        paint.textSize = layout.mainTextSize
+        canvas.drawText(
+            layout.main,
+            layout.mainX,
+            layout.mainBaselineY,
+            paint,
+        )
+        if (layout.suffix.isNotEmpty()) {
+            paint.textSize = layout.suffixTextSize
+            canvas.drawText(
+                layout.suffix,
+                layout.suffixX,
+                layout.suffixBaselineY,
+                paint,
+            )
+        }
+    }
+
+    private fun resolveMobileTypeLayout(
+        indicator: CenterIndicator.MobileType,
+        scale: Float,
+        geometry: CombinedStatusCenterGeometry.Resolved,
+        scaleWithCanvas: Boolean,
+    ): MobileTypeLayout {
         val normalized = indicator.label.trim().uppercase()
         val split =
             when {
@@ -731,14 +1443,6 @@ internal class CombinedStatusPainter(
                 else -> normalized to ""
             }
 
-        paint.style = Paint.Style.FILL
-        paint.color = tint
-        paint.alpha =
-            CombinedStatusVisualIntensity.resolveCanvasAlpha(
-                color = tint,
-                semanticAlpha = 255,
-                opacity = opacity,
-            )
         paint.typeface = mobileTypeTypeface(geometry.mobileTypeWeight)
         paint.textAlign = Paint.Align.LEFT
         val mainTextSize =
@@ -753,6 +1457,7 @@ internal class CombinedStatusPainter(
             } else {
                 geometry.mobileTypeSuffixSize / scale
             }
+
         paint.textSize = mainTextSize
         paint.getTextBounds(
             split.first,
@@ -760,21 +1465,31 @@ internal class CombinedStatusPainter(
             split.first.length,
             mobileTypeMainBounds,
         )
-
         val mainBaselineY =
             MOBILE_TYPE_CENTER_Y -
                 (mobileTypeMainBounds.top + mobileTypeMainBounds.bottom) / 2f
+
         if (split.second.isEmpty()) {
             val mainX =
                 MOBILE_TYPE_CENTER_X -
                     (mobileTypeMainBounds.left + mobileTypeMainBounds.right) / 2f
-            canvas.drawText(
-                split.first,
-                mainX,
-                mainBaselineY,
-                paint,
+            return MobileTypeLayout(
+                main = split.first,
+                suffix = "",
+                mainTextSize = mainTextSize,
+                suffixTextSize = suffixTextSize,
+                mainX = mainX,
+                mainBaselineY = mainBaselineY,
+                suffixX = mainX,
+                suffixBaselineY = mainBaselineY,
+                bounds =
+                    TransitionBounds(
+                        left = mainX + mobileTypeMainBounds.left,
+                        top = mainBaselineY + mobileTypeMainBounds.top,
+                        right = mainX + mobileTypeMainBounds.right,
+                        bottom = mainBaselineY + mobileTypeMainBounds.bottom,
+                    ),
             )
-            return
         }
 
         paint.textSize = suffixTextSize
@@ -811,14 +1526,38 @@ internal class CombinedStatusPainter(
             suffixCenterY -
                 (mobileTypeSuffixBounds.top + mobileTypeSuffixBounds.bottom) / 2f
 
-        paint.textSize = mainTextSize
-        canvas.drawText(split.first, mainX, mainBaselineY, paint)
-        paint.textSize = suffixTextSize
-        canvas.drawText(
-            split.second,
-            suffixX,
-            suffixBaselineY,
-            paint,
+        return MobileTypeLayout(
+            main = split.first,
+            suffix = split.second,
+            mainTextSize = mainTextSize,
+            suffixTextSize = suffixTextSize,
+            mainX = mainX,
+            mainBaselineY = mainBaselineY,
+            suffixX = suffixX,
+            suffixBaselineY = suffixBaselineY,
+            bounds =
+                TransitionBounds(
+                    left =
+                        min(
+                            mainX + mobileTypeMainBounds.left,
+                            suffixX + mobileTypeSuffixBounds.left,
+                        ),
+                    top =
+                        min(
+                            mainBaselineY + mobileTypeMainBounds.top,
+                            suffixBaselineY + mobileTypeSuffixBounds.top,
+                        ),
+                    right =
+                        max(
+                            mainX + mobileTypeMainBounds.right,
+                            suffixX + mobileTypeSuffixBounds.right,
+                        ),
+                    bottom =
+                        max(
+                            mainBaselineY + mobileTypeMainBounds.bottom,
+                            suffixBaselineY + mobileTypeSuffixBounds.bottom,
+                        ),
+                ),
         )
     }
 
@@ -829,6 +1568,242 @@ internal class CombinedStatusPainter(
                 Typeface.create(Typeface.DEFAULT, weight, false)
         }
         return cachedMobileTypeTypeface
+    }
+
+    private fun resolveMobileSignalTransitionLayout(
+        geometry: CombinedStatusOuterGeometry.Resolved,
+        model: CombinedStatusRenderModel,
+    ): MobileSignalTransitionLayout {
+        val sourceCenters = ArrayList<TransitionPoint>(MOBILE_DOT_COUNT)
+        var left = Float.POSITIVE_INFINITY
+        var top = Float.POSITIVE_INFINITY
+        var right = Float.NEGATIVE_INFINITY
+        var bottom = Float.NEGATIVE_INFINITY
+        for (index in 0 until MOBILE_DOT_COUNT) {
+            val angle = geometry.bottomDotAngle(index)
+            val x =
+                MOBILE_CENTER_X +
+                    cos(angle).toFloat() * CombinedStatusOuterGeometry.MOBILE_ORBIT_RADIUS
+            val y =
+                MOBILE_CENTER_Y +
+                    sin(angle).toFloat() * CombinedStatusOuterGeometry.MOBILE_ORBIT_RADIUS
+            sourceCenters += TransitionPoint(x, y)
+            left = min(left, x - geometry.mobileDotRadius)
+            top = min(top, y - geometry.mobileDotRadius)
+            right = max(right, x + geometry.mobileDotRadius)
+            bottom = max(bottom, y + geometry.mobileDotRadius)
+        }
+        if (model.mobileUnavailableMark) {
+            val half =
+                max(
+                    geometry.unavailableMarkHalfExtent,
+                    geometry.unavailableMarkStroke,
+                )
+            left = min(left, MOBILE_UNAVAILABLE_CENTER_X - half)
+            top = min(top, MOBILE_UNAVAILABLE_CENTER_Y - half)
+            right = max(right, MOBILE_UNAVAILABLE_CENTER_X + half)
+            bottom = max(bottom, MOBILE_UNAVAILABLE_CENTER_Y + half)
+        }
+
+        val bounds = TransitionBounds(left, top, right, bottom)
+        val diameter = geometry.mobileDotRadius * 2f
+        val usableWidth = (bounds.width - diameter).coerceAtLeast(diameter * 3f)
+        val step = usableWidth / (MOBILE_DOT_COUNT - 1).toFloat()
+        val firstX = bounds.left + diameter / 2f
+        val targetCenters =
+            List(MOBILE_DOT_COUNT) { index ->
+                TransitionPoint(
+                    x = firstX + step * index,
+                    y = bounds.centerY,
+                )
+            }
+
+        return MobileSignalTransitionLayout(
+            bounds = bounds,
+            sourceCenters = sourceCenters,
+            targetCenters = targetCenters,
+        )
+    }
+
+    private fun drawMobileSignalTransition(
+        canvas: Canvas,
+        model: CombinedStatusRenderModel,
+        tint: Int,
+        opacity: Float,
+        geometry: CombinedStatusOuterGeometry.Resolved,
+        motionProgress: Float,
+        shapeProgress: Float,
+        targetWidthRatio: Float?,
+        targetHeightRatio: Float?,
+        targetBars: List<TransitionNormalizedBounds>?,
+    ) {
+        val layout = resolveMobileSignalTransitionLayout(geometry, model)
+        @Suppress("UNUSED_VARIABLE")
+        val motion = motionProgress.coerceIn(0f, 1f)
+        val shape = shapeProgress.coerceIn(0f, 1f)
+        val rowProgress = MobileSignalMorphPolicy.rowProgress(shape)
+        val barProgress = MobileSignalMorphPolicy.barProgress(shape)
+        val diameter = geometry.mobileDotRadius * 2f
+        val exactBars =
+            targetBars
+                ?.takeIf { bars -> bars.size == MOBILE_DOT_COUNT }
+                ?.sortedBy { bar -> (bar.left + bar.right) / 2f }
+        if (exactBars != null) {
+            drawMobileSignalTransitionToExactBars(
+                canvas = canvas,
+                model = model,
+                tint = tint,
+                opacity = opacity,
+                geometry = geometry,
+                layout = layout,
+                rowProgress = rowProgress,
+                barProgress = barProgress,
+                targetWidthRatio = targetWidthRatio,
+                targetHeightRatio = targetHeightRatio,
+                targetBars = exactBars,
+            )
+            return
+        }
+        val maxBarHeight =
+            MobileSignalMorphPolicy.targetMaxBarHeight(
+                sourceBoundsHeight = layout.bounds.height,
+                diameter = diameter,
+                targetHeightRatio = targetHeightRatio,
+            )
+        val level = model.mobileLevel
+
+        for (index in 0 until MOBILE_DOT_COUNT) {
+            val source = layout.sourceCenters[index]
+            val target = layout.targetCenters[index]
+            val centerX = lerp(source.x, target.x, rowProgress)
+            val centerY = lerp(source.y, target.y, rowProgress)
+            val targetBarHeight =
+                MobileSignalMorphPolicy.targetBarHeight(
+                    index = index,
+                    maxBarHeight = maxBarHeight,
+                    diameter = diameter,
+                )
+            val barHeight =
+                diameter +
+                    (targetBarHeight - diameter) * barProgress
+            val bottom =
+                centerY +
+                    geometry.mobileDotRadius +
+                    MobileSignalMorphPolicy.sharedBottomExpansion(
+                        maxBarHeight = maxBarHeight,
+                        diameter = diameter,
+                        barProgress = barProgress,
+                    )
+            fill(
+                color = tint,
+                alpha = if (level != null && level > index) 255 else 48,
+                opacity = opacity,
+            )
+            canvas.drawRoundRect(
+                centerX - geometry.mobileDotRadius,
+                bottom - barHeight,
+                centerX + geometry.mobileDotRadius,
+                bottom,
+                geometry.mobileDotRadius,
+                geometry.mobileDotRadius,
+                paint,
+            )
+        }
+    }
+
+    private fun drawMobileSignalTransitionToExactBars(
+        canvas: Canvas,
+        model: CombinedStatusRenderModel,
+        tint: Int,
+        opacity: Float,
+        geometry: CombinedStatusOuterGeometry.Resolved,
+        layout: MobileSignalTransitionLayout,
+        rowProgress: Float,
+        barProgress: Float,
+        targetWidthRatio: Float?,
+        targetHeightRatio: Float?,
+        targetBars: List<TransitionNormalizedBounds>,
+    ) {
+        val diameter = geometry.mobileDotRadius * 2f
+        val level = model.mobileLevel
+        val outerScale =
+            MobileSignalMorphPolicy.outerSimilarityScale(
+                targetWidthRatio = targetWidthRatio,
+                targetHeightRatio = targetHeightRatio,
+            )
+        val widthCompensation =
+            MobileSignalMorphPolicy.exactTargetAxisCompensation(
+                targetAxisRatio = targetWidthRatio,
+                outerScale = outerScale,
+            )
+        val heightCompensation =
+            MobileSignalMorphPolicy.exactTargetAxisCompensation(
+                targetAxisRatio = targetHeightRatio,
+                outerScale = outerScale,
+            )
+        val targetCenterX = layout.bounds.centerX
+        val targetCenterY = layout.bounds.centerY
+        targetBars.forEachIndexed { index, normalized ->
+            val source = layout.sourceCenters[index]
+            val targetLeft =
+                targetCenterX +
+                    (normalized.left.coerceIn(0f, 1f) - 0.5f) *
+                        layout.bounds.width *
+                        widthCompensation
+            val targetTop =
+                targetCenterY +
+                    (normalized.top.coerceIn(0f, 1f) - 0.5f) *
+                        layout.bounds.height *
+                        heightCompensation
+            val targetRight =
+                targetCenterX +
+                    (normalized.right.coerceIn(0f, 1f) - 0.5f) *
+                        layout.bounds.width *
+                        widthCompensation
+            val targetBottom =
+                targetCenterY +
+                    (normalized.bottom.coerceIn(0f, 1f) - 0.5f) *
+                        layout.bounds.height *
+                        heightCompensation
+            val targetWidth =
+                (targetRight - targetLeft).coerceAtLeast(0.001f)
+            val targetHeight =
+                (targetBottom - targetTop).coerceAtLeast(0.001f)
+            val targetBarCenterX = (targetLeft + targetRight) / 2f
+            val targetBottomCenterY = targetBottom - diameter / 2f
+
+            val rowCenterX = lerp(source.x, targetBarCenterX, rowProgress)
+            val rowCenterY = lerp(source.y, targetBottomCenterY, rowProgress)
+            val startLeft = rowCenterX - diameter / 2f
+            val startRight = rowCenterX + diameter / 2f
+            val startTop = rowCenterY - diameter / 2f
+            val startBottom = rowCenterY + diameter / 2f
+
+            val left = lerp(startLeft, targetBarCenterX - targetWidth / 2f, barProgress)
+            val right = lerp(startRight, targetBarCenterX + targetWidth / 2f, barProgress)
+            val top = lerp(startTop, targetBottom - targetHeight, barProgress)
+            val bottom = lerp(startBottom, targetBottom, barProgress)
+            val radius =
+                min(
+                    (right - left).coerceAtLeast(0f) / 2f,
+                    (bottom - top).coerceAtLeast(0f) / 2f,
+                )
+
+            fill(
+                color = tint,
+                alpha = if (level != null && level > index) 255 else 48,
+                opacity = opacity,
+            )
+            canvas.drawRoundRect(
+                left,
+                top,
+                right,
+                bottom,
+                radius,
+                radius,
+                paint,
+            )
+        }
     }
 
     private fun drawMobile(
@@ -1007,11 +1982,42 @@ internal class CombinedStatusPainter(
         const val MOBILE_TYPE_CENTER_Y = 60f
         const val MOBILE_TYPE_SUFFIX_GAP = 2f
         const val NATIVE_CENTER_CACHE_SIZE = 8
-        const val NATIVE_OPTICAL_PROBE_MAX = 96f
-        const val NATIVE_OPTICAL_ALPHA_THRESHOLD = 8
         const val MIN_OPTICAL_RATIO = 0.08f
         const val NATIVE_STEADY_APPEAR_THRESHOLD = 0.999f
+        const val BATTERY_COMPONENT_CENTER_X = 60f
+        const val BATTERY_COMPONENT_CENTER_Y = 58f
+        const val BATTERY_FOLD_SCALE_Y = 0.72f
+
     }
+
+    private data class TransitionPoint(
+        val x: Float,
+        val y: Float,
+    )
+
+    private data class MobileSignalTransitionLayout(
+        val bounds: TransitionBounds,
+        val sourceCenters: List<TransitionPoint>,
+        val targetCenters: List<TransitionPoint>,
+    )
+
+    private data class TransitionWifiMetrics(
+        val sourceOpticalWidth: Float,
+        val sourceOpticalHeight: Float,
+        val targetOpticalBounds: TransitionNormalizedBounds,
+    )
+
+    private data class MobileTypeLayout(
+        val main: String,
+        val suffix: String,
+        val mainTextSize: Float,
+        val suffixTextSize: Float,
+        val mainX: Float,
+        val mainBaselineY: Float,
+        val suffixX: Float,
+        val suffixBaselineY: Float,
+        val bounds: TransitionBounds,
+    )
 
     private data class NativeCenterAsset(
         val drawable: Drawable,
@@ -1041,6 +2047,7 @@ internal class CombinedStatusPainter(
         }
     }
 }
+
 
 
 

@@ -2,6 +2,54 @@
 
 This is the chronological engineering diary for Combined Status. It complements, but does not replace, `CHANGELOG.md`, pull-request history, diagnostics, or CI artifacts.
 
+## 2026-09-30 — Build 485: stable source geometry and theme-bounded transition shapes
+
+**Type:** Control Center transition correction
+**Display version:** 0.0.3
+**Build / source:** 485 / `20260930-485` / `feat/control-center-transition-matrix`
+**SystemUI ownership change:** none; HyperOS remains motion/appearance/final-asset authority
+
+### Maintainer feedback / device evidence
+
+Build 484 improved semantic target behavior but exposed three concrete visual/root-geometry problems:
+
+- Battery looked like a hard switch into a giant icon. The resolved final `mBatteryIconView` can be 0x0 on this target, so the transition fell back to the whole `MiuiBatteryMeterView` slot (105x169 normally; charging/island paths can be wider) and mistakenly treated container geometry as glyph geometry.
+- In charging state, pressing/holding the status-bar path could flatten the entire Trinity source. The transition source anchor was `MiuiBatteryMeterView`, so any native transient Battery/ancestor transform was sampled into every Guiyuan component.
+- Mobile dots reached the correct semantic area but the bars grew only upward and remained visibly short. The old bar heights were derived from the compact source-dot bounds while `SHRINK_ONLY` correctly prevented whole-group enlargement.
+
+The maintainer also clarified the theme boundary: final native icons may change with themes, so Guiyuan should resemble the semantic destination rather than perform 1:1 proportional adaptation to every themed glyph.
+
+### Root cause
+
+- **Source authority error:** position and scale authority were conflated. The Guiyuan renderView already has a stable carrier-local layout, but the transition sampled the mutable native Battery View instead.
+- **Battery geometry error:** slot occupancy was used as if it were optical glyph size.
+- **Mobile shape error:** external component scale and local signal-shape scale were coupled to the same compact bounds.
+
+### Implementation
+
+- Use the laid-out Guiyuan `renderView` as the transition source anchor/geometry authority. Native Battery transient transforms no longer scale the entire Guiyuan source.
+- Keep Battery endpoint position native, but switch Battery component scaling to `SHRINK_ONLY`.
+- Prefer the active native Battery style witness (`mBatteryIconView` / `mHollowBatteryIconView`) when available; it remains an endpoint witness only.
+- Replace Build-484 slot-as-glyph Battery sizing with a stable compact local silhouette: the source arc fades progressively, a near-circle outline contracts toward a small rounded Battery body, and the terminal appears late.
+- Re-center the Mobile row vertically inside its local signal region.
+- Grow each Mobile bar symmetrically from the dot center (equal upward/downward growth).
+- Separate local bar height from whole-component scale. The native target height is a cap/reference only; the highest bar stays below it and a stable local maximum prevents large themed targets from enlarging the Guiyuan morph.
+- Preserve Build-484 semantic exit policy, component target separation, reservation ownership, raw HyperOS progress, and final SystemUI handoff.
+
+### 审查 / review
+
+- **Single writer:** no native translation/alpha/visibility writer was added. Guiyuan changes only its own overlay pixels and the existing reservation owner.
+- **Theme compatibility:** theme/native glyph geometry does not become a 1:1 morph template. Native target size can reduce the Mobile cap, but cannot enlarge it beyond Guiyuan's stable maximum.
+- **Charging/press lifecycle:** source geometry no longer depends on `MiuiBatteryMeterView`'s transient transform.
+- **Fail native:** unresolved semantic targets retain the existing no-destination exit/final-native behavior.
+- **Performance:** no timer, animator, polling path, per-frame resource scan, or extra Hook is introduced.
+- **Reversibility:** all local shape phases remain pure functions of native expansion progress.
+
+### Validation gate
+
+Run exact-head Runtime CI, then one signed work-branch Canary. Device acceptance must specifically cover charging press/hold aspect stability, Battery contour continuity/size, and centered symmetric Mobile bar growth before this checkpoint is considered accepted.
+
+
 
 ## 2026-09-29 — Build 465: dev integration and 0.0.3 development-line transition
 
@@ -11204,3 +11252,1732 @@ Build 473 is now the stable and development baseline. This documentation closure
 - **Post-merge verification:** successful on `main`.
 - **History synchronization:** fast-forward only; no duplicate content commit.
 - **Next runtime risk:** PR #174 remains diverged and must synchronize before it can modify the shared Painter on top of Build 473.
+
+
+---
+
+## 2026-09-29 — Control Center Trinity release becomes component-driven
+
+**Problem**
+
+Build 478 split Guiyuan during the pull gesture, but final Wi-Fi/mobile/battery participants were not visually released back during the transition. Battery, center/Wi-Fi and mobile also shared one generic morph even though KeiMi 2.5.0 treats their shapes differently. The transition path additionally needed to remain maintainable if Guiyuan later moves, reorders or adds internal components.
+
+**Evidence**
+
+Re-decompilation of KeiMi 2.5.0 confirms that represented native Views remain clip-masked for the full open interval `0 < progress < 1`; they are not physically unmasked mid-gesture. Final participants are instead redrawn in the root overlay with `smoothstep((progress - 0.58) / 0.34)`, completing visual handoff around progress 0.92, while real clip state restores only at the 0/1 endpoints. Trinity shape motion uses a separate `smoothstep(progress / 0.82)` window. Battery reshapes/folds, while Wi-Fi largely preserves its glyph shape.
+
+**Conclusion**
+
+Stable QS_FAKE occupancy and transition visual release are separate responsibilities. Mid-gesture ignored-slot restoration would reopen layout ownership and is not needed. The animation engine also must not own Guiyuan-internal coordinates.
+
+**Change**
+
+Build 479 makes `CombinedStatusPainter` the source of truth for each transition component's current local bounds, native target selector, shape policy and release policy. The transition owner derives root geometry from those descriptors and the verified role-5 anchor matrix. Final Wi-Fi/mobile/battery targets are reversibly masked only while the transition owner is active and are redrawn during the verified 0.58–0.92 release window. Battery uses a fold policy, center/Wi-Fi keeps its shape, and mobile uses a bounded collapse policy. Shared native targets are deduplicated.
+
+**Validation**
+
+Build 479 must be replayed unchanged onto the current dev governance baseline, pass exact-head Runtime CI, then receive focused device validation. Acceptance requires correct start anchoring, component-specific folding, visible late-stage participant release, clean reverse re-absorption, and no change to final-only SystemUI icon behavior.
+
+
+---
+
+## 2026-09-30 — Build 480: native-owned handoff with renderer-owned component correspondence
+
+**Type:** Build-479 architecture review correction  
+**Build:** 480 / `20260929-480`  
+**Branch / PR:** `feat/control-center-transition-matrix` / #177  
+**Device status:** pending; Build 479 is superseded before device testing
+
+### Problem execution flow
+
+Build 479 correctly moved Trinity motion from one whole-source frame to Painter-defined component descriptors, but its release layer also copied KeiMi-specific timing windows into Guiyuan: geometry used a project `smoothstep(progress / 0.82)`, final Wi-Fi/mobile/Battery were clip-masked, and Guiyuan redrew those native targets through a `0.58–0.92` release window.
+
+That conflicts with the already verified pinned-SystemUI endpoint contract: `onExpansionChanged(progress)` owns native geometry, while `onAppearanceChanged(appearance, animate)` owns QS_FAKE/final alpha/Folme handoff. Final-QS participants are native surface content and must not gain a second project handoff authority.
+
+### Root cause
+
+KeiMi evidence was applied one layer too high. Its component/correspondence structure is useful for Guiyuan's compact Trinity decomposition, but its private geometry/release envelopes are implementation choices, not HyperOS scene authority.
+
+### Measures
+
+- keep the window-root overlay only for Guiyuan-owned Trinity correspondence;
+- keep Painter-owned component source bounds, semantic target selection and shape policy;
+- restore raw native expansion fraction as the sole geometry progress input;
+- remove project `0.82` geometry shaping and `0.58–0.92` release thresholds;
+- remove role-6 target clip masks and `target.draw()` redraw;
+- let native final Wi-Fi/mobile/Battery remain attached, visible/hidden and animated only by SystemUI's final surface;
+- Trinity overlay opacity follows the real QS_FAKE root alpha;
+- replace fixed `66×44` MobileType transition bounds with the same measured text-ink layout used by the renderer, including suffix placement such as 5G-A.
+
+### 审查 / review
+
+- **Ownership:** HyperOS remains the only fake/final appearance writer; Guiyuan owns only temporary Trinity pixels.
+- **Timing:** no project gesture interpolator, release threshold or duplicate animator remains.
+- **Geometry:** each component starts from its current renderer-local bounds and targets a read-only role-6 native witness matrix.
+- **Maintainability:** renderer and transition share MobileType layout; moving/resizing text automatically changes transition bounds. New components extend the descriptor layer rather than the gesture state machine.
+- **Occupancy:** no mid-gesture ignored-slot/padding/width restoration; steady presentation ownership remains independent from visual correspondence.
+- **Cleanup:** transition cleanup restores only the Guiyuan source clip; final native Views are never mutated by Build 480.
+- **Performance:** one bounded pre-draw matrix sample path; no polling, timer or per-peer projection.
+- **Fail native:** unresolved source/target witnesses skip that correspondence instead of mutating SystemUI.
+
+### Validation
+
+Exact-head Runtime Build #1829 / run `36600672560` passed on executable head `886f3fbf96fa8500d065d88898f64820e43dedf1`: pinned HyperOS target profile, unit tests/build and Modern Xposed metadata all succeeded. The PR Runtime path correctly skipped signing/artifact publication.
+
+Build 480 runtime is now frozen. One signed work-branch Canary is required for focused Home device validation: partial pull/return, full open/return and charging-island regression. Keyguard follows only after Home trajectory is accepted.
+
+
+---
+
+## 2026-09-30 — Build 481: rigid element motion, real final-slot witnesses and staged mobile-signal morph
+
+**Type:** Build-480 device rejection / root-cause correction  
+**Build:** 481 / `20260929-481`  
+**Branch / PR:** `feat/control-center-transition-matrix` / #177
+
+### Device rejection
+
+The first non-charging Home pull on Build 480 is sufficient to reject the checkpoint. The compact Trinity visibly flattens as soon as expansion begins, individual elements stretch unnaturally, Battery fold grows outside its own visual envelope, and released Wi-Fi/mobile/Battery correspondence overlaps instead of occupying the native final status-bar slots.
+
+### Root cause
+
+Build 480 still interpolated each component's complete affine width/height vectors toward the whole target View. That made target aspect ratio a shape writer. Battery then added another non-uniform `FOLD` transform on top. Mobile center/type and four-dot signal also shared the same top-level mobile View witness instead of their distinct native children.
+
+The resulting implementation violated the intended responsibility split:
+- path/slot occupancy should come from HyperOS final geometry;
+- most Guiyuan elements should preserve their own shape while moving;
+- only explicitly-owned local morphs may change shape;
+- the visual handoff must converge on the actual native child, not on a parent container.
+
+### Change A — shape-stable motion
+
+- replace affine X/Y resizing with center interpolation plus one uniform scale factor;
+- Wi-Fi, mobile type and ordinary mobile motion are rigid: translate + uniform scale only;
+- Battery keeps a local fold, but horizontal expansion is removed and vertical fold is reduced to 0.72 so its envelope cannot grow into neighbors;
+- no mobile collapse scale remains.
+
+### Change B — real final-slot correspondence and staged Mobile morph
+
+- Battery targets the real `mBatteryIconView` child (resource fallbacks remain read-only);
+- Wi-Fi targets final `wifi_signal`;
+- mobile type targets `mobile_type_single/mobile_type`;
+- four-dot signal targets final `mobile_signal`;
+- exact child matrices therefore carry the real final slot order, spacing and size instead of projecting onto parent containers;
+- motion and local shape progress are independent: native-like positional motion completes first, then the four dots grow vertically into four rounded signal bars;
+- after local shape completion, the overlay crossfades into a read-only draw of the exact native child witness while HyperOS still owns the real final-surface alpha/Folme handoff;
+- final native Views are not moved, resized, clipped or suppressed by the transition owner.
+
+### 审查 / review
+
+- **ownership:** SystemUI still owns QS_FAKE/final surface translation and appearance; Guiyuan owns only temporary Trinity pixels and local semantic morphs.
+- **occupancy:** target child matrices are read from the real final status-bar layout, so fake transition pixels respect real final slot ordering without changing native measure/layout mid-gesture.
+- **single writer:** no native target property writes are introduced; witness rendering is read-only overlay projection.
+- **maintainability:** target intent is declared per Painter component; future internal movement keeps using renderer-derived source bounds, while future native layout changes are consumed from live child matrices.
+- **cleanup:** only the Guiyuan source clip and root overlay are owned/restored.
+- **performance:** bounded pre-draw sampling only; no polling, timer or peer-wide redraw.
+
+### Validation gate
+
+Build 481 intentionally combines both corrections in one CI checkpoint but retains two separate commits for review/revert. Non-charging Home is the only device gate after CI: partial pull/return and full pull/return must show bounded Battery folding, rigid Wi-Fi movement, correct final-slot spacing, and four dots reaching the mobile-signal target before vertical bar growth. Charging/Keyguard are deferred until that baseline is accepted.
+
+
+---
+
+## 2026-09-30 — Build 482: native slot witnesses and optical transition geometry
+
+**Type:** Control Center transition root-cause correction  
+**Display version:** 0.0.3  
+**Build / source:** 482 / `20260929-482` / `feat/control-center-transition-matrix`  
+**SystemUI ownership change:** none; final QS layout/appearance remains native-owned
+
+### Problem
+
+Build 481 failed the first non-charging Home device pass:
+- Mobile could remain visually stationary;
+- Wi-Fi endpoint size/shape did not coincide with the native Wi-Fi glyph;
+- Wi-Fi transition tint did not consistently follow surrounding native icon inversion;
+- the released Trinity elements did not respect the real final status-bar slot occupancy.
+
+### Evidence
+
+Build-481 diagnostics repeatedly observed transition geometry unavailable while a Wi-Fi collector event exposed a valid native 75×75 drawable with the bound `wifi_signal` View still measured at 0×0. Child-first target resolution therefore treated an internal rendering detail as layout authority.
+
+Review of the exact SystemUI 17.03.260226.r contract confirms that Control Center fake and final status bars are separate complete status-icon surfaces. Native expansion moves both surfaces and native `onAppearanceChanged()` owns their Folme handoff.
+
+Reference review of the supplied 1.4.3 implementation and KeiMi established a shared useful mechanism: transition placement starts from real top-level SystemUI slot layout, while hidden/overlay rendering is a separate visual concern. Their implementation-specific measure/layout/visibility interception and private gesture timing are not adopted as Guiyuan ownership.
+
+### Conclusion
+
+A semantic child is not a slot. Final ordering, width, spacing and position must come from the live role-6 top-level slot View. Internal children/drawables may refine glyph optical geometry, but a missing or 0×0 child must never cancel the slot trajectory.
+
+### Change
+
+- resolve final Wi-Fi/Mobile targets from role-6 top-level slot Views; dual-SIM Mobile prefers the live presentation-root subscription ID;
+- cache resolved witnesses for the Session and retry unresolved optical children only until they become available;
+- derive Wi-Fi source and target optical bounds from the same native drawable optical probe already used by the accepted renderer;
+- if an internal ImageView is 0×0, use its drawable metrics plus the real top-level slot content geometry rather than freezing motion;
+- use raw native expansion fraction for external motion; remove Build-481 project-owned release windows;
+- keep Wi-Fi/center and Mobile rigid during travel; Battery keeps only its bounded local fold;
+- drive the late Mobile dot-to-bars local morph from native fake-root alpha rather than a project timing threshold;
+- read final role-6 peer tint at Session/appearance boundaries for center/mobile transition color; no frame-loop View-tree tint scan is added;
+- do not mask, redraw, translate, resize, alpha-write or visibility-write final role-6 native participants.
+
+### 审查 / review
+
+- **ownership:** SystemUI remains the sole final slot/layout/translation/appearance owner; Guiyuan writes only its temporary source overlay clip/drawing.
+- **geometry:** native occupancy, Guiyuan source geometry and optical glyph geometry are explicit separate layers.
+- **single writer:** no native target geometry/alpha/visibility writer is introduced.
+- **lifecycle / cleanup:** target witnesses are weak/session-scoped; source clip is restored on session stop.
+- **performance:** target/subscription resolution is cached after success; peer tint is cached and refreshed only at native appearance boundaries; no polling or repeated hot-path tree scan is introduced.
+- **fail native:** unresolved child geometry falls back to the valid top-level slot; unresolved slot keeps the source component rather than inventing an offset.
+- **maintainability:** new semantic elements declare a source optical bound and slot target; SystemUI continues to supply live final occupancy.
+
+### CI correction
+
+Exact-head Runtime Build #1832 reached `:app:compileDebugKotlin` and failed at `CombinedStatusControlCenterTransitionOwner.kt:763`: Kotlin inferred the `View.javaClass` inheritance sequence too narrowly (`Class<View>?` versus captured superclass type). The inheritance walk is now explicitly typed as `generateSequence<Class<*>>(...)`. This is a compile-only correction; transition ownership, geometry, timing and rendering behavior are unchanged.
+
+### Validation
+
+Exact-head Runtime Build #1832 failed only at Kotlin compile because the new mobile witness superclass walk was inferred as `Class<View>?`; the explicit `Class<*>` compile correction was applied without changing transition behavior. Runtime Build #1833 then passed the pinned HyperOS profile, unit tests, debug build and Modern Xposed metadata for exact source `cfdf12ff4c2e8249f833e52e871cb35f1bad953b`.
+
+Signed Work Branch Canary #522 independently resolved and checked out the same exact source SHA, then passed the pinned HyperOS profile, unit tests/Canary build, Modern Xposed API 102 metadata, Haple signature verification and non-debuggable verification. Artifact: `Guiyuan-0.0.3-HyperOS-20260929-482-canary.apk`.
+
+Device validation is intentionally limited to non-charging Home first: partial pull/return and full pull/return must show real final-slot spacing, Wi-Fi proportional motion ending on the native glyph with native peer tint, Mobile movement followed by the late dot-to-bars morph, and no overlap/disappearance at native handoff.
+
+
+---
+
+## 2026-09-30 — Build 483: semantic transition reservation and staged native-signal morph
+
+**Type:** device-guided Control Center transition refinement  
+**Display version:** 0.0.3  
+**Build / branch:** 483 / `20260929-483` / `feat/control-center-transition-matrix`  
+**Rollback baseline:** signed Build 482 Canary #522 / runtime `cfdf12ff4c2e8249f833e52e871cb35f1bad953b`
+
+### Device feedback
+
+Build 482 is materially better and its Battery/Wi-Fi external transition is retained as the explicit fallback. Two gaps remain on non-charging Home:
+
+- decomposed Trinity pixels move toward final slots, but the QS_FAKE layout does not gain matching intermediate occupancy, so surrounding native icons do not participate in the displacement;
+- Mobile should first move as the existing four-dot group, then resolve into a horizontal row of four dots, then grow vertically into four signal bars before the native final surface completes handoff.
+
+### Exact SystemUI evidence
+
+Target SystemUI 17.03.260226.r was re-decompiled for this checkpoint.
+
+`MiuiStatusIconContainer.onMeasure()`:
+- excludes blocked/invisible/`ignoredSlots` children;
+- measures the remaining native children;
+- includes container start/end padding in measured width;
+- adds each child's measured width, child padding and native `status_bar_system_icon_spacing`.
+
+`MiuiStatusIconContainer.onLayout()`:
+- starts status-icon placement from `width - paddingEnd` on the end side;
+- keeps child layout origin separate from the effective `NewStatusIconState.translationX` positions;
+- therefore the existing Guiyuan-owned `statusIcons.paddingEnd` reservation is an authoritative native-layout participant: changing that one reservation lets SystemUI recompute surrounding peer positions without Guiyuan writing their translations.
+
+`ControlCenterHeaderExpandController$controlCenterCallback$1.onExpansionChanged(progress)` confirms that fake/final status-bar X/Y motion is directly derived from native panel progress: status-bar translation uses the native delta multiplied by `1 - progress`; QS_FAKE additionally receives the Header-owned `batteryWidthDiff`. There is no hidden easing for the status-bar trajectory that Guiyuan should imitate. Build 483 therefore retains raw native progress and does not add a project trajectory curve.
+
+The supplied 1.4.3 implementation and KeiMi remain comparison evidence only. Their useful shared result—real layout occupancy participates while a separate visual transition is drawn—is internalized through Guiyuan's existing reservation owner rather than copied through per-frame Battery `setMeasuredDimension()`, visibility interception, or a second layout owner.
+
+### Commit A — semantic Control Center transition reservation
+
+- keep represented Wi-Fi/mobile/airplane/no-SIM slots ignored for the full QS_FAKE presentation session; no mid-gesture slot release occurs;
+- reuse `SystemUiHomePresentationOwner` as the only `statusIcons.paddingEnd` writer;
+- freeze one gesture's source semantic spans from the existing Painter component bounds and final spans from the live role-6 top-level slot Views;
+- normalize both LTR and RTL geometry onto a logical end-axis;
+- drive each source->target semantic span with raw HyperOS expansion progress;
+- compute the reservation from the union of those interpolated spans, with the Build-482 compact slot as a minimum boundary;
+- update native padding only when the resolved integer reservation width actually changes;
+- keep progress=1 reservation alive while the panel is fully expanded so reverse motion can shrink continuously instead of re-expanding from a compact jump;
+- clear the transition override back to the existing compact reservation when the bridge stops.
+
+This means reservation follows semantic decomposition but never reads the instantaneous drawable/pixel envelope. Battery fold, Wi-Fi optical scaling and Mobile's internal morph cannot feed back into layout width.
+
+### Commit B — Mobile local morph only
+
+- external Mobile slot motion remains Build-482 behavior and still uses raw HyperOS expansion;
+- native fake alpha remains the local morph authority;
+- first half of the local morph: the four orbit dots move into one horizontal row while remaining dots;
+- second half: dot positions stay fixed and each dot grows vertically into its corresponding signal bar;
+- the resulting group continues to converge on the existing role-6 `mobile_signal` optical target;
+- this commit has no layout/reservation write and can be reverted independently.
+
+### 审查 / review
+
+- **single writer:** `SystemUiHomePresentationOwner` remains the sole Guiyuan writer of QS_FAKE `statusIcons.paddingEnd`; TransitionOwner only supplies a requested semantic reservation width.
+- **native motion:** no peer `translationX/Y`, alpha or visibility writer is added. Surrounding icons move because native `MiuiStatusIconContainer` remeasures/re-lays out around the reservation.
+- **no release jump:** represented native slots stay ignored throughout the fake-surface lifetime, so three full native slot widths never appear suddenly during the gesture.
+- **no geometry feedback:** layout width is derived from frozen semantic endpoints and native progress, not from current overlay ink bounds.
+- **reverse continuity:** the transition session remains active at progress 1 for reservation ownership even when fake alpha reaches zero; collapse reuses the same frozen semantic spans.
+- **performance:** no polling and no unconditional frame-loop `requestLayout()`; integer-width deduplication prevents repeated padding writes when the reservation pixel has not changed.
+- **compatibility:** LTR/RTL are normalized to the same logical end-axis; unresolved final slot topology leaves the compact reservation in place rather than inventing a width.
+- **rollback:** Build 482 exact runtime/Canary remains untouched; Commit B may be reverted without Commit A, and both may be reverted to restore Build 482.
+
+### Validation gate
+
+Run exact-head Runtime CI, then one signed work-branch Canary. Device testing remains non-charging Home first. Acceptance requires: no peer jump when decomposition begins, surrounding native icons moving continuously through native layout, unchanged or improved Build-482 Battery/Wi-Fi trajectory, Mobile visually reading as dots -> row -> bars, and clean reverse motion.
+
+
+## 2026-09-30 — Build 486: restore native trajectory authority and unified missing-target exit
+
+**Type:** Control Center transition correction
+**Display version:** 0.0.3
+**Build / source:** 486 / `20260930-486` / `feat/control-center-transition-matrix`
+
+### Device evidence
+
+Build 485 fixed the charging/status-bar-press flattening but device video review rejects four outcomes: the synthetic Battery contour appears as a large dark block instead of a transition; replacing BatteryView with renderView as the complete source anchor reintroduces visible Trinity drift; the signal-bar lower edge is not visually unified; and 5G can overlap the signal morph when the intended native type child has no usable geometry.
+
+### Root cause
+
+Build 485 solved source deformation by changing both source position and source basis authority at once. Those responsibilities are independent: BatteryView remains the verified native trajectory/position witness, while its transient scale must not own Guiyuan shape. The laid-out renderView provides a stable Guiyuan basis but its overlay center must not redefine the external path.
+
+For network targets, a top-level slot is only an occupancy witness. When a requested semantic child such as `mobile_type` or `mobile_signal` is absent, invisible or 0x0, using the whole slot as a guessed optical target collapses different semantics onto one center.
+
+### Implementation
+
+- Restore BatteryView as source center/translation authority and combine it with renderView basis vectors/size.
+- Remove the Build-484/485 synthetic Battery body/terminal and restore the Build-482 ring fold (`scaleY -> 0.72`) plus native handoff.
+- Restore the accepted Battery target scaling path.
+- Keep the staged Mobile dots -> row -> bars sequence; once bar growth starts, every bar shares one fixed lower baseline and grows upward only.
+- Keep native Mobile height as an upper cap/reference rather than a 1:1 theme template.
+- Apply one missing-target policy to all semantic child targets: the child must be visible, attached and non-zero; otherwise target resolution fails and the existing fast fade + slight shrink exit runs. No slot-center guess or project-local semantic partition is introduced.
+- Native raw expansion remains the only external animation progress source.
+
+### 审查 / review
+
+- **Ownership:** native position and stable source basis have separate single authorities; no compensation offset is added.
+- **Target semantics:** role-6 top-level slots remain occupancy witnesses; semantic movement requires a real semantic child.
+- **Fail-native:** unavailable semantic geometry exits rather than inventing a destination.
+- **Lifecycle/cleanup:** no new long-lived runtime object, animator, timer, listener or cleanup path.
+- **Compatibility/theme:** final themed glyphs remain SystemUI-owned; no 1:1 theme geometry reproduction.
+- **Regression boundary:** accepted Wi-Fi optical path and semantic reservation mechanism remain otherwise unchanged.
+
+### Validation
+
+Runtime CI must compile/test the source-geometry composition and updated morph policies. Signed Canary device validation is required for trajectory, charging press, Battery handoff, flat signal baseline, and missing-target exit.
+
+
+## 2026-09-30 — Build 487: HyperCeiler dual-row compatibility and bounded semantic fallback
+
+**Type:** Control Center transition compatibility
+**Display version:** 0.0.3
+**Build / source:** 487 / `20260930-487` / `feat/control-center-transition-matrix`
+
+### Device evidence
+
+Build 486 device testing with HyperCeiler dual-row mobile signal confirms the fail-fast rule is too strict for third-party status-bar composition. The final Control Center mobile slot remains usable and the native mobile type target resolves, but the signal target is unresolved, so Guiyuan's Mobile component no longer migrates.
+
+The diagnostic also confirms dual-SIM aggregation on the source side and a valid visible mobile root. HyperCeiler source review explains the mismatch: `DualRowSignalHookV` injects a generated-ID `FrameLayout` with two `ImageView` children into `mobile_signal_container`, then explicitly sets the original `mobile_signal` to `GONE`. Its generated IDs cannot be recovered through Android resource-entry lookup.
+
+### Root cause
+
+Build 486 treated "semantic resource child unavailable" as equivalent to "semantic destination unavailable." That is correct for untrusted arbitrary geometry, but not for known composition replacements where the top-level SystemUI slot remains authoritative and a replacement optical child can be identified structurally.
+
+### Evidence / reference
+
+- HyperCeiler repository: `ReChronoRain/HyperCeiler`.
+- Reviewed implementation: `DualRowSignalHookV.kt` on current indexed main (`55d51aa8daa68dcc358e07f5bd77ababe20b94fe`).
+- HyperCeiler creates `dual_signal_container`, `dual_signal_slot1`, and `dual_signal_slot2` using `View.generateViewId()`; the dual container is a `FrameLayout` with two direct `ImageView` children, while the original `mobile_signal` is hidden in dual mode.
+
+### Implementation
+
+Target resolution becomes a strict hierarchy:
+
+1. real visible/attached/non-zero semantic child;
+2. known read-only compatibility optical witness — currently HyperCeiler dual-row signal, recognized by structure rather than package/class dependency;
+3. bounded semantic estimate inside a reliable top-level slot:
+   - mobile type uses the logical start region;
+   - mobile signal uses a separated logical end region;
+   - Wi-Fi may use the whole Wi-Fi slot;
+4. no reliable slot -> existing fast fade + slight shrink.
+
+The HyperCeiler recognizer requires the original native `mobile_signal` to be hidden plus a visible generated-ID `FrameLayout` whose direct children are ImageViews. No HyperCeiler APIs, preferences, module resources, hooks, or classloader access are used.
+
+### 审查 / review
+
+- **Native-first:** native semantic children always win.
+- **Compatibility scope:** HyperCeiler recognition is read-only and structural; it cannot mutate third-party views.
+- **Fallback safety:** generic estimation is constrained to an already-valid SystemUI top-level slot and separates mobile type from signal instead of collapsing both to slot center.
+- **RTL:** mobile type/signal estimated regions mirror with layout direction.
+- **Ownership:** no native/HyperCeiler translation, alpha, visibility, or layout property is written.
+- **Lifecycle/performance:** resolution occurs inside the existing transition target path; no listener, polling loop, timer, or new animator is introduced.
+- **Regression boundary:** Build-486 source position/basis split, Battery ring-fold, Mobile flat baseline, native progress ownership, and semantic reservation remain unchanged.
+
+### Test / device gate
+
+- Unit tests lock mobile-type/signal fallback separation, RTL mirroring, and HyperCeiler dual-signal structural signature.
+- Runtime CI must pass on exact head.
+- Signed Canary device validation is required specifically with HyperCeiler dual-row enabled and disabled.
+
+
+## 2026-09-30 — Build 488: Keyguard-to-Control-Center lifecycle lease
+
+**Type:** Control Center / Keyguard handoff correction  
+**Display version:** 0.0.3  
+**Build / source:** 488 / `20260930-488` / `feat/control-center-transition-matrix`
+
+### Problem
+
+Device video shows an apparent short stall at the fully-expanded endpoint when Control Center is pulled from Keyguard. Slow-frame review shows this is not primarily a frame-rate pause: for a short interval the outgoing Keyguard status row is restored/re-laid out while the incoming final Control Center row is also visible, so native peers visibly occupy two nearby geometries before converging.
+
+### Evidence
+
+The Keyguard renderer declares readiness from model + tint + live host layout. When the Keyguard host loses usable layout near the Control Center endpoint, the current module handles `ready=false` immediately by:
+- setting `keyguardRuntimeReady=false`;
+- switching the Keyguard renderer back to native handoff;
+- deactivating the Keyguard compact presentation, restoring represented native slots/reservation;
+- recomputing KEYGUARD Control Center projection eligibility.
+
+Runtime diagnostics also show a terminal `keyguard-readiness-lost` eligibility transition. Native scene callbacks may report the outgoing Battery as raw unlocked status state during this same handoff, so the steady-source path can additionally request Home cleanup even though the active Control Center gesture originated from verified KEYGUARD `realSystemIcons`.
+
+### Root cause
+
+Steady Keyguard readiness and an in-flight Control Center source lease are different lifetimes. The former may legitimately disappear before HyperOS completes fake/final Control Center handoff; treating that transient loss as permission to restore the outgoing Keyguard native row creates a second layout transition underneath the native Control Center transition.
+
+### Change
+
+- Track native Control Center expansion fraction from the existing HyperOS callback; no new animator/timer/polling source is added.
+- Acquire a Keyguard Control Center lease only after:
+  - the source scene is KEYGUARD;
+  - steady Keyguard compact presentation was already ready;
+  - native expansion becomes greater than zero.
+- While the lease is valid, transient Keyguard renderer readiness loss does not restore native slots/reservation and transient steady-source HOME classification is ignored for ownership.
+- Release the lease at native fraction zero, or immediately on authoritative source change away from KEYGUARD, AOD ownership, runtime failure, feature disable, host invalidation, teardown, or Hot Reload.
+- If renderer readiness is still false when the lease ends, execute the existing fail-native readiness-loss path immediately. There is no time delay or grace timer.
+
+### 审查 / review
+
+- **motion ownership:** native expansion remains the only gesture timeline and SystemUI final fake/final appearance remains authoritative.
+- **single writer:** no peer translation/alpha/visibility writer is added; the existing Keyguard compact-presentation owner simply keeps its already-owned slot/reservation state alive for the verified transition lifetime.
+- **cleanup:** the lease is bounded by native fraction/source/AOD/host/feature/runtime lifecycle and is reset on teardown/Hot Reload.
+- **fail-native:** AOD, detached/unresolved host, runtime failure, disabled feature, or authoritative non-Keyguard source bypass retention.
+- **performance:** only scalar state is updated from existing callbacks; no listener, traversal, delay, or polling loop is added.
+- **regression boundary:** Build-487 target compatibility and Build-486 trajectory/Battery/Mobile morphology are unchanged.
+
+### Bluetooth-device battery compatibility observation
+
+The affected peer is `bluetooth_handsfree_battery` (headset + battery), not the ordinary Bluetooth icon. Guiyuan source review finds no writer for that peer's tint, color filter, alpha, visibility, or geometry. HyperCeiler current main `StatusBarIcon.java` exposes the slot by mutating HyperOS `RIGHT_BLOCK_LIST` / `CONTROL_CENTER_BLOCK_LIST`; it does not add a dedicated Home tint owner there. An occasional stale inversion can therefore be caused by the exposed native slot's own lifecycle or by cross-module ordering, but current evidence does not justify Guiyuan taking tint ownership. No tint fix is included; a recurrence should first add/read a bounded slot-tint diagnostic.
+
+### Validation
+
+Exact-head Runtime CI is required. Signed Canary device validation must cover Keyguard pull to fully expanded Control Center and reverse collapse, plus verify AOD/fail-native cleanup remains immediate.
+
+
+## 2026-09-30 — Build 489: compact-carrier source continuity and bidirectional Mobile growth
+
+**Type:** Control Center transition correction  
+**Display version:** 0.0.3  
+**Build / source:** 489 / `20260930-489` / `feat/control-center-transition-matrix`
+
+### Device evidence
+
+Build 487 device video in charging state shows a small one-time horizontal Trinity jump when the Control Center gesture begins. Diagnostic geometry reports a stable compact carrier width of 105px while the charging `MiuiBatteryMeterView` is 135px wide. The previous hybrid source split used the BatteryView center for position and renderView only for basis, so the compact 105px composition and the 135px wrapper do not share the same center at transition entry.
+
+The same device review also clarifies the intended Mobile morph: after the four dots form a row, each bar should expand vertically both upward and downward, but all four lower edges must stay aligned throughout growth.
+
+### Root cause
+
+- **Charging source continuity:** the transition used the correct native wrapper for broad trajectory motion but the wrong geometric sub-authority for compact position. `battery_icon_container` already represents the real compact slot and inherits the same parent/native movement; it should own source position.
+- **Mobile morphology:** Build 486/487 fixed the bottom edge but implemented all growth upward. A common bottom can still move downward while remaining common to every bar.
+
+### Change
+
+- `transitionSourceSnapshot()` now exposes the fake-root `battery_icon_container` as `anchorView`.
+- TransitionOwner continues to compose position from `anchorView` and basis/axes from Guiyuan `renderView`; BatteryView scale/skew therefore still cannot flatten the source.
+- Mobile bar growth keeps one shared bottom offset. The offset is half of the shortest bar's total extra growth, progressed by the existing bar phase:
+  - shortest bar grows symmetrically up/down;
+  - taller bars share the same downward growth and extend farther upward;
+  - all bottoms remain collinear at every bar-growth frame.
+- Raw HyperOS expansion remains the only transition timeline.
+
+### 审查 / review
+
+- **No geometry hack:** no 15px constant is introduced; the real compact carrier is the position witness.
+- **Ownership:** native carrier position + Guiyuan stable render basis remain separate single authorities.
+- **Charging compatibility:** 105/135 or future wrapper-width differences are handled structurally rather than numerically.
+- **Morph semantics:** shared bottom movement is shape-local only; target path/slot geometry is unchanged.
+- **Regression boundary:** Build-488 Keyguard lease, Build-487 HyperCeiler dual-row recognition, Build-486 Battery ring-fold, native raw progress, peer ownership, and semantic reservation remain unchanged.
+- **Lifecycle/performance:** no new hook, listener, animator, timer, polling, or per-frame traversal is added beyond existing draw math.
+
+### Validation
+
+Exact-head Runtime CI is required. One signed Canary should jointly validate charging gesture entry, bidirectional Mobile growth, Keyguard terminal handoff, and HyperCeiler dual-row regression.
+
+
+## 2026-09-30 — Build 490: remove Keyguard per-frame layout reservation
+
+**Type:** Keyguard Control Center responsiveness / ownership correction  
+**Display version:** 0.0.3  
+**Build / source:** 490 / `20260930-490` / `feat/control-center-transition-matrix`
+
+### Device evidence
+
+Build 488 remains visibly laggy and not finger-following during lockscreen Control Center pulls. The supplied detailed diagnostic shows progress-synchronous end reservation updating `statusIcons.paddingEnd` repeatedly through the gesture, commonly at roughly one update per 120Hz frame. The writer is `SystemUiHomePresentationOwner.syncEndReservation()`, which calls `MiuiStatusIconContainer.setPaddingRelative(...)` whenever the requested width changes.
+
+### Root cause
+
+A layout property was being used as a high-frequency animation property. The native expansion fraction itself is timely, but each changed padding value requires the View layout path before peer geometry reflects the new reservation. On Keyguard this competes with HyperOS's existing fake-root/peer motion and produces visible follow lag even when the lifecycle lease correctly prevents terminal cleanup.
+
+### Change
+
+- Track the verified Control Center source scene inside TransitionOwner.
+- Progress-synchronous semantic reservation is now allowed only for HOME.
+- For KEYGUARD, transition reservation is cleared back to the compact baseline once and then remains untouched through the gesture.
+- Native peers therefore stay on HyperOS's own fake-root and child translation path; Guiyuan continues drawing only its component transition from the same raw native progress.
+- UNKNOWN also fails lightweight with no progress reservation.
+- Build-488 lifecycle lease remains; Build-489 compact-carrier source and Mobile morphology remain.
+
+### 审查 / review
+
+- **root-cause-first:** removes the high-frequency layout mutation rather than smoothing/quantizing it.
+- **native-first:** Keyguard peer motion is returned to HyperOS rather than replaced by a custom translation animator.
+- **single writer:** no new native translation/alpha/visibility writer is introduced.
+- **performance:** eliminates per-frame `setPaddingRelative` on Keyguard; no timer, polling, or extra traversal is added.
+- **cleanup:** existing transition-reservation cleanup remains authoritative and idempotent.
+- **scope:** HOME remains unchanged so accepted Home behavior is not destabilized without evidence.
+- **risk:** Keyguard no longer reserves progressive occupancy for decomposed Guiyuan components; device validation must verify that native peer motion avoids overlap throughout the split.
+
+### Validation
+
+Exact-head Runtime CI and one signed Canary are required. The decisive test is full-gesture finger following on Keyguard versus Build 488.
+
+
+## 2026-09-30 — Build 491: steady-source continuity and native-phase handoff
+
+**Type:** Control Center source/endpoint continuity correction  
+**Display version:** 0.0.3  
+**Build / source:** 491 / `20260930-491` / `feat/control-center-transition-matrix`
+
+### Device evidence
+
+Build 490 is rejected on device.
+
+The supplied 120fps recording gives three bounded observations:
+
+- **Charging source discontinuity:** between video frames at about 0.5499s and 0.5582s, the green Guiyuan ring center shifts from approximately x=1307.7 to x=1277.6, a ~30.1px left jump in one 8.3ms frame. Frame registration of the neighboring native peer region is effectively stationary, so this is not a whole-row HyperOS translation.
+- **Keyguard occupancy regression:** after Build 490 disables Keyguard progress reservation, VPN/headset/silent peers visibly collapse into the decomposed Guiyuan drawing during the pull, in both charging and non-charging semantics.
+- **Fast terminal handoff:** during a fast Keyguard fling, the old QS_FAKE/Guiyuan row and final Control Center row coexist at different geometry for roughly 10 frames (~83ms). A slow pull makes the same interval much harder to perceive.
+
+### Root cause
+
+- QS_FAKE `battery_icon_container` is a valid compact carrier inside the projected surface, but it is not the visual source position authority for the last steady HOME/KEYGUARD frame. Using it as the transition origin allows a surface-switch discontinuity even when its width is stable.
+- Build 490 removed a required occupancy contract instead of fixing its phase.
+- `SystemUiPanelTransitionSource` previously invoked Guiyuan's expansion update only **after** native `onExpansionChanged` returned. Semantic reservation therefore described the current fraction only after HyperOS had already consumed that sample.
+- Native appearance handoff is independent of expansion fraction. During a fast fling the final native surface can become visibly active while Guiyuan geometry is still behind on expansion progress.
+- Build 489 used the shortest Mobile bar to determine shared downward growth; the downward component was too small to change the group optical center materially.
+
+### Change
+
+- HOME and KEYGUARD steady render sessions now expose their laid-out render View as a read-only transition-source witness.
+- Transition Session freezes that steady View's full transformed geometry before native expansion processing when available. QS_FAKE live carrier sampling remains a compatibility fallback only.
+- Expansion update/reservation is committed before calling native `onExpansionChanged`; drawing still occurs on the normal traversal after native processing.
+- HOME and KEYGUARD progress reservation are both restored; UNKNOWN remains lightweight/native.
+- When native final appearance is active, effective outward geometry progress is the greater of native expansion progress and the **actual final native surface alpha**. This has no custom duration, threshold, or interpolator and guarantees Guiyuan geometry cannot remain behind a final surface that is already more visible.
+- Reservation uses the same native-driven handoff progress so fake peer geometry converges with the final row during the actual appearance handoff.
+- Mobile shared bottom downward growth is now half of the tallest bar's extra height. The tallest bar therefore expands symmetrically around the landed dot row, while all four lower edges remain collinear.
+
+### 审查 / review
+
+- **Source ownership:** steady HOME/KEYGUARD rendering owns the transition origin; QS_FAKE remains the projected carrier, not the origin.
+- **Native timing:** no custom animator, duration, delay, or fraction threshold is introduced. Expansion and final-surface alpha remain HyperOS authorities.
+- **Reservation:** Build-490's removal is explicitly rejected; occupancy is restored, but its update is moved to the same native callback phase instead of one callback late.
+- **Appearance:** Guiyuan does not write final QS alpha/translation/visibility; it only reads final effective alpha to avoid lagging behind native handoff.
+- **Performance:** no new listener, polling loop, reflection traversal per frame, or timer is added. Existing pre-draw work reuses already-held endpoint references.
+- **Fallback:** if a steady source View cannot be sampled, the existing QS_FAKE live source remains available rather than inventing coordinates.
+- **Compatibility:** Build-487 HyperCeiler dual-row target recognition, Build-488 Keyguard lease, and Battery ring-fold remain intact.
+
+### Validation
+
+Exact-head Runtime CI and one signed Canary are required. Device validation must include charging entry, Keyguard occupancy, **fast** fully-expanded handoff, slow-pull comparison, reverse collapse, Mobile optical centering, and HyperCeiler dual-row regression.
+
+## 2026-09-30 — Build 492: retain steady source geometry across presentation handoff
+
+**Type:** Control Center transition source-lifecycle correction  
+**Display version:** 0.0.3  
+**Build / source:** 492 / `20260930-492` / `feat/control-center-transition-matrix`
+
+### Device evidence
+
+Build 491 removes the previously reported fast Keyguard handoff stall, but three geometry defects remain: Keyguard press can shift Trinity before meaningful expansion, charging transition remains left-biased, and charging-island pulls can visually open excessive peer spacing.
+
+The supplied Build-491 diagnostic reports `sourceOrigin=qs-fake-live` for every captured transition bucket. The new Build-491 steady-source path therefore never actually becomes active.
+
+### Root cause
+
+Current presentation readiness and transition-geometry validity were coupled incorrectly. `currentTransitionSourceView()` returned null after steady presentation readiness yielded even though its already-laid-out render View could still provide the last steady geometry. Session creation also required identical `rootView` identity, which is too strict when a steady surface and `NotificationShadeWindowView` belong to distinct window roots.
+
+### Change
+
+- Home/Keyguard retain an attached, non-zero laid-out render View as a read-only transition witness after presentation readiness yields.
+- Transition source capture accepts distinct window roots.
+- Cross-window source geometry is reconciled from native screen/window origins and sampled once when the transition Session is created.
+- Same-root sampling and QS_FAKE fallback remain intact.
+- Diagnostics distinguish `*-steady-same-root`, `*-steady-cross-root`, and `qs-fake-live`.
+- Build-491 callback phase, semantic reservation, Keyguard lease, final-alpha handoff, Battery carrier authority, and Mobile morphology remain unchanged.
+
+### 审查 / review
+
+- **root-cause-first:** enables the intended 491 source authority instead of adding x-offset compensation.
+- **ownership:** steady Home/Keyguard owns source geometry; QS_FAKE remains projection/fallback; final Control Center remains native.
+- **single writer:** no new SystemUI property writer is added.
+- **motion:** no animator, delay, threshold, translation follower, or Battery descendant geometry write is added.
+- **performance:** cross-window conversion is one-shot at Session creation.
+- **fail native:** detached/invalid geometry or failed conversion keeps the existing QS_FAKE fallback.
+
+### Validation
+
+Exact-head Runtime CI is required. Device acceptance remains deferred until the subsequent semantic-transition checkpoint is combined with this source fix.
+
+## 2026-09-30 — Build 493: semantic split/reveal and Mobile optical-height correction
+
+**Type:** Control Center transition semantics / optical geometry  
+**Display version:** 0.0.3  
+**Build / source:** 493 / `20260930-493` / `feat/control-center-transition-matrix`
+
+### Device clarification
+
+Two reported final-state appearances are valid native semantics rather than unwanted icons:
+- ordinary dual-SIM may expand one compact Trinity Mobile semantic into two independent native SIM signal groups;
+- Wi-Fi and airplane mode may coexist, so the fully expanded native row may contain both Wi-Fi and a separate airplane icon.
+
+The defect is therefore not that those final icons exist. The transition graph was incomplete: only BATTERY / CENTER / MOBILE source components participated, while additional final native semantics had no correspondence and could appear only at the terminal native handoff.
+
+A separate visual issue affects the Mobile morph regardless of dual-row compatibility: rounded capsule ends make the current vertically expanded bars read optically taller than the native target.
+
+### Root cause
+
+- `resolveTarget()` selected exactly one mobile target even when final SystemUI exposed multiple subscription slots.
+- Wi-Fi occupied the CENTER source component, so a simultaneously valid final airplane slot had no projected transition representation.
+- Mobile target height used an empirical `targetHeight × 0.90` bound. That value did not express the actual capsule geometry and could still let the round end read beyond the desired optical envelope.
+
+### Change
+
+- Preserve existing 1→1 component morphs.
+- Add a 1→N Mobile split only when a second visible/usable final mobile slot has a distinct subscription ID from the primary target.
+- The secondary projected Mobile reads that subscription's real signal level from `CombinedStatusStateStore`; unavailable/unknown secondary signals are not invented.
+- Add a 0→1 airplane reveal only when airplane mode is true, the compact center is Wi-Fi, and a real final `airplane` slot is available.
+- Airplane reveal reuses the HyperOS airplane resource already used by the steady renderer and the read-only final slot geometry; no final native View alpha/visibility/translation is written.
+- Both semantic additions use the existing native expansion fraction through local shape/opacity mappings only; no animator, duration, timer or gesture timeline is added.
+- Semantic reservation spans include the additional mobile/airplane final occupancy so native peer layout and overlay geometry describe the same final semantic set.
+- Mobile max bar height now treats one capsule radius as optical endpoint allowance inside the native target-height budget instead of applying the previous empirical 0.90 multiplier.
+
+### 审查 / review
+
+- **semantic correctness:** four dots are not redefined as two SIMs or as airplane mode. Additional final semantics are modeled explicitly as split/reveal.
+- **native-first:** final slot identity, geometry and final presentation remain HyperOS-owned.
+- **single writer:** no new native property writer is introduced; the existing reversible status-icons reservation remains the only layout writer.
+- **compatibility:** HyperCeiler stacked/dual-row optical target recognition remains available for the primary/secondary mobile witnesses.
+- **fail native:** missing/zero/hidden final slots, duplicate subscription IDs, or unavailable secondary signal state simply omit the projected extra rather than guessing.
+- **performance:** secondary-mobile and airplane final targets are resolved/frozen once per transition Session; no new per-frame child traversal, polling, timer or listener is added.
+- **occupancy phase:** extra reservation spans carry the same local split/reveal progress mode as their projected visuals, preventing native peers from making room ahead of the semantic expansion.
+- **optical geometry:** cap correction is derived from the actual dot diameter/radius, not a device-pixel constant.
+
+### Validation
+
+Runtime CI is required. If green, one signed Canary should validate Build 492 source continuity and Build 493 semantic/optical behavior together while preserving their separate commits for isolation.
+
+## 2026-09-30 — Build 494: restore native source position authority; isolate charging-island reservation
+
+**Type:** Control Center transition geometry / island ownership correction  
+**Display version:** 0.0.3  
+**Build / source:** 494 / `20260930-494` / `feat/control-center-transition-matrix`
+
+### Device evidence
+
+Build 493 is rejected before semantic validation. Device video shows Trinity beginning the Control Center transition from an incorrect upper-left/offset position in every tested scene as soon as the status bar is pressed. The Build-493 diagnostic confirms the retained witness is active (`sourceOrigin=home-steady-cross-root`), but the projected overlay render View reports a transform origin that is not the visible status-bar Trinity position. This proves the remaining defect is not witness lifetime; it is the selected **position authority**.
+
+A second device clarification scopes the excessive peer gap to **charging + active Super-Island**. Ordinary non-island charging should not be changed.
+
+### Root cause
+
+Build 492/493 froze the steady overlay render View as both position and basis authority. Home/Keyguard render Views are ViewOverlay children: their layout/basis is valid for drawing, but their transformed global origin is not the native carrier's visual position contract. This accidentally discarded the earlier verified rule already used by the live fallback: native carrier/anchor owns position; stable render View owns basis/size.
+
+For charging + active island, HyperOS already owns peer displacement through `HomeStatusBarViewBinderInjector.onIslandStatusChanged`. The later progress-synchronous fake-status-icons reservation adds a second layout displacement on top of that native island motion.
+
+### Change
+
+- Home and Keyguard now expose one retained transition witness containing both:
+  - stable render View for width/height/basis;
+  - native `battery_icon_container` carrier for position.
+- Transition Session samples both once and freezes `composeSourceGeometry(positionAuthority=native carrier, basisAuthority=stable render)`.
+- Cross-window conversion remains one-shot and unchanged; QS_FAKE remains the compatibility fallback.
+- `SystemUiIslandMotionSource` now retains the latest native `showing` state from the already-hooked island callback even when detailed diagnostics are disabled.
+- Progress-synchronous transition reservation is suppressed only when `charging && nativeIslandShowing`; the underlying compact carrier reservation remains active.
+- Non-island charging and all non-charging scenes keep the existing progress reservation.
+- Build-493 semantic split/reveal and Mobile optical-height changes are untouched.
+
+### 审查 / review
+
+- **root-cause-first:** restores the previously established native-position/render-basis split instead of adding x/y offsets.
+- **native-first:** `battery_icon_container` remains source-position authority; HyperOS island callback remains island-motion authority.
+- **single writer:** no new native translation/alpha/visibility writer is added.
+- **island ownership:** charging-island no longer receives both native island motion and Guiyuan transition padding motion.
+- **performance:** one extra retained View reference per steady witness and one Boolean island state updated by an existing event hook; no polling, timer or per-frame reflection.
+- **fail native:** missing/detached anchor or render witness falls back to the existing QS_FAKE path.
+- **scope:** ordinary charging and non-island scenes are deliberately unchanged.
+
+### Validation
+
+Exact-head Runtime CI and one signed Canary are required. Device validation is intentionally limited first to global press-entry origin and charging-island peer spacing. Build-493 semantic behavior should not be re-evaluated until those geometry gates pass.
+
+
+## 2026-09-30 — Build 495: master-switch fail-native closure
+
+**Type:** Runtime lifecycle / presentation-ownership safety  
+**Display version:** 0.0.3  
+**Build / source:** 495 / `20260930-495` / `feat/control-center-transition-matrix`
+
+### Device evidence
+
+Build 494 exposes a safety regression independent of the transition-shape defects: after disabling the Guiyuan master switch, native status icons can remain missing across scenes. The issue is not limited to Control Center.
+
+A separate motion observation remains open for the next checkpoint: with native SystemUI the status row moves directly lower-left during Control Center expansion, while Guiyuan currently adds a short vertical-only segment before joining that trajectory. Build 495 intentionally does not touch that motion path so the safety regression can be isolated.
+
+### Root cause
+
+Master-switch-off was not a hard acquisition boundary for every presentation owner.
+
+- Runtime feature changes were sent to Home/Keyguard/Control Center render sessions but **not** to `SystemUiNativeCombinedParticipantOwner`. Its validated native handoff could therefore keep Battery/Network suppression active after the UI feature was disabled.
+- `updateControlCenterSourceSceneEligibility()` evaluated HOME/KEYGUARD capability without `settings.enabled`, so a feature-settings refresh could re-enable QS_FAKE presentation immediately after the disable path restored it.
+- `onHomePresentationReadinessChanged(ready=true)` could call `SystemUiHomePresentationOwner.activate(host)` without checking the master switch, allowing a later readiness callback to reacquire native Home suppression.
+- The native participant handoff callback had no independent master-switch race guard.
+
+### Change
+
+- Route every runtime feature change to `SystemUiNativeCombinedParticipantOwner.onFeatureSettingsChanged()`.
+- Add `featureEnabled` to Control Center projection eligibility; disabled always resolves native.
+- Add a master-switch hard gate before Home presentation activation.
+- On feature disable, release Guiyuan-owned Home, Keyguard and Control Center presentation state plus native Battery/Network suppression and clear Control Center eligibility/lease state.
+- Add a race-safe guard in the native participant handoff callback so an `active=true` callback observed after disable cannot reacquire suppression.
+- Keep hooks/state collectors installed; re-enabling remains event-driven and does not require SystemUI restart.
+- Build-494 transition geometry, semantic split/reveal and island logic are unchanged.
+
+### 审查 / review
+
+- **Fail native:** feature disabled now means no Guiyuan presentation owner may acquire or retain suppression.
+- **Single writer / cleanup:** the change uses existing owner-specific deactivate/restore contracts; it does not write native geometry directly.
+- **Race handling:** both settings propagation and acquisition-site guards are used, so a late callback cannot undo the disable transaction.
+- **Lifecycle:** hooks remain installed while visual/native ownership is released; re-enable can reacquire through the existing readiness/handoff flows.
+- **Performance:** no new hook, listener, polling, timer, frame callback or traversal is added.
+- **Isolation:** no transition curve/geometry change is included in this checkpoint.
+
+### Validation
+
+Exact-head Runtime CI plus one signed Canary. Device gate: disable the master switch while Guiyuan is active, then verify native Wi-Fi/mobile/battery and peer icons stay present through Home, Keyguard, Control Center pulls and repeated scene transitions. Re-enable must restore Guiyuan without restart.
+
+
+## 2026-09-30 — Build 496: main-thread master-switch restore transaction
+
+**Type:** Runtime lifecycle / fail-native restoration  
+**Display version:** 0.0.3  
+**Build / source:** 496 / `20260930-496` / `feat/control-center-transition-matrix`
+
+### Device evidence
+
+Build 495 improves Control Center fallback but fails the steady Home master-switch gate. After disabling Guiyuan, the native icons previously covered/suppressed by Guiyuan do not return in steady Home; pulling Control Center shows the native row correctly.
+
+The Build-495 diagnostic identifies a thread split at the disable boundary:
+- `homeRenderFeature enabled=false`, readiness and handoff execute on the SystemUI main thread;
+- `homePresentation cleanup source=feature-disabled` and the module-level release transaction execute on the RemotePreferences callback worker thread.
+
+The Home presentation cleanup reports its logical state restored, but its View/layout restoration is therefore not committed as one main-thread UI transaction.
+
+### Root cause
+
+Build 495 added `releaseFeaturePresentationOwnership()` directly inside the RemotePreferences change callback. Individual render owners already marshal some work to main, but the module-level presentation/suppression release did not. This split the feature-off transaction across threads and allowed native suppression bookkeeping to clear without a reliable Home measure/layout commit.
+
+### Change
+
+- `onRuntimeFeatureSettingsChanged()` now marshals the **entire** settings ownership transaction to the SystemUI main looper before any native participant, render session, presentation owner, suppression owner, lease or eligibility mutation.
+- Prefer the captured status-host View's `post()`; fall back to a main-looper Handler if the host is not yet available.
+- If main-thread dispatch cannot be scheduled, fail without performing off-main UI mutations.
+- Diagnostic `featureSettings.changed` now records `mainThread=true`.
+- Existing Build-495 feature gates and release ordering remain; no manual peer visibility/visible-state writer is introduced.
+
+### 审查 / review
+
+- **Root cause first:** fixes the invalid UI-thread boundary rather than forcing peer `View.visibility` or `setVisibleState()`.
+- **Native-first:** native Wi-Fi/mobile/battery remain responsible for their own visibility once Guiyuan suppression is released.
+- **Single transaction:** participant suspend, Home/Keyguard/Control Center cleanup, Battery/Network suppression release and layout requests now share one main-thread turn.
+- **Fail native:** no off-main fallback mutation is allowed if dispatch fails.
+- **Performance:** one event-driven main-thread post per off-main settings change; no polling, timer, frame callback or new hook.
+- **Isolation:** transition geometry/curve, charging source geometry and island handling are unchanged.
+
+### Validation
+
+Exact-head Runtime CI and one signed Canary. Device acceptance requires native steady Home icons to return immediately on master-switch disable **before any Control Center gesture**, stay correct after a pull/collapse, and allow Guiyuan to reacquire on re-enable without restart.
+
+
+## 2026-09-30 — Build 497: keep Keyguard island reservation continuous
+
+**Type:** Keyguard -> Control Center terminal layout ownership correction  
+**Display version:** 0.0.3  
+**Build / source:** 497 / `20260930-497` / `feat/control-center-transition-matrix`
+
+### Device evidence
+
+Build 496 video shows the remaining fast-pull stall is specific to the locked Keyguard path when Super-Island appears near the terminal Control Center handoff. The visible symptom is a one-frame whole-row layout swap: an ordinary peer icon such as VPN briefly appears next to Mobile and then disappears.
+
+The matching diagnostic shows the native status row rebases by about 15 px when island state becomes active, and in the same handoff the Guiyuan transition reservation is cleared from the expanded semantic width back to compact 105 px with:
+`transitionReservation cleared source=transition-source-native-peer-motion`.
+When island/appearance state changes again, progress reservation is reapplied. This creates an avoidable second layout-authority discontinuity on top of HyperOS's own Keyguard island rebase.
+
+### Root cause
+
+`Policy.usesProgressSynchronousReservation()` treated HOME and KEYGUARD identically and disabled progress reservation for every `charging && nativeIslandShowing` sample. That Build-494 rule was introduced for Home charging-island peer displacement, where HyperOS already owns the island motion. On Keyguard, however, the terminal handoff uses the established Keyguard transition lease and the fake -> final Control Center bridge. Dropping reservation at the island callback boundary makes the QS_FAKE status row collapse to compact reservation for one handoff phase, then expand again, exposing a transient native layout.
+
+### Change
+
+- Make transition-reservation authority scene-specific.
+- HOME: preserve Build-494 behavior; charging + active island still uses native-peer-motion and disables progress reservation.
+- KEYGUARD: keep progress-synchronous reservation enabled even while charging + island is active.
+- UNKNOWN remains native/no reservation.
+- Add focused policy coverage for the Keyguard charging-island case.
+- Bump source identity to Build 497 / `20260930-497`.
+- No change to animation curves, source/target geometry, native island Boolean source, Keyguard callback phase/lease, 105 px compact carrier, or native View visibility.
+
+### 审查 / review
+
+- **root-cause-first:** fixes the observed reservation authority flip rather than hiding the VPN slot or adding timing/geometry constants.
+- **HyperOS-native-first:** HyperOS still owns island geometry and final Control Center presentation; Guiyuan only keeps its already-existing QS_FAKE semantic reservation continuous across the Keyguard handoff.
+- **single writer:** status-icons end padding remains the sole Guiyuan layout reservation writer; no second translation/visibility writer is introduced.
+- **cleanup:** normal transition stop/inactive cleanup is unchanged; reservation still releases on the existing authoritative transition boundaries.
+- **491 protection boundary:** no callback phase, Keyguard lease, final-alpha handoff, or responsiveness path is changed.
+- **Home isolation:** Home charging-island behavior is deliberately unchanged for this checkpoint.
+- **performance:** pure policy change plus unit coverage; no hook, polling, timer, listener, reflection traversal, or per-frame work is added.
+- **Fail-native:** UNKNOWN remains native; invalid/unavailable transition sources keep existing fallback behavior.
+
+### Validation
+
+Run exact-head Runtime CI, then one signed Canary. Device test is intentionally narrow:
+1. Keyguard, charging, with Super-Island able to appear during Control Center pull.
+2. Fast pull to fully expanded Control Center several times.
+3. Watch the final handoff for whole-row rebase, VPN/other peer one-frame flash, and the prior terminal hitch.
+4. Reverse-collapse once to ensure no new terminal flash.
+5. Home charging-island behavior is regression-only; it should remain as Build 496 and is not part of this fix.
+
+
+## 2026-09-30 — Build 498: remove island animation frame probe
+
+**Type:** Diagnostic isolation / Keyguard Super-Island performance  
+**Display version:** 0.0.3  
+**Build / source:** 498 / `20260930-498` / `feat/control-center-transition-matrix`
+
+### Device evidence
+
+Build 497 removes the visible one-frame layout swap/VPN flash at the terminal Keyguard -> Control Center handoff. The remaining hitch is now scoped more tightly:
+- it occurs only when Super-Island exists on the lockscreen;
+- charging state is irrelevant;
+- every lockscreen pull replays the native Super-Island entrance animation, and the hitch coincides with that animation.
+
+This means the Build-497 reservation fix is valid but not sufficient. The remaining performance defect must be isolated from diagnostics before changing runtime motion ownership.
+
+### Root cause candidate being isolated
+
+`SystemUiIslandMotionSource` is a read-only hook for HyperOS `onIslandStatusChanged`, but Detailed diagnostics also started a 900 ms `ViewTreeObserver.OnPreDrawListener` after every island event. During that period it repeatedly sampled several status-row Views and up to ten status children, called screen-coordinate APIs, built strings, and emitted logs on changed frames.
+
+That probe is not required for runtime behavior. Because it runs exactly while the native island animation is active, it can amplify or create the observed terminal hitch and prevents clean attribution to HyperOS versus Guiyuan runtime observers.
+
+### Change
+
+- Keep the existing island-status hook and `isIslandShowing()` runtime fact unchanged.
+- Keep the single event-level island diagnostic snapshot.
+- Remove the island `OnPreDrawListener` follower entirely.
+- Remove its 900 ms timeout, per-frame status-child traversal, screen-position sampling, and repeated log emission.
+- No transition, reservation, source/target geometry, island animation, Keyguard lease/callback phase, suppression, or visibility logic changes.
+- Bump source identity to Build 498 / `20260930-498`.
+
+### 审查 / review
+
+- **diagnostics must not perturb runtime:** the removed code existed only to observe the animation and had no product behavior contract.
+- **native-first:** HyperOS remains sole island-animation authority.
+- **single writer:** no runtime writer is added or moved.
+- **performance:** eliminates one main-thread pre-draw observer plus repeated coordinate traversal/string/log work for each island event.
+- **cleanup:** deleting the probe also removes its delayed callback and listener lifecycle; the island source retains only event state.
+- **isolation:** Build-497 Keyguard reservation policy stays intact; Home charging-island behavior remains unchanged.
+- **fail-native:** runtime island state still follows the native callback; if the hook is unavailable existing compatibility fallback remains unchanged.
+
+### Validation
+
+Exact-head Runtime CI and one signed Canary.
+
+Primary A/B:
+1. Lock screen with an existing Super-Island, charging or non-charging.
+2. Fast pull Control Center to fully expanded several times.
+3. Confirm the Build-497 VPN/layout flash stays gone.
+4. Judge whether the terminal hitch during the island entrance replay disappears or materially reduces.
+
+The same APK may also be used for unrelated pending regression checks without adding more code changes: Build-496 master-switch fail-native and Build-493 semantic split/reveal scenarios can be exercised separately.
+
+## 2026-09-30 — Build 499: native carrier trajectory, optical targets and ownership-gated semantic expansion
+
+**Type:** Control Center transition geometry / native semantic authority / optical endpoint correction  
+**Display version:** 0.0.3  
+**Build / source:** 499 / `20260930-499` / `feat/control-center-transition-matrix`
+
+### Accepted evidence entering this build
+
+Build 498 is device-accepted for the isolated Keyguard/Super-Island performance issue. After removing the island animation pre-draw diagnostic probe, the terminal hitch no longer reproduces; the Build-497 one-frame VPN/whole-row terminal flash also remains gone.
+
+Build 496 master-switch fail-native behavior is independently device-accepted in the same validation round: disabling Guiyuan restores native presentation normally without requiring a Control Center gesture. Build 499 must not reopen either accepted boundary.
+
+### Remaining device evidence
+
+The active transition line still has four separate visual/state defects:
+- native HyperOS peers move lower-left from the first transition frame, while Guiyuan Trinity first appears to move predominantly downward and remains visually too high before joining the peer trajectory;
+- rounded Mobile bars can exceed the visual height of the final native signal;
+- supplemental final semantics such as Airplane or an additional SIM can appear as independent insertions or visibly cross unrelated icons;
+- removing all SIMs can leave stale compact mobile bars/type even after HyperOS has already switched to its native No-SIM presentation.
+
+### Root cause
+
+The defects share authority mistakes, not one timing problem.
+
+1. **No-SIM state authority:** RenderModel selected cached mobile/subscription/type state before reading the already-observed HyperOS `no_sim` presentation. The native state could therefore be correct while stale compact mobile semantics remained eligible.
+2. **External motion authority:** Build 492/494 correctly froze the steady source witness to avoid entry discontinuity, but the entire source origin was then effectively static for the gesture. HyperOS's fake status-icons carrier itself moves diagonally during expansion, so component interpolation from one frozen origin cannot reproduce native peer motion.
+3. **Optical target authority:** Mobile and some single-icon final participants could resolve an ImageView/StatusBarIconView but still use the full View box as target geometry instead of the drawable frame actually rendered inside it.
+4. **0→1 semantic ownership:** Supplemental participants were previously treated as special visual insertions. The correct eligibility is provenance-based: a participant may emerge from Trinity only if the current Guiyuan presentation actually owns/hides that native slot and compact composition has no independent visible source for it.
+
+### Change
+
+- Native HyperOS No-SIM presentation is evaluated before mobile cache selection. While native `no_sim` is visible:
+  - selected mobile binding is cleared;
+  - effective data subscription becomes unavailable for compact rendering;
+  - stale signal level and mobile type cannot participate;
+  - existing Wi-Fi-center semantics remain valid, with the Mobile dots/unavailable mark staying one compact visual group.
+- Transition source witness now carries:
+  - stable Guiyuan render basis;
+  - native compact battery position anchor;
+  - the source `MiuiStatusIconContainer` motion carrier;
+  - a snapshot of slots actually hidden by the active Home/Keyguard presentation session.
+- Transition Session resolves source/fake/final status-icon carriers once and reads only their live transforms during drawing. Component source/target coordinates are expressed relative to those carrier frames, so HyperOS owns external row motion while Guiyuan owns only its internal semantic decomposition.
+- Unmatched compact components no longer shrink in place. They are rebased onto the live native carrier and use a fast native-progress-derived fade.
+- ImageView/StatusBarIcon target geometry now prefers the actual drawable frame after `imageMatrix` instead of the whole View bounds. This applies to Mobile optical height and single-icon targets such as Airplane/No-SIM.
+- Airplane and No-SIM source geometry uses native optical asset bounds; direct center semantics continue as ordinary source→target transitions.
+- A participant with no independent compact icon may use latent projection only when the current presentation's owned-slot snapshot proves Guiyuan actually hid that native participant. The same carrier-relative path is used, but drawing remains transparent while far from the final target and reveals only near that native slot.
+- Additional dual-SIM final participants use the same ownership-gated latent rule rather than becoming visible while crossing unrelated icons.
+- Mobile dots and its unavailable-mark cross remain one visual component. The cross is not morphed into a SIM-card glyph.
+- The existing default/effective data subscription mapping remains authoritative for center network type; dual-SIM 5G does not switch to “first visual slot” semantics.
+- Build identity becomes `versionCode=260930299`, `buildId=20260930-499`.
+
+### 审查 / review
+
+- **root-cause-first:** fixes state/motion/optical authority rather than adding x/y offsets, hardcoded durations, or scene-specific geometry patches.
+- **native-first:** HyperOS remains No-SIM state authority, carrier-motion authority, final slot/drawable authority, and gesture-progress authority.
+- **ownership:** latent 0→1 participants require an actual current presentation ownership snapshot; final native icons that Guiyuan never hid cannot be emitted from Trinity.
+- **single writer:** no new native translation, alpha, visibility, padding, or geometry writer is added. Existing reservation ownership remains unchanged.
+- **491/497 protection:** Keyguard callback phase/lease and scene-specific island reservation policy are unchanged.
+- **498 protection:** no island pre-draw/frame diagnostic is reintroduced.
+- **performance:** source/fake/final carrier Views are resolved once per Session; per-frame work is transform sampling and overlay math only. No repeated hierarchy/reflection scan, polling, timer or new hook is added.
+- **fail native:** missing/invalid carrier or optical witness falls back through existing compatibility/native paths rather than inventing coordinates.
+- **cleanup:** no new persistent native state is owned by Build 499.
+- **review fixes before checkpoint:** static represented-slot eligibility was rejected during review and replaced with active session `clipStates` ownership; obsolete reveal-scale policy/tests were removed; No-SIM is not implemented as “small cross morphs into SIM card”; a compile-time missing `no_sim` slot constant and stale unit-test references were caught by CI and corrected before the final checkpoint.
+
+### Validation
+
+Pre-bump exact-head Runtime CI for source `bf2bd6357d20e67b443ee5e38d65a70bd2f03187` passes in run 36660129272.
+
+Final Build-499 exact-head Runtime CI is required after this version/documentation commit, followed by one signed work-branch Canary.
+
+Combined device test package:
+1. **No SIM / Wi-Fi off:** remove all SIMs; once HyperOS native No-SIM appears, Guiyuan must not retain old bars/5G. Center No-SIM should transition to the final native No-SIM glyph with native optical sizing.
+2. **No SIM / Wi-Fi on:** Wi-Fi remains center; four Mobile dots + unavailable cross remain one compact group and exit together. Native No-SIM may emerge only as an ownership-gated latent final participant; the cross must not morph into the SIM-card glyph.
+3. **SIM reinsertion:** when native No-SIM disappears, Guiyuan exits No-SIM but must not resurrect stale old bars/type while HyperOS is still searching. Current signal/type appears only after the native mobile pipeline provides it.
+4. **Airplane:** when Airplane is the initial center semantic, it follows the normal native optical source→target path. When it is only a supplemental final participant, it must not visibly fly through peer icons; a short empty target slot is acceptable before near-target reveal.
+5. **Dual SIM:** secondary SIM is latent until near its own final target; center 4G/5G remains tied to the effective/default data SIM.
+6. **Mobile geometry:** rounded bars must not visually exceed the final native signal's drawable height.
+7. **Trajectory:** from the first visible frame, Trinity should inherit the same native lower-left carrier motion as adjacent peers, without the prior vertical-only lead-in or high baseline. Verify reverse collapse too.
+8. **Regression:** Keyguard + Super-Island stays hitch-free with no VPN/whole-row terminal flash; master-switch off/on still fails native correctly.
+
+## 2026-09-30 — Build 500: steady-source continuity and unified latent slot reveal
+
+**Type:** Control Center transition geometry correction / latent-policy consolidation  
+**Display version:** 0.0.3  
+**Build / source:** 500 / `20260930-500` / `feat/control-center-transition-matrix`
+
+### Problem
+
+Build-499 device review exposes four concrete transition issues:
+- pressing the status bar makes the four compact Mobile dots jump downward before normal decomposition begins;
+- charging scenes still shift Trinity left at gesture entry across Home/Keyguard;
+- some decomposed final positions remain biased from their native targets;
+- latent Airplane/No-SIM participants appear too large/too early, while the previously separate second-SIM split path is no longer desirable as an independent visual policy.
+
+The same review clarifies the intended latent presentation: first open a full final native icon slot, then reveal quickly; all participants with no independent visible compact source should use that rule.
+
+### Evidence and root cause
+
+1. **Carrier-size rescaling at p≈0.** Build 499 expressed component position as a normalized offset inside source/target `MiuiStatusIconContainer` geometry, then multiplied that offset by the current fake carrier width/height. The steady and fake rows do not share identical dimensions. A compact Mobile source below carrier center is therefore moved vertically when the fake row becomes taller even with transition progress still at zero. The same normalization can bias endpoints whenever current/target carrier dimensions differ.
+2. **Transition source position authority diverged from steady layout.** Steady Home/Keyguard placement is a stable end-anchored slot in the overlay host. Transition freeze instead rebuilt source center from the inner `battery_icon_container`. Charging changes outer Battery presentation geometry, so this independently reconstructs a different source position and reintroduces the charging press-entry shift that steady layout had already solved.
+3. **Latent participants used mixed policies.** Airplane/No-SIM and additional SIM ultimately describe the same visual condition: Guiyuan owns/hides a final native participant but compact Trinity exposes no independent visible source for it. Separate split/reveal timelines are unnecessary.
+
+### Change
+
+- Carrier-relative projection now inherits only the live native carrier **center translation**.
+- Source and target component offsets relative to their carrier centers remain physical-pixel offsets and interpolate directly; carrier width/height changes no longer rescale internal Trinity position.
+- Unmatched carried content uses the same center-delta rule.
+- Retained transition source position is reconstructed from the same Home/Keyguard **overlay-host end slot** used by steady layout; the render View remains basis/size authority.
+- Remove the obsolete inner Battery carrier from transition-source position authority and witness validity.
+- Keep final target drawable-frame resolution from Build 499.
+- Consolidate additional SIM, supplemental Airplane and supplemental No-SIM into one latent policy:
+  - position follows the shared native motion path;
+  - visible basis uses the final native target basis immediately;
+  - alpha remains zero until relative horizontal separation reaches one final native slot width;
+  - alpha then completes quickly over the next quarter-slot distance;
+  - no independent dual-SIM split timeline remains.
+- Rename the remaining additional-Mobile renderer/diagnostic from split terminology to latent terminology.
+- Build identity becomes `versionCode=260930300`, `buildId=20260930-500`.
+
+### 审查 / review
+
+- **root-cause-first:** no x/y compensation, charging-only offset, delay, custom duration or per-icon positional patch is added.
+- **native-first:** HyperOS still owns gesture progress, fake/final carrier motion and final native slots/drawables; Guiyuan only projects its own overlay pixels.
+- **single writer:** no new native translation, alpha, visibility, padding or geometry writer is introduced.
+- **steady/transition separation:** steady layout code is not changed; transition now reuses its end-slot authority rather than reconstructing a competing Battery-centered origin.
+- **latent consistency:** Airplane, No-SIM and additional SIM share one slot-spacing/reveal policy; ownership gating remains required before any latent participant can exist.
+- **performance:** no new Hook, listener, reflection traversal, polling, timer, Animator or frame diagnostic is added. Existing carrier Views remain resolved once per transition Session.
+- **491/497/498 protection:** Keyguard callback phase/lease, scene-specific island reservation, and removal of the island pre-draw diagnostic probe are untouched.
+- **fail native:** retained witness still requires attached/non-zero render, host and motion-carrier geometry; unresolved targets retain existing native/fallback behavior.
+
+### Validation
+
+Run exact-head Runtime CI for the Build-500 checkpoint, then produce one signed work-branch Canary.
+
+Focused device gates:
+1. Home and Keyguard, slow + fast pull: no first-frame Mobile-dot downward jump; Trinity starts continuously from the steady visual position.
+2. Charging and non-charging: no press-entry horizontal discontinuity; charging must not reintroduce the old left shift.
+3. Fully expanded endpoint: Mobile/Wi-Fi/Airplane/No-SIM targets visually coincide with their native final slots/drawables; check reverse collapse too.
+4. Latent Airplane/No-SIM/additional SIM: first leave one native final-slot-width of empty spacing, then reveal quickly using final native optical size; no overlapping emergence and no separate dual-SIM animation behavior.
+5. Regression: Build-498 Keyguard + Super-Island remains hitch-free, Build-497 VPN/whole-row flash stays absent, and Build-496 master-switch fail-native behavior remains accepted.
+
+## 2026-09-30 — Build 501: latent optical authority and Control Center collapse cleanup
+
+**Type:** Control Center latent-target correction / reservation ownership / scene cleanup  
+**Display version:** 0.0.3  
+**Build / source:** 501 / `20260930-501` / `feat/control-center-transition-matrix`
+
+### Problem
+
+Build-500 device validation exposes three new defects:
+- Airplane and No-SIM participants that have no independently visible compact source enter with an obviously oversized icon and an unnatural path.
+- Enabling Airplane can deform the trajectory of the **entire** Trinity decomposition, not only the airplane participant.
+- A native peer that belongs only to expanded Control Center (observed with Bluetooth) can remain visible after collapsing back to Home.
+
+### Evidence and root cause
+
+1. **Single-icon latent target used slot geometry.** Supplemental Airplane/No-SIM targets were created with only a preferred slot and no semantic child entry. When no optical child was selected, target resolution was allowed to use the whole native slot/content box. That makes the latent icon basis much larger than the final glyph.
+2. **Latent reservation fed back into the shared motion carrier.** Additional SIM, supplemental Airplane and supplemental No-SIM were added to `resolveReservationSpans()`. The resulting reservation changes QS_FAKE `statusIcons.paddingEnd`, while the same `MiuiStatusIconContainer` is sampled as the live carrier for every projected Trinity component. A no-source participant could therefore move the coordinate carrier that defines the rest of the animation.
+3. **Collapse hid only Guiyuan overlay, not native compact ownership.** On `visible=false`, Home was restored and `requestedVisible` was cleared, but the Control Center native presentation session intentionally remained prearmed. Device evidence shows that after a full Control Center presentation this lifetime is too broad: Control-Center-only peer state can survive the scene boundary.
+
+### Change
+
+- Airplane and No-SIM latent target witnesses now require a unique, visible, drawable-bearing native `ImageView` (slot root or descendant).
+- Their target geometry is resolved through the real drawable frame / image matrix path. If that optical target is unavailable or ambiguous, the latent participant is not drawn; the whole slot is no longer accepted as a size fallback.
+- Latent 0→1 / 1→N participants no longer contribute reservation spans:
+  - additional SIM;
+  - supplemental Airplane;
+  - supplemental No-SIM.
+- Reservation authority remains with transition components that already have a real compact Trinity source.
+- `CombinedStatusControlCenterRenderSession.setRequestedVisible(false)` now releases `SystemUiHomePresentationOwner` Control Center presentation ownership after Home is restored. Existing cleanup restores:
+  - end reservation;
+  - persistent ignored slots via native setter/layout refresh;
+  - Guiyuan-owned clip masks.
+- The fake host/render session remains attached for reuse; the next `visible=true` path reacquires native presentation through existing `attach(...reused=true)`.
+- No Bluetooth-specific slot logic, new visibility writer, new Hook, timer, Animator or gesture timeline is introduced.
+- Build identity becomes `versionCode=260930301`, `buildId=20260930-501`.
+
+### 审查 / review
+
+- **Root cause:** fixes target optical authority, reservation ownership and scene lifetime rather than applying per-icon scale/trajectory offsets or hiding Bluetooth directly.
+- **Native-first:** actual native drawable frame remains final single-icon optical authority; unresolved optical geometry fails native for that latent frame.
+- **Single writer:** latent participants no longer alter the same reservation that drives their shared carrier; this removes the reservation→carrier→trajectory feedback loop.
+- **Scene ownership:** Control Center compact ownership is now bounded by visible-scene lifetime; cleanup reuses the existing reversible presentation contract.
+- **Performance:** retained host/render session still avoids recreating hooks or View discovery infrastructure on every collapse; only presentation ownership is released/reacquired.
+- **Prearm scope:** cold/fake-root prearm is intentionally left unchanged in this build to keep collapse cleanup as the isolated lifecycle variable. Device validation will decide whether prearm also needs a narrower lifetime.
+- **Protected boundaries:** Build-491 Keyguard callback/lease, Build-497 scene-specific Keyguard island reservation and Build-498 island diagnostic-performance fix are untouched.
+- **Review-caught implementation error:** intermediate commit `fd42361c` accidentally matched the wrong `mobileSpec` block while removing latent reservation and deleted a broad runtime range. Post-commit diff review caught it before any device package. Commit `d9d5cd55` reconstructs the file from the Build-500 parent and reapplies only the intended optical/reservation changes. The final Build-500→Build-501 diff contains no broad runtime deletion.
+
+### CI / validation
+
+Pre-check Runtime CI on source `7c7c316907a8c1f9cab73e0dcce4e544e60b147c` passes Build workflow #1880, including pinned HyperOS target verification, unit tests/APK build and Modern Xposed metadata.
+
+Build-501 exact-head Runtime CI and one signed work-branch Canary are required before device validation.
+
+Focused device gates:
+1. **Airplane / NoSIM latent size:** no whole-slot-sized icon; first visible frame must already match final native glyph optical size.
+2. **Latent path:** supplemental Airplane/NoSIM/additional SIM may appear only after their final slot-width has separated, then reveal quickly; no odd sweep through peer icons.
+3. **Whole-group trajectory:** toggling Airplane must no longer change Battery/Wi-Fi/Mobile decomposition path solely because the supplemental airplane participant exists.
+4. **Bluetooth / native-only peers:** open full Control Center with a peer that is absent on Home, collapse, and verify that peer does not remain in Home; repeat the cycle.
+5. **Reacquire:** a second Control Center pull after collapse must still acquire compact Guiyuan presentation correctly without missing/duplicated native icons.
+6. **Build-500 regressions:** recheck first-frame Mobile-dot vertical continuity, charging press-entry horizontal continuity and final native endpoint alignment.
+7. **Protected regressions:** Keyguard + Super-Island hitch and VPN/whole-row terminal flash remain absent; master-switch fail-native remains normal.
+
+
+
+## 2026-09-30 — Build 502: native handoff endpoint closure and latent scale ownership
+
+**Type:** Control Center endpoint geometry / latent scale authority / evidence correction  
+**Display version:** 0.0.3  
+**Build / source:** 502 / `20260930-502` / `feat/control-center-transition-matrix`
+
+### Problem
+
+Build-501 device validation narrows the active defects:
+- fake Trinity decomposition finishes consistently to the **right** of the real final Control Center icons across scenes;
+- the previously reported press/down-pull Trinity left bias is no longer reproduced, so the Build-500 steady-source/end-slot correction must be preserved;
+- latent participants with no independent compact source still enter too large, and the additional-SIM Mobile can show a severe vertical/stretch enlargement;
+- the previously reported Bluetooth icon persistence after collapse is confirmed by the tester to be unrelated to Guiyuan and must not drive Guiyuan lifecycle ownership.
+
+The supplied Build-501 diagnostic confirms the tested package is `20260930-501`. It also shows the transition reading separate QS_FAKE and final status-icon carrier geometry while endpoint reservation reaches the expanded native span.
+
+### Root cause
+
+1. **Carrier path did not mathematically close to the real carrier.** Build 500 correctly stopped rescaling component offsets with carrier height/width, but `interpolateCarrierRelativeGeometry()` still placed every component on the **current fake carrier center** plus an interpolated target-relative offset. Exact target placement therefore depended on an unproven assumption that fake and final `MiuiStatusIconContainer` centers would naturally converge. Device evidence disproves that assumption: the source-side left discontinuity is gone, while all final components retain the same-direction endpoint bias.
+2. **Latent reveal owned scale twice.** Normal Mobile uses its declared `TransitionScalePolicy` (additional Mobile is `SHRINK_ONLY`), but the latent path then overwrote the resulting basis with `latentTargetSizedGeometry()`, forcing the full target basis before reveal. That bypassed `SHRINK_ONLY` and explains the extra-SIM enlargement/stretch. Airplane/No-SIM used the same forced-target-basis special case.
+3. **Bluetooth lifecycle attribution is disproven.** Build 501 added collapse-time Control Center presentation release solely to address the reported Bluetooth persistence. The tester now confirms that symptom is unrelated to Guiyuan; keeping that lifecycle mutation would broaden ownership without supporting evidence.
+
+### Change
+
+- Preserve Build-500 steady-source/end-slot and physical-pixel carrier-offset logic.
+- Add one carrier-center closure primitive driven only by **HyperOS native QS_FAKE alpha**:
+  - fake alpha 1 → carrier center remains the live fake carrier;
+  - native fade progresses → carrier center continuously interpolates toward the real final carrier;
+  - fake alpha 0 → carrier center equals the final carrier;
+  - carrier width/height basis is not blended, so the Build-500 no-rescale guarantee remains intact.
+- Existing HyperOS expansion/final-appearance progress still owns component offset/shape progression; no second gesture curve is introduced.
+- Remove `latentTargetSizedGeometry()` and its invalid test assumption.
+- Latent Airplane/No-SIM/additional-SIM keep the existing native-slot separation/reveal-alpha rule, but their visual basis is now exactly the normal projected path basis:
+  - additional Mobile therefore keeps `SHRINK_ONLY`;
+  - Airplane/No-SIM may approach their optical target through their declared normal target-scale interpolation instead of appearing at full target basis immediately.
+- Revert Build-501 `requestedVisible=false -> deactivateControlCenter()` behavior and restore the pre-Build-501 QS_FAKE prearm lifetime.
+- Build identity becomes `versionCode=260930302`, `buildId=20260930-502`.
+
+### 审查 / review
+
+- **root-cause-first:** no x/y magic offset is used; the endpoint error is closed by the two native carrier centers already sampled by the transition owner.
+- **native-first:** closure progress reuses the existing HyperOS fake-root alpha, so opening and reverse collapse inherit the platform handoff rather than a Guiyuan threshold/duration.
+- **single writer:** Guiyuan still writes only its overlay pixels and the existing semantic reservation; no native translation/alpha/visibility writer is added.
+- **source protection:** the Build-500 steady host end-slot source remains unchanged because Build-501 testing confirms the old down-pull left shift is gone.
+- **latent scale ownership:** reveal alpha decides visibility only; scale returns to the component transition policy and can no longer be overridden by a second latent-size authority.
+- **evidence correction:** Bluetooth persistence is removed from Guiyuan root-cause reasoning and its unsupported lifecycle mutation is reverted.
+- **performance:** no Hook, Animator, timer, polling loop or extra per-frame diagnostic is added; closure is constant-time arithmetic on geometry already sampled each draw.
+- **protected boundaries:** Build-491 Keyguard callback/lease, Build-497 reservation correction and Build-498 island diagnostic-performance fix are untouched.
+- **fail native:** target witness/optical-resolution failure behavior remains unchanged.
+
+### Validation
+
+Exact-head Runtime CI and a signed Canary are required.
+
+Focused device gates:
+1. Home + Keyguard, charging + non-charging, slow + fast: the already-fixed press/down-pull left bias must stay absent.
+2. Near native handoff in both directions: fake Battery/Wi-Fi/Mobile must converge continuously onto the corresponding real final icons; no last-frame right offset or compensating jump.
+3. Airplane / No-SIM latent: quick reveal after native slot spacing, no immediate oversized full-target appearance.
+4. Dual-SIM: the additional signal must not vertically stretch/enlarge beyond its normal Mobile scale policy.
+5. Final handoff: real native icons remain the final owner with no duplicate/overlap residue.
+6. Regression: Build-498 Keyguard + Super-Island, Build-497 VPN/whole-row, and Build-496 master-switch fail-native boundaries remain accepted.
+
+
+## 2026-09-30 — Build 503: close the visible fake/real overlap, not only the invisible endpoint
+
+**Type:** Control Center handoff geometry correction  
+**Display version:** 0.0.3  
+**Build / source:** 503 / `20260930-503` / `feat/control-center-transition-matrix`
+
+### Problem / evidence
+
+Build-502 device validation reports that Guiyuan's fake decomposition is still visibly to the right of the real QS status icons. The supplied report is the exact signed Build 502 Canary. At `fraction=0.8837391`, QS_FAKE is already fading with root alpha `0.5564108` and native appearance is active, while the final real QS surface is visible. At `fraction=1.0`, QS_FAKE reaches alpha `0.0`; the overlay draw path then returns and is no longer visually comparable with the real endpoint.
+
+This disproves the Build-502 assumption that closing only the fake carrier center is sufficient.
+
+### Root cause
+
+Two independent quantities define the projected component:
+1. the native carrier center;
+2. the component's source-relative -> target-relative offset/scale interpolation.
+
+Build 502 closes (1) during the native alpha handoff but leaves (2) on `handoffMotionProgress = max(expansion, finalAlpha)`. With expansion already around 0.88 when appearance starts, a final alpha below 0.88 has **no effect at all** on component offset/scale. The fake overlay therefore remains on the expansion path while the real final surface is already visible. It becomes mathematically exact only at/after the point where QS_FAKE alpha is zero and Guiyuan stops drawing.
+
+The observed `normalControlStatusIconsTranslationX=46` is **not** a correction value. Exact-target SystemUI evidence shows HyperOS itself applies that translation to the final/fake Control Center surfaces; live View-matrix sampling already contains it. Applying it again would be a duplicate geometry write in project space.
+
+### Change
+
+- Replace `max(expansion, finalAlpha)` with residual-distance closure:
+  `effective = expansion + (1 - expansion) * finalAlpha` while native appearance is active.
+- Use the **same final real-surface alpha** as the carrier-center closure authority.
+- When native appearance is inactive, both component path and carrier remain on the raw native expansion/fake carrier path.
+- Preserve live role-6 target sampling and all target optical geometry.
+- Preserve Build-502 latent scale correction unchanged.
+- Build identity becomes `versionCode=260930303`, `buildId=20260930-503`.
+
+### 审查 / review
+
+- **single handoff authority:** final native appearance alpha now owns only closure of the remaining carrier/component distance; no second alpha source or project timeline remains.
+- **native-first:** expansion still supplies the base trajectory and live role-6 Views still supply target geometry.
+- **no magic offset:** the logged 46 px native translation is deliberately not consumed as a project correction.
+- **endpoint visibility:** the fix targets the interval where both fake and real are actually visible, rather than an alpha-zero endpoint the user cannot see.
+- **reverse path:** appearance=false returns directly to raw expansion; no threshold or delayed state is retained across reversal.
+- **performance:** constant-time arithmetic only; no Hook, Animator, polling or per-frame logging added.
+- **protected boundaries:** Build-491 Keyguard callback/lease, Build-497 reservation, Build-498 island-performance, Build-500 source anchor, Build-501 latent reservation, and Build-502 latent scaling are untouched.
+
+### Validation
+
+Exact-head Runtime CI and signed Canary are required.
+
+Focused device gate:
+1. Slow Home outward pull: during the visible fake/real crossfade, fake Battery/Wi-Fi/Mobile must converge onto the real glyphs rather than remain uniformly to the right.
+2. Fast outward pull: no terminal snap or right-offset flash.
+3. Reverse collapse: no discontinuity when native appearance switches back to fake ownership.
+4. Charging: source-side first-frame left-bias fix must remain absent.
+5. One dual-SIM pass: Build-502 no-stretch/no-forced-target-size behavior must remain intact.
+
+
+## 2026-09-30 — Build 504: unify target basis in root space; stop latent single-icon enlargement
+
+**Type:** Control Center coordinate-authority correction / latent optical-scale correction  
+**Display version:** 0.0.3  
+**Build / source:** 504 / `20260930-504` / `feat/control-center-transition-matrix`
+
+### Device evidence entering this build
+
+Build 503 remains device-rejected:
+- the fake Trinity is still uniformly to the right of the real fully-expanded QS icons;
+- supplemental Airplane with no independent compact source still appears visibly oversized.
+
+This rejects Build-502 carrier-center closure and Build-503 remaining-distance closure as sufficient explanations for the positional bias. The Build-500 source-side correction remains accepted: the old initial left shift during pull is gone.
+
+### Reference review
+
+The user-supplied APKs were reviewed with JADX 1.5.6:
+- legacy CombinedStatus `1.3.6-mod.5`;
+- legacy CombinedStatus `1.4.3`;
+- KeiMi `2.5.0+067bd4c8`.
+
+Findings:
+- 1.3.6 and 1.4.3 produce byte-identical decompiled `ClosedAnchor`, `MotionHandoff`, `CompactGeometry` and `KeyguardHandoff` sources. 1.4.3 therefore does **not** establish that the old project-side closed-anchor correction path was rewritten or that its historical endpoint problem was fixed.
+- KeiMi's participant sampler transforms each native View from global into one shared root and stores six geometric components. Its transition drawable interpolates paired source/target geometry directly in that root space. Unmatched native participants are drawn as their native View rather than replacing native internal optical scaling with a custom glyph stretched to the View box.
+- This is used as architectural evidence, not copied implementation.
+
+### Root cause
+
+Guiyuan already samples final role-6 targets with `transformMatrixToGlobal -> root.transformMatrixToLocal`. Build 499/500 then discards the absolute positional meaning at projection time by converting both source and target into offsets from different carrier centers:
+
+`currentCarrier + sourceOffset + (targetOffset - sourceOffset) * p`.
+
+Build 500 correctly changed the steady source position authority to the Home/Keyguard end-anchored host slot and stopped carrier-size rescaling. But the final target was still reinterpreted relative to the final status-icon carrier. Source and target therefore no longer had to share one semantic origin. Build 502/503 could only close a carrier mismatch after this second interpretation; they could not repair the mixed basis itself.
+
+For latent Airplane/No-SIM, Build 502 removed the forced full target basis but the call sites still used `TransitionScalePolicy.TARGET`. A compact custom glyph could therefore continue growing toward a large StatusBarIconView/slot geometry even though the native glyph itself is optically much smaller inside that View.
+
+### Change
+
+- Remove `interpolateCarrierRelativeGeometry`.
+- Remove `closeCarrierCenterToFinal` and the per-frame final-carrier sample used only by that policy.
+- Preserve the Build-500 frozen steady end-slot source geometry and frozen source motion-carrier geometry.
+- At each frame, translate the source only by the live QS_FAKE carrier-center delta.
+- Interpolate that **carried source** directly to the absolute root-space target geometry. At `p=1`, target center/basis is exact for TARGET policy regardless of whether fake/final carriers converge.
+- Keep Build-503 `handoffMotionProgress` so native final appearance may consume only the remaining distance during the real fake/final crossfade; it no longer changes endpoint interpretation.
+- Supplemental no-source Airplane and No-SIM use `SHRINK_ONLY`: they may move to the target center but may not enlarge beyond their compact optical source basis. Initial-center Airplane/No-SIM component policy is unchanged.
+- Build identity becomes `versionCode=260930304`, `buildId=20260930-504`.
+
+### 审查 / review
+
+- **root-cause-first:** fixes the mixed coordinate basis rather than adding/subtracting the observed 46 px native translation or another closure coefficient.
+- **native-first:** final role-6 View/drawable transform is the endpoint authority; live QS_FAKE carrier supplies source-side native external motion only.
+- **single writer:** no native translation/alpha/visibility/clip/padding writer is added.
+- **source protection:** Build-500 end-slot source authority is retained, so the accepted initial-left-shift fix is not reverted.
+- **timing separation:** Build-503 native appearance progress remains timing authority only; target location no longer depends on appearance alpha or carrier closure.
+- **latent scale:** no-source Airplane/No-SIM no longer treat a large native View box as permission to enlarge a custom glyph.
+- **performance:** removes one final-status-icons matrix sample and carrier-closure arithmetic per frame; adds no Hook, observer, timer, reflection traversal or allocation-heavy path.
+- **compatibility/fail-native:** missing current fake carrier falls back to the existing direct root-space similarity path; missing target witness keeps existing unresolved/fail-native behavior.
+- **protected boundaries:** Build-491 callback/lease, Build-497 reservation, Build-498 island performance and Build-500 source witness are untouched.
+
+### Validation
+
+Exact-head Runtime CI and one signed Canary are required.
+
+Focused device gates:
+1. Slow Home outward pull: fake Battery/Wi-Fi/Mobile must no longer remain as one rigid right-shifted group relative to the real QS targets.
+2. Fast outward + reverse collapse: no new endpoint snap or start-frame discontinuity.
+3. Charging: accepted source-side no-left-shift behavior remains.
+4. Supplemental Airplane: no giant first appearance; reveal remains near its final slot at compact optical size.
+5. Dual SIM: secondary Mobile remains SHRINK_ONLY and must not stretch.
+
+
+## 2026-09-30 — Build 505: restore latent occupancy lead without restoring carrier-relative endpoints
+
+**Type:** Control Center latent reservation / occupancy sequencing  
+**Display version:** 0.0.3  
+**Build / source:** 505 / `20260930-505` / `feat/control-center-transition-matrix`
+
+### Device evidence
+
+Build 504 is accepted for the two issues it targeted:
+- fake Trinity and real final Control Center icons are aligned;
+- no-source Airplane no longer appears oversized.
+
+The remaining defect is that a latent icon can reveal without surrounding native peers first leaving the intended slot-width gap. The supplied Build-504 diagnostic is healthy and shows the ordinary transition reservation is active and progress-synchronous; the missing behavior is latent occupancy participation, not a failed reservation writer.
+
+### Root cause
+
+Build 500 already modeled the desired sequence: latent final semantics contributed reservation spans while their pixels remained hidden behind the native-slot separation reveal gate. Build 501 removed all latent spans because the then-active carrier-relative projection made the same reservation alter the carrier used to reinterpret every component endpoint, creating `reservation -> carrier -> trajectory` feedback.
+
+Build 504 removed that endpoint dependency. Final projected geometry is absolute role-6 root-space geometry; the live fake carrier carries only source-side native motion and no longer defines the final coordinate basis. The Build-501 blanket exclusion now removes required occupancy semantics even though its original endpoint-feedback reason is no longer present.
+
+### Change
+
+- Restore additional-Mobile reservation from its real compact Mobile source span to each additional native final Mobile slot.
+- Restore Airplane and No-SIM reservation from a zero-width compact-end span to the real native final slot.
+- Keep latent drawing gated by `latentRevealOpacity()`: at least one native slot-width of geometric separation is required before pixels appear, followed by the existing quick smooth reveal.
+- Keep Build-504 absolute root-space endpoints and `SHRINK_ONLY` latent optical scale unchanged.
+- Keep one existing reservation writer: `SystemUiHomePresentationOwner.statusIcons-paddingEnd`.
+- Build identity becomes `versionCode=260930305`, `buildId=20260930-505`.
+
+### 审查 / review
+
+- **root-cause-first:** restores missing occupancy semantics rather than delaying opacity or inserting a fixed gap.
+- **native-first:** target slot width/location still come from the live native role-6 slot; gesture progress still comes from HyperOS.
+- **sequencing:** reservation is allowed to move native peers while reveal opacity remains zero; no second semantic timeline is added.
+- **single writer:** no new padding/translation/visibility writer is added; the existing transition reservation remains the only layout writer.
+- **geometry isolation:** latent reservation is not a target geometry authority. Build-504 root-space target projection remains exact even if fake/final carrier geometry differs.
+- **scale isolation:** Airplane/No-SIM remain `SHRINK_ONLY`; this build cannot reintroduce the oversized latent glyph fixed by Build 504.
+- **performance:** only a small frozen list of existing target witnesses is added to reservation-span resolution; no frame listener, polling, reflection traversal or animator is added.
+- **reverse/cleanup:** existing progress-synchronous reservation and transition cleanup close/release the same spans in reverse.
+- **protected boundaries:** Build-491/497/498, Build-500 steady source, Build-504 root-space endpoint and latent scale remain unchanged.
+
+### Validation
+
+Exact-head Runtime CI and one signed Canary are required.
+
+Focused device gate:
+1. Slow outward pull with no-source Airplane: native peers leave an empty slot first; Airplane reveals only after the gap exists.
+2. Build-504 alignment remains exact throughout fake/final handoff.
+3. Airplane remains compact; no target-slot enlargement.
+4. Reverse collapse closes the gap smoothly.
+5. Dual-SIM / No-SIM, when available, follow the same reservation-before-reveal behavior.
+
+
+## 2026-09-30 — Build 506: pre-expand final reservation; stop per-frame native-row reflow
+
+**Type:** Control Center native-peer motion ownership / reservation lifecycle  
+**Display version:** 0.0.3  
+**Build / source:** 506 / `20260930-506` / `feat/control-center-transition-matrix`
+
+### Corrected device evidence
+
+The trajectory defect is not limited to the projected Trinity. With Guiyuan enabled, the **entire** QS_FAKE status row, including unrelated native icons, first moves mostly vertically and only later develops the leftward component. With Guiyuan disabled, the native row follows the expected HyperOS trajectory.
+
+This supersedes the earlier Build-505 working hypothesis that the remaining path shape was primarily caused by double-consuming progress inside Trinity projection.
+
+### Root cause
+
+The only Guiyuan writer capable of changing unrelated native-peer geometry during Control Center motion is the existing semantic reservation writer:
+`MiuiStatusIconContainer.paddingEnd`.
+
+Before Build 506, every expansion/pre-draw update computed:
+
+`compact source span -> progress-interpolated semantic target span -> requested paddingEnd`.
+
+Changing padding calls `setPaddingRelative` and causes native status-icon layout to be recomputed while HyperOS is simultaneously moving QS_FAKE through its own native translation path.
+
+Build-504 device diagnostics are consistent with this two-motion composition:
+- at fraction about 0.116, a 105 px compact slot requested only ~106 px, so project-owned horizontal reflow was nearly zero while native vertical motion was already visible;
+- at later fractions, reservation grew by tens to >100 px, making the leftward layout component progressively stronger.
+
+This creates the observed “first down, then left-down” path for the whole row.
+
+### Change
+
+- Add `Policy.resolveTransitionReservationWidth(...)`, which resolves semantic occupancy at the **final span** rather than at the current gesture fraction.
+- When transition reservation becomes active, apply the complete frozen final reservation width on the pre-native expansion callback.
+- Keep that width constant for the entire active gesture; `lastReservationWidthPx` prevents repeat writes on pre-draw/update.
+- Clear the reservation through the existing lifecycle when transition ownership ends.
+- Keep Build-505 latent spans in the same final reservation, so no-source Airplane / No-SIM / additional SIM space exists before pixels reveal.
+- Keep Build-504 root-space target projection and `SHRINK_ONLY` latent scale unchanged.
+- Build identity becomes `versionCode=260930306`, `buildId=20260930-506`.
+
+### 审查 / review
+
+- **root-cause-first:** removes the only project-owned per-frame layout mutation affecting unrelated native peers instead of tuning Trinity motion curves.
+- **native-first:** after one semantic layout cutover, HyperOS owns the row’s motion for the rest of the gesture.
+- **single writer:** no new writer is introduced; the existing padding writer changes lifecycle from per-frame to one-shot.
+- **no timing patch:** no delay, fraction threshold, interpolator or fixed px correction is added.
+- **pre-native ordering:** the existing expansion interception invokes Guiyuan before `chain.proceed()`, so final occupancy is committed before HyperOS consumes the first visible expansion sample.
+- **latent sequencing:** final occupancy exists before `latentRevealOpacity()` can become non-zero, matching the intended “leave the slot first, then reveal” behavior.
+- **performance:** eliminates repeated `setPaddingRelative/requestLayout` churn during gesture frames.
+- **reverse/cleanup:** reservation remains constant while ownership is active and is restored via the existing transition cleanup path; no reverse per-frame reflow is introduced.
+- **protected boundaries:** Build-491/497/498, Build-500 steady source, Build-504 root-space endpoint/latent scale, and Build-505 latent span discovery are untouched.
+
+### Validation
+
+Exact-head Runtime CI and one signed Canary are required.
+
+Focused device gate:
+1. Slow Home outward pull: unrelated native peers and Trinity should share a continuous diagonal native row trajectory, without a distinct vertical-only first segment introduced by Guiyuan.
+2. Compare enabled vs disabled visually; remaining difference should be semantic decomposition, not whole-row carrier path.
+3. Latent Airplane slot must already be open before reveal.
+4. No regression in Build-504 final alignment or Airplane size.
+5. Reverse collapse must release full reservation without a terminal peer snap.
+
+
+## 2026-09-30 — Build 507: native-progress total reservation, occupancy-gated reveal, structure-aware Mobile optical target
+
+**Type:** Control Center peer-layout trajectory / latent reveal / Mobile morph optical target  
+**Display version:** 0.0.3  
+**Build / source:** 507 / `20260930-507` / `feat/control-center-transition-matrix`
+
+### Device evidence
+
+Build 506 is rejected for reservation timing:
+- on press, native peer icons move directly to the final horizontal layout;
+- latent reveal can still be visible while overlapping an adjacent peer.
+
+The diagnostic confirms the layout jump: compact semantic width 105 px is replaced by requested width 387 px (`paddingEndDelta=252`) before the first logged expansion frame near 0.135.
+
+Build 505 showed the opposite trajectory error: per-span source->target interpolation followed by union measurement kept early requested width near compact because compact semantic spans overlap heavily; horizontal reflow therefore started late and strengthened after native vertical motion was already visible.
+
+Two user-provided videos also compare final Mobile structures:
+- HyperOS native single-row signal: the `mobile_signal` outer ImageView is ~75 px high but the four-bar optical content occupies a substantially smaller center region;
+- HyperCeiler dual-row signal: upper bars + lower dots legitimately consume most of the composite structure height.
+The existing unified outer-box height therefore overgrows Guiyuan's four-point -> bars morph for native single-row while coincidentally matching the dual-row compatibility structure.
+
+### Root cause
+
+**Reservation:** the writer is valid, but the width curve was wrong at both extremes. Build 505 animated individual spans then measured a union, creating an early dead-zone. Build 506 pre-applied final union width, creating an immediate final-x layout jump.
+
+**Reveal:** source-separation distance is not proof that the adjacent native peer has already vacated the real destination slot.
+
+**Mobile height:** `mobileTargetHeightRatio` consumed target geometry derived from the whole drawable frame. For native single-row `mobile_signal`, transparent drawable padding is part of that frame; for the HyperCeiler compatibility composite, full structural bounds are intentional.
+
+### Change
+
+- Freeze final semantic spans, resolve their final total reservation width once, and interpolate **compactWidth -> finalTotalWidth** directly from raw HyperOS expansion progress.
+- Keep per-span interpolation helper as geometry/reference logic only; it no longer owns native peer spacing.
+- A latent participant computes the requested reservation width needed to contain its actual final slot. Pixels remain at opacity 0 until current reservation reaches that participant-specific occupancy.
+- After occupancy is valid, reveal is based on remaining distance to the true root-space target over the participant's compact optical width, producing a short final-local fade.
+- Extract the existing drawable alpha optical probe into a shared cached helper.
+- Native `mobile_signal` ImageView witnesses use current drawable optical bounds when no explicit target optical bounds already exist.
+- Existing `hyperceiler-dual-signal` compatibility witnesses remain composite View geometry and bypass the native drawable probe.
+- Cache probe results by cloneable `Drawable.ConstantState + level + drawable state + layoutDirection`; never tint or draw the live SystemUI drawable for measurement.
+- Build identity becomes `versionCode=260930307`, `buildId=20260930-507`.
+
+### 审查 / review
+
+- **root-cause-first:** no pixel offset, no delayed runnable, no hand-tuned reservation threshold.
+- **native progress:** HyperOS expansion remains the only row-spacing timeline; Guiyuan maps it to semantic total occupancy.
+- **single writer:** the existing `statusIcons-paddingEnd` owner remains the only peer-layout writer.
+- **occupancy vs reveal:** native peer spacing and latent pixel opacity are separate authorities.
+- **structure-aware compatibility:** native single-row uses drawable optical content; HyperCeiler dual-row uses the already-identified composite structure. No package/module name branch is used.
+- **performance:** optical raster probing is cached per Drawable.ConstantState + level + drawable state + layoutDirection; ordinary frames are cache lookups only.
+- **side-effect safety:** the probe requires a cloneable constant state and measures only a cloned drawable. Missing cloneability returns null and preserves existing native/frame geometry.
+- **reverse:** decreasing native progress shrinks total reservation symmetrically; participant-specific occupancy gate hides latent pixels before their target slot ceases to fit.
+- **protected boundaries:** Build-491/497/498, Build-500 source authority, Build-504 root-space endpoint and SHRINK_ONLY latent scale remain unchanged.
+
+### Validation
+
+Exact-head Runtime CI and one signed Canary are required.
+
+Focused device gates:
+1. press/slow pull whole-row trajectory vs Guiyuan disabled;
+2. latent Airplane reveal only after a clean visible slot exists;
+3. native single-row Mobile morph maximum bar height matches the native bar glyph;
+4. HyperCeiler dual-row retains its prior visually correct height;
+5. final root-space alignment and no-source glyph size remain accepted.
+
+
+## 2026-09-30 — Build 508: module-agnostic visual snapshots for target geometry, Mobile topology and latent reveal
+
+**Type:** Control Center target adaptation / visual topology / latent reveal  
+**Display version:** 0.0.3  
+**Build / source:** 508 / `20260930-508` / `feat/control-center-transition-matrix`
+
+### Device evidence
+
+Build 507 is rejected for two independent target-adaptation assumptions:
+
+1. A no-initial-target participant can remain invisible throughout the full outward transition. The reservation reaches the expanded state, but the full-slot occupancy gate does not admit the latent pixels while the fake overlay still owns visible handoff.
+2. HyperOS native single-row Mobile still does not match the four-point -> bars morph. Cropping only the outer optical envelope changes total height but does not reproduce the native bars' individual x positions, widths, baselines and heights.
+
+The Build-507 total-reservation interpolation itself remains useful: it avoids Build-505's early union-width dead-zone and Build-506's one-shot final-x jump.
+
+### Root cause
+
+**Target geometry fragmentation:** reservation, reveal and shape morph had accumulated different geometry authorities (slot rectangle, drawable envelope, fixed bar ratios). Even when every individual measurement was locally reasonable, they could disagree about what the final visual target actually is.
+
+**Envelope-only Mobile adaptation:** a single optical bounding box cannot describe a four-component glyph. It can constrain maximum height but cannot guarantee the four bars converge to the native rectangles.
+
+**Provider-specific compatibility risk:** treating “native single-row” and one known dual-row implementation as separate cases does not scale to other modules or future HyperOS structures.
+
+**Latent deadlock:** requiring full target-slot containment before reveal can become later than the fake overlay's visible ownership window.
+
+### Change
+
+- Add `CombinedStatusParticipantVisualSnapshot` as a read-only, module-agnostic visual measurement layer.
+- Clone drawable `ConstantState` at the current state/level and raster-probe the clone; never mutate the live SystemUI drawable.
+- Cache drawable snapshots by `ConstantState + level + drawable state + layoutDirection`.
+- Map ImageView snapshot geometry through the actual drawable frame/imageMatrix into View-normalized coordinates.
+- Recursively collect visible drawable-bearing descendants for ViewGroup/composite targets in one parent coordinate space.
+- Expose optical envelope, connected components and topology.
+- Classify exactly four aligned ascending vertical components as `FOUR_VERTICAL_BARS`; otherwise retain composite/single/unknown topology.
+- Preserve small legitimate components with an absolute minimum probe-pixel floor instead of dropping them relative to the largest bar. This prevents small lower dots from disappearing before topology classification.
+- Remove module/provider-name geometry decisions from the primary target-adaptation path.
+- Mobile exact-bar morph consumes the four measured component rectangles individually when topology is reliable. The old generic height-ratio path remains only as fallback when reliable component topology is unavailable.
+- Generic target geometry consumes the visual snapshot envelope directly in participant View space; it is not reinterpreted through drawable coordinates a second time.
+- Latent reveal retains Build-507's native-progress total-reservation curve but gates on one real target slot-width of peer spacing plus equivalent source separation, then completes quickly over the snapshot visual width.
+- Build identity becomes `versionCode=260930308`, `buildId=20260930-508`.
+
+### 审查 / review
+
+- **module-agnostic:** runtime geometry does not branch on HyperCeiler/package/provider names.
+- **single evidence model:** envelope and component topology originate from the real target participant rather than separate hand-authored shape ratios.
+- **fail-native/fallback:** unreliable or unsupported topology does not invent a provider-specific interpretation; Mobile falls back to the existing generic transition path.
+- **coordinate ownership:** snapshot geometry is normalized in participant View space and converted to root-space once by the existing target geometry machinery.
+- **side-effect safety:** only cloned drawables are rasterized/tinted; missing cloneable state returns no drawable snapshot.
+- **performance:** raster work is cached by drawable constant state + level + drawable state + layout direction; ViewGroup composition reuses child snapshots and contains no polling or new frame listener.
+- **topology safety:** small secondary components survive filtering, so composite structures are not silently simplified into four bars.
+- **timeline ownership:** HyperOS native expansion remains the only reservation/motion timeline; no delay, Animator or custom temporal curve is added.
+- **protected boundaries:** Build-491 callback/lease, Build-497 Keyguard reservation, Build-498 diagnostic-performance cleanup, Build-500 steady source and Build-504 root-space endpoint/latent scale are unchanged.
+
+### Validation
+
+Exact-head Runtime CI and one signed Canary are required.
+
+Focused device gates:
+1. No-source Airplane appears after visible peer space exists but before the fake overlay disappears; no adjacent-icon overlap.
+2. Native single-row Mobile lands on all four native bars individually.
+3. Composite/dual-row targets retain composite topology even when secondary dots are small.
+4. Whole native-row trajectory keeps the Build-507 total-width interpolation behavior.
+5. Final fake/real alignment and no-source compact scale remain accepted.
+
+
+### Build 508 final latent-reveal correction
+
+Post-implementation review found one remaining legacy assumption in the first visual-snapshot draft: although fade distance used snapshot visual width, the permission gate still required a full native slot-width plus a full slot-width of source separation. That retained the same structural mismatch that caused Build 507's no-source participants to remain invisible through full expansion.
+
+The final Build-508 gate is now snapshot-native:
+- transform the participant's real visual snapshot envelope and final Battery end into one global coordinate basis;
+- derive the reservation width required to contain that visual envelope, not the outer slot;
+- keep opacity at zero until current semantic reservation reaches that width;
+- once reservation is valid, reveal only inside one real target visual extent around the root-space target;
+- on reverse collapse, reservation falling below the visual-envelope requirement hides the participant before peer space closes.
+
+No module identity, fixed slot multiplier, timing delay, or extra writer is introduced.
+
+
+## 2026-09-30 — Build 509: continuous latent occupancy and structure-gated Mobile target basis
+
+**Type:** Control Center transition correction  
+**Display version:** 0.0.3  
+**Build / source:** 509 / `20260930-509` / `feat/control-center-transition-matrix`
+
+### Problem
+
+Build 508 device evidence rejects two remaining transition-consumer rules: no-source participants can appear almost instantaneously at the terminal handoff, and the projected Mobile bars remain visibly smaller/misaligned versus the final native signal even when four native bar rectangles were measured successfully.
+
+### Evidence
+
+- In the supplied Build-508 diagnostic, the reservation advances continuously with native expansion, but an Airplane reveal first appears at `fraction=1.0` while the QS_FAKE root is already `alpha=0.0`. The visual-envelope reservation requirement is therefore being consumed as a late binary gate rather than as the continuously opening space visible on screen.
+- The visual snapshot layer can positively classify a target as `FOUR_VERTICAL_BARS` and expose all four native rectangles, but the Mobile component spec still projects its outer geometry through `SHRINK_ONLY`. A larger native envelope can never be reached under that scale policy, so exact bar rectangles are normalized into the wrong outer basis.
+- Composite/dual-row targets remain distinguishable because secondary visual components keep topology `COMPOSITE`.
+
+### Conclusion
+
+The snapshot evidence is sufficient; the defect is not HyperOS gesture timing. Latent opacity must consume continuous reservation coverage of the real visual envelope, and verified four-bar Mobile may use the measured target basis. Unsupported/composite topology must retain the conservative path.
+
+### Change
+
+- Add a continuous visual-envelope reservation progress derived from compact width, current reservation, full visual-envelope reservation and the measured target visual width.
+- Bound latent alpha by both that reservation progress and root-space target proximity; remove the full-containment boolean step.
+- Add participant geometry selection that uses exact basis interpolation only when Mobile has a positively verified four-bar snapshot.
+- Reuse the same verified bar snapshot for outer target basis and per-bar morph.
+- Additional-SIM latent Mobile follows the same structure gate.
+- Composite/dual-row/unknown Mobile keeps the prior `SHRINK_ONLY` similarity path.
+- No new hook, listener, timer, delay, provider/module-name branch, native translation writer or gesture timeline is introduced.
+
+### 审查 / review
+
+- **ownership:** HyperOS still owns expansion/appearance; Guiyuan only consumes its native progress and its existing reservation writer.
+- **single writer:** `statusIcons-paddingEnd` remains the sole native peer-layout writer.
+- **fail-native:** exact target-basis interpolation requires reliable `FOUR_VERTICAL_BARS`; other topology does not opt in.
+- **reverse:** decreasing reservation continuously closes latent opacity before the visual envelope loses peer space.
+- **performance:** no new frame probe; drawable snapshots remain cached and View topology stays read-only.
+- **protected boundaries:** Build-491/497/498 lifecycle/performance fixes, Build-500 steady source, Build-504 root-space endpoint and Build-507 total reservation curve remain unchanged.
+
+### Validation
+
+Run exact-head Runtime CI. Because this changes runtime geometry and reveal ownership, one signed work-branch Canary is required after CI for focused device evidence.
+
+
+## 2026-09-30 — Build 510: remove whole-component Mobile stretch
+
+**Type:** Control Center Mobile morph visual correction  
+**Display version:** 0.0.3  
+**Build / source:** 510 / `20260930-510` / `feat/control-center-transition-matrix`
+
+### Device evidence
+
+Build 509 runtime is healthy and its native target witness remains stable, but the supplied slow-pull recording rejects the visual form of the exact Mobile target transition. During the middle of the gesture, the whole Mobile group visibly stretches while the dots also elongate into bars.
+
+### Root cause
+
+Build 509 used the verified four-bar snapshot twice in the shape chain:
+1. outer component geometry switched from similarity projection to full basis interpolation, independently stretching width and height toward the target envelope;
+2. the inner four-dot renderer simultaneously morphed each dot into its measured target bar.
+
+Those two transforms are individually coherent at the endpoint but compose into a visible rubber-band deformation during the transition.
+
+### Change
+
+- Remove exact/non-uniform basis interpolation from the outer Mobile component.
+- Restore the existing similarity projection for Mobile carrier motion and any required uniform shrink.
+- Pass both measured target-envelope width and height ratios to the exact four-bar renderer.
+- Compensate each target bar axis inside the local Mobile geometry for the uniform outer scale, so the four measured final rectangles remain reachable without stretching the whole component canvas.
+- Keep the existing two-stage dot placement -> bar growth shape progress.
+- Composite/dual-row/unknown topology does not use exact four-bar compensation.
+- Build-509 continuous latent reveal is unchanged.
+
+### 审查 / review
+
+- **native motion authority:** unchanged; HyperOS native fraction still owns trajectory timing.
+- **single writer:** statusIcons-paddingEnd remains the only peer-layout writer.
+- **shape ownership:** outer matrix owns carrier/similarity motion; inner Mobile morph owns bar-specific width/height. The two no longer duplicate anisotropic deformation.
+- **endpoint:** reliable FOUR_VERTICAL_BARS still derives all four final rectangles from the runtime snapshot.
+- **fail-native:** composite/unknown topology stays on the previous generic path.
+- **performance:** arithmetic-only compensation; no new probe, listener or per-frame allocation source.
+- **protected boundaries:** Build-504 root-space endpoint, Build-507 reservation curve and Build-509 latent reveal remain unchanged.
+
+### Validation
+
+Exact-head Runtime CI is required. This changes visible runtime geometry, so one signed work-branch Canary is required after CI.
+
+
+## 2026-09-30 — Build 510 non-charging device acceptance
+
+**Evidence:** user device feedback after Build 510 Canary #554  
+**Scope:** Home -> Control Center, non-charging path  
+**Result:** accepted; user reports the current non-charging result appears perfect.
+
+### Accepted behavior
+
+- The Build-509 whole-component rubber-band stretch is no longer visible in the tested non-charging path.
+- The separation of responsibilities introduced in Build 510 is accepted for this path: outer Mobile geometry owns carrier/similarity motion, while measured four-bar width/height changes remain shape-local.
+- No further non-charging runtime tuning is justified without new contradictory evidence.
+
+### Charging boundary review
+
+Charging is not accepted by inference. The current policy deliberately differs when Home is charging and the native island is showing: semantic transition reservation is disabled for that combination, while Home charging without the island and Keyguard charging retain semantic reservation. Existing tests cover this scene-specific authority decision.
+
+### 审查 / review
+
+- **runtime:** frozen; no code change follows from this acceptance.
+- **evidence discipline:** non-charging acceptance does not prove charging/no-island or charging/island behavior.
+- **protected behavior:** preserve Build-510 non-charging result exactly.
+- **next device evidence:** when charging is available, test charging without island and charging with native island separately. Only a failed charging sub-path may justify a runtime change.
+
+
+## 2026-09-30 — Build 511: code-review safety fixes
+
+**Type:** Review / release-parity / Fail-native hardening  
+**Display version:** 0.0.3  
+**Build / source:** 511 / `20260930-511` / `feat/control-center-transition-matrix`
+
+### Review findings
+
+1. **Release/Canary authority divergence:** `SystemUiIslandMotionSource` was installed only when `RUNTIME_DIAGNOSTICS=true`. Canary enables runtime diagnostics but Release disables them, while Control Center transition policy consumes island visibility to decide whether charging Home may own semantic reservation. Release could therefore behave differently from the tested Canary.
+2. **Unknown island state failed open:** the source stored `Boolean?` but exposed only `islandShowing == true`, collapsing “not observed / source unavailable” into “no island”. A charging Home transition could claim reservation without authoritative evidence.
+3. **Drawable probe exception boundary:** native/compatibility drawable snapshotting could throw from clone/mutate/tint/draw through the SystemUI render path instead of failing native.
+4. **Hot-path diagnostics allocation:** latent Mobile description lists were allocated even while witness diagnostics were not being refreshed.
+5. **Hook callback exception boundary:** Control Center expansion invoked the Guiyuan runtime callback before `chain.proceed()` without containment. An unexpected project callback exception could prevent the native HyperOS expansion callback from running.
+
+### Root cause
+
+A read-only island state source began as a diagnostic owner probe and later became functional transition authority without moving out of the diagnostics installation gate. Its nullable state was then narrowed to Boolean at the consumer boundary. Visual snapshot probing similarly assumed every cloneable `ConstantState` was safe to tint and draw.
+
+### Change
+
+- Install the island status hook in every runtime build and gate only diagnostic event emission.
+- Preserve island visibility as `Boolean?`.
+- HOME non-charging behavior is unchanged. HOME charging uses semantic reservation only when island state is authoritatively `false`; `true` or unknown yields to native peer motion. Keyguard reservation semantics are unchanged.
+- Contain drawable-probe failures with a cached unavailable snapshot result.
+- Allocate latent Mobile witness-description lists only when the diagnostic summary is actually being refreshed.
+- Dispatch panel runtime callbacks through an exception boundary. Ordinary project callback failures revoke current Control Center projection ownership and are contained so the native hooked method continues; VM-fatal errors remain fatal.
+- No transition path, target geometry, Mobile morph, reservation interpolation, native callback ordering, or visual timing was changed.
+
+### 审查 / review
+
+- **single writer:** unchanged; `statusIcons-paddingEnd` remains the only native peer-layout writer.
+- **lifecycle:** island state is now a runtime source rather than a diagnostics-only source; Hot Reload reset/unhook remains in the existing generation teardown.
+- **Fail native:** charging with unknown island authority and unsafe drawable probes now decline project-specific behavior rather than guessing or propagating an exception. Panel callback failures also revoke current projection ownership instead of blocking the native callback.
+- **release parity:** Canary and Release now install the same functional island authority; only logging differs.
+- **performance:** removes one confirmed per-frame latent diagnostic container allocation without introducing new cache/state ownership.
+- **protected baseline:** Build-510 non-charging device-accepted visuals are intentionally untouched.
+
+### Validation
+
+Run exact-head Runtime CI. No device package is useful until a charging scenario is available; charging-without-island and charging-with-native-island remain separate device gates.
+
+
+## 2026-10-01 — Build 511 static review closure
+
+**Type:** tests / review closure  
+**Runtime:** unchanged from Build 511  
+**Source:** `29ac288f1c7497964483dbb21de6464c40c31313`
+
+### Added test protection
+
+- Keyguard Control Center lease now has direct negative-policy coverage for:
+  - inactive lease;
+  - feature disabled;
+  - Keyguard feature disabled;
+  - detached Keyguard host.
+- Existing lease tests continue to cover native fraction zero, AOD blocking and source-scene change.
+- An explicit eight-component dual-row/composite Mobile snapshot is asserted to classify as `COMPOSITE` and return no exact four-bar capability.
+
+### Release / Canary review
+
+All remaining `RUNTIME_DIAGNOSTICS` call sites were re-reviewed. Functional transition/state ownership is shared between Release and Canary; diagnostics gating now affects only logging, probes, diagnostic preferences and optional diagnostic event callbacks. Island status authority is installed in both channels.
+
+### Caller-lifecycle review
+
+The Keyguard lease caller chain was checked against authoritative break conditions:
+- native fraction returning to zero releases the lease;
+- AOD blocking releases it;
+- feature / Keyguard disable deactivates Keyguard runtime;
+- host readiness loss causes retention to fail and the scene path deactivates Keyguard runtime;
+- source-scene movement away from Keyguard releases/deactivates ownership.
+
+No lifecycle migration or second owner is justified by the current code.
+
+### CI
+
+- Runtime #1922 failed only because the newly added composite test omitted the JUnit `assertNull` import.
+- The import-only correction changed no runtime behavior.
+- Exact-head Runtime #1923: **success**.
+
+### 审查 / review conclusion
+
+Static review is complete for the current branch. Runtime stays frozen. Remaining uncertainty is device-only: charging without island, charging with native island, latent supplemental semantics, real third-party dual-row visual confirmation, and final Keyguard-originated transition regression.
+
+
+## 2026-10-01 — Build 511 charging device acceptance
+
+**Evidence:** user device feedback  
+**Scope:** Home -> Control Center, charging path  
+**Result:** accepted; user reports charging transition is normal.
+
+### Accepted behavior
+
+- Charging no longer reproduces the historical press-entry left shift.
+- No whole-row rebase, peer overlap, or final endpoint drift was reported.
+- The accepted Build-510 non-charging trajectory and Mobile morph remain visually stable while charging.
+
+### Review consequence
+
+Charging is no longer a blocking device gate for PR #177. No runtime change follows from this acceptance. The next focused device gate is latent supplemental semantics: Airplane / No-SIM / additional-SIM reveal and reverse-collapse ordering.
+
+### 审查 / review
+
+- **runtime:** unchanged / frozen at Build 511.
+- **ownership:** native charging / island motion remains HyperOS-owned.
+- **protected baseline:** Build-510 non-charging and Build-511 charging behavior are now both accepted.
+- **next:** exact-head signed Canary, then latent semantic validation.

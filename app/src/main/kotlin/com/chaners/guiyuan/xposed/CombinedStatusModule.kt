@@ -1,6 +1,8 @@
 package com.chaners.guiyuan.xposed
 
 import android.graphics.drawable.Drawable
+import android.os.Handler
+import android.os.Looper
 import android.os.Process
 import android.os.SystemClock
 import android.util.Log
@@ -22,7 +24,10 @@ class CombinedStatusModule : XposedModule() {
     private var controlCenterSceneVisible = false
     private var controlCenterSceneEligible = false
     private var controlCenterSourceScene = CombinedStatusSourceScene.UNKNOWN
+    private var controlCenterExpansionFraction = 0f
     private var keyguardRuntimeReady = false
+    private var keyguardPresentationReadyObserved = false
+    private var keyguardControlCenterLeaseActive = false
     private var controlCenterGeometryProbeBucket = -1
     private var runtimeSessionId = newRuntimeSessionId()
     private val diagnosticSequence = AtomicLong(0L)
@@ -127,12 +132,10 @@ class CombinedStatusModule : XposedModule() {
                 classLoader = param.classLoader,
                 source = "coldStart",
             )
-            if (BuildConfig.RUNTIME_DIAGNOSTICS) {
-                installIslandMotionSource(
-                    classLoader = param.classLoader,
-                    source = "coldStart",
-                )
-            }
+            installIslandMotionSource(
+                classLoader = param.classLoader,
+                source = "coldStart",
+            )
         }
     }
 
@@ -254,7 +257,10 @@ class CombinedStatusModule : XposedModule() {
             controlCenterSceneVisible = false
             controlCenterSceneEligible = false
             controlCenterSourceScene = CombinedStatusSourceScene.UNKNOWN
+            controlCenterExpansionFraction = 0f
             keyguardRuntimeReady = false
+            keyguardPresentationReadyObserved = false
+            keyguardControlCenterLeaseActive = false
             controlCenterGeometryProbeBucket = -1
             SystemUiPresentationRuntimeOwner.resetRuntimeState()
             SystemUiKeyguardHostResolver.resetRuntimeState()
@@ -313,12 +319,10 @@ class CombinedStatusModule : XposedModule() {
                 classLoader = classLoader,
                 source = "hotReload",
             )
-            if (BuildConfig.RUNTIME_DIAGNOSTICS) {
-                installIslandMotionSource(
-                    classLoader = classLoader,
-                    source = "hotReload",
-                )
-            }
+            installIslandMotionSource(
+                classLoader = classLoader,
+                source = "hotReload",
+            )
 
             val restored = SystemUiHotReloadRuntimeOwner.restoreTransfer(param)
             if (restored == null) {
@@ -930,7 +934,12 @@ class CombinedStatusModule : XposedModule() {
             SystemUiIslandMotionSource.install(
                 module = this,
                 classLoader = classLoader,
-                onEvent = ::onIslandMotionEvent,
+                onEvent =
+                    if (BuildConfig.RUNTIME_DIAGNOSTICS) {
+                        ::onIslandMotionEvent
+                    } else {
+                        null
+                    },
                 isProbeEnabled = {
                     BuildConfig.DEVELOPMENT_PROBES || detailedDiagnosticsEnabled
                 },
@@ -953,7 +962,9 @@ class CombinedStatusModule : XposedModule() {
                 TAG,
                 "islandMotionSource hooks=ready count=" + handles.size +
                     " source=" + source +
-                    " motion=ownerProbe nativeGeometryWrites=0",
+                    " authority=island-status diagnostics=" +
+                    BuildConfig.RUNTIME_DIAGNOSTICS +
+                    " nativeGeometryWrites=0",
             )
         }.onFailure { error ->
             islandMotionSourceInstalled = false
@@ -986,6 +997,7 @@ class CombinedStatusModule : XposedModule() {
                 classLoader = classLoader,
                 onUpdate = ::onPanelTransitionUpdate,
                 onFakePresentationAttached = ::onControlCenterFakePresentationAttached,
+                onRuntimeFailure = ::onPanelTransitionRuntimeFailure,
                 onEvent = ::onPanelTransitionEvent,
                 isProbeEnabled = {
                     BuildConfig.DEVELOPMENT_PROBES || detailedDiagnosticsEnabled
@@ -1011,7 +1023,8 @@ class CombinedStatusModule : XposedModule() {
                 "notificationRuntimeHook" to false,
                 "notificationHomeLifecycle" to "system-icons-carrier",
                 "controlCenterVisibilityRuntimeHook" to true,
-                "controlCenterExpansionDiagnosticHook" to BuildConfig.RUNTIME_DIAGNOSTICS,
+                "controlCenterExpansionRuntimeHook" to true,
+                "controlCenterAppearanceRuntimeHook" to true,
                 "source" to source,
                 "nativeGeometryWrites" to 0,
             )
@@ -1035,6 +1048,7 @@ class CombinedStatusModule : XposedModule() {
         update: SystemUiPanelTransitionSource.Update,
     ) {
         handleControlCenterPanelUpdate(update)
+        CombinedStatusControlCenterTransitionOwner.onPanelUpdate(update)
 
         if (!detailedDiagnosticsEnabled) {
             return
@@ -1057,6 +1071,8 @@ class CombinedStatusModule : XposedModule() {
             SystemUiNativeNetworkSuppressionOwner.currentTransitionStateSnapshot()
         val projection =
             CombinedStatusControlCenterRenderSession.currentProjectionGeometryDiagnostic()
+        val transitionOwner =
+            CombinedStatusControlCenterTransitionOwner.currentDiagnostic()
         log(
             Log.INFO,
             TAG,
@@ -1066,6 +1082,7 @@ class CombinedStatusModule : XposedModule() {
                 (geometry?.summary ?: "geometry=unavailable") +
                 " " + (state?.summary ?: "state=unavailable") +
                 " " + projection +
+                " " + transitionOwner +
                 " readOnly=true nativeGeometryWrites=0",
         )
     }
@@ -1073,6 +1090,8 @@ class CombinedStatusModule : XposedModule() {
     private fun handleControlCenterPanelUpdate(
         update: SystemUiPanelTransitionSource.Update,
     ) {
+        update.fraction?.let(::onControlCenterExpansionFraction)
+
         val visible = update.visible ?: return
         if (!visible) {
             controlCenterSceneVisible = false
@@ -1132,7 +1151,19 @@ class CombinedStatusModule : XposedModule() {
         sourceScene: CombinedStatusSourceScene,
         authority: String,
     ) {
+        if (
+            keyguardControlCenterLeaseActive &&
+            sourceScene != CombinedStatusSourceScene.KEYGUARD
+        ) {
+            releaseKeyguardControlCenterLease(
+                source = "source-scene:" + sourceScene.name + ":" + authority,
+                reconcileReadiness = true,
+            )
+        }
         controlCenterSourceScene = sourceScene
+        acquireKeyguardControlCenterLeaseIfEligible(
+            source = "source-scene:" + authority,
+        )
         val settings = RuntimeFeaturePreferencesOwner.currentSettings()
         val keyguardEligible =
             settings.enabled &&
@@ -1140,6 +1171,7 @@ class CombinedStatusModule : XposedModule() {
                 keyguardRuntimeReady
         val nextEligible =
             CombinedStatusScenePolicy.controlCenterProjectionEligible(
+                featureEnabled = settings.enabled,
                 sourceScene = sourceScene,
                 keyguardEnabled = keyguardEligible,
             )
@@ -1149,6 +1181,7 @@ class CombinedStatusModule : XposedModule() {
 
         controlCenterSceneEligible = nextEligible
         CombinedStatusControlCenterRenderSession.setSceneEligible(nextEligible)
+        CombinedStatusControlCenterTransitionOwner.setSceneEligible(nextEligible)
         logDiagnostic(
             level = Log.INFO,
             event = "scene.eligibility",
@@ -1162,6 +1195,104 @@ class CombinedStatusModule : XposedModule() {
             "fallback" to if (nextEligible) "combined-qs-fake" else "native-qs-fake",
             "nativeGeometryWrites" to 0,
         )
+    }
+
+    private fun onControlCenterExpansionFraction(rawFraction: Float) {
+        val fraction = rawFraction.coerceIn(0f, 1f)
+        val previous = controlCenterExpansionFraction
+        controlCenterExpansionFraction = fraction
+
+        if (fraction > 0f) {
+            acquireKeyguardControlCenterLeaseIfEligible(
+                source = "native-fraction",
+            )
+            return
+        }
+
+        if (
+            keyguardControlCenterLeaseActive &&
+            previous > 0f
+        ) {
+            releaseKeyguardControlCenterLease(
+                source = "native-fraction-zero",
+                reconcileReadiness = true,
+            )
+        }
+    }
+
+    private fun acquireKeyguardControlCenterLeaseIfEligible(source: String) {
+        if (
+            keyguardControlCenterLeaseActive ||
+            !CombinedStatusScenePolicy.shouldAcquireKeyguardControlCenterLease(
+                sourceScene = controlCenterSourceScene,
+                keyguardRuntimeReady = keyguardRuntimeReady,
+                nativeFraction = controlCenterExpansionFraction,
+            )
+        ) {
+            return
+        }
+
+        keyguardControlCenterLeaseActive = true
+        logDiagnostic(
+            level = Log.INFO,
+            event = "presentation.lease",
+            component = "keyguardControlCenter",
+            state = "acquired",
+            "source" to source,
+            "sourceScene" to controlCenterSourceScene.name,
+            "nativeFraction" to controlCenterExpansionFraction,
+            "cleanupBoundary" to "native-fraction-zero-or-authoritative-source-change",
+            "timingDelay" to false,
+            "nativeGeometryWrites" to 0,
+        )
+    }
+
+    private fun shouldRetainKeyguardControlCenterLease(): Boolean {
+        val resolved =
+            SystemUiKeyguardHostResolver.current()
+                as? SystemUiKeyguardHostResolver.ResolveResult.Ready
+                ?: return false
+        val settings = RuntimeFeaturePreferencesOwner.currentSettings()
+        val aodBlocked =
+            SystemUiKeyguardAodStateSource
+                .currentState(resolved.host.battery)
+                ?.blocksProjection
+                ?: true
+        return CombinedStatusScenePolicy.shouldRetainKeyguardControlCenterLease(
+            leaseActive = keyguardControlCenterLeaseActive,
+            sourceScene = controlCenterSourceScene,
+            featureEnabled = settings.enabled,
+            keyguardEnabled = settings.keyguardEnabled,
+            hostAttached = resolved.host.systemIcons.isAttachedToWindow,
+            aodBlocked = aodBlocked,
+            nativeFraction = controlCenterExpansionFraction,
+        )
+    }
+
+    private fun releaseKeyguardControlCenterLease(
+        source: String,
+        reconcileReadiness: Boolean,
+    ) {
+        if (!keyguardControlCenterLeaseActive) return
+        keyguardControlCenterLeaseActive = false
+        logDiagnostic(
+            level = Log.INFO,
+            event = "presentation.lease",
+            component = "keyguardControlCenter",
+            state = "released",
+            "source" to source,
+            "sourceScene" to controlCenterSourceScene.name,
+            "nativeFraction" to controlCenterExpansionFraction,
+            "observedReady" to keyguardPresentationReadyObserved,
+            "reconcileReadiness" to reconcileReadiness,
+            "timingDelay" to false,
+            "nativeGeometryWrites" to 0,
+        )
+        if (reconcileReadiness && !keyguardPresentationReadyObserved) {
+            applyKeyguardPresentationReadinessLost(
+                source = "lease-release:" + source,
+            )
+        }
     }
 
     private fun refreshControlCenterSourceSceneEligibility(authority: String) {
@@ -1293,6 +1424,7 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun onControlCenterProjectionReadinessChanged(ready: Boolean) {
+        CombinedStatusControlCenterTransitionOwner.onProjectionReadinessChanged(ready)
         if (!controlCenterSceneVisible) {
             return
         }
@@ -1304,6 +1436,55 @@ class CombinedStatusModule : XposedModule() {
     private fun onPanelTransitionEvent(event: String) {
         if (detailedDiagnosticsEnabled) {
             log(Log.INFO, TAG, event)
+        }
+    }
+
+    private fun onPanelTransitionRuntimeFailure(error: Throwable) {
+        fun safely(block: () -> Unit) {
+            try {
+                block()
+            } catch (cleanupError: Throwable) {
+                if (
+                    cleanupError is VirtualMachineError ||
+                    cleanupError is ThreadDeath
+                ) {
+                    throw cleanupError
+                }
+            }
+        }
+
+        if (keyguardControlCenterLeaseActive) {
+            safely {
+                releaseKeyguardControlCenterLease(
+                    source = "panel-runtime-failure",
+                    reconcileReadiness = false,
+                )
+            }
+        }
+        controlCenterSceneEligible = false
+        controlCenterSourceScene = CombinedStatusSourceScene.UNKNOWN
+        safely {
+            CombinedStatusControlCenterTransitionOwner.setSceneEligible(false)
+        }
+        safely {
+            CombinedStatusControlCenterTransitionOwner.detach("panel-runtime-failure")
+        }
+        safely {
+            CombinedStatusControlCenterRenderSession.setSceneEligible(false)
+        }
+        safely {
+            CombinedStatusHomeRenderSession.onControlCenterAuthorityChanged(true)
+        }
+        safely {
+            logDiagnostic(
+                level = Log.ERROR,
+                event = "runtime.callback",
+                component = "panelTransition",
+                state = "fail-native",
+                "reason" to (error.message ?: error.javaClass.simpleName),
+                "fallback" to "native-control-center",
+            )
+            log(Log.ERROR, TAG, "Panel transition runtime callback failed", error)
         }
     }
 
@@ -1620,6 +1801,12 @@ class CombinedStatusModule : XposedModule() {
     private fun onKeyguardAodStateUpdate(
         update: SystemUiKeyguardAodStateSource.AodUpdate,
     ) {
+        if (update.blocksProjection) {
+            releaseKeyguardControlCenterLease(
+                source = "aod:" + update.source,
+                reconcileReadiness = false,
+            )
+        }
         CombinedStatusKeyguardRenderSession.onAodState(update)
         if (detailedDiagnosticsEnabled) {
             logDiagnostic(
@@ -1650,10 +1837,31 @@ class CombinedStatusModule : XposedModule() {
         }
 
         val sourceScene = SystemUiSceneStateSource.steadySourceScene(update)
+        val retainKeyguardLease =
+            sourceScene == CombinedStatusSourceScene.HOME &&
+                shouldRetainKeyguardControlCenterLease()
         if (sourceScene == CombinedStatusSourceScene.HOME) {
-            deactivateKeyguardRuntime("home-source-active")
+            if (retainKeyguardLease) {
+                logDiagnostic(
+                    level = Log.INFO,
+                    event = "scene.defer",
+                    component = "keyguardControlCenter",
+                    state = "retained",
+                    "source" to "steady-source-view",
+                    "observedScene" to sourceScene.name,
+                    "leasedScene" to controlCenterSourceScene.name,
+                    "nativeFraction" to controlCenterExpansionFraction,
+                    "reason" to "control-center-keyguard-lease",
+                    "nativeGeometryWrites" to 0,
+                )
+            } else {
+                deactivateKeyguardRuntime("home-source-active")
+            }
         }
-        if (sourceScene != CombinedStatusSourceScene.UNKNOWN) {
+        if (
+            sourceScene != CombinedStatusSourceScene.UNKNOWN &&
+            !retainKeyguardLease
+        ) {
             updateControlCenterSourceSceneEligibility(
                 sourceScene = sourceScene,
                 authority = "steady-source-view",
@@ -1777,11 +1985,24 @@ class CombinedStatusModule : XposedModule() {
         ready: Boolean,
         source: String,
     ) {
+        keyguardPresentationReadyObserved = ready
         if (!ready) {
-            keyguardRuntimeReady = false
-            CombinedStatusKeyguardRenderSession.setNativeHandoffActive(true)
-            SystemUiHomePresentationOwner.deactivateKeyguard("readiness-lost:" + source)
-            refreshControlCenterSourceSceneEligibility("keyguard-readiness-lost")
+            if (shouldRetainKeyguardControlCenterLease()) {
+                logDiagnostic(
+                    level = Log.INFO,
+                    event = "presentation.readiness",
+                    component = "keyguardPresentation",
+                    state = "retained",
+                    "source" to source,
+                    "nativeFraction" to controlCenterExpansionFraction,
+                    "leaseActive" to keyguardControlCenterLeaseActive,
+                    "cleanupDeferredUntil" to "native-control-center-handoff-end",
+                    "timingDelay" to false,
+                    "nativeGeometryWrites" to 0,
+                )
+                return
+            }
+            applyKeyguardPresentationReadinessLost(source)
             return
         }
 
@@ -1859,6 +2080,13 @@ class CombinedStatusModule : XposedModule() {
         }
     }
 
+    private fun applyKeyguardPresentationReadinessLost(source: String) {
+        keyguardRuntimeReady = false
+        CombinedStatusKeyguardRenderSession.setNativeHandoffActive(true)
+        SystemUiHomePresentationOwner.deactivateKeyguard("readiness-lost:" + source)
+        refreshControlCenterSourceSceneEligibility("keyguard-readiness-lost")
+    }
+
     private fun completeKeyguardPresentationCutover(
         result: SystemUiHomePresentationOwner.StateResult.Active,
         source: String,
@@ -1869,6 +2097,7 @@ class CombinedStatusModule : XposedModule() {
             return
         }
         keyguardRuntimeReady = true
+        keyguardPresentationReadyObserved = true
         CombinedStatusKeyguardRenderSession.setNativeHandoffActive(false)
         logDiagnostic(
             level = Log.INFO,
@@ -1885,6 +2114,8 @@ class CombinedStatusModule : XposedModule() {
     }
 
     private fun onKeyguardPresentationRuntimeFailure(reason: String) {
+        keyguardControlCenterLeaseActive = false
+        keyguardPresentationReadyObserved = false
         keyguardRuntimeReady = false
         CombinedStatusKeyguardRenderSession.setNativeHandoffActive(true)
         logDiagnostic(
@@ -1900,6 +2131,8 @@ class CombinedStatusModule : XposedModule() {
 
     private fun deactivateKeyguardRuntime(source: String) {
         val wasReady = keyguardRuntimeReady
+        keyguardControlCenterLeaseActive = false
+        keyguardPresentationReadyObserved = false
         keyguardRuntimeReady = false
         CombinedStatusKeyguardRenderSession.setNativeHandoffActive(true)
         SystemUiHomePresentationOwner.deactivateKeyguard(source)
@@ -1948,7 +2181,11 @@ class CombinedStatusModule : XposedModule() {
         controlCenterSceneVisible = false
         controlCenterSceneEligible = false
         controlCenterSourceScene = CombinedStatusSourceScene.UNKNOWN
+        controlCenterExpansionFraction = 0f
         keyguardRuntimeReady = false
+        keyguardPresentationReadyObserved = false
+        keyguardControlCenterLeaseActive = false
+        CombinedStatusControlCenterTransitionOwner.detach("hotReload-oldGeneration")
         CombinedStatusControlCenterRenderSession.detach(
             source = "hotReload-oldGeneration",
             releaseNativePresentation = !continuousHandoff,
@@ -2201,6 +2438,11 @@ class CombinedStatusModule : XposedModule() {
         ready: Boolean,
         source: String,
     ) {
+        if (!RuntimeFeaturePreferencesOwner.currentSettings().enabled) {
+            CombinedStatusHomeRenderSession.setNativeHandoffActive(true)
+            SystemUiHomePresentationOwner.deactivate("feature-disabled:" + source)
+            return
+        }
         if (!ready) {
             CombinedStatusHomeRenderSession.setNativeHandoffActive(true)
             SystemUiHomePresentationOwner.deactivate("readiness-lost:" + source)
@@ -2470,7 +2712,34 @@ class CombinedStatusModule : XposedModule() {
                         val state = CombinedStatusStateStore.snapshot()
                         val wifi = state.wifi
 
-                        if (active) {
+                        if (
+                            active &&
+                            !RuntimeFeaturePreferencesOwner.currentSettings().enabled
+                        ) {
+                            val batterySuppression =
+                                SystemUiNativeBatterySuppressionOwner.deactivate(
+                                    "feature-disabled-native-handoff",
+                                )
+                            val networkSuppression =
+                                SystemUiNativeNetworkSuppressionOwner.deactivate(
+                                    "feature-disabled-native-handoff",
+                                )
+                            CombinedStatusHomeRenderSession.setNativeHandoffActive(false)
+                            logDiagnostic(
+                                level = Log.INFO,
+                                event = "visibility.handoff",
+                                component = "nativeCombinedParticipant",
+                                state = "blocked",
+                                "source" to source,
+                                "reason" to "master-switch-disabled",
+                                "nativeActive" to false,
+                                "overlayActive" to false,
+                                "networkSuppression" to networkSuppression.summary,
+                                "batterySuppression" to batterySuppression.summary,
+                                "nativeGeometryWrites" to 0,
+                            )
+                            false
+                        } else if (active) {
                             val batterySuppression =
                                 SystemUiNativeBatterySuppressionOwner.activate(
                                     host = host,
@@ -2812,12 +3081,44 @@ class CombinedStatusModule : XposedModule() {
         settings: CombinedStatusFeatureSettings,
         preferenceTransportLatencyNanos: Long?,
     ) {
+        if (Looper.myLooper() !== Looper.getMainLooper()) {
+            val dispatch =
+                Runnable {
+                    onRuntimeFeatureSettingsChanged(
+                        settings = settings,
+                        preferenceTransportLatencyNanos = preferenceTransportLatencyNanos,
+                    )
+                }
+            val hostView = SystemUiHostRegistry.currentStatusHost() as? android.view.View
+            val scheduled =
+                (hostView?.post(dispatch) == true) ||
+                    Handler(Looper.getMainLooper()).post(dispatch)
+            if (scheduled) {
+                return
+            }
+            logDiagnostic(
+                level = Log.ERROR,
+                event = "featureSettings.dispatch",
+                component = "combinedStatus",
+                state = "error",
+                "reason" to "main-thread-dispatch-failed",
+                "combinedStatusEnabled" to settings.enabled,
+                "keyguardEnabled" to settings.keyguardEnabled,
+                "fallback" to "leave-current-native-ownership-unchanged",
+            )
+            return
+        }
+
+        SystemUiNativeCombinedParticipantOwner.onFeatureSettingsChanged(settings)
         CombinedStatusHomeRenderSession.onFeatureSettingsChanged(settings)
         CombinedStatusKeyguardRenderSession.onFeatureSettingsChanged(settings)
         CombinedStatusControlCenterRenderSession.onFeatureSettingsChanged(settings)
 
-        if (!settings.enabled || !settings.keyguardEnabled) {
+        if (!settings.enabled) {
+            releaseFeaturePresentationOwnership("feature-disabled")
             deactivateKeyguardRuntime("feature-disabled")
+        } else if (!settings.keyguardEnabled) {
+            deactivateKeyguardRuntime("keyguard-feature-disabled")
         } else {
             SystemUiKeyguardHostResolver.current()?.let { resolution ->
                 onKeyguardHostResolution(
@@ -2842,8 +3143,22 @@ class CombinedStatusModule : XposedModule() {
                         ?: "initial-bind"
                 ),
             "eventDriven" to true,
+            "mainThread" to true,
             "fallback" to if (settings.enabled) "combined-status" else "native-systemui",
         )
+    }
+
+    private fun releaseFeaturePresentationOwnership(source: String) {
+        controlCenterSceneEligible = false
+        keyguardControlCenterLeaseActive = false
+        CombinedStatusControlCenterRenderSession.setSceneEligible(false)
+        CombinedStatusControlCenterTransitionOwner.setSceneEligible(false)
+        SystemUiHomePresentationOwner.deactivateControlCenter(source)
+        SystemUiHomePresentationOwner.deactivateKeyguard(source)
+        SystemUiHomePresentationOwner.deactivate(source)
+        SystemUiNativeBatterySuppressionOwner.deactivate(source)
+        SystemUiNativeNetworkSuppressionOwner.deactivate(source)
+        CombinedStatusHomeRenderSession.setNativeHandoffActive(true)
     }
 
     private fun bindRuntimeVisualSettings() {

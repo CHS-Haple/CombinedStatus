@@ -393,6 +393,115 @@ class CombinedStatusRenderModelTest {
     }
 
     @Test
+    fun nativeNoSimPresentationOverridesStaleMobileSignalAndType() {
+        val noSimIcon =
+            CombinedStatusPresentationStateStore.NativeIconResource(
+                packageName = "com.android.systemui",
+                resourceId = 42,
+            )
+        val model =
+            CombinedStatusRenderModel.from(
+                snapshot =
+                    snapshot(
+                        wifi = CombinedStatusStateStore.WifiState.Hidden,
+                        mobile =
+                            mapOf(
+                                4 to CombinedStatusStateStore.MobileState(
+                                    signal = SignalStrength.Level(4),
+                                ),
+                            ),
+                    ),
+                presentation =
+                    CombinedStatusPresentationStateStore.Snapshot(
+                        connectivity =
+                            connectivity(
+                                transport = SystemUiConnectivityStateSource.Transport.CELLULAR,
+                                validated = true,
+                            ),
+                        mobilePresentation =
+                            NativePresentationResolver.Snapshot(
+                                mode = NativePresentationResolver.Mode.UNKNOWN,
+                                boundRoots = 0,
+                                visibleRoots = 0,
+                                activeSubscriptionIds = emptyList(),
+                                presentationRootSubscriptionId = null,
+                                effectiveDataSubscriptionId = 4,
+                                networkTypeSubscriptionId = 4,
+                                networkType = mobileType("5G"),
+                            ),
+                        statusIcons =
+                            CombinedStatusPresentationStateStore.StatusIconPresentation(
+                                noSimVisible = true,
+                                noSimIcon = noSimIcon,
+                            ),
+                    ),
+                defaultDataSubscriptionId = 4,
+            )
+
+        assertTrue(model?.centerIndicator is CenterIndicator.NoSim)
+        assertNull(model?.mobileLevel)
+        assertEquals(-1, model?.effectiveDataSubscriptionId)
+        assertTrue(model?.mobileUnavailableMark == true)
+    }
+
+    @Test
+    fun nativeNoSimWithWifiSuppressesStaleMobileButKeepsWifiCenter() {
+        val noSimIcon =
+            CombinedStatusPresentationStateStore.NativeIconResource(
+                packageName = "com.android.systemui",
+                resourceId = 42,
+            )
+        val model =
+            CombinedStatusRenderModel.from(
+                snapshot =
+                    snapshot(
+                        wifi =
+                            CombinedStatusStateStore.WifiState.Visible(
+                                iconResId = 10,
+                                signal = SignalStrength.Level(3),
+                                internetValidated = true,
+                            ),
+                        mobile =
+                            mapOf(
+                                4 to CombinedStatusStateStore.MobileState(
+                                    signal = SignalStrength.Level(4),
+                                ),
+                            ),
+                    ),
+                presentation =
+                    CombinedStatusPresentationStateStore.Snapshot(
+                        connectivity =
+                            connectivity(
+                                transport = SystemUiConnectivityStateSource.Transport.WIFI,
+                                validated = true,
+                            ),
+                        mobilePresentation =
+                            NativePresentationResolver.Snapshot(
+                                mode = NativePresentationResolver.Mode.UNKNOWN,
+                                boundRoots = 0,
+                                visibleRoots = 0,
+                                activeSubscriptionIds = emptyList(),
+                                presentationRootSubscriptionId = null,
+                                effectiveDataSubscriptionId = 4,
+                                networkTypeSubscriptionId = 4,
+                                networkType = mobileType("5G"),
+                            ),
+                        statusIcons =
+                            CombinedStatusPresentationStateStore.StatusIconPresentation(
+                                noSimVisible = true,
+                                noSimIcon = noSimIcon,
+                            ),
+                    ),
+                defaultDataSubscriptionId = 4,
+            )
+
+        assertTrue(model?.centerIndicator is CenterIndicator.Wifi)
+        assertNull(model?.mobileLevel)
+        assertEquals(-1, model?.effectiveDataSubscriptionId)
+        assertTrue(model?.mobileUnavailableMark == true)
+    }
+
+    @Test
     fun noSimWithoutWifiKeepsUnavailableMarkAlongsideNativeNoSimCenter() {
         val noSimIcon =
             CombinedStatusPresentationStateStore.NativeIconResource(
