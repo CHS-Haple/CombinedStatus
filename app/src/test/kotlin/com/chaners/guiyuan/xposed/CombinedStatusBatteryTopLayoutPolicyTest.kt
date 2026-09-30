@@ -6,92 +6,83 @@ import org.junit.Test
 
 class CombinedStatusBatteryTopLayoutPolicyTest {
     @Test
+    fun canonicalZeroIsNotTreatedAsPhysicalViewTop() {
+        val minimumTop =
+            CombinedStatusBatteryTopLayoutPolicy.resolveMinimumSafeTopY(
+                transformScale = 0.875f,
+                transformOffsetY = 32f,
+            )
+
+        assertEquals(-36.57143f, minimumTop, 0.0001f)
+    }
+
+    @Test
     fun zeroUsesUpwardOpticalDefaultWithoutArtificialHeadroomShift() {
         val base =
             CombinedStatusBatteryTopLayoutPolicy.resolveOpticalBaseCenterY(
                 preferredCenterY = 16f,
                 defaultOpticalRise = 1.5f,
                 contentInkHeight = 18f,
-                topSafeInset = 1f,
+                minimumSafeTopY = -36f,
             )
 
         assertEquals(14.5f, base, 0.0001f)
     }
 
     @Test
-    fun opticalDefaultClampsOnlyWhenTextWouldCrossTopSafety() {
+    fun opticalDefaultClampsOnlyAtActualPhysicalTopSafety() {
         val base =
             CombinedStatusBatteryTopLayoutPolicy.resolveOpticalBaseCenterY(
                 preferredCenterY = 16f,
                 defaultOpticalRise = 1.5f,
                 contentInkHeight = 30f,
-                topSafeInset = 1f,
+                minimumSafeTopY = 1f,
             )
 
         assertEquals(16f, base, 0.0001f)
     }
 
     @Test
-    fun positiveOffsetRespondsBeforeHalfRangeAndStillEndsAtSafeBoundary() {
-        val base = 24f
-        val contentHeight = 18f
-        val inset = 1f
-        val small =
+    fun positiveOffsetUsesRequestedDistanceWhileRealHeadroomExists() {
+        val center =
             CombinedStatusBatteryTopLayoutPolicy.resolveCenterY(
-                baseCenterY = base,
-                requestedOffset = 8f,
+                baseCenterY = 14.5f,
+                requestedOffset = 20f,
                 positiveLimit = 30f,
-                contentInkHeight = contentHeight,
-                topSafeInset = inset,
-            )
-        val maximum =
-            CombinedStatusBatteryTopLayoutPolicy.resolveCenterY(
-                baseCenterY = base,
-                requestedOffset = 30f,
-                positiveLimit = 30f,
-                contentInkHeight = contentHeight,
-                topSafeInset = inset,
+                contentInkHeight = 18f,
+                minimumSafeTopY = -36f,
             )
 
-        assertTrue(small < base - 4f)
-        assertEquals(contentHeight / 2f + inset, maximum, 0.0001f)
+        assertEquals(-5.5f, center, 0.0001f)
     }
 
     @Test
-    fun positiveOffsetUsesWholeSliderRangeWithoutCrossingTopSafeBoundary() {
-        val base = 13.5f
-        val contentHeight = 18f
-        val inset = 1.5f
-
-        val zero =
+    fun positiveMaximumCanTravelAboveCanonicalZeroWithoutClippingView() {
+        val center =
             CombinedStatusBatteryTopLayoutPolicy.resolveCenterY(
-                baseCenterY = base,
-                requestedOffset = 0f,
-                positiveLimit = 30f,
-                contentInkHeight = contentHeight,
-                topSafeInset = inset,
-            )
-        val halfway =
-            CombinedStatusBatteryTopLayoutPolicy.resolveCenterY(
-                baseCenterY = base,
-                requestedOffset = 15f,
-                positiveLimit = 30f,
-                contentInkHeight = contentHeight,
-                topSafeInset = inset,
-            )
-        val maximum =
-            CombinedStatusBatteryTopLayoutPolicy.resolveCenterY(
-                baseCenterY = base,
+                baseCenterY = 14.5f,
                 requestedOffset = 30f,
                 positiveLimit = 30f,
-                contentInkHeight = contentHeight,
-                topSafeInset = inset,
+                contentInkHeight = 18f,
+                minimumSafeTopY = -36f,
             )
 
-        assertEquals(base, zero, 0.0001f)
-        assertTrue(halfway < zero)
-        assertTrue(maximum < halfway)
-        assertEquals(contentHeight / 2f + inset, maximum, 0.0001f)
+        assertEquals(-15.5f, center, 0.0001f)
+        assertTrue(center < 0f)
+    }
+
+    @Test
+    fun positiveOffsetStopsOnlyWhenActualViewTopWouldClipContent() {
+        val center =
+            CombinedStatusBatteryTopLayoutPolicy.resolveCenterY(
+                baseCenterY = 14.5f,
+                requestedOffset = 30f,
+                positiveLimit = 30f,
+                contentInkHeight = 18f,
+                minimumSafeTopY = -10f,
+            )
+
+        assertEquals(-1f, center, 0.0001f)
     }
 
     @Test
@@ -102,7 +93,7 @@ class CombinedStatusBatteryTopLayoutPolicyTest {
                 requestedOffset = -30f,
                 positiveLimit = 30f,
                 contentInkHeight = 18f,
-                topSafeInset = 1.5f,
+                minimumSafeTopY = -36f,
             )
 
         assertEquals(43.5f, center, 0.0001f)
