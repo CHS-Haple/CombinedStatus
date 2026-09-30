@@ -13517,7 +13517,8 @@ The previously rejected local `batteryWidthDiff` cancellation/normalization rout
   - source scene is Home;
   - current render model is charging;
   - exact native `isAddBatteryIsland == true`.
-- `false` and `null` no longer impersonate Battery-Island ownership.
+- exact `false` means ordinary Control Center peer motion and may use semantic reservation.
+- `null` is compatibility uncertainty and fails native: it does not claim semantic reservation or assume Battery-Island ownership.
 - Expansion samples explicitly clear stale prior Battery-Island state when the exact native read is unavailable.
 - Generic `SystemUiIslandMotionSource.currentIslandShowing()` is removed from this ownership decision but remains available for existing read-only island diagnostics.
 - Add focused unit coverage for exact native Battery-Island payload and the revised scene/charging matrix.
@@ -13540,7 +13541,7 @@ The previously rejected local `batteryWidthDiff` cancellation/normalization rout
 - **single writer:** no translation, alpha, visibility, or new geometry writer; `statusIcons.paddingEnd` remains the sole Guiyuan peer-layout writer.
 - **lifecycle:** no new hook/listener; data flows through the four already-installed Control Center callbacks.
 - **performance:** one primitive Boolean reflection read on existing event callbacks; no polling/frame probe.
-- **Fail native:** an unavailable Battery-Island read clears stale special-mode state and does not assume Battery-Island ownership.
+- **Fail native:** an unavailable Battery-Island read clears stale state and yields to native peer motion; semantic reservation is enabled only by an explicit native `false`.
 - **protected behavior:** island-only, charging-only, Build-510/511 Battery-body motion, Build-525 readout geometry and Build-524 number-target logic are not retuned.
 - **rejected route remains rejected:** no local `batteryWidthDiff` normalization or QS_FAKE translation cancellation is restored.
 
@@ -13551,7 +13552,7 @@ The previously rejected local `batteryWidthDiff` cancellation/normalization rout
 - Added policy coverage verifies:
   - Home + charging + native Battery Island -> native peer motion;
   - Home + charging + no native Battery Island -> semantic reservation;
-  - Home + charging + unknown Battery-Island read -> semantic reservation;
+  - Home + charging + unknown Battery-Island read -> native peer motion / no semantic reservation;
   - Home + island semantics without charging -> semantic reservation;
   - Keyguard remains semantic-reservation owned.
 - Build 526 Runtime CI required before Canary.
