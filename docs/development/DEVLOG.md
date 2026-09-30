@@ -13073,3 +13073,58 @@ The user-facing scale was being applied on top of an authored base text size of 
 - Modern Xposed metadata validation: green.
 - Remaining evidence is device-only: verify the new 100% / 700 baseline, useful upper range, ring clearance at large sizes, and no regression in Home -> Control Center Battery motion.
 
+## 2026-10-01 — Build 515: restore upward battery-top offset and finalize typography controls
+
+**Type:** focused visual correction  
+**Display version:** 0.0.3  
+**Build / source:** 515 / `20261001-515` / `feat/battery-top-readout` / PR #181
+
+### Maintainer device evidence
+
+Build 514 confirmed that visual preference changes were reaching the renderer, but the number could not be moved upward in practice. The maintainer also requested:
+- default number weight 900;
+- a practical number-size range;
+- vertical offset range ±30;
+- positive values move up, negative values move down.
+
+The Build-514 diagnostic report shows a healthy runtime and repeated `visualSettings.changed` events, so preference transport was not the failing layer.
+
+### Root cause
+
+The painter derived:
+`minCenterY = ringOuterTop + contentHeight / 2`
+and then clamped the requested center with:
+`coerceIn(minCenterY, BATTERY_TOP_CONTENT_MAX_CENTER_Y)`.
+
+As text became larger, upward movement was immediately clamped back to `minCenterY`. The UI preference therefore changed and reached the renderer, but the painter discarded the requested upward displacement. The previous formula also used `base + offset`, which gave the opposite sign convention from the requested UI semantics.
+
+### Change
+
+- Remove the painter-side safety clamp that consumed upward displacement.
+- Define the position directly as:
+  `centerY = baseCenterY - verticalOffset`.
+- Expand vertical offset from ±6 to ±30.
+- Use 1-unit steps across -30…+30.
+- Positive values now move the readout upward; negative values move it downward.
+- Set default number weight to 900.
+- Keep number-size range at 60%-200% on the 24 px authored baseline; expose it in 5% increments.
+- Keep charging-glyph size behavior unchanged.
+- Advance build identity to Build 515 / `20261001-515`.
+
+### 审查 / review
+
+- **root-cause correction:** preference transport was not changed; the correction is at the geometry consumer that was discarding valid user input.
+- **range:** 60%-200% on a 24 px baseline corresponds to 14.4-48 px before canvas scaling and already spans below/above the intended visual baseline; extending beyond 200% would materially exceed the top-ring visual envelope rather than add useful control.
+- **single writer:** unchanged; only Guiyuan painter coordinates are affected.
+- **transition ownership:** unchanged; the readout still travels inside the existing Battery transition component.
+- **native authority:** charging state/resource selection remains HyperOS-owned.
+- **performance/lifecycle:** no hook, listener, timer, polling path, or long-lived owner was added.
+
+### Validation
+
+- Build-515 Runtime CI #1943: **success**.
+- Pinned HyperOS target profile: green.
+- Unit tests + Debug build: green.
+- Modern Xposed metadata validation: green.
+- Remaining gate: exact-head signed Canary and focused device validation of +30 upward, -30 downward, default weight 900, and one Home -> Control Center pull.
+
