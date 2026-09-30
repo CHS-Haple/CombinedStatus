@@ -1647,8 +1647,6 @@ internal class CombinedStatusPainter(
         geometry: CombinedStatusCenterGeometry.Resolved,
         nativeTransform: NativeRenderTransform,
         scaleMobileTypeWithCanvas: Boolean,
-        mobileTypeTargetStyle: TransitionTextStyle? = null,
-        mobileTypeTransitionProgress: Float = 0f,
     ) {
         if (previous == null || previous == current) {
             drawCenterIndicator(
@@ -1699,6 +1697,8 @@ internal class CombinedStatusPainter(
         geometry: CombinedStatusCenterGeometry.Resolved,
         nativeTransform: NativeRenderTransform,
         scaleMobileTypeWithCanvas: Boolean,
+        mobileTypeTargetStyle: TransitionTextStyle? = null,
+        mobileTypeTransitionProgress: Float = 0f,
     ) {
         if (appearAmount <= 0f) {
             return
