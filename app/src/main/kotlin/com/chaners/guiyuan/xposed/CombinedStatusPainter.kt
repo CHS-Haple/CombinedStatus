@@ -200,6 +200,7 @@ internal class CombinedStatusPainter(
                         ),
                     motionProgress = motion,
                     targetWeight = batteryNumberTargetWeight,
+                    nativeTransform = nativeTransform,
                 )
 
             TransitionComponent.CENTER ->
@@ -445,6 +446,12 @@ internal class CombinedStatusPainter(
                 bottom = offsetY + bounds.bottom * scale,
             )
 
+        val nativeTransform =
+            NativeRenderTransform(
+                scale = scale,
+                offsetX = offsetX,
+                offsetY = offsetY,
+            )
         val specs = ArrayList<TransitionComponentSpec>(4)
         val batteryHalfStroke = outerGeometry.ringStroke / 2f
         specs +=
@@ -468,6 +475,7 @@ internal class CombinedStatusPainter(
             model = model,
             visualSettings = visualSettings,
             ringStroke = outerGeometry.ringStroke,
+            nativeTransform = nativeTransform,
         )?.let { readout ->
             specs +=
                 TransitionComponentSpec(
@@ -902,6 +910,7 @@ internal class CombinedStatusPainter(
                 model = model,
                 visualSettings = visualSettings,
                 ringStroke = geometry.ringStroke,
+                nativeTransform = nativeTransform,
             )
         if (readout == null) {
             val segments =
@@ -988,6 +997,7 @@ internal class CombinedStatusPainter(
         model: CombinedStatusRenderModel,
         visualSettings: CombinedStatusVisualSettings,
         ringStroke: Float,
+        nativeTransform: NativeRenderTransform,
     ): BatteryTopReadoutLayout? {
         if (!visualSettings.batteryTopReadoutEnabled) return null
 
@@ -1077,20 +1087,25 @@ internal class CombinedStatusPainter(
         // artificial travel. Keep the number slightly above the old geometric
         // baseline so the center glyph remains visually centered in the whole
         // combined icon. Positive values use only the real remaining headroom.
+        val minimumSafeTopY =
+            CombinedStatusBatteryTopLayoutPolicy.resolveMinimumSafeTopY(
+                transformScale = nativeTransform.scale,
+                transformOffsetY = nativeTransform.offsetY,
+            )
         val groupBaseCenterY =
             CombinedStatusBatteryTopLayoutPolicy.resolveOpticalBaseCenterY(
                 preferredCenterY = BATTERY_TOP_CONTENT_CENTER_Y,
                 defaultOpticalRise = BATTERY_TOP_DEFAULT_OPTICAL_RISE,
                 contentInkHeight = textOpticalHeight,
-                topSafeInset = BATTERY_TOP_TOP_SAFE_INSET,
+                minimumSafeTopY = minimumSafeTopY,
             )
         val groupCenterY =
             CombinedStatusBatteryTopLayoutPolicy.resolveCenterY(
                 baseCenterY = groupBaseCenterY,
                 requestedOffset = visualSettings.batteryTopVerticalOffset,
                 positiveLimit = BATTERY_TOP_VERTICAL_OFFSET_MAX,
-                contentInkHeight = textOpticalHeight,
-                topSafeInset = BATTERY_TOP_TOP_SAFE_INSET,
+                contentInkHeight = contentInkHeight,
+                minimumSafeTopY = minimumSafeTopY,
             )
         val textBaselineY =
             groupCenterY -
@@ -1136,7 +1151,7 @@ internal class CombinedStatusPainter(
             // The bolt and number share one optical center line.
             chargingIconCenterY =
                 groupCenterY -
-                    (chargingOpticalSize?.centerOffsetY ?: 0f),
+                    (chargingOpticalSize?.inkCenterOffsetY ?: 0f),
             chargingIconSize = chargingIconSize,
         )
     }
@@ -1188,12 +1203,14 @@ internal class CombinedStatusPainter(
         geometry: CombinedStatusOuterGeometry.Resolved,
         motionProgress: Float,
         targetWeight: Int?,
+        nativeTransform: NativeRenderTransform,
     ) {
         val layout =
             resolveBatteryTopReadoutLayout(
                 model = model,
                 visualSettings = visualSettings,
                 ringStroke = geometry.ringStroke,
+                nativeTransform = nativeTransform,
             ) ?: return
         val sourceWeight = layout.textWeight
         val resolvedTargetWeight =
@@ -1573,6 +1590,7 @@ internal class CombinedStatusPainter(
                     intrinsicWidth = drawable.intrinsicWidth,
                     intrinsicHeight = drawable.intrinsicHeight,
                     opticalBounds = visualProbe.opticalBounds,
+                    inkCenterY = visualProbe.inkCenterY,
                 )
             }.getOrNull()
                 ?: return null
@@ -1589,11 +1607,12 @@ internal class CombinedStatusPainter(
         drawable: Drawable,
         resources: android.content.res.Resources,
     ): NativeVisualProbe? {
-        val optical =
+        val visual =
             CombinedStatusParticipantVisualSnapshot.resolveDrawable(
                 drawable = drawable,
                 resources = resources,
-            )?.envelope ?: return null
+            ) ?: return null
+        val optical = visual.envelope
         return NativeVisualProbe(
             opticalBounds =
                 OpticalBounds(
@@ -1602,6 +1621,7 @@ internal class CombinedStatusPainter(
                     right = optical.right,
                     bottom = optical.bottom,
                 ),
+            inkCenterY = visual.inkCenterY ?: optical.centerY,
         )
     }
 
@@ -1635,8 +1655,8 @@ internal class CombinedStatusPainter(
             centerOffsetX =
                 ((asset.opticalBounds.left + asset.opticalBounds.right) / 2f - 0.5f) *
                     drawWidth,
-            centerOffsetY =
-                ((asset.opticalBounds.top + asset.opticalBounds.bottom) / 2f - 0.5f) *
+            inkCenterOffsetY =
+                (asset.inkCenterY - 0.5f) *
                     drawHeight,
         )
     }
@@ -2448,7 +2468,6 @@ internal class CombinedStatusPainter(
         const val BATTERY_TOP_RING_GAP_BASE_PADDING = 5f
         const val BATTERY_TOP_RING_GAP_INK_HEIGHT_RATIO = 0.14f
         const val BATTERY_TOP_RING_GAP_STROKE_RATIO = 0.5f
-        const val BATTERY_TOP_TOP_SAFE_INSET = 0.75f
         const val BATTERY_TOP_DEFAULT_OPTICAL_RISE = 1.5f
         const val BATTERY_TOP_GAP_CENTER_DEGREES = 270f
         const val BATTERY_TOP_CONTENT_CENTER_Y = 16f
@@ -2509,7 +2528,7 @@ internal class CombinedStatusPainter(
         val width: Float,
         val height: Float,
         val centerOffsetX: Float,
-        val centerOffsetY: Float,
+        val inkCenterOffsetY: Float,
     )
 
     private data class NativeCenterAsset(
@@ -2517,10 +2536,12 @@ internal class CombinedStatusPainter(
         val intrinsicWidth: Int,
         val intrinsicHeight: Int,
         val opticalBounds: OpticalBounds,
+        val inkCenterY: Float,
     )
 
     private data class NativeVisualProbe(
         val opticalBounds: OpticalBounds,
+        val inkCenterY: Float,
     )
 
     private data class OpticalBounds(
