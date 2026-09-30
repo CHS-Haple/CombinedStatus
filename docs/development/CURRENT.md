@@ -15,7 +15,7 @@ This file is the concise recovery point for active Guiyuan development. Historic
 PR #181 / `feat/battery-top-readout` adds an optional battery percentage readout in the top opening of the Guiyuan battery ring while preserving the accepted Home -> Control Center transition contract.
 
 Current checkpoint:
-- Build 526 / `20261001-526`;
+- Build 527 / `20261001-527`;
 - branch remains based on current `dev` and is not behind it;
 - Build 524 improved the final native Battery-number target for HyperOS hollow-battery presentation;
 - Build 525 corrected two Build-523 device defects:
@@ -39,6 +39,14 @@ Build 526 root-cause correction:
 - an unknown Battery-Island read fails native and does not claim semantic reservation;
 - no local `batteryWidthDiff`, translation, endpoint, duration, or trajectory compensation is introduced.
 
+Build 527 mobile-type typography correction:
+- maintainer video evidence shows the compact Guiyuan `5G` visible ink is still about 1.35–1.40× the final native HyperOS `mobile_type` ink on the pinned target;
+- compact mobile-type main text is rebased from 39 to 29 canonical px; suffix size/rise are reduced proportionally so 5G-A/4G suffix composition follows the same scale;
+- target position/size convergence remains owned by the existing native `mobile_type_single/mobile_type` witness and transition matrix;
+- when that exact native target is a TextView (or exposes one directly), its Typeface weight is read and the Guiyuan text weight interpolates continuously from the compact source weight to the native target weight using the existing HyperOS motion progress;
+- if native target typography is unavailable, weight remains unchanged rather than guessing a target;
+- no second animator, timing curve, native text writer, or screenshot-specific endpoint is added.
+
 ## Validation state
 
 Confirmed:
@@ -47,7 +55,7 @@ Confirmed:
 - The affected diagnostic showed `addBatteryIsland=false / batteryWidthDiff=0` while the old policy had already switched to `native-peer-motion`.
 - Build 524 Runtime CI #1961: green.
 - Build 525 Runtime CI #1966: green.
-- Build 526 pre-final Runtime run #1971 reached successful tests/build and metadata validation, but the workflow was later cancelled by a concurrent draft synchronization; it is evidence only, not the final exact-head gate.
+- Build 526 exact-head Runtime CI #1975: green; signed Work Branch Canary #583: green at exact SHA `9c833f79fff222b8551485349a0361812f6ba897`.
 - Build 526 static review:
   - exact HyperOS `isAddBatteryIsland` is read from the already-resolved `ControlCenterHeaderExpandController` contract;
   - no new hook count, listener, polling path, timer, animator, native translation writer, or layout writer is added;
@@ -57,8 +65,8 @@ Confirmed:
   - unknown exact authority remains native-peer-motion rather than guessing `false`.
 
 Pending:
-- Build 526 exact-head Runtime CI.
-- if green, one exact-head signed Build-526 Canary.
+- Build 527 Runtime CI.
+- if green, one exact-head signed Build-527 Canary.
 - focused device validation:
   - island-only pull remains unchanged and reaches the expected final native icon endpoints;
   - charging without an active generic island remains unchanged;
@@ -93,9 +101,9 @@ Pending:
 
 ## Immediate next step
 
-1. finish Build-526 Runtime CI and automated review;
-2. if green, freeze runtime at exact Build 526 and request one signed work-branch Canary;
-3. validate the island-only / charging-only / island+charging matrix plus the two battery-top geometry corrections;
+1. finish Build-527 Runtime CI and automated review;
+2. if green, freeze runtime at exact Build 527 and request one signed work-branch Canary;
+3. validate compact 5G/4G scale plus native-target size/weight convergence, together with the Build-526 island/charging matrix and battery-top checks;
 4. change runtime again only if that device evidence identifies a concrete remaining defect;
 5. merge to `dev` only after the combined checkpoint is device-accepted.
 
