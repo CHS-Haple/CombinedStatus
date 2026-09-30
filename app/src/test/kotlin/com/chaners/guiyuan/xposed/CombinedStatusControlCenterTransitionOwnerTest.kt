@@ -155,37 +155,51 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
-    fun latentTargetProximityRevealUsesCompactOpticalWidth() {
-        val target = floatArrayOf(200f, 50f, 20f, 0f, 0f, 20f)
+    fun latentRevealRequiresPeerSpaceAndSourceSeparation() {
+        val source = geometry(width = 20f, height = 20f)
 
         assertEquals(
             0f,
-            CombinedStatusControlCenterTransitionOwner.Policy
-                .latentTargetProximityOpacity(
-                    current = floatArrayOf(179f, 50f, 20f, 0f, 0f, 20f),
-                    target = target,
-                    opticalWidth = 20f,
-                ),
+            CombinedStatusControlCenterTransitionOwner.Policy.latentRevealOpacity(
+                carriedSource = source,
+                current = geometry(centerX = 90f, width = 20f, height = 20f),
+                nativeSlotWidth = 75f,
+                reservedExtraWidth = 74f,
+                visualWidth = 20f,
+            ),
+            0.0001f,
+        )
+        assertEquals(
+            0f,
+            CombinedStatusControlCenterTransitionOwner.Policy.latentRevealOpacity(
+                carriedSource = source,
+                current = geometry(centerX = 74f, width = 20f, height = 20f),
+                nativeSlotWidth = 75f,
+                reservedExtraWidth = 100f,
+                visualWidth = 20f,
+            ),
             0.0001f,
         )
         assertEquals(
             0.5f,
-            CombinedStatusControlCenterTransitionOwner.Policy
-                .latentTargetProximityOpacity(
-                    current = floatArrayOf(190f, 50f, 20f, 0f, 0f, 20f),
-                    target = target,
-                    opticalWidth = 20f,
-                ),
+            CombinedStatusControlCenterTransitionOwner.Policy.latentRevealOpacity(
+                carriedSource = source,
+                current = geometry(centerX = 85f, width = 20f, height = 20f),
+                nativeSlotWidth = 75f,
+                reservedExtraWidth = 100f,
+                visualWidth = 20f,
+            ),
             0.0001f,
         )
         assertEquals(
             1f,
-            CombinedStatusControlCenterTransitionOwner.Policy
-                .latentTargetProximityOpacity(
-                    current = target,
-                    target = target,
-                    opticalWidth = 20f,
-                ),
+            CombinedStatusControlCenterTransitionOwner.Policy.latentRevealOpacity(
+                carriedSource = source,
+                current = geometry(centerX = 95f, width = 20f, height = 20f),
+                nativeSlotWidth = 75f,
+                reservedExtraWidth = 100f,
+                visualWidth = 20f,
+            ),
             0.0001f,
         )
     }
@@ -368,42 +382,6 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
-    fun latentRevealRemainsHiddenUntilFinalOpticalNeighborhood() {
-        val target = floatArrayOf(200f, 80f, 20f, 0f, 0f, 20f)
-
-        assertEquals(
-            0f,
-            CombinedStatusControlCenterTransitionOwner.Policy
-                .latentTargetProximityOpacity(
-                    current = floatArrayOf(170f, 80f, 20f, 0f, 0f, 20f),
-                    target = target,
-                    opticalWidth = 20f,
-                ),
-            0.0001f,
-        )
-        assertEquals(
-            0.15625f,
-            CombinedStatusControlCenterTransitionOwner.Policy
-                .latentTargetProximityOpacity(
-                    current = floatArrayOf(185f, 80f, 20f, 0f, 0f, 20f),
-                    target = target,
-                    opticalWidth = 20f,
-                ),
-            0.0001f,
-        )
-        assertEquals(
-            1f,
-            CombinedStatusControlCenterTransitionOwner.Policy
-                .latentTargetProximityOpacity(
-                    current = target,
-                    target = target,
-                    opticalWidth = 20f,
-                ),
-            0.0001f,
-        )
-    }
-
-    @Test
     fun nativeTargetHeightCanBoundLocalShapeWithoutOwningItsExactScale() {
         val ratio =
             CombinedStatusControlCenterTransitionOwner.Policy.relativeGeometryHeight(
@@ -415,11 +393,12 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     private fun geometry(
+        centerX: Float = 0f,
         width: Float,
         height: Float,
     ): FloatArray =
         floatArrayOf(
-            0f,
+            centerX,
             0f,
             width,
             0f,

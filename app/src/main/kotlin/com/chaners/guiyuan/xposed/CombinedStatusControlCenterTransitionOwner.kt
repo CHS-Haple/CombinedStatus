@@ -436,20 +436,29 @@ internal object CombinedStatusControlCenterTransitionOwner {
             )
         }
 
-        fun latentTargetProximityOpacity(
+        fun latentRevealOpacity(
+            carriedSource: FloatArray,
             current: FloatArray,
-            target: FloatArray,
-            opticalWidth: Float,
+            nativeSlotWidth: Float,
+            reservedExtraWidth: Float,
+            visualWidth: Float,
         ): Float {
-            require(current.size == 6 && target.size == 6)
-            if (!opticalWidth.isFinite() || opticalWidth <= 0f) return 0f
+            require(carriedSource.size == 6 && current.size == 6)
+            if (
+                !nativeSlotWidth.isFinite() ||
+                nativeSlotWidth <= 0f ||
+                !reservedExtraWidth.isFinite() ||
+                !visualWidth.isFinite() ||
+                visualWidth <= 0f
+            ) return 0f
+            if (reservedExtraWidth < nativeSlotWidth) return 0f
 
-            val remaining =
-                kotlin.math.abs(target[0] - current[0])
-            if (remaining >= opticalWidth) return 0f
+            val separatedWidth =
+                kotlin.math.abs(current[0] - carriedSource[0])
+            if (separatedWidth < nativeSlotWidth) return 0f
 
             val normalized =
-                (1f - remaining / opticalWidth)
+                ((separatedWidth - nativeSlotWidth) / visualWidth)
                     .coerceIn(0f, 1f)
             return normalized * normalized * (3f - 2f * normalized)
         }
@@ -1088,8 +1097,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     latentRevealOpacity(
                         sourceGeometry = sourceGeometry,
                         currentGeometry = geometry,
-                        targetGeometry = targetGeometry,
                         witness = witness,
+                        carrierFrames = carrierFrames,
                     )
                 val componentOpacity = opacity * revealProgress
                 if (componentOpacity <= 0f) return@forEach
@@ -1180,8 +1189,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 latentRevealOpacity(
                     sourceGeometry = sourceGeometry,
                     currentGeometry = geometry,
-                    targetGeometry = targetGeometry,
                     witness = witness,
+                    carrierFrames = carrierFrames,
                 )
             if (revealProgress <= 0f) return null
             val matrix =
@@ -1265,8 +1274,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 latentRevealOpacity(
                     sourceGeometry = sourceGeometry,
                     currentGeometry = geometry,
-                    targetGeometry = targetGeometry,
                     witness = witness,
+                    carrierFrames = carrierFrames,
                 )
             if (revealProgress <= 0f) return null
             val matrix =
@@ -1332,83 +1341,47 @@ internal object CombinedStatusControlCenterTransitionOwner {
         private fun latentRevealOpacity(
             sourceGeometry: FloatArray,
             currentGeometry: FloatArray,
-            targetGeometry: FloatArray,
             witness: TargetWitness,
+            carrierFrames: CarrierFrames?,
         ): Float {
-            if (transitionReservationEnabled) {
-                val requiredWidth =
-                    requiredReservationWidthForTarget(witness)
-                        ?: return 0f
-                val currentWidth =
-                    lastReservationWidthPx
-                        ?: return 0f
-                if (currentWidth < requiredWidth) return 0f
-            }
-
-            val opticalWidth =
-                sqrt(
-                    sourceGeometry[2] * sourceGeometry[2] +
-                        sourceGeometry[3] * sourceGeometry[3],
-                ).takeIf { it.isFinite() && it > 0f }
-                    ?: return 0f
-            return Policy.latentTargetProximityOpacity(
-                current = currentGeometry,
-                target = targetGeometry,
-                opticalWidth = opticalWidth,
-            )
-        }
-
-        private fun requiredReservationWidthForTarget(
-            witness: TargetWitness,
-        ): Int? {
-            val source = sourceViewRef.get() ?: return null
-            if (source.width <= 0 || finalBattery.width <= 0) return null
-            val slot = witness.slotView
-            if (!isUsableSlotView(slot)) return null
-
-            val sourceRtl =
-                source.layoutDirection == View.LAYOUT_DIRECTION_RTL
-            val targetRtl =
-                finalBattery.layoutDirection == View.LAYOUT_DIRECTION_RTL
-            if (sourceRtl != targetRtl) return null
-
-            val batteryLocation = IntArray(2)
-            val slotLocation = IntArray(2)
-            finalBattery.getLocationInWindow(batteryLocation)
-            slot.getLocationInWindow(slotLocation)
-
-            val finalEndPhysical =
-                if (targetRtl) {
-                    batteryLocation[0].toFloat()
-                } else {
-                    (batteryLocation[0] + finalBattery.width).toFloat()
-                }
-            fun logicalTargetX(physicalX: Float): Float =
-                (if (targetRtl) -physicalX else physicalX) -
-                    (if (targetRtl) -finalEndPhysical else finalEndPhysical)
-
-            val targetA = logicalTargetX(slotLocation[0].toFloat())
-            val targetB =
-                logicalTargetX(
-                    (slotLocation[0] + slot.width).toFloat(),
-                )
+            val source = sourceViewRef.get() ?: return 0f
             val compactWidth =
-                (frozenSource?.width ?: source.width)
-                    .coerceAtLeast(0)
-                    .toFloat()
-            val left =
-                min(
-                    -compactWidth,
-                    min(targetA, targetB),
+                (frozenSource?.width ?: source.width).coerceAtLeast(0)
+            val currentReservation =
+                lastReservationWidthPx ?: compactWidth
+            val reservedExtraWidth =
+                (currentReservation - compactWidth).coerceAtLeast(0).toFloat()
+
+            val nativeSlotWidth =
+                witness.slotView.width
+                    .takeIf { it > 0 }
+                    ?.toFloat()
+                    ?: return 0f
+            val visualView = witness.opticalView ?: witness.slotView
+            val visualWidth =
+                CombinedStatusParticipantVisualSnapshot
+                    .resolveView(visualView)
+                    ?.envelope
+                    ?.width
+                    ?.times(visualView.width.toFloat())
+                    ?.takeIf { it.isFinite() && it > 0f }
+                    ?: sqrt(
+                        sourceGeometry[2] * sourceGeometry[2] +
+                            sourceGeometry[3] * sourceGeometry[3],
+                    ).takeIf { it.isFinite() && it > 0f }
+                    ?: return 0f
+            val carriedSource =
+                carriedSourceGeometry(
+                    source = sourceGeometry,
+                    carrierFrames = carrierFrames,
                 )
-            val right =
-                maxOf(
-                    0f,
-                    maxOf(targetA, targetB),
-                )
-            return kotlin.math.ceil(
-                (right - left).coerceAtLeast(compactWidth),
-            ).toInt()
+            return Policy.latentRevealOpacity(
+                carriedSource = carriedSource,
+                current = currentGeometry,
+                nativeSlotWidth = nativeSlotWidth,
+                reservedExtraWidth = reservedExtraWidth,
+                visualWidth = visualWidth,
+            )
         }
 
         private fun sourceRepresentsAny(vararg slots: String): Boolean {

@@ -1704,9 +1704,9 @@ internal class CombinedStatusPainter(
                 layout.bounds.top +
                     normalized.bottom.coerceIn(0f, 1f) * layout.bounds.height
             val targetWidth =
-                (targetRight - targetLeft).coerceAtLeast(diameter)
+                (targetRight - targetLeft).coerceAtLeast(0.001f)
             val targetHeight =
-                (targetBottom - targetTop).coerceAtLeast(diameter)
+                (targetBottom - targetTop).coerceAtLeast(0.001f)
             val targetCenterX = (targetLeft + targetRight) / 2f
             val targetBottomCenterY = targetBottom - diameter / 2f
 
