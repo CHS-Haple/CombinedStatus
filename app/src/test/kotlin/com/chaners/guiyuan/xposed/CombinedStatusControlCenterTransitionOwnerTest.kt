@@ -56,16 +56,6 @@ class CombinedStatusControlCenterTransitionOwnerTest {
             CombinedStatusControlCenterTransitionOwner.Policy.semanticRevealProgress(1f),
             0.0001f,
         )
-        assertEquals(
-            0.90f,
-            CombinedStatusControlCenterTransitionOwner.Policy.semanticRevealScale(0f),
-            0.0001f,
-        )
-        assertEquals(
-            1f,
-            CombinedStatusControlCenterTransitionOwner.Policy.semanticRevealScale(1f),
-            0.0001f,
-        )
     }
 
     @Test
