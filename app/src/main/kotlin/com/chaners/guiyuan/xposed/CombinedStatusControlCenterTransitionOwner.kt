@@ -1093,7 +1093,12 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         geometry = geometry,
                         bounds = mobileSpec.sourceBounds,
                     ) ?: return@forEach
-                val componentOpacity = opacity * splitProgress
+                val revealProgress =
+                    Policy.latentRevealOpacity(
+                        current = geometry,
+                        target = targetGeometry,
+                    )
+                val componentOpacity = opacity * revealProgress
                 if (componentOpacity <= 0f) return@forEach
                 val save =
                     canvas.saveLayerAlpha(
