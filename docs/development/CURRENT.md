@@ -47,6 +47,7 @@ Confirmed:
 - The affected diagnostic showed `addBatteryIsland=false / batteryWidthDiff=0` while the old policy had already switched to `native-peer-motion`.
 - Build 524 Runtime CI #1961: green.
 - Build 525 Runtime CI #1966: green.
+- Build 526 pre-final Runtime run #1971 reached successful tests/build and metadata validation, but the workflow was later cancelled by a concurrent draft synchronization; it is evidence only, not the final exact-head gate.
 - Build 526 static review:
   - exact HyperOS `isAddBatteryIsland` is read from the already-resolved `ControlCenterHeaderExpandController` contract;
   - no new hook count, listener, polling path, timer, animator, native translation writer, or layout writer is added;
