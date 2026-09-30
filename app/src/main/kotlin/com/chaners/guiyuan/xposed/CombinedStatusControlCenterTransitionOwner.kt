@@ -5,6 +5,7 @@ import android.graphics.ColorFilter
 import android.graphics.Matrix
 import android.graphics.PixelFormat
 import android.graphics.Rect
+import android.graphics.RectF
 import android.graphics.drawable.Drawable
 import android.view.View
 import android.view.ViewGroup
@@ -220,11 +221,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
 
         fun unmatchedExitOpacity(rawProgress: Float): Float {
             val remaining = 1f - geometryProgress(rawProgress)
-            return remaining * remaining
+            return remaining * remaining * remaining
         }
-
-        fun unmatchedExitScale(rawProgress: Float): Float =
-            1f - 0.06f * geometryProgress(rawProgress)
 
         fun usesProgressSynchronousReservation(
             sourceScene: CombinedStatusSourceScene,
@@ -352,6 +350,125 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 basisAuthority[4],
                 basisAuthority[5],
             )
+        }
+
+        fun interpolateCarrierRelativeGeometry(
+            source: FloatArray,
+            target: FloatArray,
+            sourceCarrier: FloatArray,
+            currentCarrier: FloatArray,
+            targetCarrier: FloatArray,
+            progress: Float,
+            scalePolicy: CombinedStatusPainter.TransitionScalePolicy,
+        ): FloatArray {
+            require(
+                source.size == 6 &&
+                    target.size == 6 &&
+                    sourceCarrier.size == 6 &&
+                    currentCarrier.size == 6 &&
+                    targetCarrier.size == 6,
+            )
+            val sourceCarrierWidth = vectorLength(sourceCarrier[2], sourceCarrier[3])
+            val sourceCarrierHeight = vectorLength(sourceCarrier[4], sourceCarrier[5])
+            val currentCarrierWidth = vectorLength(currentCarrier[2], currentCarrier[3])
+            val currentCarrierHeight = vectorLength(currentCarrier[4], currentCarrier[5])
+            val targetCarrierWidth = vectorLength(targetCarrier[2], targetCarrier[3])
+            val targetCarrierHeight = vectorLength(targetCarrier[4], targetCarrier[5])
+            if (
+                sourceCarrierWidth <= 0f ||
+                sourceCarrierHeight <= 0f ||
+                currentCarrierWidth <= 0f ||
+                currentCarrierHeight <= 0f ||
+                targetCarrierWidth <= 0f ||
+                targetCarrierHeight <= 0f
+            ) {
+                return interpolateSimilarityGeometry(
+                    source = source,
+                    target = target,
+                    progress = progress,
+                    scalePolicy = scalePolicy,
+                )
+            }
+
+            val p = geometryProgress(progress)
+            val sourceLocalX = (source[0] - sourceCarrier[0]) / sourceCarrierWidth
+            val sourceLocalY = (source[1] - sourceCarrier[1]) / sourceCarrierHeight
+            val targetLocalX = (target[0] - targetCarrier[0]) / targetCarrierWidth
+            val targetLocalY = (target[1] - targetCarrier[1]) / targetCarrierHeight
+            val basis =
+                interpolateSimilarityGeometry(
+                    source = source,
+                    target = target,
+                    progress = p,
+                    scalePolicy = scalePolicy,
+                )
+            basis[0] =
+                currentCarrier[0] +
+                    (sourceLocalX + (targetLocalX - sourceLocalX) * p) *
+                    currentCarrierWidth
+            basis[1] =
+                currentCarrier[1] +
+                    (sourceLocalY + (targetLocalY - sourceLocalY) * p) *
+                    currentCarrierHeight
+            return basis
+        }
+
+        fun rebaseSourceToCurrentCarrier(
+            source: FloatArray,
+            sourceCarrier: FloatArray,
+            currentCarrier: FloatArray,
+        ): FloatArray {
+            require(
+                source.size == 6 &&
+                    sourceCarrier.size == 6 &&
+                    currentCarrier.size == 6,
+            )
+            val sourceCarrierWidth = vectorLength(sourceCarrier[2], sourceCarrier[3])
+            val sourceCarrierHeight = vectorLength(sourceCarrier[4], sourceCarrier[5])
+            val currentCarrierWidth = vectorLength(currentCarrier[2], currentCarrier[3])
+            val currentCarrierHeight = vectorLength(currentCarrier[4], currentCarrier[5])
+            if (
+                sourceCarrierWidth <= 0f ||
+                sourceCarrierHeight <= 0f ||
+                currentCarrierWidth <= 0f ||
+                currentCarrierHeight <= 0f
+            ) {
+                return source.copyOf()
+            }
+            val localX = (source[0] - sourceCarrier[0]) / sourceCarrierWidth
+            val localY = (source[1] - sourceCarrier[1]) / sourceCarrierHeight
+            return floatArrayOf(
+                currentCarrier[0] + localX * currentCarrierWidth,
+                currentCarrier[1] + localY * currentCarrierHeight,
+                source[2],
+                source[3],
+                source[4],
+                source[5],
+            )
+        }
+
+        fun latentRevealOpacity(
+            current: FloatArray,
+            target: FloatArray,
+        ): Float {
+            require(current.size == 6 && target.size == 6)
+            val targetExtent =
+                maxOf(
+                    vectorLength(target[2], target[3]),
+                    vectorLength(target[4], target[5]),
+                )
+            if (targetExtent <= 0f) return 0f
+            val dx = current[0] - target[0]
+            val dy = current[1] - target[1]
+            val distance = sqrt(dx * dx + dy * dy)
+            val hiddenDistance = targetExtent * 1.5f
+            val fullDistance = targetExtent * 0.35f
+            if (distance >= hiddenDistance) return 0f
+            if (distance <= fullDistance) return 1f
+            val normalized =
+                ((hiddenDistance - distance) / (hiddenDistance - fullDistance))
+                    .coerceIn(0f, 1f)
+            return normalized * normalized * (3f - 2f * normalized)
         }
 
         fun semanticFallbackBounds(
@@ -679,6 +796,28 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 frozenSource?.geometry ?: liveSourceParentGeometry ?: return
             val sourceWidth = frozenSource?.width ?: sourceView.width
             val sourceHeight = frozenSource?.height ?: sourceView.height
+            val carrierFrames =
+                frozenSource?.motionCarrierGeometry?.let { sourceCarrier ->
+                    val currentCarrier =
+                        sample(
+                            view = fakeStatusIcons,
+                            root = rootView,
+                        )?.geometry
+                    val targetCarrier =
+                        sample(
+                            view = finalStatusIcons,
+                            root = rootView,
+                        )?.geometry
+                    if (currentCarrier != null && targetCarrier != null) {
+                        CarrierFrames(
+                            source = sourceCarrier,
+                            current = currentCarrier,
+                            target = targetCarrier,
+                        )
+                    } else {
+                        null
+                    }
+                }
             val model = currentSnapshot.model
             val specs =
                 painter.transitionComponentSpecs(
@@ -754,16 +893,17 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     }
                 val geometry =
                     if (targetGeometry != null) {
-                        Policy.interpolateSimilarityGeometry(
+                        projectedGeometry(
                             source = sourceGeometry,
                             target = targetGeometry,
                             progress = motionProgress,
                             scalePolicy = spec.scalePolicy,
+                            carrierFrames = carrierFrames,
                         )
                     } else {
-                        Policy.scaleGeometry(
+                        carriedSourceGeometry(
                             source = sourceGeometry,
-                            scale = Policy.unmatchedExitScale(nativeProgress),
+                            carrierFrames = carrierFrames,
                         )
                     }
                 val componentOpacity =
@@ -831,7 +971,10 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 specs.firstOrNull { spec ->
                     spec.component == CombinedStatusPainter.TransitionComponent.MOBILE
                 }
-            if (mobileSpec != null) {
+            if (
+                mobileSpec != null &&
+                sourceRepresentsAny(MOBILE_SLOT, STACKED_MOBILE_SLOT)
+            ) {
                 val extras =
                     drawAdditionalMobileSplit(
                         canvas = canvas,
@@ -846,6 +989,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         motionProgress = motionProgress,
                         shapeProgress = mobileSignalShapeProgress,
                         opacity = opacity,
+                        carrierFrames = carrierFrames,
                     )
                 witnessDescriptions?.addAll(extras)
             }
@@ -859,6 +1003,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 colors = transitionColors,
                 motionProgress = motionProgress,
                 opacity = opacity,
+                carrierFrames = carrierFrames,
             )?.let { description ->
                 witnessDescriptions?.add(description)
             }
@@ -881,10 +1026,12 @@ internal object CombinedStatusControlCenterTransitionOwner {
             motionProgress: Float,
             shapeProgress: Float,
             opacity: Float,
+            carrierFrames: CarrierFrames?,
         ): List<String> {
             if (
                 mobileSpec.shapePolicy !=
-                CombinedStatusPainter.TransitionShapePolicy.MOBILE_SIGNAL
+                CombinedStatusPainter.TransitionShapePolicy.MOBILE_SIGNAL ||
+                !sourceRepresentsAny(MOBILE_SLOT, STACKED_MOBILE_SLOT)
             ) {
                 return emptyList()
             }
@@ -920,11 +1067,12 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         targetOpticalBounds = mobileSpec.targetOpticalBounds,
                     ) ?: return@forEach
                 val geometry =
-                    Policy.interpolateSimilarityGeometry(
+                    projectedGeometry(
                         source = sourceGeometry,
                         target = targetGeometry,
                         progress = splitProgress,
                         scalePolicy = mobileSpec.scalePolicy,
+                        carrierFrames = carrierFrames,
                     )
                 val matrix =
                     matrixForBoundsGeometry(
@@ -977,10 +1125,12 @@ internal object CombinedStatusControlCenterTransitionOwner {
             colors: CombinedStatusColors,
             motionProgress: Float,
             opacity: Float,
+            carrierFrames: CarrierFrames?,
         ): String? {
             if (
                 CombinedStatusStateStore.snapshot().airplaneMode != true ||
-                model.centerIndicator !is CenterIndicator.Wifi
+                model.centerIndicator is CenterIndicator.Airplane ||
+                !sourceRepresentsAny(AIRPLANE_SLOT)
             ) {
                 return null
             }
@@ -1004,13 +1154,20 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     sourceGeometry = sourceGeometry,
                     targetOpticalBounds = null,
                 ) ?: return null
-            val revealProgress = Policy.semanticRevealProgress(motionProgress)
-            if (revealProgress <= 0f) return null
             val geometry =
-                Policy.scaleGeometry(
-                    source = targetGeometry,
-                    scale = Policy.semanticRevealScale(motionProgress),
+                projectedGeometry(
+                    source = sourceGeometry,
+                    target = targetGeometry,
+                    progress = motionProgress,
+                    scalePolicy = CombinedStatusPainter.TransitionScalePolicy.TARGET,
+                    carrierFrames = carrierFrames,
                 )
+            val revealProgress =
+                Policy.latentRevealOpacity(
+                    current = geometry,
+                    target = targetGeometry,
+                )
+            if (revealProgress <= 0f) return null
             val matrix =
                 matrixForBoundsGeometry(
                     geometry = geometry,
@@ -1033,6 +1190,47 @@ internal object CombinedStatusControlCenterTransitionOwner {
             )
             canvas.restoreToCount(save)
             return "airplane-reveal:" + witness.summary
+        }
+
+        private fun projectedGeometry(
+            source: FloatArray,
+            target: FloatArray,
+            progress: Float,
+            scalePolicy: CombinedStatusPainter.TransitionScalePolicy,
+            carrierFrames: CarrierFrames?,
+        ): FloatArray =
+            carrierFrames?.let { frames ->
+                Policy.interpolateCarrierRelativeGeometry(
+                    source = source,
+                    target = target,
+                    sourceCarrier = frames.source,
+                    currentCarrier = frames.current,
+                    targetCarrier = frames.target,
+                    progress = progress,
+                    scalePolicy = scalePolicy,
+                )
+            } ?: Policy.interpolateSimilarityGeometry(
+                source = source,
+                target = target,
+                progress = progress,
+                scalePolicy = scalePolicy,
+            )
+
+        private fun carriedSourceGeometry(
+            source: FloatArray,
+            carrierFrames: CarrierFrames?,
+        ): FloatArray =
+            carrierFrames?.let { frames ->
+                Policy.rebaseSourceToCurrentCarrier(
+                    source = source,
+                    sourceCarrier = frames.source,
+                    currentCarrier = frames.current,
+                )
+            } ?: source.copyOf()
+
+        private fun sourceRepresentsAny(vararg slots: String): Boolean {
+            val represented = frozenSource?.representedSlots ?: return false
+            return slots.any(represented::contains)
         }
 
         private fun refreshNativePeerTint() {
@@ -1190,7 +1388,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
 
             if (
                 CombinedStatusStateStore.snapshot().airplaneMode == true &&
-                currentSnapshot.model.centerIndicator is CenterIndicator.Wifi
+                currentSnapshot.model.centerIndicator !is CenterIndicator.Airplane &&
+                sourceRepresentsAny(AIRPLANE_SLOT)
             ) {
                 resolveFrozenAirplaneTarget()?.let { witness ->
                     val slot = witness.slotView
@@ -1414,6 +1613,13 @@ internal object CombinedStatusControlCenterTransitionOwner {
         ): FloatArray? {
             val opticalView = witness.opticalView
             if (opticalView != null) {
+                if (opticalView is ImageView) {
+                    imageDrawableGeometry(
+                        image = opticalView,
+                        root = root,
+                        targetOpticalBounds = targetOpticalBounds,
+                    )?.let { return it }
+                }
                 val opticalSample = sample(opticalView, root)
                 if (opticalSample != null) {
                     return targetOpticalBounds
@@ -1480,6 +1686,55 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 parentHeight = slot.height,
                 bounds = targetBounds,
             ) ?: slotSample.geometry
+        }
+
+        private fun imageDrawableGeometry(
+            image: ImageView,
+            root: View,
+            targetOpticalBounds: CombinedStatusPainter.TransitionNormalizedBounds?,
+        ): FloatArray? {
+            val drawable = image.drawable ?: return null
+            val imageSample = sample(image, root) ?: return null
+            val intrinsicWidth = drawable.intrinsicWidth.takeIf { it > 0 } ?: return null
+            val intrinsicHeight = drawable.intrinsicHeight.takeIf { it > 0 } ?: return null
+            val bounds = drawable.bounds
+            val frame =
+                RectF(
+                    if (bounds.width() > 0) bounds.left.toFloat() else 0f,
+                    if (bounds.height() > 0) bounds.top.toFloat() else 0f,
+                    if (bounds.width() > 0) bounds.right.toFloat() else intrinsicWidth.toFloat(),
+                    if (bounds.height() > 0) bounds.bottom.toFloat() else intrinsicHeight.toFloat(),
+                )
+            image.imageMatrix.mapRect(frame)
+            frame.offset(
+                image.paddingLeft.toFloat(),
+                image.paddingTop.toFloat(),
+            )
+            if (frame.width() <= 0f || frame.height() <= 0f) return null
+
+            val optical = targetOpticalBounds
+            val localBounds =
+                if (optical != null) {
+                    CombinedStatusPainter.TransitionBounds(
+                        left = frame.left + optical.left * frame.width(),
+                        top = frame.top + optical.top * frame.height(),
+                        right = frame.left + optical.right * frame.width(),
+                        bottom = frame.top + optical.bottom * frame.height(),
+                    )
+                } else {
+                    CombinedStatusPainter.TransitionBounds(
+                        left = frame.left,
+                        top = frame.top,
+                        right = frame.right,
+                        bottom = frame.bottom,
+                    )
+                }
+            return Policy.componentGeometry(
+                parentGeometry = imageSample.geometry,
+                parentWidth = image.width,
+                parentHeight = image.height,
+                bounds = localBounds,
+            )
         }
 
         private fun syntheticOpticalGeometry(
@@ -1801,6 +2056,12 @@ internal object CombinedStatusControlCenterTransitionOwner {
 
         private data class Sample(
             val geometry: FloatArray,
+        )
+
+        private data class CarrierFrames(
+            val source: FloatArray,
+            val current: FloatArray,
+            val target: FloatArray,
         )
 
         private data class FrozenSourceGeometry(
