@@ -136,6 +136,7 @@ internal class CombinedStatusPainter(
         mobileTargetHeightRatio: Float? = null,
         mobileTargetBars: List<TransitionNormalizedBounds>? = null,
         batteryNumberTargetWeight: Int? = null,
+        centerTargetTextWeight: Int? = null,
     ) {
         if (width <= 0 || height <= 0 || opacity <= 0f) return
 
@@ -203,7 +204,25 @@ internal class CombinedStatusPainter(
                     nativeTransform = nativeTransform,
                 )
 
-            TransitionComponent.CENTER ->
+            TransitionComponent.CENTER -> {
+                val baseGeometry =
+                    CombinedStatusCenterGeometry.resolve(
+                        sizeScale = CombinedStatusCenterGeometry.DEFAULT_SIZE_SCALE,
+                        textWeightScale = CombinedStatusCenterGeometry.DEFAULT_TEXT_WEIGHT_SCALE,
+                    )
+                val transitionGeometry =
+                    if (model.centerIndicator is CenterIndicator.MobileType) {
+                        baseGeometry.copy(
+                            mobileTypeWeight =
+                                MobileTypeTransitionPolicy.resolveWeight(
+                                    sourceWeight = baseGeometry.mobileTypeWeight,
+                                    targetWeight = centerTargetTextWeight,
+                                    progress = motion,
+                                ),
+                        )
+                    } else {
+                        baseGeometry
+                    }
                 drawCenterIndicator(
                     canvas = canvas,
                     indicator = model.centerIndicator,
@@ -211,14 +230,11 @@ internal class CombinedStatusPainter(
                     opacity = opacity,
                     scale = scale,
                     appearAmount = 1f,
-                    geometry =
-                        CombinedStatusCenterGeometry.resolve(
-                            sizeScale = CombinedStatusCenterGeometry.DEFAULT_SIZE_SCALE,
-                            textWeightScale = CombinedStatusCenterGeometry.DEFAULT_TEXT_WEIGHT_SCALE,
-                        ),
+                    geometry = transitionGeometry,
                     nativeTransform = nativeTransform,
                     scaleMobileTypeWithCanvas = false,
                 )
+            }
 
             TransitionComponent.MOBILE -> {
                 val outerGeometry =
@@ -252,6 +268,21 @@ internal class CombinedStatusPainter(
         canvas.restoreToCount(componentSave)
 
         canvas.restoreToCount(save)
+    }
+
+    internal object MobileTypeTransitionPolicy {
+        fun resolveWeight(
+            sourceWeight: Int,
+            targetWeight: Int?,
+            progress: Float,
+        ): Int {
+            val source = sourceWeight.coerceIn(1, 1000)
+            val target = targetWeight?.coerceIn(1, 1000) ?: return source
+            val normalized = progress.coerceIn(0f, 1f)
+            return (source + (target - source) * normalized)
+                .roundToInt()
+                .coerceIn(1, 1000)
+        }
     }
 
     internal object MobileSignalMorphPolicy {
@@ -2641,9 +2672,12 @@ internal object CombinedStatusCenterGeometry {
     private const val BASE_WIFI_MAX_HEIGHT = 45f
     private const val BASE_AIRPLANE_MAX_SIZE = 58f
     private const val BASE_NO_SIM_MAX_SIZE = 54f
-    private const val BASE_MOBILE_TYPE_TEXT_SIZE = 39f
-    private const val BASE_MOBILE_TYPE_SUFFIX_SIZE = 23f
-    private const val BASE_MOBILE_TYPE_SUFFIX_RISE = 8f
+    // Build 527 device evidence: the authored 39 px center label renders
+    // roughly 1.35-1.40x the final HyperOS mobile-type ink. Rebase the
+    // compact typography while keeping target convergence native-owned.
+    private const val BASE_MOBILE_TYPE_TEXT_SIZE = 29f
+    private const val BASE_MOBILE_TYPE_SUFFIX_SIZE = 17f
+    private const val BASE_MOBILE_TYPE_SUFFIX_RISE = 6f
     private const val BASE_MOBILE_TYPE_WEIGHT = 800
 
     data class Resolved(
