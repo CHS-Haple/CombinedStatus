@@ -12431,3 +12431,74 @@ Focused device gate:
 3. Reverse collapse: no discontinuity when native appearance switches back to fake ownership.
 4. Charging: source-side first-frame left-bias fix must remain absent.
 5. One dual-SIM pass: Build-502 no-stretch/no-forced-target-size behavior must remain intact.
+
+
+## 2026-09-30 — Build 504: unify target basis in root space; stop latent single-icon enlargement
+
+**Type:** Control Center coordinate-authority correction / latent optical-scale correction  
+**Display version:** 0.0.3  
+**Build / source:** 504 / `20260930-504` / `feat/control-center-transition-matrix`
+
+### Device evidence entering this build
+
+Build 503 remains device-rejected:
+- the fake Trinity is still uniformly to the right of the real fully-expanded QS icons;
+- supplemental Airplane with no independent compact source still appears visibly oversized.
+
+This rejects Build-502 carrier-center closure and Build-503 remaining-distance closure as sufficient explanations for the positional bias. The Build-500 source-side correction remains accepted: the old initial left shift during pull is gone.
+
+### Reference review
+
+The user-supplied APKs were reviewed with JADX 1.5.6:
+- legacy CombinedStatus `1.3.6-mod.5`;
+- legacy CombinedStatus `1.4.3`;
+- KeiMi `2.5.0+067bd4c8`.
+
+Findings:
+- 1.3.6 and 1.4.3 produce byte-identical decompiled `ClosedAnchor`, `MotionHandoff`, `CompactGeometry` and `KeyguardHandoff` sources. 1.4.3 therefore does **not** establish that the old project-side closed-anchor correction path was rewritten or that its historical endpoint problem was fixed.
+- KeiMi's participant sampler transforms each native View from global into one shared root and stores six geometric components. Its transition drawable interpolates paired source/target geometry directly in that root space. Unmatched native participants are drawn as their native View rather than replacing native internal optical scaling with a custom glyph stretched to the View box.
+- This is used as architectural evidence, not copied implementation.
+
+### Root cause
+
+Guiyuan already samples final role-6 targets with `transformMatrixToGlobal -> root.transformMatrixToLocal`. Build 499/500 then discards the absolute positional meaning at projection time by converting both source and target into offsets from different carrier centers:
+
+`currentCarrier + sourceOffset + (targetOffset - sourceOffset) * p`.
+
+Build 500 correctly changed the steady source position authority to the Home/Keyguard end-anchored host slot and stopped carrier-size rescaling. But the final target was still reinterpreted relative to the final status-icon carrier. Source and target therefore no longer had to share one semantic origin. Build 502/503 could only close a carrier mismatch after this second interpretation; they could not repair the mixed basis itself.
+
+For latent Airplane/No-SIM, Build 502 removed the forced full target basis but the call sites still used `TransitionScalePolicy.TARGET`. A compact custom glyph could therefore continue growing toward a large StatusBarIconView/slot geometry even though the native glyph itself is optically much smaller inside that View.
+
+### Change
+
+- Remove `interpolateCarrierRelativeGeometry`.
+- Remove `closeCarrierCenterToFinal` and the per-frame final-carrier sample used only by that policy.
+- Preserve the Build-500 frozen steady end-slot source geometry and frozen source motion-carrier geometry.
+- At each frame, translate the source only by the live QS_FAKE carrier-center delta.
+- Interpolate that **carried source** directly to the absolute root-space target geometry. At `p=1`, target center/basis is exact for TARGET policy regardless of whether fake/final carriers converge.
+- Keep Build-503 `handoffMotionProgress` so native final appearance may consume only the remaining distance during the real fake/final crossfade; it no longer changes endpoint interpretation.
+- Supplemental no-source Airplane and No-SIM use `SHRINK_ONLY`: they may move to the target center but may not enlarge beyond their compact optical source basis. Initial-center Airplane/No-SIM component policy is unchanged.
+- Build identity becomes `versionCode=260930304`, `buildId=20260930-504`.
+
+### 审查 / review
+
+- **root-cause-first:** fixes the mixed coordinate basis rather than adding/subtracting the observed 46 px native translation or another closure coefficient.
+- **native-first:** final role-6 View/drawable transform is the endpoint authority; live QS_FAKE carrier supplies source-side native external motion only.
+- **single writer:** no native translation/alpha/visibility/clip/padding writer is added.
+- **source protection:** Build-500 end-slot source authority is retained, so the accepted initial-left-shift fix is not reverted.
+- **timing separation:** Build-503 native appearance progress remains timing authority only; target location no longer depends on appearance alpha or carrier closure.
+- **latent scale:** no-source Airplane/No-SIM no longer treat a large native View box as permission to enlarge a custom glyph.
+- **performance:** removes one final-status-icons matrix sample and carrier-closure arithmetic per frame; adds no Hook, observer, timer, reflection traversal or allocation-heavy path.
+- **compatibility/fail-native:** missing current fake carrier falls back to the existing direct root-space similarity path; missing target witness keeps existing unresolved/fail-native behavior.
+- **protected boundaries:** Build-491 callback/lease, Build-497 reservation, Build-498 island performance and Build-500 source witness are untouched.
+
+### Validation
+
+Exact-head Runtime CI and one signed Canary are required.
+
+Focused device gates:
+1. Slow Home outward pull: fake Battery/Wi-Fi/Mobile must no longer remain as one rigid right-shifted group relative to the real QS targets.
+2. Fast outward + reverse collapse: no new endpoint snap or start-frame discontinuity.
+3. Charging: accepted source-side no-left-shift behavior remains.
+4. Supplemental Airplane: no giant first appearance; reveal remains near its final slot at compact optical size.
+5. Dual SIM: secondary Mobile remains SHRINK_ONLY and must not stretch.

@@ -842,3 +842,29 @@ Implication:
 - the leading lightweight route is to generalize the **current presentation-layer** mechanism already used by Home: temporary `ignoredSlots` ownership around native measure/layout plus reversible clip masks for represented Wi-Fi/mobile/airplane/no-SIM/Battery Views;
 - the older binding-identity suppression path remains historical/fallback evidence, not the default QS_FAKE design;
 - keep one global status-icon/Battery hook set where possible and route only explicitly registered host-scoped presentation sessions; do not duplicate network state machines.
+
+
+---
+
+## External implementation cross-check: root-space transition geometry
+
+**Reviewed from user-supplied APKs with JADX 1.5.6; architectural evidence only.**
+
+Legacy CombinedStatus 1.3.6-mod.5 and 1.4.3 decompile to byte-identical core geometry sources for `ClosedAnchor`, `MotionHandoff`, `CompactGeometry` and `KeyguardHandoff`. The newer legacy package therefore does not prove that the old closed-anchor/project-correction route fixed its historical endpoint behavior.
+
+KeiMi 2.5.0 provides a useful independent contrast:
+- participant Views are transformed with `View.transformMatrixToGlobal(...)` and then the chosen root's `transformMatrixToLocal(...)`;
+- source and target participants are stored as six root-space geometry components and interpolated directly;
+- unmatched native participants are rendered from their native View, preserving internal native optical scaling rather than assuming the outer View box is the glyph box.
+
+Reusable Guiyuan principle:
+
+`verified steady source anchor + native source-carrier translation -> absolute root-space role-6 target`
+
+is safer than:
+
+`source relative to carrier A -> target relative to carrier B`
+
+when carrier A/B have independent layout/translation ownership.
+
+The external code is not copied. Guiyuan keeps its own source witness, rendering model, reservation, lifecycle and fail-native contracts.

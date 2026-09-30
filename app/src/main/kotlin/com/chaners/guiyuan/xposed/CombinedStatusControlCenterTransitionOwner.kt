@@ -202,31 +202,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
             return expansion + (1f - expansion) * appearance
         }
 
-        fun closeCarrierCenterToFinal(
-            currentCarrier: FloatArray,
-            targetCarrier: FloatArray,
-            finalAppearanceAlpha: Float,
-            finalAppearanceActive: Boolean,
-        ): FloatArray {
-            require(currentCarrier.size == 6 && targetCarrier.size == 6)
-            if (!finalAppearanceActive) return currentCarrier.copyOf()
-            val closure =
-                finalAppearanceAlpha
-                    .takeIf(Float::isFinite)
-                    ?.coerceIn(0f, 1f)
-                    ?: 0f
-            if (closure <= 0f) return currentCarrier.copyOf()
-            return currentCarrier.copyOf().also { closed ->
-                closed[0] =
-                    currentCarrier[0] +
-                        (targetCarrier[0] - currentCarrier[0]) * closure
-                closed[1] =
-                    currentCarrier[1] +
-                        (targetCarrier[1] - currentCarrier[1]) * closure
-            }
-        }
-
-        fun mobileSignalShapeProgress(rawProgress: Float): Float {
+        fun mobileSignalShapeProgress(        fun mobileSignalShapeProgress(rawProgress: Float): Float {
             val p = geometryProgress(rawProgress)
             return p * p
         }
@@ -383,12 +359,11 @@ internal object CombinedStatusControlCenterTransitionOwner {
             )
         }
 
-        fun interpolateCarrierRelativeGeometry(
+        fun interpolateCarriedSourceToRootTarget(
             source: FloatArray,
             target: FloatArray,
             sourceCarrier: FloatArray,
             currentCarrier: FloatArray,
-            targetCarrier: FloatArray,
             progress: Float,
             scalePolicy: CombinedStatusPainter.TransitionScalePolicy,
         ): FloatArray {
@@ -396,33 +371,23 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 source.size == 6 &&
                     target.size == 6 &&
                     sourceCarrier.size == 6 &&
-                    currentCarrier.size == 6 &&
-                    targetCarrier.size == 6,
+                    currentCarrier.size == 6,
             )
-            val p = geometryProgress(progress)
-            val sourceOffsetX = source[0] - sourceCarrier[0]
-            val sourceOffsetY = source[1] - sourceCarrier[1]
-            val targetOffsetX = target[0] - targetCarrier[0]
-            val targetOffsetY = target[1] - targetCarrier[1]
-            val basis =
-                interpolateSimilarityGeometry(
+            val carriedSource =
+                rebaseSourceToCurrentCarrier(
                     source = source,
-                    target = target,
-                    progress = p,
-                    scalePolicy = scalePolicy,
+                    sourceCarrier = sourceCarrier,
+                    currentCarrier = currentCarrier,
                 )
-            basis[0] =
-                currentCarrier[0] +
-                    sourceOffsetX +
-                    (targetOffsetX - sourceOffsetX) * p
-            basis[1] =
-                currentCarrier[1] +
-                    sourceOffsetY +
-                    (targetOffsetY - sourceOffsetY) * p
-            return basis
+            return interpolateSimilarityGeometry(
+                source = carriedSource,
+                target = target,
+                progress = geometryProgress(progress),
+                scalePolicy = scalePolicy,
+            )
         }
 
-        fun rebaseSourceToCurrentCarrier(
+        fun rebaseSourceToCurrentCarrier(        fun rebaseSourceToCurrentCarrier(
             source: FloatArray,
             sourceCarrier: FloatArray,
             currentCarrier: FloatArray,
@@ -797,30 +762,14 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     ?: 0f
             val carrierFrames =
                 frozenSource?.motionCarrierGeometry?.let { sourceCarrier ->
-                    val currentCarrier =
-                        sample(
-                            view = fakeStatusIcons,
-                            root = rootView,
-                        )?.geometry
-                    val targetCarrier =
-                        sample(
-                            view = finalStatusIcons,
-                            root = rootView,
-                        )?.geometry
-                    if (currentCarrier != null && targetCarrier != null) {
+                    sample(
+                        view = fakeStatusIcons,
+                        root = rootView,
+                    )?.geometry?.let { currentCarrier ->
                         CarrierFrames(
                             source = sourceCarrier,
-                            current =
-                                Policy.closeCarrierCenterToFinal(
-                                    currentCarrier = currentCarrier,
-                                    targetCarrier = targetCarrier,
-                                    finalAppearanceAlpha = finalOpacity,
-                                    finalAppearanceActive = nativeAppearance,
-                                ),
-                            target = targetCarrier,
+                            current = currentCarrier,
                         )
-                    } else {
-                        null
                     }
                 }
             val model = currentSnapshot.model
@@ -1179,7 +1128,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     source = sourceGeometry,
                     target = targetGeometry,
                     progress = motionProgress,
-                    scalePolicy = CombinedStatusPainter.TransitionScalePolicy.TARGET,
+                    scalePolicy = CombinedStatusPainter.TransitionScalePolicy.SHRINK_ONLY,
                     carrierFrames = carrierFrames,
                 )
             val geometry = pathGeometry
@@ -1265,7 +1214,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     source = sourceGeometry,
                     target = targetGeometry,
                     progress = motionProgress,
-                    scalePolicy = CombinedStatusPainter.TransitionScalePolicy.TARGET,
+                    scalePolicy = CombinedStatusPainter.TransitionScalePolicy.SHRINK_ONLY,
                     carrierFrames = carrierFrames,
                 )
             val geometry = pathGeometry
@@ -1311,12 +1260,11 @@ internal object CombinedStatusControlCenterTransitionOwner {
             carrierFrames: CarrierFrames?,
         ): FloatArray =
             carrierFrames?.let { frames ->
-                Policy.interpolateCarrierRelativeGeometry(
+                Policy.interpolateCarriedSourceToRootTarget(
                     source = source,
                     target = target,
                     sourceCarrier = frames.source,
                     currentCarrier = frames.current,
-                    targetCarrier = frames.target,
                     progress = progress,
                     scalePolicy = scalePolicy,
                 )
@@ -2212,7 +2160,6 @@ internal object CombinedStatusControlCenterTransitionOwner {
         private data class CarrierFrames(
             val source: FloatArray,
             val current: FloatArray,
-            val target: FloatArray,
         )
 
         private data class FrozenSourceGeometry(
