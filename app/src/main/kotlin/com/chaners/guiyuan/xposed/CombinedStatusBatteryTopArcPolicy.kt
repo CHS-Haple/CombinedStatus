@@ -1,5 +1,6 @@
 package com.chaners.guiyuan.xposed
 
+import kotlin.math.acos
 import kotlin.math.asin
 import kotlin.math.min
 
@@ -9,22 +10,99 @@ internal object CombinedStatusBatteryTopArcPolicy {
         val sweepDegrees: Float,
     )
 
+    internal data class Gap(
+        val centerDegrees: Float,
+        val sweepDegrees: Float,
+    )
+
     internal data class Segments(
         val active: List<Arc>,
         val inactive: List<Arc>,
     )
 
-    fun gapSweepDegrees(
-        groupWidth: Float,
+    fun resolveGap(
+        contentLeft: Float,
+        contentTop: Float,
+        contentRight: Float,
+        contentBottom: Float,
+        ringCenterX: Float,
+        ringCenterY: Float,
         ringRadius: Float,
-        horizontalPadding: Float,
-    ): Float {
-        if (groupWidth <= 0f || ringRadius <= 0f) return 0f
-        val halfChord = (groupWidth / 2f + horizontalPadding).coerceAtLeast(0f)
-        val ratio = (halfChord / ringRadius).coerceIn(0f, MAX_GAP_CHORD_RATIO)
-        return Math.toDegrees((2f * asin(ratio)).toDouble())
-            .toFloat()
-            .coerceAtMost(MAX_GAP_SWEEP_DEGREES)
+        ringStroke: Float,
+        visualClearance: Float,
+        startDegrees: Float,
+        maxSweep: Float,
+    ): Gap {
+        if (
+            !contentLeft.isFinite() ||
+            !contentTop.isFinite() ||
+            !contentRight.isFinite() ||
+            !contentBottom.isFinite() ||
+            !ringCenterX.isFinite() ||
+            !ringCenterY.isFinite() ||
+            !ringRadius.isFinite() ||
+            ringRadius <= 0f ||
+            !startDegrees.isFinite() ||
+            !maxSweep.isFinite() ||
+            maxSweep <= 0f
+        ) {
+            return Gap(TOP_DEGREES, 0f)
+        }
+
+        val clearance =
+            visualClearance.coerceAtLeast(0f) +
+                ringStroke.coerceAtLeast(0f) / 2f
+        val left = contentLeft - clearance
+        val right = contentRight + clearance
+        val bottom = contentBottom + clearance
+        val ringTop = ringCenterY - ringRadius
+
+        // If the visible content envelope is fully above the ring stroke,
+        // no ring cutout is needed.
+        if (bottom <= ringTop || right <= ringCenterX || left >= ringCenterX) {
+            return Gap(TOP_DEGREES, 0f)
+        }
+
+        val availableLeft =
+            (TOP_DEGREES - startDegrees)
+                .coerceAtLeast(0f)
+        val availableRight =
+            (startDegrees + maxSweep - TOP_DEGREES)
+                .coerceAtLeast(0f)
+
+        val leftRatio =
+            ((ringCenterX - left) / ringRadius)
+                .coerceIn(0f, 1f)
+        val rightRatio =
+            ((right - ringCenterX) / ringRadius)
+                .coerceIn(0f, 1f)
+        val verticalRatio =
+            ((ringCenterY - bottom) / ringRadius)
+                .coerceIn(-1f, 1f)
+
+        val verticalHalf =
+            Math.toDegrees(acos(verticalRatio).toDouble()).toFloat()
+        val leftHalf =
+            min(
+                Math.toDegrees(asin(leftRatio).toDouble()).toFloat(),
+                verticalHalf,
+            ).coerceAtMost(availableLeft)
+        val rightHalf =
+            min(
+                Math.toDegrees(asin(rightRatio).toDouble()).toFloat(),
+                verticalHalf,
+            ).coerceAtMost(availableRight)
+
+        if (leftHalf <= 0f && rightHalf <= 0f) {
+            return Gap(TOP_DEGREES, 0f)
+        }
+
+        val gapStart = TOP_DEGREES - leftHalf
+        val gapEnd = TOP_DEGREES + rightHalf
+        return Gap(
+            centerDegrees = (gapStart + gapEnd) / 2f,
+            sweepDegrees = (gapEnd - gapStart).coerceAtLeast(0f),
+        )
     }
 
     fun resolve(
@@ -64,9 +142,5 @@ internal object CombinedStatusBatteryTopArcPolicy {
         return Segments(active = active, inactive = inactive)
     }
 
-    private const val MAX_GAP_CHORD_RATIO = 0.92f
-    // 82° was sufficient for the original small readout, but clips the
-    // measured optical request of the rebased three-digit/charging group.
-    // Keep a bounded shoulder on both sides while allowing optical clearance.
-    private const val MAX_GAP_SWEEP_DEGREES = 118f
+    private const val TOP_DEGREES = 270f
 }
