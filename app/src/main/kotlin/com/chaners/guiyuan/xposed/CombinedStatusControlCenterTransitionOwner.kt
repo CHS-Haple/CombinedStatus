@@ -202,7 +202,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
             return expansion + (1f - expansion) * appearance
         }
 
-        fun mobileSignalShapeProgress(        fun mobileSignalShapeProgress(rawProgress: Float): Float {
+        fun mobileSignalShapeProgress(rawProgress: Float): Float {
             val p = geometryProgress(rawProgress)
             return p * p
         }
@@ -387,7 +387,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
             )
         }
 
-        fun rebaseSourceToCurrentCarrier(        fun rebaseSourceToCurrentCarrier(
+        fun rebaseSourceToCurrentCarrier(
             source: FloatArray,
             sourceCarrier: FloatArray,
             currentCarrier: FloatArray,

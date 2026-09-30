@@ -237,7 +237,6 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
-    fun latentAdditionalMobileKeepsShrinkOnlyPathBasis() {    @Test
     fun latentAdditionalMobileKeepsShrinkOnlyPathBasis() {
         val source = geometry(width = 20f, height = 20f)
         val target = geometry(width = 75f, height = 75f)
