@@ -31,6 +31,8 @@ The project follows a Keep a Changelog-style structure. During pre-release devel
 
 ### Changed
 
+- Home / Keyguard -> Control Center transition presentation now follows the verified HyperOS native expansion/appearance timeline while Guiyuan bridges only its owned QS_FAKE interval. Final role-6 targets remain read-only root-space witnesses, semantic reservation uses the single `statusIcons.paddingEnd` writer, and Mobile exact four-bar geometry is shape-local rather than stretching the whole participant. Accepted non-charging and charging Home paths preserve native peer motion and final alignment, while unsupported/ambiguous topology fails native.
+
 - Contributor workflow now uses CONTRIBUTING + CURRENT as the daily recovery path, a decision-oriented DEVLOG, direct dev-to-main promotion, and three CI scopes (Light / Runtime / Full); signed work-branch Canary remains demand-driven and independently validates the requested source SHA.
 
 
@@ -134,6 +136,8 @@ The project follows a Keep a Changelog-style structure. During pre-release devel
 - Removed the experimental Home owned-slot padding mutation after validation showed that it altered native battery geometry and leaked layout effects into other scenes.
 
 ### Engineering
+
+- Build-channel diagnostic flags are now observation-only for the transition stack: Release and Canary share functional hooks, state authority, ownership/lifecycle, and fail-native behavior. Panel callback failures are contained so native HyperOS callbacks still proceed, and Island status authority is installed independently of diagnostic logging.
 
 - Runtime diagnostics preference listening now has explicit lifecycle ownership outside `CombinedStatusModule`, keeping remote-preference registration and cleanup bounded across Hot Reload generations.
 - Battery state acquisition moves from an app-owned `ACTION_BATTERY_CHANGED` receiver to the verified HyperOS `MiuiBatteryMeterView.onBatteryLevelChanged` callback with a dedicated runtime owner, leaving `StatusBarStableSession` responsible only for host/anchor diagnostics.

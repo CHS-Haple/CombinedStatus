@@ -11,13 +11,14 @@ This file is the concise recovery point for active Guiyuan development. Historic
 
 ## Active objective
 
-Close the shared Home / Keyguard -> Control Center transition line and integrate PR #177 (`feat/control-center-transition-matrix`) into `dev`.
+Promote the accepted Build-511 integration from `dev` to `main` as the current stable development baseline, then continue follow-up transition polish on a new bounded work branch.
 
 Current runtime checkpoint:
-- Build 511 / `20260930-511`;
+- Build 511 / `20260930-511` is integrated on `dev` through squash-merged PR #177;
 - Build 510 non-charging Home transition is device-accepted;
-- Build 511 adds review-driven runtime-authority / Fail-native hardening without retuning the accepted Build-510 non-charging geometry or motion;
-- runtime is frozen pending the remaining focused device gates.
+- Build 511 charging Home transition is device-accepted;
+- Build 511 runtime-authority / Fail-native hardening is integrated without retuning the accepted Build-510 geometry or motion;
+- maintainer accepts the current integrated state for promotion to `main`.
 
 ## Current transition contract
 
@@ -43,13 +44,16 @@ Confirmed:
 - Build 511 charging Home transition: device accepted; no press-entry left shift, whole-row rebase, overlap, or endpoint drift was reported in the tested charging path.
 - Build 511 static code review: complete.
 - Runtime / unit validation: green after the Build-511 safety fixes and added negative policy coverage.
+- Signed exact-head Build-511 Canary validation passed before integration.
 - Keyguard lease negative boundaries are unit-tested.
 - Eight-component dual-row / composite Mobile is unit-tested to expose no exact four-bar capability.
 - Release / Canary functional control-flow parity was reviewed after moving Island status authority outside the diagnostics gate.
-- PR #177 is Ready, mergeable, and intentionally unmerged until the remaining device evidence passes.
+- PR #177 was squash-merged into `dev`; the integrated Build-511 state is accepted for stable promotion.
 - Superseded PRs #174, #161, #117, and #99 are closed. PR #157 is an independent Gradle-wrapper update and remains deferred pending trusted validation.
 
-## Remaining device gates
+## Follow-up validation after this stable snapshot
+
+These items remain useful transition-polish evidence, but the maintainer has accepted the current Build-511 integrated state for promotion to `main`.
 
 1. **Latent supplemental semantics**
    - Airplane / No-SIM / additional SIM reveal continuously only after real peer space opens;
@@ -76,14 +80,10 @@ Confirmed:
 
 ## Immediate next step
 
-Do not change runtime without new device evidence.
-
-Next:
-1. generate one signed exact-head Build-511 Canary;
-2. validate latent Airplane / No-SIM / additional-SIM reveal and reverse collapse first;
-3. use the same package for real dual-row Mobile and final Keyguard regression where practical;
-4. change only a failed sub-path and preserve accepted paths;
-5. once all required device gates pass, mark the branch complete and squash-merge PR #177 into `dev`.
+1. complete `dev -> main` promotion for the accepted Build-511 snapshot;
+2. do not mix new runtime work into the promotion PR;
+3. after promotion, start the next bounded feature/fix branch from current `dev`;
+4. preserve Build-510/511 accepted transition behavior unless new contradictory device evidence appears.
 
 ## Reference priority
 
