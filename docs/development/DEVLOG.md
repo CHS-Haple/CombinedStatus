@@ -12806,3 +12806,46 @@ The snapshot evidence is sufficient; the defect is not HyperOS gesture timing. L
 ### Validation
 
 Run exact-head Runtime CI. Because this changes runtime geometry and reveal ownership, one signed work-branch Canary is required after CI for focused device evidence.
+
+
+## 2026-09-30 — Build 510: remove whole-component Mobile stretch
+
+**Type:** Control Center Mobile morph visual correction  
+**Display version:** 0.0.3  
+**Build / source:** 510 / `20260930-510` / `feat/control-center-transition-matrix`
+
+### Device evidence
+
+Build 509 runtime is healthy and its native target witness remains stable, but the supplied slow-pull recording rejects the visual form of the exact Mobile target transition. During the middle of the gesture, the whole Mobile group visibly stretches while the dots also elongate into bars.
+
+### Root cause
+
+Build 509 used the verified four-bar snapshot twice in the shape chain:
+1. outer component geometry switched from similarity projection to full basis interpolation, independently stretching width and height toward the target envelope;
+2. the inner four-dot renderer simultaneously morphed each dot into its measured target bar.
+
+Those two transforms are individually coherent at the endpoint but compose into a visible rubber-band deformation during the transition.
+
+### Change
+
+- Remove exact/non-uniform basis interpolation from the outer Mobile component.
+- Restore the existing similarity projection for Mobile carrier motion and any required uniform shrink.
+- Pass both measured target-envelope width and height ratios to the exact four-bar renderer.
+- Compensate each target bar axis inside the local Mobile geometry for the uniform outer scale, so the four measured final rectangles remain reachable without stretching the whole component canvas.
+- Keep the existing two-stage dot placement -> bar growth shape progress.
+- Composite/dual-row/unknown topology does not use exact four-bar compensation.
+- Build-509 continuous latent reveal is unchanged.
+
+### 审查 / review
+
+- **native motion authority:** unchanged; HyperOS native fraction still owns trajectory timing.
+- **single writer:** statusIcons-paddingEnd remains the only peer-layout writer.
+- **shape ownership:** outer matrix owns carrier/similarity motion; inner Mobile morph owns bar-specific width/height. The two no longer duplicate anisotropic deformation.
+- **endpoint:** reliable FOUR_VERTICAL_BARS still derives all four final rectangles from the runtime snapshot.
+- **fail-native:** composite/unknown topology stays on the previous generic path.
+- **performance:** arithmetic-only compensation; no new probe, listener or per-frame allocation source.
+- **protected boundaries:** Build-504 root-space endpoint, Build-507 reservation curve and Build-509 latent reveal remain unchanged.
+
+### Validation
+
+Exact-head Runtime CI is required. This changes visible runtime geometry, so one signed work-branch Canary is required after CI.

@@ -235,31 +235,55 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
-    fun verifiedFourBarTargetCanUseExactTargetBasisWithoutChangingFallback() {
-        val source = geometry(width = 20f, height = 20f)
-        val target = geometry(width = 60f, height = 40f)
-
-        val exact =
-            CombinedStatusControlCenterTransitionOwner.Policy.interpolateParticipantGeometry(
-                source = source,
-                target = target,
-                progress = 1f,
-                scalePolicy = CombinedStatusPainter.TransitionScalePolicy.SHRINK_ONLY,
-                exactTargetBasis = true,
+    fun exactBarTargetCompensatesInsideSimilarityBasis() {
+        val outerScale =
+            CombinedStatusPainter.MobileSignalMorphPolicy.outerSimilarityScale(
+                targetWidthRatio = 1.5f,
+                targetHeightRatio = 2f,
             )
-        val fallback =
-            CombinedStatusControlCenterTransitionOwner.Policy.interpolateParticipantGeometry(
-                source = source,
-                target = target,
-                progress = 1f,
-                scalePolicy = CombinedStatusPainter.TransitionScalePolicy.SHRINK_ONLY,
-                exactTargetBasis = false,
-            )
+        assertEquals(1f, outerScale, 0.0001f)
+        assertEquals(
+            1.5f,
+            CombinedStatusPainter.MobileSignalMorphPolicy.exactTargetAxisCompensation(
+                targetAxisRatio = 1.5f,
+                outerScale = outerScale,
+            ),
+            0.0001f,
+        )
+        assertEquals(
+            2f,
+            CombinedStatusPainter.MobileSignalMorphPolicy.exactTargetAxisCompensation(
+                targetAxisRatio = 2f,
+                outerScale = outerScale,
+            ),
+            0.0001f,
+        )
+    }
 
-        assertEquals(60f, exact[2], 0.0001f)
-        assertEquals(40f, exact[5], 0.0001f)
-        assertEquals(20f, fallback[2], 0.0001f)
-        assertEquals(20f, fallback[5], 0.0001f)
+    @Test
+    fun exactBarTargetPreservesUniformOuterShrinkAndCompensatesAxes() {
+        val outerScale =
+            CombinedStatusPainter.MobileSignalMorphPolicy.outerSimilarityScale(
+                targetWidthRatio = 0.75f,
+                targetHeightRatio = 0.5f,
+            )
+        assertEquals(0.5f, outerScale, 0.0001f)
+        assertEquals(
+            1.5f,
+            CombinedStatusPainter.MobileSignalMorphPolicy.exactTargetAxisCompensation(
+                targetAxisRatio = 0.75f,
+                outerScale = outerScale,
+            ),
+            0.0001f,
+        )
+        assertEquals(
+            1f,
+            CombinedStatusPainter.MobileSignalMorphPolicy.exactTargetAxisCompensation(
+                targetAxisRatio = 0.5f,
+                outerScale = outerScale,
+            ),
+            0.0001f,
+        )
     }
 
     @Test

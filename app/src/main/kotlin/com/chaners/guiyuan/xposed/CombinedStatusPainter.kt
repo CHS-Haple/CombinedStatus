@@ -123,6 +123,7 @@ internal class CombinedStatusPainter(
         opacity: Float = 1f,
         motionProgress: Float = 0f,
         shapeProgress: Float = 0f,
+        mobileTargetWidthRatio: Float? = null,
         mobileTargetHeightRatio: Float? = null,
         mobileTargetBars: List<TransitionNormalizedBounds>? = null,
     ) {
@@ -204,6 +205,7 @@ internal class CombinedStatusPainter(
                         geometry = outerGeometry,
                         motionProgress = motion,
                         shapeProgress = shape,
+                        targetWidthRatio = mobileTargetWidthRatio,
                         targetHeightRatio = mobileTargetHeightRatio,
                         targetBars = mobileTargetBars,
                     )
@@ -240,6 +242,36 @@ internal class CombinedStatusPainter(
                 start = 0.5f,
                 end = 1f,
             )
+
+        fun outerSimilarityScale(
+            targetWidthRatio: Float?,
+            targetHeightRatio: Float?,
+        ): Float {
+            val width =
+                targetWidthRatio
+                    ?.takeIf { it.isFinite() && it > 0f }
+                    ?: 1f
+            val height =
+                targetHeightRatio
+                    ?.takeIf { it.isFinite() && it > 0f }
+                    ?: 1f
+            return min(width, height).coerceAtMost(1f).coerceAtLeast(0.001f)
+        }
+
+        fun exactTargetAxisCompensation(
+            targetAxisRatio: Float?,
+            outerScale: Float,
+        ): Float {
+            val target =
+                targetAxisRatio
+                    ?.takeIf { it.isFinite() && it > 0f }
+                    ?: return 1f
+            val scale =
+                outerScale
+                    .takeIf { it.isFinite() && it > 0f }
+                    ?: 1f
+            return (target / scale).coerceAtLeast(0.001f)
+        }
 
         fun targetMaxBarHeight(
             sourceBoundsHeight: Float,
@@ -1601,6 +1633,7 @@ internal class CombinedStatusPainter(
         geometry: CombinedStatusOuterGeometry.Resolved,
         motionProgress: Float,
         shapeProgress: Float,
+        targetWidthRatio: Float?,
         targetHeightRatio: Float?,
         targetBars: List<TransitionNormalizedBounds>?,
     ) {
@@ -1625,6 +1658,8 @@ internal class CombinedStatusPainter(
                 layout = layout,
                 rowProgress = rowProgress,
                 barProgress = barProgress,
+                targetWidthRatio = targetWidthRatio,
+                targetHeightRatio = targetHeightRatio,
                 targetBars = exactBars,
             )
             return
@@ -1685,40 +1720,67 @@ internal class CombinedStatusPainter(
         layout: MobileSignalTransitionLayout,
         rowProgress: Float,
         barProgress: Float,
+        targetWidthRatio: Float?,
+        targetHeightRatio: Float?,
         targetBars: List<TransitionNormalizedBounds>,
     ) {
         val diameter = geometry.mobileDotRadius * 2f
         val level = model.mobileLevel
+        val outerScale =
+            MobileSignalMorphPolicy.outerSimilarityScale(
+                targetWidthRatio = targetWidthRatio,
+                targetHeightRatio = targetHeightRatio,
+            )
+        val widthCompensation =
+            MobileSignalMorphPolicy.exactTargetAxisCompensation(
+                targetAxisRatio = targetWidthRatio,
+                outerScale = outerScale,
+            )
+        val heightCompensation =
+            MobileSignalMorphPolicy.exactTargetAxisCompensation(
+                targetAxisRatio = targetHeightRatio,
+                outerScale = outerScale,
+            )
+        val targetCenterX = layout.bounds.centerX
+        val targetCenterY = layout.bounds.centerY
         targetBars.forEachIndexed { index, normalized ->
             val source = layout.sourceCenters[index]
             val targetLeft =
-                layout.bounds.left +
-                    normalized.left.coerceIn(0f, 1f) * layout.bounds.width
+                targetCenterX +
+                    (normalized.left.coerceIn(0f, 1f) - 0.5f) *
+                        layout.bounds.width *
+                        widthCompensation
             val targetTop =
-                layout.bounds.top +
-                    normalized.top.coerceIn(0f, 1f) * layout.bounds.height
+                targetCenterY +
+                    (normalized.top.coerceIn(0f, 1f) - 0.5f) *
+                        layout.bounds.height *
+                        heightCompensation
             val targetRight =
-                layout.bounds.left +
-                    normalized.right.coerceIn(0f, 1f) * layout.bounds.width
+                targetCenterX +
+                    (normalized.right.coerceIn(0f, 1f) - 0.5f) *
+                        layout.bounds.width *
+                        widthCompensation
             val targetBottom =
-                layout.bounds.top +
-                    normalized.bottom.coerceIn(0f, 1f) * layout.bounds.height
+                targetCenterY +
+                    (normalized.bottom.coerceIn(0f, 1f) - 0.5f) *
+                        layout.bounds.height *
+                        heightCompensation
             val targetWidth =
                 (targetRight - targetLeft).coerceAtLeast(0.001f)
             val targetHeight =
                 (targetBottom - targetTop).coerceAtLeast(0.001f)
-            val targetCenterX = (targetLeft + targetRight) / 2f
+            val targetBarCenterX = (targetLeft + targetRight) / 2f
             val targetBottomCenterY = targetBottom - diameter / 2f
 
-            val rowCenterX = lerp(source.x, targetCenterX, rowProgress)
+            val rowCenterX = lerp(source.x, targetBarCenterX, rowProgress)
             val rowCenterY = lerp(source.y, targetBottomCenterY, rowProgress)
             val startLeft = rowCenterX - diameter / 2f
             val startRight = rowCenterX + diameter / 2f
             val startTop = rowCenterY - diameter / 2f
             val startBottom = rowCenterY + diameter / 2f
 
-            val left = lerp(startLeft, targetCenterX - targetWidth / 2f, barProgress)
-            val right = lerp(startRight, targetCenterX + targetWidth / 2f, barProgress)
+            val left = lerp(startLeft, targetBarCenterX - targetWidth / 2f, barProgress)
+            val right = lerp(startRight, targetBarCenterX + targetWidth / 2f, barProgress)
             val top = lerp(startTop, targetBottom - targetHeight, barProgress)
             val bottom = lerp(startBottom, targetBottom, barProgress)
             val radius =

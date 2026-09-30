@@ -341,28 +341,6 @@ internal object CombinedStatusControlCenterTransitionOwner {
             )
         }
 
-        fun interpolateParticipantGeometry(
-            source: FloatArray,
-            target: FloatArray,
-            progress: Float,
-            scalePolicy: CombinedStatusPainter.TransitionScalePolicy,
-            exactTargetBasis: Boolean,
-        ): FloatArray =
-            if (exactTargetBasis) {
-                interpolateGeometry(
-                    source = source,
-                    target = target,
-                    progress = geometryProgress(progress),
-                )
-            } else {
-                interpolateSimilarityGeometry(
-                    source = source,
-                    target = target,
-                    progress = geometryProgress(progress),
-                    scalePolicy = scalePolicy,
-                )
-            }
-
         fun composeSourceGeometry(
             positionAuthority: FloatArray,
             basisAuthority: FloatArray,
@@ -417,7 +395,6 @@ internal object CombinedStatusControlCenterTransitionOwner {
             currentCarrier: FloatArray,
             progress: Float,
             scalePolicy: CombinedStatusPainter.TransitionScalePolicy,
-            exactTargetBasis: Boolean = false,
         ): FloatArray {
             require(
                 source.size == 6 &&
@@ -431,12 +408,11 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     sourceCarrier = sourceCarrier,
                     currentCarrier = currentCarrier,
                 )
-            return interpolateParticipantGeometry(
+            return interpolateSimilarityGeometry(
                 source = carriedSource,
                 target = target,
-                progress = progress,
+                progress = geometryProgress(progress),
                 scalePolicy = scalePolicy,
-                exactTargetBasis = exactTargetBasis,
             )
         }
 
@@ -572,6 +548,18 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 source[4] * normalized,
                 source[5] * normalized,
             )
+        }
+
+        fun relativeGeometryWidth(
+            target: FloatArray,
+            current: FloatArray,
+        ): Float? {
+            require(target.size == 6)
+            require(current.size == 6)
+            val targetWidth = vectorLength(target[2], target[3])
+            val currentWidth = vectorLength(current[2], current[3])
+            if (targetWidth <= 0f || currentWidth <= 0f) return null
+            return targetWidth / currentWidth
         }
 
         fun relativeGeometryHeight(
@@ -931,7 +919,6 @@ internal object CombinedStatusControlCenterTransitionOwner {
                             progress = motionProgress,
                             scalePolicy = spec.scalePolicy,
                             carrierFrames = carrierFrames,
-                            exactTargetBasis = resolvedMobileTargetBars != null,
                         )
                     } else {
                         carriedSourceGeometry(
@@ -978,6 +965,19 @@ internal object CombinedStatusControlCenterTransitionOwner {
 
                             CombinedStatusPainter.TransitionShapePolicy.RIGID ->
                                 0f
+                        },
+                    mobileTargetWidthRatio =
+                        if (
+                            spec.shapePolicy ==
+                            CombinedStatusPainter.TransitionShapePolicy.MOBILE_SIGNAL &&
+                            targetGeometry != null
+                        ) {
+                            Policy.relativeGeometryWidth(
+                                target = targetGeometry,
+                                current = sourceGeometry,
+                            )
+                        } else {
+                            null
                         },
                     mobileTargetHeightRatio =
                         if (
@@ -1119,7 +1119,6 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         progress = motionProgress,
                         scalePolicy = mobileSpec.scalePolicy,
                         carrierFrames = carrierFrames,
-                        exactTargetBasis = targetBars != null,
                     )
                 val geometry = pathGeometry
                 val matrix =
@@ -1157,6 +1156,11 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     opacity = 1f,
                     motionProgress = motionProgress,
                     shapeProgress = shapeProgress,
+                    mobileTargetWidthRatio =
+                        Policy.relativeGeometryWidth(
+                            target = targetGeometry,
+                            current = sourceGeometry,
+                        ),
                     mobileTargetHeightRatio =
                         Policy.relativeGeometryHeight(
                             target = targetGeometry,
@@ -1340,7 +1344,6 @@ internal object CombinedStatusControlCenterTransitionOwner {
             progress: Float,
             scalePolicy: CombinedStatusPainter.TransitionScalePolicy,
             carrierFrames: CarrierFrames?,
-            exactTargetBasis: Boolean = false,
         ): FloatArray =
             carrierFrames?.let { frames ->
                 Policy.interpolateCarriedSourceToRootTarget(
@@ -1350,14 +1353,12 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     currentCarrier = frames.current,
                     progress = progress,
                     scalePolicy = scalePolicy,
-                    exactTargetBasis = exactTargetBasis,
                 )
-            } ?: Policy.interpolateParticipantGeometry(
+            } ?: Policy.interpolateSimilarityGeometry(
                 source = source,
                 target = target,
-                progress = progress,
+                progress = Policy.geometryProgress(progress),
                 scalePolicy = scalePolicy,
-                exactTargetBasis = exactTargetBasis,
             )
 
         private fun carriedSourceGeometry(
