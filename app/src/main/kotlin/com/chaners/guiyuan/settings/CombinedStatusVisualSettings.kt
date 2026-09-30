@@ -232,13 +232,12 @@ internal const val BATTERY_TOP_TEXT_WEIGHT_MAX = 1400
 // Runtime/persisted offset is physical canonical displacement. Device review
 // established that the previous +3 position is the intended user-facing zero.
 internal const val BATTERY_TOP_VERTICAL_OFFSET_UI_REFERENCE = 3f
-internal const val BATTERY_TOP_VERTICAL_OFFSET_UI_MIN = -33f
-internal const val BATTERY_TOP_VERTICAL_OFFSET_UI_MAX = 30f
+internal const val BATTERY_TOP_VERTICAL_OFFSET_UI_MIN = -10f
+internal const val BATTERY_TOP_VERTICAL_OFFSET_UI_MAX = 10f
 internal const val BATTERY_TOP_VERTICAL_OFFSET_DEFAULT =
     BATTERY_TOP_VERTICAL_OFFSET_UI_REFERENCE
-// Keep the former persisted lower bound readable without shifting existing
-// users. The positive side extends by the +3 reference so UI +30 stays literal.
-internal const val BATTERY_TOP_VERTICAL_OFFSET_MIN = -30f
+internal const val BATTERY_TOP_VERTICAL_OFFSET_MIN =
+    BATTERY_TOP_VERTICAL_OFFSET_UI_REFERENCE + BATTERY_TOP_VERTICAL_OFFSET_UI_MIN
 internal const val BATTERY_TOP_VERTICAL_OFFSET_MAX =
     BATTERY_TOP_VERTICAL_OFFSET_UI_REFERENCE + BATTERY_TOP_VERTICAL_OFFSET_UI_MAX
 
