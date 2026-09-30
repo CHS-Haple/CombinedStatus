@@ -13,6 +13,8 @@ internal object CombinedStatusHomeRenderSession {
         "com.android.systemui.statusbar.views.MiuiStatusBatteryContainer"
     private const val BATTERY_VIEW_CLASS_NAME =
         "com.android.systemui.statusbar.views.MiuiBatteryMeterView"
+    private const val STATUS_ICON_CONTAINER_CLASS_NAME =
+        "com.android.systemui.statusbar.views.MiuiStatusIconContainer"
 
     private var current: Session? = null
 
@@ -31,6 +33,8 @@ internal object CombinedStatusHomeRenderSession {
             ?: return AttachResult.Failure("host-not-view-group")
         val batteryContainer = hostView.directChild(BATTERY_CONTAINER_CLASS_NAME)
             ?: return AttachResult.Failure("battery-container-missing")
+        val statusIcons = batteryContainer.directChild(STATUS_ICON_CONTAINER_CLASS_NAME)
+            ?: return AttachResult.Failure("status-icons-missing")
         val batteryView = batteryContainer.directChild(BATTERY_VIEW_CLASS_NAME)
             ?: return AttachResult.Failure("battery-view-missing")
         val batteryCarrier =
@@ -38,7 +42,15 @@ internal object CombinedStatusHomeRenderSession {
                 ?: return AttachResult.Failure("battery-core-carrier-missing")
 
         val existing = current
-        if (existing?.matches(hostView, batteryContainer, batteryView, batteryCarrier) == true) {
+        if (
+            existing?.matches(
+                hostView,
+                batteryContainer,
+                statusIcons,
+                batteryView,
+                batteryCarrier,
+            ) == true
+        ) {
             existing.update(CombinedStatusStateStore.snapshot())
             return AttachResult.Ready
         }
@@ -47,6 +59,7 @@ internal object CombinedStatusHomeRenderSession {
         val session = Session(
             host = hostView,
             batteryContainer = batteryContainer,
+            statusIcons = statusIcons,
             batteryView = batteryView,
             batteryCarrier = batteryCarrier,
             onEvent = onEvent,
@@ -191,6 +204,7 @@ internal object CombinedStatusHomeRenderSession {
     private class Session(
         host: ViewGroup,
         batteryContainer: ViewGroup,
+        statusIcons: ViewGroup,
         batteryView: ViewGroup,
         batteryCarrier: View,
         private val onEvent: (String) -> Unit,
@@ -204,6 +218,7 @@ internal object CombinedStatusHomeRenderSession {
     ) : View.OnAttachStateChangeListener {
         private val host = WeakReference(host)
         private val batteryContainer = WeakReference(batteryContainer)
+        private val statusIcons = WeakReference(statusIcons)
         private val batteryView = WeakReference(batteryView)
         private val batteryCarrier = WeakReference(batteryCarrier)
         private val probeView =
@@ -267,11 +282,13 @@ internal object CombinedStatusHomeRenderSession {
         fun matches(
             host: ViewGroup,
             batteryContainer: ViewGroup,
+            statusIcons: ViewGroup,
             batteryView: ViewGroup,
             batteryCarrier: View,
         ): Boolean =
             this.host.get() === host &&
                 this.batteryContainer.get() === batteryContainer &&
+                this.statusIcons.get() === statusIcons &&
                 this.batteryView.get() === batteryView &&
                 this.batteryCarrier.get() === batteryCarrier
 
@@ -306,6 +323,7 @@ internal object CombinedStatusHomeRenderSession {
 
         fun transitionSourceWitness(): CombinedStatusTransitionSourceWitness? {
             val anchor = batteryCarrier.get() ?: return null
+            val motion = statusIcons.get() ?: return null
             val render = probeView
             if (
                 !CombinedStatusScenePolicy.retainedTransitionSourceWitnessAvailable(
@@ -313,15 +331,25 @@ internal object CombinedStatusHomeRenderSession {
                     heightPx = render.height,
                     hostAttached =
                         batteryContainer.get()?.isAttachedToWindow == true &&
-                            anchor.isAttachedToWindow,
+                            anchor.isAttachedToWindow &&
+                            motion.isAttachedToWindow,
                 )
             ) {
                 return null
             }
-            if (anchor.width <= 0 || anchor.height <= 0) return null
+            if (
+                anchor.width <= 0 ||
+                anchor.height <= 0 ||
+                motion.width <= 0 ||
+                motion.height <= 0
+            ) {
+                return null
+            }
             return CombinedStatusTransitionSourceWitness(
                 renderView = render,
                 positionAnchor = anchor,
+                motionCarrier = motion,
+                representedSlots = SystemUiHomePresentationOwner.representedSlotSnapshot(),
             )
         }
 

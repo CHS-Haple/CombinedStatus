@@ -53,6 +53,8 @@ internal object SystemUiHomePresentationOwner {
     val installedHookCount: Int
         @Synchronized get() = listOfNotNull(measureHook, layoutHook, batteryHideHook).size
 
+    internal fun representedSlotSnapshot(): Set<String> = representedSlots.toSet()
+
     @Synchronized
     fun install(
         module: XposedModule,

@@ -5,6 +5,8 @@ import android.view.View
 internal data class CombinedStatusTransitionSourceWitness(
     val renderView: View,
     val positionAnchor: View,
+    val motionCarrier: View,
+    val representedSlots: Set<String>,
 )
 
 internal enum class CombinedStatusScene {

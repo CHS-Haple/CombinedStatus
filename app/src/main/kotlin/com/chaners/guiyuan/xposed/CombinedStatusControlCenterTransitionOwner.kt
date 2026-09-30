@@ -489,6 +489,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
         sourceAnchor: View,
         sourceSnapshot: CombinedStatusControlCenterRenderSession.TransitionSourceSnapshot,
         private val frozenSource: FrozenSourceGeometry?,
+        private val fakeStatusIcons: ViewGroup,
         private val finalStatusIcons: ViewGroup,
         private val finalBattery: View,
     ) {
@@ -1806,6 +1807,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
             val width: Int,
             val height: Int,
             val geometry: FloatArray,
+            val motionCarrierGeometry: FloatArray,
+            val representedSlots: Set<String>,
             val source: String,
         )
 
@@ -1859,6 +1862,9 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 steadySourceWitness: CombinedStatusTransitionSourceWitness?,
                 steadySourceLabel: String,
             ): Session? {
+                val fakeStatusIcons =
+                    uniqueDescendant(fakeRoot, STATUS_ICON_CONTAINER_CLASS_NAME)
+                        ?: return null
                 val finalStatusIcons =
                     uniqueDescendant(finalRoot, STATUS_ICON_CONTAINER_CLASS_NAME)
                         ?: return null
@@ -1873,7 +1879,10 @@ internal object CombinedStatusControlCenterTransitionOwner {
                                 witness.renderView.isAttachedToWindow &&
                                 witness.positionAnchor.width > 0 &&
                                 witness.positionAnchor.height > 0 &&
-                                witness.positionAnchor.isAttachedToWindow
+                                witness.positionAnchor.isAttachedToWindow &&
+                                witness.motionCarrier.width > 0 &&
+                                witness.motionCarrier.height > 0 &&
+                                witness.motionCarrier.isAttachedToWindow
                         }
                         ?.let { witness ->
                             val basisGeometry =
@@ -1886,6 +1895,11 @@ internal object CombinedStatusControlCenterTransitionOwner {
                                     view = witness.positionAnchor,
                                     root = root,
                                 ) ?: return@let null
+                            val motionCarrierGeometry =
+                                sampleGeometry(
+                                    view = witness.motionCarrier,
+                                    root = root,
+                                ) ?: return@let null
                             FrozenSourceGeometry(
                                 width = witness.renderView.width,
                                 height = witness.renderView.height,
@@ -1894,6 +1908,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
                                         positionAuthority = positionGeometry,
                                         basisAuthority = basisGeometry,
                                     ),
+                                motionCarrierGeometry = motionCarrierGeometry,
+                                representedSlots = witness.representedSlots.toSet(),
                                 source =
                                     steadySourceLabel +
                                         "-steady-anchor+" +
@@ -1915,6 +1931,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     sourceAnchor = sourceSnapshot.anchorView,
                     sourceSnapshot = sourceSnapshot,
                     frozenSource = frozenSource,
+                    fakeStatusIcons = fakeStatusIcons,
                     finalStatusIcons = finalStatusIcons,
                     finalBattery = finalBattery,
                 )
