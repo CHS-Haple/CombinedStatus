@@ -455,7 +455,20 @@ internal class CombinedStatusPainter(
                         scalePolicy = TransitionScalePolicy.SHRINK_ONLY,
                     )
 
-                CenterIndicator.Airplane ->
+                CenterIndicator.Airplane -> {
+                    val metrics =
+                        airplaneResourceId()
+                            ?.let { resourceId ->
+                                transitionNativeCenterMetrics(
+                                    resource =
+                                        CombinedStatusPresentationStateStore.NativeIconResource(
+                                            packageName = SYSTEM_UI_PACKAGE,
+                                            resourceId = resourceId,
+                                        ),
+                                    maxWidth = centerGeometry.airplaneMaxSize,
+                                    maxHeight = centerGeometry.airplaneMaxSize,
+                                )
+                            }
                     TransitionComponentSpec(
                         component = TransitionComponent.CENTER,
                         sourceBounds =
@@ -463,16 +476,27 @@ internal class CombinedStatusPainter(
                                 centeredBounds(
                                     centerX = AIRPLANE_CENTER_X,
                                     centerY = AIRPLANE_CENTER_Y,
-                                    width = centerGeometry.airplaneMaxSize,
-                                    height = centerGeometry.airplaneMaxSize,
+                                    width =
+                                        metrics?.sourceOpticalWidth
+                                            ?: centerGeometry.airplaneMaxSize,
+                                    height =
+                                        metrics?.sourceOpticalHeight
+                                            ?: centerGeometry.airplaneMaxSize,
                                 ),
                             ),
                         target = TransitionTarget.Slots(listOf("airplane")),
                         shapePolicy = TransitionShapePolicy.RIGID,
-                        scalePolicy = TransitionScalePolicy.SHRINK_ONLY,
+                        scalePolicy = TransitionScalePolicy.TARGET,
                     )
+                }
 
-                is CenterIndicator.NoSim ->
+                is CenterIndicator.NoSim -> {
+                    val metrics =
+                        transitionNativeCenterMetrics(
+                            resource = model.centerIndicator.nativeResource,
+                            maxWidth = centerGeometry.noSimMaxSize,
+                            maxHeight = centerGeometry.noSimMaxSize,
+                        )
                     TransitionComponentSpec(
                         component = TransitionComponent.CENTER,
                         sourceBounds =
@@ -480,8 +504,12 @@ internal class CombinedStatusPainter(
                                 centeredBounds(
                                     centerX = CENTER_TRANSITION_PIVOT_X,
                                     centerY = CENTER_TRANSITION_PIVOT_Y,
-                                    width = centerGeometry.noSimMaxSize,
-                                    height = centerGeometry.noSimMaxSize,
+                                    width =
+                                        metrics?.sourceOpticalWidth
+                                            ?: centerGeometry.noSimMaxSize,
+                                    height =
+                                        metrics?.sourceOpticalHeight
+                                            ?: centerGeometry.noSimMaxSize,
                                 ),
                             ),
                         target =
@@ -489,8 +517,9 @@ internal class CombinedStatusPainter(
                                 listOf("no_sim", "mobile", "stacked_mobile"),
                             ),
                         shapePolicy = TransitionShapePolicy.RIGID,
-                        scalePolicy = TransitionScalePolicy.SHRINK_ONLY,
+                        scalePolicy = TransitionScalePolicy.TARGET,
                     )
+                }
 
                 CenterIndicator.Empty -> null
             }
@@ -535,12 +564,25 @@ internal class CombinedStatusPainter(
                 sizeScale = CombinedStatusCenterGeometry.DEFAULT_SIZE_SCALE,
                 textWeightScale = CombinedStatusCenterGeometry.DEFAULT_TEXT_WEIGHT_SCALE,
             )
+        val metrics =
+            airplaneResourceId()
+                ?.let { resourceId ->
+                    transitionNativeCenterMetrics(
+                        resource =
+                            CombinedStatusPresentationStateStore.NativeIconResource(
+                                packageName = SYSTEM_UI_PACKAGE,
+                                resourceId = resourceId,
+                            ),
+                        maxWidth = geometry.airplaneMaxSize,
+                        maxHeight = geometry.airplaneMaxSize,
+                    )
+                }
         val local =
             centeredBounds(
                 centerX = AIRPLANE_CENTER_X,
                 centerY = AIRPLANE_CENTER_Y,
-                width = geometry.airplaneMaxSize,
-                height = geometry.airplaneMaxSize,
+                width = metrics?.sourceOpticalWidth ?: geometry.airplaneMaxSize,
+                height = metrics?.sourceOpticalHeight ?: geometry.airplaneMaxSize,
             )
         return TransitionBounds(
             left = offsetX + local.left * scale,
@@ -598,10 +640,24 @@ internal class CombinedStatusPainter(
                 packageName = SYSTEM_UI_PACKAGE,
                 resourceId = resourceId,
             )
+        return transitionNativeCenterMetrics(
+            resource = resource,
+            opticalReferenceResource = wifiOpticalReferenceResource(resource),
+            maxWidth = geometry.wifiMaxWidth,
+            maxHeight = geometry.wifiMaxHeight,
+        )
+    }
+
+    private fun transitionNativeCenterMetrics(
+        resource: CombinedStatusPresentationStateStore.NativeIconResource,
+        opticalReferenceResource: CombinedStatusPresentationStateStore.NativeIconResource? = null,
+        maxWidth: Float,
+        maxHeight: Float,
+    ): TransitionWifiMetrics? {
         val presentationResource = resolveNativeTintVariant(resource) ?: resource
         val asset = nativeCenterAsset(presentationResource) ?: return null
         val referenceAsset =
-            wifiOpticalReferenceResource(resource)
+            opticalReferenceResource
                 ?.let { reference ->
                     val presentationReference =
                         resolveNativeTintVariant(reference) ?: reference
@@ -625,8 +681,8 @@ internal class CombinedStatusPainter(
         val opticalIntrinsicHeight = fitAsset.intrinsicHeight * opticalHeightRatio
         val drawableScale =
             min(
-                geometry.wifiMaxWidth / opticalIntrinsicWidth,
-                geometry.wifiMaxHeight / opticalIntrinsicHeight,
+                maxWidth / opticalIntrinsicWidth,
+                maxHeight / opticalIntrinsicHeight,
             )
         return TransitionWifiMetrics(
             sourceOpticalWidth = opticalIntrinsicWidth * drawableScale,
