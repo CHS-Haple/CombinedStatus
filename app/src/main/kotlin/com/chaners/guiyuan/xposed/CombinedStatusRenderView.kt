@@ -238,6 +238,7 @@ internal class CombinedStatusRenderView(
                     visualSettings = visualSettings,
                 ),
             opacity = 1f,
+            visualSettings = visualSettings,
             previousCenterIndicator = previousCenterIndicator,
             centerExitAmount =
                 1f -
