@@ -13028,3 +13028,48 @@ The existing battery ring also owns the Battery component source geometry used b
 - Exact-head Build-513 Runtime CI #1939: **success**.
 - Target profile, unit tests, Debug build and Modern Xposed metadata validation are green.
 - Because this is the first meaningful runtime/visual checkpoint for the feature, one exact-head signed work-branch Canary and focused device evidence are required before merge.
+
+## 2026-10-01 — Build 514: battery-top typography calibration after device evidence
+
+**Type:** focused visual calibration  
+**Display version:** 0.0.3  
+**Build / source:** 514 / `20261001-514` / `feat/battery-top-readout` / PR #181
+
+### Maintainer device evidence
+
+The first Build-513 device screenshot established that the feature mechanics were present, but the typography calibration was not useful at its nominal defaults:
+
+- number size at 100% was visibly too small;
+- weight 600 read too light;
+- the 75%-135% number-size range did not provide enough adjustment headroom.
+
+### Root cause
+
+The user-facing scale was being applied on top of an authored base text size of only 16 px. That made “100%” an undersized engineering constant rather than a meaningful visual baseline. Raising only the default scale would preserve a misleading 100% reference and merely compensate through preference state.
+
+### Change
+
+- Recalibrate `BATTERY_TOP_TEXT_SIZE` from 16 px to 24 px so 100% is the new nominal visual baseline.
+- Keep text scale default at 100%, but expand its range from 75%-135% to 60%-200%.
+- Raise default text weight from 600 to 700.
+- Expand the upper text-weight bound from 800 to 900 while retaining 400 as the lower bound.
+- Update the MIUIX weight slider to 50-weight increments across the expanded 400-900 range.
+- Leave vertical-position and charging-glyph-size controls unchanged in this checkpoint because the device evidence specifically concerns number size/weight calibration.
+- Advance build identity to Build 514 / `20261001-514`.
+
+### 审查 / review
+
+- **scope:** typography calibration only; no Battery state, charging-glyph authority, top-gap policy, native peer layout, transition endpoint, or gesture path changes.
+- **semantic UI:** 100% now represents the authored intended baseline instead of relying on a non-100% default preference to compensate.
+- **single writer / lifecycle:** unchanged; no new hook, owner, listener, animator, or native property writer.
+- **dynamic clearance:** the existing measured-width top-gap policy remains authoritative, so wider text still enlarges the ring opening from measured content rather than a fixed screenshot-derived gap.
+- **compatibility:** readout remains opt-in; feature-off rendering still follows the accepted Build-511 path.
+
+### Validation
+
+- Build-514 Runtime CI #1941: **success**.
+- Pinned HyperOS target profile: green.
+- Unit tests + Debug build: green.
+- Modern Xposed metadata validation: green.
+- Remaining evidence is device-only: verify the new 100% / 700 baseline, useful upper range, ring clearance at large sizes, and no regression in Home -> Control Center Battery motion.
+

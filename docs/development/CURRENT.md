@@ -15,8 +15,10 @@ This file is the concise recovery point for active Guiyuan development. Historic
 PR #181 / `feat/battery-top-readout` adds an optional battery percentage readout in the top opening of the Guiyuan battery ring.
 
 Current checkpoint:
-- Build 513 / `20261001-513`;
+- Build 514 / `20261001-514`;
 - branch is based directly on current `dev`;
+- Build-513 device feedback showed the original 16 px / weight-600 typography baseline was visibly too small and light, and the 75%-135% size range was too narrow;
+- Build 514 redefines 100% as a 24 px authored baseline, raises the default weight to 700, and expands size/weight adjustment to 60%-200% / 400-900;
 - percentage readout is opt-in and defaults off;
 - ring top avoidance is derived from the measured readout width rather than a screenshot-fitted fixed gap;
 - charging reserves a stable leading glyph slot so the percentage does not shift while native charging presentation updates;
@@ -28,7 +30,7 @@ Current checkpoint:
 
 Confirmed:
 - PR #181 is mergeable and remains isolated from the old superseded transition branch.
-- Build 513 Runtime CI #1939: green.
+- Build 514 Runtime CI #1941: green.
 - Pinned HyperOS target profile: green.
 - Unit tests: green, including width-derived battery-top gap coverage.
 - Debug APK build: green.
@@ -67,7 +69,7 @@ Pending:
 
 ## Immediate next step
 
-1. keep runtime frozen at Build 513;
+1. keep runtime frozen at Build 514;
 2. generate one exact-head signed work-branch Canary for PR #181;
 3. perform focused device validation of top readout geometry and native charging glyph presentation;
 4. change runtime only if device evidence identifies a concrete defect;
