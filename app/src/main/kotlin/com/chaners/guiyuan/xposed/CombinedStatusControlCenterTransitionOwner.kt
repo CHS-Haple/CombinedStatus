@@ -1838,7 +1838,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
             targetOpticalBounds: CombinedStatusPainter.TransitionNormalizedBounds?,
         ): FloatArray? {
             val resolvedTargetOpticalBounds =
-                resolvedTargetOpticalBounds
+                targetOpticalBounds
                     ?: runtimeTargetOpticalBounds(witness)
             val opticalView = witness.opticalView
             if (opticalView != null) {

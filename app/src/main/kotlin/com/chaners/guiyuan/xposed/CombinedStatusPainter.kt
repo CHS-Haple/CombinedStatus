@@ -1915,28 +1915,30 @@ internal object CombinedStatusDrawableOpticalProbe {
         drawable: Drawable,
         resources: android.content.res.Resources,
     ): CombinedStatusPainter.TransitionNormalizedBounds? {
-        val state = drawable.constantState
+        val state = drawable.constantState ?: return null
         val level = drawable.level
-        state?.let { constantState ->
-            cache[constantState]
-                ?.takeIf { perLevel -> perLevel.containsKey(level) }
-                ?.let { perLevel -> return perLevel[level] }
-        }
+        cache[state]
+            ?.takeIf { perLevel -> perLevel.containsKey(level) }
+            ?.let { perLevel -> return perLevel[level] }
 
-        val resolved = probe(drawable, resources)
-        state?.let { constantState ->
-            cache
-                .getOrPut(constantState) { HashMap() }[level] = resolved
-        }
+        val resolved =
+            probe(
+                state = state,
+                source = drawable,
+                resources = resources,
+            )
+        cache
+            .getOrPut(state) { HashMap() }[level] = resolved
         return resolved
     }
 
     private fun probe(
-        drawable: Drawable,
+        state: Drawable.ConstantState,
+        source: Drawable,
         resources: android.content.res.Resources,
     ): CombinedStatusPainter.TransitionNormalizedBounds? {
-        val intrinsicWidth = drawable.intrinsicWidth
-        val intrinsicHeight = drawable.intrinsicHeight
+        val intrinsicWidth = source.intrinsicWidth
+        val intrinsicHeight = source.intrinsicHeight
         if (intrinsicWidth <= 0 || intrinsicHeight <= 0) return null
 
         val probeScale =
@@ -1945,13 +1947,9 @@ internal object CombinedStatusDrawableOpticalProbe {
         val probeWidth = max(1, (intrinsicWidth * probeScale).roundToInt())
         val probeHeight = max(1, (intrinsicHeight * probeScale).roundToInt())
         val probeDrawable =
-            drawable.constantState
-                ?.newDrawable(resources)
-                ?.mutate()
-                ?: drawable.constantState
-                    ?.newDrawable()
-                    ?.mutate()
-                ?: drawable
+            state
+                .newDrawable(resources)
+                .mutate()
         val bitmap =
             Bitmap.createBitmap(
                 probeWidth,
@@ -1959,8 +1957,8 @@ internal object CombinedStatusDrawableOpticalProbe {
                 Bitmap.Config.ARGB_8888,
             )
         try {
-            probeDrawable.state = drawable.state
-            probeDrawable.level = drawable.level
+            probeDrawable.state = source.state
+            probeDrawable.level = source.level
             probeDrawable.setTint(Color.WHITE)
             probeDrawable.alpha = 255
             probeDrawable.setBounds(0, 0, probeWidth, probeHeight)
