@@ -13902,3 +13902,99 @@ A second geometry constraint remained: Mobile Type used `SHRINK_ONLY` similarity
 - Added policy coverage for native style convergence by p=0.88 and exact geometry endpoint equality.
 - Runtime CI required.
 - Exact-head signed Canary required for device optical-overlap validation.
+
+
+## 2026-10-01 — Build 532: literal vertical offset and live optical ring avoidance
+
+**Type:** device-driven battery-top geometry correction
+**Display version:** 0.0.3
+**Build / source:** 532 / `20261001-532` / `feat/battery-top-readout` / PR #181
+
+### Maintainer device evidence / direction
+
+Two steady battery-top defects remain:
+
+1. the setting value that visually corresponds to the intended neutral position is the previous physical `+3`, so that position should become user-facing `0`;
+2. values above roughly `+3` appear to stop moving the number upward;
+3. the battery-ring opening looks too rigid: it should react to the current visible percentage + charging-lightning size, weight and vertical position, leaving only a small optical clearance.
+
+The useful manual range does not need the previous ±30 surface; ±10 is sufficient.
+
+### Root cause: hidden positive-offset ceiling
+
+The settings path was not losing the value. SharedPreferences accepted the requested offset and RuntimeVisualPreferencesOwner propagated it.
+
+The actual ceiling lived in `CombinedStatusBatteryTopLayoutPolicy.resolveCenterY()`.
+
+After `resolveOpticalBaseCenterY()` had already bounded the automatic base against the physical RenderView top, `resolveCenterY()` computed another limit:
+
+`maximumSafeRise = baseCenterY - (minimumSafeTopY + contentInkHeight / 2)`
+
+and rendered:
+
+`baseCenterY - min(requestedRise, maximumSafeRise)`.
+
+On the pinned Home geometry the remaining `maximumSafeRise` is only about 3-4 canonical units for the default battery-top ink height. Therefore +10, +20 and +30 persisted correctly but resolved to the same final Y. This was a renderer clamp, not a Slider, preference, Hot Reload or remote-preference defect.
+
+### Root cause: rigid ring opening
+
+The old opening used a fixed center at 270 degrees and derived sweep mainly from `groupWidth + ringGapPadding`. Padding itself combined fixed base padding, an ink-height multiplier and a ring-stroke multiplier, then the result was capped at 118 degrees.
+
+That means:
+- vertical position did not materially drive the opening;
+- large fixed padding remained even when the readout moved farther above the ring;
+- the cap/padding model could not express the actual current optical intersection between ring and visible text/lightning.
+
+### Change
+
+- Rebase offset UI:
+  - previous physical +3 -> UI 0;
+  - visible range = -10..+10;
+  - physical persisted/runtime range = -7..+13 so the range remains literal around the +3 reference;
+  - fresh default = physical +3 / UI 0.
+- Keep `resolveOpticalBaseCenterY()` as the one automatic safety bound.
+- Remove the second hidden headroom ceiling from manual `resolveCenterY()`; user displacement is now literal within the configured physical range.
+- Replace fixed ring-gap padding/sweep with live optical-envelope geometry:
+  - percentage width/height comes from current Typeface, text size and synthetic extra stroke;
+  - charging-lightning width/height comes from the existing cached native alpha envelope at the current charging-icon scale;
+  - combined group bounds use the current vertical offset;
+  - add only `ringStroke / 2 + 2 canonical px` visual clearance;
+  - solve left/right angular shoulder intersections against the actual ring center/radius;
+  - no fixed 118-degree cap remains.
+- Remove the now-unused fixed ring-gap padding policy and constants.
+
+### 问题执行流程
+
+1. UI writes the requested offset to local preferences.
+2. App mirrors the physical value to runtime remote preferences.
+3. Runtime visual settings normalize the physical range.
+4. Painter resolves the automatic optical base once.
+5. **Old defect:** manual positive request hit a second `maximumSafeRise` and collapsed above about +3.
+6. **Build 532:** manual offset is applied literally after the automatic base.
+7. Painter measures current percentage ink and native charging-lightning visible envelope.
+8. Those live bounds plus current Y are intersected with the ring geometry.
+9. Ring segments are drawn around that computed optical opening.
+
+### 审查 / review
+
+- **root-cause-first:** the actual renderer clamp is removed; Slider/preference plumbing is not patched around.
+- **user semantics:** UI zero is a display/reference mapping only; runtime keeps one physical offset value.
+- **bounded surface:** ±10 is enough for the requested adjustment and avoids exposing unusable extreme travel.
+- **dynamic avoidance:** size, font weight, charging-icon scale and vertical position all affect the same live envelope before ring-gap resolution.
+- **small clearance:** only half the current ring stroke plus 2 canonical px is added; the former large fixed padding formula is removed.
+- **single writer:** painter still owns all Guiyuan pixels; no SystemUI View geometry is mutated.
+- **performance:** closed-form asin/acos arithmetic only; existing cached native drawable optical measurements are reused; no sampling loop, bitmap probe, listener or hierarchy traversal is added.
+- **transition isolation:** Build-531 native typography endpoint logic, Build-530 lightning-follow-number transition ownership, Build-528 latent reveal and Build-526 Battery-Island authority are unchanged.
+
+### Validation
+
+- Added/updated unit coverage for:
+  - +3 physical <-> UI 0 mapping;
+  - visible ±10 range and physical -7..+13 mapping;
+  - no hidden manual headroom clamp;
+  - wider/bolder visible envelope -> wider gap;
+  - upward movement -> narrower/zero gap;
+  - greater visible height/lower placement -> wider gap;
+  - asymmetric visible envelope -> shifted gap center.
+- Build 531 Runtime CI #2003 and signed Canary #590 were green before this checkpoint.
+- Build 532 exact-head Runtime CI + signed Canary are required because the offset and ring-gap behavior are visually device-sensitive.
