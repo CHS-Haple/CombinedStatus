@@ -1178,8 +1178,6 @@ internal class CombinedStatusPainter(
                 baseCenterY = groupBaseCenterY,
                 requestedOffset = visualSettings.batteryTopVerticalOffset,
                 positiveLimit = BATTERY_TOP_VERTICAL_OFFSET_MAX,
-                contentInkHeight = contentInkHeight,
-                minimumSafeTopY = minimumSafeTopY,
             )
         val textBaselineY =
             groupCenterY -
