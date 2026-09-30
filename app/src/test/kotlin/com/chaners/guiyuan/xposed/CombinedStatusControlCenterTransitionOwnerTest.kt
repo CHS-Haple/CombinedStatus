@@ -517,7 +517,4 @@ class CombinedStatusControlCenterTransitionOwnerTest {
             0.0001f,
         )
     }
-
-}
-
 }

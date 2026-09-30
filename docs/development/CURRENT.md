@@ -116,7 +116,7 @@ Device testing is requested only when the result can change implementation choic
 4. Recheck one latent case (dual-SIM preferred) only to ensure Build-502 scale correction is preserved; Build 503 does not otherwise change latent ownership.
 5. Protected regressions: Build-498 Keyguard + Super-Island, Build-497 VPN/whole-row, Build-496 master-switch fail-native remain accepted.
 
-Historical safety checklist (retained for traceability):Historical safety checklist (retained for traceability): with Guiyuan enabled, disable the master switch while watching steady Home. Previously covered/suppressed native icons must return immediately without pulling Control Center.
+Historical safety checklist (retained for traceability): with Guiyuan enabled, disable the master switch while watching steady Home. Previously covered/suppressed native icons must return immediately without pulling Control Center.
 3. Still disabled, pull and collapse Control Center once; steady Home must remain native-correct before and after the gesture.
 4. Re-enable Guiyuan and verify compact presentation reacquires without SystemUI restart/Hot Reload.
 5. Only after this gate passes, resume transition motion ownership work: native peers move directly lower-left, while Guiyuan currently inserts an incorrect initial vertical-only segment. Charging press-left bias and charging-island final overlap remain queued with that motion review.
