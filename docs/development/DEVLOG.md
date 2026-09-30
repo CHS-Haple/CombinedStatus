@@ -13427,3 +13427,47 @@ The Build-522 baseline policy conflated two separate concerns: default optical c
 - PR remains mergeable and behind `dev` by 0.
 - Remaining gate: exact-head signed Canary + focused device evidence.
 
+
+
+## 2026-10-01 — Build 525: Battery-top physical headroom and charging ink-center alignment
+
+**Problem**
+
+Build-523 device evidence showed two remaining battery-top defects:
+- moving the vertical-offset control farther upward eventually stopped changing the rendered number even though the status-bar Battery carrier still had visible headroom;
+- while charging, the native lightning glyph and percentage looked vertically misaligned even though the code assigned them the same nominal group center.
+
+**Evidence**
+
+- The steady Battery render View is taller than the 120×120 canonical drawing surface. The painter centers that canonical surface through `NativeRenderTransform.offsetY`; on the pinned target the Battery carrier therefore has real physical headroom above canonical `y=0`.
+- Build 523 nevertheless derived the positive-offset safe boundary from `contentHeight / 2 + topSafeInset`, implicitly treating canonical zero as the physical clipping edge. This collapsed the useful +0…+30 control range to only the few canonical units between the neutral text position and `y=0`.
+- The charging path measured a native drawable's visible alpha envelope and compensated by the envelope midpoint. A folded/asymmetric lightning glyph can have a visible-ink mass center different from that envelope midpoint, so equal bounding-box centers are not equal optical centers.
+- The existing `CombinedStatusParticipantVisualSnapshot` already performs one bounded, cached alpha raster probe of each native drawable variant. That probe is the correct owner for any additional read-only ink geometry.
+
+**Conclusion**
+
+- The vertical-offset ceiling was a coordinate-space ownership error, not a MIUIX Slider problem. Physical clipping must be expressed in render-View space and mapped through the existing transform before canonical layout decisions are made.
+- Charging Y alignment should use the alpha-weighted center of the actual native glyph ink, not a resource-specific fixed offset and not a second probe/parser.
+
+**Change**
+
+- Add `resolveMinimumSafeTopY()` to map the real View top into canonical coordinates from `NativeRenderTransform`.
+- Make positive battery-top offset linear while headroom exists; +N now means N canonical units upward, bounded only when the combined visible readout would cross the real View top. Negative offset keeps the existing direct downward behavior.
+- Pass the existing render transform into every battery-top layout consumer, including transition source geometry.
+- Extend the existing bounded drawable snapshot with an alpha-weighted ink center computed from the same probe bitmap and cached with the same drawable variant.
+- Keep envelope width for charging-group X geometry, but align the charging glyph's alpha-weighted Y center to the percentage text optical center. No per-resource Y constant is introduced.
+- Carry Build-524 native hollow-Battery number-target resolution forward unchanged.
+
+**审查 / review**
+
+- **Ownership:** painter remains the sole Guiyuan pixel writer; no native View property writer is added.
+- **Lifecycle:** no new hook/listener/session object; centroid data lives inside the existing drawable snapshot/cache lifecycle.
+- **Performance:** the extra centroid arithmetic runs only while the existing bounded drawable probe already owns a bitmap; no extra rasterization, polling, frame callback, or View traversal.
+- **Compatibility / Fail native:** when the probe cannot provide a centroid, charging placement falls back to the existing envelope center; unresolved native charging resources still omit the custom glyph.
+- **Motion:** HyperOS expansion remains the sole timeline owner; Build-524 Battery-number target and Build-510/511 Battery-body transition logic are not retuned.
+
+**Validation**
+
+- Build 524 Runtime CI #1961 passed before this geometry correction.
+- Build 525 adds unit coverage for View-top -> canonical mapping, full positive travel above canonical zero, real clipping, negative-offset preservation, and alpha-weighted ink-center extraction.
+- Runtime CI and focused exact-head device validation are required before integration.
