@@ -205,6 +205,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
     }
 
     internal object Policy {
+        private const val LATENT_REVEAL_COMPLETE_FRACTION = 0.35f
         fun geometryProgress(raw: Float): Float =
             if (raw.isFinite()) raw.coerceIn(0f, 1f) else 0f
 
@@ -505,12 +506,26 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 sqrt(deltaX * deltaX + deltaY * deltaY)
             if (remainingDistance >= visualExtent) return 0f
 
-            val normalized =
+            val proximityProgress =
                 (1f - remainingDistance / visualExtent)
                     .coerceIn(0f, 1f)
             val proximity =
-                normalized * normalized * (3f - 2f * normalized)
-            return min(proximity, reservation)
+                acceleratedLatentRevealProgress(proximityProgress)
+            val occupancy =
+                acceleratedLatentRevealProgress(reservation)
+            return min(proximity, occupancy)
+        }
+
+        fun acceleratedLatentRevealProgress(progress: Float): Float {
+            val normalized =
+                (
+                    progress
+                        .takeIf(Float::isFinite)
+                        ?.coerceIn(0f, 1f)
+                        ?: 0f
+                ) / LATENT_REVEAL_COMPLETE_FRACTION
+            val phase = normalized.coerceIn(0f, 1f)
+            return phase * phase * (3f - 2f * phase)
         }
 
         fun semanticFallbackBounds(
