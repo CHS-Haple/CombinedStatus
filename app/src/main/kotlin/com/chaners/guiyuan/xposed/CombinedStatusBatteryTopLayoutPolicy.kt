@@ -48,18 +48,4 @@ internal object CombinedStatusBatteryTopLayoutPolicy {
         return baseCenterY -
             requestedOffset.coerceIn(0f, positiveLimit)
     }
-
-    fun resolveRingGapPadding(
-        contentInkHeight: Float,
-        ringStroke: Float,
-        basePadding: Float,
-        inkHeightRatio: Float,
-        ringStrokeRatio: Float,
-    ): Float =
-        max(
-            0f,
-            basePadding +
-                contentInkHeight.coerceAtLeast(0f) * inkHeightRatio.coerceAtLeast(0f) +
-                ringStroke.coerceAtLeast(0f) * ringStrokeRatio.coerceAtLeast(0f),
-        )
 }
