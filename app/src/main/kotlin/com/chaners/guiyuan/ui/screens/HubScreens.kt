@@ -26,6 +26,14 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.chaners.guiyuan.R
 import com.chaners.guiyuan.settings.AppLanguage
+import com.chaners.guiyuan.settings.BATTERY_TOP_CHARGING_ICON_SCALE_MAX
+import com.chaners.guiyuan.settings.BATTERY_TOP_CHARGING_ICON_SCALE_MIN
+import com.chaners.guiyuan.settings.BATTERY_TOP_TEXT_SCALE_MAX
+import com.chaners.guiyuan.settings.BATTERY_TOP_TEXT_SCALE_MIN
+import com.chaners.guiyuan.settings.BATTERY_TOP_TEXT_WEIGHT_MAX
+import com.chaners.guiyuan.settings.BATTERY_TOP_TEXT_WEIGHT_MIN
+import com.chaners.guiyuan.settings.BATTERY_TOP_VERTICAL_OFFSET_MAX
+import com.chaners.guiyuan.settings.BATTERY_TOP_VERTICAL_OFFSET_MIN
 import com.chaners.guiyuan.settings.CombinedStatusFeatureSettingsRepository
 import com.chaners.guiyuan.settings.CombinedStatusVisualSettingsRepository
 import com.chaners.guiyuan.system.SystemUiScopeController
@@ -35,6 +43,7 @@ import com.chaners.guiyuan.ui.components.topBarBackdropSource
 import com.chaners.guiyuan.ui.layout.pageContentPadding
 import com.chaners.guiyuan.ui.navigation.AppRoute
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 import top.yukonga.miuix.kmp.basic.BasicComponent
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
@@ -46,6 +55,7 @@ import top.yukonga.miuix.kmp.basic.TopAppBar
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
+import top.yukonga.miuix.kmp.preference.SliderPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 
 @Composable
@@ -75,8 +85,78 @@ internal fun FeaturesScreen(
         title = stringResource(R.string.features_title),
         sectionTitle = stringResource(R.string.section_hyperos_display),
         bottomContentPadding = bottomContentPadding,
-        secondarySectionTitle = stringResource(R.string.section_color_linkage),
+        secondarySectionTitle = stringResource(R.string.section_battery_top_readout),
         secondaryContent = {
+            SwitchPreference(
+                title = stringResource(R.string.battery_top_readout),
+                summary = stringResource(R.string.battery_top_readout_summary),
+                checked = visualSettings.batteryTopReadoutEnabled,
+                enabled = featureSettings.enabled,
+                onCheckedChange = visualRepository::setBatteryTopReadoutEnabled,
+            )
+            if (visualSettings.batteryTopReadoutEnabled) {
+                SliderPreference(
+                    value = visualSettings.batteryTopTextScale,
+                    onValueChange = visualRepository::setBatteryTopTextScale,
+                    title = stringResource(R.string.battery_top_text_size),
+                    valueText =
+                        stringResource(
+                            R.string.battery_top_scale_value,
+                            (visualSettings.batteryTopTextScale * 100f).roundToInt(),
+                        ),
+                    valueRange = BATTERY_TOP_TEXT_SCALE_MIN..BATTERY_TOP_TEXT_SCALE_MAX,
+                    enabled = featureSettings.enabled,
+                )
+                SliderPreference(
+                    value = visualSettings.batteryTopTextWeight.toFloat(),
+                    onValueChange = { value ->
+                        visualRepository.setBatteryTopTextWeight(value.roundToInt())
+                    },
+                    title = stringResource(R.string.battery_top_text_weight),
+                    valueText =
+                        stringResource(
+                            R.string.battery_top_weight_value,
+                            visualSettings.batteryTopTextWeight,
+                        ),
+                    valueRange =
+                        BATTERY_TOP_TEXT_WEIGHT_MIN.toFloat()..
+                            BATTERY_TOP_TEXT_WEIGHT_MAX.toFloat(),
+                    steps = 7,
+                    enabled = featureSettings.enabled,
+                )
+                SliderPreference(
+                    value = visualSettings.batteryTopVerticalOffset,
+                    onValueChange = visualRepository::setBatteryTopVerticalOffset,
+                    title = stringResource(R.string.battery_top_vertical_offset),
+                    valueText =
+                        stringResource(
+                            R.string.battery_top_offset_value,
+                            visualSettings.batteryTopVerticalOffset.roundToInt(),
+                        ),
+                    valueRange =
+                        BATTERY_TOP_VERTICAL_OFFSET_MIN..
+                            BATTERY_TOP_VERTICAL_OFFSET_MAX,
+                    steps = 9,
+                    enabled = featureSettings.enabled,
+                )
+                SliderPreference(
+                    value = visualSettings.batteryTopChargingIconScale,
+                    onValueChange = visualRepository::setBatteryTopChargingIconScale,
+                    title = stringResource(R.string.battery_top_charging_icon_size),
+                    valueText =
+                        stringResource(
+                            R.string.battery_top_scale_value,
+                            (visualSettings.batteryTopChargingIconScale * 100f).roundToInt(),
+                        ),
+                    valueRange =
+                        BATTERY_TOP_CHARGING_ICON_SCALE_MIN..
+                            BATTERY_TOP_CHARGING_ICON_SCALE_MAX,
+                    enabled = featureSettings.enabled,
+                )
+            }
+        },
+        tertiarySectionTitle = stringResource(R.string.section_color_linkage),
+        tertiaryContent = {
             SwitchPreference(
                 title = stringResource(R.string.mobile_follow_battery_color),
                 summary = stringResource(R.string.mobile_follow_battery_color_summary),
@@ -102,7 +182,6 @@ internal fun FeaturesScreen(
         )
     }
 }
-
 @Composable
 internal fun SettingsHubScreen(
     bottomContentPadding: Dp,
