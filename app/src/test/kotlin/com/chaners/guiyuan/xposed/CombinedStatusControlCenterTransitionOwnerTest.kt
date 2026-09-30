@@ -220,7 +220,7 @@ class CombinedStatusControlCenterTransitionOwnerTest {
             0.0001f,
         )
         assertEquals(
-            0.5f,
+            1f,
             CombinedStatusControlCenterTransitionOwner.Policy.latentRevealOpacity(
                 current = geometry(centerX = 90f, centerY = 100f, width = 20f, height = 20f),
                 target = target,
@@ -232,11 +232,47 @@ class CombinedStatusControlCenterTransitionOwnerTest {
         assertEquals(
             1f,
             CombinedStatusControlCenterTransitionOwner.Policy.latentRevealOpacity(
+                current = geometry(centerX = 93f, centerY = 100f, width = 20f, height = 20f),
+                target = target,
+                visualExtent = 20f,
+                reservationProgress = 0.35f,
+            ),
+            0.0001f,
+        )
+        assertEquals(
+            1f,
+            CombinedStatusControlCenterTransitionOwner.Policy.latentRevealOpacity(
                 current = target,
                 target = target,
                 visualExtent = 20f,
                 reservationProgress = 1f,
             ),
+            0.0001f,
+        )
+    }
+
+    @Test
+    fun latentRevealAcceleratesAfterOccupancyUnlockWithoutChangingTheGate() {
+        assertEquals(
+            0f,
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .acceleratedLatentRevealProgress(0f),
+            0.0001f,
+        )
+        assertTrue(
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .acceleratedLatentRevealProgress(0.2f) > 0.5f,
+        )
+        assertEquals(
+            1f,
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .acceleratedLatentRevealProgress(0.35f),
+            0.0001f,
+        )
+        assertEquals(
+            1f,
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .acceleratedLatentRevealProgress(1f),
             0.0001f,
         )
     }
