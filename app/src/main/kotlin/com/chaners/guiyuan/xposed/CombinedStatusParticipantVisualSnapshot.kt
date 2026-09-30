@@ -74,13 +74,17 @@ internal object CombinedStatusParticipantVisualSnapshot {
         }
     }
 
-    private data class DrawableCacheEntry(
+    private data class DrawableVariantKey(
         val level: Int,
-        val snapshot: Snapshot?,
+        val stateHash: Int,
+        val layoutDirection: Int,
     )
 
     private val drawableCache =
-        WeakHashMap<Drawable.ConstantState, MutableMap<Int, Snapshot?>>()
+        WeakHashMap<
+            Drawable.ConstantState,
+            MutableMap<DrawableVariantKey, Snapshot?>,
+        >()
 
     @Synchronized
     fun resolveDrawable(
@@ -88,10 +92,15 @@ internal object CombinedStatusParticipantVisualSnapshot {
         resources: Resources,
     ): Snapshot? {
         val state = drawable.constantState ?: return null
-        val level = drawable.level
+        val variant =
+            DrawableVariantKey(
+                level = drawable.level,
+                stateHash = drawable.state.contentHashCode(),
+                layoutDirection = drawable.layoutDirection,
+            )
         drawableCache[state]
-            ?.takeIf { perLevel -> perLevel.containsKey(level) }
-            ?.let { perLevel -> return perLevel[level] }
+            ?.takeIf { perVariant -> perVariant.containsKey(variant) }
+            ?.let { perVariant -> return perVariant[variant] }
 
         val resolved =
             probeDrawable(
@@ -100,7 +109,7 @@ internal object CombinedStatusParticipantVisualSnapshot {
                 resources = resources,
             )
         drawableCache
-            .getOrPut(state) { HashMap() }[level] = resolved
+            .getOrPut(state) { HashMap() }[variant] = resolved
         return resolved
     }
 
@@ -291,6 +300,7 @@ internal object CombinedStatusParticipantVisualSnapshot {
         try {
             probeDrawable.state = source.state
             probeDrawable.level = source.level
+            probeDrawable.layoutDirection = source.layoutDirection
             probeDrawable.setTint(Color.WHITE)
             probeDrawable.alpha = 255
             probeDrawable.setBounds(0, 0, probeWidth, probeHeight)
