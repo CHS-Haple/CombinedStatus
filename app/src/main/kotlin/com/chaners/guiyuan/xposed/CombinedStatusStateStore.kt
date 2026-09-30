@@ -19,6 +19,26 @@ internal object CombinedStatusStateStore {
     }
 
     @Synchronized
+    fun updateBatteryChargingIcon(resourceId: Int?): Snapshot? {
+        val battery = current.battery ?: return null
+        val next =
+            battery.copy(
+                chargingIconResId =
+                    if (battery.charging) {
+                        resourceId?.takeIf { it != 0 }
+                    } else {
+                        null
+                    },
+            )
+        if (battery == next) {
+            return null
+        }
+
+        current = current.copy(battery = next)
+        return current
+    }
+
+    @Synchronized
     fun updateWifi(state: WifiState): Snapshot? {
         if (current.wifi == state) {
             return null
@@ -123,6 +143,7 @@ internal object CombinedStatusStateStore {
                 putBoolean(KEY_BATTERY_PRESENT, true)
                 putInt(KEY_BATTERY_PERCENT, battery.percent)
                 putBoolean(KEY_BATTERY_CHARGING, battery.charging)
+                putInt(KEY_BATTERY_CHARGING_ICON_RES_ID, battery.chargingIconResId ?: 0)
                 battery.semanticState?.let { putString(KEY_BATTERY_SEMANTIC, it.name) }
                 battery.systemSemanticColor?.let { color ->
                     putBoolean(KEY_BATTERY_SYSTEM_COLOR_PRESENT, true)
@@ -180,6 +201,9 @@ internal object CombinedStatusStateStore {
                 BatteryState(
                     percent = bundle.getInt(KEY_BATTERY_PERCENT),
                     charging = bundle.getBoolean(KEY_BATTERY_CHARGING),
+                    chargingIconResId =
+                        bundle.getInt(KEY_BATTERY_CHARGING_ICON_RES_ID)
+                            .takeIf { it != 0 },
                     semanticState =
                         bundle.getString(KEY_BATTERY_SEMANTIC)?.let { name ->
                             runCatching {
@@ -318,6 +342,7 @@ internal object CombinedStatusStateStore {
         val charging: Boolean,
         val semanticState: CombinedStatusBatterySemanticState? = null,
         val systemSemanticColor: Int? = null,
+        val chargingIconResId: Int? = null,
     )
 
     internal sealed interface WifiState {
@@ -354,6 +379,7 @@ internal object CombinedStatusStateStore {
     private const val KEY_BATTERY_PRESENT = "batteryPresent"
     private const val KEY_BATTERY_PERCENT = "batteryPercent"
     private const val KEY_BATTERY_CHARGING = "batteryCharging"
+    private const val KEY_BATTERY_CHARGING_ICON_RES_ID = "batteryChargingIconResId"
     private const val KEY_BATTERY_SEMANTIC = "batterySemantic"
     private const val KEY_BATTERY_SYSTEM_COLOR_PRESENT = "batterySystemColorPresent"
     private const val KEY_BATTERY_SYSTEM_COLOR = "batterySystemColor"

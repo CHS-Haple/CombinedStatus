@@ -1505,6 +1505,16 @@ class CombinedStatusModule : XposedModule() {
                         )
                     }
                 },
+                onChargingIconResource = { resourceId ->
+                    val trace = beginRenderTrace("battery-charging-glyph")
+                    CombinedStatusStateStore.updateBatteryChargingIcon(resourceId)
+                        ?.let { snapshot ->
+                            onCombinedStateChanged(
+                                snapshot = snapshot,
+                                trace = markStateCommitted(trace),
+                            )
+                        }
+                },
                 onEvent =
                     if (BuildConfig.RUNTIME_DIAGNOSTICS) {
                         { event ->
