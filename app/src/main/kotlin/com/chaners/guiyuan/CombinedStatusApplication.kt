@@ -6,7 +6,17 @@ import android.content.SharedPreferences
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import com.chaners.guiyuan.settings.BATTERY_TOP_CHARGING_ICON_SCALE_DEFAULT
+import com.chaners.guiyuan.settings.BATTERY_TOP_CHARGING_ICON_SCALE_KEY
+import com.chaners.guiyuan.settings.BATTERY_TOP_READOUT_ENABLED_KEY
+import com.chaners.guiyuan.settings.BATTERY_TOP_TEXT_SCALE_DEFAULT
+import com.chaners.guiyuan.settings.BATTERY_TOP_TEXT_SCALE_KEY
+import com.chaners.guiyuan.settings.BATTERY_TOP_TEXT_WEIGHT_DEFAULT
+import com.chaners.guiyuan.settings.BATTERY_TOP_TEXT_WEIGHT_KEY
+import com.chaners.guiyuan.settings.BATTERY_TOP_VERTICAL_OFFSET_DEFAULT
+import com.chaners.guiyuan.settings.BATTERY_TOP_VERTICAL_OFFSET_KEY
 import com.chaners.guiyuan.settings.CENTER_FOLLOWS_BATTERY_COLOR_KEY
+import com.chaners.guiyuan.settings.CombinedStatusVisualSettings
 import com.chaners.guiyuan.settings.COMBINED_STATUS_ENABLED_KEY
 import com.chaners.guiyuan.settings.COMBINED_STATUS_FEATURE_CHANGE_ELAPSED_REALTIME_NANOS_KEY
 import com.chaners.guiyuan.settings.COMBINED_STATUS_FEATURE_PREFS_NAME
@@ -17,6 +27,8 @@ import com.chaners.guiyuan.settings.DIAGNOSTICS_PREFS_NAME
 import com.chaners.guiyuan.settings.DiagnosticsLevel
 import com.chaners.guiyuan.settings.MOBILE_FOLLOWS_BATTERY_COLOR_KEY
 import com.chaners.guiyuan.settings.RUNTIME_REMOTE_PREFS_NAME
+import com.chaners.guiyuan.settings.isCombinedStatusVisualPreferenceKey
+import com.chaners.guiyuan.settings.normalized
 import com.chaners.guiyuan.system.XposedRuntimeStatus
 import io.github.libxposed.service.XposedService
 import io.github.libxposed.service.XposedServiceHelper
@@ -78,10 +90,7 @@ class CombinedStatusApplication :
 
     private val visualListener =
         SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-            if (
-                key == MOBILE_FOLLOWS_BATTERY_COLOR_KEY ||
-                key == CENTER_FOLLOWS_BATTERY_COLOR_KEY
-            ) {
+            if (isCombinedStatusVisualPreferenceKey(key)) {
                 xposedService?.let(::syncRuntimeConfig)
             }
         }
@@ -206,11 +215,40 @@ class CombinedStatusApplication :
                 MOBILE_FOLLOWS_BATTERY_COLOR_KEY,
                 false,
             )
-        val centerFollowsBattery =
-            visualPreferences.getBoolean(
-                CENTER_FOLLOWS_BATTERY_COLOR_KEY,
-                false,
-            )
+        val visualSettings =
+            CombinedStatusVisualSettings(
+                mobileFollowsBatteryColor = mobileFollowsBattery,
+                centerFollowsBatteryColor =
+                    visualPreferences.getBoolean(
+                        CENTER_FOLLOWS_BATTERY_COLOR_KEY,
+                        false,
+                    ),
+                batteryTopReadoutEnabled =
+                    visualPreferences.getBoolean(
+                        BATTERY_TOP_READOUT_ENABLED_KEY,
+                        false,
+                    ),
+                batteryTopTextScale =
+                    visualPreferences.getFloat(
+                        BATTERY_TOP_TEXT_SCALE_KEY,
+                        BATTERY_TOP_TEXT_SCALE_DEFAULT,
+                    ),
+                batteryTopTextWeight =
+                    visualPreferences.getInt(
+                        BATTERY_TOP_TEXT_WEIGHT_KEY,
+                        BATTERY_TOP_TEXT_WEIGHT_DEFAULT,
+                    ),
+                batteryTopVerticalOffset =
+                    visualPreferences.getFloat(
+                        BATTERY_TOP_VERTICAL_OFFSET_KEY,
+                        BATTERY_TOP_VERTICAL_OFFSET_DEFAULT,
+                    ),
+                batteryTopChargingIconScale =
+                    visualPreferences.getFloat(
+                        BATTERY_TOP_CHARGING_ICON_SCALE_KEY,
+                        BATTERY_TOP_CHARGING_ICON_SCALE_DEFAULT,
+                    ),
+            ).normalized()
 
         runCatching {
             val remote = service.getRemotePreferences(RUNTIME_REMOTE_PREFS_NAME)
@@ -231,11 +269,31 @@ class CombinedStatusApplication :
                 )
                 .putBoolean(
                     MOBILE_FOLLOWS_BATTERY_COLOR_KEY,
-                    mobileFollowsBattery,
+                    visualSettings.mobileFollowsBatteryColor,
                 )
                 .putBoolean(
                     CENTER_FOLLOWS_BATTERY_COLOR_KEY,
-                    centerFollowsBattery,
+                    visualSettings.centerFollowsBatteryColor,
+                )
+                .putBoolean(
+                    BATTERY_TOP_READOUT_ENABLED_KEY,
+                    visualSettings.batteryTopReadoutEnabled,
+                )
+                .putFloat(
+                    BATTERY_TOP_TEXT_SCALE_KEY,
+                    visualSettings.batteryTopTextScale,
+                )
+                .putInt(
+                    BATTERY_TOP_TEXT_WEIGHT_KEY,
+                    visualSettings.batteryTopTextWeight,
+                )
+                .putFloat(
+                    BATTERY_TOP_VERTICAL_OFFSET_KEY,
+                    visualSettings.batteryTopVerticalOffset,
+                )
+                .putFloat(
+                    BATTERY_TOP_CHARGING_ICON_SCALE_KEY,
+                    visualSettings.batteryTopChargingIconScale,
                 )
             check(editor.commit()) { "remote preference commit failed" }
         }.onFailure { throwable ->

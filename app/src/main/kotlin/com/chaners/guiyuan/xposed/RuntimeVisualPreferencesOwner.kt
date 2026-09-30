@@ -1,9 +1,20 @@
 package com.chaners.guiyuan.xposed
 
 import android.content.SharedPreferences
+import com.chaners.guiyuan.settings.BATTERY_TOP_CHARGING_ICON_SCALE_DEFAULT
+import com.chaners.guiyuan.settings.BATTERY_TOP_CHARGING_ICON_SCALE_KEY
+import com.chaners.guiyuan.settings.BATTERY_TOP_READOUT_ENABLED_KEY
+import com.chaners.guiyuan.settings.BATTERY_TOP_TEXT_SCALE_DEFAULT
+import com.chaners.guiyuan.settings.BATTERY_TOP_TEXT_SCALE_KEY
+import com.chaners.guiyuan.settings.BATTERY_TOP_TEXT_WEIGHT_DEFAULT
+import com.chaners.guiyuan.settings.BATTERY_TOP_TEXT_WEIGHT_KEY
+import com.chaners.guiyuan.settings.BATTERY_TOP_VERTICAL_OFFSET_DEFAULT
+import com.chaners.guiyuan.settings.BATTERY_TOP_VERTICAL_OFFSET_KEY
 import com.chaners.guiyuan.settings.CENTER_FOLLOWS_BATTERY_COLOR_KEY
 import com.chaners.guiyuan.settings.CombinedStatusVisualSettings
 import com.chaners.guiyuan.settings.MOBILE_FOLLOWS_BATTERY_COLOR_KEY
+import com.chaners.guiyuan.settings.isCombinedStatusVisualPreferenceKey
+import com.chaners.guiyuan.settings.normalized
 
 internal object RuntimeVisualPreferencesOwner {
     @Volatile
@@ -29,10 +40,7 @@ internal object RuntimeVisualPreferencesOwner {
         val listener =
             SharedPreferences.OnSharedPreferenceChangeListener { changed, key ->
                 if (
-                    (
-                        key == MOBILE_FOLLOWS_BATTERY_COLOR_KEY ||
-                            key == CENTER_FOLLOWS_BATTERY_COLOR_KEY
-                    ) &&
+                    isCombinedStatusVisualPreferenceKey(key) &&
                     isCurrentBinding(changed, token)
                 ) {
                     val next = resolve(changed)
@@ -88,5 +96,30 @@ internal object RuntimeVisualPreferencesOwner {
                     CENTER_FOLLOWS_BATTERY_COLOR_KEY,
                     false,
                 ),
-        )
+            batteryTopReadoutEnabled =
+                preferences.getBoolean(
+                    BATTERY_TOP_READOUT_ENABLED_KEY,
+                    false,
+                ),
+            batteryTopTextScale =
+                preferences.getFloat(
+                    BATTERY_TOP_TEXT_SCALE_KEY,
+                    BATTERY_TOP_TEXT_SCALE_DEFAULT,
+                ),
+            batteryTopTextWeight =
+                preferences.getInt(
+                    BATTERY_TOP_TEXT_WEIGHT_KEY,
+                    BATTERY_TOP_TEXT_WEIGHT_DEFAULT,
+                ),
+            batteryTopVerticalOffset =
+                preferences.getFloat(
+                    BATTERY_TOP_VERTICAL_OFFSET_KEY,
+                    BATTERY_TOP_VERTICAL_OFFSET_DEFAULT,
+                ),
+            batteryTopChargingIconScale =
+                preferences.getFloat(
+                    BATTERY_TOP_CHARGING_ICON_SCALE_KEY,
+                    BATTERY_TOP_CHARGING_ICON_SCALE_DEFAULT,
+                ),
+        ).normalized()
 }
