@@ -1,7 +1,6 @@
 package com.chaners.guiyuan.xposed
 
 import kotlin.math.max
-import kotlin.math.min
 
 internal object CombinedStatusBatteryTopLayoutPolicy {
     fun resolveMinimumSafeTopY(
