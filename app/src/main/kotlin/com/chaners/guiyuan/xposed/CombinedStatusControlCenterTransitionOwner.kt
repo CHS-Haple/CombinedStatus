@@ -3,6 +3,7 @@ package com.chaners.guiyuan.xposed
 import android.graphics.Canvas
 import android.graphics.ColorFilter
 import android.graphics.Matrix
+import android.graphics.Paint
 import android.graphics.PixelFormat
 import android.graphics.Rect
 import android.graphics.RectF
@@ -12,6 +13,7 @@ import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.widget.FrameLayout
 import android.widget.ImageView
+import android.widget.TextView
 import java.lang.ref.WeakReference
 import java.util.WeakHashMap
 import kotlin.math.min
@@ -28,6 +30,9 @@ internal object CombinedStatusControlCenterTransitionOwner {
     private const val NO_SIM_SLOT = "no_sim"
     private const val MOBILE_SLOT = "mobile"
     private const val STACKED_MOBILE_SLOT = "stacked_mobile"
+    private const val BATTERY_NUMBER_PROBE_MAX_VIEWS = 16
+    private const val BATTERY_NUMBER_PROBE_MAX_DEPTH = 4
+    private const val BATTERY_NUMBER_PROBE_MAX_PAINTS = 8
 
     private var visible = false
     private var sceneEligible = false
@@ -654,6 +659,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
         private var started = false
         private var lastStateVersion = sourceSnapshot.stateVersion
         private var lastWitnessSummary = "pending"
+        private var batteryNumberProbeSummary = "pending"
         private var cachedNativePeerTint: Int? = null
         private var frozenReservationSpans: List<Policy.ReservationSpan>? = null
         private var lastReservationWidthPx: Int? = null
@@ -713,6 +719,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 ",fake=" + (fakeRootRef.get()?.javaClass?.simpleName ?: "none") +
                 ",final=" + (finalRootRef.get()?.javaClass?.simpleName ?: "none") +
                 ",witness=" + lastWitnessSummary +
+                ",batteryNumberProbe=" + batteryNumberProbeSummary +
                 ",reservation=" + (lastReservationWidthPx ?: -1) +
                 ",reservationMode=" +
                 (if (transitionReservationEnabled) "native-progress-total-padding" else "native-peer-motion") +
@@ -736,6 +743,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
             val rootView = rootRef.get() ?: return
             val source = sourceViewRef.get() ?: return
             started = true
+            batteryNumberProbeSummary = resolveBatteryNumberProbe(finalBattery)
             source.clipBounds = sourceMask.appliedClip
             refreshNativePeerTint()
             syncTransitionReservation()
@@ -2167,6 +2175,98 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 bounds = localBounds,
             )
         }
+
+        private fun resolveBatteryNumberProbe(battery: View): String {
+            val digitalView = readViewField(battery, "mBatteryDigitalView")
+            val iconView = readViewField(battery, "mBatteryIconView")
+
+            fun viewToken(view: View): String {
+                val entry =
+                    NativeParticipantRuntimeAccess.resourceEntryName(view)
+                        ?: "no-id"
+                val base =
+                    view.javaClass.simpleName + ":" + entry +
+                        ":" + view.width + "x" + view.height +
+                        ":v=" + view.visibility
+                return if (view is TextView) {
+                    val weight =
+                        runCatching { view.typeface?.weight }
+                            .getOrNull()
+                            ?: -1
+                    base +
+                        ":text=" + view.text.toString().replace("|", "/") +
+                        ":textSize=" + view.textSize +
+                        ":weight=" + weight +
+                        ":style=" + (view.typeface?.style ?: -1)
+                } else {
+                    base
+                }
+            }
+
+            val descendants = ArrayList<String>()
+            fun collect(view: View, depth: Int) {
+                if (descendants.size >= BATTERY_NUMBER_PROBE_MAX_VIEWS) return
+                val entry =
+                    NativeParticipantRuntimeAccess.resourceEntryName(view)
+                        ?.lowercase()
+                        .orEmpty()
+                if (
+                    view is TextView ||
+                    view === digitalView ||
+                    view === iconView ||
+                    entry.contains("battery") ||
+                    entry.contains("percent") ||
+                    entry.contains("digit") ||
+                    entry.contains("text")
+                ) {
+                    descendants += viewToken(view)
+                }
+                if (depth >= BATTERY_NUMBER_PROBE_MAX_DEPTH) return
+                val group = view as? ViewGroup ?: return
+                for (index in 0 until group.childCount) {
+                    collect(group.getChildAt(index), depth + 1)
+                    if (descendants.size >= BATTERY_NUMBER_PROBE_MAX_VIEWS) return
+                }
+            }
+            collect(battery, 0)
+
+            val paintFields =
+                iconView
+                    ?.let { icon ->
+                        generateSequence<Class<*>>(icon.javaClass) { clazz -> clazz.superclass }
+                            .flatMap { clazz -> clazz.declaredFields.asSequence() }
+                            .filter { field ->
+                                Paint::class.java.isAssignableFrom(field.type)
+                            }
+                            .mapNotNull { field ->
+                                runCatching {
+                                    field.isAccessible = true
+                                    val paint = field.get(icon) as? Paint ?: return@runCatching null
+                                    val weight =
+                                        runCatching { paint.typeface?.weight }
+                                            .getOrNull()
+                                            ?: -1
+                                    field.name +
+                                        ":textSize=" + paint.textSize +
+                                        ":weight=" + weight +
+                                        ":style=" + (paint.typeface?.style ?: -1) +
+                                        ":align=" + paint.textAlign.name
+                                }.getOrNull()
+                            }
+                            .filterNotNull()
+                            .take(BATTERY_NUMBER_PROBE_MAX_PAINTS)
+                            .toList()
+                    }
+                    .orEmpty()
+
+            return "{" +
+                "digital=" + (digitalView?.let(::viewToken) ?: "none") +
+                ";icon=" + (iconView?.let(::viewToken) ?: "none") +
+                ";views=[" + descendants.joinToString(",") + "]" +
+                ";paints=[" + paintFields.joinToString(",") + "]" +
+                "}"
+        }
+
 
         private fun resolveBatteryIconTarget(battery: View): View? {
             val fieldNames =
