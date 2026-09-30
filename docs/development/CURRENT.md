@@ -34,8 +34,9 @@ Build 526 root-cause correction:
 - the old reservation policy used `charging && SystemUiIslandMotionSource.currentIslandShowing()` as a proxy for HyperOS Battery-Island ownership;
 - that proxy is too broad: a generic Super-Island can be showing while charging even when `ControlCenterHeaderExpandController.isAddBatteryIsland == false`;
 - Build 526 carries the exact native `isAddBatteryIsland` Boolean through the existing Control Center callback/update path;
-- Home semantic reservation is disabled only for `charging && isAddBatteryIsland == true`;
-- generic island + charging, non-island charging, island-only, and an unknown Battery-Island read all keep semantic reservation;
+- Home semantic reservation is enabled only when charging is false or exact `isAddBatteryIsland == false`;
+- generic island + charging with exact `isAddBatteryIsland=false`, non-island charging, and island-only keep semantic reservation;
+- an unknown Battery-Island read fails native and does not claim semantic reservation;
 - no local `batteryWidthDiff`, translation, endpoint, duration, or trajectory compensation is introduced.
 
 ## Validation state
@@ -51,7 +52,8 @@ Confirmed:
   - no new hook count, listener, polling path, timer, animator, native translation writer, or layout writer is added;
   - `statusIcons.paddingEnd` remains the sole Guiyuan peer-layout writer;
   - the generic island callback remains available only for its existing island-owner diagnostics/motion evidence and no longer decides Battery-Island reservation authority;
-  - expansion samples clear a stale prior Battery-Island value if the exact native read becomes unavailable.
+  - expansion samples clear a stale prior Battery-Island value if the exact native read becomes unavailable;
+  - unknown exact authority remains native-peer-motion rather than guessing `false`.
 
 Pending:
 - Build 526 Runtime CI.
