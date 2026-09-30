@@ -13128,3 +13128,59 @@ As text became larger, upward movement was immediately clamped back to `minCente
 - Modern Xposed metadata validation: green.
 - Remaining gate: exact-head signed Canary and focused device validation of +30 upward, -30 downward, default weight 900, and one Home -> Control Center pull.
 
+## 2026-10-01 — Build 518: battery-top optical spacing, safe upward travel and stable charging slot
+
+**Type:** focused optical-layout correction  
+**Display version:** 0.0.3  
+**Build / source:** 518 / `20261001-518` / `feat/battery-top-readout` / PR #181
+
+### Maintainer device evidence
+
+Build 515 device screenshots and diagnostics established four remaining presentation defects:
+
+- the native charging glyph at the authored 100% baseline was visibly too small;
+- the visible charging-glyph-to-number spacing was too loose;
+- the battery-ring opening sat too close to the number;
+- direct positive offset eventually pushed the number beyond the top of the status-bar render surface and clipped the ink.
+
+The accompanying Build-515 diagnostic snapshot reports a healthy runtime and continued event-driven visual-setting delivery, so this is a painter/layout problem rather than a preference or hook-transport fault.
+
+### Root cause / authority review
+
+1. The charging glyph used a 14-unit square authored viewport while the percentage baseline had already been recalibrated to 24 px.
+2. Group layout reserved drawable-box width rather than reasoning about native optical ink, so transparent/native envelope space could read as excess separation.
+3. Ring opening clearance used a fixed horizontal padding, which did not scale with number ink height or ring stroke.
+4. Build 515 interpreted +offset as a literal canonical-pixel rise. Once ink crossed the render surface top, Android correctly clipped it; allowing a larger preference range cannot create physical headroom that the host does not own.
+
+### Change
+
+- Recalibrate charging-glyph 100% authored size from 14 to 18.
+- Reduce visible glyph-to-number gap from 2 to 1.
+- Resolve native charging drawable optical bounds through the existing native visual probe.
+- Keep one stable charging slot so percentage X does not move while HyperOS switches single/double-bolt resources.
+- Right-align the actual charging optical ink inside that stable slot, preserving the 1-unit visible gap to the number.
+- Replace fixed ring-gap padding with a measured value derived from current content ink height plus ring-stroke contribution.
+- Map positive 0…+30 across the currently available safe upward distance. +30 therefore reaches the safe top boundary instead of requesting an impossible 30-pixel rise and clipping.
+- Preserve negative offsets as requested downward distance.
+- Add focused unit coverage for safe positive range, negative displacement and ink-height-derived ring clearance.
+- Advance build identity through 516/517 corrections to Build 518 / `20261001-518`.
+
+### 审查 / review
+
+- **native authority:** HyperOS still chooses the charging resource; Guiyuan only measures and draws the chosen native drawable.
+- **visual spacing:** the visible glyph right edge is aligned to the stable slot right edge, so the following number sees the configured 1-unit gap even when the glyph itself is narrow.
+- **horizontal stability:** the number is positioned from the stable slot, not from current glyph optical width, preventing single/double-bolt handoff jitter.
+- **ring clearance:** padding is derived from actual content ink height and ring stroke rather than a screenshot-specific fixed gap.
+- **clipping:** positive setting values are treated as a user range mapped onto owned physical headroom; the painter no longer writes outside its host and relies on clipping.
+- **single writer / lifecycle:** no new hook, owner, animator, polling path, native translation, alpha or visibility writer.
+- **transition ownership:** readout remains inside the existing Battery transition component.
+
+### Validation
+
+- Build-518 Runtime CI #1947: **success**.
+- Pinned HyperOS target profile: green.
+- Unit tests + Debug build: green.
+- Modern Xposed metadata: green.
+- PR remains mergeable and ahead of `dev` with no divergence.
+- Remaining gate: exact-head signed Canary + focused device evidence.
+
