@@ -231,11 +231,14 @@ internal object CombinedStatusControlCenterTransitionOwner {
             charging: Boolean = false,
             nativeIslandShowing: Boolean = false,
         ): Boolean =
-            (
-                sourceScene == CombinedStatusSourceScene.HOME ||
-                    sourceScene == CombinedStatusSourceScene.KEYGUARD
-            ) &&
-                !(charging && nativeIslandShowing)
+            when (sourceScene) {
+                CombinedStatusSourceScene.HOME ->
+                    !(charging && nativeIslandShowing)
+                CombinedStatusSourceScene.KEYGUARD ->
+                    true
+                CombinedStatusSourceScene.UNKNOWN ->
+                    false
+            }
 
         enum class ReservationProgress {
             LINEAR,

@@ -12008,3 +12008,52 @@ Build 495 added `releaseFeaturePresentationOwnership()` directly inside the Remo
 ### Validation
 
 Exact-head Runtime CI and one signed Canary. Device acceptance requires native steady Home icons to return immediately on master-switch disable **before any Control Center gesture**, stay correct after a pull/collapse, and allow Guiyuan to reacquire on re-enable without restart.
+
+
+## 2026-09-30 — Build 497: keep Keyguard island reservation continuous
+
+**Type:** Keyguard -> Control Center terminal layout ownership correction  
+**Display version:** 0.0.3  
+**Build / source:** 497 / `20260930-497` / `feat/control-center-transition-matrix`
+
+### Device evidence
+
+Build 496 video shows the remaining fast-pull stall is specific to the locked Keyguard path when Super-Island appears near the terminal Control Center handoff. The visible symptom is a one-frame whole-row layout swap: an ordinary peer icon such as VPN briefly appears next to Mobile and then disappears.
+
+The matching diagnostic shows the native status row rebases by about 15 px when island state becomes active, and in the same handoff the Guiyuan transition reservation is cleared from the expanded semantic width back to compact 105 px with:
+`transitionReservation cleared source=transition-source-native-peer-motion`.
+When island/appearance state changes again, progress reservation is reapplied. This creates an avoidable second layout-authority discontinuity on top of HyperOS's own Keyguard island rebase.
+
+### Root cause
+
+`Policy.usesProgressSynchronousReservation()` treated HOME and KEYGUARD identically and disabled progress reservation for every `charging && nativeIslandShowing` sample. That Build-494 rule was introduced for Home charging-island peer displacement, where HyperOS already owns the island motion. On Keyguard, however, the terminal handoff uses the established Keyguard transition lease and the fake -> final Control Center bridge. Dropping reservation at the island callback boundary makes the QS_FAKE status row collapse to compact reservation for one handoff phase, then expand again, exposing a transient native layout.
+
+### Change
+
+- Make transition-reservation authority scene-specific.
+- HOME: preserve Build-494 behavior; charging + active island still uses native-peer-motion and disables progress reservation.
+- KEYGUARD: keep progress-synchronous reservation enabled even while charging + island is active.
+- UNKNOWN remains native/no reservation.
+- Add focused policy coverage for the Keyguard charging-island case.
+- Bump source identity to Build 497 / `20260930-497`.
+- No change to animation curves, source/target geometry, native island Boolean source, Keyguard callback phase/lease, 105 px compact carrier, or native View visibility.
+
+### 审查 / review
+
+- **root-cause-first:** fixes the observed reservation authority flip rather than hiding the VPN slot or adding timing/geometry constants.
+- **HyperOS-native-first:** HyperOS still owns island geometry and final Control Center presentation; Guiyuan only keeps its already-existing QS_FAKE semantic reservation continuous across the Keyguard handoff.
+- **single writer:** status-icons end padding remains the sole Guiyuan layout reservation writer; no second translation/visibility writer is introduced.
+- **cleanup:** normal transition stop/inactive cleanup is unchanged; reservation still releases on the existing authoritative transition boundaries.
+- **491 protection boundary:** no callback phase, Keyguard lease, final-alpha handoff, or responsiveness path is changed.
+- **Home isolation:** Home charging-island behavior is deliberately unchanged for this checkpoint.
+- **performance:** pure policy change plus unit coverage; no hook, polling, timer, listener, reflection traversal, or per-frame work is added.
+- **Fail-native:** UNKNOWN remains native; invalid/unavailable transition sources keep existing fallback behavior.
+
+### Validation
+
+Run exact-head Runtime CI, then one signed Canary. Device test is intentionally narrow:
+1. Keyguard, charging, with Super-Island able to appear during Control Center pull.
+2. Fast pull to fully expanded Control Center several times.
+3. Watch the final handoff for whole-row rebase, VPN/other peer one-frame flash, and the prior terminal hitch.
+4. Reverse-collapse once to ensure no new terminal flash.
+5. Home charging-island behavior is regression-only; it should remain as Build 496 and is not part of this fix.

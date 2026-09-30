@@ -18,7 +18,7 @@ Control Center transition animation is the active runtime task.
 
 Current implementation line:
 - PR #177 — feat/control-center-transition-matrix;
-- current work-branch checkpoint: Build 491 / 20260930-491;
+- current work-branch checkpoint: Build 497 / 20260930-497;
 - exact-target direction: QS_FAKE role-5 to final-QS role-6 matrix projection;
 - HyperOS remains translation/appearance authority; raw native expansion drives transition geometry and native fake/final Folme owns visual handoff;
 - Guiyuan reads native transition state and renders only its owned Trinity correspondence; final role-6 top-level slots are read-only occupancy witnesses, while the existing QS_FAKE statusIcons-paddingEnd owner now provides a progress-synchronous semantic reservation so surrounding native peers move through SystemUI's own measure/layout path;
@@ -26,6 +26,9 @@ Current implementation line:
 - generic peer projection, Guiyuan-owned network composition, and native-only unsupported peers remain separated.
 
 PR #174 is an older transition route and must not overwrite the newer active matrix line or accepted Build-473 renderer state.
+
+
+Build 497 is the current focused Keyguard-island checkpoint. Build-496 device evidence shows that near the final Keyguard -> Control Center handoff, native Super-Island `showing=true` changes the native status-container geometry while the transition owner simultaneously disables progress reservation for `charging && nativeIslandShowing`. That clears the fake-status-icons reservation from ~300 px back to compact 105 px, then reapplies it when island/appearance state changes, producing a one-frame whole-row rebase in which ordinary peer slots such as VPN can flash. Build 497 makes the reservation policy scene-specific: HOME charging+island keeps Build-494 native-peer-motion behavior, while KEYGUARD retains continuous progress-synchronous reservation through the island handoff. No curve, callback phase, lease, island event source, Home behavior, or native visibility writer is changed.
 
 ## Current architecture boundary
 
