@@ -1233,14 +1233,32 @@ internal class CombinedStatusPainter(
         paint.typeface = batteryTopTextTypeface(weight)
         paint.textAlign = Paint.Align.LEFT
         paint.textSize = layout.textSize
+
+        // Weight interpolation can change glyph ink width. Re-anchor every
+        // frame to the source optical center so typography changes cannot
+        // introduce a sideways drift on top of the geometry morph.
+        paint.getTextBounds(layout.text, 0, layout.text.length, batteryTopTextBounds)
+        val currentOpticalWidth =
+            batteryTopTextBounds.width().toFloat().coerceAtLeast(0f) +
+                extraStroke
+        val currentCenterX = layout.textOpticalBounds.centerX
+        val textX =
+            currentCenterX -
+                currentOpticalWidth / 2f +
+                extraStroke / 2f -
+                batteryTopTextBounds.left
+        val textBaselineY =
+            layout.textOpticalBounds.centerY -
+                (batteryTopTextBounds.top + batteryTopTextBounds.bottom) / 2f
+
         if (extraStroke > 0f) {
             paint.style = Paint.Style.STROKE
             paint.strokeWidth = extraStroke
             paint.strokeJoin = Paint.Join.ROUND
             canvas.drawText(
                 layout.text,
-                layout.textX,
-                layout.textBaselineY,
+                textX,
+                textBaselineY,
                 paint,
             )
         }
@@ -1248,8 +1266,8 @@ internal class CombinedStatusPainter(
         paint.strokeWidth = 0f
         canvas.drawText(
             layout.text,
-            layout.textX,
-            layout.textBaselineY,
+            textX,
+            textBaselineY,
             paint,
         )
     }

@@ -65,5 +65,8 @@ internal object CombinedStatusBatteryTopArcPolicy {
     }
 
     private const val MAX_GAP_CHORD_RATIO = 0.92f
-    private const val MAX_GAP_SWEEP_DEGREES = 82f
+    // 82° was sufficient for the original small readout, but clips the
+    // measured optical request of the rebased three-digit/charging group.
+    // Keep a bounded shoulder on both sides while allowing optical clearance.
+    private const val MAX_GAP_SWEEP_DEGREES = 118f
 }

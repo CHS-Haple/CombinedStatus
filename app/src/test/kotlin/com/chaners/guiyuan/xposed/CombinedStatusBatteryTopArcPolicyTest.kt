@@ -59,6 +59,18 @@ class CombinedStatusBatteryTopArcPolicyTest {
         )
 
         assertTrue(wide > narrow)
-        assertTrue(wide <= 82f)
+        assertTrue(wide <= 118f)
+    }
+
+    @Test
+    fun opticalPaddingCanExceedLegacyEightyTwoDegreeCap() {
+        val gap = CombinedStatusBatteryTopArcPolicy.gapSweepDegrees(
+            groupWidth = 48f,
+            ringRadius = 50f,
+            horizontalPadding = 12f,
+        )
+
+        assertTrue(gap > 82f)
+        assertTrue(gap <= 118f)
     }
 }
