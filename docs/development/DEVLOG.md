@@ -11283,9 +11283,9 @@ Build 479 must be replayed unchanged onto the current dev governance baseline, p
 
 ## 2026-09-30 — Build 480: native-owned handoff with renderer-owned component correspondence
 
-**Type:** Build-479 architecture review correction  
-**Build:** 480 / `20260929-480`  
-**Branch / PR:** `feat/control-center-transition-matrix` / #177  
+**Type:** Build-479 architecture review correction
+**Build:** 480 / `20260929-480`
+**Branch / PR:** `feat/control-center-transition-matrix` / #177
 **Device status:** pending; Build 479 is superseded before device testing
 
 ### Problem execution flow
@@ -11331,8 +11331,8 @@ Build 480 runtime is now frozen. One signed work-branch Canary is required for f
 
 ## 2026-09-30 — Build 481: rigid element motion, real final-slot witnesses and staged mobile-signal morph
 
-**Type:** Build-480 device rejection / root-cause correction  
-**Build:** 481 / `20260929-481`  
+**Type:** Build-480 device rejection / root-cause correction
+**Build:** 481 / `20260929-481`
 **Branch / PR:** `feat/control-center-transition-matrix` / #177
 
 ### Device rejection
@@ -11385,9 +11385,9 @@ Build 481 intentionally combines both corrections in one CI checkpoint but retai
 
 ## 2026-09-30 — Build 482: native slot witnesses and optical transition geometry
 
-**Type:** Control Center transition root-cause correction  
-**Display version:** 0.0.3  
-**Build / source:** 482 / `20260929-482` / `feat/control-center-transition-matrix`  
+**Type:** Control Center transition root-cause correction
+**Display version:** 0.0.3
+**Build / source:** 482 / `20260929-482` / `feat/control-center-transition-matrix`
 **SystemUI ownership change:** none; final QS layout/appearance remains native-owned
 
 ### Problem
@@ -11449,9 +11449,9 @@ Device validation is intentionally limited to non-charging Home first: partial p
 
 ## 2026-09-30 — Build 483: semantic transition reservation and staged native-signal morph
 
-**Type:** device-guided Control Center transition refinement  
-**Display version:** 0.0.3  
-**Build / branch:** 483 / `20260929-483` / `feat/control-center-transition-matrix`  
+**Type:** device-guided Control Center transition refinement
+**Display version:** 0.0.3
+**Build / branch:** 483 / `20260929-483` / `feat/control-center-transition-matrix`
 **Rollback baseline:** signed Build 482 Canary #522 / runtime `cfdf12ff4c2e8249f833e52e871cb35f1bad953b`
 
 ### Device feedback
@@ -11614,8 +11614,8 @@ The HyperCeiler recognizer requires the original native `mobile_signal` to be hi
 
 ## 2026-09-30 — Build 488: Keyguard-to-Control-Center lifecycle lease
 
-**Type:** Control Center / Keyguard handoff correction  
-**Display version:** 0.0.3  
+**Type:** Control Center / Keyguard handoff correction
+**Display version:** 0.0.3
 **Build / source:** 488 / `20260930-488` / `feat/control-center-transition-matrix`
 
 ### Problem
@@ -11667,8 +11667,8 @@ Exact-head Runtime CI is required. Signed Canary device validation must cover Ke
 
 ## 2026-09-30 — Build 489: compact-carrier source continuity and bidirectional Mobile growth
 
-**Type:** Control Center transition correction  
-**Display version:** 0.0.3  
+**Type:** Control Center transition correction
+**Display version:** 0.0.3
 **Build / source:** 489 / `20260930-489` / `feat/control-center-transition-matrix`
 
 ### Device evidence
@@ -11708,8 +11708,8 @@ Exact-head Runtime CI is required. One signed Canary should jointly validate cha
 
 ## 2026-09-30 — Build 490: remove Keyguard per-frame layout reservation
 
-**Type:** Keyguard Control Center responsiveness / ownership correction  
-**Display version:** 0.0.3  
+**Type:** Keyguard Control Center responsiveness / ownership correction
+**Display version:** 0.0.3
 **Build / source:** 490 / `20260930-490` / `feat/control-center-transition-matrix`
 
 ### Device evidence
@@ -11746,8 +11746,8 @@ Exact-head Runtime CI and one signed Canary are required. The decisive test is f
 
 ## 2026-09-30 — Build 491: steady-source continuity and native-phase handoff
 
-**Type:** Control Center source/endpoint continuity correction  
-**Display version:** 0.0.3  
+**Type:** Control Center source/endpoint continuity correction
+**Display version:** 0.0.3
 **Build / source:** 491 / `20260930-491` / `feat/control-center-transition-matrix`
 
 ### Device evidence
@@ -11794,8 +11794,8 @@ Exact-head Runtime CI and one signed Canary are required. Device validation must
 
 ## 2026-09-30 — Build 492: retain steady source geometry across presentation handoff
 
-**Type:** Control Center transition source-lifecycle correction  
-**Display version:** 0.0.3  
+**Type:** Control Center transition source-lifecycle correction
+**Display version:** 0.0.3
 **Build / source:** 492 / `20260930-492` / `feat/control-center-transition-matrix`
 
 ### Device evidence
@@ -11832,8 +11832,8 @@ Exact-head Runtime CI is required. Device acceptance remains deferred until the 
 
 ## 2026-09-30 — Build 493: semantic split/reveal and Mobile optical-height correction
 
-**Type:** Control Center transition semantics / optical geometry  
-**Display version:** 0.0.3  
+**Type:** Control Center transition semantics / optical geometry
+**Display version:** 0.0.3
 **Build / source:** 493 / `20260930-493` / `feat/control-center-transition-matrix`
 
 ### Device clarification
@@ -11880,8 +11880,8 @@ Runtime CI is required. If green, one signed Canary should validate Build 492 so
 
 ## 2026-09-30 — Build 494: restore native source position authority; isolate charging-island reservation
 
-**Type:** Control Center transition geometry / island ownership correction  
-**Display version:** 0.0.3  
+**Type:** Control Center transition geometry / island ownership correction
+**Display version:** 0.0.3
 **Build / source:** 494 / `20260930-494` / `feat/control-center-transition-matrix`
 
 ### Device evidence
@@ -11925,8 +11925,8 @@ Exact-head Runtime CI and one signed Canary are required. Device validation is i
 
 ## 2026-09-30 — Build 495: master-switch fail-native closure
 
-**Type:** Runtime lifecycle / presentation-ownership safety  
-**Display version:** 0.0.3  
+**Type:** Runtime lifecycle / presentation-ownership safety
+**Display version:** 0.0.3
 **Build / source:** 495 / `20260930-495` / `feat/control-center-transition-matrix`
 
 ### Device evidence
@@ -11970,8 +11970,8 @@ Exact-head Runtime CI plus one signed Canary. Device gate: disable the master sw
 
 ## 2026-09-30 — Build 496: main-thread master-switch restore transaction
 
-**Type:** Runtime lifecycle / fail-native restoration  
-**Display version:** 0.0.3  
+**Type:** Runtime lifecycle / fail-native restoration
+**Display version:** 0.0.3
 **Build / source:** 496 / `20260930-496` / `feat/control-center-transition-matrix`
 
 ### Device evidence
@@ -12012,8 +12012,8 @@ Exact-head Runtime CI and one signed Canary. Device acceptance requires native s
 
 ## 2026-09-30 — Build 497: keep Keyguard island reservation continuous
 
-**Type:** Keyguard -> Control Center terminal layout ownership correction  
-**Display version:** 0.0.3  
+**Type:** Keyguard -> Control Center terminal layout ownership correction
+**Display version:** 0.0.3
 **Build / source:** 497 / `20260930-497` / `feat/control-center-transition-matrix`
 
 ### Device evidence
@@ -12061,8 +12061,8 @@ Run exact-head Runtime CI, then one signed Canary. Device test is intentionally 
 
 ## 2026-09-30 — Build 498: remove island animation frame probe
 
-**Type:** Diagnostic isolation / Keyguard Super-Island performance  
-**Display version:** 0.0.3  
+**Type:** Diagnostic isolation / Keyguard Super-Island performance
+**Display version:** 0.0.3
 **Build / source:** 498 / `20260930-498` / `feat/control-center-transition-matrix`
 
 ### Device evidence
@@ -12113,8 +12113,8 @@ The same APK may also be used for unrelated pending regression checks without ad
 
 ## 2026-09-30 — Build 499: native carrier trajectory, optical targets and ownership-gated semantic expansion
 
-**Type:** Control Center transition geometry / native semantic authority / optical endpoint correction  
-**Display version:** 0.0.3  
+**Type:** Control Center transition geometry / native semantic authority / optical endpoint correction
+**Display version:** 0.0.3
 **Build / source:** 499 / `20260930-499` / `feat/control-center-transition-matrix`
 
 ### Accepted evidence entering this build
@@ -12193,8 +12193,8 @@ Combined device test package:
 
 ## 2026-09-30 — Build 500: steady-source continuity and unified latent slot reveal
 
-**Type:** Control Center transition geometry correction / latent-policy consolidation  
-**Display version:** 0.0.3  
+**Type:** Control Center transition geometry correction / latent-policy consolidation
+**Display version:** 0.0.3
 **Build / source:** 500 / `20260930-500` / `feat/control-center-transition-matrix`
 
 ### Problem
@@ -12254,8 +12254,8 @@ Focused device gates:
 
 ## 2026-09-30 — Build 501: latent optical authority and Control Center collapse cleanup
 
-**Type:** Control Center latent-target correction / reservation ownership / scene cleanup  
-**Display version:** 0.0.3  
+**Type:** Control Center latent-target correction / reservation ownership / scene cleanup
+**Display version:** 0.0.3
 **Build / source:** 501 / `20260930-501` / `feat/control-center-transition-matrix`
 
 ### Problem
@@ -12318,8 +12318,8 @@ Focused device gates:
 
 ## 2026-09-30 — Build 502: native handoff endpoint closure and latent scale ownership
 
-**Type:** Control Center endpoint geometry / latent scale authority / evidence correction  
-**Display version:** 0.0.3  
+**Type:** Control Center endpoint geometry / latent scale authority / evidence correction
+**Display version:** 0.0.3
 **Build / source:** 502 / `20260930-502` / `feat/control-center-transition-matrix`
 
 ### Problem
@@ -12381,8 +12381,8 @@ Focused device gates:
 
 ## 2026-09-30 — Build 503: close the visible fake/real overlap, not only the invisible endpoint
 
-**Type:** Control Center handoff geometry correction  
-**Display version:** 0.0.3  
+**Type:** Control Center handoff geometry correction
+**Display version:** 0.0.3
 **Build / source:** 503 / `20260930-503` / `feat/control-center-transition-matrix`
 
 ### Problem / evidence
@@ -12435,8 +12435,8 @@ Focused device gate:
 
 ## 2026-09-30 — Build 504: unify target basis in root space; stop latent single-icon enlargement
 
-**Type:** Control Center coordinate-authority correction / latent optical-scale correction  
-**Display version:** 0.0.3  
+**Type:** Control Center coordinate-authority correction / latent optical-scale correction
+**Display version:** 0.0.3
 **Build / source:** 504 / `20260930-504` / `feat/control-center-transition-matrix`
 
 ### Device evidence entering this build
@@ -12506,8 +12506,8 @@ Focused device gates:
 
 ## 2026-09-30 — Build 505: restore latent occupancy lead without restoring carrier-relative endpoints
 
-**Type:** Control Center latent reservation / occupancy sequencing  
-**Display version:** 0.0.3  
+**Type:** Control Center latent reservation / occupancy sequencing
+**Display version:** 0.0.3
 **Build / source:** 505 / `20260930-505` / `feat/control-center-transition-matrix`
 
 ### Device evidence
@@ -12559,8 +12559,8 @@ Focused device gate:
 
 ## 2026-09-30 — Build 506: pre-expand final reservation; stop per-frame native-row reflow
 
-**Type:** Control Center native-peer motion ownership / reservation lifecycle  
-**Display version:** 0.0.3  
+**Type:** Control Center native-peer motion ownership / reservation lifecycle
+**Display version:** 0.0.3
 **Build / source:** 506 / `20260930-506` / `feat/control-center-transition-matrix`
 
 ### Corrected device evidence
@@ -12622,8 +12622,8 @@ Focused device gate:
 
 ## 2026-09-30 — Build 507: native-progress total reservation, occupancy-gated reveal, structure-aware Mobile optical target
 
-**Type:** Control Center peer-layout trajectory / latent reveal / Mobile morph optical target  
-**Display version:** 0.0.3  
+**Type:** Control Center peer-layout trajectory / latent reveal / Mobile morph optical target
+**Display version:** 0.0.3
 **Build / source:** 507 / `20260930-507` / `feat/control-center-transition-matrix`
 
 ### Device evidence
@@ -12687,8 +12687,8 @@ Focused device gates:
 
 ## 2026-09-30 — Build 508: module-agnostic visual snapshots for target geometry, Mobile topology and latent reveal
 
-**Type:** Control Center target adaptation / visual topology / latent reveal  
-**Display version:** 0.0.3  
+**Type:** Control Center target adaptation / visual topology / latent reveal
+**Display version:** 0.0.3
 **Build / source:** 508 / `20260930-508` / `feat/control-center-transition-matrix`
 
 ### Device evidence
@@ -12766,8 +12766,8 @@ No module identity, fixed slot multiplier, timing delay, or extra writer is intr
 
 ## 2026-09-30 — Build 509: continuous latent occupancy and structure-gated Mobile target basis
 
-**Type:** Control Center transition correction  
-**Display version:** 0.0.3  
+**Type:** Control Center transition correction
+**Display version:** 0.0.3
 **Build / source:** 509 / `20260930-509` / `feat/control-center-transition-matrix`
 
 ### Problem
@@ -12810,8 +12810,8 @@ Run exact-head Runtime CI. Because this changes runtime geometry and reveal owne
 
 ## 2026-09-30 — Build 510: remove whole-component Mobile stretch
 
-**Type:** Control Center Mobile morph visual correction  
-**Display version:** 0.0.3  
+**Type:** Control Center Mobile morph visual correction
+**Display version:** 0.0.3
 **Build / source:** 510 / `20260930-510` / `feat/control-center-transition-matrix`
 
 ### Device evidence
@@ -12853,8 +12853,8 @@ Exact-head Runtime CI is required. This changes visible runtime geometry, so one
 
 ## 2026-09-30 — Build 510 non-charging device acceptance
 
-**Evidence:** user device feedback after Build 510 Canary #554  
-**Scope:** Home -> Control Center, non-charging path  
+**Evidence:** user device feedback after Build 510 Canary #554
+**Scope:** Home -> Control Center, non-charging path
 **Result:** accepted; user reports the current non-charging result appears perfect.
 
 ### Accepted behavior
@@ -12877,8 +12877,8 @@ Charging is not accepted by inference. The current policy deliberately differs w
 
 ## 2026-09-30 — Build 511: code-review safety fixes
 
-**Type:** Review / release-parity / Fail-native hardening  
-**Display version:** 0.0.3  
+**Type:** Review / release-parity / Fail-native hardening
+**Display version:** 0.0.3
 **Build / source:** 511 / `20260930-511` / `feat/control-center-transition-matrix`
 
 ### Review findings
@@ -12919,8 +12919,8 @@ Run exact-head Runtime CI. No device package is useful until a charging scenario
 
 ## 2026-10-01 — Build 511 static review closure
 
-**Type:** tests / review closure  
-**Runtime:** unchanged from Build 511  
+**Type:** tests / review closure
+**Runtime:** unchanged from Build 511
 **Source:** `29ac288f1c7497964483dbb21de6464c40c31313`
 
 ### Added test protection
@@ -12961,8 +12961,8 @@ Static review is complete for the current branch. Runtime stays frozen. Remainin
 
 ## 2026-10-01 — Build 511 charging device acceptance
 
-**Evidence:** user device feedback  
-**Scope:** Home -> Control Center, charging path  
+**Evidence:** user device feedback
+**Scope:** Home -> Control Center, charging path
 **Result:** accepted; user reports charging transition is normal.
 
 ### Accepted behavior
@@ -12984,8 +12984,8 @@ Charging is no longer a blocking device gate for PR #177. No runtime change foll
 
 ## 2026-10-01 — Build 513: battery top readout and native charging-glyph authority
 
-**Type:** feature / rendering / native resource integration  
-**Display version:** 0.0.3  
+**Type:** feature / rendering / native resource integration
+**Display version:** 0.0.3
 **Build / source:** 513 / `20261001-513` / `feat/battery-top-readout` / PR #181
 
 ### Objective
@@ -13031,8 +13031,8 @@ The existing battery ring also owns the Battery component source geometry used b
 
 ## 2026-10-01 — Build 514: battery-top typography calibration after device evidence
 
-**Type:** focused visual calibration  
-**Display version:** 0.0.3  
+**Type:** focused visual calibration
+**Display version:** 0.0.3
 **Build / source:** 514 / `20261001-514` / `feat/battery-top-readout` / PR #181
 
 ### Maintainer device evidence
@@ -13075,8 +13075,8 @@ The user-facing scale was being applied on top of an authored base text size of 
 
 ## 2026-10-01 — Build 515: restore upward battery-top offset and finalize typography controls
 
-**Type:** focused visual correction  
-**Display version:** 0.0.3  
+**Type:** focused visual correction
+**Display version:** 0.0.3
 **Build / source:** 515 / `20261001-515` / `feat/battery-top-readout` / PR #181
 
 ### Maintainer device evidence
@@ -13130,8 +13130,8 @@ As text became larger, upward movement was immediately clamped back to `minCente
 
 ## 2026-10-01 — Build 518: battery-top optical spacing, safe upward travel and stable charging slot
 
-**Type:** focused optical-layout correction  
-**Display version:** 0.0.3  
+**Type:** focused optical-layout correction
+**Display version:** 0.0.3
 **Build / source:** 518 / `20261001-518` / `feat/battery-top-readout` / PR #181
 
 ### Maintainer device evidence
@@ -13186,8 +13186,8 @@ The accompanying Build-515 diagnostic snapshot reports a healthy runtime and con
 
 ## 2026-10-01 — Build 519: one-shot native Battery percentage target probe
 
-**Type:** diagnostic target-identification checkpoint  
-**Display version:** 0.0.3  
+**Type:** diagnostic target-identification checkpoint
+**Display version:** 0.0.3
 **Build / source:** 519 / `20261001-519` / `feat/battery-top-readout` / PR #181
 
 ### New requested behavior
@@ -13239,8 +13239,8 @@ Build 519 therefore adds only a one-shot, read-only probe when a Control Center 
 
 ## 2026-10-01 — Build 521: default-midpoint rebasing, optical centering and durable Battery-number target evidence
 
-**Type:** focused device-evidence correction + optical review  
-**Display version:** 0.0.3  
+**Type:** focused device-evidence correction + optical review
+**Display version:** 0.0.3
 **Build / source:** 521 / `20261001-521` / `feat/battery-top-readout` / PR #181
 
 ### Maintainer device evidence
@@ -13306,8 +13306,8 @@ Horizontal optical imbalance had a related cause: the prior stable charging slot
 
 ## 2026-10-01 — Build 522: charging-group optical center, real upward travel and Battery-number morph
 
-**Type:** root-cause geometry + transition completion  
-**Display version:** 0.0.3  
+**Type:** root-cause geometry + transition completion
+**Display version:** 0.0.3
 **Build / source:** 522 / `20261001-522` / `feat/battery-top-readout` / PR #181
 
 ### Maintainer device evidence
@@ -13370,8 +13370,8 @@ Build 521 screenshots/device feedback established four concrete defects:
 
 ## 2026-10-01 — Build 523: optical default baseline, MIUIX midpoint snap and 110%→100% charging rebase
 
-**Type:** device-driven visual calibration  
-**Display version:** 0.0.3  
+**Type:** device-driven visual calibration
+**Display version:** 0.0.3
 **Build / source:** 523 / `20261001-523` / `feat/battery-top-readout` / PR #181
 
 ### Maintainer correction
@@ -13475,8 +13475,8 @@ Build-523 device evidence showed two remaining battery-top defects:
 
 ## 2026-10-01 — Build 526: distinguish generic Super-Island from native Battery Island
 
-**Type:** Control Center native-peer endpoint ownership correction  
-**Display version:** 0.0.3  
+**Type:** Control Center native-peer endpoint ownership correction
+**Display version:** 0.0.3
 **Build / source:** 526 / `20261001-526` / `feat/battery-top-readout` / PR #181
 
 ### Maintainer device evidence
