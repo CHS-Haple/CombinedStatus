@@ -53,13 +53,21 @@ internal object CombinedStatusBatteryTopArcPolicy {
             visualClearance.coerceAtLeast(0f) +
                 ringStroke.coerceAtLeast(0f) / 2f
         val left = contentLeft - clearance
+        val top = contentTop - clearance
         val right = contentRight + clearance
         val bottom = contentBottom + clearance
         val ringTop = ringCenterY - ringRadius
+        val ringBottom = ringCenterY + ringRadius
 
-        // If the visible content envelope is fully above the ring stroke,
+        // If the visible content envelope cannot intersect the ring at all,
         // no ring cutout is needed.
-        if (bottom <= ringTop || right <= ringCenterX || left >= ringCenterX) {
+        if (
+            top > bottom ||
+            bottom <= ringTop ||
+            top >= ringBottom ||
+            right <= ringCenterX ||
+            left >= ringCenterX
+        ) {
             return Gap(TOP_DEGREES, 0f)
         }
 
