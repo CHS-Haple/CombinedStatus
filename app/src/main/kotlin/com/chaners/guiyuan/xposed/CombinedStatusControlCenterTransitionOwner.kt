@@ -1038,6 +1038,32 @@ internal object CombinedStatusControlCenterTransitionOwner {
                             null
                         },
                     mobileTargetBars = resolvedMobileTargetBars,
+                    batteryTargetWidthRatio =
+                        if (
+                            spec.component ==
+                                CombinedStatusPainter.TransitionComponent.BATTERY &&
+                            targetGeometry != null
+                        ) {
+                            Policy.relativeGeometryWidth(
+                                target = targetGeometry,
+                                current = sourceGeometry,
+                            )
+                        } else {
+                            null
+                        },
+                    batteryTargetHeightRatio =
+                        if (
+                            spec.component ==
+                                CombinedStatusPainter.TransitionComponent.BATTERY &&
+                            targetGeometry != null
+                        ) {
+                            Policy.relativeGeometryHeight(
+                                target = targetGeometry,
+                                current = sourceGeometry,
+                            )
+                        } else {
+                            null
+                        },
                     batteryNumberTargetWeight =
                         if (
                             spec.component ==
