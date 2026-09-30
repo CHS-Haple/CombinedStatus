@@ -13823,3 +13823,82 @@ Charging lightning was owned by the Battery-body component, while battery percen
 ### Validation
 
 Runtime CI required. Exact-head signed Canary required because optical overlap and charging-follow behavior need device visual confirmation.
+
+
+## 2026-10-01 — Build 531: exact target Paint handoff for Mobile Type and Battery Number
+
+**Type:** device-video-driven transition typography correction
+**Display version:** 0.0.3
+**Build / source:** 531 / `20261001-531` / `feat/battery-top-readout` / PR #181
+
+### Device evidence
+
+Build 530 screen recording `1000034667.mp4` shows the remaining mismatch clearly near the Control Center endpoint:
+
+- Mobile Type: the transitioning `5G` remains visibly thinner than the final native `5G`, and its visible size still needs to grow slightly before handoff.
+- Battery Number: the transitioning digits are much thinner than the final native hollow-battery percentage.
+- Position is substantially closer than earlier checkpoints, so the dominant remaining defect is target typography and endpoint basis rather than path selection.
+
+### Root cause
+
+Build 530 improved weight-aware source bounds, but still assumed that one integer `Typeface.weight` represented the native target style. That is incomplete. Android/SystemUI text rendering may additionally depend on:
+
+- the concrete native Typeface instance/family;
+- `Paint.isFakeBoldText`;
+- `textScaleX`;
+- `textSkewX`;
+- letter spacing;
+- stroke width and Paint style.
+
+The final Battery target is especially important because HyperOS may render the percentage from a custom Paint owned by the visible hollow-battery View rather than the semantic TextView.
+
+A second geometry constraint remained: Mobile Type used `SHRINK_ONLY` similarity scaling, and both Mobile Type/Battery Number used source-aspect similarity projection. Similarity projection can center on the correct target while still failing to reproduce the exact target width/height basis.
+
+### Change
+
+- Extend transition target witnesses with a read-only `TransitionTextStyle` snapshot:
+  - native Typeface reference;
+  - Typeface weight;
+  - fake-bold flag;
+  - textScaleX / textSkewX;
+  - letter spacing;
+  - stroke width;
+  - Paint style.
+- Mobile Type target style is captured from the resolved native target TextView Paint.
+- Battery Number target style is captured from whichever authority resolves the final number:
+  - laid-out native percentage TextView;
+  - visible hollow-battery body's own text Paint;
+  - semantic percentage TextView Paint anchored to the hollow body;
+  - legacy icon Paint fallback.
+- Transition typography begins adopting the native Paint contract only after 42% expansion and reaches the exact native style by 88%; steady Guiyuan typography is untouched.
+- Mobile Type source spec changes from `SHRINK_ONLY` to `TARGET`, removing the artificial no-enlargement ceiling.
+- Mobile Type and Battery Number switch from similarity endpoint projection to exact six-value geometry interpolation. With a resolved target, p=1 now equals the native target center + width basis + height basis exactly.
+- Current local glyph bounds continue to be remeasured under the effective transition typography before the matrix is built.
+- Target witness diagnostics add `fakeBold`, `scaleX`, `stroke` and Paint style to the existing weight line.
+
+### 问题执行流程
+
+1. Keep steady 5G/battery-number source appearance unchanged.
+2. Resolve the existing native semantic target.
+3. Snapshot the actual target Paint/Typeface contract, not only its nominal weight.
+4. Interpolate the transition style in the late half of the pull.
+5. Remeasure current glyph ink under that effective style.
+6. Project text components with exact target basis interpolation.
+7. At p=1, current target-style ink is mapped onto the exact native target geometry.
+8. Native final status bar then takes over through the existing SystemUI appearance handoff.
+
+### 审查 / review
+
+- **steady-state isolation:** source 5G constants remain 39/23/8 and battery-top user settings remain authoritative.
+- **native-first:** no guessed 5G/battery target size or target weight constant is added.
+- **exact endpoint:** text components are the only components moved to exact basis interpolation; other icons retain their established similarity/native shape policies.
+- **Paint fidelity:** target Typeface/fake-bold/scale/skew/spacing/stroke/style are observed read-only from native targets.
+- **single timeline:** all style and geometry changes still use the existing HyperOS expansion progress; no Animator/timer is introduced.
+- **diagnosability:** future mismatch can be tied to the recorded native Paint contract instead of inferred from screenshots alone.
+- **protected behavior:** Build-529 ring morph remains rolled back; Build-530 charging lightning follows Battery Number; Build-528 latent reveal and Build-526 Battery-Island ownership remain intact.
+
+### Validation
+
+- Added policy coverage for native style convergence by p=0.88 and exact geometry endpoint equality.
+- Runtime CI required.
+- Exact-head signed Canary required for device optical-overlap validation.
