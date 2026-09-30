@@ -942,6 +942,16 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         } else {
                             null
                         },
+                    mobileTargetBars =
+                        if (
+                            spec.shapePolicy ==
+                            CombinedStatusPainter.TransitionShapePolicy.MOBILE_SIGNAL &&
+                            witness != null
+                        ) {
+                            mobileTargetBars(witness)
+                        } else {
+                            null
+                        },
                 )
                 canvas.restoreToCount(save)
 
@@ -1110,6 +1120,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                             target = targetGeometry,
                             current = sourceGeometry,
                         ),
+                    mobileTargetBars = mobileTargetBars(witness),
                 )
                 canvas.restoreToCount(save)
                 descriptions += "mobile-latent:" + witness.summary
@@ -1922,6 +1933,25 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 parentHeight = slot.height,
                 bounds = targetBounds,
             ) ?: slotSample.geometry
+        }
+
+        private fun mobileTargetBars(
+            witness: TargetWitness,
+        ): List<CombinedStatusPainter.TransitionNormalizedBounds>? {
+            val visualView = witness.opticalView ?: witness.slotView
+            val snapshot =
+                CombinedStatusParticipantVisualSnapshot.resolveView(visualView)
+                    ?: return null
+            return snapshot
+                .fourVerticalBarsWithinEnvelope()
+                ?.map { bar ->
+                    CombinedStatusPainter.TransitionNormalizedBounds(
+                        left = bar.left,
+                        top = bar.top,
+                        right = bar.right,
+                        bottom = bar.bottom,
+                    )
+                }
         }
 
         private fun runtimeTargetOpticalBounds(

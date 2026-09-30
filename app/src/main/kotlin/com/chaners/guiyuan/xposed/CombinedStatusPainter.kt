@@ -124,6 +124,7 @@ internal class CombinedStatusPainter(
         motionProgress: Float = 0f,
         shapeProgress: Float = 0f,
         mobileTargetHeightRatio: Float? = null,
+        mobileTargetBars: List<TransitionNormalizedBounds>? = null,
     ) {
         if (width <= 0 || height <= 0 || opacity <= 0f) return
 
@@ -204,6 +205,7 @@ internal class CombinedStatusPainter(
                         motionProgress = motion,
                         shapeProgress = shape,
                         targetHeightRatio = mobileTargetHeightRatio,
+                        targetBars = mobileTargetBars,
                     )
                 } else {
                     drawMobile(
@@ -1600,6 +1602,7 @@ internal class CombinedStatusPainter(
         motionProgress: Float,
         shapeProgress: Float,
         targetHeightRatio: Float?,
+        targetBars: List<TransitionNormalizedBounds>?,
     ) {
         val layout = resolveMobileSignalTransitionLayout(geometry, model)
         @Suppress("UNUSED_VARIABLE")
@@ -1608,6 +1611,24 @@ internal class CombinedStatusPainter(
         val rowProgress = MobileSignalMorphPolicy.rowProgress(shape)
         val barProgress = MobileSignalMorphPolicy.barProgress(shape)
         val diameter = geometry.mobileDotRadius * 2f
+        val exactBars =
+            targetBars
+                ?.takeIf { bars -> bars.size == MOBILE_DOT_COUNT }
+                ?.sortedBy { bar -> (bar.left + bar.right) / 2f }
+        if (exactBars != null) {
+            drawMobileSignalTransitionToExactBars(
+                canvas = canvas,
+                model = model,
+                tint = tint,
+                opacity = opacity,
+                geometry = geometry,
+                layout = layout,
+                rowProgress = rowProgress,
+                barProgress = barProgress,
+                targetBars = exactBars,
+            )
+            return
+        }
         val maxBarHeight =
             MobileSignalMorphPolicy.targetMaxBarHeight(
                 sourceBoundsHeight = layout.bounds.height,
@@ -1650,6 +1671,74 @@ internal class CombinedStatusPainter(
                 bottom,
                 geometry.mobileDotRadius,
                 geometry.mobileDotRadius,
+                paint,
+            )
+        }
+    }
+
+    private fun drawMobileSignalTransitionToExactBars(
+        canvas: Canvas,
+        model: CombinedStatusRenderModel,
+        tint: Int,
+        opacity: Float,
+        geometry: CombinedStatusOuterGeometry.Resolved,
+        layout: MobileSignalTransitionLayout,
+        rowProgress: Float,
+        barProgress: Float,
+        targetBars: List<TransitionNormalizedBounds>,
+    ) {
+        val diameter = geometry.mobileDotRadius * 2f
+        val level = model.mobileLevel
+        targetBars.forEachIndexed { index, normalized ->
+            val source = layout.sourceCenters[index]
+            val targetLeft =
+                layout.bounds.left +
+                    normalized.left.coerceIn(0f, 1f) * layout.bounds.width
+            val targetTop =
+                layout.bounds.top +
+                    normalized.top.coerceIn(0f, 1f) * layout.bounds.height
+            val targetRight =
+                layout.bounds.left +
+                    normalized.right.coerceIn(0f, 1f) * layout.bounds.width
+            val targetBottom =
+                layout.bounds.top +
+                    normalized.bottom.coerceIn(0f, 1f) * layout.bounds.height
+            val targetWidth =
+                (targetRight - targetLeft).coerceAtLeast(diameter)
+            val targetHeight =
+                (targetBottom - targetTop).coerceAtLeast(diameter)
+            val targetCenterX = (targetLeft + targetRight) / 2f
+            val targetBottomCenterY = targetBottom - diameter / 2f
+
+            val rowCenterX = lerp(source.x, targetCenterX, rowProgress)
+            val rowCenterY = lerp(source.y, targetBottomCenterY, rowProgress)
+            val startLeft = rowCenterX - diameter / 2f
+            val startRight = rowCenterX + diameter / 2f
+            val startTop = rowCenterY - diameter / 2f
+            val startBottom = rowCenterY + diameter / 2f
+
+            val left = lerp(startLeft, targetCenterX - targetWidth / 2f, barProgress)
+            val right = lerp(startRight, targetCenterX + targetWidth / 2f, barProgress)
+            val top = lerp(startTop, targetBottom - targetHeight, barProgress)
+            val bottom = lerp(startBottom, targetBottom, barProgress)
+            val radius =
+                min(
+                    (right - left).coerceAtLeast(0f) / 2f,
+                    (bottom - top).coerceAtLeast(0f) / 2f,
+                )
+
+            fill(
+                color = tint,
+                alpha = if (level != null && level > index) 255 else 48,
+                opacity = opacity,
+            )
+            canvas.drawRoundRect(
+                left,
+                top,
+                right,
+                bottom,
+                radius,
+                radius,
                 paint,
             )
         }
