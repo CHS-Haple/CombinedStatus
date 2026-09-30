@@ -13685,3 +13685,73 @@ Therefore the alpha could start at the correct time yet still remain partially t
 - Unit coverage keeps the two zero-alpha gates and verifies full opacity is reached once both existing spatial progresses reach 35%.
 - Build-527 CI is superseded by this runtime checkpoint.
 - Exact-head Runtime CI + signed Build-528 Canary required.
+
+
+## 2026-10-01 — Build 529: shape-local ring-to-battery morph
+
+**Type:** Battery transition visual-form correction  
+**Display version:** 0.0.3  
+**Build / source:** 529 / `20261001-529` / `feat/battery-top-readout` / PR #181
+
+### Maintainer direction
+
+The desired Battery transition is not a whole ring being squashed. The ring should visibly become the final battery shape. Preferred motion:
+- the left/lower and right/lower source ends gather inward together;
+- their root-space height rises as the native Battery target becomes shorter;
+- the outline becomes a horizontal rounded Battery silhouette;
+- charging lightning should not become another visually competing trajectory and should instead fade away.
+
+### Root cause
+
+The previous `BATTERY_FOLD` implementation applied only:
+
+`canvas.scale(1f, lerp(1f, 0.72f, motion), batteryCenter)`.
+
+That changes height but preserves circular topology, so the result reads as an ellipse/flattened ring. The outer component matrix already owns root-space target position and uniform similarity scaling; adding more whole-component scaling cannot create the target Battery topology cleanly.
+
+### Change
+
+- Remove the whole-component Battery Y squash.
+- Preserve the existing exact native `BatteryIcon` witness and root-space motion matrix.
+- Pass target/source width and height ratios into the Battery painter.
+- Derive the outer similarity scale from the same ratios, then use only the residual axis ratio inside the ring shape. This makes local silhouette aspect compensation and outer motion mathematically complementary instead of duplicative.
+- Parameterize the source 240° ring and the final rounded Battery perimeter on one normalized path:
+  - source start/end = the two lower ring ends;
+  - target start/end = one shared bottom-center point;
+  - source midpoint/top = target midpoint/top.
+- Sample the path at 6° source intervals and linearly morph each point to its corresponding native-aspect rounded-Battery perimeter point.
+- When a top readout cutout exists, crossfade from the cutout-aware source arcs to the full base ring during the early/middle shape phase; the Battery-number component remains independently target-owned.
+- Charging glyph has no separate target/motion. With a valid native Battery target it fades to zero early in the same transition; if the target is unresolved it keeps prior behavior and the whole component follows existing unmatched Fail-native exit.
+- Reuse one `Path` and one target-point buffer per painter; no per-arc Path/FloatArray allocation remains.
+
+### 问题执行流程
+
+1. Existing native Battery target and motion remain valid.
+2. Old Battery fold changes only the whole component's Y scale.
+3. Device/video comparison shows that form reads as squash, not topology change.
+4. Keep outer target authority untouched.
+5. Move shape ownership inside the ring painter.
+6. Map both lower ring endpoints into one final Battery-perimeter closure point while preserving the top midpoint.
+7. Derive final local aspect from the exact native target.
+8. Fade charging lightning rather than creating another independent path.
+
+### 审查 / review
+
+- **single motion authority:** root-space Battery position and uniform scale remain owned by the existing native target matrix.
+- **shape-local ownership:** only the Guiyuan ring path changes topology; no second root-space trajectory exists.
+- **native endpoint:** final width/height are derived from runtime target geometry; no fixed Battery aspect ratio is used.
+- **no double stretch:** local axis compensation divides target axis ratios by the exact outer similarity scale.
+- **Fail native:** unavailable target geometry disables the shape morph, gap closure and explicit lightning fade.
+- **performance:** arithmetic + one reused Path/buffer; no animator, listener, polling, bitmap probe, or per-frame hierarchy search added.
+- **protected paths:** Battery-number target/weight, Build-528 latent reveal, Build-527 Mobile Type typography, Build-526 Battery-Island authority, Mobile/Wi-Fi transitions are unchanged.
+- **rollback:** Build 528 / Runtime #1982 is the immediate clean rollback checkpoint if device visual review rejects this form.
+
+### Validation
+
+- Build 528 Runtime CI #1982: success.
+- Added tests verify:
+  - source start/end converge to the same final bottom-center;
+  - normalized midpoint maps to final top-center;
+  - local axis compensation exactly restores native target aspect after outer similarity scaling;
+  - charging glyph reaches opacity 0 before the Battery shape morph completes.
+- Build 529 exact-head Runtime CI + signed Canary required for visual review.
