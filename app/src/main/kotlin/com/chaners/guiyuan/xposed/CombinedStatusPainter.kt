@@ -1017,18 +1017,27 @@ internal class CombinedStatusPainter(
             return
         }
 
+        val gap =
+            CombinedStatusBatteryTopArcPolicy.resolveGap(
+                contentLeft = readout.groupOpticalBounds.left,
+                contentTop = readout.groupOpticalBounds.top,
+                contentRight = readout.groupOpticalBounds.right,
+                contentBottom = readout.groupOpticalBounds.bottom,
+                ringCenterX = batteryRing.centerX(),
+                ringCenterY = batteryRing.centerY(),
+                ringRadius = batteryRing.width() / 2f,
+                ringStroke = geometry.ringStroke,
+                visualClearance = BATTERY_TOP_RING_VISUAL_CLEARANCE,
+                startDegrees = BATTERY_START_DEGREES,
+                maxSweep = BATTERY_MAX_SWEEP,
+            )
         val segments =
             CombinedStatusBatteryTopArcPolicy.resolve(
                 batteryPercent = model.batteryPercent,
                 startDegrees = BATTERY_START_DEGREES,
                 maxSweep = BATTERY_MAX_SWEEP,
-                gapCenterDegrees = BATTERY_TOP_GAP_CENTER_DEGREES,
-                gapSweepDegrees =
-                    CombinedStatusBatteryTopArcPolicy.gapSweepDegrees(
-                        groupWidth = readout.groupWidth,
-                        ringRadius = batteryRing.width() / 2f,
-                        horizontalPadding = readout.ringGapPadding,
-                    ),
+                gapCenterDegrees = gap.centerDegrees,
+                gapSweepDegrees = gap.sweepDegrees,
             )
 
         stroke(batteryTint, 48, geometry.ringStroke, opacity)
@@ -1189,6 +1198,13 @@ internal class CombinedStatusPainter(
                 right = textInkLeft + textOpticalWidth,
                 bottom = groupCenterY + textOpticalHeight / 2f,
             )
+        val groupOpticalBounds =
+            TransitionBounds(
+                left = groupLeft,
+                top = groupCenterY - contentInkHeight / 2f,
+                right = groupLeft + groupWidth,
+                bottom = groupCenterY + contentInkHeight / 2f,
+            )
 
         return BatteryTopReadoutLayout(
             text = text,
@@ -1201,15 +1217,7 @@ internal class CombinedStatusPainter(
                     batteryTopTextBounds.left,
             textBaselineY = textBaselineY,
             textOpticalBounds = textOpticalBounds,
-            groupWidth = groupWidth,
-            ringGapPadding =
-                CombinedStatusBatteryTopLayoutPolicy.resolveRingGapPadding(
-                    contentInkHeight = contentInkHeight,
-                    ringStroke = ringStroke,
-                    basePadding = BATTERY_TOP_RING_GAP_BASE_PADDING,
-                    inkHeightRatio = BATTERY_TOP_RING_GAP_INK_HEIGHT_RATIO,
-                    ringStrokeRatio = BATTERY_TOP_RING_GAP_STROKE_RATIO,
-                ),
+            groupOpticalBounds = groupOpticalBounds,
             chargingIconResourceId = chargingIconResourceId,
             chargingIconCenterX =
                 if (chargingInkVisible) {
@@ -2805,11 +2813,8 @@ internal class CombinedStatusPainter(
         const val BATTERY_TOP_TEXT_SIZE = 24f
         const val BATTERY_TOP_CHARGING_ICON_SIZE = 18f
         const val BATTERY_TOP_ICON_TEXT_GAP = 1f
-        const val BATTERY_TOP_RING_GAP_BASE_PADDING = 5f
-        const val BATTERY_TOP_RING_GAP_INK_HEIGHT_RATIO = 0.14f
-        const val BATTERY_TOP_RING_GAP_STROKE_RATIO = 0.5f
+        const val BATTERY_TOP_RING_VISUAL_CLEARANCE = 2f
         const val BATTERY_TOP_DEFAULT_OPTICAL_RISE = 1.5f
-        const val BATTERY_TOP_GAP_CENTER_DEGREES = 270f
         const val BATTERY_TOP_CONTENT_CENTER_Y = 16f
         const val BATTERY_TOP_NATIVE_WEIGHT_MAX = 1000
         const val BATTERY_TOP_SYNTHETIC_WEIGHT_RANGE = 400
@@ -2827,8 +2832,7 @@ internal class CombinedStatusPainter(
         val textX: Float,
         val textBaselineY: Float,
         val textOpticalBounds: TransitionBounds,
-        val groupWidth: Float,
-        val ringGapPadding: Float,
+        val groupOpticalBounds: TransitionBounds,
         val chargingIconResourceId: Int?,
         val chargingIconCenterX: Float,
         val chargingIconCenterY: Float,
