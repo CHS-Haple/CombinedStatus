@@ -40,25 +40,6 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
-    fun semanticExpansionUsesNativeProgressWithoutASecondTimeline() {
-        assertEquals(
-            0f,
-            CombinedStatusControlCenterTransitionOwner.Policy.semanticSplitProgress(0f),
-            0.0001f,
-        )
-        assertEquals(
-            0.25f,
-            CombinedStatusControlCenterTransitionOwner.Policy.semanticSplitProgress(0.5f),
-            0.0001f,
-        )
-        assertEquals(
-            1f,
-            CombinedStatusControlCenterTransitionOwner.Policy.semanticRevealProgress(1f),
-            0.0001f,
-        )
-    }
-
-    @Test
     fun roundedCapsAreIncludedInsideTheNativeOpticalHeightBudget() {
         assertEquals(
             45f,
@@ -72,8 +53,8 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
-    fun reservationUsesTheSameLocalProgressAsSemanticExpansion() {
-        val split =
+    fun reservationFollowsNativeProgressWithoutASecondSemanticTimeline() {
+        val width =
             CombinedStatusControlCenterTransitionOwner.Policy.resolveReservationWidth(
                 compactWidthPx = 10,
                 spans =
@@ -83,14 +64,11 @@ class CombinedStatusControlCenterTransitionOwnerTest {
                             sourceRight = 0f,
                             targetLeft = -30f,
                             targetRight = 0f,
-                            progressMode =
-                                CombinedStatusControlCenterTransitionOwner.Policy
-                                    .ReservationProgress.SEMANTIC_SPLIT,
                         ),
                     ),
                 progress = 0.5f,
             )
-        assertEquals(15, split)
+        assertEquals(20, width)
     }
 
     @Test
@@ -240,7 +218,7 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
-    fun semanticLatentParticipantWaitsForSeparationButAppearsBeforeLanding() {
+    fun latentParticipantWaitsForSeparationButAppearsBeforeLanding() {
         val source = floatArrayOf(0f, 0f, 10f, 0f, 0f, 10f)
         val target = floatArrayOf(100f, 0f, 10f, 0f, 0f, 10f)
         val early = floatArrayOf(30f, 0f, 10f, 0f, 0f, 10f)
@@ -250,39 +228,17 @@ class CombinedStatusControlCenterTransitionOwnerTest {
         assertEquals(
             0f,
             CombinedStatusControlCenterTransitionOwner.Policy
-                .semanticLatentRevealOpacity(source, early, target),
+                .latentRevealOpacity(source, early, target),
             0.0001f,
         )
         assertTrue(
             CombinedStatusControlCenterTransitionOwner.Policy
-                .semanticLatentRevealOpacity(source, revealing, target) > 0f,
+                .latentRevealOpacity(source, revealing, target) > 0f,
         )
         assertEquals(
             1f,
             CombinedStatusControlCenterTransitionOwner.Policy
-                .semanticLatentRevealOpacity(source, nearTarget, target),
-            0.0001f,
-        )
-    }
-
-    @Test
-    fun latentParticipantStaysHiddenUntilItIsNearItsNativeTarget() {
-        val target = floatArrayOf(0f, 0f, 10f, 0f, 0f, 10f)
-        val far = floatArrayOf(20f, 0f, 10f, 0f, 0f, 10f)
-        val near = floatArrayOf(8f, 0f, 10f, 0f, 0f, 10f)
-
-        assertEquals(
-            0f,
-            CombinedStatusControlCenterTransitionOwner.Policy.latentRevealOpacity(far, target),
-            0.0001f,
-        )
-        assertTrue(
-            CombinedStatusControlCenterTransitionOwner.Policy.latentRevealOpacity(near, target) >
-                0f,
-        )
-        assertEquals(
-            1f,
-            CombinedStatusControlCenterTransitionOwner.Policy.latentRevealOpacity(target, target),
+                .latentRevealOpacity(source, nearTarget, target),
             0.0001f,
         )
     }

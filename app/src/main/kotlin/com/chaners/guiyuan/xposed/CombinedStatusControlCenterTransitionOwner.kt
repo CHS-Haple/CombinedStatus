@@ -207,16 +207,6 @@ internal object CombinedStatusControlCenterTransitionOwner {
             return p * p
         }
 
-        fun semanticSplitProgress(rawProgress: Float): Float {
-            val p = geometryProgress(rawProgress)
-            return p * p
-        }
-
-        fun semanticRevealProgress(rawProgress: Float): Float {
-            val p = geometryProgress(rawProgress)
-            return p * p
-        }
-
         fun unmatchedExitOpacity(rawProgress: Float): Float {
             val remaining = 1f - geometryProgress(rawProgress)
             return remaining * remaining * remaining
@@ -236,18 +226,11 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     false
             }
 
-        enum class ReservationProgress {
-            LINEAR,
-            SEMANTIC_SPLIT,
-            SEMANTIC_REVEAL,
-        }
-
         data class ReservationSpan(
             val sourceLeft: Float,
             val sourceRight: Float,
             val targetLeft: Float,
             val targetRight: Float,
-            val progressMode: ReservationProgress = ReservationProgress.LINEAR,
         )
 
         fun resolveReservationWidth(
@@ -261,18 +244,12 @@ internal object CombinedStatusControlCenterTransitionOwner {
             var left = -compact.toFloat()
             var right = 0f
             spans.forEach { span ->
-                val spanProgress =
-                    when (span.progressMode) {
-                        ReservationProgress.LINEAR -> p
-                        ReservationProgress.SEMANTIC_SPLIT -> semanticSplitProgress(p)
-                        ReservationProgress.SEMANTIC_REVEAL -> semanticRevealProgress(p)
-                    }
                 val currentLeft =
                     span.sourceLeft +
-                        (span.targetLeft - span.sourceLeft) * spanProgress
+                        (span.targetLeft - span.sourceLeft) * p
                 val currentRight =
                     span.sourceRight +
-                        (span.targetRight - span.sourceRight) * spanProgress
+                        (span.targetRight - span.sourceRight) * p
                 left = min(left, currentLeft)
                 right = maxOf(right, currentRight)
             }
@@ -460,7 +437,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
             )
         }
 
-        fun semanticLatentRevealOpacity(
+        fun latentRevealOpacity(
             source: FloatArray,
             current: FloatArray,
             target: FloatArray,
@@ -485,30 +462,6 @@ internal object CombinedStatusControlCenterTransitionOwner {
             if (travel >= revealFull) return 1f
             val normalized =
                 ((travel - revealStart) / (revealFull - revealStart))
-                    .coerceIn(0f, 1f)
-            return normalized * normalized * (3f - 2f * normalized)
-        }
-
-        fun latentRevealOpacity(
-            current: FloatArray,
-            target: FloatArray,
-        ): Float {
-            require(current.size == 6 && target.size == 6)
-            val targetExtent =
-                maxOf(
-                    vectorLength(target[2], target[3]),
-                    vectorLength(target[4], target[5]),
-                )
-            if (targetExtent <= 0f) return 0f
-            val dx = current[0] - target[0]
-            val dy = current[1] - target[1]
-            val distance = sqrt(dx * dx + dy * dy)
-            val hiddenDistance = targetExtent * 1.5f
-            val fullDistance = targetExtent * 0.35f
-            if (distance >= hiddenDistance) return 0f
-            if (distance <= fullDistance) return 1f
-            val normalized =
-                ((hiddenDistance - distance) / (hiddenDistance - fullDistance))
                     .coerceIn(0f, 1f)
             return normalized * normalized * (3f - 2f * normalized)
         }
@@ -1105,9 +1058,6 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     target = mobileSpec.target,
                     preferredMobileSubId = preferredMobileSubId,
                 )
-            val splitProgress = Policy.semanticSplitProgress(motionProgress)
-            if (splitProgress <= 0f) return emptyList()
-
             val state = CombinedStatusStateStore.snapshot()
             val descriptions = ArrayList<String>()
             resolveFrozenAdditionalMobileTargets(primary).forEach { witness ->
@@ -1128,7 +1078,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     projectedGeometry(
                         source = sourceGeometry,
                         target = targetGeometry,
-                        progress = splitProgress,
+                        progress = motionProgress,
                         scalePolicy = mobileSpec.scalePolicy,
                         carrierFrames = carrierFrames,
                     )
@@ -1144,6 +1094,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     ) ?: return@forEach
                 val revealProgress =
                     Policy.latentRevealOpacity(
+                        source = sourceGeometry,
                         current = pathGeometry,
                         target = targetGeometry,
                     )
@@ -1236,7 +1187,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     targetGeometry = targetGeometry,
                 )
             val revealProgress =
-                Policy.semanticLatentRevealOpacity(
+                Policy.latentRevealOpacity(
                     source = sourceGeometry,
                     current = pathGeometry,
                     target = targetGeometry,
@@ -1324,7 +1275,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     targetGeometry = targetGeometry,
                 )
             val revealProgress =
-                Policy.semanticLatentRevealOpacity(
+                Policy.latentRevealOpacity(
                     source = sourceGeometry,
                     current = pathGeometry,
                     target = targetGeometry,
@@ -1547,7 +1498,6 @@ internal object CombinedStatusControlCenterTransitionOwner {
                             sourceRight = maxOf(sourceA, sourceB),
                             targetLeft = min(targetA, targetB),
                             targetRight = maxOf(targetA, targetB),
-                            progressMode = Policy.ReservationProgress.SEMANTIC_SPLIT,
                         )
                 }
             }
@@ -1573,7 +1523,6 @@ internal object CombinedStatusControlCenterTransitionOwner {
                             sourceRight = collapsedEnd,
                             targetLeft = min(targetA, targetB),
                             targetRight = maxOf(targetA, targetB),
-                            progressMode = Policy.ReservationProgress.SEMANTIC_REVEAL,
                         )
                 }
             }
@@ -1601,7 +1550,6 @@ internal object CombinedStatusControlCenterTransitionOwner {
                             sourceRight = collapsedEnd,
                             targetLeft = min(targetA, targetB),
                             targetRight = maxOf(targetA, targetB),
-                            progressMode = Policy.ReservationProgress.SEMANTIC_REVEAL,
                         )
                 }
             }
