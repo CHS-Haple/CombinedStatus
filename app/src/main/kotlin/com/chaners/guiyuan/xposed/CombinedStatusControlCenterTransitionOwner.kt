@@ -441,6 +441,32 @@ internal object CombinedStatusControlCenterTransitionOwner {
             )
         }
 
+        fun interpolateCarriedSourceToRootTargetExact(
+            source: FloatArray,
+            target: FloatArray,
+            sourceCarrier: FloatArray,
+            currentCarrier: FloatArray,
+            progress: Float,
+        ): FloatArray {
+            require(
+                source.size == 6 &&
+                    target.size == 6 &&
+                    sourceCarrier.size == 6 &&
+                    currentCarrier.size == 6,
+            )
+            val carriedSource =
+                rebaseSourceToCurrentCarrier(
+                    source = source,
+                    sourceCarrier = sourceCarrier,
+                    currentCarrier = currentCarrier,
+                )
+            return interpolateGeometry(
+                source = carriedSource,
+                target = target,
+                progress = geometryProgress(progress),
+            )
+        }
+
         fun rebaseSourceToCurrentCarrier(
             source: FloatArray,
             sourceCarrier: FloatArray,
@@ -955,15 +981,32 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     } else {
                         null
                     }
+                val exactTextGeometry =
+                    spec.component ==
+                        CombinedStatusPainter.TransitionComponent.BATTERY_NUMBER ||
+                        (
+                            spec.component ==
+                                CombinedStatusPainter.TransitionComponent.CENTER &&
+                                model.centerIndicator is CenterIndicator.MobileType
+                        )
                 val geometry =
                     if (targetGeometry != null) {
-                        projectedGeometry(
-                            source = sourceGeometry,
-                            target = targetGeometry,
-                            progress = motionProgress,
-                            scalePolicy = spec.scalePolicy,
-                            carrierFrames = carrierFrames,
-                        )
+                        if (exactTextGeometry) {
+                            projectedExactGeometry(
+                                source = sourceGeometry,
+                                target = targetGeometry,
+                                progress = motionProgress,
+                                carrierFrames = carrierFrames,
+                            )
+                        } else {
+                            projectedGeometry(
+                                source = sourceGeometry,
+                                target = targetGeometry,
+                                progress = motionProgress,
+                                scalePolicy = spec.scalePolicy,
+                                carrierFrames = carrierFrames,
+                            )
+                        }
                     } else {
                         carriedSourceGeometry(
                             source = sourceGeometry,
@@ -987,6 +1030,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                                 height = sourceHeight,
                                 indicator = model.centerIndicator,
                                 targetWeight = witness?.textWeight,
+                                targetStyle = witness?.textStyle,
                                 progress = motionProgress,
                             ) ?: spec.sourceBounds
 
@@ -998,6 +1042,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                                 model = model,
                                 visualSettings = currentSnapshot.visualSettings,
                                 targetWeight = witness?.textWeight,
+                                targetStyle = witness?.textStyle,
                                 progress = motionProgress,
                             ) ?: spec.sourceBounds
 
@@ -1073,6 +1118,15 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         } else {
                             null
                         },
+                    batteryNumberTargetStyle =
+                        if (
+                            spec.component ==
+                            CombinedStatusPainter.TransitionComponent.BATTERY_NUMBER
+                        ) {
+                            witness?.textStyle
+                        } else {
+                            null
+                        },
                     centerTargetTextWeight =
                         if (
                             spec.component ==
@@ -1080,6 +1134,16 @@ internal object CombinedStatusControlCenterTransitionOwner {
                             model.centerIndicator is CenterIndicator.MobileType
                         ) {
                             witness?.textWeight
+                        } else {
+                            null
+                        },
+                    centerTargetTextStyle =
+                        if (
+                            spec.component ==
+                                CombinedStatusPainter.TransitionComponent.CENTER &&
+                            model.centerIndicator is CenterIndicator.MobileType
+                        ) {
+                            witness?.textStyle
                         } else {
                             null
                         },
@@ -1434,6 +1498,26 @@ internal object CombinedStatusControlCenterTransitionOwner {
             canvas.restoreToCount(save)
             return "no-sim-reveal:" + witness.summary
         }
+
+        private fun projectedExactGeometry(
+            source: FloatArray,
+            target: FloatArray,
+            progress: Float,
+            carrierFrames: CarrierFrames?,
+        ): FloatArray =
+            carrierFrames?.let { frames ->
+                Policy.interpolateCarriedSourceToRootTargetExact(
+                    source = source,
+                    target = target,
+                    sourceCarrier = frames.source,
+                    currentCarrier = frames.current,
+                    progress = progress,
+                )
+            } ?: Policy.interpolateGeometry(
+                source = source,
+                target = target,
+                progress = Policy.geometryProgress(progress),
+            )
 
         private fun projectedGeometry(
             source: FloatArray,
@@ -1942,6 +2026,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         else -> "slot"
                     },
                 textWeight = resolveNativeTextWeight(optical),
+                textStyle = resolveNativeTextStyle(optical),
             )
         }
 
@@ -2300,6 +2385,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         fallbackBounds = bounds,
                         opticalSource = "battery-number-text-layout",
                         textWeight = batteryNumberTypefaceWeight(textView.paint),
+                        textStyle = captureTextStyle(textView.paint),
                         preferFallbackGeometry = true,
                     )
                 }
@@ -2328,6 +2414,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                             fallbackBounds = bounds,
                             opticalSource = "battery-number-hollow-paint",
                             textWeight = batteryNumberTypefaceWeight(nativeBodyPaint),
+                            textStyle = captureTextStyle(nativeBodyPaint),
                             preferFallbackGeometry = true,
                         )
                     }
@@ -2354,6 +2441,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                             fallbackBounds = bounds,
                             opticalSource = "battery-number-text-metrics-on-hollow",
                             textWeight = batteryNumberTypefaceWeight(textView.paint),
+                            textStyle = captureTextStyle(textView.paint),
                             preferFallbackGeometry = true,
                         )
                     }
@@ -2382,6 +2470,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 fallbackBounds = bounds,
                 opticalSource = "battery-number-legacy-icon-paint",
                 textWeight = batteryNumberTypefaceWeight(paint),
+                textStyle = captureTextStyle(paint),
                 preferFallbackGeometry = true,
             )
         }
@@ -2471,6 +2560,43 @@ internal object CombinedStatusControlCenterTransitionOwner {
             runCatching { paint.typeface?.weight }
                 .getOrNull()
                 ?.takeIf { it > 0 }
+
+        private fun captureTextStyle(
+            paint: Paint,
+        ): CombinedStatusPainter.TransitionTextStyle =
+            CombinedStatusPainter.TransitionTextStyle(
+                typeface = paint.typeface,
+                weight = batteryNumberTypefaceWeight(paint),
+                fakeBoldText = paint.isFakeBoldText,
+                textScaleX = paint.textScaleX,
+                textSkewX = paint.textSkewX,
+                letterSpacing =
+                    runCatching { paint.letterSpacing }
+                        .getOrDefault(0f),
+                strokeWidth = paint.strokeWidth,
+                paintStyle = paint.style,
+            )
+
+        private fun resolveNativeTextStyle(
+            view: View?,
+        ): CombinedStatusPainter.TransitionTextStyle? {
+            if (view == null) return null
+            if (view is TextView) {
+                return captureTextStyle(view.paint)
+            }
+            val descendant =
+                if (view is ViewGroup) {
+                    sequence {
+                        for (index in 0 until view.childCount) {
+                            val child = view.getChildAt(index)
+                            if (child is TextView) yield(child)
+                        }
+                    }.firstOrNull()
+                } else {
+                    null
+                }
+            return descendant?.let { captureTextStyle(it.paint) }
+        }
 
         private fun resolveNativeTextWeight(view: View?): Int? {
             if (view == null) return null
@@ -2978,6 +3104,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
             val fallbackBounds: CombinedStatusPainter.TransitionNormalizedBounds?,
             val opticalSource: String,
             val textWeight: Int? = null,
+            val textStyle: CombinedStatusPainter.TransitionTextStyle? = null,
             val preferFallbackGeometry: Boolean = false,
         ) {
             val summary: String
@@ -2993,6 +3120,14 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         opticalSource +
                         "/weight=" +
                         (textWeight ?: -1) +
+                        "/fakeBold=" +
+                        (textStyle?.fakeBoldText ?: false) +
+                        "/scaleX=" +
+                        (textStyle?.textScaleX ?: -1f) +
+                        "/stroke=" +
+                        (textStyle?.strokeWidth ?: -1f) +
+                        "/style=" +
+                        (textStyle?.paintStyle?.name ?: "none") +
                         ":" +
                         (
                             opticalView?.let { view ->
