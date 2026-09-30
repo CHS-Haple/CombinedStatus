@@ -25,6 +25,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
         "com.android.systemui.statusbar.views.MiuiBatteryMeterView"
     private const val BATTERY_SLOT = "battery"
     private const val AIRPLANE_SLOT = "airplane"
+    private const val NO_SIM_SLOT = "no_sim"
     private const val MOBILE_SLOT = "mobile"
     private const val STACKED_MOBILE_SLOT = "stacked_mobile"
 
