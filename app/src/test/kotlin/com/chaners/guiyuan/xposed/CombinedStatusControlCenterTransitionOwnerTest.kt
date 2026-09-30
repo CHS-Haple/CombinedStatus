@@ -475,7 +475,7 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     fun chargingIslandReservationAuthorityIsSceneSpecific() {
         assertTrue(
             !CombinedStatusControlCenterTransitionOwner.Policy
-                .usesProgressSynchronousReservation(
+                .usesSemanticTransitionReservation(
                     sourceScene = CombinedStatusSourceScene.HOME,
                     charging = true,
                     nativeIslandShowing = true,
@@ -483,7 +483,7 @@ class CombinedStatusControlCenterTransitionOwnerTest {
         )
         assertTrue(
             CombinedStatusControlCenterTransitionOwner.Policy
-                .usesProgressSynchronousReservation(
+                .usesSemanticTransitionReservation(
                     sourceScene = CombinedStatusSourceScene.HOME,
                     charging = true,
                     nativeIslandShowing = false,
@@ -491,7 +491,7 @@ class CombinedStatusControlCenterTransitionOwnerTest {
         )
         assertTrue(
             CombinedStatusControlCenterTransitionOwner.Policy
-                .usesProgressSynchronousReservation(
+                .usesSemanticTransitionReservation(
                     sourceScene = CombinedStatusSourceScene.HOME,
                     charging = false,
                     nativeIslandShowing = true,
@@ -499,7 +499,7 @@ class CombinedStatusControlCenterTransitionOwnerTest {
         )
         assertTrue(
             CombinedStatusControlCenterTransitionOwner.Policy
-                .usesProgressSynchronousReservation(
+                .usesSemanticTransitionReservation(
                     sourceScene = CombinedStatusSourceScene.KEYGUARD,
                     charging = true,
                     nativeIslandShowing = true,
@@ -511,15 +511,15 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     fun verifiedSourceScenesKeepSemanticReservationThroughProjection() {
         assertTrue(
             CombinedStatusControlCenterTransitionOwner.Policy
-                .usesProgressSynchronousReservation(CombinedStatusSourceScene.HOME),
+                .usesSemanticTransitionReservation(CombinedStatusSourceScene.HOME),
         )
         assertTrue(
             CombinedStatusControlCenterTransitionOwner.Policy
-                .usesProgressSynchronousReservation(CombinedStatusSourceScene.KEYGUARD),
+                .usesSemanticTransitionReservation(CombinedStatusSourceScene.KEYGUARD),
         )
         assertTrue(
             !CombinedStatusControlCenterTransitionOwner.Policy
-                .usesProgressSynchronousReservation(CombinedStatusSourceScene.UNKNOWN),
+                .usesSemanticTransitionReservation(CombinedStatusSourceScene.UNKNOWN),
         )
     }
 

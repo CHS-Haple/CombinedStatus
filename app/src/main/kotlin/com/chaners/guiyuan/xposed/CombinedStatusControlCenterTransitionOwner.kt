@@ -172,7 +172,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
             nativeAppearance = nativeAppearance,
             nativeAppearanceAnimated = nativeAppearanceAnimated,
             transitionReservationEnabled =
-                Policy.usesProgressSynchronousReservation(
+                Policy.usesSemanticTransitionReservation(
                     sourceScene = sourceScene,
                     charging = sourceSnapshot.model.charging,
                     nativeIslandShowing = SystemUiIslandMotionSource.isIslandShowing(),
@@ -212,7 +212,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
             return remaining * remaining * remaining
         }
 
-        fun usesProgressSynchronousReservation(
+        fun usesSemanticTransitionReservation(
             sourceScene: CombinedStatusSourceScene,
             charging: Boolean = false,
             nativeIslandShowing: Boolean = false,
