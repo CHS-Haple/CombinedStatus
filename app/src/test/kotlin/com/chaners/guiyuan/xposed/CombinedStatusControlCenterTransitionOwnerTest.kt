@@ -8,6 +8,45 @@ import org.junit.Test
 
 class CombinedStatusControlCenterTransitionOwnerTest {
     @Test
+    fun targetTypographyStyleConvergesBeforeNativeHandoff() {
+        assertEquals(
+            0f,
+            CombinedStatusPainter.TransitionTypographyPolicy.styleProgress(0.42f),
+            0.0001f,
+        )
+        assertTrue(
+            CombinedStatusPainter.TransitionTypographyPolicy.styleProgress(0.70f) in 0f..1f,
+        )
+        assertEquals(
+            1f,
+            CombinedStatusPainter.TransitionTypographyPolicy.styleProgress(0.88f),
+            0.0001f,
+        )
+        assertEquals(
+            1f,
+            CombinedStatusPainter.TransitionTypographyPolicy.styleProgress(1f),
+            0.0001f,
+        )
+    }
+
+    @Test
+    fun exactTextGeometryReachesNativeBasisInsteadOfSimilarityEnvelope() {
+        val source = geometry(centerX = 10f, centerY = 20f, width = 10f, height = 20f)
+        val target = geometry(centerX = 100f, centerY = 200f, width = 30f, height = 24f)
+
+        val result =
+            CombinedStatusControlCenterTransitionOwner.Policy.interpolateGeometry(
+                source = source,
+                target = target,
+                progress = 1f,
+            )
+
+        target.forEachIndexed { index, value ->
+            assertEquals(value, result[index], 0.0001f)
+        }
+    }
+
+    @Test
     fun chargingGlyphFollowsNumberUntilLateHandoffFade() {
         assertEquals(
             1f,
