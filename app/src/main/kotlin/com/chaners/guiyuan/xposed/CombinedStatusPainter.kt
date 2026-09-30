@@ -10,6 +10,7 @@ import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
+import com.chaners.guiyuan.settings.BATTERY_TOP_VERTICAL_OFFSET_MAX
 import com.chaners.guiyuan.settings.CombinedStatusVisualSettings
 import kotlin.math.cos
 import kotlin.math.max
@@ -2243,7 +2244,7 @@ internal class CombinedStatusPainter(
         const val BATTERY_TOP_RING_GAP_BASE_PADDING = 3f
         const val BATTERY_TOP_RING_GAP_INK_HEIGHT_RATIO = 0.08f
         const val BATTERY_TOP_RING_GAP_STROKE_RATIO = 0.25f
-        const val BATTERY_TOP_TOP_SAFE_INSET = 1.5f
+        const val BATTERY_TOP_TOP_SAFE_INSET = 0.75f
         const val BATTERY_TOP_GAP_CENTER_DEGREES = 270f
         const val BATTERY_TOP_CONTENT_CENTER_Y = 13.5f
 
