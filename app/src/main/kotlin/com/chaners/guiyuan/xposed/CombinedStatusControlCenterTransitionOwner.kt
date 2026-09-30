@@ -960,7 +960,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 sourceRepresentsAny(MOBILE_SLOT, STACKED_MOBILE_SLOT)
             ) {
                 val extras =
-                    drawAdditionalMobileSplit(
+                    drawAdditionalMobileLatent(
                         canvas = canvas,
                         rootView = rootView,
                         sourceParentGeometry = sourceParentGeometry,
@@ -1011,7 +1011,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
             }
         }
 
-        private fun drawAdditionalMobileSplit(
+        private fun drawAdditionalMobileLatent(
             canvas: Canvas,
             rootView: View,
             sourceParentGeometry: FloatArray,
@@ -1118,7 +1118,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         ),
                 )
                 canvas.restoreToCount(save)
-                descriptions += "mobile-split:" + witness.summary
+                descriptions += "mobile-latent:" + witness.summary
             }
             return descriptions
         }

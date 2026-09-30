@@ -12191,3 +12191,64 @@ Combined device test package:
 7. **Trajectory:** from the first visible frame, Trinity should inherit the same native lower-left carrier motion as adjacent peers, without the prior vertical-only lead-in or high baseline. Verify reverse collapse too.
 8. **Regression:** Keyguard + Super-Island stays hitch-free with no VPN/whole-row terminal flash; master-switch off/on still fails native correctly.
 
+## 2026-09-30 — Build 500: steady-source continuity and unified latent slot reveal
+
+**Type:** Control Center transition geometry correction / latent-policy consolidation  
+**Display version:** 0.0.3  
+**Build / source:** 500 / `20260930-500` / `feat/control-center-transition-matrix`
+
+### Problem
+
+Build-499 device review exposes four concrete transition issues:
+- pressing the status bar makes the four compact Mobile dots jump downward before normal decomposition begins;
+- charging scenes still shift Trinity left at gesture entry across Home/Keyguard;
+- some decomposed final positions remain biased from their native targets;
+- latent Airplane/No-SIM participants appear too large/too early, while the previously separate second-SIM split path is no longer desirable as an independent visual policy.
+
+The same review clarifies the intended latent presentation: first open a full final native icon slot, then reveal quickly; all participants with no independent visible compact source should use that rule.
+
+### Evidence and root cause
+
+1. **Carrier-size rescaling at p≈0.** Build 499 expressed component position as a normalized offset inside source/target `MiuiStatusIconContainer` geometry, then multiplied that offset by the current fake carrier width/height. The steady and fake rows do not share identical dimensions. A compact Mobile source below carrier center is therefore moved vertically when the fake row becomes taller even with transition progress still at zero. The same normalization can bias endpoints whenever current/target carrier dimensions differ.
+2. **Transition source position authority diverged from steady layout.** Steady Home/Keyguard placement is a stable end-anchored slot in the overlay host. Transition freeze instead rebuilt source center from the inner `battery_icon_container`. Charging changes outer Battery presentation geometry, so this independently reconstructs a different source position and reintroduces the charging press-entry shift that steady layout had already solved.
+3. **Latent participants used mixed policies.** Airplane/No-SIM and additional SIM ultimately describe the same visual condition: Guiyuan owns/hides a final native participant but compact Trinity exposes no independent visible source for it. Separate split/reveal timelines are unnecessary.
+
+### Change
+
+- Carrier-relative projection now inherits only the live native carrier **center translation**.
+- Source and target component offsets relative to their carrier centers remain physical-pixel offsets and interpolate directly; carrier width/height changes no longer rescale internal Trinity position.
+- Unmatched carried content uses the same center-delta rule.
+- Retained transition source position is reconstructed from the same Home/Keyguard **overlay-host end slot** used by steady layout; the render View remains basis/size authority.
+- Remove the obsolete inner Battery carrier from transition-source position authority and witness validity.
+- Keep final target drawable-frame resolution from Build 499.
+- Consolidate additional SIM, supplemental Airplane and supplemental No-SIM into one latent policy:
+  - position follows the shared native motion path;
+  - visible basis uses the final native target basis immediately;
+  - alpha remains zero until relative horizontal separation reaches one final native slot width;
+  - alpha then completes quickly over the next quarter-slot distance;
+  - no independent dual-SIM split timeline remains.
+- Rename the remaining additional-Mobile renderer/diagnostic from split terminology to latent terminology.
+- Build identity becomes `versionCode=260930300`, `buildId=20260930-500`.
+
+### 审查 / review
+
+- **root-cause-first:** no x/y compensation, charging-only offset, delay, custom duration or per-icon positional patch is added.
+- **native-first:** HyperOS still owns gesture progress, fake/final carrier motion and final native slots/drawables; Guiyuan only projects its own overlay pixels.
+- **single writer:** no new native translation, alpha, visibility, padding or geometry writer is introduced.
+- **steady/transition separation:** steady layout code is not changed; transition now reuses its end-slot authority rather than reconstructing a competing Battery-centered origin.
+- **latent consistency:** Airplane, No-SIM and additional SIM share one slot-spacing/reveal policy; ownership gating remains required before any latent participant can exist.
+- **performance:** no new Hook, listener, reflection traversal, polling, timer, Animator or frame diagnostic is added. Existing carrier Views remain resolved once per transition Session.
+- **491/497/498 protection:** Keyguard callback phase/lease, scene-specific island reservation, and removal of the island pre-draw diagnostic probe are untouched.
+- **fail native:** retained witness still requires attached/non-zero render, host and motion-carrier geometry; unresolved targets retain existing native/fallback behavior.
+
+### Validation
+
+Run exact-head Runtime CI for the Build-500 checkpoint, then produce one signed work-branch Canary.
+
+Focused device gates:
+1. Home and Keyguard, slow + fast pull: no first-frame Mobile-dot downward jump; Trinity starts continuously from the steady visual position.
+2. Charging and non-charging: no press-entry horizontal discontinuity; charging must not reintroduce the old left shift.
+3. Fully expanded endpoint: Mobile/Wi-Fi/Airplane/No-SIM targets visually coincide with their native final slots/drawables; check reverse collapse too.
+4. Latent Airplane/No-SIM/additional SIM: first leave one native final-slot-width of empty spacing, then reveal quickly using final native optical size; no overlapping emergence and no separate dual-SIM animation behavior.
+5. Regression: Build-498 Keyguard + Super-Island remains hitch-free, Build-497 VPN/whole-row flash stays absent, and Build-496 master-switch fail-native behavior remains accepted.
+
