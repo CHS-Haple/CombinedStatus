@@ -15,7 +15,7 @@ This file is the concise recovery point for active Guiyuan development. Historic
 PR #181 / `feat/battery-top-readout` adds an optional battery percentage readout in the top opening of the Guiyuan battery ring while preserving the accepted Home -> Control Center transition contract.
 
 Current checkpoint:
-- Build 530 / `20261001-530`;
+- Build 531 / `20261001-531`;
 - branch remains based on current `dev` and is not behind it;
 - Build 524 improved the final native Battery-number target for HyperOS hollow-battery presentation;
 - Build 525 corrected two Build-523 device defects:
@@ -84,6 +84,24 @@ Build 530 rollback + transition-only optical text convergence:
 - Charging lightning no longer belongs to the Battery-body transition. During pull-down it is drawn inside the Battery-number component, shares the number's exact matrix/path, then fades only during late handoff (58% -> 88%) rather than fading in place.
 - Build-528 quick latent reveal and Build-526 Battery-Island authority remain unchanged.
 
+
+Build 531 exact native typography handoff:
+- Build-530 device video proves geometry-only optical mapping plus `Typeface.weight` is still insufficient:
+  - late-transition Mobile Type remains visibly thinner than native `5G` and is slightly undersized;
+  - battery percentage weight differs substantially from the native hollow-battery number.
+- Root causes:
+  - Mobile Type still used `SHRINK_ONLY` similarity geometry, so an endpoint requiring enlargement/aspect correction could not reach the exact native basis;
+  - `Typeface.weight` does not encode the complete native text Paint contract (actual Typeface instance/family, fake-bold, textScaleX, skew, letter spacing, stroke/style);
+  - similarity interpolation preserves the source aspect envelope, so even remeasured current glyph bounds cannot guarantee exact target width/height at p=1.
+- Build 531 keeps compact/steady 5G and battery-number appearance unchanged and upgrades only transition rendering:
+  - target witnesses snapshot the real native TextView/custom Battery Paint typography;
+  - late transition converges to native Typeface + Paint flags, reaching the exact target style by p=0.88;
+  - Mobile Type no longer has a shrink-only ceiling;
+  - Mobile Type and Battery Number use exact basis interpolation so p=1 geometry equals the native target basis, not a source-aspect similarity approximation;
+  - dynamic source ink bounds are still remeasured each frame under the effective transition typography.
+- Witness diagnostics now include weight, fakeBold, textScaleX, strokeWidth and Paint style for device verification.
+- Build-530 lightning-follow-number ownership and Build-528 latent reveal remain unchanged.
+
 ## Validation state
 
 Confirmed:
@@ -102,8 +120,8 @@ Confirmed:
   - unknown exact authority remains native-peer-motion rather than guessing `false`.
 
 Pending:
-- Build 530 Runtime CI.
-- if green, one exact-head signed Build-530 Canary.
+- Build 531 Runtime CI.
+- if green, one exact-head signed Build-531 Canary.
 - focused device validation:
   - island-only pull remains unchanged and reaches the expected final native icon endpoints;
   - charging without an active generic island remains unchanged;
@@ -138,10 +156,10 @@ Pending:
 
 ## Immediate next step
 
-1. finish Build-530 Runtime CI and automated review;
-2. if green, freeze runtime at exact Build 530 and request one signed work-branch Canary;
-3. validate: original steady 5G/electricity typography is restored; transition-end 5G and battery number visually overlap native target size/weight; charging lightning follows number before late fade; Build-528 latent reveal remains correct;
-4. change runtime again only if device evidence identifies a concrete remaining mismatch;
+1. finish Build-531 Runtime CI and automated review;
+2. if green, freeze runtime at exact Build 531 and request one signed work-branch Canary;
+3. device-validate late-transition 5G and battery-number optical overlap against native target, plus lightning-follow-number and latent reveal regression checks;
+4. use the new witness typography diagnostics before any further style adjustment;
 5. merge to `dev` only after the combined checkpoint is device-accepted.
 
 ## Reference priority
