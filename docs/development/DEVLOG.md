@@ -12957,3 +12957,27 @@ No lifecycle migration or second owner is justified by the current code.
 ### 审查 / review conclusion
 
 Static review is complete for the current branch. Runtime stays frozen. Remaining uncertainty is device-only: charging without island, charging with native island, latent supplemental semantics, real third-party dual-row visual confirmation, and final Keyguard-originated transition regression.
+
+
+## 2026-10-01 — Build 511 charging device acceptance
+
+**Evidence:** user device feedback  
+**Scope:** Home -> Control Center, charging path  
+**Result:** accepted; user reports charging transition is normal.
+
+### Accepted behavior
+
+- Charging no longer reproduces the historical press-entry left shift.
+- No whole-row rebase, peer overlap, or final endpoint drift was reported.
+- The accepted Build-510 non-charging trajectory and Mobile morph remain visually stable while charging.
+
+### Review consequence
+
+Charging is no longer a blocking device gate for PR #177. No runtime change follows from this acceptance. The next focused device gate is latent supplemental semantics: Airplane / No-SIM / additional-SIM reveal and reverse-collapse ordering.
+
+### 审查 / review
+
+- **runtime:** unchanged / frozen at Build 511.
+- **ownership:** native charging / island motion remains HyperOS-owned.
+- **protected baseline:** Build-510 non-charging and Build-511 charging behavior are now both accepted.
+- **next:** exact-head signed Canary, then latent semantic validation.
