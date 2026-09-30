@@ -10,7 +10,6 @@ import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
-import java.util.WeakHashMap
 import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
@@ -1138,10 +1137,10 @@ internal class CombinedStatusPainter(
         resources: android.content.res.Resources,
     ): NativeVisualProbe? {
         val optical =
-            CombinedStatusDrawableOpticalProbe.resolve(
+            CombinedStatusParticipantVisualSnapshot.resolveDrawable(
                 drawable = drawable,
                 resources = resources,
-            ) ?: return null
+            )?.envelope ?: return null
         return NativeVisualProbe(
             opticalBounds =
                 OpticalBounds(
@@ -1899,109 +1898,6 @@ internal class CombinedStatusPainter(
 }
 
 
-
-internal object CombinedStatusDrawableOpticalProbe {
-    private const val PROBE_MAX = 96f
-    private const val ALPHA_THRESHOLD = 8
-
-    private val cache =
-        WeakHashMap<
-            Drawable.ConstantState,
-            MutableMap<Int, CombinedStatusPainter.TransitionNormalizedBounds?>,
-        >()
-
-    @Synchronized
-    fun resolve(
-        drawable: Drawable,
-        resources: android.content.res.Resources,
-    ): CombinedStatusPainter.TransitionNormalizedBounds? {
-        val state = drawable.constantState ?: return null
-        val level = drawable.level
-        cache[state]
-            ?.takeIf { perLevel -> perLevel.containsKey(level) }
-            ?.let { perLevel -> return perLevel[level] }
-
-        val resolved =
-            probe(
-                state = state,
-                source = drawable,
-                resources = resources,
-            )
-        cache
-            .getOrPut(state) { HashMap() }[level] = resolved
-        return resolved
-    }
-
-    private fun probe(
-        state: Drawable.ConstantState,
-        source: Drawable,
-        resources: android.content.res.Resources,
-    ): CombinedStatusPainter.TransitionNormalizedBounds? {
-        val intrinsicWidth = source.intrinsicWidth
-        val intrinsicHeight = source.intrinsicHeight
-        if (intrinsicWidth <= 0 || intrinsicHeight <= 0) return null
-
-        val probeScale =
-            PROBE_MAX /
-                max(intrinsicWidth, intrinsicHeight).toFloat()
-        val probeWidth = max(1, (intrinsicWidth * probeScale).roundToInt())
-        val probeHeight = max(1, (intrinsicHeight * probeScale).roundToInt())
-        val probeDrawable =
-            state
-                .newDrawable(resources)
-                .mutate()
-        val bitmap =
-            Bitmap.createBitmap(
-                probeWidth,
-                probeHeight,
-                Bitmap.Config.ARGB_8888,
-            )
-        try {
-            probeDrawable.state = source.state
-            probeDrawable.level = source.level
-            probeDrawable.setTint(Color.WHITE)
-            probeDrawable.alpha = 255
-            probeDrawable.setBounds(0, 0, probeWidth, probeHeight)
-            probeDrawable.draw(Canvas(bitmap))
-
-            val pixels = IntArray(probeWidth * probeHeight)
-            bitmap.getPixels(
-                pixels,
-                0,
-                probeWidth,
-                0,
-                0,
-                probeWidth,
-                probeHeight,
-            )
-
-            var minX = probeWidth
-            var minY = probeHeight
-            var maxX = -1
-            var maxY = -1
-            pixels.forEachIndexed { index, color ->
-                if (Color.alpha(color) > ALPHA_THRESHOLD) {
-                    val x = index % probeWidth
-                    val y = index / probeWidth
-                    if (x < minX) minX = x
-                    if (x > maxX) maxX = x
-                    if (y < minY) minY = y
-                    if (y > maxY) maxY = y
-                }
-            }
-            if (maxX < minX || maxY < minY) return null
-
-            return CombinedStatusPainter.TransitionNormalizedBounds(
-                left = minX / probeWidth.toFloat(),
-                top = minY / probeHeight.toFloat(),
-                right = (maxX + 1) / probeWidth.toFloat(),
-                bottom = (maxY + 1) / probeHeight.toFloat(),
-            )
-        } finally {
-            bitmap.recycle()
-        }
-    }
-}
 
 
 internal object CombinedStatusMobileTypeSuffixPolicy {
