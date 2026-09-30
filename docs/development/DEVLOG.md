@@ -13184,3 +13184,56 @@ The accompanying Build-515 diagnostic snapshot reports a healthy runtime and con
 - PR remains mergeable and ahead of `dev` with no divergence.
 - Remaining gate: exact-head signed Canary + focused device evidence.
 
+## 2026-10-01 — Build 519: one-shot native Battery percentage target probe
+
+**Type:** diagnostic target-identification checkpoint  
+**Display version:** 0.0.3  
+**Build / source:** 519 / `20261001-519` / `feat/battery-top-readout` / PR #181
+
+### New requested behavior
+
+The maintainer requested that the optional top battery percentage participate in the Control Center pull-down transition like the existing mobile-type/5G component: move and scale from the Guiyuan top-readout position into the native Battery percentage position, ending with native-equivalent size, weight and alignment.
+
+### Architecture review
+
+The requested motion fits the existing transition architecture without a second animator:
+
+- the battery ring/body continues to use the existing Battery -> native Battery transition;
+- the top percentage will become a shape-local Battery subcomponent with its own target witness;
+- motion remains driven by the existing `CombinedStatusControlCenterTransitionOwner` and HyperOS expansion/appearance progress;
+- fully expanded QS remains native-owned;
+- no native Battery translation, alpha, visibility or text property needs to be written.
+
+The missing fact is the final native percentage target itself. Existing target evidence resolves the final Battery body / `hollow_battery_image`, and exact-target reference confirms `mBatteryDigitalView -> battery_icon_container` plus `mBatteryIconView: MiuiBatteryMeterIconView`, but the repository/reference library does not yet establish whether the visible percentage is a child TextView or is internally painted, nor its exact text size / Typeface weight / alignment.
+
+Guessing a center or scale ratio would violate the root-cause/native-witness boundary.
+
+### Change
+
+Build 519 therefore adds only a one-shot, read-only probe when a Control Center transition session starts:
+
+- inspect final QS `MiuiBatteryMeterView.mBatteryDigitalView`;
+- inspect final QS `MiuiBatteryMeterView.mBatteryIconView`;
+- collect bounded Battery/percent/digit/text descendants;
+- for TextViews, record dimensions, current text, textSize and Typeface weight/style;
+- for `mBatteryIconView`, enumerate bounded declared Paint fields and record textSize, Typeface weight/style and text alignment;
+- expose the result only through the existing transition diagnostic summary as `batteryNumberProbe`.
+
+### 审查 / review
+
+- **read-only:** no target View property is changed.
+- **bounded:** one probe per transition Session, max 16 candidate Views, depth 4, max 8 Paint fields.
+- **no new Hook:** uses the already-created transition Session and existing final Battery witness.
+- **no frame logging:** probe is not executed per draw or per progress callback.
+- **single motion owner:** transition matrices/progress remain untouched.
+- **Build-518 optics preserved:** charging-glyph size, optical spacing, ring clearance and safe positive offset logic are unchanged.
+
+### Validation
+
+- Build-519 Runtime CI #1949: **success**.
+- Pinned HyperOS target profile: green.
+- Unit tests + Debug APK build: green.
+- Modern Xposed metadata: green.
+- PR remains mergeable with no divergence from `dev`.
+- Device gate is intentionally diagnostic-only: one Home -> Control Center pull followed by one detailed diagnostic export.
+

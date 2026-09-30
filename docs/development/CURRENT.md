@@ -15,13 +15,14 @@ This file is the concise recovery point for active Guiyuan development. Historic
 PR #181 / `feat/battery-top-readout` adds an optional battery percentage readout in the top opening of the Guiyuan battery ring.
 
 Current checkpoint:
-- Build 518 / `20261001-518`;
+- Build 519 / `20261001-519`;
 - branch is based directly on current `dev`;
 - Build-513 device feedback showed the original 16 px / weight-600 typography baseline was visibly too small and light, and the 75%-135% size range was too narrow;
 - Build 514 redefined 100% as a 24 px authored baseline and expanded size/weight adjustment to 60%-200% / 400-900;
 - Build 515 raised the default number weight to 900 and restored +up / −down offset semantics;
 - Build 516-518 refine the top-readout optical layout from device evidence: charging-glyph 100% baseline 14→18, visible glyph-to-number gap 2→1, ring clearance now grows from measured ink height and ring stroke, and +0…+30 maps across the currently safe upward travel instead of clipping beyond the status-bar drawing boundary;
 - charging keeps one stable 18-unit slot while the native single/double-bolt optical ink is right-aligned inside it, preventing percentage X-position jumps when HyperOS changes the charging drawable;
+- Build 519 is a diagnostic-only checkpoint for the requested battery-number Control Center morph: it performs a one-shot read-only probe of the final native QS Battery View to identify the native percentage target View/Paint, size, weight, alignment and bounds before any transition geometry is added;
 - percentage readout is opt-in and defaults off;
 - ring top avoidance is derived from the measured readout width rather than a screenshot-fitted fixed gap;
 - charging reserves a stable leading glyph slot so the percentage does not shift while native charging presentation updates;
@@ -33,7 +34,7 @@ Current checkpoint:
 
 Confirmed:
 - PR #181 is mergeable and remains isolated from the old superseded transition branch.
-- Build 518 Runtime CI #1947: green.
+- Build 519 Runtime CI #1949: green.
 - Pinned HyperOS target profile: green.
 - Unit tests: green, including width-derived battery-top gap coverage.
 - Debug APK build: green.
@@ -42,12 +43,10 @@ Confirmed:
 - Static review found no new native layout/translation/visibility/animation writer.
 
 Pending:
-- focused Build-518 device validation of the larger charging glyph, 1-unit visible glyph-to-number gap, and measured optical ring clearance;
-- confirm +30 reaches the safe top boundary without clipping at the active number size;
-- ordinary charging native single-bolt placement;
-- quick/super charging native alternate-bolt placement when that native state is available;
-- confirm no percentage horizontal jump during charging-resource handoff;
-- one Home -> Control Center pull to confirm Battery-component motion remains unchanged.
+- one Build-519 Home -> Control Center pull with detailed diagnostics to capture `batteryNumberProbe`;
+- identify whether native Battery percentage is a TextView or an internal Paint path and record its exact target geometry / textSize / Typeface weight;
+- only after that evidence, add a Battery-number subcomponent that reuses the existing HyperOS progress/appearance owner and lands exactly on the native percentage target;
+- focused device validation of Build-518 optical spacing remains folded into the next visual checkpoint rather than requiring a separate Build-518 install.
 
 ## Runtime / rendering contract
 
@@ -72,11 +71,11 @@ Pending:
 
 ## Immediate next step
 
-1. keep runtime frozen at Build 518;
+1. keep runtime frozen at Build 519;
 2. generate one exact-head signed work-branch Canary for PR #181;
-3. perform focused device validation of optical spacing, safe upward travel and native charging glyph presentation;
-4. change runtime only if device evidence identifies a concrete defect;
-5. merge to `dev` only after required device acceptance.
+3. perform one Home -> Control Center pull and export detailed diagnostics;
+4. use the captured native Battery-number witness to implement the requested top-number -> native-number move/scale transition under the existing transition owner;
+5. merge to `dev` only after the resulting visual checkpoint is device-accepted.
 
 ## Reference priority
 
