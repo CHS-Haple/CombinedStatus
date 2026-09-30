@@ -2325,9 +2325,6 @@ internal object CombinedStatusControlCenterTransitionOwner {
                             witness.renderView.width > 0 &&
                                 witness.renderView.height > 0 &&
                                 witness.renderView.isAttachedToWindow &&
-                                witness.positionAnchor.width > 0 &&
-                                witness.positionAnchor.height > 0 &&
-                                witness.positionAnchor.isAttachedToWindow &&
                                 witness.positionHost.width >= witness.renderView.width &&
                                 witness.positionHost.height > 0 &&
                                 witness.positionHost.isAttachedToWindow &&

@@ -155,7 +155,6 @@ internal object CombinedStatusKeyguardRenderSession {
                 batteryCarrier.get() === resolved.batteryCarrier
 
         fun transitionSourceWitness(): CombinedStatusTransitionSourceWitness? {
-            val anchor = batteryCarrier.get() ?: return null
             val motion = statusIcons.get() ?: return null
             val render = renderView
             if (
@@ -164,15 +163,12 @@ internal object CombinedStatusKeyguardRenderSession {
                     heightPx = render.height,
                     hostAttached =
                         systemIcons.get()?.isAttachedToWindow == true &&
-                            anchor.isAttachedToWindow &&
                             motion.isAttachedToWindow,
                 )
             ) {
                 return null
             }
             if (
-                anchor.width <= 0 ||
-                anchor.height <= 0 ||
                 motion.width <= 0 ||
                 motion.height <= 0
             ) {
@@ -180,7 +176,6 @@ internal object CombinedStatusKeyguardRenderSession {
             }
             return CombinedStatusTransitionSourceWitness(
                 renderView = render,
-                positionAnchor = anchor,
                 positionHost = systemIcons.get() ?: return null,
                 motionCarrier = motion,
                 representedSlots =

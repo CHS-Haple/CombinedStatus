@@ -322,7 +322,6 @@ internal object CombinedStatusHomeRenderSession {
             renderController.currentTintState()
 
         fun transitionSourceWitness(): CombinedStatusTransitionSourceWitness? {
-            val anchor = batteryCarrier.get() ?: return null
             val motion = statusIcons.get() ?: return null
             val render = probeView
             if (
@@ -331,15 +330,12 @@ internal object CombinedStatusHomeRenderSession {
                     heightPx = render.height,
                     hostAttached =
                         batteryContainer.get()?.isAttachedToWindow == true &&
-                            anchor.isAttachedToWindow &&
                             motion.isAttachedToWindow,
                 )
             ) {
                 return null
             }
             if (
-                anchor.width <= 0 ||
-                anchor.height <= 0 ||
                 motion.width <= 0 ||
                 motion.height <= 0
             ) {
@@ -347,7 +343,6 @@ internal object CombinedStatusHomeRenderSession {
             }
             return CombinedStatusTransitionSourceWitness(
                 renderView = render,
-                positionAnchor = anchor,
                 positionHost = batteryContainer.get() ?: return null,
                 motionCarrier = motion,
                 representedSlots =
