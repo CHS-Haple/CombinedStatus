@@ -12314,3 +12314,66 @@ Focused device gates:
 6. **Build-500 regressions:** recheck first-frame Mobile-dot vertical continuity, charging press-entry horizontal continuity and final native endpoint alignment.
 7. **Protected regressions:** Keyguard + Super-Island hitch and VPN/whole-row terminal flash remain absent; master-switch fail-native remains normal.
 
+
+
+## 2026-09-30 — Build 502: native handoff endpoint closure and latent scale ownership
+
+**Type:** Control Center endpoint geometry / latent scale authority / evidence correction  
+**Display version:** 0.0.3  
+**Build / source:** 502 / `20260930-502` / `feat/control-center-transition-matrix`
+
+### Problem
+
+Build-501 device validation narrows the active defects:
+- fake Trinity decomposition finishes consistently to the **right** of the real final Control Center icons across scenes;
+- the previously reported press/down-pull Trinity left bias is no longer reproduced, so the Build-500 steady-source/end-slot correction must be preserved;
+- latent participants with no independent compact source still enter too large, and the additional-SIM Mobile can show a severe vertical/stretch enlargement;
+- the previously reported Bluetooth icon persistence after collapse is confirmed by the tester to be unrelated to Guiyuan and must not drive Guiyuan lifecycle ownership.
+
+The supplied Build-501 diagnostic confirms the tested package is `20260930-501`. It also shows the transition reading separate QS_FAKE and final status-icon carrier geometry while endpoint reservation reaches the expanded native span.
+
+### Root cause
+
+1. **Carrier path did not mathematically close to the real carrier.** Build 500 correctly stopped rescaling component offsets with carrier height/width, but `interpolateCarrierRelativeGeometry()` still placed every component on the **current fake carrier center** plus an interpolated target-relative offset. Exact target placement therefore depended on an unproven assumption that fake and final `MiuiStatusIconContainer` centers would naturally converge. Device evidence disproves that assumption: the source-side left discontinuity is gone, while all final components retain the same-direction endpoint bias.
+2. **Latent reveal owned scale twice.** Normal Mobile uses its declared `TransitionScalePolicy` (additional Mobile is `SHRINK_ONLY`), but the latent path then overwrote the resulting basis with `latentTargetSizedGeometry()`, forcing the full target basis before reveal. That bypassed `SHRINK_ONLY` and explains the extra-SIM enlargement/stretch. Airplane/No-SIM used the same forced-target-basis special case.
+3. **Bluetooth lifecycle attribution is disproven.** Build 501 added collapse-time Control Center presentation release solely to address the reported Bluetooth persistence. The tester now confirms that symptom is unrelated to Guiyuan; keeping that lifecycle mutation would broaden ownership without supporting evidence.
+
+### Change
+
+- Preserve Build-500 steady-source/end-slot and physical-pixel carrier-offset logic.
+- Add one carrier-center closure primitive driven only by **HyperOS native QS_FAKE alpha**:
+  - fake alpha 1 → carrier center remains the live fake carrier;
+  - native fade progresses → carrier center continuously interpolates toward the real final carrier;
+  - fake alpha 0 → carrier center equals the final carrier;
+  - carrier width/height basis is not blended, so the Build-500 no-rescale guarantee remains intact.
+- Existing HyperOS expansion/final-appearance progress still owns component offset/shape progression; no second gesture curve is introduced.
+- Remove `latentTargetSizedGeometry()` and its invalid test assumption.
+- Latent Airplane/No-SIM/additional-SIM keep the existing native-slot separation/reveal-alpha rule, but their visual basis is now exactly the normal projected path basis:
+  - additional Mobile therefore keeps `SHRINK_ONLY`;
+  - Airplane/No-SIM may approach their optical target through their declared normal target-scale interpolation instead of appearing at full target basis immediately.
+- Revert Build-501 `requestedVisible=false -> deactivateControlCenter()` behavior and restore the pre-Build-501 QS_FAKE prearm lifetime.
+- Build identity becomes `versionCode=260930302`, `buildId=20260930-502`.
+
+### 审查 / review
+
+- **root-cause-first:** no x/y magic offset is used; the endpoint error is closed by the two native carrier centers already sampled by the transition owner.
+- **native-first:** closure progress reuses the existing HyperOS fake-root alpha, so opening and reverse collapse inherit the platform handoff rather than a Guiyuan threshold/duration.
+- **single writer:** Guiyuan still writes only its overlay pixels and the existing semantic reservation; no native translation/alpha/visibility writer is added.
+- **source protection:** the Build-500 steady host end-slot source remains unchanged because Build-501 testing confirms the old down-pull left shift is gone.
+- **latent scale ownership:** reveal alpha decides visibility only; scale returns to the component transition policy and can no longer be overridden by a second latent-size authority.
+- **evidence correction:** Bluetooth persistence is removed from Guiyuan root-cause reasoning and its unsupported lifecycle mutation is reverted.
+- **performance:** no Hook, Animator, timer, polling loop or extra per-frame diagnostic is added; closure is constant-time arithmetic on geometry already sampled each draw.
+- **protected boundaries:** Build-491 Keyguard callback/lease, Build-497 reservation correction and Build-498 island diagnostic-performance fix are untouched.
+- **fail native:** target witness/optical-resolution failure behavior remains unchanged.
+
+### Validation
+
+Exact-head Runtime CI and a signed Canary are required.
+
+Focused device gates:
+1. Home + Keyguard, charging + non-charging, slow + fast: the already-fixed press/down-pull left bias must stay absent.
+2. Near native handoff in both directions: fake Battery/Wi-Fi/Mobile must converge continuously onto the corresponding real final icons; no last-frame right offset or compensating jump.
+3. Airplane / No-SIM latent: quick reveal after native slot spacing, no immediate oversized full-target appearance.
+4. Dual-SIM: the additional signal must not vertically stretch/enlarge beyond its normal Mobile scale policy.
+5. Final handoff: real native icons remain the final owner with no duplicate/overlap residue.
+6. Regression: Build-498 Keyguard + Super-Island, Build-497 VPN/whole-row, and Build-496 master-switch fail-native boundaries remain accepted.

@@ -601,17 +601,6 @@ internal object CombinedStatusControlCenterRenderSession {
 
         fun setRequestedVisible(visible: Boolean): Boolean {
             requestedVisible = visible
-            if (!visible) {
-                // A hidden Control Center no longer owns native compact
-                // presentation state. Restore ignored slots / clip masks /
-                // reservation immediately so Control-Center-only peers cannot
-                // survive into Home. The retained render session/host is reused
-                // on the next visible=true acquire.
-                nativePresentationReady = false
-                SystemUiHomePresentationOwner.deactivateControlCenter(
-                    "projection-hidden",
-                )
-            }
             syncPresentation("visibility")
             return projectionReady()
         }

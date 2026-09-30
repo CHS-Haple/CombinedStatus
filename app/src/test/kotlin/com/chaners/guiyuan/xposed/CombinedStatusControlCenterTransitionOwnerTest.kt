@@ -153,15 +153,24 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
-    fun carrierRelativeInterpolationLandsExactlyOnTargetWhenCarriersConverge() {
+    fun carrierRelativeInterpolationLandsExactlyOnTargetAfterNativeCarrierClosure() {
         val source =
             floatArrayOf(75f, 50f, 10f, 0f, 0f, 10f)
         val target =
             floatArrayOf(235f, 150f, 20f, 0f, 0f, 20f)
         val sourceCarrier =
             floatArrayOf(50f, 50f, 100f, 0f, 0f, 108f)
+        val currentCarrier =
+            floatArrayOf(154f, 136f, 140f, 0f, 0f, 169f)
         val targetCarrier =
-            floatArrayOf(200f, 150f, 140f, 0f, 0f, 169f)
+            floatArrayOf(200f, 150f, 120f, 0f, 0f, 108f)
+        val closedCarrier =
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .closeCarrierCenterToFinal(
+                    currentCarrier = currentCarrier,
+                    targetCarrier = targetCarrier,
+                    nativeFakeAlpha = 0f,
+                )
 
         val result =
             CombinedStatusControlCenterTransitionOwner.Policy
@@ -169,7 +178,7 @@ class CombinedStatusControlCenterTransitionOwnerTest {
                     source = source,
                     target = target,
                     sourceCarrier = sourceCarrier,
-                    currentCarrier = targetCarrier,
+                    currentCarrier = closedCarrier,
                     targetCarrier = targetCarrier,
                     progress = 1f,
                     scalePolicy = CombinedStatusPainter.TransitionScalePolicy.TARGET,
@@ -182,39 +191,63 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
-    fun latentParticipantUsesFinalTargetBasisBeforeItBecomesVisible() {
-        val path =
-            floatArrayOf(
-                42f,
-                73f,
-                30f,
-                0f,
-                0f,
-                30f,
-            )
-        val target =
-            floatArrayOf(
-                80f,
-                90f,
-                18f,
-                2f,
-                -2f,
-                18f,
-            )
+    fun opaqueNativeFakeCarrierDoesNotCloseEarly() {
+        val currentCarrier =
+            floatArrayOf(154f, 136f, 140f, 0f, 0f, 169f)
+        val targetCarrier =
+            floatArrayOf(200f, 150f, 120f, 0f, 0f, 108f)
 
         val result =
             CombinedStatusControlCenterTransitionOwner.Policy
-                .latentTargetSizedGeometry(
-                    pathGeometry = path,
-                    targetGeometry = target,
+                .closeCarrierCenterToFinal(
+                    currentCarrier = currentCarrier,
+                    targetCarrier = targetCarrier,
+                    nativeFakeAlpha = 1f,
                 )
 
-        assertEquals(path[0], result[0], 0.0001f)
-        assertEquals(path[1], result[1], 0.0001f)
-        assertEquals(target[2], result[2], 0.0001f)
-        assertEquals(target[3], result[3], 0.0001f)
-        assertEquals(target[4], result[4], 0.0001f)
-        assertEquals(target[5], result[5], 0.0001f)
+        assertEquals(currentCarrier[0], result[0], 0.0001f)
+        assertEquals(currentCarrier[1], result[1], 0.0001f)
+        assertEquals(currentCarrier[2], result[2], 0.0001f)
+        assertEquals(currentCarrier[5], result[5], 0.0001f)
+    }
+
+    @Test
+    fun halfFadedNativeFakeClosesCarrierCenterHalfwayOnly() {
+        val currentCarrier =
+            floatArrayOf(154f, 136f, 140f, 0f, 0f, 169f)
+        val targetCarrier =
+            floatArrayOf(200f, 150f, 120f, 0f, 0f, 108f)
+
+        val result =
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .closeCarrierCenterToFinal(
+                    currentCarrier = currentCarrier,
+                    targetCarrier = targetCarrier,
+                    nativeFakeAlpha = 0.5f,
+                )
+
+        assertEquals(177f, result[0], 0.0001f)
+        assertEquals(143f, result[1], 0.0001f)
+        assertEquals(currentCarrier[2], result[2], 0.0001f)
+        assertEquals(currentCarrier[5], result[5], 0.0001f)
+    }
+
+    @Test
+    fun latentAdditionalMobileKeepsShrinkOnlyPathBasis() {
+        val source = geometry(width = 20f, height = 20f)
+        val target = geometry(width = 75f, height = 75f)
+
+        val result =
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .interpolateSimilarityGeometry(
+                    source = source,
+                    target = target,
+                    progress = 1f,
+                    scalePolicy = CombinedStatusPainter.TransitionScalePolicy.SHRINK_ONLY,
+                )
+
+        assertEquals(20f, result[2], 0.0001f)
+        assertEquals(20f, result[5], 0.0001f)
     }
 
     @Test

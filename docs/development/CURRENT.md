@@ -18,7 +18,7 @@ Control Center transition animation is the active runtime task.
 
 Current implementation line:
 - PR #177 — feat/control-center-transition-matrix;
-- current work-branch checkpoint: Build 501 / 20260930-501;
+- current work-branch checkpoint: Build 502 / 20260930-502;
 - exact-target direction: QS_FAKE role-5 to final-QS role-6 matrix projection;
 - HyperOS remains translation/appearance authority; raw native expansion drives transition geometry and native fake/final Folme owns visual handoff;
 - Guiyuan reads native transition state and renders only its owned Trinity correspondence; final role-6 top-level slots are read-only occupancy witnesses, while the existing QS_FAKE statusIcons-paddingEnd owner now provides a progress-synchronous semantic reservation so surrounding native peers move through SystemUI's own measure/layout path;
@@ -42,6 +42,8 @@ Build 500 corrects the transition-specific geometry regressions exposed by Build
 
 
 Build 501 follows Build-500 device evidence for latent single-icon projection and Control Center scene cleanup. Supplemental Airplane/No-SIM targets were resolving as whole status-icon slots when no semantic child entry was available; the resulting 77×75-style slot basis made 0→1 icons visibly oversized. Build 501 requires a unique drawable-bearing native ImageView for these single-icon latent targets and fails native for the latent frame if real optical geometry cannot be resolved, rather than falling back to the slot box. The same device run shows that enabling supplemental Airplane changes the entire Trinity decomposition path. Review found a feedback loop: latent Airplane/No-SIM/additional-SIM spans expanded the QS_FAKE statusIcons end reservation, while that same statusIcons row is the native motion carrier for every projected component. Latent participants therefore no longer own transition reservation; only components with an actual compact Trinity source may change that reservation. Finally, collapse no longer leaves the Control Center compact native presentation session alive after the Guiyuan overlay becomes hidden. `requestedVisible=false` now restores the existing ignored-slot/clip/reservation ownership synchronously; the attached fake host/render session may remain for reuse, and the next visible Control Center reacquires native presentation through the existing attach path. No Bluetooth-specific visibility rule is added.
+
+Build 502 follows Build-501 device evidence and corrects two remaining transition-authority errors while reverting one disproven attribution. The Home/Keyguard steady-source correction is retained because device testing confirms the old Trinity press/down-pull left bias is gone. The remaining all-scene fake→real endpoint bias comes from carrier-relative projection continuing to anchor component offsets to the live QS_FAKE `MiuiStatusIconContainer` center even during HyperOS' native fake→final alpha handoff; Build 502 reuses the native fake-root alpha as the sole closure authority, leaving the carrier untouched while fake is opaque and continuously converging only the carrier center toward the final real carrier as HyperOS fades fake out. No offset, threshold, duration, Animator or extra timeline is added. Latent Airplane/No-SIM/additional-SIM rendering also stops replacing the interpolated path basis with the full target basis before reveal: reveal timing remains slot-spacing-owned, while visual scale stays under each component's existing transition scale policy, preventing additional-SIM `SHRINK_ONLY` from being bypassed. The reported Bluetooth Home persistence is now explicitly excluded as Guiyuan evidence; Build 501's collapse-time `deactivateControlCenter()` change is reverted and the prior fake-root prearm lifetime is restored. Build-491/497/498 protection boundaries remain untouched.
 
 ## Current architecture boundary
 
@@ -106,12 +108,13 @@ Device testing is requested only when the result can change implementation choic
 
 ## Immediate next step
 
-1. Run exact-head Runtime CI for Build 499 and produce one signed work-branch Canary from that exact source.
-2. Device gate: verify native No-SIM entry/exit, supplemental participant reveal, Mobile native optical height, and the full Home/Keyguard Control Center trajectory in both directions.
-3. Regression gate: Build-498 Keyguard + Super-Island must remain hitch-free with no VPN/whole-row flash; Build-496 master-switch fail-native behavior must remain accepted.
-4. Only after those gates pass should PR #177 be considered for integration.
+1. Run exact-head Runtime CI for Build 502 and produce one signed work-branch Canary from the same SHA.
+2. Device gate: verify all-scene fake→real endpoint coincidence in slow and fast pull/collapse; the already-fixed press/down-pull left bias must remain absent.
+3. Latent gate: Airplane/No-SIM/additional SIM must reveal only after native slot separation, without immediate whole-target enlargement or dual-SIM vertical stretching; final native handoff must remain continuous.
+4. Regression gate: Build-498 Keyguard + Super-Island remains hitch-free, Build-497 VPN/whole-row flash stays absent, and Build-496 master-switch fail-native behavior remains accepted.
+5. Bluetooth Home persistence is outside the Guiyuan acceptance gate unless new evidence shows a Guiyuan writer/ownership path.
 
-Historical safety checklist (retained for traceability): with Guiyuan enabled, disable the master switch while watching steady Home. Previously covered/suppressed native icons must return immediately without pulling Control Center.
+Historical safety checklist (retained for traceability):Historical safety checklist (retained for traceability): with Guiyuan enabled, disable the master switch while watching steady Home. Previously covered/suppressed native icons must return immediately without pulling Control Center.
 3. Still disabled, pull and collapse Control Center once; steady Home must remain native-correct before and after the gesture.
 4. Re-enable Guiyuan and verify compact presentation reacquires without SystemUI restart/Hot Reload.
 5. Only after this gate passes, resume transition motion ownership work: native peers move directly lower-left, while Guiyuan currently inserts an incorrect initial vertical-only segment. Charging press-left bias and charging-island final overlap remain queued with that motion review.

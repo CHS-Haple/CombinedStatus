@@ -1091,10 +1091,9 @@ class CombinedStatusModule : XposedModule() {
         val visible = update.visible ?: return
         if (!visible) {
             controlCenterSceneVisible = false
-            // Restore Home first, then release the Control Center compact
-            // presentation ownership. The fake host/render session may stay
-            // attached, but native ignored-slot/clip/reservation state must
-            // not survive beyond the visible Control Center scene.
+            // Restore Home first. QS_FAKE compact presentation remains prearmed
+            // for the lifetime of the native fake root; only the Combined
+            // overlay visibility changes with Control Center visibility.
             CombinedStatusHomeRenderSession.onControlCenterAuthorityChanged(true)
             CombinedStatusControlCenterRenderSession.setRequestedVisible(false)
             return

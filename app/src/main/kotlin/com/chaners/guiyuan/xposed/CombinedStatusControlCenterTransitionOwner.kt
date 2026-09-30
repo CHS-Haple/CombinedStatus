@@ -202,6 +202,29 @@ internal object CombinedStatusControlCenterTransitionOwner {
             return maxOf(expansion, appearance)
         }
 
+        fun closeCarrierCenterToFinal(
+            currentCarrier: FloatArray,
+            targetCarrier: FloatArray,
+            nativeFakeAlpha: Float,
+        ): FloatArray {
+            require(currentCarrier.size == 6 && targetCarrier.size == 6)
+            val fakeAlpha =
+                nativeFakeAlpha
+                    .takeIf(Float::isFinite)
+                    ?.coerceIn(0f, 1f)
+                    ?: 1f
+            val closure = 1f - fakeAlpha
+            if (closure <= 0f) return currentCarrier.copyOf()
+            return currentCarrier.copyOf().also { closed ->
+                closed[0] =
+                    currentCarrier[0] +
+                        (targetCarrier[0] - currentCarrier[0]) * closure
+                closed[1] =
+                    currentCarrier[1] +
+                        (targetCarrier[1] - currentCarrier[1]) * closure
+            }
+        }
+
         fun mobileSignalShapeProgress(rawProgress: Float): Float {
             val p = geometryProgress(rawProgress)
             return p * p
@@ -415,21 +438,6 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 source[3],
                 source[4],
                 source[5],
-            )
-        }
-
-        fun latentTargetSizedGeometry(
-            pathGeometry: FloatArray,
-            targetGeometry: FloatArray,
-        ): FloatArray {
-            require(pathGeometry.size == 6 && targetGeometry.size == 6)
-            return floatArrayOf(
-                pathGeometry[0],
-                pathGeometry[1],
-                targetGeometry[2],
-                targetGeometry[3],
-                targetGeometry[4],
-                targetGeometry[5],
             )
         }
 
@@ -780,6 +788,12 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 frozenSource?.geometry ?: liveSourceParentGeometry ?: return
             val sourceWidth = frozenSource?.width ?: sourceView.width
             val sourceHeight = frozenSource?.height ?: sourceView.height
+            val opacity = endpointAlpha(fake)
+            if (opacity <= 0f) return
+            val finalOpacity =
+                finalRootRef.get()
+                    ?.let(::endpointAlpha)
+                    ?: 0f
             val carrierFrames =
                 frozenSource?.motionCarrierGeometry?.let { sourceCarrier ->
                     val currentCarrier =
@@ -795,7 +809,12 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     if (currentCarrier != null && targetCarrier != null) {
                         CarrierFrames(
                             source = sourceCarrier,
-                            current = currentCarrier,
+                            current =
+                                Policy.closeCarrierCenterToFinal(
+                                    currentCarrier = currentCarrier,
+                                    targetCarrier = targetCarrier,
+                                    nativeFakeAlpha = opacity,
+                                ),
                             target = targetCarrier,
                         )
                     } else {
@@ -812,11 +831,6 @@ internal object CombinedStatusControlCenterTransitionOwner {
             if (specs.isEmpty()) return
 
             val nativeProgress = Policy.geometryProgress(progress)
-            val opacity = endpointAlpha(fake)
-            val finalOpacity =
-                finalRootRef.get()
-                    ?.let(::endpointAlpha)
-                    ?: 0f
             val motionProgress =
                 Policy.handoffMotionProgress(
                     expansionProgress = nativeProgress,
@@ -1069,11 +1083,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         scalePolicy = mobileSpec.scalePolicy,
                         carrierFrames = carrierFrames,
                     )
-                val geometry =
-                    Policy.latentTargetSizedGeometry(
-                        pathGeometry = pathGeometry,
-                        targetGeometry = targetGeometry,
-                    )
+                val geometry = pathGeometry
                 val matrix =
                     matrixForBoundsGeometry(
                         geometry = geometry,
@@ -1170,11 +1180,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     scalePolicy = CombinedStatusPainter.TransitionScalePolicy.TARGET,
                     carrierFrames = carrierFrames,
                 )
-            val geometry =
-                Policy.latentTargetSizedGeometry(
-                    pathGeometry = pathGeometry,
-                    targetGeometry = targetGeometry,
-                )
+            val geometry = pathGeometry
             val revealProgress =
                 latentRevealOpacity(
                     sourceGeometry = sourceGeometry,
@@ -1260,11 +1266,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     scalePolicy = CombinedStatusPainter.TransitionScalePolicy.TARGET,
                     carrierFrames = carrierFrames,
                 )
-            val geometry =
-                Policy.latentTargetSizedGeometry(
-                    pathGeometry = pathGeometry,
-                    targetGeometry = targetGeometry,
-                )
+            val geometry = pathGeometry
             val revealProgress =
                 latentRevealOpacity(
                     sourceGeometry = sourceGeometry,
