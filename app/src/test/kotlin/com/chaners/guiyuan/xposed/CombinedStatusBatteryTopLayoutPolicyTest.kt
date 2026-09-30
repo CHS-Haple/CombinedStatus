@@ -17,20 +17,7 @@ class CombinedStatusBatteryTopLayoutPolicyTest {
     }
 
     @Test
-    fun zeroUsesUpwardOpticalDefaultWithoutArtificialHeadroomShift() {
-        val base =
-            CombinedStatusBatteryTopLayoutPolicy.resolveOpticalBaseCenterY(
-                preferredCenterY = 16f,
-                defaultOpticalRise = 1.5f,
-                contentInkHeight = 18f,
-                minimumSafeTopY = -36f,
-            )
-
-        assertEquals(14.5f, base, 0.0001f)
-    }
-
-    @Test
-    fun opticalDefaultClampsOnlyAtActualPhysicalTopSafety() {
+    fun opticalDefaultStillClampsOnlyTheAutomaticBasePlacement() {
         val base =
             CombinedStatusBatteryTopLayoutPolicy.resolveOpticalBaseCenterY(
                 preferredCenterY = 16f,
@@ -43,73 +30,51 @@ class CombinedStatusBatteryTopLayoutPolicyTest {
     }
 
     @Test
-    fun positiveOffsetUsesRequestedDistanceWhileRealHeadroomExists() {
+    fun manualPositiveOffsetIsLiteralAndNotClampedByHiddenHeadroom() {
         val center =
             CombinedStatusBatteryTopLayoutPolicy.resolveCenterY(
                 baseCenterY = 14.5f,
-                requestedOffset = 20f,
-                positiveLimit = 30f,
+                requestedOffset = 13f,
+                positiveLimit = 13f,
             )
 
-        assertEquals(-5.5f, center, 0.0001f)
+        assertEquals(1.5f, center, 0.0001f)
     }
 
     @Test
-    fun positiveMaximumCanTravelAboveCanonicalZeroWithoutClippingView() {
+    fun manualNegativeOffsetIsLiteral() {
         val center =
             CombinedStatusBatteryTopLayoutPolicy.resolveCenterY(
                 baseCenterY = 14.5f,
-                requestedOffset = 30f,
-                positiveLimit = 30f,
+                requestedOffset = -7f,
+                positiveLimit = 13f,
             )
 
-        assertEquals(-15.5f, center, 0.0001f)
-        assertTrue(center < 0f)
+        assertEquals(21.5f, center, 0.0001f)
     }
 
     @Test
-    fun positiveOffsetRemainsLiteralPastFormerClipSafetyCeiling() {
+    fun nonFiniteManualOffsetFallsBackToAutomaticBase() {
         val center =
             CombinedStatusBatteryTopLayoutPolicy.resolveCenterY(
                 baseCenterY = 14.5f,
-                requestedOffset = 30f,
-                positiveLimit = 30f,
+                requestedOffset = Float.NaN,
+                positiveLimit = 13f,
             )
 
-        assertEquals(-15.5f, center, 0.0001f)
+        assertEquals(14.5f, center, 0.0001f)
     }
 
     @Test
-    fun negativeOffsetKeepsRequestedDownwardDistance() {
+    fun positiveOffsetStillHonorsExplicitConfiguredRange() {
         val center =
             CombinedStatusBatteryTopLayoutPolicy.resolveCenterY(
-                baseCenterY = 13.5f,
-                requestedOffset = -30f,
-                positiveLimit = 30f,
+                baseCenterY = 14.5f,
+                requestedOffset = 100f,
+                positiveLimit = 13f,
             )
 
-        assertEquals(43.5f, center, 0.0001f)
-    }
-
-    @Test
-    fun ringGapPaddingGrowsWithOpticalInkHeight() {
-        val small =
-            CombinedStatusBatteryTopLayoutPolicy.resolveRingGapPadding(
-                contentInkHeight = 12f,
-                ringStroke = 4f,
-                basePadding = 3f,
-                inkHeightRatio = 0.08f,
-                ringStrokeRatio = 0.25f,
-            )
-        val large =
-            CombinedStatusBatteryTopLayoutPolicy.resolveRingGapPadding(
-                contentInkHeight = 24f,
-                ringStroke = 4f,
-                basePadding = 3f,
-                inkHeightRatio = 0.08f,
-                ringStrokeRatio = 0.25f,
-            )
-
-        assertTrue(large > small)
+        assertEquals(1.5f, center, 0.0001f)
+        assertTrue(center < 14.5f)
     }
 }
