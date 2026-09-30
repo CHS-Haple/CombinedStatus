@@ -91,17 +91,17 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
-    fun carrierRelativeInterpolationInheritsNativeCarrierMotion() {
+    fun carrierRelativeInterpolationInheritsOnlyNativeCarrierCenterMotion() {
         val source =
-            floatArrayOf(75f, 50f, 10f, 0f, 0f, 10f)
+            floatArrayOf(75f, 70f, 10f, 0f, 0f, 10f)
         val target =
             floatArrayOf(235f, 150f, 20f, 0f, 0f, 20f)
         val sourceCarrier =
             floatArrayOf(50f, 50f, 100f, 0f, 0f, 100f)
         val currentCarrier =
-            floatArrayOf(130f, 120f, 100f, 0f, 0f, 100f)
+            floatArrayOf(130f, 120f, 140f, 0f, 0f, 169f)
         val targetCarrier =
-            floatArrayOf(200f, 150f, 100f, 0f, 0f, 100f)
+            floatArrayOf(200f, 150f, 120f, 0f, 0f, 108f)
 
         val result =
             CombinedStatusControlCenterTransitionOwner.Policy
@@ -116,23 +116,23 @@ class CombinedStatusControlCenterTransitionOwnerTest {
                 )
 
         assertEquals(160f, result[0], 0.0001f)
-        assertEquals(120f, result[1], 0.0001f)
+        assertEquals(130f, result[1], 0.0001f)
         assertEquals(15f, result[2], 0.0001f)
         assertEquals(15f, result[5], 0.0001f)
     }
 
     @Test
-    fun carrierRelativeInterpolationPreservesSourceLocalPositionAtStart() {
+    fun carrierRelativeInterpolationDoesNotRescaleSourceOffsetAtGestureStart() {
         val source =
-            floatArrayOf(75f, 50f, 10f, 0f, 0f, 10f)
+            floatArrayOf(75f, 70f, 10f, 0f, 0f, 10f)
         val target =
             floatArrayOf(235f, 150f, 20f, 0f, 0f, 20f)
         val sourceCarrier =
-            floatArrayOf(50f, 50f, 100f, 0f, 0f, 100f)
+            floatArrayOf(50f, 50f, 100f, 0f, 0f, 108f)
         val currentCarrier =
-            floatArrayOf(60f, 65f, 100f, 0f, 0f, 100f)
+            floatArrayOf(60f, 65f, 140f, 0f, 0f, 169f)
         val targetCarrier =
-            floatArrayOf(200f, 150f, 100f, 0f, 0f, 100f)
+            floatArrayOf(200f, 150f, 120f, 0f, 0f, 108f)
 
         val result =
             CombinedStatusControlCenterTransitionOwner.Policy
@@ -147,7 +147,7 @@ class CombinedStatusControlCenterTransitionOwnerTest {
                 )
 
         assertEquals(85f, result[0], 0.0001f)
-        assertEquals(65f, result[1], 0.0001f)
+        assertEquals(85f, result[1], 0.0001f)
         assertEquals(10f, result[2], 0.0001f)
         assertEquals(10f, result[5], 0.0001f)
     }
@@ -159,9 +159,9 @@ class CombinedStatusControlCenterTransitionOwnerTest {
         val target =
             floatArrayOf(235f, 150f, 20f, 0f, 0f, 20f)
         val sourceCarrier =
-            floatArrayOf(50f, 50f, 100f, 0f, 0f, 100f)
+            floatArrayOf(50f, 50f, 100f, 0f, 0f, 108f)
         val targetCarrier =
-            floatArrayOf(200f, 150f, 100f, 0f, 0f, 100f)
+            floatArrayOf(200f, 150f, 140f, 0f, 0f, 169f)
 
         val result =
             CombinedStatusControlCenterTransitionOwner.Policy
@@ -279,6 +279,36 @@ class CombinedStatusControlCenterTransitionOwnerTest {
             0f,
             height,
         )
+
+    @Test
+    fun steadyTransitionSourceUsesHostEndSlotInsteadOfInnerBatteryCenter() {
+        val host = floatArrayOf(300f, 54f, 600f, 0f, 0f, 108f)
+
+        val ltr =
+            CombinedStatusControlCenterTransitionOwner.Policy.endAnchoredSlotGeometry(
+                hostGeometry = host,
+                hostWidth = 600,
+                hostHeight = 108,
+                slotWidth = 105,
+                isRtl = false,
+            )
+        requireNotNull(ltr)
+        assertEquals(547.5f, ltr[0], 0.0001f)
+        assertEquals(54f, ltr[1], 0.0001f)
+        assertEquals(105f, ltr[2], 0.0001f)
+        assertEquals(108f, ltr[5], 0.0001f)
+
+        val rtl =
+            CombinedStatusControlCenterTransitionOwner.Policy.endAnchoredSlotGeometry(
+                hostGeometry = host,
+                hostWidth = 600,
+                hostHeight = 108,
+                slotWidth = 105,
+                isRtl = true,
+            )
+        requireNotNull(rtl)
+        assertEquals(52.5f, rtl[0], 0.0001f)
+    }
 
     @Test
     fun sourceGeometryKeepsNativePositionButUsesStableRenderBasis() {

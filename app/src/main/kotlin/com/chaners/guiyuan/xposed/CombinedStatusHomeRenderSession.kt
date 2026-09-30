@@ -348,6 +348,7 @@ internal object CombinedStatusHomeRenderSession {
             return CombinedStatusTransitionSourceWitness(
                 renderView = render,
                 positionAnchor = anchor,
+                positionHost = batteryContainer.get() ?: return null,
                 motionCarrier = motion,
                 representedSlots =
                     SystemUiHomePresentationOwner.currentHomeRepresentedSlotOwnership(),

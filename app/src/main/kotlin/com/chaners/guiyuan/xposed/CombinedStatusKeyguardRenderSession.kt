@@ -181,6 +181,7 @@ internal object CombinedStatusKeyguardRenderSession {
             return CombinedStatusTransitionSourceWitness(
                 renderView = render,
                 positionAnchor = anchor,
+                positionHost = systemIcons.get() ?: return null,
                 motionCarrier = motion,
                 representedSlots =
                     SystemUiHomePresentationOwner.currentKeyguardRepresentedSlotOwnership(),

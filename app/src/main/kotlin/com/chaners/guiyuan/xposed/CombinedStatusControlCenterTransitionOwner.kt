@@ -327,6 +327,38 @@ internal object CombinedStatusControlCenterTransitionOwner {
             )
         }
 
+        fun endAnchoredSlotGeometry(
+            hostGeometry: FloatArray,
+            hostWidth: Int,
+            hostHeight: Int,
+            slotWidth: Int,
+            isRtl: Boolean,
+        ): FloatArray? {
+            if (
+                hostGeometry.size != 6 ||
+                hostWidth <= 0 ||
+                hostHeight <= 0 ||
+                slotWidth <= 0 ||
+                slotWidth > hostWidth
+            ) {
+                return null
+            }
+            val left = if (isRtl) 0f else (hostWidth - slotWidth).toFloat()
+            val right = if (isRtl) slotWidth.toFloat() else hostWidth.toFloat()
+            return componentGeometry(
+                parentGeometry = hostGeometry,
+                parentWidth = hostWidth,
+                parentHeight = hostHeight,
+                bounds =
+                    CombinedStatusPainter.TransitionBounds(
+                        left = left,
+                        top = 0f,
+                        right = right,
+                        bottom = hostHeight.toFloat(),
+                    ),
+            )
+        }
+
         fun interpolateCarrierRelativeGeometry(
             source: FloatArray,
             target: FloatArray,
@@ -343,33 +375,11 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     currentCarrier.size == 6 &&
                     targetCarrier.size == 6,
             )
-            val sourceCarrierWidth = vectorLength(sourceCarrier[2], sourceCarrier[3])
-            val sourceCarrierHeight = vectorLength(sourceCarrier[4], sourceCarrier[5])
-            val currentCarrierWidth = vectorLength(currentCarrier[2], currentCarrier[3])
-            val currentCarrierHeight = vectorLength(currentCarrier[4], currentCarrier[5])
-            val targetCarrierWidth = vectorLength(targetCarrier[2], targetCarrier[3])
-            val targetCarrierHeight = vectorLength(targetCarrier[4], targetCarrier[5])
-            if (
-                sourceCarrierWidth <= 0f ||
-                sourceCarrierHeight <= 0f ||
-                currentCarrierWidth <= 0f ||
-                currentCarrierHeight <= 0f ||
-                targetCarrierWidth <= 0f ||
-                targetCarrierHeight <= 0f
-            ) {
-                return interpolateSimilarityGeometry(
-                    source = source,
-                    target = target,
-                    progress = progress,
-                    scalePolicy = scalePolicy,
-                )
-            }
-
             val p = geometryProgress(progress)
-            val sourceLocalX = (source[0] - sourceCarrier[0]) / sourceCarrierWidth
-            val sourceLocalY = (source[1] - sourceCarrier[1]) / sourceCarrierHeight
-            val targetLocalX = (target[0] - targetCarrier[0]) / targetCarrierWidth
-            val targetLocalY = (target[1] - targetCarrier[1]) / targetCarrierHeight
+            val sourceOffsetX = source[0] - sourceCarrier[0]
+            val sourceOffsetY = source[1] - sourceCarrier[1]
+            val targetOffsetX = target[0] - targetCarrier[0]
+            val targetOffsetY = target[1] - targetCarrier[1]
             val basis =
                 interpolateSimilarityGeometry(
                     source = source,
@@ -379,12 +389,12 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 )
             basis[0] =
                 currentCarrier[0] +
-                    (sourceLocalX + (targetLocalX - sourceLocalX) * p) *
-                    currentCarrierWidth
+                    sourceOffsetX +
+                    (targetOffsetX - sourceOffsetX) * p
             basis[1] =
                 currentCarrier[1] +
-                    (sourceLocalY + (targetLocalY - sourceLocalY) * p) *
-                    currentCarrierHeight
+                    sourceOffsetY +
+                    (targetOffsetY - sourceOffsetY) * p
             return basis
         }
 
@@ -398,23 +408,9 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     sourceCarrier.size == 6 &&
                     currentCarrier.size == 6,
             )
-            val sourceCarrierWidth = vectorLength(sourceCarrier[2], sourceCarrier[3])
-            val sourceCarrierHeight = vectorLength(sourceCarrier[4], sourceCarrier[5])
-            val currentCarrierWidth = vectorLength(currentCarrier[2], currentCarrier[3])
-            val currentCarrierHeight = vectorLength(currentCarrier[4], currentCarrier[5])
-            if (
-                sourceCarrierWidth <= 0f ||
-                sourceCarrierHeight <= 0f ||
-                currentCarrierWidth <= 0f ||
-                currentCarrierHeight <= 0f
-            ) {
-                return source.copyOf()
-            }
-            val localX = (source[0] - sourceCarrier[0]) / sourceCarrierWidth
-            val localY = (source[1] - sourceCarrier[1]) / sourceCarrierHeight
             return floatArrayOf(
-                currentCarrier[0] + localX * currentCarrierWidth,
-                currentCarrier[1] + localY * currentCarrierHeight,
+                source[0] + (currentCarrier[0] - sourceCarrier[0]),
+                source[1] + (currentCarrier[1] - sourceCarrier[1]),
                 source[2],
                 source[3],
                 source[4],
@@ -2332,6 +2328,9 @@ internal object CombinedStatusControlCenterTransitionOwner {
                                 witness.positionAnchor.width > 0 &&
                                 witness.positionAnchor.height > 0 &&
                                 witness.positionAnchor.isAttachedToWindow &&
+                                witness.positionHost.width >= witness.renderView.width &&
+                                witness.positionHost.height > 0 &&
+                                witness.positionHost.isAttachedToWindow &&
                                 witness.motionCarrier.width > 0 &&
                                 witness.motionCarrier.height > 0 &&
                                 witness.motionCarrier.isAttachedToWindow
@@ -2342,10 +2341,20 @@ internal object CombinedStatusControlCenterTransitionOwner {
                                     view = witness.renderView,
                                     root = root,
                                 ) ?: return@let null
-                            val positionGeometry =
+                            val positionHostGeometry =
                                 sampleGeometry(
-                                    view = witness.positionAnchor,
+                                    view = witness.positionHost,
                                     root = root,
+                                ) ?: return@let null
+                            val positionGeometry =
+                                Policy.endAnchoredSlotGeometry(
+                                    hostGeometry = positionHostGeometry,
+                                    hostWidth = witness.positionHost.width,
+                                    hostHeight = witness.positionHost.height,
+                                    slotWidth = witness.renderView.width,
+                                    isRtl =
+                                        witness.positionHost.layoutDirection ==
+                                            View.LAYOUT_DIRECTION_RTL,
                                 ) ?: return@let null
                             val motionCarrierGeometry =
                                 sampleGeometry(
@@ -2364,9 +2373,9 @@ internal object CombinedStatusControlCenterTransitionOwner {
                                 representedSlots = witness.representedSlots.toSet(),
                                 source =
                                     steadySourceLabel +
-                                        "-steady-anchor+" +
+                                        "-steady-end-slot+" +
                                         if (
-                                            witness.positionAnchor.rootView ===
+                                            witness.positionHost.rootView ===
                                             root.rootView
                                         ) {
                                             "same-root"
