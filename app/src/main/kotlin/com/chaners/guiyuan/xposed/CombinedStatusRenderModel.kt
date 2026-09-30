@@ -19,6 +19,11 @@ internal data class CombinedStatusRenderModel(
         ): CombinedStatusRenderModel? {
             val battery = snapshot.battery ?: return null
 
+            val nativeNoSimVisible = presentation.statusIcons.noSimVisible
+            val noSimIcon =
+                presentation.statusIcons.noSimIcon
+                    ?.takeIf { nativeNoSimVisible }
+
             val preferredDataSubscriptionId =
                 presentation.mobilePresentation
                     ?.effectiveDataSubscriptionId
@@ -26,25 +31,33 @@ internal data class CombinedStatusRenderModel(
                     ?: defaultDataSubscriptionId
 
             val selectedMobile =
-                snapshot.mobile[preferredDataSubscriptionId]
-                    ?.takeIf { it.signal !is SignalStrength.Unknown }
-                    ?.let { preferredDataSubscriptionId to it }
-                    ?: snapshot.mobile.entries
-                        .firstOrNull { it.value.signal !is SignalStrength.Unknown }
-                        ?.let { it.key to it.value }
+                if (nativeNoSimVisible) {
+                    null
+                } else {
+                    snapshot.mobile[preferredDataSubscriptionId]
+                        ?.takeIf { it.signal !is SignalStrength.Unknown }
+                        ?.let { preferredDataSubscriptionId to it }
+                        ?: snapshot.mobile.entries
+                            .firstOrNull { it.value.signal !is SignalStrength.Unknown }
+                            ?.let { it.key to it.value }
+                }
 
             val selectedSubscriptionId =
-                selectedMobile?.first
-                    ?: preferredDataSubscriptionId.takeIf { it >= 0 }
-                    ?: snapshot.mobile.keys.firstOrNull()
-                    ?: -1
+                if (nativeNoSimVisible) {
+                    -1
+                } else {
+                    selectedMobile?.first
+                        ?: preferredDataSubscriptionId.takeIf { it >= 0 }
+                        ?: snapshot.mobile.keys.firstOrNull()
+                        ?: -1
+                }
 
             val airplaneMode = snapshot.airplaneMode == true
             val mobileRecoveryPending = snapshot.mobileRecoveryPending
             val selectedSignal = selectedMobile?.second?.signal
 
             val mobileLevel =
-                if (airplaneMode || mobileRecoveryPending) {
+                if (airplaneMode || mobileRecoveryPending || nativeNoSimVisible) {
                     null
                 } else {
                     when (selectedSignal) {
@@ -54,9 +67,6 @@ internal data class CombinedStatusRenderModel(
                         is SignalStrength.Level -> selectedSignal.value.coerceIn(0, 4)
                     }
                 }
-            val noSimIcon =
-                presentation.statusIcons.noSimIcon
-                    ?.takeIf { presentation.statusIcons.noSimVisible }
 
             val centerIndicator =
                 CombinedStatusConnectivityPolicy.resolve(
@@ -64,14 +74,14 @@ internal data class CombinedStatusRenderModel(
                     airplaneMode = airplaneMode,
                     connectivity = presentation.connectivity,
                     mobileType =
-                        if (mobileRecoveryPending) {
+                        if (mobileRecoveryPending || nativeNoSimVisible) {
                             null
                         } else {
                             presentation.mobilePresentation?.networkType
                         },
                     noSimIcon = noSimIcon,
                 )
-                    ?: if (mobileRecoveryPending) {
+                    ?: if (mobileRecoveryPending || nativeNoSimVisible) {
                         CenterIndicator.Empty
                     } else {
                         return null
@@ -80,8 +90,8 @@ internal data class CombinedStatusRenderModel(
             val mobileUnavailableMark =
                 when {
                     airplaneMode -> true
+                    nativeNoSimVisible -> true
                     mobileRecoveryPending -> false
-                    noSimIcon != null -> true
                     selectedSignal is SignalStrength.Unavailable -> true
                     else -> false
                 }
