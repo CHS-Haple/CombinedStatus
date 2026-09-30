@@ -135,6 +135,8 @@ internal class CombinedStatusPainter(
         mobileTargetWidthRatio: Float? = null,
         mobileTargetHeightRatio: Float? = null,
         mobileTargetBars: List<TransitionNormalizedBounds>? = null,
+        batteryTargetWidthRatio: Float? = null,
+        batteryTargetHeightRatio: Float? = null,
         batteryNumberTargetWeight: Int? = null,
         centerTargetTextWeight: Int? = null,
     ) {
@@ -159,14 +161,7 @@ internal class CombinedStatusPainter(
         val shape = shapeProgress.coerceIn(0f, 1f)
         val componentSave = canvas.save()
         when (shapePolicy) {
-            TransitionShapePolicy.BATTERY_FOLD ->
-                canvas.scale(
-                    1f,
-                    lerp(1f, BATTERY_FOLD_SCALE_Y, motion),
-                    BATTERY_COMPONENT_CENTER_X,
-                    BATTERY_COMPONENT_CENTER_Y,
-                )
-
+            TransitionShapePolicy.BATTERY_FOLD,
             TransitionShapePolicy.RIGID,
             TransitionShapePolicy.MOBILE_SIGNAL,
             -> Unit
@@ -174,7 +169,7 @@ internal class CombinedStatusPainter(
 
         when (component) {
             TransitionComponent.BATTERY ->
-                drawBattery(
+                drawBatteryTransition(
                     canvas = canvas,
                     model = model,
                     batteryTint = colors.batteryTint,
@@ -185,7 +180,9 @@ internal class CombinedStatusPainter(
                         ),
                     visualSettings = visualSettings,
                     nativeTransform = nativeTransform,
-                    drawReadoutText = false,
+                    shapeProgress = shape,
+                    targetWidthRatio = batteryTargetWidthRatio,
+                    targetHeightRatio = batteryTargetHeightRatio,
                 )
 
             TransitionComponent.BATTERY_NUMBER ->
@@ -268,6 +265,215 @@ internal class CombinedStatusPainter(
         canvas.restoreToCount(componentSave)
 
         canvas.restoreToCount(save)
+    }
+
+    internal object BatteryMorphPolicy {
+        private const val MORPH_START = 0.10f
+        private const val MORPH_END = 0.88f
+        private const val GAP_CLOSE_START = 0.16f
+        private const val GAP_CLOSE_END = 0.56f
+        private const val CHARGING_FADE_START = 0.04f
+        private const val CHARGING_FADE_END = 0.38f
+        private const val TARGET_CORNER_RATIO = 0.58f
+
+        fun morphProgress(progress: Float): Float =
+            smoothPhase(progress, MORPH_START, MORPH_END)
+
+        fun gapClosureProgress(progress: Float): Float =
+            smoothPhase(progress, GAP_CLOSE_START, GAP_CLOSE_END)
+
+        fun chargingGlyphOpacity(progress: Float): Float =
+            (1f - smoothPhase(progress, CHARGING_FADE_START, CHARGING_FADE_END))
+                .coerceIn(0f, 1f)
+
+        fun outerSimilarityScale(
+            targetWidthRatio: Float?,
+            targetHeightRatio: Float?,
+        ): Float? {
+            val width = targetWidthRatio?.takeIf { it.isFinite() && it > 0f } ?: return null
+            val height = targetHeightRatio?.takeIf { it.isFinite() && it > 0f } ?: return null
+            return min(width, height).coerceAtLeast(0.001f)
+        }
+
+        fun targetAxisCompensation(
+            targetAxisRatio: Float?,
+            outerScale: Float?,
+        ): Float? {
+            val target = targetAxisRatio?.takeIf { it.isFinite() && it > 0f } ?: return null
+            val scale = outerScale?.takeIf { it.isFinite() && it > 0f } ?: return null
+            return (target / scale).coerceAtLeast(0.001f)
+        }
+
+        fun targetCornerRadius(
+            halfWidth: Float,
+            halfHeight: Float,
+        ): Float =
+            min(halfWidth, halfHeight)
+                .coerceAtLeast(0f) * TARGET_CORNER_RATIO
+
+        fun roundedRectPerimeterPoint(
+            progress: Float,
+            halfWidth: Float,
+            halfHeight: Float,
+            cornerRadius: Float,
+            out: FloatArray,
+        ): Boolean {
+            if (
+                out.size < 2 ||
+                !halfWidth.isFinite() ||
+                !halfHeight.isFinite() ||
+                halfWidth <= 0f ||
+                halfHeight <= 0f
+            ) {
+                return false
+            }
+            val radius =
+                cornerRadius
+                    .takeIf(Float::isFinite)
+                    ?.coerceIn(0f, min(halfWidth, halfHeight))
+                    ?: 0f
+            val horizontal = (halfWidth - radius).coerceAtLeast(0f)
+            val vertical = (2f * (halfHeight - radius)).coerceAtLeast(0f)
+            val quarterArc = (Math.PI.toFloat() * radius / 2f).coerceAtLeast(0f)
+            val total =
+                horizontal +
+                    quarterArc +
+                    vertical +
+                    quarterArc +
+                    2f * horizontal +
+                    quarterArc +
+                    vertical +
+                    quarterArc +
+                    horizontal
+            if (!total.isFinite() || total <= 0f) return false
+
+            var distance = progress.coerceIn(0f, 1f) * total
+
+            fun line(
+                length: Float,
+                x0: Float,
+                y0: Float,
+                x1: Float,
+                y1: Float,
+            ): Boolean {
+                if (distance > length || length <= 0f) {
+                    distance -= length.coerceAtLeast(0f)
+                    return false
+                }
+                val t = (distance / length).coerceIn(0f, 1f)
+                out[0] = lerp(x0, x1, t)
+                out[1] = lerp(y0, y1, t)
+                return true
+            }
+
+            fun arc(
+                length: Float,
+                centerX: Float,
+                centerY: Float,
+                startDegrees: Float,
+                sweepDegrees: Float,
+            ): Boolean {
+                if (distance > length || length <= 0f) {
+                    distance -= length.coerceAtLeast(0f)
+                    return false
+                }
+                val t = (distance / length).coerceIn(0f, 1f)
+                val angle =
+                    Math.toRadians(
+                        (startDegrees + sweepDegrees * t).toDouble(),
+                    )
+                out[0] = centerX + radius * cos(angle).toFloat()
+                out[1] = centerY + radius * sin(angle).toFloat()
+                return true
+            }
+
+            // Start/end at bottom center. The source ring's two lower ends
+            // therefore converge into one point while the source top remains
+            // mapped to the target top center at progress ~= 0.5.
+            if (line(horizontal, 0f, halfHeight, -horizontal, halfHeight)) return true
+            if (
+                arc(
+                    quarterArc,
+                    -horizontal,
+                    halfHeight - radius,
+                    90f,
+                    90f,
+                )
+            ) return true
+            if (
+                line(
+                    vertical,
+                    -halfWidth,
+                    halfHeight - radius,
+                    -halfWidth,
+                    -halfHeight + radius,
+                )
+            ) return true
+            if (
+                arc(
+                    quarterArc,
+                    -horizontal,
+                    -halfHeight + radius,
+                    180f,
+                    90f,
+                )
+            ) return true
+            if (
+                line(
+                    2f * horizontal,
+                    -horizontal,
+                    -halfHeight,
+                    horizontal,
+                    -halfHeight,
+                )
+            ) return true
+            if (
+                arc(
+                    quarterArc,
+                    horizontal,
+                    -halfHeight + radius,
+                    270f,
+                    90f,
+                )
+            ) return true
+            if (
+                line(
+                    vertical,
+                    halfWidth,
+                    -halfHeight + radius,
+                    halfWidth,
+                    halfHeight - radius,
+                )
+            ) return true
+            if (
+                arc(
+                    quarterArc,
+                    horizontal,
+                    halfHeight - radius,
+                    0f,
+                    90f,
+                )
+            ) return true
+            if (line(horizontal, horizontal, halfHeight, 0f, halfHeight)) return true
+
+            out[0] = 0f
+            out[1] = halfHeight
+            return true
+        }
+
+        private fun smoothPhase(
+            value: Float,
+            start: Float,
+            end: Float,
+        ): Float {
+            val normalized =
+                if (!value.isFinite() || end <= start) {
+                    0f
+                } else {
+                    ((value - start) / (end - start)).coerceIn(0f, 1f)
+                }
+            return normalized * normalized * (3f - 2f * normalized)
+        }
     }
 
     internal object MobileTypeTransitionPolicy {
@@ -926,6 +1132,238 @@ internal class CombinedStatusPainter(
         return cachedOuterGeometry
     }
 
+    private fun drawBatteryTransition(
+        canvas: Canvas,
+        model: CombinedStatusRenderModel,
+        batteryTint: Int,
+        opacity: Float,
+        geometry: CombinedStatusOuterGeometry.Resolved,
+        visualSettings: CombinedStatusVisualSettings,
+        nativeTransform: NativeRenderTransform,
+        shapeProgress: Float,
+        targetWidthRatio: Float?,
+        targetHeightRatio: Float?,
+    ) {
+        val readout =
+            resolveBatteryTopReadoutLayout(
+                model = model,
+                visualSettings = visualSettings,
+                ringStroke = geometry.ringStroke,
+                nativeTransform = nativeTransform,
+            )
+        val outerScale =
+            BatteryMorphPolicy.outerSimilarityScale(
+                targetWidthRatio = targetWidthRatio,
+                targetHeightRatio = targetHeightRatio,
+            )
+        val widthCompensation =
+            BatteryMorphPolicy.targetAxisCompensation(
+                targetAxisRatio = targetWidthRatio,
+                outerScale = outerScale,
+            )
+        val heightCompensation =
+            BatteryMorphPolicy.targetAxisCompensation(
+                targetAxisRatio = targetHeightRatio,
+                outerScale = outerScale,
+            )
+        val morph =
+            if (
+                widthCompensation != null &&
+                heightCompensation != null
+            ) {
+                BatteryMorphPolicy.morphProgress(shapeProgress)
+            } else {
+                0f
+            }
+
+        fun drawBaseSegments(segmentOpacity: Float) {
+            if (segmentOpacity <= 0f) return
+            val segments =
+                CombinedStatusBatteryArcPolicy.resolve(
+                    batteryPercent = model.batteryPercent,
+                    startDegrees = BATTERY_START_DEGREES,
+                    maxSweep = BATTERY_MAX_SWEEP,
+                    degreesPerPercent = BATTERY_DEGREES_PER_PERCENT,
+                )
+            if (segments.inactiveSweep > 0f) {
+                stroke(
+                    batteryTint,
+                    48,
+                    geometry.ringStroke,
+                    opacity * segmentOpacity,
+                )
+                drawBatteryMorphArc(
+                    canvas = canvas,
+                    startDegrees = segments.inactiveStart,
+                    sweepDegrees = segments.inactiveSweep,
+                    morphProgress = morph,
+                    widthCompensation = widthCompensation ?: 1f,
+                    heightCompensation = heightCompensation ?: 1f,
+                )
+            }
+            if (segments.activeSweep > 0f) {
+                stroke(
+                    batteryTint,
+                    255,
+                    geometry.ringStroke,
+                    opacity * segmentOpacity,
+                )
+                drawBatteryMorphArc(
+                    canvas = canvas,
+                    startDegrees = BATTERY_START_DEGREES,
+                    sweepDegrees = segments.activeSweep,
+                    morphProgress = morph,
+                    widthCompensation = widthCompensation ?: 1f,
+                    heightCompensation = heightCompensation ?: 1f,
+                )
+            }
+        }
+
+        if (readout == null) {
+            drawBaseSegments(1f)
+        } else {
+            val gapClosure = BatteryMorphPolicy.gapClosureProgress(shapeProgress)
+            val sourceGapOpacity = 1f - gapClosure
+            if (sourceGapOpacity > 0f) {
+                val segments =
+                    CombinedStatusBatteryTopArcPolicy.resolve(
+                        batteryPercent = model.batteryPercent,
+                        startDegrees = BATTERY_START_DEGREES,
+                        maxSweep = BATTERY_MAX_SWEEP,
+                        gapCenterDegrees = BATTERY_TOP_GAP_CENTER_DEGREES,
+                        gapSweepDegrees =
+                            CombinedStatusBatteryTopArcPolicy.gapSweepDegrees(
+                                groupWidth = readout.groupWidth,
+                                ringRadius = batteryRing.width() / 2f,
+                                horizontalPadding = readout.ringGapPadding,
+                            ),
+                    )
+                stroke(
+                    batteryTint,
+                    48,
+                    geometry.ringStroke,
+                    opacity * sourceGapOpacity,
+                )
+                segments.inactive.forEach { arc ->
+                    drawBatteryMorphArc(
+                        canvas = canvas,
+                        startDegrees = arc.startDegrees,
+                        sweepDegrees = arc.sweepDegrees,
+                        morphProgress = morph,
+                        widthCompensation = widthCompensation ?: 1f,
+                        heightCompensation = heightCompensation ?: 1f,
+                    )
+                }
+                stroke(
+                    batteryTint,
+                    255,
+                    geometry.ringStroke,
+                    opacity * sourceGapOpacity,
+                )
+                segments.active.forEach { arc ->
+                    drawBatteryMorphArc(
+                        canvas = canvas,
+                        startDegrees = arc.startDegrees,
+                        sweepDegrees = arc.sweepDegrees,
+                        morphProgress = morph,
+                        widthCompensation = widthCompensation ?: 1f,
+                        heightCompensation = heightCompensation ?: 1f,
+                    )
+                }
+            }
+            drawBaseSegments(gapClosure)
+            drawBatteryTopReadout(
+                canvas = canvas,
+                layout = readout,
+                batteryTint = batteryTint,
+                opacity = opacity,
+                nativeTransform = nativeTransform,
+                drawText = false,
+                chargingIconOpacity =
+                    BatteryMorphPolicy.chargingGlyphOpacity(shapeProgress),
+            )
+        }
+    }
+
+    private fun drawBatteryMorphArc(
+        canvas: Canvas,
+        startDegrees: Float,
+        sweepDegrees: Float,
+        morphProgress: Float,
+        widthCompensation: Float,
+        heightCompensation: Float,
+    ) {
+        if (sweepDegrees <= 0f) return
+        val progress = morphProgress.coerceIn(0f, 1f)
+        if (progress <= 0f) {
+            canvas.drawArc(
+                batteryRing,
+                startDegrees,
+                sweepDegrees,
+                false,
+                paint,
+            )
+            return
+        }
+
+        val sourceHalfWidth = batteryRing.width() / 2f
+        val sourceHalfHeight = batteryRing.height() / 2f
+        val targetHalfWidth =
+            sourceHalfWidth * widthCompensation.coerceAtLeast(0.001f)
+        val targetHalfHeight =
+            sourceHalfHeight * heightCompensation.coerceAtLeast(0.001f)
+        val targetCorner =
+            BatteryMorphPolicy.targetCornerRadius(
+                halfWidth = targetHalfWidth,
+                halfHeight = targetHalfHeight,
+            )
+        val samples =
+            kotlin.math.ceil(sweepDegrees / BATTERY_MORPH_SAMPLE_DEGREES)
+                .toInt()
+                .coerceAtLeast(2)
+        val path = Path()
+        val target = FloatArray(2)
+        for (index in 0..samples) {
+            val fraction = index.toFloat() / samples
+            val angleDegrees = startDegrees + sweepDegrees * fraction
+            val angle = Math.toRadians(angleDegrees.toDouble())
+            val sourceX =
+                BATTERY_COMPONENT_CENTER_X +
+                    sourceHalfWidth * cos(angle).toFloat()
+            val sourceY =
+                BATTERY_COMPONENT_CENTER_Y +
+                    sourceHalfHeight * sin(angle).toFloat()
+            val perimeterProgress =
+                (
+                    (angleDegrees - BATTERY_START_DEGREES) /
+                        BATTERY_MAX_SWEEP
+                ).coerceIn(0f, 1f)
+            if (
+                !BatteryMorphPolicy.roundedRectPerimeterPoint(
+                    progress = perimeterProgress,
+                    halfWidth = targetHalfWidth,
+                    halfHeight = targetHalfHeight,
+                    cornerRadius = targetCorner,
+                    out = target,
+                )
+            ) {
+                continue
+            }
+            val targetX = BATTERY_COMPONENT_CENTER_X + target[0]
+            val targetY = BATTERY_COMPONENT_CENTER_Y + target[1]
+            val x = lerp(sourceX, targetX, progress)
+            val y = lerp(sourceY, targetY, progress)
+            if (path.isEmpty) {
+                path.moveTo(x, y)
+            } else {
+                path.lineTo(x, y)
+            }
+        }
+        if (!path.isEmpty) {
+            canvas.drawPath(path, paint)
+        }
+    }
+
     private fun drawBattery(
         canvas: Canvas,
         model: CombinedStatusRenderModel,
@@ -1194,8 +1632,11 @@ internal class CombinedStatusPainter(
         opacity: Float,
         nativeTransform: NativeRenderTransform,
         drawText: Boolean = true,
+        chargingIconOpacity: Float = 1f,
     ) {
-        layout.chargingIconResourceId?.let { resourceId ->
+        layout.chargingIconResourceId
+            ?.takeIf { chargingIconOpacity > 0f }
+            ?.let { resourceId ->
             drawNativeCenterResource(
                 canvas = canvas,
                 resource =
@@ -1204,7 +1645,7 @@ internal class CombinedStatusPainter(
                         resourceId = resourceId,
                     ),
                 tint = batteryTint,
-                opacity = opacity,
+                opacity = opacity * chargingIconOpacity.coerceIn(0f, 1f),
                 centerX = layout.chargingIconCenterX,
                 centerY = layout.chargingIconCenterY,
                 maxWidth = layout.chargingIconSize,
@@ -2492,7 +2933,7 @@ internal class CombinedStatusPainter(
         const val NATIVE_STEADY_APPEAR_THRESHOLD = 0.999f
         const val BATTERY_COMPONENT_CENTER_X = 60f
         const val BATTERY_COMPONENT_CENTER_Y = 58f
-        const val BATTERY_FOLD_SCALE_Y = 0.72f
+        const val BATTERY_MORPH_SAMPLE_DEGREES = 6f
         const val BATTERY_TOP_TEXT_SIZE = 24f
         const val BATTERY_TOP_CHARGING_ICON_SIZE = 18f
         const val BATTERY_TOP_ICON_TEXT_GAP = 1f
