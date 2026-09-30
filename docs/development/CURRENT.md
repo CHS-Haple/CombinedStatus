@@ -15,7 +15,7 @@ This file is the concise recovery point for active Guiyuan development. Historic
 PR #181 / `feat/battery-top-readout` adds an optional battery percentage readout in the top opening of the Guiyuan battery ring.
 
 Current checkpoint:
-- Build 522 / `20261001-522`;
+- Build 523 / `20261001-523`;
 - branch is based directly on current `dev`;
 - Build-513 device feedback showed the original 16 px / weight-600 typography baseline was visibly too small and light, and the 75%-135% size range was too narrow;
 - Build 514 redefined 100% as a 24 px authored baseline and expanded size/weight adjustment to 60%-200% / 400-900;
@@ -30,7 +30,11 @@ Current checkpoint:
 - the native Battery-number target probe is retained and emitted into structured Runtime health as `batteryNumberTarget`, preventing later slider traffic from evicting the target evidence from detailed exports;
 - Build 522 corrects charging optical composition: the visible native bolt ink + 1-unit gap + percentage ink is centered as one group, while transparent drawable viewport margins remain excluded;
 - Build 522 removes the legacy 82° top-gap ceiling for the rebased three-digit/charging readout: measured optical clearance may grow to a bounded 118° maximum, with larger ink/stroke-derived side safety;
-- Build 522 restores useful positive vertical movement by reserving 12 canonical units of safe neutral headroom and applying an ease-out response across +0…+30, while +30 still terminates at the real top-safe boundary;
+- Build 523 corrects the Build-522 neutral-position regression: offset 0 is again the optical/default position and is no longer pushed downward merely to manufacture positive travel; the optical default is calibrated 1.5 canonical units above the prior geometric baseline so the center icon remains visually balanced when the top number is present;
+- positive offset still maps responsively toward the real safe top boundary, but top safety is now governed by number ink rather than charging-glyph height, so a taller bolt cannot pin number movement;
+- the native charging glyph optical center Y is explicitly aligned with the percentage optical center Y;
+- the charging-glyph size reference is rebased again from Build-522 110% to Build-523 100% (physical multiplier 1.65); untouched legacy default 1.5 values migrate to the new default while custom physical sizes are preserved;
+- all four MIUIX control reference points (number size 100%, weight 900, offset 0, charging size 100%) now use MIUIX native magnetic key-point snapping with a 3.5% threshold;
 - Build 522 adds a real `BATTERY_NUMBER` transition subcomponent under the existing transition owner. Its target resolves from the final native Battery percentage TextView ink bounds when available, then falls back to the native `MiuiBatteryMeterIconView` Paint typography/content geometry. Number size follows target geometry and weight interpolates toward the native target before native handoff;
 - percentage readout is opt-in and defaults off;
 - ring top avoidance is derived from the measured readout width rather than a screenshot-fitted fixed gap;
@@ -43,7 +47,7 @@ Current checkpoint:
 
 Confirmed:
 - PR #181 is mergeable and remains isolated from the old superseded transition branch.
-- Build 522 Runtime CI #1957: green.
+- Build 523 Runtime CI #1959: green.
 - Pinned HyperOS target profile: green.
 - Unit tests: green, including width-derived battery-top gap coverage.
 - Debug APK build: green.
@@ -52,10 +56,11 @@ Confirmed:
 - Static review found no new native layout/translation/visibility/animation writer.
 
 Pending:
-- focused Build-522 device validation that charging bolt+number visible ink is centered as one group and the widened ring opening gives comfortable side clearance;
-- confirm positive offset now moves visibly at small/medium values and still avoids top clipping at +30; negative movement remains unchanged;
-- confirm Home -> Control Center percentage motion now moves/scales into the native Battery percentage target without a duplicate/squashed number;
-- export one detailed diagnostic after the pull and verify `batteryNumberTarget` plus transition witness reports whether the target used native TextView or native Paint fallback;
+- focused Build-523 device validation that offset 0 now sits at the intended slightly-raised optical default instead of the lowered Build-522 baseline;
+- confirm + values still move upward from that default and − values move downward, with +30 bounded by the real top-safe edge;
+- charging: confirm bolt + number remain horizontally centered as one optical group and their optical centers share the same Y line;
+- confirm charging size 100% matches the previously preferred Build-522 110% appearance and the 100% key point snaps naturally;
+- confirm Home -> Control Center percentage motion still reaches the native Battery-number target without duplicate/squashed text;
 - confirm no regression to accepted Build-510/511 Battery-body transition behavior.
 
 ## Runtime / rendering contract
@@ -81,10 +86,10 @@ Pending:
 
 ## Immediate next step
 
-1. keep runtime frozen at Build 522;
+1. keep runtime frozen at Build 523;
 2. generate one exact-head signed work-branch Canary for PR #181;
-3. perform focused optical/vertical validation plus Home -> Control Center number-target validation;
-4. change runtime only if Build-522 device evidence identifies a concrete target/geometry defect;
+3. perform focused neutral-baseline / snap / bolt-alignment validation plus Home -> Control Center number-target validation;
+4. change runtime only if Build-523 device evidence identifies a concrete geometry/target defect;
 5. merge to `dev` only after the visual checkpoint is device-accepted.
 
 ## Reference priority

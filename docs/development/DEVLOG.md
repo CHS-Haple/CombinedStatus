@@ -13368,3 +13368,62 @@ Build 521 screenshots/device feedback established four concrete defects:
 - PR remains mergeable and behind `dev` by 0.
 - Remaining gate: exact-head signed Canary + focused device evidence.
 
+## 2026-10-01 — Build 523: optical default baseline, MIUIX midpoint snap and 110%→100% charging rebase
+
+**Type:** device-driven visual calibration  
+**Display version:** 0.0.3  
+**Build / source:** 523 / `20261001-523` / `feat/battery-top-readout` / PR #181
+
+### Maintainer correction
+
+Build 522 solved the logical positive-range problem by reserving neutral headroom, but the maintainer clarified that this was the wrong visual contract:
+
+- requesting a larger positive range must not push the default/0 position downward;
+- with a top number enabled, the default itself should sit slightly upward so the center icon remains visually centered in the whole composition;
+- the slider midpoint/default should have a noticeable native MIUIX snap;
+- the charging glyph optical center and number optical center must share one horizontal center line;
+- Build-522 charging 110% is the desired new 100% reference.
+
+### Root cause / design correction
+
+The Build-522 baseline policy conflated two separate concerns: default optical composition and positive travel. It used `minimumPositiveTravel` to lower the neutral center, which made 0 look wrong. The correct model is:
+
+1. 0 owns a fixed optical-default baseline;
+2. that baseline may be slightly above the old mathematical center for visual balance;
+3. positive offset consumes only the real remaining top headroom from that baseline;
+4. top safety for the number is measured from number ink, not from the taller charging glyph;
+5. the charging glyph follows the same optical center Y as the number.
+
+### Change
+
+- Replace `resolveBaseCenterY(... minimumPositiveTravel ...)` with `resolveOpticalBaseCenterY(... defaultOpticalRise ...)`.
+- Set the default optical rise to 1.5 canonical units while keeping the user-facing offset default at 0.
+- Positive offset retains the bounded ease-out map to the real top-safe boundary.
+- Number ink alone owns vertical top safety; charging-glyph height no longer shifts/pins neutral or positive number travel.
+- Charging glyph optical center Y is explicitly aligned to number optical center Y.
+- Rebase charging size: old Build-522 110% physical multiplier (1.65) becomes Build-523 100%.
+- New installs/defaults use 1.65.
+- Upgrade migration changes only an untouched legacy 1.5 default to 1.65; any custom physical value is preserved.
+- Number size 100%, weight 900, offset 0 and charging size 100% use MIUIX-native key-point magnetic snapping with `magnetThreshold = 0.035`.
+- No custom slider gesture/resistance implementation is introduced.
+
+### 审查 / review
+
+- **default semantics:** 0 remains the visible/default midpoint; internal optical calibration is not exposed as a fake +N preference.
+- **no manufactured headroom:** neutral geometry is no longer moved down solely to create positive range.
+- **vertical single writer:** number center remains the sole Y authority; charging glyph follows its optical center line.
+- **preference continuity:** untouched legacy default migrates, custom physical charging sizes are preserved.
+- **MIUIX-native UI:** uses pinned upstream `keyPoints` / `magnetThreshold`; no custom slider implementation.
+- **transition ownership:** Build-522 BATTERY_NUMBER path and accepted Battery-body transition remain unchanged.
+- **performance/lifecycle:** no new Hook, listener, animator, polling path or native property writer.
+
+### Validation
+
+- Build-523 Runtime CI #1959: **success**.
+- Pinned HyperOS target profile: green.
+- Unit tests + Debug APK: green.
+- Modern Xposed metadata: green.
+- New policy tests verify the optical zero rises 1.5 units when safe and clamps only when number ink would cross the real top boundary.
+- PR remains mergeable and behind `dev` by 0.
+- Remaining gate: exact-head signed Canary + focused device evidence.
+
