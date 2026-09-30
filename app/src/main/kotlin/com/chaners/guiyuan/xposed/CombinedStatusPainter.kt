@@ -908,7 +908,7 @@ internal class CombinedStatusPainter(
                     CombinedStatusBatteryTopArcPolicy.gapSweepDegrees(
                         groupWidth = readout.groupWidth,
                         ringRadius = batteryRing.width() / 2f,
-                        horizontalPadding = BATTERY_TOP_RING_GAP_PADDING,
+                        horizontalPadding = readout.ringGapPadding,
                     ),
             )
 
@@ -972,16 +972,47 @@ internal class CombinedStatusPainter(
             } else {
                 0f
             }
+        val chargingOpticalSize =
+            chargingIconResourceId
+                ?.let { resourceId ->
+                    nativeResourceOpticalSize(
+                        resource =
+                            CombinedStatusPresentationStateStore.NativeIconResource(
+                                packageName = SYSTEM_UI_PACKAGE,
+                                resourceId = resourceId,
+                            ),
+                        maxSize = chargingIconSize,
+                    )
+                }
+        val chargingOpticalWidth =
+            if (chargingSlotVisible) {
+                chargingOpticalSize?.width ?: chargingIconSize
+            } else {
+                0f
+            }
+        val chargingOpticalHeight =
+            if (chargingSlotVisible) {
+                chargingOpticalSize?.height ?: chargingIconSize
+            } else {
+                0f
+            }
         val iconGap =
             if (chargingSlotVisible) BATTERY_TOP_ICON_TEXT_GAP else 0f
-        val groupWidth = chargingIconSize + iconGap + textWidth
+        val groupWidth = chargingOpticalWidth + iconGap + textWidth
         val groupLeft = BATTERY_COMPONENT_CENTER_X - groupWidth / 2f
+        val contentInkHeight = max(textHeight, chargingOpticalHeight)
         val centerY =
-            BATTERY_TOP_CONTENT_CENTER_Y - visualSettings.batteryTopVerticalOffset
+            CombinedStatusBatteryTopLayoutPolicy.resolveCenterY(
+                baseCenterY = BATTERY_TOP_CONTENT_CENTER_Y,
+                requestedOffset = visualSettings.batteryTopVerticalOffset,
+                positiveLimit = BATTERY_TOP_VERTICAL_OFFSET_MAX,
+                contentInkHeight = contentInkHeight,
+                topSafeInset = BATTERY_TOP_TOP_SAFE_INSET,
+            )
         val textLeft =
             groupLeft +
                 if (chargingSlotVisible) {
-                    chargingIconSize + iconGap
+                    chargingOpticalWidth + iconGap
                 } else {
                     0f
                 }
@@ -996,10 +1027,18 @@ internal class CombinedStatusPainter(
             textX = textLeft - batteryTopTextBounds.left,
             textBaselineY = textBaselineY,
             groupWidth = groupWidth,
+            ringGapPadding =
+                CombinedStatusBatteryTopLayoutPolicy.resolveRingGapPadding(
+                    contentInkHeight = contentInkHeight,
+                    ringStroke = ringStroke,
+                    basePadding = BATTERY_TOP_RING_GAP_BASE_PADDING,
+                    inkHeightRatio = BATTERY_TOP_RING_GAP_INK_HEIGHT_RATIO,
+                    ringStrokeRatio = BATTERY_TOP_RING_GAP_STROKE_RATIO,
+                ),
             chargingIconResourceId = chargingIconResourceId,
             chargingIconCenterX =
                 if (chargingSlotVisible) {
-                    groupLeft + chargingIconSize / 2f
+                    groupLeft + chargingOpticalWidth / 2f
                 } else {
                     BATTERY_COMPONENT_CENTER_X
                 },
@@ -1366,6 +1405,34 @@ internal class CombinedStatusPainter(
                     right = optical.right,
                     bottom = optical.bottom,
                 ),
+        )
+    }
+
+    private fun nativeResourceOpticalSize(
+        resource: CombinedStatusPresentationStateStore.NativeIconResource,
+        maxSize: Float,
+    ): NativeOpticalSize? {
+        if (maxSize <= 0f) return null
+        val presentationResource = resolveNativeTintVariant(resource) ?: resource
+        val asset = nativeCenterAsset(presentationResource) ?: return null
+        if (asset.intrinsicWidth <= 0 || asset.intrinsicHeight <= 0) return null
+
+        val opticalWidthRatio =
+            (asset.opticalBounds.right - asset.opticalBounds.left)
+                .coerceAtLeast(MIN_OPTICAL_RATIO)
+        val opticalHeightRatio =
+            (asset.opticalBounds.bottom - asset.opticalBounds.top)
+                .coerceAtLeast(MIN_OPTICAL_RATIO)
+        val opticalIntrinsicWidth = asset.intrinsicWidth * opticalWidthRatio
+        val opticalIntrinsicHeight = asset.intrinsicHeight * opticalHeightRatio
+        val scale =
+            min(
+                maxSize / opticalIntrinsicWidth,
+                maxSize / opticalIntrinsicHeight,
+            )
+        return NativeOpticalSize(
+            width = opticalIntrinsicWidth * scale,
+            height = opticalIntrinsicHeight * scale,
         )
     }
 
@@ -2171,9 +2238,12 @@ internal class CombinedStatusPainter(
         const val BATTERY_COMPONENT_CENTER_Y = 58f
         const val BATTERY_FOLD_SCALE_Y = 0.72f
         const val BATTERY_TOP_TEXT_SIZE = 24f
-        const val BATTERY_TOP_CHARGING_ICON_SIZE = 14f
-        const val BATTERY_TOP_ICON_TEXT_GAP = 2f
-        const val BATTERY_TOP_RING_GAP_PADDING = 4f
+        const val BATTERY_TOP_CHARGING_ICON_SIZE = 18f
+        const val BATTERY_TOP_ICON_TEXT_GAP = 1f
+        const val BATTERY_TOP_RING_GAP_BASE_PADDING = 3f
+        const val BATTERY_TOP_RING_GAP_INK_HEIGHT_RATIO = 0.08f
+        const val BATTERY_TOP_RING_GAP_STROKE_RATIO = 0.25f
+        const val BATTERY_TOP_TOP_SAFE_INSET = 1.5f
         const val BATTERY_TOP_GAP_CENTER_DEGREES = 270f
         const val BATTERY_TOP_CONTENT_CENTER_Y = 13.5f
 
@@ -2186,6 +2256,7 @@ internal class CombinedStatusPainter(
         val textX: Float,
         val textBaselineY: Float,
         val groupWidth: Float,
+        val ringGapPadding: Float,
         val chargingIconResourceId: Int?,
         val chargingIconCenterX: Float,
         val chargingIconCenterY: Float,
@@ -2219,6 +2290,11 @@ internal class CombinedStatusPainter(
         val suffixX: Float,
         val suffixBaselineY: Float,
         val bounds: TransitionBounds,
+    )
+
+    private data class NativeOpticalSize(
+        val width: Float,
+        val height: Float,
     )
 
     private data class NativeCenterAsset(
