@@ -546,7 +546,6 @@ internal class CombinedStatusPainter(
         resolveBatteryTopReadoutLayout(
             model = model,
             visualSettings = visualSettings,
-            ringStroke = outerGeometry.ringStroke,
             nativeTransform = nativeTransform,
         )?.let { readout ->
             specs +=
@@ -982,7 +981,6 @@ internal class CombinedStatusPainter(
             resolveBatteryTopReadoutLayout(
                 model = model,
                 visualSettings = visualSettings,
-                ringStroke = geometry.ringStroke,
                 nativeTransform = nativeTransform,
             )
         if (readout == null) {
@@ -1079,7 +1077,6 @@ internal class CombinedStatusPainter(
     private fun resolveBatteryTopReadoutLayout(
         model: CombinedStatusRenderModel,
         visualSettings: CombinedStatusVisualSettings,
-        ringStroke: Float,
         nativeTransform: NativeRenderTransform,
     ): BatteryTopReadoutLayout? {
         if (!visualSettings.batteryTopReadoutEnabled) return null
@@ -1166,10 +1163,9 @@ internal class CombinedStatusPainter(
                 textOpticalHeight
             }
 
-        // 0 is the optical default, not a baseline pushed downward to reserve
-        // artificial travel. Keep the number slightly above the old geometric
-        // baseline so the center glyph remains visually centered in the whole
-        // combined icon. Positive values use only the real remaining headroom.
+        // Automatic placement is bounded once against the real RenderView top.
+        // The persisted/user offset is then applied literally; it must not be
+        // silently flattened by a second hidden headroom clamp.
         val minimumSafeTopY =
             CombinedStatusBatteryTopLayoutPolicy.resolveMinimumSafeTopY(
                 transformScale = nativeTransform.scale,
@@ -1294,7 +1290,6 @@ internal class CombinedStatusPainter(
             resolveBatteryTopReadoutLayout(
                 model = model,
                 visualSettings = visualSettings,
-                ringStroke = geometry.ringStroke,
                 nativeTransform = nativeTransform,
             ) ?: return
         val sourceWeight = layout.textWeight
@@ -1396,15 +1391,10 @@ internal class CombinedStatusPainter(
                 offsetX = offsetX,
                 offsetY = offsetY,
             )
-        val geometry =
-            resolveOuterGeometry(
-                CombinedStatusOuterGeometry.DEFAULT_WEIGHT_SCALE,
-            )
         val layout =
             resolveBatteryTopReadoutLayout(
                 model = model,
                 visualSettings = visualSettings,
-                ringStroke = geometry.ringStroke,
                 nativeTransform = nativeTransform,
             ) ?: return null
         val sourceWeight = layout.textWeight
