@@ -164,7 +164,7 @@ class CombinedStatusControlCenterTransitionOwnerTest {
                 current = geometry(centerX = 95f, centerY = 100f, width = 20f, height = 20f),
                 target = target,
                 visualExtent = 20f,
-                reservationReady = false,
+                reservationProgress = 0f,
             ),
             0.0001f,
         )
@@ -174,7 +174,7 @@ class CombinedStatusControlCenterTransitionOwnerTest {
                 current = geometry(centerX = 79f, centerY = 100f, width = 20f, height = 20f),
                 target = target,
                 visualExtent = 20f,
-                reservationReady = true,
+                reservationProgress = 1f,
             ),
             0.0001f,
         )
@@ -184,7 +184,7 @@ class CombinedStatusControlCenterTransitionOwnerTest {
                 current = geometry(centerX = 90f, centerY = 100f, width = 20f, height = 20f),
                 target = target,
                 visualExtent = 20f,
-                reservationReady = true,
+                reservationProgress = 1f,
             ),
             0.0001f,
         )
@@ -194,10 +194,72 @@ class CombinedStatusControlCenterTransitionOwnerTest {
                 current = target,
                 target = target,
                 visualExtent = 20f,
-                reservationReady = true,
+                reservationProgress = 1f,
             ),
             0.0001f,
         )
+    }
+
+    @Test
+    fun latentReservationProgressTracksVisibleEnvelopeCoverage() {
+        assertEquals(
+            0f,
+            CombinedStatusControlCenterTransitionOwner.Policy.latentReservationProgress(
+                compactWidthPx = 100,
+                currentReservationPx = 100,
+                requiredReservationPx = 200,
+                visualWidthPx = 100f,
+            ),
+            0.0001f,
+        )
+        assertEquals(
+            0.5f,
+            CombinedStatusControlCenterTransitionOwner.Policy.latentReservationProgress(
+                compactWidthPx = 100,
+                currentReservationPx = 150,
+                requiredReservationPx = 200,
+                visualWidthPx = 100f,
+            ),
+            0.0001f,
+        )
+        assertEquals(
+            1f,
+            CombinedStatusControlCenterTransitionOwner.Policy.latentReservationProgress(
+                compactWidthPx = 100,
+                currentReservationPx = 200,
+                requiredReservationPx = 200,
+                visualWidthPx = 100f,
+            ),
+            0.0001f,
+        )
+    }
+
+    @Test
+    fun verifiedFourBarTargetCanUseExactTargetBasisWithoutChangingFallback() {
+        val source = geometry(width = 20f, height = 20f)
+        val target = geometry(width = 60f, height = 40f)
+
+        val exact =
+            CombinedStatusControlCenterTransitionOwner.Policy.interpolateParticipantGeometry(
+                source = source,
+                target = target,
+                progress = 1f,
+                scalePolicy = CombinedStatusPainter.TransitionScalePolicy.SHRINK_ONLY,
+                exactTargetBasis = true,
+            )
+        val fallback =
+            CombinedStatusControlCenterTransitionOwner.Policy.interpolateParticipantGeometry(
+                source = source,
+                target = target,
+                progress = 1f,
+                scalePolicy = CombinedStatusPainter.TransitionScalePolicy.SHRINK_ONLY,
+                exactTargetBasis = false,
+            )
+
+        assertEquals(60f, exact[2], 0.0001f)
+        assertEquals(40f, exact[5], 0.0001f)
+        assertEquals(20f, fallback[2], 0.0001f)
+        assertEquals(20f, fallback[5], 0.0001f)
     }
 
     @Test

@@ -18,7 +18,7 @@ Control Center transition animation is the active runtime task.
 
 Current implementation line:
 - PR #177 — feat/control-center-transition-matrix;
-- current work-branch checkpoint: Build 508 / 20260930-508;
+- current work-branch checkpoint: Build 509 / 20260930-509;
 - exact-target direction: QS_FAKE role-5 to final-QS role-6 matrix projection;
 - HyperOS remains translation/appearance authority; raw native expansion drives transition geometry and native fake/final Folme owns visual handoff;
 - Guiyuan reads native transition state and renders only its owned Trinity correspondence; final role-6 top-level slots are read-only occupancy witnesses, while the existing QS_FAKE statusIcons-paddingEnd owner interpolates the frozen total semantic occupancy from compact to final using raw HyperOS expansion progress;
@@ -74,6 +74,8 @@ Latent reveal keeps Build-507's native-progress total reservation curve but repl
 
 
 Build 508 final latent-reveal review removes the last slot-sized gate. Latent participants no longer wait for an entire native slot-width or for source-distance to exceed that slot. The final visual snapshot envelope is transformed into the same global basis as the final Battery end; current transition reservation must first cover that **real visible envelope**, then opacity is allowed only inside one real target visual extent around the root-space target center. This fixes the Build-507 failure where no-source participants could remain invisible until the fake overlay had already reached alpha 0, while preserving the intended order: peer space first, pixels second. Reverse collapse closes in the opposite order because loss of visual-envelope reservation forces opacity to zero before the reservation continues shrinking.
+
+Build 509 follows Build-508 device rejection without changing its native-progress reservation curve or accepted root-space endpoint. Device video and diagnostics show two implementation errors. First, latent Airplane can enter the witness set only at full expansion after QS_FAKE alpha has already reached 0 because Build 508 still treats visual-envelope reservation as a binary full-containment gate. Build 509 converts that gate into continuous coverage of the real target visual envelope: opacity can begin only as the existing reservation sweeps into that envelope, and remains bounded by root-space target proximity. Second, Build 508 already measures reliable native four-bar rectangles, but the Mobile outer projection still uses `SHRINK_ONLY`; the measured bars are therefore drawn inside an envelope that is forbidden from growing to the native target. Build 509 allows exact target-basis interpolation only when the runtime snapshot is positively classified `FOUR_VERTICAL_BARS`. Composite/dual-row/unknown targets retain the prior conservative similarity path. No provider name, timing constant, new hook, animator, native translation writer, or extra gesture timeline is added. Build identity is `20260930-509`; focused device acceptance is pending.
 
 ## Current architecture boundary
 
@@ -138,10 +140,10 @@ Device testing is requested only when the result can change implementation choic
 
 ## Immediate next step
 
-1. Run exact-head Runtime CI for Build 508 and produce one signed work-branch Canary from the same SHA.
-2. Device gate — latent: no-source Airplane / No-SIM / additional SIM must appear before fake ownership ends, only after a real peer-sized gap has opened, with no overlap into the adjacent native icon.
-3. Device gate — native single-row Mobile: four-point morph must land on the measured native bars individually (x spacing, width, baseline and each bar height), not merely match one overall height envelope.
-4. Device gate — composite/dual-row Mobile: small secondary visual components must keep the target classified as composite; the four-bar exact path must not be applied to an upper-bars/lower-dots structure.
+1. Run exact-head Runtime CI for Build 509 and produce one signed work-branch Canary from the same SHA.
+2. Device gate — latent: Airplane / No-SIM / additional SIM must fade in continuously while real visual-envelope reservation opens, before QS_FAKE ownership ends, with no adjacent-icon overlap.
+3. Device gate — native single-row Mobile: four-point morph must land on the measured native bar envelope and all four measured rectangles.
+4. Device gate — composite/dual-row Mobile: the exact-target-basis path must remain disabled and the target must not be flattened into a four-bar structure.
 5. Re-check Build-507 reservation improvement: whole-row motion must avoid both Build-505's early near-vertical dead-zone and Build-506's press-time final-x jump.
 6. Preserve Build-504 accepted final fake/real alignment and compact no-source scale.
 

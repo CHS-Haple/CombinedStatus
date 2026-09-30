@@ -341,6 +341,28 @@ internal object CombinedStatusControlCenterTransitionOwner {
             )
         }
 
+        fun interpolateParticipantGeometry(
+            source: FloatArray,
+            target: FloatArray,
+            progress: Float,
+            scalePolicy: CombinedStatusPainter.TransitionScalePolicy,
+            exactTargetBasis: Boolean,
+        ): FloatArray =
+            if (exactTargetBasis) {
+                interpolateGeometry(
+                    source = source,
+                    target = target,
+                    progress = geometryProgress(progress),
+                )
+            } else {
+                interpolateSimilarityGeometry(
+                    source = source,
+                    target = target,
+                    progress = geometryProgress(progress),
+                    scalePolicy = scalePolicy,
+                )
+            }
+
         fun composeSourceGeometry(
             positionAuthority: FloatArray,
             basisAuthority: FloatArray,
@@ -395,6 +417,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
             currentCarrier: FloatArray,
             progress: Float,
             scalePolicy: CombinedStatusPainter.TransitionScalePolicy,
+            exactTargetBasis: Boolean = false,
         ): FloatArray {
             require(
                 source.size == 6 &&
@@ -408,11 +431,12 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     sourceCarrier = sourceCarrier,
                     currentCarrier = currentCarrier,
                 )
-            return interpolateSimilarityGeometry(
+            return interpolateParticipantGeometry(
                 source = carriedSource,
                 target = target,
-                progress = geometryProgress(progress),
+                progress = progress,
                 scalePolicy = scalePolicy,
+                exactTargetBasis = exactTargetBasis,
             )
         }
 
@@ -436,18 +460,44 @@ internal object CombinedStatusControlCenterTransitionOwner {
             )
         }
 
+        fun latentReservationProgress(
+            compactWidthPx: Int,
+            currentReservationPx: Int,
+            requiredReservationPx: Int,
+            visualWidthPx: Float,
+        ): Float {
+            if (!visualWidthPx.isFinite() || visualWidthPx <= 0f) return 0f
+            val compact = compactWidthPx.coerceAtLeast(0).toFloat()
+            val current = currentReservationPx.coerceAtLeast(0).toFloat()
+            val required = requiredReservationPx.coerceAtLeast(compactWidthPx).toFloat()
+            val start = maxOf(compact, required - visualWidthPx)
+            if (required <= start) {
+                return if (current >= required) 1f else 0f
+            }
+            val normalized =
+                ((current - start) / (required - start))
+                    .coerceIn(0f, 1f)
+            return normalized * normalized * (3f - 2f * normalized)
+        }
+
         fun latentRevealOpacity(
             current: FloatArray,
             target: FloatArray,
             visualExtent: Float,
-            reservationReady: Boolean,
+            reservationProgress: Float,
         ): Float {
             require(current.size == 6 && target.size == 6)
             if (
-                !reservationReady ||
                 !visualExtent.isFinite() ||
                 visualExtent <= 0f
             ) return 0f
+
+            val reservation =
+                reservationProgress
+                    .takeIf(Float::isFinite)
+                    ?.coerceIn(0f, 1f)
+                    ?: 0f
+            if (reservation <= 0f) return 0f
 
             val deltaX = target[0] - current[0]
             val deltaY = target[1] - current[1]
@@ -458,7 +508,9 @@ internal object CombinedStatusControlCenterTransitionOwner {
             val normalized =
                 (1f - remainingDistance / visualExtent)
                     .coerceIn(0f, 1f)
-            return normalized * normalized * (3f - 2f * normalized)
+            val proximity =
+                normalized * normalized * (3f - 2f * normalized)
+            return min(proximity, reservation)
         }
 
         fun semanticFallbackBounds(
@@ -861,6 +913,16 @@ internal object CombinedStatusControlCenterTransitionOwner {
                             targetOpticalBounds = spec.targetOpticalBounds,
                         )
                     }
+                val resolvedMobileTargetBars =
+                    if (
+                        spec.shapePolicy ==
+                        CombinedStatusPainter.TransitionShapePolicy.MOBILE_SIGNAL &&
+                        witness != null
+                    ) {
+                        mobileTargetBars(witness)
+                    } else {
+                        null
+                    }
                 val geometry =
                     if (targetGeometry != null) {
                         projectedGeometry(
@@ -869,6 +931,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                             progress = motionProgress,
                             scalePolicy = spec.scalePolicy,
                             carrierFrames = carrierFrames,
+                            exactTargetBasis = resolvedMobileTargetBars != null,
                         )
                     } else {
                         carriedSourceGeometry(
@@ -929,16 +992,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         } else {
                             null
                         },
-                    mobileTargetBars =
-                        if (
-                            spec.shapePolicy ==
-                            CombinedStatusPainter.TransitionShapePolicy.MOBILE_SIGNAL &&
-                            witness != null
-                        ) {
-                            mobileTargetBars(witness)
-                        } else {
-                            null
-                        },
+                    mobileTargetBars = resolvedMobileTargetBars,
                 )
                 canvas.restoreToCount(save)
 
@@ -1057,6 +1111,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         sourceGeometry = sourceGeometry,
                         targetOpticalBounds = mobileSpec.targetOpticalBounds,
                     ) ?: return@forEach
+                val targetBars = mobileTargetBars(witness)
                 val pathGeometry =
                     projectedGeometry(
                         source = sourceGeometry,
@@ -1064,6 +1119,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         progress = motionProgress,
                         scalePolicy = mobileSpec.scalePolicy,
                         carrierFrames = carrierFrames,
+                        exactTargetBasis = targetBars != null,
                     )
                 val geometry = pathGeometry
                 val matrix =
@@ -1106,7 +1162,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                             target = targetGeometry,
                             current = sourceGeometry,
                         ),
-                    mobileTargetBars = mobileTargetBars(witness),
+                    mobileTargetBars = targetBars,
                 )
                 canvas.restoreToCount(save)
                 descriptions += "mobile-latent:" + witness.summary
@@ -1284,6 +1340,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
             progress: Float,
             scalePolicy: CombinedStatusPainter.TransitionScalePolicy,
             carrierFrames: CarrierFrames?,
+            exactTargetBasis: Boolean = false,
         ): FloatArray =
             carrierFrames?.let { frames ->
                 Policy.interpolateCarriedSourceToRootTarget(
@@ -1293,12 +1350,14 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     currentCarrier = frames.current,
                     progress = progress,
                     scalePolicy = scalePolicy,
+                    exactTargetBasis = exactTargetBasis,
                 )
-            } ?: Policy.interpolateSimilarityGeometry(
+            } ?: Policy.interpolateParticipantGeometry(
                 source = source,
                 target = target,
                 progress = progress,
                 scalePolicy = scalePolicy,
+                exactTargetBasis = exactTargetBasis,
             )
 
         private fun carriedSourceGeometry(
@@ -1342,11 +1401,18 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     .takeIf { it.isFinite() && it > 0f }
                     ?: return 0f
 
+            val reservationProgress =
+                Policy.latentReservationProgress(
+                    compactWidthPx = compactWidth,
+                    currentReservationPx = currentReservation,
+                    requiredReservationPx = requiredReservation,
+                    visualWidthPx = targetWidth,
+                )
             return Policy.latentRevealOpacity(
                 current = currentGeometry,
                 target = targetGeometry,
                 visualExtent = visualExtent,
-                reservationReady = currentReservation >= requiredReservation,
+                reservationProgress = reservationProgress,
             )
         }
 

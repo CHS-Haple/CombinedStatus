@@ -12762,3 +12762,47 @@ The final Build-508 gate is now snapshot-native:
 - on reverse collapse, reservation falling below the visual-envelope requirement hides the participant before peer space closes.
 
 No module identity, fixed slot multiplier, timing delay, or extra writer is introduced.
+
+
+## 2026-09-30 — Build 509: continuous latent occupancy and structure-gated Mobile target basis
+
+**Type:** Control Center transition correction  
+**Display version:** 0.0.3  
+**Build / source:** 509 / `20260930-509` / `feat/control-center-transition-matrix`
+
+### Problem
+
+Build 508 device evidence rejects two remaining transition-consumer rules: no-source participants can appear almost instantaneously at the terminal handoff, and the projected Mobile bars remain visibly smaller/misaligned versus the final native signal even when four native bar rectangles were measured successfully.
+
+### Evidence
+
+- In the supplied Build-508 diagnostic, the reservation advances continuously with native expansion, but an Airplane reveal first appears at `fraction=1.0` while the QS_FAKE root is already `alpha=0.0`. The visual-envelope reservation requirement is therefore being consumed as a late binary gate rather than as the continuously opening space visible on screen.
+- The visual snapshot layer can positively classify a target as `FOUR_VERTICAL_BARS` and expose all four native rectangles, but the Mobile component spec still projects its outer geometry through `SHRINK_ONLY`. A larger native envelope can never be reached under that scale policy, so exact bar rectangles are normalized into the wrong outer basis.
+- Composite/dual-row targets remain distinguishable because secondary visual components keep topology `COMPOSITE`.
+
+### Conclusion
+
+The snapshot evidence is sufficient; the defect is not HyperOS gesture timing. Latent opacity must consume continuous reservation coverage of the real visual envelope, and verified four-bar Mobile may use the measured target basis. Unsupported/composite topology must retain the conservative path.
+
+### Change
+
+- Add a continuous visual-envelope reservation progress derived from compact width, current reservation, full visual-envelope reservation and the measured target visual width.
+- Bound latent alpha by both that reservation progress and root-space target proximity; remove the full-containment boolean step.
+- Add participant geometry selection that uses exact basis interpolation only when Mobile has a positively verified four-bar snapshot.
+- Reuse the same verified bar snapshot for outer target basis and per-bar morph.
+- Additional-SIM latent Mobile follows the same structure gate.
+- Composite/dual-row/unknown Mobile keeps the prior `SHRINK_ONLY` similarity path.
+- No new hook, listener, timer, delay, provider/module-name branch, native translation writer or gesture timeline is introduced.
+
+### 审查 / review
+
+- **ownership:** HyperOS still owns expansion/appearance; Guiyuan only consumes its native progress and its existing reservation writer.
+- **single writer:** `statusIcons-paddingEnd` remains the sole native peer-layout writer.
+- **fail-native:** exact target-basis interpolation requires reliable `FOUR_VERTICAL_BARS`; other topology does not opt in.
+- **reverse:** decreasing reservation continuously closes latent opacity before the visual envelope loses peer space.
+- **performance:** no new frame probe; drawable snapshots remain cached and View topology stays read-only.
+- **protected boundaries:** Build-491/497/498 lifecycle/performance fixes, Build-500 steady source, Build-504 root-space endpoint and Build-507 total reservation curve remain unchanged.
+
+### Validation
+
+Run exact-head Runtime CI. Because this changes runtime geometry and reveal ownership, one signed work-branch Canary is required after CI for focused device evidence.
