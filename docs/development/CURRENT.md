@@ -40,6 +40,7 @@ Current runtime checkpoint:
 
 Confirmed:
 - Build 510 non-charging Home transition: device accepted.
+- Build 511 charging Home transition: device accepted; no press-entry left shift, whole-row rebase, overlap, or endpoint drift was reported in the tested charging path.
 - Build 511 static code review: complete.
 - Runtime / unit validation: green after the Build-511 safety fixes and added negative policy coverage.
 - Keyguard lease negative boundaries are unit-tested.
@@ -50,23 +51,15 @@ Confirmed:
 
 ## Remaining device gates
 
-1. **Home charging, no native island**
-   - preserve the accepted Build-510 trajectory and Mobile morph;
-   - no press-entry left shift or endpoint drift.
-
-2. **Home charging, native island showing**
-   - native peer motion remains authoritative;
-   - no whole-row rebase, overlap, left offset, or endpoint drift.
-
-3. **Latent supplemental semantics**
+1. **Latent supplemental semantics**
    - Airplane / No-SIM / additional SIM reveal continuously only after real peer space opens;
    - reverse collapse hides before reservation closes through neighboring content.
 
-4. **Real composite / dual-row Mobile**
+2. **Real composite / dual-row Mobile**
    - confirm real third-party topology remains visually on the composite fallback path;
    - no flattening into the exact four-bar morph.
 
-5. **Final Keyguard-originated regression**
+3. **Final Keyguard-originated regression**
    - steady Keyguard -> partial/full Control Center -> return remains responsive;
    - no terminal stall, duplicate native row, stale lease, or cleanup residue.
 
@@ -85,10 +78,10 @@ Confirmed:
 
 Do not change runtime without new device evidence.
 
-When the required scene becomes available:
+Next:
 1. generate one signed exact-head Build-511 Canary;
-2. test charging without island and charging with native island separately;
-3. use the same package for latent / dual-row / Keyguard regression where practical;
+2. validate latent Airplane / No-SIM / additional-SIM reveal and reverse collapse first;
+3. use the same package for real dual-row Mobile and final Keyguard regression where practical;
 4. change only a failed sub-path and preserve accepted paths;
 5. once all required device gates pass, mark the branch complete and squash-merge PR #177 into `dev`.
 
