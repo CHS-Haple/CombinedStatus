@@ -13557,3 +13557,65 @@ The previously rejected local `batteryWidthDiff` cancellation/normalization rout
   - Keyguard remains semantic-reservation owned.
 - Build 526 Runtime CI required before Canary.
 - The prior Build-525 Canary request is superseded and is not an integration checkpoint.
+
+
+## 2026-10-01 — Build 527: native-sized Mobile Type and target-weight morph
+
+**Type:** device-driven typography / transition refinement  
+**Display version:** 0.0.3  
+**Build / source:** 527 / `20261001-527` / `feat/battery-top-readout` / PR #181
+
+### Maintainer device evidence
+
+The Build-526 follow-up screen recording shows two typography mismatches in the Home -> Control Center Mobile Type path:
+- compact Guiyuan `5G` remains visibly larger than the final HyperOS `5G` above the native signal bars;
+- the existing transition changes geometry/size through the native target matrix, but the text is still rendered with the compact-source Typeface weight throughout the move.
+
+A frame-level comparison on the pinned 1440×3200 target shows the compact `5G` ink height at roughly 30 px versus roughly 22 px for the final native `5G`, i.e. about 1.36×. The previous authored 39 px base was therefore not calibrated to the final native Mobile Type presentation.
+
+### Root cause
+
+The CENTER transition already has a correct native geometry witness for `mobile_type_single/mobile_type`, so endpoint size must remain matrix-owned. The missing typography state is the native target Typeface weight.
+
+Keeping one fixed source weight while the matrix shrinks the glyph produces a visual mismatch even when the endpoint geometry is correct. Conversely, introducing a guessed target weight would duplicate native styling and violate Fail-native.
+
+### Change
+
+- Rebase compact Mobile Type main size from 39 -> 29 canonical px.
+- Rebase suffix size 23 -> 17 and suffix rise 8 -> 6 proportionally.
+- Keep final size/position convergence under the existing native target geometry/matrix; no endpoint constant is added.
+- Extend the existing target witness with read-only native text weight when the resolved optical target is a TextView (or directly exposes a TextView child).
+- Add `MobileTypeTransitionPolicy.resolveWeight()`:
+  - source = current Guiyuan Mobile Type weight;
+  - target = exact native Typeface weight when available;
+  - progress = existing HyperOS motion progress;
+  - unavailable target typography -> keep source weight unchanged.
+- Pass the target weight only to the CENTER/MobileType draw path.
+- Extend witness diagnostics with the resolved target weight.
+- Advance runtime identity to Build 527.
+
+### 问题执行流程
+
+1. Device video establishes compact 5G is still oversized relative to final native 5G.
+2. Review shows CENTER already converges size through native `mobile_type` geometry.
+3. Review also shows `drawMobileType()` always receives one fixed compact weight.
+4. Rebase only compact source typography to the measured native scale envelope.
+5. Reuse the existing final native target witness to read Typeface weight.
+6. Interpolate weight on the existing HyperOS timeline; do not add another animator.
+7. Fail native when typography metadata is unavailable.
+
+### 审查 / review
+
+- **native-first:** final geometry remains native witness-owned; target weight is observed from native typography rather than configured locally.
+- **single writer:** painter remains the sole Guiyuan text writer; no native TextView property is modified.
+- **motion ownership:** existing HyperOS progress remains the only timeline; no new interpolator/animator.
+- **horizontal stability:** Mobile Type layout remains optically centered around the same local center on every frame, so weight-dependent glyph-width changes do not create an independent X translation writer.
+- **Fail native:** unresolved target Typeface weight leaves the current source weight unchanged.
+- **performance:** target typography is resolved with the already-cached target witness; no polling or per-frame hierarchy scan.
+- **scope:** Wi-Fi, Airplane, No-SIM, Mobile bars, Battery body, Battery number and Build-526 island reservation authority are untouched.
+
+### Validation
+
+- Added unit coverage for source/mid/target weight interpolation and unresolved-target fallback.
+- Runtime CI required.
+- Exact-head Canary is required because compact Mobile Type visual size and live weight convergence are device-visible.
