@@ -173,11 +173,20 @@ internal class CombinedStatusVisualSettingsRepository(context: Context) {
     }
 
     fun setBatteryTopVerticalOffset(offset: Float) {
+        val uiOffset =
+            offset.coerceIn(
+                BATTERY_TOP_VERTICAL_OFFSET_UI_MIN,
+                BATTERY_TOP_VERTICAL_OFFSET_UI_MAX,
+            )
         preferences
             .edit()
             .putFloat(
                 BATTERY_TOP_VERTICAL_OFFSET_KEY,
-                offset.coerceIn(BATTERY_TOP_VERTICAL_OFFSET_MIN, BATTERY_TOP_VERTICAL_OFFSET_MAX),
+                (uiOffset + BATTERY_TOP_VERTICAL_OFFSET_UI_REFERENCE)
+                    .coerceIn(
+                        BATTERY_TOP_VERTICAL_OFFSET_MIN,
+                        BATTERY_TOP_VERTICAL_OFFSET_MAX,
+                    ),
             )
             .apply()
     }
@@ -224,9 +233,17 @@ internal const val BATTERY_TOP_TEXT_SCALE_MAX =
 internal const val BATTERY_TOP_TEXT_WEIGHT_DEFAULT = 900
 internal const val BATTERY_TOP_TEXT_WEIGHT_MIN = 400
 internal const val BATTERY_TOP_TEXT_WEIGHT_MAX = 1400
-internal const val BATTERY_TOP_VERTICAL_OFFSET_DEFAULT = 0f
-internal const val BATTERY_TOP_VERTICAL_OFFSET_MIN = -30f
-internal const val BATTERY_TOP_VERTICAL_OFFSET_MAX = 30f
+// Runtime/persisted offset is physical canonical displacement. Device review
+// established that the previous +3 position is the intended user-facing zero.
+internal const val BATTERY_TOP_VERTICAL_OFFSET_UI_REFERENCE = 3f
+internal const val BATTERY_TOP_VERTICAL_OFFSET_UI_MIN = -30f
+internal const val BATTERY_TOP_VERTICAL_OFFSET_UI_MAX = 30f
+internal const val BATTERY_TOP_VERTICAL_OFFSET_DEFAULT =
+    BATTERY_TOP_VERTICAL_OFFSET_UI_REFERENCE
+internal const val BATTERY_TOP_VERTICAL_OFFSET_MIN =
+    BATTERY_TOP_VERTICAL_OFFSET_UI_REFERENCE + BATTERY_TOP_VERTICAL_OFFSET_UI_MIN
+internal const val BATTERY_TOP_VERTICAL_OFFSET_MAX =
+    BATTERY_TOP_VERTICAL_OFFSET_UI_REFERENCE + BATTERY_TOP_VERTICAL_OFFSET_UI_MAX
 
 // Runtime/persisted charging scale remains a physical multiplier.
 // Build 522's user-facing 110% (1.5 × 1.10 = 1.65 physical) becomes
@@ -292,4 +309,12 @@ internal fun batteryTopChargingIconUiScale(rawScale: Float): Float =
         .coerceIn(
             BATTERY_TOP_CHARGING_ICON_UI_SCALE_MIN,
             BATTERY_TOP_CHARGING_ICON_UI_SCALE_MAX,
+        )
+
+
+internal fun batteryTopVerticalOffsetUi(rawOffset: Float): Float =
+    (rawOffset - BATTERY_TOP_VERTICAL_OFFSET_UI_REFERENCE)
+        .coerceIn(
+            BATTERY_TOP_VERTICAL_OFFSET_UI_MIN,
+            BATTERY_TOP_VERTICAL_OFFSET_UI_MAX,
         )
