@@ -48,15 +48,24 @@ internal object SystemUiIslandMotionSource {
                 Boolean::class.javaPrimitiveType,
                 Boolean::class.javaPrimitiveType,
             ).apply { isAccessible = true }
+        val diagnosticsEnabled = onEvent != null
         val outerField =
-            listenerClass.declaredFields
-                .firstOrNull { it.type == injectorClass }
-                ?.apply { isAccessible = true }
+            if (diagnosticsEnabled) {
+                listenerClass.declaredFields
+                    .firstOrNull { it.type == injectorClass }
+                    ?.apply { isAccessible = true }
+            } else {
+                null
+            }
         val resolvedDiagnosticFields =
-            diagnosticTrackedNames.mapNotNull { name ->
-                runCatching {
-                    injectorClass.getDeclaredField(name).apply { isAccessible = true }
-                }.getOrNull()?.let { name to it }
+            if (diagnosticsEnabled) {
+                diagnosticTrackedNames.mapNotNull { name ->
+                    runCatching {
+                        injectorClass.getDeclaredField(name).apply { isAccessible = true }
+                    }.getOrNull()?.let { name to it }
+                }
+            } else {
+                emptyList()
             }
         synchronized(this) {
             diagnosticFields = resolvedDiagnosticFields
