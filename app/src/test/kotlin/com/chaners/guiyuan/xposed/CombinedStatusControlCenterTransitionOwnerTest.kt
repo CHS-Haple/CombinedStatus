@@ -155,50 +155,46 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
-    fun latentRevealRequiresPeerSpaceAndSourceSeparation() {
-        val source = geometry(width = 20f, height = 20f)
+    fun latentRevealRequiresRealVisualReservationAndTargetProximity() {
+        val target = geometry(centerX = 100f, centerY = 100f, width = 20f, height = 20f)
 
         assertEquals(
             0f,
             CombinedStatusControlCenterTransitionOwner.Policy.latentRevealOpacity(
-                carriedSource = source,
-                current = geometry(centerX = 90f, width = 20f, height = 20f),
-                nativeSlotWidth = 75f,
-                reservedExtraWidth = 74f,
-                visualWidth = 20f,
+                current = geometry(centerX = 95f, centerY = 100f, width = 20f, height = 20f),
+                target = target,
+                visualExtent = 20f,
+                reservationReady = false,
             ),
             0.0001f,
         )
         assertEquals(
             0f,
             CombinedStatusControlCenterTransitionOwner.Policy.latentRevealOpacity(
-                carriedSource = source,
-                current = geometry(centerX = 74f, width = 20f, height = 20f),
-                nativeSlotWidth = 75f,
-                reservedExtraWidth = 100f,
-                visualWidth = 20f,
+                current = geometry(centerX = 79f, centerY = 100f, width = 20f, height = 20f),
+                target = target,
+                visualExtent = 20f,
+                reservationReady = true,
             ),
             0.0001f,
         )
         assertEquals(
             0.5f,
             CombinedStatusControlCenterTransitionOwner.Policy.latentRevealOpacity(
-                carriedSource = source,
-                current = geometry(centerX = 85f, width = 20f, height = 20f),
-                nativeSlotWidth = 75f,
-                reservedExtraWidth = 100f,
-                visualWidth = 20f,
+                current = geometry(centerX = 90f, centerY = 100f, width = 20f, height = 20f),
+                target = target,
+                visualExtent = 20f,
+                reservationReady = true,
             ),
             0.0001f,
         )
         assertEquals(
             1f,
             CombinedStatusControlCenterTransitionOwner.Policy.latentRevealOpacity(
-                carriedSource = source,
-                current = geometry(centerX = 95f, width = 20f, height = 20f),
-                nativeSlotWidth = 75f,
-                reservedExtraWidth = 100f,
-                visualWidth = 20f,
+                current = target,
+                target = target,
+                visualExtent = 20f,
+                reservationReady = true,
             ),
             0.0001f,
         )
