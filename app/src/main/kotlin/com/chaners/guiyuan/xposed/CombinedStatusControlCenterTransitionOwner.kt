@@ -512,6 +512,13 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 directChildCount >= 2 &&
                 directChildCount == directImageChildCount
 
+        fun shouldProbeNativeMobileDrawableOpticalBounds(
+            opticalSource: String,
+            resourceEntryName: String?,
+        ): Boolean =
+            opticalSource == "native" &&
+                resourceEntryName == "mobile_signal"
+
         fun scaleGeometry(
             source: FloatArray,
             scale: Float,
@@ -1830,18 +1837,21 @@ internal object CombinedStatusControlCenterTransitionOwner {
             sourceGeometry: FloatArray,
             targetOpticalBounds: CombinedStatusPainter.TransitionNormalizedBounds?,
         ): FloatArray? {
+            val resolvedTargetOpticalBounds =
+                resolvedTargetOpticalBounds
+                    ?: runtimeTargetOpticalBounds(witness)
             val opticalView = witness.opticalView
             if (opticalView != null) {
                 if (opticalView is ImageView) {
                     imageDrawableGeometry(
                         image = opticalView,
                         root = root,
-                        targetOpticalBounds = targetOpticalBounds,
+                        targetOpticalBounds = resolvedTargetOpticalBounds,
                     )?.let { return it }
                 }
                 val opticalSample = sample(opticalView, root)
                 if (opticalSample != null) {
-                    return targetOpticalBounds
+                    return resolvedTargetOpticalBounds
                         ?.let { bounds ->
                             Policy.componentGeometry(
                                 parentGeometry = opticalSample.geometry,
@@ -1862,7 +1872,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 syntheticOpticalGeometry(
                     witness = witness,
                     root = root,
-                    targetOpticalBounds = targetOpticalBounds,
+                    targetOpticalBounds = resolvedTargetOpticalBounds,
                 )?.let { return it }
 
             }
@@ -1872,7 +1882,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 imageDrawableGeometry(
                     image = slot,
                     root = root,
-                    targetOpticalBounds = targetOpticalBounds,
+                    targetOpticalBounds = resolvedTargetOpticalBounds,
                 )?.let { return it }
             }
             val slotSample = sample(slot, root) ?: return sourceGeometry
@@ -1912,6 +1922,27 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 parentHeight = slot.height,
                 bounds = targetBounds,
             ) ?: slotSample.geometry
+        }
+
+        private fun runtimeTargetOpticalBounds(
+            witness: TargetWitness,
+        ): CombinedStatusPainter.TransitionNormalizedBounds? {
+            val image = witness.opticalView as? ImageView ?: return null
+            val resourceEntry =
+                NativeParticipantRuntimeAccess.resourceEntryName(image)
+            if (
+                !Policy.shouldProbeNativeMobileDrawableOpticalBounds(
+                    opticalSource = witness.opticalSource,
+                    resourceEntryName = resourceEntry,
+                )
+            ) {
+                return null
+            }
+            val drawable = image.drawable ?: return null
+            return CombinedStatusDrawableOpticalProbe.resolve(
+                drawable = drawable,
+                resources = image.resources,
+            )
         }
 
         private fun imageDrawableGeometry(

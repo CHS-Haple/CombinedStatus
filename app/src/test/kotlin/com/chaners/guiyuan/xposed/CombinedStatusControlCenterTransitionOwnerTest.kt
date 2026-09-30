@@ -477,6 +477,31 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
+    fun nativeMobileImageUsesDrawableOpticalBoundsButCompatibilityCompositeDoesNot() {
+        assertTrue(
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .shouldProbeNativeMobileDrawableOpticalBounds(
+                    opticalSource = "native",
+                    resourceEntryName = "mobile_signal",
+                ),
+        )
+        assertFalse(
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .shouldProbeNativeMobileDrawableOpticalBounds(
+                    opticalSource = "hyperceiler-dual-signal",
+                    resourceEntryName = null,
+                ),
+        )
+        assertFalse(
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .shouldProbeNativeMobileDrawableOpticalBounds(
+                    opticalSource = "native",
+                    resourceEntryName = "mobile_type",
+                ),
+        )
+    }
+
+    @Test
     fun hyperCeilerDualSignalCompatibilityRequiresItsStructuralSignature() {
         assertTrue(
             CombinedStatusControlCenterTransitionOwner.Policy.isHyperCeilerDualSignalStructure(

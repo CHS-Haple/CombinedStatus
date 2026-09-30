@@ -10,6 +10,7 @@ import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
+import java.util.WeakHashMap
 import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
@@ -1136,70 +1137,20 @@ internal class CombinedStatusPainter(
         drawable: Drawable,
         resources: android.content.res.Resources,
     ): NativeVisualProbe? {
-        val intrinsicWidth = drawable.intrinsicWidth
-        val intrinsicHeight = drawable.intrinsicHeight
-        if (intrinsicWidth <= 0 || intrinsicHeight <= 0) {
-            return null
-        }
-
-        val probeScale =
-            NATIVE_OPTICAL_PROBE_MAX /
-                max(intrinsicWidth, intrinsicHeight).toFloat()
-        val probeWidth = max(1, (intrinsicWidth * probeScale).roundToInt())
-        val probeHeight = max(1, (intrinsicHeight * probeScale).roundToInt())
-        val probeDrawable =
-            drawable.constantState
-                ?.newDrawable(resources)
-                ?.mutate()
-                ?: drawable
-        val bitmap =
-            Bitmap.createBitmap(
-                probeWidth,
-                probeHeight,
-                Bitmap.Config.ARGB_8888,
-            )
-        try {
-            probeDrawable.setTint(Color.WHITE)
-            probeDrawable.alpha = 255
-            probeDrawable.setBounds(0, 0, probeWidth, probeHeight)
-            probeDrawable.draw(Canvas(bitmap))
-
-            val pixels = IntArray(probeWidth * probeHeight)
-            bitmap.getPixels(pixels, 0, probeWidth, 0, 0, probeWidth, probeHeight)
-
-            var minX = probeWidth
-            var minY = probeHeight
-            var maxX = -1
-            var maxY = -1
-            pixels.forEachIndexed { index, color ->
-                val alpha = Color.alpha(color)
-                if (alpha > NATIVE_OPTICAL_ALPHA_THRESHOLD) {
-                    val x = index % probeWidth
-                    val y = index / probeWidth
-                    if (x < minX) minX = x
-                    if (x > maxX) maxX = x
-                    if (y < minY) minY = y
-                    if (y > maxY) maxY = y
-                }
-            }
-
-            if (maxX < minX || maxY < minY) {
-                return null
-            }
-
-            val opticalBounds =
+        val optical =
+            CombinedStatusDrawableOpticalProbe.resolve(
+                drawable = drawable,
+                resources = resources,
+            ) ?: return null
+        return NativeVisualProbe(
+            opticalBounds =
                 OpticalBounds(
-                    left = minX / probeWidth.toFloat(),
-                    top = minY / probeHeight.toFloat(),
-                    right = (maxX + 1) / probeWidth.toFloat(),
-                    bottom = (maxY + 1) / probeHeight.toFloat(),
-                )
-            // Keep the raster probe measurement-only. The native Drawable is
-            // rendered directly at the final presentation bounds below.
-            return NativeVisualProbe(opticalBounds = opticalBounds)
-        } finally {
-            bitmap.recycle()
-        }
+                    left = optical.left,
+                    top = optical.top,
+                    right = optical.right,
+                    bottom = optical.bottom,
+                ),
+        )
     }
 
     private fun drawNativeCenterResource(
@@ -1881,8 +1832,6 @@ internal class CombinedStatusPainter(
         const val MOBILE_TYPE_CENTER_Y = 60f
         const val MOBILE_TYPE_SUFFIX_GAP = 2f
         const val NATIVE_CENTER_CACHE_SIZE = 8
-        const val NATIVE_OPTICAL_PROBE_MAX = 96f
-        const val NATIVE_OPTICAL_ALPHA_THRESHOLD = 8
         const val MIN_OPTICAL_RATIO = 0.08f
         const val NATIVE_STEADY_APPEAR_THRESHOLD = 0.999f
         const val BATTERY_COMPONENT_CENTER_X = 60f
@@ -1949,6 +1898,112 @@ internal class CombinedStatusPainter(
     }
 }
 
+
+
+internal object CombinedStatusDrawableOpticalProbe {
+    private const val PROBE_MAX = 96f
+    private const val ALPHA_THRESHOLD = 8
+
+    private val cache =
+        WeakHashMap<
+            Drawable.ConstantState,
+            MutableMap<Int, CombinedStatusPainter.TransitionNormalizedBounds?>,
+        >()
+
+    @Synchronized
+    fun resolve(
+        drawable: Drawable,
+        resources: android.content.res.Resources,
+    ): CombinedStatusPainter.TransitionNormalizedBounds? {
+        val state = drawable.constantState
+        val level = drawable.level
+        state?.let { constantState ->
+            cache[constantState]
+                ?.takeIf { perLevel -> perLevel.containsKey(level) }
+                ?.let { perLevel -> return perLevel[level] }
+        }
+
+        val resolved = probe(drawable, resources)
+        state?.let { constantState ->
+            cache
+                .getOrPut(constantState) { HashMap() }[level] = resolved
+        }
+        return resolved
+    }
+
+    private fun probe(
+        drawable: Drawable,
+        resources: android.content.res.Resources,
+    ): CombinedStatusPainter.TransitionNormalizedBounds? {
+        val intrinsicWidth = drawable.intrinsicWidth
+        val intrinsicHeight = drawable.intrinsicHeight
+        if (intrinsicWidth <= 0 || intrinsicHeight <= 0) return null
+
+        val probeScale =
+            PROBE_MAX /
+                max(intrinsicWidth, intrinsicHeight).toFloat()
+        val probeWidth = max(1, (intrinsicWidth * probeScale).roundToInt())
+        val probeHeight = max(1, (intrinsicHeight * probeScale).roundToInt())
+        val probeDrawable =
+            drawable.constantState
+                ?.newDrawable(resources)
+                ?.mutate()
+                ?: drawable.constantState
+                    ?.newDrawable()
+                    ?.mutate()
+                ?: drawable
+        val bitmap =
+            Bitmap.createBitmap(
+                probeWidth,
+                probeHeight,
+                Bitmap.Config.ARGB_8888,
+            )
+        try {
+            probeDrawable.state = drawable.state
+            probeDrawable.level = drawable.level
+            probeDrawable.setTint(Color.WHITE)
+            probeDrawable.alpha = 255
+            probeDrawable.setBounds(0, 0, probeWidth, probeHeight)
+            probeDrawable.draw(Canvas(bitmap))
+
+            val pixels = IntArray(probeWidth * probeHeight)
+            bitmap.getPixels(
+                pixels,
+                0,
+                probeWidth,
+                0,
+                0,
+                probeWidth,
+                probeHeight,
+            )
+
+            var minX = probeWidth
+            var minY = probeHeight
+            var maxX = -1
+            var maxY = -1
+            pixels.forEachIndexed { index, color ->
+                if (Color.alpha(color) > ALPHA_THRESHOLD) {
+                    val x = index % probeWidth
+                    val y = index / probeWidth
+                    if (x < minX) minX = x
+                    if (x > maxX) maxX = x
+                    if (y < minY) minY = y
+                    if (y > maxY) maxY = y
+                }
+            }
+            if (maxX < minX || maxY < minY) return null
+
+            return CombinedStatusPainter.TransitionNormalizedBounds(
+                left = minX / probeWidth.toFloat(),
+                top = minY / probeHeight.toFloat(),
+                right = (maxX + 1) / probeWidth.toFloat(),
+                bottom = (maxY + 1) / probeHeight.toFloat(),
+            )
+        } finally {
+            bitmap.recycle()
+        }
+    }
+}
 
 
 internal object CombinedStatusMobileTypeSuffixPolicy {
