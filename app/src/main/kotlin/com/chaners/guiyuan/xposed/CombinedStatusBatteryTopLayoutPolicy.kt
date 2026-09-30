@@ -1,18 +1,35 @@
 package com.chaners.guiyuan.xposed
 
 import kotlin.math.max
+import kotlin.math.min
 
 internal object CombinedStatusBatteryTopLayoutPolicy {
+    fun resolveMinimumSafeTopY(
+        transformScale: Float,
+        transformOffsetY: Float,
+        viewTopY: Float = 0f,
+    ): Float {
+        if (
+            !transformScale.isFinite() ||
+            transformScale <= 0f ||
+            !transformOffsetY.isFinite() ||
+            !viewTopY.isFinite()
+        ) {
+            return 0f
+        }
+        return (viewTopY - transformOffsetY) / transformScale
+    }
+
     fun resolveOpticalBaseCenterY(
         preferredCenterY: Float,
         defaultOpticalRise: Float,
         contentInkHeight: Float,
-        topSafeInset: Float,
+        minimumSafeTopY: Float,
     ): Float =
         max(
             preferredCenterY - defaultOpticalRise.coerceAtLeast(0f),
-            contentInkHeight.coerceAtLeast(0f) / 2f +
-                topSafeInset.coerceAtLeast(0f),
+            minimumSafeTopY +
+                contentInkHeight.coerceAtLeast(0f) / 2f,
         )
 
     fun resolveCenterY(
@@ -20,26 +37,20 @@ internal object CombinedStatusBatteryTopLayoutPolicy {
         requestedOffset: Float,
         positiveLimit: Float,
         contentInkHeight: Float,
-        topSafeInset: Float,
+        minimumSafeTopY: Float,
     ): Float {
         if (requestedOffset <= 0f || positiveLimit <= 0f) {
             return baseCenterY - requestedOffset
         }
 
         val minimumSafeCenterY =
-            contentInkHeight.coerceAtLeast(0f) / 2f +
-                topSafeInset.coerceAtLeast(0f)
+            minimumSafeTopY +
+                contentInkHeight.coerceAtLeast(0f) / 2f
         val maximumSafeRise =
             (baseCenterY - minimumSafeCenterY).coerceAtLeast(0f)
-        val normalized =
-            (requestedOffset / positiveLimit).coerceIn(0f, 1f)
-        // The top surface has limited physical headroom. Use an ease-out
-        // response so small/medium positive values visibly move instead of
-        // spending most of the slider near the neutral position, while +max
-        // still lands exactly on the safe top boundary.
-        val responsive =
-            1f - (1f - normalized) * (1f - normalized)
-        return baseCenterY - maximumSafeRise * responsive
+        val requestedRise =
+            requestedOffset.coerceIn(0f, positiveLimit)
+        return baseCenterY - min(requestedRise, maximumSafeRise)
     }
 
     fun resolveRingGapPadding(
