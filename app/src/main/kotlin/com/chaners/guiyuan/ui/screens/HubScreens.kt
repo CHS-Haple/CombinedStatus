@@ -136,7 +136,7 @@ internal fun FeaturesScreen(
                     valueRange =
                         BATTERY_TOP_VERTICAL_OFFSET_MIN..
                             BATTERY_TOP_VERTICAL_OFFSET_MAX,
-                    steps = 9,
+                    steps = 11,
                     enabled = featureSettings.enabled,
                 )
                 SliderPreference(
