@@ -977,10 +977,36 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         opacity * Policy.unmatchedExitOpacity(motionProgress)
                     }
                 if (componentOpacity <= 0f) return@forEach
+                val matrixBounds =
+                    when {
+                        spec.component ==
+                                CombinedStatusPainter.TransitionComponent.CENTER &&
+                            model.centerIndicator is CenterIndicator.MobileType ->
+                            painter.transitionMobileTypeCurrentBounds(
+                                width = sourceWidth,
+                                height = sourceHeight,
+                                indicator = model.centerIndicator,
+                                targetWeight = witness?.textWeight,
+                                progress = motionProgress,
+                            ) ?: spec.sourceBounds
+
+                        spec.component ==
+                            CombinedStatusPainter.TransitionComponent.BATTERY_NUMBER ->
+                            painter.transitionBatteryNumberCurrentBounds(
+                                width = sourceWidth,
+                                height = sourceHeight,
+                                model = model,
+                                visualSettings = currentSnapshot.visualSettings,
+                                targetWeight = witness?.textWeight,
+                                progress = motionProgress,
+                            ) ?: spec.sourceBounds
+
+                        else -> spec.sourceBounds
+                    }
                 val matrix =
                     matrixForBoundsGeometry(
                         geometry = geometry,
-                        bounds = spec.sourceBounds,
+                        bounds = matrixBounds,
                     ) ?: return@forEach
 
                 val save =
@@ -1038,32 +1064,6 @@ internal object CombinedStatusControlCenterTransitionOwner {
                             null
                         },
                     mobileTargetBars = resolvedMobileTargetBars,
-                    batteryTargetWidthRatio =
-                        if (
-                            spec.component ==
-                                CombinedStatusPainter.TransitionComponent.BATTERY &&
-                            targetGeometry != null
-                        ) {
-                            Policy.relativeGeometryWidth(
-                                target = targetGeometry,
-                                current = sourceGeometry,
-                            )
-                        } else {
-                            null
-                        },
-                    batteryTargetHeightRatio =
-                        if (
-                            spec.component ==
-                                CombinedStatusPainter.TransitionComponent.BATTERY &&
-                            targetGeometry != null
-                        ) {
-                            Policy.relativeGeometryHeight(
-                                target = targetGeometry,
-                                current = sourceGeometry,
-                            )
-                        } else {
-                            null
-                        },
                     batteryNumberTargetWeight =
                         if (
                             spec.component ==
