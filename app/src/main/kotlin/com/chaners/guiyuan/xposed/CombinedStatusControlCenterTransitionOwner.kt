@@ -954,6 +954,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     component = spec.component,
                     shapePolicy = spec.shapePolicy,
                     opacity = 1f,
+                    visualSettings = currentSnapshot.visualSettings,
                     motionProgress = motionProgress,
                     shapeProgress =
                         when (spec.shapePolicy) {
