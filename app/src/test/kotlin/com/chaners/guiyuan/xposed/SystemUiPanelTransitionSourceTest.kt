@@ -481,6 +481,25 @@ class SystemUiPanelTransitionSourceTest {
         assertEquals(true, update.controlCenterAppearanceAnimated)
     }
 
+
+    @Test
+    fun controlCenterUpdateCarriesExactNativeBatteryIslandState() {
+        val active =
+            SystemUiPanelTransitionSource.Update(
+                source = SystemUiPanelTransitionSource.Source.CONTROL_CENTER,
+                fraction = 0.5f,
+                expanded = null,
+                tracking = null,
+                visible = null,
+                controlCenterBatteryIslandActive = true,
+            )
+        val ordinary =
+            active.copy(controlCenterBatteryIslandActive = false)
+
+        assertEquals(true, active.controlCenterBatteryIslandActive)
+        assertEquals(false, ordinary.controlCenterBatteryIslandActive)
+    }
+
     @Test
     fun controlCenterUpdateCarriesNativeSelectedSourceScene() {
         val update =
