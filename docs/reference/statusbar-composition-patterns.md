@@ -923,3 +923,18 @@ Consumers share the same evidence:
 - latent reveal may use real visual width for its short reveal phase while native slot occupancy remains SystemUI layout authority.
 
 Provider names such as HyperCeiler may remain in historical diagnostics, but must not choose the primary runtime geometry algorithm.
+
+---
+
+## Exact component topology and transition basis
+
+**Build-509 refinement of the participant visual snapshot contract.**
+
+When a target snapshot exposes exact sub-components, its topology, optical envelope and component rectangles are one evidence set. A consumer must not normalize exact component rectangles inside the snapshot envelope and then keep the outer projection on an unrelated source-only similarity basis.
+
+For a positively verified `FOUR_VERTICAL_BARS` participant, exact target-basis interpolation is permitted for that Mobile component so the measured envelope and all four measured rectangles share one final root-space basis. This is a narrowly scoped capability rule, not a return to global affine interpolation.
+
+Composite, single-glyph and unknown topologies remain on the conservative similarity/fallback path. Provider or module identity must not select the geometry algorithm.
+
+Latent 0→1 / 1→N reveal remains spatial. The existing end reservation opens a real interval from the Battery end; the target visual envelope is revealed continuously as that reservation covers it, while root-space target proximity remains a second safety bound. Do not replace this with a duration, expansion-fraction threshold or delayed runnable.
+
