@@ -243,7 +243,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
         ): Boolean =
             when (sourceScene) {
                 CombinedStatusSourceScene.HOME ->
-                    !charging || nativeBatteryIslandActive != true
+                    !charging || nativeBatteryIslandActive == false
                 CombinedStatusSourceScene.KEYGUARD ->
                     true
                 CombinedStatusSourceScene.UNKNOWN ->
