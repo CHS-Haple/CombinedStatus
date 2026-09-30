@@ -12252,3 +12252,65 @@ Focused device gates:
 4. Latent Airplane/No-SIM/additional SIM: first leave one native final-slot-width of empty spacing, then reveal quickly using final native optical size; no overlapping emergence and no separate dual-SIM animation behavior.
 5. Regression: Build-498 Keyguard + Super-Island remains hitch-free, Build-497 VPN/whole-row flash stays absent, and Build-496 master-switch fail-native behavior remains accepted.
 
+## 2026-09-30 — Build 501: latent optical authority and Control Center collapse cleanup
+
+**Type:** Control Center latent-target correction / reservation ownership / scene cleanup  
+**Display version:** 0.0.3  
+**Build / source:** 501 / `20260930-501` / `feat/control-center-transition-matrix`
+
+### Problem
+
+Build-500 device validation exposes three new defects:
+- Airplane and No-SIM participants that have no independently visible compact source enter with an obviously oversized icon and an unnatural path.
+- Enabling Airplane can deform the trajectory of the **entire** Trinity decomposition, not only the airplane participant.
+- A native peer that belongs only to expanded Control Center (observed with Bluetooth) can remain visible after collapsing back to Home.
+
+### Evidence and root cause
+
+1. **Single-icon latent target used slot geometry.** Supplemental Airplane/No-SIM targets were created with only a preferred slot and no semantic child entry. When no optical child was selected, target resolution was allowed to use the whole native slot/content box. That makes the latent icon basis much larger than the final glyph.
+2. **Latent reservation fed back into the shared motion carrier.** Additional SIM, supplemental Airplane and supplemental No-SIM were added to `resolveReservationSpans()`. The resulting reservation changes QS_FAKE `statusIcons.paddingEnd`, while the same `MiuiStatusIconContainer` is sampled as the live carrier for every projected Trinity component. A no-source participant could therefore move the coordinate carrier that defines the rest of the animation.
+3. **Collapse hid only Guiyuan overlay, not native compact ownership.** On `visible=false`, Home was restored and `requestedVisible` was cleared, but the Control Center native presentation session intentionally remained prearmed. Device evidence shows that after a full Control Center presentation this lifetime is too broad: Control-Center-only peer state can survive the scene boundary.
+
+### Change
+
+- Airplane and No-SIM latent target witnesses now require a unique, visible, drawable-bearing native `ImageView` (slot root or descendant).
+- Their target geometry is resolved through the real drawable frame / image matrix path. If that optical target is unavailable or ambiguous, the latent participant is not drawn; the whole slot is no longer accepted as a size fallback.
+- Latent 0→1 / 1→N participants no longer contribute reservation spans:
+  - additional SIM;
+  - supplemental Airplane;
+  - supplemental No-SIM.
+- Reservation authority remains with transition components that already have a real compact Trinity source.
+- `CombinedStatusControlCenterRenderSession.setRequestedVisible(false)` now releases `SystemUiHomePresentationOwner` Control Center presentation ownership after Home is restored. Existing cleanup restores:
+  - end reservation;
+  - persistent ignored slots via native setter/layout refresh;
+  - Guiyuan-owned clip masks.
+- The fake host/render session remains attached for reuse; the next `visible=true` path reacquires native presentation through existing `attach(...reused=true)`.
+- No Bluetooth-specific slot logic, new visibility writer, new Hook, timer, Animator or gesture timeline is introduced.
+- Build identity becomes `versionCode=260930301`, `buildId=20260930-501`.
+
+### 审查 / review
+
+- **Root cause:** fixes target optical authority, reservation ownership and scene lifetime rather than applying per-icon scale/trajectory offsets or hiding Bluetooth directly.
+- **Native-first:** actual native drawable frame remains final single-icon optical authority; unresolved optical geometry fails native for that latent frame.
+- **Single writer:** latent participants no longer alter the same reservation that drives their shared carrier; this removes the reservation→carrier→trajectory feedback loop.
+- **Scene ownership:** Control Center compact ownership is now bounded by visible-scene lifetime; cleanup reuses the existing reversible presentation contract.
+- **Performance:** retained host/render session still avoids recreating hooks or View discovery infrastructure on every collapse; only presentation ownership is released/reacquired.
+- **Prearm scope:** cold/fake-root prearm is intentionally left unchanged in this build to keep collapse cleanup as the isolated lifecycle variable. Device validation will decide whether prearm also needs a narrower lifetime.
+- **Protected boundaries:** Build-491 Keyguard callback/lease, Build-497 scene-specific Keyguard island reservation and Build-498 island diagnostic-performance fix are untouched.
+- **Review-caught implementation error:** intermediate commit `fd42361c` accidentally matched the wrong `mobileSpec` block while removing latent reservation and deleted a broad runtime range. Post-commit diff review caught it before any device package. Commit `d9d5cd55` reconstructs the file from the Build-500 parent and reapplies only the intended optical/reservation changes. The final Build-500→Build-501 diff contains no broad runtime deletion.
+
+### CI / validation
+
+Pre-check Runtime CI on source `7c7c316907a8c1f9cab73e0dcce4e544e60b147c` passes Build workflow #1880, including pinned HyperOS target verification, unit tests/APK build and Modern Xposed metadata.
+
+Build-501 exact-head Runtime CI and one signed work-branch Canary are required before device validation.
+
+Focused device gates:
+1. **Airplane / NoSIM latent size:** no whole-slot-sized icon; first visible frame must already match final native glyph optical size.
+2. **Latent path:** supplemental Airplane/NoSIM/additional SIM may appear only after their final slot-width has separated, then reveal quickly; no odd sweep through peer icons.
+3. **Whole-group trajectory:** toggling Airplane must no longer change Battery/Wi-Fi/Mobile decomposition path solely because the supplemental airplane participant exists.
+4. **Bluetooth / native-only peers:** open full Control Center with a peer that is absent on Home, collapse, and verify that peer does not remain in Home; repeat the cycle.
+5. **Reacquire:** a second Control Center pull after collapse must still acquire compact Guiyuan presentation correctly without missing/duplicated native icons.
+6. **Build-500 regressions:** recheck first-frame Mobile-dot vertical continuity, charging press-entry horizontal continuity and final native endpoint alignment.
+7. **Protected regressions:** Keyguard + Super-Island hitch and VPN/whole-row terminal flash remain absent; master-switch fail-native remains normal.
+
