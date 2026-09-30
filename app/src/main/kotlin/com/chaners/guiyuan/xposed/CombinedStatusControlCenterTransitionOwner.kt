@@ -445,6 +445,21 @@ internal object CombinedStatusControlCenterTransitionOwner {
             )
         }
 
+        fun latentTargetSizedGeometry(
+            pathGeometry: FloatArray,
+            targetGeometry: FloatArray,
+        ): FloatArray {
+            require(pathGeometry.size == 6 && targetGeometry.size == 6)
+            return floatArrayOf(
+                pathGeometry[0],
+                pathGeometry[1],
+                targetGeometry[2],
+                targetGeometry[3],
+                targetGeometry[4],
+                targetGeometry[5],
+            )
+        }
+
         fun latentRevealOpacity(
             current: FloatArray,
             target: FloatArray,
@@ -1080,13 +1095,18 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         sourceGeometry = sourceGeometry,
                         targetOpticalBounds = mobileSpec.targetOpticalBounds,
                     ) ?: return@forEach
-                val geometry =
+                val pathGeometry =
                     projectedGeometry(
                         source = sourceGeometry,
                         target = targetGeometry,
                         progress = splitProgress,
                         scalePolicy = mobileSpec.scalePolicy,
                         carrierFrames = carrierFrames,
+                    )
+                val geometry =
+                    Policy.latentTargetSizedGeometry(
+                        pathGeometry = pathGeometry,
+                        targetGeometry = targetGeometry,
                     )
                 val matrix =
                     matrixForBoundsGeometry(
@@ -1095,7 +1115,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     ) ?: return@forEach
                 val revealProgress =
                     Policy.latentRevealOpacity(
-                        current = geometry,
+                        current = pathGeometry,
                         target = targetGeometry,
                     )
                 val componentOpacity = opacity * revealProgress
@@ -1173,7 +1193,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     sourceGeometry = sourceGeometry,
                     targetOpticalBounds = null,
                 ) ?: return null
-            val geometry =
+            val pathGeometry =
                 projectedGeometry(
                     source = sourceGeometry,
                     target = targetGeometry,
@@ -1181,9 +1201,14 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     scalePolicy = CombinedStatusPainter.TransitionScalePolicy.TARGET,
                     carrierFrames = carrierFrames,
                 )
+            val geometry =
+                Policy.latentTargetSizedGeometry(
+                    pathGeometry = pathGeometry,
+                    targetGeometry = targetGeometry,
+                )
             val revealProgress =
                 Policy.latentRevealOpacity(
-                    current = geometry,
+                    current = pathGeometry,
                     target = targetGeometry,
                 )
             if (revealProgress <= 0f) return null
@@ -1255,7 +1280,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     sourceGeometry = sourceGeometry,
                     targetOpticalBounds = null,
                 ) ?: return null
-            val geometry =
+            val pathGeometry =
                 projectedGeometry(
                     source = sourceGeometry,
                     target = targetGeometry,
@@ -1263,9 +1288,14 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     scalePolicy = CombinedStatusPainter.TransitionScalePolicy.TARGET,
                     carrierFrames = carrierFrames,
                 )
+            val geometry =
+                Policy.latentTargetSizedGeometry(
+                    pathGeometry = pathGeometry,
+                    targetGeometry = targetGeometry,
+                )
             val revealProgress =
                 Policy.latentRevealOpacity(
-                    current = geometry,
+                    current = pathGeometry,
                     target = targetGeometry,
                 )
             if (revealProgress <= 0f) return null

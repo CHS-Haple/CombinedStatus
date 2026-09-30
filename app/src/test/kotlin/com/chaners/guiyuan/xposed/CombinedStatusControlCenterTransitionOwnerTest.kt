@@ -204,6 +204,42 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
+    fun latentParticipantUsesFinalTargetBasisBeforeItBecomesVisible() {
+        val path =
+            floatArrayOf(
+                42f,
+                73f,
+                30f,
+                0f,
+                0f,
+                30f,
+            )
+        val target =
+            floatArrayOf(
+                80f,
+                90f,
+                18f,
+                2f,
+                -2f,
+                18f,
+            )
+
+        val result =
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .latentTargetSizedGeometry(
+                    pathGeometry = path,
+                    targetGeometry = target,
+                )
+
+        assertEquals(path[0], result[0], 0.0001f)
+        assertEquals(path[1], result[1], 0.0001f)
+        assertEquals(target[2], result[2], 0.0001f)
+        assertEquals(target[3], result[3], 0.0001f)
+        assertEquals(target[4], result[4], 0.0001f)
+        assertEquals(target[5], result[5], 0.0001f)
+    }
+
+    @Test
     fun latentParticipantStaysHiddenUntilItIsNearItsNativeTarget() {
         val target = floatArrayOf(0f, 0f, 10f, 0f, 0f, 10f)
         val far = floatArrayOf(20f, 0f, 10f, 0f, 0f, 10f)
