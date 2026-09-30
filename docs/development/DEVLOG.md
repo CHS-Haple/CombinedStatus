@@ -12377,3 +12377,57 @@ Focused device gates:
 4. Dual-SIM: the additional signal must not vertically stretch/enlarge beyond its normal Mobile scale policy.
 5. Final handoff: real native icons remain the final owner with no duplicate/overlap residue.
 6. Regression: Build-498 Keyguard + Super-Island, Build-497 VPN/whole-row, and Build-496 master-switch fail-native boundaries remain accepted.
+
+
+## 2026-09-30 — Build 503: close the visible fake/real overlap, not only the invisible endpoint
+
+**Type:** Control Center handoff geometry correction  
+**Display version:** 0.0.3  
+**Build / source:** 503 / `20260930-503` / `feat/control-center-transition-matrix`
+
+### Problem / evidence
+
+Build-502 device validation reports that Guiyuan's fake decomposition is still visibly to the right of the real QS status icons. The supplied report is the exact signed Build 502 Canary. At `fraction=0.8837391`, QS_FAKE is already fading with root alpha `0.5564108` and native appearance is active, while the final real QS surface is visible. At `fraction=1.0`, QS_FAKE reaches alpha `0.0`; the overlay draw path then returns and is no longer visually comparable with the real endpoint.
+
+This disproves the Build-502 assumption that closing only the fake carrier center is sufficient.
+
+### Root cause
+
+Two independent quantities define the projected component:
+1. the native carrier center;
+2. the component's source-relative -> target-relative offset/scale interpolation.
+
+Build 502 closes (1) during the native alpha handoff but leaves (2) on `handoffMotionProgress = max(expansion, finalAlpha)`. With expansion already around 0.88 when appearance starts, a final alpha below 0.88 has **no effect at all** on component offset/scale. The fake overlay therefore remains on the expansion path while the real final surface is already visible. It becomes mathematically exact only at/after the point where QS_FAKE alpha is zero and Guiyuan stops drawing.
+
+The observed `normalControlStatusIconsTranslationX=46` is **not** a correction value. Exact-target SystemUI evidence shows HyperOS itself applies that translation to the final/fake Control Center surfaces; live View-matrix sampling already contains it. Applying it again would be a duplicate geometry write in project space.
+
+### Change
+
+- Replace `max(expansion, finalAlpha)` with residual-distance closure:
+  `effective = expansion + (1 - expansion) * finalAlpha` while native appearance is active.
+- Use the **same final real-surface alpha** as the carrier-center closure authority.
+- When native appearance is inactive, both component path and carrier remain on the raw native expansion/fake carrier path.
+- Preserve live role-6 target sampling and all target optical geometry.
+- Preserve Build-502 latent scale correction unchanged.
+- Build identity becomes `versionCode=260930303`, `buildId=20260930-503`.
+
+### 审查 / review
+
+- **single handoff authority:** final native appearance alpha now owns only closure of the remaining carrier/component distance; no second alpha source or project timeline remains.
+- **native-first:** expansion still supplies the base trajectory and live role-6 Views still supply target geometry.
+- **no magic offset:** the logged 46 px native translation is deliberately not consumed as a project correction.
+- **endpoint visibility:** the fix targets the interval where both fake and real are actually visible, rather than an alpha-zero endpoint the user cannot see.
+- **reverse path:** appearance=false returns directly to raw expansion; no threshold or delayed state is retained across reversal.
+- **performance:** constant-time arithmetic only; no Hook, Animator, polling or per-frame logging added.
+- **protected boundaries:** Build-491 Keyguard callback/lease, Build-497 reservation, Build-498 island-performance, Build-500 source anchor, Build-501 latent reservation, and Build-502 latent scaling are untouched.
+
+### Validation
+
+Exact-head Runtime CI and signed Canary are required.
+
+Focused device gate:
+1. Slow Home outward pull: during the visible fake/real crossfade, fake Battery/Wi-Fi/Mobile must converge onto the real glyphs rather than remain uniformly to the right.
+2. Fast outward pull: no terminal snap or right-offset flash.
+3. Reverse collapse: no discontinuity when native appearance switches back to fake ownership.
+4. Charging: source-side first-frame left-bias fix must remain absent.
+5. One dual-SIM pass: Build-502 no-stretch/no-forced-target-size behavior must remain intact.

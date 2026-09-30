@@ -199,21 +199,22 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     .takeIf(Float::isFinite)
                     ?.coerceIn(0f, 1f)
                     ?: 0f
-            return maxOf(expansion, appearance)
+            return expansion + (1f - expansion) * appearance
         }
 
         fun closeCarrierCenterToFinal(
             currentCarrier: FloatArray,
             targetCarrier: FloatArray,
-            nativeFakeAlpha: Float,
+            finalAppearanceAlpha: Float,
+            finalAppearanceActive: Boolean,
         ): FloatArray {
             require(currentCarrier.size == 6 && targetCarrier.size == 6)
-            val fakeAlpha =
-                nativeFakeAlpha
+            if (!finalAppearanceActive) return currentCarrier.copyOf()
+            val closure =
+                finalAppearanceAlpha
                     .takeIf(Float::isFinite)
                     ?.coerceIn(0f, 1f)
-                    ?: 1f
-            val closure = 1f - fakeAlpha
+                    ?: 0f
             if (closure <= 0f) return currentCarrier.copyOf()
             return currentCarrier.copyOf().also { closed ->
                 closed[0] =
@@ -813,7 +814,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
                                 Policy.closeCarrierCenterToFinal(
                                     currentCarrier = currentCarrier,
                                     targetCarrier = targetCarrier,
-                                    nativeFakeAlpha = opacity,
+                                    finalAppearanceAlpha = finalOpacity,
+                                    finalAppearanceActive = nativeAppearance,
                                 ),
                             target = targetCarrier,
                         )

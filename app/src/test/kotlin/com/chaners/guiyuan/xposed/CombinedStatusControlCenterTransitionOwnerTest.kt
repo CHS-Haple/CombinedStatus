@@ -169,7 +169,8 @@ class CombinedStatusControlCenterTransitionOwnerTest {
                 .closeCarrierCenterToFinal(
                     currentCarrier = currentCarrier,
                     targetCarrier = targetCarrier,
-                    nativeFakeAlpha = 0f,
+                    finalAppearanceAlpha = 1f,
+                    finalAppearanceActive = true,
                 )
 
         val result =
@@ -191,7 +192,7 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
-    fun opaqueNativeFakeCarrierDoesNotCloseEarly() {
+    fun inactiveFinalAppearanceDoesNotCloseCarrier() {
         val currentCarrier =
             floatArrayOf(154f, 136f, 140f, 0f, 0f, 169f)
         val targetCarrier =
@@ -202,7 +203,8 @@ class CombinedStatusControlCenterTransitionOwnerTest {
                 .closeCarrierCenterToFinal(
                     currentCarrier = currentCarrier,
                     targetCarrier = targetCarrier,
-                    nativeFakeAlpha = 1f,
+                    finalAppearanceAlpha = 1f,
+                    finalAppearanceActive = false,
                 )
 
         assertEquals(currentCarrier[0], result[0], 0.0001f)
@@ -212,7 +214,7 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
-    fun halfFadedNativeFakeClosesCarrierCenterHalfwayOnly() {
+    fun halfVisibleFinalAppearanceClosesCarrierCenterHalfwayOnly() {
         val currentCarrier =
             floatArrayOf(154f, 136f, 140f, 0f, 0f, 169f)
         val targetCarrier =
@@ -223,7 +225,8 @@ class CombinedStatusControlCenterTransitionOwnerTest {
                 .closeCarrierCenterToFinal(
                     currentCarrier = currentCarrier,
                     targetCarrier = targetCarrier,
-                    nativeFakeAlpha = 0.5f,
+                    finalAppearanceAlpha = 0.5f,
+                    finalAppearanceActive = true,
                 )
 
         assertEquals(177f, result[0], 0.0001f)
@@ -476,9 +479,9 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
-    fun nativeFinalAppearanceCanOnlyCatchOutwardGeometryUp() {
+    fun nativeFinalAppearanceConsumesOnlyRemainingOutwardDistance() {
         assertEquals(
-            0.62f,
+            0.696f,
             CombinedStatusControlCenterTransitionOwner.Policy.handoffMotionProgress(
                 expansionProgress = 0.62f,
                 finalAppearanceAlpha = 0.2f,
@@ -487,10 +490,19 @@ class CombinedStatusControlCenterTransitionOwnerTest {
             0.0001f,
         )
         assertEquals(
-            0.82f,
+            0.9316f,
             CombinedStatusControlCenterTransitionOwner.Policy.handoffMotionProgress(
                 expansionProgress = 0.62f,
                 finalAppearanceAlpha = 0.82f,
+                finalAppearanceActive = true,
+            ),
+            0.0001f,
+        )
+        assertEquals(
+            1f,
+            CombinedStatusControlCenterTransitionOwner.Policy.handoffMotionProgress(
+                expansionProgress = 0.62f,
+                finalAppearanceAlpha = 1f,
                 finalAppearanceActive = true,
             ),
             0.0001f,
@@ -505,4 +517,7 @@ class CombinedStatusControlCenterTransitionOwnerTest {
             0.0001f,
         )
     }
+
+}
+
 }
