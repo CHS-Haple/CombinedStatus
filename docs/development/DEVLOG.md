@@ -12658,7 +12658,7 @@ The existing unified outer-box height therefore overgrows Guiyuan's four-point -
 - Extract the existing drawable alpha optical probe into a shared cached helper.
 - Native `mobile_signal` ImageView witnesses use current drawable optical bounds when no explicit target optical bounds already exist.
 - Existing `hyperceiler-dual-signal` compatibility witnesses remain composite View geometry and bypass the native drawable probe.
-- Cache probe results by cloneable `Drawable.ConstantState + level + drawable state + layoutDirection + drawable state + layoutDirection`; never tint or draw the live SystemUI drawable for measurement.
+- Cache probe results by cloneable `Drawable.ConstantState + level + drawable state + layoutDirection`; never tint or draw the live SystemUI drawable for measurement.
 - Build identity becomes `versionCode=260930307`, `buildId=20260930-507`.
 
 ### 审查 / review
@@ -12668,7 +12668,7 @@ The existing unified outer-box height therefore overgrows Guiyuan's four-point -
 - **single writer:** the existing `statusIcons-paddingEnd` owner remains the only peer-layout writer.
 - **occupancy vs reveal:** native peer spacing and latent pixel opacity are separate authorities.
 - **structure-aware compatibility:** native single-row uses drawable optical content; HyperCeiler dual-row uses the already-identified composite structure. No package/module name branch is used.
-- **performance:** optical raster probing is cached per Drawable.ConstantState + level + drawable state + layoutDirection + drawable state + layoutDirection; ordinary frames are cache lookups only.
+- **performance:** optical raster probing is cached per Drawable.ConstantState + level + drawable state + layoutDirection; ordinary frames are cache lookups only.
 - **side-effect safety:** the probe requires a cloneable constant state and measures only a cloned drawable. Missing cloneability returns null and preserves existing native/frame geometry.
 - **reverse:** decreasing native progress shrinks total reservation symmetrically; participant-specific occupancy gate hides latent pixels before their target slot ceases to fit.
 - **protected boundaries:** Build-491/497/498, Build-500 source authority, Build-504 root-space endpoint and SHRINK_ONLY latent scale remain unchanged.
