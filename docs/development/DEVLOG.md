@@ -13471,3 +13471,88 @@ Build-523 device evidence showed two remaining battery-top defects:
 - Build 524 Runtime CI #1961 passed before this geometry correction.
 - Build 525 adds unit coverage for View-top -> canonical mapping, full positive travel above canonical zero, real clipping, negative-offset preservation, and alpha-weighted ink-center extraction.
 - Runtime CI and focused exact-head device validation are required before integration.
+
+
+## 2026-10-01 — Build 526: distinguish generic Super-Island from native Battery Island
+
+**Type:** Control Center native-peer endpoint ownership correction  
+**Display version:** 0.0.3  
+**Build / source:** 526 / `20261001-526` / `feat/battery-top-readout` / PR #181
+
+### Maintainer device evidence
+
+Build-523 follow-up narrows the peer-motion defect:
+- a Super-Island by itself is normal;
+- the failure appears with Super-Island + charging;
+- during the captured affected pull, the exact Control Center diagnostic reports `addBatteryIsland=false` and `batteryWidthDiff=0`;
+- the same transition session reports `reservationMode=native-peer-motion`.
+
+This is a state-authority contradiction: HyperOS says the Control Center is **not** using Battery-Island geometry, while Guiyuan has already released semantic reservation as if Battery-Island native peer motion owned the row.
+
+### Root cause
+
+Build 494 introduced a Home charging-island split to avoid double-applying semantic reservation when HyperOS already owns Battery-Island peer displacement. The policy used:
+
+`charging && SystemUiIslandMotionSource.currentIslandShowing()`
+
+as the proxy for that native ownership.
+
+That proxy is semantically too broad. `HomeStatusBarViewBinderInjector.onIslandStatusChanged(showing,...)` describes generic Super-Island visibility. A music/other Super-Island can therefore be `showing=true` while charging even though `ControlCenterHeaderExpandController.isAddBatteryIsland == false`.
+
+The exact Control Center contract already exposes the authoritative distinction:
+- `isAddBatteryIsland=false / batteryWidthDiff=0`: ordinary QS_FAKE endpoint rule;
+- `isAddBatteryIsland=true`: HyperOS Battery-Island special peer-motion rule.
+
+The previously rejected local `batteryWidthDiff` cancellation/normalization route remains rejected. The defect is the ownership selector, not the native motion formula.
+
+### Change
+
+- Extend the existing `SystemUiPanelTransitionSource.Update` payload with read-only `controlCenterBatteryIslandActive`.
+- Read that value directly from the already-resolved exact-target `ControlCenterHeaderExpandController.isAddBatteryIsland` field:
+  - when Control Center becomes visible;
+  - on each native expansion callback before semantic reservation is committed;
+  - on appearance callbacks.
+- Retain the exact value in `CombinedStatusControlCenterTransitionOwner`.
+- Change Home reservation policy to disable semantic reservation only when:
+  - source scene is Home;
+  - current render model is charging;
+  - exact native `isAddBatteryIsland == true`.
+- `false` and `null` no longer impersonate Battery-Island ownership.
+- Expansion samples explicitly clear stale prior Battery-Island state when the exact native read is unavailable.
+- Generic `SystemUiIslandMotionSource.currentIslandShowing()` is removed from this ownership decision but remains available for existing read-only island diagnostics.
+- Add focused unit coverage for exact native Battery-Island payload and the revised scene/charging matrix.
+- Advance runtime identity to Build 526.
+
+### 问题执行流程
+
+1. Build-523 device shows island-only normal but island+charging wrong.
+2. Transition log shows Guiyuan `native-peer-motion`.
+3. Exact HyperOS Control Center snapshot simultaneously shows `addBatteryIsland=false / batteryWidthDiff=0`.
+4. Review traces reservation selection back to the generic Super-Island `showing` Boolean.
+5. Compare against the exact-target Control Center contract where `isAddBatteryIsland` already exists and directly controls Battery-Island geometry semantics.
+6. Replace the overly broad proxy with that exact native authority.
+7. Preserve native motion and all existing writers; only the policy selector changes.
+
+### 审查 / review
+
+- **root-cause-first:** fixes the wrong state authority instead of adding a compensating X offset or endpoint constant.
+- **HyperOS-native-first:** `isAddBatteryIsland` is now the Battery-Island semantic authority; generic island visibility is not reinterpreted.
+- **single writer:** no translation, alpha, visibility, or new geometry writer; `statusIcons.paddingEnd` remains the sole Guiyuan peer-layout writer.
+- **lifecycle:** no new hook/listener; data flows through the four already-installed Control Center callbacks.
+- **performance:** one primitive Boolean reflection read on existing event callbacks; no polling/frame probe.
+- **Fail native:** an unavailable Battery-Island read clears stale special-mode state and does not assume Battery-Island ownership.
+- **protected behavior:** island-only, charging-only, Build-510/511 Battery-body motion, Build-525 readout geometry and Build-524 number-target logic are not retuned.
+- **rejected route remains rejected:** no local `batteryWidthDiff` normalization or QS_FAKE translation cancellation is restored.
+
+### Validation
+
+- Build 525 Runtime CI #1966: **success**, including physical-headroom and alpha-centroid tests.
+- Build 526 static review: no new runtime owner or native geometry writer.
+- Added policy coverage verifies:
+  - Home + charging + native Battery Island -> native peer motion;
+  - Home + charging + no native Battery Island -> semantic reservation;
+  - Home + charging + unknown Battery-Island read -> semantic reservation;
+  - Home + island semantics without charging -> semantic reservation;
+  - Keyguard remains semantic-reservation owned.
+- Build 526 Runtime CI required before Canary.
+- The prior Build-525 Canary request is superseded and is not an integration checkpoint.
