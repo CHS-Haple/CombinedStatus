@@ -390,12 +390,13 @@ class CombinedStatusControlCenterTransitionOwnerTest {
 
     private fun geometry(
         centerX: Float = 0f,
+        centerY: Float = 0f,
         width: Float,
         height: Float,
     ): FloatArray =
         floatArrayOf(
             centerX,
-            0f,
+            centerY,
             width,
             0f,
             0f,
