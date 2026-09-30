@@ -13237,3 +13237,70 @@ Build 519 therefore adds only a one-shot, read-only probe when a Control Center 
 - PR remains mergeable with no divergence from `dev`.
 - Device gate is intentionally diagnostic-only: one Home -> Control Center pull followed by one detailed diagnostic export.
 
+## 2026-10-01 — Build 521: default-midpoint rebasing, optical centering and durable Battery-number target evidence
+
+**Type:** focused device-evidence correction + optical review  
+**Display version:** 0.0.3  
+**Build / source:** 521 / `20261001-521` / `feat/battery-top-readout` / PR #181
+
+### Maintainer device evidence
+
+Build 519 device evidence established that:
+- the current charging-glyph 150% physical size should become the new 100% default/reference;
+- 100% should be a meaningful midpoint/default for size controls, with at least ±100% adjustment;
+- number weight should extend to at least 1200;
+- positive number offset was ineffective;
+- the default value should be visibly identifiable using MIUIX conventions, without inventing a custom resistance/gesture model.
+
+The maintainer's screenshot also shows the number at 130% as the current practical visual baseline. Build 521 therefore normalizes that accepted physical size to the new 100% number reference as well, so the user-facing 100% position corresponds to the actually tuned baseline rather than retaining an undersized historical base.
+
+The Build-519 detailed report identifies the exact Canary/runtime, shows overall Runtime health as healthy, and shows event-driven visual-settings updates. Its last-600 log window no longer contained the transient Battery-number target probe after heavy slider activity, which exposed a diagnostic durability issue rather than a target-probe failure.
+
+### Root cause
+
+The positive-offset failure was geometric. Build 518/519 derived the safe positive rise from `max(numberInkHeight, chargingGlyphInkHeight)`. With the enlarged charging glyph, the glyph height made the minimum safe center exceed the authored center and forced `maximumSafeRise = 0`. The preference reached the painter, but all positive values resolved to the same Y.
+
+Horizontal optical imbalance had a related cause: the prior stable charging slot centered the combined glyph+number box. Native charging assets can contain transparent viewport margins, so the number could be displaced even when the visible glyph-to-number gap looked small.
+
+### Change
+
+- Number size: user-facing 0%-200%, 100% default/reference, 5% steps.
+- Number reference rebase: Build-519 physical 130% == Build-521 user-facing 100%.
+- Charging-glyph size: user-facing 0%-200%, 100% default/reference, 5% steps.
+- Charging reference rebase: Build-519 physical 150% == Build-521 user-facing 100%.
+- Existing raw preferences stay in their pre-rebase physical units, so current tuned visual sizes survive upgrade rather than being enlarged again.
+- Number weight: 400-1400 in 50-unit steps; 900 remains the default/reference.
+- Weight <=1000 uses Android weighted Typeface; >1000 uses native 1000 plus bounded text-size-relative optical stroke.
+- MIUIX `SliderPreference` key points mark number size 100%, weight 900, vertical offset 0 and charging size 100%. No custom resistance, hysteresis or gesture path is introduced.
+- Vertical offset is number-owned:
+  - positive safety uses number ink height only;
+  - charging-glyph height cannot collapse positive movement;
+  - neutral geometry reserves bounded safe upward headroom;
+  - charging-glyph vertical safety is independent.
+- Percentage ink is centered on the Battery ring center independently of charging state.
+- Native charging optical bounds provide visible width and center offsets; the glyph's visible ink is positioned to the left of the centered percentage rather than letting transparent drawable margins shift the number.
+- Ring opening remains symmetric around the centered percentage while reserving sufficient optical clearance for the left-side glyph.
+- Build-519 Battery-number target evidence is retained and emitted once as structured `batteryNumberTarget` Runtime health state so later log volume cannot evict it.
+
+### 审查 / review
+
+- **MIUIX-native controls:** pinned MIUIX key-point API is used directly; no custom slider implementation.
+- **default semantics:** 100% now represents the maintainer-tuned physical baseline for both size controls, not merely a mathematical midpoint.
+- **preference continuity:** no destructive migration/reset; physical values are preserved through UI/raw scale conversion.
+- **single writer / lifecycle:** no new renderer owner, animator, polling path or native geometry writer.
+- **vertical ownership:** number offset is not governed by charging-glyph dimensions.
+- **optical placement:** number X is invariant across single/double-bolt resource handoff; native optical bounds only determine glyph placement and ring clearance.
+- **weight extension:** no unsupported Typeface weight >1000 is passed to Android.
+- **diagnostics:** target probe remains bounded, one-shot and read-only; structured health retention fixes evidence durability without frame logging.
+- **transition:** accepted Battery-body transition matrices/progress and native endpoint ownership are unchanged.
+
+### Validation
+
+- Build-521 Runtime CI #1953: **success**.
+- Pinned HyperOS target profile: green.
+- Unit tests + Debug APK: green.
+- MIUIX key-point API compiles against the pinned 0.9.4 snapshot.
+- Modern Xposed metadata: green.
+- PR remains mergeable, ahead of `dev`, behind 0.
+- Remaining gate: exact-head signed Canary + focused device evidence.
+
