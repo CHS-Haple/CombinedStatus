@@ -156,7 +156,7 @@ internal fun FeaturesScreen(
                     valueRange =
                         BATTERY_TOP_VERTICAL_OFFSET_UI_MIN..
                             BATTERY_TOP_VERTICAL_OFFSET_UI_MAX,
-                    steps = 62,
+                    steps = 19,
                     showKeyPoints = true,
                     keyPoints = listOf(0f),
                     magnetThreshold = 0.035f,
