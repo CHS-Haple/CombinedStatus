@@ -24,6 +24,7 @@ import kotlin.math.roundToInt
 internal object CombinedStatusParticipantVisualSnapshot {
     private const val PROBE_MAX = 96f
     private const val ALPHA_THRESHOLD = 8
+    private const val MIN_COMPONENT_PIXELS = 2f
 
     internal enum class Topology {
         SINGLE_GLYPH,
@@ -109,6 +110,20 @@ internal object CombinedStatusParticipantVisualSnapshot {
             is ViewGroup -> resolveViewGroup(view)
             else -> null
         }
+
+    internal fun filterProbeComponents(
+        components: List<NormalizedRect>,
+        probeWidth: Int,
+        probeHeight: Int,
+    ): List<NormalizedRect> {
+        if (probeWidth <= 0 || probeHeight <= 0) return emptyList()
+        val probeArea = probeWidth.toFloat() * probeHeight.toFloat()
+        return components.filter { component ->
+            component.width *
+                component.height *
+                probeArea >= MIN_COMPONENT_PIXELS
+        }
+    }
 
     internal fun classifyComponents(
         components: List<NormalizedRect>,
@@ -298,15 +313,12 @@ internal object CombinedStatusParticipantVisualSnapshot {
                     height = probeHeight,
                 )
             if (raw.isEmpty()) return null
-            val largestArea =
-                raw.maxOf { component ->
-                    component.width * component.height
-                }
-            val minimumArea = max(2f, largestArea * 0.08f)
             val meaningful =
-                raw.filter { component ->
-                    component.width * component.height >= minimumArea
-                }
+                filterProbeComponents(
+                    components = raw,
+                    probeWidth = probeWidth,
+                    probeHeight = probeHeight,
+                )
             val finalComponents =
                 (meaningful.takeIf { it.isNotEmpty() } ?: raw)
                     .sortedBy { component -> component.centerX }

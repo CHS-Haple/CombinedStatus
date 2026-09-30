@@ -486,6 +486,36 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
+    fun tinySecondaryComponentsRemainVisibleToTopologyClassifier() {
+        val fourBars =
+            listOf(
+                CombinedStatusParticipantVisualSnapshot.NormalizedRect(0.05f, 0.60f, 0.15f, 0.95f),
+                CombinedStatusParticipantVisualSnapshot.NormalizedRect(0.30f, 0.48f, 0.40f, 0.95f),
+                CombinedStatusParticipantVisualSnapshot.NormalizedRect(0.55f, 0.34f, 0.65f, 0.95f),
+                CombinedStatusParticipantVisualSnapshot.NormalizedRect(0.80f, 0.18f, 0.90f, 0.95f),
+            )
+        val tinyDots =
+            listOf(
+                CombinedStatusParticipantVisualSnapshot.NormalizedRect(0.12f, 0.05f, 0.14f, 0.07f),
+                CombinedStatusParticipantVisualSnapshot.NormalizedRect(0.42f, 0.05f, 0.44f, 0.07f),
+                CombinedStatusParticipantVisualSnapshot.NormalizedRect(0.72f, 0.05f, 0.74f, 0.07f),
+            )
+
+        val retained =
+            CombinedStatusParticipantVisualSnapshot.filterProbeComponents(
+                components = fourBars + tinyDots,
+                probeWidth = 96,
+                probeHeight = 96,
+            )
+
+        assertEquals(7, retained.size)
+        assertEquals(
+            CombinedStatusParticipantVisualSnapshot.Topology.COMPOSITE,
+            CombinedStatusParticipantVisualSnapshot.classifyComponents(retained),
+        )
+    }
+
+    @Test
     fun participantVisualTopologyDistinguishesFourBarsFromComposite() {
         val fourBars =
             listOf(
