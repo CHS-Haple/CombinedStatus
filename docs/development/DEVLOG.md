@@ -12981,3 +12981,50 @@ Charging is no longer a blocking device gate for PR #177. No runtime change foll
 - **ownership:** native charging / island motion remains HyperOS-owned.
 - **protected baseline:** Build-510 non-charging and Build-511 charging behavior are now both accepted.
 - **next:** exact-head signed Canary, then latent semantic validation.
+
+## 2026-10-01 — Build 513: battery top readout and native charging-glyph authority
+
+**Type:** feature / rendering / native resource integration  
+**Display version:** 0.0.3  
+**Build / source:** 513 / `20261001-513` / `feat/battery-top-readout` / PR #181
+
+### Objective
+
+Add an optional battery percentage readout above the battery ring while guaranteeing that the ring does not overlap the number or charging glyph. Ordinary and faster charging must use the presentation already selected by HyperOS rather than a project-owned approximation. Number size, weight, vertical offset and charging-glyph size remain user-adjustable.
+
+### Root cause / authority review
+
+The pinned SystemUI target already owns charging presentation in `MiuiBatteryMeterView`. `updateChargeAndText()` updates the native charging presentation, and `getHollowChargingIconId()` returns the drawable selected for the current native charging state. A separate Guiyuan quick/super-charge classifier would duplicate SystemUI state and could diverge from future HyperOS behavior.
+
+The existing battery ring also owns the Battery component source geometry used by the Control Center transition. The readout therefore belongs inside the same painter/component rather than in a separate overlay or animator.
+
+### Change
+
+- Observe `MiuiBatteryMeterView.updateChargeAndText()` after native execution and read `getHollowChargingIconId()`.
+- Carry only the resulting native resource ID through the existing battery state, Hot Reload state and render model.
+- Draw the native resource through the existing direct Drawable rendering path; do not copy or rasterize a proprietary charging asset into the project.
+- Measure the percentage text and optional charging slot, derive the required top-ring angular gap from that measured width, and draw active/inactive battery arcs around the reserved opening.
+- Reserve the charging slot as soon as charging is true, even if the native drawable resource lands one callback later, so the number does not jump horizontally.
+- Add persisted MIUIX controls for readout enable, number size, number weight, vertical offset and charging-glyph size.
+- Keep the feature off by default.
+- Carry the same visual settings through the existing Battery Control Center transition component.
+
+### 审查 / review
+
+- **native authority:** HyperOS selects the ordinary/quick/super charging drawable; Guiyuan reads the final selected resource only.
+- **single writer:** no native translation, alpha, visibility or layout writer is added; `statusIcons.paddingEnd` remains the only native peer-layout writer.
+- **motion ownership:** no new animator; the readout travels with the existing Battery transition component.
+- **lifecycle:** the charging-glyph hook is owned by `SystemUiBatteryRuntimeOwner` and participates in existing Hot Reload hook replacement/reset.
+- **Fail native:** unavailable/zero charging resource draws no invented glyph.
+- **performance:** event-driven callback only; no polling or per-frame resource lookup.
+- **compatibility:** default-off path preserves Build-511 rendering.
+- **old implementation boundary:** the earlier 1.3.6 source/APK is not present in current Git history or accessible Library files, so only its requested visual behavior is reproduced; no old architecture is restored.
+
+### Validation
+
+- Initial Runtime CI #1937 reached test compilation and failed only because the new test used `kotlin.test` instead of the repository JUnit stack.
+- The test imports were corrected to JUnit; no runtime code change was required for that CI failure.
+- Review additionally stabilized the charging glyph slot and corrected the vertical-offset slider to unit increments.
+- Exact-head Build-513 Runtime CI #1939: **success**.
+- Target profile, unit tests, Debug build and Modern Xposed metadata validation are green.
+- Because this is the first meaningful runtime/visual checkpoint for the feature, one exact-head signed work-branch Canary and focused device evidence are required before merge.

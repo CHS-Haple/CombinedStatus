@@ -5,85 +5,73 @@ This file is the concise recovery point for active Guiyuan development. Historic
 ## Accepted baseline
 
 - Product / display version: Guiyuan 0.0.3.
-- Integrated stable runtime baseline on `main` / `dev`: Build 473.
+- `main` and `dev` are synchronized at Build 511 / `20260930-511`.
 - Verified target: Xiaomi HyperOS SystemUI 17.03.260226.r, Android 17 / SDK 37, Modern Xposed API 102.
-- Build 472 companion-app presentation and Build 473 Wi-Fi optical normalization remain protected accepted behavior.
+- Build 510 non-charging Home transition and Build 511 charging Home transition are device-accepted.
+- The current transition ownership, reservation, Fail-native, and release-parity boundaries from Build 511 remain protected.
 
 ## Active objective
 
-Promote the accepted Build-511 integration from `dev` to `main` as the current stable development baseline, then continue follow-up transition polish on a new bounded work branch.
+PR #181 / `feat/battery-top-readout` adds an optional battery percentage readout in the top opening of the Guiyuan battery ring.
 
-Current runtime checkpoint:
-- Build 511 / `20260930-511` is integrated on `dev` through squash-merged PR #177;
-- Build 510 non-charging Home transition is device-accepted;
-- Build 511 charging Home transition is device-accepted;
-- Build 511 runtime-authority / Fail-native hardening is integrated without retuning the accepted Build-510 geometry or motion;
-- maintainer accepts the current integrated state for promotion to `main`.
-
-## Current transition contract
-
-- HyperOS is the sole expansion / appearance timeline authority.
-- Home and Keyguard may bridge only through the verified QS_FAKE transition interval; fully expanded Control Center remains native-owned.
-- Notification Shade and AOD remain native-only on the pinned target.
-- Guiyuan does not write native peer translation, alpha, visibility, or a second gesture animator.
-- `statusIcons.paddingEnd` is the single Guiyuan peer-layout writer.
-- Transition reservation freezes the final total semantic width, then interpolates compact -> final width directly from raw HyperOS expansion progress.
-- Final role-6 top-level slots are read-only occupancy / root-space geometry witnesses.
-- Exact drawable / child topology may refine optical geometry but does not grant native layout ownership.
-- Mobile outer motion remains similarity/carrier based. Exact four-bar geometry is shape-local and available only for positively verified `FOUR_VERTICAL_BARS` topology.
-- Composite / dual-row / unknown Mobile topology stays on the conservative fallback path.
-- Latent Airplane / No-SIM / additional-SIM reveal is spatial: real reservation must open before pixels appear; no duration, delay, fraction threshold, or local animator owns reveal timing.
-- Home and Keyguard keep independent mutable host/session ownership.
-- Keyguard Control Center lease ends on authoritative boundaries such as native fraction zero, AOD block, feature disable, Keyguard disable, host loss, or source-scene change.
-- Build-channel diagnostics flags are observation-only. Release and Canary share functional hooks, state authority, ownership/lifecycle, and Fail-native control flow.
+Current checkpoint:
+- Build 513 / `20261001-513`;
+- branch is based directly on current `dev`;
+- percentage readout is opt-in and defaults off;
+- ring top avoidance is derived from the measured readout width rather than a screenshot-fitted fixed gap;
+- charging reserves a stable leading glyph slot so the percentage does not shift while native charging presentation updates;
+- the charging glyph resource is read from HyperOS `MiuiBatteryMeterView.getHollowChargingIconId()` after `updateChargeAndText()`; Guiyuan does not maintain a parallel quick/super-charge state machine;
+- number size, weight, vertical offset, and charging-glyph size are user-adjustable through MIUIX controls;
+- the readout remains inside the existing Battery render/transition component; no second motion owner is introduced.
 
 ## Validation state
 
 Confirmed:
-- Build 510 non-charging Home transition: device accepted.
-- Build 511 charging Home transition: device accepted; no press-entry left shift, whole-row rebase, overlap, or endpoint drift was reported in the tested charging path.
-- Build 511 static code review: complete.
-- Runtime / unit validation: green after the Build-511 safety fixes and added negative policy coverage.
-- Signed exact-head Build-511 Canary validation passed before integration.
-- Keyguard lease negative boundaries are unit-tested.
-- Eight-component dual-row / composite Mobile is unit-tested to expose no exact four-bar capability.
-- Release / Canary functional control-flow parity was reviewed after moving Island status authority outside the diagnostics gate.
-- PR #177 was squash-merged into `dev`; the integrated Build-511 state is accepted for stable promotion.
-- Superseded PRs #174, #161, #117, and #99 are closed. PR #157 is an independent Gradle-wrapper update and remains deferred pending trusted validation.
+- PR #181 is mergeable and remains isolated from the old superseded transition branch.
+- Build 513 Runtime CI #1939: green.
+- Pinned HyperOS target profile: green.
+- Unit tests: green, including width-derived battery-top gap coverage.
+- Debug APK build: green.
+- Modern Xposed metadata validation: green.
+- Exact pinned MIUIX `SliderPreference` API was checked against revision `5c91d5e5ce1a2fc7e8bdc1258a881c555102bbca`.
+- Static review found no new native layout/translation/visibility/animation writer.
 
-## Follow-up validation after this stable snapshot
+Pending:
+- first focused device validation for the new top readout;
+- non-charging visual alignment and top-ring clearance;
+- ordinary charging native single-bolt resource placement;
+- quick/super charging native alternate-bolt resource placement when that native state is available;
+- no percentage horizontal jump during charging-state/resource handoff;
+- Home steady, Keyguard when enabled, and Home -> Control Center transition continuity.
 
-These items remain useful transition-polish evidence, but the maintainer has accepted the current Build-511 integrated state for promotion to `main`.
+## Runtime / rendering contract
 
-1. **Latent supplemental semantics**
-   - Airplane / No-SIM / additional SIM reveal continuously only after real peer space opens;
-   - reverse collapse hides before reservation closes through neighboring content.
-
-2. **Real composite / dual-row Mobile**
-   - confirm real third-party topology remains visually on the composite fallback path;
-   - no flattening into the exact four-bar morph.
-
-3. **Final Keyguard-originated regression**
-   - steady Keyguard -> partial/full Control Center -> return remains responsive;
-   - no terminal stall, duplicate native row, stale lease, or cleanup residue.
+- HyperOS remains authoritative for battery state and charging-glyph resource selection.
+- Guiyuan only observes the native charging resource after HyperOS updates its own presentation.
+- Missing or zero native charging resource fails native at the glyph level: no project-owned replacement drawable is invented.
+- The existing Guiyuan painter remains the only writer of Guiyuan pixels.
+- The existing Battery transition component remains the only Guiyuan owner of battery-component transition rendering.
+- `statusIcons.paddingEnd` remains the sole Guiyuan native peer-layout writer.
+- No polling, delayed state inference, new frame hook, duplicate charge-speed observer, or second gesture animator is introduced.
+- Feature default-off preserves the accepted Build-511 visual path until the user enables the readout.
 
 ## Non-negotiable boundaries
 
-- Root-cause first; no speculative geometry or timing compensation.
-- Preserve the Build-510 accepted non-charging result unless contradictory device evidence appears.
-- Preserve Build-504 root-space endpoint ownership, Build-507 reservation behavior, Build-509 spatial latent reveal, and Build-491 / 497 / 498 lifecycle/safety boundaries.
+- Root-cause first; no screenshot-fitted timing or geometry compensation.
+- Preserve accepted Build-510/511 transition behavior unless contradictory device evidence appears.
 - One mutable runtime property has one writer.
-- No polling, delayed lifecycle fixes, duplicate state machines, duplicate gesture animators, or high-frequency diagnostics.
 - Cleanup / Hot Reload restores only Guiyuan-owned state.
 - Compatibility uncertainty fails native.
 - HyperOS resources / state / motion are preferred over project-local copies or guesses.
+- Do not infer quick/super-charge semantics from `mQuickCharging` or other fields while the native selected drawable already expresses the required presentation.
 
 ## Immediate next step
 
-1. complete `dev -> main` promotion for the accepted Build-511 snapshot;
-2. do not mix new runtime work into the promotion PR;
-3. after promotion, start the next bounded feature/fix branch from current `dev`;
-4. preserve Build-510/511 accepted transition behavior unless new contradictory device evidence appears.
+1. keep runtime frozen at Build 513;
+2. generate one exact-head signed work-branch Canary for PR #181;
+3. perform focused device validation of top readout geometry and native charging glyph presentation;
+4. change runtime only if device evidence identifies a concrete defect;
+5. merge to `dev` only after required device acceptance.
 
 ## Reference priority
 
