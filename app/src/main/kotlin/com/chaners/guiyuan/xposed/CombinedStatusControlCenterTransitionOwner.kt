@@ -42,6 +42,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
     private var nativeProgress: Float? = null
     private var nativeAppearance = false
     private var nativeAppearanceAnimated = false
+    private var nativeBatteryIslandActive: Boolean? = null
     private var sourceScene = CombinedStatusSourceScene.UNKNOWN
     private var endpoints: SystemUiPanelTransitionSource.ControlCenterTransitionEndpoints? = null
     private var current: Session? = null
@@ -55,6 +56,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 nativeProgress = null
                 nativeAppearance = false
                 nativeAppearanceAnimated = false
+                nativeBatteryIslandActive = null
                 sourceScene = CombinedStatusSourceScene.UNKNOWN
                 endpoints = null
             }
@@ -62,6 +64,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
         update.fraction?.let { nativeProgress = it }
         update.controlCenterAppearance?.let { nativeAppearance = it }
         update.controlCenterAppearanceAnimated?.let { nativeAppearanceAnimated = it }
+        update.controlCenterBatteryIslandActive?.let { nativeBatteryIslandActive = it }
         update.controlCenterSourceScene?.let { sourceScene = it }
         update.controlCenterTransitionEndpoints?.let { endpoints = it }
         sync("panel-update")
@@ -97,6 +100,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
         nativeProgress = null
         nativeAppearance = false
         nativeAppearanceAnimated = false
+        nativeBatteryIslandActive = null
         sourceScene = CombinedStatusSourceScene.UNKNOWN
         endpoints = null
     }
@@ -187,7 +191,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 Policy.usesSemanticTransitionReservation(
                     sourceScene = sourceScene,
                     charging = sourceSnapshot.model.charging,
-                    nativeIslandShowing = SystemUiIslandMotionSource.currentIslandShowing(),
+                    nativeBatteryIslandActive = nativeBatteryIslandActive,
                 ),
         )
     }
@@ -227,11 +231,11 @@ internal object CombinedStatusControlCenterTransitionOwner {
         fun usesSemanticTransitionReservation(
             sourceScene: CombinedStatusSourceScene,
             charging: Boolean = false,
-            nativeIslandShowing: Boolean? = null,
+            nativeBatteryIslandActive: Boolean? = null,
         ): Boolean =
             when (sourceScene) {
                 CombinedStatusSourceScene.HOME ->
-                    !charging || nativeIslandShowing == false
+                    !charging || nativeBatteryIslandActive != true
                 CombinedStatusSourceScene.KEYGUARD ->
                     true
                 CombinedStatusSourceScene.UNKNOWN ->
