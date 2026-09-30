@@ -1801,10 +1801,30 @@ internal object CombinedStatusControlCenterTransitionOwner {
             sourceGeometry: FloatArray,
             targetOpticalBounds: CombinedStatusPainter.TransitionNormalizedBounds?,
         ): FloatArray? {
-            val resolvedTargetOpticalBounds =
-                targetOpticalBounds
-                    ?: runtimeTargetOpticalBounds(witness)
             val opticalView = witness.opticalView
+            if (targetOpticalBounds == null) {
+                val visualView = opticalView ?: witness.slotView
+                val snapshot =
+                    CombinedStatusParticipantVisualSnapshot.resolveView(visualView)
+                val visualSample =
+                    snapshot?.let { sample(visualView, root) }
+                if (snapshot != null && visualSample != null) {
+                    val envelope = snapshot.envelope
+                    Policy.componentGeometry(
+                        parentGeometry = visualSample.geometry,
+                        parentWidth = visualView.width,
+                        parentHeight = visualView.height,
+                        bounds =
+                            CombinedStatusPainter.TransitionBounds(
+                                left = envelope.left * visualView.width,
+                                top = envelope.top * visualView.height,
+                                right = envelope.right * visualView.width,
+                                bottom = envelope.bottom * visualView.height,
+                            ),
+                    )?.let { return it }
+                }
+            }
+            val resolvedTargetOpticalBounds = targetOpticalBounds
             if (opticalView != null) {
                 if (opticalView is ImageView) {
                     imageDrawableGeometry(
@@ -1905,23 +1925,6 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         bottom = bar.bottom,
                     )
                 }
-        }
-
-        private fun runtimeTargetOpticalBounds(
-            witness: TargetWitness,
-        ): CombinedStatusPainter.TransitionNormalizedBounds? {
-            val visualView = witness.opticalView ?: return null
-            val envelope =
-                CombinedStatusParticipantVisualSnapshot
-                    .resolveView(visualView)
-                    ?.envelope
-                    ?: return null
-            return CombinedStatusPainter.TransitionNormalizedBounds(
-                left = envelope.left,
-                top = envelope.top,
-                right = envelope.right,
-                bottom = envelope.bottom,
-            )
         }
 
         private fun imageDrawableGeometry(
