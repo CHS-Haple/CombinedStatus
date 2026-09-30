@@ -10,6 +10,7 @@ import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
+import com.chaners.guiyuan.settings.CombinedStatusVisualSettings
 import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
@@ -28,6 +29,9 @@ internal class CombinedStatusPainter(
     private val nativeWifiReferenceIds = HashMap<String, Int>()
     private var cachedMobileTypeWeight: Int = Int.MIN_VALUE
     private var cachedMobileTypeTypeface: Typeface = Typeface.DEFAULT
+    private var cachedBatteryTopTextWeight: Int = Int.MIN_VALUE
+    private var cachedBatteryTopTextTypeface: Typeface = Typeface.DEFAULT
+    private val batteryTopTextBounds = Rect()
     private val mobileTypeMainBounds = Rect()
     private val mobileTypeSuffixBounds = Rect()
     private val batteryRing = RectF(10f, 8f, 110f, 108f)
@@ -49,6 +53,7 @@ internal class CombinedStatusPainter(
         model: CombinedStatusRenderModel,
         colors: CombinedStatusColors,
         opacity: Float,
+        visualSettings: CombinedStatusVisualSettings = CombinedStatusVisualSettings(),
         previousCenterIndicator: CenterIndicator? = null,
         centerExitAmount: Float = 0f,
         centerEnterAmount: Float = 1f,
@@ -88,6 +93,8 @@ internal class CombinedStatusPainter(
             batteryTint = colors.batteryTint,
             opacity = opacity,
             geometry = outerGeometry,
+            visualSettings = visualSettings,
+            nativeTransform = nativeTransform,
         )
         drawCenterTransition(
             canvas = canvas,
@@ -121,6 +128,7 @@ internal class CombinedStatusPainter(
         component: TransitionComponent,
         shapePolicy: TransitionShapePolicy,
         opacity: Float = 1f,
+        visualSettings: CombinedStatusVisualSettings = CombinedStatusVisualSettings(),
         motionProgress: Float = 0f,
         shapeProgress: Float = 0f,
         mobileTargetWidthRatio: Float? = null,
@@ -172,6 +180,8 @@ internal class CombinedStatusPainter(
                         resolveOuterGeometry(
                             CombinedStatusOuterGeometry.DEFAULT_WEIGHT_SCALE,
                         ),
+                    visualSettings = visualSettings,
+                    nativeTransform = nativeTransform,
                 )
 
             TransitionComponent.CENTER ->
