@@ -56,6 +56,7 @@ internal object SystemUiPanelTransitionSource {
         classLoader: ClassLoader,
         onUpdate: ((Update) -> Unit)? = null,
         onFakePresentationAttached: ((ViewGroup) -> Unit)? = null,
+        onRuntimeFailure: ((Throwable) -> Unit)? = null,
         onEvent: ((String) -> Unit)? = null,
         isProbeEnabled: () -> Boolean = { false },
         includeControlCenterDiagnostics: Boolean = true,
@@ -155,7 +156,10 @@ internal object SystemUiPanelTransitionSource {
                                     controlCenterSourceScene = controlCenterSourceScene,
                                     controlCenterTransitionEndpoints = transitionEndpoints,
                                 )
-                            onUpdate?.invoke(update)
+                            dispatchRuntimeCallback(
+                                callback = onUpdate?.let { callback -> { callback(update) } },
+                                onFailure = onRuntimeFailure,
+                            )
                             emitDiagnostic(
                                 update = update,
                                 onEvent = onEvent,
@@ -174,7 +178,13 @@ internal object SystemUiPanelTransitionSource {
                             val result = chain.proceed()
                             val root = chain.thisObject as? ViewGroup
                             if (root != null) {
-                                onFakePresentationAttached?.invoke(root)
+                                dispatchRuntimeCallback(
+                                    callback =
+                                        onFakePresentationAttached?.let { callback ->
+                                            { callback(root) }
+                                        },
+                                    onFailure = onRuntimeFailure,
+                                )
                                 if (onEvent != null && isProbeEnabled()) {
                                     onEvent(
                                         "controlCenterFakeLifecycle attached=true " +
@@ -219,7 +229,13 @@ internal object SystemUiPanelTransitionSource {
                             // Reservation/source projection must be committed before
                             // HyperOS consumes this expansion sample. Drawing still
                             // happens on the normal traversal after the native callback.
-                            onUpdate?.invoke(preNativeUpdate)
+                            dispatchRuntimeCallback(
+                                callback =
+                                    onUpdate?.let { callback ->
+                                        { callback(preNativeUpdate) }
+                                    },
+                                onFailure = onRuntimeFailure,
+                            )
                             val result = chain.proceed()
                             val anchorSnapshot =
                                 if (
@@ -272,7 +288,10 @@ internal object SystemUiPanelTransitionSource {
                                         controlAnchorContract
                                             ?.transitionEndpointsFromCallback(chain.thisObject),
                                 )
-                            onUpdate?.invoke(update)
+                            dispatchRuntimeCallback(
+                                callback = onUpdate?.let { callback -> { callback(update) } },
+                                onFailure = onRuntimeFailure,
+                            )
                             if (onEvent != null && isProbeEnabled()) {
                                 onEvent(
                                     appearanceDiagnostic(
@@ -307,6 +326,31 @@ internal object SystemUiPanelTransitionSource {
             controlCenterHomeEligible = null
             controlAnchorContract = null
             controlHeaderRef = WeakReference(null)
+        }
+    }
+
+    internal fun dispatchRuntimeCallback(
+        callback: (() -> Unit)?,
+        onFailure: ((Throwable) -> Unit)? = null,
+    ): Boolean {
+        callback ?: return true
+        return try {
+            callback()
+            true
+        } catch (error: Throwable) {
+            if (error is VirtualMachineError || error is ThreadDeath) {
+                throw error
+            }
+            if (onFailure != null) {
+                try {
+                    onFailure(error)
+                } catch (failure: Throwable) {
+                    if (failure is VirtualMachineError || failure is ThreadDeath) {
+                        throw failure
+                    }
+                }
+            }
+            false
         }
     }
 

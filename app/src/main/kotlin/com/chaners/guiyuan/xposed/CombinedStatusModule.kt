@@ -997,6 +997,7 @@ class CombinedStatusModule : XposedModule() {
                 classLoader = classLoader,
                 onUpdate = ::onPanelTransitionUpdate,
                 onFakePresentationAttached = ::onControlCenterFakePresentationAttached,
+                onRuntimeFailure = ::onPanelTransitionRuntimeFailure,
                 onEvent = ::onPanelTransitionEvent,
                 isProbeEnabled = {
                     BuildConfig.DEVELOPMENT_PROBES || detailedDiagnosticsEnabled
@@ -1435,6 +1436,42 @@ class CombinedStatusModule : XposedModule() {
     private fun onPanelTransitionEvent(event: String) {
         if (detailedDiagnosticsEnabled) {
             log(Log.INFO, TAG, event)
+        }
+    }
+
+    private fun onPanelTransitionRuntimeFailure(error: Throwable) {
+        if (keyguardControlCenterLeaseActive) {
+            runCatching {
+                releaseKeyguardControlCenterLease(
+                    source = "panel-runtime-failure",
+                    reconcileReadiness = false,
+                )
+            }
+        }
+        controlCenterSceneEligible = false
+        controlCenterSourceScene = CombinedStatusSourceScene.UNKNOWN
+        runCatching {
+            CombinedStatusControlCenterTransitionOwner.setSceneEligible(false)
+        }
+        runCatching {
+            CombinedStatusControlCenterTransitionOwner.detach("panel-runtime-failure")
+        }
+        runCatching {
+            CombinedStatusControlCenterRenderSession.setSceneEligible(false)
+        }
+        runCatching {
+            CombinedStatusHomeRenderSession.onControlCenterAuthorityChanged(true)
+        }
+        runCatching {
+            logDiagnostic(
+                level = Log.ERROR,
+                event = "runtime.callback",
+                component = "panelTransition",
+                state = "fail-native",
+                "reason" to (error.message ?: error.javaClass.simpleName),
+                "fallback" to "native-control-center",
+            )
+            log(Log.ERROR, TAG, "Panel transition runtime callback failed", error)
         }
     }
 

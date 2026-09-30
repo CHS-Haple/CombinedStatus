@@ -1,11 +1,36 @@
 package com.chaners.guiyuan.xposed
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SystemUiPanelTransitionSourceTest {
+    @Test
+    fun runtimeCallbackFailureIsContainedAndReported() {
+        var reported: Throwable? = null
+        val completed =
+            SystemUiPanelTransitionSource.dispatchRuntimeCallback(
+                callback = { error("callback-failure") },
+                onFailure = { reported = it },
+            )
+
+        assertFalse(completed)
+        assertEquals("callback-failure", reported?.message)
+    }
+
+    @Test
+    fun runtimeCallbackFailureHandlerCannotEscapeTheHookBoundary() {
+        val completed =
+            SystemUiPanelTransitionSource.dispatchRuntimeCallback(
+                callback = { error("callback-failure") },
+                onFailure = { error("failure-handler-failure") },
+            )
+
+        assertFalse(completed)
+    }
+
     @Test
     fun nativeFractionPreservesFiniteHyperOsPayload() {
         assertEquals(-0.2f, SystemUiPanelTransitionSource.nativeFraction(-0.2f))

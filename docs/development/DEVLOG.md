@@ -12887,6 +12887,7 @@ Charging is not accepted by inference. The current policy deliberately differs w
 2. **Unknown island state failed open:** the source stored `Boolean?` but exposed only `islandShowing == true`, collapsing “not observed / source unavailable” into “no island”. A charging Home transition could claim reservation without authoritative evidence.
 3. **Drawable probe exception boundary:** native/compatibility drawable snapshotting could throw from clone/mutate/tint/draw through the SystemUI render path instead of failing native.
 4. **Hot-path diagnostics allocation:** latent Mobile description lists were allocated even while witness diagnostics were not being refreshed.
+5. **Hook callback exception boundary:** Control Center expansion invoked the Guiyuan runtime callback before `chain.proceed()` without containment. An unexpected project callback exception could prevent the native HyperOS expansion callback from running.
 
 ### Root cause
 
@@ -12899,13 +12900,14 @@ A read-only island state source began as a diagnostic owner probe and later beca
 - HOME non-charging behavior is unchanged. HOME charging uses semantic reservation only when island state is authoritatively `false`; `true` or unknown yields to native peer motion. Keyguard reservation semantics are unchanged.
 - Contain drawable-probe failures with a cached unavailable snapshot result.
 - Allocate latent Mobile witness-description lists only when the diagnostic summary is actually being refreshed.
+- Dispatch panel runtime callbacks through an exception boundary. Ordinary project callback failures revoke current Control Center projection ownership and are contained so the native hooked method continues; VM-fatal errors remain fatal.
 - No transition path, target geometry, Mobile morph, reservation interpolation, native callback ordering, or visual timing was changed.
 
 ### 审查 / review
 
 - **single writer:** unchanged; `statusIcons-paddingEnd` remains the only native peer-layout writer.
 - **lifecycle:** island state is now a runtime source rather than a diagnostics-only source; Hot Reload reset/unhook remains in the existing generation teardown.
-- **Fail native:** charging with unknown island authority and unsafe drawable probes now decline project-specific behavior rather than guessing or propagating an exception.
+- **Fail native:** charging with unknown island authority and unsafe drawable probes now decline project-specific behavior rather than guessing or propagating an exception. Panel callback failures also revoke current projection ownership instead of blocking the native callback.
 - **release parity:** Canary and Release now install the same functional island authority; only logging differs.
 - **performance:** removes one confirmed per-frame latent diagnostic container allocation without introducing new cache/state ownership.
 - **protected baseline:** Build-510 non-charging device-accepted visuals are intentionally untouched.
