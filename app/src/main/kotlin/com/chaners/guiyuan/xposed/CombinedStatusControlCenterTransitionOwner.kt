@@ -438,30 +438,21 @@ internal object CombinedStatusControlCenterTransitionOwner {
         }
 
         fun latentRevealOpacity(
-            source: FloatArray,
+            carriedSource: FloatArray,
             current: FloatArray,
-            target: FloatArray,
+            nativeSlotWidth: Float,
         ): Float {
-            require(source.size == 6 && current.size == 6 && target.size == 6)
-            val totalDx = target[0] - source[0]
-            val totalDy = target[1] - source[1]
-            val totalDistance = sqrt(totalDx * totalDx + totalDy * totalDy)
-            if (totalDistance <= 0.001f) return 1f
+            require(carriedSource.size == 6 && current.size == 6)
+            if (!nativeSlotWidth.isFinite() || nativeSlotWidth <= 0f) return 0f
 
-            val remainingDx = target[0] - current[0]
-            val remainingDy = target[1] - current[1]
-            val remainingDistance =
-                sqrt(remainingDx * remainingDx + remainingDy * remainingDy)
-            val travel =
-                (1f - remainingDistance / totalDistance)
-                    .coerceIn(0f, 1f)
+            val separatedWidth =
+                kotlin.math.abs(current[0] - carriedSource[0])
+            if (separatedWidth < nativeSlotWidth) return 0f
 
-            val revealStart = 0.36f
-            val revealFull = 0.80f
-            if (travel <= revealStart) return 0f
-            if (travel >= revealFull) return 1f
+            val fastRevealDistance = nativeSlotWidth * 0.25f
+            if (fastRevealDistance <= 0.001f) return 1f
             val normalized =
-                ((travel - revealStart) / (revealFull - revealStart))
+                ((separatedWidth - nativeSlotWidth) / fastRevealDistance)
                     .coerceIn(0f, 1f)
             return normalized * normalized * (3f - 2f * normalized)
         }
@@ -1093,10 +1084,12 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         bounds = mobileSpec.sourceBounds,
                     ) ?: return@forEach
                 val revealProgress =
-                    Policy.latentRevealOpacity(
-                        source = sourceGeometry,
-                        current = pathGeometry,
-                        target = targetGeometry,
+                    latentRevealOpacity(
+                        sourceGeometry = sourceGeometry,
+                        currentGeometry = geometry,
+                        witness = witness,
+                        rootView = rootView,
+                        carrierFrames = carrierFrames,
                     )
                 val componentOpacity = opacity * revealProgress
                 if (componentOpacity <= 0f) return@forEach
@@ -1187,10 +1180,12 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     targetGeometry = targetGeometry,
                 )
             val revealProgress =
-                Policy.latentRevealOpacity(
-                    source = sourceGeometry,
-                    current = pathGeometry,
-                    target = targetGeometry,
+                latentRevealOpacity(
+                    sourceGeometry = sourceGeometry,
+                    currentGeometry = geometry,
+                    witness = witness,
+                    rootView = rootView,
+                    carrierFrames = carrierFrames,
                 )
             if (revealProgress <= 0f) return null
             val matrix =
@@ -1275,10 +1270,12 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     targetGeometry = targetGeometry,
                 )
             val revealProgress =
-                Policy.latentRevealOpacity(
-                    source = sourceGeometry,
-                    current = pathGeometry,
-                    target = targetGeometry,
+                latentRevealOpacity(
+                    sourceGeometry = sourceGeometry,
+                    currentGeometry = geometry,
+                    witness = witness,
+                    rootView = rootView,
+                    carrierFrames = carrierFrames,
                 )
             if (revealProgress <= 0f) return null
             val matrix =
@@ -1341,6 +1338,37 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     currentCarrier = frames.current,
                 )
             } ?: source.copyOf()
+
+        private fun nativeSlotWidth(
+            witness: TargetWitness,
+            rootView: View,
+        ): Float? =
+            sample(
+                view = witness.slotView,
+                root = rootView,
+            )?.geometry?.let { geometry ->
+                sqrt(geometry[2] * geometry[2] + geometry[3] * geometry[3])
+            }?.takeIf { it.isFinite() && it > 0f }
+
+        private fun latentRevealOpacity(
+            sourceGeometry: FloatArray,
+            currentGeometry: FloatArray,
+            witness: TargetWitness,
+            rootView: View,
+            carrierFrames: CarrierFrames?,
+        ): Float {
+            val slotWidth = nativeSlotWidth(witness, rootView) ?: return 0f
+            val carriedSource =
+                carriedSourceGeometry(
+                    source = sourceGeometry,
+                    carrierFrames = carrierFrames,
+                )
+            return Policy.latentRevealOpacity(
+                carriedSource = carriedSource,
+                current = currentGeometry,
+                nativeSlotWidth = slotWidth,
+            )
+        }
 
         private fun sourceRepresentsAny(vararg slots: String): Boolean {
             val represented = frozenSource?.representedSlots ?: return false

@@ -218,27 +218,40 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
-    fun latentParticipantWaitsForSeparationButAppearsBeforeLanding() {
-        val source = floatArrayOf(0f, 0f, 10f, 0f, 0f, 10f)
-        val target = floatArrayOf(100f, 0f, 10f, 0f, 0f, 10f)
-        val early = floatArrayOf(30f, 0f, 10f, 0f, 0f, 10f)
-        val revealing = floatArrayOf(55f, 0f, 10f, 0f, 0f, 10f)
-        val nearTarget = floatArrayOf(85f, 0f, 10f, 0f, 0f, 10f)
+    fun latentParticipantWaitsForOneNativeSlotThenRevealsQuickly() {
+        val carriedSource = floatArrayOf(100f, 50f, 20f, 0f, 0f, 20f)
+        val beforeSlot = floatArrayOf(174f, 80f, 20f, 0f, 0f, 20f)
+        val slotReady = floatArrayOf(175f, 80f, 20f, 0f, 0f, 20f)
+        val fastReveal = floatArrayOf(194f, 80f, 20f, 0f, 0f, 20f)
 
         assertEquals(
             0f,
             CombinedStatusControlCenterTransitionOwner.Policy
-                .latentRevealOpacity(source, early, target),
+                .latentRevealOpacity(
+                    carriedSource = carriedSource,
+                    current = beforeSlot,
+                    nativeSlotWidth = 75f,
+                ),
             0.0001f,
         )
-        assertTrue(
+        assertEquals(
+            0f,
             CombinedStatusControlCenterTransitionOwner.Policy
-                .latentRevealOpacity(source, revealing, target) > 0f,
+                .latentRevealOpacity(
+                    carriedSource = carriedSource,
+                    current = slotReady,
+                    nativeSlotWidth = 75f,
+                ),
+            0.0001f,
         )
         assertEquals(
             1f,
             CombinedStatusControlCenterTransitionOwner.Policy
-                .latentRevealOpacity(source, nearTarget, target),
+                .latentRevealOpacity(
+                    carriedSource = carriedSource,
+                    current = fastReveal,
+                    nativeSlotWidth = 75f,
+                ),
             0.0001f,
         )
     }
