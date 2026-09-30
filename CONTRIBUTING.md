@@ -97,6 +97,8 @@ event -> bounded snapshot -> report
 
 Canary/Release may retain low-frequency operational diagnostics. Detailed geometry/topology probes must stay behind development/Detailed diagnostics and out of hot paths.
 
+Build-channel diagnostic flags such as `RUNTIME_DIAGNOSTICS` and `DEVELOPMENT_PROBES` are **observation gates only**. They must not decide whether a functional hook/state source is installed, which runtime state is authoritative, who owns a surface/property, when ownership is acquired/released, or which fail-native fallback applies. Canary and Release must share the same functional control flow; only logging, bounded probes, diagnostic preferences, and optional diagnostic event callbacks may differ. If a diagnostic source later becomes functional authority, move its functional installation/state path outside the diagnostic gate and leave only observation behind the flag.
+
 For app UI, prefer current MIUIX components and conventions for spacing, typography, shape, state feedback, dialogs, navigation, back behavior, themes, and localization. Persist real user preferences only; Preview/Sandbox state must not become runtime module state.
 
 Public identity is Guiyuan / 归元, package com.chaners.guiyuan. Existing CombinedStatus* internal implementation names may remain.
