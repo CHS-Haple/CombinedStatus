@@ -7,14 +7,6 @@ import org.junit.Test
 
 class SystemUiHomePresentationOwnerTest {
     @Test
-    fun representedSlotSnapshotMatchesCompactPresentationContract() {
-        assertEquals(
-            setOf("wifi", "mobile", "stacked_mobile", "airplane", "no_sim"),
-            SystemUiHomePresentationOwner.representedSlotSnapshot(),
-        )
-    }
-
-    @Test
     fun temporaryEntriesPreserveExistingAndRestoreOnlyOwnedEntries() {
         val slots = mutableListOf("alarm_clock", "wifi")
         SystemUiHomePresentationOwner.OwnedListEntries.withTemporaryEntries(

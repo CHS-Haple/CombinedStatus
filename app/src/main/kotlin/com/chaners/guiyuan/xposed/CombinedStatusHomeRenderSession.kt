@@ -349,7 +349,8 @@ internal object CombinedStatusHomeRenderSession {
                 renderView = render,
                 positionAnchor = anchor,
                 motionCarrier = motion,
-                representedSlots = SystemUiHomePresentationOwner.representedSlotSnapshot(),
+                representedSlots =
+                    SystemUiHomePresentationOwner.currentHomeRepresentedSlotOwnership(),
             )
         }
 

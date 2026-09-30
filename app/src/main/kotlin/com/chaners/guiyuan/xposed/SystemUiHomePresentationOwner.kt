@@ -53,7 +53,13 @@ internal object SystemUiHomePresentationOwner {
     val installedHookCount: Int
         @Synchronized get() = listOfNotNull(measureHook, layoutHook, batteryHideHook).size
 
-    internal fun representedSlotSnapshot(): Set<String> = representedSlots.toSet()
+    @Synchronized
+    internal fun currentHomeRepresentedSlotOwnership(): Set<String> =
+        current?.ownedRepresentedSlots() ?: emptySet()
+
+    @Synchronized
+    internal fun currentKeyguardRepresentedSlotOwnership(): Set<String> =
+        keyguardCurrent?.ownedRepresentedSlots() ?: emptySet()
 
     @Synchronized
     fun install(
@@ -966,6 +972,17 @@ internal object SystemUiHomePresentationOwner {
 
         fun ownsBatteryContainer(candidate: ViewGroup): Boolean =
             active && batteryContainer.get() === candidate
+
+        fun ownedRepresentedSlots(): Set<String> {
+            if (!active || !compactLayoutReady) return emptySet()
+            return clipStates
+                .mapNotNull { state ->
+                    state.view.get()
+                        ?.let(NativeParticipantRuntimeAccess::slotOf)
+                        ?.takeIf(representedSlots::contains)
+                }
+                .toSet()
+        }
 
         fun start(
             deferVisualMaskUntilLayout: Boolean = false,

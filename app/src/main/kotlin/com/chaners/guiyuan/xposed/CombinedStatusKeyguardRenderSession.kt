@@ -182,7 +182,8 @@ internal object CombinedStatusKeyguardRenderSession {
                 renderView = render,
                 positionAnchor = anchor,
                 motionCarrier = motion,
-                representedSlots = SystemUiHomePresentationOwner.representedSlotSnapshot(),
+                representedSlots =
+                    SystemUiHomePresentationOwner.currentKeyguardRepresentedSlotOwnership(),
             )
         }
 
