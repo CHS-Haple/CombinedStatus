@@ -182,11 +182,7 @@ internal class CombinedStatusVisualSettingsRepository(context: Context) {
             .edit()
             .putFloat(
                 BATTERY_TOP_VERTICAL_OFFSET_KEY,
-                (uiOffset + BATTERY_TOP_VERTICAL_OFFSET_UI_REFERENCE)
-                    .coerceIn(
-                        BATTERY_TOP_VERTICAL_OFFSET_MIN,
-                        BATTERY_TOP_VERTICAL_OFFSET_MAX,
-                    ),
+                batteryTopVerticalOffsetRaw(uiOffset),
             )
             .apply()
     }
@@ -240,8 +236,9 @@ internal const val BATTERY_TOP_VERTICAL_OFFSET_UI_MIN = -30f
 internal const val BATTERY_TOP_VERTICAL_OFFSET_UI_MAX = 30f
 internal const val BATTERY_TOP_VERTICAL_OFFSET_DEFAULT =
     BATTERY_TOP_VERTICAL_OFFSET_UI_REFERENCE
-internal const val BATTERY_TOP_VERTICAL_OFFSET_MIN =
-    BATTERY_TOP_VERTICAL_OFFSET_UI_REFERENCE + BATTERY_TOP_VERTICAL_OFFSET_UI_MIN
+// Keep the former persisted lower bound readable without shifting existing
+// users. The positive side extends by the +3 reference so UI +30 stays literal.
+internal const val BATTERY_TOP_VERTICAL_OFFSET_MIN = -30f
 internal const val BATTERY_TOP_VERTICAL_OFFSET_MAX =
     BATTERY_TOP_VERTICAL_OFFSET_UI_REFERENCE + BATTERY_TOP_VERTICAL_OFFSET_UI_MAX
 
@@ -318,3 +315,14 @@ internal fun batteryTopVerticalOffsetUi(rawOffset: Float): Float =
             BATTERY_TOP_VERTICAL_OFFSET_UI_MIN,
             BATTERY_TOP_VERTICAL_OFFSET_UI_MAX,
         )
+
+internal fun batteryTopVerticalOffsetRaw(uiOffset: Float): Float =
+    (
+        uiOffset.coerceIn(
+            BATTERY_TOP_VERTICAL_OFFSET_UI_MIN,
+            BATTERY_TOP_VERTICAL_OFFSET_UI_MAX,
+        ) + BATTERY_TOP_VERTICAL_OFFSET_UI_REFERENCE
+    ).coerceIn(
+        BATTERY_TOP_VERTICAL_OFFSET_MIN,
+        BATTERY_TOP_VERTICAL_OFFSET_MAX,
+    )
