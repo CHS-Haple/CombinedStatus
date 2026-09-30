@@ -842,3 +842,104 @@ Implication:
 - the leading lightweight route is to generalize the **current presentation-layer** mechanism already used by Home: temporary `ignoredSlots` ownership around native measure/layout plus reversible clip masks for represented Wi-Fi/mobile/airplane/no-SIM/Battery Views;
 - the older binding-identity suppression path remains historical/fallback evidence, not the default QS_FAKE design;
 - keep one global status-icon/Battery hook set where possible and route only explicitly registered host-scoped presentation sessions; do not duplicate network state machines.
+
+
+---
+
+## External implementation cross-check: root-space transition geometry
+
+**Reviewed from user-supplied APKs with JADX 1.5.6; architectural evidence only.**
+
+Legacy CombinedStatus 1.3.6-mod.5 and 1.4.3 decompile to byte-identical core geometry sources for `ClosedAnchor`, `MotionHandoff`, `CompactGeometry` and `KeyguardHandoff`. The newer legacy package therefore does not prove that the old closed-anchor/project-correction route fixed its historical endpoint behavior.
+
+KeiMi 2.5.0 provides a useful independent contrast:
+- participant Views are transformed with `View.transformMatrixToGlobal(...)` and then the chosen root's `transformMatrixToLocal(...)`;
+- source and target participants are stored as six root-space geometry components and interpolated directly;
+- unmatched native participants are rendered from their native View, preserving internal native optical scaling rather than assuming the outer View box is the glyph box.
+
+Reusable Guiyuan principle:
+
+`verified steady source anchor + native source-carrier translation -> absolute root-space role-6 target`
+
+is safer than:
+
+`source relative to carrier A -> target relative to carrier B`
+
+when carrier A/B have independent layout/translation ownership.
+
+The external code is not copied. Guiyuan keeps its own source witness, rendering model, reservation, lifecycle and fail-native contracts.
+
+
+---
+
+## Transition reservation lifecycle: semantic occupancy must not become a second motion system
+
+**Build-506 finding, corrected by Build 507 device evidence.**
+
+Build 506 correctly identified the risk: a semantic reservation must not invent a second gesture timeline beside the native QS_FAKE motion. Its proposed one-shot final-width cutover was subsequently device-rejected because it jumped the native peer row to its final horizontal layout at gesture entry.
+
+The current contract is:
+
+`resolve/freeze final total semantic width -> interpolate compact-to-final width from raw HyperOS expansion progress -> commit before HyperOS consumes the same sample`.
+
+The reservation writer may therefore update `MiuiStatusIconContainer.paddingEnd` across native expansion samples, but it does **not** own an independent timing curve, delayed phase, per-participant union trajectory, or animator. The requested width is a direct projection of the same authoritative HyperOS progress that drives the surrounding Control Center motion, and `statusIcons-paddingEnd` remains the single writer.
+
+This differs from both rejected extremes:
+
+- one-shot final occupancy, which causes an immediate final-x jump;
+- independently evolving/per-span occupancy, which can create a horizontal dead zone followed by late reflow.
+
+For latent 0→1 / 1→N participants, layout occupancy and pixel reveal remain separate. Reservation follows the frozen semantic-width contract; pixels appear only when the real target visual envelope is spatially available. This keeps **layout occupancy**, **native motion**, and **visual reveal** as distinct responsibilities without creating a second animation engine.
+
+
+---
+
+## Participant visual snapshot: topology, not provider identity
+
+A transition target must be adapted from what is actually rendered, not from the package/module that produced the View hierarchy.
+
+The reusable target path is:
+
+`semantic participant -> visual snapshot -> optical envelope/components/topology -> target geometry / morph capability`.
+
+The snapshot contract is read-only:
+- ImageView: clone the current drawable from `ConstantState`, preserve state/level, raster-probe alpha, then map the resulting geometry through the ImageView drawable frame/imageMatrix into View coordinates.
+- ViewGroup/composite: recursively collect visible drawable-bearing descendants and transform their visual components into one parent coordinate space.
+- cache cloned-drawable probe results by `ConstantState + level + drawable state + layoutDirection`;
+- never tint, resize or rasterize the live SystemUI drawable.
+
+Topology is structural:
+- four aligned ascending vertical components may expose a `FOUR_VERTICAL_BARS` capability;
+- extra rows/dots/components keep the target composite;
+- single/unknown structures expose only the geometry that is reliably measured.
+
+Do not discard small secondary components merely because they are small relative to a dominant bar. Filtering uses an absolute probe-pixel floor so legitimate lower dots remain available to topology classification.
+
+Consumers share the same evidence:
+- generic target projection uses the snapshot optical envelope in participant View space;
+- Mobile may consume exact component rectangles when four-bar topology is reliable;
+- unsupported topology falls back instead of creating a provider-specific ratio;
+- latent reveal may use real visual width for its short reveal phase while native slot occupancy remains SystemUI layout authority.
+
+Provider names such as HyperCeiler may remain in historical diagnostics, but must not choose the primary runtime geometry algorithm.
+
+---
+
+## Exact component topology and transition basis
+
+**Build-509 evidence, corrected by Build 510 device acceptance.**
+
+When a target snapshot exposes exact sub-components, its topology, optical envelope and component rectangles are one evidence set. Build 509 proved that the four native bars must be measured individually, but applying that evidence by non-uniformly stretching the entire Mobile component while the four dots also morphed into bars produced a visible double-deformation / rubber-band effect.
+
+The current `FOUR_VERTICAL_BARS` contract is therefore:
+
+- the **outer Mobile participant** keeps the existing carrier/similarity projection and its normal scale policy;
+- the **inner four-bar morph** owns the exact measured x/width/top/bottom changes;
+- measured target-envelope width/height ratios compensate inside the bar geometry for any uniform outer shrink, so the final native rectangles remain reachable without anisotropically stretching the whole component canvas.
+
+Exact component evidence is shape-local, not permission for a full affine transform of the whole Mobile participant.
+
+Composite, single-glyph and unknown topologies remain on the conservative similarity/fallback path. Provider or module identity must not select the geometry algorithm.
+
+Latent 0→1 / 1→N reveal remains spatial. The existing end reservation opens a real interval from the Battery end; the target visual envelope is revealed continuously as that reservation covers it, while root-space target proximity remains a second safety bound. Do not replace this with a duration, expansion-fraction threshold or delayed runnable.
+

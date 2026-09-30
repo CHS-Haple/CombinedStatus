@@ -79,6 +79,10 @@ internal object CombinedStatusKeyguardRenderSession {
     }
 
     @Synchronized
+    fun currentTransitionSourceWitness(): CombinedStatusTransitionSourceWitness? =
+        current?.transitionSourceWitness()
+
+    @Synchronized
     fun detach() {
         current?.stop()
         current = null
@@ -116,6 +120,7 @@ internal object CombinedStatusKeyguardRenderSession {
     ) : View.OnAttachStateChangeListener {
         private val host = WeakReference(resolved.host)
         private val systemIcons = WeakReference(resolved.systemIcons)
+        private val statusIcons = WeakReference(resolved.statusIcons)
         private val batteryView = WeakReference(resolved.battery)
         private val batteryCarrier = WeakReference(resolved.batteryCarrier)
         private val renderView = CombinedStatusRenderView(resolved.host.context)
@@ -145,8 +150,38 @@ internal object CombinedStatusKeyguardRenderSession {
         fun matches(resolved: SystemUiKeyguardHostResolver.ResolvedHost): Boolean =
             host.get() === resolved.host &&
                 systemIcons.get() === resolved.systemIcons &&
+                statusIcons.get() === resolved.statusIcons &&
                 batteryView.get() === resolved.battery &&
                 batteryCarrier.get() === resolved.batteryCarrier
+
+        fun transitionSourceWitness(): CombinedStatusTransitionSourceWitness? {
+            val motion = statusIcons.get() ?: return null
+            val render = renderView
+            if (
+                !CombinedStatusScenePolicy.retainedTransitionSourceWitnessAvailable(
+                    widthPx = render.width,
+                    heightPx = render.height,
+                    hostAttached =
+                        systemIcons.get()?.isAttachedToWindow == true &&
+                            motion.isAttachedToWindow,
+                )
+            ) {
+                return null
+            }
+            if (
+                motion.width <= 0 ||
+                motion.height <= 0
+            ) {
+                return null
+            }
+            return CombinedStatusTransitionSourceWitness(
+                renderView = render,
+                positionHost = systemIcons.get() ?: return null,
+                motionCarrier = motion,
+                representedSlots =
+                    SystemUiHomePresentationOwner.currentKeyguardRepresentedSlotOwnership(),
+            )
+        }
 
         fun start() {
             val overlayHost = systemIcons.get() ?: return

@@ -59,6 +59,31 @@ class SystemUiHomePresentationOwnerTest {
     }
 
     @Test
+    fun transitionReservationCannotShrinkBelowCompactWidth() {
+        assertEquals(
+            105,
+            SystemUiHomePresentationOwner.EndReservationPolicy.resolveRequestedSlotWidth(
+                compactSlotWidthPx = 105,
+                transitionRequestedSlotWidthPx = 80,
+            ),
+        )
+        assertEquals(
+            168,
+            SystemUiHomePresentationOwner.EndReservationPolicy.resolveRequestedSlotWidth(
+                compactSlotWidthPx = 105,
+                transitionRequestedSlotWidthPx = 168,
+            ),
+        )
+        assertEquals(
+            105,
+            SystemUiHomePresentationOwner.EndReservationPolicy.resolveRequestedSlotWidth(
+                compactSlotWidthPx = 105,
+                transitionRequestedSlotWidthPx = null,
+            ),
+        )
+    }
+
+    @Test
     fun endReservationKeepsOneResolvedEndBoundaryAcrossBatteryStates() {
         assertEquals(
             0,

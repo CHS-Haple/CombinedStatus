@@ -1,5 +1,14 @@
 package com.chaners.guiyuan.xposed
 
+import android.view.View
+
+internal data class CombinedStatusTransitionSourceWitness(
+    val renderView: View,
+    val positionHost: View,
+    val motionCarrier: View,
+    val representedSlots: Set<String>,
+)
+
 internal enum class CombinedStatusScene {
     HOME_STABLE,
     NOTIFICATION_SHADE_TRANSITION,
@@ -74,11 +83,48 @@ internal object CombinedStatusScenePolicy {
     fun all(): List<CombinedStatusSceneCapability> =
         CombinedStatusScene.entries.map(::capability)
 
+    fun shouldAcquireKeyguardControlCenterLease(
+        sourceScene: CombinedStatusSourceScene,
+        keyguardRuntimeReady: Boolean,
+        nativeFraction: Float,
+    ): Boolean =
+        sourceScene == CombinedStatusSourceScene.KEYGUARD &&
+            keyguardRuntimeReady &&
+            nativeFraction > 0f
+
+    fun shouldRetainKeyguardControlCenterLease(
+        leaseActive: Boolean,
+        sourceScene: CombinedStatusSourceScene,
+        featureEnabled: Boolean,
+        keyguardEnabled: Boolean,
+        hostAttached: Boolean,
+        aodBlocked: Boolean,
+        nativeFraction: Float,
+    ): Boolean =
+        leaseActive &&
+            sourceScene == CombinedStatusSourceScene.KEYGUARD &&
+            featureEnabled &&
+            keyguardEnabled &&
+            hostAttached &&
+            !aodBlocked &&
+            nativeFraction > 0f
+
+    fun retainedTransitionSourceWitnessAvailable(
+        widthPx: Int,
+        heightPx: Int,
+        hostAttached: Boolean,
+    ): Boolean =
+        widthPx > 0 &&
+            heightPx > 0 &&
+            hostAttached
+
     fun controlCenterProjectionEligible(
+        featureEnabled: Boolean,
         sourceScene: CombinedStatusSourceScene,
         keyguardEnabled: Boolean,
     ): Boolean =
-        when (sourceScene) {
+        featureEnabled &&
+            when (sourceScene) {
             CombinedStatusSourceScene.HOME ->
                 capability(CombinedStatusScene.HOME_STABLE).renderMode ==
                     CombinedStatusRenderMode.PROJECTED
