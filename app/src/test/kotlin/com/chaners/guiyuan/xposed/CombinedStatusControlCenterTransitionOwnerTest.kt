@@ -8,6 +8,46 @@ import org.junit.Test
 
 class CombinedStatusControlCenterTransitionOwnerTest {
     @Test
+    fun mobileTypeWeightInterpolatesToNativeTarget() {
+        assertEquals(
+            800,
+            CombinedStatusPainter.MobileTypeTransitionPolicy.resolveWeight(
+                sourceWeight = 800,
+                targetWeight = 500,
+                progress = 0f,
+            ),
+        )
+        assertEquals(
+            650,
+            CombinedStatusPainter.MobileTypeTransitionPolicy.resolveWeight(
+                sourceWeight = 800,
+                targetWeight = 500,
+                progress = 0.5f,
+            ),
+        )
+        assertEquals(
+            500,
+            CombinedStatusPainter.MobileTypeTransitionPolicy.resolveWeight(
+                sourceWeight = 800,
+                targetWeight = 500,
+                progress = 1f,
+            ),
+        )
+    }
+
+    @Test
+    fun mobileTypeWeightFailsNativeWhenTargetTypographyIsUnavailable() {
+        assertEquals(
+            800,
+            CombinedStatusPainter.MobileTypeTransitionPolicy.resolveWeight(
+                sourceWeight = 800,
+                targetWeight = null,
+                progress = 1f,
+            ),
+        )
+    }
+
+    @Test
     fun shrinkOnlyScalePolicyNeverEnlargesSemanticGlyphs() {
         val source = geometry(width = 10f, height = 10f)
         val target = geometry(width = 30f, height = 20f)
