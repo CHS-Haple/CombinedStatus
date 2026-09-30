@@ -1407,7 +1407,10 @@ internal object CombinedStatusControlCenterTransitionOwner {
 
             val targetA = logicalTargetX(visualBounds.left)
             val targetB = logicalTargetX(visualBounds.right)
-            val compact = compactWidth.toFloat()
+            val compact =
+                (frozenSource?.width ?: source.width)
+                    .coerceAtLeast(0)
+                    .toFloat()
             val left = min(-compact, min(targetA, targetB))
             val right = maxOf(0f, maxOf(targetA, targetB))
             return kotlin.math.ceil(
