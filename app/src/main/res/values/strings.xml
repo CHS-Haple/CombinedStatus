@@ -26,6 +26,16 @@
 
     <string name="section_hyperos_display">System UI</string>
     <string name="section_color_linkage">Color linkage</string>
+    <string name="section_battery_top_readout">Battery top readout</string>
+    <string name="battery_top_readout">Show battery percentage above ring</string>
+    <string name="battery_top_readout_summary">Open a measured gap at the top of the ring and place the battery percentage there</string>
+    <string name="battery_top_text_size">Number size</string>
+    <string name="battery_top_text_weight">Number weight</string>
+    <string name="battery_top_vertical_offset">Vertical position</string>
+    <string name="battery_top_charging_icon_size">Charging bolt size</string>
+    <string name="battery_top_scale_value">%1$d%%</string>
+    <string name="battery_top_weight_value">%1$d</string>
+    <string name="battery_top_offset_value">%1$d</string>
     <string name="combined_status_feature_title">Combined status indicator</string>
     <string name="combined_status_feature_summary">Master switch for the unified status indicator across all supported SystemUI scenes. Turning it off restores native status icons.</string>
     <string name="keyguard_combined_status_title">Show on lock screen</string>
