@@ -22,6 +22,8 @@ class CombinedStatusBatteryTopLayoutPolicyTest {
             CombinedStatusBatteryTopLayoutPolicy.resolveOpticalBaseCenterY(
                 preferredCenterY = 16f,
                 defaultOpticalRise = 1.5f,
+                contentInkHeight = 18f,
+                minimumSafeTopY = -36f,
             )
 
         assertEquals(14.5f, base, 0.0001f)
@@ -66,7 +68,7 @@ class CombinedStatusBatteryTopLayoutPolicyTest {
     }
 
     @Test
-    fun positiveOffsetStopsOnlyWhenActualViewTopWouldClipContent() {
+    fun positiveOffsetRemainsLiteralPastFormerClipSafetyCeiling() {
         val center =
             CombinedStatusBatteryTopLayoutPolicy.resolveCenterY(
                 baseCenterY = 14.5f,
@@ -74,7 +76,7 @@ class CombinedStatusBatteryTopLayoutPolicyTest {
                 positiveLimit = 30f,
             )
 
-        assertEquals(-1f, center, 0.0001f)
+        assertEquals(-15.5f, center, 0.0001f)
     }
 
     @Test
