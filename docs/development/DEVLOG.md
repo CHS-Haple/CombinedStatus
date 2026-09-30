@@ -13304,3 +13304,67 @@ Horizontal optical imbalance had a related cause: the prior stable charging slot
 - PR remains mergeable, ahead of `dev`, behind 0.
 - Remaining gate: exact-head signed Canary + focused device evidence.
 
+## 2026-10-01 — Build 522: charging-group optical center, real upward travel and Battery-number morph
+
+**Type:** root-cause geometry + transition completion  
+**Display version:** 0.0.3  
+**Build / source:** 522 / `20261001-522` / `feat/battery-top-readout` / PR #181
+
+### Maintainer device evidence
+
+Build 521 screenshots/device feedback established four concrete defects:
+
+- when the charging bolt is present, the visible bolt + percentage group must be optically centered together; centering the percentage alone biases the visible group;
+- the ring shoulders remain visibly too close to the readout;
+- positive vertical offset still appears pinned to the top while negative offset works;
+- the requested percentage -> native Battery-number Control Center transition does not occur.
+
+### Root cause
+
+1. **Charging center:** Build 521 intentionally fixed the percentage at ring center and treated the bolt as a left accessory. That contradicts the desired optical contract. Correct authority is the visible combined ink envelope, not the text alone and not the drawable viewport.
+2. **Ring avoidance:** the dynamic width/padding logic was still capped by the legacy `MAX_GAP_SWEEP_DEGREES = 82°`. With rebased 100% three-digit text and charging content, the requested optical gap often exceeded that cap, so increasing padding could not materially widen the opening.
+3. **Positive offset:** Build 521 reserved only 4 canonical units of guaranteed headroom. On the 105×169 carrier that translates to only a few device pixels across the entire +0…+30 range, visually reading as no movement.
+4. **Number transition:** prior builds only probed the native Battery-number target. `TransitionComponent` still contained only BATTERY/CENTER/MOBILE, so no number component existed to consume the target witness.
+
+### Change
+
+- Charging layout now centers actual visible `bolt optical ink + 1-unit gap + percentage optical ink` as a single group.
+- Native drawable transparent viewport margins are excluded via measured optical center offsets.
+- Ring-gap maximum is raised from 82° to a bounded 118° and optical side padding is increased (base/ink/stroke contributions).
+- Positive offset reserves 12 canonical units of guaranteed safe headroom.
+- +0…+30 uses a bounded ease-out response so small/medium positive values visibly move; +30 still lands exactly at the safe top boundary and never relies on clipping.
+- Number and charging glyph share the same optical vertical group center so charging state cannot create a second Y authority.
+- New `TransitionComponent.BATTERY_NUMBER` is created only when the top readout is enabled.
+- BATTERY transition continues to own ring/body/charging-glyph shape; its readout text is suppressed during transition to prevent duplicate/squashed text.
+- BATTERY_NUMBER uses the existing HyperOS motion/appearance progress and existing transition matrix path; no second animator is introduced.
+- Native number target resolution:
+  - prefer visible final-Battery TextView whose digits/semantic resource match current percentage;
+  - derive exact TextView glyph bounds from TextView Layout + Paint;
+  - otherwise inspect `MiuiBatteryMeterIconView` Paint fields and derive a bounded centered text-ink fallback from native textSize/typeface/content geometry;
+  - fail through the existing unmatched-exit path if neither target is reliable.
+- Target Typeface weight is carried through the target witness and interpolated during the morph.
+- Weight-dependent glyph-width changes are re-centered on the source optical center each frame, avoiding typography-induced sideways drift.
+- Target fallback bounds are normalized in content coordinates so native padding is not applied twice.
+- Added tests for early positive-offset response and for optical gaps exceeding the old 82° ceiling.
+
+### 审查 / review
+
+- **single motion owner:** unchanged; all number motion is still owned by `CombinedStatusControlCenterTransitionOwner`.
+- **native authority:** final native Battery View/TextView/Paint supplies target geometry/typography; Guiyuan does not write native geometry, text, alpha or visibility.
+- **fail-native:** unresolved number targets use the existing unmatched fade instead of guessed screen coordinates.
+- **optical geometry:** visible ink, not transparent resource boxes, owns charging-group X placement and ring clearance.
+- **vertical ownership:** one group-center writer; no clipping-based workaround.
+- **Battery-body contract:** accepted Build-510/511 body target and BATTERY_FOLD path are untouched.
+- **performance:** target reflection is session-local/cached; no polling or frame-rate diagnostics were added.
+
+### Validation
+
+- Build-522 Runtime CI #1957: **success**.
+- Pinned HyperOS target profile: green.
+- Unit tests + Debug APK: green.
+- Modern Xposed metadata: green.
+- New arc-policy test confirms a measured readout can request >82° while staying <=118°.
+- New vertical-policy test confirms +8 already produces visible movement and +30 still lands on the safe boundary.
+- PR remains mergeable and behind `dev` by 0.
+- Remaining gate: exact-head signed Canary + focused device evidence.
+
