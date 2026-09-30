@@ -962,17 +962,18 @@ internal class CombinedStatusPainter(
 
         val textWidth = batteryTopTextBounds.width().toFloat().coerceAtLeast(1f)
         val textHeight = batteryTopTextBounds.height().toFloat().coerceAtLeast(1f)
+        val chargingSlotVisible = model.charging
         val chargingIconResourceId =
-            model.chargingIconResId?.takeIf { model.charging && it != 0 }
+            model.chargingIconResId?.takeIf { chargingSlotVisible && it != 0 }
         val chargingIconSize =
-            if (chargingIconResourceId != null) {
+            if (chargingSlotVisible) {
                 BATTERY_TOP_CHARGING_ICON_SIZE *
                     visualSettings.batteryTopChargingIconScale
             } else {
                 0f
             }
         val iconGap =
-            if (chargingIconResourceId != null) BATTERY_TOP_ICON_TEXT_GAP else 0f
+            if (chargingSlotVisible) BATTERY_TOP_ICON_TEXT_GAP else 0f
         val groupWidth = chargingIconSize + iconGap + textWidth
         val groupLeft = BATTERY_COMPONENT_CENTER_X - groupWidth / 2f
         val contentHeight = max(textHeight, chargingIconSize)
@@ -983,7 +984,7 @@ internal class CombinedStatusPainter(
                 .coerceIn(minCenterY, BATTERY_TOP_CONTENT_MAX_CENTER_Y)
         val textLeft =
             groupLeft +
-                if (chargingIconResourceId != null) {
+                if (chargingSlotVisible) {
                     chargingIconSize + iconGap
                 } else {
                     0f
@@ -1001,7 +1002,7 @@ internal class CombinedStatusPainter(
             groupWidth = groupWidth,
             chargingIconResourceId = chargingIconResourceId,
             chargingIconCenterX =
-                if (chargingIconResourceId != null) {
+                if (chargingSlotVisible) {
                     groupLeft + chargingIconSize / 2f
                 } else {
                     BATTERY_COMPONENT_CENTER_X
