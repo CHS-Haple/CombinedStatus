@@ -109,7 +109,12 @@ internal object CombinedStatusParticipantVisualSnapshot {
                     source = drawable,
                     resources = resources,
                 )
-            }.getOrNull()
+            }.getOrElse { error ->
+                if (error is VirtualMachineError || error is ThreadDeath) {
+                    throw error
+                }
+                null
+            }
         drawableCache
             .getOrPut(state) { HashMap() }[variant] = resolved
         return resolved
