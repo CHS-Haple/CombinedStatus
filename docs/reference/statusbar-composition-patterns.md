@@ -874,23 +874,22 @@ The external code is not copied. Guiyuan keeps its own source witness, rendering
 
 ## Transition reservation lifecycle: semantic occupancy must not become a second motion system
 
-**Build-506 device correction and implementation review.**
+**Build-506 finding, corrected by Build 507 device evidence.**
 
-A semantic reservation can be structurally correct but still violate native motion ownership if its size changes every gesture frame.
+Build 506 correctly identified the risk: a semantic reservation must not invent a second gesture timeline beside the native QS_FAKE motion. Its proposed one-shot final-width cutover was subsequently device-rejected because it jumped the native peer row to its final horizontal layout at gesture entry.
 
-On the pinned HyperOS target, QS_FAKE already has a native translation path. Mutating `MiuiStatusIconContainer.paddingEnd` on every expansion sample introduces an additional project-owned horizontal layout trajectory for the entire native peer row. Because `setPaddingRelative` requests layout, the peer row is continuously reflowed while HyperOS is also translating its Control Center surface.
+The current contract is:
 
-The preferred contract is:
+`resolve/freeze final total semantic width -> interpolate compact-to-final width from raw HyperOS expansion progress -> commit before HyperOS consumes the same sample`.
 
-`first pre-native expansion sample -> resolve/freeze final semantic occupancy -> one layout cutover -> native carrier motion`
+The reservation writer may therefore update `MiuiStatusIconContainer.paddingEnd` across native expansion samples, but it does **not** own an independent timing curve, delayed phase, per-participant union trajectory, or animator. The requested width is a direct projection of the same authoritative HyperOS progress that drives the surrounding Control Center motion, and `statusIcons-paddingEnd` remains the single writer.
 
-not:
+This differs from both rejected extremes:
 
-`every expansion sample -> resize semantic occupancy -> request layout -> native carrier motion`.
+- one-shot final occupancy, which causes an immediate final-x jump;
+- independently evolving/per-span occupancy, which can create a horizontal dead zone followed by late reflow.
 
-For latent 0→1 / 1→N participants, full final occupancy may exist before the participant pixels are visible. Pixel reveal remains separately gated by verified native slot separation. This keeps **layout occupancy**, **native motion**, and **visual reveal** as three distinct authorities.
-
-This principle does not require a custom timeline or fixed offset and avoids turning semantic reservation into a second animation engine.
+For latent 0→1 / 1→N participants, layout occupancy and pixel reveal remain separate. Reservation follows the frozen semantic-width contract; pixels appear only when the real target visual envelope is spatially available. This keeps **layout occupancy**, **native motion**, and **visual reveal** as distinct responsibilities without creating a second animation engine.
 
 
 ---
@@ -928,11 +927,17 @@ Provider names such as HyperCeiler may remain in historical diagnostics, but mus
 
 ## Exact component topology and transition basis
 
-**Build-509 refinement of the participant visual snapshot contract.**
+**Build-509 evidence, corrected by Build 510 device acceptance.**
 
-When a target snapshot exposes exact sub-components, its topology, optical envelope and component rectangles are one evidence set. A consumer must not normalize exact component rectangles inside the snapshot envelope and then keep the outer projection on an unrelated source-only similarity basis.
+When a target snapshot exposes exact sub-components, its topology, optical envelope and component rectangles are one evidence set. Build 509 proved that the four native bars must be measured individually, but applying that evidence by non-uniformly stretching the entire Mobile component while the four dots also morphed into bars produced a visible double-deformation / rubber-band effect.
 
-For a positively verified `FOUR_VERTICAL_BARS` participant, exact target-basis interpolation is permitted for that Mobile component so the measured envelope and all four measured rectangles share one final root-space basis. This is a narrowly scoped capability rule, not a return to global affine interpolation.
+The current `FOUR_VERTICAL_BARS` contract is therefore:
+
+- the **outer Mobile participant** keeps the existing carrier/similarity projection and its normal scale policy;
+- the **inner four-bar morph** owns the exact measured x/width/top/bottom changes;
+- measured target-envelope width/height ratios compensate inside the bar geometry for any uniform outer shrink, so the final native rectangles remain reachable without anisotropically stretching the whole component canvas.
+
+Exact component evidence is shape-local, not permission for a full affine transform of the whole Mobile participant.
 
 Composite, single-glyph and unknown topologies remain on the conservative similarity/fallback path. Provider or module identity must not select the geometry algorithm.
 
