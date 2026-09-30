@@ -1032,6 +1032,16 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         } else {
                             null
                         },
+                    centerTargetTextWeight =
+                        if (
+                            spec.component ==
+                                CombinedStatusPainter.TransitionComponent.CENTER &&
+                            model.centerIndicator is CenterIndicator.MobileType
+                        ) {
+                            witness?.textWeight
+                        } else {
+                            null
+                        },
                 )
                 canvas.restoreToCount(save)
 
@@ -1890,6 +1900,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         fallbackBounds != null -> "slot-estimate"
                         else -> "slot"
                     },
+                textWeight = resolveNativeTextWeight(optical),
             )
         }
 
@@ -2420,6 +2431,32 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 .getOrNull()
                 ?.takeIf { it > 0 }
 
+        private fun resolveNativeTextWeight(view: View?): Int? {
+            if (view == null) return null
+            if (view is TextView) {
+                return runCatching { view.paint.typeface?.weight ?: view.typeface?.weight }
+                    .getOrNull()
+                    ?.takeIf { it > 0 }
+            }
+            val descendant =
+                if (view is ViewGroup) {
+                    sequence {
+                        for (index in 0 until view.childCount) {
+                            val child = view.getChildAt(index)
+                            if (child is TextView) yield(child)
+                        }
+                    }.firstOrNull()
+                } else {
+                    null
+                }
+            return descendant
+                ?.let { text ->
+                    runCatching { text.paint.typeface?.weight ?: text.typeface?.weight }
+                        .getOrNull()
+                }
+                ?.takeIf { it > 0 }
+        }
+
         private fun resolveBatteryNumberPaint(view: View): Paint? =
             generateSequence<Class<*>>(view.javaClass) { clazz -> clazz.superclass }
                 .flatMap { clazz -> clazz.declaredFields.asSequence() }
@@ -2913,6 +2950,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         (subscriptionId ?: -1) +
                         "/opt=" +
                         opticalSource +
+                        "/weight=" +
+                        (textWeight ?: -1) +
                         ":" +
                         (
                             opticalView?.let { view ->
