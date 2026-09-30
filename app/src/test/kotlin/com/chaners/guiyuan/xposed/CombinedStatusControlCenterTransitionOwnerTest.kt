@@ -486,58 +486,28 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
-    fun nativeMobileImageUsesDrawableOpticalBoundsButCompatibilityCompositeDoesNot() {
-        assertTrue(
-            CombinedStatusControlCenterTransitionOwner.Policy
-                .shouldProbeNativeMobileDrawableOpticalBounds(
-                    opticalSource = "native",
-                    resourceEntryName = "mobile_signal",
-                ),
+    fun participantVisualTopologyDistinguishesFourBarsFromComposite() {
+        val fourBars =
+            listOf(
+                CombinedStatusParticipantVisualSnapshot.NormalizedRect(0.05f, 0.60f, 0.15f, 0.95f),
+                CombinedStatusParticipantVisualSnapshot.NormalizedRect(0.30f, 0.48f, 0.40f, 0.95f),
+                CombinedStatusParticipantVisualSnapshot.NormalizedRect(0.55f, 0.34f, 0.65f, 0.95f),
+                CombinedStatusParticipantVisualSnapshot.NormalizedRect(0.80f, 0.18f, 0.90f, 0.95f),
+            )
+        assertEquals(
+            CombinedStatusParticipantVisualSnapshot.Topology.FOUR_VERTICAL_BARS,
+            CombinedStatusParticipantVisualSnapshot.classifyComponents(fourBars),
         )
-        assertFalse(
-            CombinedStatusControlCenterTransitionOwner.Policy
-                .shouldProbeNativeMobileDrawableOpticalBounds(
-                    opticalSource = "hyperceiler-dual-signal",
-                    resourceEntryName = null,
-                ),
-        )
-        assertFalse(
-            CombinedStatusControlCenterTransitionOwner.Policy
-                .shouldProbeNativeMobileDrawableOpticalBounds(
-                    opticalSource = "native",
-                    resourceEntryName = "mobile_type",
-                ),
-        )
-    }
 
-    @Test
-    fun hyperCeilerDualSignalCompatibilityRequiresItsStructuralSignature() {
-        assertTrue(
-            CombinedStatusControlCenterTransitionOwner.Policy.isHyperCeilerDualSignalStructure(
-                nativeSignalVisible = false,
-                candidateVisible = true,
-                candidateHasResourceEntry = false,
-                directChildCount = 2,
-                directImageChildCount = 2,
-            ),
-        )
-        assertTrue(
-            !CombinedStatusControlCenterTransitionOwner.Policy.isHyperCeilerDualSignalStructure(
-                nativeSignalVisible = true,
-                candidateVisible = true,
-                candidateHasResourceEntry = false,
-                directChildCount = 2,
-                directImageChildCount = 2,
-            ),
-        )
-        assertTrue(
-            !CombinedStatusControlCenterTransitionOwner.Policy.isHyperCeilerDualSignalStructure(
-                nativeSignalVisible = false,
-                candidateVisible = true,
-                candidateHasResourceEntry = true,
-                directChildCount = 2,
-                directImageChildCount = 2,
-            ),
+        val composite =
+            fourBars +
+                listOf(
+                    CombinedStatusParticipantVisualSnapshot.NormalizedRect(0.05f, 0.05f, 0.15f, 0.12f),
+                    CombinedStatusParticipantVisualSnapshot.NormalizedRect(0.30f, 0.05f, 0.40f, 0.12f),
+                )
+        assertEquals(
+            CombinedStatusParticipantVisualSnapshot.Topology.COMPOSITE,
+            CombinedStatusParticipantVisualSnapshot.classifyComponents(composite),
         )
     }
 

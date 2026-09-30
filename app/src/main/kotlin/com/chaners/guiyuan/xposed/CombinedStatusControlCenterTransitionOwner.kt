@@ -508,26 +508,6 @@ internal object CombinedStatusControlCenterTransitionOwner {
             )
         }
 
-        fun isHyperCeilerDualSignalStructure(
-            nativeSignalVisible: Boolean,
-            candidateVisible: Boolean,
-            candidateHasResourceEntry: Boolean,
-            directChildCount: Int,
-            directImageChildCount: Int,
-        ): Boolean =
-            !nativeSignalVisible &&
-                candidateVisible &&
-                !candidateHasResourceEntry &&
-                directChildCount >= 2 &&
-                directChildCount == directImageChildCount
-
-        fun shouldProbeNativeMobileDrawableOpticalBounds(
-            opticalSource: String,
-            resourceEntryName: String?,
-        ): Boolean =
-            opticalSource == "native" &&
-                resourceEntryName == "mobile_signal"
-
         fun scaleGeometry(
             source: FloatArray,
             scale: Float,
@@ -1930,21 +1910,17 @@ internal object CombinedStatusControlCenterTransitionOwner {
         private fun runtimeTargetOpticalBounds(
             witness: TargetWitness,
         ): CombinedStatusPainter.TransitionNormalizedBounds? {
-            val image = witness.opticalView as? ImageView ?: return null
-            val resourceEntry =
-                NativeParticipantRuntimeAccess.resourceEntryName(image)
-            if (
-                !Policy.shouldProbeNativeMobileDrawableOpticalBounds(
-                    opticalSource = witness.opticalSource,
-                    resourceEntryName = resourceEntry,
-                )
-            ) {
-                return null
-            }
-            val drawable = image.drawable ?: return null
-            return CombinedStatusDrawableOpticalProbe.resolve(
-                drawable = drawable,
-                resources = image.resources,
+            val visualView = witness.opticalView ?: return null
+            val envelope =
+                CombinedStatusParticipantVisualSnapshot
+                    .resolveView(visualView)
+                    ?.envelope
+                    ?: return null
+            return CombinedStatusPainter.TransitionNormalizedBounds(
+                left = envelope.left,
+                top = envelope.top,
+                right = envelope.right,
+                bottom = envelope.bottom,
             )
         }
 
@@ -2143,38 +2119,45 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     root = slotRoot,
                     entryName = "mobile_signal_container",
                 ) as? ViewGroup ?: return null
-            val nativeSignal =
-                findDescendantByResourceEntry(
-                    root = slotRoot,
-                    entryName = "mobile_signal",
-                ) ?: return null
 
+            data class Candidate(
+                val view: View,
+                val snapshot: CombinedStatusParticipantVisualSnapshot.Snapshot,
+                val score: Float,
+            )
+
+            val candidates = ArrayList<Candidate>()
             for (index in 0 until signalContainer.childCount) {
-                val candidate = signalContainer.getChildAt(index) as? FrameLayout ?: continue
+                val candidate = signalContainer.getChildAt(index)
                 if (!isReliableSemanticTarget(candidate)) continue
-                var imageChildren = 0
-                for (childIndex in 0 until candidate.childCount) {
-                    if (candidate.getChildAt(childIndex) is ImageView) {
-                        imageChildren += 1
-                    }
-                }
-                val isHyperCeilerDual =
-                    Policy.isHyperCeilerDualSignalStructure(
-                        nativeSignalVisible = nativeSignal.visibility == View.VISIBLE,
-                        candidateVisible = candidate.visibility == View.VISIBLE,
-                        candidateHasResourceEntry =
-                            NativeParticipantRuntimeAccess.resourceEntryName(candidate) != null,
-                        directChildCount = candidate.childCount,
-                        directImageChildCount = imageChildren,
-                    )
-                if (isHyperCeilerDual) {
-                    return CompatibilityOpticalTarget(
+                val snapshot =
+                    CombinedStatusParticipantVisualSnapshot.resolveView(candidate)
+                        ?: continue
+                if (snapshot.components.isEmpty()) continue
+                val area =
+                    snapshot.envelope.width *
+                        snapshot.envelope.height
+                val componentWeight =
+                    1f +
+                        snapshot.components.size
+                            .coerceAtMost(8) * 0.05f
+                candidates +=
+                    Candidate(
                         view = candidate,
-                        source = "hyperceiler-dual-signal",
+                        snapshot = snapshot,
+                        score = area * componentWeight,
                     )
-                }
             }
-            return null
+
+            val best =
+                candidates.maxByOrNull { candidate -> candidate.score }
+                    ?: return null
+            return CompatibilityOpticalTarget(
+                view = best.view,
+                source =
+                    "visual-snapshot:" +
+                        best.snapshot.topology.name.lowercase(),
+            )
         }
 
         private fun readMobileSubId(view: View): Int? {
