@@ -1444,9 +1444,95 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         targetRight = maxOf(targetA, targetB),
                     )
             }
-            // Only components with a real compact Trinity source may own
-            // reservation. Latent 0→1 / 1→N participants must not move the
-            // carrier that defines every component path.
+            val mobileSpec =
+                specs.firstOrNull { spec ->
+                    spec.component == CombinedStatusPainter.TransitionComponent.MOBILE
+                }
+            if (
+                mobileSpec != null &&
+                sourceRepresentsAny(MOBILE_SLOT, STACKED_MOBILE_SLOT)
+            ) {
+                val primary =
+                    resolveTarget(
+                        target = mobileSpec.target,
+                        preferredMobileSubId = preferredMobileSubId,
+                    )
+                resolveFrozenAdditionalMobileTargets(primary).forEach { witness ->
+                    val slot = witness.slotView
+                    val targetLocation = IntArray(2)
+                    slot.getLocationInWindow(targetLocation)
+                    val sourceA = logicalSourceX(mobileSpec.sourceBounds.left)
+                    val sourceB = logicalSourceX(mobileSpec.sourceBounds.right)
+                    val targetA = logicalTargetX(targetLocation[0].toFloat())
+                    val targetB =
+                        logicalTargetX(
+                            (targetLocation[0] + slot.width).toFloat(),
+                        )
+                    result +=
+                        Policy.ReservationSpan(
+                            sourceLeft = min(sourceA, sourceB),
+                            sourceRight = maxOf(sourceA, sourceB),
+                            targetLeft = min(targetA, targetB),
+                            targetRight = maxOf(targetA, targetB),
+                        )
+                }
+            }
+
+            if (
+                CombinedStatusStateStore.snapshot().airplaneMode == true &&
+                currentSnapshot.model.centerIndicator !is CenterIndicator.Airplane &&
+                sourceRepresentsAny(AIRPLANE_SLOT)
+            ) {
+                resolveFrozenAirplaneTarget()?.let { witness ->
+                    val slot = witness.slotView
+                    val targetLocation = IntArray(2)
+                    slot.getLocationInWindow(targetLocation)
+                    val collapsedEnd = logicalSourceX(source.width.toFloat())
+                    val targetA = logicalTargetX(targetLocation[0].toFloat())
+                    val targetB =
+                        logicalTargetX(
+                            (targetLocation[0] + slot.width).toFloat(),
+                        )
+                    result +=
+                        Policy.ReservationSpan(
+                            sourceLeft = collapsedEnd,
+                            sourceRight = collapsedEnd,
+                            targetLeft = min(targetA, targetB),
+                            targetRight = maxOf(targetA, targetB),
+                        )
+                }
+            }
+
+            val presentation = CombinedStatusPresentationStateStore.snapshot()
+            if (
+                currentSnapshot.model.centerIndicator !is CenterIndicator.NoSim &&
+                presentation.statusIcons.noSimVisible &&
+                presentation.statusIcons.noSimIcon != null &&
+                sourceRepresentsAny(NO_SIM_SLOT)
+            ) {
+                resolveFrozenNoSimTarget()?.let { witness ->
+                    val slot = witness.slotView
+                    val targetLocation = IntArray(2)
+                    slot.getLocationInWindow(targetLocation)
+                    val collapsedEnd = logicalSourceX(source.width.toFloat())
+                    val targetA = logicalTargetX(targetLocation[0].toFloat())
+                    val targetB =
+                        logicalTargetX(
+                            (targetLocation[0] + slot.width).toFloat(),
+                        )
+                    result +=
+                        Policy.ReservationSpan(
+                            sourceLeft = collapsedEnd,
+                            sourceRight = collapsedEnd,
+                            targetLeft = min(targetA, targetB),
+                            targetRight = maxOf(targetA, targetB),
+                        )
+                }
+            }
+
+            // Latent occupancy may move native peers through the existing
+            // reservation writer, but it never becomes geometry authority.
+            // Build 504 keeps every projected endpoint in absolute root space.
             return result.takeIf { it.isNotEmpty() }
         }
 

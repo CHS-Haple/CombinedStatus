@@ -72,6 +72,34 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
+    fun latentReservationCreatesPeerSpaceBeforeLatentReveal() {
+        val width =
+            CombinedStatusControlCenterTransitionOwner.Policy.resolveReservationWidth(
+                compactWidthPx = 105,
+                spans =
+                    listOf(
+                        CombinedStatusControlCenterTransitionOwner.Policy.ReservationSpan(
+                            sourceLeft = 0f,
+                            sourceRight = 0f,
+                            targetLeft = -180f,
+                            targetRight = -105f,
+                        ),
+                    ),
+                progress = 0.75f,
+            )
+
+        val reveal =
+            CombinedStatusControlCenterTransitionOwner.Policy.latentRevealOpacity(
+                carriedSource = floatArrayOf(100f, 50f, 20f, 0f, 0f, 20f),
+                current = floatArrayOf(150f, 50f, 20f, 0f, 0f, 20f),
+                nativeSlotWidth = 75f,
+            )
+
+        assertTrue(width > 105)
+        assertEquals(0f, reveal, 0.0001f)
+    }
+
+    @Test
     fun unmatchedComponentsExitFastWithoutChangingTheirScale() {
         assertEquals(
             1f,

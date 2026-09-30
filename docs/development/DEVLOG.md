@@ -12502,3 +12502,56 @@ Focused device gates:
 3. Charging: accepted source-side no-left-shift behavior remains.
 4. Supplemental Airplane: no giant first appearance; reveal remains near its final slot at compact optical size.
 5. Dual SIM: secondary Mobile remains SHRINK_ONLY and must not stretch.
+
+
+## 2026-09-30 — Build 505: restore latent occupancy lead without restoring carrier-relative endpoints
+
+**Type:** Control Center latent reservation / occupancy sequencing  
+**Display version:** 0.0.3  
+**Build / source:** 505 / `20260930-505` / `feat/control-center-transition-matrix`
+
+### Device evidence
+
+Build 504 is accepted for the two issues it targeted:
+- fake Trinity and real final Control Center icons are aligned;
+- no-source Airplane no longer appears oversized.
+
+The remaining defect is that a latent icon can reveal without surrounding native peers first leaving the intended slot-width gap. The supplied Build-504 diagnostic is healthy and shows the ordinary transition reservation is active and progress-synchronous; the missing behavior is latent occupancy participation, not a failed reservation writer.
+
+### Root cause
+
+Build 500 already modeled the desired sequence: latent final semantics contributed reservation spans while their pixels remained hidden behind the native-slot separation reveal gate. Build 501 removed all latent spans because the then-active carrier-relative projection made the same reservation alter the carrier used to reinterpret every component endpoint, creating `reservation -> carrier -> trajectory` feedback.
+
+Build 504 removed that endpoint dependency. Final projected geometry is absolute role-6 root-space geometry; the live fake carrier carries only source-side native motion and no longer defines the final coordinate basis. The Build-501 blanket exclusion now removes required occupancy semantics even though its original endpoint-feedback reason is no longer present.
+
+### Change
+
+- Restore additional-Mobile reservation from its real compact Mobile source span to each additional native final Mobile slot.
+- Restore Airplane and No-SIM reservation from a zero-width compact-end span to the real native final slot.
+- Keep latent drawing gated by `latentRevealOpacity()`: at least one native slot-width of geometric separation is required before pixels appear, followed by the existing quick smooth reveal.
+- Keep Build-504 absolute root-space endpoints and `SHRINK_ONLY` latent optical scale unchanged.
+- Keep one existing reservation writer: `SystemUiHomePresentationOwner.statusIcons-paddingEnd`.
+- Build identity becomes `versionCode=260930305`, `buildId=20260930-505`.
+
+### 审查 / review
+
+- **root-cause-first:** restores missing occupancy semantics rather than delaying opacity or inserting a fixed gap.
+- **native-first:** target slot width/location still come from the live native role-6 slot; gesture progress still comes from HyperOS.
+- **sequencing:** reservation is allowed to move native peers while reveal opacity remains zero; no second semantic timeline is added.
+- **single writer:** no new padding/translation/visibility writer is added; the existing transition reservation remains the only layout writer.
+- **geometry isolation:** latent reservation is not a target geometry authority. Build-504 root-space target projection remains exact even if fake/final carrier geometry differs.
+- **scale isolation:** Airplane/No-SIM remain `SHRINK_ONLY`; this build cannot reintroduce the oversized latent glyph fixed by Build 504.
+- **performance:** only a small frozen list of existing target witnesses is added to reservation-span resolution; no frame listener, polling, reflection traversal or animator is added.
+- **reverse/cleanup:** existing progress-synchronous reservation and transition cleanup close/release the same spans in reverse.
+- **protected boundaries:** Build-491/497/498, Build-500 steady source, Build-504 root-space endpoint and latent scale remain unchanged.
+
+### Validation
+
+Exact-head Runtime CI and one signed Canary are required.
+
+Focused device gate:
+1. Slow outward pull with no-source Airplane: native peers leave an empty slot first; Airplane reveals only after the gap exists.
+2. Build-504 alignment remains exact throughout fake/final handoff.
+3. Airplane remains compact; no target-slot enlargement.
+4. Reverse collapse closes the gap smoothly.
+5. Dual-SIM / No-SIM, when available, follow the same reservation-before-reveal behavior.

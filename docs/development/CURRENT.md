@@ -18,7 +18,7 @@ Control Center transition animation is the active runtime task.
 
 Current implementation line:
 - PR #177 — feat/control-center-transition-matrix;
-- current work-branch checkpoint: Build 504 / 20260930-504;
+- current work-branch checkpoint: Build 505 / 20260930-505;
 - exact-target direction: QS_FAKE role-5 to final-QS role-6 matrix projection;
 - HyperOS remains translation/appearance authority; raw native expansion drives transition geometry and native fake/final Folme owns visual handoff;
 - Guiyuan reads native transition state and renders only its owned Trinity correspondence; final role-6 top-level slots are read-only occupancy witnesses, while the existing QS_FAKE statusIcons-paddingEnd owner now provides a progress-synchronous semantic reservation so surrounding native peers move through SystemUI's own measure/layout path;
@@ -49,6 +49,9 @@ Build 503 follows Build-502 device evidence that the fake Trinity is still visib
 
 
 Build 504 follows Build-503 device rejection and an implementation-level reference review of the user-supplied legacy CombinedStatus 1.3.6-mod.5, CombinedStatus 1.4.3 and KeiMi 2.5.0 APKs. The 1.3.6 and 1.4.3 decompilations have byte-identical core `ClosedAnchor`, `MotionHandoff`, `CompactGeometry` and `KeyguardHandoff` sources, so 1.4.3 is not accepted as evidence that the old project-side anchor/correction route fixed its historical endpoint issue. KeiMi 2.5.0 instead samples native participant geometry by `transformMatrixToGlobal -> root.transformMatrixToLocal` and interpolates source/target geometry in one root coordinate space. Guiyuan already samples final role-6 targets in that root space, but Build 499/500 then reinterpreted them through a separate target-carrier-relative offset. Build 504 removes that second target basis: the verified steady end-slot source is first translated only by the live QS_FAKE carrier delta, then interpolated directly to the absolute root-space role-6 target. The final endpoint therefore no longer depends on fake/final carrier centers converging. Build-503 native appearance residual handoff is retained only as native timing/remaining-distance authority, not endpoint authority. Supplemental no-source Airplane and No-SIM participants also switch to `SHRINK_ONLY`, preserving compact optical scale while landing on the root-space native target center instead of expanding the Guiyuan glyph toward a 77x75-style native View box. Build-500 source authority and Build-491/497/498 safety boundaries remain unchanged.
+
+
+Build 505 follows Build-504 device acceptance of the two primary geometry corrections: the fake Trinity now aligns with the final native row and no-source Airplane no longer enlarges. The remaining defect is occupancy lead: latent Airplane / No-SIM / additional-SIM participants reveal at the correct size and target, but surrounding native peers do not first leave the intended slot-width gap. Build 501 removed all latent reservation after the old carrier-relative projection produced a reservation→carrier→trajectory feedback loop. Build 504 removed that endpoint model; projected endpoints are now absolute root-space role-6 geometry and latent scale is SHRINK_ONLY. Build 505 therefore restores only the Build-500 latent **reservation** semantics: additional Mobile expands from the compact Mobile source span toward its native final slot, while Airplane and No-SIM expand from a zero-width compact-end occupancy toward their native final slots. Drawing still uses the existing native-slot separation reveal gate, so reservation can move native peers before opacity becomes non-zero. No custom time offset, delay, threshold, pixel compensation, target-carrier geometry or additional writer is introduced.
 
 ## Current architecture boundary
 
@@ -113,11 +116,11 @@ Device testing is requested only when the result can change implementation choic
 
 ## Immediate next step
 
-1. Run exact-head Runtime CI for Build 504 and produce one signed work-branch Canary from the same SHA.
-2. Primary device gate: slow Home pull. The whole fake Trinity must no longer sit rigidly to the right of real QS icons during the visible handoff; endpoint position is now absolute role-6 root geometry.
-3. Confirm Build-500 source continuity remains accepted: no press/down-pull initial left shift or Mobile-dot downward jump in Home/charging.
-4. Airplane latent gate: when Airplane has no independent compact source, it must reveal at compact/native optical scale rather than balloon toward the StatusBarIconView box. Initial-center Airplane behavior is intentionally unchanged.
-5. One dual-SIM pass confirms additional Mobile remains `SHRINK_ONLY`; protected Build-498/497/496 regressions remain accepted.
+1. Run exact-head Runtime CI for Build 505 and produce one signed work-branch Canary from the same SHA.
+2. Primary device gate: Airplane with no independent compact source. During slow outward pull, surrounding native peers must visibly create the empty final-slot gap **before** the Airplane glyph starts revealing.
+3. Confirm Build-504 accepted geometry remains intact: no whole-group right bias and no oversized Airplane.
+4. Reverse collapse must close the latent occupancy cleanly without a peer snap or a lingering blank slot.
+5. If available, repeat with dual SIM / No-SIM to confirm the same reservation-before-reveal contract is shared across 1→N and 0→1 latent participants.
 
 Historical safety checklist (retained for traceability): with Guiyuan enabled, disable the master switch while watching steady Home. Previously covered/suppressed native icons must return immediately without pulling Control Center.
 3. Still disabled, pull and collapse Control Center once; steady Home must remain native-correct before and after the gesture.
