@@ -104,14 +104,14 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
-    fun unmatchedComponentsExitFasterThanLinearWithoutASeparateTimeline() {
+    fun unmatchedComponentsExitFastWithoutChangingTheirScale() {
         assertEquals(
             1f,
             CombinedStatusControlCenterTransitionOwner.Policy.unmatchedExitOpacity(0f),
             0.0001f,
         )
         assertEquals(
-            0.25f,
+            0.125f,
             CombinedStatusControlCenterTransitionOwner.Policy.unmatchedExitOpacity(0.5f),
             0.0001f,
         )
@@ -120,8 +120,58 @@ class CombinedStatusControlCenterTransitionOwnerTest {
             CombinedStatusControlCenterTransitionOwner.Policy.unmatchedExitOpacity(1f),
             0.0001f,
         )
+    }
+
+    @Test
+    fun carrierRelativeInterpolationInheritsNativeCarrierMotion() {
+        val source =
+            floatArrayOf(75f, 50f, 10f, 0f, 0f, 10f)
+        val target =
+            floatArrayOf(235f, 150f, 20f, 0f, 0f, 20f)
+        val sourceCarrier =
+            floatArrayOf(50f, 50f, 100f, 0f, 0f, 100f)
+        val currentCarrier =
+            floatArrayOf(130f, 120f, 100f, 0f, 0f, 100f)
+        val targetCarrier =
+            floatArrayOf(200f, 150f, 100f, 0f, 0f, 100f)
+
+        val result =
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .interpolateCarrierRelativeGeometry(
+                    source = source,
+                    target = target,
+                    sourceCarrier = sourceCarrier,
+                    currentCarrier = currentCarrier,
+                    targetCarrier = targetCarrier,
+                    progress = 0.5f,
+                    scalePolicy = CombinedStatusPainter.TransitionScalePolicy.TARGET,
+                )
+
+        assertEquals(160f, result[0], 0.0001f)
+        assertEquals(120f, result[1], 0.0001f)
+        assertEquals(15f, result[2], 0.0001f)
+        assertEquals(15f, result[5], 0.0001f)
+    }
+
+    @Test
+    fun latentParticipantStaysHiddenUntilItIsNearItsNativeTarget() {
+        val target = floatArrayOf(0f, 0f, 10f, 0f, 0f, 10f)
+        val far = floatArrayOf(20f, 0f, 10f, 0f, 0f, 10f)
+        val near = floatArrayOf(8f, 0f, 10f, 0f, 0f, 10f)
+
+        assertEquals(
+            0f,
+            CombinedStatusControlCenterTransitionOwner.Policy.latentRevealOpacity(far, target),
+            0.0001f,
+        )
         assertTrue(
-            CombinedStatusControlCenterTransitionOwner.Policy.unmatchedExitScale(0.5f) > 0.95f,
+            CombinedStatusControlCenterTransitionOwner.Policy.latentRevealOpacity(near, target) >
+                0f,
+        )
+        assertEquals(
+            1f,
+            CombinedStatusControlCenterTransitionOwner.Policy.latentRevealOpacity(target, target),
+            0.0001f,
         )
     }
 

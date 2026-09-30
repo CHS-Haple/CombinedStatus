@@ -627,6 +627,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
         private var frozenAdditionalMobileTargets: List<TargetWitness>? = null
         private var frozenAirplaneTarget: TargetWitness? = null
         private var airplaneTargetResolved = false
+        private var frozenNoSimTarget: TargetWitness? = null
+        private var noSimTargetResolved = false
 
         private var currentSnapshot = sourceSnapshot
         private var progress = 0f
@@ -1007,6 +1009,20 @@ internal object CombinedStatusControlCenterTransitionOwner {
             )?.let { description ->
                 witnessDescriptions?.add(description)
             }
+            drawSupplementalNoSimReveal(
+                canvas = canvas,
+                rootView = rootView,
+                sourceParentGeometry = sourceParentGeometry,
+                sourceWidth = sourceWidth,
+                sourceHeight = sourceHeight,
+                model = model,
+                colors = transitionColors,
+                motionProgress = motionProgress,
+                opacity = opacity,
+                carrierFrames = carrierFrames,
+            )?.let { description ->
+                witnessDescriptions?.add(description)
+            }
 
             witnessDescriptions?.let { descriptions ->
                 lastWitnessSummary = descriptions.joinToString("|")
@@ -1192,6 +1208,89 @@ internal object CombinedStatusControlCenterTransitionOwner {
             return "airplane-reveal:" + witness.summary
         }
 
+        private fun drawSupplementalNoSimReveal(
+            canvas: Canvas,
+            rootView: View,
+            sourceParentGeometry: FloatArray,
+            sourceWidth: Int,
+            sourceHeight: Int,
+            model: CombinedStatusRenderModel,
+            colors: CombinedStatusColors,
+            motionProgress: Float,
+            opacity: Float,
+            carrierFrames: CarrierFrames?,
+        ): String? {
+            if (
+                model.centerIndicator is CenterIndicator.NoSim ||
+                !sourceRepresentsAny(NO_SIM_SLOT)
+            ) {
+                return null
+            }
+            val presentation = CombinedStatusPresentationStateStore.snapshot()
+            val resource =
+                presentation.statusIcons.noSimIcon
+                    ?.takeIf { presentation.statusIcons.noSimVisible }
+                    ?: return null
+            val bounds =
+                painter.transitionNoSimSourceBounds(
+                    width = sourceWidth,
+                    height = sourceHeight,
+                    resource = resource,
+                ) ?: return null
+            val sourceGeometry =
+                Policy.componentGeometry(
+                    parentGeometry = sourceParentGeometry,
+                    parentWidth = sourceWidth,
+                    parentHeight = sourceHeight,
+                    bounds = bounds,
+                ) ?: return null
+            val witness = resolveFrozenNoSimTarget() ?: return null
+            val targetGeometry =
+                resolveTargetGeometry(
+                    witness = witness,
+                    root = rootView,
+                    sourceGeometry = sourceGeometry,
+                    targetOpticalBounds = null,
+                ) ?: return null
+            val geometry =
+                projectedGeometry(
+                    source = sourceGeometry,
+                    target = targetGeometry,
+                    progress = motionProgress,
+                    scalePolicy = CombinedStatusPainter.TransitionScalePolicy.TARGET,
+                    carrierFrames = carrierFrames,
+                )
+            val revealProgress =
+                Policy.latentRevealOpacity(
+                    current = geometry,
+                    target = targetGeometry,
+                )
+            if (revealProgress <= 0f) return null
+            val matrix =
+                matrixForBoundsGeometry(
+                    geometry = geometry,
+                    bounds = bounds,
+                ) ?: return null
+            val componentOpacity = opacity * revealProgress
+            if (componentOpacity <= 0f) return null
+            val save =
+                canvas.saveLayerAlpha(
+                    null,
+                    (255f * componentOpacity.coerceIn(0f, 1f)).roundToInt(),
+                )
+            canvas.concat(matrix)
+            painter.drawTransitionNoSim(
+                canvas = canvas,
+                width = sourceWidth,
+                height = sourceHeight,
+                resource = resource,
+                tint = colors.centerTint,
+                opacity = 1f,
+            )
+            canvas.restoreToCount(save)
+            return "no-sim-reveal:" + witness.summary
+        }
+
         private fun projectedGeometry(
             source: FloatArray,
             target: FloatArray,
@@ -1358,7 +1457,10 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 specs.firstOrNull { spec ->
                     spec.component == CombinedStatusPainter.TransitionComponent.MOBILE
                 }
-            if (mobileSpec != null) {
+            if (
+                mobileSpec != null &&
+                sourceRepresentsAny(MOBILE_SLOT, STACKED_MOBILE_SLOT)
+            ) {
                 val primary =
                     resolveTarget(
                         target = mobileSpec.target,
@@ -1392,6 +1494,34 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 sourceRepresentsAny(AIRPLANE_SLOT)
             ) {
                 resolveFrozenAirplaneTarget()?.let { witness ->
+                    val slot = witness.slotView
+                    val targetLocation = IntArray(2)
+                    slot.getLocationInWindow(targetLocation)
+                    val collapsedEnd = logicalSourceX(source.width.toFloat())
+                    val targetA = logicalTargetX(targetLocation[0].toFloat())
+                    val targetB =
+                        logicalTargetX(
+                            (targetLocation[0] + slot.width).toFloat(),
+                        )
+                    result +=
+                        Policy.ReservationSpan(
+                            sourceLeft = collapsedEnd,
+                            sourceRight = collapsedEnd,
+                            targetLeft = min(targetA, targetB),
+                            targetRight = maxOf(targetA, targetB),
+                            progressMode = Policy.ReservationProgress.SEMANTIC_REVEAL,
+                        )
+                }
+            }
+
+            val presentation = CombinedStatusPresentationStateStore.snapshot()
+            if (
+                currentSnapshot.model.centerIndicator !is CenterIndicator.NoSim &&
+                presentation.statusIcons.noSimVisible &&
+                presentation.statusIcons.noSimIcon != null &&
+                sourceRepresentsAny(NO_SIM_SLOT)
+            ) {
+                resolveFrozenNoSimTarget()?.let { witness ->
                     val slot = witness.slotView
                     val targetLocation = IntArray(2)
                     slot.getLocationInWindow(targetLocation)
@@ -1603,6 +1733,20 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     preferredMobileSubId = null,
                 )
             return frozenAirplaneTarget
+        }
+
+        private fun resolveFrozenNoSimTarget(): TargetWitness? {
+            if (noSimTargetResolved) return frozenNoSimTarget
+            noSimTargetResolved = true
+            frozenNoSimTarget =
+                resolveTarget(
+                    target =
+                        CombinedStatusPainter.TransitionTarget.Slots(
+                            preferredSlots = listOf(NO_SIM_SLOT),
+                        ),
+                    preferredMobileSubId = null,
+                )
+            return frozenNoSimTarget
         }
 
         private fun resolveTargetGeometry(

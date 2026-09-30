@@ -487,6 +487,7 @@ internal class CombinedStatusPainter(
                         target = TransitionTarget.Slots(listOf("airplane")),
                         shapePolicy = TransitionShapePolicy.RIGID,
                         scalePolicy = TransitionScalePolicy.TARGET,
+                        targetOpticalBounds = metrics?.targetOpticalBounds,
                     )
                 }
 
@@ -518,6 +519,7 @@ internal class CombinedStatusPainter(
                             ),
                         shapePolicy = TransitionShapePolicy.RIGID,
                         scalePolicy = TransitionScalePolicy.TARGET,
+                        targetOpticalBounds = metrics?.targetOpticalBounds,
                     )
                 }
 
@@ -624,6 +626,84 @@ internal class CombinedStatusPainter(
             tint = tint,
             opacity = opacity,
             geometry = geometry,
+            nativeTransform = nativeTransform,
+            pixelAligned = false,
+        )
+        canvas.restoreToCount(save)
+    }
+
+    fun transitionNoSimSourceBounds(
+        width: Int,
+        height: Int,
+        resource: CombinedStatusPresentationStateStore.NativeIconResource,
+    ): TransitionBounds? {
+        if (width <= 0 || height <= 0) return null
+        val scale = min(width / CANONICAL_SIZE, height / CANONICAL_SIZE)
+        val offsetX = (width - CANONICAL_SIZE * scale) / 2f
+        val offsetY = (height - CANONICAL_SIZE * scale) / 2f
+        val geometry =
+            CombinedStatusCenterGeometry.resolve(
+                sizeScale = CombinedStatusCenterGeometry.DEFAULT_SIZE_SCALE,
+                textWeightScale = CombinedStatusCenterGeometry.DEFAULT_TEXT_WEIGHT_SCALE,
+            )
+        val metrics =
+            transitionNativeCenterMetrics(
+                resource = resource,
+                maxWidth = geometry.noSimMaxSize,
+                maxHeight = geometry.noSimMaxSize,
+            )
+        val local =
+            centeredBounds(
+                centerX = CENTER_TRANSITION_PIVOT_X,
+                centerY = CENTER_TRANSITION_PIVOT_Y,
+                width = metrics?.sourceOpticalWidth ?: geometry.noSimMaxSize,
+                height = metrics?.sourceOpticalHeight ?: geometry.noSimMaxSize,
+            )
+        return TransitionBounds(
+            left = offsetX + local.left * scale,
+            top = offsetY + local.top * scale,
+            right = offsetX + local.right * scale,
+            bottom = offsetY + local.bottom * scale,
+        )
+    }
+
+    fun drawTransitionNoSim(
+        canvas: Canvas,
+        width: Int,
+        height: Int,
+        resource: CombinedStatusPresentationStateStore.NativeIconResource,
+        tint: Int,
+        opacity: Float,
+    ) {
+        if (width <= 0 || height <= 0 || opacity <= 0f) return
+        val scale = min(width / CANONICAL_SIZE, height / CANONICAL_SIZE)
+        val visualWidth = CANONICAL_SIZE * scale
+        val visualHeight = CANONICAL_SIZE * scale
+        val offsetX = (width - visualWidth) / 2f
+        val offsetY = (height - visualHeight) / 2f
+        val nativeTransform =
+            NativeRenderTransform(
+                scale = scale,
+                offsetX = offsetX,
+                offsetY = offsetY,
+            )
+        val geometry =
+            CombinedStatusCenterGeometry.resolve(
+                sizeScale = CombinedStatusCenterGeometry.DEFAULT_SIZE_SCALE,
+                textWeightScale = CombinedStatusCenterGeometry.DEFAULT_TEXT_WEIGHT_SCALE,
+            )
+        val save = canvas.save()
+        canvas.translate(offsetX, offsetY)
+        canvas.scale(scale, scale)
+        drawNativeCenterResource(
+            canvas = canvas,
+            resource = resource,
+            tint = tint,
+            opacity = opacity,
+            centerX = CENTER_TRANSITION_PIVOT_X,
+            centerY = CENTER_TRANSITION_PIVOT_Y,
+            maxWidth = geometry.noSimMaxSize,
+            maxHeight = geometry.noSimMaxSize,
             nativeTransform = nativeTransform,
             pixelAligned = false,
         )
