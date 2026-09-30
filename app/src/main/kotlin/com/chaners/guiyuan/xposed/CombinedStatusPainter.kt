@@ -33,6 +33,8 @@ internal class CombinedStatusPainter(
     private var cachedBatteryTopTextWeight: Int = Int.MIN_VALUE
     private var cachedBatteryTopTextTypeface: Typeface = Typeface.DEFAULT
     private val batteryTopTextBounds = Rect()
+    private val batteryMorphPath = Path()
+    private val batteryMorphTargetPoint = FloatArray(2)
     private val mobileTypeMainBounds = Rect()
     private val mobileTypeSuffixBounds = Rect()
     private val batteryRing = RectF(10f, 8f, 110f, 108f)
@@ -361,8 +363,8 @@ internal class CombinedStatusPainter(
                     return false
                 }
                 val t = (distance / length).coerceIn(0f, 1f)
-                out[0] = lerp(x0, x1, t)
-                out[1] = lerp(y0, y1, t)
+                out[0] = x0 + (x1 - x0) * t
+                out[1] = y0 + (y1 - y0) * t
                 return true
             }
 
@@ -1166,11 +1168,11 @@ internal class CombinedStatusPainter(
                 targetAxisRatio = targetHeightRatio,
                 outerScale = outerScale,
             )
-        val morph =
-            if (
-                widthCompensation != null &&
+        val morphTargetAvailable =
+            widthCompensation != null &&
                 heightCompensation != null
-            ) {
+        val morph =
+            if (morphTargetAvailable) {
                 BatteryMorphPolicy.morphProgress(shapeProgress)
             } else {
                 0f
@@ -1222,7 +1224,12 @@ internal class CombinedStatusPainter(
         if (readout == null) {
             drawBaseSegments(1f)
         } else {
-            val gapClosure = BatteryMorphPolicy.gapClosureProgress(shapeProgress)
+            val gapClosure =
+                if (morphTargetAvailable) {
+                    BatteryMorphPolicy.gapClosureProgress(shapeProgress)
+                } else {
+                    0f
+                }
             val sourceGapOpacity = 1f - gapClosure
             if (sourceGapOpacity > 0f) {
                 val segments =
@@ -1280,7 +1287,11 @@ internal class CombinedStatusPainter(
                 nativeTransform = nativeTransform,
                 drawText = false,
                 chargingIconOpacity =
-                    BatteryMorphPolicy.chargingGlyphOpacity(shapeProgress),
+                    if (morphTargetAvailable) {
+                        BatteryMorphPolicy.chargingGlyphOpacity(shapeProgress)
+                    } else {
+                        1f
+                    },
             )
         }
     }
@@ -1321,8 +1332,8 @@ internal class CombinedStatusPainter(
             kotlin.math.ceil(sweepDegrees / BATTERY_MORPH_SAMPLE_DEGREES)
                 .toInt()
                 .coerceAtLeast(2)
-        val path = Path()
-        val target = FloatArray(2)
+        val path = batteryMorphPath.apply { reset() }
+        val target = batteryMorphTargetPoint
         for (index in 0..samples) {
             val fraction = index.toFloat() / samples
             val angleDegrees = startDegrees + sweepDegrees * fraction
