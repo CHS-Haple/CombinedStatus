@@ -8,93 +8,28 @@ import org.junit.Test
 
 class CombinedStatusControlCenterTransitionOwnerTest {
     @Test
-    fun batteryMorphClosesBothSourceEndsAtOneTargetBottomCenter() {
-        val start = FloatArray(2)
-        val end = FloatArray(2)
-        assertTrue(
-            CombinedStatusPainter.BatteryMorphPolicy.roundedRectPerimeterPoint(
-                progress = 0f,
-                halfWidth = 80f,
-                halfHeight = 40f,
-                cornerRadius = 20f,
-                out = start,
-            ),
-        )
-        assertTrue(
-            CombinedStatusPainter.BatteryMorphPolicy.roundedRectPerimeterPoint(
-                progress = 1f,
-                halfWidth = 80f,
-                halfHeight = 40f,
-                cornerRadius = 20f,
-                out = end,
-            ),
-        )
-        assertEquals(start[0], end[0], 0.0001f)
-        assertEquals(start[1], end[1], 0.0001f)
-        assertEquals(0f, start[0], 0.0001f)
-        assertEquals(40f, start[1], 0.0001f)
-    }
-
-    @Test
-    fun batteryMorphKeepsMidpointOnTargetTopCenter() {
-        val point = FloatArray(2)
-        assertTrue(
-            CombinedStatusPainter.BatteryMorphPolicy.roundedRectPerimeterPoint(
-                progress = 0.5f,
-                halfWidth = 80f,
-                halfHeight = 40f,
-                cornerRadius = 20f,
-                out = point,
-            ),
-        )
-        assertEquals(0f, point[0], 0.0001f)
-        assertEquals(-40f, point[1], 0.0001f)
-    }
-
-    @Test
-    fun batteryMorphCompensatesNativeAspectAfterOuterSimilarityScale() {
-        val outer =
-            CombinedStatusPainter.BatteryMorphPolicy.outerSimilarityScale(
-                targetWidthRatio = 0.56f,
-                targetHeightRatio = 0.24f,
-            )
-        assertEquals(0.24f, requireNotNull(outer), 0.0001f)
+    fun chargingGlyphFollowsNumberUntilLateHandoffFade() {
         assertEquals(
-            0.56f / 0.24f,
-            requireNotNull(
-                CombinedStatusPainter.BatteryMorphPolicy.targetAxisCompensation(
-                    targetAxisRatio = 0.56f,
-                    outerScale = outer,
-                ),
-            ),
+            1f,
+            CombinedStatusPainter.MobileTypeTransitionPolicy
+                .chargingFollowerOpacity(0f),
             0.0001f,
         )
         assertEquals(
             1f,
-            requireNotNull(
-                CombinedStatusPainter.BatteryMorphPolicy.targetAxisCompensation(
-                    targetAxisRatio = 0.24f,
-                    outerScale = outer,
-                ),
-            ),
+            CombinedStatusPainter.MobileTypeTransitionPolicy
+                .chargingFollowerOpacity(0.58f),
             0.0001f,
         )
-    }
-
-    @Test
-    fun chargingGlyphFadesBeforeBatteryMorphFinishes() {
-        assertEquals(
-            1f,
-            CombinedStatusPainter.BatteryMorphPolicy.chargingGlyphOpacity(0f),
-            0.0001f,
+        assertTrue(
+            CombinedStatusPainter.MobileTypeTransitionPolicy
+                .chargingFollowerOpacity(0.72f) in 0f..1f,
         )
         assertEquals(
             0f,
-            CombinedStatusPainter.BatteryMorphPolicy.chargingGlyphOpacity(0.38f),
+            CombinedStatusPainter.MobileTypeTransitionPolicy
+                .chargingFollowerOpacity(0.88f),
             0.0001f,
-        )
-        assertTrue(
-            CombinedStatusPainter.BatteryMorphPolicy.morphProgress(0.38f) < 1f,
         )
     }
 
