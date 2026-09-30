@@ -43,6 +43,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
     private var sourceScene = CombinedStatusSourceScene.UNKNOWN
     private var endpoints: SystemUiPanelTransitionSource.ControlCenterTransitionEndpoints? = null
     private var current: Session? = null
+    private var latestBatteryNumberProbeSummary: String? = null
 
     @Synchronized
     fun onPanelUpdate(update: SystemUiPanelTransitionSource.Update) {
@@ -80,6 +81,10 @@ internal object CombinedStatusControlCenterTransitionOwner {
     fun currentDiagnostic(): String =
         current?.diagnostic()
             ?: "transitionOwner=inactive appearance=" + nativeAppearance
+
+    @Synchronized
+    fun latestBatteryNumberProbeDiagnostic(): String? =
+        latestBatteryNumberProbeSummary
 
     @Synchronized
     fun detach(source: String = "detach") {
@@ -744,6 +749,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
             val source = sourceViewRef.get() ?: return
             started = true
             batteryNumberProbeSummary = resolveBatteryNumberProbe(finalBattery)
+            latestBatteryNumberProbeSummary = batteryNumberProbeSummary
             source.clipBounds = sourceMask.appliedClip
             refreshNativePeerTint()
             syncTransitionReservation()
