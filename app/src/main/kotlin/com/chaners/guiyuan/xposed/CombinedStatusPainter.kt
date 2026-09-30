@@ -2174,7 +2174,7 @@ internal class CombinedStatusPainter(
         const val BATTERY_COMPONENT_CENTER_X = 60f
         const val BATTERY_COMPONENT_CENTER_Y = 58f
         const val BATTERY_FOLD_SCALE_Y = 0.72f
-        const val BATTERY_TOP_TEXT_SIZE = 16f
+        const val BATTERY_TOP_TEXT_SIZE = 24f
         const val BATTERY_TOP_CHARGING_ICON_SIZE = 14f
         const val BATTERY_TOP_ICON_TEXT_GAP = 2f
         const val BATTERY_TOP_RING_GAP_PADDING = 4f

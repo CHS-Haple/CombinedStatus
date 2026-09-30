@@ -196,11 +196,11 @@ internal const val BATTERY_TOP_CHARGING_ICON_SCALE_KEY = "battery_top_charging_i
 internal const val RUNTIME_REMOTE_PREFS_NAME = "CombinedStatusRuntimeConfig"
 
 internal const val BATTERY_TOP_TEXT_SCALE_DEFAULT = 1f
-internal const val BATTERY_TOP_TEXT_SCALE_MIN = 0.75f
-internal const val BATTERY_TOP_TEXT_SCALE_MAX = 1.35f
-internal const val BATTERY_TOP_TEXT_WEIGHT_DEFAULT = 600
+internal const val BATTERY_TOP_TEXT_SCALE_MIN = 0.6f
+internal const val BATTERY_TOP_TEXT_SCALE_MAX = 2f
+internal const val BATTERY_TOP_TEXT_WEIGHT_DEFAULT = 700
 internal const val BATTERY_TOP_TEXT_WEIGHT_MIN = 400
-internal const val BATTERY_TOP_TEXT_WEIGHT_MAX = 800
+internal const val BATTERY_TOP_TEXT_WEIGHT_MAX = 900
 internal const val BATTERY_TOP_VERTICAL_OFFSET_DEFAULT = 0f
 internal const val BATTERY_TOP_VERTICAL_OFFSET_MIN = -6f
 internal const val BATTERY_TOP_VERTICAL_OFFSET_MAX = 6f

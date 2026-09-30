@@ -121,7 +121,7 @@ internal fun FeaturesScreen(
                     valueRange =
                         BATTERY_TOP_TEXT_WEIGHT_MIN.toFloat()..
                             BATTERY_TOP_TEXT_WEIGHT_MAX.toFloat(),
-                    steps = 7,
+                    steps = 9,
                     enabled = featureSettings.enabled,
                 )
                 SliderPreference(
