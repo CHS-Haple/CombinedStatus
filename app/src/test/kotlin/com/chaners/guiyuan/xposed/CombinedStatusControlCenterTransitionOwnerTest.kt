@@ -11,24 +11,24 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     fun chargingGlyphFollowsNumberUntilLateHandoffFade() {
         assertEquals(
             1f,
-            CombinedStatusPainter.MobileTypeTransitionPolicy
-                .chargingFollowerOpacity(0f),
+            CombinedStatusPainter.BatteryNumberFollowerPolicy
+                .chargingOpacity(0f),
             0.0001f,
         )
         assertEquals(
             1f,
-            CombinedStatusPainter.MobileTypeTransitionPolicy
-                .chargingFollowerOpacity(0.58f),
+            CombinedStatusPainter.BatteryNumberFollowerPolicy
+                .chargingOpacity(0.58f),
             0.0001f,
         )
         assertTrue(
-            CombinedStatusPainter.MobileTypeTransitionPolicy
-                .chargingFollowerOpacity(0.72f) in 0f..1f,
+            CombinedStatusPainter.BatteryNumberFollowerPolicy
+                .chargingOpacity(0.72f) in 0f..1f,
         )
         assertEquals(
             0f,
-            CombinedStatusPainter.MobileTypeTransitionPolicy
-                .chargingFollowerOpacity(0.88f),
+            CombinedStatusPainter.BatteryNumberFollowerPolicy
+                .chargingOpacity(0.88f),
             0.0001f,
         )
     }
