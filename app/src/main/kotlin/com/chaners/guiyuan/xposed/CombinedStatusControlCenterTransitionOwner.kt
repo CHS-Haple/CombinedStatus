@@ -59,9 +59,17 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 nativeBatteryIslandActive = null
                 sourceScene = CombinedStatusSourceScene.UNKNOWN
                 endpoints = null
+            } else {
+                nativeBatteryIslandActive = update.controlCenterBatteryIslandActive
             }
         }
-        update.fraction?.let { nativeProgress = it }
+        update.fraction?.let {
+            nativeProgress = it
+            // Expansion is the per-sample authority for the native Battery-Island
+            // contract. A failed read clears a stale prior value instead of
+            // pretending the previous island mode still applies.
+            nativeBatteryIslandActive = update.controlCenterBatteryIslandActive
+        }
         update.controlCenterAppearance?.let { nativeAppearance = it }
         update.controlCenterAppearanceAnimated?.let { nativeAppearanceAnimated = it }
         update.controlCenterBatteryIslandActive?.let { nativeBatteryIslandActive = it }
