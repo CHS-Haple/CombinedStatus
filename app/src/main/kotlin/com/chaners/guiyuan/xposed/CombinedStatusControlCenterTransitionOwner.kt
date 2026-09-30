@@ -26,6 +26,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
     private const val BATTERY_VIEW_CLASS_NAME =
         "com.android.systemui.statusbar.views.MiuiBatteryMeterView"
     private const val BATTERY_SLOT = "battery"
+    private const val BATTERY_NUMBER_SLOT = "battery_number"
     private const val AIRPLANE_SLOT = "airplane"
     private const val NO_SIM_SLOT = "no_sim"
     private const val MOBILE_SLOT = "mobile"
@@ -33,6 +34,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
     private const val BATTERY_NUMBER_PROBE_MAX_VIEWS = 16
     private const val BATTERY_NUMBER_PROBE_MAX_DEPTH = 4
     private const val BATTERY_NUMBER_PROBE_MAX_PAINTS = 8
+    private const val BATTERY_NUMBER_MIN_TEXT_SIZE_PX = 8f
 
     private var visible = false
     private var sceneEligible = false
@@ -853,6 +855,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     width = sourceWidth,
                     height = sourceHeight,
                     model = model,
+                    visualSettings = currentSnapshot.visualSettings,
                 )
             if (specs.isEmpty()) return
 
@@ -1008,6 +1011,15 @@ internal object CombinedStatusControlCenterTransitionOwner {
                             null
                         },
                     mobileTargetBars = resolvedMobileTargetBars,
+                    batteryNumberTargetWeight =
+                        if (
+                            spec.component ==
+                            CombinedStatusPainter.TransitionComponent.BATTERY_NUMBER
+                        ) {
+                            witness?.textWeight
+                        } else {
+                            null
+                        },
                 )
                 canvas.restoreToCount(save)
 
@@ -1763,6 +1775,9 @@ internal object CombinedStatusControlCenterTransitionOwner {
                             opticalSource = "battery",
                         ).takeIf { witness -> isUsableSlotView(witness.slotView) }
 
+                    CombinedStatusPainter.TransitionTarget.BatteryNumber ->
+                        resolveBatteryNumberTargetWitness()
+
                     is CombinedStatusPainter.TransitionTarget.Slots ->
                         target.preferredSlots.firstNotNullOfOrNull { slot ->
                             val slotRoot =
@@ -1945,7 +1960,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
             targetOpticalBounds: CombinedStatusPainter.TransitionNormalizedBounds?,
         ): FloatArray? {
             val opticalView = witness.opticalView
-            if (targetOpticalBounds == null) {
+            if (targetOpticalBounds == null && !witness.preferFallbackGeometry) {
                 val visualView = opticalView ?: witness.slotView
                 val snapshot =
                     CombinedStatusParticipantVisualSnapshot.resolveView(visualView)
@@ -2179,6 +2194,202 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 parentWidth = slot.width,
                 parentHeight = slot.height,
                 bounds = localBounds,
+            )
+        }
+
+        private fun resolveBatteryNumberTargetWitness(): TargetWitness? {
+            val digitalView =
+                readViewField(finalBattery, "mBatteryDigitalView")
+                    ?: findDescendantByResourceEntry(finalBattery, "battery_icon_container")
+            val iconView =
+                readViewField(finalBattery, "mBatteryIconView")
+                    ?: resolveBatteryIconTarget(finalBattery)
+
+            val textView =
+                digitalView
+                    ?.let(::findBatteryNumberTextView)
+                    ?: findBatteryNumberTextView(finalBattery)
+            if (textView != null) {
+                val bounds =
+                    textViewBatteryNumberBounds(textView)
+                        ?: return null
+                return TargetWitness(
+                    slot = BATTERY_NUMBER_SLOT,
+                    slotView = textView,
+                    opticalView = null,
+                    subscriptionId = null,
+                    requiresOpticalGeometry = true,
+                    fallbackBounds = bounds,
+                    opticalSource = "battery-number-text",
+                    textWeight =
+                        runCatching { textView.typeface?.weight }
+                            .getOrNull()
+                            ?.takeIf { it > 0 },
+                    preferFallbackGeometry = true,
+                )
+            }
+
+            val icon = iconView ?: return null
+            val paint = resolveBatteryNumberPaint(icon) ?: return null
+            val bounds =
+                centeredBatteryNumberPaintBounds(
+                    view = icon,
+                    paint = paint,
+                    text = currentSnapshot.model.batteryPercent.coerceIn(0, 100).toString(),
+                ) ?: return null
+            return TargetWitness(
+                slot = BATTERY_NUMBER_SLOT,
+                slotView = icon,
+                opticalView = null,
+                subscriptionId = null,
+                requiresOpticalGeometry = true,
+                fallbackBounds = bounds,
+                opticalSource = "battery-number-paint",
+                textWeight =
+                    runCatching { paint.typeface?.weight }
+                        .getOrNull()
+                        ?.takeIf { it > 0 },
+                preferFallbackGeometry = true,
+            )
+        }
+
+        private fun findBatteryNumberTextView(root: View): TextView? {
+            val expected =
+                currentSnapshot.model.batteryPercent
+                    .coerceIn(0, 100)
+                    .toString()
+            data class Candidate(
+                val view: TextView,
+                val score: Int,
+            )
+            val candidates = ArrayList<Candidate>()
+            fun collect(view: View, depth: Int) {
+                if (depth > BATTERY_NUMBER_PROBE_MAX_DEPTH) return
+                if (
+                    view is TextView &&
+                    view.visibility == View.VISIBLE &&
+                    view.width > 0 &&
+                    view.height > 0
+                ) {
+                    val value = view.text?.toString().orEmpty()
+                    val digits = value.filter(Char::isDigit)
+                    val entry =
+                        NativeParticipantRuntimeAccess.resourceEntryName(view)
+                            ?.lowercase()
+                            .orEmpty()
+                    var score = 0
+                    if (digits == expected) score += 8
+                    if (entry.contains("percent")) score += 6
+                    if (entry.contains("digit")) score += 5
+                    if (entry.contains("battery")) score += 3
+                    if (entry.contains("text")) score += 1
+                    if (score > 0) {
+                        candidates += Candidate(view, score)
+                    }
+                }
+                val group = view as? ViewGroup ?: return
+                for (index in 0 until group.childCount) {
+                    collect(group.getChildAt(index), depth + 1)
+                }
+            }
+            collect(root, 0)
+            return candidates
+                .maxWithOrNull(
+                    compareBy<Candidate> { candidate -> candidate.score }
+                        .thenBy { candidate -> candidate.view.width * candidate.view.height },
+                )
+                ?.view
+        }
+
+        private fun textViewBatteryNumberBounds(
+            view: TextView,
+        ): CombinedStatusPainter.TransitionNormalizedBounds? {
+            val layout = view.layout ?: return null
+            if (layout.lineCount <= 0 || view.width <= 0 || view.height <= 0) return null
+            val text = view.text?.toString().orEmpty()
+            if (text.isEmpty()) return null
+            val rect = Rect()
+            view.paint.getTextBounds(text, 0, text.length, rect)
+            if (rect.width() <= 0 || rect.height() <= 0) return null
+            val baseline =
+                view.extendedPaddingTop + layout.getLineBaseline(0)
+            val left =
+                view.compoundPaddingLeft + layout.getLineLeft(0) + rect.left
+            val top = baseline + rect.top
+            val right = left + rect.width()
+            val bottom = baseline + rect.bottom
+            return normalizedBounds(
+                left = left,
+                top = top.toFloat(),
+                right = right,
+                bottom = bottom.toFloat(),
+                width = view.width,
+                height = view.height,
+            )
+        }
+
+        private fun resolveBatteryNumberPaint(view: View): Paint? =
+            generateSequence<Class<*>>(view.javaClass) { clazz -> clazz.superclass }
+                .flatMap { clazz -> clazz.declaredFields.asSequence() }
+                .filter { field -> Paint::class.java.isAssignableFrom(field.type) }
+                .mapNotNull { field ->
+                    runCatching {
+                        field.isAccessible = true
+                        field.get(view) as? Paint
+                    }.getOrNull()
+                }
+                .filter { paint -> paint.textSize > BATTERY_NUMBER_MIN_TEXT_SIZE_PX }
+                .maxByOrNull { paint ->
+                    paint.textSize +
+                        if (paint.textAlign == Paint.Align.CENTER) 8f else 0f +
+                        if (paint.typeface != null) 4f else 0f
+                }
+
+        private fun centeredBatteryNumberPaintBounds(
+            view: View,
+            paint: Paint,
+            text: String,
+        ): CombinedStatusPainter.TransitionNormalizedBounds? {
+            if (view.width <= 0 || view.height <= 0 || text.isEmpty()) return null
+            val rect = Rect()
+            paint.getTextBounds(text, 0, text.length, rect)
+            if (rect.width() <= 0 || rect.height() <= 0) return null
+            val contentLeft = view.paddingLeft.toFloat()
+            val contentTop = view.paddingTop.toFloat()
+            val contentRight = (view.width - view.paddingRight).toFloat()
+            val contentBottom = (view.height - view.paddingBottom).toFloat()
+            if (contentRight <= contentLeft || contentBottom <= contentTop) return null
+            val centerX = (contentLeft + contentRight) / 2f
+            val centerY = (contentTop + contentBottom) / 2f
+            return normalizedBounds(
+                left = centerX - rect.width() / 2f,
+                top = centerY - rect.height() / 2f,
+                right = centerX + rect.width() / 2f,
+                bottom = centerY + rect.height() / 2f,
+                width = view.width,
+                height = view.height,
+            )
+        }
+
+        private fun normalizedBounds(
+            left: Float,
+            top: Float,
+            right: Float,
+            bottom: Float,
+            width: Int,
+            height: Int,
+        ): CombinedStatusPainter.TransitionNormalizedBounds? {
+            if (width <= 0 || height <= 0) return null
+            val l = (left / width).coerceIn(0f, 1f)
+            val t = (top / height).coerceIn(0f, 1f)
+            val r = (right / width).coerceIn(0f, 1f)
+            val b = (bottom / height).coerceIn(0f, 1f)
+            if (r <= l || b <= t) return null
+            return CombinedStatusPainter.TransitionNormalizedBounds(
+                left = l,
+                top = t,
+                right = r,
+                bottom = b,
             )
         }
 
@@ -2590,6 +2801,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
             val requiresOpticalGeometry: Boolean,
             val fallbackBounds: CombinedStatusPainter.TransitionNormalizedBounds?,
             val opticalSource: String,
+            val textWeight: Int? = null,
+            val preferFallbackGeometry: Boolean = false,
         ) {
             val summary: String
                 get() =

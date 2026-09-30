@@ -135,6 +135,7 @@ internal class CombinedStatusPainter(
         mobileTargetWidthRatio: Float? = null,
         mobileTargetHeightRatio: Float? = null,
         mobileTargetBars: List<TransitionNormalizedBounds>? = null,
+        batteryNumberTargetWeight: Int? = null,
     ) {
         if (width <= 0 || height <= 0 || opacity <= 0f) return
 
@@ -183,6 +184,22 @@ internal class CombinedStatusPainter(
                         ),
                     visualSettings = visualSettings,
                     nativeTransform = nativeTransform,
+                    drawReadoutText = false,
+                )
+
+            TransitionComponent.BATTERY_NUMBER ->
+                drawBatteryTopNumberTransition(
+                    canvas = canvas,
+                    model = model,
+                    batteryTint = colors.batteryTint,
+                    opacity = opacity,
+                    visualSettings = visualSettings,
+                    geometry =
+                        resolveOuterGeometry(
+                            CombinedStatusOuterGeometry.DEFAULT_WEIGHT_SCALE,
+                        ),
+                    motionProgress = motion,
+                    targetWeight = batteryNumberTargetWeight,
                 )
 
             TransitionComponent.CENTER ->
@@ -340,6 +357,7 @@ internal class CombinedStatusPainter(
 
     internal enum class TransitionComponent {
         BATTERY,
+        BATTERY_NUMBER,
         CENTER,
         MOBILE,
     }
@@ -357,6 +375,7 @@ internal class CombinedStatusPainter(
 
     internal sealed interface TransitionTarget {
         data object BatteryIcon : TransitionTarget
+        data object BatteryNumber : TransitionTarget
 
         data class Slots(
             val preferredSlots: List<String>,
@@ -403,6 +422,7 @@ internal class CombinedStatusPainter(
         width: Int,
         height: Int,
         model: CombinedStatusRenderModel,
+        visualSettings: CombinedStatusVisualSettings = CombinedStatusVisualSettings(),
     ): List<TransitionComponentSpec> {
         if (width <= 0 || height <= 0) return emptyList()
 
@@ -425,7 +445,7 @@ internal class CombinedStatusPainter(
                 bottom = offsetY + bounds.bottom * scale,
             )
 
-        val specs = ArrayList<TransitionComponentSpec>(3)
+        val specs = ArrayList<TransitionComponentSpec>(4)
         val batteryHalfStroke = outerGeometry.ringStroke / 2f
         specs +=
             TransitionComponentSpec(
@@ -443,6 +463,21 @@ internal class CombinedStatusPainter(
                 shapePolicy = TransitionShapePolicy.BATTERY_FOLD,
                 scalePolicy = TransitionScalePolicy.TARGET,
             )
+
+        resolveBatteryTopReadoutLayout(
+            model = model,
+            visualSettings = visualSettings,
+            ringStroke = outerGeometry.ringStroke,
+        )?.let { readout ->
+            specs +=
+                TransitionComponentSpec(
+                    component = TransitionComponent.BATTERY_NUMBER,
+                    sourceBounds = toViewBounds(readout.textOpticalBounds),
+                    target = TransitionTarget.BatteryNumber,
+                    shapePolicy = TransitionShapePolicy.RIGID,
+                    scalePolicy = TransitionScalePolicy.TARGET,
+                )
+        }
 
         val centerSpec =
             when (model.centerIndicator) {
@@ -860,6 +895,7 @@ internal class CombinedStatusPainter(
         geometry: CombinedStatusOuterGeometry.Resolved,
         visualSettings: CombinedStatusVisualSettings,
         nativeTransform: NativeRenderTransform,
+        drawReadoutText: Boolean = true,
     ) {
         val readout =
             resolveBatteryTopReadoutLayout(
@@ -944,6 +980,7 @@ internal class CombinedStatusPainter(
             batteryTint = batteryTint,
             opacity = opacity,
             nativeTransform = nativeTransform,
+            drawText = drawReadoutText,
         )
     }
 
@@ -1010,53 +1047,60 @@ internal class CombinedStatusPainter(
             } else {
                 0f
             }
-        // Keep the percentage itself optically centered over the battery ring.
-        // The native charging glyph occupies only the left side; its transparent
-        // viewport must never push the number away from the ring center.
-        val textInkLeft =
-            BATTERY_COMPONENT_CENTER_X - textOpticalWidth / 2f
+        val chargingInkVisible =
+            chargingSlotVisible && chargingIconSize > 0f
         val groupWidth =
-            if (chargingSlotVisible && chargingIconSize > 0f) {
-                // Keep the ring opening symmetric around the centered number
-                // while reserving enough clearance for the left-side glyph.
-                textOpticalWidth + 2f * (iconGap + chargingOpticalWidth)
+            if (chargingInkVisible) {
+                chargingOpticalWidth + iconGap + textOpticalWidth
             } else {
                 textOpticalWidth
             }
-        val contentInkHeight = max(textOpticalHeight, chargingOpticalHeight)
+        // Center the actual visible glyph + gap + text ink as one optical group.
+        // Transparent native drawable viewport margins are deliberately excluded.
+        val groupLeft =
+            BATTERY_COMPONENT_CENTER_X - groupWidth / 2f
+        val textInkLeft =
+            groupLeft +
+                if (chargingInkVisible) {
+                    chargingOpticalWidth + iconGap
+                } else {
+                    0f
+                }
+        val contentInkHeight =
+            if (chargingInkVisible) {
+                max(textOpticalHeight, chargingOpticalHeight)
+            } else {
+                textOpticalHeight
+            }
 
-        // This setting controls the number, not the charging glyph. Keep enough
-        // neutral headroom for a useful positive range, then map +0..+30 to
-        // the safe top boundary. A large bolt must not collapse number travel.
-        val textBaseCenterY =
+        // Reserve real neutral headroom for a visible +up range. The requested
+        // ±30 remains the UI range, but positive values map responsively onto
+        // the physically owned top headroom and never rely on Android clipping.
+        val groupBaseCenterY =
             CombinedStatusBatteryTopLayoutPolicy.resolveBaseCenterY(
                 preferredCenterY = BATTERY_TOP_CONTENT_CENTER_Y,
-                contentInkHeight = textOpticalHeight,
+                contentInkHeight = contentInkHeight,
                 topSafeInset = BATTERY_TOP_TOP_SAFE_INSET,
                 minimumPositiveTravel = BATTERY_TOP_MIN_UPWARD_TRAVEL,
             )
-        val textCenterY =
+        val groupCenterY =
             CombinedStatusBatteryTopLayoutPolicy.resolveCenterY(
-                baseCenterY = textBaseCenterY,
+                baseCenterY = groupBaseCenterY,
                 requestedOffset = visualSettings.batteryTopVerticalOffset,
                 positiveLimit = BATTERY_TOP_VERTICAL_OFFSET_MAX,
-                contentInkHeight = textOpticalHeight,
+                contentInkHeight = contentInkHeight,
                 topSafeInset = BATTERY_TOP_TOP_SAFE_INSET,
             )
-        val chargingIconCenterY =
-            if (chargingSlotVisible) {
-                CombinedStatusBatteryTopLayoutPolicy.resolveBaseCenterY(
-                    preferredCenterY = BATTERY_TOP_CONTENT_CENTER_Y,
-                    contentInkHeight = chargingOpticalHeight,
-                    topSafeInset = BATTERY_TOP_TOP_SAFE_INSET,
-                    minimumPositiveTravel = 0f,
-                )
-            } else {
-                BATTERY_TOP_CONTENT_CENTER_Y
-            }
         val textBaselineY =
-            textCenterY -
+            groupCenterY -
                 (batteryTopTextBounds.top + batteryTopTextBounds.bottom) / 2f
+        val textOpticalBounds =
+            TransitionBounds(
+                left = textInkLeft,
+                top = groupCenterY - textOpticalHeight / 2f,
+                right = textInkLeft + textOpticalWidth,
+                bottom = groupCenterY + textOpticalHeight / 2f,
+            )
 
         return BatteryTopReadoutLayout(
             text = text,
@@ -1068,6 +1112,7 @@ internal class CombinedStatusPainter(
                     textExtraStroke / 2f -
                     batteryTopTextBounds.left,
             textBaselineY = textBaselineY,
+            textOpticalBounds = textOpticalBounds,
             groupWidth = groupWidth,
             ringGapPadding =
                 CombinedStatusBatteryTopLayoutPolicy.resolveRingGapPadding(
@@ -1079,18 +1124,16 @@ internal class CombinedStatusPainter(
                 ),
             chargingIconResourceId = chargingIconResourceId,
             chargingIconCenterX =
-                if (chargingSlotVisible && chargingIconSize > 0f) {
+                if (chargingInkVisible) {
                     val desiredOpticalCenterX =
-                        textInkLeft -
-                            iconGap -
-                            chargingOpticalWidth / 2f
+                        groupLeft + chargingOpticalWidth / 2f
                     desiredOpticalCenterX -
                         (chargingOpticalSize?.centerOffsetX ?: 0f)
                 } else {
                     BATTERY_COMPONENT_CENTER_X
                 },
             chargingIconCenterY =
-                chargingIconCenterY -
+                groupCenterY -
                     (chargingOpticalSize?.centerOffsetY ?: 0f),
             chargingIconSize = chargingIconSize,
         )
@@ -1102,6 +1145,7 @@ internal class CombinedStatusPainter(
         batteryTint: Int,
         opacity: Float,
         nativeTransform: NativeRenderTransform,
+        drawText: Boolean = true,
     ) {
         layout.chargingIconResourceId?.let { resourceId ->
             drawNativeCenterResource(
@@ -1122,6 +1166,62 @@ internal class CombinedStatusPainter(
             )
         }
 
+        if (drawText) {
+            drawBatteryTopText(
+                canvas = canvas,
+                layout = layout,
+                batteryTint = batteryTint,
+                opacity = opacity,
+                weight = layout.textWeight,
+            )
+        }
+    }
+
+    private fun drawBatteryTopNumberTransition(
+        canvas: Canvas,
+        model: CombinedStatusRenderModel,
+        batteryTint: Int,
+        opacity: Float,
+        visualSettings: CombinedStatusVisualSettings,
+        geometry: CombinedStatusOuterGeometry.Resolved,
+        motionProgress: Float,
+        targetWeight: Int?,
+    ) {
+        val layout =
+            resolveBatteryTopReadoutLayout(
+                model = model,
+                visualSettings = visualSettings,
+                ringStroke = geometry.ringStroke,
+            ) ?: return
+        val sourceWeight = layout.textWeight
+        val resolvedTargetWeight =
+            targetWeight?.coerceIn(BATTERY_TOP_WEIGHT_TRANSITION_MIN, BATTERY_TOP_WEIGHT_TRANSITION_MAX)
+                ?: sourceWeight
+        val progress = motionProgress.coerceIn(0f, 1f)
+        val weight =
+            (sourceWeight + (resolvedTargetWeight - sourceWeight) * progress)
+                .roundToInt()
+        drawBatteryTopText(
+            canvas = canvas,
+            layout = layout,
+            batteryTint = batteryTint,
+            opacity = opacity,
+            weight = weight,
+        )
+    }
+
+    private fun drawBatteryTopText(
+        canvas: Canvas,
+        layout: BatteryTopReadoutLayout,
+        batteryTint: Int,
+        opacity: Float,
+        weight: Int,
+    ) {
+        val extraStroke =
+            batteryTopTextExtraStroke(
+                weight = weight,
+                textSize = layout.textSize,
+            )
         paint.style = Paint.Style.FILL
         paint.color = batteryTint
         paint.alpha =
@@ -1130,12 +1230,12 @@ internal class CombinedStatusPainter(
                 semanticAlpha = 255,
                 opacity = opacity,
             )
-        paint.typeface = batteryTopTextTypeface(layout.textWeight)
+        paint.typeface = batteryTopTextTypeface(weight)
         paint.textAlign = Paint.Align.LEFT
         paint.textSize = layout.textSize
-        if (layout.textExtraStroke > 0f) {
+        if (extraStroke > 0f) {
             paint.style = Paint.Style.STROKE
-            paint.strokeWidth = layout.textExtraStroke
+            paint.strokeWidth = extraStroke
             paint.strokeJoin = Paint.Join.ROUND
             canvas.drawText(
                 layout.text,
@@ -2325,16 +2425,18 @@ internal class CombinedStatusPainter(
         const val BATTERY_TOP_TEXT_SIZE = 24f
         const val BATTERY_TOP_CHARGING_ICON_SIZE = 18f
         const val BATTERY_TOP_ICON_TEXT_GAP = 1f
-        const val BATTERY_TOP_RING_GAP_BASE_PADDING = 3f
-        const val BATTERY_TOP_RING_GAP_INK_HEIGHT_RATIO = 0.08f
-        const val BATTERY_TOP_RING_GAP_STROKE_RATIO = 0.25f
+        const val BATTERY_TOP_RING_GAP_BASE_PADDING = 5f
+        const val BATTERY_TOP_RING_GAP_INK_HEIGHT_RATIO = 0.14f
+        const val BATTERY_TOP_RING_GAP_STROKE_RATIO = 0.5f
         const val BATTERY_TOP_TOP_SAFE_INSET = 0.75f
-        const val BATTERY_TOP_MIN_UPWARD_TRAVEL = 4f
+        const val BATTERY_TOP_MIN_UPWARD_TRAVEL = 12f
         const val BATTERY_TOP_GAP_CENTER_DEGREES = 270f
         const val BATTERY_TOP_CONTENT_CENTER_Y = 16f
         const val BATTERY_TOP_NATIVE_WEIGHT_MAX = 1000
         const val BATTERY_TOP_SYNTHETIC_WEIGHT_RANGE = 400
         const val BATTERY_TOP_SYNTHETIC_STROKE_RATIO = 0.07f
+        const val BATTERY_TOP_WEIGHT_TRANSITION_MIN = 100
+        const val BATTERY_TOP_WEIGHT_TRANSITION_MAX = 1400
 
     }
 
@@ -2345,6 +2447,7 @@ internal class CombinedStatusPainter(
         val textExtraStroke: Float,
         val textX: Float,
         val textBaselineY: Float,
+        val textOpticalBounds: TransitionBounds,
         val groupWidth: Float,
         val ringGapPadding: Float,
         val chargingIconResourceId: Int?,

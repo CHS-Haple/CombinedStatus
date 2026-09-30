@@ -19,6 +19,32 @@ class CombinedStatusBatteryTopLayoutPolicyTest {
     }
 
     @Test
+    fun positiveOffsetRespondsBeforeHalfRangeAndStillEndsAtSafeBoundary() {
+        val base = 24f
+        val contentHeight = 18f
+        val inset = 1f
+        val small =
+            CombinedStatusBatteryTopLayoutPolicy.resolveCenterY(
+                baseCenterY = base,
+                requestedOffset = 8f,
+                positiveLimit = 30f,
+                contentInkHeight = contentHeight,
+                topSafeInset = inset,
+            )
+        val maximum =
+            CombinedStatusBatteryTopLayoutPolicy.resolveCenterY(
+                baseCenterY = base,
+                requestedOffset = 30f,
+                positiveLimit = 30f,
+                contentInkHeight = contentHeight,
+                topSafeInset = inset,
+            )
+
+        assertTrue(small < base - 4f)
+        assertEquals(contentHeight / 2f + inset, maximum, 0.0001f)
+    }
+
+    @Test
     fun positiveOffsetUsesWholeSliderRangeWithoutCrossingTopSafeBoundary() {
         val base = 13.5f
         val contentHeight = 18f

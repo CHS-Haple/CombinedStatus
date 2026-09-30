@@ -34,7 +34,13 @@ internal object CombinedStatusBatteryTopLayoutPolicy {
             (baseCenterY - minimumSafeCenterY).coerceAtLeast(0f)
         val normalized =
             (requestedOffset / positiveLimit).coerceIn(0f, 1f)
-        return baseCenterY - maximumSafeRise * normalized
+        // The top surface has limited physical headroom. Use an ease-out
+        // response so small/medium positive values visibly move instead of
+        // spending most of the slider near the neutral position, while +max
+        // still lands exactly on the safe top boundary.
+        val responsive =
+            1f - (1f - normalized) * (1f - normalized)
+        return baseCenterY - maximumSafeRise * responsive
     }
 
     fun resolveRingGapPadding(
