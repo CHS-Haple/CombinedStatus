@@ -15,7 +15,7 @@ This file is the concise recovery point for active Guiyuan development. Historic
 PR #181 / `feat/battery-top-readout` adds an optional battery percentage readout in the top opening of the Guiyuan battery ring while preserving the accepted Home -> Control Center transition contract.
 
 Current checkpoint:
-- Build 531 / `20261001-531`;
+- Build 532 / `20261001-532`;
 - branch remains based on current `dev` and is not behind it;
 - Build 524 improved the final native Battery-number target for HyperOS hollow-battery presentation;
 - Build 525 corrected two Build-523 device defects:
@@ -102,6 +102,19 @@ Build 531 exact native typography handoff:
 - Witness diagnostics now include weight, fakeBold, textScaleX, strokeWidth and Paint style for device verification.
 - Build-530 lightning-follow-number ownership and Build-528 latent reveal remain unchanged.
 
+
+Build 532 battery-top offset/root-gap correction:
+- maintainer device evidence establishes that the previous physical +3 position is the desired user-facing vertical-offset zero; the UI range is now deliberately limited to -10..+10 around that reference.
+- root cause of the old "above +3 does not move" defect is confirmed in `CombinedStatusBatteryTopLayoutPolicy.resolveCenterY()`: after the automatic base position had already been safety-bounded, the manual positive offset was clamped a second time by `maximumSafeRise = baseCenterY - minimumSafeCenterY`; on the pinned Home RenderView this remaining value is only about 3-4 canonical units, so +10/+20/+30 all collapsed to the same rendered Y.
+- Build 532 keeps the automatic/default placement safety bound but removes the second hidden manual clamp. User offset is literal within the visible -10..+10 range; the previous raw +3 maps to UI 0.
+- ring avoidance is no longer a fixed top-center gap with width-only padding / 118-degree cap:
+  - the current visible number ink width/height already reflects configured size and Typeface weight, including synthetic extra stroke above native weight;
+  - the current charging drawable uses the cached native alpha-envelope optical width/height at its configured scale;
+  - their combined optical group bounds include the current vertical offset;
+  - `CombinedStatusBatteryTopArcPolicy.resolveGap()` intersects that live envelope (plus half ring stroke and 2 canonical px visual clearance) with the actual ring geometry and derives the left/right gap shoulders.
+- therefore larger/bolder digits or a larger charging bolt widen the opening only as needed, moving the readout upward shrinks the opening, and asymmetric visible width can shift the gap center rather than adding dead symmetric padding.
+- no native layout writer, timer, animator, polling path, or extra visual probe is added; existing cached glyph/drawable optical measurements are reused.
+
 ## Validation state
 
 Confirmed:
@@ -111,6 +124,7 @@ Confirmed:
 - Build 524 Runtime CI #1961: green.
 - Build 525 Runtime CI #1966: green.
 - Build 526 exact-head Runtime CI #1975: green; signed Work Branch Canary #583: green at exact SHA `9c833f79fff222b8551485349a0361812f6ba897`.
+- Build 531 exact-head Runtime CI #2003: green; signed Work Branch Canary #590: green at exact SHA `08f3a7453ad2f626ce0f1d7fbe1a481c2a1306d4`.
 - Build 526 static review:
   - exact HyperOS `isAddBatteryIsland` is read from the already-resolved `ControlCenterHeaderExpandController` contract;
   - no new hook count, listener, polling path, timer, animator, native translation writer, or layout writer is added;
@@ -120,8 +134,8 @@ Confirmed:
   - unknown exact authority remains native-peer-motion rather than guessing `false`.
 
 Pending:
-- Build 531 Runtime CI.
-- if green, one exact-head signed Build-531 Canary.
+- Build 532 Runtime CI.
+- if green, one exact-head signed Build-532 Canary.
 - focused device validation:
   - island-only pull remains unchanged and reaches the expected final native icon endpoints;
   - charging without an active generic island remains unchanged;
@@ -156,10 +170,10 @@ Pending:
 
 ## Immediate next step
 
-1. finish Build-531 Runtime CI and automated review;
-2. if green, freeze runtime at exact Build 531 and request one signed work-branch Canary;
-3. device-validate late-transition 5G and battery-number optical overlap against native target, plus lightning-follow-number and latent reveal regression checks;
-4. use the new witness typography diagnostics before any further style adjustment;
+1. finish Build-532 Runtime CI and automated review;
+2. if green, freeze runtime at exact Build 532 and request one signed work-branch Canary;
+3. device-validate: UI 0 equals the previous physical +3 position; -10..+10 moves continuously with no hidden ceiling; ring opening follows live number/bolt size, weight and vertical position with only a small visual clearance; Build-531 typography endpoint behavior remains intact;
+4. change runtime again only if focused device evidence identifies a concrete mismatch;
 5. merge to `dev` only after the combined checkpoint is device-accepted.
 
 ## Reference priority
