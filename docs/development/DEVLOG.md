@@ -12683,3 +12683,68 @@ Focused device gates:
 3. native single-row Mobile morph maximum bar height matches the native bar glyph;
 4. HyperCeiler dual-row retains its prior visually correct height;
 5. final root-space alignment and no-source glyph size remain accepted.
+
+
+## 2026-09-30 — Build 508: module-agnostic visual snapshots for target geometry, Mobile topology and latent reveal
+
+**Type:** Control Center target adaptation / visual topology / latent reveal  
+**Display version:** 0.0.3  
+**Build / source:** 508 / `20260930-508` / `feat/control-center-transition-matrix`
+
+### Device evidence
+
+Build 507 is rejected for two independent target-adaptation assumptions:
+
+1. A no-initial-target participant can remain invisible throughout the full outward transition. The reservation reaches the expanded state, but the full-slot occupancy gate does not admit the latent pixels while the fake overlay still owns visible handoff.
+2. HyperOS native single-row Mobile still does not match the four-point -> bars morph. Cropping only the outer optical envelope changes total height but does not reproduce the native bars' individual x positions, widths, baselines and heights.
+
+The Build-507 total-reservation interpolation itself remains useful: it avoids Build-505's early union-width dead-zone and Build-506's one-shot final-x jump.
+
+### Root cause
+
+**Target geometry fragmentation:** reservation, reveal and shape morph had accumulated different geometry authorities (slot rectangle, drawable envelope, fixed bar ratios). Even when every individual measurement was locally reasonable, they could disagree about what the final visual target actually is.
+
+**Envelope-only Mobile adaptation:** a single optical bounding box cannot describe a four-component glyph. It can constrain maximum height but cannot guarantee the four bars converge to the native rectangles.
+
+**Provider-specific compatibility risk:** treating “native single-row” and one known dual-row implementation as separate cases does not scale to other modules or future HyperOS structures.
+
+**Latent deadlock:** requiring full target-slot containment before reveal can become later than the fake overlay's visible ownership window.
+
+### Change
+
+- Add `CombinedStatusParticipantVisualSnapshot` as a read-only, module-agnostic visual measurement layer.
+- Clone drawable `ConstantState` at the current state/level and raster-probe the clone; never mutate the live SystemUI drawable.
+- Cache drawable snapshots by `ConstantState + level`.
+- Map ImageView snapshot geometry through the actual drawable frame/imageMatrix into View-normalized coordinates.
+- Recursively collect visible drawable-bearing descendants for ViewGroup/composite targets in one parent coordinate space.
+- Expose optical envelope, connected components and topology.
+- Classify exactly four aligned ascending vertical components as `FOUR_VERTICAL_BARS`; otherwise retain composite/single/unknown topology.
+- Preserve small legitimate components with an absolute minimum probe-pixel floor instead of dropping them relative to the largest bar. This prevents small lower dots from disappearing before topology classification.
+- Remove module/provider-name geometry decisions from the primary target-adaptation path.
+- Mobile exact-bar morph consumes the four measured component rectangles individually when topology is reliable. The old generic height-ratio path remains only as fallback when reliable component topology is unavailable.
+- Generic target geometry consumes the visual snapshot envelope directly in participant View space; it is not reinterpreted through drawable coordinates a second time.
+- Latent reveal retains Build-507's native-progress total-reservation curve but gates on one real target slot-width of peer spacing plus equivalent source separation, then completes quickly over the snapshot visual width.
+- Build identity becomes `versionCode=260930308`, `buildId=20260930-508`.
+
+### 审查 / review
+
+- **module-agnostic:** runtime geometry does not branch on HyperCeiler/package/provider names.
+- **single evidence model:** envelope and component topology originate from the real target participant rather than separate hand-authored shape ratios.
+- **fail-native/fallback:** unreliable or unsupported topology does not invent a provider-specific interpretation; Mobile falls back to the existing generic transition path.
+- **coordinate ownership:** snapshot geometry is normalized in participant View space and converted to root-space once by the existing target geometry machinery.
+- **side-effect safety:** only cloned drawables are rasterized/tinted; missing cloneable state returns no drawable snapshot.
+- **performance:** raster work is cached by drawable constant state + level; ViewGroup composition reuses child snapshots and contains no polling or new frame listener.
+- **topology safety:** small secondary components survive filtering, so composite structures are not silently simplified into four bars.
+- **timeline ownership:** HyperOS native expansion remains the only reservation/motion timeline; no delay, Animator or custom temporal curve is added.
+- **protected boundaries:** Build-491 callback/lease, Build-497 Keyguard reservation, Build-498 diagnostic-performance cleanup, Build-500 steady source and Build-504 root-space endpoint/latent scale are unchanged.
+
+### Validation
+
+Exact-head Runtime CI and one signed Canary are required.
+
+Focused device gates:
+1. No-source Airplane appears after visible peer space exists but before the fake overlay disappears; no adjacent-icon overlap.
+2. Native single-row Mobile lands on all four native bars individually.
+3. Composite/dual-row targets retain composite topology even when secondary dots are small.
+4. Whole native-row trajectory keeps the Build-507 total-width interpolation behavior.
+5. Final fake/real alignment and no-source compact scale remain accepted.

@@ -895,16 +895,31 @@ This principle does not require a custom timeline or fixed offset and avoids tur
 
 ---
 
-## Mobile transition optical target: ImageView drawable vs compatibility composite
+## Participant visual snapshot: topology, not provider identity
 
-A Mobile signal transition must not equate a View's outer rectangle with the signal glyph's optical height.
+A transition target must be adapted from what is actually rendered, not from the package/module that produced the View hierarchy.
 
-For the pinned HyperOS target:
-- the native `mobile_signal` participant is an ImageView whose drawable may contain substantial transparent vertical padding;
-- HyperCeiler dual-row compatibility is detected structurally as a visible composite FrameLayout when the native `mobile_signal` child is hidden. Its upper-bars/lower-dots content intentionally occupies the composite structure height.
+The reusable target path is:
 
-Guiyuan therefore uses two geometry authorities:
-- **native ImageView:** cached alpha-derived drawable optical bounds, mapped through the ImageView matrix;
-- **compatibility composite:** the composite View geometry itself.
+`semantic participant -> visual snapshot -> optical envelope/components/topology -> target geometry / morph capability`.
 
-Do not hard-code a separate height ratio for HyperOS vs HyperCeiler. Detection remains semantic/structural, and missing reliable optical evidence fails back to existing native/frame geometry.
+The snapshot contract is read-only:
+- ImageView: clone the current drawable from `ConstantState`, preserve state/level, raster-probe alpha, then map the resulting geometry through the ImageView drawable frame/imageMatrix into View coordinates.
+- ViewGroup/composite: recursively collect visible drawable-bearing descendants and transform their visual components into one parent coordinate space.
+- cache cloned-drawable probe results by `ConstantState + level`;
+- never tint, resize or rasterize the live SystemUI drawable.
+
+Topology is structural:
+- four aligned ascending vertical components may expose a `FOUR_VERTICAL_BARS` capability;
+- extra rows/dots/components keep the target composite;
+- single/unknown structures expose only the geometry that is reliably measured.
+
+Do not discard small secondary components merely because they are small relative to a dominant bar. Filtering uses an absolute probe-pixel floor so legitimate lower dots remain available to topology classification.
+
+Consumers share the same evidence:
+- generic target projection uses the snapshot optical envelope in participant View space;
+- Mobile may consume exact component rectangles when four-bar topology is reliable;
+- unsupported topology falls back instead of creating a provider-specific ratio;
+- latent reveal may use real visual width for its short reveal phase while native slot occupancy remains SystemUI layout authority.
+
+Provider names such as HyperCeiler may remain in historical diagnostics, but must not choose the primary runtime geometry algorithm.

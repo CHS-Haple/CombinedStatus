@@ -18,7 +18,7 @@ Control Center transition animation is the active runtime task.
 
 Current implementation line:
 - PR #177 — feat/control-center-transition-matrix;
-- current work-branch checkpoint: Build 507 / 20260930-507;
+- current work-branch checkpoint: Build 508 / 20260930-508;
 - exact-target direction: QS_FAKE role-5 to final-QS role-6 matrix projection;
 - HyperOS remains translation/appearance authority; raw native expansion drives transition geometry and native fake/final Folme owns visual handoff;
 - Guiyuan reads native transition state and renders only its owned Trinity correspondence; final role-6 top-level slots are read-only occupancy witnesses, while the existing QS_FAKE statusIcons-paddingEnd owner interpolates the frozen total semantic occupancy from compact to final using raw HyperOS expansion progress;
@@ -62,6 +62,15 @@ Build 507 follows Build-506 device rejection and two additional visual compariso
 Latent reveal ownership is also corrected. Airplane / No-SIM / additional-SIM pixels no longer become visible merely because the projected glyph has moved one generic slot-width away from its source. Each participant computes the reservation width required to contain its real final target slot fully; opacity stays zero until the current reservation reaches that width. After occupancy is valid, reveal occurs only inside the final compact optical-width neighborhood of the root-space target. No fixed 1.2x/1.3x slot multiplier or timing delay is introduced.
 
 The user-provided comparison of HyperOS native single-row signal and HyperCeiler dual-row signal exposes a separate Mobile morph target error. The native `mobile_signal` ImageView and HyperCeiler composite both occupy roughly 75 px outer boxes, but their actual optical content differs: native single-row bars occupy a smaller central drawable region, whereas the HyperCeiler upper-bars/lower-dots composite legitimately uses most of the structure height. Build 507 therefore applies the existing cached alpha optical-bounds probe to **native `mobile_signal` ImageView drawables** and keeps the already-detected `hyperceiler-dual-signal` composite on its structural bounds. The decision is structural, not module-name/device hard-coding. Probe results are cached by Drawable.ConstantState + level and are never measured by mutating a live drawable; missing cloneable constant state fails native.
+
+
+Build 508 follows direct device rejection of two Build-507 assumptions while retaining its accepted reservation-width curve. First, no-source latent participants can remain invisible through the whole outward gesture: Build-507 required the entire final slot to be contained before reveal, but device evidence reaches full expansion/reservation without any Airplane reveal before the fake overlay has already handed visual ownership away. Second, the native single-row Mobile morph remains visibly different even after cropping the target to one optical envelope. Envelope height alone cannot reproduce the native bars' individual positions, widths and heights.
+
+Build 508 replaces provider-specific target adaptation with one module-agnostic visual snapshot layer. A real target ImageView is measured from a cloneable drawable at its current state/level; a ViewGroup is recursively composed from visible drawable-bearing descendants. The snapshot is mapped into the participant View's coordinate space and exposes one optical envelope plus connected visual components and topology. Four aligned ascending vertical components are classified as `FOUR_VERTICAL_BARS`; composite structures stay `COMPOSITE`. Provider/module names no longer select geometry. Small legitimate secondary components are retained using an absolute probe-pixel floor rather than a percentage of the largest component, preventing upper-bars/lower-dots composites from being misclassified as single-row bars.
+
+Mobile consumes the same snapshot: when four real bars are reliably detected, the four Guiyuan dots morph to the four measured native rectangles individually; each final x/width/top/bottom comes from the target snapshot. If the topology is not reliably four-bar, the existing generic shape path remains a fail-native/fallback rather than guessing another provider-specific ratio. Generic target geometry also consumes the snapshot envelope directly in the participant View coordinate space, avoiding the earlier double interpretation through drawable frame/imageMatrix.
+
+Latent reveal keeps Build-507's native-progress total reservation curve but replaces the deadlocking full-target-slot condition. Pixels stay hidden until native peer spacing has opened by at least one real target slot width and the latent projection has separated by the same amount from its carried source; after that, reveal completes quickly over the snapshot's real visual width. This preserves “space first, pixels second” without waiting until the destination slot is fully contained at the moment the fake overlay is already disappearing. Build-504 root-space endpoint alignment, SHRINK_ONLY latent scale and Build-491/497/498 protected boundaries remain unchanged.
 
 ## Current architecture boundary
 
@@ -126,17 +135,12 @@ Device testing is requested only when the result can change implementation choic
 
 ## Immediate next step
 
-1. Run exact-head Runtime CI for Build 507 and produce one signed work-branch Canary from the same SHA.
-2. Whole-row path gate: pressing must no longer jump native peers directly to final x (Build 506 failure), and slow pull must no longer retain the 505 early near-vertical segment caused by total-width dead-zone. Compare Guiyuan enabled vs disabled.
-3. Latent gate: Airplane / No-SIM / additional SIM remain fully hidden until their real target slot is contained by current reservation; after that, reveal is short and target-local with no overlap into the adjacent native peer.
-4. Mobile morph gate, native single-row: four dots expand to bars whose optical maximum height matches the true native `mobile_signal` drawable rather than its 75x75 outer View box.
-5. Mobile morph gate, HyperCeiler dual-row: keep the previously visually correct composite-height behavior; do not shrink the morph to the single-row optical height.
-6. Preserve Build-504 accepted boundaries: final fake/real alignment and compact no-source glyph scale.
-
-Historical safety checklist (retained for traceability): with Guiyuan enabled, disable the master switch while watching steady Home. Previously covered/suppressed native icons must return immediately without pulling Control Center.
-3. Still disabled, pull and collapse Control Center once; steady Home must remain native-correct before and after the gesture.
-4. Re-enable Guiyuan and verify compact presentation reacquires without SystemUI restart/Hot Reload.
-5. Only after this gate passes, resume transition motion ownership work: native peers move directly lower-left, while Guiyuan currently inserts an incorrect initial vertical-only segment. Charging press-left bias and charging-island final overlap remain queued with that motion review.
+1. Run exact-head Runtime CI for Build 508 and produce one signed work-branch Canary from the same SHA.
+2. Device gate — latent: no-source Airplane / No-SIM / additional SIM must appear before fake ownership ends, only after a real peer-sized gap has opened, with no overlap into the adjacent native icon.
+3. Device gate — native single-row Mobile: four-point morph must land on the measured native bars individually (x spacing, width, baseline and each bar height), not merely match one overall height envelope.
+4. Device gate — composite/dual-row Mobile: small secondary visual components must keep the target classified as composite; the four-bar exact path must not be applied to an upper-bars/lower-dots structure.
+5. Re-check Build-507 reservation improvement: whole-row motion must avoid both Build-505's early near-vertical dead-zone and Build-506's press-time final-x jump.
+6. Preserve Build-504 accepted final fake/real alignment and compact no-source scale.
 
 ## Reference priority
 
