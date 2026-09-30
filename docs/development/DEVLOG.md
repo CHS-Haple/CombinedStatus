@@ -13619,3 +13619,69 @@ Keeping one fixed source weight while the matrix shrinks the glyph produces a vi
 - Added unit coverage for source/mid/target weight interpolation and unresolved-target fallback.
 - Runtime CI required.
 - Exact-head Canary is required because compact Mobile Type visual size and live weight convergence are device-visible.
+
+
+## 2026-10-01 — Build 528: quick latent reveal after real slot occupancy begins
+
+**Type:** Control Center latent-presentation timing correction  
+**Display version:** 0.0.3  
+**Build / source:** 528 / `20261001-528` / `feat/battery-top-readout` / PR #181
+
+### Maintainer device feedback
+
+The no-source participant policy now correctly waits until native peer spacing starts to create a real target slot. The remaining visual defect is opacity timing: on a fast pull, the target area can be visibly empty for too long and the latent icon reaches full opacity only near the end of expansion.
+
+Desired contract:
+- do not reveal before real occupancy exists;
+- do not let a no-source participant visibly cross unrelated native peers;
+- once its target region has started to become available, reveal quickly and remain fully visible while the participant continues toward its exact native endpoint.
+
+### Root cause
+
+Build 509 made latent alpha continuous with:
+
+`min(targetProximity, reservationProgress)`.
+
+That fixed the older binary full-slot deadlock, but it also made **full opacity** require both:
+- reservation coverage ~= 1; and
+- target proximity ~= 1.
+
+Therefore the alpha could start at the correct time yet still remain partially transparent until near-terminal expansion. Fast gestures expose this as an empty/ghosted slot.
+
+### Change
+
+- Keep the existing occupancy gate: reservation progress <= 0 remains fully invisible.
+- Keep the existing geometric gate: a participant outside one real target visual extent remains fully invisible.
+- Once both gates are open, remap each existing 0..1 spatial progress through a short smoothstep window:
+  - 0 -> hidden;
+  - first 35% of the existing occupancy/proximity window -> 0..1;
+  - >=35% -> fully opaque.
+- Final alpha remains `min(acceleratedProximity, acceleratedOccupancy)`, so neither geometry nor peer-space safety is bypassed.
+- The same stateless rule applies on reverse collapse.
+- Advance runtime identity to Build 528.
+
+### 问题执行流程
+
+1. Target reservation begins opening at the correct time.
+2. Latent participant remains hidden until real visual-envelope occupancy is non-zero.
+3. Current Build-509 curve starts fading, but `min()` continues limiting opacity almost to the final endpoint.
+4. Fast pull makes the open slot visually blank.
+5. Preserve the two native/geometry gates, but compress only the post-gate opacity ramp.
+6. Continue using the existing HyperOS expansion/reservation/target geometry; no independent time source is introduced.
+
+### 审查 / review
+
+- **root-cause-first:** changes the opacity consumer that delays full visibility; no target X/Y or timing delay is added.
+- **native progress:** reservation and root-space target proximity remain the only inputs.
+- **single writer:** no native alpha/visibility property is written; only Guiyuan overlay alpha changes.
+- **ownership:** Build-507 total reservation and Build-504 root-space endpoint remain authoritative.
+- **protected early-hidden behavior:** reservation=0 and outside-target-extent states remain exactly hidden.
+- **reverse:** the same short spatial window removes the latent pixel before insufficient peer space can overlap it.
+- **performance:** arithmetic only; no new hook, listener, frame probe, allocation-heavy path or animator.
+- **scope:** Build-527 Mobile Type size/weight work, Build-526 Battery-Island authority, Battery-number and Battery-body paths are unchanged.
+
+### Validation
+
+- Unit coverage keeps the two zero-alpha gates and verifies full opacity is reached once both existing spatial progresses reach 35%.
+- Build-527 CI is superseded by this runtime checkpoint.
+- Exact-head Runtime CI + signed Build-528 Canary required.
