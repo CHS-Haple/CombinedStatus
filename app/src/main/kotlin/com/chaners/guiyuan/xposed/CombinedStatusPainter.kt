@@ -1073,22 +1073,23 @@ internal class CombinedStatusPainter(
                 textOpticalHeight
             }
 
-        // Reserve real neutral headroom for a visible +up range. The requested
-        // ±30 remains the UI range, but positive values map responsively onto
-        // the physically owned top headroom and never rely on Android clipping.
+        // 0 is the optical default, not a baseline pushed downward to reserve
+        // artificial travel. Keep the number slightly above the old geometric
+        // baseline so the center glyph remains visually centered in the whole
+        // combined icon. Positive values use only the real remaining headroom.
         val groupBaseCenterY =
-            CombinedStatusBatteryTopLayoutPolicy.resolveBaseCenterY(
+            CombinedStatusBatteryTopLayoutPolicy.resolveOpticalBaseCenterY(
                 preferredCenterY = BATTERY_TOP_CONTENT_CENTER_Y,
-                contentInkHeight = contentInkHeight,
+                defaultOpticalRise = BATTERY_TOP_DEFAULT_OPTICAL_RISE,
+                contentInkHeight = textOpticalHeight,
                 topSafeInset = BATTERY_TOP_TOP_SAFE_INSET,
-                minimumPositiveTravel = BATTERY_TOP_MIN_UPWARD_TRAVEL,
             )
         val groupCenterY =
             CombinedStatusBatteryTopLayoutPolicy.resolveCenterY(
                 baseCenterY = groupBaseCenterY,
                 requestedOffset = visualSettings.batteryTopVerticalOffset,
                 positiveLimit = BATTERY_TOP_VERTICAL_OFFSET_MAX,
-                contentInkHeight = contentInkHeight,
+                contentInkHeight = textOpticalHeight,
                 topSafeInset = BATTERY_TOP_TOP_SAFE_INSET,
             )
         val textBaselineY =
@@ -1132,6 +1133,7 @@ internal class CombinedStatusPainter(
                 } else {
                     BATTERY_COMPONENT_CENTER_X
                 },
+            // The bolt and number share one optical center line.
             chargingIconCenterY =
                 groupCenterY -
                     (chargingOpticalSize?.centerOffsetY ?: 0f),
@@ -2447,7 +2449,7 @@ internal class CombinedStatusPainter(
         const val BATTERY_TOP_RING_GAP_INK_HEIGHT_RATIO = 0.14f
         const val BATTERY_TOP_RING_GAP_STROKE_RATIO = 0.5f
         const val BATTERY_TOP_TOP_SAFE_INSET = 0.75f
-        const val BATTERY_TOP_MIN_UPWARD_TRAVEL = 12f
+        const val BATTERY_TOP_DEFAULT_OPTICAL_RISE = 1.5f
         const val BATTERY_TOP_GAP_CENTER_DEGREES = 270f
         const val BATTERY_TOP_CONTENT_CENTER_Y = 16f
         const val BATTERY_TOP_NATIVE_WEIGHT_MAX = 1000

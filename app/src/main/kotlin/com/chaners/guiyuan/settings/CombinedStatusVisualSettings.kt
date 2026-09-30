@@ -6,6 +6,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlin.math.abs
 
 internal data class CombinedStatusVisualSettings(
     val mobileFollowsBatteryColor: Boolean = false,
@@ -60,6 +61,10 @@ internal class CombinedStatusVisualSettingsRepository(context: Context) {
             COMBINED_STATUS_VISUAL_PREFS_NAME,
             Context.MODE_PRIVATE,
         )
+
+    init {
+        migrateBatteryTopChargingScaleReferenceIfNeeded(preferences)
+    }
 
     val settings: Flow<CombinedStatusVisualSettings> =
         callbackFlow {
@@ -223,9 +228,11 @@ internal const val BATTERY_TOP_VERTICAL_OFFSET_DEFAULT = 0f
 internal const val BATTERY_TOP_VERTICAL_OFFSET_MIN = -30f
 internal const val BATTERY_TOP_VERTICAL_OFFSET_MAX = 30f
 
-// Runtime/persisted charging scale remains in the pre-520 physical scale.
-// Build 519's 150% size is the new user-facing 100% reference.
-internal const val BATTERY_TOP_CHARGING_ICON_UI_SCALE_REFERENCE = 1.5f
+// Runtime/persisted charging scale remains a physical multiplier.
+// Build 522's user-facing 110% (1.5 × 1.10 = 1.65 physical) becomes
+// Build 523's user-facing/default 100% reference.
+private const val BATTERY_TOP_CHARGING_ICON_UI_SCALE_REFERENCE_LEGACY = 1.5f
+internal const val BATTERY_TOP_CHARGING_ICON_UI_SCALE_REFERENCE = 1.65f
 internal const val BATTERY_TOP_CHARGING_ICON_UI_SCALE_MIN = 0f
 internal const val BATTERY_TOP_CHARGING_ICON_UI_SCALE_MAX = 2f
 internal const val BATTERY_TOP_CHARGING_ICON_SCALE_DEFAULT =
@@ -233,6 +240,45 @@ internal const val BATTERY_TOP_CHARGING_ICON_SCALE_DEFAULT =
 internal const val BATTERY_TOP_CHARGING_ICON_SCALE_MIN = 0f
 internal const val BATTERY_TOP_CHARGING_ICON_SCALE_MAX =
     BATTERY_TOP_CHARGING_ICON_UI_SCALE_REFERENCE * BATTERY_TOP_CHARGING_ICON_UI_SCALE_MAX
+private const val BATTERY_TOP_CHARGING_SCALE_SCHEMA_KEY =
+    "battery_top_charging_scale_schema"
+private const val BATTERY_TOP_CHARGING_SCALE_SCHEMA_CURRENT = 2
+private const val BATTERY_TOP_SCALE_EPSILON = 0.0001f
+
+internal fun migrateBatteryTopChargingScaleReferenceIfNeeded(
+    preferences: SharedPreferences,
+) {
+    if (
+        preferences.getInt(BATTERY_TOP_CHARGING_SCALE_SCHEMA_KEY, 1) >=
+            BATTERY_TOP_CHARGING_SCALE_SCHEMA_CURRENT
+    ) {
+        return
+    }
+
+    val editor = preferences.edit()
+    if (preferences.contains(BATTERY_TOP_CHARGING_ICON_SCALE_KEY)) {
+        val raw =
+            preferences.getFloat(
+                BATTERY_TOP_CHARGING_ICON_SCALE_KEY,
+                BATTERY_TOP_CHARGING_ICON_UI_SCALE_REFERENCE_LEGACY,
+            )
+        if (
+            abs(raw - BATTERY_TOP_CHARGING_ICON_UI_SCALE_REFERENCE_LEGACY) <=
+                BATTERY_TOP_SCALE_EPSILON
+        ) {
+            editor.putFloat(
+                BATTERY_TOP_CHARGING_ICON_SCALE_KEY,
+                BATTERY_TOP_CHARGING_ICON_UI_SCALE_REFERENCE,
+            )
+        }
+    }
+    editor
+        .putInt(
+            BATTERY_TOP_CHARGING_SCALE_SCHEMA_KEY,
+            BATTERY_TOP_CHARGING_SCALE_SCHEMA_CURRENT,
+        )
+        .apply()
+}
 
 internal fun batteryTopTextUiScale(rawScale: Float): Float =
     (rawScale / BATTERY_TOP_TEXT_UI_SCALE_REFERENCE)

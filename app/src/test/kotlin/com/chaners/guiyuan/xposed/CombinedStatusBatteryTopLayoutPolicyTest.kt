@@ -6,16 +6,29 @@ import org.junit.Test
 
 class CombinedStatusBatteryTopLayoutPolicyTest {
     @Test
-    fun baseCenterGuaranteesMinimumPositiveTravelForTallContent() {
+    fun zeroUsesUpwardOpticalDefaultWithoutArtificialHeadroomShift() {
         val base =
-            CombinedStatusBatteryTopLayoutPolicy.resolveBaseCenterY(
+            CombinedStatusBatteryTopLayoutPolicy.resolveOpticalBaseCenterY(
                 preferredCenterY = 16f,
-                contentInkHeight = 30f,
+                defaultOpticalRise = 1.5f,
+                contentInkHeight = 18f,
                 topSafeInset = 1f,
-                minimumPositiveTravel = 4f,
             )
 
-        assertEquals(20f, base, 0.0001f)
+        assertEquals(14.5f, base, 0.0001f)
+    }
+
+    @Test
+    fun opticalDefaultClampsOnlyWhenTextWouldCrossTopSafety() {
+        val base =
+            CombinedStatusBatteryTopLayoutPolicy.resolveOpticalBaseCenterY(
+                preferredCenterY = 16f,
+                defaultOpticalRise = 1.5f,
+                contentInkHeight = 30f,
+                topSafeInset = 1f,
+            )
+
+        assertEquals(16f, base, 0.0001f)
     }
 
     @Test

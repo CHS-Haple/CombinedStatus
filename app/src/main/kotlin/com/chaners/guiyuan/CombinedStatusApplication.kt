@@ -28,6 +28,7 @@ import com.chaners.guiyuan.settings.DiagnosticsLevel
 import com.chaners.guiyuan.settings.MOBILE_FOLLOWS_BATTERY_COLOR_KEY
 import com.chaners.guiyuan.settings.RUNTIME_REMOTE_PREFS_NAME
 import com.chaners.guiyuan.settings.isCombinedStatusVisualPreferenceKey
+import com.chaners.guiyuan.settings.migrateBatteryTopChargingScaleReferenceIfNeeded
 import com.chaners.guiyuan.settings.normalized
 import com.chaners.guiyuan.system.XposedRuntimeStatus
 import io.github.libxposed.service.XposedService
@@ -97,6 +98,7 @@ class CombinedStatusApplication :
 
     override fun onCreate() {
         super.onCreate()
+        migrateBatteryTopChargingScaleReferenceIfNeeded(visualPreferences)
         diagnosticsPreferences.registerOnSharedPreferenceChangeListener(diagnosticsListener)
         featurePreferences.registerOnSharedPreferenceChangeListener(featureListener)
         visualPreferences.registerOnSharedPreferenceChangeListener(visualListener)

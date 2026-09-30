@@ -116,6 +116,7 @@ internal fun FeaturesScreen(
                     steps = 39,
                     showKeyPoints = true,
                     keyPoints = listOf(1f),
+                    magnetThreshold = 0.035f,
                     enabled = featureSettings.enabled,
                 )
                 SliderPreference(
@@ -135,6 +136,7 @@ internal fun FeaturesScreen(
                     steps = 19,
                     showKeyPoints = true,
                     keyPoints = listOf(900f),
+                    magnetThreshold = 0.035f,
                     enabled = featureSettings.enabled,
                 )
                 SliderPreference(
@@ -152,6 +154,7 @@ internal fun FeaturesScreen(
                     steps = 59,
                     showKeyPoints = true,
                     keyPoints = listOf(0f),
+                    magnetThreshold = 0.035f,
                     enabled = featureSettings.enabled,
                 )
                 val chargingIconUiScale =
@@ -173,6 +176,7 @@ internal fun FeaturesScreen(
                     steps = 39,
                     showKeyPoints = true,
                     keyPoints = listOf(1f),
+                    magnetThreshold = 0.035f,
                     enabled = featureSettings.enabled,
                 )
             }
