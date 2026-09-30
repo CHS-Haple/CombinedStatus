@@ -15,7 +15,7 @@ This file is the concise recovery point for active Guiyuan development. Historic
 PR #181 / `feat/battery-top-readout` adds an optional battery percentage readout in the top opening of the Guiyuan battery ring while preserving the accepted Home -> Control Center transition contract.
 
 Current checkpoint:
-- Build 529 / `20261001-529`;
+- Build 530 / `20261001-530`;
 - branch remains based on current `dev` and is not behind it;
 - Build 524 improved the final native Battery-number target for HyperOS hollow-battery presentation;
 - Build 525 corrected two Build-523 device defects:
@@ -70,6 +70,20 @@ Build 529 Battery ring -> native Battery shape-local morph:
 - The charging glyph does not receive an independent trajectory; when a native Battery target is available it fades out early, otherwise it preserves the prior Fail-native behavior.
 - No native Battery View property, translation, alpha, visibility, or drawable is written by the morph.
 
+
+Build 530 rollback + transition-only optical text convergence:
+- Build 529 Battery ring topology morph is rejected by device visual review and fully rolled back to the Build-528 Battery fold implementation.
+- Build-527 compact Mobile Type steady typography change is also rolled back: source/steady Mobile Type returns to the pre-change 39/23/8 geometry and original weight policy.
+- Battery-top source typography is not altered by Build 530; user-configured/source size and weight remain authoritative in steady state.
+- Size/weight convergence is now transition-only:
+  - native target TextView weight is observed read-only;
+  - each transition frame resolves the currently interpolated weight;
+  - the current glyph optical bounds are remeasured;
+  - the component matrix maps those current ink bounds to the existing native target geometry.
+- Therefore p=0 preserves the original Guiyuan visual exactly, while p=1 maps the target-weight glyph ink envelope onto the native target optical envelope.
+- Charging lightning no longer belongs to the Battery-body transition. During pull-down it is drawn inside the Battery-number component, shares the number's exact matrix/path, then fades only during late handoff (58% -> 88%) rather than fading in place.
+- Build-528 quick latent reveal and Build-526 Battery-Island authority remain unchanged.
+
 ## Validation state
 
 Confirmed:
@@ -88,8 +102,8 @@ Confirmed:
   - unknown exact authority remains native-peer-motion rather than guessing `false`.
 
 Pending:
-- Build 529 Runtime CI.
-- if green, one exact-head signed Build-529 Canary.
+- Build 530 Runtime CI.
+- if green, one exact-head signed Build-530 Canary.
 - focused device validation:
   - island-only pull remains unchanged and reaches the expected final native icon endpoints;
   - charging without an active generic island remains unchanged;
@@ -124,10 +138,10 @@ Pending:
 
 ## Immediate next step
 
-1. finish Build-529 Runtime CI and automated review;
-2. if green, freeze runtime at exact Build 529 and request one signed work-branch Canary;
-3. validate Battery ring shape morph + charging-glyph fade, compact 5G/4G scale + native-target size/weight convergence + quick latent reveal, together with the Build-526 island/charging matrix and battery-top checks;
-4. change runtime again only if that device evidence identifies a concrete remaining defect;
+1. finish Build-530 Runtime CI and automated review;
+2. if green, freeze runtime at exact Build 530 and request one signed work-branch Canary;
+3. validate: original steady 5G/electricity typography is restored; transition-end 5G and battery number visually overlap native target size/weight; charging lightning follows number before late fade; Build-528 latent reveal remains correct;
+4. change runtime again only if device evidence identifies a concrete remaining mismatch;
 5. merge to `dev` only after the combined checkpoint is device-accepted.
 
 ## Reference priority
