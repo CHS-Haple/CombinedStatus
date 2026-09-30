@@ -999,7 +999,11 @@ internal class CombinedStatusPainter(
             }
         val iconGap =
             if (chargingSlotVisible) BATTERY_TOP_ICON_TEXT_GAP else 0f
-        val groupWidth = chargingOpticalWidth + iconGap + textWidth
+        // Keep the text anchored to a stable charging slot so a native
+        // single/double-bolt resource handoff cannot move the percentage.
+        val chargingSlotWidth =
+            if (chargingSlotVisible) chargingIconSize else 0f
+        val groupWidth = chargingSlotWidth + iconGap + textWidth
         val groupLeft = BATTERY_COMPONENT_CENTER_X - groupWidth / 2f
         val contentInkHeight = max(textHeight, chargingOpticalHeight)
         val centerY =
@@ -1013,7 +1017,7 @@ internal class CombinedStatusPainter(
         val textLeft =
             groupLeft +
                 if (chargingSlotVisible) {
-                    chargingOpticalWidth + iconGap
+                    chargingSlotWidth + iconGap
                 } else {
                     0f
                 }
@@ -1039,7 +1043,8 @@ internal class CombinedStatusPainter(
             chargingIconResourceId = chargingIconResourceId,
             chargingIconCenterX =
                 if (chargingSlotVisible) {
-                    groupLeft + chargingOpticalWidth / 2f
+                    // Right-align native optical ink inside the stable slot.
+                    groupLeft + chargingSlotWidth - chargingOpticalWidth / 2f
                 } else {
                     BATTERY_COMPONENT_CENTER_X
                 },
