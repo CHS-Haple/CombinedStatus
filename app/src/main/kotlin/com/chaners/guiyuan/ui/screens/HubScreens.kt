@@ -26,8 +26,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.chaners.guiyuan.R
 import com.chaners.guiyuan.settings.AppLanguage
-import com.chaners.guiyuan.settings.BATTERY_TOP_CHARGING_ICON_SCALE_MAX
-import com.chaners.guiyuan.settings.BATTERY_TOP_CHARGING_ICON_SCALE_MIN
+import com.chaners.guiyuan.settings.BATTERY_TOP_CHARGING_ICON_UI_SCALE_MAX
+import com.chaners.guiyuan.settings.BATTERY_TOP_CHARGING_ICON_UI_SCALE_MIN
 import com.chaners.guiyuan.settings.BATTERY_TOP_TEXT_SCALE_MAX
 import com.chaners.guiyuan.settings.BATTERY_TOP_TEXT_SCALE_MIN
 import com.chaners.guiyuan.settings.BATTERY_TOP_TEXT_WEIGHT_MAX
@@ -36,6 +36,7 @@ import com.chaners.guiyuan.settings.BATTERY_TOP_VERTICAL_OFFSET_MAX
 import com.chaners.guiyuan.settings.BATTERY_TOP_VERTICAL_OFFSET_MIN
 import com.chaners.guiyuan.settings.CombinedStatusFeatureSettingsRepository
 import com.chaners.guiyuan.settings.CombinedStatusVisualSettingsRepository
+import com.chaners.guiyuan.settings.batteryTopChargingIconUiScale
 import com.chaners.guiyuan.system.SystemUiScopeController
 import com.chaners.guiyuan.ui.components.MiuixBlurredTopBar
 import com.chaners.guiyuan.ui.components.rememberTopBarBackdrop
@@ -105,7 +106,9 @@ internal fun FeaturesScreen(
                             (visualSettings.batteryTopTextScale * 100f).roundToInt(),
                         ),
                     valueRange = BATTERY_TOP_TEXT_SCALE_MIN..BATTERY_TOP_TEXT_SCALE_MAX,
-                    steps = 27,
+                    steps = 39,
+                    showKeyPoints = true,
+                    keyPoints = listOf(1f),
                     enabled = featureSettings.enabled,
                 )
                 SliderPreference(
@@ -122,7 +125,9 @@ internal fun FeaturesScreen(
                     valueRange =
                         BATTERY_TOP_TEXT_WEIGHT_MIN.toFloat()..
                             BATTERY_TOP_TEXT_WEIGHT_MAX.toFloat(),
-                    steps = 9,
+                    steps = 15,
+                    showKeyPoints = true,
+                    keyPoints = listOf(900f),
                     enabled = featureSettings.enabled,
                 )
                 SliderPreference(
@@ -138,20 +143,29 @@ internal fun FeaturesScreen(
                         BATTERY_TOP_VERTICAL_OFFSET_MIN..
                             BATTERY_TOP_VERTICAL_OFFSET_MAX,
                     steps = 59,
+                    showKeyPoints = true,
+                    keyPoints = listOf(0f),
                     enabled = featureSettings.enabled,
                 )
+                val chargingIconUiScale =
+                    batteryTopChargingIconUiScale(
+                        visualSettings.batteryTopChargingIconScale,
+                    )
                 SliderPreference(
-                    value = visualSettings.batteryTopChargingIconScale,
+                    value = chargingIconUiScale,
                     onValueChange = visualRepository::setBatteryTopChargingIconScale,
                     title = stringResource(R.string.battery_top_charging_icon_size),
                     valueText =
                         stringResource(
                             R.string.battery_top_scale_value,
-                            (visualSettings.batteryTopChargingIconScale * 100f).roundToInt(),
+                            (chargingIconUiScale * 100f).roundToInt(),
                         ),
                     valueRange =
-                        BATTERY_TOP_CHARGING_ICON_SCALE_MIN..
-                            BATTERY_TOP_CHARGING_ICON_SCALE_MAX,
+                        BATTERY_TOP_CHARGING_ICON_UI_SCALE_MIN..
+                            BATTERY_TOP_CHARGING_ICON_UI_SCALE_MAX,
+                    steps = 39,
+                    showKeyPoints = true,
+                    keyPoints = listOf(1f),
                     enabled = featureSettings.enabled,
                 )
             }

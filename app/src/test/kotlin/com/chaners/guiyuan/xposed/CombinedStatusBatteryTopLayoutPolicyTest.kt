@@ -6,6 +6,19 @@ import org.junit.Test
 
 class CombinedStatusBatteryTopLayoutPolicyTest {
     @Test
+    fun baseCenterGuaranteesMinimumPositiveTravelForTallContent() {
+        val base =
+            CombinedStatusBatteryTopLayoutPolicy.resolveBaseCenterY(
+                preferredCenterY = 16f,
+                contentInkHeight = 30f,
+                topSafeInset = 1f,
+                minimumPositiveTravel = 4f,
+            )
+
+        assertEquals(20f, base, 0.0001f)
+    }
+
+    @Test
     fun positiveOffsetUsesWholeSliderRangeWithoutCrossingTopSafeBoundary() {
         val base = 13.5f
         val contentHeight = 18f

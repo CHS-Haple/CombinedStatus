@@ -3,6 +3,19 @@ package com.chaners.guiyuan.xposed
 import kotlin.math.max
 
 internal object CombinedStatusBatteryTopLayoutPolicy {
+    fun resolveBaseCenterY(
+        preferredCenterY: Float,
+        contentInkHeight: Float,
+        topSafeInset: Float,
+        minimumPositiveTravel: Float,
+    ): Float =
+        max(
+            preferredCenterY,
+            contentInkHeight.coerceAtLeast(0f) / 2f +
+                topSafeInset.coerceAtLeast(0f) +
+                minimumPositiveTravel.coerceAtLeast(0f),
+        )
+
     fun resolveCenterY(
         baseCenterY: Float,
         requestedOffset: Float,
