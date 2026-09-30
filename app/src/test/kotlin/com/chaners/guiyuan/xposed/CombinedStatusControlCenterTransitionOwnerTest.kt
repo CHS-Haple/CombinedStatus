@@ -91,7 +91,7 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
-    fun carrierRelativeInterpolationInheritsOnlyNativeCarrierCenterMotion() {
+    fun carriedSourceUsesNativeCarrierMotionBeforeRootTargetInterpolation() {
         val source =
             floatArrayOf(75f, 70f, 10f, 0f, 0f, 10f)
         val target =
@@ -100,29 +100,26 @@ class CombinedStatusControlCenterTransitionOwnerTest {
             floatArrayOf(50f, 50f, 100f, 0f, 0f, 100f)
         val currentCarrier =
             floatArrayOf(130f, 120f, 140f, 0f, 0f, 169f)
-        val targetCarrier =
-            floatArrayOf(200f, 150f, 120f, 0f, 0f, 108f)
 
         val result =
             CombinedStatusControlCenterTransitionOwner.Policy
-                .interpolateCarrierRelativeGeometry(
+                .interpolateCarriedSourceToRootTarget(
                     source = source,
                     target = target,
                     sourceCarrier = sourceCarrier,
                     currentCarrier = currentCarrier,
-                    targetCarrier = targetCarrier,
                     progress = 0.5f,
                     scalePolicy = CombinedStatusPainter.TransitionScalePolicy.TARGET,
                 )
 
-        assertEquals(160f, result[0], 0.0001f)
-        assertEquals(130f, result[1], 0.0001f)
+        assertEquals(195f, result[0], 0.0001f)
+        assertEquals(145f, result[1], 0.0001f)
         assertEquals(15f, result[2], 0.0001f)
         assertEquals(15f, result[5], 0.0001f)
     }
 
     @Test
-    fun carrierRelativeInterpolationDoesNotRescaleSourceOffsetAtGestureStart() {
+    fun carriedSourceDoesNotRescaleSourceOffsetAtGestureStart() {
         val source =
             floatArrayOf(75f, 70f, 10f, 0f, 0f, 10f)
         val target =
@@ -131,17 +128,14 @@ class CombinedStatusControlCenterTransitionOwnerTest {
             floatArrayOf(50f, 50f, 100f, 0f, 0f, 108f)
         val currentCarrier =
             floatArrayOf(60f, 65f, 140f, 0f, 0f, 169f)
-        val targetCarrier =
-            floatArrayOf(200f, 150f, 120f, 0f, 0f, 108f)
 
         val result =
             CombinedStatusControlCenterTransitionOwner.Policy
-                .interpolateCarrierRelativeGeometry(
+                .interpolateCarriedSourceToRootTarget(
                     source = source,
                     target = target,
                     sourceCarrier = sourceCarrier,
                     currentCarrier = currentCarrier,
-                    targetCarrier = targetCarrier,
                     progress = 0f,
                     scalePolicy = CombinedStatusPainter.TransitionScalePolicy.TARGET,
                 )
