@@ -129,6 +129,8 @@ Build 495 device validation narrows the remaining master-switch failure: disabli
 
 Device testing is requested only when the result can change implementation choice or acceptance. Mechanical/documentation steps continue without a new APK round trip.
 
+Build 510 non-charging device acceptance: the user reports the non-charging path now appears perfect. This accepts the Build-510 separation between outer similarity motion and shape-local exact four-bar growth for the tested non-charging Home path. Charging remains untested because no charging scenario is currently available; runtime stays frozen. Charging must not be inferred from this acceptance because HOME + charging + native-island intentionally uses a different semantic-reservation authority.
+
 ## Non-negotiable boundaries
 
 - Root-cause first; no speculative geometry/timing compensation.
@@ -142,12 +144,12 @@ Device testing is requested only when the result can change implementation choic
 
 ## Immediate next step
 
-1. Run exact-head Runtime CI for Build 510 and produce one signed work-branch Canary from the same SHA.
-2. Device gate — latent: Airplane / No-SIM / additional SIM must fade in continuously while real visual-envelope reservation opens, before QS_FAKE ownership ends, with no adjacent-icon overlap.
-3. Device gate — native single-row Mobile: four-point morph must no longer show whole-component rubber-band stretching; the four bars themselves must grow into the measured native rectangles while final alignment remains correct.
-4. Device gate — composite/dual-row Mobile: the exact-target-basis path must remain disabled and the target must not be flattened into a four-bar structure.
-5. Re-check Build-507 reservation improvement: whole-row motion must avoid both Build-505's early near-vertical dead-zone and Build-506's press-time final-x jump.
-6. Preserve Build-504 accepted final fake/real alignment and compact no-source scale.
+1. Build 510 non-charging Home Control Center transition is device-accepted: no visible whole-component stretch, Mobile morph and row motion are satisfactory.
+2. Remaining device gate — charging Home without island: confirm Build-510 non-charging geometry remains unchanged while charging state is active.
+3. Remaining device gate — charging Home with native island: verify the intentionally different reservation authority does not reintroduce left offset, overlap, or endpoint drift.
+4. Remaining device gate — latent: Airplane / No-SIM / additional SIM must fade in continuously while real visual-envelope reservation opens, before QS_FAKE ownership ends, with no adjacent-icon overlap.
+5. Remaining device gate — composite/dual-row Mobile: exact four-bar compensation must stay disabled and the target must not be flattened into a four-bar structure.
+6. Preserve Build-504 accepted final fake/real alignment, Build-507 reservation improvement, Build-509 latent reveal, and Build-510 non-charging Mobile visual behavior.
 
 ## Reference priority
 

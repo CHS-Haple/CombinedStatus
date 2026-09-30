@@ -12849,3 +12849,27 @@ Those two transforms are individually coherent at the endpoint but compose into 
 ### Validation
 
 Exact-head Runtime CI is required. This changes visible runtime geometry, so one signed work-branch Canary is required after CI.
+
+
+## 2026-09-30 — Build 510 non-charging device acceptance
+
+**Evidence:** user device feedback after Build 510 Canary #554  
+**Scope:** Home -> Control Center, non-charging path  
+**Result:** accepted; user reports the current non-charging result appears perfect.
+
+### Accepted behavior
+
+- The Build-509 whole-component rubber-band stretch is no longer visible in the tested non-charging path.
+- The separation of responsibilities introduced in Build 510 is accepted for this path: outer Mobile geometry owns carrier/similarity motion, while measured four-bar width/height changes remain shape-local.
+- No further non-charging runtime tuning is justified without new contradictory evidence.
+
+### Charging boundary review
+
+Charging is not accepted by inference. The current policy deliberately differs when Home is charging and the native island is showing: semantic transition reservation is disabled for that combination, while Home charging without the island and Keyguard charging retain semantic reservation. Existing tests cover this scene-specific authority decision.
+
+### 审查 / review
+
+- **runtime:** frozen; no code change follows from this acceptance.
+- **evidence discipline:** non-charging acceptance does not prove charging/no-island or charging/island behavior.
+- **protected behavior:** preserve Build-510 non-charging result exactly.
+- **next device evidence:** when charging is available, test charging without island and charging with native island separately. Only a failed charging sub-path may justify a runtime change.
