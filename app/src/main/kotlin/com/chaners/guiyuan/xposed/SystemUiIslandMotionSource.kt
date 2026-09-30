@@ -109,7 +109,7 @@ internal object SystemUiIslandMotionSource {
     fun matches(handle: HookHandle): Boolean = handle.id == HOOK_ID
 
     @Synchronized
-    fun isIslandShowing(): Boolean = islandShowing == true
+    fun currentIslandShowing(): Boolean? = islandShowing
 
     @Synchronized
     fun currentOwnerSnapshot(): OwnerSnapshot? {

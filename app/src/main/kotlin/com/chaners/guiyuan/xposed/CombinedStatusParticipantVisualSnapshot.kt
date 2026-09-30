@@ -103,11 +103,13 @@ internal object CombinedStatusParticipantVisualSnapshot {
             ?.let { perVariant -> return perVariant[variant] }
 
         val resolved =
-            probeDrawable(
-                state = state,
-                source = drawable,
-                resources = resources,
-            )
+            runCatching {
+                probeDrawable(
+                    state = state,
+                    source = drawable,
+                    resources = resources,
+                )
+            }.getOrNull()
         drawableCache
             .getOrPut(state) { HashMap() }[variant] = resolved
         return resolved

@@ -651,11 +651,27 @@ class CombinedStatusControlCenterTransitionOwnerTest {
                 ),
         )
         assertTrue(
+            !CombinedStatusControlCenterTransitionOwner.Policy
+                .usesSemanticTransitionReservation(
+                    sourceScene = CombinedStatusSourceScene.HOME,
+                    charging = true,
+                    nativeIslandShowing = null,
+                ),
+        )
+        assertTrue(
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .usesSemanticTransitionReservation(
+                    sourceScene = CombinedStatusSourceScene.HOME,
+                    charging = false,
+                    nativeIslandShowing = null,
+                ),
+        )
+        assertTrue(
             CombinedStatusControlCenterTransitionOwner.Policy
                 .usesSemanticTransitionReservation(
                     sourceScene = CombinedStatusSourceScene.KEYGUARD,
                     charging = true,
-                    nativeIslandShowing = true,
+                    nativeIslandShowing = null,
                 ),
         )
     }

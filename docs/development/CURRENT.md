@@ -18,7 +18,7 @@ Control Center transition animation is the active runtime task.
 
 Current implementation line:
 - PR #177 — feat/control-center-transition-matrix;
-- current work-branch checkpoint: Build 510 / 20260930-510;
+- current work-branch checkpoint: Build 511 / 20260930-511;
 - exact-target direction: QS_FAKE role-5 to final-QS role-6 matrix projection;
 - HyperOS remains translation/appearance authority; raw native expansion drives transition geometry and native fake/final Folme owns visual handoff;
 - Guiyuan reads native transition state and renders only its owned Trinity correspondence; final role-6 top-level slots are read-only occupancy witnesses, while the existing QS_FAKE statusIcons-paddingEnd owner interpolates the frozen total semantic occupancy from compact to final using raw HyperOS expansion progress;
@@ -131,6 +131,8 @@ Device testing is requested only when the result can change implementation choic
 
 Build 510 non-charging device acceptance: the user reports the non-charging path now appears perfect. This accepts the Build-510 separation between outer similarity motion and shape-local exact four-bar growth for the tested non-charging Home path. Charging remains untested because no charging scenario is currently available; runtime stays frozen. Charging must not be inferred from this acceptance because HOME + charging + native-island intentionally uses a different semantic-reservation authority.
 
+Build 511 is a code-review safety checkpoint and does not retune the accepted Build-510 non-charging transition. Review found that `SystemUiIslandMotionSource` was installed only when runtime diagnostics were enabled even though charging Home reservation policy consumes its state. Canary therefore observed island state while Release would not. The source is now installed in every runtime build; only diagnostic event emission remains build-gated. Island state also remains tri-state: charging Home uses semantic reservation only after authoritative `false`; `true` and unknown both fail native to HyperOS peer motion. The visual-snapshot drawable probe now contains clone/tint/draw failures and caches the failed result as unavailable instead of allowing compatibility drawables to throw through the SystemUI render path. The confirmed unconditional latent-Mobile diagnostic list allocation is skipped when no witness summary is being refreshed. Build-510 non-charging geometry, Mobile morph, root-space targets, reservation curve and handoff timing are unchanged.
+
 ## Non-negotiable boundaries
 
 - Root-cause first; no speculative geometry/timing compensation.
@@ -144,7 +146,7 @@ Build 510 non-charging device acceptance: the user reports the non-charging path
 
 ## Immediate next step
 
-1. Build 510 non-charging Home Control Center transition is device-accepted: no visible whole-component stretch, Mobile morph and row motion are satisfactory.
+1. Build 510 non-charging Home Control Center transition remains the protected device-accepted visual baseline; Build 511 changes only runtime authority/fail-native safety and a diagnostic allocation.
 2. Remaining device gate — charging Home without island: confirm Build-510 non-charging geometry remains unchanged while charging state is active.
 3. Remaining device gate — charging Home with native island: verify the intentionally different reservation authority does not reintroduce left offset, overlap, or endpoint drift.
 4. Remaining device gate — latent: Airplane / No-SIM / additional SIM must fade in continuously while real visual-envelope reservation opens, before QS_FAKE ownership ends, with no adjacent-icon overlap.

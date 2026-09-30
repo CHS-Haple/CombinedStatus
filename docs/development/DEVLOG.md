@@ -12873,3 +12873,43 @@ Charging is not accepted by inference. The current policy deliberately differs w
 - **evidence discipline:** non-charging acceptance does not prove charging/no-island or charging/island behavior.
 - **protected behavior:** preserve Build-510 non-charging result exactly.
 - **next device evidence:** when charging is available, test charging without island and charging with native island separately. Only a failed charging sub-path may justify a runtime change.
+
+
+## 2026-09-30 — Build 511: code-review safety fixes
+
+**Type:** Review / release-parity / Fail-native hardening  
+**Display version:** 0.0.3  
+**Build / source:** 511 / `20260930-511` / `feat/control-center-transition-matrix`
+
+### Review findings
+
+1. **Release/Canary authority divergence:** `SystemUiIslandMotionSource` was installed only when `RUNTIME_DIAGNOSTICS=true`. Canary enables runtime diagnostics but Release disables them, while Control Center transition policy consumes island visibility to decide whether charging Home may own semantic reservation. Release could therefore behave differently from the tested Canary.
+2. **Unknown island state failed open:** the source stored `Boolean?` but exposed only `islandShowing == true`, collapsing “not observed / source unavailable” into “no island”. A charging Home transition could claim reservation without authoritative evidence.
+3. **Drawable probe exception boundary:** native/compatibility drawable snapshotting could throw from clone/mutate/tint/draw through the SystemUI render path instead of failing native.
+4. **Hot-path diagnostics allocation:** latent Mobile description lists were allocated even while witness diagnostics were not being refreshed.
+
+### Root cause
+
+A read-only island state source began as a diagnostic owner probe and later became functional transition authority without moving out of the diagnostics installation gate. Its nullable state was then narrowed to Boolean at the consumer boundary. Visual snapshot probing similarly assumed every cloneable `ConstantState` was safe to tint and draw.
+
+### Change
+
+- Install the island status hook in every runtime build and gate only diagnostic event emission.
+- Preserve island visibility as `Boolean?`.
+- HOME non-charging behavior is unchanged. HOME charging uses semantic reservation only when island state is authoritatively `false`; `true` or unknown yields to native peer motion. Keyguard reservation semantics are unchanged.
+- Contain drawable-probe failures with a cached unavailable snapshot result.
+- Allocate latent Mobile witness-description lists only when the diagnostic summary is actually being refreshed.
+- No transition path, target geometry, Mobile morph, reservation interpolation, native callback ordering, or visual timing was changed.
+
+### 审查 / review
+
+- **single writer:** unchanged; `statusIcons-paddingEnd` remains the only native peer-layout writer.
+- **lifecycle:** island state is now a runtime source rather than a diagnostics-only source; Hot Reload reset/unhook remains in the existing generation teardown.
+- **Fail native:** charging with unknown island authority and unsafe drawable probes now decline project-specific behavior rather than guessing or propagating an exception.
+- **release parity:** Canary and Release now install the same functional island authority; only logging differs.
+- **performance:** removes one confirmed per-frame latent diagnostic container allocation without introducing new cache/state ownership.
+- **protected baseline:** Build-510 non-charging device-accepted visuals are intentionally untouched.
+
+### Validation
+
+Run exact-head Runtime CI. No device package is useful until a charging scenario is available; charging-without-island and charging-with-native-island remain separate device gates.

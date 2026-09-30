@@ -175,7 +175,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 Policy.usesSemanticTransitionReservation(
                     sourceScene = sourceScene,
                     charging = sourceSnapshot.model.charging,
-                    nativeIslandShowing = SystemUiIslandMotionSource.isIslandShowing(),
+                    nativeIslandShowing = SystemUiIslandMotionSource.currentIslandShowing(),
                 ),
         )
     }
@@ -215,11 +215,11 @@ internal object CombinedStatusControlCenterTransitionOwner {
         fun usesSemanticTransitionReservation(
             sourceScene: CombinedStatusSourceScene,
             charging: Boolean = false,
-            nativeIslandShowing: Boolean = false,
+            nativeIslandShowing: Boolean? = null,
         ): Boolean =
             when (sourceScene) {
                 CombinedStatusSourceScene.HOME ->
-                    !(charging && nativeIslandShowing)
+                    !charging || nativeIslandShowing == false
                 CombinedStatusSourceScene.KEYGUARD ->
                     true
                 CombinedStatusSourceScene.UNKNOWN ->
@@ -1024,6 +1024,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         shapeProgress = mobileSignalShapeProgress,
                         opacity = opacity,
                         carrierFrames = carrierFrames,
+                        collectDescription = witnessDescriptions != null,
                     )
                 witnessDescriptions?.addAll(extras)
             }
@@ -1075,6 +1076,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
             shapeProgress: Float,
             opacity: Float,
             carrierFrames: CarrierFrames?,
+            collectDescription: Boolean,
         ): List<String> {
             if (
                 mobileSpec.shapePolicy !=
@@ -1096,7 +1098,12 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     preferredMobileSubId = preferredMobileSubId,
                 )
             val state = CombinedStatusStateStore.snapshot()
-            val descriptions = ArrayList<String>()
+            val descriptions =
+                if (collectDescription) {
+                    ArrayList<String>()
+                } else {
+                    null
+                }
             resolveFrozenAdditionalMobileTargets(primary).forEach { witness ->
                 val subId = witness.subscriptionId ?: return@forEach
                 val level =
@@ -1169,9 +1176,9 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     mobileTargetBars = targetBars,
                 )
                 canvas.restoreToCount(save)
-                descriptions += "mobile-latent:" + witness.summary
+                descriptions?.add("mobile-latent:" + witness.summary)
             }
-            return descriptions
+            return descriptions ?: emptyList()
         }
 
         private fun drawSupplementalAirplaneReveal(

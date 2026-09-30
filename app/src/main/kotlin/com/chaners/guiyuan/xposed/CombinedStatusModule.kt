@@ -132,12 +132,10 @@ class CombinedStatusModule : XposedModule() {
                 classLoader = param.classLoader,
                 source = "coldStart",
             )
-            if (BuildConfig.RUNTIME_DIAGNOSTICS) {
-                installIslandMotionSource(
-                    classLoader = param.classLoader,
-                    source = "coldStart",
-                )
-            }
+            installIslandMotionSource(
+                classLoader = param.classLoader,
+                source = "coldStart",
+            )
         }
     }
 
@@ -321,12 +319,10 @@ class CombinedStatusModule : XposedModule() {
                 classLoader = classLoader,
                 source = "hotReload",
             )
-            if (BuildConfig.RUNTIME_DIAGNOSTICS) {
-                installIslandMotionSource(
-                    classLoader = classLoader,
-                    source = "hotReload",
-                )
-            }
+            installIslandMotionSource(
+                classLoader = classLoader,
+                source = "hotReload",
+            )
 
             val restored = SystemUiHotReloadRuntimeOwner.restoreTransfer(param)
             if (restored == null) {
@@ -938,7 +934,12 @@ class CombinedStatusModule : XposedModule() {
             SystemUiIslandMotionSource.install(
                 module = this,
                 classLoader = classLoader,
-                onEvent = ::onIslandMotionEvent,
+                onEvent =
+                    if (BuildConfig.RUNTIME_DIAGNOSTICS) {
+                        ::onIslandMotionEvent
+                    } else {
+                        null
+                    },
                 isProbeEnabled = {
                     BuildConfig.DEVELOPMENT_PROBES || detailedDiagnosticsEnabled
                 },
@@ -961,7 +962,9 @@ class CombinedStatusModule : XposedModule() {
                 TAG,
                 "islandMotionSource hooks=ready count=" + handles.size +
                     " source=" + source +
-                    " motion=ownerProbe nativeGeometryWrites=0",
+                    " authority=island-status diagnostics=" +
+                    BuildConfig.RUNTIME_DIAGNOSTICS +
+                    " nativeGeometryWrites=0",
             )
         }.onFailure { error ->
             islandMotionSourceInstalled = false
