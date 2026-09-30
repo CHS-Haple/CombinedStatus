@@ -56,7 +56,7 @@ Confirmed:
   - unknown exact authority remains native-peer-motion rather than guessing `false`.
 
 Pending:
-- Build 526 Runtime CI.
+- Build 526 exact-head Runtime CI.
 - if green, one exact-head signed Build-526 Canary.
 - focused device validation:
   - island-only pull remains unchanged and reaches the expected final native icon endpoints;
