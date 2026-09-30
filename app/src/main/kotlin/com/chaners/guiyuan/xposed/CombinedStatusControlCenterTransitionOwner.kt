@@ -2318,13 +2318,21 @@ internal object CombinedStatusControlCenterTransitionOwner {
             val top = baseline + rect.top
             val right = left + rect.width()
             val bottom = baseline + rect.bottom
+            val contentLeft = view.paddingLeft.toFloat()
+            val contentTop = view.paddingTop.toFloat()
+            val contentWidth =
+                (view.width - view.paddingLeft - view.paddingRight)
+                    .coerceAtLeast(0)
+            val contentHeight =
+                (view.height - view.paddingTop - view.paddingBottom)
+                    .coerceAtLeast(0)
             return normalizedBounds(
-                left = left,
-                top = top.toFloat(),
-                right = right,
-                bottom = bottom.toFloat(),
-                width = view.width,
-                height = view.height,
+                left = left - contentLeft,
+                top = top.toFloat() - contentTop,
+                right = right - contentLeft,
+                bottom = bottom.toFloat() - contentTop,
+                width = contentWidth,
+                height = contentHeight,
             )
         }
 
@@ -2341,8 +2349,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 .filter { paint -> paint.textSize > BATTERY_NUMBER_MIN_TEXT_SIZE_PX }
                 .maxByOrNull { paint ->
                     paint.textSize +
-                        if (paint.textAlign == Paint.Align.CENTER) 8f else 0f +
-                        if (paint.typeface != null) 4f else 0f
+                        (if (paint.textAlign == Paint.Align.CENTER) 8f else 0f) +
+                        (if (paint.typeface != null) 4f else 0f)
                 }
 
         private fun centeredBatteryNumberPaintBounds(
@@ -2361,13 +2369,19 @@ internal object CombinedStatusControlCenterTransitionOwner {
             if (contentRight <= contentLeft || contentBottom <= contentTop) return null
             val centerX = (contentLeft + contentRight) / 2f
             val centerY = (contentTop + contentBottom) / 2f
+            val contentWidth =
+                (view.width - view.paddingLeft - view.paddingRight)
+                    .coerceAtLeast(0)
+            val contentHeight =
+                (view.height - view.paddingTop - view.paddingBottom)
+                    .coerceAtLeast(0)
             return normalizedBounds(
-                left = centerX - rect.width() / 2f,
-                top = centerY - rect.height() / 2f,
-                right = centerX + rect.width() / 2f,
-                bottom = centerY + rect.height() / 2f,
-                width = view.width,
-                height = view.height,
+                left = centerX - rect.width() / 2f - contentLeft,
+                top = centerY - rect.height() / 2f - contentTop,
+                right = centerX + rect.width() / 2f - contentLeft,
+                bottom = centerY + rect.height() / 2f - contentTop,
+                width = contentWidth,
+                height = contentHeight,
             )
         }
 
