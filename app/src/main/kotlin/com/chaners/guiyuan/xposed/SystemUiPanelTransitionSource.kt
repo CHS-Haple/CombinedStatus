@@ -155,6 +155,12 @@ internal object SystemUiPanelTransitionSource {
                                     controlCenterPresentationHost = controlCenterPresentationHost,
                                     controlCenterSourceScene = controlCenterSourceScene,
                                     controlCenterTransitionEndpoints = transitionEndpoints,
+                                    controlCenterBatteryIslandActive =
+                                        if (visible == true) {
+                                            resolveControlCenterBatteryIslandActive(chain.thisObject)
+                                        } else {
+                                            null
+                                        },
                                 )
                             dispatchRuntimeCallback(
                                 callback = onUpdate?.let { callback -> { callback(update) } },
@@ -222,6 +228,9 @@ internal object SystemUiPanelTransitionSource {
                             val transitionEndpoints =
                                 controlAnchorContract
                                     ?.transitionEndpointsFromCallback(chain.thisObject)
+                            val batteryIslandActive =
+                                controlAnchorContract
+                                    ?.batteryIslandFromCallback(chain.thisObject)
                             val preNativeUpdate =
                                 Update(
                                     source = Source.CONTROL_CENTER,
@@ -230,6 +239,7 @@ internal object SystemUiPanelTransitionSource {
                                     tracking = null,
                                     visible = null,
                                     controlCenterTransitionEndpoints = transitionEndpoints,
+                                    controlCenterBatteryIslandActive = batteryIslandActive,
                                 )
                             // Reservation/source projection must be committed before
                             // HyperOS consumes this expansion sample. Drawing still
@@ -292,6 +302,9 @@ internal object SystemUiPanelTransitionSource {
                                     controlCenterTransitionEndpoints =
                                         controlAnchorContract
                                             ?.transitionEndpointsFromCallback(chain.thisObject),
+                                    controlCenterBatteryIslandActive =
+                                        controlAnchorContract
+                                            ?.batteryIslandFromCallback(chain.thisObject),
                                 )
                             dispatchRuntimeCallback(
                                 callback = onUpdate?.let { callback -> { callback(update) } },
@@ -450,6 +463,16 @@ internal object SystemUiPanelTransitionSource {
         return contract.transitionEndpoints(header)
     }
 
+    private fun resolveControlCenterBatteryIslandActive(
+        delegate: Any?,
+    ): Boolean? {
+        val contract = controlAnchorContract ?: return null
+        val header =
+            resolveControlCenterHeader(delegate)
+                ?: return null
+        return contract.batteryIslandActive(header)
+    }
+
     private fun resolveControlCenterSourceScene(delegate: Any?): CombinedStatusSourceScene {
         val contract = controlAnchorContract ?: return CombinedStatusSourceScene.UNKNOWN
         val header =
@@ -519,6 +542,10 @@ internal object SystemUiPanelTransitionSource {
             update.controlCenterSourceScene?.let { sourceScene ->
                 " sourceScene=" + sourceScene.name
             }.orEmpty()
+        val batteryIslandSummary =
+            update.controlCenterBatteryIslandActive?.let { active ->
+                " batteryIsland=" + active
+            }.orEmpty()
         dispatchRuntimeCallback(
             callback = {
                 onEvent(
@@ -531,6 +558,7 @@ internal object SystemUiPanelTransitionSource {
                         anchorSummary +
                         homeMotionSummary +
                         sourceSceneSummary +
+                        batteryIslandSummary +
                         " authority=hyperos-native-callback" +
                         " nativeGeometryWrites=0",
                 )
@@ -549,6 +577,7 @@ internal object SystemUiPanelTransitionSource {
         val controlCenterAppearance: Boolean? = null,
         val controlCenterAppearanceAnimated: Boolean? = null,
         val controlCenterTransitionEndpoints: ControlCenterTransitionEndpoints? = null,
+        val controlCenterBatteryIslandActive: Boolean? = null,
         val controlCenterAnchor: ControlCenterAnchorSnapshot? = null,
         val homeMotion: SystemUiIslandMotionSource.OwnerSnapshot? = null,
     )
@@ -680,6 +709,14 @@ internal object SystemUiPanelTransitionSource {
             val header = headerFromCallback(callback) ?: return null
             return transitionEndpoints(header)
         }
+
+        fun batteryIslandFromCallback(callback: Any?): Boolean? {
+            val header = headerFromCallback(callback) ?: return null
+            return batteryIslandActive(header)
+        }
+
+        fun batteryIslandActive(header: Any): Boolean? =
+            readBoolean(addBatteryIslandField, header)
 
         fun snapshotFromCallback(callback: Any?): ControlCenterAnchorSnapshot? {
             val header = headerFromCallback(callback) ?: return null
