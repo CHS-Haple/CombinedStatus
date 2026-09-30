@@ -105,6 +105,7 @@ internal fun FeaturesScreen(
                             (visualSettings.batteryTopTextScale * 100f).roundToInt(),
                         ),
                     valueRange = BATTERY_TOP_TEXT_SCALE_MIN..BATTERY_TOP_TEXT_SCALE_MAX,
+                    steps = 27,
                     enabled = featureSettings.enabled,
                 )
                 SliderPreference(
@@ -136,7 +137,7 @@ internal fun FeaturesScreen(
                     valueRange =
                         BATTERY_TOP_VERTICAL_OFFSET_MIN..
                             BATTERY_TOP_VERTICAL_OFFSET_MAX,
-                    steps = 11,
+                    steps = 59,
                     enabled = featureSettings.enabled,
                 )
                 SliderPreference(

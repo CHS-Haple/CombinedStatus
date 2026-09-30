@@ -30,7 +30,7 @@
     <string name="battery_top_readout_summary">按数字与闪电宽度自动在电量环顶部留出缺口并显示电量</string>
     <string name="battery_top_text_size">数字大小</string>
     <string name="battery_top_text_weight">数字字重</string>
-    <string name="battery_top_vertical_offset">上下偏移</string>
+    <string name="battery_top_vertical_offset">上下偏移（正上负下）</string>
     <string name="battery_top_charging_icon_size">充电闪电大小</string>
     <string name="battery_top_scale_value">%1$d%%</string>
     <string name="battery_top_weight_value">%1$d</string>

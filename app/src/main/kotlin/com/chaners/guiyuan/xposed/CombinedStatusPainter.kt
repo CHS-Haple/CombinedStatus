@@ -976,12 +976,8 @@ internal class CombinedStatusPainter(
             if (chargingSlotVisible) BATTERY_TOP_ICON_TEXT_GAP else 0f
         val groupWidth = chargingIconSize + iconGap + textWidth
         val groupLeft = BATTERY_COMPONENT_CENTER_X - groupWidth / 2f
-        val contentHeight = max(textHeight, chargingIconSize)
-        val ringOuterTop = batteryRing.top - ringStroke / 2f
-        val minCenterY = ringOuterTop + contentHeight / 2f
         val centerY =
-            (BATTERY_TOP_CONTENT_CENTER_Y + visualSettings.batteryTopVerticalOffset)
-                .coerceIn(minCenterY, BATTERY_TOP_CONTENT_MAX_CENTER_Y)
+            BATTERY_TOP_CONTENT_CENTER_Y - visualSettings.batteryTopVerticalOffset
         val textLeft =
             groupLeft +
                 if (chargingSlotVisible) {
@@ -2180,7 +2176,6 @@ internal class CombinedStatusPainter(
         const val BATTERY_TOP_RING_GAP_PADDING = 4f
         const val BATTERY_TOP_GAP_CENTER_DEGREES = 270f
         const val BATTERY_TOP_CONTENT_CENTER_Y = 13.5f
-        const val BATTERY_TOP_CONTENT_MAX_CENTER_Y = 24f
 
     }
 
