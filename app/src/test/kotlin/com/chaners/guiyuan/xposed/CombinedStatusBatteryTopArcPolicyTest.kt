@@ -7,13 +7,14 @@ import org.junit.Test
 class CombinedStatusBatteryTopArcPolicyTest {
     @Test
     fun halfBatteryFillsFirstVisibleShoulderBeforeGap() {
-        val result = CombinedStatusBatteryTopArcPolicy.resolve(
-            batteryPercent = 50,
-            startDegrees = 150f,
-            maxSweep = 240f,
-            gapCenterDegrees = 270f,
-            gapSweepDegrees = 60f,
-        )
+        val result =
+            CombinedStatusBatteryTopArcPolicy.resolve(
+                batteryPercent = 50,
+                startDegrees = 150f,
+                maxSweep = 240f,
+                gapCenterDegrees = 270f,
+                gapSweepDegrees = 60f,
+            )
 
         assertEquals(
             listOf(CombinedStatusBatteryTopArcPolicy.Arc(150f, 90f)),
@@ -26,51 +27,106 @@ class CombinedStatusBatteryTopArcPolicyTest {
     }
 
     @Test
-    fun fullBatteryFillsBothSidesWithoutDrawingThroughGap() {
-        val result = CombinedStatusBatteryTopArcPolicy.resolve(
-            batteryPercent = 100,
+    fun widerVisibleReadoutRequestsOnlyTheExtraWidthItNeeds() {
+        val narrow =
+            gapFor(
+                left = 51f,
+                top = 4f,
+                right = 69f,
+                bottom = 20f,
+            )
+        val wide =
+            gapFor(
+                left = 36f,
+                top = 4f,
+                right = 84f,
+                bottom = 20f,
+            )
+
+        assertTrue(wide.sweepDegrees > narrow.sweepDegrees)
+        assertEquals(270f, narrow.centerDegrees, 0.0001f)
+        assertEquals(270f, wide.centerDegrees, 0.0001f)
+    }
+
+    @Test
+    fun movingReadoutUpShrinksGapAndCanRemoveItEntirely() {
+        val low =
+            gapFor(
+                left = 20f,
+                top = 12f,
+                right = 100f,
+                bottom = 30f,
+            )
+        val high =
+            gapFor(
+                left = 20f,
+                top = -8f,
+                right = 100f,
+                bottom = 10f,
+            )
+        val clear =
+            gapFor(
+                left = 20f,
+                top = -20f,
+                right = 100f,
+                bottom = 2f,
+            )
+
+        assertTrue(low.sweepDegrees > high.sweepDegrees)
+        assertEquals(0f, clear.sweepDegrees, 0.0001f)
+    }
+
+    @Test
+    fun extraVisibleHeightOrLowerPositionWidensGapUntilWidthBecomesLimit() {
+        val compact =
+            gapFor(
+                left = 25f,
+                top = 0f,
+                right = 95f,
+                bottom = 14f,
+            )
+        val taller =
+            gapFor(
+                left = 25f,
+                top = 0f,
+                right = 95f,
+                bottom = 26f,
+            )
+
+        assertTrue(taller.sweepDegrees > compact.sweepDegrees)
+    }
+
+    @Test
+    fun asymmetricVisibleEnvelopeMovesGapCenterInsteadOfAddingDeadPadding() {
+        val result =
+            gapFor(
+                left = 42f,
+                top = 2f,
+                right = 92f,
+                bottom = 22f,
+            )
+
+        assertTrue(result.centerDegrees > 270f)
+        assertTrue(result.sweepDegrees > 0f)
+    }
+
+    private fun gapFor(
+        left: Float,
+        top: Float,
+        right: Float,
+        bottom: Float,
+    ): CombinedStatusBatteryTopArcPolicy.Gap =
+        CombinedStatusBatteryTopArcPolicy.resolveGap(
+            contentLeft = left,
+            contentTop = top,
+            contentRight = right,
+            contentBottom = bottom,
+            ringCenterX = 60f,
+            ringCenterY = 58f,
+            ringRadius = 50f,
+            ringStroke = 4f,
+            visualClearance = 2f,
             startDegrees = 150f,
             maxSweep = 240f,
-            gapCenterDegrees = 270f,
-            gapSweepDegrees = 60f,
         )
-
-        assertEquals(
-            listOf(
-                CombinedStatusBatteryTopArcPolicy.Arc(150f, 90f),
-                CombinedStatusBatteryTopArcPolicy.Arc(300f, 90f),
-            ),
-            result.active,
-        )
-        assertTrue(result.inactive.isEmpty())
-    }
-
-    @Test
-    fun widerReadoutRequestsWiderButBoundedGap() {
-        val narrow = CombinedStatusBatteryTopArcPolicy.gapSweepDegrees(
-            groupWidth = 18f,
-            ringRadius = 50f,
-            horizontalPadding = 4f,
-        )
-        val wide = CombinedStatusBatteryTopArcPolicy.gapSweepDegrees(
-            groupWidth = 48f,
-            ringRadius = 50f,
-            horizontalPadding = 4f,
-        )
-
-        assertTrue(wide > narrow)
-        assertTrue(wide <= 118f)
-    }
-
-    @Test
-    fun opticalPaddingCanExceedLegacyEightyTwoDegreeCap() {
-        val gap = CombinedStatusBatteryTopArcPolicy.gapSweepDegrees(
-            groupWidth = 48f,
-            ringRadius = 50f,
-            horizontalPadding = 12f,
-        )
-
-        assertTrue(gap > 82f)
-        assertTrue(gap <= 118f)
-    }
 }
