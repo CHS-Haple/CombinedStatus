@@ -2173,8 +2173,28 @@ internal class CombinedStatusPainter(
         const val BATTERY_COMPONENT_CENTER_X = 60f
         const val BATTERY_COMPONENT_CENTER_Y = 58f
         const val BATTERY_FOLD_SCALE_Y = 0.72f
+        const val BATTERY_TOP_TEXT_SIZE = 16f
+        const val BATTERY_TOP_CHARGING_ICON_SIZE = 14f
+        const val BATTERY_TOP_ICON_TEXT_GAP = 2f
+        const val BATTERY_TOP_RING_GAP_PADDING = 4f
+        const val BATTERY_TOP_GAP_CENTER_DEGREES = 270f
+        const val BATTERY_TOP_CONTENT_CENTER_Y = 13.5f
+        const val BATTERY_TOP_CONTENT_MAX_CENTER_Y = 24f
 
     }
+
+    private data class BatteryTopReadoutLayout(
+        val text: String,
+        val textSize: Float,
+        val textWeight: Int,
+        val textX: Float,
+        val textBaselineY: Float,
+        val groupWidth: Float,
+        val chargingIconResourceId: Int?,
+        val chargingIconCenterX: Float,
+        val chargingIconCenterY: Float,
+        val chargingIconSize: Float,
+    )
 
     private data class TransitionPoint(
         val x: Float,
