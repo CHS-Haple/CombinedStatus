@@ -36,21 +36,18 @@ internal object CombinedStatusBatteryTopLayoutPolicy {
         baseCenterY: Float,
         requestedOffset: Float,
         positiveLimit: Float,
-        contentInkHeight: Float,
-        minimumSafeTopY: Float,
     ): Float {
+        if (!requestedOffset.isFinite()) return baseCenterY
         if (requestedOffset <= 0f || positiveLimit <= 0f) {
             return baseCenterY - requestedOffset
         }
 
-        val minimumSafeCenterY =
-            minimumSafeTopY +
-                contentInkHeight.coerceAtLeast(0f) / 2f
-        val maximumSafeRise =
-            (baseCenterY - minimumSafeCenterY).coerceAtLeast(0f)
-        val requestedRise =
+        // Default placement is already bounded by resolveOpticalBaseCenterY().
+        // A user-requested offset must stay literal instead of being silently
+        // collapsed by a second clip-safety ceiling. The View/display clip is
+        // the physical boundary and remains observable to the user.
+        return baseCenterY -
             requestedOffset.coerceIn(0f, positiveLimit)
-        return baseCenterY - min(requestedRise, maximumSafeRise)
     }
 
     fun resolveRingGapPadding(
