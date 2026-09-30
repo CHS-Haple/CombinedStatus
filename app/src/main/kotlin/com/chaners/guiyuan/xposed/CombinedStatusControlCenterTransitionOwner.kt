@@ -1792,8 +1792,15 @@ internal object CombinedStatusControlCenterTransitionOwner {
 
             }
 
-            val slotSample = sample(witness.slotView, root) ?: return sourceGeometry
             val slot = witness.slotView
+            if (slot is ImageView) {
+                imageDrawableGeometry(
+                    image = slot,
+                    root = root,
+                    targetOpticalBounds = targetOpticalBounds,
+                )?.let { return it }
+            }
+            val slotSample = sample(slot, root) ?: return sourceGeometry
             val contentBounds =
                 CombinedStatusPainter.TransitionBounds(
                     left = slot.paddingLeft.toFloat(),
