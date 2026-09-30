@@ -12,48 +12,65 @@ This file is the concise recovery point for active Guiyuan development. Historic
 
 ## Active objective
 
-PR #181 / `feat/battery-top-readout` adds an optional battery percentage readout in the top opening of the Guiyuan battery ring.
+PR #181 / `feat/battery-top-readout` adds an optional battery percentage readout in the top opening of the Guiyuan battery ring while preserving the accepted Home -> Control Center transition contract.
 
 Current checkpoint:
-- Build 525 / `20261001-525`;
+- Build 526 / `20261001-526`;
 - branch remains based on current `dev` and is not behind it;
-- Build 524 Runtime CI #1961 passed and improved the final native Battery-number target resolution for HyperOS hollow-battery presentation;
-- Build-523 device evidence then established two steady/readout geometry defects independent of that target work:
-  1. positive vertical offset stopped early because canonical `y=0` was incorrectly treated as the physical render-View top even though the 120×120 canonical canvas is vertically centered inside the taller Battery carrier;
-  2. charging-bolt vertical placement used the visible envelope midpoint, which is not the visual ink center of an asymmetric folded lightning glyph.
-- Build 525 maps the real render-View top through the existing `NativeRenderTransform` into canonical coordinates and uses that as the only positive-offset clipping boundary.
-- Positive offset is now linear and literal while real headroom exists: +N moves the readout N canonical units upward; negative offset keeps the existing direct downward semantics.
-- Charging safety uses the combined visible readout height, so the full requested travel is available until actual View clipping would occur.
-- Build 525 extends the existing bounded native drawable probe with an alpha-weighted ink centroid. The same cached probe still owns native-resource geometry; no second resource parser/probe path is introduced.
-- Charging-bolt Y placement aligns that native ink centroid to the percentage text optical center line. Horizontal group centering remains based on visible glyph/text envelope width and is otherwise unchanged.
-- Build 524's native Battery-number target improvements remain carried forward unchanged.
-- Percentage readout remains opt-in and defaults off.
-- HyperOS remains authoritative for charging resource selection through `MiuiBatteryMeterView.getHollowChargingIconId()`.
+- Build 524 improved the final native Battery-number target for HyperOS hollow-battery presentation;
+- Build 525 corrected two Build-523 device defects:
+  - positive offset now uses real render-View headroom instead of treating canonical `y=0` as a physical clip edge;
+  - charging glyph Y aligns its alpha-weighted visible-ink center to the percentage text optical center;
+- Build 525 Runtime CI #1966 passed, including the new physical-headroom and alpha-centroid tests;
+- the pending Build-525 Canary request is superseded by Build 526 and must not be used as the integration checkpoint.
+
+Build-523 device evidence also identified an independent Control Center peer-motion regression:
+- Super-Island alone is normal;
+- charging without that combined condition is not the reported failure;
+- the failure is specifically Super-Island + charging, where surrounding native status icons do not follow the expected endpoint rule;
+- the same Build-523 diagnostic reports `addBatteryIsland=false / batteryWidthDiff=0` during the affected pull while Guiyuan selected `reservationMode=native-peer-motion`.
+
+Build 526 root-cause correction:
+- the old reservation policy used `charging && SystemUiIslandMotionSource.currentIslandShowing()` as a proxy for HyperOS Battery-Island ownership;
+- that proxy is too broad: a generic Super-Island can be showing while charging even when `ControlCenterHeaderExpandController.isAddBatteryIsland == false`;
+- Build 526 carries the exact native `isAddBatteryIsland` Boolean through the existing Control Center callback/update path;
+- Home semantic reservation is disabled only for `charging && isAddBatteryIsland == true`;
+- generic island + charging, non-island charging, island-only, and an unknown Battery-Island read all keep semantic reservation;
+- no local `batteryWidthDiff`, translation, endpoint, duration, or trajectory compensation is introduced.
 
 ## Validation state
 
 Confirmed:
-- Build 523 focused device evidence reproduced both the vertical-offset ceiling and charging bolt/number optical-center mismatch.
+- Build 523 focused device evidence reproduced the battery-top vertical ceiling and charging bolt/number Y mismatch.
+- Build 523 device evidence isolates the native-peer endpoint regression to the island + charging combination; island-only behavior is normal.
+- The affected diagnostic showed `addBatteryIsland=false / batteryWidthDiff=0` while the old policy had already switched to `native-peer-motion`.
 - Build 524 Runtime CI #1961: green.
-- PR #181 remains mergeable.
-- Build 525 static review: no new native layout, translation, visibility, alpha, or gesture writer.
-- The alpha-centroid extension reuses the existing bounded/cached drawable snapshot path; no polling or frame-time raster probe is added.
-- New unit coverage checks real View-to-canonical top mapping, full positive travel above canonical zero, physical clipping behavior, and alpha-weighted ink-center extraction.
+- Build 525 Runtime CI #1966: green.
+- Build 526 static review:
+  - exact HyperOS `isAddBatteryIsland` is read from the already-resolved `ControlCenterHeaderExpandController` contract;
+  - no new hook count, listener, polling path, timer, animator, native translation writer, or layout writer is added;
+  - `statusIcons.paddingEnd` remains the sole Guiyuan peer-layout writer;
+  - the generic island callback remains available only for its existing island-owner diagnostics/motion evidence and no longer decides Battery-Island reservation authority;
+  - expansion samples clear a stale prior Battery-Island value if the exact native read becomes unavailable.
 
 Pending:
-- Build 525 Runtime CI.
-- focused Build-525 device validation:
-  - + values continue moving upward through the full useful range and stop only at the real View top boundary;
-  - charging bolt visible-ink vertical center matches the percentage visible-text center;
-  - ordinary / quick / super charging resource changes keep that Y alignment;
-  - Home -> Control Center percentage motion still reaches the Build-524 native Battery-number target;
+- Build 526 Runtime CI.
+- if green, one exact-head signed Build-526 Canary.
+- focused device validation:
+  - island-only pull remains unchanged and reaches the expected final native icon endpoints;
+  - charging without an active generic island remains unchanged;
+  - island + charging now moves surrounding native icons to the same native endpoint rule indicated by `addBatteryIsland=false / batteryWidthDiff=0` when HyperOS does not activate Battery Island;
+  - if HyperOS actually reports `isAddBatteryIsland=true`, native Battery-Island peer motion remains authoritative and Guiyuan does not double-apply semantic reservation;
+  - + battery-top offset continues upward through real View headroom;
+  - charging lightning visible-ink vertical center matches the percentage visible-text center;
+  - Home -> Control Center percentage morph still reaches the native Battery-number target;
   - accepted Build-510/511 Battery-body transition remains unchanged.
 
 ## Runtime / rendering contract
 
-- HyperOS remains authoritative for battery state, charging-glyph resource selection, and Control Center expansion/motion.
-- Guiyuan only observes the native charging resource after HyperOS updates its own presentation.
-- Missing or zero native charging resource fails native at the glyph level: no project-owned replacement drawable is invented.
+- HyperOS remains authoritative for battery state, charging-glyph resource selection, Control Center expansion/motion, and Battery-Island activation.
+- `ControlCenterHeaderExpandController.isAddBatteryIsland` is the only Battery-Island reservation-authority signal; generic Super-Island visibility is not equivalent.
+- Guiyuan only observes native state and native resources; it does not write HyperOS island translations or `batteryWidthDiff`.
 - The existing Guiyuan painter remains the only writer of Guiyuan pixels.
 - The existing Battery transition component remains the only Guiyuan owner of battery-component transition rendering.
 - `statusIcons.paddingEnd` remains the sole Guiyuan native peer-layout writer.
@@ -63,21 +80,21 @@ Pending:
 
 ## Non-negotiable boundaries
 
-- Root-cause first; no screenshot-fitted timing or fixed per-resource Y compensation.
+- Root-cause first; no screenshot-fitted timing, fixed resource Y offsets, or Battery-Island X compensation.
 - Preserve accepted Build-510/511 transition behavior unless contradictory device evidence appears.
 - One mutable runtime property has one writer.
 - Cleanup / Hot Reload restores only Guiyuan-owned state.
-- Compatibility uncertainty fails native.
+- Compatibility uncertainty must not impersonate Battery-Island state.
 - HyperOS resources / state / motion are preferred over project-local copies or guesses.
-- Do not infer quick/super-charge semantics from parallel fields while the native selected drawable already expresses the required presentation.
+- Do not revive the previously rejected local `batteryWidthDiff` normalization route without new exact-frame evidence that Guiyuan diverges from native QS_FAKE peers.
 
 ## Immediate next step
 
-1. finish Build-525 Runtime CI and automated review;
-2. if green, freeze runtime at exact Build 525 and request one signed work-branch Canary;
-3. perform only the focused vertical-travel / charging-center / Battery-number-target device validation above;
+1. finish Build-526 Runtime CI and automated review;
+2. if green, freeze runtime at exact Build 526 and request one signed work-branch Canary;
+3. validate the island-only / charging-only / island+charging matrix plus the two battery-top geometry corrections;
 4. change runtime again only if that device evidence identifies a concrete remaining defect;
-5. merge to `dev` only after the visual checkpoint is device-accepted.
+5. merge to `dev` only after the combined checkpoint is device-accepted.
 
 ## Reference priority
 
