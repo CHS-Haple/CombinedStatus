@@ -140,6 +140,8 @@ Before merge: required CI is green, the latest runtime-affecting state has appli
 
 A documentation-only delta after an accepted runtime checkpoint does not invalidate device evidence if it cannot affect APK/runtime behavior.
 
+Because repository-level automatic head-branch deletion may treat `dev` like an ordinary merged PR head, every dev-to-main merge must immediately verify that the long-lived `dev` branch still exists and matches the promoted `main` commit. If GitHub removed it, recreate `dev` at the promoted main SHA before any new work branch is created. Do not continue development from a stale or missing integration branch.
+
 ### Repository-only maintenance
 Pure docs/metadata/governance work may use the shortest safe path. Keep shared policy/current-state documents aligned between main and dev when divergence would mislead development.
 
