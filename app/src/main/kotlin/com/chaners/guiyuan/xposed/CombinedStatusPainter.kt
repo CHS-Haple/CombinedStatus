@@ -284,8 +284,10 @@ internal class CombinedStatusPainter(
                 .roundToInt()
                 .coerceIn(1, 1000)
         }
+    }
 
-        fun chargingFollowerOpacity(progress: Float): Float {
+    internal object BatteryNumberFollowerPolicy {
+        fun chargingOpacity(progress: Float): Float {
             val normalized =
                 ((progress.coerceIn(0f, 1f) - 0.58f) / 0.30f)
                     .coerceIn(0f, 1f)
@@ -1277,7 +1279,7 @@ internal class CombinedStatusPainter(
                 tint = batteryTint,
                 opacity =
                     opacity *
-                        MobileTypeTransitionPolicy.chargingFollowerOpacity(progress),
+                        BatteryNumberFollowerPolicy.chargingOpacity(progress),
                 centerX = layout.chargingIconCenterX,
                 centerY = layout.chargingIconCenterY,
                 maxWidth = layout.chargingIconSize,
