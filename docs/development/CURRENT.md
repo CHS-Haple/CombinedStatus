@@ -15,7 +15,7 @@ This file is the concise recovery point for active Guiyuan development. Historic
 PR #181 / `feat/battery-top-readout` adds an optional battery percentage readout in the top opening of the Guiyuan battery ring while preserving the accepted Home -> Control Center transition contract.
 
 Current checkpoint:
-- Build 528 / `20261001-528`;
+- Build 529 / `20261001-529`;
 - branch remains based on current `dev` and is not behind it;
 - Build 524 improved the final native Battery-number target for HyperOS hollow-battery presentation;
 - Build 525 corrected two Build-523 device defects:
@@ -55,6 +55,21 @@ Build 528 latent-reveal timing correction:
 - no delay, timer, Animator, new gesture curve, target coordinate, or native visibility writer is added;
 - reverse collapse stays symmetric: occupancy/proximity falling back through the same window hides latent pixels before the slot fully closes.
 
+
+Build 529 Battery ring -> native Battery shape-local morph:
+- Build 528 Runtime CI #1982 is green and remains the previous rollback checkpoint.
+- The old `BATTERY_FOLD` presentation only applied a whole-component Y squash (`1.0 -> 0.72`), which visually produced a flattened ring rather than a ring becoming a battery.
+- Build 529 removes that whole-component squash and keeps the existing native `BatteryIcon` witness/motion matrix as position + outer similarity authority.
+- The ring itself now morphs locally:
+  - the source 240° open ring is sampled as one continuous perimeter parameter;
+  - its two lower source ends map to the same final bottom-center point, so they gather inward while the native target height pulls them upward;
+  - the source top midpoint maps to the final top midpoint;
+  - the final local outline is a rounded battery silhouette whose aspect ratio is derived from the exact native Battery target width/height;
+  - local axis compensation only restores the aspect ratio lost by the outer similarity matrix, so final root-space width/height remain native-owned.
+- When the top percentage cutout exists, the cutout closes during the first half of the shape morph while the separately-owned Battery-number component leaves for its native target.
+- The charging glyph does not receive an independent trajectory; when a native Battery target is available it fades out early, otherwise it preserves the prior Fail-native behavior.
+- No native Battery View property, translation, alpha, visibility, or drawable is written by the morph.
+
 ## Validation state
 
 Confirmed:
@@ -73,8 +88,8 @@ Confirmed:
   - unknown exact authority remains native-peer-motion rather than guessing `false`.
 
 Pending:
-- Build 528 Runtime CI.
-- if green, one exact-head signed Build-528 Canary.
+- Build 529 Runtime CI.
+- if green, one exact-head signed Build-529 Canary.
 - focused device validation:
   - island-only pull remains unchanged and reaches the expected final native icon endpoints;
   - charging without an active generic island remains unchanged;
@@ -109,9 +124,9 @@ Pending:
 
 ## Immediate next step
 
-1. finish Build-528 Runtime CI and automated review;
-2. if green, freeze runtime at exact Build 528 and request one signed work-branch Canary;
-3. validate compact 5G/4G scale + native-target size/weight convergence + quick latent reveal, together with the Build-526 island/charging matrix and battery-top checks;
+1. finish Build-529 Runtime CI and automated review;
+2. if green, freeze runtime at exact Build 529 and request one signed work-branch Canary;
+3. validate Battery ring shape morph + charging-glyph fade, compact 5G/4G scale + native-target size/weight convergence + quick latent reveal, together with the Build-526 island/charging matrix and battery-top checks;
 4. change runtime again only if that device evidence identifies a concrete remaining defect;
 5. merge to `dev` only after the combined checkpoint is device-accepted.
 
