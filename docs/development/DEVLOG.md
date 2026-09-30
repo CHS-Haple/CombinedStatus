@@ -12110,3 +12110,84 @@ Primary A/B:
 4. Judge whether the terminal hitch during the island entrance replay disappears or materially reduces.
 
 The same APK may also be used for unrelated pending regression checks without adding more code changes: Build-496 master-switch fail-native and Build-493 semantic split/reveal scenarios can be exercised separately.
+
+## 2026-09-30 — Build 499: native carrier trajectory, optical targets and ownership-gated semantic expansion
+
+**Type:** Control Center transition geometry / native semantic authority / optical endpoint correction  
+**Display version:** 0.0.3  
+**Build / source:** 499 / `20260930-499` / `feat/control-center-transition-matrix`
+
+### Accepted evidence entering this build
+
+Build 498 is device-accepted for the isolated Keyguard/Super-Island performance issue. After removing the island animation pre-draw diagnostic probe, the terminal hitch no longer reproduces; the Build-497 one-frame VPN/whole-row terminal flash also remains gone.
+
+Build 496 master-switch fail-native behavior is independently device-accepted in the same validation round: disabling Guiyuan restores native presentation normally without requiring a Control Center gesture. Build 499 must not reopen either accepted boundary.
+
+### Remaining device evidence
+
+The active transition line still has four separate visual/state defects:
+- native HyperOS peers move lower-left from the first transition frame, while Guiyuan Trinity first appears to move predominantly downward and remains visually too high before joining the peer trajectory;
+- rounded Mobile bars can exceed the visual height of the final native signal;
+- supplemental final semantics such as Airplane or an additional SIM can appear as independent insertions or visibly cross unrelated icons;
+- removing all SIMs can leave stale compact mobile bars/type even after HyperOS has already switched to its native No-SIM presentation.
+
+### Root cause
+
+The defects share authority mistakes, not one timing problem.
+
+1. **No-SIM state authority:** RenderModel selected cached mobile/subscription/type state before reading the already-observed HyperOS `no_sim` presentation. The native state could therefore be correct while stale compact mobile semantics remained eligible.
+2. **External motion authority:** Build 492/494 correctly froze the steady source witness to avoid entry discontinuity, but the entire source origin was then effectively static for the gesture. HyperOS's fake status-icons carrier itself moves diagonally during expansion, so component interpolation from one frozen origin cannot reproduce native peer motion.
+3. **Optical target authority:** Mobile and some single-icon final participants could resolve an ImageView/StatusBarIconView but still use the full View box as target geometry instead of the drawable frame actually rendered inside it.
+4. **0→1 semantic ownership:** Supplemental participants were previously treated as special visual insertions. The correct eligibility is provenance-based: a participant may emerge from Trinity only if the current Guiyuan presentation actually owns/hides that native slot and compact composition has no independent visible source for it.
+
+### Change
+
+- Native HyperOS No-SIM presentation is evaluated before mobile cache selection. While native `no_sim` is visible:
+  - selected mobile binding is cleared;
+  - effective data subscription becomes unavailable for compact rendering;
+  - stale signal level and mobile type cannot participate;
+  - existing Wi-Fi-center semantics remain valid, with the Mobile dots/unavailable mark staying one compact visual group.
+- Transition source witness now carries:
+  - stable Guiyuan render basis;
+  - native compact battery position anchor;
+  - the source `MiuiStatusIconContainer` motion carrier;
+  - a snapshot of slots actually hidden by the active Home/Keyguard presentation session.
+- Transition Session resolves source/fake/final status-icon carriers once and reads only their live transforms during drawing. Component source/target coordinates are expressed relative to those carrier frames, so HyperOS owns external row motion while Guiyuan owns only its internal semantic decomposition.
+- Unmatched compact components no longer shrink in place. They are rebased onto the live native carrier and use a fast native-progress-derived fade.
+- ImageView/StatusBarIcon target geometry now prefers the actual drawable frame after `imageMatrix` instead of the whole View bounds. This applies to Mobile optical height and single-icon targets such as Airplane/No-SIM.
+- Airplane and No-SIM source geometry uses native optical asset bounds; direct center semantics continue as ordinary source→target transitions.
+- A participant with no independent compact icon may use latent projection only when the current presentation's owned-slot snapshot proves Guiyuan actually hid that native participant. The same carrier-relative path is used, but drawing remains transparent while far from the final target and reveals only near that native slot.
+- Additional dual-SIM final participants use the same ownership-gated latent rule rather than becoming visible while crossing unrelated icons.
+- Mobile dots and its unavailable-mark cross remain one visual component. The cross is not morphed into a SIM-card glyph.
+- The existing default/effective data subscription mapping remains authoritative for center network type; dual-SIM 5G does not switch to “first visual slot” semantics.
+- Build identity becomes `versionCode=260930299`, `buildId=20260930-499`.
+
+### 审查 / review
+
+- **root-cause-first:** fixes state/motion/optical authority rather than adding x/y offsets, hardcoded durations, or scene-specific geometry patches.
+- **native-first:** HyperOS remains No-SIM state authority, carrier-motion authority, final slot/drawable authority, and gesture-progress authority.
+- **ownership:** latent 0→1 participants require an actual current presentation ownership snapshot; final native icons that Guiyuan never hid cannot be emitted from Trinity.
+- **single writer:** no new native translation, alpha, visibility, padding, or geometry writer is added. Existing reservation ownership remains unchanged.
+- **491/497 protection:** Keyguard callback phase/lease and scene-specific island reservation policy are unchanged.
+- **498 protection:** no island pre-draw/frame diagnostic is reintroduced.
+- **performance:** source/fake/final carrier Views are resolved once per Session; per-frame work is transform sampling and overlay math only. No repeated hierarchy/reflection scan, polling, timer or new hook is added.
+- **fail native:** missing/invalid carrier or optical witness falls back through existing compatibility/native paths rather than inventing coordinates.
+- **cleanup:** no new persistent native state is owned by Build 499.
+- **review fixes before checkpoint:** static represented-slot eligibility was rejected during review and replaced with active session `clipStates` ownership; obsolete reveal-scale policy/tests were removed; No-SIM is not implemented as “small cross morphs into SIM card”; a compile-time missing `no_sim` slot constant and stale unit-test references were caught by CI and corrected before the final checkpoint.
+
+### Validation
+
+Pre-bump exact-head Runtime CI for source `bf2bd6357d20e67b443ee5e38d65a70bd2f03187` passes in run 36660129272.
+
+Final Build-499 exact-head Runtime CI is required after this version/documentation commit, followed by one signed work-branch Canary.
+
+Combined device test package:
+1. **No SIM / Wi-Fi off:** remove all SIMs; once HyperOS native No-SIM appears, Guiyuan must not retain old bars/5G. Center No-SIM should transition to the final native No-SIM glyph with native optical sizing.
+2. **No SIM / Wi-Fi on:** Wi-Fi remains center; four Mobile dots + unavailable cross remain one compact group and exit together. Native No-SIM may emerge only as an ownership-gated latent final participant; the cross must not morph into the SIM-card glyph.
+3. **SIM reinsertion:** when native No-SIM disappears, Guiyuan exits No-SIM but must not resurrect stale old bars/type while HyperOS is still searching. Current signal/type appears only after the native mobile pipeline provides it.
+4. **Airplane:** when Airplane is the initial center semantic, it follows the normal native optical source→target path. When it is only a supplemental final participant, it must not visibly fly through peer icons; a short empty target slot is acceptable before near-target reveal.
+5. **Dual SIM:** secondary SIM is latent until near its own final target; center 4G/5G remains tied to the effective/default data SIM.
+6. **Mobile geometry:** rounded bars must not visually exceed the final native signal's drawable height.
+7. **Trajectory:** from the first visible frame, Trinity should inherit the same native lower-left carrier motion as adjacent peers, without the prior vertical-only lead-in or high baseline. Verify reverse collapse too.
+8. **Regression:** Keyguard + Super-Island stays hitch-free with no VPN/whole-row terminal flash; master-switch off/on still fails native correctly.
+

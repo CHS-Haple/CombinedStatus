@@ -18,7 +18,7 @@ Control Center transition animation is the active runtime task.
 
 Current implementation line:
 - PR #177 — feat/control-center-transition-matrix;
-- current work-branch checkpoint: Build 498 / 20260930-498;
+- current work-branch checkpoint: Build 499 / 20260930-499;
 - exact-target direction: QS_FAKE role-5 to final-QS role-6 matrix projection;
 - HyperOS remains translation/appearance authority; raw native expansion drives transition geometry and native fake/final Folme owns visual handoff;
 - Guiyuan reads native transition state and renders only its owned Trinity correspondence; final role-6 top-level slots are read-only occupancy witnesses, while the existing QS_FAKE statusIcons-paddingEnd owner now provides a progress-synchronous semantic reservation so surrounding native peers move through SystemUI's own measure/layout path;
@@ -32,6 +32,11 @@ Build 497 is the current focused Keyguard-island checkpoint. Build-496 device ev
 
 
 Build 498 isolates the remaining Keyguard Super-Island hitch from diagnostic overhead. Build 497 device validation removes the one-frame VPN/layout flash, confirming the Keyguard reservation discontinuity is fixed, but a terminal hitch remains whenever the lockscreen Super-Island replay animation runs, independent of charging. The island hook remains read-only runtime state authority, but its 900 ms `OnPreDrawListener` diagnostic sampler is removed completely. Detailed diagnostics now records only the single island event snapshot; no per-frame island geometry traversal/logging runs during the animation. Transition, reservation, Keyguard lease/callback phase, island animation ownership, and Home behavior are unchanged.
+
+
+Build 498 device validation is now accepted for its isolated goals: the Keyguard + Super-Island terminal hitch no longer reproduces after removing the diagnostic frame probe, and the Build-497 VPN/whole-row terminal flash remains gone. The Build-496 master-switch fail-native transaction is also device-accepted: disabling Guiyuan restores native presentation normally without requiring a Control Center pull. These accepted safety/performance results are protection boundaries for Build 499.
+
+Build 499 returns to the deferred transition-geometry defects without changing those accepted boundaries. HyperOS native presentation now owns the No-SIM semantic before stale mobile cache can participate, so native `no_sim` immediately suppresses old subscription/signal/type state. Steady source basis remains frozen, but external motion follows the real source/fake/final `MiuiStatusIconContainer` carrier chain instead of projecting every component from one static source origin; this targets the visible vertical-first/high trajectory while keeping HyperOS progress as the sole gesture timeline. Final ImageView/StatusBarIcon targets use their live drawable frame rather than the whole slot box, so Mobile, Airplane and No-SIM optical endpoints inherit native glyph geometry. Participants that are actually hidden by the current Guiyuan presentation but have no independent compact source (for example an additional SIM, or supplemental Airplane/No-SIM semantics) use one ownership-gated latent projection: they share the same native carrier path, remain invisible while crossing other icons, and reveal only near their final native slot. Unmatched compact content, including the Mobile dots/unavailable-mark group when it has no native destination, follows the carrier and exits quickly without a separate shrink timeline. No new hook, animator, polling loop, native translation writer, or timing constant is introduced.
 
 ## Current architecture boundary
 
@@ -96,8 +101,12 @@ Device testing is requested only when the result can change implementation choic
 
 ## Immediate next step
 
-1. Run exact-head Runtime CI for Build 496, then produce one signed Canary.
-2. Safety gate: with Guiyuan enabled, disable the master switch while watching steady Home. Previously covered/suppressed native icons must return immediately without pulling Control Center.
+1. Run exact-head Runtime CI for Build 499 and produce one signed work-branch Canary from that exact source.
+2. Device gate: verify native No-SIM entry/exit, supplemental participant reveal, Mobile native optical height, and the full Home/Keyguard Control Center trajectory in both directions.
+3. Regression gate: Build-498 Keyguard + Super-Island must remain hitch-free with no VPN/whole-row flash; Build-496 master-switch fail-native behavior must remain accepted.
+4. Only after those gates pass should PR #177 be considered for integration.
+
+Historical safety checklist (retained for traceability): with Guiyuan enabled, disable the master switch while watching steady Home. Previously covered/suppressed native icons must return immediately without pulling Control Center.
 3. Still disabled, pull and collapse Control Center once; steady Home must remain native-correct before and after the gesture.
 4. Re-enable Guiyuan and verify compact presentation reacquires without SystemUI restart/Hot Reload.
 5. Only after this gate passes, resume transition motion ownership work: native peers move directly lower-left, while Guiyuan currently inserts an incorrect initial vertical-only segment. Charging press-left bias and charging-island final overlap remain queued with that motion review.
