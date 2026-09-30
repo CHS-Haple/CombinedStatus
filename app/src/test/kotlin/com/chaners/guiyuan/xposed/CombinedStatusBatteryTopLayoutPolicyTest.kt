@@ -22,8 +22,6 @@ class CombinedStatusBatteryTopLayoutPolicyTest {
             CombinedStatusBatteryTopLayoutPolicy.resolveOpticalBaseCenterY(
                 preferredCenterY = 16f,
                 defaultOpticalRise = 1.5f,
-                contentInkHeight = 18f,
-                minimumSafeTopY = -36f,
             )
 
         assertEquals(14.5f, base, 0.0001f)
@@ -49,8 +47,6 @@ class CombinedStatusBatteryTopLayoutPolicyTest {
                 baseCenterY = 14.5f,
                 requestedOffset = 20f,
                 positiveLimit = 30f,
-                contentInkHeight = 18f,
-                minimumSafeTopY = -36f,
             )
 
         assertEquals(-5.5f, center, 0.0001f)
@@ -63,8 +59,6 @@ class CombinedStatusBatteryTopLayoutPolicyTest {
                 baseCenterY = 14.5f,
                 requestedOffset = 30f,
                 positiveLimit = 30f,
-                contentInkHeight = 18f,
-                minimumSafeTopY = -36f,
             )
 
         assertEquals(-15.5f, center, 0.0001f)
@@ -78,8 +72,6 @@ class CombinedStatusBatteryTopLayoutPolicyTest {
                 baseCenterY = 14.5f,
                 requestedOffset = 30f,
                 positiveLimit = 30f,
-                contentInkHeight = 18f,
-                minimumSafeTopY = -10f,
             )
 
         assertEquals(-1f, center, 0.0001f)
@@ -92,8 +84,6 @@ class CombinedStatusBatteryTopLayoutPolicyTest {
                 baseCenterY = 13.5f,
                 requestedOffset = -30f,
                 positiveLimit = 30f,
-                contentInkHeight = 18f,
-                minimumSafeTopY = -36f,
             )
 
         assertEquals(43.5f, center, 0.0001f)
