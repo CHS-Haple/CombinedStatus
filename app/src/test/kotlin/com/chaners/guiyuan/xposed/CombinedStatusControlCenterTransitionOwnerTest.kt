@@ -53,7 +53,7 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
-    fun transitionReservationUsesFinalOccupancyBeforeNativeMotion() {
+    fun transitionReservationInterpolatesTotalWidthFromNativeProgress() {
         val spans =
             listOf(
                 CombinedStatusControlCenterTransitionOwner.Policy.ReservationSpan(
@@ -64,61 +64,100 @@ class CombinedStatusControlCenterTransitionOwnerTest {
                 ),
             )
 
-        val width =
+        assertEquals(
+            10,
             CombinedStatusControlCenterTransitionOwner.Policy
                 .resolveTransitionReservationWidth(
                     compactWidthPx = 10,
                     spans = spans,
-                )
-
-        assertEquals(30, width)
+                    progress = 0f,
+                ),
+        )
+        assertEquals(
+            20,
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .resolveTransitionReservationWidth(
+                    compactWidthPx = 10,
+                    spans = spans,
+                    progress = 0.5f,
+                ),
+        )
+        assertEquals(
+            30,
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .resolveTransitionReservationWidth(
+                    compactWidthPx = 10,
+                    spans = spans,
+                    progress = 1f,
+                ),
+        )
     }
 
     @Test
-    fun interpolatedReservationHelperStillDescribesSpanGeometryOnly() {
-        val width =
-            CombinedStatusControlCenterTransitionOwner.Policy.resolveReservationWidth(
-                compactWidthPx = 10,
-                spans =
-                    listOf(
-                        CombinedStatusControlCenterTransitionOwner.Policy.ReservationSpan(
-                            sourceLeft = -10f,
-                            sourceRight = 0f,
-                            targetLeft = -30f,
-                            targetRight = 0f,
-                        ),
-                    ),
-                progress = 0.5f,
+    fun totalWidthInterpolationAvoidsOverlappingSpanDeadZone() {
+        val spans =
+            listOf(
+                CombinedStatusControlCenterTransitionOwner.Policy.ReservationSpan(
+                    sourceLeft = 0f,
+                    sourceRight = 0f,
+                    targetLeft = -180f,
+                    targetRight = -105f,
+                ),
             )
-        assertEquals(20, width)
-    }
 
-    @Test
-    fun latentReservationCreatesPeerSpaceBeforeLatentReveal() {
-        val width =
+        val oldGeometryUnion =
+            CombinedStatusControlCenterTransitionOwner.Policy.resolveReservationWidth(
+                compactWidthPx = 105,
+                spans = spans,
+                progress = 0.25f,
+            )
+        val transitionWidth =
             CombinedStatusControlCenterTransitionOwner.Policy
                 .resolveTransitionReservationWidth(
                     compactWidthPx = 105,
-                    spans =
-                        listOf(
-                            CombinedStatusControlCenterTransitionOwner.Policy.ReservationSpan(
-                                sourceLeft = 0f,
-                                sourceRight = 0f,
-                                targetLeft = -180f,
-                                targetRight = -105f,
-                            ),
-                        ),
+                    spans = spans,
+                    progress = 0.25f,
                 )
 
-        val reveal =
-            CombinedStatusControlCenterTransitionOwner.Policy.latentRevealOpacity(
-                carriedSource = floatArrayOf(100f, 50f, 20f, 0f, 0f, 20f),
-                current = floatArrayOf(150f, 50f, 20f, 0f, 0f, 20f),
-                nativeSlotWidth = 75f,
-            )
+        assertEquals(105, oldGeometryUnion)
+        assertTrue(transitionWidth > 105)
+        assertTrue(transitionWidth < 180)
+    }
 
-        assertTrue(width > 105)
-        assertEquals(0f, reveal, 0.0001f)
+    @Test
+    fun latentTargetProximityRevealUsesCompactOpticalWidth() {
+        val target = floatArrayOf(200f, 50f, 20f, 0f, 0f, 20f)
+
+        assertEquals(
+            0f,
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .latentTargetProximityOpacity(
+                    current = floatArrayOf(179f, 50f, 20f, 0f, 0f, 20f),
+                    target = target,
+                    opticalWidth = 20f,
+                ),
+            0.0001f,
+        )
+        assertEquals(
+            0.5f,
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .latentTargetProximityOpacity(
+                    current = floatArrayOf(190f, 50f, 20f, 0f, 0f, 20f),
+                    target = target,
+                    opticalWidth = 20f,
+                ),
+            0.0001f,
+        )
+        assertEquals(
+            1f,
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .latentTargetProximityOpacity(
+                    current = target,
+                    target = target,
+                    opticalWidth = 20f,
+                ),
+            0.0001f,
+        )
     }
 
     @Test
@@ -299,39 +338,36 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
-    fun latentParticipantWaitsForOneNativeSlotThenRevealsQuickly() {
-        val carriedSource = floatArrayOf(100f, 50f, 20f, 0f, 0f, 20f)
-        val beforeSlot = floatArrayOf(174f, 80f, 20f, 0f, 0f, 20f)
-        val slotReady = floatArrayOf(175f, 80f, 20f, 0f, 0f, 20f)
-        val fastReveal = floatArrayOf(194f, 80f, 20f, 0f, 0f, 20f)
+    fun latentRevealRemainsHiddenUntilFinalOpticalNeighborhood() {
+        val target = floatArrayOf(200f, 80f, 20f, 0f, 0f, 20f)
 
         assertEquals(
             0f,
             CombinedStatusControlCenterTransitionOwner.Policy
-                .latentRevealOpacity(
-                    carriedSource = carriedSource,
-                    current = beforeSlot,
-                    nativeSlotWidth = 75f,
+                .latentTargetProximityOpacity(
+                    current = floatArrayOf(170f, 80f, 20f, 0f, 0f, 20f),
+                    target = target,
+                    opticalWidth = 20f,
                 ),
             0.0001f,
         )
         assertEquals(
-            0f,
+            0.15625f,
             CombinedStatusControlCenterTransitionOwner.Policy
-                .latentRevealOpacity(
-                    carriedSource = carriedSource,
-                    current = slotReady,
-                    nativeSlotWidth = 75f,
+                .latentTargetProximityOpacity(
+                    current = floatArrayOf(185f, 80f, 20f, 0f, 0f, 20f),
+                    target = target,
+                    opticalWidth = 20f,
                 ),
             0.0001f,
         )
         assertEquals(
             1f,
             CombinedStatusControlCenterTransitionOwner.Policy
-                .latentRevealOpacity(
-                    carriedSource = carriedSource,
-                    current = fastReveal,
-                    nativeSlotWidth = 75f,
+                .latentTargetProximityOpacity(
+                    current = target,
+                    target = target,
+                    opticalWidth = 20f,
                 ),
             0.0001f,
         )
