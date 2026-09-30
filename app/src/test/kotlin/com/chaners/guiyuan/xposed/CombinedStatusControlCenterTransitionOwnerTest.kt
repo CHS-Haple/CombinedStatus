@@ -154,6 +154,66 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
+    fun carrierRelativeInterpolationPreservesSourceLocalPositionAtStart() {
+        val source =
+            floatArrayOf(75f, 50f, 10f, 0f, 0f, 10f)
+        val target =
+            floatArrayOf(235f, 150f, 20f, 0f, 0f, 20f)
+        val sourceCarrier =
+            floatArrayOf(50f, 50f, 100f, 0f, 0f, 100f)
+        val currentCarrier =
+            floatArrayOf(60f, 65f, 100f, 0f, 0f, 100f)
+        val targetCarrier =
+            floatArrayOf(200f, 150f, 100f, 0f, 0f, 100f)
+
+        val result =
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .interpolateCarrierRelativeGeometry(
+                    source = source,
+                    target = target,
+                    sourceCarrier = sourceCarrier,
+                    currentCarrier = currentCarrier,
+                    targetCarrier = targetCarrier,
+                    progress = 0f,
+                    scalePolicy = CombinedStatusPainter.TransitionScalePolicy.TARGET,
+                )
+
+        assertEquals(85f, result[0], 0.0001f)
+        assertEquals(65f, result[1], 0.0001f)
+        assertEquals(10f, result[2], 0.0001f)
+        assertEquals(10f, result[5], 0.0001f)
+    }
+
+    @Test
+    fun carrierRelativeInterpolationLandsExactlyOnTargetWhenCarriersConverge() {
+        val source =
+            floatArrayOf(75f, 50f, 10f, 0f, 0f, 10f)
+        val target =
+            floatArrayOf(235f, 150f, 20f, 0f, 0f, 20f)
+        val sourceCarrier =
+            floatArrayOf(50f, 50f, 100f, 0f, 0f, 100f)
+        val targetCarrier =
+            floatArrayOf(200f, 150f, 100f, 0f, 0f, 100f)
+
+        val result =
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .interpolateCarrierRelativeGeometry(
+                    source = source,
+                    target = target,
+                    sourceCarrier = sourceCarrier,
+                    currentCarrier = targetCarrier,
+                    targetCarrier = targetCarrier,
+                    progress = 1f,
+                    scalePolicy = CombinedStatusPainter.TransitionScalePolicy.TARGET,
+                )
+
+        assertEquals(target[0], result[0], 0.0001f)
+        assertEquals(target[1], result[1], 0.0001f)
+        assertEquals(target[2], result[2], 0.0001f)
+        assertEquals(target[5], result[5], 0.0001f)
+    }
+
+    @Test
     fun latentParticipantStaysHiddenUntilItIsNearItsNativeTarget() {
         val target = floatArrayOf(0f, 0f, 10f, 0f, 0f, 10f)
         val far = floatArrayOf(20f, 0f, 10f, 0f, 0f, 10f)
