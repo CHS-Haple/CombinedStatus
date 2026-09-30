@@ -549,6 +549,7 @@ internal object CombinedStatusControlCenterRenderSession {
                         tintState = tint,
                         visualSettings = currentVisualSettings,
                     ),
+                visualSettings = currentVisualSettings,
                 stateVersion = transitionStateVersion,
             )
         }
