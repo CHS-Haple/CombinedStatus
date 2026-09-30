@@ -240,6 +240,32 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
+    fun semanticLatentParticipantWaitsForSeparationButAppearsBeforeLanding() {
+        val source = floatArrayOf(0f, 0f, 10f, 0f, 0f, 10f)
+        val target = floatArrayOf(100f, 0f, 10f, 0f, 0f, 10f)
+        val early = floatArrayOf(30f, 0f, 10f, 0f, 0f, 10f)
+        val revealing = floatArrayOf(55f, 0f, 10f, 0f, 0f, 10f)
+        val nearTarget = floatArrayOf(85f, 0f, 10f, 0f, 0f, 10f)
+
+        assertEquals(
+            0f,
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .semanticLatentRevealOpacity(source, early, target),
+            0.0001f,
+        )
+        assertTrue(
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .semanticLatentRevealOpacity(source, revealing, target) > 0f,
+        )
+        assertEquals(
+            1f,
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .semanticLatentRevealOpacity(source, nearTarget, target),
+            0.0001f,
+        )
+    }
+
+    @Test
     fun latentParticipantStaysHiddenUntilItIsNearItsNativeTarget() {
         val target = floatArrayOf(0f, 0f, 10f, 0f, 0f, 10f)
         val far = floatArrayOf(20f, 0f, 10f, 0f, 0f, 10f)

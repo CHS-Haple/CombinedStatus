@@ -460,6 +460,35 @@ internal object CombinedStatusControlCenterTransitionOwner {
             )
         }
 
+        fun semanticLatentRevealOpacity(
+            source: FloatArray,
+            current: FloatArray,
+            target: FloatArray,
+        ): Float {
+            require(source.size == 6 && current.size == 6 && target.size == 6)
+            val totalDx = target[0] - source[0]
+            val totalDy = target[1] - source[1]
+            val totalDistance = sqrt(totalDx * totalDx + totalDy * totalDy)
+            if (totalDistance <= 0.001f) return 1f
+
+            val remainingDx = target[0] - current[0]
+            val remainingDy = target[1] - current[1]
+            val remainingDistance =
+                sqrt(remainingDx * remainingDx + remainingDy * remainingDy)
+            val travel =
+                (1f - remainingDistance / totalDistance)
+                    .coerceIn(0f, 1f)
+
+            val revealStart = 0.36f
+            val revealFull = 0.80f
+            if (travel <= revealStart) return 0f
+            if (travel >= revealFull) return 1f
+            val normalized =
+                ((travel - revealStart) / (revealFull - revealStart))
+                    .coerceIn(0f, 1f)
+            return normalized * normalized * (3f - 2f * normalized)
+        }
+
         fun latentRevealOpacity(
             current: FloatArray,
             target: FloatArray,
@@ -1207,7 +1236,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     targetGeometry = targetGeometry,
                 )
             val revealProgress =
-                Policy.latentRevealOpacity(
+                Policy.semanticLatentRevealOpacity(
+                    source = sourceGeometry,
                     current = pathGeometry,
                     target = targetGeometry,
                 )
@@ -1294,7 +1324,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     targetGeometry = targetGeometry,
                 )
             val revealProgress =
-                Policy.latentRevealOpacity(
+                Policy.semanticLatentRevealOpacity(
+                    source = sourceGeometry,
                     current = pathGeometry,
                     target = targetGeometry,
                 )
