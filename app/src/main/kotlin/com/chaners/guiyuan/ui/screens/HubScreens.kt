@@ -32,12 +32,13 @@ import com.chaners.guiyuan.settings.BATTERY_TOP_TEXT_UI_SCALE_MAX
 import com.chaners.guiyuan.settings.BATTERY_TOP_TEXT_UI_SCALE_MIN
 import com.chaners.guiyuan.settings.BATTERY_TOP_TEXT_WEIGHT_MAX
 import com.chaners.guiyuan.settings.BATTERY_TOP_TEXT_WEIGHT_MIN
-import com.chaners.guiyuan.settings.BATTERY_TOP_VERTICAL_OFFSET_MAX
-import com.chaners.guiyuan.settings.BATTERY_TOP_VERTICAL_OFFSET_MIN
+import com.chaners.guiyuan.settings.BATTERY_TOP_VERTICAL_OFFSET_UI_MAX
+import com.chaners.guiyuan.settings.BATTERY_TOP_VERTICAL_OFFSET_UI_MIN
 import com.chaners.guiyuan.settings.CombinedStatusFeatureSettingsRepository
 import com.chaners.guiyuan.settings.CombinedStatusVisualSettingsRepository
 import com.chaners.guiyuan.settings.batteryTopChargingIconUiScale
 import com.chaners.guiyuan.settings.batteryTopTextUiScale
+import com.chaners.guiyuan.settings.batteryTopVerticalOffsetUi
 import com.chaners.guiyuan.system.SystemUiScopeController
 import com.chaners.guiyuan.ui.components.MiuixBlurredTopBar
 import com.chaners.guiyuan.ui.components.rememberTopBarBackdrop
@@ -139,18 +140,22 @@ internal fun FeaturesScreen(
                     magnetThreshold = 0.035f,
                     enabled = featureSettings.enabled,
                 )
+                val verticalOffsetUi =
+                    batteryTopVerticalOffsetUi(
+                        visualSettings.batteryTopVerticalOffset,
+                    )
                 SliderPreference(
-                    value = visualSettings.batteryTopVerticalOffset,
+                    value = verticalOffsetUi,
                     onValueChange = visualRepository::setBatteryTopVerticalOffset,
                     title = stringResource(R.string.battery_top_vertical_offset),
                     valueText =
                         stringResource(
                             R.string.battery_top_offset_value,
-                            visualSettings.batteryTopVerticalOffset.roundToInt(),
+                            verticalOffsetUi.roundToInt(),
                         ),
                     valueRange =
-                        BATTERY_TOP_VERTICAL_OFFSET_MIN..
-                            BATTERY_TOP_VERTICAL_OFFSET_MAX,
+                        BATTERY_TOP_VERTICAL_OFFSET_UI_MIN..
+                            BATTERY_TOP_VERTICAL_OFFSET_UI_MAX,
                     steps = 59,
                     showKeyPoints = true,
                     keyPoints = listOf(0f),
