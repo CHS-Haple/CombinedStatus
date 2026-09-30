@@ -131,6 +131,66 @@ class CombinedStatusScenePolicyTest {
     }
 
     @Test
+    fun keyguardControlCenterLeaseRejectsEveryIndependentInvalidBoundary() {
+        val base =
+            CombinedStatusScenePolicy.shouldRetainKeyguardControlCenterLease(
+                leaseActive = true,
+                sourceScene = CombinedStatusSourceScene.KEYGUARD,
+                featureEnabled = true,
+                keyguardEnabled = true,
+                hostAttached = true,
+                aodBlocked = false,
+                nativeFraction = 0.5f,
+            )
+        assertTrue(base)
+
+        assertFalse(
+            CombinedStatusScenePolicy.shouldRetainKeyguardControlCenterLease(
+                leaseActive = false,
+                sourceScene = CombinedStatusSourceScene.KEYGUARD,
+                featureEnabled = true,
+                keyguardEnabled = true,
+                hostAttached = true,
+                aodBlocked = false,
+                nativeFraction = 0.5f,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.shouldRetainKeyguardControlCenterLease(
+                leaseActive = true,
+                sourceScene = CombinedStatusSourceScene.KEYGUARD,
+                featureEnabled = false,
+                keyguardEnabled = true,
+                hostAttached = true,
+                aodBlocked = false,
+                nativeFraction = 0.5f,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.shouldRetainKeyguardControlCenterLease(
+                leaseActive = true,
+                sourceScene = CombinedStatusSourceScene.KEYGUARD,
+                featureEnabled = true,
+                keyguardEnabled = false,
+                hostAttached = true,
+                aodBlocked = false,
+                nativeFraction = 0.5f,
+            ),
+        )
+        assertFalse(
+            CombinedStatusScenePolicy.shouldRetainKeyguardControlCenterLease(
+                leaseActive = true,
+                sourceScene = CombinedStatusSourceScene.KEYGUARD,
+                featureEnabled = true,
+                keyguardEnabled = true,
+                hostAttached = false,
+                aodBlocked = false,
+                nativeFraction = 0.5f,
+            ),
+        )
+    }
+
+    @Test
     fun keyguardControlCenterLeaseExistsOnlyInsideVerifiedNativeTransitionLifetime() {
         assertTrue(
             CombinedStatusScenePolicy.shouldAcquireKeyguardControlCenterLease(

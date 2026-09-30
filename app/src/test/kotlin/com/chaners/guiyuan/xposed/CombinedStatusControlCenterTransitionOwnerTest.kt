@@ -599,6 +599,40 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
+    fun dualRowCompositeCannotExposeExactFourBarCapability() {
+        val components =
+            listOf(
+                CombinedStatusParticipantVisualSnapshot.NormalizedRect(0.05f, 0.60f, 0.15f, 0.95f),
+                CombinedStatusParticipantVisualSnapshot.NormalizedRect(0.30f, 0.48f, 0.40f, 0.95f),
+                CombinedStatusParticipantVisualSnapshot.NormalizedRect(0.55f, 0.34f, 0.65f, 0.95f),
+                CombinedStatusParticipantVisualSnapshot.NormalizedRect(0.80f, 0.18f, 0.90f, 0.95f),
+                CombinedStatusParticipantVisualSnapshot.NormalizedRect(0.05f, 0.05f, 0.15f, 0.12f),
+                CombinedStatusParticipantVisualSnapshot.NormalizedRect(0.30f, 0.05f, 0.40f, 0.12f),
+                CombinedStatusParticipantVisualSnapshot.NormalizedRect(0.55f, 0.05f, 0.65f, 0.12f),
+                CombinedStatusParticipantVisualSnapshot.NormalizedRect(0.80f, 0.05f, 0.90f, 0.12f),
+            )
+        val envelope =
+            CombinedStatusParticipantVisualSnapshot.NormalizedRect(
+                left = 0.05f,
+                top = 0.05f,
+                right = 0.90f,
+                bottom = 0.95f,
+            )
+        val snapshot =
+            CombinedStatusParticipantVisualSnapshot.Snapshot(
+                envelope = envelope,
+                components = components,
+                topology = CombinedStatusParticipantVisualSnapshot.classifyComponents(components),
+            )
+
+        assertEquals(
+            CombinedStatusParticipantVisualSnapshot.Topology.COMPOSITE,
+            snapshot.topology,
+        )
+        assertNull(snapshot.fourVerticalBarsWithinEnvelope())
+    }
+
+    @Test
     fun participantVisualTopologyDistinguishesFourBarsFromComposite() {
         val fourBars =
             listOf(
