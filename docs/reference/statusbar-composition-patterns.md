@@ -891,3 +891,20 @@ not:
 For latent 0→1 / 1→N participants, full final occupancy may exist before the participant pixels are visible. Pixel reveal remains separately gated by verified native slot separation. This keeps **layout occupancy**, **native motion**, and **visual reveal** as three distinct authorities.
 
 This principle does not require a custom timeline or fixed offset and avoids turning semantic reservation into a second animation engine.
+
+
+---
+
+## Mobile transition optical target: ImageView drawable vs compatibility composite
+
+A Mobile signal transition must not equate a View's outer rectangle with the signal glyph's optical height.
+
+For the pinned HyperOS target:
+- the native `mobile_signal` participant is an ImageView whose drawable may contain substantial transparent vertical padding;
+- HyperCeiler dual-row compatibility is detected structurally as a visible composite FrameLayout when the native `mobile_signal` child is hidden. Its upper-bars/lower-dots content intentionally occupies the composite structure height.
+
+Guiyuan therefore uses two geometry authorities:
+- **native ImageView:** cached alpha-derived drawable optical bounds, mapped through the ImageView matrix;
+- **compatibility composite:** the composite View geometry itself.
+
+Do not hard-code a separate height ratio for HyperOS vs HyperCeiler. Detection remains semantic/structural, and missing reliable optical evidence fails back to existing native/frame geometry.

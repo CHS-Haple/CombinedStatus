@@ -18,11 +18,11 @@ Control Center transition animation is the active runtime task.
 
 Current implementation line:
 - PR #177 — feat/control-center-transition-matrix;
-- current work-branch checkpoint: Build 506 / 20260930-506;
+- current work-branch checkpoint: Build 507 / 20260930-507;
 - exact-target direction: QS_FAKE role-5 to final-QS role-6 matrix projection;
 - HyperOS remains translation/appearance authority; raw native expansion drives transition geometry and native fake/final Folme owns visual handoff;
-- Guiyuan reads native transition state and renders only its owned Trinity correspondence; final role-6 top-level slots are read-only occupancy witnesses, while the existing QS_FAKE statusIcons-paddingEnd owner now applies one pre-expanded final semantic reservation before native Control Center motion, then remains constant for the gesture;
-- Trinity transition is component-driven: Painter owns source optical bounds/semantic target/shape policy; role-6 top-level slots own final occupancy, child/drawable data refines optical alignment, and reservation width is the frozen union of final native semantic spans rather than a gesture-progress animation or rendered pixel envelope;
+- Guiyuan reads native transition state and renders only its owned Trinity correspondence; final role-6 top-level slots are read-only occupancy witnesses, while the existing QS_FAKE statusIcons-paddingEnd owner interpolates the frozen total semantic occupancy from compact to final using raw HyperOS expansion progress;
+- Trinity transition is component-driven: Painter owns source optical bounds/semantic target/shape policy; role-6 top-level slots own final occupancy, child/drawable data refines optical alignment, and reservation motion is the compact-to-final interpolation of the frozen total semantic width rather than per-span union growth;
 - generic peer projection, Guiyuan-owned network composition, and native-only unsupported peers remain separated.
 
 PR #174 is an older transition route and must not overwrite the newer active matrix line or accepted Build-473 renderer state.
@@ -55,6 +55,13 @@ Build 505 follows Build-504 device acceptance of the two primary geometry correc
 
 
 Build 506 follows a corrected device observation: with Guiyuan enabled, **the whole QS_FAKE status row**, including unrelated native peer icons, first drops almost vertically and only then develops the expected leftward component; with Guiyuan disabled, the native row follows its normal path. This disproves the earlier narrow hypothesis that only the Trinity overlay was consuming horizontal progress incorrectly. Review of the single native-layout writer shows that transition reservation currently changes `MiuiStatusIconContainer.paddingEnd` on every expansion sample. Each change calls `setPaddingRelative`, requests layout, and incrementally expands the represented occupancy while HyperOS is simultaneously applying its own Control Center root translation. Build-504 diagnostics show the effect directly: at fraction ~0.116 the reservation is only 106 px for a 105 px compact slot, while later fractions grow it substantially, so the project-owned horizontal reflow starts weak and becomes dominant only after native vertical motion has already begun. Build 506 changes reservation ownership from **progress-synchronous reflow** to **pre-expanded final occupancy**. On the first pre-native expansion sample, Guiyuan resolves the frozen semantic final spans once, applies the complete final reservation width before HyperOS consumes that sample, and then keeps that padding constant for the whole gesture. The transition therefore has one layout cutover followed by native carrier motion, rather than a layout mutation on every frame. Build-504 root-space endpoint projection, Build-505 latent reservation spans, and latent reveal/scale rules are unchanged.
+
+
+Build 507 follows Build-506 device rejection and two additional visual comparisons. Build 506's one-shot final reservation is rejected because pressing/pulling immediately moves the whole native QS_FAKE peer row to its final horizontal layout. The Build-506 diagnostic confirms a compact 105 px slot jumping directly to a 387 px requested reservation before the first logged ~0.135 expansion sample. Build 505 exposed the opposite extreme: per-span geometry interpolation kept the union width near compact too long, so the row first moved vertically and only later gained a strong leftward component. Build 507 therefore freezes only the **final total semantic width** and interpolates the requested reservation directly from compact to final using raw HyperOS expansion progress. This removes both the early union dead-zone and the Build-506 one-shot final-x jump.
+
+Latent reveal ownership is also corrected. Airplane / No-SIM / additional-SIM pixels no longer become visible merely because the projected glyph has moved one generic slot-width away from its source. Each participant computes the reservation width required to contain its real final target slot fully; opacity stays zero until the current reservation reaches that width. After occupancy is valid, reveal occurs only inside the final compact optical-width neighborhood of the root-space target. No fixed 1.2x/1.3x slot multiplier or timing delay is introduced.
+
+The user-provided comparison of HyperOS native single-row signal and HyperCeiler dual-row signal exposes a separate Mobile morph target error. The native `mobile_signal` ImageView and HyperCeiler composite both occupy roughly 75 px outer boxes, but their actual optical content differs: native single-row bars occupy a smaller central drawable region, whereas the HyperCeiler upper-bars/lower-dots composite legitimately uses most of the structure height. Build 507 therefore applies the existing cached alpha optical-bounds probe to **native `mobile_signal` ImageView drawables** and keeps the already-detected `hyperceiler-dual-signal` composite on its structural bounds. The decision is structural, not module-name/device hard-coding. Probe results are cached by Drawable.ConstantState + level and are never measured by mutating a live drawable; missing cloneable constant state fails native.
 
 ## Current architecture boundary
 
@@ -119,11 +126,12 @@ Device testing is requested only when the result can change implementation choic
 
 ## Immediate next step
 
-1. Run exact-head Runtime CI for Build 506 and produce one signed work-branch Canary from the same SHA.
-2. Primary device gate: compare Control Center pull trajectory with Guiyuan enabled vs disabled. With Guiyuan enabled, unrelated native peer icons must no longer show a distinct vertical-only first segment caused by progressive re-layout.
-3. Confirm the first visible transition frame has already reserved the complete final semantic width; no mid-gesture peer reflow should be visible.
-4. Confirm Build-504 accepted geometry remains intact: final fake/real alignment and compact no-source Airplane size.
-5. Confirm Build-505 contract remains intact: latent Airplane/No-SIM/additional SIM have space reserved before reveal, and reverse collapse releases the reservation cleanly.
+1. Run exact-head Runtime CI for Build 507 and produce one signed work-branch Canary from the same SHA.
+2. Whole-row path gate: pressing must no longer jump native peers directly to final x (Build 506 failure), and slow pull must no longer retain the 505 early near-vertical segment caused by total-width dead-zone. Compare Guiyuan enabled vs disabled.
+3. Latent gate: Airplane / No-SIM / additional SIM remain fully hidden until their real target slot is contained by current reservation; after that, reveal is short and target-local with no overlap into the adjacent native peer.
+4. Mobile morph gate, native single-row: four dots expand to bars whose optical maximum height matches the true native `mobile_signal` drawable rather than its 75x75 outer View box.
+5. Mobile morph gate, HyperCeiler dual-row: keep the previously visually correct composite-height behavior; do not shrink the morph to the single-row optical height.
+6. Preserve Build-504 accepted boundaries: final fake/real alignment and compact no-source glyph scale.
 
 Historical safety checklist (retained for traceability): with Guiyuan enabled, disable the master switch while watching steady Home. Previously covered/suppressed native icons must return immediately without pulling Control Center.
 3. Still disabled, pull and collapse Control Center once; steady Home must remain native-correct before and after the gesture.

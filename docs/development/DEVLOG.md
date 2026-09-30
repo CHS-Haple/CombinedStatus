@@ -12618,3 +12618,68 @@ Focused device gate:
 3. Latent Airplane slot must already be open before reveal.
 4. No regression in Build-504 final alignment or Airplane size.
 5. Reverse collapse must release full reservation without a terminal peer snap.
+
+
+## 2026-09-30 — Build 507: native-progress total reservation, occupancy-gated reveal, structure-aware Mobile optical target
+
+**Type:** Control Center peer-layout trajectory / latent reveal / Mobile morph optical target  
+**Display version:** 0.0.3  
+**Build / source:** 507 / `20260930-507` / `feat/control-center-transition-matrix`
+
+### Device evidence
+
+Build 506 is rejected for reservation timing:
+- on press, native peer icons move directly to the final horizontal layout;
+- latent reveal can still be visible while overlapping an adjacent peer.
+
+The diagnostic confirms the layout jump: compact semantic width 105 px is replaced by requested width 387 px (`paddingEndDelta=252`) before the first logged expansion frame near 0.135.
+
+Build 505 showed the opposite trajectory error: per-span source->target interpolation followed by union measurement kept early requested width near compact because compact semantic spans overlap heavily; horizontal reflow therefore started late and strengthened after native vertical motion was already visible.
+
+Two user-provided videos also compare final Mobile structures:
+- HyperOS native single-row signal: the `mobile_signal` outer ImageView is ~75 px high but the four-bar optical content occupies a substantially smaller center region;
+- HyperCeiler dual-row signal: upper bars + lower dots legitimately consume most of the composite structure height.
+The existing unified outer-box height therefore overgrows Guiyuan's four-point -> bars morph for native single-row while coincidentally matching the dual-row compatibility structure.
+
+### Root cause
+
+**Reservation:** the writer is valid, but the width curve was wrong at both extremes. Build 505 animated individual spans then measured a union, creating an early dead-zone. Build 506 pre-applied final union width, creating an immediate final-x layout jump.
+
+**Reveal:** source-separation distance is not proof that the adjacent native peer has already vacated the real destination slot.
+
+**Mobile height:** `mobileTargetHeightRatio` consumed target geometry derived from the whole drawable frame. For native single-row `mobile_signal`, transparent drawable padding is part of that frame; for the HyperCeiler compatibility composite, full structural bounds are intentional.
+
+### Change
+
+- Freeze final semantic spans, resolve their final total reservation width once, and interpolate **compactWidth -> finalTotalWidth** directly from raw HyperOS expansion progress.
+- Keep per-span interpolation helper as geometry/reference logic only; it no longer owns native peer spacing.
+- A latent participant computes the requested reservation width needed to contain its actual final slot. Pixels remain at opacity 0 until current reservation reaches that participant-specific occupancy.
+- After occupancy is valid, reveal is based on remaining distance to the true root-space target over the participant's compact optical width, producing a short final-local fade.
+- Extract the existing drawable alpha optical probe into a shared cached helper.
+- Native `mobile_signal` ImageView witnesses use current drawable optical bounds when no explicit target optical bounds already exist.
+- Existing `hyperceiler-dual-signal` compatibility witnesses remain composite View geometry and bypass the native drawable probe.
+- Cache probe results by cloneable `Drawable.ConstantState + level`; never tint or draw the live SystemUI drawable for measurement.
+- Build identity becomes `versionCode=260930307`, `buildId=20260930-507`.
+
+### 审查 / review
+
+- **root-cause-first:** no pixel offset, no delayed runnable, no hand-tuned reservation threshold.
+- **native progress:** HyperOS expansion remains the only row-spacing timeline; Guiyuan maps it to semantic total occupancy.
+- **single writer:** the existing `statusIcons-paddingEnd` owner remains the only peer-layout writer.
+- **occupancy vs reveal:** native peer spacing and latent pixel opacity are separate authorities.
+- **structure-aware compatibility:** native single-row uses drawable optical content; HyperCeiler dual-row uses the already-identified composite structure. No package/module name branch is used.
+- **performance:** optical raster probing is cached per Drawable.ConstantState + level; ordinary frames are cache lookups only.
+- **side-effect safety:** the probe requires a cloneable constant state and measures only a cloned drawable. Missing cloneability returns null and preserves existing native/frame geometry.
+- **reverse:** decreasing native progress shrinks total reservation symmetrically; participant-specific occupancy gate hides latent pixels before their target slot ceases to fit.
+- **protected boundaries:** Build-491/497/498, Build-500 source authority, Build-504 root-space endpoint and SHRINK_ONLY latent scale remain unchanged.
+
+### Validation
+
+Exact-head Runtime CI and one signed Canary are required.
+
+Focused device gates:
+1. press/slow pull whole-row trajectory vs Guiyuan disabled;
+2. latent Airplane reveal only after a clean visible slot exists;
+3. native single-row Mobile morph maximum bar height matches the native bar glyph;
+4. HyperCeiler dual-row retains its prior visually correct height;
+5. final root-space alignment and no-source glyph size remain accepted.
