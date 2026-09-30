@@ -12555,3 +12555,66 @@ Focused device gate:
 3. Airplane remains compact; no target-slot enlargement.
 4. Reverse collapse closes the gap smoothly.
 5. Dual-SIM / No-SIM, when available, follow the same reservation-before-reveal behavior.
+
+
+## 2026-09-30 — Build 506: pre-expand final reservation; stop per-frame native-row reflow
+
+**Type:** Control Center native-peer motion ownership / reservation lifecycle  
+**Display version:** 0.0.3  
+**Build / source:** 506 / `20260930-506` / `feat/control-center-transition-matrix`
+
+### Corrected device evidence
+
+The trajectory defect is not limited to the projected Trinity. With Guiyuan enabled, the **entire** QS_FAKE status row, including unrelated native icons, first moves mostly vertically and only later develops the leftward component. With Guiyuan disabled, the native row follows the expected HyperOS trajectory.
+
+This supersedes the earlier Build-505 working hypothesis that the remaining path shape was primarily caused by double-consuming progress inside Trinity projection.
+
+### Root cause
+
+The only Guiyuan writer capable of changing unrelated native-peer geometry during Control Center motion is the existing semantic reservation writer:
+`MiuiStatusIconContainer.paddingEnd`.
+
+Before Build 506, every expansion/pre-draw update computed:
+
+`compact source span -> progress-interpolated semantic target span -> requested paddingEnd`.
+
+Changing padding calls `setPaddingRelative` and causes native status-icon layout to be recomputed while HyperOS is simultaneously moving QS_FAKE through its own native translation path.
+
+Build-504 device diagnostics are consistent with this two-motion composition:
+- at fraction about 0.116, a 105 px compact slot requested only ~106 px, so project-owned horizontal reflow was nearly zero while native vertical motion was already visible;
+- at later fractions, reservation grew by tens to >100 px, making the leftward layout component progressively stronger.
+
+This creates the observed “first down, then left-down” path for the whole row.
+
+### Change
+
+- Add `Policy.resolveTransitionReservationWidth(...)`, which resolves semantic occupancy at the **final span** rather than at the current gesture fraction.
+- When transition reservation becomes active, apply the complete frozen final reservation width on the pre-native expansion callback.
+- Keep that width constant for the entire active gesture; `lastReservationWidthPx` prevents repeat writes on pre-draw/update.
+- Clear the reservation through the existing lifecycle when transition ownership ends.
+- Keep Build-505 latent spans in the same final reservation, so no-source Airplane / No-SIM / additional SIM space exists before pixels reveal.
+- Keep Build-504 root-space target projection and `SHRINK_ONLY` latent scale unchanged.
+- Build identity becomes `versionCode=260930306`, `buildId=20260930-506`.
+
+### 审查 / review
+
+- **root-cause-first:** removes the only project-owned per-frame layout mutation affecting unrelated native peers instead of tuning Trinity motion curves.
+- **native-first:** after one semantic layout cutover, HyperOS owns the row’s motion for the rest of the gesture.
+- **single writer:** no new writer is introduced; the existing padding writer changes lifecycle from per-frame to one-shot.
+- **no timing patch:** no delay, fraction threshold, interpolator or fixed px correction is added.
+- **pre-native ordering:** the existing expansion interception invokes Guiyuan before `chain.proceed()`, so final occupancy is committed before HyperOS consumes the first visible expansion sample.
+- **latent sequencing:** final occupancy exists before `latentRevealOpacity()` can become non-zero, matching the intended “leave the slot first, then reveal” behavior.
+- **performance:** eliminates repeated `setPaddingRelative/requestLayout` churn during gesture frames.
+- **reverse/cleanup:** reservation remains constant while ownership is active and is restored via the existing transition cleanup path; no reverse per-frame reflow is introduced.
+- **protected boundaries:** Build-491/497/498, Build-500 steady source, Build-504 root-space endpoint/latent scale, and Build-505 latent span discovery are untouched.
+
+### Validation
+
+Exact-head Runtime CI and one signed Canary are required.
+
+Focused device gate:
+1. Slow Home outward pull: unrelated native peers and Trinity should share a continuous diagonal native row trajectory, without a distinct vertical-only first segment introduced by Guiyuan.
+2. Compare enabled vs disabled visually; remaining difference should be semantic decomposition, not whole-row carrier path.
+3. Latent Airplane slot must already be open before reveal.
+4. No regression in Build-504 final alignment or Airplane size.
+5. Reverse collapse must release full reservation without a terminal peer snap.

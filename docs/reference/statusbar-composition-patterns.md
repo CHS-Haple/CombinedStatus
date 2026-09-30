@@ -868,3 +868,26 @@ is safer than:
 when carrier A/B have independent layout/translation ownership.
 
 The external code is not copied. Guiyuan keeps its own source witness, rendering model, reservation, lifecycle and fail-native contracts.
+
+
+---
+
+## Transition reservation lifecycle: semantic occupancy must not become a second motion system
+
+**Build-506 device correction and implementation review.**
+
+A semantic reservation can be structurally correct but still violate native motion ownership if its size changes every gesture frame.
+
+On the pinned HyperOS target, QS_FAKE already has a native translation path. Mutating `MiuiStatusIconContainer.paddingEnd` on every expansion sample introduces an additional project-owned horizontal layout trajectory for the entire native peer row. Because `setPaddingRelative` requests layout, the peer row is continuously reflowed while HyperOS is also translating its Control Center surface.
+
+The preferred contract is:
+
+`first pre-native expansion sample -> resolve/freeze final semantic occupancy -> one layout cutover -> native carrier motion`
+
+not:
+
+`every expansion sample -> resize semantic occupancy -> request layout -> native carrier motion`.
+
+For latent 0→1 / 1→N participants, full final occupancy may exist before the participant pixels are visible. Pixel reveal remains separately gated by verified native slot separation. This keeps **layout occupancy**, **native motion**, and **visual reveal** as three distinct authorities.
+
+This principle does not require a custom timeline or fixed offset and avoids turning semantic reservation into a second animation engine.

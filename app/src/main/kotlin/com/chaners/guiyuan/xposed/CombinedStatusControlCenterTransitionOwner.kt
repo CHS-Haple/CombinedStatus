@@ -256,6 +256,16 @@ internal object CombinedStatusControlCenterTransitionOwner {
             return kotlin.math.ceil((right - left).coerceAtLeast(compact.toFloat())).toInt()
         }
 
+        fun resolveTransitionReservationWidth(
+            compactWidthPx: Int,
+            spans: List<ReservationSpan>,
+        ): Int =
+            resolveReservationWidth(
+                compactWidthPx = compactWidthPx,
+                spans = spans,
+                progress = 1f,
+            )
+
         fun interpolateGeometry(
             source: FloatArray,
             target: FloatArray,
@@ -654,7 +664,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 ",witness=" + lastWitnessSummary +
                 ",reservation=" + (lastReservationWidthPx ?: -1) +
                 ",reservationMode=" +
-                (if (transitionReservationEnabled) "progress-padding" else "native-peer-motion") +
+                (if (transitionReservationEnabled) "preexpanded-final-padding" else "native-peer-motion") +
                 "}"
 
         fun matches(
@@ -1348,21 +1358,10 @@ internal object CombinedStatusControlCenterTransitionOwner {
                             frozenReservationSpans = resolved
                         }
                     ?: return
-            val finalAppearanceAlpha =
-                finalRootRef.get()
-                    ?.let(::endpointAlpha)
-                    ?: 0f
-            val reservationProgress =
-                Policy.handoffMotionProgress(
-                    expansionProgress = progress,
-                    finalAppearanceAlpha = finalAppearanceAlpha,
-                    finalAppearanceActive = nativeAppearance,
-                )
             val requestedWidth =
-                Policy.resolveReservationWidth(
+                Policy.resolveTransitionReservationWidth(
                     compactWidthPx = frozenSource?.width ?: source.width,
                     spans = spans,
-                    progress = reservationProgress,
                 )
             if (lastReservationWidthPx == requestedWidth) return
             if (

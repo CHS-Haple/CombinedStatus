@@ -18,7 +18,7 @@ Control Center transition animation is the active runtime task.
 
 Current implementation line:
 - PR #177 — feat/control-center-transition-matrix;
-- current work-branch checkpoint: Build 505 / 20260930-505;
+- current work-branch checkpoint: Build 506 / 20260930-506;
 - exact-target direction: QS_FAKE role-5 to final-QS role-6 matrix projection;
 - HyperOS remains translation/appearance authority; raw native expansion drives transition geometry and native fake/final Folme owns visual handoff;
 - Guiyuan reads native transition state and renders only its owned Trinity correspondence; final role-6 top-level slots are read-only occupancy witnesses, while the existing QS_FAKE statusIcons-paddingEnd owner now provides a progress-synchronous semantic reservation so surrounding native peers move through SystemUI's own measure/layout path;
@@ -52,6 +52,9 @@ Build 504 follows Build-503 device rejection and an implementation-level referen
 
 
 Build 505 follows Build-504 device acceptance of the two primary geometry corrections: the fake Trinity now aligns with the final native row and no-source Airplane no longer enlarges. The remaining defect is occupancy lead: latent Airplane / No-SIM / additional-SIM participants reveal at the correct size and target, but surrounding native peers do not first leave the intended slot-width gap. Build 501 removed all latent reservation after the old carrier-relative projection produced a reservation→carrier→trajectory feedback loop. Build 504 removed that endpoint model; projected endpoints are now absolute root-space role-6 geometry and latent scale is SHRINK_ONLY. Build 505 therefore restores only the Build-500 latent **reservation** semantics: additional Mobile expands from the compact Mobile source span toward its native final slot, while Airplane and No-SIM expand from a zero-width compact-end occupancy toward their native final slots. Drawing still uses the existing native-slot separation reveal gate, so reservation can move native peers before opacity becomes non-zero. No custom time offset, delay, threshold, pixel compensation, target-carrier geometry or additional writer is introduced.
+
+
+Build 506 follows a corrected device observation: with Guiyuan enabled, **the whole QS_FAKE status row**, including unrelated native peer icons, first drops almost vertically and only then develops the expected leftward component; with Guiyuan disabled, the native row follows its normal path. This disproves the earlier narrow hypothesis that only the Trinity overlay was consuming horizontal progress incorrectly. Review of the single native-layout writer shows that transition reservation currently changes `MiuiStatusIconContainer.paddingEnd` on every expansion sample. Each change calls `setPaddingRelative`, requests layout, and incrementally expands the represented occupancy while HyperOS is simultaneously applying its own Control Center root translation. Build-504 diagnostics show the effect directly: at fraction ~0.116 the reservation is only 106 px for a 105 px compact slot, while later fractions grow it substantially, so the project-owned horizontal reflow starts weak and becomes dominant only after native vertical motion has already begun. Build 506 changes reservation ownership from **progress-synchronous reflow** to **pre-expanded final occupancy**. On the first pre-native expansion sample, Guiyuan resolves the frozen semantic final spans once, applies the complete final reservation width before HyperOS consumes that sample, and then keeps that padding constant for the whole gesture. The transition therefore has one layout cutover followed by native carrier motion, rather than a layout mutation on every frame. Build-504 root-space endpoint projection, Build-505 latent reservation spans, and latent reveal/scale rules are unchanged.
 
 ## Current architecture boundary
 
@@ -116,11 +119,11 @@ Device testing is requested only when the result can change implementation choic
 
 ## Immediate next step
 
-1. Run exact-head Runtime CI for Build 505 and produce one signed work-branch Canary from the same SHA.
-2. Primary device gate: Airplane with no independent compact source. During slow outward pull, surrounding native peers must visibly create the empty final-slot gap **before** the Airplane glyph starts revealing.
-3. Confirm Build-504 accepted geometry remains intact: no whole-group right bias and no oversized Airplane.
-4. Reverse collapse must close the latent occupancy cleanly without a peer snap or a lingering blank slot.
-5. If available, repeat with dual SIM / No-SIM to confirm the same reservation-before-reveal contract is shared across 1→N and 0→1 latent participants.
+1. Run exact-head Runtime CI for Build 506 and produce one signed work-branch Canary from the same SHA.
+2. Primary device gate: compare Control Center pull trajectory with Guiyuan enabled vs disabled. With Guiyuan enabled, unrelated native peer icons must no longer show a distinct vertical-only first segment caused by progressive re-layout.
+3. Confirm the first visible transition frame has already reserved the complete final semantic width; no mid-gesture peer reflow should be visible.
+4. Confirm Build-504 accepted geometry remains intact: final fake/real alignment and compact no-source Airplane size.
+5. Confirm Build-505 contract remains intact: latent Airplane/No-SIM/additional SIM have space reserved before reveal, and reverse collapse releases the reservation cleanly.
 
 Historical safety checklist (retained for traceability): with Guiyuan enabled, disable the master switch while watching steady Home. Previously covered/suppressed native icons must return immediately without pulling Control Center.
 3. Still disabled, pull and collapse Control Center once; steady Home must remain native-correct before and after the gesture.

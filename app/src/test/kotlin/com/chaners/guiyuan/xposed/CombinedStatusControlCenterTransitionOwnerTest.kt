@@ -53,7 +53,29 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
-    fun reservationFollowsNativeProgressWithoutASecondSemanticTimeline() {
+    fun transitionReservationUsesFinalOccupancyBeforeNativeMotion() {
+        val spans =
+            listOf(
+                CombinedStatusControlCenterTransitionOwner.Policy.ReservationSpan(
+                    sourceLeft = -10f,
+                    sourceRight = 0f,
+                    targetLeft = -30f,
+                    targetRight = 0f,
+                ),
+            )
+
+        val width =
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .resolveTransitionReservationWidth(
+                    compactWidthPx = 10,
+                    spans = spans,
+                )
+
+        assertEquals(30, width)
+    }
+
+    @Test
+    fun interpolatedReservationHelperStillDescribesSpanGeometryOnly() {
         val width =
             CombinedStatusControlCenterTransitionOwner.Policy.resolveReservationWidth(
                 compactWidthPx = 10,
@@ -74,19 +96,19 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     @Test
     fun latentReservationCreatesPeerSpaceBeforeLatentReveal() {
         val width =
-            CombinedStatusControlCenterTransitionOwner.Policy.resolveReservationWidth(
-                compactWidthPx = 105,
-                spans =
-                    listOf(
-                        CombinedStatusControlCenterTransitionOwner.Policy.ReservationSpan(
-                            sourceLeft = 0f,
-                            sourceRight = 0f,
-                            targetLeft = -180f,
-                            targetRight = -105f,
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .resolveTransitionReservationWidth(
+                    compactWidthPx = 105,
+                    spans =
+                        listOf(
+                            CombinedStatusControlCenterTransitionOwner.Policy.ReservationSpan(
+                                sourceLeft = 0f,
+                                sourceRight = 0f,
+                                targetLeft = -180f,
+                                targetRight = -105f,
+                            ),
                         ),
-                    ),
-                progress = 0.75f,
-            )
+                )
 
         val reveal =
             CombinedStatusControlCenterTransitionOwner.Policy.latentRevealOpacity(
