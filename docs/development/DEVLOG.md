@@ -12748,3 +12748,17 @@ Focused device gates:
 3. Composite/dual-row targets retain composite topology even when secondary dots are small.
 4. Whole native-row trajectory keeps the Build-507 total-width interpolation behavior.
 5. Final fake/real alignment and no-source compact scale remain accepted.
+
+
+### Build 508 final latent-reveal correction
+
+Post-implementation review found one remaining legacy assumption in the first visual-snapshot draft: although fade distance used snapshot visual width, the permission gate still required a full native slot-width plus a full slot-width of source separation. That retained the same structural mismatch that caused Build 507's no-source participants to remain invisible through full expansion.
+
+The final Build-508 gate is now snapshot-native:
+- transform the participant's real visual snapshot envelope and final Battery end into one global coordinate basis;
+- derive the reservation width required to contain that visual envelope, not the outer slot;
+- keep opacity at zero until current semantic reservation reaches that width;
+- once reservation is valid, reveal only inside one real target visual extent around the root-space target;
+- on reverse collapse, reservation falling below the visual-envelope requirement hides the participant before peer space closes.
+
+No module identity, fixed slot multiplier, timing delay, or extra writer is introduced.

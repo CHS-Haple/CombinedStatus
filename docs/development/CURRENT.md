@@ -72,6 +72,9 @@ Mobile consumes the same snapshot: when four real bars are reliably detected, th
 
 Latent reveal keeps Build-507's native-progress total reservation curve but replaces the deadlocking full-target-slot condition. Pixels stay hidden until native peer spacing has opened by at least one real target slot width and the latent projection has separated by the same amount from its carried source; after that, reveal completes quickly over the snapshot's real visual width. This preserves “space first, pixels second” without waiting until the destination slot is fully contained at the moment the fake overlay is already disappearing. Build-504 root-space endpoint alignment, SHRINK_ONLY latent scale and Build-491/497/498 protected boundaries remain unchanged.
 
+
+Build 508 final latent-reveal review removes the last slot-sized gate. Latent participants no longer wait for an entire native slot-width or for source-distance to exceed that slot. The final visual snapshot envelope is transformed into the same global basis as the final Battery end; current transition reservation must first cover that **real visible envelope**, then opacity is allowed only inside one real target visual extent around the root-space target center. This fixes the Build-507 failure where no-source participants could remain invisible until the fake overlay had already reached alpha 0, while preserving the intended order: peer space first, pixels second. Reverse collapse closes in the opposite order because loss of visual-envelope reservation forces opacity to zero before the reservation continues shrinking.
+
 ## Current architecture boundary
 
 ### Home
