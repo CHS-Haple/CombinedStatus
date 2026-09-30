@@ -13755,3 +13755,71 @@ That changes height but preserves circular topology, so the result reads as an e
   - local axis compensation exactly restores native target aspect after outer similarity scaling;
   - charging glyph reaches opacity 0 before the Battery shape morph completes.
 - Build 529 exact-head Runtime CI + signed Canary required for visual review.
+
+
+## 2026-10-01 — Build 530: rollback rejected Battery morph and isolate typography convergence to transition frames
+
+**Type:** device-driven rollback / transition typography correction
+**Display version:** 0.0.3
+**Build / source:** 530 / `20261001-530` / `feat/battery-top-readout` / PR #181
+
+### Maintainer feedback
+
+Build 529 Battery-ring transition is visually rejected and must be rolled back.
+
+The Build-527 Mobile Type source-size adjustment also violated the intended boundary: steady Guiyuan 5G and steady battery percentage styling must not be changed merely to match Control Center targets. The requirement is narrower:
+
+- steady/compact Guiyuan size and weight remain exactly as configured/original;
+- only while pulling Control Center should 5G and battery-number typography converge;
+- at the final transition frame, size and weight should be optically coincident with the corresponding native target;
+- charging lightning must travel with the battery number rather than fade while remaining attached to the ring.
+
+### Root cause
+
+The previous Mobile Type correction changed the compact source constants (39 -> 29, 23 -> 17, rise 8 -> 6). That solves one endpoint-scale symptom by altering the source, but it changes steady-state appearance and therefore owns the wrong layer.
+
+For target convergence, changing Typeface weight also changes glyph ink bounds. The old transition matrix was still constructed from the original fixed source bounds, so even a correct target weight could produce an endpoint whose visible ink envelope did not exactly match the target geometry.
+
+Charging lightning was owned by the Battery-body component, while battery percentage had an independent `BATTERY_NUMBER` target. Any fade on the Battery-body path therefore looked stationary relative to the moving number.
+
+### Change
+
+- Restore the entire Battery-body transition from Build 528, removing Build-529 shape-local ring morph code.
+- Restore Mobile Type steady constants to 39 / 23 / 8 and retain original steady weight behavior.
+- Do not change battery-top steady text size/weight policy.
+- Keep native target weight observation read-only.
+- Add transition-only current-ink bounds:
+  - Mobile Type: interpolate weight, re-run the existing optical text layout at that weight, and use those current bounds only for the matrix source rectangle;
+  - Battery number: interpolate weight, remeasure current text ink/stroke bounds at that weight, and use those bounds only for the matrix source rectangle.
+- Path geometry still comes from the original frozen source -> exact native target interpolation. Only the matrix's local source rectangle changes with current typography.
+- At p=0 the dynamic bounds equal the original source bounds; at p=1 the current target-weight ink bounds are mapped onto the exact native target geometry.
+- Move charging lightning drawing out of the Battery body and into `BATTERY_NUMBER`, so it shares the same transform as the moving/scaling number.
+- Keep lightning fully visible through early/middle travel, then smooth-fade from 58% to 88% for handoff. It has no independent path or target.
+- Advance runtime identity to Build 530.
+
+### 问题执行流程
+
+1. Restore accepted Build-528 Battery fold.
+2. Restore compact Mobile Type source typography.
+3. Preserve steady battery-number styling.
+4. Observe exact native target geometry and target TextView weight.
+5. Interpolate typography only in transition frames.
+6. Recompute current glyph ink bounds after weight interpolation.
+7. Build matrix from current ink bounds -> interpolated native target geometry.
+8. Draw charging lightning inside the number component so it physically follows the number.
+9. Fade lightning only during late handoff.
+
+### 审查 / review
+
+- **steady-state ownership:** no target-matching constant modifies steady Guiyuan 5G or battery percentage.
+- **native endpoint:** target root-space geometry and observed native weight remain authoritative.
+- **optical endpoint:** dynamic source ink bounds prevent weight-induced width/height drift at p=1.
+- **single motion authority:** 5G, battery number and charging follower all use the existing HyperOS transition progress/matrix; no animator/timer is added.
+- **charging ownership:** lightning is visually subordinate to Battery Number during transition and no longer competes with the ring path.
+- **Fail native:** absent target weight keeps source weight; absent target geometry preserves the existing unmatched/fallback behavior.
+- **rollback:** Build-529 ring morph is fully absent from runtime.
+- **protected paths:** Build-528 latent reveal and Build-526 Battery-Island reservation authority are preserved.
+
+### Validation
+
+Runtime CI required. Exact-head signed Canary required because optical overlap and charging-follow behavior need device visual confirmation.
