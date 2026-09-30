@@ -53,6 +53,8 @@ internal object CombinedStatusParticipantVisualSnapshot {
         val envelope: NormalizedRect,
         val components: List<NormalizedRect>,
         val topology: Topology,
+        val inkCenterX: Float? = null,
+        val inkCenterY: Float? = null,
     ) {
         fun fourVerticalBarsWithinEnvelope(): List<NormalizedRect>? {
             if (topology != Topology.FOUR_VERTICAL_BARS || components.size != 4) {
@@ -126,6 +128,41 @@ internal object CombinedStatusParticipantVisualSnapshot {
             is ViewGroup -> resolveViewGroup(view)
             else -> null
         }
+
+    internal data class NormalizedPoint(
+        val x: Float,
+        val y: Float,
+    )
+
+    internal fun resolveAlphaWeightedCenter(
+        pixels: IntArray,
+        width: Int,
+        height: Int,
+    ): NormalizedPoint? {
+        if (width <= 0 || height <= 0) return null
+        val expectedSize = width.toLong() * height.toLong()
+        if (expectedSize > pixels.size.toLong()) return null
+
+        var totalAlpha = 0.0
+        var weightedX = 0.0
+        var weightedY = 0.0
+        for (y in 0 until height) {
+            for (x in 0 until width) {
+                val alpha = (pixels[y * width + x] ushr 24) and 0xff
+                if (alpha <= ALPHA_THRESHOLD) continue
+                val weight = alpha.toDouble()
+                totalAlpha += weight
+                weightedX += (x + 0.5) * weight
+                weightedY += (y + 0.5) * weight
+            }
+        }
+        if (totalAlpha <= 0.0) return null
+
+        return NormalizedPoint(
+            x = (weightedX / totalAlpha / width).toFloat().coerceIn(0f, 1f),
+            y = (weightedY / totalAlpha / height).toFloat().coerceIn(0f, 1f),
+        )
+    }
 
     internal fun filterProbeComponents(
         components: List<NormalizedRect>,
@@ -220,6 +257,14 @@ internal object CombinedStatusParticipantVisualSnapshot {
             envelope = envelope,
             components = components,
             topology = classifyComponents(components),
+            inkCenterX =
+                drawableSnapshot.inkCenterX?.let { centerX ->
+                    (frame.left + centerX * frame.width()) / image.width
+                },
+            inkCenterY =
+                drawableSnapshot.inkCenterY?.let { centerY ->
+                    (frame.top + centerY * frame.height()) / image.height
+                },
         )
     }
 
@@ -330,6 +375,12 @@ internal object CombinedStatusParticipantVisualSnapshot {
                     height = probeHeight,
                 )
             if (raw.isEmpty()) return null
+            val inkCenter =
+                resolveAlphaWeightedCenter(
+                    pixels = pixels,
+                    width = probeWidth,
+                    height = probeHeight,
+                )
             val meaningful =
                 filterProbeComponents(
                     components = raw,
@@ -344,6 +395,8 @@ internal object CombinedStatusParticipantVisualSnapshot {
                 envelope = envelope,
                 components = finalComponents,
                 topology = classifyComponents(finalComponents),
+                inkCenterX = inkCenter?.x,
+                inkCenterY = inkCenter?.y,
             )
         } finally {
             bitmap.recycle()
