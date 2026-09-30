@@ -136,7 +136,9 @@ internal class CombinedStatusPainter(
         mobileTargetHeightRatio: Float? = null,
         mobileTargetBars: List<TransitionNormalizedBounds>? = null,
         batteryNumberTargetWeight: Int? = null,
+        batteryNumberTargetStyle: TransitionTextStyle? = null,
         centerTargetTextWeight: Int? = null,
+        centerTargetTextStyle: TransitionTextStyle? = null,
     ) {
         if (width <= 0 || height <= 0 || opacity <= 0f) return
 
@@ -202,6 +204,7 @@ internal class CombinedStatusPainter(
                         ),
                     motionProgress = motion,
                     targetWeight = batteryNumberTargetWeight,
+                    targetStyle = batteryNumberTargetStyle,
                     nativeTransform = nativeTransform,
                 )
 
@@ -234,6 +237,8 @@ internal class CombinedStatusPainter(
                     geometry = transitionGeometry,
                     nativeTransform = nativeTransform,
                     scaleMobileTypeWithCanvas = false,
+                    mobileTypeTargetStyle = centerTargetTextStyle,
+                    mobileTypeTransitionProgress = motion,
                 )
             }
 
@@ -283,6 +288,20 @@ internal class CombinedStatusPainter(
             return (source + (target - source) * normalized)
                 .roundToInt()
                 .coerceIn(1, 1000)
+        }
+    }
+
+    internal object TransitionTypographyPolicy {
+        private const val TARGET_STYLE_START = 0.42f
+        private const val TARGET_STYLE_COMPLETE = 0.88f
+
+        fun styleProgress(progress: Float): Float {
+            val normalized =
+                (
+                    (progress.coerceIn(0f, 1f) - TARGET_STYLE_START) /
+                        (TARGET_STYLE_COMPLETE - TARGET_STYLE_START)
+                ).coerceIn(0f, 1f)
+            return normalized * normalized * (3f - 2f * normalized)
         }
     }
 
@@ -461,6 +480,17 @@ internal class CombinedStatusPainter(
         val bottom: Float,
     )
 
+    internal data class TransitionTextStyle(
+        val typeface: Typeface?,
+        val weight: Int?,
+        val fakeBoldText: Boolean,
+        val textScaleX: Float,
+        val textSkewX: Float,
+        val letterSpacing: Float,
+        val strokeWidth: Float,
+        val paintStyle: Paint.Style,
+    )
+
     fun transitionComponentSpecs(
         width: Int,
         height: Int,
@@ -582,7 +612,7 @@ internal class CombinedStatusPainter(
                                     listOf("mobile_type_single", "mobile_type"),
                             ),
                         shapePolicy = TransitionShapePolicy.RIGID,
-                        scalePolicy = TransitionScalePolicy.SHRINK_ONLY,
+                        scalePolicy = TransitionScalePolicy.TARGET,
                     )
 
                 CenterIndicator.Airplane -> {
@@ -1251,6 +1281,7 @@ internal class CombinedStatusPainter(
         geometry: CombinedStatusOuterGeometry.Resolved,
         motionProgress: Float,
         targetWeight: Int?,
+        targetStyle: TransitionTextStyle?,
         nativeTransform: NativeRenderTransform,
     ) {
         val layout =
@@ -1294,6 +1325,8 @@ internal class CombinedStatusPainter(
             batteryTint = batteryTint,
             opacity = opacity,
             weight = weight,
+            targetStyle = targetStyle,
+            transitionProgress = progress,
         )
     }
 
@@ -1302,6 +1335,7 @@ internal class CombinedStatusPainter(
         height: Int,
         indicator: CenterIndicator.MobileType,
         targetWeight: Int?,
+        targetStyle: TransitionTextStyle?,
         progress: Float,
     ): TransitionBounds? {
         if (width <= 0 || height <= 0) return null
@@ -1324,6 +1358,8 @@ internal class CombinedStatusPainter(
                 scale = scale,
                 geometry = current,
                 scaleWithCanvas = false,
+                targetStyle = targetStyle,
+                transitionProgress = progress,
             ).bounds
         val offsetX = (width - CANONICAL_SIZE * scale) / 2f
         val offsetY = (height - CANONICAL_SIZE * scale) / 2f
@@ -1341,6 +1377,7 @@ internal class CombinedStatusPainter(
         model: CombinedStatusRenderModel,
         visualSettings: CombinedStatusVisualSettings,
         targetWeight: Int?,
+        targetStyle: TransitionTextStyle?,
         progress: Float,
     ): TransitionBounds? {
         if (width <= 0 || height <= 0) return null
@@ -1378,7 +1415,13 @@ internal class CombinedStatusPainter(
                     (resolvedTargetWeight - sourceWeight) *
                         progress.coerceIn(0f, 1f)
             ).roundToInt()
-        val local = batteryTopTextOpticalBounds(layout, currentWeight)
+        val local =
+            batteryTopTextOpticalBounds(
+                layout = layout,
+                weight = currentWeight,
+                targetStyle = targetStyle,
+                transitionProgress = progress,
+            )
         return TransitionBounds(
             left = offsetX + local.left * scale,
             top = offsetY + local.top * scale,
@@ -1390,14 +1433,21 @@ internal class CombinedStatusPainter(
     private fun batteryTopTextOpticalBounds(
         layout: BatteryTopReadoutLayout,
         weight: Int,
+        targetStyle: TransitionTextStyle? = null,
+        transitionProgress: Float = 0f,
     ): TransitionBounds {
         val extraStroke =
             batteryTopTextExtraStroke(
                 weight = weight,
                 textSize = layout.textSize,
             )
-        paint.typeface = batteryTopTextTypeface(weight)
-        paint.textSize = layout.textSize
+        configureTransitionTextStyle(
+            sourceTypeface = batteryTopTextTypeface(weight),
+            currentWeight = weight,
+            targetStyle = targetStyle,
+            progress = transitionProgress,
+            textSize = layout.textSize,
+        )
         paint.getTextBounds(layout.text, 0, layout.text.length, batteryTopTextBounds)
         val width =
             batteryTopTextBounds.width().toFloat().coerceAtLeast(0f) +
@@ -1419,6 +1469,8 @@ internal class CombinedStatusPainter(
         batteryTint: Int,
         opacity: Float,
         weight: Int,
+        targetStyle: TransitionTextStyle? = null,
+        transitionProgress: Float = 0f,
     ) {
         val extraStroke =
             batteryTopTextExtraStroke(
@@ -1433,15 +1485,26 @@ internal class CombinedStatusPainter(
                 semanticAlpha = 255,
                 opacity = opacity,
             )
-        paint.typeface = batteryTopTextTypeface(weight)
+        configureTransitionTextStyle(
+            sourceTypeface = batteryTopTextTypeface(weight),
+            currentWeight = weight,
+            targetStyle = targetStyle,
+            progress = transitionProgress,
+            textSize = layout.textSize,
+        )
         paint.textAlign = Paint.Align.LEFT
-        paint.textSize = layout.textSize
 
         // Weight interpolation can change glyph ink width. Re-anchor every
         // frame to the source optical center so typography changes cannot
         // introduce a sideways drift on top of the geometry morph.
         paint.getTextBounds(layout.text, 0, layout.text.length, batteryTopTextBounds)
-        val currentBounds = batteryTopTextOpticalBounds(layout, weight)
+        val currentBounds =
+            batteryTopTextOpticalBounds(
+                layout = layout,
+                weight = weight,
+                targetStyle = targetStyle,
+                transitionProgress = transitionProgress,
+            )
         val currentOpticalWidth = currentBounds.width
         val currentCenterX = layout.textOpticalBounds.centerX
         val textX =
@@ -1472,6 +1535,81 @@ internal class CombinedStatusPainter(
             textBaselineY,
             paint,
         )
+    }
+
+    private fun configureTransitionTextStyle(
+        sourceTypeface: Typeface,
+        currentWeight: Int,
+        targetStyle: TransitionTextStyle?,
+        progress: Float,
+        textSize: Float,
+    ) {
+        val styleProgress =
+            targetStyle
+                ?.let { TransitionTypographyPolicy.styleProgress(progress) }
+                ?: 0f
+        val targetWeight = targetStyle?.weight ?: currentWeight
+        val resolvedWeight =
+            (
+                currentWeight +
+                    (targetWeight - currentWeight) * styleProgress
+            ).roundToInt().coerceIn(1, 1000)
+        val targetTypeface = targetStyle?.typeface
+        paint.typeface =
+            when {
+                targetTypeface == null || styleProgress <= 0f ->
+                    sourceTypeface
+                styleProgress >= 0.999f ->
+                    targetTypeface
+                else ->
+                    Typeface.create(
+                        targetTypeface,
+                        resolvedWeight,
+                        targetTypeface.isItalic,
+                    )
+            }
+        paint.isFakeBoldText =
+            targetStyle?.fakeBoldText == true &&
+                styleProgress >= 0.72f
+        paint.textScaleX =
+            lerp(
+                1f,
+                targetStyle?.textScaleX
+                    ?.takeIf { it.isFinite() && it > 0f }
+                    ?: 1f,
+                styleProgress,
+            )
+        paint.textSkewX =
+            lerp(
+                0f,
+                targetStyle?.textSkewX
+                    ?.takeIf(Float::isFinite)
+                    ?: 0f,
+                styleProgress,
+            )
+        paint.letterSpacing =
+            lerp(
+                0f,
+                targetStyle?.letterSpacing
+                    ?.takeIf(Float::isFinite)
+                    ?: 0f,
+                styleProgress,
+            )
+        paint.strokeWidth =
+            lerp(
+                0f,
+                targetStyle?.strokeWidth
+                    ?.takeIf { it.isFinite() && it >= 0f }
+                    ?: 0f,
+                styleProgress,
+            )
+        paint.style =
+            if (targetStyle != null && styleProgress >= 0.999f) {
+                targetStyle.paintStyle
+            } else {
+                Paint.Style.FILL
+            }
+        paint.textSize = textSize
     }
 
     private fun batteryTopTextTypeface(weight: Int): Typeface {
@@ -1509,6 +1647,8 @@ internal class CombinedStatusPainter(
         geometry: CombinedStatusCenterGeometry.Resolved,
         nativeTransform: NativeRenderTransform,
         scaleMobileTypeWithCanvas: Boolean,
+        mobileTypeTargetStyle: TransitionTextStyle? = null,
+        mobileTypeTransitionProgress: Float = 0f,
     ) {
         if (previous == null || previous == current) {
             drawCenterIndicator(
@@ -1596,6 +1736,8 @@ internal class CombinedStatusPainter(
                     scale = scale,
                     geometry = geometry,
                     scaleWithCanvas = scaleMobileTypeWithCanvas,
+                    targetStyle = mobileTypeTargetStyle,
+                    transitionProgress = mobileTypeTransitionProgress,
                 )
 
             CenterIndicator.Airplane ->
@@ -2036,6 +2178,8 @@ internal class CombinedStatusPainter(
         scale: Float,
         geometry: CombinedStatusCenterGeometry.Resolved,
         scaleWithCanvas: Boolean,
+        targetStyle: TransitionTextStyle? = null,
+        transitionProgress: Float = 0f,
     ) {
         val layout =
             resolveMobileTypeLayout(
@@ -2043,6 +2187,8 @@ internal class CombinedStatusPainter(
                 scale = scale,
                 geometry = geometry,
                 scaleWithCanvas = scaleWithCanvas,
+                targetStyle = targetStyle,
+                transitionProgress = transitionProgress,
             )
 
         paint.style = Paint.Style.FILL
@@ -2053,7 +2199,13 @@ internal class CombinedStatusPainter(
                 semanticAlpha = 255,
                 opacity = opacity,
             )
-        paint.typeface = mobileTypeTypeface(geometry.mobileTypeWeight)
+        configureTransitionTextStyle(
+            sourceTypeface = mobileTypeTypeface(geometry.mobileTypeWeight),
+            currentWeight = geometry.mobileTypeWeight,
+            targetStyle = targetStyle,
+            progress = transitionProgress,
+            textSize = layout.mainTextSize,
+        )
         paint.textAlign = Paint.Align.LEFT
 
         paint.textSize = layout.mainTextSize
@@ -2079,6 +2231,8 @@ internal class CombinedStatusPainter(
         scale: Float,
         geometry: CombinedStatusCenterGeometry.Resolved,
         scaleWithCanvas: Boolean,
+        targetStyle: TransitionTextStyle? = null,
+        transitionProgress: Float = 0f,
     ): MobileTypeLayout {
         val normalized = indicator.label.trim().uppercase()
         val split =
@@ -2101,8 +2255,6 @@ internal class CombinedStatusPainter(
                 else -> normalized to ""
             }
 
-        paint.typeface = mobileTypeTypeface(geometry.mobileTypeWeight)
-        paint.textAlign = Paint.Align.LEFT
         val mainTextSize =
             if (scaleWithCanvas || scale <= 0f) {
                 geometry.mobileTypeTextSize
@@ -2116,7 +2268,14 @@ internal class CombinedStatusPainter(
                 geometry.mobileTypeSuffixSize / scale
             }
 
-        paint.textSize = mainTextSize
+        configureTransitionTextStyle(
+            sourceTypeface = mobileTypeTypeface(geometry.mobileTypeWeight),
+            currentWeight = geometry.mobileTypeWeight,
+            targetStyle = targetStyle,
+            progress = transitionProgress,
+            textSize = mainTextSize,
+        )
+        paint.textAlign = Paint.Align.LEFT
         paint.getTextBounds(
             split.first,
             0,
