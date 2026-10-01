@@ -1,3 +1,44 @@
+## 2026-10-02 — Build 578 scheme-page vertical overflow correction
+
+**Type:** App UI layout / MIUIX settings-page scrolling  
+**Display version:** 0.0.3  
+**Build:** 578 / `20261002-578`  
+**Branch / PR:** `feat/battery-top-readout` / #181
+
+### Device evidence
+
+Build-577 Canary #630 / run `36922895008` passed exact-head signing/runtime validation. Device screenshot then showed:
+- HyperOS Charging row rendered its green preview but no HEX summary;
+- the following Low-battery row was absent.
+
+### Root cause
+
+The palette data is correct: HyperOS Charging resolves to `#1DCD3A` and Low resolves to `#FA382E`.
+
+The defect is layout ownership. The scheme overview uses a fixed 455dp inner Pager, while the centered header plus six MIUIX setting rows can exceed that viewport on the real device. Build 577's clipping boundary therefore cut the Charging row between title and summary, then placed Low entirely below the viewport.
+
+This is one defect, not two color-state failures.
+
+### Change
+
+- Make `BatterySchemePageContent` vertically scrollable inside its existing Pager viewport.
+- Keep the outer BottomSheet at 520dp and the inner Pager at 455dp.
+- Keep MIUIX BasicComponent / ArrowPreference row typography, minimum height, spacing, and interaction unchanged.
+- Keep the Pager indicator outside the scrolling page so it remains fixed.
+- Do not compress rows, shrink text, enlarge the drawer, or special-case Charging/Low geometry.
+
+### 审查 / review
+
+- root cause is bounded to the scheme-page viewport;
+- no color source/palette/persistence change;
+- no Runtime/SystemUI/hook change;
+- no second sheet, nested vertical owner, timer, or geometry compensation;
+- vertical scrolling is page-local and coexists with the non-user-scrollable horizontal Pager.
+
+### Validation
+
+Run exact-head Runtime CI. If green, generate signed Work Branch Canary and verify that Charging shows `#1DCD3A`, Low battery is fully reachable, the Pager indicator stays fixed, and no header/content bleed returns.
+
 ## 2026-10-01 — Build 577 mode-detail MIUIX dropdown redesign
 
 **Type:** App UI hierarchy / MIUIX preference semantics / visual consistency  
