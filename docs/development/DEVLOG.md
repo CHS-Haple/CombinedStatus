@@ -14661,3 +14661,98 @@ Expected diagnostics during the affected pull:
 - `islandPeerFreeze=active:<n>`.
 
 Reject the checkpoint for `internal-progress-island-freeze-unavailable`, missing leftward reflow, premature disappearance, overlap/jump, stale spacing after collapse, or a non-island transition regression.
+
+
+## 2026-10-01 — Build 542: compensate QS_FAKE island width instead of freezing child visibility
+
+**Type:** root-cause correction / native layout-state bridge  
+**Display version:** 0.0.3  
+**Build / source:** 542 / `20261001-542` / `feat/battery-top-readout` / PR #181
+
+### Build-541 device result
+
+Build 541 is rejected by maintainer device evidence. Its intended contract did execute:
+- transition diagnostics report `reservationMode=native-progress-fake-island-freeze`;
+- `islandPeerFreeze=active:3`;
+- `nativeReservation` grows together with semantic reservation and `statusIcons.paddingEnd`;
+- nevertheless the recording still shows surrounding native peers disappearing during the generic-island pull.
+
+Therefore the failure is not “freeze contract unavailable”. The selected per-child `forceAppear` seam is below the actual QS_FAKE island-layout authority.
+
+### Root-cause refinement
+
+The exact target reference already establishes the stronger owner:
+`StatusBarIslandControllerImpl.statusContainerSpace -> IslandMonitor.FakeContainerIslandMonitor -> MiuiStatusIconContainer.islandWidth -> islandWidthChanged -> requestLayout()`.
+
+Stock Control Center begins from the steady status-bar icon population and does not introduce new status semantics during expansion. Guiyuan differs by decomposing one compact source into multiple transition semantics while the fake row moves away from Home.
+
+The Build-538/541 failure is therefore a double-accounting problem:
+1. native `islandWidth` already represents the steady island collision budget;
+2. Guiyuan additionally grows `statusIcons.paddingEnd` so peers make room for decomposed transition pixels;
+3. QS_FAKE then re-measures with both constraints, treating Guiyuan's transition-only width as if steady Home occupancy itself had grown.
+
+### Change
+
+Build 542 removes the Build-541 per-child `forceAppear` freeze.
+
+Under Home + generic island + semantic transition reservation:
+- verify `getIslandMonitor()` resolves to the exact `IslandMonitor$FakeContainerIslandMonitor`;
+- read the fake `MiuiStatusIconContainer.islandWidth` baseline `W`;
+- for each already-existing transition reservation update, compute Guiyuan-added padding delta `Δ = requestedReservation - compactWidth`;
+- write effective fake island width `max(0, W - Δ)` **before** exposing the matching native padding reservation;
+- set the existing native `islandWidthChanged=true` flag and request layout, matching the exact target's own monitor update invariant;
+- if native authority publishes a raw island width different from Guiyuan's last effective value, adopt that value as the new baseline before the next compensation;
+- on cleanup, restore the baseline only if the current field still equals Guiyuan's last compensated value and the island is still showing. If SystemUI has already replaced the state, cleanup does not overwrite it.
+
+The bridge does not detach/replace the island controller or monitor and does not write `ignoredSlots`, `forceAppear`, `islandAnimate`, View geometry/alpha/visibility, or Battery-Island authority.
+
+### 问题执行流程
+
+1. Home generic island is showing; HyperOS resolves steady status-container space.
+2. QS_FAKE receives that space as native `islandWidth=W`.
+3. Guiyuan transition begins with compact width, so `Δ=0` and native island behavior is unchanged.
+4. As Guiyuan decomposes, semantic reservation grows by `Δ`.
+5. Before the matching `statusIcons.paddingEnd` write, Build 542 changes fake `islandWidth` to `max(0, W-Δ)`.
+6. Native status-icon layout therefore still sees Guiyuan's real peer-reflow reservation without counting the same transition-only growth again as island collision space.
+7. Native updates during the gesture remain authoritative and may replace the baseline.
+8. Stop/detach/handoff restores only Guiyuan-owned compensated state when it is still current.
+
+### 审查 / review
+
+- **root-cause-first:** the correction directly targets the exact fake-container collision input; no X/Y threshold, delay, extra padding coefficient, endpoint constant, or custom island animator is introduced.
+- **native-first:** the bridge follows the exact target's own `islandWidth -> islandWidthChanged -> requestLayout` contract.
+- **single peer geometry writer:** `statusIcons.paddingEnd` remains the only Guiyuan peer-layout geometry writer. `islandWidth` is a scene-local native avoidance input, not a View transform.
+- **scope:** only the active QS_FAKE `MiuiStatusIconContainer` under Home + generic island + semantic reservation is eligible.
+- **no child membership writer:** Build-541 `forceAppear` mutation is removed; the provisional `ignoredSlots` approach was reviewed and rejected before device packaging because the retained exact target reference does not establish it as the required island mutation seam.
+- **no controller bypass:** a provisional monitor-detach implementation was also rejected before packaging; Build 542 leaves the native monitor/controller object graph intact.
+- **cleanup:** restore occurs only while the field still contains Guiyuan's last effective value. New native state wins.
+- **Fail native:** missing monitor identity, fields, or write contract keeps native padding expansion guarded.
+- **performance:** no new Hook, timer, poller, animator, or frame observer; compensation executes inside the already-existing transition reservation update/pre-draw path.
+- **Build-526 boundary:** generic island visibility still does not impersonate exact Battery-Island `isAddBatteryIsland`.
+
+### CI / repository integrity
+
+- First Build-542 implementation Runtime CI #2039: green, but its broader draft bridge was not accepted for device packaging.
+- Narrowed reviewed runtime at `e972bfb40dbc4ef8051b411a18641eb6026573b6`: Runtime CI #2040 **success**.
+- A transient malformed Git-tree composition created `c0e407f` and a full-tree restore `44aedc0`. These are repository-operation errors, not accepted runtime baselines.
+- Commit `08016fa7200ecb9b1b4588345b3f409e8fb5b881` restores the reviewed two runtime/test files. Its Git tree is exactly `0006f8b28c6f746e031bc817850bf9493d7e3c50`, identical to the #2040-tested `e972bfb` tree.
+- Final exact-head Runtime CI is required after this documentation-only commit.
+
+### Device validation gate
+
+Produce a signed exact-head Canary only after final Runtime is green.
+
+With a generic Super-Island visible:
+1. pull Home -> Control Center normally and once quickly;
+2. confirm peers continue moving left with Guiyuan decomposition;
+3. confirm the extra peer disappearance from Build 541 is absent;
+4. collapse completely and repeat once;
+5. watch for the opposite regression: an icon hidden in steady state must not unexpectedly appear during the pull;
+6. export Detailed diagnostics.
+
+Expected affected-pull diagnostics:
+- `reservationMode=native-progress-fake-island-compensated`;
+- `nativeReservation >= 0`;
+- `islandReservationBridge=active:base=<W>/effective=<...>/delta=<Δ>`.
+
+Reject for compensation unavailable, continued premature disappearance, new icon resurrection, overlap/jump, stale spacing after collapse, or any non-island regression.
