@@ -525,8 +525,8 @@ private fun resolveHomeRuntimeCardState(
 
 private val RuntimeCardHeight = 160.dp
 private val RuntimeStatusMarkSize = 96.dp
-private val HomePreviewStageHeight = 148.dp
+private val HomePreviewStageHeight = 180.dp
 private val HomePreviewIconSize = 112.dp
-private val HomePreviewSurfaceHeight = 144.dp
+private val HomePreviewSurfaceHeight = 176.dp
 private val RuntimeSuccessAccent = Color(0xFF36D167)
 private val RuntimeWarningAccent = Color(0xFFFFA500)

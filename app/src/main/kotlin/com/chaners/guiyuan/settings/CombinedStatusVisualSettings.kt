@@ -475,7 +475,7 @@ internal fun migrateBatteryTopChargingScaleReferenceIfNeeded(
                 BATTERY_TOP_SCALE_EPSILON
         ) {
             editor.putFloat(
-                activeProfileKey(BATTERY_TOP_CHARGING_ICON_SCALE_KEY),
+                BATTERY_TOP_CHARGING_ICON_SCALE_KEY,
                 BATTERY_TOP_CHARGING_ICON_UI_SCALE_REFERENCE,
             )
         }

@@ -14412,6 +14412,16 @@ The network TopSlot avoidance path was also not truly render-derived. It reused 
 - Native optical asymmetry remains preserved rather than being recentered into a symmetric max box.
 - Existing battery ring gap tests continue to verify width/height/vertical/asymmetric envelope behavior.
 
+### CI #2026 + preview-balance correction
+
+Runtime CI #2026 reached Kotlin compilation and exposed one compile-only scope error: the legacy flat charging-scale migration was accidentally rewritten to call Repository-private `activeProfileKey()`. The migration intentionally targets the legacy flat key because uninitialized layout profiles inherit from that key; it is restored to `BATTERY_TOP_CHARGING_ICON_SCALE_KEY` with no profile/runtime semantic change.
+
+Maintainer also reported that Preview Sandbox looked vertically low because the extra physical preview height was placed entirely above the logical viewport. The preview-only geometry is corrected without touching SystemUI runtime:
+- full sandbox keeps a 120x120 logical viewport with 32dp transparent space above **and** below (120x184 physical preview surface);
+- Home preview keeps a 112x112 logical viewport with 32dp transparent space above and below (112x176 physical preview surface);
+- `syncPreviewViewport()` centers the logical viewport inside any extra preview height by using half of the extra height as `topInsetPx`.
+
+This is App preview composition only. Home/Keyguard runtime logical viewport, overflow policy, native slot geometry and transition witnesses are unchanged.
 ### Validation gate
 
 Runtime CI is required. If green, produce one exact-head signed Build-538 Canary. Device validation must cover profile switching, 120% Battery-centered defaults/key points, 5G <-> Wi-Fi live gap resizing, no-network Wi-Fi, airplane/no-SIM, Keyguard overflow, Control Center semantic trajectories, preview parity and Hot Reload cleanup.

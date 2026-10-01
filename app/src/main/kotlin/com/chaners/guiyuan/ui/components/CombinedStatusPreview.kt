@@ -55,9 +55,10 @@ internal fun CombinedStatusPreview(
 private fun CombinedStatusRenderView.syncPreviewViewport() {
     if (width <= 0 || height <= 0) return
     val logicalSize = minOf(width, height)
+    val extraHeight = (height - logicalSize).coerceAtLeast(0)
     setLogicalViewport(
         widthPx = width,
         heightPx = logicalSize,
-        topInsetPx = (height - logicalSize).coerceAtLeast(0),
+        topInsetPx = extraHeight / 2,
     )
 }

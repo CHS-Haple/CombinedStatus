@@ -198,7 +198,7 @@ Confirmed:
   - unknown exact authority remains native-peer-motion rather than guessing `false`.
 
 Pending:
-- Build 538 Runtime CI.
+- Build 538 Runtime CI retry after #2026 exposed one compile-only legacy migration scope error (`activeProfileKey` referenced outside Repository).
 - if green, one exact-head signed Build-538 Canary.
 - focused device validation:
   - configure noticeably different number size, number weight, vertical offset, charging-glyph size and color-link switches in each layout; switching layouts must restore each profile independently;
@@ -209,6 +209,7 @@ Pending:
   - battery-information TopSlot avoidance must retain Build-536/537 behavior for size, weight, lightning and vertical offset;
   - Home and enabled Keyguard remain unclipped; Home/Keyguard -> Control Center semantic targets remain unchanged;
   - Home preview and Preview Sandbox must display the active profile immediately.
+  - Preview surfaces must remain visually centered: the existing 32dp top overflow allowance is mirrored with equal bottom space, while the logical preview viewport size remains unchanged.
 ## Runtime / rendering contract
 
 - HyperOS remains authoritative for battery state, charging-glyph resource selection, Control Center expansion/motion, and Battery-Island activation.

@@ -186,7 +186,7 @@ internal fun PreviewSandboxScreen(
                                 Modifier
                                     .fillMaxWidth()
                                     .padding(top = 8.dp)
-                                    .height(160.dp),
+                                    .height(192.dp),
                             contentAlignment = Alignment.Center,
                         ) {
                             CombinedStatusPreview(
@@ -195,7 +195,7 @@ internal fun PreviewSandboxScreen(
                                 modifier =
                                     Modifier
                                         .width(120.dp)
-                                        .height(152.dp),
+                                        .height(184.dp),
                             )
                         }
                         PreviewStatusLine(
