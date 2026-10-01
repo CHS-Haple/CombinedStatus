@@ -55,7 +55,7 @@ import com.chaners.guiyuan.settings.batterySchemeEntryColor
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import top.yukonga.miuix.kmp.basic.BasicComponent
-import top.yukonga.miuix.kmp.basic.BasicComponentColors
+import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
 import top.yukonga.miuix.kmp.basic.FloatingActionButton
@@ -301,9 +301,8 @@ internal fun BatteryColorBottomSheet(
                 BasicComponent(
                     title = stringResource(R.string.battery_custom_scheme_delete),
                     titleColor =
-                        BasicComponentColors(
+                        BasicComponentDefaults.titleColor(
                             color = MiuixTheme.colorScheme.error,
-                            disabledColor = MiuixTheme.colorScheme.error.copy(alpha = 0.4f),
                         ),
                     onClick = {
                         manageCustomId = null
@@ -1049,9 +1048,10 @@ private fun BatteryCreateSchemeDialog(
                 TextButton(
                     text = stringResource(R.string.battery_custom_scheme_create),
                     modifier = Modifier.weight(1f),
+                    enabled = name.trim().isNotEmpty(),
                     colors = ButtonDefaults.textButtonColorsPrimary(),
                     onClick = {
-                        if (name.isNotBlank()) onCreate(name.trim())
+                        onCreate(name.trim())
                     },
                 )
             }
@@ -1065,7 +1065,8 @@ private fun BatteryRenameSchemeDialog(
     onDismiss: () -> Unit,
     onRename: (Int, String) -> Unit,
 ) {
-    var name by remember(scheme?.id) { mutableStateOf(scheme?.name.orEmpty()) }
+    val currentName = scheme?.let { customSchemeName(it) }.orEmpty()
+    var name by remember(scheme?.id, currentName) { mutableStateOf(currentName) }
     OverlayDialog(
         title = stringResource(R.string.battery_custom_scheme_rename),
         show = scheme != null,
@@ -1095,9 +1096,12 @@ private fun BatteryRenameSchemeDialog(
                     TextButton(
                         text = stringResource(R.string.confirm),
                         modifier = Modifier.weight(1f),
+                        enabled =
+                            name.trim().isNotEmpty() &&
+                                name.trim() != currentName,
                         colors = ButtonDefaults.textButtonColorsPrimary(),
                         onClick = {
-                            if (name.isNotBlank()) onRename(scheme.id, name.trim())
+                            onRename(scheme.id, name.trim())
                         },
                     )
                 }

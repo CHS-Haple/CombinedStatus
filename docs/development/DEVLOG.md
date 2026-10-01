@@ -1,3 +1,69 @@
+## 2026-10-01 — Build 575 custom-style dialog MIUIX state audit
+
+**Type:** App UI state semantics / MIUIX conformance  
+**Display version:** 0.0.3  
+**Build:** 575 / `20261001-575`  
+**Branch / PR:** `feat/battery-top-readout` / #181
+
+### Trigger
+
+Maintainer device screenshots showed the custom-style management / rename controls and explicitly required MIUIX conformance at every detail level, including typography and font weight.
+
+### Exact pinned MIUIX audit
+
+Revision: `5c91d5e5ce1a2fc7e8bdc1258a881c555102bbca`.
+
+Verified directly:
+- `OverlayDialog`
+  - title: MIUIX `title4` = 18sp, Medium, centered;
+  - default inside margin: 24x24dp;
+  - default outside margin: 12x12dp;
+  - mobile bottom-attached corner radius derives from screen corners and is clamped to 32..48dp.
+- `TextField`
+  - default text style: `main` = 17sp;
+  - floating label: 10dp;
+  - corner radius: 16dp;
+  - inside margin: 16x16dp.
+- `TextButton`
+  - default text style: MIUIX `button` = 17sp;
+  - min height: 40dp;
+  - corner radius: 16dp;
+  - inside margin: 16dp horizontal / 13dp vertical.
+- Official OverlayDialog two-action example:
+  - two equal-weight TextButtons;
+  - 20dp spacer;
+  - affirmative action uses `ButtonDefaults.textButtonColorsPrimary()`.
+- `BasicComponent`
+  - title: headline1 17sp Medium;
+  - minimum row height: 56dp;
+  - inset: 16dp;
+  - summary: body2 14sp.
+
+### Change
+
+- Keep all existing native dimensions and typography; do **not** hard-code substitute font sizes/weights.
+- Create dialog: drive `TextButton.enabled` directly from `name.trim().isNotEmpty()`; invalid state therefore uses MIUIX native disabled colors and interaction.
+- Rename dialog: affirmative button is enabled only when trimmed text is non-empty **and** differs from the current displayed scheme name.
+- Callbacks receive the already-trimmed value; remove silent no-op guards from the click callback.
+- Management action list remains `BasicComponent`; Copy already uses its native disabled state when custom-style capacity is full.
+- Delete remains the only destructive action; its title color now goes through `BasicComponentDefaults.titleColor(color = error)` instead of a hand-built `BasicComponentColors`, keeping disabled/title semantics under MIUIX ownership.
+- Rename pre-fills the same effective display name used by the style page/management title, including the legacy unnamed-style fallback.
+
+### 审查 / review — pre-commit
+
+- no custom typography added;
+- no custom font weight added;
+- no custom dialog radius/margin/size added;
+- no project drawing added;
+- no persistence/runtime/model change;
+- Build-574 first-page hierarchy untouched;
+- no Canary after CI without explicit maintainer instruction.
+
+### Validation
+
+Run exact-head automated CI only. Freeze the green SHA and wait.
+
+
 ## 2026-10-01 — Build 574 scheme page becomes a MIUIX settings page
 
 **Type:** App UI hierarchy / MIUIX setting-row semantics  
