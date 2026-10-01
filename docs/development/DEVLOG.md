@@ -504,3 +504,14 @@ Pre-commit review separated test intent instead of blindly replacing expected co
 - the battery-text / charging-icon independent tint test explicitly selects HyperOS so it continues to isolate its intended follow-system behavior.
 
 Runtime production code is unchanged. This is a test-contract correction for the intentional default-palette change introduced by Build 559.
+
+
+### Build 559 validation closure
+
+Exact-head Runtime CI #2079 (run `36880365780`) completed successfully on `e37d516`.
+- unit tests passed after old HyperOS-default expectations were separated from new Recommended-default behavior;
+- debug APK build succeeded;
+- pinned HyperOS target verification passed;
+- modern Xposed metadata verification passed.
+
+Build 559 color-source foundation is closed. No device gate is required before UI exposure because existing installs remain on HyperOS unless the user explicitly changes the palette, while fresh/reset defaults are not user-visible until the settings UI is completed.
