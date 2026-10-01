@@ -233,7 +233,6 @@ internal class CombinedStatusPainter(
         centerTargetTextStyle: TransitionTextStyle? = null,
         batteryRingExitDirection: CombinedStatusBatteryRingTransitionPolicy.ExitDirection =
             CombinedStatusBatteryRingTransitionPolicy.ExitDirection.NONE,
-        batteryRingMinimumExitConsumedSweep: Float = 0f,
     ) {
         if (width <= 0 || height <= 0 || opacity <= 0f) return
 
@@ -282,13 +281,11 @@ internal class CombinedStatusPainter(
                     drawReadoutChargingIcon = false,
                     ringRetractProgress =
                         if (shapePolicy == TransitionShapePolicy.BATTERY_RETRACT) {
-                            shape
+                            CombinedStatusBatteryRingTransitionPolicy.transitionProgress(shape)
                         } else {
                             null
                         },
                     ringRetractExitDirection = batteryRingExitDirection,
-                    ringRetractMinimumExitConsumedSweep =
-                        batteryRingMinimumExitConsumedSweep,
                 )
 
             TransitionComponent.BATTERY_NUMBER ->
@@ -1102,45 +1099,6 @@ internal class CombinedStatusPainter(
     ): Float =
         start + (end - start) * progress.coerceIn(0f, 1f)
 
-    fun transitionBatteryRingMinimumExitConsumedSweep(
-        width: Int,
-        height: Int,
-        centerBounds: TransitionBounds,
-        exitDirection: CombinedStatusBatteryRingTransitionPolicy.ExitDirection,
-    ): Float {
-        if (width <= 0 || height <= 0) return 0f
-        val scale = min(width / CANONICAL_SIZE, height / CANONICAL_SIZE)
-        if (!scale.isFinite() || scale <= 0f) return 0f
-
-        val offsetX = (width - CANONICAL_SIZE * scale) / 2f
-        val offsetY = (height - CANONICAL_SIZE * scale) / 2f
-        val canonicalBounds =
-            TransitionBounds(
-                left = (centerBounds.left - offsetX) / scale,
-                top = (centerBounds.top - offsetY) / scale,
-                right = (centerBounds.right - offsetX) / scale,
-                bottom = (centerBounds.bottom - offsetY) / scale,
-            )
-        val geometry =
-            resolveOuterGeometry(
-                CombinedStatusOuterGeometry.DEFAULT_WEIGHT_SCALE,
-            )
-        return CombinedStatusBatteryRingExitGatePolicy.minimumConsumedSweep(
-            contentLeft = canonicalBounds.left,
-            contentTop = canonicalBounds.top,
-            contentRight = canonicalBounds.right,
-            contentBottom = canonicalBounds.bottom,
-            ringCenterX = batteryRing.centerX(),
-            ringCenterY = batteryRing.centerY(),
-            ringRadius = batteryRing.width() / 2f,
-            ringStroke = geometry.ringStroke,
-            visualClearance = BATTERY_TOP_RING_VISUAL_CLEARANCE,
-            startDegrees = BATTERY_START_DEGREES,
-            maxSweep = BATTERY_MAX_SWEEP,
-            exitDirection = exitDirection,
-        )
-    }
-
     private fun resolveOuterGeometry(weightScale: Float): CombinedStatusOuterGeometry.Resolved {
         val normalized =
             CombinedStatusOuterGeometry.normalizeWeightScale(weightScale)
@@ -1368,7 +1326,6 @@ internal class CombinedStatusPainter(
         ringRetractProgress: Float? = null,
         ringRetractExitDirection: CombinedStatusBatteryRingTransitionPolicy.ExitDirection =
             CombinedStatusBatteryRingTransitionPolicy.ExitDirection.NONE,
-        ringRetractMinimumExitConsumedSweep: Float = 0f,
     ) {
         val readout =
             resolveBatteryTopReadoutLayout(
@@ -1428,8 +1385,6 @@ internal class CombinedStatusPainter(
                     batteryPercent = model.batteryPercent,
                     progress = ringRetractProgress,
                     exitDirection = ringRetractExitDirection,
-                    minimumExitConsumedSweep =
-                        ringRetractMinimumExitConsumedSweep,
                 )
 
             stroke(batteryTint, 48, geometry.ringStroke, opacity)

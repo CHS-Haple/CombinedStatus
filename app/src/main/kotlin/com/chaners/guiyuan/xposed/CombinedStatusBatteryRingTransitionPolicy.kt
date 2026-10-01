@@ -4,7 +4,18 @@ import kotlin.math.max
 import kotlin.math.min
 
 internal object CombinedStatusBatteryRingTransitionPolicy {
+    private const val TRANSITION_COMPLETE_PROGRESS = 0.80f
+
     internal enum class ExitDirection { NONE, LEFT, RIGHT }
+
+    fun transitionProgress(progress: Float): Float {
+        val p =
+            progress
+                .takeIf(Float::isFinite)
+                ?.coerceIn(0f, 1f)
+                ?: 0f
+        return (p / TRANSITION_COMPLETE_PROGRESS).coerceIn(0f, 1f)
+    }
 
     internal data class Segments(
         val background: List<CombinedStatusBatteryTopArcPolicy.Arc>,
@@ -23,7 +34,6 @@ internal object CombinedStatusBatteryRingTransitionPolicy {
         batteryPercent: Int,
         progress: Float,
         exitDirection: ExitDirection = ExitDirection.NONE,
-        minimumExitConsumedSweep: Float = 0f,
     ): Segments {
         val remaining = remainingFraction(progress)
         val totalSweep = drawableArcs.sumOf { it.sweepDegrees.coerceAtLeast(0f).toDouble() }.toFloat()
@@ -39,15 +49,7 @@ internal object CombinedStatusBatteryRingTransitionPolicy {
                 remaining
         return when (exitDirection) {
             ExitDirection.LEFT -> {
-                val baseConsumedSweep = totalSweep - retainedSweep
-                val retainedStart =
-                    max(
-                        baseConsumedSweep,
-                        minimumExitConsumedSweep
-                            .takeIf(Float::isFinite)
-                            ?.coerceIn(0f, totalSweep)
-                            ?: 0f,
-                    )
+                val retainedStart = totalSweep - retainedSweep
                 val retainedEnd = totalSweep
                 val originalActiveEnd =
                     totalSweep *

@@ -6,6 +6,30 @@ import org.junit.Test
 
 class CombinedStatusBatteryRingTransitionPolicyTest {
     @Test
+    fun transitionProgressFinishesRingAtEightyPercentWithoutJump() {
+        assertEquals(
+            0f,
+            CombinedStatusBatteryRingTransitionPolicy.transitionProgress(0f),
+            0.0001f,
+        )
+        assertEquals(
+            0.5f,
+            CombinedStatusBatteryRingTransitionPolicy.transitionProgress(0.4f),
+            0.0001f,
+        )
+        assertEquals(
+            1f,
+            CombinedStatusBatteryRingTransitionPolicy.transitionProgress(0.8f),
+            0.0001f,
+        )
+        assertEquals(
+            1f,
+            CombinedStatusBatteryRingTransitionPolicy.transitionProgress(1f),
+            0.0001f,
+        )
+    }
+
+    @Test
     fun remainingFractionUsesSymmetricSmoothstep() {
         assertEquals(
             1f,
@@ -137,40 +161,6 @@ class CombinedStatusBatteryRingTransitionPolicyTest {
             )
         assertEquals(270f, result.active.single().startDegrees, 0.0001f)
         assertEquals(60f, result.active.single().sweepDegrees, 0.0001f)
-    }
-
-    @Test
-    fun leftExitGateCanLeadNormalRetractWithoutChangingItsTailCurve() {
-        val result =
-            CombinedStatusBatteryRingTransitionPolicy.resolve(
-                drawableArcs = listOf(
-                    CombinedStatusBatteryTopArcPolicy.Arc(150f, 240f),
-                ),
-                batteryPercent = 100,
-                progress = 0.1f,
-                exitDirection = CombinedStatusBatteryRingTransitionPolicy.ExitDirection.LEFT,
-                minimumExitConsumedSweep = 60f,
-            )
-
-        assertEquals(210f, result.background.single().startDegrees, 0.0001f)
-        assertEquals(180f, result.background.single().sweepDegrees, 0.0001f)
-    }
-
-    @Test
-    fun normalLeftRetractTakesBackAuthorityAfterCatchingGate() {
-        val result =
-            CombinedStatusBatteryRingTransitionPolicy.resolve(
-                drawableArcs = listOf(
-                    CombinedStatusBatteryTopArcPolicy.Arc(150f, 240f),
-                ),
-                batteryPercent = 100,
-                progress = 0.5f,
-                exitDirection = CombinedStatusBatteryRingTransitionPolicy.ExitDirection.LEFT,
-                minimumExitConsumedSweep = 60f,
-            )
-
-        assertEquals(270f, result.background.single().startDegrees, 0.0001f)
-        assertEquals(120f, result.background.single().sweepDegrees, 0.0001f)
     }
 
     @Test
