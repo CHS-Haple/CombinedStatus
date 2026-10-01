@@ -28,10 +28,7 @@ internal class CombinedStatusFeatureSettingsRepository(context: Context) {
 
             val listener =
                 SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-                    if (
-                        key == COMBINED_STATUS_ENABLED_KEY ||
-                        key == COMBINED_STATUS_KEYGUARD_ENABLED_KEY
-                    ) {
+                    if (isCombinedStatusFeaturePreferenceKey(key)) {
                         emitCurrent()
                     }
                 }
@@ -98,3 +95,9 @@ internal const val COMBINED_STATUS_ENABLED_KEY = "combined_status_enabled"
 internal const val COMBINED_STATUS_KEYGUARD_ENABLED_KEY = "combined_status_keyguard_enabled"
 internal const val COMBINED_STATUS_FEATURE_CHANGE_ELAPSED_REALTIME_NANOS_KEY =
     "combined_status_feature_change_elapsed_realtime_nanos"
+
+
+internal fun isCombinedStatusFeaturePreferenceKey(key: String?): Boolean =
+    key == null ||
+        key == COMBINED_STATUS_ENABLED_KEY ||
+        key == COMBINED_STATUS_KEYGUARD_ENABLED_KEY

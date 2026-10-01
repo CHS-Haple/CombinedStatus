@@ -245,3 +245,34 @@ Global battery-color state:
 ### Validation
 
 Runtime CI must lock normalization, runtime-key participation, preset resolution, override precedence, super-power-save parsing, and compilation before geometry/UI wiring proceeds.
+
+
+## 2026-10-01 — Build 555 reset lifecycle correction
+
+**Type:** lifecycle / settings synchronization fix  
+**Display version:** 0.0.3  
+**Build:** 555 / `20261001-555`  
+**Branch / PR:** `feat/battery-top-readout` / #181  
+
+### Pre-commit 审查 / review
+
+The Build-554 foundation was re-reviewed before continuing geometry/UI work. The review found that both visual and feature reset helpers used `SharedPreferences.clear()`, while App/Runtime listeners filtered only concrete keys. Android clear notifications may use `key == null`, so reset could restore persisted defaults without immediately refreshing observers.
+
+The candidate correction was reviewed before branch update:
+- feature key relevance is single-source through `isCombinedStatusFeaturePreferenceKey()`;
+- App and Runtime feature listeners share that predicate;
+- visual key relevance treats `null` as a whole-domain change and Runtime already delegates to that same predicate;
+- unrelated non-null keys still do not trigger feature updates;
+- feature reset keeps the existing change timestamp in the same editor transaction;
+- no second settings owner, poller, or restart path is introduced.
+
+### Change
+
+- Accept `key == null` as a relevant whole-domain change for the dedicated feature and visual preference files.
+- Add shared feature-key predicate to prevent App/Runtime filter drift.
+- Add unit coverage for clear notification relevance.
+- No changes to Build-554 geometry ranges, color presets, semantic mapping, or painter behavior.
+
+### Validation
+
+Run exact-head Runtime CI. No real-device gate is required because this change only repairs observer invalidation semantics; UI reset controls are not exposed yet.

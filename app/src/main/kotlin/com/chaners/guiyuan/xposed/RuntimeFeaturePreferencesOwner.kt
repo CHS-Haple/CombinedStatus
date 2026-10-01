@@ -6,6 +6,7 @@ import com.chaners.guiyuan.settings.COMBINED_STATUS_ENABLED_KEY
 import com.chaners.guiyuan.settings.COMBINED_STATUS_FEATURE_CHANGE_ELAPSED_REALTIME_NANOS_KEY
 import com.chaners.guiyuan.settings.COMBINED_STATUS_KEYGUARD_ENABLED_KEY
 import com.chaners.guiyuan.settings.CombinedStatusFeatureSettings
+import com.chaners.guiyuan.settings.isCombinedStatusFeaturePreferenceKey
 
 internal object RuntimeFeaturePreferencesOwner {
     @Volatile
@@ -35,10 +36,7 @@ internal object RuntimeFeaturePreferencesOwner {
         val listener =
             SharedPreferences.OnSharedPreferenceChangeListener { changed, key ->
                 if (
-                    (
-                        key == COMBINED_STATUS_ENABLED_KEY ||
-                            key == COMBINED_STATUS_KEYGUARD_ENABLED_KEY
-                    ) &&
+                    isCombinedStatusFeaturePreferenceKey(key) &&
                     isCurrentBinding(changed, token)
                 ) {
                     val next = resolve(changed)

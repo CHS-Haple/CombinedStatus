@@ -156,7 +156,7 @@ internal fun CombinedStatusVisualSettings.normalized(): CombinedStatusVisualSett
     )
 
 internal fun isCombinedStatusVisualPreferenceKey(key: String?): Boolean {
-    if (key == null) return false
+    if (key == null) return true
     if (
         key == CONTENT_LAYOUT_KEY ||
         key in PROFILE_VISUAL_BASE_KEYS ||

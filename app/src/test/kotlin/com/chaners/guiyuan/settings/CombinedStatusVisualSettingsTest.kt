@@ -112,6 +112,11 @@ class CombinedStatusVisualSettingsTest {
 
 
     @Test
+    fun clearNotificationParticipatesInVisualRuntimeSync() {
+        assertEquals(true, isCombinedStatusVisualPreferenceKey(null))
+    }
+
+    @Test
     fun allNewVisualKeysParticipateInRuntimeSync() {
         val keys =
             listOf(
