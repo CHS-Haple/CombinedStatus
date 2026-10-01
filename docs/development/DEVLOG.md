@@ -515,3 +515,67 @@ Exact-head Runtime CI #2079 (run `36880365780`) completed successfully on `e37d5
 - modern Xposed metadata verification passed.
 
 Build 559 color-source foundation is closed. No device gate is required before UI exposure because existing installs remain on HyperOS unless the user explicitly changes the palette, while fresh/reset defaults are not user-visible until the settings UI is completed.
+
+
+## 2026-10-01 — Build 560 MIUIX feature-page size controls and reset card
+
+**Type:** settings UI / feature-page organization  
+**Display version:** 0.0.3  
+**Build:** 560 / `20261001-560`  
+**Branch / PR:** `feat/battery-top-readout` / #181  
+
+### Scope
+
+Keep the feature page as the primary settings surface, grouped by the existing card structure instead of turning it into a navigation-only page.
+
+Cards:
+1. Global
+2. Network
+3. Battery
+4. Management
+
+### New direct controls
+
+Global:
+- Overall size: 75%-100%, 5% steps, default/max 100%;
+- Outer weight: 70%-130%, 5% steps, default 100%; this is the existing coupled ring + four-dot + unavailable-mark family.
+
+Network:
+- Wi-Fi size: 80%-125%, 5% steps, default 100%;
+- Mobile type size: 80%-125%, 5% steps, default 100%;
+- Mobile type weight: 500-950, 50-weight steps, default 800.
+
+All five controls use MIUIX `SliderPreference`, `showKeyPoints = true`, a single default `keyPoints` value, and the existing magnetic snap threshold. No custom slider or gesture implementation is introduced.
+
+### Restore defaults
+
+A Management card adds “Restore defaults”.
+- It is intentionally available even when the feature master switch is off.
+- Confirmation uses the existing MIUIX `OverlayDialog`.
+- Confirming resets both `CombinedStatusFeatureSettingsRepository` and `CombinedStatusVisualSettingsRepository`.
+- Feature defaults restore the master feature to enabled and lock-screen combined status to disabled.
+- Visual defaults restore the active schema defaults, including Recommended palette and 100% geometry defaults.
+
+### Copy review
+
+Chinese and English copy was shortened and normalized during the same UI pass:
+- layout summary is reduced to the memory behavior;
+- battery readout summary focuses on percentage + automatic avoidance;
+- charging summary removes redundant phrasing;
+- lock-screen summary removes repeated “combined icon” wording;
+- network color-follow summaries use consistent terminology;
+- new controls use concise titles such as “Overall size / 整体大小” and “Mobile type weight / 移动制式字重”.
+
+### Pre-commit 审查 / review
+
+- Existing MIUIX Card / SmallTitle spacing is reused; no custom card style is added.
+- `HubPage` gains only an optional fourth section, so Settings and other existing three-section callers remain unchanged.
+- New controls bind directly to the existing single visual-settings repository; no additional state owner is introduced.
+- Slider ranges and default key points come from the same schema constants consumed by runtime.
+- Restore is the only control intentionally not gated by `featureSettings.enabled`.
+- Existing battery-number/charging detailed sliders remain on the page in this checkpoint; they are not prematurely moved to drawers before final density review.
+- No runtime drawing, transition, or SystemUI hook behavior changes in Build 560.
+
+### Validation
+
+Run exact-head Runtime CI to compile the new MIUIX calls/resources and lock repository wiring. Device review is deferred until the color BottomSheet and final feature-page density pass are complete.

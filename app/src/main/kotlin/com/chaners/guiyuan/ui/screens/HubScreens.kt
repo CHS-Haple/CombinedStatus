@@ -34,6 +34,21 @@ import com.chaners.guiyuan.settings.BATTERY_TOP_TEXT_WEIGHT_MAX
 import com.chaners.guiyuan.settings.BATTERY_TOP_TEXT_WEIGHT_MIN
 import com.chaners.guiyuan.settings.BATTERY_TOP_VERTICAL_OFFSET_UI_MAX
 import com.chaners.guiyuan.settings.BATTERY_TOP_VERTICAL_OFFSET_UI_MIN
+import com.chaners.guiyuan.settings.COMBINED_SCALE_DEFAULT
+import com.chaners.guiyuan.settings.COMBINED_SCALE_MAX
+import com.chaners.guiyuan.settings.COMBINED_SCALE_MIN
+import com.chaners.guiyuan.settings.MOBILE_TYPE_SIZE_SCALE_DEFAULT
+import com.chaners.guiyuan.settings.MOBILE_TYPE_SIZE_SCALE_MAX
+import com.chaners.guiyuan.settings.MOBILE_TYPE_SIZE_SCALE_MIN
+import com.chaners.guiyuan.settings.MOBILE_TYPE_WEIGHT_DEFAULT
+import com.chaners.guiyuan.settings.MOBILE_TYPE_WEIGHT_MAX
+import com.chaners.guiyuan.settings.MOBILE_TYPE_WEIGHT_MIN
+import com.chaners.guiyuan.settings.OUTER_WEIGHT_SCALE_DEFAULT
+import com.chaners.guiyuan.settings.OUTER_WEIGHT_SCALE_MAX
+import com.chaners.guiyuan.settings.OUTER_WEIGHT_SCALE_MIN
+import com.chaners.guiyuan.settings.WIFI_SIZE_SCALE_DEFAULT
+import com.chaners.guiyuan.settings.WIFI_SIZE_SCALE_MAX
+import com.chaners.guiyuan.settings.WIFI_SIZE_SCALE_MIN
 import com.chaners.guiyuan.settings.CombinedStatusContentLayout
 import com.chaners.guiyuan.settings.CombinedStatusFeatureSettingsRepository
 import com.chaners.guiyuan.settings.CombinedStatusVisualSettingsRepository
@@ -91,6 +106,7 @@ internal fun FeaturesScreen(
             stringResource(R.string.content_layout_network_center),
             stringResource(R.string.content_layout_battery_center),
         )
+    var showResetDialog by rememberSaveable { mutableStateOf(false) }
 
     HubPage(
         title = stringResource(R.string.features_title),
@@ -98,6 +114,58 @@ internal fun FeaturesScreen(
         bottomContentPadding = bottomContentPadding,
         secondarySectionTitle = stringResource(R.string.section_network),
         secondaryContent = {
+            SliderPreference(
+                value = visualSettings.wifiSizeScale,
+                onValueChange = visualRepository::setWifiSizeScale,
+                title = stringResource(R.string.wifi_size),
+                valueText =
+                    stringResource(
+                        R.string.percent_value,
+                        (visualSettings.wifiSizeScale * 100f).roundToInt(),
+                    ),
+                valueRange = WIFI_SIZE_SCALE_MIN..WIFI_SIZE_SCALE_MAX,
+                steps = 8,
+                showKeyPoints = true,
+                keyPoints = listOf(WIFI_SIZE_SCALE_DEFAULT),
+                magnetThreshold = 0.035f,
+                enabled = featureSettings.enabled,
+            )
+            SliderPreference(
+                value = visualSettings.mobileTypeSizeScale,
+                onValueChange = visualRepository::setMobileTypeSizeScale,
+                title = stringResource(R.string.mobile_type_size),
+                valueText =
+                    stringResource(
+                        R.string.percent_value,
+                        (visualSettings.mobileTypeSizeScale * 100f).roundToInt(),
+                    ),
+                valueRange = MOBILE_TYPE_SIZE_SCALE_MIN..MOBILE_TYPE_SIZE_SCALE_MAX,
+                steps = 8,
+                showKeyPoints = true,
+                keyPoints = listOf(MOBILE_TYPE_SIZE_SCALE_DEFAULT),
+                magnetThreshold = 0.035f,
+                enabled = featureSettings.enabled,
+            )
+            SliderPreference(
+                value = visualSettings.mobileTypeWeight.toFloat(),
+                onValueChange = { value ->
+                    visualRepository.setMobileTypeWeight(value.roundToInt())
+                },
+                title = stringResource(R.string.mobile_type_weight),
+                valueText =
+                    stringResource(
+                        R.string.integer_value,
+                        visualSettings.mobileTypeWeight,
+                    ),
+                valueRange =
+                    MOBILE_TYPE_WEIGHT_MIN.toFloat()..
+                        MOBILE_TYPE_WEIGHT_MAX.toFloat(),
+                steps = 8,
+                showKeyPoints = true,
+                keyPoints = listOf(MOBILE_TYPE_WEIGHT_DEFAULT.toFloat()),
+                magnetThreshold = 0.035f,
+                enabled = featureSettings.enabled,
+            )
             SwitchPreference(
                 title = stringResource(R.string.mobile_follow_battery_color),
                 summary = stringResource(R.string.mobile_follow_battery_color_summary),
@@ -252,6 +320,44 @@ internal fun FeaturesScreen(
                 )
             }
         },
+        quaternarySectionTitle = stringResource(R.string.section_management),
+        quaternaryContent = {
+            BasicComponent(
+                title = stringResource(R.string.restore_feature_defaults),
+                summary = stringResource(R.string.restore_feature_defaults_summary),
+                onClick = { showResetDialog = true },
+            )
+        },
+        overlay = {
+            OverlayDialog(
+                title = stringResource(R.string.restore_feature_defaults),
+                summary = stringResource(R.string.restore_feature_defaults_dialog_summary),
+                show = showResetDialog,
+                onDismissRequest = { showResetDialog = false },
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    TextButton(
+                        text = stringResource(R.string.cancel),
+                        modifier = Modifier.weight(1f),
+                        onClick = { showResetDialog = false },
+                    )
+                    Spacer(Modifier.width(20.dp))
+                    TextButton(
+                        text = stringResource(R.string.restore),
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.textButtonColorsPrimary(),
+                        onClick = {
+                            showResetDialog = false
+                            featureRepository.resetToDefaults()
+                            visualRepository.resetToDefaults()
+                        },
+                    )
+                }
+            }
+        },
     ) {
         SwitchPreference(
             title = stringResource(R.string.keyguard_combined_status_title),
@@ -272,6 +378,39 @@ internal fun FeaturesScreen(
                     .getOrNull(index)
                     ?.let(visualRepository::setContentLayout)
             },
+        )
+        SliderPreference(
+            value = visualSettings.combinedScale,
+            onValueChange = visualRepository::setCombinedScale,
+            title = stringResource(R.string.combined_size),
+            valueText =
+                stringResource(
+                    R.string.percent_value,
+                    (visualSettings.combinedScale * 100f).roundToInt(),
+                ),
+            valueRange = COMBINED_SCALE_MIN..COMBINED_SCALE_MAX,
+            steps = 4,
+            showKeyPoints = true,
+            keyPoints = listOf(COMBINED_SCALE_DEFAULT),
+            magnetThreshold = 0.035f,
+            enabled = featureSettings.enabled,
+        )
+        SliderPreference(
+            value = visualSettings.outerWeightScale,
+            onValueChange = visualRepository::setOuterWeightScale,
+            title = stringResource(R.string.outer_weight),
+            summary = stringResource(R.string.outer_weight_summary),
+            valueText =
+                stringResource(
+                    R.string.percent_value,
+                    (visualSettings.outerWeightScale * 100f).roundToInt(),
+                ),
+            valueRange = OUTER_WEIGHT_SCALE_MIN..OUTER_WEIGHT_SCALE_MAX,
+            steps = 11,
+            showKeyPoints = true,
+            keyPoints = listOf(OUTER_WEIGHT_SCALE_DEFAULT),
+            magnetThreshold = 0.035f,
+            enabled = featureSettings.enabled,
         )
     }
 }
@@ -408,6 +547,8 @@ private fun HubPage(
     secondaryContent: (@Composable ColumnScope.() -> Unit)? = null,
     tertiarySectionTitle: String? = null,
     tertiaryContent: (@Composable ColumnScope.() -> Unit)? = null,
+    quaternarySectionTitle: String? = null,
+    quaternaryContent: (@Composable ColumnScope.() -> Unit)? = null,
     overlay: @Composable () -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -475,6 +616,18 @@ private fun HubPage(
                                 .padding(horizontal = 12.dp)
                                 .padding(bottom = 12.dp),
                             content = tertiaryContent,
+                        )
+                    }
+                }
+
+                if (quaternarySectionTitle != null && quaternaryContent != null) {
+                    item {
+                        SmallTitle(quaternarySectionTitle)
+                        Card(
+                            modifier = Modifier
+                                .padding(horizontal = 12.dp)
+                                .padding(bottom = 12.dp),
+                            content = quaternaryContent,
                         )
                     }
                 }
