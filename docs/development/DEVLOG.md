@@ -1,3 +1,49 @@
+## 2026-10-01 — Build 568 battery-color MIUIX component-conformance pass
+
+**Type:** App UI component-conformance only  
+**Display version:** 0.0.3  
+**Build:** 568 / `20261001-568`  
+**Branch / PR:** `feat/battery-top-readout` / #181
+
+### Device-review trigger
+
+Build 567 was functionally valid and automated validation was fully green, but maintainer screenshots showed that several battery-color surfaces merely used Compose/MIUIX-adjacent styling rather than consistently expressing MIUIX component semantics. The requested correction is not a new layout. The previously approved hierarchy and interaction model remain authoritative; implementation primitives should be MIUIX wherever available, with project drawing avoided.
+
+### Change
+
+- Replace the in-sheet text `Back` pill with MIUIX `IconButton` + `MiuixIcons.Back`.
+- Replace the project text glyph `›` with `MiuixIcons.Forward`.
+- Refactor each semantic mode row from a project-owned title Row into MIUIX `BasicComponent(title, endActions)`; only the already-approved color/value/action columns remain composed in `endActions`.
+- Replace project clip/background pagination primitives with MIUIX `Surface`.
+- Replace project-drawn fixed-color chips with MIUIX circular `Surface` components and `BorderStroke` parameters.
+- Replace the project Canvas checker swatch with a circular MIUIX `Surface` whose content uses the **public MIUIX 0.9.4 `Modifier.drawCheckerboard()`** from `ColorPicker.kt`.
+- Replace project common-color Box/background/border/clickable construction with clickable MIUIX `Surface` composition. Selection remains a simple white MIUIX-surface ring, consistent with the current ColorPalette/ColorSlider visual language, without copying their private draw implementation.
+- Keep custom management on MIUIX `OverlayDialog + BasicComponent` because current DropdownItem coloring is menu-wide and cannot preserve the already-approved error-red Delete row independently. The More `IconButton` now uses MIUIX `holdDownState` while its management dialog is visible.
+- Keep MIUIX `HsvHueSlider / HsvSaturationSlider / HsvValueSlider`, `TextField`, `Card`, `RadioButtonPreference`, `OverlayDialog`, and Pager spring/gesture APIs unchanged.
+
+### Exact-version verification
+
+The project is pinned to `miuix.version=0.9.4-5c91d5e5-SNAPSHOT`, revision `5c91d5e5ce1a2fc7e8bdc1258a881c555102bbca`. Before commit, that exact revision was checked for:
+- `Surface` clickable/non-clickable overloads with shape/border/shadow;
+- public `Modifier.drawCheckerboard()`;
+- `MiuixIcons.Back` and `MiuixIcons.Forward`;
+- `IconButton.holdDownState`;
+- `surfaceContainer` theme role.
+
+### 审查 / review
+
+- **layout contract:** unchanged; this is component substitution, not a re-layout.
+- **self-drawing:** directed scan of the new `BatteryColorControls.kt` reports zero project `Canvas`, `drawWithCache`, `drawCircle`, `drawRect`, raw `.background(`, raw `.border(`, raw `.clickable`, or text-glyph chevrons.
+- **MIUIX boundary:** checkerboard rendering is invoked only through MIUIX's own public API; Guiyuan does not copy/reimplement its drawing algorithm.
+- **destructive semantics:** Delete remains error-colored and confirmation-gated.
+- **Runtime / persistence:** untouched; no hook, state source, writer, color projection, preference schema, or SystemUI behavior changes.
+- **proportion discipline:** no final spacing/size/typography tuning is attempted in this pass. That review is intentionally deferred until the last editor page is structurally complete, then will be based on pinned MIUIX defaults rather than screenshot fitting.
+
+### Validation
+
+Run exact-head automated CI. If green, continue the component-first cleanup. Do not request broad device testing yet; the next device visual gate belongs after the final MIUIX ratio/proportion pass.
+
+
 ## 2026-10-01 — Build 567 HyperOS-default contract-test correction
 
 **Type:** test-only contract correction  

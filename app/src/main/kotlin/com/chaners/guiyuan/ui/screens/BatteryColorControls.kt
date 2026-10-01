@@ -1,17 +1,15 @@
 package com.chaners.guiyuan.ui.screens
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -36,9 +34,6 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.stringResource
@@ -70,13 +65,17 @@ import top.yukonga.miuix.kmp.basic.HsvValueSlider
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
 import top.yukonga.miuix.kmp.basic.SmallTitle
+import top.yukonga.miuix.kmp.basic.Surface
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.basic.TextButton
 import top.yukonga.miuix.kmp.basic.TextField
+import top.yukonga.miuix.kmp.basic.drawCheckerboard
 import top.yukonga.miuix.kmp.color.api.toHsv
 import top.yukonga.miuix.kmp.color.space.Hsv
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Add
+import top.yukonga.miuix.kmp.icon.extended.Back
+import top.yukonga.miuix.kmp.icon.extended.Forward
 import top.yukonga.miuix.kmp.icon.extended.More
 import top.yukonga.miuix.kmp.overlay.OverlayBottomSheet
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
@@ -173,13 +172,17 @@ internal fun BatteryColorBottomSheet(
         startAction =
             if (inDetail) {
                 {
-                    TextButton(
-                        text = stringResource(R.string.back),
+                    IconButton(
                         onClick = {
                             sourceExpanded = false
                             scope.launch { navPager.springAnimateToPage(0) }
                         },
-                    )
+                    ) {
+                        Icon(
+                            imageVector = MiuixIcons.Back,
+                            contentDescription = stringResource(R.string.back),
+                        )
+                    }
                 }
             } else {
                 null
@@ -347,6 +350,7 @@ internal fun BatteryColorBottomSheet(
 @Composable
 private fun BatterySchemeOverview(
     library: BatteryColorSchemeLibrary,
+    managedCustomId: Int?,
     onSettledScheme: (String) -> Unit,
     onOpenCustomSlot: (Int, CombinedStatusBatteryColorSlot) -> Unit,
     onAdd: (String) -> Unit,
@@ -421,6 +425,7 @@ private fun BatterySchemeOverview(
                         custom = null,
                         onSlotClick = null,
                         onManage = null,
+                        manageHeldDown = false,
                     )
                 is BatterySchemePage.Custom ->
                     BatterySchemePageContent(
@@ -431,6 +436,7 @@ private fun BatterySchemeOverview(
                             onOpenCustomSlot(page.scheme.id, slot)
                         },
                         onManage = { onManageCustom(page.scheme.id) },
+                        manageHeldDown = managedCustomId == page.scheme.id,
                     )
                 BatterySchemePage.Add ->
                     BatteryAddSchemePage(
@@ -456,6 +462,7 @@ private fun BatterySchemePageContent(
     custom: BatteryCustomColorScheme?,
     onSlotClick: ((CombinedStatusBatteryColorSlot) -> Unit)?,
     onManage: (() -> Unit)?,
+    manageHeldDown: Boolean,
 ) {
     Column(
         modifier =
@@ -486,6 +493,7 @@ private fun BatterySchemePageContent(
                     IconButton(
                         modifier = Modifier.align(Alignment.TopEnd),
                         onClick = onManage,
+                        holdDownState = manageHeldDown,
                     ) {
                         Icon(
                             imageVector = MiuixIcons.More,
@@ -540,57 +548,55 @@ private fun BatteryModeRow(
     onClick: (() -> Unit)?,
 ) {
     BasicComponent(
+        title = stringResource(batteryColorSlotLabel(slot)),
         onClick = onClick,
-        insideMargin = PaddingValues(horizontal = 16.dp, vertical = 9.dp),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = stringResource(batteryColorSlotLabel(slot)),
-                modifier = Modifier.weight(1f),
-            )
-            Box(
-                modifier = Modifier.width(28.dp),
-                contentAlignment = Alignment.Center,
+        endActions = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (followsSystem || color == null) {
-                    BatteryColorMosaic()
-                } else {
-                    BatteryColorDot(color)
+                Box(
+                    modifier = Modifier.width(28.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (followsSystem || color == null) {
+                        BatteryColorMosaic()
+                    } else {
+                        BatteryColorDot(color)
+                    }
+                }
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    text =
+                        if (followsSystem || color == null) {
+                            stringResource(R.string.battery_color_follow_inversion)
+                        } else {
+                            batteryColorHex(color)
+                        },
+                    modifier = Modifier.width(92.dp),
+                    color = MiuixTheme.colorScheme.onSurfaceSecondary,
+                    fontFamily =
+                        if (followsSystem || color == null) {
+                            FontFamily.Default
+                        } else {
+                            FontFamily.Monospace
+                        },
+                )
+                Box(
+                    modifier = Modifier.width(22.dp),
+                    contentAlignment = Alignment.CenterEnd,
+                ) {
+                    if (editable) {
+                        Icon(
+                            imageVector = MiuixIcons.Forward,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                            tint = MiuixTheme.colorScheme.onSurfaceSecondary,
+                        )
+                    }
                 }
             }
-            Spacer(Modifier.width(10.dp))
-            Text(
-                text =
-                    if (followsSystem || color == null) {
-                        stringResource(R.string.battery_color_follow_inversion)
-                    } else {
-                        batteryColorHex(color)
-                    },
-                modifier = Modifier.width(92.dp),
-                color = MiuixTheme.colorScheme.onSurfaceSecondary,
-                fontFamily =
-                    if (followsSystem || color == null) {
-                        FontFamily.Default
-                    } else {
-                        FontFamily.Monospace
-                    },
-            )
-            Box(
-                modifier = Modifier.width(22.dp),
-                contentAlignment = Alignment.CenterEnd,
-            ) {
-                if (editable) {
-                    Text(
-                        text = "›",
-                        color = MiuixTheme.colorScheme.onSurfaceSecondary,
-                    )
-                }
-            }
-        }
-    }
+        },
+    )
 }
 
 @Composable
@@ -667,20 +673,19 @@ private fun BatteryPagerIndicator(
                         targetValue = if (index == currentPage) 16.dp else 6.dp,
                         label = "battery-scheme-indicator",
                     )
-                Box(
+                Surface(
                     modifier =
                         Modifier
                             .width(width)
-                            .height(6.dp)
-                            .clip(CircleShape)
-                            .background(
-                                if (index == currentPage) {
-                                    MiuixTheme.colorScheme.primary
-                                } else {
-                                    MiuixTheme.colorScheme.onSurface.copy(alpha = 0.22f)
-                                },
-                            ),
-                )
+                            .height(6.dp),
+                    shape = CircleShape,
+                    color =
+                        if (index == currentPage) {
+                            MiuixTheme.colorScheme.primary
+                        } else {
+                            MiuixTheme.colorScheme.onSurface.copy(alpha = 0.22f)
+                        },
+                ) {}
             }
         }
     }
@@ -819,23 +824,10 @@ private fun BatteryCustomModeEditor(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     colors.forEach { color ->
-                        Box(
-                            modifier =
-                                Modifier
-                                    .size(36.dp)
-                                    .background(Color(color), CircleShape)
-                                    .then(
-                                        if (editingColor == color) {
-                                            Modifier.border(
-                                                2.dp,
-                                                MiuixTheme.colorScheme.primary,
-                                                CircleShape,
-                                            )
-                                        } else {
-                                            Modifier
-                                        },
-                                    )
-                                    .clickable { applyColor(color) },
+                        BatteryCommonColorButton(
+                            color = color,
+                            selected = editingColor == color,
+                            onClick = { applyColor(color) },
                         )
                     }
                 }
@@ -1095,40 +1087,85 @@ private fun BatterySchemePreviewStrip(page: BatterySchemePage?) {
 }
 
 @Composable
+private fun BatteryCommonColorButton(
+    color: Int,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.size(40.dp),
+        shape = CircleShape,
+        color =
+            if (selected) {
+                Color.White
+            } else {
+                MiuixTheme.colorScheme.surface
+            },
+        shadowElevation = if (selected) 2.dp else 0.dp,
+    ) {
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(if (selected) 4.dp else 2.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                shape = CircleShape,
+                color = Color(color),
+                border =
+                    BorderStroke(
+                        1.dp,
+                        MiuixTheme.colorScheme.onSurface.copy(alpha = 0.10f),
+                    ),
+            ) {}
+        }
+    }
+}
+
+@Composable
 private fun BatteryColorDot(
     color: Int,
-    size: Dp = 16.dp,
+    size: Dp = 20.dp,
 ) {
-    Box(
-        modifier =
-            Modifier
-                .size(size)
-                .background(Color(color), CircleShape)
-                .border(
-                    1.dp,
-                    MiuixTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                    CircleShape,
-                ),
-    )
+    Surface(
+        modifier = Modifier.size(size),
+        shape = CircleShape,
+        color = Color(color),
+        border =
+            BorderStroke(
+                1.dp,
+                MiuixTheme.colorScheme.onSurface.copy(alpha = 0.10f),
+            ),
+    ) {}
 }
 
 @Composable
 private fun BatteryColorMosaic(
-    size: Dp = 16.dp,
+    size: Dp = 20.dp,
 ) {
-    val dark = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.58f)
-    val light = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.15f)
-    Canvas(
-        modifier =
-            Modifier
-                .size(size)
-                .clip(CircleShape),
+    Surface(
+        modifier = Modifier.size(size),
+        shape = CircleShape,
+        color = Color.Transparent,
+        border =
+            BorderStroke(
+                1.dp,
+                MiuixTheme.colorScheme.onSurface.copy(alpha = 0.10f),
+            ),
     ) {
-        val half = this.size.width / 2f
-        drawRect(light, size = Size(half, half))
-        drawRect(dark, topLeft = Offset(half, 0f), size = Size(half, half))
-        drawRect(dark, topLeft = Offset(0f, half), size = Size(half, half))
-        drawRect(light, topLeft = Offset(half, half), size = Size(half, half))
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .drawCheckerboard(
+                        cellSizeDp = 3.dp,
+                        lightColor = MiuixTheme.colorScheme.surfaceContainer,
+                        darkColor = MiuixTheme.colorScheme.onSurface.copy(alpha = 0.28f),
+                    ),
+        )
     }
 }
 
