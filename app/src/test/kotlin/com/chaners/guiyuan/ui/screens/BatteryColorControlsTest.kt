@@ -156,6 +156,73 @@ class BatteryColorControlsTest {
     }
 
     @Test
+    fun hexAndRgbParsersAcceptValidOpaqueColorsAndRejectInvalidInput() {
+        assertEquals(
+            0xFF34C759.toInt(),
+            batteryColorFromHex("34C759"),
+        )
+        assertEquals(
+            0xFF34C759.toInt(),
+            batteryColorFromHex("#34c759"),
+        )
+        assertEquals(
+            0xFF34C759.toInt(),
+            batteryColorFromRgb("52", "199", "89"),
+        )
+        assertNull(batteryColorFromHex("34C75"))
+        assertNull(batteryColorFromHex("GG0000"))
+        assertNull(batteryColorFromRgb("256", "0", "0"))
+        assertNull(batteryColorFromRgb("", "0", "0"))
+    }
+
+    @Test
+    fun editorInitialColorPrefersStoredThenPresetThenDynamicFallback() {
+        val custom = 0xFF2468AC.toInt()
+        val fallback = 0xFF112233.toInt()
+        assertEquals(
+            custom,
+            batteryColorEditorInitialColor(
+                settings =
+                    CombinedStatusVisualSettings(
+                        batteryColorOverrides =
+                            CombinedStatusBatteryColorOverrides(
+                                charging = custom,
+                            ),
+                    ),
+                slot = CombinedStatusBatteryColorSlot.CHARGING,
+                dynamicFallback = fallback,
+            ),
+        )
+        assertEquals(
+            0xFF3FA760.toInt(),
+            batteryColorEditorInitialColor(
+                settings = CombinedStatusVisualSettings(),
+                slot = CombinedStatusBatteryColorSlot.CHARGING,
+                dynamicFallback = fallback,
+            ),
+        )
+        assertEquals(
+            fallback,
+            batteryColorEditorInitialColor(
+                settings =
+                    CombinedStatusVisualSettings(
+                        batteryColorPreset = CombinedStatusBatteryColorPreset.HYPEROS,
+                    ),
+                slot = CombinedStatusBatteryColorSlot.CHARGING,
+                dynamicFallback = fallback,
+            ),
+        )
+    }
+
+    @Test
+    fun rgbRoundTripMatchesPackedColor() {
+        assertEquals(
+            Triple(52, 199, 89),
+            batteryColorRgb(0xFF34C759.toInt()),
+        )
+    }
+
+    @Test
     fun normalRecommendedPreviewIsDynamicBecauseItFollowsStatusTint() {
         assertNull(
             batteryColorPreviewColor(

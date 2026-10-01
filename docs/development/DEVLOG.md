@@ -744,3 +744,20 @@ Battery color UI tests now also cover:
 ### Validation
 
 Run exact-head Runtime CI before any device review.
+
+
+### Build 562 CI correction — final reviewed editor candidate
+
+Runtime CI #2085 (run `36885816625`) used an earlier editor candidate and failed Kotlin compilation at `BatteryColorControls.kt` because of an explicit `androidx.compose.foundation.layout.weight` import. In this Compose version that import resolves to an internal parent-data property, while `Modifier.weight()` is already available from the RowScope used by the existing project UI.
+
+The correction:
+- removes the explicit `weight` import only; layout behavior is unchanged;
+- restores the later reviewed interaction where opening the Custom editor does not immediately write `CUSTOM`;
+- writes `CUSTOM + color` only after a valid common-color / HSV / HEX / RGB edit;
+- uses the Recommended color for the same semantic slot as the editor start when the selected source is dynamic, falling back to current foreground only where no semantic fixed color exists;
+- keeps the per-mode atomic reset and opaque-only color contract;
+- expands pure UI logic tests for HEX/RGB parsing, RGB round-trip, and editor initial-color priority.
+
+The PR display title process was also verified: CI #2085 displayed `feat: add MIUIX custom battery color editor`, confirming that updating the PR title before the work-branch HEAD update makes the Actions list describe the concrete Build objective without changing workflow trigger/security semantics.
+
+No SystemUI runtime, hook, transition, or rendering behavior changed in this correction.

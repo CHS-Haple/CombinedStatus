@@ -49,6 +49,7 @@ import com.chaners.guiyuan.settings.OUTER_WEIGHT_SCALE_MIN
 import com.chaners.guiyuan.settings.WIFI_SIZE_SCALE_DEFAULT
 import com.chaners.guiyuan.settings.WIFI_SIZE_SCALE_MAX
 import com.chaners.guiyuan.settings.WIFI_SIZE_SCALE_MIN
+import com.chaners.guiyuan.settings.CombinedStatusBatteryColorMode
 import com.chaners.guiyuan.settings.CombinedStatusBatteryColorSlot
 import com.chaners.guiyuan.settings.CombinedStatusContentLayout
 import com.chaners.guiyuan.settings.CombinedStatusFeatureSettingsRepository
@@ -363,7 +364,7 @@ internal fun FeaturesScreen(
                 onCustomColorChange = { slot, color ->
                     visualRepository.setBatteryColorMode(
                         slot,
-                        com.chaners.guiyuan.settings.CombinedStatusBatteryColorMode.CUSTOM,
+                        CombinedStatusBatteryColorMode.CUSTOM,
                     )
                     visualRepository.setBatteryColorOverride(slot, color)
                 },

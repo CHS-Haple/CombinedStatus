@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -167,10 +166,6 @@ internal fun BatteryColorBottomSheet(
                 settings = settings,
                 onModeChange = onModeChange,
                 onEditCustom = {
-                    onModeChange(
-                        selectedSlot,
-                        CombinedStatusBatteryColorMode.CUSTOM,
-                    )
                     editingCustom = true
                 },
                 onResetSlot = onResetSlot,
@@ -295,7 +290,9 @@ private fun BatteryCustomColorEditor(
     settings: CombinedStatusVisualSettings,
     onColorChange: (CombinedStatusBatteryColorSlot, Int) -> Unit,
 ) {
-    val dynamicFallback = MiuixTheme.colorScheme.onSurface.toArgb()
+    val dynamicFallback =
+        CombinedStatusRecommendedBatteryPalette.colorFor(slot)
+            ?: MiuixTheme.colorScheme.onSurface.toArgb()
     val initialColor =
         remember(slot.ordinal) {
             batteryColorEditorInitialColor(
