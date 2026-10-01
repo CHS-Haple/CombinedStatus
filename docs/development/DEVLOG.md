@@ -1,3 +1,31 @@
+## 2026-10-01 — Build 567 HyperOS-default contract-test correction
+
+**Type:** test-only contract correction  
+**Display version:** 0.0.3  
+**Build:** 567 / `20261001-567`  
+**Branch / PR:** `feat/battery-top-readout` / #181
+
+### CI evidence
+
+Full CI #2096 / run 36904240233 compiled Debug and Canary successfully and reached `:app:testDebugUnitTest`. Of 426 tests, exactly one failed: `CombinedStatusColorPolicyTest.modeColorOnlyChangesBatteryByDefault`. That assertion still expected `CombinedStatusRecommendedBatteryPalette.PERFORMANCE`, which contradicts the maintainer-approved Build-564 contract that HyperOS is the default scheme.
+
+### Correction
+
+- Change the default color-policy expectation from Recommended/Low-saturation to `CombinedStatusHyperOsBatteryPalette.PERFORMANCE`.
+- Strengthen the HyperOS charging test: supply a deliberately non-HyperOS runtime semantic input (`#123456`) and assert the selected HyperOS fixed template still resolves to the pinned `#1DCD3A`. This distinguishes the new fixed-template contract from the old `SystemDefault` behavior rather than passing accidentally because the target runtime color happens to equal the template.
+
+### 审查 / review
+
+- production source is untouched;
+- the failed assertion is demonstrably stale relative to the user-approved default/order and exact-target template model;
+- center/mobile remain status-tint by default; only battery-family outputs consume the selected scheme unless linkage switches are enabled;
+- this change increases regression strength by explicitly separating fixed-template resolution from runtime semantic input.
+
+### Validation
+
+Run exact-head Full CI. A green result closes automated validation for the battery-color redesign and permits exact-head signed Canary generation.
+
+
 ## 2026-10-01 — Build 566 Compose padding compile correction
 
 **Type:** compile-only correction  
