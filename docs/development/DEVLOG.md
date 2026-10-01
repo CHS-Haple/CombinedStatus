@@ -15278,3 +15278,53 @@ Primary validation:
 5. confirm Build-542 Super-Island peer behavior remains normal.
 
 If 80% completion still feels too slow or too fast, tune only the completion fraction in a follow-up AB build; do not reintroduce the rejected dynamic gate.
+
+
+## 2026-10-01 — Build 547 faster continuous retract
+
+**Type:** focused device-evidence timing refinement  
+**Display version:** 0.0.3  
+**Build:** 547 / `20261001-547`  
+**Branch / PR:** `feat/battery-top-readout` / #181  
+**Runtime commit:** `57da4ee71d4adc9f9e496a1115bbad2a365146c8`  
+**Runtime CI:** #2060 — success
+
+### Device evidence
+
+Build 546 successfully removes the Build-545 optical-gate discontinuity and restores one continuous Battery-ring retract. The maintainer's follow-up recording shows the remaining issue is no longer topology or path: the ring simply still finishes too late relative to CENTER/network motion.
+
+### Root cause
+
+Build 546 remaps ring progress by `p / 0.80`, so the ring only reaches zero remaining sweep at 80% of the existing transition clock. The user-visible overlap window therefore remains longer than desired even though the motion is continuous.
+
+### Change
+
+Build 547 is a strict single-variable AB:
+- `TRANSITION_COMPLETE_PROGRESS: 0.80f -> 0.60f`;
+- ring local progress now reaches 0.5 at global progress 0.30 and 1.0 at global progress 0.60;
+- the existing symmetric smoothstep still shapes the visible arc length;
+- no dynamic gate, portal, extra geometry owner, Animator, delay, or path bend is reintroduced.
+
+### 问题执行流程
+
+1. Existing native transition clock remains authoritative.
+2. Battery ring receives only a remapped local progress `clamp(global / 0.60)`.
+3. Existing smoothstep computes remaining arc length.
+4. Existing Build-544 direction-aware ordered arc consumption remains unchanged.
+5. CENTER/network keeps the same native target path and timing.
+6. Final Battery witness/handoff is unchanged.
+7. Reverse evaluates the same stateless mapping in reverse.
+
+### 审查 / review
+
+- **single variable:** only completion fraction changed.
+- **continuity:** no segment floor or dynamic portal; the Build-545 discontinuity route remains rejected.
+- **ownership/lifecycle:** unchanged.
+- **Fail-native:** unchanged from Build 546/544.
+- **performance:** no new per-frame work.
+- **Build-542 island boundary:** untouched.
+- **tests:** transition remap test now locks 0.30 -> 0.5 and 0.60 -> 1.0; existing arc/top-gap/direction tests remain intact.
+
+### Device gate
+
+Signed exact-head Canary required. Primary check: confirm the ring now clears before CENTER/network visually intersects it, while preserving the continuous Build-546 appearance. If 0.60 is still slow, the next adjustment should remain on this one scalar; if it becomes too abrupt, tune between 0.60 and 0.80 rather than reviving the gate.
