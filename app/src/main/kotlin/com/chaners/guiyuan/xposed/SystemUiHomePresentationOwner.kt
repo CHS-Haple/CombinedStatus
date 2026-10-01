@@ -62,6 +62,13 @@ internal object SystemUiHomePresentationOwner {
         keyguardCurrent?.ownedRepresentedSlots() ?: emptySet()
 
     @Synchronized
+    fun onVisualSettingsChanged() {
+        current?.syncEndReservation()
+        keyguardCurrent?.syncEndReservation()
+        controlCenterCurrent?.syncEndReservation()
+    }
+
+    @Synchronized
     fun install(
         module: XposedModule,
         classLoader: ClassLoader,
@@ -1349,7 +1356,11 @@ internal object SystemUiHomePresentationOwner {
                     baseCarrierWidthPx = stableCarrierWidthPx,
                     isRtl = hostView.layoutDirection == View.LAYOUT_DIRECTION_RTL,
                 ) ?: run { onFailNative(surfaceName + "-layout-unavailable"); return false }
-            val compactSlotWidthPx = resolved.requestedSlotWidthPx.toInt()
+            val compactSlotWidthPx =
+                CombinedStatusCompactReservationPolicy.resolveCenteredVisualWidth(
+                    baseSlotWidthPx = resolved.requestedSlotWidthPx.toInt(),
+                    userScale = RuntimeVisualPreferencesOwner.currentSettings().combinedScale,
+                )
             val requestedSlotWidthPx =
                 EndReservationPolicy.resolveRequestedSlotWidth(
                     compactSlotWidthPx = compactSlotWidthPx,
@@ -1383,6 +1394,7 @@ internal object SystemUiHomePresentationOwner {
                         " stableCarrierWidth=" + stableCarrierWidthPx +
                         " actualBatteryWidth=" + actualBatteryWidthPx +
                         " compactSlotWidth=" + compactSlotWidthPx +
+                        " visualScale=" + RuntimeVisualPreferencesOwner.currentSettings().combinedScale +
                         " requestedSlotWidth=" + requestedSlotWidthPx +
                         " transitionRequestedSlotWidth=" +
                         (transitionRequestedSlotWidthPx ?: -1) +

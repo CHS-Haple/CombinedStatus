@@ -11,7 +11,7 @@ class CombinedStatusVisualSettingsTest {
         assertEquals(1f, settings.outerWeightScale, 0.0001f)
         assertEquals(1f, settings.wifiSizeScale, 0.0001f)
         assertEquals(1f, settings.mobileTypeSizeScale, 0.0001f)
-        assertEquals(800, settings.mobileTypeWeight)
+        assertEquals(900, settings.mobileTypeWeight)
 
         val normalized =
             settings.copy(
@@ -32,6 +32,9 @@ class CombinedStatusVisualSettingsTest {
         assertEquals(WIFI_SIZE_SCALE_MAX, normalized.wifiSizeScale, 0.0001f)
         assertEquals(MOBILE_TYPE_SIZE_SCALE_MAX, normalized.mobileTypeSizeScale, 0.0001f)
         assertEquals(MOBILE_TYPE_WEIGHT_MAX, normalized.mobileTypeWeight)
+        assertEquals(400, MOBILE_TYPE_WEIGHT_MIN)
+        assertEquals(900, MOBILE_TYPE_WEIGHT_DEFAULT)
+        assertEquals(1400, MOBILE_TYPE_WEIGHT_MAX)
     }
 
     @Test

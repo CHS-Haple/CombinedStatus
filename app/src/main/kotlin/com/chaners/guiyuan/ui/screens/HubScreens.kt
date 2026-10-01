@@ -168,7 +168,7 @@ internal fun FeaturesScreen(
                 valueRange =
                     MOBILE_TYPE_WEIGHT_MIN.toFloat()..
                         MOBILE_TYPE_WEIGHT_MAX.toFloat(),
-                steps = 8,
+                steps = 19,
                 showKeyPoints = true,
                 keyPoints = listOf(MOBILE_TYPE_WEIGHT_DEFAULT.toFloat()),
                 magnetThreshold = 0.035f,

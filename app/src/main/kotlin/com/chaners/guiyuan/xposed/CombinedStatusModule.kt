@@ -3232,6 +3232,7 @@ class CombinedStatusModule : XposedModule() {
         CombinedStatusHomeRenderSession.onVisualSettingsChanged(settings)
         CombinedStatusKeyguardRenderSession.onVisualSettingsChanged(settings)
         CombinedStatusControlCenterRenderSession.onVisualSettingsChanged(settings)
+        SystemUiHomePresentationOwner.onVisualSettingsChanged()
         if (detailedDiagnosticsEnabled) {
             logDiagnostic(
                 level = Log.INFO,

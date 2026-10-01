@@ -995,9 +995,9 @@ internal const val WIFI_SIZE_SCALE_MAX = 1.25f
 internal const val MOBILE_TYPE_SIZE_SCALE_DEFAULT = 1f
 internal const val MOBILE_TYPE_SIZE_SCALE_MIN = 0.80f
 internal const val MOBILE_TYPE_SIZE_SCALE_MAX = 1.25f
-internal const val MOBILE_TYPE_WEIGHT_DEFAULT = 800
-internal const val MOBILE_TYPE_WEIGHT_MIN = 500
-internal const val MOBILE_TYPE_WEIGHT_MAX = 950
+internal const val MOBILE_TYPE_WEIGHT_DEFAULT = 900
+internal const val MOBILE_TYPE_WEIGHT_MIN = 400
+internal const val MOBILE_TYPE_WEIGHT_MAX = 1400
 
 internal fun batteryColorModeKey(slot: CombinedStatusBatteryColorSlot): String =
     when (slot) {

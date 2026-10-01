@@ -58,6 +58,24 @@ class CombinedStatusLayoutPolicyTest {
     }
 
     @Test
+    fun centeredShrinkReservationTracksTheVisibleLeadingEdge() {
+        assertEquals(
+            105,
+            CombinedStatusCompactReservationPolicy.resolveCenteredVisualWidth(
+                baseSlotWidthPx = 105,
+                userScale = 1f,
+            ),
+        )
+        assertEquals(
+            92,
+            CombinedStatusCompactReservationPolicy.resolveCenteredVisualWidth(
+                baseSlotWidthPx = 105,
+                userScale = 0.75f,
+            ),
+        )
+    }
+
+    @Test
     fun homeResolverKeepsCurrentCarrierWidthAndHostHeightSeparated() {
         val layout =
             requireNotNull(

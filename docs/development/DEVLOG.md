@@ -677,6 +677,40 @@ Exact-head Runtime CI #2083 (run `36884110591`) completed successfully on `b0ba5
 Build 561 is closed. Custom color editing remains isolated to the next commit.
 
 
+## 2026-10-02 — Build 563 scale-aware compact reservation and Mobile Type weight range
+
+**Type:** runtime geometry / settings correction  
+**Display version:** 0.0.3  
+**Build:** 563 / `20261001-563`  
+**Branch / PR:** `feat/battery-top-readout` / #181
+
+### Device evidence and root cause
+
+Build-562 device feedback identified two independent issues:
+- Mobile Type weight still exposed the old 500-950 / 800 contract rather than the requested 400-1400 / 900 midpoint.
+- Overall size scaled only Guiyuan painter pixels. The native replacement reservation remained the full stable Battery carrier width, so neighboring HyperOS status icons could not close the visual gap.
+
+The Build-562 diagnostic confirms `compactSlotWidth=105` remained unchanged while the renderer accepted live visual settings. The correction therefore belongs to the existing reservation geometry, not to a new spacing offset.
+
+### Implementation
+
+- Mobile Type weight: 400-1400, 50-weight slider intervals, default/key point 900.
+- Add one centered-scale reservation rule: because painter shrink is centered in the stable Battery carrier, peer reservation ends at the scaled visual's leading edge while retaining the transparent end-side inset.
+- Reuse that rule for Home/Keyguard/Control Center native padding and the transition reservation/latent-reveal compact baseline.
+- Visual preference changes ask the existing `SystemUiHomePresentationOwner` to resync its reservation; no second padding/translation writer is added.
+
+### Review
+
+- Geometry is derived from the same base carrier width + user scale; no device-specific px compensation.
+- `paddingEnd` remains single-writer owned by the existing presentation session.
+- Scale remains shrink-only and the painter remains the sole Guiyuan pixel owner.
+- Transition target geometry, HyperOS island width authority, animation clocks, and native peer motion are unchanged.
+- Failure paths remain native because unavailable carrier/layout inputs still abort the existing reservation path.
+
+### Validation
+
+Automated validation is expected to be Full while #181 still includes the independently reviewed CI run-title delta. No work-branch Canary is requested by this change alone; device evidence is deferred until the color-UI/runtime palette work is grouped into one focused checkpoint.
+
 ## 2026-10-01 — Build 562 MIUIX custom battery color editor
 
 **Type:** settings UI / custom battery colors  
