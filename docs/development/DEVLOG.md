@@ -675,3 +675,72 @@ Exact-head Runtime CI #2083 (run `36884110591`) completed successfully on `b0ba5
 - pinned HyperOS target and modern Xposed metadata verification passed.
 
 Build 561 is closed. Custom color editing remains isolated to the next commit.
+
+
+## 2026-10-01 — Build 562 MIUIX custom battery color editor
+
+**Type:** settings UI / custom battery colors  
+**Display version:** 0.0.3  
+**Build:** 562 / `20261001-562`  
+**Branch / PR:** `feat/battery-top-readout` / #181  
+
+### Scope
+
+Complete the Custom source path introduced by Build 559/561 without adding another screen or another BottomSheet instance.
+
+The existing single BottomSheet now has a third internal state:
+1. palette/mode overview;
+2. per-mode source selection;
+3. per-mode custom color editor.
+
+### Custom editor
+
+The editor provides:
+- 10 common color shortcuts;
+- full opaque HSV adjustment using MIUIX `HsvHueSlider`, `HsvSaturationSlider`, and `HsvValueSlider`;
+- exact six-digit HEX input;
+- exact RGB input;
+- current-color preview;
+- per-mode restore-default action.
+
+The built-in MIUIX `ColorPalette` / `ColorPicker` components were reviewed but intentionally not used because MIUIX 0.9.4 always exposes an alpha slider while Guiyuan persists battery semantic colors as opaque. Showing a control whose result is discarded would violate the UI/runtime contract.
+
+### Common colors
+
+Ten compact shortcuts cover red, orange, yellow, green, cyan, blue, indigo, purple, pink, and neutral gray. They are shortcuts only, not a fourth named palette.
+
+### Persistence
+
+- Picking/editing a custom color guarantees the slot is in `CUSTOM` mode and writes the opaque ARGB value through the existing visual-settings repository.
+- `resetBatteryColorSlot(slot)` removes that slot’s source-mode key and override in one SharedPreferences editor transaction.
+- Resetting a slot therefore returns it to `PRESET` mode using the currently selected Recommended / HyperOS / iOS scheme.
+- No global palette or other slot is changed.
+
+### Input rules
+
+- HEX accepts exactly six hexadecimal digits (optional leading `#`) and forces alpha to FF.
+- RGB accepts integer channels 0-255.
+- Invalid or incomplete input does not mutate the persisted color.
+- For an unset custom color, editor initialization prefers: stored override -> selected fixed palette color -> current MIUIX foreground only as a local editing seed for dynamic SystemUI colors. This seed is not persisted until the user changes a value.
+
+### Pre-commit 审查 / review
+
+- No alpha control is exposed.
+- No Material color picker or text field is introduced.
+- The BottomSheet instance count remains one.
+- The new editor uses only existing repository ownership.
+- Per-mode reset is atomic.
+- Common colors are UI shortcuts, not persisted as a separate scheme.
+- No SystemUI hook, transition, or battery-state ownership changes.
+
+### Tests
+
+Battery color UI tests now also cover:
+- valid/invalid six-digit HEX parsing;
+- RGB 0-255 bounds;
+- RGB split/round-trip;
+- editor initial-color precedence and dynamic fallback opacity.
+
+### Validation
+
+Run exact-head Runtime CI before any device review.

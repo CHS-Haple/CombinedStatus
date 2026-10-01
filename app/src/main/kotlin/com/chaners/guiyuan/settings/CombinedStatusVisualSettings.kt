@@ -440,6 +440,13 @@ internal class CombinedStatusVisualSettingsRepository(context: Context) {
         editor.apply()
     }
 
+    fun resetBatteryColorSlot(slot: CombinedStatusBatteryColorSlot) {
+        preferences.edit()
+            .remove(batteryColorModeKey(slot))
+            .remove(batteryColorOverrideKey(slot))
+            .apply()
+    }
+
     fun resetBatteryColorOverrides() {
         val editor = preferences.edit()
         CombinedStatusBatteryColorSlot.entries.forEach { slot ->

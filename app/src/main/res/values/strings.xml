@@ -199,4 +199,18 @@
     <string name="battery_mode_charging">Charging</string>
     <string name="battery_mode_low">Low battery</string>
 
+
+    <string name="battery_color_custom_title">%1$s · Custom color</string>
+    <string name="battery_color_restore_mode">Restore mode default</string>
+    <string name="battery_color_restore_mode_summary">Use the selected scheme color and clear this custom color</string>
+    <string name="battery_color_current">Current color</string>
+    <string name="battery_color_opaque_summary">Status colors are always applied as opaque</string>
+    <string name="battery_color_common">Common colors</string>
+    <string name="battery_color_full_adjustment">Full color adjustment</string>
+    <string name="battery_color_hue">Hue</string>
+    <string name="battery_color_saturation">Saturation</string>
+    <string name="battery_color_brightness">Brightness</string>
+    <string name="battery_color_precise_input">Precise input</string>
+    <string name="battery_color_hex">HEX</string>
+
 </resources>

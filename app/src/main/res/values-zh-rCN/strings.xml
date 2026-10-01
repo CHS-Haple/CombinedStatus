@@ -198,4 +198,18 @@
     <string name="battery_mode_charging">充电</string>
     <string name="battery_mode_low">低电量</string>
 
+
+    <string name="battery_color_custom_title">%1$s · 自定义颜色</string>
+    <string name="battery_color_restore_mode">恢复此模式默认</string>
+    <string name="battery_color_restore_mode_summary">恢复方案颜色并清除该模式自定义色</string>
+    <string name="battery_color_current">当前颜色</string>
+    <string name="battery_color_opaque_summary">状态栏颜色始终以不透明方式应用</string>
+    <string name="battery_color_common">常用色</string>
+    <string name="battery_color_full_adjustment">全色调节</string>
+    <string name="battery_color_hue">色相</string>
+    <string name="battery_color_saturation">饱和度</string>
+    <string name="battery_color_brightness">亮度</string>
+    <string name="battery_color_precise_input">精确输入</string>
+    <string name="battery_color_hex">HEX</string>
+
 </resources>

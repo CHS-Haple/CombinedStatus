@@ -360,6 +360,14 @@ internal fun FeaturesScreen(
                     batteryColorSlotOrdinal = slot.ordinal
                 },
                 onModeChange = visualRepository::setBatteryColorMode,
+                onCustomColorChange = { slot, color ->
+                    visualRepository.setBatteryColorMode(
+                        slot,
+                        com.chaners.guiyuan.settings.CombinedStatusBatteryColorMode.CUSTOM,
+                    )
+                    visualRepository.setBatteryColorOverride(slot, color)
+                },
+                onResetSlot = visualRepository::resetBatteryColorSlot,
             )
             OverlayDialog(
                 title = stringResource(R.string.restore_feature_defaults),
