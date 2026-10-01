@@ -41,6 +41,8 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -67,11 +69,13 @@ import top.yukonga.miuix.kmp.basic.DropdownDefaults
 import top.yukonga.miuix.kmp.basic.DropdownImpl
 import top.yukonga.miuix.kmp.basic.DropdownItem
 import top.yukonga.miuix.kmp.basic.FloatingActionButton
+import top.yukonga.miuix.kmp.basic.FloatingActionButtonDefaults
 import top.yukonga.miuix.kmp.basic.HsvHueSlider
 import top.yukonga.miuix.kmp.basic.HsvSaturationSlider
 import top.yukonga.miuix.kmp.basic.HsvValueSlider
 import top.yukonga.miuix.kmp.basic.Icon
 import top.yukonga.miuix.kmp.basic.IconButton
+import top.yukonga.miuix.kmp.basic.IconButtonDefaults
 import top.yukonga.miuix.kmp.basic.ListPopupColumn
 import top.yukonga.miuix.kmp.basic.PopupPositionProvider
 import top.yukonga.miuix.kmp.basic.SmallTitle
@@ -595,12 +599,19 @@ private fun BatterySchemeHeader(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .heightIn(min = 40.dp),
+                .heightIn(min = IconButtonDefaults.MinHeight),
     ) {
         Text(
             text = name,
             style = MiuixTheme.textStyles.title2,
-            modifier = Modifier.align(Alignment.Center),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = IconButtonDefaults.MinWidth)
+                    .align(Alignment.Center),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
         )
         endAction?.let { action ->
             Box(
@@ -701,7 +712,7 @@ private fun BatteryAddSchemePage(
                         }
                     } else {
                         Surface(
-                            modifier = Modifier.size(60.dp),
+                            modifier = Modifier.size(FloatingActionButtonDefaults.MinWidth),
                             shape = CircleShape,
                             color = MiuixTheme.colorScheme.disabledPrimaryButton,
                         ) {
