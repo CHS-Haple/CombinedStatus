@@ -1,3 +1,29 @@
+## 2026-10-02 — Build 584 fixed scheme navigator ownership
+
+**Type:** App UI / pager ownership / MIUIX navigation  
+**Display version:** 0.0.3  
+**Build:** 584 / `20261002-584`  
+**Branch / PR:** `feat/battery-top-readout` / #181
+
+### Maintainer correction
+Horizontal switching should move the complete gray scheme Card only. The previous/next buttons and page indicator must stay fixed above that Card.
+
+### Change
+- Hoist `BatterySchemeNavigator` out of individual scheme/Add pages into `BatterySchemeOverview`.
+- Keep navigator geometry fixed above the `HorizontalPager`.
+- Pager pages now own only the gray outer Card and its nested content.
+- Remove `pageCount/pageIndex/onNavigateTo` from scheme and Add page APIs.
+- Preserve native MIUIX IconButtons, disabled first/last states, pager spring and Build-583 nested Card hierarchy.
+
+### Review
+- Navigation state has one owner: `BatterySchemeOverview`.
+- Page content no longer owns or animates navigation controls.
+- Only the gray Card participates in horizontal page motion.
+- No Runtime/SystemUI/hook/persistence delta.
+
+### Validation
+Run exact-head Runtime CI and Canary. Verify navigator remains visually stationary while the gray Card slides, including first/last-page disabled states.
+
 ## 2026-10-02 — Build 583 nested battery-color card hierarchy
 
 **Type:** App UI / MIUIX hierarchy / layout ownership  
