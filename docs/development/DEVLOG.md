@@ -1,3 +1,33 @@
+## 2026-10-02 — Build 583 nested battery-color card hierarchy
+
+**Type:** App UI / MIUIX hierarchy / layout ownership  
+**Display version:** 0.0.3  
+**Build:** 583 / `20261002-583`  
+**Branch / PR:** `feat/battery-top-readout` / #181
+
+### Maintainer correction
+The intended visual hierarchy is not a gray Sheet. It is:
+1. white BottomSheet;
+2. one light-gray outer Card containing all battery-color page content;
+3. white inner Card(s) containing actual settings/function groups.
+
+### Implementation
+- Restore native white `OverlayBottomSheet` background.
+- Ordinary scheme pages: one `surface` outer Card owns title, preview, pager navigation, apply action and the nested white settings Card.
+- Custom title and More menu share the same minimum 40dp title row; the title remains centered and More is aligned `CenterEnd`.
+- Add page uses the same outer Card geometry and title/preview/navigation baselines as ordinary scheme pages; its plus action remains centered in a nested white Card.
+- Detail editor: one `surface` outer Card owns the bare source dropdown and section labels; Common colors, Full adjustment and Precise input remain native white nested Cards.
+- All colors use MIUIX semantic tokens; no hand-drawn borders or literal RGB values.
+
+### Review
+- Card hierarchy matches ownership: page container vs setting/function-group container.
+- Typography remains pinned MIUIX `title2`, `SmallTitle`, `BasicComponent`, `body2` and native Button/Preference styles.
+- No Runtime/SystemUI/hook/persistence change.
+- Build 582 visual hierarchy is superseded and should not be used for device acceptance.
+
+### Validation
+Run exact-head Runtime CI and Canary. Validate white Sheet, visible gray outer Card, nested white settings Cards, aligned custom More button, and Add-page geometry parity.
+
 ## 2026-10-02 — Build 582 BottomSheet/Card semantic color hierarchy correction
 
 **Type:** App UI / MIUIX semantic color hierarchy  
