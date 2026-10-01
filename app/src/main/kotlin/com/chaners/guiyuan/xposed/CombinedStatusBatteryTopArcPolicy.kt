@@ -113,14 +113,13 @@ internal object CombinedStatusBatteryTopArcPolicy {
         )
     }
 
-    fun resolve(
-        batteryPercent: Int,
+    fun drawableArcs(
         startDegrees: Float,
         maxSweep: Float,
         gapCenterDegrees: Float,
         gapSweepDegrees: Float,
-    ): Segments {
-        if (maxSweep <= 0f) return Segments(emptyList(), emptyList())
+    ): List<Arc> {
+        if (maxSweep <= 0f) return emptyList()
 
         val endDegrees = startDegrees + maxSweep
         val halfGap = gapSweepDegrees.coerceAtLeast(0f) / 2f
@@ -130,6 +129,23 @@ internal object CombinedStatusBatteryTopArcPolicy {
         val drawable = ArrayList<Arc>(2)
         if (gapStart > startDegrees) drawable += Arc(startDegrees, gapStart - startDegrees)
         if (gapEnd < endDegrees) drawable += Arc(gapEnd, endDegrees - gapEnd)
+        return drawable
+    }
+
+    fun resolve(
+        batteryPercent: Int,
+        startDegrees: Float,
+        maxSweep: Float,
+        gapCenterDegrees: Float,
+        gapSweepDegrees: Float,
+    ): Segments {
+        val drawable =
+            drawableArcs(
+                startDegrees = startDegrees,
+                maxSweep = maxSweep,
+                gapCenterDegrees = gapCenterDegrees,
+                gapSweepDegrees = gapSweepDegrees,
+            )
         if (drawable.isEmpty()) return Segments(emptyList(), emptyList())
 
         val totalVisibleSweep = drawable.sumOf { it.sweepDegrees.toDouble() }.toFloat()

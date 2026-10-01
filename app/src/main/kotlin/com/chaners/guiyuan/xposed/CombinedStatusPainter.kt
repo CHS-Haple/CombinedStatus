@@ -252,19 +252,6 @@ internal class CombinedStatusPainter(
         val motion = motionProgress.coerceIn(0f, 1f)
         val shape = shapeProgress.coerceIn(0f, 1f)
         val componentSave = canvas.save()
-        when (shapePolicy) {
-            TransitionShapePolicy.BATTERY_FOLD ->
-                canvas.scale(
-                    1f,
-                    lerp(1f, BATTERY_FOLD_SCALE_Y, motion),
-                    BATTERY_COMPONENT_CENTER_X,
-                    BATTERY_COMPONENT_CENTER_Y,
-                )
-
-            TransitionShapePolicy.RIGID,
-            TransitionShapePolicy.MOBILE_SIGNAL,
-            -> Unit
-        }
 
         when (component) {
             TransitionComponent.BATTERY ->
@@ -290,6 +277,12 @@ internal class CombinedStatusPainter(
                     scaleMobileTypeWithCanvas = false,
                     drawReadoutText = false,
                     drawReadoutChargingIcon = false,
+                    ringRetractProgress =
+                        if (shapePolicy == TransitionShapePolicy.BATTERY_RETRACT) {
+                            shape
+                        } else {
+                            null
+                        },
                 )
 
             TransitionComponent.BATTERY_NUMBER ->
@@ -530,7 +523,7 @@ internal class CombinedStatusPainter(
     }
 
     internal enum class TransitionShapePolicy {
-        BATTERY_FOLD,
+        BATTERY_RETRACT,
         RIGID,
         MOBILE_SIGNAL,
     }
@@ -644,7 +637,7 @@ internal class CombinedStatusPainter(
                         ),
                     ),
                 target = TransitionTarget.BatteryIcon,
-                shapePolicy = TransitionShapePolicy.BATTERY_FOLD,
+                shapePolicy = TransitionShapePolicy.BATTERY_RETRACT,
                 scalePolicy = TransitionScalePolicy.TARGET,
             )
 
@@ -1327,6 +1320,7 @@ internal class CombinedStatusPainter(
         centerEnterAmount: Float = 1f,
         drawReadoutText: Boolean = true,
         drawReadoutChargingIcon: Boolean = true,
+        ringRetractProgress: Float? = null,
     ) {
         val readout =
             resolveBatteryTopReadoutLayout(
@@ -1349,7 +1343,69 @@ internal class CombinedStatusPainter(
                 readout?.groupOpticalBounds
             }
 
-        if (topContentBounds == null) {
+        if (ringRetractProgress != null) {
+            val drawableArcs =
+                if (topContentBounds == null) {
+                    listOf(
+                        CombinedStatusBatteryTopArcPolicy.Arc(
+                            startDegrees = BATTERY_START_DEGREES,
+                            sweepDegrees = BATTERY_MAX_SWEEP,
+                        ),
+                    )
+                } else {
+                    val gap =
+                        CombinedStatusBatteryTopArcPolicy.resolveGap(
+                            contentLeft = topContentBounds.left,
+                            contentTop = topContentBounds.top,
+                            contentRight = topContentBounds.right,
+                            contentBottom = topContentBounds.bottom,
+                            ringCenterX = batteryRing.centerX(),
+                            ringCenterY = batteryRing.centerY(),
+                            ringRadius = batteryRing.width() / 2f,
+                            ringStroke = geometry.ringStroke,
+                            visualClearance = BATTERY_TOP_RING_VISUAL_CLEARANCE,
+                            startDegrees = BATTERY_START_DEGREES,
+                            maxSweep = BATTERY_MAX_SWEEP,
+                        )
+                    CombinedStatusBatteryTopArcPolicy.drawableArcs(
+                        startDegrees = BATTERY_START_DEGREES,
+                        maxSweep = BATTERY_MAX_SWEEP,
+                        gapCenterDegrees = gap.centerDegrees,
+                        gapSweepDegrees = gap.sweepDegrees,
+                    )
+                }
+            val segments =
+                CombinedStatusBatteryRingTransitionPolicy.resolve(
+                    drawableArcs = drawableArcs,
+                    batteryPercent = model.batteryPercent,
+                    progress = ringRetractProgress,
+                )
+
+            stroke(batteryTint, 48, geometry.ringStroke, opacity)
+            segments.background.forEach { arc ->
+                if (arc.sweepDegrees > 0f) {
+                    canvas.drawArc(
+                        batteryRing,
+                        arc.startDegrees,
+                        arc.sweepDegrees,
+                        false,
+                        paint,
+                    )
+                }
+            }
+            stroke(batteryTint, 255, geometry.ringStroke, opacity)
+            segments.active.forEach { arc ->
+                if (arc.sweepDegrees > 0f) {
+                    canvas.drawArc(
+                        batteryRing,
+                        arc.startDegrees,
+                        arc.sweepDegrees,
+                        false,
+                        paint,
+                    )
+                }
+            }
+        } else if (topContentBounds == null) {
             val segments =
                 CombinedStatusBatteryArcPolicy.resolve(
                     batteryPercent = model.batteryPercent,
@@ -3270,7 +3326,6 @@ internal class CombinedStatusPainter(
         const val NATIVE_STEADY_APPEAR_THRESHOLD = 0.999f
         const val BATTERY_COMPONENT_CENTER_X = 60f
         const val BATTERY_COMPONENT_CENTER_Y = 58f
-        const val BATTERY_FOLD_SCALE_Y = 0.72f
         const val BATTERY_TOP_TEXT_SIZE = 24f
         const val BATTERY_TOP_CHARGING_ICON_SIZE = 18f
         const val BATTERY_TOP_ICON_TEXT_GAP = 1f

@@ -1165,7 +1165,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     motionProgress = motionProgress,
                     shapeProgress =
                         when (spec.shapePolicy) {
-                            CombinedStatusPainter.TransitionShapePolicy.BATTERY_FOLD ->
+                            CombinedStatusPainter.TransitionShapePolicy.BATTERY_RETRACT ->
                                 motionProgress
 
                             CombinedStatusPainter.TransitionShapePolicy.MOBILE_SIGNAL ->
