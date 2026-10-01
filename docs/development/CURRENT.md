@@ -15,9 +15,9 @@ This file is the concise recovery point for active Guiyuan development. Historic
 PR #181 / `feat/battery-top-readout` now owns the battery-information controls, network/battery content layout, preview synchronization, and the associated steady/transition source geometry while preserving the accepted Home -> Control Center ownership contract.
 
 Current checkpoint:
-- Build 542 / `20261001-542` QS_FAKE island-width compensation checkpoint;
-- Build 541 exact-head Runtime CI #2038 and signed Work Branch Canary #608 are green at `15cd544ed68d5303c78aa6e433242aee6f6fd4bc`, but maintainer device evidence rejects the peer-`forceAppear` correction: `reservationMode=native-progress-fake-island-freeze`, `islandPeerFreeze=active:3`, and a growing non-negative `nativeReservation` were all present while native peers still disappeared during the island pull;
-- Build 542 pre-documentation Runtime CI #2040 is green at `e972bfb40dbc4ef8051b411a18641eb6026573b6`; the repaired current runtime commit `08016fa7200ecb9b1b4588345b3f409e8fb5b881` has the exact same Git tree `0006f8b28c6f746e031bc817850bf9493d7e3c50`, so the transient malformed-tree recovery did not change the reviewed Build-542 runtime content;
+- Build 542 / `20261001-542` QS_FAKE island-boundary projection checkpoint;
+- Build 541 exact-head Runtime CI #2038 and signed Work Branch Canary #608 are green at `15cd544ed68d5303c78aa6e433242aee6f6fd4bc`, but maintainer device evidence rejects the peer-`forceAppear` correction: `reservationMode=native-progress-fake-island-freeze`, `islandPeerFreeze=active:3`, and a growing non-negative `nativeReservation` were all present while native peers still disappeared during the island pull; this route is disproven and must not be revived;
+- Build 542 final pre-documentation Runtime CI #2046 is green at `6a18f04722bc65cc8a74113403ea279427fb5ffb`; the accepted runtime shape keeps HyperOS as the sole `islandWidth` owner and adds one exact `MiuiStatusIconContainer.getIslandTranslationX()` projection Hook scoped only to the active QS_FAKE container;
 - Build 540 exact-head Runtime CI #2032 and Work Branch Canary #607 are green at `3ea8a533179ec1a08fb48228109088e5f49cafb8`; cold-start device evidence successfully captured the QS_FAKE island contract and confirms the Build-539/540 guard still blocks native peer reservation during an island pull;
 - Build 539 exact-head Runtime CI #2028 is green at `e41c7d77d60689f8c08fdc36bdc0d40fa724f554`; maintainer device evidence indicates the island guard suppresses the premature avoidance symptom but also removes the required continuous leftward peer reflow because the same native padding expansion was disabled wholesale;
 - Build 538 exact-head Runtime CI #2027 and Work Branch Canary #604 are green at `0a3558fc1bff90904b177345ec5ee80275bcb0ec`; focused device evidence accepts the independent layout profiles / live TopSlot avoidance checkpoint but exposes one island-only Control Center regression: HyperOS hides the native end-side container while Guiyuan pixels are still visually far from the island;
@@ -201,15 +201,16 @@ Build 541 QS_FAKE peer-freeze correction — **device rejected**:
 - despite that, the recording still shows native peers disappearing during the generic-island pull, so per-child `forceAppear` is not the final island-layout authority for this path;
 - this disproves the Build-541 seam rather than the broader native-assumption model. The failure occurs above individual child visibility state, inside QS_FAKE island-layout accounting.
 
-Build 542 QS_FAKE island-width compensation:
-- exact-target JADX already establishes the native chain: `IslandMonitor.FakeContainerIslandMonitor` consumes Home `statusContainerSpace`, writes the fake `MiuiStatusIconContainer.islandWidth`, marks `islandWidthChanged`, and requests layout;
-- stock QS_FAKE assumes icon membership does not grow during the pull. Guiyuan uniquely adds horizontal transition reservation as one compact source decomposes;
-- Build 542 therefore preserves the native steady-island budget instead of freezing individual child states: if the fake container begins with native island width `W` and Guiyuan adds transition padding delta `Δ`, the effective fake island width becomes `max(0, W - Δ)`;
-- this lets the existing `statusIcons.paddingEnd` continue moving native peers left while preventing Guiyuan's extra transition-only width from being counted a second time by the fake island boundary;
-- the bridge validates that `getIslandMonitor()` is the exact `FakeContainerIslandMonitor`, reads/writes only the fake `MiuiStatusIconContainer.islandWidth` field, mirrors the native invariant by setting `islandWidthChanged=true`, and requests native layout;
-- if the native monitor publishes a newer raw island width during the transition, that value becomes the new baseline; cleanup restores the baseline only when the field still contains Guiyuan's own last compensated value, so newer SystemUI authority is never overwritten;
-- no `ignoredSlots`, per-child `forceAppear`, `islandAnimate`, View translation/alpha/visibility, controller reference, `batteryWidthDiff`, or endpoint geometry is written;
-- if the exact bridge cannot be resolved, native padding expansion remains guarded and the runtime fails native.
+Build 542 QS_FAKE island-boundary projection:
+- exact-target JADX closes the collision formula: `MiuiStatusIconContainer.onLayout()` starts peer placement from `width - paddingEnd`, then compares each native peer's `layoutTranslationX` against private `getIslandTranslationX()`; once one peer falls below that boundary, that peer and the remaining left-side peers are assigned `visibleState=2 / inIslandState=10`;
+- exact-target JADX also confirms `FakeContainerIslandMonitor` alone consumes Home `statusContainerSpace` and owns the native island-width state. Guiyuan must not become a second writer of that field;
+- Guiyuan's semantic decomposition increases `paddingEnd` by `Δ`, shifting every fake peer's layout X left by the same `Δ` while stock HyperOS would keep the island boundary unchanged. That is the direct cause of the sequential disappearance reproduced on 541;
+- Build 542 preserves the native classification invariant by projecting only the fake collision read: for the active QS_FAKE container, `getIslandTranslationX()` returns `max(0, W - Δ)` when native `W > 0`; other containers and non-island values return the native result unchanged;
+- mathematically, `x - Δ >= W - Δ` is equivalent to `x >= W`, so peers visible at the steady start remain visible while peers already excluded by the native island remain excluded;
+- `statusIcons.paddingEnd` remains the sole Guiyuan native peer-layout writer. HyperOS remains the sole writer of `islandWidth`, `islandWidthChanged`, controller state, child `visibleState`, View translation/alpha/visibility, and final Control Center geometry;
+- the projection is stored in a weak map keyed by the actual active QS_FAKE `MiuiStatusIconContainer`; the exact getter Hook returns the untouched native value for Home, Keyguard, final Control Center, and every unregistered container;
+- if the projection Hook is unavailable, Home + generic-island semantic reservation stays guarded and the runtime fails native rather than exposing expanded padding with an uncompensated island boundary;
+- provisional Build-542 direct `islandWidth` writes and monitor-detach/bypass variants were reviewed and rejected before device packaging because they violate native state ownership or alter steady-island membership too broadly.
 
 ## Validation state
 
@@ -232,10 +233,10 @@ Confirmed:
   - unknown exact authority remains native-peer-motion rather than guessing `false`.
 
 Pending:
-- run final exact-head Build-542 Runtime CI after this atomic documentation closure; pre-documentation Runtime CI #2040 already validates the identical runtime tree.
-- if green, freeze the exact SHA and produce one signed Work Branch Canary because the island-layout state change requires device evidence.
-- focused Build-542 device gate: with a generic Super-Island present, pull Home -> Control Center normally and quickly; surrounding native peers must continue their leftward reflow without the extra disappearance reproduced on 541.
-- export Detailed diagnostics and confirm `reservationMode=native-progress-fake-island-compensated`, non-negative `nativeReservation`, and `islandReservationBridge=active:base=<W>/effective=<W-Δ>/delta=<Δ>`. Any compensation-unavailable path, continued premature disappearance, new icon resurrection, overlap/jump, stale spacing after collapse, or non-island regression rejects the checkpoint.
+- run final exact-head Build-542 Runtime CI after the CURRENT/DEVLOG documentation closure; pre-documentation Runtime CI #2046 is green at `6a18f04722bc65cc8a74113403ea279427fb5ffb`.
+- if green, freeze the exact SHA and produce one signed Work Branch Canary because the fake island-collision projection requires device evidence.
+- focused Build-542 device gate: with a generic Super-Island present, pull Home -> Control Center normally and quickly; surrounding native peers must continue their leftward reflow while the extra sequential disappearance reproduced on 541 is absent.
+- export Detailed diagnostics and confirm `reservationMode=native-progress-fake-island-projected`, non-negative `nativeReservation`, and `islandBoundaryProjection=active:delta=<Δ>`. Any projection-unavailable path, continued premature disappearance, an icon hidden at steady start unexpectedly appearing, overlap/jump, stale spacing after collapse, or non-island regression rejects the checkpoint.
 - the broader PR acceptance matrix remains:
   - configure noticeably different number size, number weight, vertical offset, charging-glyph size and color-link switches in each layout; switching layouts must restore each profile independently;
   - an unmodified Battery-centered profile must show 120% percentage size and 120% charging-glyph size, with the slider key point at 120%; Network-centered remains 100%;
@@ -270,10 +271,10 @@ Pending:
 
 ## Immediate next step
 
-1. run final exact-head Build-542 Runtime CI after this atomic CURRENT/DEVLOG closure;
+1. finish the CURRENT/DEVLOG closure for the getter-projection implementation and run one final exact-head Build-542 Runtime CI;
 2. if green, freeze that exact SHA and produce one signed Work Branch Canary;
-3. validate the generic-island Home -> Control Center path: native peer leftward reflow must remain, and the extra peer disappearance seen on 541 must be absent;
-4. reject 542 on compensation-unavailable, icon resurrection, stale cleanup, overlap/jump, or non-island regression; do not merge PR #181 until this island path is device-accepted.
+3. validate the generic-island Home -> Control Center path: native peer leftward reflow must remain, the extra sequential disappearance seen on 541 must be absent, and peers already hidden by the steady island must not be resurrected;
+4. reject 542 on projection-unavailable, stale projection cleanup, overlap/jump, or non-island regression; do not merge PR #181 until this island path is device-accepted.
 ## Reference priority
 
 1. `CONTRIBUTING.md`;
