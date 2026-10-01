@@ -15087,3 +15087,108 @@ Primary validation:
 6. confirm Build-542 Super-Island peer behavior remains normal.
 
 If overlap remains, attach a short recording; the next step would be a dynamic optical-envelope gate, not a CENTER path bend.
+
+
+## 2026-10-01 — Build 545 live optical exit gate
+
+**Type:** device-evidence transition choreography refinement  
+**Display version:** 0.0.3  
+**Build:** 545 / `20261001-545`  
+**Branch / PR:** `feat/battery-top-readout` / #181  
+**Runtime commit:** `4c38b59682d0bcabcf91fa09360da4ae4770b542`  
+**Runtime CI:** #2056 — success
+
+### Device feedback after Build 544
+
+Build 544's direction-aware left-side retract improves the spatial relationship, but the maintainer reports that the ring still feels too slow to clear: CENTER/network can already be entering the visual crossing zone while the outlet-side arc is still present.
+
+A blanket speed multiplier was considered and rejected as the primary route because it would also accelerate the already-accepted Build-543 tail and make the entire Battery transition feel rushed.
+
+### Root cause
+
+Build 544 still derives all outlet clearing from the same global retract progress. Direction is correct, but the timing remains global rather than collision-aware.
+
+Different CENTER semantics have different live optical envelopes:
+- Wi-Fi can be relatively narrow;
+- mobile type such as 5G / 5GA can be wider;
+- airplane / no-SIM have their own native optical sizes;
+- target scaling and carrier motion can change the effective envelope during the pull.
+
+One fixed time multiplier therefore cannot guarantee a visually clean exit across these states.
+
+### Build 545 implementation
+
+Build 545 introduces a transition-only live optical exit gate without changing the native CENTER path or the accepted Build-543 retract tail:
+
+1. Resolve the current CENTER source, native target and current projected geometry from the existing transition owner.
+2. Resolve the current Battery projected geometry.
+3. Build the current Battery local-to-root matrix and invert it.
+4. Map the four corners of CENTER's current optical geometry from root space back into the current Battery local frame.
+5. Convert that live local envelope to canonical ring coordinates.
+6. `CombinedStatusBatteryRingExitGatePolicy` derives a LEFT-side minimum consumed sweep:
+   - opening begins before CENTER's optical leading edge reaches the ring;
+   - the lead distance is proportional to the live CENTER width;
+   - a fast ease-out opens the portal early;
+   - portal angular size is derived from the live CENTER optical height plus the existing visual clearance / ring half-stroke.
+7. `CombinedStatusBatteryRingTransitionPolicy` takes the maximum of:
+   - normal Build-543/544 consumed sweep; and
+   - the live exit-gate minimum.
+8. As soon as normal retract catches the gate floor, the original retract becomes sole authority again. No global speed change is applied.
+
+### Why this is preferable to global acceleration
+
+The gate changes only the part of the animation responsible for spatial clearance. The remainder keeps the accepted 543 smoothstep and visual cadence.
+
+A wider CENTER envelope begins yielding earlier than a narrower one, so Wi-Fi and 5G/5GA do not share a hard-coded animation window.
+
+### 问题执行流程
+
+1. Existing native expansion / appearance progress remains the single transition clock.
+2. Existing CENTER source and target witnesses are resolved read-only through `targetCache`.
+3. CENTER current optical geometry and Battery current geometry are projected with the same carrier-aware transition functions used for actual drawing.
+4. CENTER corners are inverse-mapped into the current Battery local coordinate system.
+5. The pure exit-gate policy calculates only a minimum LEFT consumed sweep.
+6. Battery rendering evaluates normal retract progress exactly as before.
+7. LEFT rendering uses `max(normalConsumed, gateMinimum)`; NONE/RIGHT ignore the gate.
+8. When normal consumed sweep catches the gate, no separate timing source remains.
+9. Reverse motion evaluates the same stateless geometry; there is no timer, Animator, delay, polling loop or cross-frame gate state.
+10. Any failed target resolution / inverse matrix / geometry mapping returns 0 gate and falls back to Build-544 behavior.
+
+### 审查 / review
+
+- **ownership:** no new View/SystemUI/native writer; all new transition geometry reads are read-only.
+- **single clock:** no second animator or time source; the gate is a geometric floor evaluated from the same current frame.
+- **native-first:** CENTER native target and path are unchanged.
+- **Battery tail:** Build-543 smoothstep and final Battery handoff remain unchanged.
+- **Fail-native:** unresolved CENTER or Battery geometry, non-invertible matrix, or invalid bounds -> gate 0.
+- **performance:** one cached target lookup path, one 3x3 matrix inversion and four mapped points per active frame; no bitmap/OCR/logging or tree scan was added.
+- **compatibility:** live optical width/height drive timing, avoiding per-brand/per-icon hard-coded timing tables.
+- **Build-542 island boundary:** reservation and fake-island projection code is untouched.
+- **scope:** dynamic gate currently applies only to LEFT exit, which is the demonstrated device path. NONE/RIGHT preserve Build-544 semantics.
+
+### Automated coverage
+
+New tests cover:
+- gate closed before the live optical envelope approaches the ring;
+- gate fully open when the leading edge reaches the inner ring;
+- a wider envelope begins yielding earlier than a narrower one;
+- gate remains open after the envelope passes the ring;
+- non-LEFT directions inject no gate timing;
+- gate can lead normal retract;
+- normal retract later catches and retakes authority.
+
+Runtime CI #2056 passes the full test/build and pinned HyperOS / Modern Xposed validation.
+
+### Device gate
+
+Signed exact-head Canary required.
+
+Primary checks:
+1. slow Home -> Control Center pull with Wi-Fi and mobile type;
+2. CENTER should get a visible clean exit before touching the ring;
+3. wider 5G/5GA should not feel later than Wi-Fi;
+4. after the exit is clear, the remaining ring should still have the accepted Build-543/544 relaxed tail rather than globally speeding up;
+5. slow reverse should restore naturally without a portal snap;
+6. Build-542 Super-Island peer behavior must remain unchanged.
+
+If residual rubbing remains, use the recording to tune the gate lead fraction / optical clearance only; do not bend CENTER's native path or globally accelerate the Battery transition.
