@@ -1,3 +1,33 @@
+## 2026-10-02 — Build 585 MIUIX geometry/token audit
+
+**Type:** App UI / MIUIX conformance  
+**Display version:** 0.0.3  
+**Build:** 585 / `20261002-585`  
+**Branch / PR:** `feat/battery-top-readout` / #181
+
+### Scope
+Audit Build 584's revised hierarchy against pinned MIUIX `0.9.4-5c91d5e5-SNAPSHOT`.
+
+### Kept upstream-owned
+- OverlayBottomSheet default white background and 24dp horizontal inside margin.
+- Card default 16dp corner radius.
+- White nested setting Cards use default `surfaceContainer/onSurfaceContainer`.
+- ArrowPreference / OverlayDropdownPreference / SmallTitle / BasicComponent typography and component spacing.
+- IconButton default 40dp minimum size / 40dp corner radius.
+
+### Project-owned only where upstream has no exact component
+- Scheme preview swatch geometry.
+- Pager indicator geometry because pinned MIUIX has no PagerIndicator component.
+- Apply-button width for the HyperOS-style primary action; the control itself remains native MIUIX Button.
+
+### Changes
+- Apply Button keeps `ButtonDefaults.MinHeight` and derives pill radius as half that native height; no custom drawing.
+- Inactive pager indicator uses `disabledOnSecondaryVariant` rather than a literal alpha from `onSurface`.
+- No custom font size/weight/color overrides were added for gray-Card content.
+
+### Validation
+Run exact-head Runtime CI and Canary; verify gray outer Card/white inner Card hierarchy, fixed navigator, button geometry, and disabled/active visual states.
+
 ## 2026-10-02 — Build 584 fixed scheme navigator ownership
 
 **Type:** App UI / pager ownership / MIUIX navigation  
