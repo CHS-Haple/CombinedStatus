@@ -1,3 +1,44 @@
+## 2026-10-02 — Build 587 battery-color sheet geometry and density pass
+
+**Type:** App UI / MIUIX layout / pager geometry  
+**Display version:** 0.0.3  
+**Build:** 587 / `20261002-587`  
+**Branch / PR:** `feat/battery-top-readout` / #181
+
+### Device evidence
+Build 586 showed:
+- excessive gap between the sheet title and fixed scheme navigator;
+- visually oversized previous/next controls;
+- ordinary and Add scheme pages starting at different vertical positions;
+- Add-page preview strip not optically centered;
+- adjacent gray scheme Cards touching during horizontal transitions;
+- mode-detail layout too tall and visually loose.
+
+### Root causes
+- Both the two-level navigation Pager and the scheme Pager inherited Compose Pager's centered vertical alignment.
+- Preview strips were content-width Rows placed in a start-aligned Column.
+- The visible navigation surface occupied the full MIUIX IconButton touch target.
+- Scheme pages had zero page spacing.
+- Overview/detail sheet height still depended on natural page content.
+- Secondary editor used generous default grouping rhythm on top of the gray outer Card.
+
+### Change
+- Apply one 84%-window-height modifier to the shared OverlayBottomSheet so both levels use the same taller sheet.
+- Top-align both Pagers.
+- Scheme Pager page spacing: 12dp.
+- Center ordinary/Add preview strips explicitly in full-width Boxes.
+- Preserve native MIUIX 40dp IconButton interaction geometry but render a 32dp semantic surface and 18dp chevron; navigator-to-indicator spacing is 12dp.
+- Compact secondary editor: gray/function Card vertical padding 12dp, common-row gap 8dp, HSV row vertical padding 10dp, bottom scroll padding 16dp.
+
+### Review
+- Sheet title remains outside the gray Card.
+- Fixed scheme navigator remains outside the horizontally moving gray Card.
+- White setting/function Cards remain nested inside the gray outer Card.
+- No literal color values, custom font overrides, Runtime/SystemUI, hook, or persistence changes.
+
+### Validation
+Run exact-head Runtime CI and Canary. Device acceptance should focus on title/navigator spacing, arrow optical size, identical Add/ordinary Card top baseline, centered preview strip, page gap during swipe, shared sheet height, and secondary editor density.
+
 ## 2026-10-02 — Build 586 compile-only correction
 
 **Type:** App UI compile fix  
