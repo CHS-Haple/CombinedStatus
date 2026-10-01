@@ -859,6 +859,15 @@ class CombinedStatusControlCenterTransitionOwnerTest {
                 .allowsNativeTransitionPaddingExpansion(
                     sourceScene = CombinedStatusSourceScene.HOME,
                     genericIslandShowing = true,
+                    fakeIslandPeerFreezeReady = false,
+                ),
+        )
+        assertTrue(
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .allowsNativeTransitionPaddingExpansion(
+                    sourceScene = CombinedStatusSourceScene.HOME,
+                    genericIslandShowing = true,
+                    fakeIslandPeerFreezeReady = true,
                 ),
         )
         assertTrue(
