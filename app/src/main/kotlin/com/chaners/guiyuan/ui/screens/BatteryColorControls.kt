@@ -39,9 +39,11 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.chaners.guiyuan.R
 import com.chaners.guiyuan.settings.BATTERY_COLOR_SCHEME_CUSTOM_MAX
 import com.chaners.guiyuan.settings.BATTERY_COLOR_SCHEME_HYPEROS_KEY
@@ -546,27 +548,24 @@ private fun BatterySchemePageContent(
                 modifier = Modifier.fillMaxWidth(),
                 contentAlignment = Alignment.Center,
             ) {
-                Button(
+                TextButton(
+                    text =
+                        stringResource(
+                            if (isActive) {
+                                R.string.battery_color_scheme_applied
+                            } else {
+                                R.string.battery_color_scheme_apply
+                            },
+                        ),
                     onClick = onApply,
                     enabled = !isActive,
-                    minWidth = 120.dp,
-                    minHeight = ButtonDefaults.MinHeight,
+                    minWidth = 26.dp,
+                    minHeight = 26.dp,
                     cornerRadius = SnackbarDefaults.ActionCornerRadius,
                     insideMargin = SnackbarDefaults.ActionInsideMargin,
-                    colors = ButtonDefaults.buttonColorsPrimary(),
-                ) {
-                    Text(
-                        text =
-                            stringResource(
-                                if (isActive) {
-                                    R.string.battery_color_scheme_applied
-                                } else {
-                                    R.string.battery_color_scheme_apply
-                                },
-                            ),
-                        style = MiuixTheme.textStyles.button,
-                    )
-                }
+                    colors = ButtonDefaults.textButtonColorsPrimary(),
+                    textStyle = TextStyle(fontSize = 15.sp),
+                )
             }
             Spacer(Modifier.height(16.dp))
             Card {
