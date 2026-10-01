@@ -231,6 +231,8 @@ internal class CombinedStatusPainter(
         batteryNumberTargetStyle: TransitionTextStyle? = null,
         centerTargetTextWeight: Int? = null,
         centerTargetTextStyle: TransitionTextStyle? = null,
+        batteryRingExitDirection: CombinedStatusBatteryRingTransitionPolicy.ExitDirection =
+            CombinedStatusBatteryRingTransitionPolicy.ExitDirection.NONE,
     ) {
         if (width <= 0 || height <= 0 || opacity <= 0f) return
 
@@ -283,6 +285,7 @@ internal class CombinedStatusPainter(
                         } else {
                             null
                         },
+                    ringRetractExitDirection = batteryRingExitDirection,
                 )
 
             TransitionComponent.BATTERY_NUMBER ->
@@ -1321,6 +1324,8 @@ internal class CombinedStatusPainter(
         drawReadoutText: Boolean = true,
         drawReadoutChargingIcon: Boolean = true,
         ringRetractProgress: Float? = null,
+        ringRetractExitDirection: CombinedStatusBatteryRingTransitionPolicy.ExitDirection =
+            CombinedStatusBatteryRingTransitionPolicy.ExitDirection.NONE,
     ) {
         val readout =
             resolveBatteryTopReadoutLayout(
@@ -1379,6 +1384,7 @@ internal class CombinedStatusPainter(
                     drawableArcs = drawableArcs,
                     batteryPercent = model.batteryPercent,
                     progress = ringRetractProgress,
+                    exitDirection = ringRetractExitDirection,
                 )
 
             stroke(batteryTint, 48, geometry.ringStroke, opacity)

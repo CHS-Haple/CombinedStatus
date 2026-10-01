@@ -235,6 +235,27 @@ internal object CombinedStatusControlCenterTransitionOwner {
             return p * p
         }
 
+        fun horizontalExitDirection(
+            source: FloatArray,
+            target: FloatArray,
+        ): CombinedStatusBatteryRingTransitionPolicy.ExitDirection {
+            if (source.size != 6 || target.size != 6) {
+                return CombinedStatusBatteryRingTransitionPolicy.ExitDirection.NONE
+            }
+            val sourceCenterX = source[0] + (source[2] + source[4]) * 0.5f
+            val targetCenterX = target[0] + (target[2] + target[4]) * 0.5f
+            if (!sourceCenterX.isFinite() || !targetCenterX.isFinite()) {
+                return CombinedStatusBatteryRingTransitionPolicy.ExitDirection.NONE
+            }
+            return when {
+                targetCenterX - sourceCenterX < -0.5f ->
+                    CombinedStatusBatteryRingTransitionPolicy.ExitDirection.LEFT
+                targetCenterX - sourceCenterX > 0.5f ->
+                    CombinedStatusBatteryRingTransitionPolicy.ExitDirection.RIGHT
+                else -> CombinedStatusBatteryRingTransitionPolicy.ExitDirection.NONE
+            }
+        }
+
         fun unmatchedExitOpacity(rawProgress: Float): Float {
             val remaining = 1f - geometryProgress(rawProgress)
             return remaining * remaining * remaining
@@ -996,6 +1017,37 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 Policy.mobileSignalShapeProgress(motionProgress)
             if (opacity <= 0f) return
 
+            val preferredMobileSubId =
+                CombinedStatusPresentationStateStore
+                    .snapshot()
+                    .mobilePresentation
+                    ?.presentationRootSubscriptionId
+            val centerExitDirection =
+                specs.firstOrNull {
+                    it.component == CombinedStatusPainter.TransitionComponent.CENTER
+                }?.let { centerSpec ->
+                    val source =
+                        Policy.componentGeometry(
+                            parentGeometry = sourceParentGeometry,
+                            parentWidth = sourceWidth,
+                            parentHeight = sourceHeight,
+                            bounds = centerSpec.sourceBounds,
+                        ) ?: return@let null
+                    val witness =
+                        resolveTarget(
+                            target = centerSpec.target,
+                            preferredMobileSubId = preferredMobileSubId,
+                        ) ?: return@let null
+                    val target =
+                        resolveTargetGeometry(
+                            witness = witness,
+                            root = rootView,
+                            sourceGeometry = source,
+                            targetOpticalBounds = centerSpec.targetOpticalBounds,
+                        ) ?: return@let null
+                    Policy.horizontalExitDirection(source, target)
+                } ?: CombinedStatusBatteryRingTransitionPolicy.ExitDirection.NONE
+
             val transitionColors =
                 cachedNativePeerTint
                     ?.let { tint ->
@@ -1024,11 +1076,6 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     }
                     ?: currentSnapshot.colors
 
-            val preferredMobileSubId =
-                CombinedStatusPresentationStateStore
-                    .snapshot()
-                    .mobilePresentation
-                    ?.presentationRootSubscriptionId
             val refreshWitnessDiagnostic =
                 lastWitnessSummary == "pending" ||
                     lastWitnessSummary.contains("unresolved") ||
@@ -1238,6 +1285,12 @@ internal object CombinedStatusControlCenterTransitionOwner {
                             witness?.textStyle
                         } else {
                             null
+                        },
+                    batteryRingExitDirection =
+                        if (spec.component == CombinedStatusPainter.TransitionComponent.BATTERY) {
+                            centerExitDirection
+                        } else {
+                            CombinedStatusBatteryRingTransitionPolicy.ExitDirection.NONE
                         },
                 )
                 canvas.restoreToCount(save)

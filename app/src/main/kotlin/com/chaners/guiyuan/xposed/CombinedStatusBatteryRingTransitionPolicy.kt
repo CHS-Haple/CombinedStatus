@@ -1,8 +1,11 @@
 package com.chaners.guiyuan.xposed
 
+import kotlin.math.max
 import kotlin.math.min
 
 internal object CombinedStatusBatteryRingTransitionPolicy {
+    internal enum class ExitDirection { NONE, LEFT, RIGHT }
+
     internal data class Segments(
         val background: List<CombinedStatusBatteryTopArcPolicy.Arc>,
         val active: List<CombinedStatusBatteryTopArcPolicy.Arc>,
@@ -10,11 +13,7 @@ internal object CombinedStatusBatteryRingTransitionPolicy {
     )
 
     fun remainingFraction(progress: Float): Float {
-        val p =
-            progress
-                .takeIf(Float::isFinite)
-                ?.coerceIn(0f, 1f)
-                ?: 0f
+        val p = progress.takeIf(Float::isFinite)?.coerceIn(0f, 1f) ?: 0f
         val eased = p * p * (3f - 2f * p)
         return 1f - eased
     }
@@ -23,63 +22,50 @@ internal object CombinedStatusBatteryRingTransitionPolicy {
         drawableArcs: List<CombinedStatusBatteryTopArcPolicy.Arc>,
         batteryPercent: Int,
         progress: Float,
+        exitDirection: ExitDirection = ExitDirection.NONE,
     ): Segments {
-        if (drawableArcs.isEmpty()) {
-            return Segments(
-                background = emptyList(),
-                active = emptyList(),
-                remainingFraction = remainingFraction(progress),
-            )
-        }
-
         val remaining = remainingFraction(progress)
-        val totalSweep =
-            drawableArcs
-                .sumOf { arc -> arc.sweepDegrees.coerceAtLeast(0f).toDouble() }
-                .toFloat()
+        val totalSweep = drawableArcs.sumOf { it.sweepDegrees.coerceAtLeast(0f).toDouble() }.toFloat()
         if (totalSweep <= 0f || remaining <= 0f) {
-            return Segments(
-                background = emptyList(),
-                active = emptyList(),
-                remainingFraction = remaining,
-            )
+            return Segments(emptyList(), emptyList(), remaining)
         }
 
-        val backgroundBudget = totalSweep * remaining
-        val activeBudget =
-            totalSweep *
-                batteryPercent.coerceIn(0, 100) /
-                100f *
-                remaining
-
+        val retainedSweep = totalSweep * remaining
+        val retainedStart =
+            when (exitDirection) {
+                ExitDirection.LEFT -> totalSweep - retainedSweep
+                ExitDirection.NONE, ExitDirection.RIGHT -> 0f
+            }
+        val retainedEnd = retainedStart + retainedSweep
+        val activeEnd = totalSweep * batteryPercent.coerceIn(0, 100) / 100f
         return Segments(
-            background = prefix(drawableArcs, backgroundBudget),
-            active = prefix(drawableArcs, activeBudget),
+            background = slice(drawableArcs, retainedStart, retainedEnd),
+            active = slice(drawableArcs, max(retainedStart, 0f), min(retainedEnd, activeEnd)),
             remainingFraction = remaining,
         )
     }
 
-    private fun prefix(
+    private fun slice(
         arcs: List<CombinedStatusBatteryTopArcPolicy.Arc>,
-        sweepBudget: Float,
+        rangeStart: Float,
+        rangeEnd: Float,
     ): List<CombinedStatusBatteryTopArcPolicy.Arc> {
-        var remaining = sweepBudget.coerceAtLeast(0f)
-        if (remaining <= 0f) return emptyList()
-
+        if (rangeEnd <= rangeStart) return emptyList()
+        var cursor = 0f
         val result = ArrayList<CombinedStatusBatteryTopArcPolicy.Arc>(arcs.size)
         arcs.forEach { arc ->
-            if (remaining <= 0f) return@forEach
             val sweep = arc.sweepDegrees.coerceAtLeast(0f)
-            if (sweep <= 0f) return@forEach
-            val visible = min(sweep, remaining)
-            if (visible > 0f) {
-                result +=
-                    CombinedStatusBatteryTopArcPolicy.Arc(
-                        startDegrees = arc.startDegrees,
-                        sweepDegrees = visible,
-                    )
+            val arcStart = cursor
+            val arcEnd = cursor + sweep
+            val visibleStart = max(arcStart, rangeStart)
+            val visibleEnd = min(arcEnd, rangeEnd)
+            if (visibleEnd > visibleStart) {
+                result += CombinedStatusBatteryTopArcPolicy.Arc(
+                    startDegrees = arc.startDegrees + visibleStart - arcStart,
+                    sweepDegrees = visibleEnd - visibleStart,
+                )
             }
-            remaining -= visible
+            cursor = arcEnd
         }
         return result
     }
