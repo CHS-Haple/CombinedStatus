@@ -1,3 +1,35 @@
+## 2026-10-02 — Build 582 BottomSheet/Card semantic color hierarchy correction
+
+**Type:** App UI / MIUIX semantic color hierarchy  
+**Display version:** 0.0.3  
+**Build:** 582 / `20261002-582`  
+**Branch / PR:** `feat/battery-top-readout` / #181
+
+### Maintainer correction
+The settings hierarchy should be a light-gray Sheet with white Cards, not a white Sheet with gray Cards.
+
+### Pinned MIUIX evidence
+Revision: `5c91d5e5ce1a2fc7e8bdc1258a881c555102bbca`.
+- light `surface = #F7F7F7`;
+- light `background = #FFFFFF`;
+- light `surfaceContainer = #FFFFFF`;
+- dark `surface = #000000`;
+- dark `surfaceContainer = #242424`.
+`OverlayBottomSheet` defaults to `background`, while `Card` defaults to `surfaceContainer`.
+
+### Change
+- Set the battery-color `OverlayBottomSheet.backgroundColor` to `MiuixTheme.colorScheme.surface`.
+- Return all function-group Cards to native default `CardDefaults.defaultColors()` / `surfaceContainer`.
+- Keep the top source dropdown bare on the Sheet surface.
+
+### Review
+- Semantic tokens only; no literal colors.
+- Correct light and dark hierarchy.
+- No custom borders, typography, Runtime/SystemUI, hook, persistence, or color-policy changes.
+
+### Validation
+Run exact-head Runtime CI and Canary. Verify the Sheet is visibly light gray in light mode, Cards are white and clearly bounded, and dark mode retains black Sheet / dark-gray Card separation.
+
 ## 2026-10-02 — Build 581 scheme navigation affordance and visible function Cards
 
 **Type:** App UI / MIUIX controls / visual hierarchy  
