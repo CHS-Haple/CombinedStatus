@@ -469,7 +469,10 @@ private fun BatterySchemePageContent(
     manageHeldDown: Boolean,
 ) {
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState()),
     ) {
         Box(
             modifier =
