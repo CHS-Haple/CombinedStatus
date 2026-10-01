@@ -2,6 +2,7 @@ package com.chaners.guiyuan.ui.screens
 
 import androidx.annotation.StringRes
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -35,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -68,8 +70,6 @@ import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.DropdownDefaults
 import top.yukonga.miuix.kmp.basic.DropdownImpl
 import top.yukonga.miuix.kmp.basic.DropdownItem
-import top.yukonga.miuix.kmp.basic.FloatingActionButton
-import top.yukonga.miuix.kmp.basic.FloatingActionButtonDefaults
 import top.yukonga.miuix.kmp.basic.HsvHueSlider
 import top.yukonga.miuix.kmp.basic.HsvSaturationSlider
 import top.yukonga.miuix.kmp.basic.HsvValueSlider
@@ -102,6 +102,7 @@ import top.yukonga.miuix.kmp.preference.ArrowPreference
 import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.PagerGestureNestedScrollConnection
+import top.yukonga.miuix.kmp.utils.PressFeedbackType
 import top.yukonga.miuix.kmp.utils.PagerNavigationSpringSpec
 import top.yukonga.miuix.kmp.utils.pagerGestureOverride
 import top.yukonga.miuix.kmp.utils.springAnimateToPage
@@ -124,6 +125,7 @@ private val COMMON_BATTERY_COLORS =
 private val BATTERY_COLOR_PREVIEW_SLOTS = CombinedStatusBatteryColorSlot.entries
 
 private const val BATTERY_COLOR_SHEET_HEIGHT_FRACTION = 0.84f
+private val BATTERY_SCHEME_SETTINGS_CARD_MIN_HEIGHT = 336.dp
 
 private sealed interface BatterySchemePage {
     val key: String
@@ -557,7 +559,10 @@ private fun BatterySchemePageContent(
             }
             Spacer(Modifier.height(16.dp))
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = BATTERY_SCHEME_SETTINGS_CARD_MIN_HEIGHT),
             ) {
                 CombinedStatusBatteryColorSlot.entries.forEach { slot ->
                     val color =
@@ -692,39 +697,59 @@ private fun BatteryAddSchemePage(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .height(144.dp),
+                        .heightIn(min = BATTERY_SCHEME_SETTINGS_CARD_MIN_HEIGHT),
+                pressFeedbackType =
+                    if (enabled) {
+                        PressFeedbackType.Sink
+                    } else {
+                        PressFeedbackType.None
+                    },
+                onClick = if (enabled) onClick else null,
             ) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
-                    if (enabled) {
-                        FloatingActionButton(
-                            onClick = onClick,
+                    Surface(
+                        modifier = Modifier.size(60.dp),
+                        shape = CircleShape,
+                        color =
+                            if (enabled) {
+                                MiuixTheme.colorScheme.onSurfaceVariantActions
+                            } else {
+                                MiuixTheme.colorScheme.disabledSecondaryVariant
+                            },
+                    ) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center,
                         ) {
-                            Icon(
-                                imageVector = MiuixIcons.Add,
-                                contentDescription =
-                                    stringResource(R.string.battery_custom_scheme_new),
-                                modifier = Modifier.size(32.dp),
-                                tint = MiuixTheme.colorScheme.onPrimary,
-                            )
-                        }
-                    } else {
-                        Surface(
-                            modifier = Modifier.size(FloatingActionButtonDefaults.MinWidth),
-                            shape = CircleShape,
-                            color = MiuixTheme.colorScheme.disabledPrimaryButton,
-                        ) {
-                            Box(
-                                modifier = Modifier.fillMaxSize(),
-                                contentAlignment = Alignment.Center,
+                            Canvas(
+                                modifier = Modifier.size(30.dp),
                             ) {
-                                Icon(
-                                    imageVector = MiuixIcons.Add,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(32.dp),
-                                    tint = MiuixTheme.colorScheme.disabledOnPrimaryButton,
+                                val stroke = 3.5.dp.toPx()
+                                val inset = 5.dp.toPx()
+                                val midX = size.width / 2f
+                                val midY = size.height / 2f
+                                val plusColor =
+                                    if (enabled) {
+                                        Color.White
+                                    } else {
+                                        MiuixTheme.colorScheme.disabledOnSecondaryVariant
+                                    }
+                                drawLine(
+                                    color = plusColor,
+                                    start = androidx.compose.ui.geometry.Offset(inset, midY),
+                                    end = androidx.compose.ui.geometry.Offset(size.width - inset, midY),
+                                    strokeWidth = stroke,
+                                    cap = StrokeCap.Round,
+                                )
+                                drawLine(
+                                    color = plusColor,
+                                    start = androidx.compose.ui.geometry.Offset(midX, inset),
+                                    end = androidx.compose.ui.geometry.Offset(midX, size.height - inset),
+                                    strokeWidth = stroke,
+                                    cap = StrokeCap.Round,
                                 )
                             }
                         }
