@@ -1,3 +1,42 @@
+## 2026-10-01 — Build 576 strict MIUIX typography correction
+
+**Type:** App UI typography conformance only  
+**Display version:** 0.0.3  
+**Build:** 576 / `20261001-576`  
+**Branch / PR:** `feat/battery-top-readout` / #181
+
+### Second audit finding
+
+A second exact-revision review of Build 574 found that the component choices were correct, but three text nodes still used hand-added font weights:
+- style name: `title2.fontSize + FontWeight.Medium`;
+- Add-page title: `title2.fontSize + FontWeight.Medium`;
+- Add-page caption: `headline1.fontSize + FontWeight.Medium`.
+
+Pinned MIUIX `TextStyles.kt` defines `title2 = 24sp` and `headline1 = 17sp` **without** those weights. Therefore the prior code was MIUIX-adjacent rather than strictly default.
+
+### Change
+
+- Style name now uses `style = MiuixTheme.textStyles.title2`.
+- Add-page title now uses `style = MiuixTheme.textStyles.title2`.
+- Add-page caption now uses `style = MiuixTheme.textStyles.headline1`.
+- Remove the now-unused `FontWeight` import.
+
+### Deliberate product-specific exceptions
+
+These are retained and must not be represented as MIUIX defaults:
+- Add glyph at 32dp: explicit maintainer request for a stronger/larger plus; the container itself remains native 60dp MIUIX FloatingActionButton.
+- Header swatches 28dp and mode-row swatches 24dp: pinned MIUIX provides no static color-preview-circle component/spec. Guiyuan therefore defines presentation sizes while still using MIUIX Surface/public drawCheckerboard and no project Canvas.
+
+### 审查 / review
+
+- no hierarchy change;
+- no spacing/layout change;
+- no state/persistence/runtime change;
+- no custom font weight remains in the scheme/Add page;
+- native ArrowPreference/BasicComponent/FloatingActionButton ownership remains intact;
+- no Canary after CI without explicit maintainer instruction.
+
+
 ## 2026-10-01 — Build 575 custom-style dialog MIUIX state audit
 
 **Type:** App UI state semantics / MIUIX conformance  

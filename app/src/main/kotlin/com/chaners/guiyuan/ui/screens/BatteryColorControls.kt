@@ -36,7 +36,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -493,8 +492,7 @@ private fun BatterySchemePageContent(
             ) {
                 Text(
                     text = name,
-                    fontSize = MiuixTheme.textStyles.title2.fontSize,
-                    fontWeight = FontWeight.Medium,
+                    style = MiuixTheme.textStyles.title2,
                 )
                 Spacer(Modifier.height(12.dp))
                 BatterySchemePreviewStrip(
@@ -614,8 +612,7 @@ private fun BatteryAddSchemePage(
     ) {
         Text(
             text = stringResource(R.string.battery_custom_scheme_add_page_title),
-            fontSize = MiuixTheme.textStyles.title2.fontSize,
-            fontWeight = FontWeight.Medium,
+            style = MiuixTheme.textStyles.title2,
             modifier = Modifier.padding(top = 12.dp),
         )
         Box(
@@ -670,8 +667,7 @@ private fun BatteryAddSchemePage(
                                 BATTERY_COLOR_SCHEME_CUSTOM_MAX,
                             )
                         },
-                    fontSize = MiuixTheme.textStyles.headline1.fontSize,
-                    fontWeight = FontWeight.Medium,
+                    style = MiuixTheme.textStyles.headline1,
                     color =
                         if (enabled) {
                             MiuixTheme.colorScheme.onSurface
