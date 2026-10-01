@@ -50,6 +50,7 @@ internal object SystemUiPanelTransitionSource {
     private var controlCenterHomeEligible: Boolean? = null
     private var controlAnchorContract: ControlCenterAnchorContract? = null
     private var controlHeaderRef = WeakReference<Any>(null)
+    private var fakeIslandContractRootRef = WeakReference<ViewGroup>(null)
 
     fun install(
         module: XposedModule,
@@ -201,6 +202,7 @@ internal object SystemUiPanelTransitionSource {
                                                     root.isAttachedToWindow +
                                                     " readOnly=true nativeGeometryWrites=0",
                                             )
+                                            describeFakeIslandContractOnce(root)?.let(onEvent)
                                         },
                                     )
                                 }
@@ -350,7 +352,113 @@ internal object SystemUiPanelTransitionSource {
             controlCenterHomeEligible = null
             controlAnchorContract = null
             controlHeaderRef = WeakReference(null)
+            fakeIslandContractRootRef = WeakReference(null)
         }
+    }
+
+    @Synchronized
+    private fun describeFakeIslandContractOnce(root: ViewGroup): String? {
+        if (fakeIslandContractRootRef.get() === root) return null
+        fakeIslandContractRootRef = WeakReference(root)
+
+        val fieldNames =
+            listOf(
+                "slot",
+                "visibleState",
+                "inIslandState",
+                "beforeInIslandState",
+                "islandChanged",
+                "supportAnim",
+                "forceAppear",
+                "layoutTranslationX",
+            )
+        val views = ArrayList<View>()
+        fun collect(
+            view: View,
+            depth: Int,
+        ) {
+            if (views.size >= 64 || depth > 6) return
+            views += view
+            if (view is ViewGroup) {
+                for (index in 0 until view.childCount) {
+                    collect(view.getChildAt(index), depth + 1)
+                    if (views.size >= 64) return
+                }
+            }
+        }
+        collect(root, 0)
+
+        fun hierarchy(type: Class<*>): List<Class<*>> {
+            val result = ArrayList<Class<*>>()
+            var current: Class<*>? = type
+            while (current != null && current != Any::class.java) {
+                result += current
+                current = current.superclass
+            }
+            return result
+        }
+
+        fun field(
+            type: Class<*>,
+            name: String,
+        ): Field? =
+            hierarchy(type)
+                .firstNotNullOfOrNull { owner ->
+                    runCatching {
+                        owner.getDeclaredField(name).apply { isAccessible = true }
+                    }.getOrNull()
+                }
+
+        val contractViews =
+            views.mapNotNull { view ->
+                val resolvedFields =
+                    fieldNames.mapNotNull { name ->
+                        field(view.javaClass, name)?.let { resolved -> name to resolved }
+                    }
+                val methodNames =
+                    hierarchy(view.javaClass)
+                        .flatMap { owner -> owner.declaredMethods.asList() }
+                        .map(Method::getName)
+                        .filter { name ->
+                            name.contains("island", ignoreCase = true) ||
+                                name.contains("forceAppear", ignoreCase = true) ||
+                                name.contains("visibleState", ignoreCase = true)
+                        }
+                        .distinct()
+                        .sorted()
+                if (resolvedFields.none { (name, _) -> name == "inIslandState" } &&
+                    methodNames.none { name -> name.contains("island", ignoreCase = true) }
+                ) {
+                    return@mapNotNull null
+                }
+
+                val location = IntArray(2)
+                view.getLocationOnScreen(location)
+                val values =
+                    resolvedFields.joinToString(",") { (name, resolved) ->
+                        val value =
+                            runCatching { resolved.get(view) }
+                                .getOrNull()
+                                ?.toString()
+                                ?: "unavailable"
+                        name + "=" + value
+                    }
+                view.javaClass.name +
+                    "(x=" + location[0] +
+                    ",y=" + location[1] +
+                    ",w=" + view.width +
+                    ",h=" + view.height +
+                    ",fields={" + values +
+                    "},methods=[" + methodNames.take(16).joinToString(",") +
+                    "])"
+            }
+                .distinct()
+                .take(8)
+
+        return "controlCenterFakeIslandContract root=" + root.javaClass.name +
+            " candidates=" + contractViews.size +
+            " entries=[" + contractViews.joinToString("|") +
+            "] readOnly=true bounded=true nativeGeometryWrites=0"
     }
 
     internal fun dispatchRuntimeCallback(
