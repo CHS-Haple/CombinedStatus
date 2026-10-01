@@ -97,7 +97,14 @@ The same rule is used for fixed-color `Surface`, checkerboard `Surface`, and com
 
 ### Validation
 
-Run exact-head automated CI only. If green, freeze the SHA and wait.
+Runtime CI #2108 / run `36921379961` failed during Kotlin compilation before tests because the mode-detail redesign referenced three Android string resources that did not exist:
+- `battery_color_unset`;
+- `battery_color_no_fixed_color`;
+- `battery_color_no_fixed_color_summary`.
+
+Root cause was resource-contract incompleteness in the UI-only refactor, not MIUIX API incompatibility or Runtime behavior. Review found an existing canonical `battery_color_custom_unset` string already expresses the first state, so the correction reuses it rather than adding a duplicate. The two no-fixed-color explanatory strings are added in English and Simplified Chinese.
+
+Runtime CI #2109 / run `36921996822` is green on exact code SHA `621800833c181fd65dd6d6f4c13c2a4e3cb1c7e8`: unit tests, Debug assembly, pinned HyperOS target verification, and Modern Xposed metadata validation all pass. No Canary was generated. A final exact-head Runtime CI follows this documentation-only closure; no further code change is planned.
 
 
 ## 2026-10-01 — Build 576 strict MIUIX typography correction
