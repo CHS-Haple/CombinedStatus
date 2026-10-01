@@ -730,12 +730,6 @@ private fun BatteryAddSchemePage(
     onClick: () -> Unit,
 ) {
     val density = LocalDensity.current
-    val settingsCardHeight =
-        if (settingsCardHeightPx > 0) {
-            with(density) { settingsCardHeightPx.toDp() }
-        } else {
-            Dp.Unspecified
-        }
     Column(
         modifier = Modifier.fillMaxWidth(),
     ) {
@@ -760,8 +754,8 @@ private fun BatteryAddSchemePage(
                     Modifier
                         .fillMaxWidth()
                         .then(
-                            if (settingsCardHeight.isSpecified) {
-                                Modifier.height(settingsCardHeight)
+                            if (settingsCardHeightPx > 0) {
+                                Modifier.height(with(density) { settingsCardHeightPx.toDp() })
                             } else {
                                 Modifier.heightIn(min = 144.dp)
                             },
