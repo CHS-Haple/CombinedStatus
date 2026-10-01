@@ -1,10 +1,4 @@
 name: Build
-run-name: >-
-  ${{ github.event_name == 'pull_request'
-      && format('Build #{0} · PR #{1} · {2} · {3}', github.run_number, github.event.pull_request.number, github.event.pull_request.head.ref, github.event.pull_request.head.sha)
-      || github.event_name == 'push'
-      && format('Build #{0} · {1} · {2}', github.run_number, github.ref_name, github.event.head_commit.message)
-      || format('Build #{0} · manual · {1}', github.run_number, github.ref_name) }}
 
 on:
   push:

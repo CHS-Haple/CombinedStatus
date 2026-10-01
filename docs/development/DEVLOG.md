@@ -980,3 +980,18 @@ Review:
 - workflow names remain `Build` and `Work Branch Canary`;
 - job ids/names remain `build` and `canary`;
 - no permissions, triggers, validation scope, signing, artifact, concurrency, or required-check behavior changed.
+
+
+### CI run-title correction — restore PR-title-driven Actions labels
+
+The later `run-name` experiment did not satisfy the intended per-change label contract for pull-request builds. On `pull_request` events, the top-level `run-name` expression has the PR metadata and head SHA but not the checked-out head commit message, so the resulting titles repeated the PR number / branch / SHA pattern and obscured the actual change summary.
+
+This also left `.github/workflows/build.yml` and `.github/workflows/work-branch-canary.yml` in the runtime PR diff, forcing Full / mixed-surface classification for unrelated runtime commits.
+
+Correction:
+- restore both workflow files exactly to the current `dev` versions, removing only the experimental `run-name` additions;
+- preserve all triggers, permissions, job ids, validation routing, signing, artifact, and concurrency behavior;
+- return to the already verified process: update PR #181 title to the concise commit/change summary before moving the work-branch HEAD, so the default PR-triggered Actions display title is the desired `feat:/fix:/test: short summary`;
+- existing workflow runs keep their historical titles and are not renamed retroactively.
+
+This correction is CI presentation/branch hygiene only and does not affect the APK or runtime behavior.
