@@ -1,0 +1,8 @@
+# Default ownership for the current single-maintainer project.
+* @CHS-Haple
+
+# Repository governance and release automation.
+.github/ @CHS-Haple
+gradle/ @CHS-Haple
+tools/ @CHS-Haple
+compat/ @CHS-Haple

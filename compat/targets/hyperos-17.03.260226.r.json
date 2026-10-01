@@ -1,0 +1,208 @@
+{
+  "schemaVersion": 1,
+  "profileId": "hyperos-17.03.260226.r",
+  "generatedFromExactApks": true,
+  "artifacts": {
+    "systemUi": {
+      "displayName": "系统界面_17.03.260226.r.apk",
+      "sizeBytes": 52321431,
+      "md5": "4279c0ef0ae97022c7ac969d44dac1a4",
+      "sha1": "ee49b63fedb88293393989174853d81b6f2cc74f",
+      "sha256": "a0e738e41fe599b97950cbf52a9e2ddc6ae2ceff986efbacb1c9840bea78768d",
+      "dexCount": 3,
+      "classCount": 44182
+    }
+  },
+  "runtimeMarkers": {
+    "statusHost": "com.android.systemui.statusbar.views.MiuiNotificationStatusContainer",
+    "controlCenterHeader": "com.android.systemui.controlcenter.shade.ControlCenterHeaderView",
+    "controlCenterIcons": "com.android.systemui.controlcenter.phone.widget.ControlCenterFakeStatusIcons",
+    "keyguardHeader": "com.android.systemui.statusbar.phone.MiuiKeyguardStatusBarView",
+    "batteryView": "com.android.systemui.statusbar.views.MiuiBatteryMeterView"
+  },
+  "verifiedSystemUiClasses": [
+    "com.android.systemui.statusbar.views.MiuiNotificationStatusContainer",
+    "com.android.systemui.controlcenter.shade.ControlCenterHeaderView",
+    "com.android.systemui.controlcenter.phone.widget.ControlCenterFakeStatusIcons",
+    "com.android.systemui.statusbar.phone.MiuiKeyguardStatusBarView",
+    "com.android.systemui.statusbar.views.MiuiBatteryMeterView",
+    "com.android.systemui.statusbar.pipeline.mobile.ui.view.ModernStatusBarMobileView",
+    "com.android.systemui.statusbar.pipeline.wifi.ui.view.ModernStatusBarWifiView",
+    "com.android.systemui.statusbar.views.MiuiStatusIconContainer",
+    "com.android.systemui.statusbar.phone.StatusIconContainer",
+    "com.android.systemui.statusbar.views.MiuiStatusBatteryContainer",
+    "com.android.systemui.statusbar.pipeline.wifi.ui.binder.MiuiWifiViewBinder",
+    "com.android.systemui.statusbar.pipeline.wifi.ui.binder.MiuiWifiViewBinder$bind$1$1$2$1",
+    "com.android.systemui.statusbar.pipeline.wifi.ui.viewmodel.LocationBasedWifiViewModel",
+    "com.android.systemui.statusbar.pipeline.wifi.ui.viewmodel.HomeWifiViewModel",
+    "com.android.systemui.statusbar.pipeline.mobile.ui.binder.MiuiMobileIconBinder",
+    "com.android.systemui.statusbar.pipeline.mobile.ui.viewmodel.LocationBasedMobileViewModel",
+    "com.android.systemui.statusbar.pipeline.mobile.ui.viewmodel.HomeMobileIconViewModel",
+    "com.android.systemui.statusbar.pipeline.mobile.ui.viewmodel.MiuiMobileIconViewModel",
+    "com.android.systemui.statusbar.pipeline.mobile.ui.MobileViewLogger",
+    "com.android.systemui.statusbar.pipeline.mobile.ui.binder.MiuiMobileIconBinder$bind$1$1$4$2",
+    "com.android.systemui.statusbar.views.MiuiBatteryMeterIconView",
+    "com.android.systemui.shade.ShadeExpansionStateManager",
+    "com.miui.systemui.controlcenter.container.ControlCenterExpandControllerDelegate",
+    "com.android.systemui.controlcenter.shade.NotificationHeaderExpandController",
+    "com.android.systemui.controlcenter.shade.NotificationHeaderExpandController$notificationCallback$1",
+    "com.android.systemui.controlcenter.shade.NotificationShadeWrapper"
+  ],
+  "hookPoints": {
+    "statusHostInflated": {
+      "sourceArtifact": "systemUi",
+      "className": "com.android.systemui.statusbar.views.MiuiNotificationStatusContainer",
+      "methodName": "onFinishInflate",
+      "descriptor": "()V"
+    },
+    "wifiBinderBind": {
+      "sourceArtifact": "systemUi",
+      "className": "com.android.systemui.statusbar.pipeline.wifi.ui.binder.MiuiWifiViewBinder",
+      "methodName": "bind",
+      "descriptor": "(Landroid/view/ViewGroup;Lcom/android/systemui/statusbar/pipeline/wifi/ui/viewmodel/LocationBasedWifiViewModel;)Lcom/android/systemui/statusbar/pipeline/wifi/ui/binder/MiuiWifiViewBinder$bind$2;"
+    },
+    "mobileBinderBind": {
+      "sourceArtifact": "systemUi",
+      "className": "com.android.systemui.statusbar.pipeline.mobile.ui.binder.MiuiMobileIconBinder",
+      "methodName": "bind",
+      "descriptor": "(Landroid/view/ViewGroup;Lcom/android/systemui/statusbar/pipeline/mobile/ui/viewmodel/LocationBasedMobileViewModel;Lcom/android/systemui/statusbar/pipeline/mobile/ui/viewmodel/MiuiMobileIconViewModel;Lcom/android/systemui/statusbar/pipeline/mobile/ui/MobileViewLogger;)Lcom/android/systemui/statusbar/pipeline/mobile/ui/binder/MiuiMobileIconBinder$bind$2;"
+    },
+    "mobileSignalCollected": {
+      "sourceArtifact": "systemUi",
+      "className": "com.android.systemui.statusbar.pipeline.mobile.ui.binder.MiuiMobileIconBinder$bind$1$1$4$2",
+      "methodName": "emit",
+      "descriptor": "(Ljava/lang/Object;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;"
+    },
+    "wifiIconCollected": {
+      "sourceArtifact": "systemUi",
+      "className": "com.android.systemui.statusbar.pipeline.wifi.ui.binder.MiuiWifiViewBinder$bind$1$1$2$1",
+      "methodName": "emit",
+      "descriptor": "(Ljava/lang/Object;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;"
+    },
+    "batteryStatusBarState": {
+      "sourceArtifact": "systemUi",
+      "className": "com.android.systemui.statusbar.views.MiuiBatteryMeterView",
+      "methodName": "updateState",
+      "descriptor": "(I)V"
+    },
+    "batteryIconLevelChanged": {
+      "sourceArtifact": "systemUi",
+      "className": "com.android.systemui.statusbar.views.MiuiBatteryMeterIconView",
+      "methodName": "onBatteryLevelChanged",
+      "descriptor": "(IZZ)V"
+    },
+    "batteryIconChargeStateChanged": {
+      "sourceArtifact": "systemUi",
+      "className": "com.android.systemui.statusbar.views.MiuiBatteryMeterIconView",
+      "methodName": "onChargeStateChanged",
+      "descriptor": "(ZZ)V"
+    },
+    "batteryIconPowerSaveChanged": {
+      "sourceArtifact": "systemUi",
+      "className": "com.android.systemui.statusbar.views.MiuiBatteryMeterIconView",
+      "methodName": "onPowerSaveChanged",
+      "descriptor": "(Z)V"
+    },
+    "batteryIconPerformanceModeChanged": {
+      "sourceArtifact": "systemUi",
+      "className": "com.android.systemui.statusbar.views.MiuiBatteryMeterIconView",
+      "methodName": "onPerformanceModeChanged",
+      "descriptor": "(Z)V"
+    },
+    "batteryIconMiuiOptimizationChanged": {
+      "sourceArtifact": "systemUi",
+      "className": "com.android.systemui.statusbar.views.MiuiBatteryMeterIconView",
+      "methodName": "setMiuiOptimizationEnabled",
+      "descriptor": "(Z)V"
+    },
+    "controlCenterVisibility": {
+      "sourceArtifact": "systemUi",
+      "className": "com.miui.systemui.controlcenter.container.ControlCenterExpandControllerDelegate",
+      "methodName": "onVisibleChanged",
+      "descriptor": "(Z)V"
+    }
+  },
+  "verifiedSystemUiMethods": {
+    "com.android.systemui.statusbar.views.MiuiNotificationStatusContainer": [
+      "onFinishInflate()V",
+      "onLayout(ZIIII)V",
+      "onMeasure(II)V"
+    ],
+    "com.android.systemui.statusbar.pipeline.wifi.ui.binder.MiuiWifiViewBinder": [
+      "bind(Landroid/view/ViewGroup;Lcom/android/systemui/statusbar/pipeline/wifi/ui/viewmodel/LocationBasedWifiViewModel;)Lcom/android/systemui/statusbar/pipeline/wifi/ui/binder/MiuiWifiViewBinder$bind$2;"
+    ],
+    "com.android.systemui.statusbar.pipeline.mobile.ui.binder.MiuiMobileIconBinder": [
+      "bind(Landroid/view/ViewGroup;Lcom/android/systemui/statusbar/pipeline/mobile/ui/viewmodel/LocationBasedMobileViewModel;Lcom/android/systemui/statusbar/pipeline/mobile/ui/viewmodel/MiuiMobileIconViewModel;Lcom/android/systemui/statusbar/pipeline/mobile/ui/MobileViewLogger;)Lcom/android/systemui/statusbar/pipeline/mobile/ui/binder/MiuiMobileIconBinder$bind$2;"
+    ],
+    "com.android.systemui.statusbar.pipeline.mobile.ui.binder.MiuiMobileIconBinder$bind$1$1$4$2": [
+      "emit(Ljava/lang/Object;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;"
+    ],
+    "com.android.systemui.statusbar.pipeline.wifi.ui.binder.MiuiWifiViewBinder$bind$1$1$2$1": [
+      "emit(Ljava/lang/Object;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;"
+    ],
+    "com.android.systemui.statusbar.views.MiuiBatteryMeterView": [
+      "updateState(I)V"
+    ],
+    "com.android.systemui.statusbar.views.MiuiBatteryMeterIconView": [
+      "onBatteryLevelChanged(IZZ)V",
+      "onChargeStateChanged(ZZ)V",
+      "onPowerSaveChanged(Z)V",
+      "onPerformanceModeChanged(Z)V",
+      "getProgressStatus()Lcom/android/systemui/statusbar/views/MiuiBatteryUtils$BatteryStatus;",
+      "setMiuiOptimizationEnabled(Z)V"
+    ],
+    "com.android.systemui.shade.ShadeExpansionStateManager": [
+      "onPanelExpansionChanged(FZZ)V"
+    ],
+    "com.miui.systemui.controlcenter.container.ControlCenterExpandControllerDelegate": [
+      "onVisibleChanged(Z)V"
+    ],
+    "com.android.systemui.controlcenter.shade.NotificationHeaderExpandController$notificationCallback$1": [
+      "onExpansionChanged(F)V"
+    ]
+  },
+  "nativeStatusViews": {
+    "mobileNetwork": "com.android.systemui.statusbar.pipeline.mobile.ui.view.ModernStatusBarMobileView",
+    "wifi": "com.android.systemui.statusbar.pipeline.wifi.ui.view.ModernStatusBarWifiView",
+    "battery": "com.android.systemui.statusbar.views.MiuiBatteryMeterView"
+  },
+  "nativeStatusContainers": {
+    "miuiStatusIcons": "com.android.systemui.statusbar.views.MiuiStatusIconContainer",
+    "statusIcons": "com.android.systemui.statusbar.phone.StatusIconContainer",
+    "batteryContainer": "com.android.systemui.statusbar.views.MiuiStatusBatteryContainer"
+  },
+  "verifiedSystemUiFields": {
+    "com.android.systemui.statusbar.views.MiuiBatteryMeterView": [
+      "mStatusBarState"
+    ],
+    "com.android.systemui.statusbar.views.MiuiBatteryMeterIconView": [
+      "mLevel",
+      "mCharging",
+      "mBatteryChargingColor",
+      "mBatteryPowerSaveColor",
+      "mBatteryPerformanceModeColor",
+      "mBatteryLowColor",
+      "mMiuiOptimizationEnabled"
+    ],
+    "com.android.systemui.controlcenter.shade.NotificationHeaderExpandController": [
+      "notification",
+      "headerController"
+    ]
+  },
+  "batterySemanticContract": {
+    "className": "com.android.systemui.statusbar.views.MiuiBatteryMeterIconView",
+    "progressStatusMethod": {
+      "methodName": "getProgressStatus",
+      "descriptor": "()Lcom/android/systemui/statusbar/views/MiuiBatteryUtils$BatteryStatus;"
+    },
+    "fields": [
+      "mLevel",
+      "mCharging",
+      "mBatteryChargingColor",
+      "mBatteryPowerSaveColor",
+      "mBatteryPerformanceModeColor",
+      "mBatteryLowColor",
+      "mMiuiOptimizationEnabled"
+    ]
+  }
+}
