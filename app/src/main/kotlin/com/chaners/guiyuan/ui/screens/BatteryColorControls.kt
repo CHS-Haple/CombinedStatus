@@ -75,8 +75,11 @@ import top.yukonga.miuix.kmp.color.space.Hsv
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Add
 import top.yukonga.miuix.kmp.icon.extended.Back
+import top.yukonga.miuix.kmp.icon.extended.ExpandLess
+import top.yukonga.miuix.kmp.icon.extended.ExpandMore
 import top.yukonga.miuix.kmp.icon.extended.Forward
 import top.yukonga.miuix.kmp.icon.extended.More
+import top.yukonga.miuix.kmp.icon.extended.Reset
 import top.yukonga.miuix.kmp.overlay.OverlayBottomSheet
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.preference.ArrowPreference
@@ -768,12 +771,25 @@ private fun BatteryCustomModeEditor(
                 title = batterySourceLabel(entry.source),
                 summary = batterySourceValue(entry, slot),
                 onClick = { onSourceExpandedChange(!sourceExpanded) },
+                holdDownState = sourceExpanded,
                 endActions = {
                     if (resolved == null) {
                         BatteryColorMosaic()
                     } else {
                         BatteryColorDot(resolved)
                     }
+                    Spacer(Modifier.width(8.dp))
+                    Icon(
+                        imageVector =
+                            if (sourceExpanded) {
+                                MiuixIcons.ExpandLess
+                            } else {
+                                MiuixIcons.ExpandMore
+                            },
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                    )
                 },
             )
             if (sourceExpanded) {
@@ -969,6 +985,14 @@ private fun BatteryCustomModeEditor(
                         batteryBuiltInName(custom.baseTemplate),
                     ),
                 onClick = onRestore,
+                endActions = {
+                    Icon(
+                        imageVector = MiuixIcons.Reset,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp),
+                        tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
+                    )
+                },
             )
         }
     }

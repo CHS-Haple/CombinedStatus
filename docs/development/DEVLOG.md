@@ -1,3 +1,51 @@
+## 2026-10-01 — Build 572 final battery-color editor MIUIX semantics
+
+**Type:** App UI component semantics only  
+**Display version:** 0.0.3  
+**Build:** 572 / `20261001-572`  
+**Branch / PR:** `feat/battery-top-readout` / #181
+
+### Goal
+
+Close the remaining component-semantic gaps in the final custom-mode editor before beginning the maintainer-requested global MIUIX ratio/proportion review. The approved page hierarchy, source model, copy-on-write behavior and layout remain unchanged.
+
+### Change
+
+- Color source stays an in-place expandable MIUIX `BasicComponent`.
+- While expanded, that component now uses its built-in `holdDownState`.
+- Its end area keeps the current fixed-color/MIUIX-checker preview and adds:
+  - `MiuixIcons.ExpandMore` while collapsed;
+  - `MiuixIcons.ExpandLess` while expanded;
+  - `onSurfaceVariantActions` tint.
+- Restore-this-mode remains a normal, non-destructive `BasicComponent` action and gains `MiuixIcons.Reset` with the same MIUIX action tint.
+- Existing `RadioButtonPreference`, `HsvHueSlider`, `HsvSaturationSlider`, `HsvValueSlider`, `TextField`, `Card`, `SmallTitle`, and MIUIX `Surface` color chips remain authoritative.
+- No switch to full `ColorPicker`: its alpha channel would expose unsupported transparency semantics, while the separate MIUIX HSV controls already match Guiyuan's opaque-color contract.
+
+### Exact-version verification
+
+Verified directly against pinned MIUIX revision `5c91d5e5ce1a2fc7e8bdc1258a881c555102bbca`:
+- `MiuixIcons.ExpandMore`;
+- `MiuixIcons.ExpandLess`;
+- `MiuixIcons.Reset`;
+- `BasicComponent.holdDownState`;
+- `MiuixTheme.colorScheme.onSurfaceVariantActions`.
+
+### 审查 / review
+
+- information architecture unchanged;
+- source remains default-collapsed and expands in place;
+- no new project drawing;
+- no new dependency;
+- no persistence/runtime/color-policy change;
+- Restore remains non-destructive; Delete remains the only error-colored destructive action;
+- copy-on-write from template/follow source to Custom is untouched;
+- final numeric sizing/spacing/typography tuning is intentionally deferred to the next single global MIUIX proportion pass.
+
+### Validation
+
+Run exact-head automated CI. A green result closes component semantics for the entire battery-color flow and unlocks the final MIUIX ratio/proportion review before the next device Canary.
+
+
 ## 2026-10-01 — Build 571 Add-card hold-state compile correction
 
 **Type:** compile-only correction  
