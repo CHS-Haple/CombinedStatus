@@ -664,7 +664,7 @@ private fun BatterySchemeHeader(
             }
         }
     }
-    Spacer(Modifier.height(12.dp))
+    Spacer(Modifier.height(8.dp))
     Box(
         modifier = Modifier.fillMaxWidth(),
         contentAlignment = Alignment.Center,
