@@ -117,6 +117,8 @@ private val COMMON_BATTERY_COLORS =
 
 private val BATTERY_COLOR_PREVIEW_SLOTS = CombinedStatusBatteryColorSlot.entries
 
+private const val BATTERY_COLOR_SHEET_HEIGHT_FRACTION = 0.84f
+
 private sealed interface BatterySchemePage {
     val key: String
 
@@ -195,7 +197,7 @@ internal fun BatteryColorBottomSheet(
 
     OverlayBottomSheet(
         show = show,
-        modifier = Modifier.fillMaxHeight(0.84f),
+        modifier = Modifier.fillMaxHeight(BATTERY_COLOR_SHEET_HEIGHT_FRACTION),
         title = sheetTitle,
         backgroundColor =
             if (inDetail) {
