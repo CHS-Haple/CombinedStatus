@@ -1,3 +1,33 @@
+## 2026-10-01 — Build 566 Compose padding compile correction
+
+**Type:** compile-only correction  
+**Display version:** 0.0.3  
+**Build:** 566 / `20261001-566`  
+**Branch / PR:** `feat/battery-top-readout` / #181
+
+### CI evidence
+
+Full CI #2095 / run 36903859758 cleared Build 564's Pager `PagerSnapDistance` mismatch and reached the next Kotlin compile check. The only reported source failure was `BatteryColorControls.kt:740`: Compose has separate `padding(horizontal, vertical)` and `padding(start, top, end, bottom)` overloads, so `padding(horizontal = 12.dp, bottom = 24.dp)` is invalid.
+
+### Correction
+
+- Replace that call with `padding(start = 12.dp, end = 12.dp, bottom = 24.dp)`.
+- Directed scan of the same file's remaining `padding`, `PagerDefaults.flingBehavior`, and `heightIn` calls found no second matching overload misuse.
+- No UI geometry value changes: horizontal 12dp and bottom 24dp are preserved exactly.
+
+### 审查 / review
+
+- compile-only; no behavior or state transition changes;
+- Build-565 migration compatibility correction remains intact;
+- MIUIX interaction ownership and destructive-error semantics remain intact;
+- App-only scheme metadata / Runtime projection boundary remains unchanged;
+- no new dependency, hook, listener, animator, writer, or persistence key.
+
+### Validation
+
+Run exact-head Full CI. If green, close automated validation and proceed to one signed exact-head Canary for the new battery-color BottomSheet visual/interaction review.
+
+
 ## 2026-10-01 — Build 565 battery-color post-review correction
 
 **Type:** compile correction + compatibility review  

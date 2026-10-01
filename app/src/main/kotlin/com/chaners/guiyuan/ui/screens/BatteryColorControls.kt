@@ -737,7 +737,7 @@ private fun BatteryCustomModeEditor(
             Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 12.dp, bottom = 24.dp),
+                .padding(start = 12.dp, end = 12.dp, bottom = 24.dp),
     ) {
         SmallTitle(
             stringResource(
