@@ -1826,17 +1826,11 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 genericIslandShowing == true &&
                     fakeIslandBoundaryProjectionReady
             val paddingDelta = (requestedWidth - compactWidth).coerceAtLeast(0)
+            val previousProjectionDelta = fakeIslandBoundaryDeltaPx
 
-            if (lastNativeReservationWidthPx != requestedWidth) {
-                val applied =
-                    SystemUiHomePresentationOwner
-                        .updateControlCenterTransitionReservation(
-                            requestedSlotWidthPx = requestedWidth,
-                        )
-                if (!applied) return
-                lastNativeReservationWidthPx = requestedWidth
-            }
-
+            // Install the collision-boundary projection before paddingEnd can
+            // request native layout. This keeps the peer-X shift and island
+            // threshold shift atomic from MiuiStatusIconContainer's view.
             if (projectionRequired) {
                 val projected =
                     SystemUiPanelTransitionSource
@@ -1862,6 +1856,43 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 SystemUiPanelTransitionSource
                     .clearFakeIslandBoundaryProjection(fakeStatusIcons)
                 fakeIslandBoundaryDeltaPx = null
+            }
+
+            if (lastNativeReservationWidthPx != requestedWidth) {
+                val applied =
+                    SystemUiHomePresentationOwner
+                        .updateControlCenterTransitionReservation(
+                            requestedSlotWidthPx = requestedWidth,
+                        )
+                if (!applied) {
+                    // Reservation did not advance, so restore the projection
+                    // to the boundary paired with the previously applied
+                    // padding. Never leave a future delta active by itself.
+                    if (projectionRequired && previousProjectionDelta != null) {
+                        val restored =
+                            SystemUiPanelTransitionSource
+                                .updateFakeIslandBoundaryProjection(
+                                    container = fakeStatusIcons,
+                                    transitionPaddingDeltaPx =
+                                        previousProjectionDelta,
+                                )
+                        if (restored) {
+                            fakeIslandBoundaryDeltaPx = previousProjectionDelta
+                        } else {
+                            SystemUiPanelTransitionSource
+                                .clearFakeIslandBoundaryProjection(fakeStatusIcons)
+                            fakeIslandBoundaryProjectionReady = false
+                            fakeIslandBoundaryDeltaPx = null
+                            nativePaddingExpansionAllowed = false
+                        }
+                    } else {
+                        SystemUiPanelTransitionSource
+                            .clearFakeIslandBoundaryProjection(fakeStatusIcons)
+                        fakeIslandBoundaryDeltaPx = null
+                    }
+                    return
+                }
+                lastNativeReservationWidthPx = requestedWidth
             }
         }
 
