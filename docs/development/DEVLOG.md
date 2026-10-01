@@ -761,3 +761,16 @@ The correction:
 The PR display title process was also verified: CI #2085 displayed `feat: add MIUIX custom battery color editor`, confirming that updating the PR title before the work-branch HEAD update makes the Actions list describe the concrete Build objective without changing workflow trigger/security semantics.
 
 No SystemUI runtime, hook, transition, or rendering behavior changed in this correction.
+
+
+### Build 562 CI correction 2 — remove duplicate editor tests
+
+Runtime CI #2090 (run `36887864769`) compiled the production app successfully. Unit-test compilation then failed because iterative review had appended a second set of tests covering the same HEX/RGB parsing and editor initial-color priority, including a duplicate function named `editorInitialColorPrefersStoredThenPresetThenDynamicFallback`.
+
+Correction:
+- remove the later duplicate parser / initial-color / RGB round-trip block;
+- keep the original seven focused tests;
+- confirm there are no duplicate test function names;
+- production code is unchanged.
+
+The workflow/run-name cleanup is intentionally deferred until after the next Canary is delivered for device testing.
