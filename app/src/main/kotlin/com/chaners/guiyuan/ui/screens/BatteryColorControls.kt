@@ -28,6 +28,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -39,6 +40,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -124,7 +127,6 @@ private val COMMON_BATTERY_COLORS =
 private val BATTERY_COLOR_PREVIEW_SLOTS = CombinedStatusBatteryColorSlot.entries
 
 private const val BATTERY_COLOR_SHEET_HEIGHT_FRACTION = 0.84f
-private val BATTERY_SCHEME_SETTINGS_CARD_MIN_HEIGHT = 336.dp
 
 private sealed interface BatterySchemePage {
     val key: String
@@ -420,6 +422,7 @@ private fun BatterySchemeOverview(
             pageCount = { pages.size },
         )
     val scope = rememberCoroutineScope()
+    var settingsCardHeightPx by remember { mutableIntStateOf(0) }
     val flingBehavior =
         PagerDefaults.flingBehavior(
             state = pagerState,
@@ -484,6 +487,9 @@ private fun BatterySchemeOverview(
                                 onOpenBuiltInSlot(page.scheme, slot)
                             }
                         },
+                        onSettingsCardMeasured = { height ->
+                            if (height > 0) settingsCardHeightPx = height
+                        },
                         onRename = null,
                         onCopy = null,
                         onDelete = null,
@@ -499,6 +505,9 @@ private fun BatterySchemeOverview(
                         onSlotClick = { slot ->
                             onOpenCustomSlot(page.scheme.id, slot)
                         },
+                        onSettingsCardMeasured = { height ->
+                            if (height > 0) settingsCardHeightPx = height
+                        },
                         onRename = { onRenameCustom(page.scheme.id) },
                         onCopy = { onCopyCustom(page.scheme) },
                         onDelete = { onDeleteCustom(page.scheme.id) },
@@ -506,6 +515,7 @@ private fun BatterySchemeOverview(
                 BatterySchemePage.Add ->
                     BatteryAddSchemePage(
                         enabled = canCreateCustom,
+                        settingsCardHeightPx = settingsCardHeightPx,
                         onClick = onAdd,
                     )
             }
@@ -522,6 +532,7 @@ private fun BatterySchemePageContent(
     canCreateCustom: Boolean,
     onApply: () -> Unit,
     onSlotClick: (CombinedStatusBatteryColorSlot) -> Unit,
+    onSettingsCardMeasured: (Int) -> Unit,
     onRename: (() -> Unit)?,
     onCopy: (() -> Unit)?,
     onDelete: (() -> Unit)?,
@@ -587,7 +598,9 @@ private fun BatterySchemePageContent(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .heightIn(min = BATTERY_SCHEME_SETTINGS_CARD_MIN_HEIGHT),
+                        .onSizeChanged { size ->
+                            onSettingsCardMeasured(size.height)
+                        },
             ) {
                 CombinedStatusBatteryColorSlot.entries.forEach { slot ->
                     val color =
@@ -713,8 +726,16 @@ private fun BatteryModeSettingItem(
 @Composable
 private fun BatteryAddSchemePage(
     enabled: Boolean,
+    settingsCardHeightPx: Int,
     onClick: () -> Unit,
 ) {
+    val density = LocalDensity.current
+    val settingsCardHeight =
+        if (settingsCardHeightPx > 0) {
+            with(density) { settingsCardHeightPx.toDp() }
+        } else {
+            Dp.Unspecified
+        }
     Column(
         modifier = Modifier.fillMaxWidth(),
     ) {
@@ -738,7 +759,13 @@ private fun BatteryAddSchemePage(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .heightIn(min = BATTERY_SCHEME_SETTINGS_CARD_MIN_HEIGHT),
+                        .then(
+                            if (settingsCardHeight.isSpecified) {
+                                Modifier.height(settingsCardHeight)
+                            } else {
+                                Modifier.heightIn(min = 144.dp)
+                            },
+                        ),
                 pressFeedbackType =
                     if (enabled) {
                         PressFeedbackType.Tilt
