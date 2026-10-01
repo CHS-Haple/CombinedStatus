@@ -1,3 +1,35 @@
+## 2026-10-02 — Build 581 scheme navigation affordance and visible function Cards
+
+**Type:** App UI / MIUIX controls / visual hierarchy  
+**Display version:** 0.0.3  
+**Build:** 581 / `20261002-581`  
+**Branch / PR:** `feat/battery-top-readout` / #181
+
+### Device evidence
+Build 580 confirmed two visual problems:
+- scheme arrows at the pager indicator read like plain glyphs rather than buttons;
+- mode-detail function-group Cards were effectively invisible against the white BottomSheet.
+
+### Root cause
+- Pinned MIUIX `IconButton` defaults to a 40dp control with 40dp corner radius but `Color.Unspecified` background. The prior chevrons therefore had correct touch semantics but weak visible affordance.
+- `OverlayBottomSheet` uses `MiuixTheme.colorScheme.background` while `Card` defaults to `surfaceContainer`; in the current light palette both resolve to white, collapsing the visual boundary.
+
+### Change
+- Keep native `IconButton` geometry and click behavior.
+- Use MIUIX semantic container tokens only: `secondaryVariant/onSecondaryVariant` when enabled and `disabledSecondaryVariant/disabledOnSecondaryVariant` when unavailable.
+- Keep the first/last page button slots present and disabled so the center indicator does not move.
+- Add 24dp separation between each 40dp button and the page indicator for optical clarity.
+- Common colors / Full adjustment / Precise input Cards use `CardDefaults.defaultColors(color = surface, contentColor = onSurface)`, producing the intended visible light-gray rounded rectangle against BottomSheet `background` without hand-drawn borders.
+
+### Review
+- No custom icon drawing or text-arrow fallback.
+- No manual button size/shape override; upstream 40dp / 40dp-radius defaults remain authoritative.
+- No pager timing change; pinned `PagerNavigationSpringSpec` remains intact.
+- No runtime, hook, persistence, or color-policy delta.
+
+### Validation
+Run exact-head Runtime CI and Canary. Verify button affordance/disabled edge pages, stable center alignment, and visible function-group Cards in the mode detail page.
+
 ## 2026-10-02 — Build 580 mode-detail MIUIX conformance refinement
 
 **Type:** App UI hierarchy / color editor / MIUIX conformance  
