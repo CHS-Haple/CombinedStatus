@@ -34,6 +34,8 @@ import com.chaners.guiyuan.BuildConfig
 import com.chaners.guiyuan.CombinedStatusApplication
 import com.chaners.guiyuan.R
 import com.chaners.guiyuan.settings.CombinedStatusFeatureSettingsRepository
+import com.chaners.guiyuan.settings.CombinedStatusVisualSettings
+import com.chaners.guiyuan.settings.CombinedStatusVisualSettingsRepository
 import com.chaners.guiyuan.system.XposedRuntimeStatus
 import com.chaners.guiyuan.ui.components.CombinedStatusPreview
 import com.chaners.guiyuan.ui.components.HotReloadAction
@@ -95,6 +97,14 @@ internal fun HomeScreen(
     val featureSettings by
         featureRepository.settings.collectAsState(
             initial = featureRepository.current(),
+        )
+    val visualRepository =
+        remember(context.applicationContext) {
+            CombinedStatusVisualSettingsRepository(context.applicationContext)
+        }
+    val visualSettings by
+        visualRepository.settings.collectAsState(
+            initial = visualRepository.current(),
         )
     val xposedRuntimeStatus by
         application.xposedRuntimeStatus.collectAsState()
@@ -163,6 +173,7 @@ internal fun HomeScreen(
                     HomePreviewSandboxCard(
                         state = previewState,
                         resources = previewResources,
+                        visualSettings = visualSettings,
                         onOpen = onOpenPreviewSandbox,
                         modifier =
                             Modifier
@@ -291,6 +302,7 @@ private fun HomeRuntimeStatusCard(
 private fun HomePreviewSandboxCard(
     state: PreviewSandboxUiState,
     resources: PreviewSystemUiResourceResolver,
+    visualSettings: CombinedStatusVisualSettings,
     onOpen: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -336,7 +348,11 @@ private fun HomePreviewSandboxCard(
         ) {
             CombinedStatusPreview(
                 model = state.toRenderModel(resources),
-                modifier = Modifier.size(HomePreviewIconSize),
+                visualSettings = visualSettings,
+                modifier =
+                    Modifier
+                        .width(HomePreviewIconSize)
+                        .height(HomePreviewSurfaceHeight),
             )
         }
         Text(
@@ -508,7 +524,8 @@ private fun resolveHomeRuntimeCardState(
 
 private val RuntimeCardHeight = 160.dp
 private val RuntimeStatusMarkSize = 96.dp
-private val HomePreviewStageHeight = 124.dp
+private val HomePreviewStageHeight = 148.dp
 private val HomePreviewIconSize = 112.dp
+private val HomePreviewSurfaceHeight = 144.dp
 private val RuntimeSuccessAccent = Color(0xFF36D167)
 private val RuntimeWarningAccent = Color(0xFFFFA500)

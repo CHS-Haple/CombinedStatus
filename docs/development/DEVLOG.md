@@ -14320,6 +14320,17 @@ Preview had another independent ownership gap: it built the same render model bu
 - Shared vertical-overflow geometry retains the Build-536 invariant:
   `physicalTop + logicalTopInset == logicalTop`.
 
+### CI attempt 1 correction
+
+Runtime CI #2023 reached Kotlin compilation and failed at `HomeScreen.kt`: the Home preview-card call site still used the old `CombinedStatusPreview(model, modifier)` signature after Preview Sandbox gained the required `visualSettings` parameter.
+
+This is a compile-time integration omission, not device/runtime evidence. The same Build 537 is corrected by:
+- subscribing Home to the existing `CombinedStatusVisualSettingsRepository`;
+- passing the same saved settings into the Home preview;
+- giving the Home preview a taller physical surface while preserving its 112dp logical width/height basis, so the preview can display the same top overflow as the full sandbox.
+
+No Build number bump is made because CI #2023 produced no testable APK and the correction belongs to the same feature checkpoint.
+
 ### Validation gate
 
 Runtime CI is required. Because this checkpoint changes Keyguard render-child ownership, steady source geometry, and Control Center source bounds under the layout swap, an exact-head signed Canary and focused device validation are required before integration.

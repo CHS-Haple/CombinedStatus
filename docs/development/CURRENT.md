@@ -162,7 +162,7 @@ Build 537 visual-control / layout integration:
 - top-ring avoidance is derived from whichever semantic currently occupies the top slot;
 - Home keeps the Build-536 device-accepted direct-child logical viewport / physical-overflow split;
 - the opt-in Keyguard renderer reuses the same module-owned vertical-overflow policy so top content is not clipped, while keeping separate Keyguard session/tint/AOD ownership;
-- Preview Sandbox now consumes the real persisted VisualSettings and native SystemUI charging-resource families instead of silently rendering defaults;
+- Home preview and Preview Sandbox now consume the real persisted VisualSettings and native SystemUI charging-resource families instead of silently rendering defaults;
 - visual-settings persistence / remote mirroring / SystemUI runtime decoding now share one read/write contract, removing the three-copy key list that caused new settings to be omitted from runtime transport;
 - Features uses one MIUIX page with three Cards: Global / Network / Battery; no custom nested page or hand-built pseudo-MIUIX control is introduced.
 
@@ -186,7 +186,7 @@ Confirmed:
   - unknown exact authority remains native-peer-motion rather than guessing `false`.
 
 Pending:
-- Build 537 Runtime CI.
+- Build 537 Runtime CI retry after CI #2023 exposed one compile-only Home preview call-site omission.
 - if green, one exact-head signed Build-537 Canary.
 - focused device validation:
   - Features page follows MIUIX Global / Network / Battery card hierarchy and every visible control changes the real runtime state without a restart;
