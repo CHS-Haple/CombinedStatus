@@ -167,6 +167,8 @@ Main/stable boundaries and dependency, Gradle/build, CI/workflow, tooling, signi
 
 CI proves configured source/build checks, not SystemUI runtime correctness.
 
+For an active work-branch PR, synchronize the PR title to the exact next CI-triggering checkpoint before moving the branch ref. Use a concise one-line conventional-commit title such as `feat: refine battery color drawer layout` or `fix: center scheme preview`, keep CI-facing titles in English, and never reuse a stale title for later checkpoints. Pull-request Build and comment-triggered Work Branch Canary surface that checkpoint title as the Actions run name; push-triggered Build surfaces the head commit subject.
+
 Pull-request validation must remain safe for untrusted forks. Secret-independent checks are allowed; signing credentials and project-signed artifacts stay on trusted maintainer/default-branch workflows and must never be exposed to contributor-controlled workflow definitions.
 
 ### Work-branch Canary
