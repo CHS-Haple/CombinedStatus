@@ -59,6 +59,7 @@ import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
+import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.DropdownDefaults
 import top.yukonga.miuix.kmp.basic.DropdownImpl
 import top.yukonga.miuix.kmp.basic.DropdownItem
@@ -703,32 +704,46 @@ private fun BatterySchemeNavigator(
         IconButton(
             onClick = { onNavigateTo(currentPage - 1) },
             enabled = canGoBack,
+            backgroundColor =
+                if (canGoBack) {
+                    MiuixTheme.colorScheme.secondaryVariant
+                } else {
+                    MiuixTheme.colorScheme.disabledSecondaryVariant
+                },
         ) {
             Icon(
                 imageVector = MiuixIcons.ChevronBackward,
                 contentDescription = stringResource(R.string.battery_color_scheme_previous),
                 tint =
                     if (canGoBack) {
-                        MiuixTheme.colorScheme.onSurfaceVariantActions
+                        MiuixTheme.colorScheme.onSecondaryVariant
                     } else {
                         MiuixTheme.colorScheme.disabledOnSecondaryVariant
                     },
             )
         }
+        Spacer(Modifier.width(24.dp))
         BatteryPagerIndicator(
             pageCount = pageCount,
             currentPage = currentPage,
         )
+        Spacer(Modifier.width(24.dp))
         IconButton(
             onClick = { onNavigateTo(currentPage + 1) },
             enabled = canGoForward,
+            backgroundColor =
+                if (canGoForward) {
+                    MiuixTheme.colorScheme.secondaryVariant
+                } else {
+                    MiuixTheme.colorScheme.disabledSecondaryVariant
+                },
         ) {
             Icon(
                 imageVector = MiuixIcons.ChevronForward,
                 contentDescription = stringResource(R.string.battery_color_scheme_next),
                 tint =
                     if (canGoForward) {
-                        MiuixTheme.colorScheme.onSurfaceVariantActions
+                        MiuixTheme.colorScheme.onSecondaryVariant
                     } else {
                         MiuixTheme.colorScheme.disabledOnSecondaryVariant
                     },
@@ -976,6 +991,11 @@ private fun BatteryCustomModeEditor(
         )
         Card(
             insideMargin = PaddingValues(16.dp),
+            colors =
+                CardDefaults.defaultColors(
+                    color = MiuixTheme.colorScheme.surface,
+                    contentColor = MiuixTheme.colorScheme.onSurface,
+                ),
         ) {
             COMMON_BATTERY_COLORS.chunked(5).forEachIndexed { index, colors ->
                 Row(
@@ -1004,7 +1024,13 @@ private fun BatteryCustomModeEditor(
             text = stringResource(R.string.battery_color_full_adjustment),
             textColor = inactiveTitleColor,
         )
-        Card {
+        Card(
+            colors =
+                CardDefaults.defaultColors(
+                    color = MiuixTheme.colorScheme.surface,
+                    contentColor = MiuixTheme.colorScheme.onSurface,
+                ),
+        ) {
             if (hsv != null) {
                 BatteryHsvAdjustmentRow(
                     title = stringResource(R.string.battery_color_hue),
@@ -1066,6 +1092,11 @@ private fun BatteryCustomModeEditor(
         )
         Card(
             insideMargin = PaddingValues(16.dp),
+            colors =
+                CardDefaults.defaultColors(
+                    color = MiuixTheme.colorScheme.surface,
+                    contentColor = MiuixTheme.colorScheme.onSurface,
+                ),
         ) {
             TextField(
                 value = hexText,
