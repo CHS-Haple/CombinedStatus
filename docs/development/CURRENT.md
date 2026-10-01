@@ -15,7 +15,9 @@ This file is the concise recovery point for active Guiyuan development. Historic
 PR #181 / `feat/battery-top-readout` now owns the battery-information controls, network/battery content layout, preview synchronization, and the associated steady/transition source geometry while preserving the accepted Home -> Control Center ownership contract.
 
 Current checkpoint:
-- Build 540 / `20261001-540` diagnostic checkpoint;
+- Build 541 / `20261001-541` island peer-freeze correction checkpoint;
+- Build 541 pre-documentation Runtime CI #2037 is green at `3f2bbd253170267b239784e950f1d1d8efdab3d2`; exact-head Runtime CI is required after this documentation closure before producing a signed Canary;
+- Build 540 exact-head Runtime CI #2032 and Work Branch Canary #607 are green at `3ea8a533179ec1a08fb48228109088e5f49cafb8`; cold-start device evidence successfully captured the QS_FAKE island contract and confirms the Build-539/540 guard still blocks native peer reservation during an island pull;
 - Build 539 exact-head Runtime CI #2028 is green at `e41c7d77d60689f8c08fdc36bdc0d40fa724f554`; maintainer device evidence indicates the island guard suppresses the premature avoidance symptom but also removes the required continuous leftward peer reflow because the same native padding expansion was disabled wholesale;
 - Build 538 exact-head Runtime CI #2027 and Work Branch Canary #604 are green at `0a3558fc1bff90904b177345ec5ee80275bcb0ec`; focused device evidence accepts the independent layout profiles / live TopSlot avoidance checkpoint but exposes one island-only Control Center regression: HyperOS hides the native end-side container while Guiyuan pixels are still visually far from the island;
 - Build 537 exact-head Runtime CI #2025 and Work Branch Canary #602 are green at `5c7560769e2ff0926fba6a78eba022151aee1dd0`; maintainer feedback identifies two follow-up defects: layout-local settings are shared instead of independently remembered, and TopSlot network avoidance can retain an over-wide envelope when the visible network semantic becomes smaller;
@@ -188,10 +190,21 @@ Build 539 island-collision reservation isolation:
 
 Build 540 QS_FAKE island-contract probe:
 - maintainer analysis identifies the more specific native-assumption mismatch: steady Home island avoidance may legitimately classify icons from horizontal occupancy because stock QS_FAKE begins from the same fixed icon membership as steady Home; Guiyuan uniquely decomposes one compact semantic into additional transition pixels while the fake row is already moving vertically away;
-- the remaining question is exact owner/API, not geometry calibration: whether the fake peer views expose an existing native island/force-appear contract that can separate transition presentation from steady island collision without taking over peer translation/alpha/visibility;
-- Build 540 therefore changes no functional path from 539 and adds one bounded, read-only Detailed-diagnostics snapshot when a QS_FAKE root attaches;
-- the snapshot inspects at most 64 Views to depth 6, reports existing `slot / visibleState / inIslandState / beforeInIslandState / islandChanged / supportAnim / forceAppear / layoutTranslationX` fields when present, plus island-related native methods and current screen X/Y;
-- the probe runs once per fake root lifetime, adds no Hook, polling loop, frame callback, writer, or runtime authority.
+- Build 540 changes no functional path from 539 and adds one bounded, read-only Detailed-diagnostics snapshot when a QS_FAKE root attaches;
+- the cold-start Build-540 report successfully captured the contract: QS_FAKE `MiuiStatusIconContainer` exposes `getIslandMonitor/getIslandShowing/getIslandTranslationX/setIslandController`; mobile animator children expose `getHideByIsland/setHideByIsland` and `getIslandState/setIslandState`; the container's existing per-child transition state also exposes `forceAppear`;
+- the same report shows steady Home starts with `paddingEnd=0`, while island-state Control Center transition diagnostics keep growing logical `reservation` but report `nativeReservation=-1 / reservationMode=internal-progress-island-guard`; this confirms that the missing leftward peer reflow is the retained Build-539 guard, not a stale padding value surviving SystemUI restart;
+- the exact-target SystemUI reference further establishes that `FakeContainerIslandMonitor` consumes Home `statusContainerSpace`, updates the fake `MiuiStatusIconContainer.islandWidth`, marks island-width state changed, and requests layout;
+- therefore the final correction must leave Home island ownership intact, restore Guiyuan's native peer reservation, and isolate only the QS_FAKE transition peers from the semantically invalid island-hide consequence created by Guiyuan-only decomposition.
+Build 541 QS_FAKE peer-freeze correction:
+- restore progress-synchronous native transition reservation under a generic Home island only when a narrow QS_FAKE peer-freeze contract can be acquired;
+- the freeze uses the existing `MiuiStatusIconContainer.Companion.access$getViewStateFromChild(View)` state accessor and the existing `forceAppear` field; it does not write View translation, alpha, visibility, measured width, endpoint geometry, or island controller state;
+- freeze scope is limited to fake-row peers that are already `visibleState=0`, actually `VISIBLE`, and have non-zero width when the transition begins; Guiyuan-represented Wi-Fi/mobile/stacked-mobile/airplane/no-SIM/combined slots are excluded, so an icon already hidden by the steady island is not resurrected;
+- while the freeze is active, `statusIcons.paddingEnd` again receives the logical transition reservation and native peers can reflow left as the compact Guiyuan source decomposes;
+- on transition stop, endpoint replacement, detach, scene loss, feature deactivation or Hot Reload session teardown, only Guiyuan-changed `forceAppear=false -> true` entries are restored to their original value and the fake container requests layout once;
+- if the exact state accessor/fields cannot be resolved or mutation fails part-way, all already-changed entries are rolled back and Build-540's native-padding guard remains active; compatibility uncertainty therefore fails native rather than exposing the 538 behavior blindly;
+- Build-526 remains unchanged: generic Super-Island visibility still does not impersonate exact Battery-Island authority `isAddBatteryIsland`;
+- device validation remains mandatory because the exact field contract is runtime-verified but the correction must still prove that SystemUI does not overwrite the freeze later in the same layout lifecycle.
+
 ## Validation state
 
 Confirmed:
@@ -213,9 +226,10 @@ Confirmed:
   - unknown exact authority remains native-peer-motion rather than guessing `false`.
 
 Pending:
-- Build 540 exact-head Runtime CI after documentation closure, then one signed work-branch Canary.
-- focused Build-540 evidence is intentionally narrow: with a generic Super-Island present, perform one Home -> Control Center pull and export Detailed diagnostics so the one-shot `controlCenterFakeIslandContract` record can identify the native island-state owner/API.
-- do not tune geometry, restore 538 padding behavior, or add a visibility/translation override until that contract is known.
+- run final exact-head Build-541 Runtime CI after this documentation-only closure; Build 541 pre-documentation Runtime CI #2037 is already green.
+- freeze the resulting exact runtime and produce one signed Work Branch Canary because the change modifies island-state transition behavior and requires device evidence.
+- focused Build-541 device gate: with a generic Super-Island present, pull Home -> Control Center and verify that surrounding native icons continuously move left as Guiyuan decomposes while no already-visible peer disappears prematurely; then collapse and repeat once to validate symmetric restoration.
+- export Detailed diagnostics and confirm `reservationMode=native-progress-fake-island-freeze`, a non-negative `nativeReservation`, and `islandPeerFreeze=active:<n>` during the affected pull. Any `internal-progress-island-freeze-unavailable`, premature peer disappearance, overlap/jump, stale gap after collapse, or non-island regression rejects the checkpoint.
 - the broader PR acceptance matrix remains:
   - configure noticeably different number size, number weight, vertical offset, charging-glyph size and color-link switches in each layout; switching layouts must restore each profile independently;
   - an unmodified Battery-centered profile must show 120% percentage size and 120% charging-glyph size, with the slider key point at 120%; Network-centered remains 100%;
@@ -250,10 +264,10 @@ Pending:
 
 ## Immediate next step
 
-1. complete exact-head Build-540 Runtime CI after the documentation-only closure;
-2. freeze exact Build 540 and produce one signed work-branch Canary;
-3. collect one generic-island Home -> Control Center pull with Detailed diagnostics and inspect `controlCenterFakeIslandContract`;
-4. use the exact native owner/API evidence to replace Build 539's blanket padding guard with the smallest scene-correct fix; do not merge PR #181 before that island path is resolved.
+1. run final exact-head Build-541 Runtime CI after this atomic CURRENT/DEVLOG closure;
+2. if green, freeze that exact SHA and produce one signed Work Branch Canary;
+3. validate the generic-island Home -> Control Center path for both required behaviors: native peer leftward reflow restored, premature island hide absent;
+4. reject 541 on any freeze-unavailable path or cleanup regression; do not merge PR #181 until this island path is device-accepted.
 ## Reference priority
 
 1. `CONTRIBUTING.md`;
