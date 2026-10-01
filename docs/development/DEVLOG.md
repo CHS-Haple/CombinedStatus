@@ -14425,3 +14425,74 @@ This is App preview composition only. Home/Keyguard runtime logical viewport, ov
 ### Validation gate
 
 Runtime CI is required. If green, produce one exact-head signed Build-538 Canary. Device validation must cover profile switching, 120% Battery-centered defaults/key points, 5G <-> Wi-Fi live gap resizing, no-network Wi-Fi, airplane/no-SIM, Keyguard overflow, Control Center semantic trajectories, preview parity and Hot Reload cleanup.
+
+## 2026-10-01 — Build 539: isolate semantic transition reservation from HyperOS island collision geometry
+
+**Type:** root-cause correction + ownership review
+**Display version:** 0.0.3
+**Build / source:** 539 / `20261001-539` / `feat/battery-top-readout` / PR #181
+
+### Evidence
+
+Build 538 exact-head Runtime CI #2027 and Work Branch Canary #604 are green. Focused device video/log evidence exposes an island-only regression during Home -> Control Center pull-down:
+- Guiyuan reports `nativeHide=false`;
+- HyperOS `HomeStatusBarViewBinderInjector` already reports `mEndSideContent=MiuiStatusBatteryContainer(...,a=0.0,v=4)`;
+- `addBatteryIsland=false` and `batteryWidthDiff=0` in the same transition frames;
+- Guiyuan's Control Center semantic reservation expands from the compact 105px source toward roughly 300-354px via `statusIcons.paddingEnd`.
+
+The visual content is still physically far from the island when native end-side content disappears. This matches HyperOS collision/avoidance observing an inflated native container boundary rather than Guiyuan's actual pixel envelope.
+
+### Root cause
+
+One width value had two different responsibilities:
+1. **logical/semantic transition reservation** — required by Guiyuan for target occupancy and latent reveal;
+2. **native `MiuiStatusIconContainer.paddingEnd` geometry** — visible to HyperOS Home/island collision logic.
+
+Outside an island these responsibilities can share the same width. With a generic Home island showing, feeding the 300+px transition reservation into native padding makes SystemUI believe end-side content reaches the island early and it performs its normal native hide/avoidance.
+
+This is separate from Build 526. `SystemUiIslandMotionSource.currentIslandShowing()` is **not** promoted back to Battery-Island authority. Exact `ControlCenterHeaderExpandController.isAddBatteryIsland` remains the only Battery-Island reservation-authority signal.
+
+### Change
+
+- Keep `usesSemanticTransitionReservation()` unchanged.
+- Add `allowsNativeTransitionPaddingExpansion()`:
+  - Home + generic island showing -> false;
+  - Home + no/unknown generic island -> true;
+  - Keyguard -> true;
+  - Unknown source -> false.
+- Track logical reservation width and native-applied reservation width separately.
+- `lastReservationWidthPx` always advances with transition progress and remains the input to latent reveal.
+- When Home generic island is showing, clear only the dynamic native transition reservation so `SystemUiHomePresentationOwner` falls back to its compact reservation.
+- When the island disappears, current transition width may be exposed to native padding again.
+- Diagnostics now distinguish logical `reservation`, `nativeReservation`, and `reservationMode=internal-progress-island-guard`.
+
+### 问题执行流程
+
+1. HyperOS island listener reports generic Home island visibility.
+2. Control Center transition still resolves its semantic spans and current logical reservation width.
+3. Build-526 exact Battery-Island authority still independently decides whether semantic reservation is valid.
+4. If generic Home island is showing, Build 539 keeps the logical reservation but clears only the dynamic native padding expansion.
+5. HyperOS therefore sees the compact Home end-side geometry for its own collision/avoidance logic.
+6. Guiyuan latent reveal and component transition continue using the logical reservation width.
+7. When the transition stops, existing cleanup restores Guiyuan-owned reservation state as before.
+
+### 审查 / review
+
+- **ownership split:** semantic occupancy and native collision geometry are no longer the same writer value during generic island presentation.
+- **Build-526 boundary preserved:** generic island visibility never decides Battery-Island state.
+- **SystemUI-owned avoidance preserved:** no alpha/visibility/translation override is added; HyperOS may still hide content when its real native compact geometry truly collides.
+- **single writer:** `SystemUiHomePresentationOwner` remains the sole writer of Guiyuan-owned `statusIcons.paddingEnd`; Build 539 only controls whether transition expansion is requested.
+- **transition behavior:** logical reservation still drives latent reveal, so Build-528 timing/occupancy logic remains available.
+- **Keyguard:** no Home generic-island padding guard is applied to Keyguard.
+- **performance:** no new hook, polling, timer, animator or frame observer.
+
+### Automated coverage
+
+- Home generic island=true blocks native padding expansion.
+- Home false/null keeps existing native expansion behavior.
+- Keyguard remains allowed.
+- Existing exact Battery-Island semantic reservation tests remain unchanged.
+
+### Validation gate
+
+Runtime CI and an exact-head signed Canary are required. Device validation must reproduce the same island-state pull-down and confirm that native end-side content no longer disappears while visually distant from the island, without regressing non-island Home -> Control Center motion.

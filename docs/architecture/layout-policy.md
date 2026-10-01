@@ -139,6 +139,8 @@ This intentionally permits a negative delta when charging-only Battery presentat
 
 The reservation:
 - is scoped to one Home HostSession;
+- exposes only the compact replacement-slot width to native padding while a generic Home island is showing; transition-only semantic expansion stays internal to Guiyuan so HyperOS island collision logic does not see an inflated end-side boundary;
+- treats generic island visibility only as a native-padding exposure guard, never as Battery-Island authority; exact `isAddBatteryIsland` remains a separate transition semantic input;
 - snapshots the pre-session relative padding;
 - reacts only to low-frequency Battery/carrier layout and native hide-state events;
 - rejects unexpected competing padding writers;

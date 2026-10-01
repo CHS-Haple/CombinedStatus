@@ -853,6 +853,45 @@ class CombinedStatusControlCenterTransitionOwnerTest {
     }
 
     @Test
+    fun genericHomeIslandOnlyGuardsNativePaddingExpansion() {
+        assertTrue(
+            !CombinedStatusControlCenterTransitionOwner.Policy
+                .allowsNativeTransitionPaddingExpansion(
+                    sourceScene = CombinedStatusSourceScene.HOME,
+                    genericIslandShowing = true,
+                ),
+        )
+        assertTrue(
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .allowsNativeTransitionPaddingExpansion(
+                    sourceScene = CombinedStatusSourceScene.HOME,
+                    genericIslandShowing = false,
+                ),
+        )
+        assertTrue(
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .allowsNativeTransitionPaddingExpansion(
+                    sourceScene = CombinedStatusSourceScene.HOME,
+                    genericIslandShowing = null,
+                ),
+        )
+        assertTrue(
+            CombinedStatusControlCenterTransitionOwner.Policy
+                .allowsNativeTransitionPaddingExpansion(
+                    sourceScene = CombinedStatusSourceScene.KEYGUARD,
+                    genericIslandShowing = true,
+                ),
+        )
+        assertTrue(
+            !CombinedStatusControlCenterTransitionOwner.Policy
+                .allowsNativeTransitionPaddingExpansion(
+                    sourceScene = CombinedStatusSourceScene.UNKNOWN,
+                    genericIslandShowing = false,
+                ),
+        )
+    }
+
+    @Test
     fun verifiedSourceScenesKeepSemanticReservationThroughProjection() {
         assertTrue(
             CombinedStatusControlCenterTransitionOwner.Policy

@@ -201,6 +201,11 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     charging = sourceSnapshot.model.charging,
                     nativeBatteryIslandActive = nativeBatteryIslandActive,
                 ),
+            nativePaddingExpansionAllowed =
+                Policy.allowsNativeTransitionPaddingExpansion(
+                    sourceScene = sourceScene,
+                    genericIslandShowing = SystemUiIslandMotionSource.currentIslandShowing(),
+                ),
         )
     }
 
@@ -249,6 +254,16 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     true
                 CombinedStatusSourceScene.UNKNOWN ->
                     false
+            }
+
+        fun allowsNativeTransitionPaddingExpansion(
+            sourceScene: CombinedStatusSourceScene,
+            genericIslandShowing: Boolean?,
+        ): Boolean =
+            when (sourceScene) {
+                CombinedStatusSourceScene.HOME -> genericIslandShowing != true
+                CombinedStatusSourceScene.KEYGUARD -> true
+                CombinedStatusSourceScene.UNKNOWN -> false
             }
 
         data class ReservationSpan(
@@ -723,7 +738,9 @@ internal object CombinedStatusControlCenterTransitionOwner {
         private var cachedNativePeerTint: Int? = null
         private var frozenReservationSpans: List<Policy.ReservationSpan>? = null
         private var lastReservationWidthPx: Int? = null
+        private var lastNativeReservationWidthPx: Int? = null
         private var transitionReservationEnabled = false
+        private var nativePaddingExpansionAllowed = true
 
         private val preDrawListener =
             ViewTreeObserver.OnPreDrawListener {
@@ -781,8 +798,13 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 ",witness=" + lastWitnessSummary +
                 ",batteryNumberProbe=" + batteryNumberProbeSummary +
                 ",reservation=" + (lastReservationWidthPx ?: -1) +
+                ",nativeReservation=" + (lastNativeReservationWidthPx ?: -1) +
                 ",reservationMode=" +
-                (if (transitionReservationEnabled) "native-progress-total-padding" else "native-peer-motion") +
+                when {
+                    !transitionReservationEnabled -> "native-peer-motion"
+                    !nativePaddingExpansionAllowed -> "internal-progress-island-guard"
+                    else -> "native-progress-total-padding"
+                } +
                 "}"
 
         fun matches(
@@ -820,6 +842,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
             nativeAppearance: Boolean,
             nativeAppearanceAnimated: Boolean,
             transitionReservationEnabled: Boolean,
+            nativePaddingExpansionAllowed: Boolean,
         ) {
             val appearanceChanged =
                 this.nativeAppearance != nativeAppearance ||
@@ -829,6 +852,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
             this.nativeAppearance = nativeAppearance
             this.nativeAppearanceAnimated = nativeAppearanceAnimated
             this.transitionReservationEnabled = transitionReservationEnabled
+            this.nativePaddingExpansionAllowed = nativePaddingExpansionAllowed
             if (appearanceChanged) {
                 refreshNativePeerTint()
             }
@@ -1702,12 +1726,13 @@ internal object CombinedStatusControlCenterTransitionOwner {
 
         private fun syncTransitionReservation() {
             if (!transitionReservationEnabled) {
-                if (lastReservationWidthPx != null) {
+                if (lastNativeReservationWidthPx != null) {
                     SystemUiHomePresentationOwner.clearControlCenterTransitionReservation(
                         "transition-source-native-peer-motion",
                     )
-                    lastReservationWidthPx = null
                 }
+                lastReservationWidthPx = null
+                lastNativeReservationWidthPx = null
                 return
             }
             val source = sourceViewRef.get() ?: return
@@ -1725,13 +1750,29 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     spans = spans,
                     progress = progress,
                 )
-            if (lastReservationWidthPx == requestedWidth) return
+
+            // Keep logical reservation progress for Guiyuan transition/latent
+            // reveal regardless of whether the native container may expose
+            // that expanded width to HyperOS.
+            lastReservationWidthPx = requestedWidth
+
+            if (!nativePaddingExpansionAllowed) {
+                if (lastNativeReservationWidthPx != null) {
+                    SystemUiHomePresentationOwner.clearControlCenterTransitionReservation(
+                        "transition-island-native-padding-guard",
+                    )
+                    lastNativeReservationWidthPx = null
+                }
+                return
+            }
+
+            if (lastNativeReservationWidthPx == requestedWidth) return
             if (
                 SystemUiHomePresentationOwner.updateControlCenterTransitionReservation(
                     requestedSlotWidthPx = requestedWidth,
                 )
             ) {
-                lastReservationWidthPx = requestedWidth
+                lastNativeReservationWidthPx = requestedWidth
             }
         }
 

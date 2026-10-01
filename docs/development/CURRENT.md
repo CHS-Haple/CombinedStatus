@@ -15,7 +15,8 @@ This file is the concise recovery point for active Guiyuan development. Historic
 PR #181 / `feat/battery-top-readout` now owns the battery-information controls, network/battery content layout, preview synchronization, and the associated steady/transition source geometry while preserving the accepted Home -> Control Center ownership contract.
 
 Current checkpoint:
-- Build 538 / `20261001-538` candidate;
+- Build 539 / `20261001-539` candidate;
+- Build 538 exact-head Runtime CI #2027 and Work Branch Canary #604 are green at `0a3558fc1bff90904b177345ec5ee80275bcb0ec`; focused device evidence accepts the independent layout profiles / live TopSlot avoidance checkpoint but exposes one island-only Control Center regression: HyperOS hides the native end-side container while Guiyuan pixels are still visually far from the island;
 - Build 537 exact-head Runtime CI #2025 and Work Branch Canary #602 are green at `5c7560769e2ff0926fba6a78eba022151aee1dd0`; maintainer feedback identifies two follow-up defects: layout-local settings are shared instead of independently remembered, and TopSlot network avoidance can retain an over-wide envelope when the visible network semantic becomes smaller;
 - Build 536 / `20261001-536` is maintainer device-accepted: upward offset is visibly continuous, the logical-viewport / physical-overflow split works, and the 40%-160% size ranges are accepted;
 - branch remains based on current `dev` and is not behind it;
@@ -177,6 +178,14 @@ Build 538 independent layout profiles + live TopSlot avoidance:
 - During the existing 100 ms center transition, the ring gap unions the previous/current bounds after the same enter/exit scale. Once the old state reaches zero appearance it contributes zero gap, so 5G -> Wi-Fi settles to Wi-Fi-sized avoidance.
 - Physical top overflow is capacity, not animation geometry: it reserves both transition endpoints at full size so later transition frames cannot clip while logical slot geometry remains unchanged.
 - Control Center semantic targets, HyperOS transition progress, Home/Keyguard logical viewport, native peer reservation and motion ownership are unchanged.
+Build 539 island-collision reservation isolation:
+- device log/video evidence shows `nativeHide=false` while native `mEndSideContent` is already `alpha=0 / visibility=INVISIBLE` during island-state pull-down;
+- the same frames report `addBatteryIsland=false / batteryWidthDiff=0`, so this is not Battery-Island ownership and must not reopen Build-526's generic-island proxy rejection;
+- Control Center semantic reservation still grows internally with progress and remains the source for Guiyuan latent reveal / component occupancy;
+- when generic Home island visibility is true, only the **expanded transition portion** is prevented from being written into native `MiuiStatusIconContainer.paddingEnd`; native padding returns to the compact Home reservation;
+- when no generic island is showing, existing native transition-padding behavior is unchanged;
+- Keyguard is unchanged by the Home island guard;
+- no native alpha/visibility write, island listener override, collision threshold, translation compensation, timer or new animator is introduced.
 ## Validation state
 
 Confirmed:
@@ -198,7 +207,7 @@ Confirmed:
   - unknown exact authority remains native-peer-motion rather than guessing `false`.
 
 Pending:
-- Build 538 Runtime CI retry after #2026 exposed one compile-only legacy migration scope error (`activeProfileKey` referenced outside Repository).
+- Build 539 Runtime CI.
 - if green, one exact-head signed Build-538 Canary.
 - focused device validation:
   - configure noticeably different number size, number weight, vertical offset, charging-glyph size and color-link switches in each layout; switching layouts must restore each profile independently;
@@ -234,11 +243,10 @@ Pending:
 
 ## Immediate next step
 
-1. run Build-538 Runtime CI and automated review;
-2. if green, freeze runtime at exact Build 538 and produce one signed work-branch Canary;
-3. device-validate independent per-layout memory, 120% Battery-centered defaults, and live TopSlot avoidance across network states;
-4. recheck Control Center trajectories and Hot Reload cleanup;
-5. merge to `dev` only after the combined checkpoint is device-accepted.
+1. run Build-539 Runtime CI and automated review;
+2. if green, freeze exact Build 539 and produce one signed work-branch Canary;
+3. device-validate island-state Home -> Control Center pull-down against the Build-538 reproduction, then recheck non-island transition, charging/non-charging, and Hot Reload cleanup;
+4. merge PR #181 only after the island-only regression is device-accepted.
 ## Reference priority
 
 1. `CONTRIBUTING.md`;
