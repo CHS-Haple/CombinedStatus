@@ -664,3 +664,14 @@ The source mode is already persisted in Build 561, but no incomplete custom edit
 ### Validation
 
 Run exact-head Runtime CI before adding the custom color editor.
+
+
+### Build 561 validation closure
+
+Exact-head Runtime CI #2083 (run `36884110591`) completed successfully on `b0ba53f`.
+- new MIUIX BottomSheet UI compiled successfully;
+- all preview-resolution tests passed;
+- debug APK build succeeded;
+- pinned HyperOS target and modern Xposed metadata verification passed.
+
+Build 561 is closed. Custom color editing remains isolated to the next commit.
