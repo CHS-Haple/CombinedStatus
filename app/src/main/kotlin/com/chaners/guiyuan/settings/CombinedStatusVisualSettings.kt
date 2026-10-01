@@ -76,11 +76,11 @@ internal data class CombinedStatusBatteryColorOverrides(
 }
 
 internal object CombinedStatusIosStyleBatteryPalette {
-    const val POWER_SAVE = 0xFFFFCC00.toInt()
-    const val PERFORMANCE = 0xFF007AFF.toInt()
-    const val SUPER_POWER_SAVE = 0xFFFF9500.toInt()
-    const val CHARGING = 0xFF34C759.toInt()
-    const val LOW = 0xFFFF3B30.toInt()
+    val POWER_SAVE = 0xFFFFCC00.toInt()
+    val PERFORMANCE = 0xFF007AFF.toInt()
+    val SUPER_POWER_SAVE = 0xFFFF9500.toInt()
+    val CHARGING = 0xFF34C759.toInt()
+    val LOW = 0xFFFF3B30.toInt()
 
     fun colorFor(slot: CombinedStatusBatteryColorSlot): Int? =
         when (slot) {
