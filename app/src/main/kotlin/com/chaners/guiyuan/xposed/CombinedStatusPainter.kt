@@ -605,12 +605,6 @@ internal class CombinedStatusPainter(
                 bottom = offsetY + bounds.bottom * scale,
             )
 
-        val nativeTransform =
-            NativeRenderTransform(
-                scale = scale,
-                offsetX = offsetX,
-                offsetY = offsetY,
-            )
         val specs = ArrayList<TransitionComponentSpec>(4)
         val batteryHalfStroke = outerGeometry.ringStroke / 2f
         specs +=
@@ -1894,14 +1888,6 @@ internal class CombinedStatusPainter(
                 visualSettings = visualSettings,
             ) ?: return null
         val scale = nativeTransform.scale
-        val offsetX = nativeTransform.offsetX
-        val offsetY = nativeTransform.offsetY
-        val nativeTransform =
-            NativeRenderTransform(
-                scale = scale,
-                offsetX = offsetX,
-                offsetY = offsetY,
-            )
         val layout =
             resolveBatteryTopReadoutLayout(
                 model = model,

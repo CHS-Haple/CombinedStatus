@@ -393,3 +393,16 @@ Settings normalization now locks:
 ### Validation
 
 Run exact-head Runtime CI. No device gate yet because no UI exposes the new setting and the default leaves runtime output unchanged.
+
+
+### Build 558 CI correction
+
+Runtime CI #2075 failed at Kotlin compilation because two functions retained an obsolete local `NativeRenderTransform(...)` construction after being migrated to `resolveCanvasTransform()`, producing duplicate `nativeTransform` declarations.
+
+Pre-commit review of the correction confirmed:
+- both duplicate constructions are removed;
+- every function using `resolveCanvasTransform()` now has at most one local `nativeTransform`;
+- the raw canonical scale calculation still exists only inside `resolveCanvasTransform()`;
+- helper call count and all Build-558 scale semantics remain unchanged.
+
+This correction is compile-only. Build ID, 75%-100% range, default/max 100%, transition geometry, and runtime behavior are unchanged.
