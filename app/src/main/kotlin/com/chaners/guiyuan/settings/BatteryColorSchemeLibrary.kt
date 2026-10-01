@@ -235,12 +235,10 @@ internal class BatteryColorSchemeLibraryRepository(context: Context) {
             )
         val updated =
             library.copy(
-                activeSchemeKey = custom.key,
                 customSchemes = library.customSchemes + custom,
             )
         val editor = preferences.edit()
         writeLibrary(editor, updated)
-        applyProjection(editor, updated, custom.key)
         editor.apply()
         return id
     }
