@@ -579,3 +579,14 @@ Chinese and English copy was shortened and normalized during the same UI pass:
 ### Validation
 
 Run exact-head Runtime CI to compile the new MIUIX calls/resources and lock repository wiring. Device review is deferred until the color BottomSheet and final feature-page density pass are complete.
+
+
+### Build 560 validation closure
+
+Exact-head Runtime CI #2081 (run `36881730709`) completed successfully on `c857759`.
+- all unit tests passed;
+- MIUIX feature-page controls/resources compiled successfully;
+- debug APK build succeeded;
+- pinned HyperOS target verification and modern Xposed metadata checks passed.
+
+Build 560 is closed. The next change is isolated to battery-color BottomSheet UI and will use a separate, descriptive commit.
