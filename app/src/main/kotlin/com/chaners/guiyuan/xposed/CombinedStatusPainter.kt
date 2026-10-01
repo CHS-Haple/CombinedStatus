@@ -1163,10 +1163,29 @@ internal class CombinedStatusPainter(
             } else {
                 textOpticalHeight
             }
+        val chargingTopExtent =
+            if (chargingInkVisible) {
+                chargingOpticalSize
+                    ?.let { optical ->
+                        (
+                            optical.height / 2f +
+                                optical.inkCenterOffsetY -
+                                optical.centerOffsetY
+                        ).coerceAtLeast(0f)
+                    }
+                    ?: chargingIconSize / 2f
+            } else {
+                0f
+            }
+        val safeTopExtent =
+            max(
+                textOpticalHeight / 2f,
+                chargingTopExtent,
+            )
 
-        // Automatic placement is bounded once against the real RenderView top.
-        // The persisted/user offset is then applied literally; it must not be
-        // silently flattened by a second hidden headroom clamp.
+        // Keep the optical design baseline independent from clip safety.
+        // Final Y resolution maps only the positive user range onto the real
+        // remaining headroom of the complete visible number + charging group.
         val minimumSafeTopY =
             CombinedStatusBatteryTopLayoutPolicy.resolveMinimumSafeTopY(
                 transformScale = nativeTransform.scale,
@@ -1176,8 +1195,6 @@ internal class CombinedStatusPainter(
             CombinedStatusBatteryTopLayoutPolicy.resolveOpticalBaseCenterY(
                 preferredCenterY = BATTERY_TOP_CONTENT_CENTER_Y,
                 defaultOpticalRise = BATTERY_TOP_DEFAULT_OPTICAL_RISE,
-                contentInkHeight = textOpticalHeight,
-                minimumSafeTopY = minimumSafeTopY,
             )
         val groupCenterY =
             CombinedStatusBatteryTopLayoutPolicy.resolveCenterY(
@@ -1185,7 +1202,7 @@ internal class CombinedStatusPainter(
                 requestedOffset = visualSettings.batteryTopVerticalOffset,
                 neutralOffset = BATTERY_TOP_VERTICAL_OFFSET_DEFAULT,
                 positiveLimit = BATTERY_TOP_VERTICAL_OFFSET_MAX,
-                contentInkHeight = textOpticalHeight,
+                contentTopExtent = safeTopExtent,
                 minimumSafeTopY = minimumSafeTopY,
             )
         val textBaselineY =
@@ -1980,6 +1997,9 @@ internal class CombinedStatusPainter(
             centerOffsetX =
                 ((asset.opticalBounds.left + asset.opticalBounds.right) / 2f - 0.5f) *
                     drawWidth,
+            centerOffsetY =
+                ((asset.opticalBounds.top + asset.opticalBounds.bottom) / 2f - 0.5f) *
+                    drawHeight,
             inkCenterOffsetY =
                 (asset.inkCenterY - 0.5f) *
                     drawHeight,
@@ -2866,6 +2886,7 @@ internal class CombinedStatusPainter(
         val width: Float,
         val height: Float,
         val centerOffsetX: Float,
+        val centerOffsetY: Float,
         val inkCenterOffsetY: Float,
     )
 

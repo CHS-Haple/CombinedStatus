@@ -17,16 +17,14 @@ class CombinedStatusBatteryTopLayoutPolicyTest {
     }
 
     @Test
-    fun opticalDefaultStillClampsOnlyTheAutomaticBasePlacement() {
+    fun opticalBaseDoesNotConsumeManualPositiveHeadroom() {
         val base =
             CombinedStatusBatteryTopLayoutPolicy.resolveOpticalBaseCenterY(
                 preferredCenterY = 16f,
                 defaultOpticalRise = 1.5f,
-                contentInkHeight = 30f,
-                minimumSafeTopY = 1f,
             )
 
-        assertEquals(16f, base, 0.0001f)
+        assertEquals(14.5f, base, 0.0001f)
     }
 
     @Test
@@ -37,7 +35,7 @@ class CombinedStatusBatteryTopLayoutPolicyTest {
                 requestedOffset = 3f,
                 neutralOffset = 3f,
                 positiveLimit = 13f,
-                contentInkHeight = 20f,
+                contentTopExtent = 10f,
                 minimumSafeTopY = -2f,
             )
 
@@ -52,7 +50,7 @@ class CombinedStatusBatteryTopLayoutPolicyTest {
                 requestedOffset = 13f,
                 neutralOffset = 3f,
                 positiveLimit = 13f,
-                contentInkHeight = 20f,
+                contentTopExtent = 10f,
                 minimumSafeTopY = -2f,
             )
 
@@ -67,7 +65,7 @@ class CombinedStatusBatteryTopLayoutPolicyTest {
                 requestedOffset = 8f,
                 neutralOffset = 3f,
                 positiveLimit = 13f,
-                contentInkHeight = 20f,
+                contentTopExtent = 10f,
                 minimumSafeTopY = -2f,
             )
 
@@ -82,7 +80,7 @@ class CombinedStatusBatteryTopLayoutPolicyTest {
                 requestedOffset = -7f,
                 neutralOffset = 3f,
                 positiveLimit = 13f,
-                contentInkHeight = 20f,
+                contentTopExtent = 10f,
                 minimumSafeTopY = -2f,
             )
 
@@ -90,18 +88,44 @@ class CombinedStatusBatteryTopLayoutPolicyTest {
     }
 
     @Test
-    fun unsafeNeutralIsClampedOnlyAtRealPhysicalTop() {
+    fun oversizedContentMovesNeutralDownToTheRealSafeTop() {
         val center =
             CombinedStatusBatteryTopLayoutPolicy.resolveCenterY(
                 baseCenterY = 14.5f,
                 requestedOffset = 3f,
                 neutralOffset = 3f,
                 positiveLimit = 13f,
-                contentInkHeight = 30f,
+                contentTopExtent = 15f,
                 minimumSafeTopY = 0f,
             )
 
         assertEquals(15f, center, 0.0001f)
+    }
+
+    @Test
+    fun largerChargingTopExtentReducesPositiveTravelInsteadOfClipping() {
+        val compact =
+            CombinedStatusBatteryTopLayoutPolicy.resolveCenterY(
+                baseCenterY = 20f,
+                requestedOffset = 13f,
+                neutralOffset = 3f,
+                positiveLimit = 13f,
+                contentTopExtent = 10f,
+                minimumSafeTopY = -2f,
+            )
+        val enlargedCharging =
+            CombinedStatusBatteryTopLayoutPolicy.resolveCenterY(
+                baseCenterY = 20f,
+                requestedOffset = 13f,
+                neutralOffset = 3f,
+                positiveLimit = 13f,
+                contentTopExtent = 14f,
+                minimumSafeTopY = -2f,
+            )
+
+        assertEquals(8f, compact, 0.0001f)
+        assertEquals(12f, enlargedCharging, 0.0001f)
+        assertTrue(enlargedCharging > compact)
     }
 
     @Test
@@ -112,7 +136,7 @@ class CombinedStatusBatteryTopLayoutPolicyTest {
                 requestedOffset = 100f,
                 neutralOffset = 3f,
                 positiveLimit = 13f,
-                contentInkHeight = 20f,
+                contentTopExtent = 10f,
                 minimumSafeTopY = -2f,
             )
 
@@ -121,14 +145,14 @@ class CombinedStatusBatteryTopLayoutPolicyTest {
     }
 
     @Test
-    fun nonFiniteManualOffsetFallsBackToAutomaticBase() {
+    fun nonFiniteManualOffsetFallsBackToOpticalBase() {
         val center =
             CombinedStatusBatteryTopLayoutPolicy.resolveCenterY(
                 baseCenterY = 14.5f,
                 requestedOffset = Float.NaN,
                 neutralOffset = 3f,
                 positiveLimit = 13f,
-                contentInkHeight = 20f,
+                contentTopExtent = 10f,
                 minimumSafeTopY = -2f,
             )
 

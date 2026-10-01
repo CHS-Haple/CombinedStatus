@@ -14065,3 +14065,80 @@ Build 532 additionally rebased user-facing zero to physical +3. Restoring the ol
   - over-range and non-finite inputs.
 - Runtime CI required.
 - Because steady Home geometry changes, exact-head signed Canary + focused device validation are required before integration.
+
+
+## 2026-10-01 — Build 535: correct safe upward mapping and include charging optical top
+
+**Type:** device-driven battery-top safe-range correction  
+**Display version:** 0.0.3  
+**Build / source:** 535 / `20261001-535` / `feat/battery-top-readout` / PR #181
+
+### Maintainer device evidence
+
+Build 534 shows two linked symptoms:
+- the percentage cannot move upward from UI 0;
+- increasing the charging lightning to 200% visibly clips its top.
+
+The maintainer clarified that visual overflow would be acceptable if required, but a correct safe mapping is preferred.
+
+### Root cause
+
+Build 534 still applied safety twice.
+
+1. `resolveOpticalBaseCenterY()` first pushed the automatic optical base down to the minimum safe center.
+2. `resolveCenterY()` then treated raw +3 / UI 0 as the neutral anchor and tried to map UI 0..+10 across the remaining headroom.
+
+If step 1 already consumed the available headroom, step 2 correctly observed zero remaining rise. The result was a mathematically safe but visually immobile positive range.
+
+A second ownership error remained in the safety envelope: the painter calculated the combined number + charging height, but passed only `textOpticalHeight` into the final top-safety policy. A 200% native lightning could therefore extend above the range considered safe.
+
+### Change
+
+- Make `resolveOpticalBaseCenterY()` design-only:
+  - preferred center minus the accepted optical rise;
+  - no physical clipping clamp at this stage.
+- Keep all physical top safety in `resolveCenterY()`.
+- Preserve raw +3 / UI 0 as the neutral reference whenever drawable.
+- Map UI 0..+10 linearly across the actual remaining positive headroom.
+- Preserve UI -10..0 as literal downward travel.
+- Replace symmetric text-height safety input with a true top extent.
+- Extend cached native charging optical metrics with the optical-envelope Y center.
+- Derive charging top extent after the existing alpha-weighted ink-center alignment:
+  `height / 2 + inkCenterOffsetY - centerOffsetY`.
+- Final safe top extent is the maximum of percentage top extent and charging-glyph top extent.
+
+### 问题执行流程
+
+1. UI 0 maps to persisted raw +3.
+2. Painter resolves the fixed optical design base without clipping it.
+3. Painter measures current percentage ink.
+4. When charging, the already-cached native drawable probe supplies optical envelope height, envelope center and alpha-weighted ink center.
+5. Painter derives the visible charging top extent after optical-center alignment.
+6. Final policy calculates the real physical safe center from RenderView transform + maximum visible top extent.
+7. UI 0 is kept if safe; otherwise the complete group moves down only enough to fit.
+8. UI 0..+10 consumes the remaining safe upward travel continuously.
+9. The ring-gap policy receives the resulting live group bounds as before.
+
+### 审查 / review
+
+- **root-cause-first:** removes the premature safety clamp that zeroed positive travel instead of enlarging the preference range.
+- **complete visible envelope:** enlarged charging resources participate in top safety; safety no longer reasons from percentage text alone.
+- **native-first:** charging geometry still comes from the selected HyperOS drawable and existing bounded cached probe.
+- **single writer:** the existing painter remains the only Guiyuan pixel writer.
+- **carrier ownership:** Home remains on the accepted `MiuiStatusBatteryContainer.overlay`; Build-424 alpha/visibility/translation inheritance is untouched.
+- **no clip mutation:** no SystemUI `clipChildren`, parent bounds or native peer geometry is changed.
+- **performance:** closed-form arithmetic over already-cached optical metrics; no new bitmap pass, traversal, polling, timer or animator.
+- **Fail native:** if native optical metrics are unavailable, charging safety falls back to half the configured authored charging size.
+
+### Validation
+
+Focused unit coverage now locks:
+- optical design base does not consume manual positive headroom;
+- UI 0 preserves its accepted location when safe;
+- +10 reaches the exact physical safe top;
+- midpoint maps to half of remaining headroom;
+- negative range remains literal;
+- oversized visible content moves the neutral group down rather than clipping;
+- a larger charging top extent reduces positive travel instead of drawing outside the safe top.
+
+Runtime CI required. Exact-head signed Canary required because the correction changes steady Home Y under device-specific transform/charging-resource geometry.

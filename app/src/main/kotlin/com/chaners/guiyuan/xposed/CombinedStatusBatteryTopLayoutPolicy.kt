@@ -22,21 +22,22 @@ internal object CombinedStatusBatteryTopLayoutPolicy {
     fun resolveOpticalBaseCenterY(
         preferredCenterY: Float,
         defaultOpticalRise: Float,
-        contentInkHeight: Float,
-        minimumSafeTopY: Float,
-    ): Float =
-        max(
-            preferredCenterY - defaultOpticalRise.coerceAtLeast(0f),
-            minimumSafeTopY +
-                contentInkHeight.coerceAtLeast(0f) / 2f,
-        )
+    ): Float {
+        if (!preferredCenterY.isFinite()) return 0f
+        val rise =
+            defaultOpticalRise
+                .takeIf(Float::isFinite)
+                ?.coerceAtLeast(0f)
+                ?: 0f
+        return preferredCenterY - rise
+    }
 
     fun resolveCenterY(
         baseCenterY: Float,
         requestedOffset: Float,
         neutralOffset: Float,
         positiveLimit: Float,
-        contentInkHeight: Float,
+        contentTopExtent: Float,
         minimumSafeTopY: Float,
     ): Float {
         if (
@@ -44,7 +45,7 @@ internal object CombinedStatusBatteryTopLayoutPolicy {
             !requestedOffset.isFinite() ||
             !neutralOffset.isFinite() ||
             !positiveLimit.isFinite() ||
-            !contentInkHeight.isFinite() ||
+            !contentTopExtent.isFinite() ||
             !minimumSafeTopY.isFinite()
         ) {
             return baseCenterY
@@ -52,7 +53,7 @@ internal object CombinedStatusBatteryTopLayoutPolicy {
 
         val minimumSafeCenterY =
             minimumSafeTopY +
-                contentInkHeight.coerceAtLeast(0f) / 2f
+                contentTopExtent.coerceAtLeast(0f)
         val neutralCenterY =
             max(
                 baseCenterY - neutralOffset,

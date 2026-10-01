@@ -15,7 +15,7 @@ This file is the concise recovery point for active Guiyuan development. Historic
 PR #181 / `feat/battery-top-readout` adds an optional battery percentage readout in the top opening of the Guiyuan battery ring while preserving the accepted Home -> Control Center transition contract.
 
 Current checkpoint:
-- Build 534 / `20261001-534`;
+- Build 535 / `20261001-535`;
 - branch remains based on current `dev` and is not behind it;
 - Build 524 improved the final native Battery-number target for HyperOS hollow-battery presentation;
 - Build 525 corrected two Build-523 device defects:
@@ -130,6 +130,15 @@ Build 534 battery-top physical-headroom remap:
 - if typography already consumes all headroom, clamp only at the real physical boundary rather than drawing clipped pixels;
 - do not move the Home visual back to the outer status host, disable SystemUI clipping, or add a second motion writer; Build-424 native lifecycle ownership remains protected.
 
+Build 535 corrected safe-range ownership:
+- Build 534 device evidence shows UI 0 could already consume the complete positive range because the automatic optical base was safety-clamped before the manual range was mapped;
+- the optical base now expresses design placement only; it no longer consumes physical headroom before user offset resolution;
+- UI 0 keeps the accepted raw +3 reference whenever safe, and UI 0..+10 maps continuously onto the actual remaining physical top headroom;
+- top safety uses the complete visible group rather than percentage text alone;
+- the charging glyph contributes its real native optical top extent after alpha-centroid alignment, so 200% charging size reduces available rise or moves the group down instead of clipping;
+- UI -10..0 remains literal downward travel;
+- no carrier/overlay lifecycle change, parent clip mutation, second renderer, timer or native geometry writer is introduced.
+
 ## Validation state
 
 Confirmed:
@@ -149,8 +158,8 @@ Confirmed:
   - unknown exact authority remains native-peer-motion rather than guessing `false`.
 
 Pending:
-- Build 534 Runtime CI.
-- if green, one exact-head signed Build-532 Canary.
+- Build 535 Runtime CI.
+- if green, one exact-head signed Build-535 Canary.
 - focused device validation:
   - island-only pull remains unchanged and reaches the expected final native icon endpoints;
   - charging without an active generic island remains unchanged;
@@ -185,8 +194,8 @@ Pending:
 
 ## Immediate next step
 
-1. finish Build-534 Runtime CI and automated review;
-2. if green, freeze runtime at exact Build 532 and request one signed work-branch Canary;
+1. finish Build-535 Runtime CI and automated review;
+2. if green, freeze runtime at exact Build 535 and request one signed work-branch Canary;
 3. device-validate: UI 0 equals the previous physical +3 position; -10..+10 moves continuously with no hidden ceiling; ring opening follows live number/bolt size, weight and vertical position with only a small visual clearance; Build-531 typography endpoint behavior remains intact;
 4. change runtime again only if focused device evidence identifies a concrete mismatch;
 5. merge to `dev` only after the combined checkpoint is device-accepted.
