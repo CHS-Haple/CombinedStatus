@@ -200,7 +200,8 @@ internal fun PreviewSandboxUiState.toRenderModel(
                 PreviewBatteryMode.BALANCED -> CombinedStatusBatterySemanticState.NORMAL
                 PreviewBatteryMode.POWER_SAVE -> CombinedStatusBatterySemanticState.POWER_SAVE
                 PreviewBatteryMode.PERFORMANCE -> CombinedStatusBatterySemanticState.PERFORMANCE
-                PreviewBatteryMode.SUPER_POWER_SAVE -> CombinedStatusBatterySemanticState.POWER_SAVE
+                PreviewBatteryMode.SUPER_POWER_SAVE ->
+                    CombinedStatusBatterySemanticState.SUPER_POWER_SAVE
             }
         }
 
