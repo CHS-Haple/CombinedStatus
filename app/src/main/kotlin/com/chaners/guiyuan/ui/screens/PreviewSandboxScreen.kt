@@ -9,8 +9,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -43,6 +41,7 @@ import top.yukonga.miuix.kmp.basic.TabRowWithContour
 import top.yukonga.miuix.kmp.basic.Text
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Back
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.preference.SliderPreference
 import top.yukonga.miuix.kmp.preference.SwitchPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
@@ -242,18 +241,20 @@ internal fun PreviewSandboxScreen(
 
                         if (state.networkMode == PreviewNetworkMode.MOBILE) {
                             if (state.mobileOptionsVisible) {
-                                SandboxScrollableSegmentedField(
+                                OverlayDropdownPreference(
                                     title = stringResource(R.string.home_preview_mobile_network_title),
-                                    options = mobileNetworkChoices.map { it.second },
+                                    items = mobileNetworkChoices.map { it.second },
                                     selectedIndex =
                                         mobileNetworkChoices.indexOfFirst {
                                             it.first == state.mobileNetwork
                                         }.coerceAtLeast(0),
-                                    onSelected = { index ->
+                                    onSelectedIndexChange = { index ->
                                         mobileNetworkChoices.getOrNull(index)
                                             ?.first
                                             ?.let(onMobileNetworkChange)
                                     },
+                                    insideMargin = SandboxPreferenceInsideMargin,
+                                    maxHeight = 360.dp,
                                     modifier = Modifier.padding(top = 4.dp),
                                 )
                                 SliderPreference(
@@ -397,37 +398,6 @@ private fun PreviewStatusLine(
             color = MiuixTheme.colorScheme.onSurfaceContainer,
         )
     }
-}
-
-@Composable
-private fun SandboxScrollableSegmentedField(
-    title: String,
-    options: List<String>,
-    selectedIndex: Int,
-    onSelected: (Int) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val scrollState = rememberScrollState()
-    BasicComponent(
-        title = title,
-        modifier = modifier,
-        insideMargin = SandboxPreferenceInsideMargin,
-        bottomAction = {
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(scrollState),
-            ) {
-                TabRowWithContour(
-                    tabs = options,
-                    selectedTabIndex = selectedIndex,
-                    onTabSelected = onSelected,
-                    modifier = Modifier.width(540.dp),
-                )
-            }
-        },
-    )
 }
 
 @Composable

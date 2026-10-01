@@ -161,3 +161,35 @@ Run exact-head Runtime CI, then signed exact-head Canary because the requested d
 Runtime CI #2066 failed only in `leftExitPreservesBatterySemanticsByIntersection`: the stronger continuous front-load means that at local progress 0.5 the retained LEFT suffix begins after the original 75% active-fill end, so `result.active` is correctly empty. The test's unconditional `active.single()` assumption was stale.
 
 Correction is test-only: sample the active-fill intersection at local progress 0.35, where the retained suffix still overlaps the original active fill. Runtime policy, Build ID, curve parameters, topology, and APK behavior remain unchanged.
+
+
+## 2026-10-01 — Build 553 compact mobile-standard selector
+
+**Type:** Preview Sandbox UI refinement  
+**Display version:** 0.0.3  
+**Build:** 553 / `20261001-553`  
+**Branch / PR:** `feat/battery-top-readout` / #181  
+
+### Device / design feedback
+
+The nine-standard horizontally scrollable segmented control from Build 551/552 exposes every standard but creates too many visible slots and dominates the Network card.
+
+### Implementation
+
+- Replace only the mobile-standard control with MIUIX `OverlayDropdownPreference`.
+- Keep Mobile/Wi-Fi as the existing two-option `TabRowWithContour`, since that is a primary mutually-exclusive mode switch with only two choices.
+- The new row shows the current standard inline and opens a single-choice MIUIX popup for None / 2G / E / 3G / H+ / 4G / LTE / 5G / 5G-A.
+- Limit popup height to 360dp so long option lists scroll inside the native popup instead of expanding the page.
+- Reuse `SandboxPreferenceInsideMargin` so title/value spacing aligns with `SliderPreference` and `SwitchPreference`.
+- Remove the custom horizontal-scroll segmented helper and its scroll-state imports.
+
+### 审查 / review
+
+- Uses the library's purpose-built preference component rather than custom geometry.
+- No preview model, enum ordinal, runtime SystemUI path, transition curve, or state ownership changes.
+- All nine network standards remain available in the same explicit display order.
+- Build-552 Battery-ring transition runtime remains byte-for-byte untouched by this UI refinement.
+
+### Validation
+
+Run Runtime CI. One signed Canary is justified only to inspect popup placement, row density, current-value alignment, and interaction feel on the target device.
