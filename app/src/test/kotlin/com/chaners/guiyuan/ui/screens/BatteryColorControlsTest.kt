@@ -1,5 +1,9 @@
 package com.chaners.guiyuan.ui.screens
 
+import com.chaners.guiyuan.settings.BatteryColorSchemeEntry
+import com.chaners.guiyuan.settings.BatteryColorSchemeSource
+import com.chaners.guiyuan.settings.CombinedStatusBatteryColorSlot
+
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -32,6 +36,33 @@ class BatteryColorControlsTest {
         assertEquals(
             0xFF2468AC.toInt(),
             batteryColorFromRgb("36", "104", "172"),
+        )
+    }
+
+    @Test
+    fun followSystemWithoutStoredCustomHasNoEditorSeed() {
+        assertNull(
+            batteryColorEditorSeed(
+                BatteryColorSchemeEntry(
+                    source = BatteryColorSchemeSource.FOLLOW_SYSTEM,
+                    customColor = null,
+                ),
+                CombinedStatusBatteryColorSlot.NORMAL,
+            ),
+        )
+    }
+
+    @Test
+    fun followSystemKeepsRememberedCustomAsEditorSeedWithoutMakingItActive() {
+        assertEquals(
+            0xFF2468AC.toInt(),
+            batteryColorEditorSeed(
+                BatteryColorSchemeEntry(
+                    source = BatteryColorSchemeSource.FOLLOW_SYSTEM,
+                    customColor = 0xFF2468AC.toInt(),
+                ),
+                CombinedStatusBatteryColorSlot.NORMAL,
+            ),
         )
     }
 

@@ -25,7 +25,6 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -33,6 +32,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.stringResource
@@ -75,15 +75,12 @@ import top.yukonga.miuix.kmp.color.space.Hsv
 import top.yukonga.miuix.kmp.icon.MiuixIcons
 import top.yukonga.miuix.kmp.icon.extended.Add
 import top.yukonga.miuix.kmp.icon.extended.Back
-import top.yukonga.miuix.kmp.icon.extended.ExpandLess
-import top.yukonga.miuix.kmp.icon.extended.ExpandMore
 import top.yukonga.miuix.kmp.icon.extended.More
 import top.yukonga.miuix.kmp.icon.extended.Reset
 import top.yukonga.miuix.kmp.overlay.OverlayBottomSheet
 import top.yukonga.miuix.kmp.overlay.OverlayDialog
 import top.yukonga.miuix.kmp.preference.ArrowPreference
-import top.yukonga.miuix.kmp.preference.RadioButtonLocation
-import top.yukonga.miuix.kmp.preference.RadioButtonPreference
+import top.yukonga.miuix.kmp.preference.OverlayDropdownPreference
 import top.yukonga.miuix.kmp.theme.MiuixTheme
 import top.yukonga.miuix.kmp.utils.PagerGestureNestedScrollConnection
 import top.yukonga.miuix.kmp.utils.PagerNavigationSpringSpec
@@ -162,7 +159,6 @@ internal fun BatteryColorBottomSheet(
     val navPager = rememberPagerState(initialPage = 0, pageCount = { 2 })
     var selectedCustomId by remember { mutableStateOf<Int?>(null) }
     var selectedSlot by remember { mutableStateOf<CombinedStatusBatteryColorSlot?>(null) }
-    var sourceExpanded by remember { mutableStateOf(false) }
     var createFromKey by remember { mutableStateOf(BATTERY_COLOR_SCHEME_HYPEROS_KEY) }
     var showCreateDialog by remember { mutableStateOf(false) }
     var manageCustomId by remember { mutableStateOf<Int?>(null) }
@@ -187,7 +183,6 @@ internal fun BatteryColorBottomSheet(
                 {
                     IconButton(
                         onClick = {
-                            sourceExpanded = false
                             scope.launch { navPager.springAnimateToPage(0) }
                         },
                     ) {
@@ -202,7 +197,6 @@ internal fun BatteryColorBottomSheet(
             },
         onDismissRequest = {
             if (inDetail) {
-                sourceExpanded = false
                 scope.launch { navPager.springAnimateToPage(0) }
             } else {
                 onDismiss()
@@ -214,7 +208,8 @@ internal fun BatteryColorBottomSheet(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .height(520.dp),
+                    .height(520.dp)
+                    .clipToBounds(),
             userScrollEnabled = false,
         ) { page ->
             if (page == 0) {
@@ -225,7 +220,6 @@ internal fun BatteryColorBottomSheet(
                     onOpenCustomSlot = { id, slot ->
                         selectedCustomId = id
                         selectedSlot = slot
-                        sourceExpanded = false
                         scope.launch { navPager.springAnimateToPage(1) }
                     },
                     onAdd = { fromKey ->
@@ -241,11 +235,8 @@ internal fun BatteryColorBottomSheet(
                     BatteryCustomModeEditor(
                         custom = custom,
                         slot = slot,
-                        sourceExpanded = sourceExpanded,
-                        onSourceExpandedChange = { sourceExpanded = it },
                         onSourceChange = { source ->
                             repository.setCustomSource(custom.id, slot, source)
-                            sourceExpanded = false
                         },
                         onColorChange = { color ->
                             repository.setCustomColor(custom.id, slot, color)
@@ -504,7 +495,6 @@ private fun BatterySchemePageContent(
                         },
                     size = 28.dp,
                     spacing = 10.dp,
-                    showBorder = false,
                 )
             }
             if (onManage != null) {
@@ -568,15 +558,11 @@ private fun BatteryModeSettingItem(
         }
     val preview: @Composable () -> Unit = {
         if (followsSystem || color == null) {
-            BatteryColorMosaic(
-                size = 24.dp,
-                showBorder = false,
-            )
+            BatteryColorMosaic(size = 24.dp)
         } else {
             BatteryColorDot(
                 color = color,
                 size = 24.dp,
-                showBorder = false,
             )
         }
     }
@@ -721,33 +707,44 @@ private fun BatteryPagerIndicator(
 private fun BatteryCustomModeEditor(
     custom: BatteryCustomColorScheme,
     slot: CombinedStatusBatteryColorSlot,
-    sourceExpanded: Boolean,
-    onSourceExpandedChange: (Boolean) -> Unit,
     onSourceChange: (BatteryColorSchemeSource) -> Unit,
     onColorChange: (Int) -> Unit,
     onRestore: () -> Unit,
 ) {
     val entry = custom.entries.entryFor(slot)
     val resolved = batterySchemeEntryColor(entry, slot)
-    val fallback =
-        entry.customColor
-            ?: batteryBuiltInColor(custom.baseTemplate, slot)
-            ?: MiuixTheme.colorScheme.onSurface.toArgb()
-    var editingColor by remember(custom.id, slot, entry.source, resolved) {
-        mutableIntStateOf((resolved ?: fallback).or(0xFF000000.toInt()))
+    val sourceOptions = BatteryColorSchemeSource.entries
+    val sourceLabels =
+        listOf(
+            batterySourceLabel(BatteryColorSchemeSource.HYPEROS),
+            batterySourceLabel(BatteryColorSchemeSource.IOS),
+            batterySourceLabel(BatteryColorSchemeSource.LOW_SATURATION),
+            batterySourceLabel(BatteryColorSchemeSource.FOLLOW_SYSTEM),
+            batterySourceLabel(BatteryColorSchemeSource.CUSTOM),
+        )
+    val selectedSourceIndex = sourceOptions.indexOf(entry.source).coerceAtLeast(0)
+    val seed = batteryColorEditorSeed(entry, slot)
+
+    var editingColor by remember(custom.id, slot, entry.source, seed) {
+        mutableStateOf(seed?.or(0xFF000000.toInt()))
     }
     var hexText by remember(custom.id, slot, editingColor) {
-        mutableStateOf(batteryColorHex(editingColor).removePrefix("#"))
+        mutableStateOf(
+            editingColor
+                ?.let(::batteryColorHex)
+                ?.removePrefix("#")
+                .orEmpty(),
+        )
     }
-    val rgb = batteryColorRgb(editingColor)
+    val rgb = editingColor?.let(::batteryColorRgb)
     var redText by remember(custom.id, slot, editingColor) {
-        mutableStateOf(rgb.first.toString())
+        mutableStateOf(rgb?.first?.toString().orEmpty())
     }
     var greenText by remember(custom.id, slot, editingColor) {
-        mutableStateOf(rgb.second.toString())
+        mutableStateOf(rgb?.second?.toString().orEmpty())
     }
     var blueText by remember(custom.id, slot, editingColor) {
-        mutableStateOf(rgb.third.toString())
+        mutableStateOf(rgb?.third?.toString().orEmpty())
     }
 
     fun applyColor(color: Int) {
@@ -761,7 +758,14 @@ private fun BatteryCustomModeEditor(
         onColorChange(opaque)
     }
 
-    val hsv = Color(editingColor).toHsv()
+    val hsv = editingColor?.let { Color(it).toHsv() }
+    val currentValueText =
+        when {
+            resolved != null -> batteryColorHex(resolved)
+            entry.source == BatteryColorSchemeSource.CUSTOM ->
+                stringResource(R.string.battery_color_unset)
+            else -> stringResource(R.string.battery_color_follow_inversion)
+        }
 
     Column(
         modifier =
@@ -770,72 +774,42 @@ private fun BatteryCustomModeEditor(
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = 24.dp),
     ) {
-        BatterySheetSmallTitle(stringResource(R.string.battery_color_source))
         Card {
-            BasicComponent(
-                title = batterySourceLabel(entry.source),
-                summary = batterySourceValue(entry, slot),
-                onClick = { onSourceExpandedChange(!sourceExpanded) },
-                holdDownState = sourceExpanded,
-                endActions = {
+            OverlayDropdownPreference(
+                items = sourceLabels,
+                selectedIndex = selectedSourceIndex,
+                title = stringResource(R.string.battery_color_source),
+                summary = currentValueText,
+                startAction = {
                     if (resolved == null) {
-                        BatteryColorMosaic()
+                        BatteryColorMosaic(size = 24.dp)
                     } else {
-                        BatteryColorDot(resolved)
+                        BatteryColorDot(
+                            color = resolved,
+                            size = 24.dp,
+                        )
                     }
-                    Spacer(Modifier.width(8.dp))
-                    Icon(
-                        imageVector =
-                            if (sourceExpanded) {
-                                MiuixIcons.ExpandLess
-                            } else {
-                                MiuixIcons.ExpandMore
-                            },
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                        tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
-                    )
+                },
+                onSelectedIndexChange = { index ->
+                    sourceOptions.getOrNull(index)?.let(onSourceChange)
                 },
             )
-            if (sourceExpanded) {
-                BatteryColorSchemeSource.entries.forEach { source ->
-                    val candidate = entry.copy(source = source)
-                    RadioButtonPreference(
-                        title = batterySourceLabel(source),
-                        summary = batterySourceValue(candidate, slot),
-                        selected = entry.source == source,
-                        onClick = {
-                            if (
-                                source == BatteryColorSchemeSource.CUSTOM &&
-                                entry.customColor == null
-                            ) {
-                                applyColor(editingColor)
-                                onSourceExpandedChange(false)
-                            } else {
-                                onSourceChange(source)
-                            }
-                        },
-                        radioButtonLocation = RadioButtonLocation.End,
-                    )
-                }
-            }
         }
 
         BatterySheetSmallTitle(stringResource(R.string.battery_color_settings))
         Card {
             BasicComponent(
-                title =
-                    if (resolved == null) {
-                        stringResource(R.string.battery_color_follow_inversion)
-                    } else {
-                        batteryColorHex(resolved)
-                    },
-                summary = stringResource(R.string.battery_color_edit_auto_custom),
+                title = stringResource(R.string.battery_color_current),
+                summary = currentValueText,
                 endActions = {
-                    if (resolved == null) {
-                        BatteryColorMosaic(size = 26.dp)
-                    } else {
-                        BatteryColorDot(resolved, size = 26.dp)
+                    when {
+                        resolved != null ->
+                            BatteryColorDot(
+                                color = resolved,
+                                size = 26.dp,
+                            )
+                        entry.source != BatteryColorSchemeSource.CUSTOM ->
+                            BatteryColorMosaic(size = 26.dp)
                     }
                 },
             )
@@ -867,48 +841,55 @@ private fun BatteryCustomModeEditor(
 
         BatterySheetSmallTitle(stringResource(R.string.battery_color_full_adjustment))
         Card {
-            BasicComponent(
-                title = stringResource(R.string.battery_color_hue),
-                bottomAction = {
-                    HsvHueSlider(
-                        currentHue = hsv.h,
-                        onHueChanged = { fraction ->
-                            applyColor(
-                                Hsv(fraction * 360f, hsv.s, hsv.v).toColor().toArgb(),
-                            )
-                        },
-                    )
-                },
-            )
-            BasicComponent(
-                title = stringResource(R.string.battery_color_saturation),
-                bottomAction = {
-                    HsvSaturationSlider(
-                        currentHue = hsv.h,
-                        currentSaturation = hsv.s / 100f,
-                        onSaturationChanged = { saturation ->
-                            applyColor(
-                                Hsv(hsv.h, saturation * 100f, hsv.v).toColor().toArgb(),
-                            )
-                        },
-                    )
-                },
-            )
-            BasicComponent(
-                title = stringResource(R.string.battery_color_brightness),
-                bottomAction = {
-                    HsvValueSlider(
-                        currentHue = hsv.h,
-                        currentSaturation = hsv.s / 100f,
-                        currentValue = hsv.v / 100f,
-                        onValueChanged = { value ->
-                            applyColor(
-                                Hsv(hsv.h, hsv.s, value * 100f).toColor().toArgb(),
-                            )
-                        },
-                    )
-                },
-            )
+            if (hsv != null) {
+                BasicComponent(
+                    title = stringResource(R.string.battery_color_hue),
+                    bottomAction = {
+                        HsvHueSlider(
+                            currentHue = hsv.h,
+                            onHueChanged = { fraction ->
+                                applyColor(
+                                    Hsv(fraction * 360f, hsv.s, hsv.v).toColor().toArgb(),
+                                )
+                            },
+                        )
+                    },
+                )
+                BasicComponent(
+                    title = stringResource(R.string.battery_color_saturation),
+                    bottomAction = {
+                        HsvSaturationSlider(
+                            currentHue = hsv.h,
+                            currentSaturation = hsv.s / 100f,
+                            onSaturationChanged = { saturation ->
+                                applyColor(
+                                    Hsv(hsv.h, saturation * 100f, hsv.v).toColor().toArgb(),
+                                )
+                            },
+                        )
+                    },
+                )
+                BasicComponent(
+                    title = stringResource(R.string.battery_color_brightness),
+                    bottomAction = {
+                        HsvValueSlider(
+                            currentHue = hsv.h,
+                            currentSaturation = hsv.s / 100f,
+                            currentValue = hsv.v / 100f,
+                            onValueChanged = { value ->
+                                applyColor(
+                                    Hsv(hsv.h, hsv.s, value * 100f).toColor().toArgb(),
+                                )
+                            },
+                        )
+                    },
+                )
+            } else {
+                BasicComponent(
+                    title = stringResource(R.string.battery_color_no_fixed_color),
+                    summary = stringResource(R.string.battery_color_no_fixed_color_summary),
+                )
+            }
         }
 
         BatterySheetSmallTitle(stringResource(R.string.battery_color_precise_input))
@@ -1119,7 +1100,6 @@ private fun BatterySchemePreviewStrip(
     page: BatterySchemePage?,
     size: Dp = 12.dp,
     spacing: Dp = 6.dp,
-    showBorder: Boolean = true,
 ) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(spacing),
@@ -1135,15 +1115,11 @@ private fun BatterySchemePreviewStrip(
                     else -> null
                 }
             if (color == null) {
-                BatteryColorMosaic(
-                    size = size,
-                    showBorder = showBorder,
-                )
+                BatteryColorMosaic(size = size)
             } else {
                 BatteryColorDot(
                     color = color,
                     size = size,
-                    showBorder = showBorder,
                 )
             }
         }
@@ -1183,6 +1159,7 @@ private fun BatteryCommonColorButton(
                             modifier = Modifier.fillMaxSize(),
                             shape = CircleShape,
                             color = Color(color),
+                            border = batterySwatchBorder(12.dp),
                         ) {}
                     }
                 }
@@ -1191,57 +1168,45 @@ private fun BatteryCommonColorButton(
                     modifier = Modifier.size(20.dp),
                     shape = CircleShape,
                     color = Color(color),
-                    border =
-                        BorderStroke(
-                            1.dp,
-                            MiuixTheme.colorScheme.onSurface.copy(alpha = 0.10f),
-                        ),
+                    border = batterySwatchBorder(20.dp),
                 ) {}
             }
         }
     }
 }
 
+private const val BATTERY_SWATCH_BORDER_RATIO = 1f / 24f
+private const val BATTERY_SWATCH_BORDER_ALPHA = 0.12f
+
+@Composable
+private fun batterySwatchBorder(size: Dp): BorderStroke =
+    BorderStroke(
+        width = (size.value * BATTERY_SWATCH_BORDER_RATIO).dp,
+        color = MiuixTheme.colorScheme.onSurface.copy(alpha = BATTERY_SWATCH_BORDER_ALPHA),
+    )
+
 @Composable
 private fun BatteryColorDot(
     color: Int,
     size: Dp = 20.dp,
-    showBorder: Boolean = true,
 ) {
     Surface(
         modifier = Modifier.size(size),
         shape = CircleShape,
         color = Color(color),
-        border =
-            if (showBorder) {
-                BorderStroke(
-                    1.dp,
-                    MiuixTheme.colorScheme.onSurface.copy(alpha = 0.10f),
-                )
-            } else {
-                null
-            },
+        border = batterySwatchBorder(size),
     ) {}
 }
 
 @Composable
 private fun BatteryColorMosaic(
     size: Dp = 20.dp,
-    showBorder: Boolean = true,
 ) {
     Surface(
         modifier = Modifier.size(size),
         shape = CircleShape,
         color = Color.Transparent,
-        border =
-            if (showBorder) {
-                BorderStroke(
-                    1.dp,
-                    MiuixTheme.colorScheme.onSurface.copy(alpha = 0.10f),
-                )
-            } else {
-                null
-            },
+        border = batterySwatchBorder(size),
     ) {
         Box(
             modifier =
@@ -1322,6 +1287,13 @@ private fun schemePageForKey(
 ): BatterySchemePage? =
     BatteryBuiltInColorScheme.fromKey(key)?.let { BatterySchemePage.BuiltIn(it) }
         ?: library.customByKey(key)?.let { BatterySchemePage.Custom(it) }
+
+internal fun batteryColorEditorSeed(
+    entry: BatteryColorSchemeEntry,
+    slot: CombinedStatusBatteryColorSlot,
+): Int? =
+    batterySchemeEntryColor(entry, slot)
+        ?: entry.customColor
 
 internal fun batteryColorHex(color: Int): String =
     "#%06X".format(color and 0x00FFFFFF)

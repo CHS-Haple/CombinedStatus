@@ -1,3 +1,105 @@
+## 2026-10-01 — Build 577 mode-detail MIUIX dropdown redesign
+
+**Type:** App UI hierarchy / MIUIX preference semantics / visual consistency  
+**Display version:** 0.0.3  
+**Build:** 577 / `20261001-577`  
+**Branch / PR:** `feat/battery-top-readout` / #181
+
+### Maintainer direction
+
+The mode-detail page should behave as a real settings page inside the existing battery-color drawer. The maintainer explicitly requested:
+- smooth level-1 -> level-2 drawer navigation without stacking two independent drawers;
+- MIUIX components wherever they exist, with native/HyperOS-style emulation only when MIUIX lacks an equivalent;
+- Color source to use a dropdown rather than expanding a full option list inline;
+- color chips may keep outlines for background separation, but the outline must be visually consistent at every chip size and on every preceding page;
+- submit and run CI only; do not trigger Canary until explicitly instructed.
+
+### Exact MIUIX basis
+
+Pinned revision: `5c91d5e5ce1a2fc7e8bdc1258a881c555102bbca`.
+
+Verified directly:
+- `OverlayDropdownPreference` is built on `BasicComponent` and owns:
+  - standard title / summary typography and 56dp setting-row geometry;
+  - selected-value display;
+  - `DropdownArrowEndAction`;
+  - pressed/hold-down state;
+  - ContextClick haptic on open;
+  - Confirm haptic on selection;
+  - native `OverlayListPopup` rendering and dismissal.
+- The existing internal Pager already uses MIUIX `springAnimateToPage` for programmatic level transitions, so a second nested `OverlayBottomSheet` is unnecessary and would create competing sheet geometry/overlay ownership.
+
+### Changes
+
+#### Single-sheet navigation
+
+- Keep one outer `OverlayBottomSheet` only.
+- Level-1 scheme page and level-2 mode detail remain two pages of the internal non-user-scrollable Pager.
+- Add `clipToBounds()` to the fixed 520dp Pager viewport so vertically scrolled detail content cannot paint into the sheet title/header area.
+- Back/dismiss from detail uses the same MIUIX spring page transition to return to level 1.
+
+#### Color source
+
+- Remove project-owned `sourceExpanded` state.
+- Remove the inline expandable `RadioButtonPreference` list and the manually selected ExpandMore/ExpandLess icons.
+- Replace them with one native `OverlayDropdownPreference`.
+- Source order remains:
+  1. HyperOS
+  2. iOS
+  3. Low saturation
+  4. Follow inversion
+  5. Custom
+- The setting row shows:
+  - title = Color source;
+  - summary = currently effective HEX / Follow inversion / Not set;
+  - start action = current fixed/checker preview;
+  - MIUIX-owned selected value + dropdown affordance on the end side.
+
+#### No fake fixed color for Follow inversion
+
+- Remove the old fallback to `MiuixTheme.colorScheme.onSurface`, which caused Follow inversion to silently appear as black in HSV/HEX controls.
+- Add a nullable editor seed:
+  - active fixed-template color wins;
+  - otherwise remembered custom color may be reused as an editing seed;
+  - otherwise the editor has no fixed seed.
+- With no fixed seed:
+  - current output stays Follow inversion / Not set rather than `#000000`;
+  - HSV controls are replaced by a normal MIUIX explanatory `BasicComponent`;
+  - common colors and HEX/RGB remain available, so the first valid user edit still performs copy-on-write into Custom.
+- Add unit coverage for Follow inversion with and without remembered custom color.
+
+#### Unified swatch outline
+
+All fixed/checker preview circles now use one shared outline rule rather than page-specific border/no-border decisions:
+- stroke width = chip diameter / 24;
+- stroke color = `onSurface` at alpha 0.12.
+
+Examples:
+- 12dp compact Function preview -> ~0.5dp stroke;
+- 20dp editor/common chip -> ~0.83dp;
+- 24dp mode setting chip -> 1dp;
+- 28dp scheme-header chip -> ~1.17dp.
+
+The same rule is used for fixed-color `Surface`, checkerboard `Surface`, and common-color disks. This intentionally supersedes Build 574's drawer-header/mode-row borderless exception.
+
+### 审查 / review — pre-commit
+
+- **MIUIX-first:** source selection is the exact pinned `OverlayDropdownPreference`; no custom dropdown implementation.
+- **drawer ownership:** still one `OverlayBottomSheet`; no nested sheet stack.
+- **transition:** existing MIUIX Pager spring remains the sole level transition.
+- **scroll boundary:** detail viewport is clipped rather than padded around the bleed symptom.
+- **color semantics:** Follow inversion remains dynamic/no-fixed-color and is never represented as fake black.
+- **copy-on-write:** common color, HSV, HEX and RGB edits still call the existing custom-color setter; template references remain references until edit.
+- **visual consistency:** all preview chips share one proportional outline rule.
+- **self drawing:** no project Canvas/drawCircle/drawRect/drawWithCache/raw clickable introduced; checkerboard remains MIUIX public `drawCheckerboard()`.
+- **Runtime / persistence:** no hook, writer, schema, projection or color-policy change.
+- **Canary:** explicitly prohibited until maintainer instruction.
+
+### Validation
+
+Run exact-head automated CI only. If green, freeze the SHA and wait.
+
+
 ## 2026-10-01 — Build 576 strict MIUIX typography correction
 
 **Type:** App UI typography conformance only  
