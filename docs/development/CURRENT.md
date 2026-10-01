@@ -15,7 +15,7 @@ This file is the concise recovery point for active Guiyuan development. Historic
 PR #181 / `feat/battery-top-readout` adds an optional battery percentage readout in the top opening of the Guiyuan battery ring while preserving the accepted Home -> Control Center transition contract.
 
 Current checkpoint:
-- Build 533 / `20261001-533`;
+- Build 534 / `20261001-534`;
 - branch remains based on current `dev` and is not behind it;
 - Build 524 improved the final native Battery-number target for HyperOS hollow-battery presentation;
 - Build 525 corrected two Build-523 device defects:
@@ -121,6 +121,15 @@ Build 533 companion-UI spacing correction:
 - remove only the project-local 16.dp padding and retain the MIUIX-owned 8.dp spacing for diagnostics level / export / share;
 - SystemUI/runtime rendering is unchanged by this checkpoint.
 
+Build 534 battery-top physical-headroom remap:
+- Build 532 correctly removed the hidden early ceiling, but a literal positive raw offset can still ask the Home overlay to draw above its actual View boundary and Android clips that ink;
+- exact history review confirms Build 518's useful principle was to map the positive UI range across owned physical headroom, while Build 525 later corrected the physical-top coordinate into real RenderView space;
+- preserve Build-532 user-facing zero: raw +3 / UI 0 remains the neutral anchor whenever physically safe;
+- keep UI -10..0 as literal downward movement;
+- remap only UI 0..+10 monotonically across the remaining safe distance between the accepted neutral center and the real RenderView top, using the current percentage ink height;
+- if typography already consumes all headroom, clamp only at the real physical boundary rather than drawing clipped pixels;
+- do not move the Home visual back to the outer status host, disable SystemUI clipping, or add a second motion writer; Build-424 native lifecycle ownership remains protected.
+
 ## Validation state
 
 Confirmed:
@@ -140,7 +149,7 @@ Confirmed:
   - unknown exact authority remains native-peer-motion rather than guessing `false`.
 
 Pending:
-- Build 533 Runtime CI.
+- Build 534 Runtime CI.
 - if green, one exact-head signed Build-532 Canary.
 - focused device validation:
   - island-only pull remains unchanged and reaches the expected final native icon endpoints;
@@ -176,7 +185,7 @@ Pending:
 
 ## Immediate next step
 
-1. finish Build-532 Runtime CI and automated review;
+1. finish Build-534 Runtime CI and automated review;
 2. if green, freeze runtime at exact Build 532 and request one signed work-branch Canary;
 3. device-validate: UI 0 equals the previous physical +3 position; -10..+10 moves continuously with no hidden ceiling; ring opening follows live number/bolt size, weight and vertical position with only a small visual clearance; Build-531 typography endpoint behavior remains intact;
 4. change runtime again only if focused device evidence identifies a concrete mismatch;

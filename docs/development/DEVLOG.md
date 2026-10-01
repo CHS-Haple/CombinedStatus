@@ -13998,3 +13998,70 @@ That means:
   - asymmetric visible envelope -> shifted gap center.
 - Build 531 Runtime CI #2003 and signed Canary #590 were green before this checkpoint.
 - Build 532 exact-head Runtime CI + signed Canary are required because the offset and ring-gap behavior are visually device-sensitive.
+
+
+## 2026-10-01 — Build 534: preserve neutral offset while consuming real top headroom
+
+**Type:** device-driven battery-top clipping correction
+**Display version:** 0.0.3
+**Build / source:** 534 / `20261001-534` / `feat/battery-top-readout` / PR #181
+
+### Maintainer device evidence
+
+Build 532 proves the manual value now reaches the painter, but moving above roughly UI +2 begins clipping the percentage at the top. The requested behavior is continuous upward adjustment without cropped ink.
+
+### Root cause
+
+Build 532 intentionally removed the previous second positive safety bound so the setting remained literal. That solved the earlier hidden ceiling, but it also allowed the percentage optical bounds to cross the real Home RenderView top. Android cannot display pixels outside the actual drawing surface merely because the preference requests a larger displacement.
+
+History review separates two useful earlier conclusions:
+- Build 518 mapped a positive user range onto available safe travel instead of treating every UI unit as a mandatory physical pixel;
+- Build 525 corrected the safety boundary from canonical y=0 to the real RenderView top through `NativeRenderTransform`.
+
+Build 532 additionally rebased user-facing zero to physical +3. Restoring the old normalization without accounting for that reference would move the accepted UI-zero position, so the mapping must be anchored at raw +3.
+
+### Change
+
+- Extend `resolveCenterY()` with the raw neutral offset, current text ink height and real minimum-safe top.
+- Raw +3 / UI 0 remains at the Build-532 accepted center whenever that center is physically drawable.
+- Raw -7..+3 / UI -10..0 keeps literal displacement.
+- Raw +3..+13 / UI 0..+10 consumes the complete remaining safe rise monotonically:
+  - +0 = accepted neutral center;
+  - +10 = exact physical top-safe center;
+  - intermediate values are proportional within that available headroom.
+- If a large size/weight makes the neutral position itself unsafe, only the real physical top boundary clamps it.
+- Ring avoidance continues to use the final live readout optical bounds, so the opening follows the remapped Y automatically.
+
+### 问题执行流程
+
+1. MIUIX slider converts UI offset to the persisted raw reference domain.
+2. Runtime visual settings deliver that raw value unchanged.
+3. Painter resolves the automatic optical base and maps the actual RenderView top into canonical coordinates.
+4. Build 532 applied the positive raw value literally, so text could cross the physical top and be clipped.
+5. Build 534 preserves raw +3 as the neutral anchor.
+6. Negative/neutral values keep their existing geometry.
+7. Positive UI values normalize only the distance above neutral against the real remaining headroom.
+8. The final center never crosses the current text optical top-safe boundary.
+
+### 审查 / review
+
+- **root-cause-first:** fixes the physical drawing-domain mismatch rather than adding padding, delay, or a screenshot-fitted Y cap.
+- **accepted default preserved:** UI 0 does not move unless current typography makes that position physically impossible.
+- **single writer:** painter remains the only Guiyuan pixel writer.
+- **native lifecycle:** Home remains inside `MiuiStatusBatteryContainer(system_icons).overlay`; the Build-424 correction that inherits HyperOS alpha/visibility/translation is not reverted.
+- **Fail native:** no hidden-framework overlay mutation or parent clip override is required.
+- **performance:** closed-form arithmetic only; no listener, probe, hierarchy traversal, polling or animator.
+- **transition:** source geometry automatically follows the same resolved steady readout center; Control Center progress/target ownership is unchanged.
+- **compatibility:** physical-top authority remains the existing RenderView transform and therefore adapts to carrier size rather than assuming one device pixel value.
+
+### Validation
+
+- Added focused unit coverage for:
+  - accepted UI-zero preservation;
+  - full positive range reaching the real physical safe top;
+  - positive midpoint using half the remaining headroom;
+  - negative literal travel;
+  - oversized typography clamping only at the real top;
+  - over-range and non-finite inputs.
+- Runtime CI required.
+- Because steady Home geometry changes, exact-head signed Canary + focused device validation are required before integration.

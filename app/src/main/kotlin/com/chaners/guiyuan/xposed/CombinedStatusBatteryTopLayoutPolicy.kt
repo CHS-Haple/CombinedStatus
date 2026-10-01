@@ -34,18 +34,48 @@ internal object CombinedStatusBatteryTopLayoutPolicy {
     fun resolveCenterY(
         baseCenterY: Float,
         requestedOffset: Float,
+        neutralOffset: Float,
         positiveLimit: Float,
+        contentInkHeight: Float,
+        minimumSafeTopY: Float,
     ): Float {
-        if (!requestedOffset.isFinite()) return baseCenterY
-        if (requestedOffset <= 0f || positiveLimit <= 0f) {
-            return baseCenterY - requestedOffset
+        if (
+            !baseCenterY.isFinite() ||
+            !requestedOffset.isFinite() ||
+            !neutralOffset.isFinite() ||
+            !positiveLimit.isFinite() ||
+            !contentInkHeight.isFinite() ||
+            !minimumSafeTopY.isFinite()
+        ) {
+            return baseCenterY
         }
 
-        // Default placement is already bounded by resolveOpticalBaseCenterY().
-        // A user-requested offset must stay literal instead of being silently
-        // collapsed by a second clip-safety ceiling. The View/display clip is
-        // the physical boundary and remains observable to the user.
-        return baseCenterY -
-            requestedOffset.coerceIn(0f, positiveLimit)
+        val minimumSafeCenterY =
+            minimumSafeTopY +
+                contentInkHeight.coerceAtLeast(0f) / 2f
+        val neutralCenterY =
+            max(
+                baseCenterY - neutralOffset,
+                minimumSafeCenterY,
+            )
+
+        if (requestedOffset <= neutralOffset) {
+            return max(
+                baseCenterY - requestedOffset,
+                minimumSafeCenterY,
+            )
+        }
+        if (positiveLimit <= neutralOffset) {
+            return neutralCenterY
+        }
+
+        val normalizedPositive =
+            (
+                (requestedOffset - neutralOffset) /
+                    (positiveLimit - neutralOffset)
+            ).coerceIn(0f, 1f)
+        val availableRise =
+            (neutralCenterY - minimumSafeCenterY).coerceAtLeast(0f)
+        return neutralCenterY - availableRise * normalizedPositive
     }
 }

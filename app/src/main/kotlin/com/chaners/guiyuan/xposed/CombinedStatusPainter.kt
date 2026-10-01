@@ -10,6 +10,7 @@ import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
+import com.chaners.guiyuan.settings.BATTERY_TOP_VERTICAL_OFFSET_DEFAULT
 import com.chaners.guiyuan.settings.BATTERY_TOP_VERTICAL_OFFSET_MAX
 import com.chaners.guiyuan.settings.CombinedStatusVisualSettings
 import kotlin.math.cos
@@ -1182,7 +1183,10 @@ internal class CombinedStatusPainter(
             CombinedStatusBatteryTopLayoutPolicy.resolveCenterY(
                 baseCenterY = groupBaseCenterY,
                 requestedOffset = visualSettings.batteryTopVerticalOffset,
+                neutralOffset = BATTERY_TOP_VERTICAL_OFFSET_DEFAULT,
                 positiveLimit = BATTERY_TOP_VERTICAL_OFFSET_MAX,
+                contentInkHeight = textOpticalHeight,
+                minimumSafeTopY = minimumSafeTopY,
             )
         val textBaselineY =
             groupCenterY -
