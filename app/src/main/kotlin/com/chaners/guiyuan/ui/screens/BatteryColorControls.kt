@@ -1111,26 +1111,6 @@ private fun BatteryCustomModeEditor(
             }
         }
 
-        BatterySheetSmallTitle(stringResource(R.string.section_management))
-        Card {
-            BasicComponent(
-                title = stringResource(R.string.battery_color_restore_mode),
-                summary =
-                    stringResource(
-                        R.string.battery_color_restore_from_scheme,
-                        batteryBuiltInName(custom.baseTemplate),
-                    ),
-                onClick = onRestore,
-                endActions = {
-                    Icon(
-                        imageVector = MiuixIcons.Reset,
-                        contentDescription = null,
-                        modifier = Modifier.size(24.dp),
-                        tint = MiuixTheme.colorScheme.onSurfaceVariantActions,
-                    )
-                },
-            )
-        }
     }
 }
 
