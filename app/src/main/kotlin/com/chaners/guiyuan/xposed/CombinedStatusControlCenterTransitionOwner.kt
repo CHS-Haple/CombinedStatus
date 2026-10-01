@@ -15,6 +15,9 @@ import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.TextView
 import java.lang.ref.WeakReference
+import java.lang.reflect.Field
+import java.lang.reflect.Method
+import java.lang.reflect.Modifier
 import java.util.WeakHashMap
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -30,6 +33,7 @@ internal object CombinedStatusControlCenterTransitionOwner {
     private const val AIRPLANE_SLOT = "airplane"
     private const val NO_SIM_SLOT = "no_sim"
     private const val MOBILE_SLOT = "mobile"
+    private const val WIFI_SLOT = "wifi"
     private const val STACKED_MOBILE_SLOT = "stacked_mobile"
     private const val BATTERY_NUMBER_PROBE_MAX_VIEWS = 16
     private const val BATTERY_NUMBER_PROBE_MAX_DEPTH = 4
@@ -201,11 +205,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     charging = sourceSnapshot.model.charging,
                     nativeBatteryIslandActive = nativeBatteryIslandActive,
                 ),
-            nativePaddingExpansionAllowed =
-                Policy.allowsNativeTransitionPaddingExpansion(
-                    sourceScene = sourceScene,
-                    genericIslandShowing = SystemUiIslandMotionSource.currentIslandShowing(),
-                ),
+            sourceScene = sourceScene,
+            genericIslandShowing = SystemUiIslandMotionSource.currentIslandShowing(),
         )
     }
 
@@ -259,9 +260,11 @@ internal object CombinedStatusControlCenterTransitionOwner {
         fun allowsNativeTransitionPaddingExpansion(
             sourceScene: CombinedStatusSourceScene,
             genericIslandShowing: Boolean?,
+            fakeIslandPeerFreezeReady: Boolean = false,
         ): Boolean =
             when (sourceScene) {
-                CombinedStatusSourceScene.HOME -> genericIslandShowing != true
+                CombinedStatusSourceScene.HOME ->
+                    genericIslandShowing != true || fakeIslandPeerFreezeReady
                 CombinedStatusSourceScene.KEYGUARD -> true
                 CombinedStatusSourceScene.UNKNOWN -> false
             }
@@ -695,6 +698,225 @@ internal object CombinedStatusControlCenterTransitionOwner {
         }
     }
 
+    private class FakeIslandPeerFreeze(
+        private val statusIcons: ViewGroup,
+    ) {
+        private data class Entry(
+            val view: WeakReference<View>,
+            val originalForceAppear: Boolean,
+        )
+
+        private val representedSlots =
+            setOf(
+                WIFI_SLOT,
+                MOBILE_SLOT,
+                STACKED_MOBILE_SLOT,
+                AIRPLANE_SLOT,
+                NO_SIM_SLOT,
+                "combined_status",
+            )
+        private var accessor: Method? = null
+        private var stateClass: Class<*>? = null
+        private var forceAppearField: Field? = null
+        private var visibleStateField: Field? = null
+        private var slotField: Field? = null
+        private var entries: List<Entry> = emptyList()
+        private var active = false
+        private var contractReady = false
+
+        fun acquire(): Boolean {
+            if (active) return contractReady
+            val resolvedAccessor = resolveAccessor() ?: return fail()
+            var resolvedStateClass: Class<*>? = null
+            var resolvedForceField: Field? = null
+            var resolvedVisibleField: Field? = null
+            var resolvedSlotField: Field? = null
+            val changed = ArrayList<Entry>()
+            var stateObserved = false
+
+            for (index in 0 until statusIcons.childCount) {
+                val child = statusIcons.getChildAt(index)
+                val state =
+                    runCatching { resolvedAccessor.invoke(null, child) }
+                        .getOrNull()
+                        ?: continue
+                stateObserved = true
+
+                if (resolvedStateClass !== state.javaClass) {
+                    resolvedStateClass = state.javaClass
+                    resolvedForceField = findField(state.javaClass, "forceAppear")
+                    resolvedVisibleField = findField(state.javaClass, "visibleState")
+                    resolvedSlotField = findField(state.javaClass, "slot")
+                }
+                val forceField = resolvedForceField ?: return rollback(changed)
+                val visibleField = resolvedVisibleField ?: return rollback(changed)
+                val currentSlot =
+                    (resolvedSlotField?.let { field ->
+                        runCatching { field.get(state) as? String }.getOrNull()
+                    } ?: NativeParticipantRuntimeAccess.slotOf(child))
+                if (currentSlot != null && representedSlots.contains(currentSlot)) {
+                    continue
+                }
+                val visibleState =
+                    runCatching { (visibleField.get(state) as? Number)?.toInt() }
+                        .getOrNull()
+                        ?: continue
+                if (
+                    visibleState != 0 ||
+                    child.visibility != View.VISIBLE ||
+                    (child.width <= 0 && child.measuredWidth <= 0)
+                ) {
+                    continue
+                }
+                val original =
+                    runCatching { forceField.getBoolean(state) }
+                        .getOrNull()
+                        ?: return rollback(changed)
+                if (!original) {
+                    val written =
+                        runCatching {
+                            forceField.setBoolean(state, true)
+                            true
+                        }.getOrDefault(false)
+                    if (!written) return rollback(changed)
+                    changed += Entry(WeakReference(child), originalForceAppear = false)
+                }
+            }
+
+            if (!stateObserved || resolvedStateClass == null) {
+                return rollback(changed)
+            }
+            accessor = resolvedAccessor
+            stateClass = resolvedStateClass
+            forceAppearField = resolvedForceField
+            visibleStateField = resolvedVisibleField
+            slotField = resolvedSlotField
+            entries = changed
+            active = true
+            contractReady = true
+            if (changed.isNotEmpty()) {
+                statusIcons.requestLayout()
+            }
+            return true
+        }
+
+        fun release() {
+            if (!active) {
+                clearState()
+                return
+            }
+            val resolvedAccessor = accessor
+            val forceField = forceAppearField
+            var restored = false
+            if (resolvedAccessor != null && forceField != null) {
+                entries.forEach { entry ->
+                    val child = entry.view.get() ?: return@forEach
+                    val state =
+                        runCatching { resolvedAccessor.invoke(null, child) }
+                            .getOrNull()
+                            ?: return@forEach
+                    val current =
+                        runCatching { forceField.getBoolean(state) }
+                            .getOrNull()
+                            ?: return@forEach
+                    if (!entry.originalForceAppear && current) {
+                        runCatching {
+                            forceField.setBoolean(state, false)
+                            restored = true
+                        }
+                    }
+                }
+            }
+            clearState()
+            if (restored) {
+                statusIcons.requestLayout()
+            }
+        }
+
+        fun diagnostic(): String =
+            when {
+                active && contractReady -> "active:" + entries.size
+                active -> "unavailable"
+                else -> "inactive"
+            }
+
+        private fun resolveAccessor(): Method? {
+            accessor?.let { return it }
+            val companionClass =
+                runCatching {
+                    Class.forName(
+                        statusIcons.javaClass.name + "\$Companion",
+                        false,
+                        statusIcons.javaClass.classLoader,
+                    )
+                }.getOrNull()
+                    ?: return null
+            return companionClass.declaredMethods
+                .firstOrNull { method ->
+                    method.name == "access\$getViewStateFromChild" &&
+                        method.parameterTypes.contentEquals(arrayOf(View::class.java)) &&
+                        Modifier.isStatic(method.modifiers)
+                }
+                ?.apply { isAccessible = true }
+                ?.also { accessor = it }
+        }
+
+        private fun findField(
+            type: Class<*>,
+            name: String,
+        ): Field? {
+            var current: Class<*>? = type
+            while (current != null && current != Any::class.java) {
+                val field =
+                    runCatching {
+                        current.getDeclaredField(name).apply { isAccessible = true }
+                    }.getOrNull()
+                if (field != null) return field
+                current = current.superclass
+            }
+            return null
+        }
+
+        private fun rollback(changed: List<Entry>): Boolean {
+            if (changed.isNotEmpty()) {
+                val resolvedAccessor = accessor ?: resolveAccessor()
+                val forceField = forceAppearField
+                if (resolvedAccessor != null && forceField != null) {
+                    changed.forEach { entry ->
+                        val child = entry.view.get() ?: return@forEach
+                        val state =
+                            runCatching { resolvedAccessor.invoke(null, child) }
+                                .getOrNull()
+                                ?: return@forEach
+                        runCatching {
+                            if (forceField.getBoolean(state)) {
+                                forceField.setBoolean(state, entry.originalForceAppear)
+                            }
+                        }
+                    }
+                    statusIcons.requestLayout()
+                }
+            }
+            clearState()
+            return false
+        }
+
+        private fun fail(): Boolean {
+            clearState()
+            return false
+        }
+
+        private fun clearState() {
+            entries = emptyList()
+            active = false
+            contractReady = false
+            stateClass = null
+            forceAppearField = null
+            visibleStateField = null
+            slotField = null
+        }
+    }
+
     private class Session(
         root: ViewGroup,
         fakeRoot: ViewGroup,
@@ -741,6 +963,9 @@ internal object CombinedStatusControlCenterTransitionOwner {
         private var lastNativeReservationWidthPx: Int? = null
         private var transitionReservationEnabled = false
         private var nativePaddingExpansionAllowed = true
+        private var genericIslandShowing: Boolean? = null
+        private var fakeIslandPeerFreezeReady = false
+        private val fakeIslandPeerFreeze = FakeIslandPeerFreeze(fakeStatusIcons)
 
         private val preDrawListener =
             ViewTreeObserver.OnPreDrawListener {
@@ -802,9 +1027,13 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 ",reservationMode=" +
                 when {
                     !transitionReservationEnabled -> "native-peer-motion"
-                    !nativePaddingExpansionAllowed -> "internal-progress-island-guard"
+                    genericIslandShowing == true && fakeIslandPeerFreezeReady ->
+                        "native-progress-fake-island-freeze"
+                    !nativePaddingExpansionAllowed ->
+                        "internal-progress-island-freeze-unavailable"
                     else -> "native-progress-total-padding"
                 } +
+                ",islandPeerFreeze=" + fakeIslandPeerFreeze.diagnostic() +
                 "}"
 
         fun matches(
@@ -842,7 +1071,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
             nativeAppearance: Boolean,
             nativeAppearanceAnimated: Boolean,
             transitionReservationEnabled: Boolean,
-            nativePaddingExpansionAllowed: Boolean,
+            sourceScene: CombinedStatusSourceScene,
+            genericIslandShowing: Boolean?,
         ) {
             val appearanceChanged =
                 this.nativeAppearance != nativeAppearance ||
@@ -852,7 +1082,25 @@ internal object CombinedStatusControlCenterTransitionOwner {
             this.nativeAppearance = nativeAppearance
             this.nativeAppearanceAnimated = nativeAppearanceAnimated
             this.transitionReservationEnabled = transitionReservationEnabled
-            this.nativePaddingExpansionAllowed = nativePaddingExpansionAllowed
+            this.genericIslandShowing = genericIslandShowing
+
+            val freezeRequired =
+                transitionReservationEnabled &&
+                    sourceScene == CombinedStatusSourceScene.HOME &&
+                    genericIslandShowing == true
+            this.fakeIslandPeerFreezeReady =
+                if (freezeRequired) {
+                    fakeIslandPeerFreeze.acquire()
+                } else {
+                    fakeIslandPeerFreeze.release()
+                    false
+                }
+            this.nativePaddingExpansionAllowed =
+                Policy.allowsNativeTransitionPaddingExpansion(
+                    sourceScene = sourceScene,
+                    genericIslandShowing = genericIslandShowing,
+                    fakeIslandPeerFreezeReady = fakeIslandPeerFreezeReady,
+                )
             if (appearanceChanged) {
                 refreshNativePeerTint()
             }
@@ -864,6 +1112,9 @@ internal object CombinedStatusControlCenterTransitionOwner {
             SystemUiHomePresentationOwner.clearControlCenterTransitionReservation(
                 "transition-" + source,
             )
+            fakeIslandPeerFreeze.release()
+            fakeIslandPeerFreezeReady = false
+            genericIslandShowing = null
             if (!started) return
             started = false
             val rootView = rootRef.get()
