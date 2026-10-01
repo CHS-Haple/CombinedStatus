@@ -212,6 +212,8 @@
     <string name="battery_color_precise_input">精确输入</string>
     <string name="battery_color_hex">HEX</string>
     <string name="battery_color_follow_inversion">跟随反色</string>
+    <string name="battery_color_no_fixed_color">无固定颜色</string>
+    <string name="battery_color_no_fixed_color_summary">选择固定颜色来源，或先设置自定义颜色后即可调节这些参数</string>
     <string name="battery_color_settings">颜色设置</string>
     <string name="battery_color_edit_auto_custom">修改任意参数后自动切换为“自定义”</string>
     <string name="battery_color_restore_from_scheme">恢复为 %1$s 的此模式颜色</string>
