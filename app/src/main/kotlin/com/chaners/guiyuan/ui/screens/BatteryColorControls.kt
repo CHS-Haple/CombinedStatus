@@ -1159,6 +1159,7 @@ private fun BatteryCustomModeEditor(
                         batteryColorFromHex(normalized)?.let(::applyColor)
                     }
                 },
+                modifier = Modifier.fillMaxWidth(),
                 label = stringResource(R.string.battery_color_hex),
                 singleLine = true,
                 colors = inactiveFieldColors,
