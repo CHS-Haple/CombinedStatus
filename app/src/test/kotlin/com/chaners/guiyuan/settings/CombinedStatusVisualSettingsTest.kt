@@ -5,6 +5,53 @@ import org.junit.Test
 
 class CombinedStatusVisualSettingsTest {
     @Test
+    fun newGeometryControlsUseBoundedDefaults() {
+        val settings = CombinedStatusVisualSettings()
+        assertEquals(1f, settings.combinedScale, 0.0001f)
+        assertEquals(1f, settings.ringStrokeScale, 0.0001f)
+        assertEquals(1f, settings.wifiSizeScale, 0.0001f)
+        assertEquals(1f, settings.mobileTypeSizeScale, 0.0001f)
+        assertEquals(800, settings.mobileTypeWeight)
+
+        val normalized =
+            settings.copy(
+                combinedScale = 9f,
+                ringStrokeScale = 9f,
+                wifiSizeScale = 9f,
+                mobileTypeSizeScale = 9f,
+                mobileTypeWeight = 5000,
+            ).normalized()
+        assertEquals(COMBINED_SCALE_MAX, normalized.combinedScale, 0.0001f)
+        assertEquals(RING_STROKE_SCALE_MAX, normalized.ringStrokeScale, 0.0001f)
+        assertEquals(WIFI_SIZE_SCALE_MAX, normalized.wifiSizeScale, 0.0001f)
+        assertEquals(MOBILE_TYPE_SIZE_SCALE_MAX, normalized.mobileTypeSizeScale, 0.0001f)
+        assertEquals(MOBILE_TYPE_WEIGHT_MAX, normalized.mobileTypeWeight)
+    }
+
+    @Test
+    fun iosStylePaletteUsesExpectedSemanticDefaults() {
+        assertEquals(0xFF34C759.toInt(), CombinedStatusIosStyleBatteryPalette.CHARGING)
+        assertEquals(0xFFFFCC00.toInt(), CombinedStatusIosStyleBatteryPalette.POWER_SAVE)
+        assertEquals(0xFF007AFF.toInt(), CombinedStatusIosStyleBatteryPalette.PERFORMANCE)
+        assertEquals(0xFFFF9500.toInt(), CombinedStatusIosStyleBatteryPalette.SUPER_POWER_SAVE)
+        assertEquals(0xFFFF3B30.toInt(), CombinedStatusIosStyleBatteryPalette.LOW)
+        assertEquals(
+            null,
+            CombinedStatusIosStyleBatteryPalette.colorFor(CombinedStatusBatteryColorSlot.NORMAL),
+        )
+    }
+
+    @Test
+    fun customColorOverridesAreForcedOpaque() {
+        val overrides =
+            CombinedStatusBatteryColorOverrides().withColor(
+                CombinedStatusBatteryColorSlot.CHARGING,
+                0x0034C759,
+            )
+        assertEquals(0xFF34C759.toInt(), overrides.charging)
+    }
+
+    @Test
     fun previousPhysicalPlusThreeIsTheNewUserFacingZero() {
         assertEquals(
             0f,
@@ -112,6 +159,11 @@ class CombinedStatusVisualSettingsTest {
                 BATTERY_TOP_TEXT_WEIGHT_KEY,
                 BATTERY_TOP_VERTICAL_OFFSET_KEY,
                 BATTERY_TOP_CHARGING_ICON_SCALE_KEY,
+                COMBINED_SCALE_KEY,
+                RING_STROKE_SCALE_KEY,
+                WIFI_SIZE_SCALE_KEY,
+                MOBILE_TYPE_SIZE_SCALE_KEY,
+                MOBILE_TYPE_WEIGHT_KEY,
             ).forEach { baseKey ->
                 assertEquals(
                     true,
@@ -120,6 +172,21 @@ class CombinedStatusVisualSettingsTest {
                     ),
                 )
             }
+        }
+    }
+
+    @Test
+    fun globalBatteryColorKeysParticipateInRuntimeSync() {
+        listOf(
+            BATTERY_COLOR_PRESET_KEY,
+            BATTERY_COLOR_NORMAL_KEY,
+            BATTERY_COLOR_POWER_SAVE_KEY,
+            BATTERY_COLOR_PERFORMANCE_KEY,
+            BATTERY_COLOR_SUPER_POWER_SAVE_KEY,
+            BATTERY_COLOR_CHARGING_KEY,
+            BATTERY_COLOR_LOW_KEY,
+        ).forEach { key ->
+            assertEquals(true, isCombinedStatusVisualPreferenceKey(key))
         }
     }
 

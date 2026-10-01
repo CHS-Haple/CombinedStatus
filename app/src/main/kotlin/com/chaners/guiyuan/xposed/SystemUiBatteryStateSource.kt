@@ -51,6 +51,11 @@ internal object SystemUiBatteryStateSource {
                 .apply { isAccessible = true }
         val chargingColorField = iconClass.requiredField("mBatteryChargingColor")
         val powerSaveColorField = iconClass.requiredField("mBatteryPowerSaveColor")
+        val superPowerSaveColorField =
+            iconClass.optionalField(
+                "mBatterySuperPowerSaveColor",
+                "mBatterySuperSaveColor",
+            )
         val performanceColorField =
             iconClass.requiredField("mBatteryPerformanceModeColor")
         val lowColorField = iconClass.requiredField("mBatteryLowColor")
@@ -92,6 +97,7 @@ internal object SystemUiBatteryStateSource {
                             state = state,
                             chargingColorField = chargingColorField,
                             powerSaveColorField = powerSaveColorField,
+                            superPowerSaveColorField = superPowerSaveColorField,
                             performanceColorField = performanceColorField,
                             lowColorField = lowColorField,
                         )
@@ -266,6 +272,7 @@ internal object SystemUiBatteryStateSource {
         state: CombinedStatusBatterySemanticState,
         chargingColorField: Field,
         powerSaveColorField: Field,
+        superPowerSaveColorField: Field?,
         performanceColorField: Field,
         lowColorField: Field,
     ): Int? {
@@ -274,6 +281,8 @@ internal object SystemUiBatteryStateSource {
                 CombinedStatusBatterySemanticState.NORMAL -> return null
                 CombinedStatusBatterySemanticState.CHARGING -> chargingColorField
                 CombinedStatusBatterySemanticState.POWER_SAVE -> powerSaveColorField
+                CombinedStatusBatterySemanticState.SUPER_POWER_SAVE ->
+                    superPowerSaveColorField ?: powerSaveColorField
                 CombinedStatusBatterySemanticState.PERFORMANCE -> performanceColorField
                 CombinedStatusBatterySemanticState.LOW -> lowColorField
             }
@@ -284,6 +293,13 @@ internal object SystemUiBatteryStateSource {
 
     private fun Class<*>.requiredField(name: String): Field =
         getDeclaredField(name).apply { isAccessible = true }
+
+    private fun Class<*>.optionalField(vararg names: String): Field? =
+        names.firstNotNullOfOrNull { name ->
+            runCatching {
+                getDeclaredField(name).apply { isAccessible = true }
+            }.getOrNull()
+        }
 
     private fun colorHex(color: Int): String =
         "#" + color.toUInt().toString(16).padStart(8, '0')

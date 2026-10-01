@@ -20,6 +20,79 @@ internal enum class CombinedStatusContentLayout(
     }
 }
 
+internal enum class CombinedStatusBatteryColorPreset(
+    val persistedValue: String,
+) {
+    HYPEROS_NATIVE("hyperos_native"),
+    IOS_STYLE("ios_style");
+
+    companion object {
+        fun fromPersisted(value: String?): CombinedStatusBatteryColorPreset =
+            entries.firstOrNull { it.persistedValue == value } ?: HYPEROS_NATIVE
+    }
+}
+
+internal enum class CombinedStatusBatteryColorSlot {
+    NORMAL,
+    POWER_SAVE,
+    PERFORMANCE,
+    SUPER_POWER_SAVE,
+    CHARGING,
+    LOW,
+}
+
+internal data class CombinedStatusBatteryColorOverrides(
+    val normal: Int? = null,
+    val powerSave: Int? = null,
+    val performance: Int? = null,
+    val superPowerSave: Int? = null,
+    val charging: Int? = null,
+    val low: Int? = null,
+) {
+    fun colorFor(slot: CombinedStatusBatteryColorSlot): Int? =
+        when (slot) {
+            CombinedStatusBatteryColorSlot.NORMAL -> normal
+            CombinedStatusBatteryColorSlot.POWER_SAVE -> powerSave
+            CombinedStatusBatteryColorSlot.PERFORMANCE -> performance
+            CombinedStatusBatteryColorSlot.SUPER_POWER_SAVE -> superPowerSave
+            CombinedStatusBatteryColorSlot.CHARGING -> charging
+            CombinedStatusBatteryColorSlot.LOW -> low
+        }
+
+    fun withColor(
+        slot: CombinedStatusBatteryColorSlot,
+        color: Int?,
+    ): CombinedStatusBatteryColorOverrides {
+        val opaque = color?.let { it or 0xFF000000.toInt() }
+        return when (slot) {
+            CombinedStatusBatteryColorSlot.NORMAL -> copy(normal = opaque)
+            CombinedStatusBatteryColorSlot.POWER_SAVE -> copy(powerSave = opaque)
+            CombinedStatusBatteryColorSlot.PERFORMANCE -> copy(performance = opaque)
+            CombinedStatusBatteryColorSlot.SUPER_POWER_SAVE -> copy(superPowerSave = opaque)
+            CombinedStatusBatteryColorSlot.CHARGING -> copy(charging = opaque)
+            CombinedStatusBatteryColorSlot.LOW -> copy(low = opaque)
+        }
+    }
+}
+
+internal object CombinedStatusIosStyleBatteryPalette {
+    const val POWER_SAVE = 0xFFFFCC00.toInt()
+    const val PERFORMANCE = 0xFF007AFF.toInt()
+    const val SUPER_POWER_SAVE = 0xFFFF9500.toInt()
+    const val CHARGING = 0xFF34C759.toInt()
+    const val LOW = 0xFFFF3B30.toInt()
+
+    fun colorFor(slot: CombinedStatusBatteryColorSlot): Int? =
+        when (slot) {
+            CombinedStatusBatteryColorSlot.NORMAL -> null
+            CombinedStatusBatteryColorSlot.POWER_SAVE -> POWER_SAVE
+            CombinedStatusBatteryColorSlot.PERFORMANCE -> PERFORMANCE
+            CombinedStatusBatteryColorSlot.SUPER_POWER_SAVE -> SUPER_POWER_SAVE
+            CombinedStatusBatteryColorSlot.CHARGING -> CHARGING
+            CombinedStatusBatteryColorSlot.LOW -> LOW
+        }
+}
+
 internal data class CombinedStatusVisualSettings(
     val contentLayout: CombinedStatusContentLayout = CombinedStatusContentLayout.NETWORK_CENTER,
     val mobileFollowsBatteryColor: Boolean = false,
@@ -33,6 +106,15 @@ internal data class CombinedStatusVisualSettings(
     val batteryTopVerticalOffset: Float = BATTERY_TOP_VERTICAL_OFFSET_DEFAULT,
     val batteryTopChargingIconScale: Float =
         batteryTopChargingIconScaleDefault(contentLayout),
+    val combinedScale: Float = COMBINED_SCALE_DEFAULT,
+    val ringStrokeScale: Float = RING_STROKE_SCALE_DEFAULT,
+    val wifiSizeScale: Float = WIFI_SIZE_SCALE_DEFAULT,
+    val mobileTypeSizeScale: Float = MOBILE_TYPE_SIZE_SCALE_DEFAULT,
+    val mobileTypeWeight: Int = MOBILE_TYPE_WEIGHT_DEFAULT,
+    val batteryColorPreset: CombinedStatusBatteryColorPreset =
+        CombinedStatusBatteryColorPreset.HYPEROS_NATIVE,
+    val batteryColorOverrides: CombinedStatusBatteryColorOverrides =
+        CombinedStatusBatteryColorOverrides(),
 )
 
 internal fun CombinedStatusVisualSettings.normalized(): CombinedStatusVisualSettings =
@@ -57,11 +139,29 @@ internal fun CombinedStatusVisualSettings.normalized(): CombinedStatusVisualSett
                 BATTERY_TOP_CHARGING_ICON_SCALE_MIN,
                 BATTERY_TOP_CHARGING_ICON_SCALE_MAX,
             ),
+        combinedScale = combinedScale.coerceIn(COMBINED_SCALE_MIN, COMBINED_SCALE_MAX),
+        ringStrokeScale =
+            ringStrokeScale.coerceIn(RING_STROKE_SCALE_MIN, RING_STROKE_SCALE_MAX),
+        wifiSizeScale = wifiSizeScale.coerceIn(WIFI_SIZE_SCALE_MIN, WIFI_SIZE_SCALE_MAX),
+        mobileTypeSizeScale =
+            mobileTypeSizeScale.coerceIn(MOBILE_TYPE_SIZE_SCALE_MIN, MOBILE_TYPE_SIZE_SCALE_MAX),
+        mobileTypeWeight =
+            mobileTypeWeight.coerceIn(MOBILE_TYPE_WEIGHT_MIN, MOBILE_TYPE_WEIGHT_MAX),
+        batteryColorOverrides =
+            CombinedStatusBatteryColorSlot.entries.fold(
+                CombinedStatusBatteryColorOverrides(),
+            ) { overrides, slot ->
+                overrides.withColor(slot, batteryColorOverrides.colorFor(slot))
+            },
     )
 
 internal fun isCombinedStatusVisualPreferenceKey(key: String?): Boolean {
     if (key == null) return false
-    if (key == CONTENT_LAYOUT_KEY || key in PROFILE_VISUAL_BASE_KEYS) return true
+    if (
+        key == CONTENT_LAYOUT_KEY ||
+        key in PROFILE_VISUAL_BASE_KEYS ||
+        key in GLOBAL_VISUAL_KEYS
+    ) return true
     return CombinedStatusContentLayout.entries.any { layout ->
         PROFILE_VISUAL_BASE_KEYS.any { baseKey ->
             key == combinedStatusProfileKey(layout, baseKey)
@@ -197,6 +297,83 @@ internal class CombinedStatusVisualSettingsRepository(context: Context) {
                 batteryTopVerticalOffsetRaw(uiOffset),
             )
             .apply()
+    }
+
+    fun setCombinedScale(scale: Float) {
+        preferences.edit()
+            .putFloat(
+                activeProfileKey(COMBINED_SCALE_KEY),
+                scale.coerceIn(COMBINED_SCALE_MIN, COMBINED_SCALE_MAX),
+            )
+            .apply()
+    }
+
+    fun setRingStrokeScale(scale: Float) {
+        preferences.edit()
+            .putFloat(
+                activeProfileKey(RING_STROKE_SCALE_KEY),
+                scale.coerceIn(RING_STROKE_SCALE_MIN, RING_STROKE_SCALE_MAX),
+            )
+            .apply()
+    }
+
+    fun setWifiSizeScale(scale: Float) {
+        preferences.edit()
+            .putFloat(
+                activeProfileKey(WIFI_SIZE_SCALE_KEY),
+                scale.coerceIn(WIFI_SIZE_SCALE_MIN, WIFI_SIZE_SCALE_MAX),
+            )
+            .apply()
+    }
+
+    fun setMobileTypeSizeScale(scale: Float) {
+        preferences.edit()
+            .putFloat(
+                activeProfileKey(MOBILE_TYPE_SIZE_SCALE_KEY),
+                scale.coerceIn(MOBILE_TYPE_SIZE_SCALE_MIN, MOBILE_TYPE_SIZE_SCALE_MAX),
+            )
+            .apply()
+    }
+
+    fun setMobileTypeWeight(weight: Int) {
+        preferences.edit()
+            .putInt(
+                activeProfileKey(MOBILE_TYPE_WEIGHT_KEY),
+                weight.coerceIn(MOBILE_TYPE_WEIGHT_MIN, MOBILE_TYPE_WEIGHT_MAX),
+            )
+            .apply()
+    }
+
+    fun setBatteryColorPreset(preset: CombinedStatusBatteryColorPreset) {
+        preferences.edit()
+            .putString(BATTERY_COLOR_PRESET_KEY, preset.persistedValue)
+            .apply()
+    }
+
+    fun setBatteryColorOverride(
+        slot: CombinedStatusBatteryColorSlot,
+        color: Int?,
+    ) {
+        val key = batteryColorOverrideKey(slot)
+        val editor = preferences.edit()
+        if (color == null) {
+            editor.remove(key)
+        } else {
+            editor.putInt(key, color or 0xFF000000.toInt())
+        }
+        editor.apply()
+    }
+
+    fun resetBatteryColorOverrides() {
+        val editor = preferences.edit()
+        CombinedStatusBatteryColorSlot.entries.forEach { slot ->
+            editor.remove(batteryColorOverrideKey(slot))
+        }
+        editor.apply()
+    }
+
+    fun resetToDefaults() {
+        preferences.edit().clear().apply()
     }
 
     fun setBatteryTopChargingIconScale(scale: Float) {
@@ -335,6 +512,32 @@ internal fun SharedPreferences.readCombinedStatusVisualSettings(): CombinedStatu
                 baseKey = BATTERY_TOP_CHARGING_ICON_SCALE_KEY,
                 defaultValue = batteryTopChargingIconScaleDefault(layout),
             ),
+        combinedScale =
+            profileFloat(layout, COMBINED_SCALE_KEY, COMBINED_SCALE_DEFAULT),
+        ringStrokeScale =
+            profileFloat(layout, RING_STROKE_SCALE_KEY, RING_STROKE_SCALE_DEFAULT),
+        wifiSizeScale =
+            profileFloat(layout, WIFI_SIZE_SCALE_KEY, WIFI_SIZE_SCALE_DEFAULT),
+        mobileTypeSizeScale =
+            profileFloat(layout, MOBILE_TYPE_SIZE_SCALE_KEY, MOBILE_TYPE_SIZE_SCALE_DEFAULT),
+        mobileTypeWeight =
+            profileInt(layout, MOBILE_TYPE_WEIGHT_KEY, MOBILE_TYPE_WEIGHT_DEFAULT),
+        batteryColorPreset =
+            CombinedStatusBatteryColorPreset.fromPersisted(
+                getString(
+                    BATTERY_COLOR_PRESET_KEY,
+                    CombinedStatusBatteryColorPreset.HYPEROS_NATIVE.persistedValue,
+                ),
+            ),
+        batteryColorOverrides =
+            CombinedStatusBatteryColorOverrides(
+                normal = optionalColor(BATTERY_COLOR_NORMAL_KEY),
+                powerSave = optionalColor(BATTERY_COLOR_POWER_SAVE_KEY),
+                performance = optionalColor(BATTERY_COLOR_PERFORMANCE_KEY),
+                superPowerSave = optionalColor(BATTERY_COLOR_SUPER_POWER_SAVE_KEY),
+                charging = optionalColor(BATTERY_COLOR_CHARGING_KEY),
+                low = optionalColor(BATTERY_COLOR_LOW_KEY),
+            ),
     ).normalized()
 }
 
@@ -376,7 +579,25 @@ internal fun SharedPreferences.Editor.putCombinedStatusVisualSettings(
     ).putFloat(
         combinedStatusProfileKey(layout, BATTERY_TOP_CHARGING_ICON_SCALE_KEY),
         normalized.batteryTopChargingIconScale,
-    )
+    ).putFloat(
+        combinedStatusProfileKey(layout, COMBINED_SCALE_KEY),
+        normalized.combinedScale,
+    ).putFloat(
+        combinedStatusProfileKey(layout, RING_STROKE_SCALE_KEY),
+        normalized.ringStrokeScale,
+    ).putFloat(
+        combinedStatusProfileKey(layout, WIFI_SIZE_SCALE_KEY),
+        normalized.wifiSizeScale,
+    ).putFloat(
+        combinedStatusProfileKey(layout, MOBILE_TYPE_SIZE_SCALE_KEY),
+        normalized.mobileTypeSizeScale,
+    ).putInt(
+        combinedStatusProfileKey(layout, MOBILE_TYPE_WEIGHT_KEY),
+        normalized.mobileTypeWeight,
+    ).putString(
+        BATTERY_COLOR_PRESET_KEY,
+        normalized.batteryColorPreset.persistedValue,
+    ).applyBatteryColorOverrides(normalized.batteryColorOverrides)
 }
 
 internal const val COMBINED_STATUS_VISUAL_PREFS_NAME = "combined_status_visual"
@@ -394,6 +615,18 @@ internal const val BATTERY_TOP_TEXT_SCALE_KEY = "battery_top_text_scale"
 internal const val BATTERY_TOP_TEXT_WEIGHT_KEY = "battery_top_text_weight"
 internal const val BATTERY_TOP_VERTICAL_OFFSET_KEY = "battery_top_vertical_offset"
 internal const val BATTERY_TOP_CHARGING_ICON_SCALE_KEY = "battery_top_charging_icon_scale"
+internal const val COMBINED_SCALE_KEY = "combined_scale"
+internal const val RING_STROKE_SCALE_KEY = "ring_stroke_scale"
+internal const val WIFI_SIZE_SCALE_KEY = "wifi_size_scale"
+internal const val MOBILE_TYPE_SIZE_SCALE_KEY = "mobile_type_size_scale"
+internal const val MOBILE_TYPE_WEIGHT_KEY = "mobile_type_weight"
+internal const val BATTERY_COLOR_PRESET_KEY = "battery_color_preset"
+internal const val BATTERY_COLOR_NORMAL_KEY = "battery_color_normal"
+internal const val BATTERY_COLOR_POWER_SAVE_KEY = "battery_color_power_save"
+internal const val BATTERY_COLOR_PERFORMANCE_KEY = "battery_color_performance"
+internal const val BATTERY_COLOR_SUPER_POWER_SAVE_KEY = "battery_color_super_power_save"
+internal const val BATTERY_COLOR_CHARGING_KEY = "battery_color_charging"
+internal const val BATTERY_COLOR_LOW_KEY = "battery_color_low"
 internal const val RUNTIME_REMOTE_PREFS_NAME = "CombinedStatusRuntimeConfig"
 
 private val PROFILE_VISUAL_BASE_KEYS =
@@ -408,6 +641,22 @@ private val PROFILE_VISUAL_BASE_KEYS =
         BATTERY_TOP_TEXT_WEIGHT_KEY,
         BATTERY_TOP_VERTICAL_OFFSET_KEY,
         BATTERY_TOP_CHARGING_ICON_SCALE_KEY,
+        COMBINED_SCALE_KEY,
+        RING_STROKE_SCALE_KEY,
+        WIFI_SIZE_SCALE_KEY,
+        MOBILE_TYPE_SIZE_SCALE_KEY,
+        MOBILE_TYPE_WEIGHT_KEY,
+    )
+
+private val GLOBAL_VISUAL_KEYS =
+    setOf(
+        BATTERY_COLOR_PRESET_KEY,
+        BATTERY_COLOR_NORMAL_KEY,
+        BATTERY_COLOR_POWER_SAVE_KEY,
+        BATTERY_COLOR_PERFORMANCE_KEY,
+        BATTERY_COLOR_SUPER_POWER_SAVE_KEY,
+        BATTERY_COLOR_CHARGING_KEY,
+        BATTERY_COLOR_LOW_KEY,
     )
 
 // Persisted text scale remains in the pre-521 physical scale.
@@ -558,3 +807,52 @@ internal fun batteryTopVerticalOffsetRaw(uiOffset: Float): Float =
         BATTERY_TOP_VERTICAL_OFFSET_MIN,
         BATTERY_TOP_VERTICAL_OFFSET_MAX,
     )
+
+
+internal const val COMBINED_SCALE_DEFAULT = 1f
+internal const val COMBINED_SCALE_MIN = 0.85f
+internal const val COMBINED_SCALE_MAX = 1.15f
+internal const val RING_STROKE_SCALE_DEFAULT = 1f
+internal const val RING_STROKE_SCALE_MIN = 0.70f
+internal const val RING_STROKE_SCALE_MAX = 1.30f
+internal const val WIFI_SIZE_SCALE_DEFAULT = 1f
+internal const val WIFI_SIZE_SCALE_MIN = 0.80f
+internal const val WIFI_SIZE_SCALE_MAX = 1.25f
+internal const val MOBILE_TYPE_SIZE_SCALE_DEFAULT = 1f
+internal const val MOBILE_TYPE_SIZE_SCALE_MIN = 0.80f
+internal const val MOBILE_TYPE_SIZE_SCALE_MAX = 1.25f
+internal const val MOBILE_TYPE_WEIGHT_DEFAULT = 800
+internal const val MOBILE_TYPE_WEIGHT_MIN = 500
+internal const val MOBILE_TYPE_WEIGHT_MAX = 950
+
+internal fun batteryColorOverrideKey(slot: CombinedStatusBatteryColorSlot): String =
+    when (slot) {
+        CombinedStatusBatteryColorSlot.NORMAL -> BATTERY_COLOR_NORMAL_KEY
+        CombinedStatusBatteryColorSlot.POWER_SAVE -> BATTERY_COLOR_POWER_SAVE_KEY
+        CombinedStatusBatteryColorSlot.PERFORMANCE -> BATTERY_COLOR_PERFORMANCE_KEY
+        CombinedStatusBatteryColorSlot.SUPER_POWER_SAVE -> BATTERY_COLOR_SUPER_POWER_SAVE_KEY
+        CombinedStatusBatteryColorSlot.CHARGING -> BATTERY_COLOR_CHARGING_KEY
+        CombinedStatusBatteryColorSlot.LOW -> BATTERY_COLOR_LOW_KEY
+    }
+
+private fun SharedPreferences.optionalColor(key: String): Int? =
+    if (contains(key)) {
+        getInt(key, 0) or 0xFF000000.toInt()
+    } else {
+        null
+    }
+
+private fun SharedPreferences.Editor.applyBatteryColorOverrides(
+    overrides: CombinedStatusBatteryColorOverrides,
+): SharedPreferences.Editor {
+    CombinedStatusBatteryColorSlot.entries.forEach { slot ->
+        val key = batteryColorOverrideKey(slot)
+        val color = overrides.colorFor(slot)
+        if (color == null) {
+            remove(key)
+        } else {
+            putInt(key, color or 0xFF000000.toInt())
+        }
+    }
+    return this
+}

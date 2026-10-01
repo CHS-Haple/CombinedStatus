@@ -4,6 +4,7 @@ internal enum class CombinedStatusBatterySemanticState {
     NORMAL,
     CHARGING,
     POWER_SAVE,
+    SUPER_POWER_SAVE,
     PERFORMANCE,
     LOW,
 }
@@ -20,6 +21,11 @@ internal object SystemUiBatterySemanticPolicy {
             "PERF_QC_MODE",
             -> CombinedStatusBatterySemanticState.CHARGING
             "POWER_SAVE" -> CombinedStatusBatterySemanticState.POWER_SAVE
+            "SUPER_POWER_SAVE",
+            "SUPER_POWER_SAVE_MODE",
+            "SUPER_SAVE",
+            "ULTRA_POWER_SAVE",
+            -> CombinedStatusBatterySemanticState.SUPER_POWER_SAVE
             "PERFORMANCE_MODE" -> CombinedStatusBatterySemanticState.PERFORMANCE
             "LOW" -> CombinedStatusBatterySemanticState.LOW
             "NORMAL" -> CombinedStatusBatterySemanticState.NORMAL

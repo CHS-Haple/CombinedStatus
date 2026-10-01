@@ -15,8 +15,7 @@ internal object CombinedStatusColorPolicy {
         model: CombinedStatusRenderModel,
         tintState: CombinedStatusTintState,
         visualSettings: CombinedStatusVisualSettings = CombinedStatusVisualSettings(),
-        batteryColorPreferences: CombinedStatusBatteryColorPreferences =
-            CombinedStatusBatteryColorPreferences(),
+        batteryColorPreferences: CombinedStatusBatteryColorPreferences? = null,
     ): CombinedStatusColors {
         val nativeParticipantTint =
             tintState.statusIconTint
@@ -27,7 +26,9 @@ internal object CombinedStatusColorPolicy {
                 state = model.batterySemanticState,
                 systemSemanticColor = model.batterySystemSemanticColor,
                 statusIconTint = nativeParticipantTint,
-                preferences = batteryColorPreferences,
+                preferences =
+                    batteryColorPreferences
+                        ?: CombinedStatusBatteryColorPolicy.preferencesFor(visualSettings),
             )
 
         return CombinedStatusColors(

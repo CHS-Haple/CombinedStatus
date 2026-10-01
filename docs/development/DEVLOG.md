@@ -193,3 +193,55 @@ The nine-standard horizontally scrollable segmented control from Build 551/552 e
 ### Validation
 
 Run Runtime CI. One signed Canary is justified only to inspect popup placement, row density, current-value alignment, and interaction feel on the target device.
+
+
+## 2026-10-01 — Build 554 customization settings foundation
+
+**Type:** settings schema / color policy foundation  
+**Display version:** 0.0.3  
+**Build:** 554 / `20261001-554`  
+**Branch / PR:** `feat/battery-top-readout` / #181  
+
+### Goal
+
+Prepare the requested combined-icon sizing, ring thickness, Wi-Fi/mobile-type tuning, feature reset, and per-battery-mode color customization before exposing the controls.
+
+### Settings model
+
+Profile-scoped geometry (independent for Network-centered and Battery-centered layouts):
+- combined scale 85%-115%, default 100%;
+- ring stroke scale 70%-130%, default 100%;
+- Wi-Fi size 80%-125%, default 100%;
+- mobile-type size 80%-125%, default 100%;
+- mobile-type weight 500-950, default 800.
+
+Wi-Fi weight is deliberately not exposed: the steady path preferentially renders a native SystemUI drawable. Synthetic dilation or blur would violate native-first rendering and risks optical fuzziness.
+
+Global battery-color state:
+- presets: HyperOS native / iOS style;
+- custom opaque overrides for Normal, Power Save, Performance, Super Power Save, Charging, and Low;
+- iOS-style defaults use yellow #FFCC00, blue #007AFF, orange #FF9500, green #34C759, red #FF3B30; Normal follows status-icon tint;
+- custom per-slot overrides win over the selected preset.
+
+### Runtime semantic groundwork
+
+- Add `SUPER_POWER_SAVE` as a distinct semantic state and accept common native enum aliases if HyperOS exposes one.
+- Probe optional `mBatterySuperPowerSaveColor` / `mBatterySuperSaveColor`; if absent, HyperOS-native fallback uses the existing power-save color field.
+- Existing semantic authority remains `MiuiBatteryMeterIconView.getProgressStatus()`.
+
+### Reset semantics
+
+- `CombinedStatusVisualSettingsRepository.resetToDefaults()` clears all visual settings back to schema defaults.
+- `CombinedStatusFeatureSettingsRepository.resetToDefaults()` clears feature settings and refreshes the feature-change timestamp.
+- Battery-color overrides also have a dedicated reset helper so a palette can be restored without resetting unrelated controls.
+
+### 审查 / review
+
+- Color preset/overrides are global; geometry remains layout-profile scoped.
+- No second runtime settings owner is introduced; `RuntimeVisualPreferencesOwner` stays the single visual-settings bridge.
+- Build-552 transition curve and Build-553 sandbox selector are untouched.
+- Geometry fields are not consumed by Painter in this checkpoint, preventing half-wired steady vs transition geometry.
+
+### Validation
+
+Runtime CI must lock normalization, runtime-key participation, preset resolution, override precedence, super-power-save parsing, and compilation before geometry/UI wiring proceeds.
