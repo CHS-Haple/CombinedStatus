@@ -59,7 +59,6 @@ import top.yukonga.miuix.kmp.basic.BasicComponentDefaults
 import top.yukonga.miuix.kmp.basic.Button
 import top.yukonga.miuix.kmp.basic.ButtonDefaults
 import top.yukonga.miuix.kmp.basic.Card
-import top.yukonga.miuix.kmp.basic.CardDefaults
 import top.yukonga.miuix.kmp.basic.DropdownDefaults
 import top.yukonga.miuix.kmp.basic.DropdownImpl
 import top.yukonga.miuix.kmp.basic.DropdownItem
@@ -194,6 +193,7 @@ internal fun BatteryColorBottomSheet(
     OverlayBottomSheet(
         show = show,
         title = sheetTitle,
+        backgroundColor = MiuixTheme.colorScheme.surface,
         startAction =
             if (inDetail) {
                 {
@@ -991,11 +991,6 @@ private fun BatteryCustomModeEditor(
         )
         Card(
             insideMargin = PaddingValues(16.dp),
-            colors =
-                CardDefaults.defaultColors(
-                    color = MiuixTheme.colorScheme.surface,
-                    contentColor = MiuixTheme.colorScheme.onSurface,
-                ),
         ) {
             COMMON_BATTERY_COLORS.chunked(5).forEachIndexed { index, colors ->
                 Row(
@@ -1024,13 +1019,7 @@ private fun BatteryCustomModeEditor(
             text = stringResource(R.string.battery_color_full_adjustment),
             textColor = inactiveTitleColor,
         )
-        Card(
-            colors =
-                CardDefaults.defaultColors(
-                    color = MiuixTheme.colorScheme.surface,
-                    contentColor = MiuixTheme.colorScheme.onSurface,
-                ),
-        ) {
+        Card {
             if (hsv != null) {
                 BatteryHsvAdjustmentRow(
                     title = stringResource(R.string.battery_color_hue),
@@ -1092,11 +1081,6 @@ private fun BatteryCustomModeEditor(
         )
         Card(
             insideMargin = PaddingValues(16.dp),
-            colors =
-                CardDefaults.defaultColors(
-                    color = MiuixTheme.colorScheme.surface,
-                    contentColor = MiuixTheme.colorScheme.onSurface,
-                ),
         ) {
             TextField(
                 value = hexText,
