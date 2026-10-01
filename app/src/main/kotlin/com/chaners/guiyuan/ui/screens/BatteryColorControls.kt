@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -194,6 +195,7 @@ internal fun BatteryColorBottomSheet(
 
     OverlayBottomSheet(
         show = show,
+        modifier = Modifier.fillMaxHeight(0.84f),
         title = sheetTitle,
         startAction =
             if (inDetail) {
@@ -224,10 +226,10 @@ internal fun BatteryColorBottomSheet(
             state = navPager,
             modifier =
                 Modifier
-                    .fillMaxWidth()
-                    .height(520.dp)
+                    .fillMaxSize()
                     .clipToBounds(),
             userScrollEnabled = false,
+            verticalAlignment = Alignment.Top,
         ) { page ->
             if (page == 0) {
                 BatterySchemeOverview(
@@ -396,10 +398,7 @@ private fun BatterySchemeOverview(
     }
 
     Column(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .height(455.dp),
+        modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         BatterySchemeNavigator(
@@ -409,13 +408,14 @@ private fun BatterySchemeOverview(
                 scope.launch { pagerState.springAnimateToPage(target) }
             },
         )
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(8.dp))
         HorizontalPager(
             state = pagerState,
             modifier =
                 Modifier
                     .fillMaxWidth()
                     .weight(1f)
+                    .clipToBounds()
                     .pagerGestureOverride(
                         pagerState = pagerState,
                         flingBehavior = flingBehavior,
@@ -423,6 +423,8 @@ private fun BatterySchemeOverview(
             userScrollEnabled = false,
             flingBehavior = flingBehavior,
             pageNestedScrollConnection = PagerGestureNestedScrollConnection,
+            pageSpacing = 12.dp,
+            verticalAlignment = Alignment.Top,
         ) { index ->
             when (val page = pages[index]) {
                 is BatterySchemePage.BuiltIn ->
@@ -515,16 +517,21 @@ private fun BatterySchemePageContent(
                 }
             }
             Spacer(Modifier.height(12.dp))
-            BatterySchemePreviewStrip(
-                page =
-                    if (builtIn != null) {
-                        BatterySchemePage.BuiltIn(builtIn)
-                    } else {
-                        custom?.let(BatterySchemePage::Custom)
-                    },
-                size = 28.dp,
-                spacing = 10.dp,
-            )
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center,
+            ) {
+                BatterySchemePreviewStrip(
+                    page =
+                        if (builtIn != null) {
+                            BatterySchemePage.BuiltIn(builtIn)
+                        } else {
+                            custom?.let(BatterySchemePage::Custom)
+                        },
+                    size = 28.dp,
+                    spacing = 10.dp,
+                )
+            }
             Spacer(Modifier.height(12.dp))
             Box(
                 modifier = Modifier.fillMaxWidth(),
@@ -645,11 +652,16 @@ private fun BatteryAddSchemePage(
                 )
             }
             Spacer(Modifier.height(12.dp))
-            BatterySchemePreviewStrip(
-                page = BatterySchemePage.BuiltIn(BatteryBuiltInColorScheme.HYPEROS),
-                size = 28.dp,
-                spacing = 10.dp,
-            )
+            Box(
+                modifier = Modifier.fillMaxWidth(),
+                contentAlignment = Alignment.Center,
+            ) {
+                BatterySchemePreviewStrip(
+                    page = BatterySchemePage.BuiltIn(BatteryBuiltInColorScheme.HYPEROS),
+                    size = 28.dp,
+                    spacing = 10.dp,
+                )
+            }
             Spacer(Modifier.height(16.dp))
             Card(
                 modifier =
@@ -711,53 +723,64 @@ private fun BatterySchemeNavigator(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.Center,
     ) {
-        IconButton(
-            onClick = { onNavigateTo(currentPage - 1) },
+        BatterySchemeNavigationButton(
             enabled = canGoBack,
-            backgroundColor =
-                if (canGoBack) {
-                    MiuixTheme.colorScheme.secondaryVariant
-                } else {
-                    MiuixTheme.colorScheme.disabledSecondaryVariant
-                },
-        ) {
-            Icon(
-                imageVector = MiuixIcons.ChevronBackward,
-                contentDescription = stringResource(R.string.battery_color_scheme_previous),
-                tint =
-                    if (canGoBack) {
-                        MiuixTheme.colorScheme.onSecondaryVariant
-                    } else {
-                        MiuixTheme.colorScheme.disabledOnSecondaryVariant
-                    },
-            )
-        }
-        Spacer(Modifier.width(24.dp))
+            imageVector = MiuixIcons.ChevronBackward,
+            contentDescription = stringResource(R.string.battery_color_scheme_previous),
+            onClick = { onNavigateTo(currentPage - 1) },
+        )
+        Spacer(Modifier.width(12.dp))
         BatteryPagerIndicator(
             pageCount = pageCount,
             currentPage = currentPage,
         )
-        Spacer(Modifier.width(24.dp))
-        IconButton(
-            onClick = { onNavigateTo(currentPage + 1) },
+        Spacer(Modifier.width(12.dp))
+        BatterySchemeNavigationButton(
             enabled = canGoForward,
-            backgroundColor =
-                if (canGoForward) {
+            imageVector = MiuixIcons.ChevronForward,
+            contentDescription = stringResource(R.string.battery_color_scheme_next),
+            onClick = { onNavigateTo(currentPage + 1) },
+        )
+    }
+}
+
+@Composable
+private fun BatterySchemeNavigationButton(
+    enabled: Boolean,
+    imageVector: androidx.compose.ui.graphics.vector.ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+) {
+    IconButton(
+        onClick = onClick,
+        enabled = enabled,
+    ) {
+        Surface(
+            modifier = Modifier.size(32.dp),
+            shape = CircleShape,
+            color =
+                if (enabled) {
                     MiuixTheme.colorScheme.secondaryVariant
                 } else {
                     MiuixTheme.colorScheme.disabledSecondaryVariant
                 },
         ) {
-            Icon(
-                imageVector = MiuixIcons.ChevronForward,
-                contentDescription = stringResource(R.string.battery_color_scheme_next),
-                tint =
-                    if (canGoForward) {
-                        MiuixTheme.colorScheme.onSecondaryVariant
-                    } else {
-                        MiuixTheme.colorScheme.disabledOnSecondaryVariant
-                    },
-            )
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = imageVector,
+                    contentDescription = contentDescription,
+                    modifier = Modifier.size(18.dp),
+                    tint =
+                        if (enabled) {
+                            MiuixTheme.colorScheme.onSecondaryVariant
+                        } else {
+                            MiuixTheme.colorScheme.disabledOnSecondaryVariant
+                        },
+                )
+            }
         }
     }
 }
@@ -973,7 +996,7 @@ private fun BatteryCustomModeEditor(
             Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(bottom = 24.dp),
+                .padding(bottom = 16.dp),
     ) {
         Card(
             modifier = Modifier.fillMaxWidth(),
@@ -982,7 +1005,7 @@ private fun BatteryCustomModeEditor(
                     color = MiuixTheme.colorScheme.surface,
                     contentColor = MiuixTheme.colorScheme.onSurface,
                 ),
-            insideMargin = PaddingValues(16.dp),
+            insideMargin = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
         ) {
             OverlayDropdownPreference(
             items = sourceLabels,
@@ -1009,14 +1032,14 @@ private fun BatteryCustomModeEditor(
             textColor = inactiveTitleColor,
         )
         Card(
-            insideMargin = PaddingValues(16.dp),
+            insideMargin = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
         ) {
             COMMON_BATTERY_COLORS.chunked(5).forEachIndexed { index, colors ->
                 Row(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .padding(bottom = if (index == 0) 12.dp else 0.dp),
+                            .padding(bottom = if (index == 0) 8.dp else 0.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -1099,7 +1122,7 @@ private fun BatteryCustomModeEditor(
             textColor = inactiveTitleColor,
         )
         Card(
-            insideMargin = PaddingValues(16.dp),
+            insideMargin = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
         ) {
             TextField(
                 value = hexText,
@@ -1187,6 +1210,7 @@ private fun BatteryHsvAdjustmentRow(
     BasicComponent(
         title = title,
         enabled = !visuallyInactive,
+        insideMargin = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
         endActions = {
             Text(
                 text = valueText,
