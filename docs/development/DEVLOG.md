@@ -15328,3 +15328,43 @@ Build 547 is a strict single-variable AB:
 ### Device gate
 
 Signed exact-head Canary required. Primary check: confirm the ring now clears before CENTER/network visually intersects it, while preserving the continuous Build-546 appearance. If 0.60 is still slow, the next adjustment should remain on this one scalar; if it becomes too abrupt, tune between 0.60 and 0.80 rather than reviving the gate.
+
+
+## 2026-10-01 — Build 548 faster continuous retract AB
+
+**Type:** focused device-evidence timing refinement  
+**Display version:** 0.0.3  
+**Build:** 548 / `20261001-548`  
+**Branch / PR:** `feat/battery-top-readout` / #181  
+
+### Device evidence
+
+Build-547 device video still shows the Battery ring retaining a visible outlet-side arc after CENTER/network has already moved far enough that the ring reads as an obstruction. The retract remains continuous, so the Build-545 discontinuity route stays rejected.
+
+### Root cause
+
+Build 547 still waits until 60% of the existing HyperOS transition clock for zero remaining ring sweep. Because the same symmetric smoothstep is preserved, the final visible tail is continuous but remains on screen longer than the desired choreography.
+
+### Change
+
+Single-variable AB:
+- `TRANSITION_COMPLETE_PROGRESS: 0.60f -> 0.45f`;
+- local ring progress reaches 0.5 at global progress 0.225 and 1.0 at 0.45;
+- the existing symmetric smoothstep remains the only shape curve;
+- LEFT/RIGHT/NONE ordered-arc semantics are unchanged;
+- CENTER/network native target geometry and timing are unchanged;
+- Battery target/handoff, reverse symmetry, and Build-542 island behavior are unchanged.
+
+### 审查 / review
+
+- **root cause / scope:** timing scalar only; no new geometry gate or second timeline.
+- **continuity:** retains Build-546/547 continuous topology; Build-545 live optical gate remains rejected.
+- **ownership / lifecycle:** unchanged.
+- **single writer / Fail-native:** unchanged.
+- **performance:** no new per-frame work, hook, listener, allocation path, or hierarchy traversal.
+- **regression boundary:** steady rendering, battery-top controls, native peer motion, typography handoff, and island projection are untouched.
+- **tests:** remap coverage now locks 0.225 -> 0.5 and 0.45 -> 1.0 while all existing arc/direction semantics remain covered.
+
+### Validation
+
+Run exact-head Runtime CI. If green, request one signed exact-head Canary. Primary device check: the ring should clear before CENTER/network visually reaches it, without a chunk disappearing or any endpoint/path change. Fast and slow pulls should remain continuous and reverse collapse should stay symmetric.

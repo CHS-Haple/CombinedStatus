@@ -6,7 +6,7 @@ import org.junit.Test
 
 class CombinedStatusBatteryRingTransitionPolicyTest {
     @Test
-    fun transitionProgressFinishesRingAtSixtyPercentWithoutJump() {
+    fun transitionProgressFinishesRingAtFortyFivePercentWithoutJump() {
         assertEquals(
             0f,
             CombinedStatusBatteryRingTransitionPolicy.transitionProgress(0f),
@@ -14,7 +14,12 @@ class CombinedStatusBatteryRingTransitionPolicyTest {
         )
         assertEquals(
             0.5f,
-            CombinedStatusBatteryRingTransitionPolicy.transitionProgress(0.3f),
+            CombinedStatusBatteryRingTransitionPolicy.transitionProgress(0.225f),
+            0.0001f,
+        )
+        assertEquals(
+            1f,
+            CombinedStatusBatteryRingTransitionPolicy.transitionProgress(0.45f),
             0.0001f,
         )
         assertEquals(
