@@ -233,7 +233,15 @@ internal fun BatteryColorBottomSheet(
                     }
                 }
             } else {
-                null
+                {
+                    Spacer(
+                        modifier =
+                            Modifier.size(
+                                width = IconButtonDefaults.MinWidth,
+                                height = IconButtonDefaults.MinHeight,
+                            ),
+                    )
+                }
             },
         onDismissRequest = {
             if (inDetail) {
