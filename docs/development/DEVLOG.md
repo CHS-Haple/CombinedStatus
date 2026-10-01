@@ -1,3 +1,28 @@
+## 2026-10-02 — Build 589 true MIUIX pill Apply button
+
+**Type:** App UI / MIUIX button geometry  
+**Display version:** 0.0.3  
+**Build:** 589 / `20261002-589`  
+**Branch / PR:** `feat/battery-top-readout` / #181
+
+### Maintainer correction
+The Apply action must be a true capsule/pill, not merely a more-rounded rectangle.
+
+### Root cause
+Build 588 used `ButtonDefaults.MinHeight * 0.5f` as the radius. `MinHeight` is only the component minimum; native Button content padding can make the actual rendered height larger, so a 20dp radius does not guarantee a pill silhouette.
+
+### Pinned MIUIX precedent
+Pinned MIUIX Snackbar action pills use an explicit 50dp action corner radius. The squircle renderer also supports capsule/pill degradation at large corner radii.
+
+### Change
+- Keep native MIUIX `Button`.
+- Keep primary semantic colors, native text style and interaction.
+- Keep 120dp minimum width.
+- Set `cornerRadius = 50.dp` so the control remains visually capsule-shaped regardless of its final measured height.
+
+### Validation
+Run exact-head Runtime CI and Canary. Device acceptance: Apply/Applied must read as a genuine pill.
+
 ## 2026-10-02 — Build 588 secondary gray-Sheet hierarchy and locked two-level height
 
 **Type:** App UI / MIUIX hierarchy / sheet geometry  
