@@ -310,7 +310,7 @@ private fun HomePreviewSandboxCard(
     Card(
         modifier = modifier,
         insideMargin = PaddingValues(horizontal = 18.dp, vertical = 16.dp),
-        pressFeedbackType = PressFeedbackType.Sink,
+        pressFeedbackType = PressFeedbackType.Tilt,
         showIndication = true,
         onClick = onOpen,
     ) {
