@@ -1,3 +1,36 @@
+## 2026-10-02 — Build 591 full battery-color layout review
+
+**Type:** App UI / MIUIX conformance / layout ownership  
+**Display version:** 0.0.3  
+**Build:** 591 / `20261002-591`  
+**Branch / PR:** `feat/battery-top-readout` / #181
+
+### Review scope
+Re-audit the complete first-level scheme page, Add page, fixed navigator, secondary editor and two-level Sheet geometry against pinned MIUIX components and current maintainer requirements.
+
+### Findings and fixes
+- Ordinary/custom/Add pages duplicated title/preview geometry. They now share one `BatterySchemeHeader`.
+- Scheme title remains `MiuixTheme.textStyles.title2`, matching MIUIX Card guidance.
+- Title is center-aligned with symmetric native IconButton-width safe areas, single-line ellipsis and a trailing More action at the same vertical baseline.
+- All functional Cards are explicitly full-width to prevent content-measurement-dependent edge drift.
+- Add FAB returns to upstream default elevation; its disabled substitute references the upstream FAB size constant.
+- HEX input explicitly fills the white precise-input Card so its edge aligns with the RGB row.
+- Apply/Applied remains the complete MIUIX Snackbar action pill: native TextButton, 26dp minimum metrics, action-pill radius/margins, 15sp and primary semantic colors.
+
+### Confirmed native ownership
+- OverlayBottomSheet title/back geometry and title typography.
+- Card 16dp radius and semantic container colors.
+- ArrowPreference / OverlayDropdownPreference / BasicComponent spacing, title/summary typography and action colors.
+- SmallTitle default 14sp Bold and 28dp/8dp inset.
+- FAB default 60dp geometry and 4dp elevation.
+- Sheet height is owned once by the shared OverlayBottomSheet and is identical at both levels.
+
+### Project-owned visuals retained
+Only where pinned MIUIX has no exact component or the maintainer explicitly requested it: scheme preview swatches, custom pager indicator, optically smaller visible navigator surface inside the native 40dp hit target, enlarged Add glyph, and page spacing.
+
+### Validation
+Run exact-head Runtime CI and Canary. Device review should focus on optical centering, custom-title/Menu alignment, Add/ordinary top baseline, full-width Card edges, true action-pill geometry, and identical first/second-level Sheet height.
+
 ## 2026-10-02 — Build 590 complete MIUIX action-pill Apply control
 
 **Type:** App UI / MIUIX pill conformance  
