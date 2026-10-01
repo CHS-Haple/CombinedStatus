@@ -1,8 +1,10 @@
 package com.chaners.guiyuan.xposed
 
+import com.chaners.guiyuan.settings.CombinedStatusBatteryColorMode
 import com.chaners.guiyuan.settings.CombinedStatusBatteryColorPreset
 import com.chaners.guiyuan.settings.CombinedStatusBatteryColorSlot
 import com.chaners.guiyuan.settings.CombinedStatusIosStyleBatteryPalette
+import com.chaners.guiyuan.settings.CombinedStatusRecommendedBatteryPalette
 import com.chaners.guiyuan.settings.CombinedStatusVisualSettings
 
 internal sealed interface CombinedStatusBatteryColorSource {
@@ -37,17 +39,30 @@ internal object CombinedStatusBatteryColorPolicy {
     fun preferencesFor(
         settings: CombinedStatusVisualSettings,
     ): CombinedStatusBatteryColorPreferences {
-        fun source(slot: CombinedStatusBatteryColorSlot): CombinedStatusBatteryColorSource {
-            settings.batteryColorOverrides.colorFor(slot)?.let { color ->
-                return CombinedStatusBatteryColorSource.Custom(color)
+        fun presetSource(slot: CombinedStatusBatteryColorSlot): CombinedStatusBatteryColorSource =
+            when (settings.batteryColorPreset) {
+                CombinedStatusBatteryColorPreset.RECOMMENDED ->
+                    CombinedStatusRecommendedBatteryPalette.colorFor(slot)
+                        ?.let(CombinedStatusBatteryColorSource::Custom)
+                        ?: CombinedStatusBatteryColorSource.FollowStatusIcon
+                CombinedStatusBatteryColorPreset.HYPEROS ->
+                    CombinedStatusBatteryColorSource.SystemDefault
+                CombinedStatusBatteryColorPreset.IOS_STYLE ->
+                    CombinedStatusIosStyleBatteryPalette.colorFor(slot)
+                        ?.let(CombinedStatusBatteryColorSource::Custom)
+                        ?: CombinedStatusBatteryColorSource.FollowStatusIcon
             }
-            if (settings.batteryColorPreset == CombinedStatusBatteryColorPreset.HYPEROS_NATIVE) {
-                return CombinedStatusBatteryColorSource.SystemDefault
+
+        fun source(slot: CombinedStatusBatteryColorSlot): CombinedStatusBatteryColorSource =
+            when (settings.batteryColorModes.modeFor(slot)) {
+                CombinedStatusBatteryColorMode.PRESET -> presetSource(slot)
+                CombinedStatusBatteryColorMode.FOLLOW_SYSTEM ->
+                    CombinedStatusBatteryColorSource.FollowStatusIcon
+                CombinedStatusBatteryColorMode.CUSTOM ->
+                    settings.batteryColorOverrides.colorFor(slot)
+                        ?.let(CombinedStatusBatteryColorSource::Custom)
+                        ?: presetSource(slot)
             }
-            return CombinedStatusIosStyleBatteryPalette.colorFor(slot)
-                ?.let(CombinedStatusBatteryColorSource::Custom)
-                ?: CombinedStatusBatteryColorSource.FollowStatusIcon
-        }
 
         return CombinedStatusBatteryColorPreferences(
             normal = source(CombinedStatusBatteryColorSlot.NORMAL),

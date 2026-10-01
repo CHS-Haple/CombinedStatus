@@ -419,3 +419,75 @@ Pre-commit review of the correction confirmed:
 - helper call count and all Build-558 scale semantics remain unchanged.
 
 No runtime behavior, range, transition timing, or visual default changed.
+
+
+## 2026-10-01 — Build 559 per-mode battery color sources and Recommended preset
+
+**Type:** color settings schema / runtime policy foundation  
+**Display version:** 0.0.3  
+**Build:** 559 / `20261001-559`  
+**Branch / PR:** `feat/battery-top-readout` / #181  
+
+### User-facing model
+
+Palette order/naming for the upcoming UI:
+1. Recommended
+2. HyperOS
+3. iOS
+
+Recommended is the default for new installs and after a full feature reset. HyperOS keeps the persisted value `hyperos_native` for backward compatibility; only the UI label changes.
+
+Each battery semantic slot independently selects one source mode:
+- preset color;
+- follow system tint/inversion;
+- custom color.
+
+The global palette therefore supplies defaults only for slots currently using “preset color”; it never locks the whole color set.
+
+### Recommended palette candidate
+
+Initial muted status-bar candidate:
+- Power save: `#D5A623`
+- Performance: `#4A7FC1`
+- Super power save: `#D8752C`
+- Charging: `#3FA760`
+- Low battery: `#D64A4A`
+- Normal: follow status-icon tint
+
+These values are intentionally less luminous than the iOS semantic set and are not treated as final until the color BottomSheet/preview receives optical and device review.
+
+### Backward compatibility
+
+- Existing installs without an explicit palette are detected through the pre-existing visual schema marker. The shared `readCombinedStatusVisualSettings()` fallback resolves them as HyperOS immediately, and the App-side one-time migration persists that choice when the repository initializes. SystemUI therefore cannot transiently switch an old install to Recommended merely because it starts first.
+- Fresh installs have no previous visual schema marker and default to Recommended.
+- Existing `hyperos_native` persisted values map directly to the renamed HyperOS enum member.
+- Legacy custom colors that predate per-slot mode keys infer `CUSTOM` automatically.
+- A stored custom color remains persisted when a slot switches to Preset or Follow System; it becomes active again if the slot later returns to Custom.
+- Custom mode without a valid stored color falls back to that slot’s current preset source.
+
+### Pre-commit 审查 / review
+
+- Palette selection remains global; source mode remains per semantic slot.
+- Runtime resolution order is explicit: per-slot mode -> selected palette/custom/system source -> existing visibility fallback.
+- Follow System always resolves to the current status-icon tint and therefore retains native black/white inversion behavior.
+- HyperOS preset still delegates to SystemUI semantic colors instead of duplicating fixed hex values.
+- Recommended/iOS Normal remain monochrome by following status-icon tint.
+- Mode keys are included in the visual runtime-key set, so App and SystemUI hot updates use the existing single visual-settings bridge.
+- No second battery observer, color owner, listener, or writer is introduced.
+
+### Tests
+
+Coverage added/updated for:
+- Recommended as the new default;
+- old-install missing-preset migration to HyperOS;
+- fresh-install missing-preset default to Recommended;
+- legacy stored custom color -> Custom mode inference;
+- Recommended semantic values;
+- per-slot Follow System overriding an iOS preset;
+- stored custom color ignored while slot mode is Preset;
+- stored custom color used again when slot mode is Custom;
+- all new mode keys participating in runtime synchronization.
+
+### Validation
+
+Run exact-head Runtime CI before any BottomSheet/UI work is committed.

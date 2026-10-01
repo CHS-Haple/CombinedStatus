@@ -35,6 +35,70 @@ class CombinedStatusVisualSettingsTest {
     }
 
     @Test
+    fun recommendedIsTheNewDefaultPreset() {
+        assertEquals(
+            CombinedStatusBatteryColorPreset.RECOMMENDED,
+            CombinedStatusVisualSettings().batteryColorPreset,
+        )
+        assertEquals(
+            CombinedStatusBatteryColorPreset.RECOMMENDED,
+            CombinedStatusBatteryColorPreset.fromPersisted(null),
+        )
+    }
+
+    @Test
+    fun existingInstallWithoutExplicitPresetKeepsHyperos() {
+        assertEquals(
+            CombinedStatusBatteryColorPreset.HYPEROS,
+            batteryColorPresetForMissingKey(hadPreviousVisualSchema = true),
+        )
+        assertEquals(
+            CombinedStatusBatteryColorPreset.RECOMMENDED,
+            batteryColorPresetForMissingKey(hadPreviousVisualSchema = false),
+        )
+    }
+
+    @Test
+    fun legacyStoredCustomColorInfersCustomMode() {
+        assertEquals(
+            CombinedStatusBatteryColorMode.CUSTOM,
+            batteryColorModeFromPersisted(
+                persistedMode = null,
+                hasStoredColor = true,
+            ),
+        )
+        assertEquals(
+            CombinedStatusBatteryColorMode.PRESET,
+            batteryColorModeFromPersisted(
+                persistedMode = null,
+                hasStoredColor = false,
+            ),
+        )
+        assertEquals(
+            CombinedStatusBatteryColorMode.FOLLOW_SYSTEM,
+            batteryColorModeFromPersisted(
+                persistedMode = "follow_system",
+                hasStoredColor = true,
+            ),
+        )
+    }
+
+    @Test
+    fun recommendedPaletteUsesMutedSemanticDefaults() {
+        assertEquals(0xFF3FA760.toInt(), CombinedStatusRecommendedBatteryPalette.CHARGING)
+        assertEquals(0xFFD5A623.toInt(), CombinedStatusRecommendedBatteryPalette.POWER_SAVE)
+        assertEquals(0xFF4A7FC1.toInt(), CombinedStatusRecommendedBatteryPalette.PERFORMANCE)
+        assertEquals(0xFFD8752C.toInt(), CombinedStatusRecommendedBatteryPalette.SUPER_POWER_SAVE)
+        assertEquals(0xFFD64A4A.toInt(), CombinedStatusRecommendedBatteryPalette.LOW)
+        assertEquals(
+            null,
+            CombinedStatusRecommendedBatteryPalette.colorFor(
+                CombinedStatusBatteryColorSlot.NORMAL,
+            ),
+        )
+    }
+
+    @Test
     fun iosStylePaletteUsesExpectedSemanticDefaults() {
         assertEquals(0xFF34C759.toInt(), CombinedStatusIosStyleBatteryPalette.CHARGING)
         assertEquals(0xFFFFCC00.toInt(), CombinedStatusIosStyleBatteryPalette.POWER_SAVE)
@@ -190,6 +254,12 @@ class CombinedStatusVisualSettingsTest {
     fun globalBatteryColorKeysParticipateInRuntimeSync() {
         listOf(
             BATTERY_COLOR_PRESET_KEY,
+            BATTERY_COLOR_MODE_NORMAL_KEY,
+            BATTERY_COLOR_MODE_POWER_SAVE_KEY,
+            BATTERY_COLOR_MODE_PERFORMANCE_KEY,
+            BATTERY_COLOR_MODE_SUPER_POWER_SAVE_KEY,
+            BATTERY_COLOR_MODE_CHARGING_KEY,
+            BATTERY_COLOR_MODE_LOW_KEY,
             BATTERY_COLOR_NORMAL_KEY,
             BATTERY_COLOR_POWER_SAVE_KEY,
             BATTERY_COLOR_PERFORMANCE_KEY,

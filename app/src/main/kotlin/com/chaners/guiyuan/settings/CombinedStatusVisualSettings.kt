@@ -23,12 +23,26 @@ internal enum class CombinedStatusContentLayout(
 internal enum class CombinedStatusBatteryColorPreset(
     val persistedValue: String,
 ) {
-    HYPEROS_NATIVE("hyperos_native"),
+    RECOMMENDED("recommended"),
+    HYPEROS("hyperos_native"),
     IOS_STYLE("ios_style");
 
     companion object {
         fun fromPersisted(value: String?): CombinedStatusBatteryColorPreset =
-            entries.firstOrNull { it.persistedValue == value } ?: HYPEROS_NATIVE
+            entries.firstOrNull { it.persistedValue == value } ?: RECOMMENDED
+    }
+}
+
+internal enum class CombinedStatusBatteryColorMode(
+    val persistedValue: String,
+) {
+    PRESET("preset"),
+    FOLLOW_SYSTEM("follow_system"),
+    CUSTOM("custom");
+
+    companion object {
+        fun fromPersisted(value: String?): CombinedStatusBatteryColorMode =
+            entries.firstOrNull { it.persistedValue == value } ?: PRESET
     }
 }
 
@@ -39,6 +53,38 @@ internal enum class CombinedStatusBatteryColorSlot {
     SUPER_POWER_SAVE,
     CHARGING,
     LOW,
+}
+
+internal data class CombinedStatusBatteryColorModes(
+    val normal: CombinedStatusBatteryColorMode = CombinedStatusBatteryColorMode.PRESET,
+    val powerSave: CombinedStatusBatteryColorMode = CombinedStatusBatteryColorMode.PRESET,
+    val performance: CombinedStatusBatteryColorMode = CombinedStatusBatteryColorMode.PRESET,
+    val superPowerSave: CombinedStatusBatteryColorMode = CombinedStatusBatteryColorMode.PRESET,
+    val charging: CombinedStatusBatteryColorMode = CombinedStatusBatteryColorMode.PRESET,
+    val low: CombinedStatusBatteryColorMode = CombinedStatusBatteryColorMode.PRESET,
+) {
+    fun modeFor(slot: CombinedStatusBatteryColorSlot): CombinedStatusBatteryColorMode =
+        when (slot) {
+            CombinedStatusBatteryColorSlot.NORMAL -> normal
+            CombinedStatusBatteryColorSlot.POWER_SAVE -> powerSave
+            CombinedStatusBatteryColorSlot.PERFORMANCE -> performance
+            CombinedStatusBatteryColorSlot.SUPER_POWER_SAVE -> superPowerSave
+            CombinedStatusBatteryColorSlot.CHARGING -> charging
+            CombinedStatusBatteryColorSlot.LOW -> low
+        }
+
+    fun withMode(
+        slot: CombinedStatusBatteryColorSlot,
+        mode: CombinedStatusBatteryColorMode,
+    ): CombinedStatusBatteryColorModes =
+        when (slot) {
+            CombinedStatusBatteryColorSlot.NORMAL -> copy(normal = mode)
+            CombinedStatusBatteryColorSlot.POWER_SAVE -> copy(powerSave = mode)
+            CombinedStatusBatteryColorSlot.PERFORMANCE -> copy(performance = mode)
+            CombinedStatusBatteryColorSlot.SUPER_POWER_SAVE -> copy(superPowerSave = mode)
+            CombinedStatusBatteryColorSlot.CHARGING -> copy(charging = mode)
+            CombinedStatusBatteryColorSlot.LOW -> copy(low = mode)
+        }
 }
 
 internal data class CombinedStatusBatteryColorOverrides(
@@ -73,6 +119,24 @@ internal data class CombinedStatusBatteryColorOverrides(
             CombinedStatusBatteryColorSlot.LOW -> copy(low = opaque)
         }
     }
+}
+
+internal object CombinedStatusRecommendedBatteryPalette {
+    val POWER_SAVE = 0xFFD5A623.toInt()
+    val PERFORMANCE = 0xFF4A7FC1.toInt()
+    val SUPER_POWER_SAVE = 0xFFD8752C.toInt()
+    val CHARGING = 0xFF3FA760.toInt()
+    val LOW = 0xFFD64A4A.toInt()
+
+    fun colorFor(slot: CombinedStatusBatteryColorSlot): Int? =
+        when (slot) {
+            CombinedStatusBatteryColorSlot.NORMAL -> null
+            CombinedStatusBatteryColorSlot.POWER_SAVE -> POWER_SAVE
+            CombinedStatusBatteryColorSlot.PERFORMANCE -> PERFORMANCE
+            CombinedStatusBatteryColorSlot.SUPER_POWER_SAVE -> SUPER_POWER_SAVE
+            CombinedStatusBatteryColorSlot.CHARGING -> CHARGING
+            CombinedStatusBatteryColorSlot.LOW -> LOW
+        }
 }
 
 internal object CombinedStatusIosStyleBatteryPalette {
@@ -112,7 +176,9 @@ internal data class CombinedStatusVisualSettings(
     val mobileTypeSizeScale: Float = MOBILE_TYPE_SIZE_SCALE_DEFAULT,
     val mobileTypeWeight: Int = MOBILE_TYPE_WEIGHT_DEFAULT,
     val batteryColorPreset: CombinedStatusBatteryColorPreset =
-        CombinedStatusBatteryColorPreset.HYPEROS_NATIVE,
+        CombinedStatusBatteryColorPreset.RECOMMENDED,
+    val batteryColorModes: CombinedStatusBatteryColorModes =
+        CombinedStatusBatteryColorModes(),
     val batteryColorOverrides: CombinedStatusBatteryColorOverrides =
         CombinedStatusBatteryColorOverrides(),
 )
@@ -177,6 +243,7 @@ internal class CombinedStatusVisualSettingsRepository(context: Context) {
         )
 
     init {
+        migrateBatteryColorPresetDefaultIfNeeded(preferences)
         migrateBatteryTopChargingScaleReferenceIfNeeded(preferences)
     }
 
@@ -350,6 +417,15 @@ internal class CombinedStatusVisualSettingsRepository(context: Context) {
             .apply()
     }
 
+    fun setBatteryColorMode(
+        slot: CombinedStatusBatteryColorSlot,
+        mode: CombinedStatusBatteryColorMode,
+    ) {
+        preferences.edit()
+            .putString(batteryColorModeKey(slot), mode.persistedValue)
+            .apply()
+    }
+
     fun setBatteryColorOverride(
         slot: CombinedStatusBatteryColorSlot,
         color: Int?,
@@ -367,6 +443,7 @@ internal class CombinedStatusVisualSettingsRepository(context: Context) {
     fun resetBatteryColorOverrides() {
         val editor = preferences.edit()
         CombinedStatusBatteryColorSlot.entries.forEach { slot ->
+            editor.remove(batteryColorModeKey(slot))
             editor.remove(batteryColorOverrideKey(slot))
         }
         editor.apply()
@@ -526,8 +603,44 @@ internal fun SharedPreferences.readCombinedStatusVisualSettings(): CombinedStatu
             CombinedStatusBatteryColorPreset.fromPersisted(
                 getString(
                     BATTERY_COLOR_PRESET_KEY,
-                    CombinedStatusBatteryColorPreset.HYPEROS_NATIVE.persistedValue,
+                    batteryColorPresetForMissingKey(
+                        hadPreviousVisualSchema =
+                            contains(BATTERY_TOP_CHARGING_SCALE_SCHEMA_KEY),
+                    ).persistedValue,
                 ),
+            ),
+        batteryColorModes =
+            CombinedStatusBatteryColorModes(
+                normal =
+                    batteryColorMode(
+                        modeKey = BATTERY_COLOR_MODE_NORMAL_KEY,
+                        colorKey = BATTERY_COLOR_NORMAL_KEY,
+                    ),
+                powerSave =
+                    batteryColorMode(
+                        modeKey = BATTERY_COLOR_MODE_POWER_SAVE_KEY,
+                        colorKey = BATTERY_COLOR_POWER_SAVE_KEY,
+                    ),
+                performance =
+                    batteryColorMode(
+                        modeKey = BATTERY_COLOR_MODE_PERFORMANCE_KEY,
+                        colorKey = BATTERY_COLOR_PERFORMANCE_KEY,
+                    ),
+                superPowerSave =
+                    batteryColorMode(
+                        modeKey = BATTERY_COLOR_MODE_SUPER_POWER_SAVE_KEY,
+                        colorKey = BATTERY_COLOR_SUPER_POWER_SAVE_KEY,
+                    ),
+                charging =
+                    batteryColorMode(
+                        modeKey = BATTERY_COLOR_MODE_CHARGING_KEY,
+                        colorKey = BATTERY_COLOR_CHARGING_KEY,
+                    ),
+                low =
+                    batteryColorMode(
+                        modeKey = BATTERY_COLOR_MODE_LOW_KEY,
+                        colorKey = BATTERY_COLOR_LOW_KEY,
+                    ),
             ),
         batteryColorOverrides =
             CombinedStatusBatteryColorOverrides(
@@ -597,7 +710,8 @@ internal fun SharedPreferences.Editor.putCombinedStatusVisualSettings(
     ).putString(
         BATTERY_COLOR_PRESET_KEY,
         normalized.batteryColorPreset.persistedValue,
-    ).applyBatteryColorOverrides(normalized.batteryColorOverrides)
+    ).applyBatteryColorModes(normalized.batteryColorModes)
+        .applyBatteryColorOverrides(normalized.batteryColorOverrides)
 }
 
 internal const val COMBINED_STATUS_VISUAL_PREFS_NAME = "combined_status_visual"
@@ -621,6 +735,12 @@ internal const val WIFI_SIZE_SCALE_KEY = "wifi_size_scale"
 internal const val MOBILE_TYPE_SIZE_SCALE_KEY = "mobile_type_size_scale"
 internal const val MOBILE_TYPE_WEIGHT_KEY = "mobile_type_weight"
 internal const val BATTERY_COLOR_PRESET_KEY = "battery_color_preset"
+internal const val BATTERY_COLOR_MODE_NORMAL_KEY = "battery_color_mode_normal"
+internal const val BATTERY_COLOR_MODE_POWER_SAVE_KEY = "battery_color_mode_power_save"
+internal const val BATTERY_COLOR_MODE_PERFORMANCE_KEY = "battery_color_mode_performance"
+internal const val BATTERY_COLOR_MODE_SUPER_POWER_SAVE_KEY = "battery_color_mode_super_power_save"
+internal const val BATTERY_COLOR_MODE_CHARGING_KEY = "battery_color_mode_charging"
+internal const val BATTERY_COLOR_MODE_LOW_KEY = "battery_color_mode_low"
 internal const val BATTERY_COLOR_NORMAL_KEY = "battery_color_normal"
 internal const val BATTERY_COLOR_POWER_SAVE_KEY = "battery_color_power_save"
 internal const val BATTERY_COLOR_PERFORMANCE_KEY = "battery_color_performance"
@@ -651,6 +771,12 @@ private val PROFILE_VISUAL_BASE_KEYS =
 private val GLOBAL_VISUAL_KEYS =
     setOf(
         BATTERY_COLOR_PRESET_KEY,
+        BATTERY_COLOR_MODE_NORMAL_KEY,
+        BATTERY_COLOR_MODE_POWER_SAVE_KEY,
+        BATTERY_COLOR_MODE_PERFORMANCE_KEY,
+        BATTERY_COLOR_MODE_SUPER_POWER_SAVE_KEY,
+        BATTERY_COLOR_MODE_CHARGING_KEY,
+        BATTERY_COLOR_MODE_LOW_KEY,
         BATTERY_COLOR_NORMAL_KEY,
         BATTERY_COLOR_POWER_SAVE_KEY,
         BATTERY_COLOR_PERFORMANCE_KEY,
@@ -697,10 +823,51 @@ internal const val BATTERY_TOP_CHARGING_ICON_SCALE_MIN =
     BATTERY_TOP_CHARGING_ICON_UI_SCALE_REFERENCE * BATTERY_TOP_CHARGING_ICON_UI_SCALE_MIN
 internal const val BATTERY_TOP_CHARGING_ICON_SCALE_MAX =
     BATTERY_TOP_CHARGING_ICON_UI_SCALE_REFERENCE * BATTERY_TOP_CHARGING_ICON_UI_SCALE_MAX
+private const val BATTERY_COLOR_PRESET_SCHEMA_KEY =
+    "battery_color_preset_schema"
+private const val BATTERY_COLOR_PRESET_SCHEMA_CURRENT = 1
 private const val BATTERY_TOP_CHARGING_SCALE_SCHEMA_KEY =
     "battery_top_charging_scale_schema"
 private const val BATTERY_TOP_CHARGING_SCALE_SCHEMA_CURRENT = 2
 private const val BATTERY_TOP_SCALE_EPSILON = 0.0001f
+
+internal fun batteryColorPresetForMissingKey(
+    hadPreviousVisualSchema: Boolean,
+): CombinedStatusBatteryColorPreset =
+    if (hadPreviousVisualSchema) {
+        CombinedStatusBatteryColorPreset.HYPEROS
+    } else {
+        CombinedStatusBatteryColorPreset.RECOMMENDED
+    }
+
+internal fun migrateBatteryColorPresetDefaultIfNeeded(
+    preferences: SharedPreferences,
+) {
+    if (
+        preferences.getInt(BATTERY_COLOR_PRESET_SCHEMA_KEY, 0) >=
+            BATTERY_COLOR_PRESET_SCHEMA_CURRENT
+    ) {
+        return
+    }
+
+    val editor = preferences.edit()
+    if (!preferences.contains(BATTERY_COLOR_PRESET_KEY)) {
+        val preset =
+            batteryColorPresetForMissingKey(
+                hadPreviousVisualSchema =
+                    preferences.contains(BATTERY_TOP_CHARGING_SCALE_SCHEMA_KEY),
+            )
+        if (preset != CombinedStatusBatteryColorPreset.RECOMMENDED) {
+            editor.putString(BATTERY_COLOR_PRESET_KEY, preset.persistedValue)
+        }
+    }
+    editor
+        .putInt(
+            BATTERY_COLOR_PRESET_SCHEMA_KEY,
+            BATTERY_COLOR_PRESET_SCHEMA_CURRENT,
+        )
+        .apply()
+}
 
 internal fun migrateBatteryTopChargingScaleReferenceIfNeeded(
     preferences: SharedPreferences,
@@ -825,6 +992,16 @@ internal const val MOBILE_TYPE_WEIGHT_DEFAULT = 800
 internal const val MOBILE_TYPE_WEIGHT_MIN = 500
 internal const val MOBILE_TYPE_WEIGHT_MAX = 950
 
+internal fun batteryColorModeKey(slot: CombinedStatusBatteryColorSlot): String =
+    when (slot) {
+        CombinedStatusBatteryColorSlot.NORMAL -> BATTERY_COLOR_MODE_NORMAL_KEY
+        CombinedStatusBatteryColorSlot.POWER_SAVE -> BATTERY_COLOR_MODE_POWER_SAVE_KEY
+        CombinedStatusBatteryColorSlot.PERFORMANCE -> BATTERY_COLOR_MODE_PERFORMANCE_KEY
+        CombinedStatusBatteryColorSlot.SUPER_POWER_SAVE -> BATTERY_COLOR_MODE_SUPER_POWER_SAVE_KEY
+        CombinedStatusBatteryColorSlot.CHARGING -> BATTERY_COLOR_MODE_CHARGING_KEY
+        CombinedStatusBatteryColorSlot.LOW -> BATTERY_COLOR_MODE_LOW_KEY
+    }
+
 internal fun batteryColorOverrideKey(slot: CombinedStatusBatteryColorSlot): String =
     when (slot) {
         CombinedStatusBatteryColorSlot.NORMAL -> BATTERY_COLOR_NORMAL_KEY
@@ -834,6 +1011,27 @@ internal fun batteryColorOverrideKey(slot: CombinedStatusBatteryColorSlot): Stri
         CombinedStatusBatteryColorSlot.CHARGING -> BATTERY_COLOR_CHARGING_KEY
         CombinedStatusBatteryColorSlot.LOW -> BATTERY_COLOR_LOW_KEY
     }
+
+internal fun batteryColorModeFromPersisted(
+    persistedMode: String?,
+    hasStoredColor: Boolean,
+): CombinedStatusBatteryColorMode =
+    if (persistedMode != null) {
+        CombinedStatusBatteryColorMode.fromPersisted(persistedMode)
+    } else if (hasStoredColor) {
+        CombinedStatusBatteryColorMode.CUSTOM
+    } else {
+        CombinedStatusBatteryColorMode.PRESET
+    }
+
+private fun SharedPreferences.batteryColorMode(
+    modeKey: String,
+    colorKey: String,
+): CombinedStatusBatteryColorMode =
+    batteryColorModeFromPersisted(
+        persistedMode = getString(modeKey, null),
+        hasStoredColor = contains(colorKey),
+    )
 
 private fun SharedPreferences.optionalColor(key: String): Int? =
     if (contains(key)) {
@@ -853,6 +1051,19 @@ private fun SharedPreferences.Editor.applyBatteryColorOverrides(
         } else {
             putInt(key, color or 0xFF000000.toInt())
         }
+    }
+    return this
+}
+
+
+private fun SharedPreferences.Editor.applyBatteryColorModes(
+    modes: CombinedStatusBatteryColorModes,
+): SharedPreferences.Editor {
+    CombinedStatusBatteryColorSlot.entries.forEach { slot ->
+        putString(
+            batteryColorModeKey(slot),
+            modes.modeFor(slot).persistedValue,
+        )
     }
     return this
 }

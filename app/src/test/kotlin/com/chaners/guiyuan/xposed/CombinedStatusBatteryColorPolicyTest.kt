@@ -1,5 +1,7 @@
 package com.chaners.guiyuan.xposed
 
+import com.chaners.guiyuan.settings.CombinedStatusBatteryColorMode
+import com.chaners.guiyuan.settings.CombinedStatusBatteryColorModes
 import com.chaners.guiyuan.settings.CombinedStatusBatteryColorOverrides
 import com.chaners.guiyuan.settings.CombinedStatusBatteryColorPreset
 import com.chaners.guiyuan.settings.CombinedStatusVisualSettings
@@ -82,6 +84,31 @@ class CombinedStatusBatteryColorPolicyTest {
     }
 
     @Test
+    fun recommendedPresetUsesMutedChargingAndMonochromeNormal() {
+        val settings = CombinedStatusVisualSettings()
+        val preferences = CombinedStatusBatteryColorPolicy.preferencesFor(settings)
+
+        assertEquals(
+            0xFF3FA760.toInt(),
+            CombinedStatusBatteryColorPolicy.resolve(
+                state = CombinedStatusBatterySemanticState.CHARGING,
+                systemSemanticColor = systemSemantic,
+                statusIconTint = statusTint,
+                preferences = preferences,
+            ),
+        )
+        assertEquals(
+            statusTint,
+            CombinedStatusBatteryColorPolicy.resolve(
+                state = CombinedStatusBatterySemanticState.NORMAL,
+                systemSemanticColor = systemSemantic,
+                statusIconTint = statusTint,
+                preferences = preferences,
+            ),
+        )
+    }
+
+    @Test
     fun iosStylePresetUsesGreenChargingAndMonochromeNormal() {
         val settings =
             CombinedStatusVisualSettings(
@@ -110,11 +137,56 @@ class CombinedStatusBatteryColorPolicyTest {
     }
 
     @Test
-    fun customOverrideWinsOverSelectedPreset() {
+    fun followSystemModeOverridesSelectedPresetPerSlot() {
+        val settings =
+            CombinedStatusVisualSettings(
+                batteryColorPreset = CombinedStatusBatteryColorPreset.IOS_STYLE,
+                batteryColorModes =
+                    CombinedStatusBatteryColorModes(
+                        charging = CombinedStatusBatteryColorMode.FOLLOW_SYSTEM,
+                    ),
+            )
+        assertEquals(
+            statusTint,
+            CombinedStatusBatteryColorPolicy.resolve(
+                state = CombinedStatusBatterySemanticState.CHARGING,
+                systemSemanticColor = systemSemantic,
+                statusIconTint = statusTint,
+                preferences = CombinedStatusBatteryColorPolicy.preferencesFor(settings),
+            ),
+        )
+    }
+
+    @Test
+    fun storedCustomColorIsIgnoredWhileSlotUsesPresetMode() {
         val custom = 0xFF2468AC.toInt()
         val settings =
             CombinedStatusVisualSettings(
                 batteryColorPreset = CombinedStatusBatteryColorPreset.IOS_STYLE,
+                batteryColorOverrides =
+                    CombinedStatusBatteryColorOverrides(charging = custom),
+            )
+        assertEquals(
+            0xFF34C759.toInt(),
+            CombinedStatusBatteryColorPolicy.resolve(
+                state = CombinedStatusBatterySemanticState.CHARGING,
+                systemSemanticColor = systemSemantic,
+                statusIconTint = statusTint,
+                preferences = CombinedStatusBatteryColorPolicy.preferencesFor(settings),
+            ),
+        )
+    }
+
+    @Test
+    fun customOverrideWinsOverSelectedPresetWhenSlotUsesCustomMode() {
+        val custom = 0xFF2468AC.toInt()
+        val settings =
+            CombinedStatusVisualSettings(
+                batteryColorPreset = CombinedStatusBatteryColorPreset.IOS_STYLE,
+                batteryColorModes =
+                    CombinedStatusBatteryColorModes(
+                        charging = CombinedStatusBatteryColorMode.CUSTOM,
+                    ),
                 batteryColorOverrides =
                     CombinedStatusBatteryColorOverrides(charging = custom),
             )
