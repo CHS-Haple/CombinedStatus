@@ -8,7 +8,7 @@ class CombinedStatusVisualSettingsTest {
     fun newGeometryControlsUseBoundedDefaults() {
         val settings = CombinedStatusVisualSettings()
         assertEquals(1f, settings.combinedScale, 0.0001f)
-        assertEquals(1f, settings.ringStrokeScale, 0.0001f)
+        assertEquals(1f, settings.outerWeightScale, 0.0001f)
         assertEquals(1f, settings.wifiSizeScale, 0.0001f)
         assertEquals(1f, settings.mobileTypeSizeScale, 0.0001f)
         assertEquals(800, settings.mobileTypeWeight)
@@ -16,13 +16,13 @@ class CombinedStatusVisualSettingsTest {
         val normalized =
             settings.copy(
                 combinedScale = 9f,
-                ringStrokeScale = 9f,
+                outerWeightScale = 9f,
                 wifiSizeScale = 9f,
                 mobileTypeSizeScale = 9f,
                 mobileTypeWeight = 5000,
             ).normalized()
         assertEquals(COMBINED_SCALE_MAX, normalized.combinedScale, 0.0001f)
-        assertEquals(RING_STROKE_SCALE_MAX, normalized.ringStrokeScale, 0.0001f)
+        assertEquals(OUTER_WEIGHT_SCALE_MAX, normalized.outerWeightScale, 0.0001f)
         assertEquals(WIFI_SIZE_SCALE_MAX, normalized.wifiSizeScale, 0.0001f)
         assertEquals(MOBILE_TYPE_SIZE_SCALE_MAX, normalized.mobileTypeSizeScale, 0.0001f)
         assertEquals(MOBILE_TYPE_WEIGHT_MAX, normalized.mobileTypeWeight)
@@ -165,7 +165,7 @@ class CombinedStatusVisualSettingsTest {
                 BATTERY_TOP_VERTICAL_OFFSET_KEY,
                 BATTERY_TOP_CHARGING_ICON_SCALE_KEY,
                 COMBINED_SCALE_KEY,
-                RING_STROKE_SCALE_KEY,
+                OUTER_WEIGHT_SCALE_KEY,
                 WIFI_SIZE_SCALE_KEY,
                 MOBILE_TYPE_SIZE_SCALE_KEY,
                 MOBILE_TYPE_WEIGHT_KEY,

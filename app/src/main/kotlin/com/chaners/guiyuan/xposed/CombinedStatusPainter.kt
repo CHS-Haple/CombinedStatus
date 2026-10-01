@@ -71,7 +71,7 @@ internal class CombinedStatusPainter(
         previousCenterIndicator: CenterIndicator? = null,
         centerExitAmount: Float = 0f,
         centerEnterAmount: Float = 1f,
-        outerWeightScale: Float = CombinedStatusOuterGeometry.DEFAULT_WEIGHT_SCALE,
+        outerWeightScale: Float = visualSettings.outerWeightScale,
         centerSizeScale: Float = CombinedStatusCenterGeometry.DEFAULT_SIZE_SCALE,
         centerTextWeightScale: Float = CombinedStatusCenterGeometry.DEFAULT_TEXT_WEIGHT_SCALE,
         scaleMobileTypeWithCanvas: Boolean = false,
@@ -266,7 +266,7 @@ internal class CombinedStatusPainter(
                     opacity = opacity,
                     geometry =
                         resolveOuterGeometry(
-                            CombinedStatusOuterGeometry.DEFAULT_WEIGHT_SCALE,
+                            visualSettings.outerWeightScale,
                         ),
                     centerGeometry =
                         CombinedStatusCenterGeometry.resolve(
@@ -298,7 +298,7 @@ internal class CombinedStatusPainter(
                     visualSettings = visualSettings,
                     geometry =
                         resolveOuterGeometry(
-                            CombinedStatusOuterGeometry.DEFAULT_WEIGHT_SCALE,
+                            visualSettings.outerWeightScale,
                         ),
                     motionProgress = motion,
                     targetWeight = batteryNumberTargetWeight,
@@ -346,7 +346,7 @@ internal class CombinedStatusPainter(
             TransitionComponent.MOBILE -> {
                 val outerGeometry =
                     resolveOuterGeometry(
-                        CombinedStatusOuterGeometry.DEFAULT_WEIGHT_SCALE,
+                        visualSettings.outerWeightScale,
                     )
                 if (shapePolicy == TransitionShapePolicy.MOBILE_SIGNAL) {
                     drawMobileSignalTransition(
@@ -604,7 +604,7 @@ internal class CombinedStatusPainter(
         val offsetX = (width - CANONICAL_SIZE * scale) / 2f
         val offsetY = (height - CANONICAL_SIZE * scale) / 2f
         val outerGeometry =
-            resolveOuterGeometry(CombinedStatusOuterGeometry.DEFAULT_WEIGHT_SCALE)
+            resolveOuterGeometry(visualSettings.outerWeightScale)
         val centerGeometry =
             CombinedStatusCenterGeometry.resolve(
                 sizeScale = CombinedStatusCenterGeometry.DEFAULT_SIZE_SCALE,

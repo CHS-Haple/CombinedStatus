@@ -107,7 +107,7 @@ internal data class CombinedStatusVisualSettings(
     val batteryTopChargingIconScale: Float =
         batteryTopChargingIconScaleDefault(contentLayout),
     val combinedScale: Float = COMBINED_SCALE_DEFAULT,
-    val ringStrokeScale: Float = RING_STROKE_SCALE_DEFAULT,
+    val outerWeightScale: Float = OUTER_WEIGHT_SCALE_DEFAULT,
     val wifiSizeScale: Float = WIFI_SIZE_SCALE_DEFAULT,
     val mobileTypeSizeScale: Float = MOBILE_TYPE_SIZE_SCALE_DEFAULT,
     val mobileTypeWeight: Int = MOBILE_TYPE_WEIGHT_DEFAULT,
@@ -140,8 +140,8 @@ internal fun CombinedStatusVisualSettings.normalized(): CombinedStatusVisualSett
                 BATTERY_TOP_CHARGING_ICON_SCALE_MAX,
             ),
         combinedScale = combinedScale.coerceIn(COMBINED_SCALE_MIN, COMBINED_SCALE_MAX),
-        ringStrokeScale =
-            ringStrokeScale.coerceIn(RING_STROKE_SCALE_MIN, RING_STROKE_SCALE_MAX),
+        outerWeightScale =
+            outerWeightScale.coerceIn(OUTER_WEIGHT_SCALE_MIN, OUTER_WEIGHT_SCALE_MAX),
         wifiSizeScale = wifiSizeScale.coerceIn(WIFI_SIZE_SCALE_MIN, WIFI_SIZE_SCALE_MAX),
         mobileTypeSizeScale =
             mobileTypeSizeScale.coerceIn(MOBILE_TYPE_SIZE_SCALE_MIN, MOBILE_TYPE_SIZE_SCALE_MAX),
@@ -308,11 +308,11 @@ internal class CombinedStatusVisualSettingsRepository(context: Context) {
             .apply()
     }
 
-    fun setRingStrokeScale(scale: Float) {
+    fun setOuterWeightScale(scale: Float) {
         preferences.edit()
             .putFloat(
-                activeProfileKey(RING_STROKE_SCALE_KEY),
-                scale.coerceIn(RING_STROKE_SCALE_MIN, RING_STROKE_SCALE_MAX),
+                activeProfileKey(OUTER_WEIGHT_SCALE_KEY),
+                scale.coerceIn(OUTER_WEIGHT_SCALE_MIN, OUTER_WEIGHT_SCALE_MAX),
             )
             .apply()
     }
@@ -514,8 +514,8 @@ internal fun SharedPreferences.readCombinedStatusVisualSettings(): CombinedStatu
             ),
         combinedScale =
             profileFloat(layout, COMBINED_SCALE_KEY, COMBINED_SCALE_DEFAULT),
-        ringStrokeScale =
-            profileFloat(layout, RING_STROKE_SCALE_KEY, RING_STROKE_SCALE_DEFAULT),
+        outerWeightScale =
+            profileFloat(layout, OUTER_WEIGHT_SCALE_KEY, OUTER_WEIGHT_SCALE_DEFAULT),
         wifiSizeScale =
             profileFloat(layout, WIFI_SIZE_SCALE_KEY, WIFI_SIZE_SCALE_DEFAULT),
         mobileTypeSizeScale =
@@ -583,8 +583,8 @@ internal fun SharedPreferences.Editor.putCombinedStatusVisualSettings(
         combinedStatusProfileKey(layout, COMBINED_SCALE_KEY),
         normalized.combinedScale,
     ).putFloat(
-        combinedStatusProfileKey(layout, RING_STROKE_SCALE_KEY),
-        normalized.ringStrokeScale,
+        combinedStatusProfileKey(layout, OUTER_WEIGHT_SCALE_KEY),
+        normalized.outerWeightScale,
     ).putFloat(
         combinedStatusProfileKey(layout, WIFI_SIZE_SCALE_KEY),
         normalized.wifiSizeScale,
@@ -616,7 +616,7 @@ internal const val BATTERY_TOP_TEXT_WEIGHT_KEY = "battery_top_text_weight"
 internal const val BATTERY_TOP_VERTICAL_OFFSET_KEY = "battery_top_vertical_offset"
 internal const val BATTERY_TOP_CHARGING_ICON_SCALE_KEY = "battery_top_charging_icon_scale"
 internal const val COMBINED_SCALE_KEY = "combined_scale"
-internal const val RING_STROKE_SCALE_KEY = "ring_stroke_scale"
+internal const val OUTER_WEIGHT_SCALE_KEY = "outer_weight_scale"
 internal const val WIFI_SIZE_SCALE_KEY = "wifi_size_scale"
 internal const val MOBILE_TYPE_SIZE_SCALE_KEY = "mobile_type_size_scale"
 internal const val MOBILE_TYPE_WEIGHT_KEY = "mobile_type_weight"
@@ -642,7 +642,7 @@ private val PROFILE_VISUAL_BASE_KEYS =
         BATTERY_TOP_VERTICAL_OFFSET_KEY,
         BATTERY_TOP_CHARGING_ICON_SCALE_KEY,
         COMBINED_SCALE_KEY,
-        RING_STROKE_SCALE_KEY,
+        OUTER_WEIGHT_SCALE_KEY,
         WIFI_SIZE_SCALE_KEY,
         MOBILE_TYPE_SIZE_SCALE_KEY,
         MOBILE_TYPE_WEIGHT_KEY,
@@ -812,9 +812,9 @@ internal fun batteryTopVerticalOffsetRaw(uiOffset: Float): Float =
 internal const val COMBINED_SCALE_DEFAULT = 1f
 internal const val COMBINED_SCALE_MIN = 0.85f
 internal const val COMBINED_SCALE_MAX = 1.15f
-internal const val RING_STROKE_SCALE_DEFAULT = 1f
-internal const val RING_STROKE_SCALE_MIN = 0.70f
-internal const val RING_STROKE_SCALE_MAX = 1.30f
+internal const val OUTER_WEIGHT_SCALE_DEFAULT = 1f
+internal const val OUTER_WEIGHT_SCALE_MIN = 0.70f
+internal const val OUTER_WEIGHT_SCALE_MAX = 1.30f
 internal const val WIFI_SIZE_SCALE_DEFAULT = 1f
 internal const val WIFI_SIZE_SCALE_MIN = 0.80f
 internal const val WIFI_SIZE_SCALE_MAX = 1.25f

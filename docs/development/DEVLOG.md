@@ -276,3 +276,43 @@ The candidate correction was reviewed before branch update:
 ### Validation
 
 Run exact-head Runtime CI. No real-device gate is required because this change only repairs observer invalidation semantics; UI reset controls are not exposed yet.
+
+
+## 2026-10-01 — Build 556 outer-weight geometry wiring
+
+**Type:** runtime geometry wiring  
+**Display version:** 0.0.3  
+**Build:** 556 / `20261001-556`  
+**Branch / PR:** `feat/battery-top-readout` / #181  
+
+### Requirement correction
+
+Maintainer clarified that “outer-ring thickness” is intentionally a coupled visual family: changing it should also change the four mobile dots and the unavailable X mark, with dot spacing adapting so the whole lower opening remains visually even.
+
+The repository already contains the correct primitive: `CombinedStatusOuterGeometry.resolve(weightScale)` scales:
+- ring stroke;
+- mobile-dot radius;
+- unavailable-mark stroke and extent;
+
+and then solves dot angular spacing so ring-to-dot and dot-to-dot edge gaps remain balanced.
+
+### Pre-commit 审查 / review
+
+The Build-556 candidate was reviewed before branch update:
+- foundation naming changed from `ringStrokeScale` to `outerWeightScale` so UI/schema semantics match the actual coupled behavior;
+- setting remains profile-scoped, default 1.0, supported UI range 0.70-1.30;
+- all runtime outer-geometry entry points use `visualSettings.outerWeightScale`;
+- steady draw, Battery/Battery-number transition draw, Mobile transition draw, and transition source bounds therefore share one geometry source;
+- the only remaining static default is the painter cache initializer, which is replaced on first resolved draw and is not an authoritative runtime path;
+- no new solver/animator/listener/writer is introduced;
+- existing balanced-gap solver remains authoritative;
+- existing `fiveVisualEdgeGapsStayBalancedAcrossSupportedScales` regression coverage is preserved;
+- new test explicitly locks that ring, dots, and unavailable mark scale as one family.
+
+### Compatibility
+
+No user-facing Build-554/555 UI exposed the foundation-only `ring_stroke_scale` key, so renaming it to `outer_weight_scale` does not migrate a released user setting. Default 100% preserves the accepted 8.25 ring baseline and existing dot/X geometry.
+
+### Validation
+
+Run exact-head Runtime CI. No device gate is required yet because the control is not exposed in UI and the default value leaves runtime appearance unchanged.
