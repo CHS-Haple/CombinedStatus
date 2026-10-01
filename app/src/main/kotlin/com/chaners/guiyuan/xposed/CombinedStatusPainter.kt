@@ -72,8 +72,6 @@ internal class CombinedStatusPainter(
         centerExitAmount: Float = 0f,
         centerEnterAmount: Float = 1f,
         outerWeightScale: Float = visualSettings.outerWeightScale,
-        centerSizeScale: Float = CombinedStatusCenterGeometry.DEFAULT_SIZE_SCALE,
-        centerTextWeightScale: Float = CombinedStatusCenterGeometry.DEFAULT_TEXT_WEIGHT_SCALE,
         scaleMobileTypeWithCanvas: Boolean = false,
     ) {
         if (width <= 0 || height <= 0) {
@@ -96,11 +94,7 @@ internal class CombinedStatusPainter(
         canvas.scale(scale, scale)
 
         val outerGeometry = resolveOuterGeometry(outerWeightScale)
-        val centerGeometry =
-            CombinedStatusCenterGeometry.resolve(
-                sizeScale = centerSizeScale,
-                textWeightScale = centerTextWeightScale,
-            )
+        val centerGeometry = resolveCenterGeometry(visualSettings)
         drawBattery(
             canvas = canvas,
             model = model,
@@ -185,10 +179,7 @@ internal class CombinedStatusPainter(
         val topBounds =
             if (visualSettings.contentLayout == CombinedStatusContentLayout.BATTERY_CENTER) {
                 val geometry =
-                    CombinedStatusCenterGeometry.resolve(
-                        sizeScale = CombinedStatusCenterGeometry.DEFAULT_SIZE_SCALE,
-                        textWeightScale = CombinedStatusCenterGeometry.DEFAULT_TEXT_WEIGHT_SCALE,
-                    )
+                    resolveCenterGeometry(visualSettings)
                 resolveNetworkTopSlotBounds(
                     current = model.centerIndicator,
                     previous = previousCenterIndicator,
@@ -269,10 +260,7 @@ internal class CombinedStatusPainter(
                             visualSettings.outerWeightScale,
                         ),
                     centerGeometry =
-                        CombinedStatusCenterGeometry.resolve(
-                            sizeScale = CombinedStatusCenterGeometry.DEFAULT_SIZE_SCALE,
-                            textWeightScale = CombinedStatusCenterGeometry.DEFAULT_TEXT_WEIGHT_SCALE,
-                        ),
+                        resolveCenterGeometry(visualSettings),
                     visualSettings = visualSettings,
                     nativeTransform = nativeTransform,
                     scale = scale,
@@ -311,10 +299,7 @@ internal class CombinedStatusPainter(
                     canvas.translate(0f, networkTopTranslationY())
                 }
                 val baseGeometry =
-                    CombinedStatusCenterGeometry.resolve(
-                        sizeScale = CombinedStatusCenterGeometry.DEFAULT_SIZE_SCALE,
-                        textWeightScale = CombinedStatusCenterGeometry.DEFAULT_TEXT_WEIGHT_SCALE,
-                    )
+                    resolveCenterGeometry(visualSettings)
                 val transitionGeometry =
                     if (model.centerIndicator is CenterIndicator.MobileType) {
                         baseGeometry.copy(
@@ -606,10 +591,7 @@ internal class CombinedStatusPainter(
         val outerGeometry =
             resolveOuterGeometry(visualSettings.outerWeightScale)
         val centerGeometry =
-            CombinedStatusCenterGeometry.resolve(
-                sizeScale = CombinedStatusCenterGeometry.DEFAULT_SIZE_SCALE,
-                textWeightScale = CombinedStatusCenterGeometry.DEFAULT_TEXT_WEIGHT_SCALE,
-            )
+            resolveCenterGeometry(visualSettings)
 
         fun toViewBounds(bounds: TransitionBounds): TransitionBounds =
             TransitionBounds(
@@ -843,10 +825,7 @@ internal class CombinedStatusPainter(
         val offsetX = (width - CANONICAL_SIZE * scale) / 2f
         val offsetY = (height - CANONICAL_SIZE * scale) / 2f
         val geometry =
-            CombinedStatusCenterGeometry.resolve(
-                sizeScale = CombinedStatusCenterGeometry.DEFAULT_SIZE_SCALE,
-                textWeightScale = CombinedStatusCenterGeometry.DEFAULT_TEXT_WEIGHT_SCALE,
-            )
+            resolveCenterGeometry(visualSettings)
         val metrics =
             airplaneResourceId()
                 ?.let { resourceId ->
@@ -902,10 +881,7 @@ internal class CombinedStatusPainter(
                 offsetY = offsetY,
             )
         val geometry =
-            CombinedStatusCenterGeometry.resolve(
-                sizeScale = CombinedStatusCenterGeometry.DEFAULT_SIZE_SCALE,
-                textWeightScale = CombinedStatusCenterGeometry.DEFAULT_TEXT_WEIGHT_SCALE,
-            )
+            resolveCenterGeometry(visualSettings)
         val save = canvas.save()
         canvas.translate(offsetX, offsetY)
         canvas.scale(scale, scale)
@@ -934,10 +910,7 @@ internal class CombinedStatusPainter(
         val offsetX = (width - CANONICAL_SIZE * scale) / 2f
         val offsetY = (height - CANONICAL_SIZE * scale) / 2f
         val geometry =
-            CombinedStatusCenterGeometry.resolve(
-                sizeScale = CombinedStatusCenterGeometry.DEFAULT_SIZE_SCALE,
-                textWeightScale = CombinedStatusCenterGeometry.DEFAULT_TEXT_WEIGHT_SCALE,
-            )
+            resolveCenterGeometry(visualSettings)
         val metrics =
             transitionNativeCenterMetrics(
                 resource = resource,
@@ -987,10 +960,7 @@ internal class CombinedStatusPainter(
                 offsetY = offsetY,
             )
         val geometry =
-            CombinedStatusCenterGeometry.resolve(
-                sizeScale = CombinedStatusCenterGeometry.DEFAULT_SIZE_SCALE,
-                textWeightScale = CombinedStatusCenterGeometry.DEFAULT_TEXT_WEIGHT_SCALE,
-            )
+            resolveCenterGeometry(visualSettings)
         val save = canvas.save()
         canvas.translate(offsetX, offsetY)
         canvas.scale(scale, scale)
@@ -1098,6 +1068,15 @@ internal class CombinedStatusPainter(
         progress: Float,
     ): Float =
         start + (end - start) * progress.coerceIn(0f, 1f)
+
+    private fun resolveCenterGeometry(
+        visualSettings: CombinedStatusVisualSettings,
+    ): CombinedStatusCenterGeometry.Resolved =
+        CombinedStatusCenterGeometry.resolve(
+            wifiSizeScale = visualSettings.wifiSizeScale,
+            mobileTypeSizeScale = visualSettings.mobileTypeSizeScale,
+            mobileTypeWeight = visualSettings.mobileTypeWeight,
+        )
 
     private fun resolveOuterGeometry(weightScale: Float): CombinedStatusOuterGeometry.Resolved {
         val normalized =
@@ -1277,7 +1256,7 @@ internal class CombinedStatusPainter(
     private fun resolveWifiFallbackOpticalBounds(
         geometry: CombinedStatusCenterGeometry.Resolved,
     ): TransitionBounds {
-        val scale = 3f * geometry.sizeScale
+        val scale = 3f * geometry.wifiSizeScale
         return TransitionBounds(
             left =
                 WIFI_CENTER_X +
@@ -1825,10 +1804,7 @@ internal class CombinedStatusPainter(
         if (width <= 0 || height <= 0) return null
         val scale = min(width / CANONICAL_SIZE, height / CANONICAL_SIZE)
         val base =
-            CombinedStatusCenterGeometry.resolve(
-                sizeScale = CombinedStatusCenterGeometry.DEFAULT_SIZE_SCALE,
-                textWeightScale = CombinedStatusCenterGeometry.DEFAULT_TEXT_WEIGHT_SCALE,
-            )
+            resolveCenterGeometry(visualSettings)
         val weight =
             MobileTypeTransitionPolicy.resolveWeight(
                 sourceWeight = base.mobileTypeWeight,
@@ -2296,7 +2272,7 @@ internal class CombinedStatusPainter(
 
         val save = canvas.save()
         canvas.translate(WIFI_CENTER_X, WIFI_CENTER_Y)
-        canvas.scale(3f * geometry.sizeScale, 3f * geometry.sizeScale)
+        canvas.scale(3f * geometry.wifiSizeScale, 3f * geometry.wifiSizeScale)
         canvas.translate(-WIFI_FALLBACK_CENTER_X, -WIFI_FALLBACK_CENTER_Y)
 
         wifiPaths.forEachIndexed { index, path ->
@@ -3590,12 +3566,15 @@ internal object CombinedStatusNativeRenderGeometry {
 
 
 internal object CombinedStatusCenterGeometry {
-    const val DEFAULT_SIZE_SCALE = 1.00f
-    const val DEFAULT_TEXT_WEIGHT_SCALE = 1.00f
-    const val MIN_SIZE_SCALE = 0.70f
-    const val MAX_SIZE_SCALE = 1.40f
-    const val MIN_TEXT_WEIGHT_SCALE = 0.70f
-    const val MAX_TEXT_WEIGHT_SCALE = 1.20f
+    const val DEFAULT_WIFI_SIZE_SCALE = 1.00f
+    const val DEFAULT_MOBILE_TYPE_SIZE_SCALE = 1.00f
+    const val MIN_WIFI_SIZE_SCALE = 0.70f
+    const val MAX_WIFI_SIZE_SCALE = 1.40f
+    const val MIN_MOBILE_TYPE_SIZE_SCALE = 0.70f
+    const val MAX_MOBILE_TYPE_SIZE_SCALE = 1.40f
+    const val DEFAULT_MOBILE_TYPE_WEIGHT = 800
+    const val MIN_MOBILE_TYPE_WEIGHT = 500
+    const val MAX_MOBILE_TYPE_WEIGHT = 950
 
     private const val BASE_WIFI_MAX_WIDTH = 58f
     private const val BASE_WIFI_MAX_HEIGHT = 45f
@@ -3604,11 +3583,10 @@ internal object CombinedStatusCenterGeometry {
     private const val BASE_MOBILE_TYPE_TEXT_SIZE = 39f
     private const val BASE_MOBILE_TYPE_SUFFIX_SIZE = 23f
     private const val BASE_MOBILE_TYPE_SUFFIX_RISE = 8f
-    private const val BASE_MOBILE_TYPE_WEIGHT = 800
 
     data class Resolved(
-        val sizeScale: Float,
-        val textWeightScale: Float,
+        val wifiSizeScale: Float,
+        val mobileTypeSizeScale: Float,
         val wifiMaxWidth: Float,
         val wifiMaxHeight: Float,
         val airplaneMaxSize: Float,
@@ -3620,33 +3598,30 @@ internal object CombinedStatusCenterGeometry {
     )
 
     fun resolve(
-        sizeScale: Float,
-        textWeightScale: Float,
+        wifiSizeScale: Float,
+        mobileTypeSizeScale: Float,
+        mobileTypeWeight: Int,
     ): Resolved {
-        val normalizedSize =
-            sizeScale
-                .takeIf(Float::isFinite)
-                ?.coerceIn(MIN_SIZE_SCALE, MAX_SIZE_SCALE)
-                ?: DEFAULT_SIZE_SCALE
+        val normalizedWifi =
+            wifiSizeScale.takeIf(Float::isFinite)?.coerceIn(MIN_WIFI_SIZE_SCALE, MAX_WIFI_SIZE_SCALE)
+                ?: DEFAULT_WIFI_SIZE_SCALE
+        val normalizedMobile =
+            mobileTypeSizeScale.takeIf(Float::isFinite)
+                ?.coerceIn(MIN_MOBILE_TYPE_SIZE_SCALE, MAX_MOBILE_TYPE_SIZE_SCALE)
+                ?: DEFAULT_MOBILE_TYPE_SIZE_SCALE
         val normalizedWeight =
-            textWeightScale
-                .takeIf(Float::isFinite)
-                ?.coerceIn(MIN_TEXT_WEIGHT_SCALE, MAX_TEXT_WEIGHT_SCALE)
-                ?: DEFAULT_TEXT_WEIGHT_SCALE
+            mobileTypeWeight.coerceIn(MIN_MOBILE_TYPE_WEIGHT, MAX_MOBILE_TYPE_WEIGHT)
         return Resolved(
-            sizeScale = normalizedSize,
-            textWeightScale = normalizedWeight,
-            wifiMaxWidth = BASE_WIFI_MAX_WIDTH * normalizedSize,
-            wifiMaxHeight = BASE_WIFI_MAX_HEIGHT * normalizedSize,
-            airplaneMaxSize = BASE_AIRPLANE_MAX_SIZE * normalizedSize,
-            noSimMaxSize = BASE_NO_SIM_MAX_SIZE * normalizedSize,
-            mobileTypeTextSize = BASE_MOBILE_TYPE_TEXT_SIZE * normalizedSize,
-            mobileTypeSuffixSize = BASE_MOBILE_TYPE_SUFFIX_SIZE * normalizedSize,
-            mobileTypeSuffixRise = BASE_MOBILE_TYPE_SUFFIX_RISE * normalizedSize,
-            mobileTypeWeight =
-                (BASE_MOBILE_TYPE_WEIGHT * normalizedWeight)
-                    .roundToInt()
-                    .coerceIn(500, 950),
+            wifiSizeScale = normalizedWifi,
+            mobileTypeSizeScale = normalizedMobile,
+            wifiMaxWidth = BASE_WIFI_MAX_WIDTH * normalizedWifi,
+            wifiMaxHeight = BASE_WIFI_MAX_HEIGHT * normalizedWifi,
+            airplaneMaxSize = BASE_AIRPLANE_MAX_SIZE,
+            noSimMaxSize = BASE_NO_SIM_MAX_SIZE,
+            mobileTypeTextSize = BASE_MOBILE_TYPE_TEXT_SIZE * normalizedMobile,
+            mobileTypeSuffixSize = BASE_MOBILE_TYPE_SUFFIX_SIZE * normalizedMobile,
+            mobileTypeSuffixRise = BASE_MOBILE_TYPE_SUFFIX_RISE * normalizedMobile,
+            mobileTypeWeight = normalizedWeight,
         )
     }
 }

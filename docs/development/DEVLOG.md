@@ -316,3 +316,43 @@ No user-facing Build-554/555 UI exposed the foundation-only `ring_stroke_scale` 
 ### Validation
 
 Run exact-head Runtime CI. No device gate is required yet because the control is not exposed in UI and the default value leaves runtime appearance unchanged.
+
+
+## 2026-10-01 — Build 557 independent center geometry
+
+**Type:** runtime geometry wiring  
+**Display version:** 0.0.3  
+**Build:** 557 / `20261001-557`  
+**Branch / PR:** `feat/battery-top-readout` / #181  
+
+### Goal
+
+Expose only the requested center-family controls without letting Wi-Fi sizing accidentally resize native airplane/no-SIM icons.
+
+### Pre-commit 审查 / review
+
+The candidate was reviewed before branch update:
+- remove the old shared `centerSizeScale` / `centerTextWeightScale` painter override API;
+- one settings-backed resolver now supplies Wi-Fi size, mobile-type size, and mobile-type source weight to all center draw/transition/source-bound paths;
+- Wi-Fi fallback vector uses only `wifiSizeScale`;
+- airplane/no-SIM max sizes remain fixed at the accepted native optical baselines;
+- mobile-type size scales text/suffix geometry only;
+- mobile-type weight is absolute 500-950, default 800;
+- custom mobile weight remains the transition source weight; existing `MobileTypeTransitionPolicy` still interpolates to the SystemUI target weight;
+- settings UI bounds remain 80%-125% while lower-level geometry keeps a wider defensive clamp;
+- zero legacy shared-size/shared-weight tokens remain in the candidate painter;
+- no new writer, listener, animator, or target-geometry owner is introduced.
+
+### Tests
+
+Replace the obsolete “all center families share one size” test with independent contracts:
+- Wi-Fi scale changes Wi-Fi only;
+- mobile-type scale changes mobile text/suffix only;
+- mobile-type weight changes typography only;
+- airplane/no-SIM remain fixed when Wi-Fi changes;
+- invalid/out-of-range inputs clamp safely;
+- existing 5GA lower-right suffix direction remains locked.
+
+### Validation
+
+Run exact-head Runtime CI. Default values preserve current runtime appearance, so no device gate is required until UI controls are exposed.
