@@ -14496,3 +14496,66 @@ This is separate from Build 526. `SystemUiIslandMotionSource.currentIslandShowin
 ### Validation gate
 
 Runtime CI and an exact-head signed Canary are required. Device validation must reproduce the same island-state pull-down and confirm that native end-side content no longer disappears while visually distant from the island, without regressing non-island Home -> Control Center motion.
+
+
+## 2026-10-01 — Build 540: verify the QS_FAKE island-state owner before replacing the 539 guard
+
+**Type:** bounded runtime diagnostic / root-cause review  
+**Display version:** 0.0.3  
+**Build / source:** 540 / `20261001-540` / `feat/battery-top-readout` / PR #181
+
+### New maintainer evidence
+
+Build 539 no longer presents the same obvious premature island-avoidance symptom, but the decomposed Control Center row also stops pushing the surrounding native icons left. The frame sheet shows the fake row continuing its native vertical travel while the native peer spacing remains close to the compact state.
+
+This makes the Build-539 trade-off explicit: blocking transition `statusIcons.paddingEnd` exposure removes both the suspected collision input and the required native peer-layout response.
+
+The maintainer also supplied a stronger model of the native assumption:
+- steady Home island avoidance is allowed to reason from horizontal status-icon occupancy because the stock transition does not introduce new status icons;
+- QS_FAKE starts from the same steady status-bar membership and then moves the already-existing row;
+- Guiyuan is different: one compact source decomposes into multiple transition semantics/pixels while the fake surface moves vertically away from the island;
+- if native island avoidance only evaluates the horizontal status-icon state, the newly opened horizontal occupancy can be treated as an island collision even when the pixels are no longer vertically adjacent.
+
+This mechanism is plausible and fits Builds 538/539, but the exact target owner/API still needs to be identified before changing native state.
+
+### Change
+
+Build 540 deliberately keeps Build 539 functional behavior unchanged and adds one Detailed-diagnostics-only contract snapshot at QS_FAKE attachment.
+
+The probe:
+- traverses at most 64 Views to depth 6;
+- runs once per fake-root lifetime;
+- reads existing fields when present: `slot`, `visibleState`, `inIslandState`, `beforeInIslandState`, `islandChanged`, `supportAnim`, `forceAppear`, `layoutTranslationX`;
+- records current screen X/Y and View size;
+- records native method names containing `island`, `forceAppear`, or `visibleState`;
+- writes only one `controlCenterFakeIslandContract` diagnostic record.
+
+No field is mutated and no method is invoked for behavior.
+
+### 问题执行流程
+
+1. Steady Home has an active generic Super-Island and native status-icon island state.
+2. Stock HyperOS creates QS_FAKE from the existing status-bar presentation; its normal design does not add new semantics during the pull.
+3. Guiyuan projects a compact source into separated Control Center semantics and needs additional horizontal occupancy so native peers reflow left.
+4. Build 538 exposed that occupancy through the existing `statusIcons.paddingEnd` writer and reproduced premature island avoidance.
+5. Build 539 blocked that exposure under a generic island and suppressed the symptom, but also removed the native peer reflow.
+6. Build 540 does not choose a third geometry workaround. It identifies the fake-row native island state contract first.
+7. After device evidence names the owner/API, the next correction must preserve peer reflow while preventing only the semantically invalid steady-island classification from applying to transition-only decomposed occupancy.
+
+### 审查 / review
+
+- **root-cause-first:** no new padding factor, X threshold, Y threshold, delay, or endpoint constant is introduced.
+- **observation only:** the new code performs bounded reflection and logging only; Build-channel diagnostic flags still do not select functional ownership or state.
+- **single writer:** `statusIcons.paddingEnd` remains the only Guiyuan peer-layout writer; no native translation/alpha/visibility property is added.
+- **native-first:** the purpose of the probe is specifically to find an existing HyperOS island-state/fake-transition seam before considering any override.
+- **lifecycle:** one snapshot per attached QS_FAKE root; the weak root reference is reset with the existing runtime reset path.
+- **performance:** no per-frame traversal, polling, timer, additional Hook, or resident listener.
+- **Fail native:** probe failures simply omit unavailable fields/methods and cannot alter SystemUI behavior.
+- **Build-526 boundary:** generic Super-Island visibility remains distinct from exact Battery-Island authority `isAddBatteryIsland`.
+
+### Validation
+
+- Build 539 exact-head Runtime CI #2028: **success** at `e41c7d77d60689f8c08fdc36bdc0d40fa724f554`.
+- Build 540 first Runtime CI #2031 reached and passed target-profile verification plus unit-test/Debug compilation/build before documentation closure.
+- Final exact-head Runtime CI is required after this documentation commit.
+- Then produce one signed exact-head Canary. Device work is limited to: enable Detailed diagnostics, keep a generic island visible, perform one Home -> Control Center pull, export diagnostics, and return the `controlCenterFakeIslandContract` record/report.
