@@ -260,14 +260,23 @@ internal object CombinedStatusControlCenterTransitionOwner {
         fun allowsNativeTransitionPaddingExpansion(
             sourceScene: CombinedStatusSourceScene,
             genericIslandShowing: Boolean?,
-            fakeIslandPeerFreezeReady: Boolean = false,
+            fakeIslandReservationBridgeReady: Boolean = false,
         ): Boolean =
             when (sourceScene) {
                 CombinedStatusSourceScene.HOME ->
-                    genericIslandShowing != true || fakeIslandPeerFreezeReady
+                    genericIslandShowing != true || fakeIslandReservationBridgeReady
                 CombinedStatusSourceScene.KEYGUARD -> true
                 CombinedStatusSourceScene.UNKNOWN -> false
             }
+
+        fun compensateFakeIslandWidth(
+            nativeIslandWidthPx: Int,
+            transitionPaddingDeltaPx: Int,
+        ): Int {
+            if (nativeIslandWidthPx <= 0) return nativeIslandWidthPx
+            return (nativeIslandWidthPx - transitionPaddingDeltaPx.coerceAtLeast(0))
+                .coerceAtLeast(0)
+        }
 
         data class ReservationSpan(
             val sourceLeft: Float,
@@ -698,14 +707,9 @@ internal object CombinedStatusControlCenterTransitionOwner {
         }
     }
 
-    private class FakeIslandPeerFreeze(
+    private class FakeIslandReservationBridge(
         private val statusIcons: ViewGroup,
     ) {
-        private data class Entry(
-            val view: WeakReference<View>,
-            val originalForceAppear: Boolean,
-        )
-
         private val representedSlots =
             setOf(
                 WIFI_SLOT,
@@ -715,22 +719,95 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 NO_SIM_SLOT,
                 "combined_status",
             )
+
         private var accessor: Method? = null
-        private var forceAppearField: Field? = null
-        private var entries: List<Entry> = emptyList()
+        private var monitorRef = WeakReference<Any>(null)
+        private var islandWidthField: Field? = null
+        private var islandShowingField: Field? = null
+        private var ignoredSlotsField: Field? = null
+        private var islandWidthChangedField: Field? = null
+        private var islandAnimateField: Field? = null
+        private var addIgnoredSlotsMethod: Method? = null
+        private var setIgnoredSlotsMethod: Method? = null
+
+        private var baselineIslandWidthPx: Int? = null
+        private var lastEffectiveIslandWidthPx: Int? = null
+        private var lastPaddingDeltaPx = 0
+        private var addedIgnoredSlots: Set<String> = emptySet()
         private var active = false
         private var contractReady = false
 
         fun acquire(): Boolean {
             if (active) return contractReady
-            val resolvedAccessor = resolveAccessor() ?: return fail()
-            var resolvedStateClass: Class<*>? = null
-            var resolvedForceField: Field? = null
-            var resolvedVisibleField: Field? = null
-            var resolvedSlotField: Field? = null
-            val changed = ArrayList<Entry>()
-            var stateObserved = false
 
+            val monitor =
+                statusIcons.javaClass.methods
+                    .firstOrNull { method ->
+                        method.name == "getIslandMonitor" &&
+                            method.parameterCount == 0
+                    }
+                    ?.let { method ->
+                        runCatching { method.invoke(statusIcons) }.getOrNull()
+                    }
+                    ?: return fail()
+            if (
+                !monitor.javaClass.name.endsWith(
+                    "IslandMonitor\$FakeContainerIslandMonitor",
+                )
+            ) {
+                return fail()
+            }
+
+            val resolvedIslandWidthField =
+                findField(monitor.javaClass, "islandWidth") ?: return fail()
+            val resolvedIslandShowingField =
+                findField(monitor.javaClass, "islandShowing") ?: return fail()
+            val nativeIslandWidth =
+                runCatching {
+                    (resolvedIslandWidthField.get(monitor) as? Number)?.toInt()
+                }.getOrNull()
+                    ?: return fail()
+            val islandShowing =
+                runCatching {
+                    resolvedIslandShowingField.get(monitor) as? Boolean
+                }.getOrNull()
+                    ?: return fail()
+            if (!islandShowing) return fail()
+
+            val resolvedAccessor = resolveAccessor() ?: return fail()
+            val resolvedIgnoredSlotsField =
+                findField(statusIcons.javaClass, "ignoredSlots") ?: return fail()
+            val resolvedIslandWidthChangedField =
+                findField(statusIcons.javaClass, "islandWidthChanged") ?: return fail()
+            val resolvedIslandAnimateField =
+                findField(statusIcons.javaClass, "islandAnimate") ?: return fail()
+            val resolvedAddIgnoredSlotsMethod =
+                statusIcons.javaClass.methods
+                    .firstOrNull { method ->
+                        method.name == "addIgnoredSlots" &&
+                            method.parameterCount == 1
+                    }
+                    ?.apply { isAccessible = true }
+                    ?: return fail()
+            val resolvedSetIgnoredSlotsMethod =
+                statusIcons.javaClass.methods
+                    .firstOrNull { method ->
+                        method.name == "setIgnoredSlots" &&
+                            method.parameterCount == 1
+                    }
+                    ?.apply { isAccessible = true }
+                    ?: return fail()
+
+            val currentlyIgnored =
+                runCatching {
+                    (resolvedIgnoredSlotsField.get(statusIcons) as? List<*>)
+                        ?.filterIsInstance<String>()
+                        ?.toSet()
+                }.getOrNull()
+                    ?: return fail()
+
+            val hiddenByIslandSlots = LinkedHashSet<String>()
+            var stateObserved = false
             for (index in 0 until statusIcons.childCount) {
                 val child = statusIcons.getChildAt(index)
                 val state =
@@ -739,56 +816,120 @@ internal object CombinedStatusControlCenterTransitionOwner {
                         ?: continue
                 stateObserved = true
 
-                if (resolvedStateClass !== state.javaClass) {
-                    resolvedStateClass = state.javaClass
-                    resolvedForceField = findField(state.javaClass, "forceAppear")
-                    resolvedVisibleField = findField(state.javaClass, "visibleState")
-                    resolvedSlotField = findField(state.javaClass, "slot")
-                }
-                val forceField = resolvedForceField ?: return rollback(changed, resolvedAccessor, resolvedForceField)
-                val visibleField = resolvedVisibleField ?: return rollback(changed, resolvedAccessor, resolvedForceField)
-                val currentSlot =
-                    (resolvedSlotField?.let { field ->
-                        runCatching { field.get(state) as? String }.getOrNull()
-                    } ?: NativeParticipantRuntimeAccess.slotOf(child))
-                if (currentSlot != null && representedSlots.contains(currentSlot)) {
-                    continue
-                }
                 val visibleState =
-                    runCatching { (visibleField.get(state) as? Number)?.toInt() }
-                        .getOrNull()
+                    findField(state.javaClass, "visibleState")
+                        ?.let { field ->
+                            runCatching {
+                                (field.get(state) as? Number)?.toInt()
+                            }.getOrNull()
+                        }
                         ?: continue
+                val inIslandState =
+                    findField(state.javaClass, "inIslandState")
+                        ?.let { field ->
+                            runCatching {
+                                (field.get(state) as? Number)?.toInt()
+                            }.getOrNull()
+                        }
+                        ?: continue
+                val slot =
+                    findField(state.javaClass, "slot")
+                        ?.let { field ->
+                            runCatching { field.get(state) as? String }.getOrNull()
+                        }
+                        ?: NativeParticipantRuntimeAccess.slotOf(child)
+
                 if (
-                    visibleState != 0 ||
-                    child.visibility != View.VISIBLE ||
-                    (child.width <= 0 && child.measuredWidth <= 0)
+                    slot != null &&
+                    !representedSlots.contains(slot) &&
+                    visibleState == 2 &&
+                    inIslandState == 10
                 ) {
-                    continue
+                    hiddenByIslandSlots += slot
                 }
-                val original =
-                    runCatching { (forceField.get(state) as? Boolean) ?: false }
-                        .getOrNull()
-                        ?: return rollback(changed, resolvedAccessor, resolvedForceField)
-                if (!original) {
-                    val written =
-                        runCatching {
-                            forceField.set(state, true)
-                            true
-                        }.getOrDefault(false)
-                    if (!written) return rollback(changed, resolvedAccessor, resolvedForceField)
-                    changed += Entry(WeakReference(child), originalForceAppear = false)
-                }
+            }
+            if (!stateObserved) return fail()
+
+            val additions = hiddenByIslandSlots - currentlyIgnored
+            if (additions.isNotEmpty()) {
+                val added =
+                    runCatching {
+                        resolvedAddIgnoredSlotsMethod.invoke(
+                            statusIcons,
+                            additions.toList(),
+                        )
+                        true
+                    }.getOrDefault(false)
+                if (!added) return fail()
             }
 
-            if (!stateObserved || resolvedStateClass == null) {
-                return rollback(changed, resolvedAccessor, resolvedForceField)
-            }
             accessor = resolvedAccessor
-            forceAppearField = resolvedForceField
-            entries = changed
+            monitorRef = WeakReference(monitor)
+            islandWidthField = resolvedIslandWidthField
+            islandShowingField = resolvedIslandShowingField
+            ignoredSlotsField = resolvedIgnoredSlotsField
+            islandWidthChangedField = resolvedIslandWidthChangedField
+            islandAnimateField = resolvedIslandAnimateField
+            addIgnoredSlotsMethod = resolvedAddIgnoredSlotsMethod
+            setIgnoredSlotsMethod = resolvedSetIgnoredSlotsMethod
+            baselineIslandWidthPx = nativeIslandWidth
+            lastEffectiveIslandWidthPx = nativeIslandWidth
+            lastPaddingDeltaPx = 0
+            addedIgnoredSlots = additions
             active = true
             contractReady = true
-            if (changed.isNotEmpty()) {
+            return true
+        }
+
+        fun applyPaddingDelta(paddingDeltaPx: Int): Boolean {
+            if (!active || !contractReady) return false
+            val monitor = monitorRef.get() ?: return failActive()
+            val widthField = islandWidthField ?: return failActive()
+            val showingField = islandShowingField ?: return failActive()
+            val changedField = islandWidthChangedField ?: return failActive()
+            val animateField = islandAnimateField ?: return failActive()
+
+            val islandShowing =
+                runCatching { showingField.get(monitor) as? Boolean }
+                    .getOrNull()
+                    ?: return failActive()
+            if (!islandShowing) return failActive()
+
+            val currentRaw =
+                runCatching {
+                    (widthField.get(monitor) as? Number)?.toInt()
+                }.getOrNull()
+                    ?: return failActive()
+            val lastEffective = lastEffectiveIslandWidthPx
+            if (lastEffective != null && currentRaw != lastEffective) {
+                // FakeContainerIslandMonitor may receive a newer Home
+                // statusContainerSpace value while the transition is active.
+                // Treat that native value as the new unmodified baseline.
+                baselineIslandWidthPx = currentRaw
+            }
+
+            val baseline = baselineIslandWidthPx ?: return failActive()
+            val delta = paddingDeltaPx.coerceAtLeast(0)
+            val effective =
+                Policy.compensateFakeIslandWidth(
+                    nativeIslandWidthPx = baseline,
+                    transitionPaddingDeltaPx = delta,
+                )
+            val changed = currentRaw != effective
+            val written =
+                runCatching {
+                    if (changed) {
+                        widthField.set(monitor, effective)
+                    }
+                    changedField.set(statusIcons, false)
+                    animateField.set(statusIcons, false)
+                    true
+                }.getOrDefault(false)
+            if (!written) return failActive()
+
+            lastPaddingDeltaPx = delta
+            lastEffectiveIslandWidthPx = effective
+            if (changed) {
                 statusIcons.requestLayout()
             }
             return true
@@ -799,37 +940,60 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 clearState()
                 return
             }
-            val resolvedAccessor = accessor
-            val forceField = forceAppearField
-            var restored = false
-            if (resolvedAccessor != null && forceField != null) {
-                entries.forEach { entry ->
-                    val child = entry.view.get() ?: return@forEach
-                    val state =
-                        runCatching { resolvedAccessor.invoke(null, child) }
-                            .getOrNull()
-                            ?: return@forEach
+
+            val monitor = monitorRef.get()
+            val widthField = islandWidthField
+            val baseline = baselineIslandWidthPx
+            var layoutChanged = false
+            if (monitor != null && widthField != null && baseline != null) {
+                runCatching {
                     val current =
-                        runCatching { (forceField.get(state) as? Boolean) ?: false }
-                            .getOrNull()
-                            ?: return@forEach
-                    if (!entry.originalForceAppear && current) {
-                        runCatching {
-                            forceField.set(state, false)
-                            restored = true
-                        }
+                        (widthField.get(monitor) as? Number)?.toInt()
+                    if (current != baseline) {
+                        widthField.set(monitor, baseline)
+                        layoutChanged = true
                     }
                 }
             }
+
+            val ignoredField = ignoredSlotsField
+            val setIgnoredMethod = setIgnoredSlotsMethod
+            if (
+                addedIgnoredSlots.isNotEmpty() &&
+                ignoredField != null &&
+                setIgnoredMethod != null
+            ) {
+                runCatching {
+                    val current =
+                        (ignoredField.get(statusIcons) as? List<*>)
+                            ?.filterIsInstance<String>()
+                            ?: emptyList()
+                    val restored =
+                        current.filterNot(addedIgnoredSlots::contains)
+                    if (restored.size != current.size) {
+                        setIgnoredMethod.invoke(statusIcons, restored)
+                        layoutChanged = true
+                    }
+                }
+            }
+
+            runCatching {
+                islandWidthChangedField?.set(statusIcons, false)
+                islandAnimateField?.set(statusIcons, false)
+            }
             clearState()
-            if (restored) {
+            if (layoutChanged) {
                 statusIcons.requestLayout()
             }
         }
 
         fun diagnostic(): String =
             when {
-                active && contractReady -> "active:" + entries.size
+                active && contractReady ->
+                    "active:base=" + (baselineIslandWidthPx ?: -1) +
+                        "/effective=" + (lastEffectiveIslandWidthPx ?: -1) +
+                        "/delta=" + lastPaddingDeltaPx +
+                        "/frozenHidden=" + addedIgnoredSlots.size
                 active -> "unavailable"
                 else -> "inactive"
             }
@@ -872,30 +1036,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
             return null
         }
 
-        private fun rollback(
-            changed: List<Entry>,
-            resolvedAccessor: Method,
-            resolvedForceField: Field?,
-        ): Boolean {
-            if (changed.isNotEmpty() && resolvedForceField != null) {
-                changed.forEach { entry ->
-                    val child = entry.view.get() ?: return@forEach
-                    val state =
-                        runCatching { resolvedAccessor.invoke(null, child) }
-                            .getOrNull()
-                            ?: return@forEach
-                    runCatching {
-                        if ((resolvedForceField.get(state) as? Boolean) ?: false) {
-                            resolvedForceField.set(
-                                state,
-                                entry.originalForceAppear,
-                            )
-                        }
-                    }
-                }
-                statusIcons.requestLayout()
-            }
-            clearState()
+        private fun failActive(): Boolean {
+            release()
             return false
         }
 
@@ -905,10 +1047,20 @@ internal object CombinedStatusControlCenterTransitionOwner {
         }
 
         private fun clearState() {
-            entries = emptyList()
+            monitorRef = WeakReference(null)
+            islandWidthField = null
+            islandShowingField = null
+            ignoredSlotsField = null
+            islandWidthChangedField = null
+            islandAnimateField = null
+            addIgnoredSlotsMethod = null
+            setIgnoredSlotsMethod = null
+            baselineIslandWidthPx = null
+            lastEffectiveIslandWidthPx = null
+            lastPaddingDeltaPx = 0
+            addedIgnoredSlots = emptySet()
             active = false
             contractReady = false
-            forceAppearField = null
         }
     }
 
@@ -959,8 +1111,9 @@ internal object CombinedStatusControlCenterTransitionOwner {
         private var transitionReservationEnabled = false
         private var nativePaddingExpansionAllowed = true
         private var genericIslandShowing: Boolean? = null
-        private var fakeIslandPeerFreezeReady = false
-        private val fakeIslandPeerFreeze = FakeIslandPeerFreeze(fakeStatusIcons)
+        private var fakeIslandReservationBridgeReady = false
+        private val fakeIslandReservationBridge =
+            FakeIslandReservationBridge(fakeStatusIcons)
 
         private val preDrawListener =
             ViewTreeObserver.OnPreDrawListener {
@@ -1022,13 +1175,14 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 ",reservationMode=" +
                 when {
                     !transitionReservationEnabled -> "native-peer-motion"
-                    genericIslandShowing == true && fakeIslandPeerFreezeReady ->
-                        "native-progress-fake-island-freeze"
+                    genericIslandShowing == true && fakeIslandReservationBridgeReady ->
+                        "native-progress-fake-island-compensated"
                     !nativePaddingExpansionAllowed ->
-                        "internal-progress-island-freeze-unavailable"
+                        "internal-progress-island-compensation-unavailable"
                     else -> "native-progress-total-padding"
                 } +
-                ",islandPeerFreeze=" + fakeIslandPeerFreeze.diagnostic() +
+                ",islandReservationBridge=" +
+                    fakeIslandReservationBridge.diagnostic() +
                 "}"
 
         fun matches(
@@ -1083,18 +1237,19 @@ internal object CombinedStatusControlCenterTransitionOwner {
                 transitionReservationEnabled &&
                     sourceScene == CombinedStatusSourceScene.HOME &&
                     genericIslandShowing == true
-            this.fakeIslandPeerFreezeReady =
+            this.fakeIslandReservationBridgeReady =
                 if (freezeRequired) {
-                    fakeIslandPeerFreeze.acquire()
+                    fakeIslandReservationBridge.acquire()
                 } else {
-                    fakeIslandPeerFreeze.release()
+                    fakeIslandReservationBridge.release()
                     false
                 }
             this.nativePaddingExpansionAllowed =
                 Policy.allowsNativeTransitionPaddingExpansion(
                     sourceScene = sourceScene,
                     genericIslandShowing = genericIslandShowing,
-                    fakeIslandPeerFreezeReady = fakeIslandPeerFreezeReady,
+                    fakeIslandReservationBridgeReady =
+                        fakeIslandReservationBridgeReady,
                 )
             if (appearanceChanged) {
                 refreshNativePeerTint()
@@ -1107,8 +1262,8 @@ internal object CombinedStatusControlCenterTransitionOwner {
             SystemUiHomePresentationOwner.clearControlCenterTransitionReservation(
                 "transition-" + source,
             )
-            fakeIslandPeerFreeze.release()
-            fakeIslandPeerFreezeReady = false
+            fakeIslandReservationBridge.release()
+            fakeIslandReservationBridgeReady = false
             genericIslandShowing = null
             if (!started) return
             started = false
@@ -2010,6 +2165,26 @@ internal object CombinedStatusControlCenterTransitionOwner {
                     lastNativeReservationWidthPx = null
                 }
                 return
+            }
+
+            if (
+                genericIslandShowing == true &&
+                fakeIslandReservationBridgeReady
+            ) {
+                val compactWidth = frozenSource?.width ?: source.width
+                val paddingDelta = (requestedWidth - compactWidth).coerceAtLeast(0)
+                if (!fakeIslandReservationBridge.applyPaddingDelta(paddingDelta)) {
+                    nativePaddingExpansionAllowed = false
+                    fakeIslandReservationBridgeReady = false
+                    if (lastNativeReservationWidthPx != null) {
+                        SystemUiHomePresentationOwner
+                            .clearControlCenterTransitionReservation(
+                                "transition-island-compensation-failed",
+                            )
+                        lastNativeReservationWidthPx = null
+                    }
+                    return
+                }
             }
 
             if (lastNativeReservationWidthPx == requestedWidth) return
